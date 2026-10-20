@@ -8,7 +8,7 @@
 
 import XCTest
 import SwiftUI
-import Combine
+import Observation
 @testable import ActionUI
 
 // Logger that records messages without failing the test, used for tests that intentionally
@@ -102,7 +102,7 @@ final class ActionUIModelTests: XCTestCase {
     // actionID is documented as a runtime-settable property. A view's binding fires the actionID from
     // the properties SNAPSHOT that buildView received: ActionUIView.body passes
     // ActionUIRegistry.currentProperties(...) into buildView, and the binding captures it by value.
-    // So setElementProperty updates the LIVE viewModel.properties and rings objectWillChange, but an
+    // So setElementProperty updates the LIVE viewModel.properties, which re-renders the view, but an
     // already-built binding keeps firing the build-time actionID until the view is rebuilt; only the
     // next rebuild's buildView sees the fresh value. This test pins that behavior so it is not changed
     // silently. (Edge case: if a binding fires before the rebuild, the stale actionID is used.)
@@ -185,11 +185,11 @@ final class ActionUIModelTests: XCTestCase {
 
     // The two snapshot tests above prove the DATA half of the rebuild contract (re-evaluating body
     // yields the fresh viewModel.properties). This test proves the TRIGGER half on our side: ActionUIView
-    // holds the ViewModel as @ObservedObject (ActionUIView.swift), so SwiftUI re-evaluates its body when
-    // the ViewModel emits objectWillChange. setElementProperty must emit that signal for the rebuild
-    // (and thus the fresh actionID) to happen. (SwiftUI's own "objectWillChange -> body re-eval" step is
-    // a framework guarantee, not something a unit test can drive.)
-    func testSetElementPropertySignalsObjectWillChange() throws {
+    // reads the ViewModel's properties in its body (ActionUIView.swift), so SwiftUI re-evaluates its body
+    // when they change. setElementProperty must change them for the rebuild (and thus the fresh actionID)
+    // to happen. (SwiftUI's own "observed change -> body re-eval" step is a framework guarantee, not
+    // something a unit test can drive.)
+    func testSetElementPropertyNotifiesAnObserverOfTheProperties() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Toggle",
@@ -203,14 +203,13 @@ final class ActionUIModelTests: XCTestCase {
             return
         }
 
-        let signalled = expectation(description: "setElementProperty emits objectWillChange")
+        let signalled = expectation(description: "setElementProperty changes the observed properties")
         signalled.assertForOverFulfill = false
-        let cancellable = viewModel.objectWillChange.sink { _ in signalled.fulfill() }
-        defer { cancellable.cancel() }
+        withObservationTracking({ _ = viewModel.properties }, onChange: { signalled.fulfill() })
 
         model.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "actionID", value: "toggle.B")
 
-        // objectWillChange.send() is synchronous inside setElementProperty, so this is already fulfilled.
+        // The change notification is synchronous inside setElementProperty, so this is already fulfilled.
         wait(for: [signalled], timeout: 1.0)
     }
 

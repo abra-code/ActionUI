@@ -10,7 +10,7 @@ import SwiftUI
 @MainActor
 public struct ActionUIView: SwiftUI.View /*, Equatable*/ {
     let element: any ActionUIElementBase
-    @ObservedObject var model: ViewModel
+    let model: ViewModel
     let windowUUID: String
  
     init(element: any ActionUIElementBase, model: ViewModel, windowUUID: String) {
@@ -21,6 +21,8 @@ public struct ActionUIView: SwiftUI.View /*, Equatable*/ {
 
     // Builds the SwiftUI view from the element's current properties in its ViewModel
     public var body: some SwiftUI.View {
+        // Renders again on any change to the model, whether or not the element read it here.
+        model.trackAllChanges()
         let registry = ActionUIRegistry.shared
         let properties = registry.currentProperties(element: element, model: model)
         let baseView = registry.buildView(

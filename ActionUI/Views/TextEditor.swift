@@ -100,7 +100,7 @@ struct TextEditor: ActionUIViewConstruction {
     }
 
     /// Non-@State counter to track pending async model updates without triggering view refreshes.
-    /// While pendingCount > 0, onReceive from model.$value is suppressed to prevent stale async
+    /// While pendingCount > 0, onReceive from model.valuePublisher is suppressed to prevent stale async
     /// updates from resetting @State text and jumping the cursor during fast typing.
     private class PendingUpdateTracker {
         var pendingCount = 0
@@ -111,7 +111,7 @@ struct TextEditor: ActionUIViewConstruction {
     /// when hosted in NSHostingController. Mirrors NavigationStack.NavigationPathContainer pattern.
     /// When markdown is set and running on macOS 26 / iOS 26+, delegates to AttributedTextEditorContainer.
     private struct TextEditorContainer: SwiftUI.View {
-        @ObservedObject var model: ViewModel
+        let model: ViewModel
         @State private var text: String
         @State private var tracker = PendingUpdateTracker()
         let initialValue: String
@@ -136,6 +136,7 @@ struct TextEditor: ActionUIViewConstruction {
         }
 
         var body: some SwiftUI.View {
+            let _ = model.trackAllChanges()
             if #available(iOS 26.0, macOS 26.0, *), let markdownText = markdown {
                 AttributedTextEditorContainer(
                     model: model,
@@ -162,7 +163,7 @@ struct TextEditor: ActionUIViewConstruction {
                             }
                         }
                     }
-                    .onReceive(model.$value.map { $0 as? String ?? initialValue }) { modelValue in
+                    .onReceive(model.valuePublisher.map { $0 as? String ?? initialValue }) { modelValue in
                         // Only accept external (programmatic) changes; suppress feedback from our own async updates
                         if tracker.pendingCount == 0 && modelValue != text {
                             text = modelValue
@@ -197,7 +198,7 @@ struct TextEditor: ActionUIViewConstruction {
     /// accepting either AttributedString or a markdown String via setElementValue.
     @available(iOS 26.0, macOS 26.0, *)
     private struct AttributedTextEditorContainer: SwiftUI.View {
-        @ObservedObject var model: ViewModel
+        let model: ViewModel
         @State private var attributedContent: AttributedString
         @State private var tracker = PendingUpdateTracker()
         let initialMarkdown: String
@@ -228,6 +229,7 @@ struct TextEditor: ActionUIViewConstruction {
         }
 
         var body: some SwiftUI.View {
+            let _ = model.trackAllChanges()
             attributedEditorView
                 .onChange(of: attributedContent) { _, newValue in
                     if isReadOnly { return }
@@ -242,7 +244,7 @@ struct TextEditor: ActionUIViewConstruction {
                         }
                     }
                 }
-                .onReceive(model.$value) { newValue in
+                .onReceive(model.valuePublisher) { newValue in
                     guard tracker.pendingCount == 0 else { return }
                     if let attrValue = newValue as? AttributedString, attrValue != attributedContent {
                         attributedContent = attrValue

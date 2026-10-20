@@ -139,7 +139,7 @@ final class WebViewTests: XCTestCase {
     // Note: initialValue / initialStates closures access @MainActor-isolated ViewModel
     // properties (e.g. viewModel.properties) and are exercised safely through loadDescription in
     // the JSON decoding tests below. The two tests here only verify branches that touch the
-    // @Published var value (which has MainActor-aware bridging) so they are safe to call directly.
+    // observed var value (main-actor isolated, like the test) so they are safe to call directly.
 
     func testWebViewInitialValue_FromExistingModelValue() {
         // When model.value is already a String it takes precedence over the url property.

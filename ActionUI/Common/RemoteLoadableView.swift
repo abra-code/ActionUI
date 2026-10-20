@@ -8,7 +8,7 @@ import SwiftUI
 // View for remote asynchronous loading
 @MainActor
 public struct RemoteLoadableView: SwiftUI.View {
-    // Static dedup tracking — avoids using @Published ViewModel.states which would trigger re-renders
+    // Static dedup tracking — avoids using the observed ViewModel.states, which would trigger re-renders
     private static var loadedSources: [String: String] = [:]
 
     let url: URL

@@ -8,7 +8,7 @@ import SwiftUI
 // View for synchronous loading: a local file, a bundle resource, or a description already in memory
 @MainActor
 public struct FileLoadableView: SwiftUI.View {
-    // Static dedup tracking — avoids using @Published ViewModel.states which would trigger re-renders
+    // Static dedup tracking — avoids using the observed ViewModel.states, which would trigger re-renders
     private static var loadedSources: [String: String] = [:]
 
     // Where the description came from, for log messages and viewDidLoad dedup: the file URL, or the

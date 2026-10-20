@@ -192,7 +192,7 @@ private struct WebViewContent: SwiftUI.View {
     /// Tracks the last URL we pushed into model.value ourselves, so we can distinguish
     /// programmatic URL updates from host-app navigation commands in onChange(of: commandValue).
     @State private var lastTrackedURL: String
-    @ObservedObject var model: ViewModel
+    let model: ViewModel
     let props: WebView.Props
     let element: any ActionUIElementBase
     let windowUUID: String
@@ -212,6 +212,7 @@ private struct WebViewContent: SwiftUI.View {
     private var commandValue: String? { model.value as? String }
 
     var body: some SwiftUI.View {
+        let _ = model.trackAllChanges()
         makeWebView()
             // URL changed – update state and fire valueChangeActionID
             .onChange(of: page.url, initial: false) { _, newURL in

@@ -132,7 +132,7 @@ enum WebViewSupport {
 /// delegates, KVO observers, and the model synchronisation logic.
 @MainActor
 struct WKWebViewRepresentable {
-    @ObservedObject var model: ViewModel
+    let model: ViewModel
     let props: WebView.Props
     let element: any ActionUIElementBase
     let windowUUID: String
@@ -167,7 +167,7 @@ struct WKWebViewRepresentable {
         return webView
     }
 
-    /// Forwards SwiftUI update passes (triggered by @Published model changes) to the coordinator,
+    /// Forwards SwiftUI update passes (triggered when model.value, read here, changes) to the coordinator,
     /// which interprets any new model.value as a navigation command.
     private func updateWebView(context: Context) {
         context.coordinator.handleCommand(model.value as? String)
@@ -348,38 +348,45 @@ extension WKWebViewRepresentable {
                     webView.goBack()
                 } else {
                     logger.log("WebView goBack: no back item available", .warning)
-                    resetModelValueToCurrentURL()
+                    resetModelValueToCurrentURL(after: command)
                 }
             case "#goForward":
                 if webView.canGoForward {
                     webView.goForward()
                 } else {
                     logger.log("WebView goForward: no forward item available", .warning)
-                    resetModelValueToCurrentURL()
+                    resetModelValueToCurrentURL(after: command)
                 }
             case "#reload":
                 webView.reload()
-                resetModelValueToCurrentURL()
+                resetModelValueToCurrentURL(after: command)
             case "#stop":
                 webView.stopLoading()
-                resetModelValueToCurrentURL()
+                resetModelValueToCurrentURL(after: command)
             default:
                 if let url = URL(string: command) {
                     load(url, into: webView)
                     // model.value will be updated by handleURLChange when navigation completes
                 } else {
                     logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
-                    resetModelValueToCurrentURL()
+                    resetModelValueToCurrentURL(after: command)
                 }
             }
         }
 
         /// Resets model.value back to the current page URL so command strings like "#reload" or "#stop"
         /// don't linger as the observable value.
-        private func resetModelValueToCurrentURL() {
+        private func resetModelValueToCurrentURL(after command: String) {
             let urlString = webView?.url?.absoluteString ?? ""
             lastTrackedURL = urlString
-            model.value = urlString
+            // Deferred: this runs inside updateNSView / updateUIView, which read model.value, and a
+            // write there would invalidate the update that is running. Skipped if the host has set
+            // another value meanwhile.
+            DispatchQueue.main.async { [model] in
+                if model.value as? String == command {
+                    model.value = urlString
+                }
+            }
         }
 
         // MARK: WKUIDelegate

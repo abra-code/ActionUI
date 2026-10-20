@@ -103,11 +103,12 @@ struct GeometryReader: ActionUIViewConstruction {
     /// Wrapper view that uses SwiftUI.GeometryReader and reports size changes
     /// back to the ViewModel's states["size"].
     private struct GeometryReaderContainer<Content: SwiftUI.View>: SwiftUI.View {
-        @ObservedObject var model: ViewModel
+        let model: ViewModel
         let alignment: SwiftUI.Alignment
         @ViewBuilder let content: Content
 
         var body: some SwiftUI.View {
+            let _ = model.trackAllChanges()
             SwiftUI.GeometryReader { proxy in
                 content
                     .frame(

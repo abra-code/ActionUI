@@ -53,8 +53,8 @@ struct Text: ActionUIViewConstruction {
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, model, _, properties, _ in
         let props = Props(properties)
         // Runtime value (set via setElementValue) takes precedence - an AttributedString or a plain String;
-        // otherwise the markdown / text property. ActionUIView already owns the ViewModel as an
-        // @ObservedObject and re-builds this leaf when model.value changes, so no reactive container is needed.
+        // otherwise the markdown / text property. ActionUIView already observes the ViewModel
+        // and re-builds this leaf when model.value changes, so no reactive container is needed.
         //
         // An empty string reserves no line height in SwiftUI, so a styled / sized Text box collapses when
         // empty and grows once content arrives (e.g. a result field before its value is set). Substituting a

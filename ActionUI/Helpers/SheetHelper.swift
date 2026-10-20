@@ -10,13 +10,15 @@ import SwiftUI
 struct SheetModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let content: Content
     let sheetElement: any ActionUIElementBase
-    @ObservedObject var sheetModel: ViewModel
-    @ObservedObject var parentModel: ViewModel
+    let sheetModel: ViewModel
+    let parentModel: ViewModel
     let windowUUID: String
     let elementID: Int
     let onDismissActionID: String?
 
     var body: some SwiftUI.View {
+        let _ = sheetModel.trackAllChanges()
+        let _ = parentModel.trackAllChanges()
         let isPresented = Binding<Bool>(
             get: { parentModel.states["sheetVisible"] as? Bool ?? false },
             set: { parentModel.states["sheetVisible"] = $0 }
@@ -43,13 +45,15 @@ struct SheetModifierView<Content: SwiftUI.View>: SwiftUI.View {
 struct FullScreenCoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let content: Content
     let coverElement: any ActionUIElementBase
-    @ObservedObject var coverModel: ViewModel
-    @ObservedObject var parentModel: ViewModel
+    let coverModel: ViewModel
+    let parentModel: ViewModel
     let windowUUID: String
     let elementID: Int
     let onDismissActionID: String?
 
     var body: some SwiftUI.View {
+        let _ = coverModel.trackAllChanges()
+        let _ = parentModel.trackAllChanges()
         let isPresented = Binding<Bool>(
             get: { parentModel.states["fullScreenCoverVisible"] as? Bool ?? false },
             set: { parentModel.states["fullScreenCoverVisible"] = $0 }

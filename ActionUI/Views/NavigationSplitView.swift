@@ -280,7 +280,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
     /// updates synchronously. Changes are synced to/from the ViewModel asynchronously
     /// to avoid Combine "publishing changes from within view updates" crashes.
     private struct ColumnVisibilityContainer<Content: SwiftUI.View>: SwiftUI.View {
-        @ObservedObject var model: ViewModel
+        let model: ViewModel
         @State private var columnVisibility: NavigationSplitViewVisibility
         let elementId: Int
         let windowUUID: String
@@ -297,6 +297,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         }
 
         var body: some SwiftUI.View {
+            let _ = model.trackAllChanges()
             content($columnVisibility)
                 .onChange(of: columnVisibility) { _, newValue in
                     let str = Self.stringify(newValue)
@@ -308,7 +309,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                         }
                     }
                 }
-                .onReceive(model.$states.map { $0["columnVisibility"] as? String }) { newStr in
+                .onReceive(model.statesPublisher.map { $0["columnVisibility"] as? String }) { newStr in
                     // Sync programmatic model changes back to @State
                     let newVis = Self.resolve(newStr)
                     if columnVisibility != newVis {
@@ -338,17 +339,18 @@ struct NavigationSplitView: ActionUIViewConstruction {
     }
 
     /// View that observes the NavigationSplitView's model and switches the detail
-    /// content based on states["selectedDestination"]. Using @ObservedObject ensures
+    /// content based on states["selectedDestination"]. Reading the model in its body ensures
     /// SwiftUI re-evaluates this view when the selection changes, even though
     /// NavigationSplitView manages its column closures independently.
     private struct DestinationDetailView: SwiftUI.View {
-        @ObservedObject var model: ViewModel
+        let model: ViewModel
         let destinations: [any ActionUIElementBase]
         let defaultDetail: any ActionUIElementBase
         let windowModel: WindowModel?
         let windowUUID: String
 
         var body: some SwiftUI.View {
+            let _ = model.trackAllChanges()
             // The persistent items are applied HERE, not around the whole column, because which
             // element occupies the detail changes with the selection - and whether that element
             // is itself a navigation container (which must carry the items on its own screens

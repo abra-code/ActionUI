@@ -277,12 +277,18 @@ struct TemplateHelper {
         vm.templateContext = TemplateContext(parentID: parentID, rowIndex: rowIndex, row: row)
         vm.seedProperties(substitutedProps)
 
+        // The reads of the throw-away model are not tracked: the container builds a new one on
+        // every render, and a tracked read would make the container render again when a control in
+        // the row writes it (a TextField or Slider setting its value), which builds the row from
+        // its data again and resets the control.
         let registry = ActionUIRegistry.shared
-        let view = registry.buildView(
-            for: template, model: vm, windowUUID: windowUUID, properties: substitutedProps
-        )
-        return registry.applyViewModifiers(
-            to: view, properties: substitutedProps, element: template, model: vm, windowUUID: windowUUID
-        )
+        return UntrackedReads.perform {
+            let view = registry.buildView(
+                for: template, model: vm, windowUUID: windowUUID, properties: substitutedProps
+            )
+            return registry.applyViewModifiers(
+                to: view, properties: substitutedProps, element: template, model: vm, windowUUID: windowUUID
+            )
+        }
     }
 }

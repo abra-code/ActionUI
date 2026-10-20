@@ -14,7 +14,7 @@ import SwiftUI
 // fullScreenCover is iOS-only. On macOS it falls back to .sheet (same JSON works cross-platform).
 @MainActor
 struct WindowModalView: SwiftUI.View {
-    @ObservedObject var windowModel: WindowModel
+    let windowModel: WindowModel
     let content: AnyView
     let windowUUID: String
 
@@ -46,6 +46,9 @@ struct WindowModalView: SwiftUI.View {
     }
 
     var body: some SwiftUI.View {
+        // Read here as well as in the presentation bindings, so a modal set by the host renders
+        // this view again.
+        let _ = windowModel.windowModal
 #if os(iOS)
         decoratedContent
             .sheet(item: sheetBinding) { modal in modalContent(for: modal) }

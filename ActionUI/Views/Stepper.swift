@@ -63,7 +63,7 @@ struct Stepper: ActionUIViewConstruction {
         let step = props.step
 
         // labelFormat takes precedence; re-evaluated each body pass so label stays current.
-        // This works because ActionUIView.body is re-run whenever model.value (@Published) changes,
+        // This works because ActionUIView.body is re-run whenever model.value changes,
         // causing buildView to be called again with the updated value.
         let currentValue = model.value as? Double ?? initialValue
         let label: String

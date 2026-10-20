@@ -1,7 +1,6 @@
 // Common/ActionUIModel.swift
 import SwiftUI
 import MapKit
-import Combine
 
 /*
  ActionUIModel manages the global state for ActionUI, including view descriptions and state.
@@ -11,7 +10,7 @@ import Combine
 */
 
 @MainActor
-public class ActionUIModel: ObservableObject {
+public class ActionUIModel {
     // Singleton instance for global access
     public static let shared = ActionUIModel()
     
@@ -233,7 +232,6 @@ public class ActionUIModel: ObservableObject {
             return
         }
         if let newRows = value as? [[String]] {
-            viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
             let oldRows = viewModel.states["content"] as? [[String]] ?? []
             viewModel.states["content"] = newRows
@@ -244,7 +242,6 @@ public class ActionUIModel: ObservableObject {
         } else if let newItems = value as? [String] {
             // List: Convert [String] to [[String]] for consistency
             let newContent = newItems.map { [$0] }
-            viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
             let oldRows = viewModel.states["content"] as? [[String]] ?? []
             viewModel.states["content"] = newContent
@@ -256,7 +253,6 @@ public class ActionUIModel: ObservableObject {
             logger.log("Updated List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else {
             // Other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker)
-            viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
             viewModel.value = value
             logger.log("Set value for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
@@ -481,7 +477,6 @@ public class ActionUIModel: ObservableObject {
                 return
             }
         }
-        viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
         let oldRows = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states[key] = value
@@ -552,7 +547,6 @@ public class ActionUIModel: ObservableObject {
                 converted = value   // plain string
             }
         }
-        viewModel.objectWillChange.send()
         viewModel.states[key] = converted
         windowModel.viewModels[viewID] = viewModel
         endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
@@ -630,7 +624,6 @@ public class ActionUIModel: ObservableObject {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        viewModel.objectWillChange.send()
         let oldRows = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states["content"] = rows
         if let selectedRow = viewModel.value as? [String] {
@@ -648,7 +641,6 @@ public class ActionUIModel: ObservableObject {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        viewModel.objectWillChange.send()
         viewModel.states["content"] = [] as [[String]]
         if viewModel.value is [String] {
             viewModel.value = [] as [String]
@@ -665,7 +657,6 @@ public class ActionUIModel: ObservableObject {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        viewModel.objectWillChange.send()
         let existingContent = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states["content"] = existingContent + rows
         windowModel.viewModels[viewID] = viewModel
@@ -708,7 +699,6 @@ public class ActionUIModel: ObservableObject {
         }
         let rowValues = content[index]
         guard (viewModel.value as? [String]) != rowValues else { return rowValues }
-        viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
         viewModel.value = rowValues
         windowModel.viewModels[viewID] = viewModel
@@ -757,7 +747,6 @@ public class ActionUIModel: ObservableObject {
             return
         }
         guard !selected.isEmpty else { return }
-        viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
         viewModel.value = [] as [String]
         windowModel.viewModels[viewID] = viewModel
@@ -1070,9 +1059,6 @@ public class ActionUIModel: ObservableObject {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        // Notify SwiftUI before mutating the non-published properties,
-        // matching the willSet contract expected by ObservableObject observers.
-        viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
         viewModel.properties[propertyName] = value
         ActionUIRegistry.shared.getDidSetProperty(forElementType: viewModel.elementType)?(propertyName, viewModel, logger)

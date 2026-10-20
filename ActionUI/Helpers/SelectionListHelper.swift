@@ -15,8 +15,11 @@ struct SelectionListHelper {
     ) -> (childToDestination: [Int: Int], destinationToChild: [Int: Int]) {
         var childToDestination: [Int: Int] = [:]
         var destinationToChild: [Int: Int] = [:]
+        // Read untracked: a change to a child's properties does not render the container again.
         for child in children {
-            if let destId = windowModel?.viewModels[child.id].flatMap({ BaseModifiers($0.properties).destinationViewId }) {
+            if let destId = UntrackedReads.perform({
+                windowModel?.viewModels[child.id].flatMap { BaseModifiers($0.properties).destinationViewId }
+            }) {
                 childToDestination[child.id] = destId
                 destinationToChild[destId] = child.id
             }

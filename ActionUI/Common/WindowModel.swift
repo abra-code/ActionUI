@@ -1,29 +1,31 @@
 // Common/WindowModel.swift
 import SwiftUI
-import Combine
+import Observation
 
 /*
  WindowModel manages the state for a single window, including its root element and associated view models.
 */
 
-@MainActor
-class WindowModel: ObservableObject {
+@MainActor @Observable
+final class WindowModel {
     var element: (any ActionUIElementBase)?
-    var viewModels: [Int: ViewModel] = [:]
+    // Not observed: a view reaches a child's model through here while rendering, and structural
+    // changes re-render the parent through its model's `dynamicSubviews`.
+    @ObservationIgnored var viewModels: [Int: ViewModel] = [:]
     /// Maps a LoadableView's element ID to set of child view IDs it loaded
-    var loadedSubViewIDs: [Int: Set<Int>] = [:]
+    @ObservationIgnored var loadedSubViewIDs: [Int: Set<Int>] = [:]
     /// Maps a parentID to the set of view IDs inserted at runtime via insertElement / insertRow.
     /// Used so the parent's bookkeeping survives subsequent removes and so a parent's removal
     /// can cascade-clean its dynamic descendants.
-    var dynamicallyInsertedIDs: [Int: Set<Int>] = [:]
+    @ObservationIgnored var dynamicallyInsertedIDs: [Int: Set<Int>] = [:]
     /// Active window-level modal (sheet or fullScreenCover). Set by ActionUIModel.presentModal.
-    @Published var windowModal: WindowModal? = nil
+    var windowModal: WindowModal? = nil
     /// Active window-level dialog (alert or confirmationDialog). Set by ActionUIModel.presentAlert / presentConfirmationDialog.
-    @Published var windowDialog: WindowDialog? = nil
+    var windowDialog: WindowDialog? = nil
     /// Currently visible window-level toast. Set by ActionUIModel.presentToast; cleared by dismissToast.
-    @Published var windowToast: WindowToast? = nil
+    var windowToast: WindowToast? = nil
     /// Pending toasts waiting for the current one to dismiss (coalesces rapid posts; shown one at a time).
-    var toastQueue: [WindowToast] = []
+    @ObservationIgnored var toastQueue: [WindowToast] = []
     let windowUUID: String
     private let logger: any ActionUILogger
 
@@ -145,8 +147,14 @@ class WindowModel: ObservableObject {
         return allIDs
     }
 
-    // Recursively populate viewModels for the element and its subviews, returning the populated dictionary
+    // Recursively populate viewModels for the element and its subviews, returning the populated
+    // dictionary. The reads of the new models are not tracked: this can run while a view renders
+    // (see UntrackedReads).
     internal func populateViewModels(from element: any ActionUIElementBase) -> [Int: ViewModel] {
+        UntrackedReads.perform { populateViewModelsUntracked(from: element) }
+    }
+
+    private func populateViewModelsUntracked(from element: any ActionUIElementBase) -> [Int: ViewModel] {
         var targetViewModels: [Int: ViewModel] = [:]
         
         let viewModel = ViewModel()
@@ -191,7 +199,7 @@ class WindowModel: ObservableObject {
         // ToolbarItem/ToolbarItemGroup content & children are handled automatically
         // because childElements walks them too.
         for child in element.childElements {
-            let childViewModels = populateViewModels(from: child)
+            let childViewModels = populateViewModelsUntracked(from: child)
             for (id, childModel) in childViewModels {
                 targetViewModels[id] = childModel
             }
@@ -230,9 +238,9 @@ class WindowModel: ObservableObject {
 
     // MARK: - Runtime structural mutations (insertElement / insertRow / removeElement)
     //
-    // These mutate `viewModels[parentID].dynamicSubviews[container]` so that the next render of
-    // the parent (triggered via objectWillChange.send) sees a merged element with the new
-    // children list. The static element graph is left untouched — the merge happens in
+    // These mutate `viewModels[parentID].dynamicSubviews[container]`, which the parent reads while
+    // rendering, so the write re-renders the parent with a merged element and the new children
+    // list. The static element graph is left untouched — the merge happens in
     // ActionUIRegistry.buildView via applyDynamicSubviews(to:from:).
 
     /// Runs a structural mutation, wrapping it in `withAnimation` when the inserted/removed
@@ -275,7 +283,6 @@ class WindowModel: ObservableObject {
             self.viewModels = merged
 
             self.dynamicallyInsertedIDs[parentID, default: []].formUnion(Set(newVMs.keys))
-            parentModel.objectWillChange.send()
         }
         logger.log("Inserted element id \(newElement.id) into parent \(parentID).\(container) at index \(index)", .debug)
         return newElement.id
@@ -317,7 +324,6 @@ class WindowModel: ObservableObject {
         self.viewModels = merged
 
         dynamicallyInsertedIDs[parentID, default: []].formUnion(insertedIDs)
-        parentModel.objectWillChange.send()
         logger.log("Inserted row of \(cells.count) cells into parent \(parentID).\(container) at index \(index)", .debug)
         return cells.map { $0.id }
     }
@@ -371,7 +377,6 @@ class WindowModel: ObservableObject {
                 self.dynamicallyInsertedIDs.removeValue(forKey: id)
                 self.loadedSubViewIDs.removeValue(forKey: id)
             }
-            parentModel.objectWillChange.send()
         }
         logger.log("Removed element id \(viewID) from parent \(location.parentID).\(location.container); cleaned \(descendantIDs.count) viewModels", .debug)
     }

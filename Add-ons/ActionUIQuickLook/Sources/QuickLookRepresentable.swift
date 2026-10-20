@@ -4,7 +4,7 @@
 //   - macOS:          QLPreviewView          (NSViewRepresentable)
 //   - iOS / visionOS: QLPreviewController     (UIViewControllerRepresentable, inline child)
 //
-// Mirrors ActionUI's WebViewNative representable: an @ObservedObject ViewModel drives runtime
+// Mirrors ActionUI's WebViewNative representable: the observed ViewModel drives runtime
 // updates (ActionUIView re-renders on model.value changes -> updateNSView/updateUIViewController),
 // and a Coordinator tracks the last-applied source to avoid redundant reloads and fires
 // valueChangeActionID through ActionUIModel.shared.actionHandler.
@@ -21,7 +21,7 @@ import QuickLook         // QLPreviewController
 
 @MainActor
 struct QLPreviewRepresentable {
-    @ObservedObject var model: ViewModel
+    let model: ViewModel
     let properties: [String: Any]
     let element: any ActionUIElementBase
     let windowUUID: String
@@ -192,7 +192,7 @@ extension QLPreviewRepresentable: NSViewRepresentable {
 /// QLPreviewView has no built-in toolbar, so the chrome is composed here in SwiftUI.
 @MainActor
 struct QuickLookMacView: View {
-    @ObservedObject var model: ViewModel
+    let model: ViewModel
     let properties: [String: Any]
     let element: any ActionUIElementBase
     let windowUUID: String

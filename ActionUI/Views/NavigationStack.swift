@@ -111,8 +111,9 @@ struct NavigationStack: ActionUIViewConstruction {
         let persistentItems = ToolbarHelper.persistentToolbarItems(of: element)
 
         // Detect selectable-list pattern: content is a List with actionID,
-        // children have destinationViewId, and destinations array exists.
-        let isSelectableListPattern: Bool = {
+        // children have destinationViewId, and destinations array exists. The other elements'
+        // properties are read untracked: a change to them does not render this container again.
+        let isSelectableListPattern: Bool = UntrackedReads.perform {
             guard !destinations.isEmpty,
                   content.type == "List",
                   let contentModel = contentModel,
@@ -123,7 +124,7 @@ struct NavigationStack: ActionUIViewConstruction {
             return children.contains { child in
                 windowModel?.viewModels[child.id].map { BaseModifiers($0.properties).destinationViewId != nil } ?? false
             }
-        }()
+        }
 
         if isSelectableListPattern {
             // Selectable-list-with-destinations pattern: NavigationStack manages the path
@@ -290,8 +291,8 @@ struct NavigationStack: ActionUIViewConstruction {
     /// push/pop transitions. Changes are synced to/from the ViewModel asynchronously.
     /// Mirrors NavigationSplitView.ColumnVisibilityContainer pattern.
     private struct NavigationPathContainer<Content: SwiftUI.View>: SwiftUI.View {
-        @ObservedObject var model: ViewModel
-        @ObservedObject var contentModel: ViewModel
+        let model: ViewModel
+        let contentModel: ViewModel
         let clearsSelectionOnPopToRoot: Bool
         @State private var path: [Int] = []
         let content: (Binding<[Int]>) -> Content
@@ -305,6 +306,8 @@ struct NavigationStack: ActionUIViewConstruction {
         }
 
         var body: some SwiftUI.View {
+            let _ = model.trackAllChanges()
+            let _ = contentModel.trackAllChanges()
             content($path)
                 .onChange(of: path) { oldPath, newPath in
                     // Clear selection when navigating back to root so same item can be re-selected
@@ -322,7 +325,7 @@ struct NavigationStack: ActionUIViewConstruction {
                         }
                     }
                 }
-                .onReceive(model.$states.map { $0["navigationPath"] as? [Int] ?? [] }) { modelPath in
+                .onReceive(model.statesPublisher.map { $0["navigationPath"] as? [Int] ?? [] }) { modelPath in
                     // Sync programmatic changes from model to @State
                     if modelPath != path {
                         path = modelPath

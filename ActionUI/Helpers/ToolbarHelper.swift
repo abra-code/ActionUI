@@ -388,8 +388,10 @@ struct ToolbarModifierView<Content: SwiftUI.View>: SwiftUI.View {
         var view: AnyView = AnyView(content)
         for item in toolbarItems {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+            // The item's properties are read untracked: a change to them does not render the view
+            // carrying the toolbar again.
             let placement = ToolbarHelper.resolvePlacement(ToolbarHelper.placementName(
-                current: windowModel?.viewModels[item.id]?.properties, element: item.properties
+                current: UntrackedReads.perform { windowModel?.viewModels[item.id]?.properties }, element: item.properties
             ))
             let capturedItem = item
             let capturedWindowUUID = windowUUID

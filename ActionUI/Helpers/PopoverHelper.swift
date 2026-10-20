@@ -9,8 +9,8 @@ import SwiftUI
 struct PopoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let content: Content
     let popoverElement: any ActionUIElementBase
-    @ObservedObject var popoverModel: ViewModel
-    @ObservedObject var parentModel: ViewModel
+    let popoverModel: ViewModel
+    let parentModel: ViewModel
     let windowUUID: String
     let elementID: Int
     let arrowEdge: Edge
@@ -18,6 +18,8 @@ struct PopoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let addTapGesture: Bool
 
     var body: some SwiftUI.View {
+        let _ = popoverModel.trackAllChanges()
+        let _ = parentModel.trackAllChanges()
         let isPresented = Binding<Bool>(
             get: { parentModel.states["popoverVisible"] as? Bool ?? false },
             set: { parentModel.states["popoverVisible"] = $0 }
