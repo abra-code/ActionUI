@@ -18,14 +18,13 @@ Usage
 Design note
 -----------
 NSApplication.terminate() calls C exit() directly — app.run() never returns.
-All assertions are therefore registered via Python's atexit module, which
-fires its callbacks even during a C-level exit().  If any assertion fails,
-the atexit handler calls os._exit(1) to override the exit code.
+C exit() does not run Python's atexit handlers, so the assertions run from
+will_terminate, the last callback. If any assertion fails, the report calls
+os._exit(1) to override the exit(0) that follows.
 """
 
 import sys
 import os
-import atexit
 import threading
 import actionui
 
@@ -42,7 +41,7 @@ SAFETY_TIMEOUT_SEC = 15.0
 WINDOW_DISPLAY_SEC = 1.0
 
 # ---------------------------------------------------------------------------
-# Shared state — written from callbacks, read in the atexit handler
+# Shared state — written from callbacks, read in the report
 # ---------------------------------------------------------------------------
 
 state = {
@@ -74,12 +73,12 @@ def check(label: str, condition: bool) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# atexit handler — runs after NSApplication.terminate() → exit()
+# Report - runs from will_terminate, the last callback: AppKit then ends the process with
+# C exit(), which does not run Python's atexit handlers.
 # ---------------------------------------------------------------------------
 
-@atexit.register
 def _report():
-    print("\nNSApplication exited — running assertions …\n", flush=True)
+    print("\nNSApplication terminating - running assertions ...\n", flush=True)
 
     if state["errors"]:
         for err in state["errors"]:
@@ -89,8 +88,10 @@ def _report():
     print("Lifecycle callbacks:", flush=True)
     check("will_finish_launching fired",    state["will_finish_launching"])
     check("did_finish_launching fired",     state["did_finish_launching"])
-    check("will_become_active fired",       state["will_become_active"])
-    check("did_become_active fired",        state["did_become_active"])
+    # Not checks: macOS activates a launched app only when nothing else holds the focus, so a
+    # run started while another app is in front does not become active.
+    print(f"  [INFO] will_become_active fired: {'yes' if state['will_become_active'] else 'no'}", flush=True)
+    print(f"  [INFO] did_become_active fired: {'yes' if state['did_become_active'] else 'no'}", flush=True)
     check("should_terminate was called",    state["should_terminate_called"])
     check("should_terminate returned True", state["should_terminate_result"] is True)
     check("will_terminate fired",           state["will_terminate"])
@@ -216,6 +217,7 @@ def _should_terminate() -> bool:
 def _will_terminate():
     state["will_terminate"] = True
     print("  [CB] will_terminate", flush=True)
+    _report()
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +235,7 @@ safety_timer = threading.Timer(SAFETY_TIMEOUT_SEC, _safety_timeout)
 safety_timer.daemon = True
 
 # ---------------------------------------------------------------------------
-# Run — NSApplication.terminate() will call exit(); atexit handler reports
+# Run — NSApplication.terminate() will call exit(); will_terminate reports
 # ---------------------------------------------------------------------------
 
 safety_timer.start()

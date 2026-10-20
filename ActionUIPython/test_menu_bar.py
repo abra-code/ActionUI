@@ -11,8 +11,8 @@ Exercises:
   6. Action handler dispatch from custom menu items
 
 Starts a real NSApplication run loop (requires a graphical macOS environment).
-Uses the atexit pattern from test_app_lifecycle.py because
-NSApplication.terminate() calls C exit() directly.
+Reports from will_terminate, like test_app_lifecycle.py, because
+NSApplication.terminate() calls C exit(), which does not run atexit handlers.
 
 Usage
 -----
@@ -22,7 +22,6 @@ Usage
 import sys
 import os
 import json
-import atexit
 import threading
 import _actionui
 import actionui
@@ -67,12 +66,12 @@ def check(label: str, condition: bool) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# atexit handler — runs after NSApplication.terminate() → exit()
+# Report - runs from will_terminate, the last callback: AppKit then ends the process with
+# C exit(), which does not run Python's atexit handlers.
 # ---------------------------------------------------------------------------
 
-@atexit.register
 def _report():
-    print("\nNSApplication exited — running assertions …\n", flush=True)
+    print("\nNSApplication terminating - running assertions ...\n", flush=True)
 
     if state["errors"]:
         for err in state["errors"]:
@@ -260,6 +259,12 @@ test_load_menu_bar_empty_array()
 
 # Create application for run-loop tests
 app = actionui.Application(name="MenuBarTest")
+
+
+@app.will_terminate
+def _will_terminate():
+    print("  [CB] will_terminate", flush=True)
+    _report()
 
 
 @app.action("test.menuAction")
