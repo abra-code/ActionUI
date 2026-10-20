@@ -221,7 +221,7 @@ public struct ActionUICpp {
     }
 
     /// Sets a structural property value for a view element by property name.
-    /// The value is re-validated through the element's validateProperties function.
+    /// The value is stored as given; the element ignores a value of the wrong type, as it does in a document.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.
     ///   - viewID: Unique identifier for the view element.

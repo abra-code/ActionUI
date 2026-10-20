@@ -4,9 +4,9 @@
 
 ## Overview
 
-ActionUI renders SwiftUI views from JSON descriptions. There is no intermediate runtime, virtual DOM, or reconciliation step — JSON is parsed into validated properties and constructed directly as SwiftUI views.
+ActionUI renders SwiftUI views from JSON descriptions. There is no intermediate runtime, virtual DOM, or reconciliation step: each element reads its JSON properties through a typed `Props` value and is constructed directly as a SwiftUI view.
 
-The design goal shared across all three renderers is the same: parse a platform-neutral JSON document into validated properties, then construct native views directly in the host UI framework, with no framework-specific markup in the JSON. Each renderer keeps its source tree laid out the same way (one file per element, grouped into `Common` / `Helpers` / `Views`) so the three stay diffable against one another.
+The design goal shared across all three renderers is the same: read a platform-neutral JSON document into typed properties, then construct native views directly in the host UI framework, with no framework-specific markup in the JSON. Each renderer keeps its source tree laid out the same way (one file per element, grouped into `Common` / `Helpers` / `Views`) so the three stay diffable against one another.
 
 ## Pipeline
 
@@ -26,7 +26,7 @@ The design goal shared across all three renderers is the same: parse a platform-
                   ▼
 ┌─────────────────────────────────────────────┐
 │        ActionUIViewConstruction             │
-│  - validateProperties()                     │
+│  - Props (typed properties)                 │
 │  - buildView()                              │
 │  - applyModifiers()                         │
 └─────────────────┬───────────────────────────┘
@@ -44,9 +44,9 @@ The design goal shared across all three renderers is the same: parse a platform-
 Maps type strings ("Button", "TextField", etc.) to view construction implementations. Extensible — new view types are registered here.
 
 ### ActionUIViewConstruction Protocol
-Every view type conforms to this protocol, implementing three methods:
-- **validateProperties()** — Validates JSON properties, applies defaults, reports errors/warnings
-- **buildView()** — Constructs the SwiftUI view from validated properties
+Every view type conforms to this protocol and reads its properties through a nested `Props` value:
+- **Props** - the element's typed properties, read from the raw JSON properties on every render. A value of the wrong type is ignored and a missing one gets its default, so an invalid document renders instead of failing. The base View properties (padding, frame, font, actionID, ...) are read the same way by `BaseModifiers`. Checking a document while it is written is the verifier's job (`actionui-verify`).
+- **buildView()** - Constructs the SwiftUI view from the element's `Props`
 - **applyModifiers()** — Applies styling and behavior modifiers (padding, frame, font, actionID, etc.)
 
 ### ActionUIModel
@@ -182,7 +182,7 @@ See `ActionUIRust/README.md`, `ActionUIRust/RUST_API_REFERENCE.md` and `ActionUI
 - tvOS 17.6+
 - visionOS 2.6+
 
-Platform-specific views (e.g., Table on macOS) are conditionally available. Unsupported features degrade gracefully with validation warnings.
+Platform-specific views (e.g., Table on macOS) are conditionally available. Unsupported features degrade gracefully: they are ignored, never a crash.
 
 ## Android Architecture
 
@@ -190,9 +190,9 @@ The Android renderer targets **Android 12.0+** and reproduces this architecture 
 
 **What is the same:**
 - The same JSON schema, element names, and property names. A document written for Apple renders on Android with no changes.
-- The same pipeline shape: a registry maps type strings to per-element constructors, each element validates its properties and builds a native view, and a central model holds view state and routes action callbacks by string ID.
+- The same pipeline shape: a registry maps type strings to per-element constructors, each element reads its properties and builds a native view, and a central model holds view state and routes action callbacks by string ID.
 - The same one-file-per-element source layout, kept parallel to the Swift tree so behavior can be diffed element-for-element.
-- The same graceful-degradation contract: unknown types or properties produce validation warnings rather than crashes.
+- The same graceful-degradation contract: unknown types or properties never crash.
 
 **What differs:**
 - Views are **Compose composables** rather than SwiftUI views; state flows through Compose's recomposition instead of SwiftUI's, so there is likewise no virtual DOM or manual diffing.
@@ -205,7 +205,7 @@ The Android renderer targets **Android 12.0+** and reproduces this architecture 
 The Web renderer targets any modern browser and reproduces this architecture in **plain JavaScript**, emitting **real DOM elements styled with CSS** as the native UI layer. It uses ES modules directly — **no build step, no bundler, no framework runtime, no dependencies** — and serves as static files from any URL prefix.
 
 **What is the same:**
-- The same JSON schema and the same registry → validate → build → apply-modifiers pipeline, with a central model holding view state and dispatching actions by string ID.
+- The same JSON schema and the same registry, build and apply-modifiers pipeline (the Web renderer also checks each element's properties before building it), with a central model holding view state and dispatching actions by string ID.
 - The same one-file-per-element layout (`Common` / `Helpers` / `Views`), kept parallel to the Swift and Kotlin trees.
 - The same runtime surface — `setElementProperty`, structural mutation (`insertElement` / `insertRow` / `removeElement`), programmatic row selection, dialogs/sheets/popovers, toast, lifecycle hooks, and the `animation` modifier.
 

@@ -26,7 +26,7 @@ import AppKit
 ///       - `warning` (2): Indicates a non-critical issue that may affect functionality (e.g., missing optional property with a fallback).
 ///       - `info` (3): Indicates general information for debugging or tracking (e.g., view registration or state update).
 ///       - `debug` (4): Indicates detailed debugging information for developers (e.g., intermediate state changes or binding updates).
-///       - `verbose` (5): Indicates exhaustive diagnostic information (e.g., every property validation or view construction step).
+///       - `verbose` (5): Indicates exhaustive diagnostic information (e.g., every view construction step).
 ///   - Description: Sets a custom logger function to handle debugging and error reporting. The function is stored globally and called from native via evaluateJavaScript.
 ///   - Example: `ActionUI.setLogger(function(message, level) { console.log("[Level " + level + "] " + message); });`
 ///

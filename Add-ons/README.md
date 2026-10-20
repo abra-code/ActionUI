@@ -73,7 +73,9 @@ python3 Tools/verifier/validate_actionui.py \
 
 1. Create `Add-ons/<Name>/` with a `Package.swift` that depends on the ActionUI package
    (`.package(path: "../..")`) and a `Sources/` target implementing `ActionUIViewConstruction` for the
-   element plus a public `register()` entry point.
+   element plus a public `register()` entry point. `buildView` and `applyModifiers` receive the
+   properties as the document or `setElementProperty` gave them: read each one with a type check and a
+   default, so a value of the wrong type is ignored rather than trusted.
 2. Ship `Schemas/<Element>.json` (same format as `ActionUIVerifier/Schemas/`) so documents validate via
    `--schema-dir`.
 3. Add the package + product to `ActionUIAddOnTestApp` and call its `register()` in the app's `init`

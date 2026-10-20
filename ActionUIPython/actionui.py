@@ -1020,8 +1020,8 @@ class Window:
         """
         Set a structural property value.
 
-        The value is re-validated through the element's validateProperties
-        function inside ActionUI.
+        The value is stored as given; the element ignores a value of the
+        wrong type, as it does in a document.
         """
         _actionui.set_element_property_json(self.uuid, view_id, name,
                                           json.dumps(value))

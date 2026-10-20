@@ -167,7 +167,7 @@ JSON schema and usage documentation for `View`.
                                             // "automatic": platform default. "inline": compact nav bar title.
                                             // "large": large expandable title (iOS style). "inlineLarge": collapses on scroll (iOS 17+).
      "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
-                                            // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
+                                            // Does not apply any modifier; the value stays in the element's properties for navigation logic.
                                             // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
                                             // and by sidebar List children in NavigationSplitView to select a destination view.
      "textSelection": "enabled",            // Optional: "enabled" or "disabled". Controls whether the user can select text in this view.

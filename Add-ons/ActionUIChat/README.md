@@ -248,7 +248,7 @@ automatically:
   ChatView` that keeps the component's transport contract reachable through this module.
 - `Sources/Core/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head
   comment) and `hostEventSink` (the ChatHostEvent -> actionHandler dispatch mapping).
-- `Sources/Core/ChatConfig.swift` - action-ID parsing + `validate()` (the validateProperties witness);
+- `Sources/Core/ChatConfig.swift` - action-ID parsing (a value of the wrong type is ignored);
   delegates the visual keys to the component's `ChatConfiguration`. The operational `protocol` +
   `transport` are not document-declared - a host injects them at runtime into `states["config"]`.
 - `Sources/Core/ChatActionUIBridge.swift` - the ActionUILogger -> ChatLogger adapter and the `ViewModel`

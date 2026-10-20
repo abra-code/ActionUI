@@ -654,7 +654,7 @@ public func actionUIGetElementPropertyJSON(
 }
 
 /// Sets a structural property value for a view element from a JSON string.
-/// The value is re-validated through the element's validateProperties function.
+/// The value is stored as given; the element ignores a value of the wrong type, as it does in a document.
 @_cdecl("actionUISetElementPropertyJSON")
 public func actionUISetElementPropertyJSON(
     _ windowUUID: UnsafePointer<CChar>,

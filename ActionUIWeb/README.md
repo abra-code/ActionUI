@@ -123,9 +123,9 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
   Chart has no web renderer: it draws a "Chart Unavailable" placeholder and keeps
   the value, the rows API and the `chart` property, so Apple host code runs
   unchanged.
-  Each view's `validateProperties` warnings match the Swift
-  contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log console
-  warnings.
+  Each view's `validateProperties` checks the properties the Swift renderer
+  reads (`ActionUI/Views/*.swift`) and logs a console warning for one it ignores;
+  deliberate omissions log console warnings too.
 - **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `Helpers/SymbolIcon.js`
   + `assets/symbols/`): a shared glyph path - `Image`, `Button`, and `Label` all
   render SF Symbols (`systemName`/`systemImage`) via the Android SF->Material map

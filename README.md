@@ -86,7 +86,7 @@ app.run()
 
 **AI-First** — Every API decision considers "can an LLM use this reliably?"
 
-**Fail Gracefully** — Invalid JSON doesn't crash. Properties are validated, missing values get defaults, and the UI degrades gracefully.
+**Fail Gracefully** — Invalid JSON doesn't crash. A property of the wrong type is ignored, missing values get defaults, and the UI degrades gracefully.
 
 **Platform Native** — ActionUI doesn't abstract platforms away — it embraces each one. The generated views are real SwiftUI views on Apple, real Compose composables on Android, and real DOM on the Web, with each platform's full performance and capabilities.
 
