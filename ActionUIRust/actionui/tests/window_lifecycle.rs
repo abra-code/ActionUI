@@ -52,6 +52,7 @@ struct Seen {
     appeared: RefCell<Option<ActionContext>>,
     unhandled: RefCell<Vec<String>>,
     worker_reported: Cell<bool>,
+    nested_run_refused: Cell<bool>,
     failures: RefCell<Vec<String>>,
 }
 
@@ -258,6 +259,7 @@ fn check_at_termination() {
         check("no action went to the catch-all handler", seen.unhandled.borrow().is_empty());
         check("the worker thread's results came back", seen.worker_reported.get());
         check("the application survived a panicking closure", CLOSURE_AFTER_PANIC_RAN.load(Ordering::SeqCst));
+        check("a second run() while running panics", seen.nested_run_refused.get());
     });
 }
 
@@ -301,6 +303,16 @@ fn main() {
 
     app.on_did_finish_launching(move || {
         SEEN.with(|seen| seen.did_finish_launching.set(true));
+
+        // A second run while the application runs is refused.
+        let nested = std::panic::catch_unwind(move || {
+            app.run();
+        });
+        let refused = nested.err().is_some_and(|payload| {
+            payload.downcast_ref::<String>().is_some_and(|message| message.contains("already running"))
+                || payload.downcast_ref::<&str>().is_some_and(|message| message.contains("already running"))
+        });
+        SEEN.with(|seen| seen.nested_run_refused.set(refused));
         let window = app.present_window_from_json(UI, Some("Lifecycle Test")).expect("present_window_from_json");
         SEEN.with(|seen| *seen.presented.borrow_mut() = Some(window.clone()));
         check_remote_server(app);

@@ -55,6 +55,7 @@ state = {
     "window_opened_uuid":       None,
     "window_present_uuid":      None,
     "window_closed_uuid":       None,
+    "nested_run_error":         None,
     "errors":                   [],
 }
 
@@ -95,6 +96,8 @@ def _report():
     check("should_terminate was called",    state["should_terminate_called"])
     check("should_terminate returned True", state["should_terminate_result"] is True)
     check("will_terminate fired",           state["will_terminate"])
+    check("a second app.run() while running raises RuntimeError",
+          "already running" in (state["nested_run_error"] or ""))
 
     print(flush=True)
     print("Window lifecycle:", flush=True)
@@ -157,6 +160,12 @@ def _will_finish():
 def _did_finish():
     state["did_finish_launching"] = True
     print("  [CB] did_finish_launching", flush=True)
+
+    # A second run while the app runs is refused.
+    try:
+        app.run()
+    except RuntimeError as e:
+        state["nested_run_error"] = str(e)
 
     if not os.path.exists(FIXTURE_JSON):
         state["errors"].append(f"Fixture disappeared: {FIXTURE_JSON}")

@@ -14,6 +14,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <stdbool.h>
 
 #import <ActionUICAdapter/ActionUICAdapter-Swift.h>
 #import <ActionUIAppKitApplication/ActionUIAppKitApplication-Swift.h>
@@ -297,10 +298,21 @@ static PyObject* py_app_set_icon(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+/* Set while app_run is on the stack. Read and written with the GIL held. */
+static bool s_app_running = false;
+
 static PyObject* py_app_run(PyObject* self, PyObject* args) {
+    /* A second app_run from inside a callback would start a nested run loop there, and the
+     * rest of the callback would never run. */
+    if (s_app_running) {
+        PyErr_SetString(PyExc_RuntimeError, "app_run is already running");
+        return NULL;
+    }
+    s_app_running = true;
     Py_BEGIN_ALLOW_THREADS
     actionUIAppRun();
     Py_END_ALLOW_THREADS
+    s_app_running = false;
     Py_RETURN_NONE;
 }
 

@@ -87,6 +87,7 @@ thread_local! {
 }
 
 static APP_CREATED: AtomicBool = AtomicBool::new(false);
+static APP_RUNNING: AtomicBool = AtomicBool::new(false);
 
 fn event_handler(select: impl FnOnce(&Handlers) -> Option<EventHandler>) -> Option<EventHandler> {
     HANDLERS.with(|handlers| select(&handlers.borrow()))
@@ -269,7 +270,11 @@ impl App {
     /// values still alive in `main`, do not run. (Handlers, and what they captured, are
     /// dropped as the process exits.) Do final work in
     /// [`App::on_will_terminate`].
+    ///
+    /// Panics when the event loop is already running, as when a handler calls it: a second
+    /// loop would start inside that handler and the rest of the handler would never run.
     pub fn run(self) -> ! {
+        assert!(!APP_RUNNING.swap(true, Ordering::SeqCst), "App::run was called while the application is already running");
         unsafe { sys::actionUIAppRun() };
         std::process::exit(0)
     }

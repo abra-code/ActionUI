@@ -89,7 +89,7 @@ cargo build --release --example folder_contents
 ## Rules to know
 
 - **Threads.** `App` exists only on the main thread, which `App::run` hands to the event loop, and handlers run there. A `Window` can be moved to any thread and used from it: a setter returns at once and is applied later, a getter waits for the main thread. So never make the main thread wait for a worker that calls into a window; the two would wait for each other forever. `actionui::main_thread::dispatch(closure)` runs a closure on the main thread, for work that needs the `App`.
-- **`App::run` does not return.** Quitting ends the process from inside the event loop. Do final work in `App::on_will_terminate`.
+- **`App::run` does not return.** Quitting ends the process from inside the event loop. Do final work in `App::on_will_terminate`. Calling it again while the application runs (from a handler) panics.
 - **Handlers are `Fn`.** A handler can be entered again while it runs (one that shows a modal alert keeps the event loop going), so changing state goes in a `Cell` or `RefCell`.
 - **Panics.** A panic in a handler is caught, written to standard error and to ActionUI's log, and the application keeps running.
 - **Setters are queued.** A setter returns before the value is applied; an unknown element ID is reported in ActionUI's log, not as an error. Getters return `Ok(None)` when an element has no value.

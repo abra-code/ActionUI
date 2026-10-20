@@ -373,6 +373,9 @@ class Application:
     def run(self):
         """Start the NSApplication run loop.  Blocks until the app terminates.
 
+        Raises RuntimeError when the run loop is already running (called from a
+        callback): a second loop would start inside that callback.
+
         This must be the last call in the script.  All setup (action handlers,
         lifecycle callbacks, initial window creation via ``did_finish_launching``)
         must be configured before calling ``run()``.

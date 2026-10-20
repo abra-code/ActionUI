@@ -112,7 +112,7 @@ app.onWindowWillPresent(fn)     // fn(window: Window)
 #### App control
 
 ```js
-app.run()          // start NSApplication run loop; blocks — never returns
+app.run()          // start NSApplication run loop; blocks and never returns; throws if already running
 app.terminate()    // request graceful termination (async, safe from any thread)
 ```
 
