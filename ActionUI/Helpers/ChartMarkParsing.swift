@@ -593,7 +593,7 @@ extension ChartDescription {
             logger?.log("Chart: \(role) requires 'content', a view element such as {\"type\": \"Text\", \"properties\": {\"text\": \"...\"}}; ignoring the annotation", .warning)
             return nil
         }
-        guard let type = content["type"] as? String, ActionUIRegistry.shared.viewRegistrations[type] != nil else {
+        guard let type = content["type"] as? String, ActionUIRegistry.shared.specs[type] != nil else {
             logger?.log("Chart: \(role).content must be a view element with a known 'type'; ignoring the annotation", .warning)
             return nil
         }

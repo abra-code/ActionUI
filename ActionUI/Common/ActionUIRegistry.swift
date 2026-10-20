@@ -9,8 +9,11 @@ import SwiftUI
 
 @MainActor
 public class ActionUIRegistry {
-    // Design decision: Stores the type conforming to ActionUIViewConstruction, allowing runtime lookup of optional closure properties
-    internal var viewRegistrations: [String: any ActionUIViewConstruction.Type] = [:]
+    // Each element type's spec and its SwiftUI renderer, keyed by the JSON "type" token. The spec
+    // table answers everything a document load needs (value type, initial value and states, string
+    // conversions, insertable containers); the renderer table builds and modifies views.
+    internal var specs: [String: any ActionUIElementSpec.Type] = [:]
+    internal var renderers: [String: any ActionUISwiftUIRenderer.Type] = [:]
     
     // Logger for view building and modifier application
     // Design decision: Client-configurable via setLogger, defaults to ConsoleLogger for consistency
@@ -30,8 +33,7 @@ public class ActionUIRegistry {
         loggerLevel = .info
 #endif
         self.logger = ConsoleLogger(maxLevel: loggerLevel)
-        // Automatically register supported SwiftUI view types
-        registerAllViews()
+        loadBuiltIns()
     }
     
     // Allows clients to set a custom logger (e.g., XCTestLogger)
@@ -40,83 +42,12 @@ public class ActionUIRegistry {
         self.logger = logger
     }
     
-    // Register all supported views
-    internal func registerAllViews() {
-        registerView(AsyncImage.self)
-        registerView(Button.self)
-        registerView(Canvas.self)
-        registerView(Capsule.self)
-        registerView(Circle.self)
-        registerView(Color.self)
-        registerView(ColorPicker.self)
-        registerView(ContentUnavailableView.self)
-        registerView(ControlGroup.self)
-        registerView(DatePicker.self)
-        registerView(DisclosureGroup.self)
-        registerView(Divider.self)
-        registerView(Ellipse.self)
-        registerView(EmptyView.self)
-        registerView(Form.self)
-        registerView(Chart.self)
-        registerView(Gauge.self)
-        registerView(GeometryReader.self)
-        registerView(Grid.self)
-        registerView(Group.self)
-        registerView(GroupBox.self)
-        registerView(HStack.self)
-        registerView(HSplitView.self)
-        registerView(Image.self)
-        registerView(Label.self)
-        registerView(LabeledContent.self)
-        registerView(LazyHGrid.self)
-        registerView(LazyHStack.self)
-        registerView(LazyVGrid.self)
-        registerView(LazyVStack.self)
-        registerView(Link.self)
-        registerView(List.self)
-        registerView(LoadableView.self)
-        registerView(Map.self)
-        registerView(Menu.self)
-        registerView(NavigationLink.self)
-        registerView(NavigationStack.self)
-        registerView(NavigationSplitView.self)
-        registerView(Picker.self)
-        registerView(ProgressView.self)
-        registerView(Rectangle.self)
-        registerView(RoundedRectangle.self)
-        registerView(ScrollView.self)
-        registerView(ScrollViewReader.self)
-        registerView(Section.self)
-        registerView(SecureField.self)
-        registerView(ShareLink.self)
-        registerView(Slider.self)
-        registerView(Spacer.self)
-        registerView(Stepper.self)
-        registerView(Table.self)
-        registerView(Tab.self)
-        registerView(TabView.self)
-        registerView(Text.self)
-        registerView(TextEditor.self)
-        registerView(TextField.self)
-        registerView(Toggle.self)
-        registerView(ToolbarItem.self)
-        registerView(ToolbarItemGroup.self)
-        registerView(VStack.self)
-        registerView(VSplitView.self)
-        registerView(VideoPlayer.self)
-        registerView(View.self)
-        registerView(WebView.self)
-        registerView(ZStack.self)
-        // Removed deprecated NavigationView
-        // Add more view registrations if needed
-    }
-    
-    // Registers a view construction type using its type name
-    // Design decision: Simplifies registration by using String(describing: type.self), replacing ActionUIElement.registerView
-    @inline(__always)
-    func registerView(_ type: any ActionUIViewConstruction.Type) {
-        viewRegistrations[String(describing: type.self)] = type
-        logger.log("Registered view type: \(String(describing: type.self))", .verbose)
+    // Fills both tables with the built-in element types: the portable specs
+    // (Core/Elements/BuiltInElements.swift), the Apple-only ones, and their SwiftUI renderers.
+    // Replaces both tables, so it runs before any add-on registers (at init, and in the tests' reset).
+    internal func loadBuiltIns() {
+        specs = Dictionary(uniqueKeysWithValues: (Self.builtInSpecs + Self.appleOnlySpecs).map { ($0.name, $0.type) })
+        renderers = Self.builtInSwiftUIRenderers
     }
     
     /// Registers an external, add-on view-construction type so its `type` token can be used in
@@ -135,7 +66,8 @@ public class ActionUIRegistry {
     ///     (e.g. `Chat` -> "Chat"), matching how built-in elements are keyed.
     public func register(_ type: any ActionUIViewConstruction.Type, as typeName: String? = nil) {
         let key = typeName ?? String(describing: type)
-        viewRegistrations[key] = type
+        specs[key] = type
+        renderers[key] = type
         logger.log("Registered custom view type: \(key)", .verbose)
     }
 
@@ -149,12 +81,12 @@ public class ActionUIRegistry {
     // Retrieves the value type for a given view element type
     // Design decision: Returns Void if valueType is not implemented, ensuring compatibility with non-interactive views
     func getElementValueType(forElementType type: String) -> Any.Type {
-        let valueType = viewRegistrations[type]?.valueType ?? Void.self
+        let valueType = specs[type]?.valueType ?? Void.self
         return getNonOptionalType(valueType)
     }
     
     func getInitialValue(forElementType type: String, model: ViewModel) -> Any? {
-        if let constructionType = viewRegistrations[type],
+        if let constructionType = specs[type],
            constructionType.valueType != Void.self {
             let initialValue = constructionType.initialValue(model)
             if initialValue == nil,
@@ -167,19 +99,19 @@ public class ActionUIRegistry {
     }
     
     func getStringContentParser(forElementType type: String) -> ((String, String?, any ActionUILogger) -> Any?)? {
-        viewRegistrations[type]?.parseStringValue
+        specs[type]?.parseStringValue
     }
 
     func getStringContentSerializer(forElementType type: String) -> ((Any, String?, any ActionUILogger) -> String?)? {
-        viewRegistrations[type]?.serializeValueToString
+        specs[type]?.serializeValueToString
     }
 
     func getDidSetProperty(forElementType type: String) -> ((String, ViewModel, any ActionUILogger) -> Void)? {
-        viewRegistrations[type]?.didSetProperty
+        specs[type]?.didSetProperty
     }
 
     func getInitialStates(forElementType type: String, model: ViewModel) -> [String: Any] {
-        if let constructionType = viewRegistrations[type] {
+        if let constructionType = specs[type] {
             return constructionType.initialStates(model)
         }
         return [:]
@@ -193,7 +125,7 @@ public class ActionUIRegistry {
         // read element.subviews[container]; the merged element makes those reads see the live state.
         let effectiveElement = applyDynamicSubviews(to: element, model: model)
 
-        if let constructionType = viewRegistrations[effectiveElement.type] {
+        if let constructionType = renderers[effectiveElement.type] {
             return constructionType.buildView(effectiveElement, model, windowUUID, properties, logger)
         }
         logger.log("No construction type found for element ID \(effectiveElement.id) of type '\(effectiveElement.type)' in window \(windowUUID), returning EmptyView", .warning)
@@ -214,13 +146,13 @@ public class ActionUIRegistry {
 
     // Returns the insertable container map for a registered view type
     func getInsertableContainers(forElementType type: String) -> [String: ContainerShape]? {
-        viewRegistrations[type]?.insertableContainers
+        specs[type]?.insertableContainers
     }
     
     // The properties the base View modifiers apply for an element: all of them, minus the keys the
     // element's type declares in handledBaseModifiers (it applies those itself).
     func baseModifierProperties(_ properties: [String: Any], forElementType type: String) -> [String: Any] {
-        guard let handled = viewRegistrations[type]?.handledBaseModifiers, !handled.isEmpty else {
+        guard let handled = specs[type]?.handledBaseModifiers, !handled.isEmpty else {
             return properties
         }
         return properties.filter { !handled.contains($0.key) }
@@ -233,7 +165,7 @@ public class ActionUIRegistry {
         
         var modifiedView = view
         // First apply specialized view modifications if available (View.applyModifiers can erase specific view type)
-        if let constructionType = viewRegistrations[element.type] {
+        if let constructionType = renderers[element.type] {
             modifiedView = constructionType.applyModifiers(modifiedView, element, windowUUID, properties, logger)
         } else {
             logger.log("No modifier registration found for element ID \(element.id) of type '\(element.type)', applying base modifiers only", .warning)
