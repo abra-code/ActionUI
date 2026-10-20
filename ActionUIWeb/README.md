@@ -174,8 +174,5 @@ cross-platform parity for the shipped element surface.
   Tiers 1-2 (`content-visibility` for offscreen rows + a common-prefix row diff so
   append is O(tail)) ship for every row-bearing container; Tier 3 windowing is the
   only remaining piece, and the only path to Table laziness. Perf, not parity.
-- **KeyframeAnimator / PhaseAnimator** - the `animation` modifier (an armed CSS
-  transition that eases a later property mutation) ships; the multi-keyframe and
-  multi-phase animators remain separate and deferred.
 - **`onDrag` (drag initiation)** - excluded upstream by design; the drop-reception
   side (`onHover` / `onDrop` / `onDropTargeted`) ships.

@@ -30,7 +30,6 @@ All views inherit baseline properties from [View](Schemas/View.md) ([template](E
 | HStack | [Schemas/HStack.md](Schemas/HStack.md) | [Elements/HStack.json](Elements/HStack.json) |
 | HSplitView | [Schemas/HSplitView.md](Schemas/HSplitView.md) | [Elements/HSplitView.json](Elements/HSplitView.json) |
 | Image | [Schemas/Image.md](Schemas/Image.md) | [Elements/Image.json](Elements/Image.json) |
-| KeyframeAnimator | [Schemas/KeyframeAnimator.md](Schemas/KeyframeAnimator.md) | [Elements/KeyframeAnimator.json](Elements/KeyframeAnimator.json) |
 | Label | [Schemas/Label.md](Schemas/Label.md) | [Elements/Label.json](Elements/Label.json) |
 | LabeledContent | [Schemas/LabeledContent.md](Schemas/LabeledContent.md) | [Elements/LabeledContent.json](Elements/LabeledContent.json) |
 | LazyHGrid | [Schemas/LazyHGrid.md](Schemas/LazyHGrid.md) | [Elements/LazyHGrid.json](Elements/LazyHGrid.json) |
@@ -45,7 +44,6 @@ All views inherit baseline properties from [View](Schemas/View.md) ([template](E
 | NavigationLink | [Schemas/NavigationLink.md](Schemas/NavigationLink.md) | [Elements/NavigationLink.json](Elements/NavigationLink.json) |
 | NavigationSplitView | [Schemas/NavigationSplitView.md](Schemas/NavigationSplitView.md) | [Elements/NavigationSplitView.json](Elements/NavigationSplitView.json) |
 | NavigationStack | [Schemas/NavigationStack.md](Schemas/NavigationStack.md) | [Elements/NavigationStack.json](Elements/NavigationStack.json) |
-| PhaseAnimator | [Schemas/PhaseAnimator.md](Schemas/PhaseAnimator.md) | [Elements/PhaseAnimator.json](Elements/PhaseAnimator.json) |
 | Picker | [Schemas/Picker.md](Schemas/Picker.md) | [Elements/Picker.json](Elements/Picker.json) |
 | Popover (modifier) | [Schemas/Popover.md](Schemas/Popover.md) | [Elements/Popover.json](Elements/Popover.json) |
 | ProgressView | [Schemas/ProgressView.md](Schemas/ProgressView.md) | [Elements/ProgressView.json](Elements/ProgressView.json) |

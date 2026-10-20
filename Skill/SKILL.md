@@ -294,8 +294,6 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 | `AsyncImage` | `url`, `contentMode` |
 | `LoadableView` | `actionID`, `loadingView`, `errorView` | `content` (single view) |
 | `ContentUnavailableView` | `title`, `systemImage`, `description` |
-| `PhaseAnimator` | `phases`, `trigger` | `content` (single view) |
-| `KeyframeAnimator` | `trigger` | `content` (single view) |
 | `EmptyView` | — | |
 | `HSplitView` / `VSplitView` | macOS split pane | `children` array |
 | `ToolbarItem` | `placement` | `content` (single view) |
