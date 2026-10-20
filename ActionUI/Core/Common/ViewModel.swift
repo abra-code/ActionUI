@@ -1,5 +1,9 @@
-// Common/ViewModel.swift
+// Core/Common/ViewModel.swift
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import Observation
 
 /*

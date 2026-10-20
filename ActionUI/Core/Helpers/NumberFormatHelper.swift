@@ -1,4 +1,4 @@
-// Helpers/NumberFormatHelper.swift
+// Core/Helpers/NumberFormatHelper.swift
 /*
  NumberFormatHelper describes the number format of a formatted TextField (and a chart axis):
  integer, decimal, percent or currency, with optional fraction lengths, parsed from the
@@ -9,7 +9,11 @@
  shares the parsing.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum NumberFormatHelper: Equatable, Sendable {
     case integer

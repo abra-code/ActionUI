@@ -7,7 +7,11 @@
  to support JSON serialization in the ActionUI component library.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // A type-erasing wrapper for any Codable value to enable encoding and decoding
 struct AnyCodable: Codable {

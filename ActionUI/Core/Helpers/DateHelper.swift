@@ -2,7 +2,11 @@
 //  DateHelper.swift
 //  ActionUI
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// Helper for parsing and formatting dates in ActionUI
 struct DateHelper {

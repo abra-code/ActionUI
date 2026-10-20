@@ -1,4 +1,4 @@
-// Helpers/Lock.swift
+// Core/Helpers/Lock.swift
 /*
  A mutual-exclusion lock over a pthread mutex, for state that more than one thread may touch.
  Foundation's NSLock would do on Apple, but this file needs only the C library, so the same lock

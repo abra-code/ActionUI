@@ -1,4 +1,4 @@
-// Helpers/ModifierParsing.swift
+// Core/Helpers/ModifierParsing.swift
 /*
  ModifierParsing: the rules for the base modifiers whose values are structured (frame, offset,
  scale, shadow, border, animation, transition, keyboard shortcut, clip shape, padding, column
@@ -9,7 +9,11 @@
  Portable on purpose: Foundation types only, so every renderer shares the same rules.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum ModifierParsing {
 

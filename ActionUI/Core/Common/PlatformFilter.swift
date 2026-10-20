@@ -1,5 +1,9 @@
-// Common/PlatformFilter.swift
+// Core/Common/PlatformFilter.swift
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /*
  PlatformFilter resolves `<key>:<platform>` key-suffix overrides against an active

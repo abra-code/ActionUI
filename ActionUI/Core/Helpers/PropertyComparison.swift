@@ -5,7 +5,11 @@
  Provides equality checks for [String: Any] dictionaries, supporting nested structures.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // Utility for comparing properties in ActionUI elements
 enum PropertyComparison {

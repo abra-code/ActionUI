@@ -1,9 +1,13 @@
-// Common/ActionUIInsertion.swift
+// Core/Common/ActionUIInsertion.swift
 //
 // Types and errors used by ActionUIModel.insertElement / insertRow / removeElement.
 // Containers declare which containers accept runtime insertions via ActionUIViewConstruction.insertableContainers.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // Position to insert a new element (or row) within a container's existing array.
 // `before(siblingID:)` and `after(siblingID:)` apply only to flat containers — for row containers,

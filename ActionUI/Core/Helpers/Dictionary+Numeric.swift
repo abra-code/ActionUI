@@ -1,13 +1,17 @@
-// Helpers/Dictionary+Numeric.swift
+// Core/Helpers/Dictionary+Numeric.swift
 /*
  Dictionary+Numeric.swift
 
  Extension for [String: Any] to handle numeric type coercion, ensuring properties expected as Double or CGFloat
- are retrieved correctly from JSON-parsed dictionaries, supporting Int, Int64, UInt, Double, Float, and CGFloat.
+ are retrieved correctly from JSON-parsed dictionaries, supporting Int, Int64, UInt, Double, Float, and (on
+ Apple, where Foundation has it) CGFloat. The CGFloat readers are in Helpers/Dictionary+CGFloat.swift.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
-import CoreGraphics
+#endif
 
 /// Numeric conversion of one JSON-decoded or runtime-set value, shared by the dictionary readers
 /// below and by property parsers that receive a value rather than a dictionary.
@@ -26,8 +30,11 @@ enum JSONNumber {
             return doubleValue
         case let floatValue as Float:
             return Double(floatValue)
+#if !canImport(FoundationEssentials)
+        // A CGFloat set at runtime by a host; FoundationEssentials has no CGFloat.
         case let cgFloatValue as CGFloat:
             return Double(cgFloatValue)
+#endif
         case let int64Value as Int64:
             return Double(int64Value)
         case let uintValue as UInt:
@@ -81,45 +88,8 @@ extension [String: Any] {
         JSONNumber.int(self[key])
     }
 
-    // Retrieves a value for the given key and converts it to CGFloat if it's a numeric type.
-    // Returns nil for non-numeric types, logging a warning via the provided logger.
-    // Design decision: Ensures compatibility with SwiftUI modifiers expecting CGFloat, addressing CGFloat vs. Double mismatches.
-    func cgFloat(forKey key: String) -> CGFloat? {
-        guard let value = self[key] else {
-            return nil
-        }
-
-        switch value {
-        case let intValue as Int:
-            return CGFloat(intValue)
-        case let doubleValue as Double:
-            return CGFloat(doubleValue)
-        case let floatValue as Float:
-            return CGFloat(floatValue)
-        case let cgFloatValue as CGFloat:
-            return cgFloatValue
-        case let int64Value as Int64:
-            return CGFloat(int64Value)
-        case let uintValue as UInt:
-            return CGFloat(uintValue)
-        case let stringValue as String:
-            let lower = stringValue.lowercased()
-            if lower == "inf" || lower == "infinity" {
-                return .infinity
-            }
-            return nil
-        default:
-            return nil
-        }
-    }
-    
     func doubleArray(forKey key: String) -> [Double]? {
         guard let array = self[key] as? [Any] else { return nil }
         return array.map { ($0 as? NSNumber)?.doubleValue ?? 0.0 }
-    }
-    
-    func cgFloatArray(forKey key: String) -> [CGFloat]? {
-        guard let array = self[key] as? [Any] else { return nil }
-        return array.map { CGFloat(($0 as? NSNumber)?.doubleValue ?? 0.0) }
     }
 }

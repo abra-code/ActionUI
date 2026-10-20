@@ -1,5 +1,9 @@
-// Helpers/ConsoleLogger.swift
+// Core/Common/ConsoleLogger.swift
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// A logger that outputs messages to the console for all severity levels.
 /// Supports filtering logs based on a maximum level to reduce output in performance-critical scenarios.

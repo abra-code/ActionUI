@@ -1,4 +1,4 @@
-// Common/ViewModel+Observers.swift
+// Core/Common/ViewModel+Observers.swift
 /*
  Change observers for a ViewModel's value and states, for code outside a render that must see
  every change: a host channel that receives one appended item at a time, an add-on's bridge to

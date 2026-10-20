@@ -1,6 +1,10 @@
-// Helpers/JSONDecoder+Logger.swift
+// Core/Helpers/JSONDecoder+Logger.swift
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public extension JSONDecoder {
     convenience init(logger: any ActionUILogger) {

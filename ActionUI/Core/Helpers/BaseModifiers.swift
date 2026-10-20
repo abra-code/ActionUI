@@ -1,4 +1,4 @@
-// Helpers/BaseModifiers.swift
+// Core/Helpers/BaseModifiers.swift
 /*
  BaseModifiers: the base View properties every element accepts (padding, frame, colors, actions,
  accessibility, presentation options, ...), parsed from the raw properties dictionary into typed
@@ -13,7 +13,11 @@
  them) until they get portable descriptions of their own.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 struct BaseModifiers {
 

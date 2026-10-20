@@ -3,7 +3,11 @@
  Used when converting strings to typed values without a statically known target type.
  */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 class JSONHelper {
     /// Returns true if the string's first character suggests it could be a JSON fragment.

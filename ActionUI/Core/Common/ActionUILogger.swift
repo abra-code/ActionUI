@@ -1,5 +1,9 @@
-// Common/ActionUILogger.swift
+// Core/Common/ActionUILogger.swift
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// Protocol for logging messages in the ActionUI library with specified severity levels.
 /// Used for debugging, error reporting, and informational logging during view rendering.
