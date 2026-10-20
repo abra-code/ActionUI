@@ -178,7 +178,7 @@ import Charts
 
 extension Chart {
     /// Chart's properties, parsed from the raw dictionary. Built at the start of every render.
-    /// The chart description ("chart") is not here: the validator stores it parsed and cleaned,
+    /// The chart description ("chart") is not here: it is stored cleaned (normalizeStoredDescription),
     /// and the renderer caches the parse in the view model.
     struct Props: Sendable {
         enum SelectionActionTiming: String, Sendable, CaseIterable {
@@ -212,22 +212,40 @@ struct Chart: ActionUIViewConstruction {
             logger.log("Chart selectionActionTiming must be \"settled\" or \"continuous\"; using \"settled\"", .warning)
             validatedProperties["selectionActionTiming"] = nil
         }
-        guard let description = properties["chart"] else {
-            return validatedProperties
-        }
-        guard let object = description as? [String: Any] else {
-            logger.log("Chart 'chart' must be an object (the chart description); ignoring", .warning)
-            validatedProperties["chart"] = nil
-            return validatedProperties
-        }
-        // A description set at runtime has not been through the document's platform filter.
-        let filtered = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger).filter(object) as? [String: Any] ?? object
-        validatedProperties["chart"] = ChartDescription.parse(filtered, logger: logger).cleaned
+        // The "chart" description is cleaned where it is stored (normalizeStoredDescription), not here.
         return validatedProperties
     }
 
-    // Load (and insertElement, subview and modal loads): the description's inline data becomes the rows.
+    // The description as Chart stores it: filtered for this platform (a description set at runtime has
+    // not been through the document's platform filter) and cleaned by the parse, which also logs what it
+    // drops. nil when the value is not an object.
+    static func normalizedDescription(_ value: Any, logger: any ActionUILogger) -> [String: Any]? {
+        guard let object = value as? [String: Any] else {
+            return nil
+        }
+        let filtered = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger).filter(object) as? [String: Any] ?? object
+        return ChartDescription.parse(filtered, logger: logger).cleaned
+    }
+
+    // Cleans the stored description in place: on load, and when it is set at runtime. Done once there
+    // rather than on every render; the render cache then parses the cleaned description.
+    @MainActor
+    private static func normalizeStoredDescription(_ model: ViewModel, logger: any ActionUILogger) {
+        guard let value = model.validatedProperties["chart"] else {
+            return
+        }
+        if let description = normalizedDescription(value, logger: logger) {
+            model.validatedProperties["chart"] = description
+        } else {
+            logger.log("Chart 'chart' must be an object (the chart description); ignoring", .warning)
+            model.validatedProperties["chart"] = nil
+        }
+    }
+
+    // Load (and insertElement, subview and modal loads): the description is cleaned, and its inline
+    // data becomes the rows.
     static var initialStates: (ViewModel) -> [String: Any] = { model in
+        normalizeStoredDescription(model, logger: ActionUIModel.shared.logger)
         var states = model.states
         if let rows = takeInlineData(model) {
             states["content"] = rows
@@ -237,9 +255,10 @@ struct Chart: ActionUIViewConstruction {
         return states
     }
 
-    // Runtime replacement: setElementProperty has stored and validated the new description.
-    static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? = { name, model, _ in
+    // Runtime replacement: setElementProperty has stored the new description; it is cleaned here.
+    static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? = { name, model, logger in
         guard name == "chart" else { return }
+        normalizeStoredDescription(model, logger: logger)
         if let rows = takeInlineData(model) {
             model.states["content"] = rows
         }
@@ -254,7 +273,7 @@ struct Chart: ActionUIViewConstruction {
         }
     }
 
-    // Moves the validated description's `data` into row strings and removes it from the
+    // Moves the stored (cleaned) description's `data` into row strings and removes it from the
     // description, so the stored description never holds stale data: reading it back and
     // setting it again cannot wipe rows a host streamed in.
     @MainActor
@@ -351,7 +370,7 @@ final class ChartRenderCache {
         let descriptionObject = newDescription as NSDictionary
         let descriptionChanged = description.map { !$0.isEqual(to: newDescription) } ?? true
         if descriptionChanged {
-            // Already validated: parse without logging.
+            // Cleaned where it is stored (warnings were logged then): parse without logging.
             spec = ChartDescription.parse(newDescription, logger: nil).spec
             description = descriptionObject
         }

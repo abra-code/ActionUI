@@ -123,6 +123,50 @@ final class ChartTests: XCTestCase {
         XCTAssertTrue(before.isEqual(to: try XCTUnwrap(storedDescription)))
     }
 
+    // MARK: - Where the description is cleaned
+
+    func testTheStoredDescriptionIsCleanedAtLoad() throws {
+        let messy: [String: Any] = [
+            "columns": [["name": "a", "type": "bogus"], "b", "b"],
+            "content": [["type": "BarMark", "x": ["label": "A", "value": "$a"], "y": ["label": "B", "value": 1.5, "type": "integer"],
+                         "foregroundStyle": "notacolor"]],
+            "chartLegend": 3,
+            "data": [["x", "1"]],
+        ]
+        try loadChart(messy)
+        var expected = try XCTUnwrap(Chart.normalizedDescription(messy, logger: logger))
+        expected["data"] = nil
+        XCTAssertTrue((expected as NSDictionary).isEqual(to: try XCTUnwrap(storedDescription)), "\(String(describing: storedDescription))")
+        XCTAssertEqual(rows, [["x", "1"]])
+    }
+
+    func testADescriptionSetAtRuntimeIsCleaned() throws {
+        try loadChart(description())
+        let messy = description(content: [["type": "BarMark", "x": ["label": "A", "value": "$platform"], "y": ["label": "B", "value": "$users"],
+                                           "foregroundStyle": "notacolor"]])
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "chart", value: messy)
+        let expected = try XCTUnwrap(Chart.normalizedDescription(messy, logger: logger))
+        XCTAssertTrue((expected as NSDictionary).isEqual(to: try XCTUnwrap(storedDescription)))
+    }
+
+    #if os(macOS)
+    func testADescriptionSetAtRuntimeIsFilteredForThePlatform() throws {
+        try loadChart(description())
+        var chart = description()
+        chart["chartLegend"] = "visible"
+        chart["chartLegend:macos"] = "hidden"
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "chart", value: chart)
+        XCTAssertEqual(storedDescription?["chartLegend"] as? String, "hidden")
+        XCTAssertNil(storedDescription?["chartLegend:macos"])
+    }
+    #endif
+
+    func testADescriptionThatIsNotAnObjectIsDropped() throws {
+        try loadChart(description())
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "chart", value: "not a chart")
+        XCTAssertNil(model.validatedProperties["chart"])
+    }
+
     func testSettingAnotherPropertyLeavesTheRows() throws {
         try loadChart(description(data: [["2026-08-03", "iOS", 1]]))
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "hidden", value: true)

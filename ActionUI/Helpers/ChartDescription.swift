@@ -1,9 +1,9 @@
 // Helpers/ChartDescription.swift
 //
 // Parses a Chart element's `chart` description (see Views/Chart.swift) into a typed ChartSpec.
-// The same parse serves validation, which keeps the cleaned JSON and logs what it dropped, and
-// the renderer, which re-parses the already-clean JSON without a logger. Cleaning is idempotent:
-// parsing the cleaned JSON again drops nothing.
+// The same parse serves the Chart element's store, which keeps the cleaned JSON and logs what it
+// dropped (on load, and when "chart" is set), and the renderer, which re-parses the stored JSON
+// without a logger. Cleaning is idempotent: parsing the cleaned JSON again drops nothing.
 
 import Foundation
 import SwiftUI
@@ -286,7 +286,7 @@ enum ChartDescription {
                 cleanedItems.append(name)
             default:
                 // An untyped {"name"} stays an object: as a bare name it would turn into a
-                // string column on the next re-validation.
+                // string column the next time the description is cleaned (read back and set again).
                 var object: [String: Any] = [:]
                 object["name"] = name
                 object["type"] = type?.rawValue
@@ -389,8 +389,8 @@ enum ChartDescription {
             cleaned["type"] = nil
             return (ChartPlottable(label: label, source: .selection(selectionAxis), type: .string, unit: nil), cleaned)
         }
-        // An explicit "type": "string" says the text is meant literally. Validation writes that
-        // type, so re-validation (on every setElementProperty) does not repeat the warning.
+        // An explicit "type": "string" says the text is meant literally. Cleaning writes that
+        // type, so cleaning the description again (read back and set again) does not repeat the warning.
         var literalReference = false
         if let reference = raw as? String, isReferenceShaped(reference), declaredType != .string {
             let reason = insideForEach ? "names no column" : "is outside a ForEach"
