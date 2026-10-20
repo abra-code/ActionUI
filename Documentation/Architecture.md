@@ -44,7 +44,7 @@ The design goal shared across all three renderers is the same: read a platform-n
 Maps type strings ("Button", "TextField", etc.) to view construction implementations. Extensible — new view types are registered here.
 
 ### ActionUIViewConstruction Protocol
-Every view type conforms to this protocol and reads its properties through a nested `Props` value:
+Every view type conforms to `ActionUIViewConstruction`, which names two protocols together: `ActionUIElementSpec` (what the element is, shared by every renderer: its value type, initial value and states, string conversions, insertable containers, how it reacts to a property change, and the base properties it applies itself) and `ActionUISwiftUIRenderer` (how it draws on Apple: `buildView` and `applyModifiers`). Each element reads its properties through a nested `Props` value:
 - **Props** - the element's typed properties, read from the raw JSON properties on every render. A value of the wrong type is ignored and a missing one gets its default, so an invalid document renders instead of failing. The base View properties (padding, frame, font, actionID, ...) are read the same way by `BaseModifiers`. Checking a document while it is written is the verifier's job (`actionui-verify`).
 - **buildView()** - Constructs the SwiftUI view from the element's `Props`
 - **applyModifiers()** — Applies styling and behavior modifiers (padding, frame, font, actionID, etc.)

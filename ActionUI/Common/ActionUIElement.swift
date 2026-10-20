@@ -50,45 +50,9 @@ public protocol ActionUIElementBase: Identifiable, Codable, Sendable {
     var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "persistentToolbar", "overlay", "background"
 }
 
-// Protocol for constructing SwiftUI views from ActionUIElements.
-// Public so optional add-on libraries (linked against ActionUI) can implement a custom
-// element type and register it via ActionUIRegistry.register(_:as:). Built-in elements
-// conform internally; external conformers use only the public surface (element, ViewModel
-// value/states, ActionUIModel.actionHandler, logger).
-@MainActor
-public protocol ActionUIViewConstruction {
-    static var valueType: Any.Type { get }
-    static var buildView: ((any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
-    static var initialValue: (ViewModel) -> Any? { get }
-    static var initialStates: (ViewModel) -> [String: Any] { get }
-    // Optional content-type hooks for rich-text views.
-    // parseStringValue: convert a string + content-type token → typed value (nil = fall through to generic switch)
-    // serializeValueToString: convert a typed value + content-type token → string (nil = fall through to generic logic)
-    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? { get }
-    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? { get }
-    // Containers that accept runtime insertions via ActionUIModel.insertElement / insertRow.
-    // Map from container key (e.g. "children", "destinations", "rows") to its shape.
-    // Default is empty — non-container types reject insertions.
-    static var insertableContainers: [String: ContainerShape]? { get }
-    // Called by ActionUIModel.setElementProperty after it stores a property,
-    // with the property name and the view model. Lets an element react to a runtime property
-    // change beyond re-rendering (Chart moves a new description's inline data into its rows).
-    // Default nil.
-    static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? { get }
-    // Base View property keys (for example "cornerRadius") that the element applies itself, in its
-    // buildView or applyModifiers. ActionUIRegistry.applyViewModifiers leaves them out of the base
-    // View modifiers, so they are not applied twice; the element still receives them in its own
-    // properties. Only that registry path honors it: a direct call to View.applyModifiers does not.
-    // Default: none.
-    static var handledBaseModifiers: Set<String> { get }
-}
-
-extension ActionUIViewConstruction {
-    public static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? { nil }
-    public static var handledBaseModifiers: Set<String> { [] }
-}
-
+// An element type is an ActionUIElementSpec (Core/Common/ActionUIElementSpec.swift) and, on Apple,
+// an ActionUISwiftUIRenderer (Common/ActionUISwiftUIRenderer.swift); ActionUIViewConstruction names
+// the two together.
 
 // Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views and other elements.
 // @unchecked Sendable: this is a value-type struct whose only non-Sendable stored members are the
