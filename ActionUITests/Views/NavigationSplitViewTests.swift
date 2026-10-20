@@ -354,4 +354,44 @@ final class NavigationSplitViewTests: XCTestCase {
         let validated = NavigationSplitView.validateProperties(properties, logger)
         XCTAssertEqual(validated["style"] as? String, "automatic", "Invalid style should default to 'automatic'")
     }
+
+    // ────────────────────────────────────────────────
+    // columnVisibility property seeds the columnVisibility state
+    // ────────────────────────────────────────────────
+
+    /// Loads a two-column split view whose properties are `propertiesJSON` and returns its
+    /// columnVisibility state.
+    private func loadedColumnVisibility(_ propertiesJSON: String) throws -> String? {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "NavigationSplitView",
+            "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Sidebar"}},
+            "detail": {"type": "Text", "id": 3, "properties": {"text": "Detail"}},
+            "properties": \(propertiesJSON)
+        }
+        """
+        _ = try ActionUIModel.shared.loadDescription(from: Data(jsonString.utf8), format: "json", windowUUID: windowUUID)
+        return ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 1, key: "columnVisibility") as? String
+    }
+
+    func testColumnVisibilityPropertySeedsTheState() throws {
+        XCTAssertEqual(try loadedColumnVisibility(#"{"columnVisibility": "detail"}"#), "detail")
+    }
+
+    func testEveryColumnVisibilityNameSeedsTheState() throws {
+        for name in ["automatic", "all", "doubleColumn", "detail"] {
+            ActionUIModel.resetForTesting()
+            windowUUID = UUID().uuidString
+            XCTAssertEqual(try loadedColumnVisibility(#"{"columnVisibility": "\#(name)"}"#), name)
+        }
+    }
+
+    func testColumnVisibilityStateDefaultsToAll() throws {
+        XCTAssertEqual(try loadedColumnVisibility("{}"), "all")
+    }
+
+    func testInvalidColumnVisibilityPropertySeedsAll() throws {
+        XCTAssertEqual(try loadedColumnVisibility(#"{"columnVisibility": "sideways"}"#), "all")
+    }
 }

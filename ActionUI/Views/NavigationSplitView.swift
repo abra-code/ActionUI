@@ -123,7 +123,15 @@ extension NavigationSplitView {
 
 struct NavigationSplitView: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
-    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    // states["columnVisibility"] starts from the "columnVisibility" property ("all" when absent or not
+    // one of the four names), unless the states already carry it.
+    static var initialStates: (ViewModel) -> [String: Any] = { model in
+        var states = model.states
+        if states["columnVisibility"] == nil {
+            states["columnVisibility"] = (Props(model.validatedProperties).columnVisibility ?? .all).rawValue
+        }
+        return states
+    }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
