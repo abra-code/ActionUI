@@ -1,4 +1,4 @@
-// Sources/Views/Canvas.swift
+// Core/Elements/Canvas.swift
 // See Helpers/CanvasRenderer.swift for "operations" code
 /*
  Sample JSON for Canvas:
@@ -174,7 +174,11 @@
  
  */
 
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 
 extension Canvas {
     /// Canvas's properties, parsed from the raw dictionary. Built at the start of every render.
@@ -241,8 +245,7 @@ extension Canvas {
     }
 }
 
-struct Canvas: ActionUIViewConstruction {
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+struct Canvas: ActionUIElementSpec {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -250,26 +253,4 @@ struct Canvas: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = nil
 
     static var valueType: Any.Type = Void.self
-    
-    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let props = Props(properties)
-        let ops = props.operations
-        let bg = ColorHelper.resolveColor(props.backgroundColor) ?? .clear
-        let coord = props.coordinateMode.rawValue
-        let actionID = props.actionID
-        
-        return SwiftUI.Canvas { context, size in
-            if bg != .clear {
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(bg))
-            }
-            
-            var mutableContext = context
-            CanvasRenderer.draw(ops, into: &mutableContext, size: size, coordMode: coord, logger: logger)
-        }
-        .onTapGesture {
-            if let id = actionID {
-                ActionUIModel.shared.actionHandler(id, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-            }
-        }
-    }
 }

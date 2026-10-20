@@ -124,7 +124,7 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
   the value, the rows API and the `chart` property, so Apple host code runs
   unchanged.
   Each view's `validateProperties` checks the properties the Swift renderer
-  reads (`ActionUI/Views/*.swift`) and logs a console warning for one it ignores;
+  reads (`ActionUI/Core/Elements/*.swift` and `ActionUI/Views/*.swift`) and logs a console warning for one it ignores;
   deliberate omissions log console warnings too.
 - **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `Helpers/SymbolIcon.js`
   + `assets/symbols/`): a shared glyph path - `Image`, `Button`, and `Label` all
