@@ -149,7 +149,7 @@ final class WebViewTests: XCTestCase {
         // When model.value is already a String it takes precedence over the url property.
         let viewModel = ViewModel()
         viewModel.value = "https://www.apple.com"
-        viewModel.validatedProperties = ["url": "https://www.swift.org"]
+        viewModel.properties = ["url": "https://www.swift.org"]
 
         let value = WebView.initialValue(viewModel)
 
@@ -197,7 +197,7 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(validatedProperties["url"] as? String, "https://www.swift.org", "Validated url should be correct")
         XCTAssertEqual(validatedProperties["backForwardNavigationGestures"] as? Bool, true)
@@ -218,7 +218,7 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(validatedProperties["html"] as? String, "<p>Hello, world!</p>", "html should be preserved")
         XCTAssertEqual(validatedProperties["baseURL"] as? String, "https://example.com", "baseURL should be preserved")
@@ -238,7 +238,7 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
         let validatedProperties = WebView.validateProperties(element.properties, consoleLogger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertNil(validatedProperties["url"], "url should be nil when absent")
         XCTAssertNil(validatedProperties["html"], "html should be nil when absent")
@@ -259,7 +259,7 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(validatedProperties["customUserAgent"] as? String, "TestAgent/2.0", "customUserAgent should be validated correctly")
     }
@@ -401,11 +401,11 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         // Simulate setElementValue with a new URL
         viewModel.value = "https://www.apple.com"
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.value as? String, "https://www.apple.com",
                        "model.value should reflect the updated URL")
@@ -425,7 +425,7 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         for command in ["#goBack", "#goForward", "#reload", "#stop"] {
             viewModel.value = command
@@ -593,7 +593,7 @@ final class WebViewTests: XCTestCase {
         ], logger: logger)
         let validated = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertNotNil(view, "Native backing should build a view")
     }
 
@@ -605,7 +605,7 @@ final class WebViewTests: XCTestCase {
         ], logger: logger)
         let validated = WebView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertNotNil(view, "SwiftUI backing should build a view (or native fallback)")
     }
 

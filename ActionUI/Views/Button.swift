@@ -61,7 +61,7 @@ struct Button: ActionUIViewConstruction {
     // Button has no stateful value, only triggers actions
     static var valueType: Any.Type = Void.self
     
-    // Validates properties specific to Button; baseline properties are validated by ActionUIRegistry.getValidatedProperties
+    // Validates properties specific to Button; baseline properties are validated by View.validateProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         

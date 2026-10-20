@@ -77,7 +77,7 @@ final class TextEditorTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextEditor.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -135,7 +135,7 @@ final class TextEditorTests: XCTestCase {
 
     func testTextEditorInitialValueFromTextProperty() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["text": "initial content"]
+        viewModel.properties = ["text": "initial content"]
 
         let value = TextEditor.initialValue(viewModel) as? String
         XCTAssertEqual(value, "initial content", "initialValue should fall back to text property")
@@ -144,7 +144,7 @@ final class TextEditorTests: XCTestCase {
     func testTextEditorInitialValuePrefersModelValue() {
         let viewModel = ViewModel()
         viewModel.value = "edited"
-        viewModel.validatedProperties = ["text": "initial content"]
+        viewModel.properties = ["text": "initial content"]
 
         let value = TextEditor.initialValue(viewModel) as? String
         XCTAssertEqual(value, "edited", "initialValue should prefer model.value over text property")
@@ -168,14 +168,14 @@ final class TextEditorTests: XCTestCase {
 
     func testTextEditorInitialValueFromAttributedMarkdown() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["markdown": "**bold** _italic_"]
+        viewModel.properties = ["markdown": "**bold** _italic_"]
         let value = TextEditor.initialValue(viewModel) as? String
         XCTAssertEqual(value, "**bold** _italic_", "initialValue should fall back to markdown source")
     }
 
     func testTextEditorInitialValuePrefersTextOverMarkdown() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["text": "plain", "markdown": "**bold**"]
+        viewModel.properties = ["text": "plain", "markdown": "**bold**"]
         let value = TextEditor.initialValue(viewModel) as? String
         XCTAssertEqual(value, "plain", "text property should take precedence over markdown in plain-text fallback path")
     }
@@ -190,7 +190,7 @@ final class TextEditorTests: XCTestCase {
     func testTextEditorInitialValuePrefersStringModelValueOverMarkdown() {
         let viewModel = ViewModel()
         viewModel.value = "edited"
-        viewModel.validatedProperties = ["markdown": "**bold**"]
+        viewModel.properties = ["markdown": "**bold**"]
         let value = TextEditor.initialValue(viewModel) as? String
         XCTAssertEqual(value, "edited", "String model.value should take precedence over markdown property")
     }
@@ -207,7 +207,7 @@ final class TextEditorTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextEditor.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     // MARK: - setElementValueFromString with contentType

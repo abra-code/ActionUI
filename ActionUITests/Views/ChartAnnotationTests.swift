@@ -102,7 +102,7 @@ final class ChartAnnotationTests: XCTestCase {
             model.value = selection
         }
         let built = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil),
-                                    model, windowUUID, model.validatedProperties, logger)
+                                    model, windowUUID, model.properties, logger)
         return render(AnyView(built))
     }
 
@@ -314,15 +314,18 @@ final class ChartAnnotationTests: XCTestCase {
         XCTAssertEqual(ChartSpec.annotationCount(in: spec.content, rowCount: 50), 2 + 2)
     }
 
-    // As a template row's: each row's instance is validated after substitution, and the marks
-    // are built once, not on every render.
-    func testEachRowsInstanceIsValidatedOncePerBuild() throws {
+    // As a template row's: each row's instance reads its substituted properties as given (a
+    // spacing that is not a number is no spacing, without a warning on every render), and the
+    // render cache is kept from one render to the next.
+    func testEachRowsInstanceReadsItsPropertiesQuietlyAndTheCacheIsKept() throws {
         let description = bars(annotation: ["content": ["type": "VStack", "properties": ["spacing": "$day"], "children": [text("$high")]]])
         _ = try renderElement(description, rows: rows)
-        XCTAssertEqual(logger.warnings, Array(repeating: "VStack spacing must be numeric; ignoring", count: rows.count))
+        XCTAssertEqual(logger.warnings, [])
         let model = ActionUIModel.shared.windowModels[windowUUID]!.viewModels[10]!
+        let cache = try XCTUnwrap(model.elementCache)
         _ = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil), model, windowUUID,
-                            model.validatedProperties, logger)
-        XCTAssertEqual(logger.warnings.count, rows.count)
+                            model.properties, logger)
+        XCTAssertTrue(model.elementCache === cache)
+        XCTAssertEqual(logger.warnings, [])
     }
 }

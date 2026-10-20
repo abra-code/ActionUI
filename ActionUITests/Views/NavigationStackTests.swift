@@ -74,7 +74,7 @@ final class NavigationStackTests: XCTestCase {
 
         let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -149,7 +149,7 @@ final class NavigationStackTests: XCTestCase {
 
         // Build should succeed
         let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view, "buildView should succeed with destinations")
     }
 
@@ -240,7 +240,7 @@ final class NavigationStackTests: XCTestCase {
 
         // Build should succeed for the standard branch with destinations.
         let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view)
 
         // Programmatic push: setElementState must update navigationPath (the value the
@@ -280,7 +280,7 @@ final class NavigationStackTests: XCTestCase {
 
         // Build should still succeed
         let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view, "buildView should succeed without destinations")
     }
 }

@@ -53,7 +53,7 @@ final class ListTests: XCTestCase {
         }
 
         let validatedProperties = List.validateProperties(element.properties, logger)
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
     }
@@ -295,7 +295,7 @@ final class ListTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[11], "ViewModel should be created for child id 11")
 
         let validatedProperties = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view, "buildView should succeed with heterogeneous children")
     }
 
@@ -325,7 +325,7 @@ final class ListTests: XCTestCase {
 
         // Should still build successfully (homogeneous mode)
         let validatedProperties = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view, "buildView should succeed with empty children (homogeneous fallback)")
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty in homogeneous mode")
     }

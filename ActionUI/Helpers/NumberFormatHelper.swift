@@ -17,7 +17,7 @@ enum NumberFormatHelper: Equatable, Sendable {
     case percent(minFraction: Int?, maxFraction: Int?)
     case currency(code: String, minFraction: Int?, maxFraction: Int?)
 
-    /// Parses format-related properties from a validated properties dictionary.
+    /// Parses format-related properties from an element's properties dictionary.
     /// Returns nil if no "format" key is present.
     static func resolve(from properties: [String: Any]) -> NumberFormatHelper? {
         guard let format = properties["format"] as? String else { return nil }

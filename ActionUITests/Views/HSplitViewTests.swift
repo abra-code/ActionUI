@@ -60,7 +60,7 @@ final class HSplitViewTests: XCTestCase {
 
         let validatedProperties = HSplitView.validateProperties(element.properties, logger)
 
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
@@ -142,7 +142,7 @@ final class HSplitViewTests: XCTestCase {
         }
 
         let validatedProperties = HSplitView.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
     }
@@ -170,7 +170,7 @@ final class HSplitViewTests: XCTestCase {
         }
 
         let validatedProperties = HSplitView.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView even with no children")
     }

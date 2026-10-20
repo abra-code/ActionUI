@@ -43,7 +43,7 @@ struct VSplitView: ActionUIViewConstruction {
         let initialPosition: CGFloat? = {
             guard let firstChild = children.first,
                   let childModel = windowModel?.viewModels[firstChild.id] else { return nil }
-            let props = ActionUIRegistry.shared.getValidatedProperties(element: firstChild, model: childModel)
+            let props = ActionUIRegistry.shared.currentProperties(element: firstChild, model: childModel)
             return BaseModifiers(props).frame?.idealHeight.map { CGFloat($0) }
         }()
 

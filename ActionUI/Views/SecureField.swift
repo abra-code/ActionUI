@@ -57,7 +57,7 @@ struct SecureField: ActionUIViewConstruction {
     // Design decision: Defines valueType as String to reflect secure text input for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type = String.self
 
-    // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
+    // Validates properties specific to SecureField; baseline properties are validated by View.validateProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
 
@@ -92,7 +92,7 @@ struct SecureField: ActionUIViewConstruction {
     }
 
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
-    // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
+    // Design decision: Initializes value as "" if not set, preserving shared state (the view model's properties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let title = props.title
@@ -155,6 +155,6 @@ struct SecureField: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        return Props(model.validatedProperties).text
+        return Props(model.properties).text
     }
 }

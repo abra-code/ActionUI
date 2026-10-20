@@ -267,7 +267,7 @@ struct Picker: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        // Fall back to the first option's tag from validated properties
-        return Props(model.validatedProperties).options.first?.tag
+        // Fall back to the first option's tag from the current properties
+        return Props(model.properties).options.first?.tag
     }
 }

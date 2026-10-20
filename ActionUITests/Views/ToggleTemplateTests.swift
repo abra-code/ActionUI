@@ -350,7 +350,7 @@ final class ToggleTemplateTests: XCTestCase {
         viewModel.states["content"] = packRows
         let view = ActionUIRegistry.shared.buildView(
             for: list, model: viewModel, windowUUID: windowUUID,
-            validatedProperties: List.validateProperties(list.properties, logger)
+            properties: List.validateProperties(list.properties, logger)
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
@@ -431,7 +431,7 @@ final class ToggleTemplateTests: XCTestCase {
         let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[600])
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel, windowUUID: windowUUID,
-            validatedProperties: Table.validateProperties(element.properties, logger)
+            properties: Table.validateProperties(element.properties, logger)
         )
         #if canImport(AppKit)
         XCTAssertFalse(view is SwiftUI.EmptyView)

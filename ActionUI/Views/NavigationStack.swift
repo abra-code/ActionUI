@@ -122,12 +122,12 @@ struct NavigationStack: ActionUIViewConstruction {
             guard !destinations.isEmpty,
                   content.type == "List",
                   let contentModel = contentModel,
-                  List.Props(contentModel.validatedProperties).actionID != nil else { return false }
+                  List.Props(contentModel.properties).actionID != nil else { return false }
             let children = content.subviews?["children"] as? [any ActionUIElementBase] ?? []
             guard !children.isEmpty else { return false }
             // At least one child must have destinationViewId
             return children.contains { child in
-                windowModel?.viewModels[child.id].map { BaseModifiers($0.validatedProperties).destinationViewId != nil } ?? false
+                windowModel?.viewModels[child.id].map { BaseModifiers($0.properties).destinationViewId != nil } ?? false
             }
         }()
 
@@ -234,7 +234,7 @@ struct NavigationStack: ActionUIViewConstruction {
         navStackElement: any ActionUIElementBase
     ) -> some SwiftUI.View {
         let children = content.subviews?["children"] as? [any ActionUIElementBase] ?? []
-        let actionID = List.Props(contentModel.validatedProperties).actionID
+        let actionID = List.Props(contentModel.properties).actionID
 
         // Build bidirectional maps: child element ID <-> destination view ID
         let maps = SelectionListHelper.buildIDMaps(children: children, windowModel: windowModel)

@@ -76,7 +76,7 @@ final class PhaseAnimatorTests: XCTestCase {
 
         let validatedProperties = PhaseAnimator.validateProperties(element.properties, logger)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         

@@ -46,7 +46,7 @@ final class LabelTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Label.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)        
     }

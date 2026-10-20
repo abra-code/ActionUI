@@ -19,20 +19,20 @@ public struct ActionUIView: SwiftUI.View /*, Equatable*/ {
         self.windowUUID = windowUUID
     }
 
-    // Builds the SwiftUI view using validated properties from ViewModel
+    // Builds the SwiftUI view from the element's current properties in its ViewModel
     public var body: some SwiftUI.View {
         let registry = ActionUIRegistry.shared
-        let validatedProperties = registry.getValidatedProperties(element: element, model: model)
+        let properties = registry.currentProperties(element: element, model: model)
         let baseView = registry.buildView(
             for: element,
             model: model,
             windowUUID: windowUUID,
-            validatedProperties: validatedProperties
+            properties: properties
         )
         // Apply modifiers and return the final view
         return registry.applyViewModifiers(
             to: baseView,
-            properties: validatedProperties,
+            properties: properties,
             element: element,
             model: model,
             windowUUID: windowUUID

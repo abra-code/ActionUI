@@ -245,7 +245,7 @@ struct DatePicker: ActionUIViewConstruction {
         if let initialValue = model.value as? Date {
             return initialValue
         }
-        let dateString = Props(model.validatedProperties).selectedDate
+        let dateString = Props(model.properties).selectedDate
         let initialDate = DateHelper.parseDate(from: dateString) ?? Date()
         return initialDate
     }

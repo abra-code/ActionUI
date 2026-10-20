@@ -171,6 +171,6 @@ struct Gauge: ActionUIViewConstruction {
         if let initialValue = model.value as? Double {
             return initialValue
         }
-        return Props(model.validatedProperties).initialValue
+        return Props(model.properties).initialValue
     }
 }

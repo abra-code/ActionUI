@@ -42,7 +42,7 @@ final class DisclosureGroupTests: XCTestCase {
 
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         _ = view // Ensure view is used
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)        
     }
@@ -90,7 +90,7 @@ final class DisclosureGroupTests: XCTestCase {
 
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DisclosureGroup) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
@@ -145,14 +145,14 @@ final class DisclosureGroupTests: XCTestCase {
         
         logger.log("Creating view for element \(element.id) with children", .debug)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
+        viewModel.properties = validatedProperties
         viewModel.states = ActionUIRegistry.shared.getInitialStates(forElementType: element.type, model: viewModel)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         logger.log("After build: state[\(element.id)] = \(String(describing: viewModel))", .debug)
         
         // Verify state initialization
         XCTAssertEqual(viewModel.states["isExpanded"] as? Bool, true, "State isExpanded should be true")
-        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.validatedProperties, validatedProperties), "State validatedProperties should match")
+        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.properties, validatedProperties), "State validatedProperties should match")
     }
 }

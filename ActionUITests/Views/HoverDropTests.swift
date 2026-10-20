@@ -202,10 +202,11 @@ final class HoverDropTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertNil(viewModel.validatedProperties["onHoverActionID"], "Invalid onHoverActionID should be discarded")
-        XCTAssertNil(viewModel.validatedProperties["onDropActionID"], "Invalid onDropActionID should be discarded")
-        XCTAssertNil(viewModel.validatedProperties["onDropTypes"], "Invalid onDropTypes should be discarded")
-        XCTAssertNil(viewModel.validatedProperties["onDropTargetedActionID"], "Invalid onDropTargetedActionID should be discarded")
+        // Stored as given; the base modifiers ignore values of the wrong type.
+        let mods = BaseModifiers(viewModel.properties)
+        XCTAssertNil(mods.onHoverActionID, "Invalid onHoverActionID should be ignored")
+        XCTAssertNil(mods.drop, "Invalid onDropActionID and onDropTypes should be ignored")
+        XCTAssertEqual(viewModel.properties["onHoverActionID"] as? Int, 99, "the property is kept as given")
     }
 
     // MARK: - View construction
@@ -226,9 +227,9 @@ final class HoverDropTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertEqual(viewModel.validatedProperties["onDropActionID"] as? String, "demo.dropped")
-        XCTAssertEqual(viewModel.validatedProperties["onDropTypes"] as? [String], ["public.utf8-plain-text"])
-        XCTAssertEqual(viewModel.validatedProperties["onDropTargetedActionID"] as? String, "demo.targeted")
+        XCTAssertEqual(viewModel.properties["onDropActionID"] as? String, "demo.dropped")
+        XCTAssertEqual(viewModel.properties["onDropTypes"] as? [String], ["public.utf8-plain-text"])
+        XCTAssertEqual(viewModel.properties["onDropTargetedActionID"] as? String, "demo.targeted")
 
         // Verify body can be evaluated without crashing
         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
@@ -249,7 +250,7 @@ final class HoverDropTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertEqual(viewModel.validatedProperties["onHoverActionID"] as? String, "card.hovered")
+        XCTAssertEqual(viewModel.properties["onHoverActionID"] as? String, "card.hovered")
 
         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         let _ = actionUIView.body
@@ -270,8 +271,8 @@ final class HoverDropTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertEqual(viewModel.validatedProperties["onDropActionID"] as? String, "zone.dropped")
-        XCTAssertNil(viewModel.validatedProperties["onDropTargetedActionID"])
+        XCTAssertEqual(viewModel.properties["onDropActionID"] as? String, "zone.dropped")
+        XCTAssertNil(viewModel.properties["onDropTargetedActionID"])
 
         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         let _ = actionUIView.body
@@ -292,7 +293,7 @@ final class HoverDropTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertNil(viewModel.validatedProperties["onDropTypes"])
+        XCTAssertNil(viewModel.properties["onDropTypes"])
 
         // Body evaluation must not crash even though no DropModifierView is applied
         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)

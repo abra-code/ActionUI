@@ -46,10 +46,10 @@ final class FormTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Form.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
-        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.validatedProperties, validatedProperties), "View model should include validated properties")
+        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.properties, validatedProperties), "View model should include validated properties")
         
         // Verify children
         guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {

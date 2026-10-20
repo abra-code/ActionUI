@@ -91,7 +91,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         
         // Only initialize if states is empty (first-time setup)
         if states.isEmpty {
-            let initialExpanded = Props(model.validatedProperties).isExpanded
+            let initialExpanded = Props(model.properties).isExpanded
             states["isExpanded"] = initialExpanded
         }
         

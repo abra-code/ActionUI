@@ -46,7 +46,7 @@ final class LinkTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Link.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element,  model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element,  model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
         
@@ -66,7 +66,7 @@ final class LinkTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Link.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
         // Swift's URL() does not fail when initialized with a string like "invalid-url"

@@ -98,6 +98,6 @@ struct ColorPicker: ActionUIViewConstruction {
         if let initalValue = model.value as? SwiftUI.Color {
             return initalValue
         }
-        return ColorHelper.resolveColor(Props(model.validatedProperties).selectedColor) ?? SwiftUI.Color.clear
+        return ColorHelper.resolveColor(Props(model.properties).selectedColor) ?? SwiftUI.Color.clear
     }
 }

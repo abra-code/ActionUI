@@ -126,7 +126,7 @@ final class VStackTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         XCTAssertFalse(view is SwiftUI.EmptyView, "Should render a VStack, not EmptyView")
     }
@@ -148,7 +148,7 @@ final class VStackTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         // Empty rows → VStack renders with no children, still a VStack (not EmptyView)
         XCTAssertFalse(view is SwiftUI.EmptyView)

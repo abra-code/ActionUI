@@ -76,7 +76,7 @@ public protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     // Map from container key (e.g. "children", "destinations", "rows") to its shape.
     // Default is empty — non-container types reject insertions.
     static var insertableContainers: [String: ContainerShape]? { get }
-    // Called by ActionUIModel.setElementProperty after it stores and re-validates a property,
+    // Called by ActionUIModel.setElementProperty after it stores a property,
     // with the property name and the view model. Lets an element react to a runtime property
     // change beyond re-rendering (Chart moves a new description's inline data into its rows).
     // Default nil.

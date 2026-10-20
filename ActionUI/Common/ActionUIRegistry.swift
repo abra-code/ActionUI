@@ -171,13 +171,11 @@ public class ActionUIRegistry {
         return properties
     }
     
-    // Retrieves validated properties for an element, using cached validatedProperties if available
-    func getValidatedProperties(element: any ActionUIElementBase, model: ViewModel) -> [String: Any] {
-        if !model.validatedProperties.isEmpty {
-            return model.validatedProperties
-        }
-
-        return validateProperties(forElementType: element.type, properties: element.properties)
+    // An element's current properties: its view model's store once seeded (by a load or a template
+    // row), else the element's own. Never writes: a write during a view body would be a model
+    // mutation inside a render.
+    func currentProperties(element: any ActionUIElementBase, model: ViewModel) -> [String: Any] {
+        model.hasProperties ? model.properties : element.properties
     }
     
     // Retrieves the value type for a given view element type
@@ -219,21 +217,16 @@ public class ActionUIRegistry {
         return [:]
     }
     
-    // Builds a SwiftUI view for an element, only passing validatedProperties, leaving value and view-specific state to buildView
-    func buildView(for element: any ActionUIElementBase, model: ViewModel, windowUUID: String, validatedProperties: [String: Any]) -> any SwiftUI.View {
-        // Initialize shared state if not present
-        // Design decision: Ensures all views have validatedProperties, with value and view-specific state handled by buildView
-        if model.validatedProperties.isEmpty {
-            model.validatedProperties = validatedProperties
-        }
-
+    // Builds a SwiftUI view for an element from its current properties, leaving value and
+    // view-specific state to buildView
+    func buildView(for element: any ActionUIElementBase, model: ViewModel, windowUUID: String, properties: [String: Any]) -> any SwiftUI.View {
         // Merge any runtime structural mutations (insertElement / removeElement) before
         // passing the element to view-specific construction. The view-type closures still
         // read element.subviews[container]; the merged element makes those reads see the live state.
         let effectiveElement = applyDynamicSubviews(to: element, model: model)
 
         if let constructionType = viewRegistrations[effectiveElement.type] {
-            return constructionType.buildView(effectiveElement, model, windowUUID, validatedProperties, logger)
+            return constructionType.buildView(effectiveElement, model, windowUUID, properties, logger)
         }
         logger.log("No construction type found for element ID \(effectiveElement.id) of type '\(effectiveElement.type)' in window \(windowUUID), returning EmptyView", .warning)
 
@@ -266,7 +259,7 @@ public class ActionUIRegistry {
     }
 
     // Applies modifiers to a view, using a ViewModel for dynamic updates
-    // Design decision: Uses validatedProperties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
+    // Design decision: Uses the current properties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
     // Applies baseline View modifiers first, then view-specific modifiers, per the guide's modifier separation principle
     func applyViewModifiers(to view: any SwiftUI.View, properties: [String: Any], element: any ActionUIElementBase, model: ViewModel, windowUUID: String) -> AnyView {
         

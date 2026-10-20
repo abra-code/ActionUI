@@ -74,7 +74,7 @@ final class NavigationLinkTests: XCTestCase {
 
         let validatedProperties = NavigationLink.validateProperties(element.properties, logger)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -140,7 +140,7 @@ final class NavigationLinkTests: XCTestCase {
         }
 
         XCTAssertEqual(element.properties["title"] as? String, "Go to Detail")
-        XCTAssertEqual(viewModel.validatedProperties["destinationViewId"] as? Int, 10, "destinationViewId should be validated as Int")
+        XCTAssertEqual(viewModel.properties["destinationViewId"] as? Int, 10, "destinationViewId should be validated as Int")
         XCTAssertNil(element.subviews?["destination"], "No inline destination should be present")
 
         // initialValue should return the destinationViewId
@@ -167,8 +167,8 @@ final class NavigationLinkTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let validatedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view, "buildView should succeed for Form 2 NavigationLink with destinationViewId")
     }
 

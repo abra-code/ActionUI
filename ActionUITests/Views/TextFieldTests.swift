@@ -83,7 +83,7 @@ final class TextFieldTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -143,7 +143,7 @@ final class TextFieldTests: XCTestCase {
 
     func testTextFieldInitialValueFromTextProperty() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["text": "prefilled"]
+        viewModel.properties = ["text": "prefilled"]
 
         let value = TextField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "prefilled", "initialValue should fall back to text property")
@@ -152,7 +152,7 @@ final class TextFieldTests: XCTestCase {
     func testTextFieldInitialValuePrefersModelValue() {
         let viewModel = ViewModel()
         viewModel.value = "typed"
-        viewModel.validatedProperties = ["text": "prefilled"]
+        viewModel.properties = ["text": "prefilled"]
 
         let value = TextField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "typed", "initialValue should prefer model.value over text property")
@@ -210,7 +210,7 @@ final class TextFieldTests: XCTestCase {
 
     func testTextFieldFormatInitialValueFromIntProperty() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["format": "integer", "value": 42]
+        viewModel.properties = ["format": "integer", "value": 42]
 
         let value = TextField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "42", "initialValue should convert Int value to String")
@@ -218,7 +218,7 @@ final class TextFieldTests: XCTestCase {
 
     func testTextFieldFormatInitialValueFromDoubleProperty() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["format": "decimal", "value": 3.14]
+        viewModel.properties = ["format": "decimal", "value": 3.14]
 
         let value = TextField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "3.14", "initialValue should convert Double value to String")
@@ -226,7 +226,7 @@ final class TextFieldTests: XCTestCase {
 
     func testTextFieldFormatInitialValueDefault() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["format": "integer"]
+        viewModel.properties = ["format": "integer"]
 
         let value = TextField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "0", "initialValue for formatted field should default to '0'")
@@ -285,8 +285,8 @@ final class TextFieldTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        viewModel.properties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     // MARK: - Formatted TextField construction
@@ -305,8 +305,8 @@ final class TextFieldTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        viewModel.properties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     func testTextFieldCurrencyFormatConstruction() throws {
@@ -325,8 +325,8 @@ final class TextFieldTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        viewModel.properties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     func testTextFieldPercentFormatConstruction() throws {
@@ -343,7 +343,7 @@ final class TextFieldTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        viewModel.properties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 }

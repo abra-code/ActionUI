@@ -83,7 +83,7 @@ final class SecureFieldTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = SecureField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -143,7 +143,7 @@ final class SecureFieldTests: XCTestCase {
 
     func testSecureFieldInitialValueFromTextProperty() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["text": "prefilled"]
+        viewModel.properties = ["text": "prefilled"]
 
         let value = SecureField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "prefilled", "initialValue should fall back to text property")
@@ -152,7 +152,7 @@ final class SecureFieldTests: XCTestCase {
     func testSecureFieldInitialValuePrefersModelValue() {
         let viewModel = ViewModel()
         viewModel.value = "typed"
-        viewModel.validatedProperties = ["text": "prefilled"]
+        viewModel.properties = ["text": "prefilled"]
 
         let value = SecureField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "typed", "initialValue should prefer model.value over text property")

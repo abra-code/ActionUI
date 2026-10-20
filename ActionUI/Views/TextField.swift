@@ -334,6 +334,6 @@ struct TextField: ActionUIViewConstruction {
             return initialValue
         }
         // A formatted field starts from "value" (may be numeric from JSON); a plain one from "text".
-        return Props(model.validatedProperties).initialValue
+        return Props(model.properties).initialValue
     }
 }

@@ -114,7 +114,7 @@ struct TextEditor: ActionUIViewConstruction {
         if let attributedValue = model.value as? AttributedString {
             return String(attributedValue.characters)
         }
-        let props = Props(model.validatedProperties)
+        let props = Props(model.properties)
         if let text = props.text {
             return text
         }

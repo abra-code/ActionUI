@@ -92,8 +92,8 @@ struct CachedImage: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Effective source: the runtime value (setElementValue) wins, else the "url" JSON property.
-        // buildView receives the validated `properties` directly, whereas initialValue cannot read the
-        // "url" seed (model.validatedProperties is internal to ActionUI), so the seed is resolved here -
+        // buildView receives the element's `properties` directly, whereas initialValue cannot read the
+        // "url" seed (model.properties is internal to ActionUI), so the seed is resolved here -
         // the same split the ActionUIQuickLook add-on uses for its filePath seed.
         let runtime = (model.value as? String).flatMap { $0.isEmpty ? nil : $0 }
         let urlString = runtime ?? (properties["url"] as? String)
@@ -119,7 +119,7 @@ struct CachedImage: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
 
     // Value-primary element. The "url" JSON seed is resolved inside buildView (an external add-on
-    // cannot read model.validatedProperties - it is internal to ActionUI), so initialValue only
+    // cannot read model.properties - it is internal to ActionUI), so initialValue only
     // reflects the runtime value. Returns "" (not nil) when no value is set yet, so the non-Void
     // String valueType has a non-nil initial value - mirroring ActionUIQuickLook and avoiding the
     // engine's "initial value not provided" error. An empty string means "no runtime source", and

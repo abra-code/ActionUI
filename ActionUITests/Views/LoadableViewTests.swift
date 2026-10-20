@@ -90,7 +90,7 @@ final class LoadableViewTests: XCTestCase {
         
 //        // Verify view construction
 //        let validatedProperties = LoadableView.validateProperties(element.properties, logger)
-//        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+//        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 //        XCTAssertTrue(view is SwiftUI.AnyView, "Built view should be wrapped in AnyView")
     }
 
@@ -321,7 +321,7 @@ final class LoadableViewTests: XCTestCase {
     func testViewDidLoadActionIDPropertyValidation() throws {
         let windowModel = try loadRootWithViewDidLoadAction()
         let viewModel = windowModel.viewModels[100]!
-        XCTAssertEqual(viewModel.validatedProperties["viewDidLoadActionID"] as? String, "params.loaded",
+        XCTAssertEqual(viewModel.properties["viewDidLoadActionID"] as? String, "params.loaded",
                        "viewDidLoadActionID should be preserved in validated properties")
     }
 

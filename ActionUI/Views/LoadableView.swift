@@ -94,7 +94,7 @@ struct LoadableView: ActionUIViewConstruction {
         let props = Props(properties)
         let isContentView = false
         let viewDidLoadActionID = props.viewDidLoadActionID
-        // Use model.value if set (heuristics to interpret), else fallback to validated properties
+        // Use model.value if set (heuristics to interpret), else fall back to the current properties
         guard let value = Self.initialValue(model) as? String, !value.isEmpty else {
             logger.log("No valid source for LoadableView, displaying error SwiftUI.Text", .warning)
             return SwiftUI.Text("No valid source provided")
@@ -141,7 +141,7 @@ struct LoadableView: ActionUIViewConstruction {
             return initialValue
         }
         // Fallback to properties (prioritize url > filePath > name)
-        let props = Props(model.validatedProperties)
+        let props = Props(model.properties)
         if let url = props.url {
             return url
         } else if let filePath = props.filePath {

@@ -64,7 +64,7 @@ final class TableTests: XCTestCase {
 
         let validatedProperties = Table.validateProperties(element.properties, logger)
 
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
 

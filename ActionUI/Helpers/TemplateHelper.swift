@@ -33,7 +33,7 @@
 
  Rendering:
    All template views are rendered through the standard ActionUI registry pipeline
-   (validateProperties → buildView → applyViewModifiers) using throw-away ViewModels
+   (buildView, then applyViewModifiers) using throw-away ViewModels
    with TemplateContext set. This gives template instances the same property, modifier,
    and view-building support as regular ActionUI views — no special-casing required.
 
@@ -275,16 +275,14 @@ struct TemplateHelper {
 
         let vm = ViewModel()
         vm.templateContext = TemplateContext(parentID: parentID, rowIndex: rowIndex, row: row)
+        vm.seedProperties(substitutedProps)
 
         let registry = ActionUIRegistry.shared
-        let validated = registry.validateProperties(
-            forElementType: template.type, properties: substitutedProps
-        )
         let view = registry.buildView(
-            for: template, model: vm, windowUUID: windowUUID, validatedProperties: validated
+            for: template, model: vm, windowUUID: windowUUID, properties: substitutedProps
         )
         return registry.applyViewModifiers(
-            to: view, properties: validated, element: template, model: vm, windowUUID: windowUUID
+            to: view, properties: substitutedProps, element: template, model: vm, windowUUID: windowUUID
         )
     }
 }

@@ -183,7 +183,7 @@ final class ToolbarItemGroupTests: XCTestCase {
             XCTFail("ToolbarItemGroup ViewModel should exist"); return
         }
 
-        XCTAssertEqual(groupModel.validatedProperties["placement"] as? String, "primaryAction")
+        XCTAssertEqual(groupModel.properties["placement"] as? String, "primaryAction")
     }
 
     // MARK: - Mixed ToolbarItem and ToolbarItemGroup in same toolbar

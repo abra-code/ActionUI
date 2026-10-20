@@ -122,8 +122,8 @@ struct RichTextView: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Effective source: the runtime value (setElementValue) wins, else the "markdown" JSON property.
-        // buildView receives the validated `properties` directly, whereas initialValue cannot read the
-        // "markdown" seed (model.validatedProperties is internal to ActionUI), so the seed is resolved
+        // buildView receives the element's `properties` directly, whereas initialValue cannot read the
+        // "markdown" seed (model.properties is internal to ActionUI), so the seed is resolved
         // here - the same split the ActionUIQuickLook / ActionUICachedImage add-ons use for their seeds.
         let runtime = (model.value as? String).flatMap { $0.isEmpty ? nil : $0 }
         let markdown = runtime ?? (properties["markdown"] as? String) ?? ""
@@ -180,7 +180,7 @@ struct RichTextView: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
 
     // Value-primary element. The "markdown" JSON seed is resolved inside buildView (an external add-on
-    // cannot read model.validatedProperties - it is internal to ActionUI), so initialValue only reflects
+    // cannot read model.properties - it is internal to ActionUI), so initialValue only reflects
     // the runtime value. Returns "" (not nil) when no value is set yet, so the non-Void String valueType
     // has a non-nil initial value - mirroring the other add-ons and avoiding the engine's "initial value
     // not provided" error. An empty string means "no runtime source", and buildView then falls back to

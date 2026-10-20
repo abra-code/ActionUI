@@ -83,7 +83,7 @@ struct CommandMenu : ActionUIPropertyValidation {
         
         var name = properties["name"] as? String ?? "Menu"
         if name.isEmpty {
-            logger.log("CommandMenu name must be a non-empty string; defaulting to 'Menu'", .error)
+            logger.log("CommandMenu name must be a non-empty string; defaulting to 'Menu'", .warning)
             name = "Menu"
         }
         let children = (element.subviews?["children"] as? [any ActionUIElementBase]) ?? []

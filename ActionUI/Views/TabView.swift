@@ -281,7 +281,7 @@ struct TabView: ActionUIViewConstruction {
         if let initialValue = model.value as? Int {
             return initialValue
         }
-        return Props(model.validatedProperties).selection
+        return Props(model.properties).selection
     }
 }
 

@@ -88,7 +88,7 @@ struct Text: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in
         if let attr = model.value as? AttributedString { return attr }
         if let str = model.value as? String { return str }
-        let props = Props(model.validatedProperties)
+        let props = Props(model.properties)
         if let attrText = props.markdown {
             return (try? AttributedString(markdown: attrText)) ?? AttributedString(attrText)
         }

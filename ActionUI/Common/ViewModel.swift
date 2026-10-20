@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 /*
- ViewModel manages the state for a single view, including its value and validated properties.
+ ViewModel manages the state for a single view, including its value and current properties.
 */
 
 /// Context passed through the ViewModel when rendering a template instance.
@@ -47,14 +47,19 @@ final class ViewModelExtras {
 
 // Public as a type so it can appear in the public ActionUIViewConstruction signatures that
 // add-on element types implement. Only `value` and `states` are public surface; the rest of the
-// view-model machinery (validated properties,
+// view-model machinery (current properties,
 // template context, refresh/insertion state) stays internal, and `init()` is internal so
 // only the engine constructs view models.
 @MainActor
 public class ViewModel: ObservableObject {
     @Published public var value: Any?
     @Published public var states: [String: Any]
-    var validatedProperties: [String: Any] // Non-published cache
+    // The element's current properties: its JSON properties plus every change made through
+    // ActionUIModel.setElementProperty. Renderers, getElementProperty and the element's
+    // initialValue read this. Non-published: setElementProperty sends objectWillChange itself.
+    var properties: [String: Any]
+    // False until seedProperties runs (a load, or a template row); then `properties` is the store.
+    private(set) var hasProperties = false
     var elementType: String // View type name (e.g. "TextField", "Slider")
     var mutationToken: Int = 0 // Incremented on every external property/state/value mutation
 
@@ -103,8 +108,14 @@ public class ViewModel: ObservableObject {
     init() {
         self.value = nil
         self.states = [:]
-        self.validatedProperties = [:]
+        self.properties = [:]
         self.elementType = ""
+    }
+
+    // Sets the element's properties as loaded (or as substituted for a template row).
+    func seedProperties(_ properties: [String: Any]) {
+        self.properties = properties
+        hasProperties = true
     }
 
     // Ends an in-flight pull-to-refresh, resuming the suspended `.refreshable` action so its
@@ -117,17 +128,5 @@ public class ViewModel: ObservableObject {
             refreshContinuation = nil
             continuation.resume()
         }
-    }
-
-    // Validate properties for the given element, updating validatedProperties
-    func validateProperties(for element: any ActionUIElementBase) {
-        let registry = ActionUIRegistry.shared
-        self.validatedProperties = registry.getValidatedProperties(element: element, model: self)
-    }
-
-    // Validate properties from a dictionary, typically for runtime updates
-    func validateProperties(_ properties: [String: Any], elementType: String, logger: any ActionUILogger) {
-        let registry = ActionUIRegistry.shared
-        self.validatedProperties = registry.validateProperties(forElementType: elementType, properties: properties)
     }
 }

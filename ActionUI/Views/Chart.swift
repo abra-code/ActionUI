@@ -231,14 +231,14 @@ struct Chart: ActionUIViewConstruction {
     // rather than on every render; the render cache then parses the cleaned description.
     @MainActor
     private static func normalizeStoredDescription(_ model: ViewModel, logger: any ActionUILogger) {
-        guard let value = model.validatedProperties["chart"] else {
+        guard let value = model.properties["chart"] else {
             return
         }
         if let description = normalizedDescription(value, logger: logger) {
-            model.validatedProperties["chart"] = description
+            model.properties["chart"] = description
         } else {
             logger.log("Chart 'chart' must be an object (the chart description); ignoring", .warning)
-            model.validatedProperties["chart"] = nil
+            model.properties["chart"] = nil
         }
     }
 
@@ -265,7 +265,7 @@ struct Chart: ActionUIViewConstruction {
         // A selection the new description cannot hold (another axis type, no such selection)
         // is cleared, so the value never reports what the chart does not show.
         if let value = model.value as? String, !value.isEmpty {
-            let spec = ChartDescription.parse(model.validatedProperties["chart"] as? [String: Any] ?? [:], logger: nil).spec.selection
+            let spec = ChartDescription.parse(model.properties["chart"] as? [String: Any] ?? [:], logger: nil).spec.selection
             let fitted = ChartSelection.decode(value, spec: spec).encode(spec: spec)
             if fitted != value {
                 model.value = fitted
@@ -278,10 +278,10 @@ struct Chart: ActionUIViewConstruction {
     // setting it again cannot wipe rows a host streamed in.
     @MainActor
     private static func takeInlineData(_ model: ViewModel) -> [[String]]? {
-        guard var description = model.validatedProperties["chart"] as? [String: Any],
+        guard var description = model.properties["chart"] as? [String: Any],
               let data = description["data"] as? [Any] else { return nil }
         description["data"] = nil
-        model.validatedProperties["chart"] = description
+        model.properties["chart"] = description
         return ChartDescription.rowStrings(data)
     }
 

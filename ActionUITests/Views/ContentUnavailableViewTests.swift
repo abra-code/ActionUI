@@ -105,9 +105,9 @@ final class ContentUnavailableViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
+        viewModel.properties = validatedProperties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.value as? String, "No Favorites")
     }
@@ -125,9 +125,9 @@ final class ContentUnavailableViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
+        viewModel.properties = validatedProperties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.value as? String, "planets")
     }
@@ -144,9 +144,9 @@ final class ContentUnavailableViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
+        viewModel.properties = validatedProperties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.value as? String, "")
     }
@@ -163,9 +163,9 @@ final class ContentUnavailableViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        viewModel.validatedProperties = validatedProperties
+        viewModel.properties = validatedProperties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
 
         XCTAssertEqual(viewModel.value as? String, "Nothing Here")
     }

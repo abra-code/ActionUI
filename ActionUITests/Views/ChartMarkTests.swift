@@ -92,7 +92,7 @@ final class ChartMarkTests: XCTestCase {
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 10, rows: rows)
         let model = ActionUIModel.shared.windowModels[windowUUID]!.viewModels[10]!
         let built = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil),
-                                    model, windowUUID, model.validatedProperties, logger)
+                                    model, windowUUID, model.properties, logger)
         return render(AnyView(built))
     }
 

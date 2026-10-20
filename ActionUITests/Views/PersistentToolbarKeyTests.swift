@@ -189,9 +189,9 @@ final class PersistentToolbarKeyTests: XCTestCase {
         XCTAssertEqual(viewModels[60]?.elementType, "ToolbarItem")
         XCTAssertEqual(viewModels[61]?.elementType, "Button")
 
-        // Placement is read from the ViewModel's validated properties at render time,
-        // falling back to the raw property; validation has to have run for the first path.
-        XCTAssertEqual(viewModels[60]?.validatedProperties["placement"] as? String, "topBarTrailing")
+        // Placement is read from the ViewModel's current properties at render time, which
+        // loading seeds from the element's properties.
+        XCTAssertEqual(viewModels[60]?.properties["placement"] as? String, "topBarTrailing")
     }
 
     func testPersistentToolbarItemsAreFoundInTheElementTree() throws {

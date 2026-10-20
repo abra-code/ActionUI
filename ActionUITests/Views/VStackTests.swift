@@ -60,7 +60,7 @@ final class VStackTests: XCTestCase {
 
         let validatedProperties = VStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -171,7 +171,7 @@ final class VStackTests: XCTestCase {
 
         let validatedProperties = VStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         

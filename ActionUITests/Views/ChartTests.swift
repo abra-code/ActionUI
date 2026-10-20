@@ -164,7 +164,7 @@ final class ChartTests: XCTestCase {
     func testADescriptionThatIsNotAnObjectIsDropped() throws {
         try loadChart(description())
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "chart", value: "not a chart")
-        XCTAssertNil(model.validatedProperties["chart"])
+        XCTAssertNil(model.properties["chart"])
     }
 
     func testSettingAnotherPropertyLeavesTheRows() throws {
@@ -405,7 +405,7 @@ final class ChartTests: XCTestCase {
     func testTheChartRendersAndItsNeutralModifiersDrawNothingExtra() throws {
         try loadChart(description(data: [["2026-08-03", "iOS", 10], ["2026-08-10", "iOS", 14], ["2026-08-03", "macOS", 7], ["2026-08-10", "macOS", 9]]))
         let built = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil),
-                                    model, windowUUID, model.validatedProperties, logger)
+                                    model, windowUUID, model.properties, logger)
         let chartImage = try XCTUnwrap(render(AnyView(built)))
 
         // The same marks, typed, with only an identity plot style: Swift Charts itself shifts a few
@@ -520,7 +520,7 @@ final class ChartTests: XCTestCase {
             ActionUIModel.resetForTesting()
             try loadChart(chart)
             let built = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil),
-                                        model, windowUUID, model.validatedProperties, logger)
+                                        model, windowUUID, model.properties, logger)
             // The chart sits 40 points below an empty band; a bar that leaves the plot draws into it.
             let image = try XCTUnwrap(render(AnyView(built).padding(.top, 40)))
             let bandBytes = image.width * 4 * 60    // the top 30 points at 2x

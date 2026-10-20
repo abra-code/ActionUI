@@ -137,7 +137,7 @@ final class StepperTests: XCTestCase {
 
         // Verify initial value; label rendering is verified via UI tests
         XCTAssertEqual(viewModel.value as? Double, 5.0)
-        XCTAssertEqual(viewModel.validatedProperties["labelFormat"] as? String, "Quantity: %.0f")
+        XCTAssertEqual(viewModel.properties["labelFormat"] as? String, "Quantity: %.0f")
     }
 
     func testStepperValidatePropertiesDefaults() {

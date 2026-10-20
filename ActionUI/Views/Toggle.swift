@@ -80,7 +80,7 @@ struct Toggle: ActionUIViewConstruction {
     }
     
     // Builds the Toggle view, binding isOn to state
-    // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    // Design decision: Initializes value as false if not set, preserving shared state (the view model's properties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         // The bindings' main-actor closures capture these Sendable values, not the non-Sendable
@@ -161,6 +161,6 @@ struct Toggle: ActionUIViewConstruction {
         if let initialValue = model.value as? Bool {
             return initialValue
         }
-        return Props(model.validatedProperties).isOn ?? false
+        return Props(model.properties).isOn ?? false
     }
 }

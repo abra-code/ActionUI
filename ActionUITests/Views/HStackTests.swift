@@ -46,7 +46,7 @@ final class HStackTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -154,7 +154,7 @@ final class HStackTests: XCTestCase {
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         XCTAssertEqual(validatedProperties["alignment"] as? String, "top")
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     func testHStackNilSpacing() throws {
@@ -171,7 +171,7 @@ final class HStackTests: XCTestCase {
         let element = try! ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         

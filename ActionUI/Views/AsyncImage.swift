@@ -126,6 +126,6 @@ struct AsyncImage: ActionUIViewConstruction {
             return storedValue
         }
         // Fall back to the static "url" property from JSON
-        return Props(model.validatedProperties).url
+        return Props(model.properties).url
     }
 }

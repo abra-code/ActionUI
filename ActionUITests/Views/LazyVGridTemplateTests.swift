@@ -85,7 +85,7 @@ final class LazyVGridTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         XCTAssertFalse(view is SwiftUI.EmptyView, "Should render a LazyVGrid, not EmptyView")
     }
@@ -107,7 +107,7 @@ final class LazyVGridTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         // Empty rows: the grid renders with no cells, still a LazyVGrid (not EmptyView)
         XCTAssertFalse(view is SwiftUI.EmptyView)

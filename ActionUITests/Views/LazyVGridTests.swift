@@ -67,12 +67,12 @@ final class LazyVGridTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.validatedProperties
+        let validatedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        validatedProperties: validatedProperties
+                        properties: validatedProperties
                     )
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
@@ -174,12 +174,12 @@ final class LazyVGridTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.validatedProperties
+        let validatedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        validatedProperties: validatedProperties
+                        properties: validatedProperties
                     )
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)

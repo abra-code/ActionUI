@@ -146,7 +146,7 @@
                                             // "inlineLarge" renders a large title that collapses when scrolling (iOS 17+).
                                             // Meaningful when the view is inside a NavigationStack or NavigationSplitView.
      "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
-                                            // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
+                                            // Does not apply any modifier; the value is kept in the element's properties for navigation logic.
                                             // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
                                             // and by sidebar List children in NavigationSplitView to select a destination view.
      "textSelection": "enabled",            // Optional: "enabled" or "disabled". Controls whether the user can select text in this view.
@@ -317,12 +317,12 @@ private func resolveAnimation(_ config: BaseModifiers.Animation) -> Animation {
 private func resolveAnimationWatchedValue(
     named target: String?,
     mutationToken: Int,
-    validatedProperties: [String: Any],
+    properties: [String: Any],
     states: [String: Any],
     viewValue: Any?
 ) -> AnyHashable {
     guard let target else { return mutationToken }
-    if let v = validatedProperties[target] as? AnyHashable { return v }
+    if let v = properties[target] as? AnyHashable { return v }
     if let v = states[target] as? AnyHashable { return v }
     if target == "value", let v = viewValue as? AnyHashable { return v }
     return AnyHashable(0)
@@ -1490,7 +1490,7 @@ struct View: ActionUIViewConstruction {
             let watched = resolveAnimationWatchedValue(
                 named: animConfig.watchedValue,
                 mutationToken: viewModel?.mutationToken ?? 0,
-                validatedProperties: properties,
+                properties: properties,
                 states: viewModel?.states ?? [:],
                 viewValue: viewModel?.value
             )

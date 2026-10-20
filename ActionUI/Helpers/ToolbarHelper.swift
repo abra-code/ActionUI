@@ -389,7 +389,7 @@ struct ToolbarModifierView<Content: SwiftUI.View>: SwiftUI.View {
         for item in toolbarItems {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             let placement = ToolbarHelper.resolvePlacement(ToolbarHelper.placementName(
-                current: windowModel?.viewModels[item.id]?.validatedProperties, element: item.properties
+                current: windowModel?.viewModels[item.id]?.properties, element: item.properties
             ))
             let capturedItem = item
             let capturedWindowUUID = windowUUID

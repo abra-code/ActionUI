@@ -165,6 +165,6 @@ struct ProgressView: ActionUIViewConstruction {
         if let initialValue = model.value as? Double {
             return initialValue
         }
-        return Props(model.validatedProperties).value
+        return Props(model.properties).value
     }
 }

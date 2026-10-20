@@ -223,110 +223,110 @@ struct WindowGroup : ActionUIPropertyValidation {
             if commands.count > 0 {
                 let command = commands[0]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 1 {
                 let command = commands[1]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 2 {
                 let command = commands[2]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 3 {
                 let command = commands[3]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 4 {
                 let command = commands[4]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 5 {
                 let command = commands[5]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 6 {
                 let command = commands[6]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 7 {
                 let command = commands[7]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 8 {
                 let command = commands[8]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }
             if commands.count > 9 {
                 let command = commands[9]
                 if let model = windowModel.viewModels[command.id] {
-                    let validatedProperties = registry.getValidatedProperties(element: command, model: model)
+                    let commandProperties = registry.currentProperties(element: command, model: model)
                     if command.type == "CommandMenu" {
-                        CommandMenu.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandMenu.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     } else if command.type == "CommandGroup" {
-                        CommandGroup.build(command, windowUUID: windowUUID, properties: validatedProperties, logger: logger)
+                        CommandGroup.build(command, windowUUID: windowUUID, properties: commandProperties, logger: logger)
                     }
                 }
             }

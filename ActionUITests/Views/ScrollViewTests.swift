@@ -74,7 +74,7 @@ final class ScrollViewTests: XCTestCase {
 
         let validatedProperties = ScrollView.validateProperties(element.properties, logger)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         

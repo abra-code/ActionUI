@@ -61,8 +61,8 @@ final class SelectionListHelperTests: XCTestCase {
         """
         let element = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
-        windowModel?.viewModels[10]?.validatedProperties = ["text": "One", "destinationViewId": 100]
-        windowModel?.viewModels[11]?.validatedProperties = ["text": "Two", "destinationViewId": "101"]
+        windowModel?.viewModels[10]?.properties = ["text": "One", "destinationViewId": 100]
+        windowModel?.viewModels[11]?.properties = ["text": "Two", "destinationViewId": "101"]
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         let maps = SelectionListHelper.buildIDMaps(children: children, windowModel: windowModel)
 

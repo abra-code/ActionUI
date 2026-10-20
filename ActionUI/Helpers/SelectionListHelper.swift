@@ -16,7 +16,7 @@ struct SelectionListHelper {
         var childToDestination: [Int: Int] = [:]
         var destinationToChild: [Int: Int] = [:]
         for child in children {
-            if let destId = windowModel?.viewModels[child.id].flatMap({ BaseModifiers($0.validatedProperties).destinationViewId }) {
+            if let destId = windowModel?.viewModels[child.id].flatMap({ BaseModifiers($0.properties).destinationViewId }) {
                 childToDestination[child.id] = destId
                 destinationToChild[destId] = child.id
             }
@@ -60,7 +60,7 @@ struct SelectionListHelper {
         }
         .animation(rowAnimation, value: rowIDs)
         if let listModel = listModel {
-            let listProps = ActionUIRegistry.shared.getValidatedProperties(element: listElement, model: listModel)
+            let listProps = ActionUIRegistry.shared.currentProperties(element: listElement, model: listModel)
             ActionUIRegistry.shared.applyViewModifiers(to: listView, properties: listProps, element: listElement, model: listModel, windowUUID: windowUUID)
         } else {
             listView

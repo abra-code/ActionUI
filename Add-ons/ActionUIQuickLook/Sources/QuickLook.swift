@@ -88,7 +88,7 @@ struct QuickLook: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
 
     // Value-primary element. The filePath JSON seed is resolved inside the representable (the
-    // element's validated properties stay internal to ActionUI, so initialValue cannot read them).
+    // element's current properties stay internal to ActionUI, so initialValue cannot read them).
     // Returns "" (not nil) when no value is set yet, so the non-Void String valueType has a
     // non-nil initial value - mirroring WebView, and avoiding the engine's "initial value not
     // provided" error. An empty string means "no source" (the representable shows nothing until the

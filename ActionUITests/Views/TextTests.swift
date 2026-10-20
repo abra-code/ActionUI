@@ -45,7 +45,7 @@ final class TextTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Text.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -126,14 +126,14 @@ final class TextTests: XCTestCase {
 
     func testTextInitialValueFromMarkdown() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["markdown": "**bold**"]
+        viewModel.properties = ["markdown": "**bold**"]
         let value = Text.initialValue(viewModel) as? AttributedString
         XCTAssertNotNil(value, "initialValue should return the markdown source")
     }
 
     func testTextMarkdownTakesPrecedenceOverText() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["text": "plain", "markdown": "**bold**"]
+        viewModel.properties = ["text": "plain", "markdown": "**bold**"]
         let value = Text.initialValue(viewModel) as? AttributedString
         XCTAssertNotNil(value, "markdown should take precedence over text in initialValue")
     }
@@ -141,7 +141,7 @@ final class TextTests: XCTestCase {
     func testTextInitialValuePrefersModelValueOverMarkdown() {
         let viewModel = ViewModel()
         viewModel.value = "programmatic"
-        viewModel.validatedProperties = ["markdown": "**bold**"]
+        viewModel.properties = ["markdown": "**bold**"]
         let value = Text.initialValue(viewModel) as? String
         XCTAssertEqual(value, "programmatic", "model.value should take precedence over markdown")
     }
@@ -155,7 +155,7 @@ final class TextTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Text.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     // MARK: - setElementValueFromString with contentType

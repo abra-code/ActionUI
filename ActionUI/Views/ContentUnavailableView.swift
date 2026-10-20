@@ -141,7 +141,7 @@ struct ContentUnavailableView: ActionUIViewConstruction {
             return storedValue
         }
         // For search variant, use query; otherwise use title
-        let props = Props(model.validatedProperties)
+        let props = Props(model.properties)
         if props.search {
             return props.query
         }

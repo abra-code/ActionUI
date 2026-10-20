@@ -265,7 +265,7 @@ final class CanvasTests: XCTestCase {
             for: element,
             model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProperties
+            properties: validatedProperties
         )
         
         XCTAssertFalse(view is SwiftUI.EmptyView, "Canvas view should not be EmptyView")
@@ -306,7 +306,7 @@ final class CanvasTests: XCTestCase {
             for: element,
             model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProperties
+            properties: validatedProperties
         )
         
         XCTAssertFalse(view is SwiftUI.EmptyView, "Empty Canvas should still produce a view")
@@ -397,7 +397,7 @@ final class CanvasTests: XCTestCase {
             for: element,
             model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validated
+            properties: validated
         )
         
         XCTAssertFalse(view is SwiftUI.EmptyView, "Canvas with custom path should produce a view")

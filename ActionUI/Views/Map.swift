@@ -310,7 +310,7 @@ struct Map: ActionUIViewConstruction {
         if let initalValue = model.value as? CLLocationCoordinate2D {
             return initalValue
         }
-        let coordinate = Props(model.validatedProperties).coordinate
+        let coordinate = Props(model.properties).coordinate
         return CLLocationCoordinate2D(latitude: coordinate?.latitude ?? 0.0, longitude: coordinate?.longitude ?? 0.0)
     }
 }

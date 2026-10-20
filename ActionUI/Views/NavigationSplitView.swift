@@ -128,7 +128,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states = model.states
         if states["columnVisibility"] == nil {
-            states["columnVisibility"] = (Props(model.validatedProperties).columnVisibility ?? .all).rawValue
+            states["columnVisibility"] = (Props(model.properties).columnVisibility ?? .all).rawValue
         }
         return states
     }
@@ -206,7 +206,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                     DispatchQueue.main.async {
                         model.states["selectedDestination"] = destinationId
                         if let sidebarModel = windowModel?.viewModels[sidebar.id],
-                           let actionID = BaseModifiers(sidebarModel.validatedProperties).actionID {
+                           let actionID = BaseModifiers(sidebarModel.properties).actionID {
                             ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: sidebar.id, viewPartID: 0)
                         }
                     }

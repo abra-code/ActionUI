@@ -111,7 +111,7 @@ final class HStackTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }

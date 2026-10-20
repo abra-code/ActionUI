@@ -211,7 +211,7 @@ final class ToolbarItemTests: XCTestCase {
             XCTFail("ToolbarItem ViewModel should exist"); return
         }
 
-        XCTAssertEqual(toolbarItemModel.validatedProperties["placement"] as? String, "confirmationAction",
+        XCTAssertEqual(toolbarItemModel.properties["placement"] as? String, "confirmationAction",
                        "ToolbarItem ViewModel should hold the validated placement")
     }
 

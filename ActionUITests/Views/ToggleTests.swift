@@ -107,7 +107,7 @@ final class ToggleTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Toggle.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -167,7 +167,7 @@ final class ToggleTests: XCTestCase {
 
     func testToggleInitialValueFromIsOnProperty() {
         let viewModel = ViewModel()
-        viewModel.validatedProperties = ["isOn": true]
+        viewModel.properties = ["isOn": true]
 
         let value = Toggle.initialValue(viewModel) as? Bool
         XCTAssertEqual(value, true, "initialValue should fall back to isOn property")
@@ -176,7 +176,7 @@ final class ToggleTests: XCTestCase {
     func testToggleInitialValuePrefersModelValue() {
         let viewModel = ViewModel()
         viewModel.value = false
-        viewModel.validatedProperties = ["isOn": true]
+        viewModel.properties = ["isOn": true]
 
         let value = Toggle.initialValue(viewModel) as? Bool
         XCTAssertEqual(value, false, "initialValue should prefer model.value over isOn property")

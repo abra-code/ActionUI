@@ -89,7 +89,7 @@ struct Label: ActionUIViewConstruction {
         }
         
         // Otherwise use the validated title from the original JSON/plist
-        let propertiesValue = Props(model.validatedProperties).title
+        let propertiesValue = Props(model.properties).title
         return propertiesValue
     }
 }

@@ -106,12 +106,12 @@ final class ChartSelectionTests: XCTestCase {
     // The loaded element as drawn now.
     private func renderElement() -> [UInt8] {
         let built = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil),
-                                    model, windowUUID, model.validatedProperties, logger)
+                                    model, windowUUID, model.properties, logger)
         return render(AnyView(built))
     }
 
     private func binder(continuous: Bool = false, actionID: String? = "picked", cache: ChartRenderCache? = nil) -> ChartSelectionBinder {
-        let description = model.validatedProperties["chart"] as? [String: Any] ?? [:]
+        let description = model.properties["chart"] as? [String: Any] ?? [:]
         let cache = cache ?? (model.elementCache as? ChartRenderCache) ?? ChartRenderCache()
         let rows = model.states["content"] as? [[String]] ?? []
         _ = cache.render(description: description, rows: rows, viewID: 10, logger: logger)
@@ -303,7 +303,7 @@ final class ChartSelectionTests: XCTestCase {
     func testAngleSelectionFindsItsRow() throws {
         try load(donut)
         let cache = ChartRenderCache()
-        _ = cache.render(description: model.validatedProperties["chart"] as? [String: Any] ?? [:],
+        _ = cache.render(description: model.properties["chart"] as? [String: Any] ?? [:],
                          rows: model.states["content"] as? [[String]] ?? [], viewID: 10, logger: logger)
         XCTAssertEqual(cache.sectorRow(at: 10), 0)
         XCTAssertEqual(cache.sectorRow(at: 42), 0)
@@ -404,9 +404,10 @@ final class ChartSelectionTests: XCTestCase {
         XCTAssertEqual(count(), 3, "an unchanged value fires nothing")
     }
 
-    func testInvalidTimingIsReported() throws {
+    func testInvalidTimingIsSettled() throws {
         try load(bars(), properties: ["selectionActionTiming": "often"])
-        XCTAssertNil(model.validatedProperties["selectionActionTiming"])
-        XCTAssertTrue(logger.warnings.contains { $0.contains("selectionActionTiming must be") }, "\(logger.warnings)")
+        // Stored as given; the chart reads a name it does not know as "settled".
+        XCTAssertEqual(model.properties["selectionActionTiming"] as? String, "often")
+        XCTAssertEqual(Chart.Props(model.properties).selectionActionTiming, .settled)
     }
 }

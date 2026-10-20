@@ -582,8 +582,8 @@ extension ChartDescription {
 
     // The annotation's view must be a known element type, and cannot hold a Chart: the
     // per-row substitution would rewrite that chart's own references, and it would have no
-    // rows. Its element is kept as given in the cleaned JSON and validated when each row's
-    // instance is built, after substitution, as a template row's is.
+    // rows. Its element is kept as given in the cleaned JSON; each row's instance reads its
+    // properties after substitution, as a template row's does.
     private static func parseAnnotation(_ object: [String: Any], role: String, insideForEach: Bool, columns: [Column],
                                         logger: (any ActionUILogger)?) -> (spec: ChartAnnotationSpec, cleaned: [String: Any])? {
         for key in object.keys where !annotationKeys.contains(key) {

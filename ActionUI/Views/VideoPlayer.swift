@@ -85,7 +85,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        let initialValue = Props(model.validatedProperties).url ?? ""
+        let initialValue = Props(model.properties).url ?? ""
         return initialValue
     }
 }

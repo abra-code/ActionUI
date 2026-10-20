@@ -222,7 +222,7 @@ public class ActionUIModel: ObservableObject {
         return viewModel.value
     }
     
-    // Sets the value of a view, updating its state and validatedProperties
+    // Sets the value of a view, updating its state
     // For Table: Accepts [[String]], preserves all columns, pads rows for display if needed
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
@@ -309,7 +309,7 @@ public class ActionUIModel: ObservableObject {
                 // serialize a full ISO datetime so a host can read HH:mm; every
                 // other Date-valued element (and date-only DatePickers) stays a
                 // bare "YYYY-MM-DD" for backward compatibility.
-                let components = ActionUI.DatePicker.Props(viewModel.validatedProperties).displayedComponents?.rawValue
+                let components = ActionUI.DatePicker.Props(viewModel.properties).displayedComponents?.rawValue
                 if viewModel.elementType == "DatePicker", ActionUI.DatePicker.isTimeBearing(components) {
                     return DateHelper.formatDateTime(from: date)
                 }
@@ -561,14 +561,14 @@ public class ActionUIModel: ObservableObject {
 
 
     // Retrieves a property value for a view by its name
-    // Design decision: Accesses validatedProperties to ensure consistency with rendered views, as these are validated by ActionUIRegistry
+    // Returns the stored value: the document's property, or the last value setElementProperty stored, as given
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging
     public func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
         }
-        if let value = viewModel.validatedProperties[propertyName] {
+        if let value = viewModel.properties[propertyName] {
             return value
         }
         logger.log("Property '\(propertyName)' not found for viewID: \(viewID)", .warning)
@@ -591,7 +591,7 @@ public class ActionUIModel: ObservableObject {
             return content.map { $0.count }.max() ?? 0
         }
         // Fall back to visible column count before any content is loaded
-        return Table.Props(viewModel.validatedProperties).columns.count
+        return Table.Props(viewModel.properties).columns.count
     }
 
     // Returns all content rows for a table view element.
@@ -1062,21 +1062,19 @@ public class ActionUIModel: ObservableObject {
         throw InsertError.containerRequired(vaildContainers: matching.sorted())
     }
 
-    // Sets a property value for a view and re-validates it
-    // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
-    // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
+    // Sets a property value for a view. The value is stored as given; renderers read it through the
+    // element's Props, which ignore a value of the wrong type, as they do in a document.
+    // Updates the view model's properties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
     public func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        // Notify SwiftUI before mutating the non-published validatedProperties,
+        // Notify SwiftUI before mutating the non-published properties,
         // matching the willSet contract expected by ObservableObject observers.
         viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
-        viewModel.validatedProperties[propertyName] = value
-        // Re-validate to ensure type safety and HIG compliance
-        viewModel.validateProperties(viewModel.validatedProperties, elementType: viewModel.elementType, logger: logger)
+        viewModel.properties[propertyName] = value
         ActionUIRegistry.shared.getDidSetProperty(forElementType: viewModel.elementType)?(propertyName, viewModel, logger)
         logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }

@@ -230,7 +230,7 @@ final class ListStylingTests: XCTestCase {
         }
         viewModel.states["content"] = [["Alpha"], ["Beta"], ["Gamma"]]
         let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertFalse(view is SwiftUI.EmptyView, "buildView should succeed with row styling properties")
     }
 
@@ -248,7 +248,7 @@ final class ListStylingTests: XCTestCase {
         }
         viewModel.states["content"] = [["Row 1"], ["Row 2"]]
         let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
 
@@ -268,7 +268,7 @@ final class ListStylingTests: XCTestCase {
         }
         viewModel.states["content"] = [["Item A"], ["Item B"]]
         let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
 
@@ -295,7 +295,7 @@ final class ListStylingTests: XCTestCase {
             ["heart.fill", "Liked"]
         ]
         let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertFalse(view is SwiftUI.EmptyView, "Template list with row styling should build successfully")
     }
 
@@ -318,7 +318,7 @@ final class ListStylingTests: XCTestCase {
             XCTFail("ViewModel not found"); return
         }
         let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
         XCTAssertFalse(view is SwiftUI.EmptyView, "Heterogeneous list with row styling should build successfully")
     }
 }

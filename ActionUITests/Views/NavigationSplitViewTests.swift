@@ -293,8 +293,8 @@ final class NavigationSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let validatedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertNotNil(view, "buildView should succeed with destinations")
     }
 
@@ -332,7 +332,7 @@ final class NavigationSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
+        let validatedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
 
         // buildView should log warning about non-List sidebar but still succeed
         let view = NavigationSplitView.buildView(element, viewModel, windowUUID, validatedProperties, consoleLogger)

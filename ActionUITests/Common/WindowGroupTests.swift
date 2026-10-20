@@ -182,7 +182,7 @@ final class WindowGroupTests: XCTestCase {
                 return
             }
             if elementId != 4 && elementId != 6 { // Buttons have validated properties
-                XCTAssertFalse(viewModel.validatedProperties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
+                XCTAssertFalse(viewModel.properties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
             }
         }
         
@@ -371,7 +371,7 @@ final class WindowGroupTests: XCTestCase {
                 return
             }
             if elementId != 5 { // Button has validated properties
-                XCTAssertFalse(viewModel.validatedProperties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
+                XCTAssertFalse(viewModel.properties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
             }
         }
 //        XCTAssertNil(windowModel.viewModels[3], "View model for invalid command id 3 should be nil")
@@ -448,7 +448,7 @@ final class WindowGroupTests: XCTestCase {
                 XCTFail("Failed to retrieve viewModel for command id: \(commandId)")
                 return
             }
-            XCTAssertFalse(viewModel.validatedProperties.isEmpty, "Command view model validated properties should not be empty")
+            XCTAssertFalse(viewModel.properties.isEmpty, "Command view model validated properties should not be empty")
         }
 //        XCTAssertNil(windowModel.viewModels[13], "View model for command id 13 (11th command) should be nil")
         
@@ -562,7 +562,7 @@ final class WindowGroupTests: XCTestCase {
                 return
             }
             if elementId != 4 && elementId != 6 { // Buttons have validated properties
-                XCTAssertFalse(viewModel.validatedProperties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
+                XCTAssertFalse(viewModel.properties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
             }
         }
 //        XCTAssertNil(windowModel.viewModels[3], "View model for invalid CommandMenu id 3 should be nil")
@@ -622,7 +622,7 @@ final class WindowGroupTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel for content element id: 2")
             return
         }
-        XCTAssertFalse(contentViewModel.validatedProperties.isEmpty, "Content view model validated properties should not be empty")
+        XCTAssertFalse(contentViewModel.properties.isEmpty, "Content view model validated properties should not be empty")
         
         // Log state for debugging
         logger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)

@@ -151,8 +151,8 @@ class WindowModel: ObservableObject {
         
         let viewModel = ViewModel()
         viewModel.elementType = element.type
-        // Validate properties and set in ViewModel
-        viewModel.validateProperties(for: element)
+        // The element's properties as loaded become its view model's store
+        viewModel.seedProperties(element.properties)
         // Fetch initial value from properties early if the element supports it
         viewModel.value = ActionUIRegistry.shared.getInitialValue(forElementType: element.type, model: viewModel)
         // Fetch initial states from properties early if the element supports it

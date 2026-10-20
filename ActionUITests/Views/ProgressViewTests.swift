@@ -112,7 +112,7 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertNil(validatedProperties["value"], "no value: the progress is indeterminate")
 
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
     }
 
     func testProgressViewConstructionCircularDeterminate() throws {
@@ -134,7 +134,8 @@ final class ProgressViewTests: XCTestCase {
                        "style should survive validation")
 
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        viewModel.seedProperties(element.properties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertEqual(ProgressView.initialValue(viewModel) as? Double, 0.25,
                        "a style must not disturb the value")
     }
@@ -155,7 +156,7 @@ final class ProgressViewTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ProgressView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -180,7 +181,8 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertNil(validatedProperties["total"], "total stays absent; it is defaulted in buildView, not validation")
 
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        viewModel.seedProperties(element.properties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertEqual(ProgressView.initialValue(viewModel) as? Double, 0.3, "initialValue should resolve to the JSON value")
     }
 

@@ -95,13 +95,13 @@ final class ActionUIModelTests: XCTestCase {
         }
 
         logger.log("Value for viewID 1: \(String(describing: viewModel.value))", .debug)
-        let validatedProperties = viewModel.validatedProperties
+        let validatedProperties = viewModel.properties
         XCTAssertEqual(validatedProperties.double(forKey: "value"), 0.75, "Property value should be updated")
     }
 
     // actionID is documented as a runtime-settable property. A view's binding fires the actionID from
     // the validatedProperties SNAPSHOT that buildView received: ActionUIView.body passes
-    // ActionUIRegistry.getValidatedProperties(...) into buildView, and the binding captures it by value.
+    // ActionUIRegistry.currentProperties(...) into buildView, and the binding captures it by value.
     // So setElementProperty updates the LIVE validatedProperties and rings objectWillChange, but an
     // already-built binding keeps firing the build-time actionID until the view is rebuilt; only the
     // next rebuild's buildView sees the fresh value. This test pins that behavior so it is not changed
@@ -120,11 +120,11 @@ final class ActionUIModelTests: XCTestCase {
             return
         }
 
-        // Force a real build so validatedProperties is cached, exactly as ActionUIView.body does.
+        // Force a real build, exactly as ActionUIView.body does.
         _ = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID).body
 
-        // The snapshot the binding captured == what buildView received == getValidatedProperties.
-        let buildTimeSnapshot = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
+        // The snapshot the binding captured == what buildView received == currentProperties.
+        let buildTimeSnapshot = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
         XCTAssertEqual(buildTimeSnapshot["actionID"] as? String, "toggle.A",
                        "First build should see the original actionID")
 
@@ -136,11 +136,11 @@ final class ActionUIModelTests: XCTestCase {
                        "An already-built binding's captured snapshot stays stale until the view is rebuilt")
 
         // The live cache is updated...
-        XCTAssertEqual(viewModel.validatedProperties["actionID"] as? String, "toggle.B",
+        XCTAssertEqual(viewModel.properties["actionID"] as? String, "toggle.B",
                        "setElementProperty should update the live validatedProperties")
 
         // ...so the next rebuild's buildView receives the fresh actionID.
-        let rebuildSnapshot = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
+        let rebuildSnapshot = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
         XCTAssertEqual(rebuildSnapshot["actionID"] as? String, "toggle.B",
                        "A rebuild should pick up the updated actionID")
     }
@@ -167,7 +167,7 @@ final class ActionUIModelTests: XCTestCase {
 
         _ = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID).body
 
-        let buildTimeSnapshot = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
+        let buildTimeSnapshot = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
         XCTAssertEqual(buildTimeSnapshot["valueChangeActionID"] as? String, "slider.A",
                        "First build should see the original valueChangeActionID")
 
@@ -175,10 +175,10 @@ final class ActionUIModelTests: XCTestCase {
 
         XCTAssertEqual(buildTimeSnapshot["valueChangeActionID"] as? String, "slider.A",
                        "An already-built binding's captured snapshot stays stale until the view is rebuilt")
-        XCTAssertEqual(viewModel.validatedProperties["valueChangeActionID"] as? String, "slider.B",
+        XCTAssertEqual(viewModel.properties["valueChangeActionID"] as? String, "slider.B",
                        "setElementProperty should update the live validatedProperties")
 
-        let rebuildSnapshot = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
+        let rebuildSnapshot = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
         XCTAssertEqual(rebuildSnapshot["valueChangeActionID"] as? String, "slider.B",
                        "A rebuild should pick up the updated valueChangeActionID")
     }

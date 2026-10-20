@@ -107,7 +107,7 @@ final class ListTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         XCTAssertFalse(view is SwiftUI.EmptyView, "Should render a List, not EmptyView")
     }
@@ -129,7 +129,7 @@ final class ListTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
@@ -188,7 +188,7 @@ final class ListTemplateTests: XCTestCase {
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            validatedProperties: validatedProps
+            properties: validatedProps
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }

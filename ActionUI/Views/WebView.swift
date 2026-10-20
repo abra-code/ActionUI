@@ -252,7 +252,7 @@ struct WebView: ActionUIViewConstruction {
 
     static var initialValue: (ViewModel) -> Any? = { model in
         if let existing = model.value as? String { return existing }
-        return Props(model.validatedProperties).url ?? ""
+        return Props(model.properties).url ?? ""
     }
 
     static var initialStates: (ViewModel) -> [String: Any] = { model in

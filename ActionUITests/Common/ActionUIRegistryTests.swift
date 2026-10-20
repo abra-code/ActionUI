@@ -62,8 +62,8 @@ final class ActionUIRegistryTests: XCTestCase {
             // expand ActionUIView.body implementation to inspect the created view before it gets wrapped with AnyView
             // let view = actionUIView.body
             let registry = ActionUIRegistry.shared
-            let validatedProperties = registry.getValidatedProperties(element: element, model: viewModel)
-            let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+            let validatedProperties = registry.currentProperties(element: element, model: viewModel)
+            let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
             
             // Allow EmptyView for specific types with empty properties
             #if canImport(AppKit)
@@ -97,8 +97,8 @@ final class ActionUIRegistryTests: XCTestCase {
         let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
         let viewModel = ViewModel()
         let registry = ActionUIRegistry.shared
-        let validatedProperties = registry.getValidatedProperties(element: element, model: viewModel)
-        let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let validatedProperties = registry.currentProperties(element: element, model: viewModel)
+        let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView for unregistered type should return EmptyView")
         XCTAssertTrue(PropertyComparison.arePropertiesEqual(validatedProperties, element.properties), "Unregistered view type should return original properties")
 
@@ -115,8 +115,8 @@ final class ActionUIRegistryTests: XCTestCase {
         }
 
         let element = try ActionUIElement(from: ["id": 1, "type": "UnknownView"], logger: consoleLogger)
-        _ = ActionUIRegistry.shared.getValidatedProperties(element: element, model: ViewModel())
-        XCTAssertTrue(recorder.messages.contains { $0.contains("No registration found for type UnknownView") },
+        _ = ActionUIRegistry.shared.buildView(for: element, model: ViewModel(), windowUUID: windowUUID, properties: element.properties)
+        XCTAssertTrue(recorder.messages.contains { $0.contains("No construction type found for element ID 1 of type 'UnknownView'") },
                       "the registry should log through the logger set on ActionUIModel")
     }
 
@@ -133,8 +133,8 @@ final class ActionUIRegistryTests: XCTestCase {
         
         await MainActor.run {
             let registry = ActionUIRegistry.shared
-            let validatedProperties = registry.getValidatedProperties(element: element, model: viewModel)
-            let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+            let validatedProperties = registry.currentProperties(element: element, model: viewModel)
+            let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
             XCTAssertFalse(view is SwiftUI.EmptyView, "buildView for TextField should not return EmptyView")
             XCTAssertTrue(PropertyComparison.arePropertiesEqual(validatedProperties, element.properties), "validateProperties should return input properties for valid empty input")
         }

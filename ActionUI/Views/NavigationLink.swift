@@ -106,7 +106,7 @@ struct NavigationLink: ActionUIViewConstruction {
         if let initialValue = model.value as? Int {
             return initialValue
         }
-        let initialValue = Props(model.validatedProperties).destinationViewId
+        let initialValue = Props(model.properties).destinationViewId
         return initialValue
     }
 }
