@@ -269,7 +269,7 @@ final class ChartMarkTests: XCTestCase {
 
     // MARK: - Scales, labels, plot style
 
-    // Swift Charts stops the app for these (measured), so validation refuses them.
+    // Swift Charts stops the app for these (measured), so the description parser refuses them.
     func testScaleTypesThatStopSwiftChartsAreRefused() {
         let line: [[String: Any]] = [["type": "LineMark", "x": pv("Day", "$day"), "y": pv("High", "$high")]]
         let refused: [[String: Any]] = [

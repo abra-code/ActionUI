@@ -75,27 +75,6 @@ struct VStack: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        if validatedProperties["spacing"] != nil, validatedProperties.cgFloat(forKey: "spacing") == nil {
-            logger.log("VStack spacing must be numeric; ignoring", .warning)
-            validatedProperties["spacing"] = nil
-        }
-        
-        if let alignment = validatedProperties["alignment"] as? String {
-            if !["leading", "center", "trailing"].contains(alignment) {
-                logger.log("VStack alignment '\(alignment)' invalid; defaulting to nil", .warning)
-                validatedProperties["alignment"] = nil
-            }
-        } else if validatedProperties["alignment"] != nil {
-            logger.log("VStack alignment must be 'leading', 'center', or 'trailing'; ignoring", .warning)
-            validatedProperties["alignment"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let spacing = CGFloat(props.spacing)

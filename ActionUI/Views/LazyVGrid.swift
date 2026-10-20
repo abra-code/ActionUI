@@ -87,52 +87,6 @@ struct LazyVGrid: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        if let columns = validatedProperties["columns"] as? [[String: Any]] {
-            var validatedColumns: [[String: Any]] = []
-            for column in columns {
-                var validatedColumn: [String: Any] = [:]
-                if let minimum = column.cgFloat(forKey: "minimum") {
-                    validatedColumn["minimum"] = minimum
-                }
-                if let flexible = column["flexible"] as? Bool {
-                    validatedColumn["flexible"] = flexible
-                }
-                if !validatedColumn.isEmpty {
-                    validatedColumns.append(validatedColumn)
-                }
-            }
-            if !validatedColumns.isEmpty {
-                validatedProperties["columns"] = validatedColumns
-            } else {
-                logger.log("LazyVGrid columns must contain valid minimum or flexible values; ignoring", .warning)
-                validatedProperties["columns"] = nil
-            }
-        } else if validatedProperties["columns"] != nil {
-            logger.log("LazyVGrid columns must be an array of dictionaries; ignoring", .warning)
-            validatedProperties["columns"] = nil
-        }
-        
-        if validatedProperties.cgFloat(forKey: "spacing") == nil, validatedProperties["spacing"] != nil {
-            logger.log("LazyVGrid spacing must be numeric; ignoring", .warning)
-            validatedProperties["spacing"] = nil
-        }
-        
-        if let alignment = validatedProperties["alignment"] as? String {
-            if !["leading", "center", "trailing"].contains(alignment) {
-                logger.log("LazyVGrid alignment '\(alignment)' invalid; defaulting to nil", .warning)
-                validatedProperties["alignment"] = nil
-            }
-        } else if validatedProperties["alignment"] != nil {
-            logger.log("LazyVGrid alignment must be 'leading', 'center', or 'trailing'; ignoring", .warning)
-            validatedProperties["alignment"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let spacing = CGFloat(props.spacing)

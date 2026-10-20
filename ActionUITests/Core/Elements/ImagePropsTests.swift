@@ -80,7 +80,7 @@ final class ImagePropsTests: XCTestCase {
     func testImageScaleNames() {
         XCTAssertEqual(Image.Props(["imageScale": "small"]).imageScale, .small)
         XCTAssertEqual(Image.Props(["imageScale": "medium"]).imageScale, .medium)
-        // Unknown means no scale modifier (not medium), as validation dropped it.
+        // Unknown means no scale modifier (not medium).
         XCTAssertNil(Image.Props(["imageScale": "huge"]).imageScale)
         XCTAssertNil(Image.Props(["imageScale": "Large"]).imageScale)
         XCTAssertNil(Image.Props(["imageScale": 5]).imageScale)

@@ -2,8 +2,8 @@
 /*
  Tests for PhaseAnimator.Props: the phase values (an entry that is not a number counts as 0), the
  trigger, the timer interval, the state key and the animation. The "animation" key is also a base
- View key, and the base validation keeps of it only a valid curve with duration, delay, speed and
- value, so Props reads it through the base parser: nil without a valid curve, and never a "type".
+ View key, read only as a valid curve with duration, delay, speed and value, so Props reads it
+ through the base parser: nil without a valid curve, and never a "type".
 */
 
 import XCTest

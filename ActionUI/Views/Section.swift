@@ -53,18 +53,6 @@ struct Section: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate header
-        if properties["header"] != nil && !(properties["header"] is String) {
-            logger.log("Section header must be a String; ignoring", .warning)
-            validatedProperties["header"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let header = props.header

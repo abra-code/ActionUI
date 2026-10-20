@@ -29,11 +29,6 @@ struct VSplitView: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        // VSplitView has no view-specific properties beyond baseline View properties
-        return properties
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]

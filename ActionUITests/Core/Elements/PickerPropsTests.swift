@@ -2,8 +2,8 @@
 /*
  Tests for Picker.Props: the title, the two option formats (plain strings numbered from 1, or
  title/tag dictionaries with section and divider entries), the skipped entries, the style names and
- the radio layout flag. "wheel" exists off macOS and is not in the validation comparison, which
- runs on macOS, where validation drops it; Props keeps the name and the renderer applies nothing.
+ the radio layout flag. "wheel" exists off macOS; on macOS Props keeps the name and the renderer
+ applies nothing.
 */
 
 import XCTest

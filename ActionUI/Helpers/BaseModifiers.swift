@@ -6,8 +6,8 @@
  names, defaults and rules exist once and every renderer applies the same thing.
 
  Built fresh each time from the current properties: never stored. A value that is not usable comes
- out nil (or the documented default), which is what removing it during validation did. The rules
- for structured values are in ModifierParsing.
+ out nil (or the documented default), as if it were absent. The rules for structured values are
+ in ModifierParsing.
 
  Portable on purpose: Foundation types only. Colors and fonts stay as given (the renderer resolves
  them) until they get portable descriptions of their own.

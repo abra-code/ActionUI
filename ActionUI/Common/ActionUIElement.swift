@@ -50,18 +50,13 @@ public protocol ActionUIElementBase: Identifiable, Codable, Sendable {
     var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "persistentToolbar", "overlay", "background"
 }
 
-@MainActor
-public protocol ActionUIPropertyValidation {
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
-}
-
 // Protocol for constructing SwiftUI views from ActionUIElements.
 // Public so optional add-on libraries (linked against ActionUI) can implement a custom
 // element type and register it via ActionUIRegistry.register(_:as:). Built-in elements
 // conform internally; external conformers use only the public surface (element, ViewModel
 // value/states, ActionUIModel.actionHandler, logger).
 @MainActor
-public protocol ActionUIViewConstruction : ActionUIPropertyValidation {
+public protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var buildView: ((any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
@@ -477,7 +472,7 @@ extension ActionUIElementBase {
 }
 
 // Extension to find an element by ID in the element hierarchy
-// Design decision: Recursive search supports nested JSON structures, enabling validation of properties for views at any depth
+// Design decision: Recursive search supports nested JSON structures, reaching views at any depth
 extension ActionUIElementBase {
     func findElement(by viewID: Int) -> (any ActionUIElementBase)? {
         if self.id == viewID { return self }

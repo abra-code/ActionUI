@@ -64,19 +64,7 @@ import SwiftUI
  }
 */
 
-struct CommandMenu : ActionUIPropertyValidation {
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate name
-        let name = validatedProperties["name"] as? String
-        if let name, name.isEmpty {
-            logger.log("CommandMenu name must be a non-empty string; defaulting to 'Menu'", .warning)
-            validatedProperties["name"] = nil
-        }
-        
-        return validatedProperties
-    }
+struct CommandMenu {
     
     @MainActor
     static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> some SwiftUI.Commands {

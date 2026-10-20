@@ -6,7 +6,5 @@ extension ActionUIRegistry {
     func resetForTesting() {
         viewRegistrations.removeAll()
         registerAllViews()
-        validationRegistrations.removeAll()
-        registerAdditionalElementValidations()
     }
 }

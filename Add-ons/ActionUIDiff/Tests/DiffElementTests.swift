@@ -2,7 +2,7 @@
 //
 // Element-level tests of the ActionUIDiff add-on: the Diff wrapper's input-resolution
 // helper (text wins over file, tilde expansion, missing / unreadable files, empty sides)
-// and its property validation. Reaches internals via @testable import.
+// and how it reads raw, ill-typed properties. Reaches internals via @testable import.
 
 import XCTest
 @testable import ActionUIDiff
@@ -84,37 +84,33 @@ final class DiffInputResolutionTests: XCTestCase {
 }
 
 @MainActor
-final class DiffValidatePropertiesTests: XCTestCase {
+final class DiffRawPropertiesTests: XCTestCase {
 
-    func testDropsIllTypedKeys() {
+    // buildView reads the raw properties: a side given with the wrong type is no side.
+    func testIllTypedTextIsIgnored() {
         let logger = RecordingLogger()
-        let input: [String: Any] = [
-            "oldText": "ok",
-            "newText": 42,            // ill-typed: not a String
-            "contextLines": "three",  // ill-typed: not an Int
-            "maxRenderedLines": 300   // valid
-        ]
-        let validated = Diff.validateProperties(input, logger)
-        XCTAssertEqual(validated["oldText"] as? String, "ok")
-        XCTAssertNil(validated["newText"], "a non-String newText must be dropped")
-        XCTAssertNil(validated["contextLines"], "a non-Int contextLines must be dropped")
-        XCTAssertEqual(validated["maxRenderedLines"] as? Int, 300)
-        XCTAssertEqual(logger.warnings.count, 2, "one warning per dropped key")
+        XCTAssertEqual(Diff.resolveInput(text: 42, file: nil, side: "new", logger: logger), .text(""))
+        XCTAssertTrue(logger.warnings.isEmpty)
     }
 
-    func testValidInputPassesThroughUnchanged() {
+    func testIllTypedTextFallsBackToTheFileWithoutTheBothSetWarning() {
         let logger = RecordingLogger()
-        let input: [String: Any] = [
-            "oldText": "a",
-            "newFile": "~/after.swift",
-            "contextLines": 2,
-            "maxRenderedLines": 100
-        ]
-        let validated = Diff.validateProperties(input, logger)
-        XCTAssertEqual(validated["oldText"] as? String, "a")
-        XCTAssertEqual(validated["newFile"] as? String, "~/after.swift")
-        XCTAssertEqual(validated["contextLines"] as? Int, 2)
-        XCTAssertEqual(validated["maxRenderedLines"] as? Int, 100)
-        XCTAssertTrue(logger.warnings.isEmpty)
+        let missing = "/nonexistent-\(UUID().uuidString).swift"
+        XCTAssertEqual(Diff.resolveInput(text: 42, file: missing, side: "old", logger: logger), .unreadable(path: missing))
+        XCTAssertFalse(logger.warnings.contains { $0.contains("both text and file") })
+    }
+
+    func testIllTypedFileIsIgnored() {
+        let logger = RecordingLogger()
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: 7, side: "old", logger: logger), .text(""))
+    }
+
+    // An ill-typed integer falls back to the default with one warning; a valid one is read.
+    func testIllTypedIntegerFallsBackToTheDefault() {
+        let logger = RecordingLogger()
+        let properties: [String: Any] = ["contextLines": "three", "maxRenderedLines": 100]
+        XCTAssertEqual(Diff.intProperty(properties, key: "contextLines", default: 3, minimum: 0, logger: logger), 3)
+        XCTAssertEqual(Diff.intProperty(properties, key: "maxRenderedLines", default: 300, minimum: 1, logger: logger), 100)
+        XCTAssertEqual(logger.warnings.count, 1, "one warning, for the ill-typed key")
     }
 }

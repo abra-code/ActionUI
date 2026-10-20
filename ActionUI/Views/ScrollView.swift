@@ -48,35 +48,6 @@ struct ScrollView: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-                
-        // Validate axis
-        if let axis = validatedProperties["axis"] as? String,
-           !["vertical", "horizontal", "both"].contains(axis) {
-            logger.log("ScrollView axis '\(axis)' invalid; defaulting to 'vertical'", .warning)
-            validatedProperties["axis"] = "vertical"
-        }
-        
-        // Validate showsIndicators
-        if validatedProperties["showsIndicators"] == nil {
-            validatedProperties["showsIndicators"] = true
-        } else if let showsIndicators = validatedProperties["showsIndicators"] as? Bool {
-            validatedProperties["showsIndicators"] = showsIndicators
-        } else {
-            logger.log("ScrollView showsIndicators must be a Boolean; defaulting to true", .warning)
-            validatedProperties["showsIndicators"] = true
-        }
-
-        // Validate onRefreshActionID (pull-to-refresh) — must be a string
-        if properties["onRefreshActionID"] != nil && !(properties["onRefreshActionID"] is String) {
-            logger.log("ScrollView onRefreshActionID must be a string; ignoring", .warning)
-            validatedProperties["onRefreshActionID"] = nil
-        }
-
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let props = Props(properties)

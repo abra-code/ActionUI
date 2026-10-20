@@ -2,7 +2,7 @@
 //
 // Add-on-level tests of the Chat element glue over the ChatView component: ChatConfig's
 // action-ID parsing and its derivation of the component flags (attachEnabled /
-// emitsEntryEvents), validate() - the element's validateProperties witness - and the
+// emitsEntryEvents), its reading of the raw properties, and the
 // host-event -> actionHandler dispatch mapping (Chat.hostEventSink). The component's own
 // behavior (store, views, transports, configuration parsing) is tested in the ChatView repo.
 
@@ -12,27 +12,6 @@ import ActionUI
 
 private final class ElementTestLogger: ChatLogger {
     func log(_ message: String, _ level: ChatLogLevel) {}
-}
-
-/// For ChatConfig.validate, which is the ActionUI validateProperties witness and takes ActionUILogger.
-private final class ValidateLogger: ActionUILogger {
-    func log(_ message: String, _ level: LoggerLevel) {}
-}
-
-/// Same witness, but keeps what it was told, for the validations whose whole effect is a message.
-/// ActionUILogger is Sendable, so the store is locked rather than a plain stored property.
-private final class CapturingValidateLogger: ActionUILogger, @unchecked Sendable {
-    private let lock = NSLock()
-    private var captured: [String] = []
-    var warnings: [String] {
-        lock.withLock { captured }
-    }
-    func log(_ message: String, _ level: LoggerLevel) {
-        guard level == .warning else {
-            return
-        }
-        lock.withLock { captured.append(message) }
-    }
 }
 
 final class ChatConfigActionIDTests: XCTestCase {
@@ -110,85 +89,69 @@ final class ChatConfigActionIDTests: XCTestCase {
     }
 }
 
-final class ChatConfigValidateTests: XCTestCase {
+final class ChatConfigPropertyReadingTests: XCTestCase {
 
-    private func validate(_ properties: [String: Any]) -> [String: Any] {
-        ChatConfig.validate(properties, ValidateLogger())
+    private func config(_ properties: [String: Any]) -> ChatConfig {
+        ChatConfig(properties: properties, logger: ElementTestLogger())
     }
 
     func testObjectKeysMustBeObjects() {
-        XCTAssertNil(validate(["features": "yes"])["features"], "a non-object features is dropped")
-        XCTAssertNil(validate(["appearance": 7])["appearance"], "a non-object appearance is dropped")
+        XCTAssertFalse(config(["features": "yes"]).configuration.features.reactions, "a non-object features is ignored")
+        XCTAssertEqual(config(["appearance": 7]).configuration.alignment, .single, "a non-object appearance is ignored")
     }
 
-    func testValidateDropsUnknownFeatureKeysAndNonBoolValues() {
-        let validated = validate(["features": ["reactions": true, "bogus": true, "editing": "yes"]])
-        let features = validated["features"] as? [String: Any]
-        XCTAssertEqual(features?["reactions"] as? Bool, true, "a known Bool feature survives")
-        XCTAssertNil(features?["bogus"], "an unknown feature key is dropped")
-        XCTAssertNil(features?["editing"], "a non-Bool feature value is dropped")
+    func testUnknownFeatureKeysAndNonBoolValuesAreIgnored() {
+        let features = config(["features": ["reactions": true, "bogus": true, "editing": "yes"]]).configuration.features
+        XCTAssertTrue(features.reactions, "a known Bool feature is read")
+        XCTAssertFalse(features.editing, "a non-Bool feature value is ignored")
     }
 
-    func testValidateDropsUnknownSurfaceKeysAndModes() {
-        let validated = validate([
+    func testUnknownSurfaceModesAreIgnored() {
+        let surfaces = config([
             "surfaces": ["bogus": "inline", "thoughts": "sideways", "toolCalls": "collapsed"],
-        ])
-        let surfaces = validated["surfaces"] as? [String: Any]
-        XCTAssertNil(surfaces?["bogus"], "unknown surface keys must be dropped")
-        XCTAssertNil(surfaces?["thoughts"], "unknown surface modes must be dropped")
-        XCTAssertEqual(surfaces?["toolCalls"] as? String, "collapsed")
+        ]).configuration.surfaces
+        XCTAssertEqual(surfaces.thoughts, .collapsed, "an unknown surface mode keeps the default")
+        XCTAssertEqual(surfaces.toolCalls, .collapsed)
     }
 
     func testActionIDsMustBeStrings() {
-        XCTAssertNil(validate(["attachActionID": 42])["attachActionID"], "a non-String attachActionID is dropped")
-        XCTAssertEqual(validate(["attachActionID": "chat.attach"])["attachActionID"] as? String, "chat.attach")
-        XCTAssertNil(validate(["sendActionID": 1])["sendActionID"])
-        XCTAssertNil(validate(["entryActionID": 1])["entryActionID"])
-        XCTAssertNil(validate(["resumeCheckpointActionID": 7])["resumeCheckpointActionID"],
-                     "a non-String resumeCheckpointActionID is dropped")
-        XCTAssertEqual(validate(["resumeCheckpointActionID": "chat.checkpoint"])["resumeCheckpointActionID"] as? String,
+        XCTAssertNil(config(["attachActionID": 42]).attachActionID, "a non-String attachActionID is ignored")
+        XCTAssertEqual(config(["attachActionID": "chat.attach"]).attachActionID, "chat.attach")
+        XCTAssertNil(config(["sendActionID": 1]).sendActionID)
+        XCTAssertNil(config(["entryActionID": 1]).entryActionID)
+        XCTAssertNil(config(["resumeCheckpointActionID": 7]).resumeCheckpointActionID,
+                     "a non-String resumeCheckpointActionID is ignored")
+        XCTAssertEqual(config(["resumeCheckpointActionID": "chat.checkpoint"]).resumeCheckpointActionID,
                        "chat.checkpoint")
     }
 
-    // The pairing warning is the only signal an author gets for a combination that is inert by
-    // contract, so it is worth pinning that it fires exactly when it should.
-    func testResumeCheckpointWithoutEntryActionIDWarns() {
-        let alone = CapturingValidateLogger()
-        _ = ChatConfig.validate(["resumeCheckpointActionID": "chat.checkpoint"], alone)
-        XCTAssertEqual(alone.warnings.count, 1)
-        // The message, not just the property name: the type warning names the property too.
-        XCTAssertTrue(alone.warnings.first?.contains("has no effect without entryActionID") ?? false)
-
-        let paired = CapturingValidateLogger()
-        _ = ChatConfig.validate(["resumeCheckpointActionID": "chat.checkpoint", "entryActionID": "chat.entry"], paired)
-        XCTAssertTrue(paired.warnings.isEmpty, "the pair is the supported configuration")
-
-        // Dropped for being the wrong type is still not set, so the warning must not fire on it.
-        let nonString = CapturingValidateLogger()
-        _ = ChatConfig.validate(["resumeCheckpointActionID": 7], nonString)
-        XCTAssertEqual(nonString.warnings.count, 1, "only the type warning, not the pairing warning")
-        XCTAssertTrue(nonString.warnings.first?.contains("must be a String") ?? false)
+    // A checkpoint action ID without an entry action ID is inert by contract: the component only
+    // offers a resume cursor while emitsEntryEvents is true, and that derives from entryActionID.
+    func testResumeCheckpointNeedsEntryActionID() {
+        XCTAssertFalse(config(["resumeCheckpointActionID": "chat.checkpoint"]).configuration.emitsEntryEvents)
+        XCTAssertTrue(config(["resumeCheckpointActionID": "chat.checkpoint", "entryActionID": "chat.entry"])
+                        .configuration.emitsEntryEvents)
     }
 
     func testReadOnlyMustBeBool() {
-        XCTAssertNil(validate(["readOnly": "yes"])["readOnly"])
-        XCTAssertEqual(validate(["readOnly": true])["readOnly"] as? Bool, true)
+        XCTAssertFalse(config(["readOnly": "yes"]).configuration.readOnly)
+        XCTAssertTrue(config(["readOnly": true]).configuration.readOnly)
     }
 
-    func testShowFindBarMustBeBoolAndFalseSurvives() {
-        XCTAssertNil(validate(["showFindBar": "yes"])["showFindBar"])
-        XCTAssertEqual(validate(["showFindBar": false])["showFindBar"] as? Bool, false)
-        XCTAssertEqual(validate(["showFindBar": true])["showFindBar"] as? Bool, true)
+    func testShowFindBarMustBeBoolAndFalseIsRead() {
+        XCTAssertTrue(config(["showFindBar": "yes"]).configuration.showFindBar, "a non-Bool keeps the default")
+        XCTAssertFalse(config(["showFindBar": false]).configuration.showFindBar)
+        XCTAssertTrue(config(["showFindBar": true]).configuration.showFindBar)
     }
 
     func testRemoteImagesMustBeAKnownPolicy() {
-        XCTAssertEqual(validate(["remoteImages": "on-click"])["remoteImages"] as? String, "on-click")
-        XCTAssertEqual(validate(["remoteImages": "never"])["remoteImages"] as? String, "never")
-        XCTAssertEqual(validate(["remoteImages": "automatic"])["remoteImages"] as? String, "automatic")
-        // A typo fails closed rather than dropping the key, which would mean automatic.
-        XCTAssertEqual(validate(["remoteImages": "onClick"])["remoteImages"] as? String, "on-click")
-        XCTAssertEqual(validate(["remoteImages": true])["remoteImages"] as? String, "on-click")
-        XCTAssertNil(validate([:])["remoteImages"], "absent stays absent (automatic)")
+        XCTAssertEqual(config(["remoteImages": "on-click"]).configuration.remoteImages, .onClick)
+        XCTAssertEqual(config(["remoteImages": "never"]).configuration.remoteImages, .never)
+        XCTAssertEqual(config(["remoteImages": "automatic"]).configuration.remoteImages, .automatic)
+        // A typo fails closed rather than meaning automatic.
+        XCTAssertEqual(config(["remoteImages": "onClick"]).configuration.remoteImages, .onClick)
+        XCTAssertEqual(config(["remoteImages": true]).configuration.remoteImages, .onClick)
+        XCTAssertEqual(config([:]).configuration.remoteImages, .automatic, "absent is automatic")
     }
 }
 
@@ -251,23 +214,22 @@ final class ChatHostEventDispatchTests: XCTestCase {
     }
 }
 
-/// ChatConfig reads the properties the element's buildView receives. These tests hand it raw,
-/// unvalidated properties: what it makes of them must not depend on validate() having run first.
+/// ChatConfig reads the properties the element's buildView receives, as given.
 final class ChatConfigRawPropertiesTests: XCTestCase {
 
     private func config(_ properties: [String: Any]) -> ChatConfig {
         ChatConfig(properties: properties, logger: ElementTestLogger())
     }
 
-    func testUnknownRemoteImagesFailsClosedWithoutValidation() {
-        // validate() rewrites an unknown value to "on-click"; the configuration does the same itself.
+    func testUnknownRemoteImagesFailsClosed() {
+        // An unknown value fails closed to "on-click".
         XCTAssertEqual(config(["remoteImages": "onclick"]).configuration.remoteImages, .onClick)
         XCTAssertEqual(config(["remoteImages": false]).configuration.remoteImages, .onClick)
         XCTAssertEqual(config(["remoteImages": "never"]).configuration.remoteImages, .never)
         XCTAssertEqual(config([:]).configuration.remoteImages, .automatic)
     }
 
-    func testWronglyTypedActionIDsAreIgnoredWithoutValidation() {
+    func testWronglyTypedActionIDsAreIgnored() {
         let parsed = config(["sendActionID": 5, "entryActionID": true, "attachActionID": ["x"]])
         XCTAssertNil(parsed.sendActionID)
         XCTAssertNil(parsed.entryActionID)

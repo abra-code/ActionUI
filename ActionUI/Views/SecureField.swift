@@ -57,40 +57,6 @@ struct SecureField: ActionUIViewConstruction {
     // Design decision: Defines valueType as String to reflect secure text input for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type = String.self
 
-    // Validates properties specific to SecureField; baseline properties are validated by View.validateProperties
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        // Validate text (initial value)
-        if properties["text"] != nil && !(properties["text"] is String) {
-            logger.log("SecureField text must be a String; ignoring", .warning)
-            validatedProperties["text"] = nil
-        }
-
-        // Validate title
-        if properties["title"] != nil && !(properties["title"] is String) {
-            logger.log("SecureField title must be a String; defaulting to empty string", .warning)
-            validatedProperties["title"] = nil
-        }
-
-        // Validate prompt
-        if !(properties["prompt"] is String?), properties["prompt"] != nil {
-            logger.log("SecureField prompt must be a String; defaulting to nil", .warning)
-            validatedProperties["prompt"] = nil
-        }
-
-        // Validate textContentType, allow only secure types
-        if let textContentType = validatedProperties["textContentType"] as? String,
-           ["password", "newPassword", "oneTimeCode"].contains(textContentType) {
-            validatedProperties["textContentType"] = textContentType
-        } else if validatedProperties["textContentType"] != nil {
-            logger.log("SecureField textContentType must be 'password', 'newPassword', or 'oneTimeCode'; defaulting to nil", .warning)
-            validatedProperties["textContentType"] = nil
-        }
-
-        return validatedProperties
-    }
-
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (the view model's properties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in

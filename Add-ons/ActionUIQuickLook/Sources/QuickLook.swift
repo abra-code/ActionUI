@@ -42,36 +42,6 @@ struct QuickLook: ActionUIViewConstruction {
     // The element's runtime value is the source path / file-URL string.
     static var valueType: Any.Type = String.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validated = properties
-
-        for key in ["filePath", "valueChangeActionID"] {
-            if let value = validated[key], !(value is String) {
-                logger.log("QuickLook \(key) must be a String; ignoring", .warning)
-                validated[key] = nil
-            }
-        }
-
-        if let style = validated["previewStyle"] {
-            if let styleString = style as? String {
-                if !["normal", "compact"].contains(styleString) {
-                    logger.log("QuickLook previewStyle '\(styleString)' invalid (expected normal|compact); ignoring", .warning)
-                    validated["previewStyle"] = nil
-                }
-            } else {
-                logger.log("QuickLook previewStyle must be a String; ignoring", .warning)
-                validated["previewStyle"] = nil
-            }
-        }
-
-        if let chrome = validated["showsChrome"], !(chrome is Bool) {
-            logger.log("QuickLook showsChrome must be a Bool; ignoring", .warning)
-            validated["showsChrome"] = nil
-        }
-
-        return validated
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if os(macOS)
         return QuickLookMacView(model: model, properties: properties, element: element,

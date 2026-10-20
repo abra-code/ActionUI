@@ -80,32 +80,6 @@ struct ToolbarItem: ActionUIViewConstruction {
 
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        if let placement = properties["placement"] {
-            if let placementStr = placement as? String {
-                let validPlacements = [
-                    "automatic", "principal",
-                    "confirmationAction", "cancellationAction", "destructiveAction",
-                    "primaryAction", "secondaryAction",
-                    "topBarLeading", "topBarTrailing",
-                    "bottomBar", "keyboard",
-                    "navigation", "status"
-                ]
-                if !validPlacements.contains(placementStr) {
-                    logger.log("Invalid ToolbarItem placement '\(placementStr)'; expected one of \(validPlacements). Defaulting to 'automatic'.", .warning)
-                    validatedProperties["placement"] = "automatic"
-                }
-            } else {
-                logger.log("Invalid type for ToolbarItem placement: expected String, got \(type(of: placement)). Defaulting to 'automatic'.", .warning)
-                validatedProperties["placement"] = "automatic"
-            }
-        }
-
-        return validatedProperties
-    }
-
     // ToolbarItem is never rendered standalone — buildView returns EmptyView.
     // Content is rendered inside ToolbarModifierView as part of the parent view's .toolbar modifier.
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, _, _ in

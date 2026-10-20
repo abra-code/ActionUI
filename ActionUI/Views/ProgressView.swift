@@ -57,46 +57,6 @@ struct ProgressView: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Double?.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        if let value = validatedProperties.double(forKey: "value"), value >= 0.0 {
-            //
-        } else if validatedProperties["value"] != nil {
-            logger.log("ProgressView value must be a non-negative Double; defaulting to nil", .warning)
-            validatedProperties["value"] = nil
-        }
-        
-        if let total = validatedProperties.double(forKey: "total"), total > 0.0 {
-            //
-        } else if validatedProperties["total"] != nil {
-            logger.log("ProgressView total must be a positive Double; defaulting to nil", .warning)
-            validatedProperties["total"] = nil
-        }
-        
-        if validatedProperties["title"] != nil, !(validatedProperties["title"] is String) {
-            logger.log("ProgressView title must be a String; defaulting to nil", .warning)
-            validatedProperties["title"] = nil
-        }
-
-        // Validate progressViewStyle. Both SwiftUI styles exist on every platform
-        // this builds for, so unlike Picker's there is no platform-conditional set.
-        if validatedProperties["progressViewStyle"] != nil {
-            let validStyles = ["automatic", "linear", "circular"]
-            if let style = validatedProperties["progressViewStyle"] as? String {
-                if !validStyles.contains(style) {
-                    logger.log("ProgressView progressViewStyle '\(style)' must be one of \(validStyles); defaulting to nil", .warning)
-                    validatedProperties["progressViewStyle"] = nil
-                }
-            } else {
-                logger.log("ProgressView progressViewStyle must be a String; defaulting to nil", .warning)
-                validatedProperties["progressViewStyle"] = nil
-            }
-        }
-
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double
         let props = Props(properties)
@@ -107,8 +67,8 @@ struct ProgressView: ActionUIViewConstruction {
         let currentValue: Double? = model.states.double(forKey: "progress") ?? initialValue
 
         // total defaults to 1.0 when a value is present (matching the documented
-        // contract and the Android/Web ports); an explicitly invalid total has
-        // already been dropped to nil by validateProperties. With no value at all
+        // contract and the Android/Web ports); a total of the wrong type reads as
+        // nil. With no value at all
         // the progress is indeterminate, so total stays nil.
         let total: Double? = props.total ?? (currentValue != nil ? 1.0 : nil)
 

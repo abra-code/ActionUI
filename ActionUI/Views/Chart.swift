@@ -202,20 +202,6 @@ struct Chart: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        if let actionID = properties["valueChangeActionID"], !(actionID is String) {
-            logger.log("Chart valueChangeActionID must be a String; ignoring", .warning)
-            validatedProperties["valueChangeActionID"] = nil
-        }
-        if let timing = properties["selectionActionTiming"], !["settled", "continuous"].contains(timing as? String ?? "") {
-            logger.log("Chart selectionActionTiming must be \"settled\" or \"continuous\"; using \"settled\"", .warning)
-            validatedProperties["selectionActionTiming"] = nil
-        }
-        // The "chart" description is cleaned where it is stored (normalizeStoredDescription), not here.
-        return validatedProperties
-    }
-
     // The description as Chart stores it: filtered for this platform (a description set at runtime has
     // not been through the document's platform filter) and cleaned by the parse, which also logs what it
     // drops. nil when the value is not an object.

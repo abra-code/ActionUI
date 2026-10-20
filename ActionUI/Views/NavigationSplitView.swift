@@ -138,26 +138,6 @@ struct NavigationSplitView: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Void.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-                
-        // Validate columnVisibility
-        if let columnVisibility = validatedProperties["columnVisibility"] as? String,
-           !["automatic", "all", "doubleColumn", "detail"].contains(columnVisibility) {
-            logger.log("Invalid NavigationSplitView columnVisibility: \(columnVisibility); defaulting to 'all'", .warning)
-            validatedProperties["columnVisibility"] = "all"
-        }
-        
-        // Validate style
-        if let style = validatedProperties["style"] as? String,
-           !["automatic", "balanced", "prominentDetail"].contains(style) {
-            logger.log("Invalid NavigationSplitView style: \(style); defaulting to 'automatic'", .warning)
-            validatedProperties["style"] = "automatic"
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let sidebar = element.subviews?["sidebar"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)

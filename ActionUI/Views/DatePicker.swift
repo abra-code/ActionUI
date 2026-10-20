@@ -74,71 +74,6 @@ struct DatePicker: ActionUIViewConstruction {
     // Design decision: Defines valueType as Date to support type-safe string parsing in ActionUIModel
     static var valueType: Any.Type = Date.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate title
-        if !(validatedProperties["title"] is String?), validatedProperties["title"] != nil {
-            logger.log("DatePicker requires 'title' as String; ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        // Validate displayStyle
-        #if os(macOS)
-        let validStyles = ["automatic", "compact", "graphical", "stepperField", "field"]
-        #else
-        let validStyles = ["automatic", "compact", "graphical"]
-        #endif
-        if let displayStyle = validatedProperties["displayStyle"] as? String {
-            if !validStyles.contains(displayStyle) {
-                logger.log("DatePicker displayStyle '\(displayStyle)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); ignoring", .warning)
-                validatedProperties["displayStyle"] = nil
-            }
-        } else if validatedProperties["displayStyle"] != nil {
-            logger.log("DatePicker requires 'displayStyle' as String; ignoring", .warning)
-            validatedProperties["displayStyle"] = nil
-        }
-
-        // Validate displayedComponents
-        let validComponents = ["date", "hourAndMinute", "dateAndTime"]
-        if let displayedComponents = validatedProperties["displayedComponents"] as? String {
-            if !validComponents.contains(displayedComponents) {
-                logger.log("DatePicker displayedComponents '\(displayedComponents)' invalid; ignoring", .warning)
-                validatedProperties["displayedComponents"] = nil
-            }
-        } else if validatedProperties["displayedComponents"] != nil {
-            logger.log("DatePicker requires 'displayedComponents' as String; ignoring", .warning)
-            validatedProperties["displayedComponents"] = nil
-        }
-
-        // Validate range (lightweight)
-        if let range = validatedProperties["range"] as? [String: String] {
-            var isValid = true
-            if range["start"] == nil {
-                logger.log("DatePicker range.start is not specified; ignoring range", .warning)
-                isValid = false
-            }
-            if range["end"] == nil {
-                logger.log("DatePicker range.end is not specified; ignoring range", .warning)
-                isValid = false
-            }
-            if !isValid  {
-                validatedProperties["range"] = nil
-            }
-        } else if validatedProperties["range"] != nil {
-            logger.log("DatePicker requires 'range' as [String: String]; ignoring", .warning)
-            validatedProperties["range"] = nil
-        }
-        
-        // Validate selectedDate
-        if !(validatedProperties["selectedDate"] is String?), validatedProperties["selectedDate"] != nil {
-            logger.log("DatePicker selectedDate is not a string; ignoring", .warning)
-            validatedProperties["selectedDate"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let initialDate = Self.initialValue(model) as? Date ?? Date()
@@ -195,8 +130,7 @@ struct DatePicker: ActionUIViewConstruction {
     /// Maps the JSON `displayedComponents` string to SwiftUI `DatePickerComponents`.
     /// `nil`/`"date"` -> `.date` (default, date-only); `"hourAndMinute"` -> a time
     /// (hour+minute) picker; `"dateAndTime"` -> a combined `[.date, .hourAndMinute]`
-    /// picker. Any unrecognized value (already dropped by `validateProperties`)
-    /// falls back to `.date`.
+    /// picker. Any unrecognized value falls back to `.date`.
     static func displayedComponents(from raw: String?) -> SwiftUI.DatePickerComponents {
         switch raw {
         case "hourAndMinute":

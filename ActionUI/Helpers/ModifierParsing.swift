@@ -3,9 +3,8 @@
  ModifierParsing: the rules for the base modifiers whose values are structured (frame, offset,
  scale, shadow, border, animation, transition, keyboard shortcut, clip shape, padding, column
  width). Each function turns one raw property value, as JSON decoding or setElementProperty left
- it, into a portable description, or nil when the value is not usable - which is what the old
- property validation produced by removing it. BaseModifiers calls these; renderers never parse
- these keys themselves.
+ it, into a portable description, or nil when the value is not usable. BaseModifiers calls these;
+ renderers never parse these keys themselves.
 
  Portable on purpose: Foundation types only, so every renderer shares the same rules.
 */

@@ -25,7 +25,7 @@
    }
  }
 
- // Note: "destinationViewId" is a base View property validated by View.validateProperties.
+ // Note: "destinationViewId" is a base View property, read by BaseModifiers.
  // NavigationLink uses it specifically to create SwiftUI.NavigationLink(title, value: destinationViewId)
  // for push-based navigation inside NavigationStack.
  // The same property is also used by sidebar List children in NavigationSplitView to select a destination view.
@@ -56,20 +56,6 @@ struct NavigationLink: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = nil
 
     static var valueType: Any.Type = Int?.self
-    
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        // Validate title
-        if let title = validatedProperties["title"], !(title is String) {
-            logger.log("Invalid type for NavigationLink title: expected String, got \(type(of: title)), ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-
-        // Note: destinationViewId is validated by View.validateProperties (base View property)
-
-        return validatedProperties
-    }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
 

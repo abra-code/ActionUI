@@ -40,9 +40,9 @@ extension PhaseAnimator {
         var trigger = "onAppear"
         var timerInterval = 1.0
         var stateKey = "counter"
-        /// The "animation" key is also a base View key: what the base validation keeps of it
-        /// (a valid curve with optional duration, delay, speed and value; nothing else) is all
-        /// the renderer gets, so this is the base parse. nil without a valid curve.
+        /// The "animation" key is also a base View key, read here as the base modifiers read it
+        /// (a valid curve with optional duration, delay, speed and value; nothing else). nil
+        /// without a valid curve.
         var animation: BaseModifiers.Animation?
 
         init(_ properties: [String: Any]) {
@@ -72,10 +72,6 @@ struct PhaseAnimator: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, _ in
-        return properties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
@@ -85,9 +81,9 @@ struct PhaseAnimator: ActionUIViewConstruction {
         let stateKey = props.stateKey
 
         // Define animation
-        // The base validation rebuilds "animation" with only curve, duration, delay, speed and value, so
-        // this renderer never got a "type" or the keys of the other curves: it was always linear, with the
-        // duration kept by the base validation, or 1.0 when there is none.
+        // The base modifiers read "animation" as only curve, duration, delay, speed and value, so this
+        // renderer reads no "type" or the keys of the other curves: it is always linear, with the base
+        // duration, or 1.0 when there is none.
         let animation: Animation
         let type = "linear"
         let duration = props.animation?.duration ?? 1.0

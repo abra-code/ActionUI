@@ -17,44 +17,7 @@ import SwiftUI
 import Foundation
 
 @MainActor
-public struct LoadableWindowGroup : ActionUIPropertyValidation {
-    // Public to satisfy the now-public ActionUIPropertyValidation requirement: a public type
-    // conforming to a public protocol must witness its requirements with public members.
-    public static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate property types
-        if properties["url"] != nil && !(properties["url"] is String) {
-            logger.log("LoadableWindowGroup url must be a String; ignoring", .warning)
-            validatedProperties["url"] = nil
-        }
-        
-        if properties["filePath"] != nil && !(properties["filePath"] is String) {
-            logger.log("LoadableWindowGroup filePath must be a String; ignoring", .warning)
-            validatedProperties["filePath"] = nil
-        }
-        
-        if properties["name"] != nil && !(properties["name"] is String) {
-            logger.log("LoadableWindowGroup name must be a String; ignoring", .warning)
-            validatedProperties["name"] = nil
-        }
-        
-        // Ensure exactly one source
-        let sources = ["url", "filePath", "name"].compactMap { validatedProperties[$0] }
-        if sources.isEmpty {
-            logger.log("LoadableWindowGroup requires one of 'url', 'filePath', or 'name'; displaying error", .error)
-        } else if sources.count > 1 {
-            logger.log("LoadableWindowGroup has multiple sources; prioritizing 'url' > 'filePath' > 'name'", .warning)
-            if validatedProperties["url"] != nil {
-                validatedProperties["filePath"] = nil
-                validatedProperties["name"] = nil
-            } else if validatedProperties["filePath"] != nil {
-                validatedProperties["name"] = nil
-            }
-        }
-        
-        return validatedProperties
-    }
+public struct LoadableWindowGroup {
     
     public static func load(
         fromResource resourceName: String,
@@ -100,7 +63,7 @@ public struct LoadableWindowGroup : ActionUIPropertyValidation {
 
 /*
     static func buildScene(element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) -> some SwiftUI.Scene {
-        let properties = validateProperties(element.properties, logger: logger)
+        let properties = element.properties
         
         guard let source = (properties["url"] ?? properties["filePath"] ?? properties["name"]) as? String, !source.isEmpty else {
             logger.log("No valid source for LoadableWindowGroup id \(element.id), displaying error", .warning)

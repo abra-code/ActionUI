@@ -61,21 +61,6 @@ struct GeometryReader: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        // Validate alignment
-        if let alignment = validatedProperties["alignment"] as? String {
-            let validAlignments = ["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"]
-            if !validAlignments.contains(alignment) {
-                logger.log("GeometryReader alignment '\(alignment)' invalid; defaulting to 'topLeading'", .warning)
-                validatedProperties["alignment"] = "topLeading"
-            }
-        }
-
-        return validatedProperties
-    }
-
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states = model.states
         if states["size"] == nil {

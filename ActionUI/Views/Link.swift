@@ -37,24 +37,6 @@ struct Link: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Void.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate title
-        if validatedProperties["title"] != nil && !(validatedProperties["title"] is String) {
-            logger.log("Invalid type for Link title: expected String, got \(type(of: validatedProperties["title"]!)), ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        // Validate url
-        if validatedProperties["url"] != nil && !(validatedProperties["url"] is String) {
-            logger.log("Invalid type for Link url: expected String, got \(type(of: validatedProperties["url"]!)), ignoring", .warning)
-            validatedProperties["url"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         guard let urlString = props.url, let url = URL(string: urlString) else {

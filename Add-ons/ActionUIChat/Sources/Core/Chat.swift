@@ -359,10 +359,6 @@ struct Chat: ActionUIViewConstruction {
     // value type stays Void, mirroring container-style elements.
     static var valueType: Any.Type = Void.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        ChatConfig.validate(properties, logger)
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // The Chat element's operational config (protocol + transport) is NOT read here and is NOT
         // document-declared: a host injects it at runtime into states["config"], which the component's

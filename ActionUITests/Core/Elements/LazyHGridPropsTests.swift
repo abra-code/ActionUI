@@ -46,7 +46,7 @@ final class LazyHGridPropsTests: XCTestCase {
     }
 
     func testOnlyFlexibleFalseGivesNoRows() {
-        // Validation keeps a list whose definitions say "flexible": false, and the renderer then
+        // A list whose definitions all say "flexible": false is read as given, and the renderer then
         // has no rows: the grid shows nothing.
         XCTAssertEqual(LazyHGrid.Props(["rows": [["flexible": false]] as [Any]]).rows, [])
         let definitions: [Any] = [["flexible": false], ["minimum": "x"], [String: Any]()]

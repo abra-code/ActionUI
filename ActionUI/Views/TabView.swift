@@ -85,34 +85,6 @@ struct TabView: ActionUIViewConstruction {
     // Design decision: Defines valueType as Int to reflect selected tab index for type-safe state management
     static var valueType: Any.Type = Int.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate selection
-        if let selection = properties["selection"] {
-            if !(selection is Int) {
-                logger.log("TabView selection must be an Integer; defaulting to 0", .warning)
-                validatedProperties["selection"] = nil
-            }
-        }
-        
-        // Validate style
-        if let style = properties["style"] {
-            if !(style is String) {
-                logger.log("TabView style must be a String; defaulting to 'automatic'", .warning)
-                validatedProperties["style"] = nil
-            } else if let styleStr = style as? String {
-                let validStyles = ["automatic", "tabBarOnly", "sidebarAdaptable", "page", "verticalPage", "grouped"]
-                if !validStyles.contains(styleStr) {
-                    logger.log("TabView style must be one of \(validStyles); defaulting to 'automatic'", .warning)
-                    validatedProperties["style"] = nil
-                }
-            }
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []

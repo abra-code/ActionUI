@@ -54,26 +54,6 @@ struct Diff: ActionUIViewConstruction {
     // Display-only element: no observable runtime value.
     static var valueType: Any.Type = Void.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validated = properties
-
-        for key in ["oldText", "newText", "oldFile", "newFile"] {
-            if let value = validated[key], !(value is String) {
-                logger.log("Diff \(key) must be a String; ignoring", .warning)
-                validated[key] = nil
-            }
-        }
-
-        for key in ["contextLines", "maxRenderedLines"] {
-            if let value = validated[key], !(value is Int) {
-                logger.log("Diff \(key) must be an integer; ignoring", .warning)
-                validated[key] = nil
-            }
-        }
-
-        return validated
-    }
-
     // STATELESS: resolve both sides from the passed properties and build the view fresh every
     // invocation. Capturing nothing is what makes a post-display setElementProperty re-render live.
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
@@ -159,9 +139,8 @@ struct Diff: ActionUIViewConstruction {
     }
 
     /// Reads an integer property, falling back to `defaultValue` (with a warning) when it is
-    /// ill-typed or below `minimum`. validateProperties already drops non-integers; the range
-    /// check lives here.
-    private static func intProperty(_ properties: [String: Any], key: String,
+    /// ill-typed or below `minimum`.
+    static func intProperty(_ properties: [String: Any], key: String,
                                     default defaultValue: Int, minimum: Int,
                                     logger: any ActionUILogger) -> Int {
         guard let raw = properties[key] else {

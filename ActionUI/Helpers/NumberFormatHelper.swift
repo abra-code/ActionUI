@@ -43,7 +43,7 @@ enum NumberFormatHelper: Equatable, Sendable {
     /// Accepts "value" (Int, Double, or String) or falls back to "text".
     static func initialValueString(from properties: [String: Any]) -> String {
         let value = properties["value"]
-        // Only an Int, Double or String "value" counts (as in TextField validation): a Float,
+        // Only an Int, Double or String "value" counts: a Float,
         // Int64 or CGFloat set at runtime falls through to "text".
         if value is Int || value is Double || value is String {
             if let intVal = value as? Int { return String(intVal) }

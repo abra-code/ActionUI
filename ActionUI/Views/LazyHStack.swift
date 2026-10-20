@@ -62,27 +62,6 @@ struct LazyHStack: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        if validatedProperties.cgFloat(forKey: "spacing") == nil, validatedProperties["spacing"] != nil {
-            logger.log("LazyHStack spacing must be numeric; ignoring", .warning)
-            validatedProperties["spacing"] = nil
-        }
-        
-        if let alignment = validatedProperties["alignment"] as? String {
-            if !["top", "center", "bottom"].contains(alignment) {
-                logger.log("LazyHStack alignment '\(alignment)' invalid; defaulting to nil", .warning)
-                validatedProperties["alignment"] = nil
-            }
-        } else if validatedProperties["alignment"] != nil {
-            logger.log("LazyHStack alignment must be 'top', 'center', or 'bottom'; ignoring", .warning)
-            validatedProperties["alignment"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let spacing = CGFloat(props.spacing)

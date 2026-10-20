@@ -62,54 +62,6 @@ struct Gauge: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Double.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate value
-        if (properties.double(forKey: "value") == nil), properties["value"] != nil {
-            logger.log("Gauge value must be a number; defaulting to 0.0", .warning)
-            validatedProperties["value"] = nil
-        }
-        
-        // Validate title
-        if !(properties["title"] is String?), properties["title"] != nil {
-            logger.log("Gauge title must be a String; defaulting to nil", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        // Validate style
-        let validStyles = ["accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity"]
-        if let style = validatedProperties["style"] as? String {
-            if !validStyles.contains(style) {
-                logger.log("Gauge style '\(style)' invalid; defaulting to nil", .warning)
-                validatedProperties["style"] = nil
-            }
-        }
-        
-        // Validate range
-        if let range = properties["range"] as? [String: Any] {
-            var validatedRange: [String: Double] = [:]
-            if let min = range.double(forKey: "min") {
-                validatedRange["min"] = min
-            } else {
-                logger.log("Gauge range.min must be a number; defaulting to 0.0", .warning)
-                validatedRange["min"] = 0.0
-            }
-            if let max = range.double(forKey: "max") {
-                validatedRange["max"] = max
-            } else {
-                logger.log("Gauge range.max must be a number; defaulting to 1.0", .warning)
-                validatedRange["max"] = 1.0
-            }
-            validatedProperties["range"] = validatedRange
-        } else if properties["range"] != nil {
-            logger.log("Gauge range must be a dictionary with min/max; defaulting to 0.0...1.0", .warning)
-            validatedProperties["range"] = ["min": 0.0, "max": 1.0]
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double ?? 0.0
         let props = Props(properties)

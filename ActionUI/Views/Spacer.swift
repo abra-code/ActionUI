@@ -31,19 +31,6 @@ struct Spacer: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        if let minLength = validatedProperties.cgFloat(forKey: "minLength") {
-            validatedProperties["minLength"] = minLength
-        } else if validatedProperties["minLength"] != nil {
-            logger.log("Spacer minLength must be a CGFloat; ignoring", .warning)
-            validatedProperties["minLength"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         return SwiftUI.Spacer()
     }

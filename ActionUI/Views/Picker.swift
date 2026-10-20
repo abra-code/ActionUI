@@ -143,37 +143,6 @@ struct Picker: ActionUIViewConstruction {
 
     static var valueType: Any.Type = String.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate options format and remove if invalid
-        if let rawOptions = properties["options"] {
-            if rawOptions as? [String] == nil && rawOptions as? [[String: Any]] == nil {
-                logger.log("Picker 'options' must be [String] or [[\"title\": String, \"tag\": String]]; setting to nil", .warning)
-                validatedProperties["options"] = nil
-            }
-        }
-        
-        // Validate pickerStyle
-#if os(macOS)
-        let validStyles = ["menu", "segmented", "radioGroup"]
-#else
-        let validStyles = ["menu", "segmented", "wheel"]
-#endif
-        if let style = properties["pickerStyle"] as? String, !validStyles.contains(style) {
-            logger.log("Picker style '\(style)' invalid on this platform; setting to nil", .warning)
-            validatedProperties["pickerStyle"] = nil
-        }
-        
-        // Validate title
-        if let title = properties["title"], !(title is String) {
-            logger.log("Picker 'title' must be String; setting to nil", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let sections = props.sections

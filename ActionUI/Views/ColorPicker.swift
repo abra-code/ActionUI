@@ -40,32 +40,8 @@ struct ColorPicker: ActionUIViewConstruction {
 
     static var valueType: Any.Type = SwiftUI.Color.self // Value is the selected color
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate title (optional, must be String)
-        if let title = validatedProperties["title"], !(title is String) {
-            logger.log("Invalid type for ColorPicker title: expected String, got \(type(of: title)), ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        // Validate selectedColor (optional, must be String; defaults applied in buildView)
-        if let selectedColor = validatedProperties["selectedColor"], !(selectedColor is String) {
-            logger.log("Invalid type for ColorPicker selectedColor: expected String, got \(type(of: selectedColor)), ignoring", .warning)
-            validatedProperties["selectedColor"] = nil
-        }
-        
-        // Validate actionID (optional, must be String)
-        if let actionID = validatedProperties["actionID"], !(actionID is String) {
-            logger.log("Invalid type for ColorPicker actionID: expected String, got \(type(of: actionID)), ignoring", .warning)
-            validatedProperties["actionID"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     // Builds the ColorPicker view, binding selection to state
-    // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    // Design decision: Initializes value as the "selectedColor" property or Color.clear if not set, preserving shared state (the view model) from ActionUIRegistry.buildView
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialColor = Self.initialValue(model) as? SwiftUI.Color ?? SwiftUI.Color.clear
         let props = Props(properties)

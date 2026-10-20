@@ -240,24 +240,24 @@ final class ChartSelectionTests: XCTestCase {
 
     func testSelectionMarksAreDrawnOnlyWhileSelected() {
         let description = bars([selectionRule], extra: ["chartXSelection": "value"])
-        let validated = ChartDescription.parse(description, logger: logger).cleaned
+        let cleaned = ChartDescription.parse(description, logger: logger).cleaned
         let rows = [["Mon", "3"], ["Tue", "5"], ["Wed", "4"]]
         let cache = ChartRenderCache()
-        var rendered = cache.render(description: validated, rows: rows, viewID: 10, logger: logger)
+        var rendered = cache.render(description: cleaned, rows: rows, viewID: 10, logger: logger)
         XCTAssertEqual(rendered.items.map(\.id), [0, 1, 2])
-        rendered = cache.render(description: validated, rows: rows, selectionValue: #"{"x":"Tue"}"#, viewID: 10, logger: logger)
+        rendered = cache.render(description: cleaned, rows: rows, selectionValue: #"{"x":"Tue"}"#, viewID: 10, logger: logger)
         XCTAssertEqual(rendered.items.map(\.id), [0, 1, 2, -1])
         XCTAssertEqual(cache.buildCount, 1, "a selection change rebuilds only the selection marks")
         XCTAssertEqual(cache.selectionBuildCount, 1)
-        _ = cache.render(description: validated, rows: rows, selectionValue: #"{"x":"Tue"}"#, viewID: 10, logger: logger)
+        _ = cache.render(description: cleaned, rows: rows, selectionValue: #"{"x":"Tue"}"#, viewID: 10, logger: logger)
         XCTAssertEqual(cache.selectionBuildCount, 1, "an unchanged selection rebuilds nothing")
     }
 
     func testASelectedCategoryOutsideTheDataIsNotDrawn() {
         let description = bars([selectionRule], extra: ["chartXSelection": "value"])
-        let validated = ChartDescription.parse(description, logger: logger).cleaned
+        let cleaned = ChartDescription.parse(description, logger: logger).cleaned
         let cache = ChartRenderCache()
-        let rendered = cache.render(description: validated, rows: [["Mon", "3"], ["Tue", "5"]], selectionValue: #"{"x":"Sun"}"#,
+        let rendered = cache.render(description: cleaned, rows: [["Mon", "3"], ["Tue", "5"]], selectionValue: #"{"x":"Sun"}"#,
                                     viewID: 10, logger: logger)
         XCTAssertEqual(rendered.items.map(\.id), [0, 1], "Sun would add a category")
     }
@@ -276,9 +276,9 @@ final class ChartSelectionTests: XCTestCase {
             "content": [["type": "ForEach", "content": [["type": "LineMark", "x": pv("X", "$x"), "y": pv("N", "$n")]]], band],
             "chartXSelection": "range",
         ]
-        let validated = ChartDescription.parse(description, logger: logger).cleaned
+        let cleaned = ChartDescription.parse(description, logger: logger).cleaned
         let cache = ChartRenderCache()
-        let rendered = cache.render(description: validated, rows: [["1", "2"], ["5", "3"]], selectionValue: #"{"x":[2,4]}"#,
+        let rendered = cache.render(description: cleaned, rows: [["1", "2"], ["5", "3"]], selectionValue: #"{"x":[2,4]}"#,
                                     viewID: 10, logger: logger)
         XCTAssertEqual(rendered.items.count, 3, "two line points and the band")
         XCTAssertEqual(logger.warnings, [])

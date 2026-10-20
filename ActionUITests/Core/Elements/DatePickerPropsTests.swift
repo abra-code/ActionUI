@@ -2,8 +2,8 @@
 /*
  Tests for DatePicker.Props: the title default, the display style and component names, the
  range (needs "start" and "end" strings), the initial date as written and the action. The
- "stepperField" and "field" styles are dropped by validation off macOS but kept by Props, where the
- renderer shows the default style for them.
+ "stepperField" and "field" styles are read on every platform; off macOS the renderer shows the
+ default style for them.
 */
 
 import XCTest

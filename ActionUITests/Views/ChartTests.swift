@@ -4,7 +4,7 @@ import SwiftUI
 import Charts
 @testable import ActionUI
 
-// Records warnings so tests can assert that validation reported a problem (or did not).
+// Records warnings so tests can assert that cleaning a description reported a problem (or did not).
 private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
     private let lock = NSLock()
     private var recorded: [String] = []
@@ -192,18 +192,18 @@ final class ChartTests: XCTestCase {
         XCTAssertEqual(decoded.map(ChartDescription.cellString), ["true", "7", "0.25"])
     }
 
-    // MARK: - Validation
+    // MARK: - Cleaning the description
 
-    func testValidationKeepsAValidDescriptionAndIsIdempotent() {
+    func testCleaningKeepsAValidDescriptionAndIsIdempotent() {
         let chart = description(data: [["2026-08-03", "iOS", 1]])
         let cleaned = ChartDescription.parse(chart, logger: logger).cleaned
         XCTAssertEqual(logger.warnings, [])
         let again = ChartDescription.parse(cleaned, logger: logger).cleaned
         XCTAssertTrue((cleaned as NSDictionary).isEqual(to: again))
-        XCTAssertNotNil(cleaned["data"], "validation keeps data; seeding removes it")
+        XCTAssertNotNil(cleaned["data"], "cleaning keeps data; seeding removes it")
     }
 
-    func testValidationDropsWhatItCannotUse() {
+    func testCleaningDropsWhatItCannotUse() {
         let chart: [String: Any] = [
             "columns": columns,
             "content": [
@@ -254,7 +254,7 @@ final class ChartTests: XCTestCase {
         }
         XCTAssertEqual(mark.values["x"]?.type, .string)
         XCTAssertEqual(mark.values["y"]?.type, .integer, "the value's own type is used")
-        // Validation writes the default type, so the cleaned description parses without a warning.
+        // Cleaning writes the default type, so the cleaned description parses without a warning.
         let quiet = RecordingLogger()
         _ = ChartDescription.parse(parsed.cleaned, logger: quiet)
         XCTAssertEqual(quiet.warnings, [])
@@ -297,7 +297,7 @@ final class ChartTests: XCTestCase {
             ]]],
         ]
         // An untyped {"name"} column must not come back as a bare name (a string column): the
-        // unit makes "$when" a date, and re-validation must keep it one.
+        // unit makes "$when" a date, and cleaning it again must keep it one.
         let first = ChartDescription.parse(chart, logger: logger)
         let second = ChartDescription.parse(first.cleaned, logger: logger)
         guard case .forEach(let a, _)? = first.spec.content.first, case .mark(let m1)? = a.first,
@@ -332,8 +332,8 @@ final class ChartTests: XCTestCase {
              "data": [[1, "a", true, NSNull()]], "extra:ios": 1, "content:macos": []],
             ["columns": "x", "content": "y", "data": [1], "chartLegend": 3],
         ]
-        // Re-validation runs on every setElementProperty: the cleaned description must parse
-        // to itself without a warning.
+        // Setting the chart at runtime cleans the description again: the cleaned description must
+        // parse to itself without a warning.
         for chart in cases {
             let first = ChartDescription.parse(chart, logger: logger)
             let quiet = RecordingLogger()

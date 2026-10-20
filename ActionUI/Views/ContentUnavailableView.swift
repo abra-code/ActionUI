@@ -61,42 +61,6 @@ struct ContentUnavailableView: ActionUIViewConstruction {
 
     static var valueType: Any.Type = String.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        // Validate title
-        if properties["title"] != nil && !(properties["title"] is String) {
-            logger.log("ContentUnavailableView title must be a String; ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-
-        // Validate systemImage
-        if properties["systemImage"] != nil && !(properties["systemImage"] is String) {
-            logger.log("ContentUnavailableView systemImage must be a String; ignoring", .warning)
-            validatedProperties["systemImage"] = nil
-        }
-
-        // Validate description
-        if properties["description"] != nil && !(properties["description"] is String) {
-            logger.log("ContentUnavailableView description must be a String; ignoring", .warning)
-            validatedProperties["description"] = nil
-        }
-
-        // Validate search
-        if properties["search"] != nil && !(properties["search"] is Bool) {
-            logger.log("ContentUnavailableView search must be a Boolean; ignoring", .warning)
-            validatedProperties["search"] = nil
-        }
-
-        // Validate query
-        if properties["query"] != nil && !(properties["query"] is String) {
-            logger.log("ContentUnavailableView query must be a String; ignoring", .warning)
-            validatedProperties["query"] = nil
-        }
-
-        return validatedProperties
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
 

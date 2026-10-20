@@ -54,35 +54,6 @@ struct Grid: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["rows": .rows]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate alignment
-        if let alignment = validatedProperties["alignment"] as? String {
-            if !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
-                logger.log("Grid alignment '\(alignment)' invalid; defaulting to nil", .warning)
-                validatedProperties["alignment"] = nil
-            }
-        } else if validatedProperties["alignment"] != nil {
-            logger.log("Grid alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring", .warning)
-            validatedProperties["alignment"] = nil
-        }
-
-        // Validate spacing
-        if validatedProperties["horizontalSpacing"] != nil,
-           validatedProperties.cgFloat(forKey: "horizontalSpacing") == nil {
-            logger.log("Grid horizontalSpacing must be a number; ignoring", .warning)
-            validatedProperties["horizontalSpacing"] = nil
-        }
-        if validatedProperties["verticalSpacing"] != nil,
-           validatedProperties.cgFloat(forKey: "verticalSpacing") == nil {
-            logger.log("Grid verticalSpacing must be a number; ignoring", .warning)
-            validatedProperties["verticalSpacing"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let rows = (element.subviews?["rows"] as? [[any ActionUIElementBase]]) ?? []
         let props = Props(properties)

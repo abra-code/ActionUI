@@ -46,7 +46,7 @@ final class LazyVGridPropsTests: XCTestCase {
     }
 
     func testOnlyFlexibleFalseGivesNoColumns() {
-        // Validation keeps a list whose definitions say "flexible": false, and the renderer then
+        // A list whose definitions all say "flexible": false is read as given, and the renderer then
         // has no columns: the grid shows nothing.
         XCTAssertEqual(LazyVGrid.Props(["columns": [["flexible": false]] as [Any]]).columns, [])
         let definitions: [Any] = [["flexible": false], ["minimum": "x"], [String: Any]()]

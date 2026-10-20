@@ -83,8 +83,8 @@ private func openScalar(_ scalar: ChartScalar, _ plottable: ChartPlottable, _ ne
     }
 }
 
-// Opens a start/end pair as one type. Validation makes both plottables the same type, so both
-// scalars have the same case.
+// Opens a start/end pair as one type. The description parser makes both plottables the same type, so
+// both scalars have the same case.
 @MainActor
 private func openScalarPair(_ start: ChartScalar, _ startPlottable: ChartPlottable, _ end: ChartScalar, _ endPlottable: ChartPlottable,
                       _ next: some PairOpener) -> AnyChartContent? {
@@ -448,7 +448,7 @@ struct ChartContentBuilder {
                 return
             }
             // A row is drawn whole or not at all: one unparsable cell skips all its marks.
-            // A ForEach holds marks and Plots of marks (validation refuses a nested ForEach).
+            // A ForEach holds marks and Plots of marks (the description parser refuses a nested ForEach).
             output.reserveCapacity(output.count + columns.rowCount * children.count)
             var rowItems: [AnyChartContent] = []
             for rowIndex in 0..<columns.rowCount {

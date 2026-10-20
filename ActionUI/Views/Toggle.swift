@@ -56,29 +56,6 @@ struct Toggle: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Bool.self // Value is the toggle's on/off state
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate isOn (initial value)
-        if properties["isOn"] != nil && !(properties["isOn"] is Bool) {
-            logger.log("Toggle isOn must be a Bool; ignoring", .warning)
-            validatedProperties["isOn"] = nil
-        }
-
-        // Validate style based on platform
-        #if os(macOS)
-        let validStyles = ["switch", "button", "checkbox"]
-        #else
-        let validStyles = ["switch", "button"]
-        #endif
-        if let style = validatedProperties["style"] as? String, !validStyles.contains(style) {
-            logger.log("Toggle style '\(style)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); falling back to default", .warning)
-            validatedProperties["style"] = nil
-        }
-
-        return validatedProperties
-    }
-    
     // Builds the Toggle view, binding isOn to state
     // Design decision: Initializes value as false if not set, preserving shared state (the view model's properties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in

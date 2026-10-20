@@ -57,57 +57,6 @@ struct Stepper: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Double.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        // Validate value
-        if let value = validatedProperties.double(forKey: "value") {
-            validatedProperties["value"] = value
-        } else if validatedProperties["value"] != nil {
-            logger.log("Stepper value must be a number; defaulting to 0.0", .warning)
-            validatedProperties["value"] = 0.0
-        } else {
-            validatedProperties["value"] = 0.0
-        }
-
-        // Validate range
-        if let range = validatedProperties["range"] as? [String: Any] {
-            if let min = range.double(forKey: "min"), let max = range.double(forKey: "max"), min <= max {
-                validatedProperties["range"] = ["min": min, "max": max]
-            } else {
-                logger.log("Stepper range must have valid min/max numbers with min <= max; ignoring range", .warning)
-                validatedProperties["range"] = nil
-            }
-        } else if validatedProperties["range"] != nil {
-            logger.log("Stepper range must be a dictionary with min/max numbers; ignoring range", .warning)
-            validatedProperties["range"] = nil
-        }
-
-        // Validate step
-        if let step = validatedProperties.double(forKey: "step"), step > 0 {
-            validatedProperties["step"] = step
-        } else if validatedProperties["step"] != nil {
-            logger.log("Stepper step must be a positive number; defaulting to 1.0", .warning)
-            validatedProperties["step"] = 1.0
-        } else {
-            validatedProperties["step"] = 1.0
-        }
-
-        // Validate label
-        if let label = validatedProperties["label"], !(label is String) {
-            logger.log("Stepper label must be a String; ignoring", .warning)
-            validatedProperties["label"] = nil
-        }
-
-        // Validate labelFormat
-        if let labelFormat = validatedProperties["labelFormat"], !(labelFormat is String) {
-            logger.log("Stepper labelFormat must be a String; ignoring", .warning)
-            validatedProperties["labelFormat"] = nil
-        }
-
-        return validatedProperties
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double ?? 0.0
         let props = Props(properties)

@@ -78,48 +78,6 @@ struct RichTextView: ActionUIViewConstruction {
     // AsyncImage element and the ActionUICachedImage add-on).
     static var valueType: Any.Type = String.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validated = properties
-
-        if let markdown = validated["markdown"], !(markdown is String) {
-            logger.log("RichText markdown must be a String; ignoring", .warning)
-            validated["markdown"] = nil
-        }
-
-        if let fontSize = validated["baseFontSize"], numericCGFloat(fontSize) == nil {
-            logger.log("RichText baseFontSize must be a number; ignoring", .warning)
-            validated["baseFontSize"] = nil
-        }
-
-        if let highlighting = validated["syntaxHighlighting"], !(highlighting is Bool) {
-            logger.log("RichText syntaxHighlighting must be a Bool; ignoring", .warning)
-            validated["syntaxHighlighting"] = nil
-        }
-
-        if let behavior = validated["widthBehavior"] {
-            if let string = behavior as? String, string == "fill" || string == "hug" {
-                // valid
-            } else {
-                logger.log("RichText widthBehavior must be \"fill\" or \"hug\"; ignoring", .warning)
-                validated["widthBehavior"] = nil
-            }
-        }
-
-        if let find = validated["showFindBar"], !(find is Bool) {
-            logger.log("RichText showFindBar must be a Bool; ignoring", .warning)
-            validated["showFindBar"] = nil
-        }
-
-        // Fails closed: a present but unrecognized value becomes "on-click" rather than being dropped, which
-        // would mean "automatic" - whoever set the key meant to restrict fetching.
-        if let policy = validated["remoteImages"], RichTextView.remoteImagesPolicy(policy) == nil {
-            logger.log("RichText remoteImages must be one of automatic / on-click / never; using on-click", .warning)
-            validated["remoteImages"] = "on-click"
-        }
-
-        return validated
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Effective source: the runtime value (setElementValue) wins, else the "markdown" JSON property.
         // buildView receives the element's `properties` directly, whereas initialValue cannot read the

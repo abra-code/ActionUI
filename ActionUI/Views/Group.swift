@@ -38,10 +38,6 @@ struct Group: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, _ in
-        return properties
-    }
-        
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Template mode: render one template instance per row in states["content"]
         if let template = element.subviews?["template"] as? any ActionUIElementBase {

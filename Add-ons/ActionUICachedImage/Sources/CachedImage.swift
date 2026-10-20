@@ -50,39 +50,6 @@ struct CachedImage: ActionUIViewConstruction {
     // The element's runtime value is the image URL string (like the core AsyncImage element).
     static var valueType: Any.Type = String.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validated = properties
-
-        if let url = validated["url"], !(url is String) {
-            logger.log("CachedImage url must be a String; ignoring", .warning)
-            validated["url"] = nil
-        }
-
-        if let mode = validated["contentMode"] {
-            if let modeString = mode as? String {
-                if !["fit", "fill"].contains(modeString) {
-                    logger.log("CachedImage contentMode '\(modeString)' invalid (expected fit|fill); ignoring", .warning)
-                    validated["contentMode"] = nil
-                }
-            } else {
-                logger.log("CachedImage contentMode must be a String; ignoring", .warning)
-                validated["contentMode"] = nil
-            }
-        }
-
-        if let width = validated["maxPixelWidth"], numericCGFloat(width) == nil {
-            logger.log("CachedImage maxPixelWidth must be a number; ignoring", .warning)
-            validated["maxPixelWidth"] = nil
-        }
-
-        if let size = validated["intrinsicSize"], intrinsicSize(from: size) == nil {
-            logger.log("CachedImage intrinsicSize must be an object with positive numeric width and height; ignoring", .warning)
-            validated["intrinsicSize"] = nil
-        }
-
-        return validated
-    }
-
     // cornerRadius is applied NATIVELY by CachedImage (a continuous clip right around the image), so the
     // registry leaves it out of the baseline modifiers. The baseline "cornerRadius" modifier cannot round
     // the image here: CachedImage renders the image as an aspect-fit overlay on a Color.clear box, so

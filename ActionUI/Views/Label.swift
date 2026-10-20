@@ -39,30 +39,6 @@ struct Label: ActionUIViewConstruction {
     // The mutable runtime value is the title string
     static var valueType: Any.Type = String.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate title
-        if properties["title"] != nil && !(properties["title"] is String) {
-            logger.log("Label title must be a String; ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        // Validate systemImage
-        if properties["systemImage"] != nil && !(properties["systemImage"] is String) {
-            logger.log("Label systemImage must be a String; ignoring", .warning)
-            validatedProperties["systemImage"] = nil
-        }
-        
-        // Validate imageName
-        if properties["imageName"] != nil && !(properties["imageName"] is String) {
-            logger.log("Label imageName must be a String; ignoring", .warning)
-            validatedProperties["imageName"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, _ in
         
         let props = Props(properties)
@@ -88,7 +64,7 @@ struct Label: ActionUIViewConstruction {
             return storedValue
         }
         
-        // Otherwise use the validated title from the original JSON/plist
+        // Otherwise use the title from the properties
         let propertiesValue = Props(model.properties).title
         return propertiesValue
     }

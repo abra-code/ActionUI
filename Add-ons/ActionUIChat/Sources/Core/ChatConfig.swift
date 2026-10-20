@@ -1,10 +1,8 @@
 // Add-ons/ActionUIChat/Sources/Core/ChatConfig.swift
 //
 // The ADD-ON side of the Chat element's `properties` block: parses the host-facing action
-// IDs, delegates the visual / behavioral keys to the component's ChatConfiguration, and
-// owns `validate(_:_:)` - the element's validateProperties witness (type-check each
-// property, warn-and-drop anything ill-typed, never crash; unknown keys are left
-// untouched - the verifier flags those separately).
+// IDs and delegates the visual / behavioral keys to the component's ChatConfiguration.
+// Both read the raw properties and ignore a value of the wrong type.
 //
 // The element's OPERATIONAL settings (`protocol` + `transport`) are NOT here and are NOT
 // document-declared: a host injects them at runtime into states["config"] (see ChatStore),
@@ -54,91 +52,5 @@ struct ChatConfig {
         configuration.attachEnabled = !(attachActionID?.isEmpty ?? true)
         configuration.emitsEntryEvents = !(entryActionID?.isEmpty ?? true)
         self.configuration = configuration
-    }
-
-    // MARK: - Validation (the element's validateProperties witness)
-
-    // Properties only. `protocol` and `transport` are not properties (and not document-declared):
-    // a host injects them at runtime into states["config"], which ChatStore consumes.
-    static func validate(_ properties: [String: Any], _ logger: any ActionUILogger) -> [String: Any] {
-        var validated = properties
-
-        for key in ["appearance", "roles", "input", "surfaces", "features"] where validated[key] != nil {
-            if !(validated[key] is [String: Any]) {
-                logger.log("Chat \(key) must be an object; ignoring", .warning)
-                validated[key] = nil
-            }
-        }
-
-        if var featuresRaw = validated["features"] as? [String: Any] {
-            for (feature, value) in featuresRaw {
-                guard ["reactions", "editing", "deletion", "replies"].contains(feature) else {
-                    logger.log("Chat features.\(feature) is not a recognized feature; ignoring", .warning)
-                    featuresRaw[feature] = nil
-                    continue
-                }
-                if !(value is Bool) {
-                    logger.log("Chat features.\(feature) must be a Bool; ignoring", .warning)
-                    featuresRaw[feature] = nil
-                }
-            }
-            validated["features"] = featuresRaw
-        }
-
-        if var surfacesRaw = validated["surfaces"] as? [String: Any] {
-            for (surface, value) in surfacesRaw {
-                guard ["toolCalls", "thoughts", "plan", "diffs"].contains(surface) else {
-                    logger.log("Chat surfaces.\(surface) is not a routable surface in this build; ignoring", .warning)
-                    surfacesRaw[surface] = nil
-                    continue
-                }
-                guard let mode = value as? String, ChatConfiguration.SurfaceMode(rawValue: mode) != nil else {
-                    logger.log("Chat surfaces.\(surface) must be one of inline / collapsed / hidden / panel; ignoring", .warning)
-                    surfacesRaw[surface] = nil
-                    continue
-                }
-                if mode == ChatConfiguration.SurfaceMode.panel.rawValue {
-                    logger.log("Chat surfaces.\(surface) 'panel' is not yet honored; rendering inline", .verbose)
-                }
-            }
-            validated["surfaces"] = surfacesRaw
-        }
-
-        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID", "entryActionID", "resumeCheckpointActionID", "attachActionID"] {
-            if let value = validated[key], !(value is String) {
-                logger.log("Chat \(key) must be a String; ignoring", .warning)
-                validated[key] = nil
-            }
-        }
-
-        // A checkpoint action ID without an entry action ID is inert, and silently so: the component
-        // only OFFERS a resume cursor while emitsEntryEvents is true, and that derives from
-        // entryActionID. Say it here, at document validation, where the author is actually looking -
-        // otherwise the only signal is a verbose log line at runtime and the symptom is "my handler
-        // never fires", which reads as a bug in the element.
-        if !((validated["resumeCheckpointActionID"] as? String) ?? "").isEmpty,
-           ((validated["entryActionID"] as? String) ?? "").isEmpty {
-            logger.log("Chat resumeCheckpointActionID has no effect without entryActionID: a host that is not storing entries is not offered a resume cursor", .warning)
-        }
-
-        if let value = validated["readOnly"], !(value is Bool) {
-            logger.log("Chat readOnly must be a Bool; ignoring", .warning)
-            validated["readOnly"] = nil
-        }
-
-        if let value = validated["showFindBar"], !(value is Bool) {
-            logger.log("Chat showFindBar must be a Bool; ignoring", .warning)
-            validated["showFindBar"] = nil
-        }
-
-        // Fails closed: a present but unrecognized value becomes "on-click" rather than being dropped, which
-        // would mean "automatic" - whoever set the key meant to restrict fetching.
-        if let value = validated["remoteImages"],
-           (value as? String).flatMap(ChatConfiguration.RemoteImages.init(rawValue:)) == nil {
-            logger.log("Chat remoteImages must be one of automatic / on-click / never; using on-click", .warning)
-            validated["remoteImages"] = ChatConfiguration.RemoteImages.onClick.rawValue
-        }
-
-        return validated
     }
 }

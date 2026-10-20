@@ -50,42 +50,6 @@ struct RoundedRectangle: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validated = properties
-
-        if let cornerRadius = validated["cornerRadius"] {
-            if validated.cgFloat(forKey: "cornerRadius") == nil {
-                logger.log("RoundedRectangle cornerRadius must be a CGFloat; defaulting to 0", .warning)
-                validated["cornerRadius"] = nil
-            }
-        }
-        if let style = validated["cornerStyle"] as? String {
-            if style != "circular" && style != "continuous" {
-                logger.log("RoundedRectangle cornerStyle must be 'circular' or 'continuous'; ignoring", .warning)
-                validated["cornerStyle"] = nil
-            }
-        } else if validated["cornerStyle"] != nil {
-            logger.log("RoundedRectangle cornerStyle must be a String; ignoring", .warning)
-            validated["cornerStyle"] = nil
-        }
-        if let fill = validated["fill"], !(fill is String) {
-            logger.log("RoundedRectangle fill must be a String; ignoring", .warning)
-            validated["fill"] = nil
-        }
-        if let stroke = validated["stroke"], !(stroke is String) {
-            logger.log("RoundedRectangle stroke must be a String; ignoring", .warning)
-            validated["stroke"] = nil
-        }
-        if validated["strokeLineWidth"] != nil {
-            if validated.cgFloat(forKey: "strokeLineWidth") == nil {
-                logger.log("RoundedRectangle strokeLineWidth must be a CGFloat; ignoring", .warning)
-                validated["strokeLineWidth"] = nil
-            }
-        }
-
-        return validated
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, properties, _ in
         let props = Props(properties)
         let cornerRadius = CGFloat(props.cornerRadius)

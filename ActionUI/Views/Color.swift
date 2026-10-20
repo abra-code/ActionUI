@@ -46,15 +46,6 @@ struct Color: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validated = properties
-        if let color = validated["color"], !(color is String) {
-            logger.log("Color color must be a String; ignoring", .warning)
-            validated["color"] = nil
-        }
-        return validated
-    }
-
     static var initialValue: (ViewModel) -> Any? = { model in
         // Non-nil only when a color was set at runtime; nil means "use the `color` property" (buildView resolves it).
         return model.value as? SwiftUI.Color

@@ -75,28 +75,6 @@ struct HStack: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        if validatedProperties["spacing"] != nil, (validatedProperties.cgFloat(forKey:"spacing") == nil) {
-            logger.log("HStack spacing must be a number; ignoring", .warning)
-            validatedProperties["spacing"] = nil
-        }
-
-        let validAlignments = ["top", "center", "bottom", "firstTextBaseline", "lastTextBaseline"]
-        if let alignment = properties["alignment"] as? String {
-            if !validAlignments.contains(alignment) {
-                logger.log("HStack alignment '\(alignment)' invalid; ignoring", .warning)
-                validatedProperties["alignment"] = nil
-            }
-        } else if properties["alignment"] != nil {
-            logger.log("HStack alignment must be a String; ignoring", .warning)
-            validatedProperties["alignment"] = nil
-        }
-
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let spacing = props.spacing.map { CGFloat($0) }

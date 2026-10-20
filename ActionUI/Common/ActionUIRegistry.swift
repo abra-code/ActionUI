@@ -2,7 +2,7 @@
 import SwiftUI
 
 /*
- ActionUIRegistry manages the registration and invocation of view-specific builders, validators, and modifiers.
+ ActionUIRegistry manages the registration and invocation of view-specific builders and modifiers.
  Views are automatically registered during initialization of ActionUIRegistry.shared.
  The logger is client-configurable, defaulting to ConsoleLogger with verbose level.
 */
@@ -11,10 +11,8 @@ import SwiftUI
 public class ActionUIRegistry {
     // Design decision: Stores the type conforming to ActionUIViewConstruction, allowing runtime lookup of optional closure properties
     internal var viewRegistrations: [String: any ActionUIViewConstruction.Type] = [:]
-    // for other non-View elements we register validation only
-    internal var validationRegistrations: [String: any ActionUIPropertyValidation.Type] = [:]
     
-    // Logger for validation, view building, and modifier application
+    // Logger for view building and modifier application
     // Design decision: Client-configurable via setLogger, defaults to ConsoleLogger for consistency
     private var logger: any ActionUILogger
     
@@ -34,7 +32,6 @@ public class ActionUIRegistry {
         self.logger = ConsoleLogger(maxLevel: loggerLevel)
         // Automatically register supported SwiftUI view types
         registerAllViews()
-        registerAdditionalElementValidations()
     }
     
     // Allows clients to set a custom logger (e.g., XCTestLogger)
@@ -116,12 +113,6 @@ public class ActionUIRegistry {
         // Add more view registrations if needed
     }
     
-    internal func registerAdditionalElementValidations() {
-        registerPropertyValidation(WindowGroup.self)
-        registerPropertyValidation(CommandGroup.self)
-        registerPropertyValidation(CommandMenu.self)
-    }
-    
     // Registers a view construction type using its type name
     // Design decision: Simplifies registration by using String(describing: type.self), replacing ActionUIElement.registerView
     @inline(__always)
@@ -130,12 +121,6 @@ public class ActionUIRegistry {
         logger.log("Registered view type: \(String(describing: type.self))", .verbose)
     }
     
-    @inline(__always)
-    func registerPropertyValidation(_ type: any ActionUIPropertyValidation.Type) {
-        validationRegistrations[String(describing: type.self)] = type
-        logger.log("Registered property validation for element type: \(String(describing: type.self))", .verbose)
-    }
-
     /// Registers an external, add-on view-construction type so its `type` token can be used in
     /// ActionUI JSON exactly like a built-in element. Intended for optional plug-in libraries that
     /// link against ActionUI (for example a custom `Chat` element) and self-register at launch.
@@ -156,21 +141,6 @@ public class ActionUIRegistry {
         logger.log("Registered custom view type: \(key)", .verbose)
     }
 
-    // Validates properties for a given element type, returning unchanged properties if type not registered
-    public func validateProperties(forElementType type: String, properties: [String: Any]) -> [String: Any] {
-        if let constructionType = viewRegistrations[type] {
-            let baseValidated = View.validateProperties(properties, logger)
-            return constructionType.validateProperties(baseValidated, logger)
-        }
-        
-        if let validationType = validationRegistrations[type] {
-            return validationType.validateProperties(properties, logger)
-        }
-        
-        logger.log("No registration found for type \(type), returning unchanged properties", .error)
-        return properties
-    }
-    
     // An element's current properties: its view model's store once seeded (by a load or a template
     // row), else the element's own. Never writes: a write during a view body would be a model
     // mutation inside a render.

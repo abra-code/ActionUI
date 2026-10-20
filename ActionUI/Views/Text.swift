@@ -50,18 +50,6 @@ struct Text: ActionUIViewConstruction {
     }
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        if properties["markdown"] != nil && !(properties["markdown"] is String) {
-            logger.log("Text markdown must be a String; ignoring", .warning)
-            validatedProperties["markdown"] = nil
-        }
-        if properties["text"] != nil && validatedProperties["markdown"] != nil {
-            logger.log("Text has both text and markdown; markdown takes precedence", .warning)
-        }
-        return validatedProperties
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, model, _, properties, _ in
         let props = Props(properties)
         // Runtime value (set via setElementValue) takes precedence - an AttributedString or a plain String;

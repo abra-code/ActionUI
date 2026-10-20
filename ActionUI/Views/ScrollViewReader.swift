@@ -44,27 +44,6 @@ struct ScrollViewReader: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-                
-        // Validate scrollTo
-        if let scrollTo = validatedProperties["scrollTo"] as? Int {
-            validatedProperties["scrollTo"] = scrollTo
-        } else if validatedProperties["scrollTo"] != nil {
-            logger.log("ScrollViewReader scrollTo must be an Int; ignoring", .warning)
-            validatedProperties["scrollTo"] = nil
-        }
-        
-        // Validate anchor
-        if let anchor = validatedProperties["anchor"] as? String,
-           !["top", "center", "bottom"].contains(anchor) {
-            logger.log("ScrollViewReader anchor '\(anchor)' invalid; defaulting to 'center'", .warning)
-            validatedProperties["anchor"] = "center"
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         

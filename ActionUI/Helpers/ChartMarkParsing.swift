@@ -839,8 +839,8 @@ extension ChartDescription {
     }
 }
 
-// Validation of a description at render time has nowhere to report: the description was
-// validated (and reported on) when it was set.
+// Parsing a description at render time has nowhere to report: the description was cleaned
+// (and reported on) when it was set.
 final class SilentChartLogger: ActionUILogger, Sendable {
     static let shared = SilentChartLogger()
     func log(_ message: String, _ level: LoggerLevel) {}

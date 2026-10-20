@@ -61,43 +61,6 @@ struct Button: ActionUIViewConstruction {
     // Button has no stateful value, only triggers actions
     static var valueType: Any.Type = Void.self
     
-    // Validates properties specific to Button; baseline properties are validated by View.validateProperties
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        if let title = validatedProperties["title"], !(title is String) {
-            logger.log("Invalid type for Button title: expected String, got \(type(of: title)), ignoring", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        if let systemImage = validatedProperties["systemImage"], !(systemImage is String) {
-            logger.log("Invalid systemImage type", .warning)
-            validatedProperties["systemImage"] = nil
-        }
- 
-        if let assetImg = validatedProperties["assetImage"], !(assetImg is String) {
-            logger.log("Invalid assetImage type (expected String)", .warning)
-            validatedProperties["assetImage"] = nil
-        }
-        
-        if let systemImage = validatedProperties["imageScale"], !(systemImage is String) {
-            logger.log("Invalid imageScale type", .warning)
-            validatedProperties["imageScale"] = nil
-        }
-                
-        if let role = validatedProperties["role"] as? String {
-            if !["destructive", "cancel"].contains(role) {
-                logger.log("Invalid Button role '\(role)', ignoring", .warning)
-                validatedProperties["role"] = nil
-            }
-        } else if validatedProperties["role"] != nil {
-            logger.log("Invalid type for Button role: expected String, got \(type(of: validatedProperties["role"]!)), ignoring", .warning)
-            validatedProperties["role"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     // Builds the Button view, relying on ActionUIRegistry.build for state initialization
     // Design decision: No value state is initialized, as Button has no stateful value (valueType is Void)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in

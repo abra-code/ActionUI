@@ -62,31 +62,6 @@ struct TextEditor: ActionUIViewConstruction {
     // When markdown is used, model.value holds AttributedString; getElementValueAsString extracts plain text.
     static var valueType: Any.Type = String.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        if properties["text"] != nil && !(properties["text"] is String) {
-            logger.log("TextEditor text must be a String; ignoring", .warning)
-            validatedProperties["text"] = nil
-        }
-
-        if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
-            logger.log("TextEditor placeholder must be a String; defaulting to nil", .warning)
-            validatedProperties["placeholder"] = nil
-        }
-
-        if properties["markdown"] != nil && !(properties["markdown"] is String) {
-            logger.log("TextEditor markdown must be a String; ignoring", .warning)
-            validatedProperties["markdown"] = nil
-        }
-
-        if properties["text"] != nil && validatedProperties["markdown"] != nil {
-            logger.log("TextEditor has both text and markdown; markdown takes precedence", .warning)
-        }
-
-        return validatedProperties
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? String ?? ""
         let props = Props(properties)

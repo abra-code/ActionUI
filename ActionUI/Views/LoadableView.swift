@@ -53,42 +53,6 @@ struct LoadableView: ActionUIViewConstruction {
 
     static var valueType: Any.Type = String.self // String for url, filePath, or name
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Lightweight type checks only
-        if properties["url"] != nil && !(properties["url"] is String) {
-            logger.log("LoadableView url must be a String; ignoring", .warning)
-            validatedProperties["url"] = nil
-        }
-        
-        if properties["filePath"] != nil && !(properties["filePath"] is String) {
-            logger.log("LoadableView filePath must be a String; ignoring", .warning)
-            validatedProperties["filePath"] = nil
-        }
-        
-        if properties["name"] != nil && !(properties["name"] is String) {
-            logger.log("LoadableView name must be a String; ignoring", .warning)
-            validatedProperties["name"] = nil
-        }
-        
-        // Ensure exactly one source is valid
-        let sources = ["url", "filePath", "name"].compactMap { validatedProperties[$0] }
-        if sources.isEmpty {
-            logger.log("LoadableView requires one of 'url', 'filePath', or 'name'; displaying error", .error)
-        } else if sources.count > 1 {
-            logger.log("LoadableView has multiple sources; prioritizing 'url' > 'filePath' > 'name'", .warning)
-            if validatedProperties["url"] != nil {
-                validatedProperties["filePath"] = nil
-                validatedProperties["name"] = nil
-            } else if validatedProperties["filePath"] != nil {
-                validatedProperties["name"] = nil
-            }
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
 
         let props = Props(properties)

@@ -39,17 +39,6 @@ struct LabeledContent: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = ["children": .flat]
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        if properties["title"] != nil && !(properties["title"] is String) {
-            logger.log("LabeledContent 'title' must be String; setting to nil", .warning)
-            validatedProperties["title"] = nil
-        }
-
-        return validatedProperties
-    }
-
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let title = Props(properties).title
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []

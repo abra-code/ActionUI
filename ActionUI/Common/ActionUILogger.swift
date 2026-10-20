@@ -2,7 +2,7 @@
 import Foundation
 
 /// Protocol for logging messages in the ActionUI library with specified severity levels.
-/// Used for debugging, error reporting, and informational logging during view rendering and validation.
+/// Used for debugging, error reporting, and informational logging during view rendering.
 public protocol ActionUILogger: Sendable {
     /// Logs a message with the specified severity level.
     /// - Parameters:
@@ -23,6 +23,6 @@ public enum LoggerLevel: Int, Sendable {
     case info = 3
     /// Indicates detailed debugging information for developers (e.g., intermediate state changes or binding updates).
     case debug = 4
-    /// Indicates exhaustive diagnostic information (e.g., every property validation or view construction step).
+    /// Indicates exhaustive diagnostic information (e.g., every view construction step).
     case verbose = 5
 }

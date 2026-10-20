@@ -67,25 +67,6 @@ struct DisclosureGroup: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Void.self
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate title (must be String)
-        if let title = properties["title"], !(title is String) {
-            logger.log("DisclosureGroup 'title' must be String; setting to nil", .warning)
-            validatedProperties["title"] = nil
-        }
-        
-        // Validate isExpanded (must be Bool)
-        if let isExpanded = properties["isExpanded"], !(isExpanded is Bool) {
-            logger.log("DisclosureGroup 'isExpanded' must be Bool; setting to nil", .warning)
-            validatedProperties["isExpanded"] = nil
-        }
-        
-        // Note: 'children' is not validated here as it is handled by element.children
-        return validatedProperties
-    }
-    
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states: [String: Any] = model.states
         

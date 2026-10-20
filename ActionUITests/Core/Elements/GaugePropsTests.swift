@@ -80,7 +80,7 @@ final class GaugePropsTests: XCTestCase {
         XCTAssertEqual(Gauge.Props(["style": "accessoryCircular"]).style, .accessoryCircular)
         XCTAssertEqual(Gauge.Props(["style": "accessoryCircularCapacity"]).style, .accessoryCircularCapacity)
         XCTAssertEqual(Gauge.Props(["style": "accessoryLinearCapacity"]).style, .accessoryLinearCapacity)
-        // Unknown means no style modifier, as validation dropped it.
+        // Unknown means no style modifier.
         XCTAssertNil(Gauge.Props(["style": "fancy"]).style)
         XCTAssertNil(Gauge.Props(["style": 5]).style)
     }

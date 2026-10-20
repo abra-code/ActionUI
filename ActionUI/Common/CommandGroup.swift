@@ -60,31 +60,7 @@ import SwiftUI
  }
 */
 
-struct CommandGroup : ActionUIPropertyValidation {
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate placement
-        let placement = validatedProperties["placement"] as? String
-        if placement == nil {
-            logger.log("CommandGroup placement is missing; defaulting to 'after'", .warning)
-        }
-        else if !["replacing", "before", "after"].contains(placement) {
-            logger.log("CommandGroup placement is invalid. It must be 'replacing', 'before', or 'after'; defaulting to 'after'", .warning)
-            validatedProperties["placement"] = nil
-        }
-        
-        // Validate placementTarget
-        let placementTarget = validatedProperties["placementTarget"] as? String
-        if placementTarget == nil {
-            logger.log("CommandGroup placementTarget is missing; defaulting to 'help'", .warning)
-        } else if !["appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help"].contains(placementTarget) {
-            logger.log("CommandGroup placementTarget must be a valid CommandGroupPlacement value; defaulting to 'help'", .warning)
-            validatedProperties["placementTarget"] = nil
-        }
-        
-        return validatedProperties
-    }
+struct CommandGroup {
     
     @MainActor
     static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> some SwiftUI.Commands /*SwiftUI.CommandGroup<AnyView>*/ {

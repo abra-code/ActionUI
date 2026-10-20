@@ -33,10 +33,6 @@ struct Tab: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        return properties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, _, logger in
         logger.log("Tab should not be constructed as a regular view. It is only used to build a tab in a TabView.", .error)
         return SwiftUI.EmptyView()

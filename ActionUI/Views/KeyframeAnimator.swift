@@ -85,10 +85,6 @@ struct KeyframeAnimator: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Void.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, _ in
-        return properties
-    }
-
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states: [String: Any] = model.states
 

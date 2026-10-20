@@ -89,7 +89,7 @@ struct ChartSpec {
     var styles = ChartStyleScales()
     var legendVisibility: Visibility = .automatic
     var legendPosition: AnnotationPosition = .automatic
-    // View modifier properties for the plot area, already validated as baseline View properties.
+    // View modifier properties for the plot area: baseline View properties, as given.
     var plotStyle: [String: Any] = [:]
     var selection = ChartSelectionSpec()
     var scroll = ChartScrollSpec()
@@ -227,8 +227,9 @@ enum ChartDescription {
 
         if let plotStyle = description["chartPlotStyle"] {
             if let properties = plotStyle as? [String: Any] {
-                // The plot area takes the visual baseline View properties, validated as on any
-                // view. Others (actions, accessibility, layout of the chart itself) do not apply.
+                // The plot area takes the visual baseline View properties, read as on any view
+                // (a value of the wrong type is ignored). Others (actions, accessibility, layout of
+                // the chart itself) do not apply.
                 var visual: [String: Any] = [:]
                 for (key, value) in properties {
                     if plotStyleKeys.contains(key) {
@@ -237,9 +238,8 @@ enum ChartDescription {
                         logger?.log("Chart: '\(key)' does not apply in chartPlotStyle (it takes \(plotStyleKeys.sorted().joined(separator: ", "))); ignoring it", .warning)
                     }
                 }
-                let validated = View.validateProperties(visual, logger ?? SilentChartLogger.shared)
-                spec.plotStyle = validated
-                cleaned["chartPlotStyle"] = validated
+                spec.plotStyle = visual
+                cleaned["chartPlotStyle"] = visual
             } else {
                 logger?.log("Chart: 'chartPlotStyle' must be an object of View properties; ignoring", .warning)
             }

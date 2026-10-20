@@ -36,24 +36,6 @@ struct VideoPlayer: ActionUIViewConstruction {
 
     static var valueType: Any.Type = String.self // Non-optional String for URL
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate url
-        if properties["url"] != nil && !(properties["url"] is String) {
-            logger.log("VideoPlayer url must be a String; ignoring", .error)
-            validatedProperties["url"] = nil
-        }
-        
-        // Validate autoplay
-        if let autoplay = validatedProperties["autoplay"], !(autoplay is Bool) {
-            logger.log("Invalid type for VideoPlayer autoplay: expected Bool, got \(type(of: autoplay)), ignoring", .warning)
-            validatedProperties["autoplay"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AVKit)
         let props = Props(properties)

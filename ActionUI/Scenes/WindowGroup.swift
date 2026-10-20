@@ -170,10 +170,7 @@ import SwiftUI
 */
 
 @MainActor
-struct WindowGroup : ActionUIPropertyValidation {
-    static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, logger in
-        return properties
-    }
+struct WindowGroup {
     
     static func build(element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) -> SwiftUI.WindowGroup<AnyView> {
         guard element.type == "WindowGroup" else {

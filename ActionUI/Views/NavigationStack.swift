@@ -91,12 +91,6 @@ struct NavigationStack: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = ["destinations": .flat]
 
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-
-        return validatedProperties
-    }
-
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states = model.states
         if states["navigationPath"] == nil {

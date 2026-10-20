@@ -50,43 +50,6 @@ struct AsyncImage: ActionUIViewConstruction {
     // Setting the value programmatically overrides the static "url" property.
     static var valueType: Any.Type = String.self
 
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate url
-        if let url = validatedProperties["url"] as? String {
-            // Allow any string URL, even if invalid (e.g., "invalid-url"); AsyncImage will handle download failure
-        } else if validatedProperties["url"] != nil {
-            logger.log("Invalid type for AsyncImage url: expected String, got \(type(of: validatedProperties["url"]!)), ignoring", .warning)
-            validatedProperties["url"] = nil
-        }
-        
-        // Validate placeholder
-        if let placeholder = validatedProperties["placeholder"], !(placeholder is String) {
-            logger.log("Invalid type for AsyncImage placeholder: expected String, got \(type(of: placeholder)), ignoring", .warning)
-            validatedProperties["placeholder"] = nil
-        }
-        
-        // Validate resizable
-        if let resizable = validatedProperties["resizable"], !(resizable is Bool) {
-            logger.log("Invalid type for AsyncImage resizable: expected Bool, got \(type(of: resizable)), ignoring", .warning)
-            validatedProperties["resizable"] = nil
-        }
-        
-        // Validate contentMode
-        if let contentMode = validatedProperties["contentMode"] as? String {
-            if !["fit", "fill"].contains(contentMode) {
-                logger.log("Invalid AsyncImage contentMode '\(contentMode)', ignoring", .warning)
-                validatedProperties["contentMode"] = nil
-            }
-        } else if validatedProperties["contentMode"] != nil {
-            logger.log("Invalid type for AsyncImage contentMode: expected String, got \(type(of: validatedProperties["contentMode"]!)), ignoring", .warning)
-            validatedProperties["contentMode"] = nil
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let urlString = Self.initialValue(model) as? String
         let props = Props(properties)

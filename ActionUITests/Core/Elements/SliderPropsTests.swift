@@ -61,7 +61,7 @@ final class SliderPropsTests: XCTestCase {
         XCTAssertEqual(Slider.Props(["range": ["min": 0, "max": 100], "step": 0]).step, 1)
         XCTAssertEqual(Slider.Props(["range": ["min": 0, "max": 100], "step": -3]).step, 1)
         XCTAssertEqual(Slider.Props(["range": ["min": 0, "max": 100], "step": "big"]).step, 1)
-        // The 1 is clamped to the range like a given step, as validation's 1.0 then is.
+        // The default 1 is clamped to the range like a given step.
         XCTAssertEqual(Slider.Props(["range": ["min": 0, "max": 0.5], "step": -1]).step, 0.5)
         XCTAssertNil(Slider.Props(["range": ["min": 2, "max": 2], "step": 0]).step)
     }

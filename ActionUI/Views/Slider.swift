@@ -59,60 +59,6 @@ struct Slider: ActionUIViewConstruction {
 
     static var valueType: Any.Type = Double.self // Value is the slider's position
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate value
-        if let value = validatedProperties.double(forKey: "value") {
-            validatedProperties["value"] = value
-        } else if validatedProperties["value"] != nil {
-            logger.log("Slider value must be a number; defaulting to 0.0", .warning)
-            validatedProperties["value"] = 0.0
-        } else {
-            validatedProperties["value"] = 0.0
-        }
-        
-        // Validate range
-        if let range = validatedProperties["range"] as? [String: Any] {
-            var validatedRange: [String: Double] = [:]
-            if let min = range.double(forKey: "min"), let max = range.double(forKey: "max"), min <= max {
-                validatedRange["min"] = min
-                validatedRange["max"] = max
-                validatedProperties["range"] = validatedRange
-            } else {
-                logger.log("Slider range must have valid min/max numbers with min <= max; defaulting to 0.0...1.0", .warning)
-                validatedProperties["range"] = ["min": 0.0, "max": 1.0]
-            }
-        } else if validatedProperties["range"] != nil {
-            logger.log("Slider range must be a dictionary with min/max numbers; defaulting to 0.0...1.0", .warning)
-            validatedProperties["range"] = ["min": 0.0, "max": 1.0]
-        }
-        
-        // Validate step and ensure it doesn't exceed range
-        if let step = validatedProperties.double(forKey: "step"), step > 0 {
-            if let range = validatedProperties["range"] as? [String: Any],
-               let min = range.double(forKey: "min"),
-               let max = range.double(forKey: "max") {
-                let rangeSize = max - min
-                if step > rangeSize {
-                    logger.log("Slider step must not exceed range (max - min); clamping to \(rangeSize)", .warning)
-                    // An empty range (min == max) has no step: removed rather than stored as 0.
-                    validatedProperties["step"] = rangeSize > 0 ? rangeSize : nil
-                } else {
-                    validatedProperties["step"] = step
-                }
-            } else if validatedProperties["step"] != nil {
-                logger.log("Slider step requires a valid range; defaulting to 1.0", .warning)
-                validatedProperties["step"] = 1.0
-            }
-        } else if validatedProperties["step"] != nil {
-            logger.log("Slider step must be a positive number; defaulting to 1.0", .warning)
-            validatedProperties["step"] = 1.0
-        }
-        
-        return validatedProperties
-    }
-    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
         let initialValue = Self.initialValue(model) as? Double ?? props.initialValue
