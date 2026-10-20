@@ -42,6 +42,22 @@
 
 import SwiftUI
 
+extension DisclosureGroup {
+    /// DisclosureGroup's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = ""
+        /// Whether the group starts expanded.
+        var isExpanded = false
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            isExpanded = properties["isExpanded"] as? Bool ?? false
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+    }
+}
+
 struct DisclosureGroup: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -75,7 +91,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         
         // Only initialize if states is empty (first-time setup)
         if states.isEmpty {
-            let initialExpanded = model.validatedProperties["isExpanded"] as? Bool ?? false
+            let initialExpanded = Props(model.validatedProperties).isExpanded
             states["isExpanded"] = initialExpanded
         }
         
@@ -83,11 +99,12 @@ struct DisclosureGroup: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let title = properties["title"] as? String ?? ""
+        let props = Props(properties)
+        let title = props.title
         
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let valueChangeActionID = props.valueChangeActionID
         let expandedBinding = mainActorBinding(
             get: { model.states["isExpanded"] as? Bool ?? false },
             set: { newValue in

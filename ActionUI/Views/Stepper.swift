@@ -21,6 +21,33 @@
 
 import SwiftUI
 
+extension Stepper {
+    /// Stepper's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var initialValue = 0.0
+        /// The limits, when both bounds are numbers in order; otherwise the stepper is unbounded.
+        var range: ClosedRange<Double>?
+        var step = 1.0
+        var label = ""
+        /// A format for the current value (the renderer applies it); takes precedence over label.
+        var labelFormat: String?
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            initialValue = properties.double(forKey: "value") ?? 0.0
+            if let range = properties["range"] as? [String: Any],
+               let lo = range.double(forKey: "min"), let hi = range.double(forKey: "max"), lo <= hi {
+                self.range = lo...hi
+            }
+            // Not a positive number: 1.0.
+            step = properties.double(forKey: "step").flatMap { $0 > 0 ? $0 : nil } ?? 1.0
+            label = properties["label"] as? String ?? ""
+            labelFormat = properties["labelFormat"] as? String
+            actionID = properties["actionID"] as? String
+        }
+    }
+}
+
 struct Stepper: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -83,22 +110,23 @@ struct Stepper: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double ?? 0.0
-        let step = properties.double(forKey: "step") ?? 1.0
+        let props = Props(properties)
+        let step = props.step
 
         // labelFormat takes precedence; re-evaluated each body pass so label stays current.
         // This works because ActionUIView.body is re-run whenever model.value (@Published) changes,
         // causing buildView to be called again with the updated value.
         let currentValue = model.value as? Double ?? initialValue
         let label: String
-        if let labelFormat = properties["labelFormat"] as? String {
+        if let labelFormat = props.labelFormat {
             label = String(format: labelFormat, currentValue)
         } else {
-            label = properties["label"] as? String ?? ""
+            label = props.label
         }
 
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let actionID = properties["actionID"] as? String
+        let actionID = props.actionID
         let valueBinding = mainActorBinding(
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
@@ -114,10 +142,8 @@ struct Stepper: ActionUIViewConstruction {
             }
         )
 
-        if let range = properties["range"] as? [String: Any],
-           let min = range.double(forKey: "min"),
-           let max = range.double(forKey: "max") {
-            return SwiftUI.Stepper(label, value: valueBinding, in: min...max, step: step)
+        if let range = props.range {
+            return SwiftUI.Stepper(label, value: valueBinding, in: range, step: step)
         }
         return SwiftUI.Stepper(label, value: valueBinding, step: step)
     }
@@ -126,6 +152,6 @@ struct Stepper: ActionUIViewConstruction {
         if let initialValue = model.value as? Double {
             return initialValue
         }
-        return model.validatedProperties.double(forKey: "value") ?? 0.0
+        return Props(model.validatedProperties).initialValue
     }
 }

@@ -30,6 +30,48 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension Image {
+    /// Image's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// One image source and its name or path.
+        enum Source: Equatable, Sendable {
+            case filePath(String)
+            case resourceName(String)
+            case assetName(String)
+            case systemName(String)
+        }
+
+        enum ContentMode: String, Sendable, CaseIterable {
+            case fit, fill
+        }
+
+        enum ImageScale: String, Sendable, CaseIterable {
+            case small, medium, large
+        }
+
+        /// Every source given as a String, most specific first: filePath, resourceName, assetName,
+        /// systemName. The renderer uses the first one it can show (a filePath that is not an
+        /// image or PDF is skipped there).
+        var sources: [Source] = []
+        /// "contentMode", else the deprecated alias "scaleMode"; nil when neither is "fit" or "fill".
+        var contentMode: ContentMode?
+        /// "resizable" when it is a Bool, else true exactly when a content mode is set.
+        var resizable = false
+        var imageScale: ImageScale?
+
+        init(_ properties: [String: Any]) {
+            if let filePath = properties["filePath"] as? String { sources.append(.filePath(filePath)) }
+            if let resourceName = properties["resourceName"] as? String { sources.append(.resourceName(resourceName)) }
+            if let assetName = properties["assetName"] as? String { sources.append(.assetName(assetName)) }
+            if let systemName = properties["systemName"] as? String { sources.append(.systemName(systemName)) }
+            contentMode = (properties["contentMode"] as? String).flatMap(ContentMode.init(rawValue:))
+                ?? (properties["scaleMode"] as? String).flatMap(ContentMode.init(rawValue:))
+            resizable = properties["resizable"] as? Bool ?? (contentMode != nil)
+            imageScale = (properties["imageScale"] as? String).flatMap(ImageScale.init(rawValue:))
+        }
+    }
+}
+
 struct Image: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -139,31 +181,46 @@ struct Image: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         var image: SwiftUI.Image
 
         // Runtime value (set via set_string / set_value) takes precedence
         // over static properties.  Interpreted using "mixed" heuristics.
         if let runtimeValue = model.value as? String, !runtimeValue.isEmpty {
             image = SwiftUI.Image(from: runtimeValue, interpretation: "mixed")
-        } else if let systemName = properties["systemName"] as? String {
-            image = SwiftUI.Image(systemName: systemName)
-        } else if let name = properties["assetName"] as? String {
-            image = SwiftUI.Image(name)
-        } else if let resourceName = properties["resourceName"] as? String {
-            image = SwiftUI.Image(from: resourceName, interpretation: "resourceName")
-        } else if let filePath = properties["filePath"] as? String {
-            image = SwiftUI.Image(from: filePath, interpretation: "path")
         } else {
-            image = SwiftUI.Image(systemName: "photo")
+            // The first source that can be shown. A filePath whose extension is a known
+            // non-image type is skipped, as validation dropped it.
+            let source = props.sources.first { source in
+                if case .filePath(let filePath) = source {
+                    let pathExtension = URL(fileURLWithPath: filePath).pathExtension
+                    if let uti = UTType(filenameExtension: pathExtension),
+                       !uti.conforms(to: .image) && !uti.conforms(to: .pdf) {
+                        return false
+                    }
+                }
+                return true
+            }
+            switch source {
+            case .filePath(let filePath)?:
+                image = SwiftUI.Image(from: filePath, interpretation: "path")
+            case .resourceName(let resourceName)?:
+                image = SwiftUI.Image(from: resourceName, interpretation: "resourceName")
+            case .assetName(let name)?:
+                image = SwiftUI.Image(name)
+            case .systemName(let systemName)?:
+                image = SwiftUI.Image(systemName: systemName)
+            case nil:
+                image = SwiftUI.Image(systemName: "photo")
+            }
         }
 
-        // contentMode is preferred; scaleMode is a deprecated alias
-        let contentMode = (properties["contentMode"] as? String) ?? (properties["scaleMode"] as? String)
-
-        // contentMode implies "resizable" even if not explicitly declared
-        let resizable = properties["resizable"] as? Bool ?? (contentMode != nil)
-        if resizable, let contentMode {
-            return image.resizable().aspectRatio(contentMode: contentMode == "fit" ? .fit : .fill)
+        // contentMode implies "resizable" even if not explicitly declared (see Props)
+        if props.resizable, let contentMode = props.contentMode {
+            switch contentMode {
+            case .fit: return image.resizable().aspectRatio(contentMode: .fit)
+            case .fill: return image.resizable().aspectRatio(contentMode: .fill)
+            }
         }
 
         return image
@@ -181,15 +238,12 @@ struct Image: ActionUIViewConstruction {
         var modifiedView = view
         
         // Apply imageScale modifier
-        if let imageScaleStr = properties["imageScale"] as? String {
-            let imageScale: SwiftUI.Image.Scale
-            switch imageScaleStr {
-            case "small": imageScale = .small
-            case "medium": imageScale = .medium
-            case "large": imageScale = .large
-            default: imageScale = .medium // Fallback, though validation should prevent this
+        if let imageScale = Props(properties).imageScale {
+            switch imageScale {
+            case .small: modifiedView = view.imageScale(.small)
+            case .medium: modifiedView = view.imageScale(.medium)
+            case .large: modifiedView = view.imageScale(.large)
             }
-            modifiedView = view.imageScale(imageScale)
         }
                 
         return modifiedView

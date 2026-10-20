@@ -15,6 +15,22 @@
 
 import SwiftUI
 
+extension ColorPicker {
+    /// ColorPicker's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = ""
+        /// The initial color as written; the renderer resolves it.
+        var selectedColor: String?
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            selectedColor = properties["selectedColor"] as? String
+            actionID = properties["actionID"] as? String
+        }
+    }
+}
+
 struct ColorPicker: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -52,11 +68,12 @@ struct ColorPicker: ActionUIViewConstruction {
     // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialColor = Self.initialValue(model) as? SwiftUI.Color ?? SwiftUI.Color.clear
-        let title = properties["title"] as? String ?? ""
+        let props = Props(properties)
+        let title = props.title
         
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let actionID = properties["actionID"] as? String
+        let actionID = props.actionID
         let colorBinding = mainActorBinding(
             get: { model.value as? SwiftUI.Color ?? initialColor },
             set: { newValue in
@@ -81,6 +98,6 @@ struct ColorPicker: ActionUIViewConstruction {
         if let initalValue = model.value as? SwiftUI.Color {
             return initalValue
         }
-        return ColorHelper.resolveColor(model.validatedProperties["selectedColor"] as? String) ?? SwiftUI.Color.clear
+        return ColorHelper.resolveColor(Props(model.validatedProperties).selectedColor) ?? SwiftUI.Color.clear
     }
 }

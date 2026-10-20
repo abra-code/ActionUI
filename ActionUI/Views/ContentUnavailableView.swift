@@ -31,6 +31,27 @@
 
 import SwiftUI
 
+extension ContentUnavailableView {
+    /// ContentUnavailableView's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = "No Content"
+        var systemImage: String?
+        var description: String?
+        /// True for the system "no search results" variant.
+        var search = false
+        /// The search text of the search variant.
+        var query = ""
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? "No Content"
+            systemImage = properties["systemImage"] as? String
+            description = properties["description"] as? String
+            search = properties["search"] as? Bool ?? false
+            query = properties["query"] as? String ?? ""
+        }
+    }
+}
+
 struct ContentUnavailableView: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -77,10 +98,10 @@ struct ContentUnavailableView: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let isSearch = properties["search"] as? Bool ?? false
+        let props = Props(properties)
 
-        if isSearch {
-            let query = model.value as? String ?? properties["query"] as? String ?? ""
+        if props.search {
+            let query = model.value as? String ?? props.query
             if query.isEmpty {
                 return SwiftUI.ContentUnavailableView.search
             } else {
@@ -88,9 +109,9 @@ struct ContentUnavailableView: ActionUIViewConstruction {
             }
         }
 
-        let title = model.value as? String ?? properties["title"] as? String ?? "No Content"
-        let description = properties["description"] as? String
-        let systemImage = properties["systemImage"] as? String
+        let title = model.value as? String ?? props.title
+        let description = props.description
+        let systemImage = props.systemImage
 
         if let systemImage {
             if let description {
@@ -120,9 +141,10 @@ struct ContentUnavailableView: ActionUIViewConstruction {
             return storedValue
         }
         // For search variant, use query; otherwise use title
-        if model.validatedProperties["search"] as? Bool == true {
-            return model.validatedProperties["query"] as? String ?? ""
+        let props = Props(model.validatedProperties)
+        if props.search {
+            return props.query
         }
-        return model.validatedProperties["title"] as? String ?? "No Content"
+        return props.title
     }
 }

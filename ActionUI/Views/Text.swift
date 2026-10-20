@@ -18,6 +18,21 @@
 
 import SwiftUI
 
+extension Text {
+    /// Text's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The plain content; "" when not given (or not a String).
+        var text = ""
+        /// The markdown content, which takes precedence over "text"; nil when not given (or not a String).
+        var markdown: String?
+
+        init(_ properties: [String: Any]) {
+            text = properties["text"] as? String ?? ""
+            markdown = properties["markdown"] as? String
+        }
+    }
+}
+
 struct Text: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -48,6 +63,7 @@ struct Text: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, model, _, properties, _ in
+        let props = Props(properties)
         // Runtime value (set via setElementValue) takes precedence - an AttributedString or a plain String;
         // otherwise the markdown / text property. ActionUIView already owns the ViewModel as an
         // @ObservedObject and re-builds this leaf when model.value changes, so no reactive container is needed.
@@ -63,18 +79,19 @@ struct Text: ActionUIViewConstruction {
         if let str = model.value as? String {
             return SwiftUI.Text(reserveLine(str))
         }
-        if let markdown = properties["markdown"] as? String {
+        if let markdown = props.markdown {
             return SwiftUI.Text((try? AttributedString(markdown: markdown)) ?? AttributedString(markdown))
         }
-        return SwiftUI.Text(reserveLine(properties["text"] as? String ?? ""))
+        return SwiftUI.Text(reserveLine(props.text))
     }
 
     static var initialValue: (ViewModel) -> Any? = { model in
         if let attr = model.value as? AttributedString { return attr }
         if let str = model.value as? String { return str }
-        if let attrText = model.validatedProperties["markdown"] as? String {
+        let props = Props(model.validatedProperties)
+        if let attrText = props.markdown {
             return (try? AttributedString(markdown: attrText)) ?? AttributedString(attrText)
         }
-        return model.validatedProperties["text"] as? String ?? ""
+        return props.text
     }
 }

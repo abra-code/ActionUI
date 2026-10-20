@@ -26,6 +26,115 @@
 
 import SwiftUI
 
+extension Picker {
+    /// Picker's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// "wheel" exists off macOS and "radioGroup" on macOS only; elsewhere the renderer applies
+        /// no style for them.
+        enum Style: String, Sendable, CaseIterable {
+            case menu, segmented, radioGroup, wheel
+        }
+
+        struct OptionItem: Identifiable, Equatable, Sendable {
+            let title: String
+            let tag: String
+            var id: String { tag }
+        }
+
+        struct OptionSection: Identifiable, Equatable, Sendable {
+            let title: String?
+            let items: [OptionItem]
+            let index: Int
+            var id: String { title ?? "_section_\(index)" }
+        }
+
+        var title = ""
+        /// The options in display order, grouped. A plain list is one section without a title.
+        var sections: [OptionSection] = []
+        var style: Style?
+        var horizontalRadioGroupLayout = false
+        var actionID: String?
+
+        /// Every option, whatever its section.
+        var options: [OptionItem] {
+            sections.flatMap { $0.items }
+        }
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            sections = Self.parseSections(properties["options"])
+            style = (properties["pickerStyle"] as? String).flatMap(Style.init(rawValue:))
+            horizontalRadioGroupLayout = properties["horizontalRadioGroupLayout"] as? Bool == true
+            actionID = properties["actionID"] as? String
+        }
+
+        // Dividers inside a SwiftUI Picker content builder are silently ignored (only tagged views are kept).
+        // To render a visual separator, we convert {"divider": true} into a Section with nil title.
+        // Section { items } (no header) produces a divider line between groups without empty header space.
+
+        private static func parseSections(_ raw: Any?) -> [OptionSection] {
+            guard let raw = raw else { return [] }
+
+            // Format 1: simple array of strings - single ungrouped section
+            if let titles = raw as? [String] {
+                let items = titles.enumerated().map { index, title in
+                    OptionItem(title: title, tag: String(index + 1))
+                }
+                return [OptionSection(title: nil, items: items, index: 0)]
+            }
+
+            // Format 2: array of dictionaries, possibly with section/divider entries
+            if let dicts = raw as? [[String: Any]] {
+                var sections: [OptionSection] = []
+                var currentSectionTitle: String? = nil
+                var currentItems: [OptionItem] = []
+                var hasSections = false
+
+                for dict in dicts {
+                    // Divider entry: flush current items into a section, start a new nil-titled section
+                    if dict["divider"] as? Bool == true {
+                        hasSections = true
+                        if !currentItems.isEmpty || !sections.isEmpty {
+                            sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
+                            currentItems = []
+                        }
+                        currentSectionTitle = nil
+                        continue
+                    }
+
+                    // Section header entry
+                    if let sectionTitle = dict["section"] as? String {
+                        hasSections = true
+                        if !currentItems.isEmpty || !sections.isEmpty {
+                            sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
+                            currentItems = []
+                        }
+                        currentSectionTitle = sectionTitle
+                        continue
+                    }
+
+                    // Regular option item; one without a title and a tag is skipped
+                    guard let title = dict["title"] as? String, !title.isEmpty else { continue }
+                    guard let tag = dict["tag"] as? String, !tag.isEmpty else { continue }
+                    currentItems.append(OptionItem(title: title, tag: tag))
+                }
+
+                // Flush remaining items
+                if hasSections {
+                    sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
+                } else {
+                    sections = [OptionSection(title: nil, items: currentItems, index: 0)]
+                }
+
+                return sections
+            }
+
+            // Not [String] or [[String: Any]]: no options
+            return []
+        }
+    }
+}
+
 struct Picker: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -33,94 +142,6 @@ struct Picker: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = nil
 
     static var valueType: Any.Type = String.self
-    
-    private struct OptionItem: Identifiable {
-        let title: String
-        let tag: String
-        var id: String { tag }
-    }
-
-    private struct OptionSection: Identifiable {
-        let title: String?
-        let items: [OptionItem]
-        let index: Int
-        var id: String { title ?? "_section_\(index)" }
-    }
-
-    // Dividers inside a SwiftUI Picker content builder are silently ignored (only tagged views are kept).
-    // To render a visual separator, we convert {"divider": true} into a Section with nil title.
-    // Section { items } (no header) produces a divider line between groups without empty header space.
-
-    private static func extractSections(from raw: Any?, logger: (any ActionUILogger)? = nil) -> [OptionSection] {
-        guard let raw = raw else { return [] }
-
-        // Format 1: simple array of strings - single ungrouped section
-        if let titles = raw as? [String] {
-            let items = titles.enumerated().map { index, title in
-                OptionItem(title: title, tag: String(index + 1))
-            }
-            return [OptionSection(title: nil, items: items, index: 0)]
-        }
-
-        // Format 2: array of dictionaries, possibly with section/divider entries
-        if let dicts = raw as? [[String: Any]] {
-            var sections: [OptionSection] = []
-            var currentSectionTitle: String? = nil
-            var currentItems: [OptionItem] = []
-            var hasSections = false
-
-            for (idx, dict) in dicts.enumerated() {
-                // Divider entry: flush current items into a section, start a new nil-titled section
-                if dict["divider"] as? Bool == true {
-                    hasSections = true
-                    if !currentItems.isEmpty || !sections.isEmpty {
-                        sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
-                        currentItems = []
-                    }
-                    currentSectionTitle = nil
-                    continue
-                }
-
-                // Section header entry
-                if let sectionTitle = dict["section"] as? String {
-                    hasSections = true
-                    if !currentItems.isEmpty || !sections.isEmpty {
-                        sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
-                        currentItems = []
-                    }
-                    currentSectionTitle = sectionTitle
-                    continue
-                }
-
-                // Regular option item
-                guard let title = dict["title"] as? String, !title.isEmpty else {
-                    logger?.log("Picker options[\(idx)] missing valid 'title'; skipping", .warning)
-                    continue
-                }
-                guard let tag = dict["tag"] as? String, !tag.isEmpty else {
-                    logger?.log("Picker options[\(idx)] missing valid 'tag'; skipping", .warning)
-                    continue
-                }
-                currentItems.append(OptionItem(title: title, tag: tag))
-            }
-
-            // Flush remaining items
-            if hasSections {
-                sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
-            } else {
-                sections = [OptionSection(title: nil, items: currentItems, index: 0)]
-            }
-
-            return sections
-        }
-
-        logger?.log("Picker 'options' must be [String] or [[\"title\": String, \"tag\": String]]", .warning)
-        return []
-    }
-
-    private static func extractOptions(from raw: Any?, logger: (any ActionUILogger)? = nil) -> [OptionItem] {
-        return extractSections(from: raw, logger: logger).flatMap { $0.items }
-    }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -154,15 +175,15 @@ struct Picker: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-
-        let sections = extractSections(from: properties["options"], logger: logger)
-        let allItems = sections.flatMap { $0.items }
+        let props = Props(properties)
+        let sections = props.sections
+        let allItems = props.options
         let initialValue = Self.initialValue(model) as? String ?? allItems.first?.tag ?? ""
 
         // Create a specific binding for the value to ensure reactivity
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let actionID = properties["actionID"] as? String
+        let actionID = props.actionID
         let valueBinding: Binding<String> = mainActorBinding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
@@ -182,7 +203,7 @@ struct Picker: ActionUIViewConstruction {
             }
         )
 
-        let title = properties["title"] as? String ?? ""
+        let title = props.title
         let useSections = sections.count > 1 || sections.contains { $0.title != nil }
 
         // Dividers inside a Picker content builder are silently ignored by SwiftUI.
@@ -215,30 +236,29 @@ struct Picker: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        if let style = properties["pickerStyle"] as? String {
-            switch style {
-            case "wheel":
+        let props = Props(properties)
+        switch props.style {
+        case .wheel:
 #if os(macOS)
-                logger.log("wheel PickerStyle unavailable on macOS; ignoring", .warning)
+            break // not on this platform: no style, as for an unknown name
 #else
-                modifiedView = modifiedView.pickerStyle(.wheel)
+            modifiedView = modifiedView.pickerStyle(.wheel)
 #endif
-            case "menu":
-                modifiedView = modifiedView.pickerStyle(.menu)
-            case "segmented":
-                modifiedView = modifiedView.pickerStyle(.segmented)
-            case "radioGroup":
+        case .menu:
+            modifiedView = modifiedView.pickerStyle(.menu)
+        case .segmented:
+            modifiedView = modifiedView.pickerStyle(.segmented)
+        case .radioGroup:
 #if os(macOS)
-                modifiedView = modifiedView.pickerStyle(.radioGroup)
-                if properties["horizontalRadioGroupLayout"] as? Bool == true {
-                    modifiedView = modifiedView.horizontalRadioGroupLayout()
-                }
-#else
-                logger.log("radioGroup PickerStyle unavailable on this platform; ignoring", .warning)
-#endif
-            default:
-                break // Should not reach here due to validateProperties
+            modifiedView = modifiedView.pickerStyle(.radioGroup)
+            if props.horizontalRadioGroupLayout {
+                modifiedView = modifiedView.horizontalRadioGroupLayout()
             }
+#else
+            break // not on this platform: no style, as for an unknown name
+#endif
+        case nil:
+            break
         }
         return modifiedView
     }
@@ -248,7 +268,6 @@ struct Picker: ActionUIViewConstruction {
             return initialValue
         }
         // Fall back to the first option's tag from validated properties
-        let items = extractOptions(from: model.validatedProperties["options"])
-        return items.first?.tag
+        return Props(model.validatedProperties).options.first?.tag
     }
 }

@@ -22,6 +22,27 @@
 import SwiftUI
 import Combine
 
+extension TextEditor {
+    /// TextEditor's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The initial plain text; nil when not given (or not a String).
+        var text: String?
+        /// The initial markdown content; nil when not given (or not a String).
+        var markdown: String?
+        var placeholder: String?
+        var readOnly = false
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            text = properties["text"] as? String
+            markdown = properties["markdown"] as? String
+            placeholder = properties["placeholder"] as? String
+            readOnly = properties["readOnly"] as? Bool ?? false
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+    }
+}
+
 struct TextEditor: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -68,10 +89,11 @@ struct TextEditor: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? String ?? ""
-        let isReadOnly = properties["readOnly"] as? Bool ?? false
-        let placeholder = properties["placeholder"] as? String
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
-        let markdown = properties["markdown"] as? String
+        let props = Props(properties)
+        let isReadOnly = props.readOnly
+        let placeholder = props.placeholder
+        let valueChangeActionID = props.valueChangeActionID
+        let markdown = props.markdown
 
         return TextEditorContainer(
             model: model,
@@ -92,10 +114,11 @@ struct TextEditor: ActionUIViewConstruction {
         if let attributedValue = model.value as? AttributedString {
             return String(attributedValue.characters)
         }
-        if let text = model.validatedProperties["text"] as? String {
+        let props = Props(model.validatedProperties)
+        if let text = props.text {
             return text
         }
-        if let markdown = model.validatedProperties["markdown"] as? String {
+        if let markdown = props.markdown {
             return markdown
         }
         return ""

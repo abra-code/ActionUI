@@ -17,6 +17,39 @@
 
 import SwiftUI
 
+extension Button {
+    /// Button's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Role: String, Sendable, CaseIterable {
+            case destructive, cancel
+        }
+
+        enum ImageScale: String, Sendable, CaseIterable {
+            case small, medium, large
+        }
+
+        var title = ""
+        var systemImage: String?
+        var assetImage: String?
+        /// nil when absent or not a known name (the image keeps its medium scale).
+        var imageScale: ImageScale?
+        var role: Role?
+        var actionID: String?
+        var popoverActionID: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            systemImage = properties["systemImage"] as? String
+            assetImage = properties["assetImage"] as? String
+            // The name is matched in any letter case.
+            imageScale = (properties["imageScale"] as? String).flatMap { ImageScale(rawValue: $0.lowercased()) }
+            role = (properties["role"] as? String).flatMap(Role.init(rawValue:))
+            actionID = properties["actionID"] as? String
+            popoverActionID = properties["popoverActionID"] as? String
+        }
+    }
+}
+
 struct Button: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -68,28 +101,26 @@ struct Button: ActionUIViewConstruction {
     // Builds the Button view, relying on ActionUIRegistry.build for state initialization
     // Design decision: No value state is initialized, as Button has no stateful value (valueType is Void)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let title = properties["title"] as? String ?? ""
-        let systemImage = properties["systemImage"] as? String
-        let assetImage  = properties["assetImage"]  as? String
-        let role = properties["role"] as? String
-        let actionID = properties["actionID"] as? String
+        let props = Props(properties)
+        let title = props.title
+        let systemImage = props.systemImage
+        let assetImage  = props.assetImage
+        let actionID = props.actionID
         
         var buttonRole: ButtonRole?
-        if role == "destructive" {
-            buttonRole = .destructive
-        } else if role == "cancel" {
-            buttonRole = .cancel
+        switch props.role {
+        case .destructive: buttonRole = .destructive
+        case .cancel: buttonRole = .cancel
+        case nil: break
         }
         
         // Scale
         var imgScale = SwiftUI.Image.Scale.medium
-        if let scaleStr = properties["imageScale"] as? String {
-            switch scaleStr.lowercased() {
-            case "small":  imgScale = .small
-            case "medium": imgScale = .medium
-            case "large":  imgScale = .large
-            default: break
-            }
+        switch props.imageScale {
+        case .small:  imgScale = .small
+        case .medium: imgScale = .medium
+        case .large:  imgScale = .large
+        case nil: break
         }
         
         @ViewBuilder
@@ -118,7 +149,7 @@ struct Button: ActionUIViewConstruction {
         let hasPopover = element.subviews?["popover"] != nil
         let hasSheet = element.subviews?["sheet"] != nil
         let hasFullScreenCover = element.subviews?["fullScreenCover"] != nil
-        let popoverActionID = properties["popoverActionID"] as? String
+        let popoverActionID = props.popoverActionID
         // Template-aware action dispatch: use parentID/rowIndex when rendering inside a template
         let actionViewID = model.templateContext?.parentID ?? element.id
         let actionViewPartID = model.templateContext?.rowIndex ?? 0

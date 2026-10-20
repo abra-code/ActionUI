@@ -21,6 +21,33 @@ import SwiftUI
 import UIKit
 #endif
 
+extension SecureField {
+    /// SecureField's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// Only the secure content types; the renderer applies it on iOS.
+        enum TextContentType: String, Sendable, CaseIterable {
+            case password, newPassword, oneTimeCode
+        }
+
+        var title = ""
+        var prompt: String?
+        /// The initial text.
+        var text = ""
+        var textContentType: TextContentType?
+        var actionID: String?
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            prompt = properties["prompt"] as? String
+            text = properties["text"] as? String ?? ""
+            textContentType = (properties["textContentType"] as? String).flatMap(TextContentType.init(rawValue:))
+            actionID = properties["actionID"] as? String
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+    }
+}
+
 struct SecureField: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -67,9 +94,10 @@ struct SecureField: ActionUIViewConstruction {
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let title = properties["title"] as? String ?? ""
-        let prompt = (properties["prompt"] as? String).map { SwiftUI.Text($0) }
-        let actionID = properties["actionID"] as? String
+        let props = Props(properties)
+        let title = props.title
+        let prompt = props.prompt.map { SwiftUI.Text($0) }
+        let actionID = props.actionID
         let initialValue = Self.initialValue(model) as? String ?? ""
 
         let onSubmit = {
@@ -80,7 +108,7 @@ struct SecureField: ActionUIViewConstruction {
 
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let valueChangeActionID = props.valueChangeActionID
         let textBinding = mainActorBinding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
@@ -109,16 +137,14 @@ struct SecureField: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)
-        if let textContentType = properties["textContentType"] as? String {
+        if let textContentType = Props(properties).textContentType {
             switch textContentType {
-            case "password":
+            case .password:
                 modifiedView = modifiedView.textContentType(.password)
-            case "newPassword":
+            case .newPassword:
                 modifiedView = modifiedView.textContentType(.newPassword)
-            case "oneTimeCode":
+            case .oneTimeCode:
                 modifiedView = modifiedView.textContentType(.oneTimeCode)
-            default:
-                break // Already validated to nil in validateProperties
             }
         }
         #endif
@@ -129,9 +155,6 @@ struct SecureField: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        if let text = model.validatedProperties["text"] as? String {
-            return text
-        }
-        return ""
+        return Props(model.validatedProperties).text
     }
 }

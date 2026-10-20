@@ -21,6 +21,17 @@
 
 import SwiftUI
 
+extension Menu {
+    /// Menu's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = ""
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+        }
+    }
+}
+
 struct Menu: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -60,7 +71,7 @@ struct Menu: ActionUIViewConstruction {
             }
         }
         
-        let title = properties["title"] as? String ?? ""
+        let title = Props(properties).title
         return SwiftUI.Menu(title) {
             ForEach(children, id: \.id) { child in
                 if let childModel = windowModel?.viewModels[child.id] {

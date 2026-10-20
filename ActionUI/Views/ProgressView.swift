@@ -23,6 +23,32 @@ import SwiftUI
 import UIKit
 #endif
 
+extension ProgressView {
+    /// ProgressView's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Style: String, Sendable, CaseIterable {
+            case automatic, linear, circular
+        }
+
+        /// The progress; nil when absent, not a number or negative (indeterminate).
+        var value: Double?
+        /// The full amount; nil when absent, not a number or not positive. The renderer uses 1.0
+        /// when it is nil and there is a progress value.
+        var total: Double?
+        var title: String?
+        var style: Style?
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            value = properties.double(forKey: "value").flatMap { $0 >= 0 ? $0 : nil }
+            total = properties.double(forKey: "total").flatMap { $0 > 0 ? $0 : nil }
+            title = properties["title"] as? String
+            style = (properties["progressViewStyle"] as? String).flatMap(Style.init(rawValue:))
+            actionID = properties["actionID"] as? String
+        }
+    }
+}
+
 struct ProgressView: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -73,8 +99,9 @@ struct ProgressView: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double
-        let title: String? = properties["title"] as? String
-        let actionID: String? = properties["actionID"] as? String
+        let props = Props(properties)
+        let title: String? = props.title
+        let actionID: String? = props.actionID
 
         // The runtime states["progress"] override wins over the initial JSON value.
         let currentValue: Double? = model.states.double(forKey: "progress") ?? initialValue
@@ -83,7 +110,7 @@ struct ProgressView: ActionUIViewConstruction {
         // contract and the Android/Web ports); an explicitly invalid total has
         // already been dropped to nil by validateProperties. With no value at all
         // the progress is indeterminate, so total stays nil.
-        let total: Double? = properties.double(forKey: "total") ?? (currentValue != nil ? 1.0 : nil)
+        let total: Double? = props.total ?? (currentValue != nil ? 1.0 : nil)
 
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {
@@ -106,8 +133,9 @@ struct ProgressView: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        switch properties["progressViewStyle"] as? String {
-        case "linear":
+        let props = Props(properties)
+        switch props.style {
+        case .linear:
             // The only way to ask for an indeterminate LINEAR bar. SwiftUI has
             // one - an indeterminate ProgressView styled .linear animates as a
             // bar - but with no style applied macOS resolves an indeterminate
@@ -115,16 +143,16 @@ struct ProgressView: ActionUIViewConstruction {
             // of a known width for a phase it cannot measure had no way to say
             // so.
             modifiedView = modifiedView.progressViewStyle(.linear)
-        case "circular":
+        case .circular:
             modifiedView = modifiedView.progressViewStyle(.circular)
-        default:
+        case .automatic, nil:
             // "automatic", or nothing asked for: the platform default, which is
             // what this element has always done.
 #if canImport(UIKit)
             // Indeterminate (the circular spinner on iOS) when no value is supplied;
             // a missing total no longer implies indeterminate — it defaults to 1.0 in
             // buildView when a value is present.
-            if properties["value"] == nil {
+            if props.value == nil {
                 modifiedView = modifiedView.progressViewStyle(.circular)
             }
 #endif
@@ -137,6 +165,6 @@ struct ProgressView: ActionUIViewConstruction {
         if let initialValue = model.value as? Double {
             return initialValue
         }
-        return model.validatedProperties.double(forKey: "value")
+        return Props(model.validatedProperties).value
     }
 }

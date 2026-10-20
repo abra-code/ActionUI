@@ -15,6 +15,17 @@
 
 import SwiftUI
 
+extension ControlGroup {
+    /// ControlGroup's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String
+        }
+    }
+}
+
 struct ControlGroup: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -36,7 +47,7 @@ struct ControlGroup: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let title = properties["title"] as? String
+        let title = Props(properties).title
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
                 

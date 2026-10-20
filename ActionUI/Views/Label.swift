@@ -15,6 +15,21 @@
 
 import SwiftUI
 
+extension Label {
+    /// Label's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = ""
+        var systemImage: String?
+        var imageName: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            systemImage = properties["systemImage"] as? String
+            imageName = properties["imageName"] as? String
+        }
+    }
+}
+
 struct Label: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -50,11 +65,12 @@ struct Label: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, _ in
         
+        let props = Props(properties)
         let initialValue = Self.initialValue(model) as? String ?? ""
         
-        if let systemImage = properties["systemImage"] as? String {
+        if let systemImage = props.systemImage {
             return SwiftUI.Label(initialValue, systemImage: systemImage)
-        } else if let imageName = properties["imageName"] as? String {
+        } else if let imageName = props.imageName {
             return SwiftUI.Label(initialValue, image: imageName)
         }
         
@@ -73,7 +89,7 @@ struct Label: ActionUIViewConstruction {
         }
         
         // Otherwise use the validated title from the original JSON/plist
-        let propertiesValue = model.validatedProperties["title"] as? String ?? ""
+        let propertiesValue = Props(model.validatedProperties).title
         return propertiesValue
     }
 }

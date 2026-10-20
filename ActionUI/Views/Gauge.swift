@@ -16,6 +16,44 @@
 
 import SwiftUI
 
+extension Gauge {
+    /// Gauge's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Style: String, Sendable, CaseIterable {
+            case accessoryCircular, accessoryCircularCapacity, accessoryLinear, accessoryLinearCapacity
+        }
+
+        var initialValue = 0.0
+        var min = 0.0
+        var max = 1.0
+        var title: String?
+        var style: Style?
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            initialValue = properties.double(forKey: "value") ?? 0.0
+            // A range dictionary: each bound that is not a number is 0 or 1. Bounds out of order
+            // (or a range that is not a dictionary) are 0...1.
+            if let range = properties["range"] as? [String: Any] {
+                let lo = range.double(forKey: "min") ?? 0.0
+                let hi = range.double(forKey: "max") ?? 1.0
+                if lo <= hi {
+                    min = lo
+                    max = hi
+                }
+            }
+            title = properties["title"] as? String
+            style = (properties["style"] as? String).flatMap(Style.init(rawValue:))
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+
+        /// A value the user may set: inside the range.
+        func accepts(_ value: Double) -> Bool {
+            (min...max).contains(value)
+        }
+    }
+}
+
 struct Gauge: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -74,13 +112,13 @@ struct Gauge: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double ?? 0.0
-        let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
-        let min = range["min"] ?? 0.0
-        let max = range["max"] ?? 1.0
+        let props = Props(properties)
+        let min = props.min
+        let max = props.max
         
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let valueChangeActionID = props.valueChangeActionID
         let valueBinding = mainActorBinding(
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
@@ -88,7 +126,7 @@ struct Gauge: ActionUIViewConstruction {
                     return
                 }
 
-                if (min...max).contains(newValue) {
+                if props.accepts(newValue) {
                     // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                     // "publishing changes from within view updates" warning
                     DispatchQueue.main.async {
@@ -104,7 +142,7 @@ struct Gauge: ActionUIViewConstruction {
         )
         
         return SwiftUI.Gauge(value: valueBinding.wrappedValue, in: min...max) {
-            if let title = properties["title"] as? String {
+            if let title = props.title {
                 SwiftUI.Text(title)
             } else {
                 SwiftUI.EmptyView()
@@ -114,17 +152,17 @@ struct Gauge: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        if let style = properties["style"] as? String {
-            switch style {
-            case "accessoryLinear":
-                modifiedView = modifiedView.gaugeStyle(.accessoryLinear)
-            case "accessoryLinearCapacity":
-                modifiedView = modifiedView.gaugeStyle(.accessoryLinearCapacity)
-            case "accessoryCircularCapacity":
-                modifiedView = modifiedView.gaugeStyle(.accessoryCircularCapacity)
-            default:
-                modifiedView = modifiedView.gaugeStyle(.accessoryCircular)
-            }
+        switch Props(properties).style {
+        case .accessoryLinear:
+            modifiedView = modifiedView.gaugeStyle(.accessoryLinear)
+        case .accessoryLinearCapacity:
+            modifiedView = modifiedView.gaugeStyle(.accessoryLinearCapacity)
+        case .accessoryCircularCapacity:
+            modifiedView = modifiedView.gaugeStyle(.accessoryCircularCapacity)
+        case .accessoryCircular:
+            modifiedView = modifiedView.gaugeStyle(.accessoryCircular)
+        case nil:
+            break
         }
         return modifiedView
     }
@@ -133,7 +171,6 @@ struct Gauge: ActionUIViewConstruction {
         if let initialValue = model.value as? Double {
             return initialValue
         }
-        let initialValue = (model.validatedProperties.double(forKey: "value")) ?? 0.0
-        return initialValue
+        return Props(model.validatedProperties).initialValue
     }
 }

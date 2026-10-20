@@ -23,6 +23,48 @@
 
 import SwiftUI
 
+extension DatePicker {
+    /// DatePicker's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// "stepperField" and "field" exist on macOS only; elsewhere the renderer uses the default style.
+        enum DisplayStyle: String, Sendable, CaseIterable {
+            case automatic, compact, graphical, stepperField, field
+        }
+
+        enum DisplayedComponents: String, Sendable, CaseIterable {
+            case date, hourAndMinute, dateAndTime
+        }
+
+        /// The limits as written (date strings); the renderer parses them.
+        struct DateRange: Equatable, Sendable {
+            var start: String
+            var end: String
+        }
+
+        var title = "Date"
+        var displayStyle: DisplayStyle?
+        /// nil is date only.
+        var displayedComponents: DisplayedComponents?
+        /// Present only when "range" is a dictionary of strings with both "start" and "end".
+        var range: DateRange?
+        /// The initial date as written; "" when not given (or not a String).
+        var selectedDate = ""
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? "Date"
+            displayStyle = (properties["displayStyle"] as? String).flatMap(DisplayStyle.init(rawValue:))
+            displayedComponents = (properties["displayedComponents"] as? String).flatMap(DisplayedComponents.init(rawValue:))
+            if let range = properties["range"] as? [String: String],
+               let start = range["start"], let end = range["end"] {
+                self.range = DateRange(start: start, end: end)
+            }
+            selectedDate = properties["selectedDate"] as? String ?? ""
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+    }
+}
+
 struct DatePicker: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -98,11 +140,12 @@ struct DatePicker: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let initialDate = Self.initialValue(model) as? Date ?? Date()
         
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let valueChangeActionID = props.valueChangeActionID
         let dateBinding = mainActorBinding(
             get: { model.value as? Date ?? initialDate },
             set: { newValue in
@@ -120,15 +163,15 @@ struct DatePicker: ActionUIViewConstruction {
             }
         )
         
-        let title = properties["title"] as? String ?? "Date"
+        let title = props.title
 
         var startDate: Date?
         var endDate: Date?
-        if let range = properties["range"] as? [String: String] {
-            if let start = range["start"], let date = DateHelper.parseDate(from: start) {
+        if let range = props.range {
+            if let date = DateHelper.parseDate(from: range.start) {
                 startDate = date
             }
-            if let end = range["end"], let date = DateHelper.parseDate(from: end) {
+            if let date = DateHelper.parseDate(from: range.end) {
                 endDate = date
             }
         }
@@ -140,7 +183,7 @@ struct DatePicker: ActionUIViewConstruction {
             return nil
         }()
         
-        let components = Self.displayedComponents(from: properties["displayedComponents"] as? String)
+        let components = Self.displayedComponents(from: props.displayedComponents?.rawValue)
 
         if let range = dateRange {
             return SwiftUI.DatePicker(title, selection: dateBinding, in: range, displayedComponents: components)
@@ -173,30 +216,26 @@ struct DatePicker: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        if let displayStyle = properties["displayStyle"] as? String {
-            switch displayStyle {
-            case "compact":
-                modifiedView = modifiedView.datePickerStyle(.compact)
-            case "graphical":
-                modifiedView = modifiedView.datePickerStyle(.graphical)
-            case "stepperField":
-                #if os(macOS)
-                modifiedView = modifiedView.datePickerStyle(.stepperField)
-                #else
-                logger.log("stepperField DatePickerStyle unavailable on iOS/visionOS/MacCatalyst; using compact", .warning)
-                modifiedView = modifiedView.datePickerStyle(.compact)
-                #endif
-            case "field":
-                #if os(macOS)
-                modifiedView = modifiedView.datePickerStyle(.field)
-                #else
-                logger.log("field DatePickerStyle unavailable on iOS/visionOS/MacCatalyst; using compact", .warning)
-                modifiedView = modifiedView.datePickerStyle(.compact)
-                #endif
-            default:
-                modifiedView = modifiedView.datePickerStyle(.automatic)
-            }
-        } else {
+        switch Props(properties).displayStyle {
+        case .compact:
+            modifiedView = modifiedView.datePickerStyle(.compact)
+        case .graphical:
+            modifiedView = modifiedView.datePickerStyle(.graphical)
+        case .stepperField:
+            #if os(macOS)
+            modifiedView = modifiedView.datePickerStyle(.stepperField)
+            #else
+            // Not on this platform: the default style, as for an unknown name.
+            modifiedView = modifiedView.datePickerStyle(.automatic)
+            #endif
+        case .field:
+            #if os(macOS)
+            modifiedView = modifiedView.datePickerStyle(.field)
+            #else
+            // Not on this platform: the default style, as for an unknown name.
+            modifiedView = modifiedView.datePickerStyle(.automatic)
+            #endif
+        case .automatic, nil:
             modifiedView = modifiedView.datePickerStyle(.automatic)
         }
         return modifiedView
@@ -206,7 +245,7 @@ struct DatePicker: ActionUIViewConstruction {
         if let initialValue = model.value as? Date {
             return initialValue
         }
-        let dateString = model.validatedProperties["selectedDate"] as? String ?? ""
+        let dateString = Props(model.validatedProperties).selectedDate
         let initialDate = DateHelper.parseDate(from: dateString) ?? Date()
         return initialDate
     }

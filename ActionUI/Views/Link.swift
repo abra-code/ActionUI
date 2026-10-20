@@ -14,6 +14,20 @@
 
 import SwiftUI
 
+extension Link {
+    /// Link's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = "Link"
+        /// The destination as given; the renderer turns it into a URL.
+        var url: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? "Link"
+            url = properties["url"] as? String
+        }
+    }
+}
+
 struct Link: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -42,11 +56,12 @@ struct Link: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        guard let urlString = properties["url"] as? String, let url = URL(string: urlString) else {
+        let props = Props(properties)
+        guard let urlString = props.url, let url = URL(string: urlString) else {
             logger.log("Link missing valid URL, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
-        let title = properties["title"] as? String ?? "Link"
+        let title = props.title
         
         return SwiftUI.Link(destination: url) {
             SwiftUI.Text(title)

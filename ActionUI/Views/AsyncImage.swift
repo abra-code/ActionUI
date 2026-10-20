@@ -17,6 +17,28 @@
 
 import SwiftUI
 
+extension AsyncImage {
+    /// AsyncImage's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum ContentMode: String, Sendable, CaseIterable {
+            case fit, fill
+        }
+
+        var url: String?
+        var placeholder = "photo"
+        var resizable = true
+        /// Anything but "fill" (absent, unknown, not a String) is "fit".
+        var contentMode = ContentMode.fit
+
+        init(_ properties: [String: Any]) {
+            url = properties["url"] as? String
+            placeholder = properties["placeholder"] as? String ?? "photo"
+            resizable = properties["resizable"] as? Bool ?? true
+            contentMode = (properties["contentMode"] as? String).flatMap(ContentMode.init(rawValue:)) ?? .fit
+        }
+    }
+}
+
 struct AsyncImage: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -67,11 +89,15 @@ struct AsyncImage: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let urlString = Self.initialValue(model) as? String
-        let placeholder = properties["placeholder"] as? String ?? "photo"
-        let resizable = properties["resizable"] as? Bool ?? true
-        let contentModeString = properties["contentMode"] as? String ?? "fit"
+        let props = Props(properties)
+        let placeholder = props.placeholder
+        let resizable = props.resizable
 
-        let contentMode: ContentMode = contentModeString == "fit" ? .fit : .fill
+        let contentMode: ContentMode
+        switch props.contentMode {
+        case .fit: contentMode = .fit
+        case .fill: contentMode = .fill
+        }
 
         guard let urlString = urlString, let url = URL(string: urlString) else {
             logger.log("AsyncImage missing valid url, using placeholder '\(placeholder)'", .warning)
@@ -100,6 +126,6 @@ struct AsyncImage: ActionUIViewConstruction {
             return storedValue
         }
         // Fall back to the static "url" property from JSON
-        return model.validatedProperties["url"] as? String
+        return Props(model.validatedProperties).url
     }
 }
