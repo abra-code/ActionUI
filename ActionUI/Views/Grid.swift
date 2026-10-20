@@ -25,6 +25,26 @@
 
 import SwiftUI
 
+extension Grid {
+    /// Grid's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Alignment: String, Sendable, CaseIterable {
+            case topLeading, top, topTrailing, leading, center, trailing, bottomLeading, bottom, bottomTrailing
+        }
+
+        /// nil for either spacing: the system's default.
+        var horizontalSpacing: Double?
+        var verticalSpacing: Double?
+        var alignment = Alignment.center
+
+        init(_ properties: [String: Any]) {
+            horizontalSpacing = properties.double(forKey: "horizontalSpacing")
+            verticalSpacing = properties.double(forKey: "verticalSpacing")
+            alignment = (properties["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .center
+        }
+    }
+}
+
 struct Grid: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -65,20 +85,20 @@ struct Grid: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let rows = (element.subviews?["rows"] as? [[any ActionUIElementBase]]) ?? []
-        let horizontalSpacing = properties.cgFloat(forKey: "horizontalSpacing")
-        let verticalSpacing = properties.cgFloat(forKey: "verticalSpacing")
-        let alignmentString = properties["alignment"] as? String
+        let props = Props(properties)
+        let horizontalSpacing = props.horizontalSpacing.map { CGFloat($0) }
+        let verticalSpacing = props.verticalSpacing.map { CGFloat($0) }
         let alignment: Alignment = {
-            switch alignmentString {
-            case "topLeading": return .topLeading
-            case "top": return .top
-            case "topTrailing": return .topTrailing
-            case "leading": return .leading
-            case "trailing": return .trailing
-            case "bottomLeading": return .bottomLeading
-            case "bottom": return .bottom
-            case "bottomTrailing": return .bottomTrailing
-            default: return .center
+            switch props.alignment {
+            case .topLeading: return .topLeading
+            case .top: return .top
+            case .topTrailing: return .topTrailing
+            case .leading: return .leading
+            case .center: return .center
+            case .trailing: return .trailing
+            case .bottomLeading: return .bottomLeading
+            case .bottom: return .bottom
+            case .bottomTrailing: return .bottomTrailing
             }
         }()
         

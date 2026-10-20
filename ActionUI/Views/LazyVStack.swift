@@ -35,6 +35,23 @@
 
 import SwiftUI
 
+extension LazyVStack {
+    /// LazyVStack's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Alignment: String, Sendable, CaseIterable {
+            case leading, center, trailing
+        }
+
+        var spacing = 0.0
+        var alignment = Alignment.center
+
+        init(_ properties: [String: Any]) {
+            spacing = properties.double(forKey: "spacing") ?? 0.0
+            alignment = (properties["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .center
+        }
+    }
+}
+
 struct LazyVStack: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -67,13 +84,13 @@ struct LazyVStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
-        let alignmentString = properties["alignment"] as? String
+        let props = Props(properties)
+        let spacing = CGFloat(props.spacing)
         let alignment: HorizontalAlignment = {
-            switch alignmentString {
-            case "leading": return .leading
-            case "trailing": return .trailing
-            default: return .center
+            switch props.alignment {
+            case .leading: return .leading
+            case .center: return .center
+            case .trailing: return .trailing
             }
         }()
 

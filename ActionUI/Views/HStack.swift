@@ -48,6 +48,24 @@
 
 import SwiftUI
 
+extension HStack {
+    /// HStack's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Alignment: String, Sendable, CaseIterable {
+            case top, center, bottom, firstTextBaseline, lastTextBaseline
+        }
+
+        /// nil: the system's default spacing.
+        var spacing: Double?
+        var alignment = Alignment.center
+
+        init(_ properties: [String: Any]) {
+            spacing = properties.double(forKey: "spacing")
+            alignment = (properties["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .center
+        }
+    }
+}
+
 struct HStack: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -80,14 +98,15 @@ struct HStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let spacing = properties.cgFloat(forKey: "spacing")
+        let props = Props(properties)
+        let spacing = props.spacing.map { CGFloat($0) }
         let alignment: VerticalAlignment
-        switch properties["alignment"] as? String {
-        case "top":               alignment = .top
-        case "bottom":            alignment = .bottom
-        case "firstTextBaseline": alignment = .firstTextBaseline
-        case "lastTextBaseline":  alignment = .lastTextBaseline
-        default:                  alignment = .center
+        switch props.alignment {
+        case .top:               alignment = .top
+        case .bottom:            alignment = .bottom
+        case .firstTextBaseline: alignment = .firstTextBaseline
+        case .lastTextBaseline:  alignment = .lastTextBaseline
+        case .center:            alignment = .center
         }
 
         // Data-driven template container mode: render one template instance per row.

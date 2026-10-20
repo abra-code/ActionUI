@@ -33,6 +33,17 @@
 
 import SwiftUI
 
+extension Section {
+    /// Section's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var header: String?
+
+        init(_ properties: [String: Any]) {
+            header = properties["header"] as? String
+        }
+    }
+}
+
 struct Section: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -55,7 +66,8 @@ struct Section: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let header = properties["header"] as? String
+        let props = Props(properties)
+        let header = props.header
 
         // Template mode: render one template instance per row in states["content"]
         if let template = element.subviews?["template"] as? any ActionUIElementBase {

@@ -17,6 +17,28 @@
 
 import SwiftUI
 
+extension Capsule {
+    /// Capsule's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Style: String, Sendable, CaseIterable {
+            case circular, continuous
+        }
+
+        var style = Style.circular
+        /// Colors and gradients stay as the names the renderer resolves.
+        var fill: String?
+        var stroke: String?
+        var strokeLineWidth = 1.0
+
+        init(_ properties: [String: Any]) {
+            style = (properties["style"] as? String).flatMap(Style.init(rawValue:)) ?? .circular
+            fill = properties["fill"] as? String
+            stroke = properties["stroke"] as? String
+            strokeLineWidth = properties.double(forKey: "strokeLineWidth") ?? 1.0
+        }
+    }
+}
+
 struct Capsule: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -56,14 +78,20 @@ struct Capsule: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, properties, _ in
-        let style: RoundedCornerStyle = (properties["style"] as? String) == "continuous" ? .continuous : .circular
+        let props = Props(properties)
+        let style: RoundedCornerStyle = {
+            switch props.style {
+            case .circular: return .circular
+            case .continuous: return .continuous
+            }
+        }()
         let shape = SwiftUI.Capsule(style: style)
 
-        if let fillStr = properties["fill"] as? String, let fillStyle = ColorHelper.resolveShapeStyle(fillStr) {
+        if let fillStr = props.fill, let fillStyle = ColorHelper.resolveShapeStyle(fillStr) {
             return shape.fill(fillStyle)
         }
-        if let strokeStr = properties["stroke"] as? String, let strokeStyle = ColorHelper.resolveShapeStyle(strokeStr) {
-            let lineWidth = properties.cgFloat(forKey: "strokeLineWidth") ?? 1.0
+        if let strokeStr = props.stroke, let strokeStyle = ColorHelper.resolveShapeStyle(strokeStr) {
+            let lineWidth = CGFloat(props.strokeLineWidth)
             return shape.stroke(strokeStyle, lineWidth: lineWidth)
         }
         return shape

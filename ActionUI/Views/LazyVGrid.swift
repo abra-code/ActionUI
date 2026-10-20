@@ -36,6 +36,48 @@
 
 import SwiftUI
 
+extension LazyVGrid {
+    /// LazyVGrid's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Alignment: String, Sendable, CaseIterable {
+            case leading, center, trailing
+        }
+
+        /// One column: a fixed width, or a flexible one.
+        enum Track: Sendable, Equatable {
+            case fixed(Double)
+            case flexible
+        }
+
+        var spacing = 0.0
+        var alignment = Alignment.center
+        /// No usable column definition gives one flexible column. Empty when the only definitions
+        /// with a usable value say "flexible": false: the grid then has no columns and shows nothing.
+        var columns = [Track.flexible]
+
+        init(_ properties: [String: Any]) {
+            spacing = properties.double(forKey: "spacing") ?? 0.0
+            alignment = (properties["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .center
+            // A definition with a numeric "minimum" is fixed; one with "flexible": true is flexible;
+            // anything else is skipped.
+            if let definitions = properties["columns"] as? [[String: Any]] {
+                let tracks = definitions.compactMap { column -> Track? in
+                    if let minimum = column.double(forKey: "minimum") {
+                        return .fixed(minimum)
+                    } else if let flexible = column["flexible"] as? Bool, flexible {
+                        return .flexible
+                    }
+                    return nil
+                }
+                // A "flexible": false definition counts as a definition though it gives no column.
+                if !tracks.isEmpty || definitions.contains(where: { $0["flexible"] as? Bool != nil }) {
+                    columns = tracks
+                }
+            }
+        }
+    }
+}
+
 struct LazyVGrid: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -92,24 +134,22 @@ struct LazyVGrid: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
-        let alignmentString = properties["alignment"] as? String
+        let props = Props(properties)
+        let spacing = CGFloat(props.spacing)
         let alignment: HorizontalAlignment = {
-            switch alignmentString {
-            case "leading": return .leading
-            case "trailing": return .trailing
-            default: return .center
+            switch props.alignment {
+            case .leading: return .leading
+            case .center: return .center
+            case .trailing: return .trailing
             }
         }()
-        
-        let columns = (properties["columns"] as? [[String: Any]])?.compactMap { column in
-            if let minimum = column.cgFloat(forKey: "minimum") {
-                return GridItem(.fixed(minimum))
-            } else if let flexible = column["flexible"] as? Bool, flexible {
-                return GridItem(.flexible())
+
+        let columns: [GridItem] = props.columns.map { column in
+            switch column {
+            case .fixed(let minimum): return GridItem(.fixed(CGFloat(minimum)))
+            case .flexible: return GridItem(.flexible())
             }
-            return nil
-        } ?? [GridItem(.flexible())]
+        }
 
         // Template mode: render one template instance per row in states["content"];
         // each instance fills the next grid cell.

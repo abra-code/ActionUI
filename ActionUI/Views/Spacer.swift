@@ -12,6 +12,17 @@
 
 import SwiftUI
 
+extension Spacer {
+    /// Spacer's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var minLength: Double?
+
+        init(_ properties: [String: Any]) {
+            minLength = properties.double(forKey: "minLength")
+        }
+    }
+}
+
 struct Spacer: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -38,8 +49,9 @@ struct Spacer: ActionUIViewConstruction {
     }
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
-        if let minLength = properties.cgFloat(forKey: "minLength") {
-            return view.frame(minWidth: minLength)
+        let props = Props(properties)
+        if let minLength = props.minLength {
+            return view.frame(minWidth: CGFloat(minLength))
         }
         return view
     }

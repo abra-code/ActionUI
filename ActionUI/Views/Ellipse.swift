@@ -16,6 +16,22 @@
 
 import SwiftUI
 
+extension Ellipse {
+    /// Ellipse's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// Colors and gradients stay as the names the renderer resolves.
+        var fill: String?
+        var stroke: String?
+        var strokeLineWidth = 1.0
+
+        init(_ properties: [String: Any]) {
+            fill = properties["fill"] as? String
+            stroke = properties["stroke"] as? String
+            strokeLineWidth = properties.double(forKey: "strokeLineWidth") ?? 1.0
+        }
+    }
+}
+
 struct Ellipse: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -46,11 +62,12 @@ struct Ellipse: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, properties, _ in
-        if let fillStr = properties["fill"] as? String, let style = ColorHelper.resolveShapeStyle(fillStr) {
+        let props = Props(properties)
+        if let fillStr = props.fill, let style = ColorHelper.resolveShapeStyle(fillStr) {
             return SwiftUI.Ellipse().fill(style)
         }
-        if let strokeStr = properties["stroke"] as? String, let style = ColorHelper.resolveShapeStyle(strokeStr) {
-            let lineWidth = properties.cgFloat(forKey: "strokeLineWidth") ?? 1.0
+        if let strokeStr = props.stroke, let style = ColorHelper.resolveShapeStyle(strokeStr) {
+            let lineWidth = CGFloat(props.strokeLineWidth)
             return SwiftUI.Ellipse().stroke(style, lineWidth: lineWidth)
         }
         return SwiftUI.Ellipse()

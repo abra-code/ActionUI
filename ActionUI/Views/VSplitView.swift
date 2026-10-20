@@ -44,10 +44,7 @@ struct VSplitView: ActionUIViewConstruction {
             guard let firstChild = children.first,
                   let childModel = windowModel?.viewModels[firstChild.id] else { return nil }
             let props = ActionUIRegistry.shared.getValidatedProperties(element: firstChild, model: childModel)
-            if let frame = props["frame"] as? [String: Any] {
-                return frame.cgFloat(forKey: "idealHeight")
-            }
-            return nil
+            return BaseModifiers(props).frame?.idealHeight.map { CGFloat($0) }
         }()
 
         return SwiftUI.VSplitView {

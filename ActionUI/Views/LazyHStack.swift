@@ -35,6 +35,23 @@
 
 import SwiftUI
 
+extension LazyHStack {
+    /// LazyHStack's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Alignment: String, Sendable, CaseIterable {
+            case top, center, bottom
+        }
+
+        var spacing = 0.0
+        var alignment = Alignment.center
+
+        init(_ properties: [String: Any]) {
+            spacing = properties.double(forKey: "spacing") ?? 0.0
+            alignment = (properties["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .center
+        }
+    }
+}
+
 struct LazyHStack: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -67,13 +84,13 @@ struct LazyHStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
-        let alignmentString = properties["alignment"] as? String
+        let props = Props(properties)
+        let spacing = CGFloat(props.spacing)
         let alignment: VerticalAlignment = {
-            switch alignmentString {
-            case "top": return .top
-            case "bottom": return .bottom
-            default: return .center
+            switch props.alignment {
+            case .top: return .top
+            case .center: return .center
+            case .bottom: return .bottom
             }
         }()
 

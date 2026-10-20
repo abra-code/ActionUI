@@ -25,6 +25,18 @@
 
 import SwiftUI
 
+extension Color {
+    /// Color's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The color name the renderer resolves.
+        var color: String?
+
+        init(_ properties: [String: Any]) {
+            color = properties["color"] as? String
+        }
+    }
+}
+
 struct Color: ActionUIViewConstruction {
     // Optional SwiftUI.Color value: nil = use the `color` property, a Color = a runtime override (set via
     // setElementValue / setElementValueFromString). Mirrors Image's static-property-with-runtime-override shape.
@@ -53,8 +65,8 @@ struct Color: ActionUIViewConstruction {
         if let color = model.value as? SwiftUI.Color {
             return color
         }
-        let colorStr = properties["color"] as? String
-        if let colorStr, !colorStr.isEmpty {
+        let props = Props(properties)
+        if let colorStr = props.color, !colorStr.isEmpty {
             if let resolved = ColorHelper.resolveColor(colorStr) {
                 return resolved
             }
