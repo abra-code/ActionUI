@@ -1,15 +1,21 @@
-// Common/DirectoryHelper.swift
+// Core/Helpers/DirectoryHelper.swift
 /*
  DirectoryHelper.swift
 
  Helper for platform-specific file system operations, such as accessing the application support directory.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 @MainActor
 public enum DirectoryHelper {
-    // Returns a cache URL in Library/Application Support/ActionUI/[windowUUID]/[resourceName].[resourceExtension]
+    // Returns a cache URL in <application support>/ActionUI/[windowUUID]/[resourceName].[resourceExtension],
+    // creating the folder; the application support directory is Library/Application Support on Apple
+    // and the XDG data folder (~/.local/share by default) on Linux.
     public static func cacheURL(for windowUUID: String, resourceName: String, resourceExtension: String, logger: any ActionUILogger) -> URL? {
         let fileManager = FileManager.default
         guard let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
