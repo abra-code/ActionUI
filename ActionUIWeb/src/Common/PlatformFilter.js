@@ -83,13 +83,14 @@ function specificity(platform) {
     return platform === "apple" ? 1 : 2;
 }
 
-// Every recognized platform token across Apple, Android, and (reserved)
+// Every recognized platform token across Apple, Android, Linux, and (reserved)
 // cross-platform targets. Must match the Swift `allPlatforms` and Kotlin
 // `ALL_PLATFORMS` sets.
 PlatformFilter.ALL_PLATFORMS = new Set([
     "ios", "macos", "tvos", "watchos", "visionos", "apple",
     "android", "androidtv", "wear",
     "desktop", "web",
+    "linux",
 ]);
 
 // Active set for the browser runtime. ("desktop" is reserved and intentionally

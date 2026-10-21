@@ -38,8 +38,8 @@ test("PlatformFilter warns and drops an unknown suffix", () => {
     assert.ok(logger.warned("Unknown platform suffix"));
 });
 
-test("PlatformFilter ALL_PLATFORMS includes web and the apple/android tokens", () => {
-    for (const p of ["web", "ios", "macos", "apple", "android"]) {
+test("PlatformFilter ALL_PLATFORMS includes web and the apple/android/linux tokens", () => {
+    for (const p of ["web", "ios", "macos", "apple", "android", "linux"]) {
         assert.ok(PlatformFilter.ALL_PLATFORMS.has(p), `${p} is a known platform`);
     }
 });

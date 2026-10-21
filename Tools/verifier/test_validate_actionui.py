@@ -321,6 +321,14 @@ class DeploymentModeTests(unittest.TestCase):
         # should not fire for a common optional property like text.
         self.assertEqual(_errors(_validate(doc, platform="android")), [])
 
+    def test_linux_variant_is_known(self):
+        # text:linux is a known platform suffix: no unknown-suffix issue on any target, and on
+        # linux it is the text.
+        doc = {"type": "Text", "properties": {"text": "x", "text:linux": "gtk"}}
+        self.assertEqual(_validate(doc, platform="ios"), [])
+        self.assertEqual(_validate(doc, platform="linux"), [])
+        self.assertEqual(_validate(doc), [])
+
     def test_umbrella_suffix_applies_to_member_platform(self):
         # weight:android applies to androidtv via the android umbrella.
         doc = {"type": "Text", "properties": {"text": "x", "weight:android": 1}}

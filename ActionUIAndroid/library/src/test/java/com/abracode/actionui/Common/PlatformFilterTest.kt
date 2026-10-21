@@ -175,6 +175,15 @@ class PlatformFilterTest {
     }
 
     @Test
+    fun `a linux variant is dropped without a warning`() {
+        // linux is a known platform (the GTK renderer), not a typo.
+        val logger = CapturingLogger()
+        val filter = PlatformFilter(setOf("android"), logger)
+        filter.filter(parse("""{"tint:linux":"blue"}"""))
+        assertTrue("Expected no warnings, got: ${logger.warnings}", logger.warnings.isEmpty())
+    }
+
+    @Test
     fun `multiple unknown suffixes each produce one warning`() {
         val logger = CapturingLogger()
         val filter = PlatformFilter(setOf("android"), logger)
@@ -240,7 +249,8 @@ class PlatformFilterTest {
         val expected = setOf(
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",
-            "desktop", "web"
+            "desktop", "web",
+            "linux"
         )
         assertEquals(expected, PlatformFilter.ALL_PLATFORMS)
     }

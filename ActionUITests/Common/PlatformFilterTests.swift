@@ -135,6 +135,18 @@ final class PlatformFilterTests: XCTestCase {
         XCTAssertTrue(result.contains("\"properties\""), "Expected properties to survive: \(result)")
     }
 
+    // MARK: - linux
+
+    // "linux" is a known platform: on Apple a linux variant is dropped without a warning, and on
+    // Linux it wins over the unsuffixed key.
+    func testLinuxVariantIsDroppedQuietlyElsewhereAndUsedOnLinux() throws {
+        let logger = CapturingLogger()
+        let parsed = try parseDict(#"{"text":"base","text:linux":"gtk"}"#)
+        XCTAssertEqual(try canonicalJSON(PlatformFilter(active: ["macos", "apple"], logger: logger).filter(parsed)), #"{"text":"base"}"#)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertEqual(try canonicalJSON(PlatformFilter(active: ["linux"], logger: logger).filter(parsed)), #"{"text":"gtk"}"#)
+    }
+
     // MARK: - Unknown suffix → warn + drop
 
     func testUnknownSuffixIsDroppedWithWarning() throws {
@@ -253,7 +265,8 @@ final class PlatformFilterTests: XCTestCase {
         let expected: Set<String> = [
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",
-            "desktop", "web"
+            "desktop", "web",
+            "linux"
         ]
         XCTAssertEqual(PlatformFilter.allPlatforms, expected)
     }

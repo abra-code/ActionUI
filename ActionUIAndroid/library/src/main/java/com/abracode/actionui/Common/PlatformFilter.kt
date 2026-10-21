@@ -92,7 +92,7 @@ class PlatformFilter(
 
     companion object {
         /**
-         * Every recognized platform token across Apple, Android, and (reserved)
+         * Every recognized platform token across Apple, Android, Linux, and (reserved)
          * cross-platform targets. Must match `PlatformFilter.allPlatforms` in
          * the Swift port - both filters must agree on which suffixes are
          * platform tokens vs unknown/typos.
@@ -100,7 +100,8 @@ class PlatformFilter(
         val ALL_PLATFORMS: Set<String> = setOf(
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",
-            "desktop", "web"
+            "desktop", "web",
+            "linux"
         )
 
         /**
