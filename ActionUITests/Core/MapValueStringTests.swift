@@ -1,4 +1,4 @@
-// Views/MapValueStringTests.swift
+// Core/MapValueStringTests.swift
 /*
  The string forms of a Map's value (its center coordinate), as the C interface and every language
  binding exchange them: getElementValueAsString / setElementValueFromString with no content type
@@ -15,7 +15,8 @@ final class MapValueStringTests: XCTestCase {
     private let model = ActionUIModel.shared
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         logger = XCTestLogger(maxLevel: .verbose)
         model.logger = logger
         ActionUIRegistry.shared.resetForTesting()
@@ -32,7 +33,6 @@ final class MapValueStringTests: XCTestCase {
         ActionUIModel.resetForTesting()
         logger = nil
         windowUUID = nil
-        try await super.tearDown()
     }
 
     func testTheInitialCoordinateAsAString() {

@@ -1,12 +1,11 @@
-// Tests/Common/ActionUIJSONModelOutputTests.swift
+// Core/ActionUIJSONModelOutputTests.swift
 /*
  Exact-output tests for the paths the C adapter, the remote server and the bindings take through
  the model: a value or state set from JSON text and read back as JSON text, as a string, and as
- the type a renderer reads. Apple: they use ActionUIModel, which is not in Core yet. The text of
- ActionUIJSON alone is pinned in Core/ActionUIJSONOutputTests.swift.
+ the type a renderer reads. The text of ActionUIJSON alone is pinned in
+ Core/ActionUIJSONOutputTests.swift.
 */
 
-import Foundation
 import XCTest
 @testable import ActionUI
 
@@ -16,7 +15,8 @@ final class ActionUIJSONModelOutputTests: XCTestCase {
     private var windowUUID = ""
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString
@@ -37,7 +37,6 @@ final class ActionUIJSONModelOutputTests: XCTestCase {
     override func tearDown() async throws {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
-        try await super.tearDown()
     }
 
     private func text(_ value: Any) -> String {
@@ -46,11 +45,6 @@ final class ActionUIJSONModelOutputTests: XCTestCase {
         } catch {
             return "throws: \(error)"
         }
-    }
-
-    // A Foundation object reaches ActionUIJSON only after FoundationBridge (the Apple adapters).
-    func testFoundationNullIsRefused() {
-        XCTAssertEqual(text(NSNull()), "throws: Cannot convert value of type NSNull to JSON")
     }
 
     // MARK: - Element values, as the C adapter and the remote server set and read them

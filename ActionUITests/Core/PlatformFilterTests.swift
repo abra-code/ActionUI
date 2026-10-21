@@ -1,4 +1,4 @@
-// Common/PlatformFilterTests.swift
+// Core/PlatformFilterTests.swift
 /*
  PlatformFilterTests
 
@@ -8,7 +8,6 @@
 */
 
 import XCTest
-import Foundation
 @testable import ActionUI
 
 final class PlatformFilterTests: XCTestCase {
@@ -29,15 +28,12 @@ final class PlatformFilterTests: XCTestCase {
     }
 
     private func parseDict(_ json: String) throws -> Any {
-        let data = json.data(using: .utf8)!
-        return try JSONSerialization.jsonObject(with: data, options: [])
+        try JSONValue(parsing: Data(json.utf8)).anyValue
     }
 
-    /// Round-trips through JSONSerialization with `.sortedKeys` for deterministic
-    /// string comparison.
+    /// Writes the value as JSON with sorted keys, for deterministic string comparison.
     private func canonicalJSON(_ value: Any) throws -> String {
-        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
-        return String(data: data, encoding: .utf8)!
+        try XCTUnwrap(JSONValue(any: value), "Not a JSON value: \(value)").text(sortedKeys: true)
     }
 
     private func filterJSON(_ filter: PlatformFilter, _ json: String) throws -> String {

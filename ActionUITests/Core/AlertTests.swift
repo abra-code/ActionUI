@@ -1,4 +1,4 @@
-// Tests/Views/AlertTests.swift
+// Core/AlertTests.swift
 /*
  AlertTests.swift
 
@@ -7,7 +7,6 @@
 */
 
 import XCTest
-import SwiftUI
 @testable import ActionUI
 
 @MainActor
@@ -16,7 +15,8 @@ final class AlertTests: XCTestCase {
     private var windowUUID: String!
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
@@ -35,7 +35,6 @@ final class AlertTests: XCTestCase {
         ActionUIModel.resetForTesting()
         logger = nil
         windowUUID = nil
-        try await super.tearDown()
     }
 
     // MARK: - presentAlert

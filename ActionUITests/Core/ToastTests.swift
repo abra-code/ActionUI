@@ -1,4 +1,4 @@
-// Tests/Views/ToastTests.swift
+// Core/ToastTests.swift
 /*
  ToastTests.swift
 
@@ -10,7 +10,6 @@
 */
 
 import XCTest
-import SwiftUI
 @testable import ActionUI
 
 @MainActor
@@ -19,7 +18,8 @@ final class ToastTests: XCTestCase {
     private var windowUUID: String!
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
@@ -37,7 +37,6 @@ final class ToastTests: XCTestCase {
         ActionUIModel.resetForTesting()
         logger = nil
         windowUUID = nil
-        try await super.tearDown()
     }
 
     // MARK: - presentToast

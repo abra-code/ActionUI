@@ -1,5 +1,4 @@
-// Common/XCTestLogger.swift
-import Foundation
+// Core/XCTestLogger.swift
 import XCTest
 @testable import ActionUI
 

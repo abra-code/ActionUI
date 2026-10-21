@@ -59,6 +59,13 @@ final class ActionUIJSONTests: XCTestCase {
         XCTAssertEqual((back["inner"] as? [String: Any])?["k"] as? String, "v")
     }
 
+    // A Foundation object reaches ActionUIJSON only after FoundationBridge (the Apple adapters).
+    func testFoundationNullIsRefused() {
+        XCTAssertThrowsError(try ActionUIJSON.string(from: NSNull())) { error in
+            XCTAssertEqual((error as? ActionUIJSONError)?.message, "Cannot convert value of type NSNull to JSON")
+        }
+    }
+
     func testUnsupportedTypeThrowsWithTypeName() {
         XCTAssertThrowsError(try ActionUIJSON.string(from: Date())) { error in
             let message = (error as? ActionUIJSONError)?.message ?? ""

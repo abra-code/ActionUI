@@ -1,4 +1,4 @@
-// Tests/ActionUIElementTests.swift
+// Core/ActionUIElementTests.swift
 /*
  ActionUIElementTests.swift
 
@@ -9,7 +9,6 @@
 */
 
 import XCTest
-import SwiftUI
 @testable import ActionUI
 
 @MainActor
@@ -17,13 +16,13 @@ final class ActionUIElementTests: XCTestCase {
     private var logger: XCTestLogger!
     
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         logger = XCTestLogger(maxLevel: .verbose)
     }
     
     override func tearDown() async throws {
         logger = nil
-        try await super.tearDown()
     }
     
     func testEncodingAndDecodingWithChildren() throws {

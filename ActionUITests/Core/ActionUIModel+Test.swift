@@ -1,5 +1,4 @@
-// ActionUIModel+Test.swift (in Tests/Common/)
-import SwiftUI
+// Core/ActionUIModel+Test.swift
 @testable import ActionUI
 
 extension ActionUIModel {

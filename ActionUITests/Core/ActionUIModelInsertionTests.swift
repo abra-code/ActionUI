@@ -1,11 +1,10 @@
-// Tests/Common/ActionUIModelInsertionTests.swift
+// Core/ActionUIModelInsertionTests.swift
 /*
  Tests for the runtime structural mutation API:
    ActionUIModel.insertElement / insertRow / removeElement
 */
 
 import XCTest
-import SwiftUI
 @testable import ActionUI
 
 // Logger that records messages without failing the test, used when testing
@@ -24,7 +23,8 @@ final class ActionUIModelInsertionTests: XCTestCase {
     private let model = ActionUIModel.shared
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         logger = XCTestLogger(maxLevel: .verbose)
         model.logger = logger
         ActionUIRegistry.shared.resetForTesting()
@@ -37,7 +37,6 @@ final class ActionUIModelInsertionTests: XCTestCase {
         ActionUIModel.resetForTesting()
         logger = nil
         windowUUID = nil
-        try await super.tearDown()
     }
 
     // MARK: - Helpers
@@ -440,6 +439,14 @@ final class ActionUIModelInsertionTests: XCTestCase {
     // because it never matches on Apple — so the expected outcome is the same on
     // macOS, iOS, tvOS, etc. (The macOS-only specificity test is guarded below.)
 
+    // The value the platform suffix this runtime is on picks: "text:apple" on Apple, "text:linux"
+    // on Linux (PlatformFilter.runtimeActiveSet).
+    #if os(Linux)
+    private let platformValue = "linux-value"
+    #else
+    private let platformValue = "apple-value"
+    #endif
+
     private func suffixedTextDict(id: Int) -> [String: Any] {
         [
             "id": id,
@@ -447,6 +454,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
             "properties": [
                 "text": "base",
                 "text:apple": "apple-value",
+                "text:linux": "linux-value",
                 "text:android": "android-value",
             ],
         ]
@@ -461,18 +469,18 @@ final class ActionUIModelInsertionTests: XCTestCase {
         _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: suffixedTextDict(id: 10))
 
         let inserted = firstInsertedChild(of: 1)
-        XCTAssertEqual(inserted?.properties["text"] as? String, "apple-value", "Apple-suffixed value should win over the base value")
+        XCTAssertEqual(inserted?.properties["text"] as? String, platformValue, "This platform's suffixed value should win over the base value")
         XCTAssertNil(inserted?.properties["text:apple"], "Suffixed key should be normalized away after filtering")
         XCTAssertNil(inserted?.properties["text:android"], "Inactive-platform key should be dropped")
     }
 
     func testInsertElementViaJSONStringResolvesPlatformSuffix() throws {
         try loadVStack(id: 1)
-        let json = #"{"id": 30, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:android": "android-value"}}"#
+        let json = #"{"id": 30, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:linux": "linux-value", "text:android": "android-value"}}"#
         _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, json: json)
 
         let inserted = firstInsertedChild(of: 1)
-        XCTAssertEqual(inserted?.properties["text"] as? String, "apple-value", "JSON-string insert should filter through the same path")
+        XCTAssertEqual(inserted?.properties["text"] as? String, platformValue, "JSON-string insert should filter through the same path")
         XCTAssertNil(inserted?.properties["text:android"], "Inactive-platform key should be dropped")
     }
 
@@ -486,7 +494,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
             "type": "VStack",
             "properties": {},
             "children": [
-                {"id": 20, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:android": "android-value"}}
+                {"id": 20, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:linux": "linux-value", "text:android": "android-value"}}
             ]
         }
         """
@@ -494,7 +502,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
 
         let insertedParent = firstInsertedChild(of: 1)
         let nestedChild = (insertedParent?.subviews?["children"] as? [ActionUIElement])?.first
-        XCTAssertEqual(nestedChild?.properties["text"] as? String, "apple-value", "Nested child suffixes should resolve (filter recurses the subtree)")
+        XCTAssertEqual(nestedChild?.properties["text"] as? String, platformValue, "Nested child suffixes should resolve (filter recurses the subtree)")
         XCTAssertNil(nestedChild?.properties["text:android"], "Nested inactive-platform key should be dropped")
     }
 
@@ -503,7 +511,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
         _ = try model.insertRow(windowUUID: windowUUID, parentID: 1, cells: [suffixedTextDict(id: 20)])
 
         let insertedCell = (model.windowModels[windowUUID]?.viewModels[1]?.dynamicSubviews?["rows"] as? [[ActionUIElement]])?.first?.first
-        XCTAssertEqual(insertedCell?.properties["text"] as? String, "apple-value", "Apple-suffixed value should win in an inserted row cell")
+        XCTAssertEqual(insertedCell?.properties["text"] as? String, platformValue, "This platform's suffixed value should win in an inserted row cell")
         XCTAssertNil(insertedCell?.properties["text:apple"], "Suffixed key should be normalized away after filtering")
         XCTAssertNil(insertedCell?.properties["text:android"], "Inactive-platform key should be dropped")
     }
@@ -529,6 +537,8 @@ final class ActionUIModelInsertionTests: XCTestCase {
         XCTAssertEqual(children?.count, 0, "The hook must run the mutation it is given")
     }
 
+    // The SwiftUI renderer half installs its hook; the Core-only check package has none to install.
+    #if canImport(SwiftUI)
     func testLoadingBuiltInsInstallsTheSwiftUIHook() throws {
         var called = false
         ActionUIRendererHooks.structuralMutation = { _, body in
@@ -541,6 +551,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
         XCTAssertFalse(called, "loadBuiltIns must replace any earlier hook with the SwiftUI one")
         XCTAssertNotNil(model.windowModels[windowUUID]?.viewModels[10])
     }
+    #endif
 
     #if os(macOS)
     func testInsertElementPlatformSuffixSpecificityMacOS() throws {
