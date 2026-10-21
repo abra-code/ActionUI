@@ -68,17 +68,27 @@ final class WindowModel {
         let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger)
         switch format {
         case "json":
-            let parsed = try JSONSerialization.jsonObject(with: data, options: [])
-            let filtered = filter.filter(parsed)
-            return try JSONSerialization.data(withJSONObject: filtered, options: [])
+            let parsed = try JSONValue(parsing: data)
+            return Data(try filtered(parsed, by: filter).text().utf8)
         case "plist":
-            var plistFormat: PropertyListSerialization.PropertyListFormat = .xml
-            let parsed = try PropertyListSerialization.propertyList(from: data, options: [], format: &plistFormat)
-            let filtered = filter.filter(parsed)
-            return try PropertyListSerialization.data(fromPropertyList: filtered, format: plistFormat, options: 0)
+            // A property list holds no null, and ActionUI documents use neither its dates nor its
+            // data (AnyCodable refuses them too): decoding one throws "Not a JSON value".
+            let parsed = try PropertyListDecoder().decode(JSONValue.self, from: data)
+            let encoder = PropertyListEncoder()
+            encoder.outputFormat = .xml
+            return try encoder.encode(filtered(parsed, by: filter))
         default:
             return data
         }
+    }
+
+    // The document with PlatformFilter applied. The filter works on Swift-native values and
+    // returns the same kinds, so converting back cannot fail for a parsed document.
+    private func filtered(_ document: JSONValue, by filter: PlatformFilter) throws -> JSONValue {
+        guard let result = JSONValue(any: filter.filter(document.anyValue)) else {
+            throw ActionUIError("Platform filter produced a value with no JSON form")
+        }
+        return result
     }
 
     // Load description from dictionary, populating viewModels

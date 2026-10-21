@@ -97,10 +97,11 @@ struct Map: ActionUIElementSpec {
     // Parses a JSON coordinate string {"latitude":...,"longitude":...} into an ActionUICoordinate.
     // Only invoked when contentType is non-nil (e.g. "json"); nil contentType falls through to generic path.
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = { value, _, logger in
-        guard let data = value.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let lat = (dict["latitude"] as? NSNumber).map({ $0.doubleValue }),
-              let lon = (dict["longitude"] as? NSNumber).map({ $0.doubleValue }) else {
+        // Numbers only: JSONNumber.double also reads the text "inf", which is no coordinate.
+        guard let dict = (try? JSONValue(parsing: Data(value.utf8)))?.anyValue as? [String: Any],
+              !(dict["latitude"] is String), !(dict["longitude"] is String),
+              let lat = JSONNumber.double(dict["latitude"]),
+              let lon = JSONNumber.double(dict["longitude"]) else {
             logger.log("Map: failed to parse coordinate JSON string", .warning)
             return nil
         }
@@ -108,12 +109,9 @@ struct Map: ActionUIElementSpec {
     }
 
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = { value, _, logger in
-        guard let coord = value as? ActionUICoordinate,
-              let data = try? JSONSerialization.data(
-                  withJSONObject: ["latitude": coord.latitude, "longitude": coord.longitude],
-                  options: [.sortedKeys]),
-              let str = String(data: data, encoding: .utf8) else { return nil }
-        return str
+        guard let coord = value as? ActionUICoordinate else { return nil }
+        let json = JSONValue.object(["latitude": .double(coord.latitude), "longitude": .double(coord.longitude)])
+        return try? json.text(sortedKeys: true)
     }
 
     static var insertableContainers: [String: ContainerShape]? = nil

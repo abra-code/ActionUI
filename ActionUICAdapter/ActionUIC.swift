@@ -297,12 +297,12 @@ public func actionUIClearError() {
 // decodes identically. These wrappers keep the C adapter's contract: nil on failure, with the
 // failure text available through actionUIGetLastError().
 
-/// Convert any value to a JSON string safely (see ActionUIJSON.string(from:)), a JSON null
-/// stored by the model (ActionUIJSONNull) included.
+/// Convert any value to a JSON string safely (see ActionUIJSON.string(from:)). A Foundation
+/// object a Swift host stored (an NSNumber, say) is made Swift-native first.
 /// Returns nil and records the error when the value has no JSON representation.
 private func safeJSONString(from value: Any) -> String? {
     do {
-        return try ActionUIJSON.string(from: FoundationBridge.foundation(value))
+        return try ActionUIJSON.string(from: FoundationBridge.native(value))
     } catch {
         setError(jsonErrorMessage(error))
         return nil
@@ -314,11 +314,11 @@ private func valueToJSON(_ value: Any) -> String? {
 }
 
 /// Parse a JSON string, fragments allowed (see ActionUIJSON.value(from:)), into Swift-native
-/// values (FoundationBridge.native): Bool, Int, Double, String, ActionUIJSONNull, containers.
-/// Returns nil and records the error when the string is not UTF-8 or not JSON.
+/// values: Bool, Int, Double, String, ActionUIJSONNull, containers.
+/// Returns nil and records the error when the string is not JSON.
 private func jsonToValue(_ json: String) -> Any? {
     do {
-        return FoundationBridge.native(try ActionUIJSON.value(from: json))
+        return try ActionUIJSON.value(from: json)
     } catch {
         setError(jsonErrorMessage(error))
         return nil

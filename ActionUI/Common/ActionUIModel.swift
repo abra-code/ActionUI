@@ -551,12 +551,12 @@ public class ActionUIModel {
         } else {
             // Key does not exist yet — attempt JSON type inference so callers can establish
             // Bool/Int/Double/Array/Object state in one call without a prior typed setter.
-            // Pre-scan avoids the NSError allocation cost of a failed parse for plain strings,
-            // which are the most common expected type.
+            // Pre-scan avoids the cost of a failed parse for plain strings, which are the most
+            // common expected type. The parsed value is Swift-native, so an adapter can later set
+            // the same shape (Bool, Int, Double, String, [Any], [String: Any]).
             if JSONHelper.looksLikeJSONFragment(value),
-               let data = value.data(using: .utf8),
-               let parsed = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) {
-                converted = JSONHelper.normalizedJSONValue(parsed)
+               let parsed = try? JSONValue(parsing: Data(value.utf8)) {
+                converted = parsed.anyValue
             } else {
                 converted = value   // plain string
             }
@@ -960,12 +960,9 @@ public class ActionUIModel {
         container: String? = nil,
         position: InsertPosition = .append
     ) throws -> Int {
-        guard let data = json.data(using: .utf8) else {
-            throw InsertError.invalidJSON("Could not encode JSON string as UTF-8")
-        }
         let parsed: Any
         do {
-            parsed = try JSONSerialization.jsonObject(with: data, options: [])
+            parsed = try JSONValue(parsing: Data(json.utf8)).anyValue
         } catch {
             throw InsertError.invalidJSON("\(error)")
         }
@@ -1006,12 +1003,9 @@ public class ActionUIModel {
         container: String? = nil,
         position: InsertPosition = .append
     ) throws -> [Int] {
-        guard let data = json.data(using: .utf8) else {
-            throw InsertError.invalidJSON("Could not encode JSON string as UTF-8")
-        }
         let parsed: Any
         do {
-            parsed = try JSONSerialization.jsonObject(with: data, options: [])
+            parsed = try JSONValue(parsing: Data(json.utf8)).anyValue
         } catch {
             throw InsertError.invalidJSON("\(error)")
         }

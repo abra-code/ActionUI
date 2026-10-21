@@ -121,6 +121,7 @@ final class JSONValueTests: XCTestCase {
         XCTAssertEqual(JSONValue(any: UInt8(200)), .int(200))
         XCTAssertEqual(JSONValue(any: UInt.max), .double(Double(UInt.max)), "Beyond Int's range")
         XCTAssertEqual(JSONValue(any: Float(0.5)), .double(0.5))
+        XCTAssertEqual(try JSONValue(any: Float(0.1))?.text(), "0.1", "A Float is written as its own shortest text")
         XCTAssertEqual(JSONValue(any: Optional(5) as Any), .int(5))
         XCTAssertEqual(JSONValue(any: Optional<Int>.none as Any), .null)
         XCTAssertEqual(JSONValue(any: Optional(true) as Any), .bool(true))

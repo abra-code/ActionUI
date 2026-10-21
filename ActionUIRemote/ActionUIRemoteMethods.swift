@@ -469,7 +469,7 @@ struct Params {
 
     func insertPosition() throws -> InsertPosition {
         do {
-            return try ActionUIJSON.insertPosition(from: raw["position"])
+            return try ActionUIJSON.insertPosition(from: raw["position"].map(FoundationBridge.native))
         } catch let error as ActionUIJSONError {
             throw ActionUIRemoteError.invalidParams(error.message)
         }
@@ -478,7 +478,7 @@ struct Params {
     /// Dialog buttons, or nil when the param is absent. A present but unusable value is an error.
     func dialogButtons(_ key: String) throws -> [DialogButton]? {
         guard let value = raw[key], !(value is NSNull) else { return nil }
-        guard let buttons = ActionUIJSON.dialogButtons(from: value), !buttons.isEmpty else {
+        guard let buttons = ActionUIJSON.dialogButtons(from: FoundationBridge.native(value)), !buttons.isEmpty else {
             throw ActionUIRemoteError.invalidParams("Param \"\(key)\" must be a non-empty array of {title, role?, actionID?}")
         }
         return buttons

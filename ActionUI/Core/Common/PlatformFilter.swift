@@ -11,7 +11,7 @@ import Foundation
  remaining.
 
  Walks a generic JSON tree (typically `[String: Any]` / `[Any]` / leaf primitives
- as produced by `JSONSerialization`). For each `[String: Any]`, groups keys by
+ as `JSONValue.anyValue` produces them). For each `[String: Any]`, groups keys by
  base name, picks the highest-specificity variant whose suffix is in the active
  set, drops variants targeting other known platforms, and recurses into nested
  objects and arrays.
@@ -56,9 +56,8 @@ public struct PlatformFilter {
         self.logger = logger
     }
 
-    /// Recursively filters a JSON tree. Inputs are typically `[String: Any]`,
-    /// `[Any]`, `String`, `NSNumber`, or `NSNull` as produced by
-    /// `JSONSerialization.jsonObject(with:)`.
+    /// Recursively filters a JSON tree. Inputs are typically `[String: Any]`, `[Any]`, and the
+    /// scalars `JSONValue.anyValue` produces (Bool, Int, Double, String, ActionUIJSONNull).
     public func filter(_ value: Any) -> Any {
         switch value {
         case let dict as [String: Any]: return filterObject(dict)

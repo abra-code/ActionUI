@@ -98,7 +98,7 @@ final class ActionUIJSONOutputTests: XCTestCase {
 
     func testContainersFromSwiftValues() {
         let values: [String: Any] = [
-            "mixed array": [true, 1, 1.5, "x", NSNull()] as [Any],
+            "mixed array": [true, 1, 1.5, "x", ActionUIJSONNull()] as [Any],
             "inexact in array": [0.1, 1e-7, 2.0] as [Any],
             "slash in array": ["a/b"],
             "nested": [[1, [2]], [] as [Any]] as [Any],
@@ -108,7 +108,7 @@ final class ActionUIJSONOutputTests: XCTestCase {
         ]
         check([
             ("mixed array", "[true,1,1.5,\"x\",null]"),
-            ("inexact in array", "[0.10000000000000001,9.9999999999999995e-08,2]"),
+            ("inexact in array", "[0.1,1e-07,2]"),
             ("slash in array", #"["a\/b"]"#),
             ("nested", "[[1,[2]],[]]"),
             ("one-key object", #"{"k":{"a":1}}"#),
@@ -118,19 +118,21 @@ final class ActionUIJSONOutputTests: XCTestCase {
     }
 
     func testObjectWithSeveralKeys() throws {
-        let object: [String: Any] = ["b": true, "a": 0.1, "c": ["x": NSNull()], "d": "\u{E9}/"]
+        let object: [String: Any] = ["b": true, "a": 0.1, "c": ["x": ActionUIJSONNull()], "d": "\u{E9}/"]
         let parsed = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(text(object).utf8)) as? NSDictionary)
         XCTAssertEqual(parsed, ["b": true, "a": 0.1, "c": ["x": NSNull()], "d": "\u{E9}/"] as NSDictionary)
     }
 
     func testValuesWithoutJSONThrow() {
         check([
-            ("null", "throws: Cannot convert value of type NSNull to JSON"),
+            ("null", "null"),
+            ("NSNull", "throws: Cannot convert value of type NSNull to JSON"),
             ("date", "throws: Cannot convert value of type Date to JSON"),
-            ("nan", "nan"),
+            ("nan", "throws: Cannot convert nan to JSON: JSON has no non-finite numbers"),
         ]) { name in
             switch name {
-            case "null": return text(NSNull())
+            case "null": return text(ActionUIJSONNull())
+            case "NSNull": return text(NSNull())
             case "date": return text(Date(timeIntervalSince1970: 0))
             default: return text(Double.nan)
             }
@@ -145,18 +147,18 @@ final class ActionUIJSONOutputTests: XCTestCase {
             ("1.5", "1.5"), ("2.0", "2"), ("0.1", "0.1"), ("1e-7", "1e-07"), ("1e21", "1e+21"), ("-0.0", "-0"),
             ("9007199254740993", "9007199254740993"),
             (#""a/b""#, #""a\/b""#), (#""a\/b""#, #""a\/b""#), (#""é""#, "\"\u{E9}\""), (#""\u0001""#, #""\u0001""#),
-            ("null", "throws: Cannot convert value of type NSNull to JSON"),
+            ("null", "null"),
             ("[1,true,1.5,null]", "[1,true,1.5,null]"),
-            (#"{"a":[0.1]}"#, #"{"a":[0.10000000000000001]}"#),
-            ("[2.0,1e-7]", "[2,9.9999999999999995e-08]"),
+            (#"{"a":[0.1]}"#, #"{"a":[0.1]}"#),
+            ("[2.0,1e-7]", "[2,1e-07]"),
         ], roundTrip)
     }
 
     // MARK: - Element values, as the C adapter and the remote server set and read them
 
-    // JSON text as an adapter hands it to the model: parsed, then made Swift-native.
+    // JSON text as an adapter hands it to the model: parsed into Swift-native values.
     private func parsedLikeAnAdapter(_ json: String) throws -> Any {
-        FoundationBridge.native(try ActionUIJSON.value(from: json))
+        try ActionUIJSON.value(from: json)
     }
 
     private func setValue(_ viewID: Int, json: String) throws {
@@ -164,7 +166,7 @@ final class ActionUIJSONOutputTests: XCTestCase {
     }
 
     private func valueText(_ viewID: Int) -> String {
-        model.getElementValue(windowUUID: windowUUID, viewID: viewID).map({ text(FoundationBridge.foundation($0)) }) ?? "nil"
+        model.getElementValue(windowUUID: windowUUID, viewID: viewID).map(text) ?? "nil"
     }
 
     private func valueString(_ viewID: Int) -> String {
@@ -225,7 +227,7 @@ final class ActionUIJSONOutputTests: XCTestCase {
     // MARK: - States
 
     private func stateText(_ key: String) -> String {
-        model.getElementState(windowUUID: windowUUID, viewID: 6, key: key).map({ text(FoundationBridge.foundation($0)) }) ?? "nil"
+        model.getElementState(windowUUID: windowUUID, viewID: 6, key: key).map(text) ?? "nil"
     }
 
     private func stateString(_ key: String) -> String {
@@ -247,9 +249,9 @@ final class ActionUIJSONOutputTests: XCTestCase {
             "1.5: 1.5 | 1.5 | Double",
             "0.1: 0.1 | 0.1 | Double",
             "plain: \"plain\" | plain | String",
-            "[1,true,\"a/b\"]: [1,true,\"a\\/b\"] | (\n    1,\n    1,\n    \"a/b\"\n) | __NSArrayI",
-            "{\"k\":2}: {\"k\":2} | {\n    k = 2;\n} | __NSSingleEntryDictionaryI",
-            "null: throws: Cannot convert value of type NSNull to JSON | <null> | NSNull",
+            "[1,true,\"a/b\"]: [1,true,\"a\\/b\"] | [1, true, \"a/b\"] | Array<Any>",
+            "{\"k\":2}: {\"k\":2} | [\"k\": 2] | Dictionary<String, Any>",
+            "null: null | <null> | ActionUIJSONNull",
         ])
     }
 

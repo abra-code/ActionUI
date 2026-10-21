@@ -299,7 +299,9 @@ enum ChartDescription {
 
     static func isDataRow(_ row: Any) -> Bool {
         guard let cells = row as? [Any] else { return false }
-        return cells.allSatisfy { $0 is String || $0 is NSNumber || $0 is NSNull }
+        // JSON null is ActionUIJSONNull when the description was parsed by ActionUIJSON
+        // (insertElement(json:), the adapters), NSNull from JSONSerialization.
+        return cells.allSatisfy { $0 is String || $0 is NSNumber || $0 is NSNull || $0 is ActionUIJSONNull }
     }
 
     /// Turns inline `data` rows into row strings, by one rule on every platform: integers

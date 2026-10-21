@@ -153,7 +153,7 @@ ActionUIRust/
 |---|---|---|
 | `&str` | `const char*`, copied into a `CString` for the call | `String` |
 | `i64`, `f64`, `bool` | `int64_t`, `double`, `bool` | `Int`, `Double`, `Bool` |
-| anything `Serialize` | JSON text as `const char*` | decoded with `JSONSerialization` |
+| anything `Serialize` | JSON text as `const char*` | decoded with `JSONDecoder` (`ActionUIJSON`) |
 | `String` returned | `char*` owned by the caller, released with `actionUIFreeString` | `strdup` of a `String` |
 | `Option<T>` returned | a `bool` result plus an out-parameter, or `NULL` | `nil` |
 

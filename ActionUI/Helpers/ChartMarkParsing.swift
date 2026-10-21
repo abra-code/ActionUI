@@ -655,6 +655,8 @@ extension ChartDescription {
 
     // Through the document decoder, which reads every subview key an element may have.
     private static func decodeElement(_ object: [String: Any], logger: (any ActionUILogger)?) -> ActionUIElement? {
+        // A JSON null parsed by ActionUIJSON is ActionUIJSONNull, which JSONSerialization needs as NSNull.
+        let object = FoundationBridge.foundation(object) as? [String: Any] ?? object
         guard JSONSerialization.isValidJSONObject(object), let data = try? JSONSerialization.data(withJSONObject: object) else {
             return nil
         }

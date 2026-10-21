@@ -134,21 +134,19 @@ enum JSONValue: Codable, Sendable, Equatable {
     /// refused rather than bridged;
     /// FoundationBridge.native converts one first.
     init?(any value: Any) {
+        // The common kinds first: the Optional test at the end builds a Mirror.
         if type(of: value) == Bool.self, let flag = value as? Bool {
             self = .bool(flag)
-        } else if let number = value as? any BinaryInteger {
-            self = Int(exactly: number).map { .int($0) } ?? .double(Double(number))
-        } else if let number = value as? any BinaryFloatingPoint {
-            self = .double(Double(number))
-        } else if let unwrapped = Self.unwrappedOptional(value) {
-            guard let inner = unwrapped else {
-                self = .null
-                return
-            }
-            guard let converted = JSONValue(any: inner) else { return nil }
-            self = converted
         } else if let text = value as? String {
             self = .string(text)
+        } else if let number = value as? any BinaryInteger {
+            self = Int(exactly: number).map { .int($0) } ?? .double(Double(number))
+        } else if type(of: value) == Float.self, let number = value as? Float {
+            // Through its own shortest text, so Float 0.1 is written 0.1, as NSNumber printed it,
+            // not as the nearest Double (0.10000000149011612).
+            self = .double(Double(String(number)) ?? Double(number))
+        } else if let number = value as? any BinaryFloatingPoint {
+            self = .double(Double(number))
         } else if value is ActionUIJSONNull {
             self = .null
         } else if let items = value as? [Any] {
@@ -167,6 +165,13 @@ enum JSONValue: Codable, Sendable, Equatable {
                 converted[key] = element
             }
             self = .object(converted)
+        } else if let unwrapped = Self.unwrappedOptional(value) {
+            guard let inner = unwrapped else {
+                self = .null
+                return
+            }
+            guard let converted = JSONValue(any: inner) else { return nil }
+            self = converted
         } else {
             return nil
         }

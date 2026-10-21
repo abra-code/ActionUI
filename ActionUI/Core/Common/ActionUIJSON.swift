@@ -26,76 +26,37 @@ public struct ActionUIJSONError: Error, Sendable, CustomStringConvertible {
 /// C adapter, the remote server, and the in-process Python and Node modules cannot drift from each
 /// other in what they accept or produce.
 ///
-/// Behavior is intentionally identical to the private helpers the C adapter shipped before this
-/// type existed: same accepted inputs, same output text, same error messages.
+/// The values are Swift-native (Bool, Int, Double, String, ActionUIJSONNull, containers); Apple
+/// adapters convert Foundation objects with FoundationBridge before they reach these helpers.
 public enum ActionUIJSON {
 
     // MARK: - Values
 
-    /// Convert any value to a JSON string safely, without risking ObjC exceptions.
+    /// Convert a Swift-native value to JSON text: Bool, any integer or floating-point type, String,
+    /// ActionUIJSONNull (as `null`), an Optional (nil as `null`), and arrays and string-keyed
+    /// dictionaries of them (Core/Helpers/JSONValue.swift). Keys are in no fixed order; "/" is
+    /// written as "\/". An inexact double is written in its shortest form (`0.1`).
     ///
-    /// `JSONSerialization.data(withJSONObject:)` throws an ObjC `NSException` (not a Swift
-    /// `Error`) when the top-level object is not a valid JSON container (e.g. a bare String or
-    /// Number). ObjC exceptions bypass Swift's `do/catch`, crashing the process. This helper
-    /// checks `isValidJSONObject` first and falls back to manual serialization for scalar types
-    /// that are valid JSON values but cannot be a top-level `withJSONObject` argument.
-    ///
-    /// Supported: JSON-valid arrays and dictionaries, String, NSNumber (Bool detected via
-    /// CFBoolean), Bool, Int, Double. Anything else (Date, Color, coordinates, ...) throws.
+    /// Throws for anything else (Date, a color, a coordinate, a Foundation object such as
+    /// NSNumber or NSNull, which Apple adapters convert with FoundationBridge first) and for a
+    /// non-finite number, which JSON cannot hold.
     public static func string(from value: Any) throws -> String {
-        // Arrays and dictionaries - the common path.
-        if JSONSerialization.isValidJSONObject(value) {
-            do {
-                let data = try JSONSerialization.data(withJSONObject: value, options: [])
-                guard let text = String(data: data, encoding: .utf8) else {
-                    throw ActionUIJSONError("Failed to convert value to JSON: output is not UTF-8")
-                }
-                return text
-            } catch let error as ActionUIJSONError {
-                throw error
-            } catch {
-                // Should not happen after isValidJSONObject, but handle gracefully.
-                throw ActionUIJSONError("Failed to convert value to JSON: \(error)")
-            }
-        }
-
-        // Scalar types that are valid JSON but not valid top-level NSJSONSerialization objects.
-        switch value {
-        case let s as String:
-            // Wrap in an array, serialize, then strip the surrounding brackets.
-            if let data = try? JSONSerialization.data(withJSONObject: [s], options: []),
-               let arr = String(data: data, encoding: .utf8) {
-                // "[\"hello\"]" -> "\"hello\""
-                let inner = arr.dropFirst(1).dropLast(1)
-                return String(inner)
-            }
-            throw ActionUIJSONError("Failed to convert string to JSON")
-        case let n as NSNumber:
-            // CFBoolean is bridged to NSNumber; detect bools by CFBooleanGetTypeID.
-            if CFGetTypeID(n) == CFBooleanGetTypeID() {
-                return n.boolValue ? "true" : "false"
-            }
-            return "\(n)"
-        case let b as Bool:
-            return b ? "true" : "false"
-        case let i as Int:
-            return "\(i)"
-        case let d as Double:
-            return "\(d)"
-        default:
+        guard let json = JSONValue(any: value) else {
             throw ActionUIJSONError("Cannot convert value of type \(type(of: value)) to JSON")
+        }
+        do {
+            return try json.text()
+        } catch {
+            throw ActionUIJSONError("Cannot convert \(value) to JSON: JSON has no non-finite numbers")
         }
     }
 
-    /// Parse a JSON string into a Foundation value (fragments allowed: a bare string, number,
-    /// bool or null is accepted). JSON `null` comes back as `NSNull`, as JSONSerialization
-    /// produces it; callers that want Swift `nil` for it should test `is NSNull`.
+    /// Parse a JSON string into Swift-native values (fragments allowed: a bare string, number,
+    /// bool or null is accepted): Bool, Int for every number that fits one without loss, Double
+    /// for the rest, String, [Any], [String: Any], and ActionUIJSONNull for JSON `null`.
     public static func value(from json: String) throws -> Any {
-        guard let data = json.data(using: .utf8) else {
-            throw ActionUIJSONError("Invalid UTF-8 in JSON string")
-        }
         do {
-            return try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
+            return try JSONValue(parsing: Data(json.utf8)).anyValue
         } catch {
             throw ActionUIJSONError("Failed to parse JSON: \(error)")
         }
@@ -103,14 +64,11 @@ public enum ActionUIJSON {
 
     // MARK: - Normalization
 
-    /// Bridge a scalar decoded by JSONSerialization to the Swift-native type Swift code would
-    /// have stored: NSNumber bool -> Bool, whole NSNumber -> Int, fractional -> Double,
-    /// NSString -> String. Containers, NSNull and everything else come back unchanged. Use it
-    /// where the engine compares types exactly (element state); element values and properties
-    /// bridge NSNumber themselves and must not be pre-converted (an Int does not bridge to a
-    /// Double the way an NSNumber does).
+    /// The value unchanged. Values from `value(from:)` are already Swift-native (Bool, Int,
+    /// Double, String), which is what this converted JSONSerialization's NSNumber and NSString to;
+    /// kept so code written against the earlier ActionUIJSON still compiles.
     public static func normalized(_ value: Any) -> Any {
-        return JSONHelper.normalizedJSONValue(value)
+        return value
     }
 
     // MARK: - Dialog buttons
@@ -128,8 +86,7 @@ public enum ActionUIJSON {
         let array: [[String: Any]]?
         switch value {
         case let json as String:
-            guard let data = json.data(using: .utf8) else { return nil }
-            array = (try? JSONSerialization.jsonObject(with: data, options: [.allowFragments])) as? [[String: Any]]
+            array = (try? JSONValue(parsing: Data(json.utf8)))?.anyValue as? [[String: Any]]
         case let decoded as [[String: Any]]:
             array = decoded
         case let anyArray as [Any]:
@@ -163,7 +120,7 @@ public enum ActionUIJSON {
     /// or any other shape.
     public static func insertPosition(from value: Any?) throws -> InsertPosition {
         guard let value else { return .append }
-        if value is NSNull { return .append }
+        if value is ActionUIJSONNull { return .append }
 
         let kind: String
         let dict: [String: Any]
@@ -184,17 +141,10 @@ public enum ActionUIJSON {
         func integer(_ key: String) throws -> Int {
             let failure = ActionUIJSONError("Insert position \"\(kind)\" requires an integer \"\(key)\"")
             guard let raw = dict[key] else { throw failure }
-            // A JSON-decoded number is an NSNumber, and so is a JSON bool on Darwin (CFBoolean):
-            // reject the bool here, before any `as? Int` bridging could turn `true` into 1, and
-            // require an exact integer so 2.7 is refused rather than truncated.
-            if let n = raw as? NSNumber {
-                guard CFGetTypeID(n) != CFBooleanGetTypeID(), let i = Int(exactly: n) else { throw failure }
-                return i
-            }
-            if let i = raw as? Int {
-                return i
-            }
-            throw failure
+            // An integral number of any type (JSONNumber.int), so 2.7 is refused rather than
+            // truncated; never a Bool, so `true` is not taken for 1.
+            guard type(of: raw) != Bool.self, let i = JSONNumber.int(raw) else { throw failure }
+            return i
         }
 
         switch kind {
