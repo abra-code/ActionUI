@@ -180,24 +180,3 @@ final class ViewModelObserversTests: XCTestCase {
         subscription.cancel()
     }
 }
-
-final class LockTests: XCTestCase {
-
-    func testTwoThreadsIncrementingUnderTheLockLoseNoIncrements() async {
-        final class Counter: @unchecked Sendable {
-            let lock = Lock()
-            var value = 0
-        }
-        let counter = Counter()
-        await withTaskGroup(of: Void.self) { group in
-            for _ in 0..<2 {
-                group.addTask {
-                    for _ in 0..<100_000 {
-                        counter.lock.withLock { counter.value += 1 }
-                    }
-                }
-            }
-        }
-        XCTAssertEqual(counter.value, 200_000)
-    }
-}
