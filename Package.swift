@@ -205,12 +205,13 @@ Package(
         //     include/
         //       ActionUICAdapter.h   - umbrella (may keep <ActionUICAdapter/ActionUIC.h>)
         //       ActionUIC.h          - typedefs and public C API
-        //     ActionUIC.swift        - compiled by ActionUICAdapter target below
+        //     ActionUIC.swift, ActionUIC+Apple.swift - compiled by ActionUICAdapter target below
         .target(
             name: "ActionUICAdapterHeaders",
             path: "ActionUICAdapter",
             exclude: [
                 "ActionUIC.swift",
+                "ActionUIC+Apple.swift",
             ],
             publicHeadersPath: "include"
         ),
@@ -230,7 +231,7 @@ Package(
                 "dummy.c",
                 "include",
             ],
-            sources: ["ActionUIC.swift"],
+            sources: ["ActionUIC.swift", "ActionUIC+Apple.swift"],
         ),
 
 
