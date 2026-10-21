@@ -1,11 +1,11 @@
-// Core/Helpers/NumberFormatHelper.swift
+// Core/Helpers/NumberFormatSpec.swift
 /*
- NumberFormatHelper describes the number format of a formatted TextField (and a chart axis):
+ NumberFormatSpec describes the number format of a formatted TextField (and a chart axis):
  integer, decimal, percent or currency, with optional fraction lengths, parsed from the
  "format", "fractionLength" and "currencyCode" properties.
 
  All model values remain String externally; conversion to/from numeric types is handled by the
- bindings in NumberFormatHelper+SwiftUI.swift. This file is Foundation-only, so every renderer
+ bindings in NumberFormatSpec+SwiftUI.swift. This file is Foundation-only, so every renderer
  shares the parsing.
 */
 
@@ -15,7 +15,7 @@ import FoundationEssentials
 import Foundation
 #endif
 
-enum NumberFormatHelper: Equatable, Sendable {
+enum NumberFormatSpec: Equatable, Sendable {
     case integer
     case decimal(minFraction: Int?, maxFraction: Int?)
     case percent(minFraction: Int?, maxFraction: Int?)
@@ -23,7 +23,7 @@ enum NumberFormatHelper: Equatable, Sendable {
 
     /// Parses format-related properties from an element's properties dictionary.
     /// Returns nil if no "format" key is present.
-    static func resolve(from properties: [String: Any]) -> NumberFormatHelper? {
+    static func resolve(from properties: [String: Any]) -> NumberFormatSpec? {
         guard let format = properties["format"] as? String else { return nil }
 
         let (minFrac, maxFrac) = parseFractionLength(from: properties)

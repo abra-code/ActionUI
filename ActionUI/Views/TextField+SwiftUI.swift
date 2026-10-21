@@ -33,7 +33,7 @@ extension TextField: ActionUISwiftUIRenderer {
             }
 
             let formatted = AnyView(
-                NumberFormatHelper.buildFormattedTextField(
+                NumberFormatSpec.buildFormattedTextField(
                     title: title,
                     prompt: prompt,
                     format: format,

@@ -67,7 +67,7 @@ internal enum class TextInputKind { Plain, Secure }
  * local [rememberSaveable] state, preserving the earlier Phase-1 behavior.
  *
  * **Deferred vs. Apple.** For [Plain], numeric `format`/`fractionLength`/
- * `currencyCode` (Apple's `NumberFormatHelper`) are not ported; such a field
+ * `currencyCode` (Apple's `NumberFormatSpec`) are not ported; such a field
  * renders as plain text and any `value` is shown as its string form. For both,
  * `textContentType` (an iOS autofill hint) has no portable Compose equivalent and
  * is ignored after validation, consistent with the resolver's "unrecognized

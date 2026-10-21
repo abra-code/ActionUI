@@ -102,13 +102,13 @@ final class TextFieldPropsTests: XCTestCase {
     }
 
     func testFractionRange() {
-        XCTAssertNil(NumberFormatHelper.fractionRange(minFraction: nil, maxFraction: nil))
-        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 2, maxFraction: 2), 2...2)
-        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 1, maxFraction: 3), 1...3)
-        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 2, maxFraction: nil), 2...2)
-        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: nil, maxFraction: 3), 0...3)
+        XCTAssertNil(NumberFormatSpec.fractionRange(minFraction: nil, maxFraction: nil))
+        XCTAssertEqual(NumberFormatSpec.fractionRange(minFraction: 2, maxFraction: 2), 2...2)
+        XCTAssertEqual(NumberFormatSpec.fractionRange(minFraction: 1, maxFraction: 3), 1...3)
+        XCTAssertEqual(NumberFormatSpec.fractionRange(minFraction: 2, maxFraction: nil), 2...2)
+        XCTAssertEqual(NumberFormatSpec.fractionRange(minFraction: nil, maxFraction: 3), 0...3)
         // A reversed range would stop the app: the max is raised to the min.
-        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 4, maxFraction: 1), 4...4)
-        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: nil, maxFraction: -1), 0...0)
+        XCTAssertEqual(NumberFormatSpec.fractionRange(minFraction: 4, maxFraction: 1), 4...4)
+        XCTAssertEqual(NumberFormatSpec.fractionRange(minFraction: nil, maxFraction: -1), 0...0)
     }
 }

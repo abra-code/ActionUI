@@ -12,7 +12,7 @@ import Charts
 // A label format. Number formats take TextField's convention ("integer", "decimal", "percent",
 // "currency" with "fractionLength" and "currencyCode"); dates mirror Date.FormatStyle.
 enum ChartAxisFormat {
-    case number(NumberFormatHelper)
+    case number(NumberFormatSpec)
     case date(Date.FormatStyle)
 }
 
@@ -327,7 +327,7 @@ extension ChartDescription {
                                         logger: (any ActionUILogger)?) -> (value: ChartAxisFormat, cleaned: [String: Any])? {
         let raw = object["format"]
         if let name = raw as? String {
-            guard ["integer", "decimal", "percent", "currency"].contains(name), NumberFormatHelper.resolve(from: object) != nil else {
+            guard ["integer", "decimal", "percent", "currency"].contains(name), NumberFormatSpec.resolve(from: object) != nil else {
                 logger?.log("Chart: \(role).format must be integer, decimal, percent or currency, or a date format object; ignoring it", .warning)
                 return nil
             }
@@ -350,7 +350,7 @@ extension ChartDescription {
                 }
             }
             // Re-resolve from the accepted keys only, so an ignored key changes nothing.
-            return NumberFormatHelper.resolve(from: cleaned).map { (.number($0), cleaned) }
+            return NumberFormatSpec.resolve(from: cleaned).map { (.number($0), cleaned) }
         }
         guard let dateFormat = raw as? [String: Any], let style = parseDateFormat(dateFormat) else {
             logger?.log("Chart: \(role).format must be integer, decimal, percent or currency, {\"dateTime\": {...}} or {\"date\", \"time\"}; ignoring it", .warning)
@@ -783,7 +783,7 @@ enum ChartAxisContentBuilder {
     // Number formats: Double styles on number and integer axes alike (Swift Charts formats an
     // Int axis value through a Double style).
     private static func precision(_ low: Int?, _ high: Int?) -> ClosedRange<Int>? {
-        NumberFormatHelper.fractionRange(minFraction: low, maxFraction: high)
+        NumberFormatSpec.fractionRange(minFraction: low, maxFraction: high)
     }
 
     private static func decimal(_ low: Int?, _ high: Int?) -> FloatingPointFormatStyle<Double> {

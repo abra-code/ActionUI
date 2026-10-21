@@ -1,13 +1,13 @@
-// Helpers/NumberFormatHelper+SwiftUI.swift
+// Helpers/NumberFormatSpec+SwiftUI.swift
 /*
- The SwiftUI side of NumberFormatHelper: the bindings that bridge the String model value to the
+ The SwiftUI side of NumberFormatSpec: the bindings that bridge the String model value to the
  Int or Double a formatted SwiftUI.TextField edits, the field itself, and the FormatStyle for
- each format. The format description and its parsing are in NumberFormatHelper.swift.
+ each format. The format description and its parsing are in NumberFormatSpec.swift.
 */
 
 import SwiftUI
 
-extension NumberFormatHelper {
+extension NumberFormatSpec {
     // MARK: - Binding helpers
 
     /// Creates a Binding<Int> that bridges to a String-based model value.
@@ -61,7 +61,7 @@ extension NumberFormatHelper {
     @MainActor static func buildFormattedTextField(
         title: String,
         prompt: SwiftUI.Text?,
-        format: NumberFormatHelper,
+        format: NumberFormatSpec,
         model: ViewModel,
         defaultValue: String,
         onValueChange: @escaping (String) -> Void
@@ -97,21 +97,21 @@ extension NumberFormatHelper {
     private static func decimalStyle(
         minFraction: Int?, maxFraction: Int?
     ) -> FloatingPointFormatStyle<Double>? {
-        NumberFormatHelper.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
+        NumberFormatSpec.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
             .map { .number.precision(.fractionLength($0)) }
     }
 
     private static func percentStyle(
         minFraction: Int?, maxFraction: Int?
     ) -> FloatingPointFormatStyle<Double>.Percent? {
-        NumberFormatHelper.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
+        NumberFormatSpec.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
             .map { .percent.precision(.fractionLength($0)) }
     }
 
     private static func currencyStyle(
         code: String, minFraction: Int?, maxFraction: Int?
     ) -> FloatingPointFormatStyle<Double>.Currency? {
-        NumberFormatHelper.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
+        NumberFormatSpec.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
             .map { .currency(code: code).precision(.fractionLength($0)) }
     }
 }

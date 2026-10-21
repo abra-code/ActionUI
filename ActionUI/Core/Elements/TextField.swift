@@ -81,7 +81,7 @@ extension TextField {
         var text: String?
         var textContentType: String?
         /// The number format; nil for a plain text field.
-        var format: NumberFormatHelper?
+        var format: NumberFormatSpec?
         /// The initial value of a field with a format, as text ("value", else "text", else "0").
         var formattedInitialValue: String
         var axis: Axis?
@@ -94,8 +94,8 @@ extension TextField {
             prompt = properties["prompt"] as? String
             text = properties["text"] as? String
             textContentType = properties["textContentType"] as? String
-            format = NumberFormatHelper.resolve(from: properties)
-            formattedInitialValue = NumberFormatHelper.initialValueString(from: properties)
+            format = NumberFormatSpec.resolve(from: properties)
+            formattedInitialValue = NumberFormatSpec.initialValueString(from: properties)
             axis = (properties["axis"] as? String).flatMap(Axis.init(rawValue:))
             if let exact = properties["lineLimit"] as? Int {
                 lineLimit = .exact(exact)
