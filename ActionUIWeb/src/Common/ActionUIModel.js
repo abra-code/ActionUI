@@ -1,5 +1,5 @@
 // ActionUIModel.js — per-window value store, DOM bindings, action routing.
-// Web analog of ActionUI/Common/ActionUIModel.swift (PoC subset).
+// Web analog of ActionUI/Core/Common/ActionUIModel.swift (PoC subset).
 //
 // Instead of a virtual DOM, each value-bearing rendered view registers a
 // binding record { getValue, setValue } keyed by viewID. Programmatic

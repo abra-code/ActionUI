@@ -5,7 +5,7 @@ JSON schema and usage documentation for window-level `alert` and `confirmationDi
 These are always **Tier 2 (window-level)** — they are data-driven (title + message + buttons) and have no view sub-tree to declare in JSON. There is no subview key variant; they are always triggered programmatically from action handlers.
 
 ```swift
-// Sources/Common/ActionUIModel.swift, Common/WindowModalView.swift
+// ActionUI/Core/Common/ActionUIModel.swift, Common/WindowModalView.swift
 ```
 
 ---

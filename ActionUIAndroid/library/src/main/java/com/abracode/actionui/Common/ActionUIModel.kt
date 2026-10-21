@@ -21,7 +21,7 @@ import java.time.LocalDateTime
  * Signature of an ActionUI action handler.
  *
  * Mirror of the Swift closure type `(String, String, Int, Int, Any?) -> Void`
- * used by `ActionUIModel` in `ActionUI/Common/ActionUIModel.swift`. The
+ * used by `ActionUIModel` in `ActionUI/Core/Common/ActionUIModel.swift`. The
  * parameters, in order:
  *
  *   * `actionID`   - the identifier that triggered the handler.
@@ -49,7 +49,7 @@ internal data class OpenURLObserver(
  * Global registry and dispatcher for ActionUI actions.
  *
  * Mirror of the action-handling surface of the Swift `ActionUIModel` singleton
- * (`ActionUI/Common/ActionUIModel.swift`). Client code registers handlers for
+ * (`ActionUI/Core/Common/ActionUIModel.swift`). Client code registers handlers for
  * specific `actionID`s (or one catch-all default handler); JSON-described
  * controls such as [com.abracode.actionui.Views.Button] invoke
  * [actionHandler] when tapped, which routes to the matching handler or the

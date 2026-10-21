@@ -1,5 +1,9 @@
-// Common/ActionUIModel.swift
-import SwiftUI
+// Core/Common/ActionUIModel.swift
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 
 /*
  ActionUIModel manages the global state for ActionUI, including view descriptions and state.
@@ -402,20 +406,12 @@ public class ActionUIModel {
                 return
             }
         } else if valueType == ActionUICoordinate.self {
-            // Design decision: Parses JSON string into an ActionUICoordinate, matching Map's coordinate property format
-            do {
-                let data = value.data(using: .utf8)!
-                let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Double]
-                if let latitude = json?["latitude"], let longitude = json?["longitude"] {
-                    convertedValue = ActionUICoordinate(latitude: latitude, longitude: longitude)
-                } else {
-                    logger.log("Invalid coordinate format '\(value)' for viewID: \(viewID)", .warning)
-                    return
-                }
-            } catch {
-                logger.log("Failed to parse coordinate '\(value)' for viewID: \(viewID)", .warning)
+            // JSON text in Map's coordinate property format, read by Map's own parser.
+            guard let coordinate = Map.coordinate(fromJSON: value) else {
+                logger.log("Invalid coordinate format '\(value)' for viewID: \(viewID)", .warning)
                 return
             }
+            convertedValue = coordinate
         } else if valueType == Void.self {
             logger.log("View with Void valueType does not support setElementValueFromString: \(viewModel.elementType) for viewID: \(viewID)", .warning)
             return

@@ -97,12 +97,21 @@ struct Map: ActionUIElementSpec {
     // Parses a JSON coordinate string {"latitude":...,"longitude":...} into an ActionUICoordinate.
     // Only invoked when contentType is non-nil (e.g. "json"); nil contentType falls through to generic path.
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = { value, _, logger in
+        guard let coordinate = coordinate(fromJSON: value) else {
+            logger.log("Map: failed to parse coordinate JSON string", .warning)
+            return nil
+        }
+        return coordinate
+    }
+
+    /// The coordinate in JSON text such as {"latitude":37.33,"longitude":-122.03}, or nil. Both
+    /// keys must hold numbers (integral ones too); other keys are ignored.
+    static func coordinate(fromJSON text: String) -> ActionUICoordinate? {
         // Numbers only: JSONNumber.double also reads the text "inf", which is no coordinate.
-        guard let dict = (try? JSONValue(parsing: Data(value.utf8)))?.anyValue as? [String: Any],
+        guard let dict = (try? JSONValue(parsing: Data(text.utf8)))?.anyValue as? [String: Any],
               !(dict["latitude"] is String), !(dict["longitude"] is String),
               let lat = JSONNumber.double(dict["latitude"]),
               let lon = JSONNumber.double(dict["longitude"]) else {
-            logger.log("Map: failed to parse coordinate JSON string", .warning)
             return nil
         }
         return ActionUICoordinate(latitude: lat, longitude: lon)

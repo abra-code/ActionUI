@@ -54,9 +54,17 @@ final class MapValueStringTests: XCTestCase {
                        #"{"latitude":1.5,"longitude":2.25}"#)
     }
 
+    // Read by Map's own parser (Map.coordinate(fromJSON:)): integral numbers count, other keys are ignored.
+    func testACoordinateWithIntegralNumbersAndAnotherKey() {
+        model.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: #"{"latitude":40,"longitude":-74,"label":"NYC"}"#)
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? ActionUICoordinate,
+                       ActionUICoordinate(latitude: 40, longitude: -74))
+    }
+
     func testAnInvalidStringLeavesTheValue() {
         model.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: "not a coordinate")
         model.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: #"{"latitude":"north"}"#)
+        model.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: #"{"latitude":true,"longitude":false}"#)
         XCTAssertEqual(model.getElementValueAsString(windowUUID: windowUUID, viewID: 1),
                        #"{"latitude":37.0,"longitude":-122.5}"#)
     }
