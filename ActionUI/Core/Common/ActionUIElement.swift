@@ -227,7 +227,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     init(from dictionary: [String: Any], logger: any ActionUILogger) throws {
         let id = dictionary["id"] as? Int ?? ActionUIElement.generateNegativeID()
         guard let type = dictionary["type"] as? String else {
-            throw NSError(domain: "ActionUIElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
+            throw ActionUIError("Missing type")
         }
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         var subviews: [String: Any]?

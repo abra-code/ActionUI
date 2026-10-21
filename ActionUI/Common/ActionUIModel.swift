@@ -175,7 +175,7 @@ public class ActionUIModel {
     internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0) throws -> ActionUIElement {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
-            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No WindowModel for windowUUID"])
+            throw ActionUIError("No WindowModel for windowUUID")
         }
         return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID)
     }
@@ -797,7 +797,7 @@ public class ActionUIModel {
     ) throws {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("presentModal: No WindowModel for windowUUID: \(windowUUID)", .error)
-            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No WindowModel for windowUUID"])
+            throw ActionUIError("No WindowModel for windowUUID")
         }
         let element = try windowModel.loadModalDescription(from: data, format: format)
         let loadedIDs = collectAllElementIDs(from: element)

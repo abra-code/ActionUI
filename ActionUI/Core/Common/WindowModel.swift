@@ -57,7 +57,7 @@ final class WindowModel {
             return element
         } else {
             logger.log("Unsupported format: \(format)", .error)
-            throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
+            throw ActionUIError("Unsupported format: \(format)")
         }
     }
 
@@ -116,7 +116,7 @@ final class WindowModel {
             subElement = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
         } else {
             logger.log("Unsupported format: \(format)", .error)
-            throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
+            throw ActionUIError("Unsupported format: \(format)")
         }
 
         // Populate new ViewModels and record ownership if tracking a parent
@@ -224,7 +224,7 @@ final class WindowModel {
             element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
         } else {
             logger.log("Unsupported format for modal: \(format)", .error)
-            throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
+            throw ActionUIError("Unsupported format: \(format)")
         }
         let newViewModels = populateViewModels(from: element)
         var merged = self.viewModels

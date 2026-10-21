@@ -304,6 +304,17 @@ final class ActionUIRemoteServerTests: XCTestCase {
         assertFailure("actionui.insertElement", windowParams(["parentID": 10, "element": ["type": "Text"], "position": ["kind": "at", "index": true]]), code: -32602)
     }
 
+    // An engine error reaches the client as its message alone.
+    func testEngineFailureMessageIsTheErrorMessage() throws {
+        do {
+            _ = try call("actionui.insertElement", windowParams(["parentID": 10, "element": ["id": 21, "properties": [:]]]))
+            XCTFail("An element without a type should not insert")
+        } catch let failure as RPCFailure {
+            XCTAssertEqual(failure.code, 1003)
+            XCTAssertEqual(failure.message, "Missing type")
+        }
+    }
+
     func testInsertElementWithExplicitContainerAndHelloWithTwoWindows() throws {
         let newID = try call("actionui.insertElement", windowParams([
             "parentID": 10,
