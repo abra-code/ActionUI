@@ -1,4 +1,4 @@
-// Core/Elements/ChartPropsTests.swift
+// Tests/Views/ChartPropsTests.swift (Apple: Chart is not in Core yet)
 /*
  Tests for Chart.Props: the selection action and its timing. The chart description is not in
  Props: Chart stores it cleaned (on load and when it is set), and the renderer caches the parse.

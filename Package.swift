@@ -32,13 +32,15 @@ import PackageDescription
 // for Linux. A Linux host builds it too, until the Linux renderer joins.
 let coreOnly = Context.environment["ACTIONUI_CORE_ONLY"] == "1"
 
-// Every path in the repository that is neither one of `kept` nor a folder on the way to one, for
-// the `exclude` of a target with path ".": that leaves the target holding only the kept folders.
-// Without it SwiftPM scans the whole repository for such a target and takes every app's asset
-// catalog as one of its resources. SwiftPM caches a manifest's result by its text, not by the
-// folder listing, so a build of such a package passes --manifest-cache none.
-func excludingAllBut(_ kept: [String]) -> [String] {
-    let root = Context.packageDirectory
+// Every path in a target's folder (`target`, relative to the repository; "" for the root) that is
+// neither one of `kept` nor a folder on the way to one, for the target's `exclude`: that leaves
+// the target holding only the kept folders. Paths are relative to the target's folder, as
+// `exclude` and `sources` are. Without it SwiftPM scans the whole folder of a target with
+// `sources`: for path "." it takes every app's asset catalog as one of its resources, and in a
+// test folder it warns about every other test file. SwiftPM caches a manifest's result by its
+// text, not by the folder listing, so a build of such a package passes --manifest-cache none.
+func excludingAllBut(_ kept: [String], in target: String = "") -> [String] {
+    let root = target.isEmpty ? Context.packageDirectory : Context.packageDirectory + "/" + target
     func walk(_ relative: String) -> [String] {
         let folder = relative.isEmpty ? root : root + "/" + relative
         let entries = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
@@ -369,6 +371,14 @@ Package(
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUICoreCheck"]),
             sources: ["ActionUI/Core", "ActionUICoreCheck"]
+        ),
+        // The Core tests: ActionUITests/Core, portable like the code they test.
+        .testTarget(
+            name: "ActionUITests",
+            dependencies: ["ActionUI"],
+            path: "ActionUITests",
+            exclude: excludingAllBut(["Core"], in: "ActionUITests"),
+            sources: ["Core"]
         ),
     ]
 )

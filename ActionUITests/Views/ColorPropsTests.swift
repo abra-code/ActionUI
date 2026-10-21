@@ -1,4 +1,4 @@
-// Core/Elements/ColorPropsTests.swift
+// Tests/Views/ColorPropsTests.swift (Apple: Color is not in Core yet)
 /*
  Tests for Color.Props: the color name. (The runtime override lives in the value, not in the properties.)
 */

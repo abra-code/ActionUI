@@ -1,4 +1,4 @@
-// Core/ActionUIErrorTests.swift
+// Tests/Common/ActionUIErrorTests.swift
 /*
  Tests for ActionUIError: every way a host reads its text gives the message, as the NSError it
  replaced gave through localizedDescription.
