@@ -1,4 +1,4 @@
-// Tests/Common/ActionUIJSONTests.swift
+// Core/ActionUIJSONTests.swift
 /*
  ActionUIJSONTests.swift
 
@@ -8,7 +8,6 @@
 */
 
 import XCTest
-import SwiftUI
 @testable import ActionUI
 
 final class ActionUIJSONTests: XCTestCase {
@@ -25,18 +24,11 @@ final class ActionUIJSONTests: XCTestCase {
         XCTAssertEqual(try ActionUIJSON.string(from: 42), "42")
         XCTAssertEqual(try ActionUIJSON.string(from: -7), "-7")
         XCTAssertEqual(try ActionUIJSON.string(from: 3.5), "3.5")
-        // An NSNumber reaches Core only through FoundationBridge, as the Apple adapters pass it.
-        XCTAssertEqual(try ActionUIJSON.string(from: FoundationBridge.native(NSNumber(value: 12))), "12")
-        XCTAssertThrowsError(try ActionUIJSON.string(from: NSNumber(value: 12)), "Core reads no NSNumber")
     }
 
-    func testBoolScalarsIncludingBridgedCFBoolean() throws {
+    func testBoolScalars() throws {
         XCTAssertEqual(try ActionUIJSON.string(from: true), "true")
         XCTAssertEqual(try ActionUIJSON.string(from: false), "false")
-        // A Bool from Objective-C is an NSNumber backed by CFBoolean; FoundationBridge makes it a Bool.
-        let bridged: Any = NSNumber(value: true)
-        XCTAssertEqual(try ActionUIJSON.string(from: FoundationBridge.native(bridged)), "true")
-        XCTAssertEqual(try ActionUIJSON.string(from: FoundationBridge.native(kCFBooleanFalse as Any)), "false")
     }
 
     func testStringArray() throws {
@@ -57,13 +49,6 @@ final class ActionUIJSONTests: XCTestCase {
         XCTAssertEqual(back["count"] as? Int, 2)
         XCTAssertEqual(back["flags"] as? [Bool], [true, false])
         XCTAssertEqual((back["inner"] as? [String: Any])?["k"] as? String, "v")
-    }
-
-    // A Foundation object reaches ActionUIJSON only after FoundationBridge (the Apple adapters).
-    func testFoundationNullIsRefused() {
-        XCTAssertThrowsError(try ActionUIJSON.string(from: NSNull())) { error in
-            XCTAssertEqual((error as? ActionUIJSONError)?.message, "Cannot convert value of type NSNull to JSON")
-        }
     }
 
     func testUnsupportedTypeThrowsWithTypeName() {
@@ -159,8 +144,6 @@ final class ActionUIJSONTests: XCTestCase {
         assertPosition(try ActionUIJSON.insertPosition(from: ["kind": "at", "index": 2]), .at(2))
         assertPosition(try ActionUIJSON.insertPosition(from: ["kind": "before", "siblingID": 20]), .before(siblingID: 20))
         assertPosition(try ActionUIJSON.insertPosition(from: ["kind": "after", "siblingID": 21]), .after(siblingID: 21))
-        // An Objective-C or remote host's NSNumber, after FoundationBridge.
-        assertPosition(try ActionUIJSON.insertPosition(from: FoundationBridge.native(["kind": "at", "index": NSNumber(value: 3)])), .at(3))
     }
 
     func testInsertPositionRejectsBadInput() throws {
@@ -173,9 +156,8 @@ final class ActionUIJSONTests: XCTestCase {
         XCTAssertThrowsError(try ActionUIJSON.insertPosition(from: "at"))
 
         // Values parsed from JSON text: a JSON bool must not be taken for 1, and a fractional
-        // number must not be truncated. The same through the remote server, whose JSONSerialization
-        // values pass FoundationBridge first.
-        XCTAssertThrowsError(try ActionUIJSON.insertPosition(from: FoundationBridge.native(["kind": "at", "index": NSNumber(value: true)])))
+        // number must not be truncated. (The same for the remote server's values, which pass
+        // FoundationBridge first: ActionUIJSONBridgedTests.)
         XCTAssertThrowsError(try ActionUIJSON.insertPosition(from: try ActionUIJSON.value(from: "{\"kind\":\"at\",\"index\":true}")))
         XCTAssertThrowsError(try ActionUIJSON.insertPosition(from: try ActionUIJSON.value(from: "{\"kind\":\"before\",\"siblingID\":false}")))
         XCTAssertThrowsError(try ActionUIJSON.insertPosition(from: try ActionUIJSON.value(from: "{\"kind\":\"at\",\"index\":2.7}")))
