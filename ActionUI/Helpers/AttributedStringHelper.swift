@@ -51,9 +51,8 @@ public func attributedStringParseContent(_ value: String, contentType: String?, 
         logger.log("AttributedStringHelper: failed to parse RTF", .warning)
         return nil
     case "json":
-        if let data = value.data(using: .utf8),
-           let runs = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] {
-            return attributedStringFromJSONRuns(runs)
+        if let styled = StyledText.parse(jsonRuns: value) {
+            return attributedString(from: styled)
         }
         logger.log("AttributedStringHelper: failed to parse JSON runs", .warning)
         return nil
@@ -80,44 +79,53 @@ public func attributedStringSerializeContent(_ value: Any, contentType: String?,
 
 // MARK: - JSON Runs Format
 //
-// Format: [{"text":"Hello","bold":true,"italic":true,"underline":true,"strikethrough":true,
-//            "color":"#RRGGBB","backgroundColor":"#RRGGBB","link":"https://...",
-//            "kern":0.0,"baselineOffset":0.0,"fontSize":16.0}]
-// Only "text" is required; all other keys are optional.
+// The format and its parsing are in Core/Helpers/StyledText.swift; here the runs become an
+// AttributedString and back.
 
 public func attributedStringFromJSONRuns(_ runs: [[String: Any]]) -> AttributedString {
+    attributedString(from: StyledText(jsonRuns: runs))
+}
+
+/// Serialize an AttributedString to the JSON runs format.
+/// Note: SwiftUI.Font does not expose bold/italic as inspectable Bool properties;
+/// color, link, kern, baseline, underline, and strikethrough are captured when present.
+public func attributedStringToJSONRuns(_ attributed: AttributedString) -> String? {
+    StyledText(attributed).jsonString()
+}
+
+/// The AttributedString of styled runs. A font size replaces a bold or italic font of the same run.
+func attributedString(from styled: StyledText) -> AttributedString {
     var result = AttributedString()
-    for run in runs {
-        guard let text = run["text"] as? String else { continue }
-        var segment = AttributedString(text)
-        if run["bold"] as? Bool == true {
+    for run in styled.runs {
+        var segment = AttributedString(run.text)
+        if run.bold {
             segment.font = (segment.font ?? .body).bold()
         }
-        if run["italic"] as? Bool == true {
+        if run.italic {
             segment.font = (segment.font ?? .body).italic()
         }
-        if run["underline"] as? Bool == true {
+        if run.underline {
             segment.underlineStyle = .single
         }
-        if run["strikethrough"] as? Bool == true {
+        if run.strikethrough {
             segment.strikethroughStyle = .single
         }
-        if let hex = run["color"] as? String, let color = ColorHelper.resolveColor(hex) {
+        if let color = ColorHelper.resolveColor(run.color) {
             segment.foregroundColor = color
         }
-        if let hex = run["backgroundColor"] as? String, let color = ColorHelper.resolveColor(hex) {
+        if let color = ColorHelper.resolveColor(run.backgroundColor) {
             segment.backgroundColor = color
         }
-        if let urlString = run["link"] as? String, let url = URL(string: urlString) {
+        if let urlString = run.link, let url = URL(string: urlString) {
             segment.link = url
         }
-        if let kern = run["kern"] as? Double {
+        if let kern = run.kern {
             segment.kern = kern
         }
-        if let baseline = run["baselineOffset"] as? Double {
+        if let baseline = run.baselineOffset {
             segment.baselineOffset = baseline
         }
-        if let size = run["fontSize"] as? Double {
+        if let size = run.fontSize {
             segment.font = .system(size: size)
         }
         result.append(segment)
@@ -125,32 +133,25 @@ public func attributedStringFromJSONRuns(_ runs: [[String: Any]]) -> AttributedS
     return result
 }
 
-/// Serialize an AttributedString to the JSON runs format.
-/// Note: SwiftUI.Font does not expose bold/italic as inspectable Bool properties;
-/// color, link, kern, baseline, underline, and strikethrough are captured when present.
-public func attributedStringToJSONRuns(_ attributed: AttributedString) -> String? {
-    var runs: [[String: Any]] = []
-    for run in attributed.runs {
-        var dict: [String: Any] = ["text": String(attributed[run.range].characters)]
-        if run.underlineStyle == .single { dict["underline"] = true }
-        if run.strikethroughStyle == .single { dict["strikethrough"] = true }
-        if let color = run.foregroundColor {
-            dict["color"] = ColorHelper.colorToHex(color) ?? ""
-        }
-        if let color = run.backgroundColor {
-            dict["backgroundColor"] = ColorHelper.colorToHex(color) ?? ""
-        }
-        if let url = run.link {
-            dict["link"] = url.absoluteString
-        }
-        if let kern = run.kern, kern != 0 {
-            dict["kern"] = kern
-        }
-        if let baseline = run.baselineOffset, baseline != 0 {
-            dict["baselineOffset"] = baseline
-        }
-        runs.append(dict)
+extension StyledText {
+    /// The runs of an AttributedString: its underline and strikethrough (single), colors (as hex,
+    /// "" when a color has no sRGB form), link, kern and baseline offset. Bold, italic and font
+    /// size are not read back: a SwiftUI.Font does not tell them.
+    init(_ attributed: AttributedString) {
+        self.init(runs: attributed.runs.map { run in
+            var styled = StyledRun(text: String(attributed[run.range].characters))
+            styled.underline = run.underlineStyle == .single
+            styled.strikethrough = run.strikethroughStyle == .single
+            if let color = run.foregroundColor {
+                styled.color = ColorHelper.colorToHex(color) ?? ""
+            }
+            if let color = run.backgroundColor {
+                styled.backgroundColor = ColorHelper.colorToHex(color) ?? ""
+            }
+            styled.link = run.link?.absoluteString
+            styled.kern = run.kern.map(Double.init)
+            styled.baselineOffset = run.baselineOffset.map(Double.init)
+            return styled
+        })
     }
-    guard let data = try? JSONSerialization.data(withJSONObject: runs, options: [.sortedKeys]) else { return nil }
-    return String(data: data, encoding: .utf8)
 }
