@@ -88,8 +88,10 @@ extension [String: Any] {
         JSONNumber.int(self[key])
     }
 
+    // Each element read by JSONNumber.double, as double(forKey:) reads one value; 0 for an element
+    // that is not a number.
     func doubleArray(forKey key: String) -> [Double]? {
         guard let array = self[key] as? [Any] else { return nil }
-        return array.map { ($0 as? NSNumber)?.doubleValue ?? 0.0 }
+        return array.map { JSONNumber.double($0) ?? 0.0 }
     }
 }

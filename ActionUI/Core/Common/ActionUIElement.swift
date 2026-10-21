@@ -72,7 +72,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     // Protected by a lock so it is safe to call from any thread (e.g. Decodable init).
     // Starts at -2: -1 is never assigned, so the C adapter and the language bindings can
     // return it to mean "no element" (a failed insert).
-    private static let negativeIDLock = NSLock()
+    private static let negativeIDLock = Lock()
     nonisolated(unsafe) private static var negativeIDCounter: Int = -2
 
     // Generates a unique negative ID for elements without an explicit ID

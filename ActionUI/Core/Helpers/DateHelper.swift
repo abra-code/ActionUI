@@ -27,7 +27,7 @@ struct DateHelper {
     /// - Note: Android's DateHelper.kt and the web DatePicker's parseParts follow the
     ///   same rules.
     static func parseDate(from rawString: String) -> Date? {
-        let dateString = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dateString = PlainText.trimmed(rawString)
         let zone = Calendar.current.timeZone
         if !dateString.contains("T") {
             let dayStyle = Date.ISO8601FormatStyle(timeZone: zone).year().month().day()
@@ -104,7 +104,7 @@ struct DateHelper {
     /// Parses a bare local time string ("HH:mm" or "HH:mm:ss") into today's date
     /// at that time in the current timezone, or nil if it is not a bare time.
     static func parseLocalTime(from string: String) -> Date? {
-        let trimmed = string.trimmingCharacters(in: .whitespaces)
+        let trimmed = PlainText.trimmed(string)
         let parts = trimmed.split(separator: ":", omittingEmptySubsequences: false)
         guard parts.count == 2 || parts.count == 3 else { return nil }
         guard let hour = Int(parts[0]), let minute = Int(parts[1]) else { return nil }
@@ -122,7 +122,7 @@ struct DateHelper {
     /// DatePickers and other Date-valued elements.
     static func formatDate(from date: Date) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+        return day(c)
     }
 
     /// Formats a date as a full local ISO 8601 datetime "yyyy-MM-ddTHH:mm:ss"
@@ -131,9 +131,14 @@ struct DateHelper {
     /// current timezone to match what the user sees in the picker.
     static func formatDateTime(from date: Date) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
-        return String(format: "%04d-%02d-%02dT%02d:%02d:%02d",
-                      c.year ?? 0, c.month ?? 0, c.day ?? 0,
-                      c.hour ?? 0, c.minute ?? 0, c.second ?? 0)
+        let time = [c.hour, c.minute, c.second].map { PlainText.zeroPadded($0 ?? 0, width: 2) }
+        return day(c) + "T" + time.joined(separator: ":")
+    }
+
+    // "yyyy-MM-dd" from the components' year, month and day.
+    private static func day(_ c: DateComponents) -> String {
+        PlainText.zeroPadded(c.year ?? 0, width: 4) + "-" + PlainText.zeroPadded(c.month ?? 0, width: 2)
+            + "-" + PlainText.zeroPadded(c.day ?? 0, width: 2)
     }
 
     /// True when a DatePicker's displayedComponents carry a time of day ("hourAndMinute",
