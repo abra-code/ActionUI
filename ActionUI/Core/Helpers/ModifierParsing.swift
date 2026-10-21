@@ -249,15 +249,10 @@ enum ModifierParsing {
 
     // MARK: - Keyboard shortcut
 
-    private static let specialKeyNames: Set<String> = [
-        "uparrow", "downarrow", "leftarrow", "rightarrow", "escape", "delete", "deleteforward",
-        "home", "end", "pageup", "pagedown", "clear", "tab", "space", "return",
-    ]
-
-    /// True for a key a shortcut can use: one character, or a special key name in any case
-    /// ("return", "upArrow", "space", ...).
+    /// True for a key a shortcut can use (KeyName.parse): one character, or a special key name in
+    /// any case ("return", "upArrow", "space", ...).
     static func isValidKeyName(_ key: String) -> Bool {
-        key.count == 1 || specialKeyNames.contains(key.lowercased())
+        KeyName.parse(key) != nil
     }
 
     /// The modifiers of a keyboard shortcut. Absent (or not an array of strings): command. An

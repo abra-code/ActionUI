@@ -484,7 +484,8 @@ extension View: ActionUISwiftUIRenderer {
 
         // Handle keyboardShortcut. The modifier set is already final: absent -> command; [] -> none.
         if let shortcut = mods.keyboardShortcut,
-           let keyEquivalent = KeyEquivalentHelper.resolveKeyEquivalent(shortcut.key, logger: logger) {
+           let key = KeyName.parse(shortcut.key) {
+            let keyEquivalent = KeyEquivalentHelper.keyEquivalent(for: key)
             var eventModifiers: EventModifiers = []
             for modifier in shortcut.modifiers {
                 switch modifier {
