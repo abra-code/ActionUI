@@ -6,15 +6,17 @@ Two static frameworks expose ActionUI to non-Swift callers via C-linkage
 (`@_cdecl`) functions.
 
 **ActionUICAdapter** — element value, state, action handler, and UI-loading
-API.  `ActionUIC.h` defines types only (enums, callback typedefs); function
-declarations are auto-generated into `ActionUICAdapter-Swift.h`.
+API.  `ActionUIC.h` defines the types (enums, callback typedefs) and a prototype for each
+function; Swift also generates the declarations into `ActionUICAdapter-Swift.h`.
 
 **ActionUIAppKitApplication** — NSApplication lifecycle, window management, and
-menu bar construction.  `ActionUIApp.h` defines the three callback typedefs;
-function declarations are auto-generated into `ActionUIAppKitApplication-Swift.h`.
+menu bar construction.  `ActionUIApp.h` defines the three callback typedefs and a prototype
+for each function; Swift also generates the declarations into `ActionUIAppKitApplication-Swift.h`.
 
-Both headers are guarded with `#if defined(__OBJC__)`, so callers must compile
-as Objective-C (`.m`).  See `BUILD.md §Why .m instead of .c` for the rationale.
+The generated headers are guarded with `#if defined(__OBJC__)`, so a client that includes
+them compiles as Objective-C (`.m`), as this module does; see "Why `.m` instead of `.c`?" in `BUILD_GUIDE.md`.
+`ActionUIC.h` and `ActionUIApp.h` also declare every function, so a client that includes
+only those compiles as plain C or C++.
 
 For build instructions see **BUILD.md**.
 

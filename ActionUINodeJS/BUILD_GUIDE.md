@@ -37,6 +37,9 @@ headers with `#if defined(__OBJC__)`.  A `.cc` (C++) file cannot include
 Compiling as `.m` causes clang to define `__OBJC__` automatically.  The code itself
 is entirely plain C — only the compilation mode is ObjC.
 
+This module includes the generated headers. A client that includes only `ActionUIC.h` and
+`ActionUIApp.h`, which declare every function too, compiles as plain C or C++.
+
 #### Why raw N-API instead of node-addon-api?
 
 `node-addon-api` is a C++ header-only wrapper.  Since our source is `.m` (ObjC, not
