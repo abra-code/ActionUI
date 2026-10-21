@@ -129,6 +129,7 @@ final class TextTests: XCTestCase {
         viewModel.properties = ["markdown": "**bold**"]
         let value = Text.initialValue(viewModel) as? AttributedString
         XCTAssertNotNil(value, "initialValue should return the markdown source")
+        XCTAssertEqual(value.map { String($0.characters) }, "bold", "The SwiftUI renderer installs the Markdown parser")
     }
 
     func testTextMarkdownTakesPrecedenceOverText() {

@@ -47,7 +47,11 @@ extension TextEditor {
 }
 
 struct TextEditor: ActionUIElementSpec {
-    // parseStringValue and serializeValueToString are in TextEditor+SwiftUI.swift: the rich-text helper they call uses SwiftUI.
+    // Rich-text string conversions; a renderer installs its own (SwiftUI: TextEditor+SwiftUI.swift,
+    // from ActionUIRegistry.loadRendererBuiltIns). nil until then: the generic conversions apply.
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
 
     static var insertableContainers: [String: ContainerShape]? = nil

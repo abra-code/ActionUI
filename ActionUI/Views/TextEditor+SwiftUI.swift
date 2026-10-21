@@ -4,13 +4,13 @@ import SwiftUI
 import Combine
 
 extension TextEditor: ActionUISwiftUIRenderer {
-    // Delegates to AttributedStringHelper for all content-type parsing and serialization. The string
-    // conversions are part of the element's spec, but they live here because that helper uses SwiftUI.
-    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = { value, contentType, logger in
+    // The spec's string conversions (parseStringValue, serializeValueToString), installed by
+    // ActionUIRegistry.loadRendererBuiltIns: they delegate to AttributedStringHelper, which uses SwiftUI.
+    static let swiftUIParseStringValue: (String, String?, any ActionUILogger) -> Any? = { value, contentType, logger in
         attributedStringParseContent(value, contentType: contentType, logger: logger)
     }
 
-    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = { value, contentType, logger in
+    static let swiftUISerializeValueToString: (Any, String?, any ActionUILogger) -> String? = { value, contentType, logger in
         attributedStringSerializeContent(value, contentType: contentType, logger: logger)
     }
 

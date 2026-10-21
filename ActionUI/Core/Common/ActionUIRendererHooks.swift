@@ -17,4 +17,8 @@ enum ActionUIRendererHooks {
     /// element declares a `transition`, so a renderer can play it; the default applies the change
     /// at once.
     static var structuralMutation: (_ animated: Bool, _ body: () -> Void) -> Void = { _, body in body() }
+
+    /// Markdown text as the AttributedString a Text element starts with. The default keeps the text
+    /// as it is: FoundationEssentials has no Markdown parser.
+    static var markdown: (String) -> AttributedString = { AttributedString($0) }
 }

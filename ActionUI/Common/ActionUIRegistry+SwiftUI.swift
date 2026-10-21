@@ -114,6 +114,11 @@ extension ActionUIRegistry {
         }
         renderers = Self.builtInSwiftUIRenderers
         ActionUIRendererHooks.structuralMutation = Self.swiftUIStructuralMutation
+        ActionUIRendererHooks.markdown = { (try? AttributedString(markdown: $0)) ?? AttributedString($0) }
+        Text.parseStringValue = Text.swiftUIParseStringValue
+        Text.serializeValueToString = Text.swiftUISerializeValueToString
+        TextEditor.parseStringValue = TextEditor.swiftUIParseStringValue
+        TextEditor.serializeValueToString = TextEditor.swiftUISerializeValueToString
     }
 
     /// Registers an external, add-on view-construction type so its `type` token can be used in

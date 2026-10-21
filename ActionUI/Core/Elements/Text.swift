@@ -38,7 +38,11 @@ extension Text {
 }
 
 struct Text: ActionUIElementSpec {
-    // parseStringValue and serializeValueToString are in Text+SwiftUI.swift: the rich-text helper they call uses SwiftUI.
+    // Rich-text string conversions; a renderer installs its own (SwiftUI: Text+SwiftUI.swift, from
+    // ActionUIRegistry.loadRendererBuiltIns). nil until then: the generic conversions apply.
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
 
     // Defines valueType as String to reflect plain-text access; model.value may hold AttributedString.
@@ -51,7 +55,7 @@ struct Text: ActionUIElementSpec {
         if let str = model.value as? String { return str }
         let props = Props(model.properties)
         if let attrText = props.markdown {
-            return (try? AttributedString(markdown: attrText)) ?? AttributedString(attrText)
+            return ActionUIRendererHooks.markdown(attrText)
         }
         return props.text
     }

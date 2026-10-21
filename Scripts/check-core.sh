@@ -7,8 +7,7 @@
 #    Swift toolchain's static Linux SDK, so anything that needs full Foundation, SwiftUI, AppKit,
 #    UIKit, CoreGraphics or CoreFoundation fails to compile here, on the Mac.
 #
-# Usage: Scripts/check-core.sh [--imports-only]
-#   --imports-only   step 1 only (while Core cannot build alone yet)
+# Usage: Scripts/check-core.sh
 # Environment:
 #   ACTIONUI_LINUX_SWIFT   the swift to use for step 2; default: the newest Swift toolchain in
 #                          ~/Library/Developer/Toolchains with a static Linux SDK of its version
@@ -18,16 +17,10 @@ script_dir="$(CDPATH= cd "$(/usr/bin/dirname "$0")" && pwd)"
 repo="$(/usr/bin/dirname "$script_dir")"
 linux_sdk="aarch64-swift-linux-musl"
 
-imports_only=0
-for arg in "$@"; do
-    case "$arg" in
-        --imports-only) imports_only=1 ;;
-        *)
-            printf 'check-core: unknown argument %s\nusage: %s [--imports-only]\n' "$arg" "$0" >&2
-            exit 64
-            ;;
-    esac
-done
+if [ "$#" -ne 0 ]; then
+    printf 'check-core: unknown argument %s\nusage: %s\n' "$1" "$0" >&2
+    exit 64
+fi
 
 # Prints the swift of a toolchain that can build for Linux: one that has a static Linux SDK of
 # its own version. Nothing when there is none.
@@ -84,10 +77,6 @@ if [ "$status" -ne 0 ]; then
 fi
 printf 'check-core: imports passed\n'
 
-if [ "$imports_only" -eq 1 ]; then
-    exit 0
-fi
-
 # Step 2: cross-build for Linux.
 linux_swift="$(find_linux_swift)"
 if [ -z "$linux_swift" ] || [ ! -x "$linux_swift" ]; then
@@ -100,7 +89,9 @@ if [ -z "$linux_swift" ] || [ ! -x "$linux_swift" ]; then
 fi
 scratch="${TMPDIR:-/tmp}/actionui-core-check"
 printf 'check-core: cross-building ActionUI/Core with %s (%s)\n' "$linux_swift" "$linux_sdk"
-ACTIONUI_CORE_ONLY=1 "$linux_swift" build --swift-sdk "$linux_sdk" --package-path "$repo" --scratch-path "$scratch"
+# --manifest-cache none: the check package's exclude list comes from the folder listing, and a
+# cached manifest would keep an old list (SwiftPM keys its cache on the manifest's text).
+ACTIONUI_CORE_ONLY=1 "$linux_swift" build --swift-sdk "$linux_sdk" --package-path "$repo" --scratch-path "$scratch" --manifest-cache none
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'check-core: cross-build FAILED (status %s)\n' "$status" >&2

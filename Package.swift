@@ -23,6 +23,7 @@
 // Excluded adapters:
 //   • ActionUICppAdapter             – not included in this distribution
 
+import Foundation
 import PackageDescription
 
 // Two packages, one chosen at the end. applePackage() is the full package for Apple platforms.
@@ -30,6 +31,33 @@ import PackageDescription
 // ACTIONUI_CORE_ONLY=1 to select it on a Mac, which Scripts/check-core.sh does to cross-build Core
 // for Linux. A Linux host builds it too, until the Linux renderer joins.
 let coreOnly = Context.environment["ACTIONUI_CORE_ONLY"] == "1"
+
+// Every path in the repository that is neither one of `kept` nor a folder on the way to one, for
+// the `exclude` of a target with path ".": that leaves the target holding only the kept folders.
+// Without it SwiftPM scans the whole repository for such a target and takes every app's asset
+// catalog as one of its resources. SwiftPM caches a manifest's result by its text, not by the
+// folder listing, so a build of such a package passes --manifest-cache none.
+func excludingAllBut(_ kept: [String]) -> [String] {
+    let root = Context.packageDirectory
+    func walk(_ relative: String) -> [String] {
+        let folder = relative.isEmpty ? root : root + "/" + relative
+        let entries = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+        var excluded: [String] = []
+        for entry in entries.sorted() {
+            let path = relative.isEmpty ? entry : relative + "/" + entry
+            if kept.contains(path) {
+                continue
+            }
+            if kept.contains(where: { $0.hasPrefix(path + "/") }) {
+                excluded += walk(path)
+            } else {
+                excluded.append(path)
+            }
+        }
+        return excluded
+    }
+    return walk("")
+}
 
 func applePackage() -> Package {
 Package(
@@ -335,10 +363,12 @@ Package(
         .library(name: "ActionUI", targets: ["ActionUI"]),
     ],
     targets: [
-        // The portable code alone.
+        // The portable code, and a renderer half with no renderers (ActionUICoreCheck).
         .target(
             name: "ActionUI",
-            path: "ActionUI/Core"
+            path: ".",
+            exclude: excludingAllBut(["ActionUI/Core", "ActionUICoreCheck"]),
+            sources: ["ActionUI/Core", "ActionUICoreCheck"]
         ),
     ]
 )
