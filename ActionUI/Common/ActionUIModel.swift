@@ -256,7 +256,9 @@ public class ActionUIModel {
             // arrives as an Int, and a Slider stores a Double.
             viewModel.mutationToken &+= 1
             let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType)
-            viewModel.value = ValueCoercion.coerce(value, to: valueType)
+            // A color in a renderer's own type (a SwiftUI Color from a Swift host) becomes a ColorSpec.
+            let stored = valueType == ColorSpec.self ? ActionUIRendererHooks.hostValue(value) : value
+            viewModel.value = ValueCoercion.coerce(stored, to: valueType)
             logger.log("Set value for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         }
         windowModel.viewModels[viewID] = viewModel
@@ -294,8 +296,8 @@ public class ActionUIModel {
         } else if let value = viewModel.value {
             if valueType == Bool.self, let boolValue = value as? Bool {
                 return boolValue.description
-            } else if valueType == SwiftUI.Color.self, let color = value as? SwiftUI.Color {
-                return ColorHelper.colorToHex(color) ?? ""
+            } else if valueType == ColorSpec.self, let color = value as? ColorSpec {
+                return ActionUIRendererHooks.colorHex(color) ?? ""
             } else if valueType == Double.self, let doubleValue = value as? Double {
                 return String(doubleValue)
             } else if valueType == Float.self, let floatValue = value as? Float {
@@ -360,8 +362,8 @@ public class ActionUIModel {
                 logger.log("Invalid string for Bool value: \(value) for viewID: \(viewID)", .warning)
                 return
             }
-        } else if valueType == SwiftUI.Color.self {
-            if let color = ColorHelper.resolveColor(value) {
+        } else if valueType == ColorSpec.self {
+            if let color = ColorSpec.parse(value) {
                 convertedValue = color
             } else {
                 logger.log("Invalid color string: \(value) for viewID: \(viewID)", .warning)

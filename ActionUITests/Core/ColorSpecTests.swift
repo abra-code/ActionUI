@@ -50,6 +50,18 @@ final class ColorSpecTests: XCTestCase {
         XCTAssertNil(ColorSpec.parse(nil))
     }
 
+    func testHexText() {
+        XCTAssertEqual(ColorSpec.parse("#FF8800")?.hexText, "#FF8800")
+        XCTAssertEqual(ColorSpec.parse("#ff880080")?.hexText, "#FF880080")
+        XCTAssertEqual(ColorSpec.parse("#0f0")?.hexText, "#00FF00")
+        XCTAssertNil(ColorSpec.parse("red")?.hexText, "A named color's components belong to the renderer")
+        XCTAssertEqual(ColorSpec.parse("#ff0000.opacity(0.5)")?.hexText, "#FF00007F", "An opacity multiplies an rgba color's alpha")
+        XCTAssertNil(ColorSpec.parse("red.opacity(0.5)")?.hexText)
+        XCTAssertEqual(ColorSpec.rgba(red: .nan, green: .infinity, blue: 2, alpha: -1).hexText, "#00FFFF00", "Out of range components are clamped, never trap")
+        XCTAssertEqual(PlainText.hex(0xAB, width: 4), "00AB")
+        XCTAssertEqual(PlainText.hex(0, width: 2), "00")
+    }
+
     func testShapeStyles() {
         XCTAssertEqual(ShapeStyleSpec.parse("background.secondary"), .style(.backgroundSecondary))
         XCTAssertEqual(ShapeStyleSpec.parse(" WindowBackground "), .style(.windowBackground))

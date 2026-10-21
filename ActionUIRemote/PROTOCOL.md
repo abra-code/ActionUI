@@ -104,7 +104,7 @@ the encoding of the in-process C adapter (`actionUIGetElementValueJSON` and
 `actionUISetElementValueJSON`), which every adapter shares through `ActionUIJSON`:
 
 - Strings, numbers, booleans, `[String]`, `[[String]]`, and JSON objects as themselves.
-- A value that has no JSON form (a DatePicker's Date, a ColorPicker's Color, a Map's
+- A value that has no JSON form (a DatePicker's Date, a ColorPicker's ColorSpec, a Map's
   coordinate) is returned as `null` by `actionui.getValue`, `getProperty` and `getState`.
   `actionui.getValueString` and `setValueString` are the supported path for those types
   (ISO 8601 for dates, JSON for coordinates).

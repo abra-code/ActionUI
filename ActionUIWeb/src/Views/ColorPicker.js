@@ -1,8 +1,8 @@
 // ColorPicker.js — ColorPicker element.
-// Web analog of ActionUI/Views/ColorPicker.swift (and ActionUIAndroid Views/ColorPicker.kt).
+// Web analog of ActionUI/Core/Elements/ColorPicker.swift (and ActionUIAndroid Views/ColorPicker.kt).
 //
 // A color well, rendered as a native <input type="color">. Apple's valueType is
-// Color; the web has no Color token, so valueType is "string" and the value is a
+// ColorSpec; the web has no color token, so valueType is "string" and the value is a
 // "#rrggbb" hex (the native input's own format). A host reads/writes it with
 // get/setString(id).
 //

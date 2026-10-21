@@ -18,6 +18,8 @@ extension ActionUIRegistry {
         ("Canvas", Canvas.self),
         ("Capsule", Capsule.self),
         ("Circle", Circle.self),
+        ("Color", Color.self),
+        ("ColorPicker", ColorPicker.self),
         ("ContentUnavailableView", ContentUnavailableView.self),
         ("ControlGroup", ControlGroup.self),
         ("DatePicker", DatePicker.self),

@@ -21,4 +21,12 @@ enum ActionUIRendererHooks {
     /// Markdown text as the AttributedString a Text element starts with. The default keeps the text
     /// as it is: FoundationEssentials has no Markdown parser.
     static var markdown: (String) -> AttributedString = { AttributedString($0) }
+
+    /// A color value as the text getElementValueAsString gives: hex. The default writes an `.rgba`
+    /// color and nothing for a named one, whose components only a renderer knows.
+    static var colorHex: (ColorSpec) -> String? = { $0.hexText }
+
+    /// A value a host passes to setElementValue, made into one the model stores: a renderer's own
+    /// color type into a ColorSpec, say. The default keeps the value.
+    static var hostValue: (Any) -> Any = { $0 }
 }

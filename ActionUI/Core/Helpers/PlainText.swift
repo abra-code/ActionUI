@@ -25,6 +25,13 @@ enum PlainText {
         scalar.properties.isWhitespace || scalar == "\u{200B}"
     }
 
+    /// `value` in uppercase hexadecimal, with leading zeros up to `width` digits, as
+    /// `String(format: "%0*llX")` writes it.
+    static func hex(_ value: UInt64, width: Int) -> String {
+        let digits = String(value, radix: 16, uppercase: true)
+        return String(repeating: "0", count: max(0, width - digits.count)) + digits
+    }
+
     /// `value` in decimal, with leading zeros up to `width` characters, as `String(format: "%0*d")`
     /// writes it: a minus sign counts toward the width, and a longer number is not cut.
     static func zeroPadded(_ value: Int, width: Int) -> String {

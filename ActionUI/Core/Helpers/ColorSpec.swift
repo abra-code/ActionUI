@@ -13,14 +13,16 @@
 
 /// The named colors a document can use. Some follow light and dark mode (primary, secondary,
 /// accentColor), so they stay names and each renderer resolves them in its own appearance.
-enum ColorName: String, CaseIterable, Sendable {
+public enum ColorName: String, CaseIterable, Sendable {
     case red, blue, green, yellow, orange, purple, pink, mint, teal, cyan, indigo, brown, gray
     case black, white, clear
     case primary, secondary
     case accentColor = "accentcolor"
 }
 
-indirect enum ColorSpec: Sendable, Equatable {
+/// The value of a Color or ColorPicker element, and what every color string in a document parses
+/// to. On Apple, ColorHelper turns it into a SwiftUI Color.
+public indirect enum ColorSpec: Sendable, Equatable {
     /// Components in 0...1.
     case rgba(red: Double, green: Double, blue: Double, alpha: Double)
     case named(ColorName)
@@ -28,7 +30,7 @@ indirect enum ColorSpec: Sendable, Equatable {
     case withOpacity(ColorSpec, Double)
 
     /// The color `text` describes, or nil when it describes none.
-    static func parse(_ text: String?) -> ColorSpec? {
+    public static func parse(_ text: String?) -> ColorSpec? {
         guard let text else {
             return nil
         }
@@ -48,6 +50,38 @@ indirect enum ColorSpec: Sendable, Equatable {
         }
 
         return hex(normalized.replacing("#", with: ""))
+    }
+
+    // The components of an .rgba color, also under any number of .withOpacity (the opacities
+    // multiply its alpha); nil for a named color.
+    private var components: (Double, Double, Double, Double)? {
+        switch self {
+        case let .rgba(red, green, blue, alpha):
+            return (red, green, blue, alpha)
+        case let .withOpacity(base, opacity):
+            return base.components.map { ($0.0, $0.1, $0.2, $0.3 * opacity) }
+        case .named:
+            return nil
+        }
+    }
+
+    /// `#RRGGBB`, or `#RRGGBBAA` when alpha is below 1, for an `.rgba` color (or one made translucent with `.withOpacity`): each component times
+    /// 255, the fraction dropped, as ColorHelper.colorToHex writes a SwiftUI color. nil for a named
+    /// color, whose components only a renderer knows (they follow light and dark mode).
+    var hexText: String? {
+        guard let (red, green, blue, alpha) = components else {
+            return nil
+        }
+        // Clamped before the conversion: a host can build any .rgba, and Int(_:) traps on NaN,
+        // infinity and anything beyond Int's range (max(0, .nan) is 0).
+        func byte(_ component: Double) -> UInt64 {
+            UInt64(min(1, max(0, component)) * 255.0)
+        }
+        var text = "#" + PlainText.hex(byte(red), width: 2) + PlainText.hex(byte(green), width: 2) + PlainText.hex(byte(blue), width: 2)
+        if alpha < 1.0 {
+            text += PlainText.hex(byte(alpha), width: 2)
+        }
+        return text
     }
 
     // Hex digits only (ASCII: UInt64(_:radix:) would also take a leading "+"), three, four, six or

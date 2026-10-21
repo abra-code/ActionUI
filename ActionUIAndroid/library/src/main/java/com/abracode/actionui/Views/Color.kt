@@ -49,7 +49,7 @@ object Color : ActionUIViewConstruction {
 
     // Non-null only when a color was set at runtime; null means "use the `color`
     // property" (the builder resolves it). Mirrors Apple's `Color.initialValue`,
-    // which returns `model.value as? SwiftUI.Color`.
+    // which returns `model.value as? ColorSpec`.
     override fun initialValue(element: ActionUIElement): Any? = null
 
     @Composable

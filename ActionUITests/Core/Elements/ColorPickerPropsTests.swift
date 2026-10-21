@@ -1,4 +1,4 @@
-// Tests/Views/ColorPickerPropsTests.swift (Apple: ColorPicker is not in Core yet)
+// Core/Elements/ColorPickerPropsTests.swift
 /*
  Tests for ColorPicker.Props: the title default, the initial color as written and the action.
 */

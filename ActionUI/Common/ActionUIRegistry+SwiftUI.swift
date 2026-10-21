@@ -79,8 +79,6 @@ extension ActionUIRegistry {
 
     static let appleOnlySpecs: [(name: String, type: any ActionUIElementSpec.Type)] = [
         ("Chart", Chart.self),
-        ("Color", Color.self),
-        ("ColorPicker", ColorPicker.self),
     ]
 
     // ActionUIRendererHooks.structuralMutation for SwiftUI: an animated insert or removal runs
@@ -115,6 +113,10 @@ extension ActionUIRegistry {
         renderers = Self.builtInSwiftUIRenderers
         ActionUIRendererHooks.structuralMutation = Self.swiftUIStructuralMutation
         ActionUIRendererHooks.markdown = { (try? AttributedString(markdown: $0)) ?? AttributedString($0) }
+        ActionUIRendererHooks.colorHex = { ColorHelper.colorToHex(ColorHelper.color(for: $0)) }
+        ActionUIRendererHooks.hostValue = { value in
+            (value as? SwiftUI.Color).flatMap(ColorHelper.hostSpec(for:)) ?? value
+        }
         Text.parseStringValue = Text.swiftUIParseStringValue
         Text.serializeValueToString = Text.swiftUISerializeValueToString
         TextEditor.parseStringValue = TextEditor.swiftUIParseStringValue

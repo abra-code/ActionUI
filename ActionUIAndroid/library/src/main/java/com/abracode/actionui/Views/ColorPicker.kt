@@ -57,7 +57,7 @@ import kotlin.math.ceil
 
 /**
  * Color selection. Mirror of the Apple `ColorPicker` element
- * (`ActionUI/Views/ColorPicker.swift`), which wraps `SwiftUI.ColorPicker`. The
+ * (`ActionUI/Core/Elements/ColorPicker.swift`), which wraps `SwiftUI.ColorPicker`. The
  * first [ActionUIValueType.COLOR]-valued control on the value bridge (B6): its
  * value is a Compose [Color], so a host reads it with
  * `ActionUIModel.getElementValueAsString` (a `#RRGGBB`/`#RRGGBBAA` hex string) and

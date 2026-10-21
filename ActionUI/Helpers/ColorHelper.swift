@@ -80,6 +80,32 @@ class ColorHelper {
         }
     }
     
+    // A SwiftUI color as a ColorSpec: its sRGB components, read as colorToHex reads them. nil when
+    // the platform cannot convert the color to sRGB.
+    static func spec(from color: SwiftUI.Color) -> ColorSpec? {
+        #if os(macOS)
+        guard let nsColor = NSColor(color).usingColorSpace(.sRGB) else { return nil }
+        return .rgba(red: Double(nsColor.redComponent), green: Double(nsColor.greenComponent),
+                     blue: Double(nsColor.blueComponent), alpha: Double(nsColor.alphaComponent))
+        #else
+        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let converted = UIColor(color).cgColor.converted(to: srgb, intent: .defaultIntent, options: nil),
+              let components = converted.components, components.count >= 4 else { return nil }
+        return .rgba(red: Double(components[0]), green: Double(components[1]),
+                     blue: Double(components[2]), alpha: Double(components[3]))
+        #endif
+    }
+
+    // A SwiftUI color a Swift host passes to setElementValue, as a ColorSpec: one of the named
+    // colors when it is one (so .red or .primary keeps following light and dark mode), else its
+    // sRGB components in the current appearance.
+    static func hostSpec(for color: SwiftUI.Color) -> ColorSpec? {
+        if let name = ColorName.allCases.first(where: { self.color(for: .named($0)) == color }) {
+            return .named(name)
+        }
+        return spec(from: color)
+    }
+
     // A SwiftUI ShapeStyle for a style string: a semantic style ("background.secondary",
     // "separator", ...) or a color (ShapeStyleSpec in Core/Helpers/ColorSpec.swift); nil for neither.
     static func resolveShapeStyle(_ string: String) -> (any ShapeStyle)? {
