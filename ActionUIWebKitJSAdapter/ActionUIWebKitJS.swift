@@ -282,10 +282,10 @@ private final class WebKitJSLoggerBridge: ActionUILogger, @unchecked Sendable {
         }
         let js = """
         if (typeof window.actionUI_logger === 'function') {
-            window.actionUI_logger("\(message.jsonEscaped)", \(level.rawValue));
+            window.actionUI_logger(\(ActionUIWebKitJS.jsLiteral(message)), \(level.rawValue));
             null;
         } else {
-            console.log("ActionUI logger not initialized: \(message.jsonEscaped) [Level \(level.rawValue)]");
+            console.log("ActionUI logger not initialized: " + \(ActionUIWebKitJS.jsLiteral(message)) + " [Level \(level.rawValue)]");
             null;
         }
         """
@@ -395,7 +395,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             guard let self = self else { return }
             let argsJSON = self.jsonForActionHandlerArgs(actionID, windowUUID, viewID, viewPartID, context)
             print("Dispatching action: \(actionID) with args: \(argsJSON)")
-            let js = "window.actionUIDispatch('action', \(actionID.jsonString), \(argsJSON))"
+            let js = "window.actionUIDispatch('action', \(Self.jsLiteral(actionID)), \(argsJSON))"
             self.webView.evaluateJavaScript(js) { result, error in
                 if let error = error {
                     print("Action handler call error: \(error)")
@@ -405,42 +405,31 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             }
         }
     }
-    // Convert action args to JSON string
-    
+    // The arguments of an action as a JavaScript object. A context with no JSON form (a Date, a
+    // color) is passed as null.
     private func jsonForActionHandlerArgs(_ actionID: String, _ windowUUID: String, _ viewID: Int, _ viewPartID: Int, _ context: Any?) -> String {
-        // Modified: Add explicit type annotation to fix compilation error
-        var dict: [String: Any] = [
+        var jsonContext: Any = context.map(FoundationBridge.native) ?? ActionUIJSONNull()
+        if (try? ActionUIJSON.string(from: jsonContext)) == nil {
+            print("Non-serializable context, using null: \(type(of: jsonContext))")
+            jsonContext = ActionUIJSONNull()
+        }
+        let args: [String: Any] = [
             "actionID": actionID,
             "windowUUID": windowUUID,
             "viewID": viewID,
-            "viewPartID": viewPartID
+            "viewPartID": viewPartID,
+            "context": jsonContext,
         ]
-        // Modified: Safely handle context serialization for String, Number, and containers
-        if let context = context.map(FoundationBridge.foundation) {
-            if let stringValue = context as? String {
-                // Handle String by setting directly (will be serialized as JSON string)
-                dict["context"] = stringValue
-            } else if let numberValue = context as? NSNumber {
-                // Handle Number (Int, Double, etc.) via NSNumber
-                dict["context"] = numberValue
-            } else if JSONSerialization.isValidJSONObject(context) {
-                // Handle Array or Dictionary
-                dict["context"] = context
-            } else {
-                // Non-serializable types fall back to null
-                print("Non-serializable context, using null: \(type(of: context))")
-                dict["context"] = NSNull()
-            }
-        } else {
-            dict["context"] = NSNull()
-        }
-        do {
-            let data = try JSONSerialization.data(withJSONObject: dict, options: [])
-            return String(data: data, encoding: .utf8) ?? "{}"
-        } catch {
-            print("JSON serialization error: \(error)")
-            return "{}"
-        }
+        return Self.jsLiteral(args)
+    }
+
+    /// A value as a JavaScript expression for the scripts this adapter runs: its JSON text (JSON is
+    /// valid JavaScript, strings escaped and double-quoted), or `null` when it has no JSON form.
+    /// Every value and string put into a script goes through here, so none can end a string
+    /// literal early.
+    nonisolated static func jsLiteral(_ value: Any?) -> String {
+        guard let value else { return "null" }
+        return (try? ActionUIJSON.string(from: FoundationBridge.native(value))) ?? "null"
     }
     // Helper to coerce JSON numbers to Int
     
@@ -530,22 +519,10 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let viewPartID = numberAsInt(args[2]) {
-                let value = ActionUIWebKitJS.model.getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID).map(FoundationBridge.foundation)
-                // Modified: Handle String and JSON-serializable types
-                let json: String
-                print("getElementValue returned value of type: \(type(of: value))")
-                if let stringValue = value as? String {
-                    // For String, escape it as a JSON string
-                    json = "\"\(stringValue.jsonEscaped)\""
-                } else if let value = value, JSONSerialization.isValidJSONObject(value) {
-                    // For JSON-serializable types (e.g., Array, Dictionary)
-                    json = (try? JSONSerialization.string(with: value)) ?? "null"
-                } else {
-                    // For nil or non-serializable types
-                    json = "null"
-                }
+                let value = ActionUIWebKitJS.model.getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
+                let json = Self.jsLiteral(value)
                 let id = body["id"] as? String ?? ""
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(json)})") { _, error in
                     if let error = error {
                         print("getElementValue response error: \(error)")
                     } else {
@@ -560,7 +537,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let viewID = numberAsInt(args[1]) {
                 let columnCount = ActionUIWebKitJS.model.getElementColumnCount(windowUUID: windowUUID, viewID: viewID)
                 let id = body["id"] as? String ?? ""
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(columnCount)})") { _, error in
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(columnCount)})") { _, error in
                     if let error = error {
                         print("getElementColumnCount response error: \(error)")
                     }
@@ -573,13 +550,8 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let viewID = numberAsInt(args[1]) {
                 let rows = ActionUIWebKitJS.model.getElementRows(windowUUID: windowUUID, viewID: viewID)
                 let id = body["id"] as? String ?? ""
-                let json: String
-                if let rows = rows, let data = try? JSONSerialization.data(withJSONObject: rows), let str = String(data: data, encoding: .utf8) {
-                    json = str
-                } else {
-                    json = "null"
-                }
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                let json = Self.jsLiteral(rows)
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(json)})") { _, error in
                     if let error = error {
                         print("getElementRows response error: \(error)")
                     }
@@ -616,13 +588,8 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let index = numberAsInt(args[2]) {
                 let selected = ActionUIWebKitJS.model.selectElementRow(windowUUID: windowUUID, viewID: viewID, index: index)
                 let id = body["id"] as? String ?? ""
-                let json: String
-                if let selected = selected, let data = try? JSONSerialization.data(withJSONObject: selected), let str = String(data: data, encoding: .utf8) {
-                    json = str
-                } else {
-                    json = "null"
-                }
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                let json = Self.jsLiteral(selected)
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(json)})") { _, error in
                     if let error = error {
                         print("selectElementRow response error: \(error)")
                     }
@@ -638,7 +605,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let col: Int? = (column >= 0) ? column : nil
                 let matched = ActionUIWebKitJS.model.selectElementRow(windowUUID: windowUUID, viewID: viewID, matching: text, column: col) ?? -1
                 let id = body["id"] as? String ?? ""
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(matched)})") { _, error in
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(matched)})") { _, error in
                     if let error = error {
                         print("selectElementRowWithContent response error: \(error)")
                     }
@@ -657,21 +624,10 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let propertyName = args[2] as? String {
-                let value = ActionUIWebKitJS.model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName).map(FoundationBridge.foundation)
+                let value = ActionUIWebKitJS.model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName)
                 let id = body["id"] as? String ?? ""
-                let json: String
-                if let value = value, JSONSerialization.isValidJSONObject(value) {
-                    json = (try? JSONSerialization.string(with: value)) ?? "null"
-                } else if let stringValue = value as? String {
-                    json = "\"\(stringValue.jsonEscaped)\""
-                } else if let numberValue = value as? NSNumber {
-                    json = numberValue.stringValue
-                } else if let boolValue = value as? Bool {
-                    json = boolValue ? "true" : "false"
-                } else {
-                    json = "null"
-                }
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                let json = Self.jsLiteral(value)
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(json)})") { _, error in
                     if let error = error {
                         print("getElementProperty response error: \(error)")
                     }
@@ -693,9 +649,9 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let info = ActionUIWebKitJS.model.getElementInfo(windowUUID: windowUUID)
                 // Convert [Int: String] to [String: String] for JSON serialization
                 let stringKeyedInfo = Dictionary(uniqueKeysWithValues: info.map { (String($0.key), $0.value) })
-                let json = (try? JSONSerialization.string(with: stringKeyedInfo)) ?? "{}"
+                let json = Self.jsLiteral(stringKeyedInfo)
                 let id = body["id"] as? String ?? ""
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(json)})") { _, error in
                     if let error = error {
                         print("getElementInfo response error: \(error)")
                     }
@@ -710,9 +666,8 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let viewPartID = args.count >= 3 ? numberAsInt(args[2]) ?? 0 : 0
                 let contentType = args.count >= 4 ? args[3] as? String : nil
                 let value = ActionUIWebKitJS.model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, contentType: contentType) ?? ""
-                let escaped = value.jsonEscaped
                 let id = body["id"] as? String ?? ""
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: '\(escaped)'})") { _, error in
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(Self.jsLiteral(value))})") { _, error in
                     if let error = error {
                         print("getElementValueAsString response error: \(error)")
                     }
@@ -725,21 +680,10 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let key = args[2] as? String {
-                let value = ActionUIWebKitJS.model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key).map(FoundationBridge.foundation)
+                let value = ActionUIWebKitJS.model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key)
                 let id = body["id"] as? String ?? ""
-                let json: String
-                if let value = value, JSONSerialization.isValidJSONObject(value) {
-                    json = (try? JSONSerialization.string(with: value)) ?? "null"
-                } else if let stringValue = value as? String {
-                    json = "\"\(stringValue.jsonEscaped)\""
-                } else if let boolValue = value as? Bool {
-                    json = boolValue ? "true" : "false"
-                } else if let numberValue = value as? NSNumber {
-                    json = numberValue.stringValue
-                } else {
-                    json = "null"
-                }
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                let json = Self.jsLiteral(value)
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(json)})") { _, error in
                     if let error = error {
                         print("getElementState response error: \(error)")
                     }
@@ -753,9 +697,8 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let viewID = numberAsInt(args[1]),
                let key = args[2] as? String {
                 let value = ActionUIWebKitJS.model.getElementStateAsString(windowUUID: windowUUID, viewID: viewID, key: key) ?? ""
-                let escaped = value.jsonEscaped
                 let id = body["id"] as? String ?? ""
-                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: '\(escaped)'})") { _, error in
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(Self.jsLiteral(value))})") { _, error in
                     if let error = error {
                         print("getElementStateAsString response error: \(error)")
                     }
@@ -863,11 +806,11 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let id = body["id"] as? String ?? ""
                 do {
                     let insertedID = try ActionUIWebKitJS.model.insertElement(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: position)
-                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(insertedID)})") { _, error in
+                    webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(insertedID)})") { _, error in
                         if let error = error { print("insertElement response error: \(error)") }
                     }
                 } catch {
-                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: -1})") { _, _ in }
+                    webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: -1})") { _, _ in }
                     print("insertElement error: \(error)")
                 }
             } else {
@@ -885,12 +828,12 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let id = body["id"] as? String ?? ""
                 do {
                     let ids = try ActionUIWebKitJS.model.insertRow(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: position)
-                    let idsJSON = (try? JSONSerialization.string(with: ids)) ?? "null"
-                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(idsJSON)})") { _, error in
+                    let idsJSON = Self.jsLiteral(ids)
+                    webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(idsJSON)})") { _, error in
                         if let error = error { print("insertRow response error: \(error)") }
                     }
                 } catch {
-                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: null})") { _, _ in }
+                    webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: null})") { _, _ in }
                     print("insertRow error: \(error)")
                 }
             } else {
@@ -999,30 +942,3 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
     #endif
 }
 
-// Helper for JSON string conversion
-extension JSONSerialization {
-    static func string(with obj: Any) throws -> String {
-        let data = try JSONSerialization.data(withJSONObject: obj)
-        return String(data: data, encoding: .utf8) ?? ""
-    }
-}
-
-// Helper for escaping strings for JavaScript
-extension String {
-    var jsonEscaped: String {
-        replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-            .replacingOccurrences(of: "\t", with: "\\t")
-    }
-    
-    var jsonString: String {
-        do {
-            let data = try JSONSerialization.data(withJSONObject: [self], options: [])
-            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: CharacterSet(charactersIn: "[]")) ?? "\"\""
-        } catch {
-            return "\"\""
-        }
-    }
-}
