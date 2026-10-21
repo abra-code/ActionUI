@@ -197,7 +197,7 @@ final class ObservationTrackingTests: XCTestCase {
         let changed = expectation(description: "no change")
         changed.isInverted = true
         withObservationTracking({
-            _ = SelectionListHelper.buildIDMaps(children: children, windowModel: windowModel)
+            _ = RowSelection.buildIDMaps(children: children, windowModel: windowModel)
         }, onChange: { changed.fulfill() })
         model.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "destinationViewId", value: 200)
         wait(for: [changed], timeout: 0.2)

@@ -1,31 +1,12 @@
-// Sources/Helpers/SelectionListHelper.swift
-// Shared helpers for selectable heterogeneous lists used by List, NavigationStack, and NavigationSplitView.
+// Helpers/SelectionListHelper.swift
+// The SwiftUI side of selectable lists (List, NavigationStack, NavigationSplitView): the selectable
+// List and the selection bindings. What a selection is, and storing one, is in
+// Core/Helpers/RowSelection.swift.
 
 import SwiftUI
 
 @MainActor
 struct SelectionListHelper {
-
-    /// Builds bidirectional maps between child element IDs and destination view IDs.
-    /// Child element IDs are used as ForEach identity / List selection values;
-    /// destination view IDs are the logical targets stored in state or navigation paths.
-    static func buildIDMaps(
-        children: [any ActionUIElementBase],
-        windowModel: WindowModel?
-    ) -> (childToDestination: [Int: Int], destinationToChild: [Int: Int]) {
-        var childToDestination: [Int: Int] = [:]
-        var destinationToChild: [Int: Int] = [:]
-        // Read untracked: a change to a child's properties does not render the container again.
-        for child in children {
-            if let destId = UntrackedReads.perform({
-                windowModel?.viewModels[child.id].flatMap { BaseModifiers($0.properties).destinationViewId }
-            }) {
-                childToDestination[child.id] = destId
-                destinationToChild[destId] = child.id
-            }
-        }
-        return (childToDestination, destinationToChild)
-    }
 
     /// `.animation(_, value:)` inputs for a heterogeneous List: SwiftUI's `List` virtualizes its rows
     /// and does not pick up a row's `.transition()` from the ambient `withAnimation` alone (unlike a
@@ -87,53 +68,15 @@ struct SelectionListHelper {
     ) -> Binding<Set<Int>> {
         mainActorBinding(
             get: {
-                guard let selectedRow = model.value as? [String],
-                      !selectedRow.isEmpty,
-                      let selectedIndex = drawnRows.firstIndex(where: { $0 == selectedRow }) else {
-                    return Set<Int>()
-                }
-                return Set([selectedIndex])
+                RowSelection.selectedIndex(value: model.value, in: drawnRows).map { Set([$0]) } ?? Set<Int>()
             },
             set: { newSet in
                 // Enforce single selection (take the first if several arrive).
-                let clicked: [String]
-                if let newIndex = newSet.first {
-                    guard drawnRows.indices.contains(newIndex) else { return }
-                    clicked = drawnRows[newIndex]
-                } else {
-                    clicked = []
-                }
-                commitRowSelection(clicked, drawnRows: drawnRows, model: model,
-                                   actionID: actionID, windowUUID: windowUUID, viewID: viewID)
+                guard let clicked = RowSelection.clickedRow(index: newSet.first, in: drawnRows) else { return }
+                RowSelection.commitRowSelection(clicked, drawnRows: drawnRows, model: model,
+                                                actionID: actionID, windowUUID: windowUUID, viewID: viewID)
             }
         )
-    }
-
-    /// Stores a row the user selected (`[]` for a deselect) in `model.value` and fires `actionID`
-    /// (no context, `viewPartID` 0), unless nothing changes. Shared by the data-driven List and
-    /// the Table. The write waits for the next main-queue turn (a binding setter runs during a
-    /// view update); by then a host may have replaced the rows, so the clicked row is taken as it
-    /// is in the current rows (`ActionUIModel.reconciledSelection`, from `drawnRows`).
-    static func commitRowSelection(
-        _ clicked: [String],
-        drawnRows: [[String]],
-        model: ViewModel,
-        actionID: String?,
-        windowUUID: String,
-        viewID: Int
-    ) {
-        guard (model.value as? [String] ?? []) != clicked else { return }
-        DispatchQueue.main.async {
-            let rows = model.states["content"] as? [[String]] ?? []
-            let value = ActionUIModel.reconciledSelection(clicked, from: drawnRows, to: rows)
-            guard (model.value as? [String] ?? []) != value else { return }
-            model.value = value
-            if let actionID {
-                ActionUIModel.shared.actionHandler(
-                    actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0
-                )
-            }
-        }
     }
 
     /// Creates a `Binding<Int?>` for heterogeneous list selection by child element ID.
@@ -146,29 +89,10 @@ struct SelectionListHelper {
         viewID: Int
     ) -> Binding<Int?> {
         Binding<Int?>(
-            get: {
-                if let selected = model.value as? [String],
-                   let first = selected.first,
-                   let childId = Int(first) {
-                    return childId
-                }
-                return nil
-            },
+            get: { RowSelection.selectedChildID(value: model.value) },
             set: { newValue in
-                let newStringValue: [String] = newValue.map { [String($0)] } ?? []
-                guard (model.value as? [String]) != newStringValue else { return }
-                DispatchQueue.main.async {
-                    model.value = newStringValue
-                    if let actionID = actionID {
-                        ActionUIModel.shared.actionHandler(
-                            actionID,
-                            windowUUID: windowUUID,
-                            viewID: viewID,
-                            viewPartID: 0,
-                            context: newValue as Any
-                        )
-                    }
-                }
+                RowSelection.commitChildSelection(newValue, model: model, actionID: actionID,
+                                                  windowUUID: windowUUID, viewID: viewID)
             }
         )
     }

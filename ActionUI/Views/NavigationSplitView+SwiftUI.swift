@@ -33,7 +33,7 @@ extension NavigationSplitView: ActionUISwiftUIRenderer {
             let sidebarChildren = sidebar.subviews?["children"] as? [any ActionUIElementBase] ?? []
 
             // Build bidirectional maps: child element ID <-> destination view ID
-            let maps = SelectionListHelper.buildIDMaps(children: sidebarChildren, windowModel: windowModel)
+            let maps = RowSelection.buildIDMaps(children: sidebarChildren, windowModel: windowModel)
             let childToDestination = maps.childToDestination
             let destinationToChild = maps.destinationToChild
 

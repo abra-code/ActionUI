@@ -219,7 +219,7 @@ extension Table: ActionUISwiftUIRenderer {
 
     /// The Table's selection binding, by row id ("row-<index>") into `rowData`, the rows this
     /// render draws. The value is the selected row's columns (`[]` when nothing is selected);
-    /// the user's changes, a deselect included, go through `SelectionListHelper.commitRowSelection`,
+    /// the user's changes, a deselect included, go through `RowSelection.commitRowSelection`,
     /// which fires `actionID` and takes the row as it is in the current rows.
     static func makeSelectionBinding(
         rowData: [TableRowData],
@@ -247,7 +247,7 @@ extension Table: ActionUISwiftUIRenderer {
                 } else {
                     clicked = []
                 }
-                SelectionListHelper.commitRowSelection(
+                RowSelection.commitRowSelection(
                     clicked, drawnRows: drawnRows, model: model,
                     actionID: actionID, windowUUID: windowUUID, viewID: viewID
                 )

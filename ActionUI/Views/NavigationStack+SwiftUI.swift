@@ -139,7 +139,7 @@ extension NavigationStack: ActionUISwiftUIRenderer {
         let actionID = List.Props(contentModel.properties).actionID
 
         // Build bidirectional maps: child element ID <-> destination view ID
-        let maps = SelectionListHelper.buildIDMaps(children: children, windowModel: windowModel)
+        let maps = RowSelection.buildIDMaps(children: children, windowModel: windowModel)
         let childToDestination = maps.childToDestination
         let destinationToChild = maps.destinationToChild
 
