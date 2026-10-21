@@ -344,7 +344,7 @@ public class ActionUIJavaScriptCore {
         let setElementValue: @convention(block) (String, Double, Double, JSValue) -> Void = { windowUUID, viewID, viewPartID, jsValue in
             // Design decision: Use JSValue.toObject() to convert JavaScript values to Swift objects (e.g., String, Double, NSDictionary).
             // Avoid toObjectOf(_:) as it requires an Objective-C class type, not suitable for generic Any conversion.
-            let value = jsValue.toObject() ?? NSNull()
+            let value = FoundationBridge.native(jsValue.toObject() ?? NSNull())
             ActionUIJavaScriptCore.model.setElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value)
         }
         actionUIObject.setValue(setElementValue, forProperty: "setElementValue")
@@ -360,7 +360,7 @@ public class ActionUIJavaScriptCore {
         // getElementValue(windowUUID, viewID, viewPartID) -> value
         let getElementValue: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, viewPartID in
             let value = ActionUIJavaScriptCore.model.getElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
-            return JSValue(object: value, in: self.context)
+            return JSValue(object: value.map(FoundationBridge.foundation), in: self.context)
         }
         actionUIObject.setValue(getElementValue, forProperty: "getElementValue")
 
@@ -433,13 +433,13 @@ public class ActionUIJavaScriptCore {
         // getElementProperty(windowUUID, viewID, propertyName) -> value
         let getElementProperty: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, propertyName in
             let value = ActionUIJavaScriptCore.model.getElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName)
-            return JSValue(object: value, in: self.context)
+            return JSValue(object: value.map(FoundationBridge.foundation), in: self.context)
         }
         actionUIObject.setValue(getElementProperty, forProperty: "getElementProperty")
 
         // setElementProperty(windowUUID, viewID, propertyName, value)
         let setElementProperty: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, propertyName, jsValue in
-            let value = jsValue.toObject() ?? NSNull()
+            let value = FoundationBridge.native(jsValue.toObject() ?? NSNull())
             ActionUIJavaScriptCore.model.setElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName, value: value)
         }
         actionUIObject.setValue(setElementProperty, forProperty: "setElementProperty")
@@ -458,7 +458,7 @@ public class ActionUIJavaScriptCore {
         // getElementState(windowUUID, viewID, key) -> value or undefined
         let getElementState: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, key in
             let value = ActionUIJavaScriptCore.model.getElementState(windowUUID: windowUUID, viewID: Int(viewID), key: key)
-            return JSValue(object: value, in: self.context)
+            return JSValue(object: value.map(FoundationBridge.foundation), in: self.context)
         }
         actionUIObject.setValue(getElementState, forProperty: "getElementState")
 
@@ -470,7 +470,7 @@ public class ActionUIJavaScriptCore {
 
         // setElementState(windowUUID, viewID, key, value)
         let setElementState: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, key, jsValue in
-            let value = jsValue.toObject() ?? NSNull()
+            let value = FoundationBridge.native(jsValue.toObject() ?? NSNull())
             ActionUIJavaScriptCore.model.setElementState(windowUUID: windowUUID, viewID: Int(viewID), key: key, value: value)
         }
         actionUIObject.setValue(setElementState, forProperty: "setElementState")
@@ -487,7 +487,7 @@ public class ActionUIJavaScriptCore {
         let registerActionHandler: @convention(block) (String, JSValue) -> Void = { actionID, handlerFunction in
             if handlerFunction.isObject {
                 let swiftHandler: (String, String, Int, Int, Any?) -> Void = { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
-                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext ?? NSNull()])
+                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext.map(FoundationBridge.foundation) ?? NSNull()])
                 }
                 ActionUIJavaScriptCore.model.registerActionHandler(for: actionID, handler: swiftHandler)
             }
@@ -504,7 +504,7 @@ public class ActionUIJavaScriptCore {
         let setDefaultActionHandler: @convention(block) (JSValue) -> Void = { handlerFunction in
             if handlerFunction.isObject {
                 let swiftHandler: (String, String, Int, Int, Any?) -> Void = { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
-                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext ?? NSNull()])
+                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext.map(FoundationBridge.foundation) ?? NSNull()])
                 }
                 ActionUIJavaScriptCore.model.setDefaultActionHandler(swiftHandler)
             }

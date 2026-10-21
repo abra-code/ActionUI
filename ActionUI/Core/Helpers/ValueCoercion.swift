@@ -12,6 +12,8 @@ enum ValueCoercion {
     /// - Double: from an Int or a Float.
     /// - Int: from a Double with no fractional part that fits.
     /// - Float: from an Int or a Double.
+    /// - Bool: from the numbers 0 and 1 (Int or Double), as an NSNumber bridged to Bool, so a host
+    ///   that turns a Toggle on with JSON 1 keeps working.
     /// An optional `valueType` (ProgressView stores `Double?`) is treated as its wrapped type.
     /// Everything else, including a value that already has the type, comes back unchanged. The
     /// numeric types are tested exactly, so on Apple an NSNumber is left to bridge as before.
@@ -34,6 +36,13 @@ enum ValueCoercion {
             }
             if kind == Double.self, let number = value as? Double {
                 return Float(number)
+            }
+        } else if valueType == Bool.self || valueType == Bool?.self {
+            if kind == Int.self, let number = value as? Int, number == 0 || number == 1 {
+                return number == 1
+            }
+            if kind == Double.self, let number = value as? Double, number == 0 || number == 1 {
+                return number == 1
             }
         }
         return value

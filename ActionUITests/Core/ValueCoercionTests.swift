@@ -43,9 +43,21 @@ final class ValueCoercionTests: XCTestCase {
         XCTAssertEqual(coerced(3, to: Float?.self), "Float 3.0")
     }
 
+    // An NSNumber 0 or 1 bridges to Bool, so a host could always set a Toggle with JSON 0 or 1.
+    func testToBoolFromZeroAndOne() {
+        XCTAssertEqual(coerced(1, to: Bool.self), "Bool true")
+        XCTAssertEqual(coerced(0, to: Bool.self), "Bool false")
+        XCTAssertEqual(coerced(1.0, to: Bool.self), "Bool true")
+        XCTAssertEqual(coerced(0.0, to: Bool?.self), "Bool false")
+        XCTAssertEqual(coerced(2, to: Bool.self), "Int 2", "Only 0 and 1, as NSNumber bridging allowed")
+        XCTAssertEqual(coerced(0.5, to: Bool.self), "Double 0.5")
+        XCTAssertEqual(coerced(-1, to: Bool.self), "Int -1")
+        XCTAssertEqual(coerced("1", to: Bool.self), "String 1")
+        XCTAssertEqual(coerced(true, to: Bool.self), "Bool true")
+    }
+
     func testOtherTypesAreUnchanged() {
         XCTAssertEqual(coerced(5, to: String.self), "Int 5")
-        XCTAssertEqual(coerced(1, to: Bool.self), "Int 1", "An Int never becomes a Bool")
         XCTAssertEqual(coerced(["a"], to: [String].self), "Array<String> [\"a\"]")
         XCTAssertEqual(coerced(5, to: Void.self), "Int 5")
     }

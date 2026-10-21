@@ -107,7 +107,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - value: The value to set, matching the view's expected type.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
     @MainActor @objc public class func setElementValueWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, viewPartID: NSInteger, value: Any) {
-        model.setElementValue(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value)
+        model.setElementValue(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID), value: FoundationBridge.native(value))
     }
     
     /// Sets the value of a view element from a string representation, parsing it to the view's expected type.
@@ -128,7 +128,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
     /// - Returns: The value of the view element, or nil if not found or invalid.
     @MainActor @objc public class func getElementValueWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, viewPartID: NSInteger) -> Any? {
-        return model.getElementValue(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID))
+        return model.getElementValue(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID)).map(FoundationBridge.foundation)
     }
     
     /// Gets the string representation of a view element's value.
@@ -149,7 +149,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - key: The state key (e.g., "isLoading", "canGoBack").
     /// - Returns: The state value, or nil if the view or key is not found.
     @MainActor @objc public class func getElementStateWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, key: NSString) -> Any? {
-        return model.getElementState(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String)
+        return model.getElementState(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String).map(FoundationBridge.foundation)
     }
 
     /// Returns the string representation of a single state value.
@@ -170,7 +170,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - key: The state key.
     ///   - value: The new value. Must match the type of the existing value if the key already exists.
     @MainActor @objc public class func setElementStateWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, key: NSString, value: Any) {
-        model.setElementState(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String, value: value)
+        model.setElementState(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String, value: FoundationBridge.native(value))
     }
 
     /// Sets a single state key by parsing a string into the type of the existing value.
@@ -274,7 +274,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - propertyName: The property key (e.g., "columns", "widths", "disabled").
     /// - Returns: The property value, or nil if not found.
     @MainActor @objc public class func getElementPropertyWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, propertyName: NSString) -> Any? {
-        return model.getElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String)
+        return model.getElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String).map(FoundationBridge.foundation)
     }
 
     /// Sets a structural property value for a view element by property name.
@@ -285,7 +285,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - propertyName: The property key (e.g., "columns", "widths", "disabled").
     ///   - value: The new property value.
     @MainActor @objc public class func setElementPropertyWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, propertyName: NSString, value: Any) {
-        model.setElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String, value: value)
+        model.setElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String, value: FoundationBridge.native(value))
     }
 
     /// Returns a dictionary mapping user-assigned (positive) view IDs to their ActionUI view type strings for a given window.
@@ -307,7 +307,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - handler: Block to execute when the action is triggered, receiving actionID, windowUUID, viewID, viewPartID, and optional context.
     @MainActor @objc public class func registerActionHandlerForActionID(_ actionID: NSString, handler: @escaping ActionUIObjCActionHandlerBlock) {
         model.registerActionHandler(for: actionID as String) { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
-            handler(swiftActionID as NSString, swiftWindowUUID as NSString, NSInteger(swiftViewID), NSInteger(swiftViewPartID), swiftContext)
+            handler(swiftActionID as NSString, swiftWindowUUID as NSString, NSInteger(swiftViewID), NSInteger(swiftViewPartID), swiftContext.map(FoundationBridge.foundation))
         }
     }
     
@@ -321,7 +321,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     /// - Parameter handler: Block to execute for unmatched actions, receiving actionID, windowUUID, viewID, viewPartID, and optional context.
     @MainActor @objc public class func setDefaultActionHandler(_ handler: @escaping ActionUIObjCActionHandlerBlock) {
         model.setDefaultActionHandler { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
-            handler(swiftActionID as NSString, swiftWindowUUID as NSString, NSInteger(swiftViewID), NSInteger(swiftViewPartID), swiftContext)
+            handler(swiftActionID as NSString, swiftWindowUUID as NSString, NSInteger(swiftViewID), NSInteger(swiftViewPartID), swiftContext.map(FoundationBridge.foundation))
         }
     }
     

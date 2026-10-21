@@ -54,7 +54,7 @@ enum ActionUIRemoteMethods {
         table["actionui.setValue"] = { raw in
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
-            let value = try p.required("value")
+            let value = FoundationBridge.native(try p.required("value"))
             model.setElementValue(windowUUID: window, viewID: viewID, viewPartID: try p.viewPartID(), value: value)
             return true
         }
@@ -83,7 +83,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
             model.setElementProperty(windowUUID: window, viewID: viewID, propertyName: try p.string("name"),
-                                     value: try p.required("value"))
+                                     value: FoundationBridge.native(try p.required("value")))
             return true
         }
 
@@ -103,19 +103,17 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
             let key = try p.string("key")
-            // JSON-decoded scalars are NSNumber and NSString; the engine compares state types
-            // exactly against what Swift code stored (Bool, Int, Double, String), so coerce toward
-            // the existing value's type first, or to the Swift-native type for a new key.
-            let existing = model.getElementState(windowUUID: window, viewID: viewID, key: key)
-            let value = coerceState(try p.required("value"), toTypeOf: existing)
-            // The engine rejects a remaining type change by logging and returning; mirror its
-            // check so the client learns about it (1003) instead of reading the old value later.
-            if let existing, type(of: existing) != type(of: value) {
+            // JSON-decoded values are Foundation objects; the engine works with Swift-native ones,
+            // and brings a number to the type of the state already stored (a Double state accepts
+            // JSON 3). It refuses a remaining type change; report that to the client (1003)
+            // instead of letting it read the old value later.
+            let value = FoundationBridge.native(try p.required("value"))
+            guard model.setElementState(windowUUID: window, viewID: viewID, key: key, value: value) else {
+                let existing = model.getElementState(windowUUID: window, viewID: viewID, key: key)
                 throw ActionUIRemoteError(
                     code: ActionUIRemoteError.engineFailure,
-                    message: "Type mismatch for state key '\(key)' on viewID: \(viewID); expected \(type(of: existing)), got \(type(of: value))")
+                    message: "Type mismatch for state key '\(key)' on viewID: \(viewID); expected \(existing.map { "\(type(of: $0))" } ?? "nothing"), got \(type(of: value))")
             }
-            model.setElementState(windowUUID: window, viewID: viewID, key: key, value: value)
             return true
         }
         table["actionui.setStateString"] = { raw in
@@ -179,7 +177,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let window = try p.window()
             let parentID = try p.int("parentID")
-            let element = try p.object("element")
+            let element = FoundationBridge.native(try p.object("element")) as? [String: Any] ?? [:]
             let container = try p.optionalString("container")
             let position = try p.insertPosition()
             return try engine {
@@ -190,7 +188,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let window = try p.window()
             let parentID = try p.int("parentID")
-            let cells = try p.objects("cells")
+            let cells = try p.objects("cells").map { FoundationBridge.native($0) as? [String: Any] ?? [:] }
             let container = try p.optionalString("container")
             let position = try p.insertPosition()
             return try engine {
@@ -295,34 +293,11 @@ enum ActionUIRemoteMethods {
         }
     }
 
-    /// A JSON-decoded state value converted toward the type of the state already stored, so a
-    /// stored Double accepts a whole JSON number and a stored Bool accepts a JSON bool. With no
-    /// existing value the Swift-native normalization applies. Anything that does not fit is
-    /// returned unchanged and the caller's type check reports it.
-    static func coerceState(_ value: Any, toTypeOf existing: Any?) -> Any {
-        guard let existing else { return ActionUIJSON.normalized(value) }
-        let isBool = (value as? NSNumber).map { CFGetTypeID($0) == CFBooleanGetTypeID() } ?? false
-        switch existing {
-        case is Bool:
-            if let n = value as? NSNumber, isBool { return n.boolValue }
-        case is Int:
-            if let n = value as? NSNumber, !isBool, let i = Int(exactly: n) { return i }
-        case is Double:
-            if let n = value as? NSNumber, !isBool { return n.doubleValue }
-        case is Float:
-            if let n = value as? NSNumber, !isBool { return n.floatValue }
-        case is String:
-            if let s = value as? String { return s }
-        default:
-            break
-        }
-        return ActionUIJSON.normalized(value)
-    }
-
-    /// An engine value as the codec can encode it, or nil (null on the wire) when it has no JSON
-    /// form. `isValidJSONObject` needs a container, hence the wrapping.
+    /// An engine value as the codec can encode it (a JSON null the engine stores, ActionUIJSONNull,
+    /// as NSNull), or nil (null on the wire) when it has no JSON form. `isValidJSONObject` needs a
+    /// container, hence the wrapping.
     static func jsonReady(_ value: Any?) -> Any? {
-        guard let value, !(value is NSNull) else { return nil }
+        guard let value = value.map(FoundationBridge.foundation), !(value is NSNull) else { return nil }
         if JSONSerialization.isValidJSONObject(["v": value]) {
             return value
         }

@@ -251,9 +251,12 @@ public class ActionUIModel {
             }
             logger.log("Updated List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else {
-            // Other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker)
+            // Other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker). A
+            // number parsed from JSON is brought to the element's type (ValueCoercion): JSON 5
+            // arrives as an Int, and a Slider stores a Double.
             viewModel.mutationToken &+= 1
-            viewModel.value = value
+            let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType)
+            viewModel.value = ValueCoercion.coerce(value, to: valueType)
             logger.log("Set value for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         }
         windowModel.viewModels[viewID] = viewModel
@@ -457,23 +460,34 @@ public class ActionUIModel {
         case let f as Float:  return String(f)
         case let i as Int:    return String(i)
         case let s as String: return s
+        // A JSON null an adapter stored reads as the NSNull it was before.
         default:              return String(describing: value)
         }
     }
 
-    // Sets a single state key to a new value.
+    // Sets a single state key to a new value. Returns false when nothing was stored.
     // Design decision: Rejects updates that would change the type of an existing key to prevent
-    // type corruption that would break setElementStateFromString's type-guided parsing.
-    public func setElementState(windowUUID: String, viewID: Int, key: String, value: Any) {
+    // type corruption that would break setElementStateFromString's type-guided parsing. A number
+    // parsed from JSON is first brought to the existing value's numeric type (ValueCoercion), so a
+    // Double state accepts JSON 3. JSON has one kind of number, so an Int state that receives a
+    // fractional number becomes a Double state (a host that sets 5, then 5.5). A Bool state takes
+    // only a Bool: unlike an element value, it has never accepted the numbers 0 and 1.
+    @discardableResult
+    public func setElementState(windowUUID: String, viewID: Int, key: String, value: Any) -> Bool {
         guard let windowModel = windowModels[windowUUID],
               let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
-            return
+            return false
         }
+        var value = value
         if let existing = viewModel.states[key] {
-            guard type(of: existing) == type(of: value) else {
+            if type(of: existing) != Bool.self {
+                value = ValueCoercion.coerce(value, to: type(of: existing))
+            }
+            let widensToDouble = type(of: existing) == Int.self && type(of: value) == Double.self
+            guard type(of: existing) == type(of: value) || widensToDouble else {
                 logger.log("Type mismatch for state key '\(key)' on viewID: \(viewID); expected \(type(of: existing)), got \(type(of: value))", .error)
-                return
+                return false
             }
         }
         viewModel.mutationToken &+= 1
@@ -486,6 +500,7 @@ public class ActionUIModel {
         windowModel.viewModels[viewID] = viewModel
         endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Set state '\(key)' for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+        return true
     }
 
     // Parses a string into the type of the existing state value and stores it.

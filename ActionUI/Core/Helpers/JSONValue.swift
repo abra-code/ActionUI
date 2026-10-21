@@ -16,8 +16,13 @@ import Foundation
 
 /// JSON null in a Swift-native value tree, where Foundation would put NSNull (FoundationEssentials
 /// has none). `JSONValue.anyValue` produces it for a JSON null, and `JSONValue(any:)` reads it back.
-public struct ActionUIJSONNull: Sendable, Hashable {
+/// It describes itself as NSNull does, "<null>", so a value or state read as a string
+/// (`getElementValueAsString`, `getElementStateAsString`) gives the text it gave as an NSNull,
+/// alone or inside an array or dictionary.
+public struct ActionUIJSONNull: Sendable, Hashable, CustomStringConvertible {
     public init() {}
+
+    public var description: String { "<null>" }
 }
 
 enum JSONValue: Codable, Sendable, Equatable {

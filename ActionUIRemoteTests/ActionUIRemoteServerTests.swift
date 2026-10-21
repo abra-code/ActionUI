@@ -236,7 +236,9 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertEqual(try call("actionui.setState", viewParams(2, ["key": "name", "value": "b"])) as? Bool, true)
         XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 2, key: "name") as? String, "b")
 
-        assertFailure("actionui.setState", viewParams(2, ["key": "count", "value": 2.5]), code: 1003)
+        // JSON has one kind of number: an Int state that receives a fraction becomes a Double state.
+        XCTAssertEqual(try call("actionui.setState", viewParams(2, ["key": "count", "value": 2.5])) as? Bool, true)
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 2, key: "count") as? Double, 2.5)
         assertFailure("actionui.setState", viewParams(2, ["key": "flag", "value": 1]), code: 1003)
         assertFailure("actionui.setState", viewParams(2, ["key": "name", "value": 3]), code: 1003)
 

@@ -108,10 +108,11 @@ the encoding of the in-process C adapter (`actionUIGetElementValueJSON` and
   coordinate) is returned as `null` by `actionui.getValue`, `getProperty` and `getState`.
   `actionui.getValueString` and `setValueString` are the supported path for those types
   (ISO 8601 for dates, JSON for coordinates).
-- `setState` converts a JSON scalar toward the type of the state already stored (a stored
-  Double accepts a whole number, a stored Bool accepts a bool), and stores a new key as the
-  Swift-native type (Bool, Int, Double, String). A value that still does not match the stored
-  type is `1003`.
+- `setState` converts a JSON number toward the type of the state already stored (a stored
+  Double accepts a whole number; a stored Int that receives a fractional number becomes a
+  Double), and stores a new key as the Swift-native type (Bool, Int, Double, String, an array
+  or an object). A stored Bool accepts only a bool. A value that still does not match the
+  stored type is `1003`.
 
 ## 6. Common parameters
 

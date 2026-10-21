@@ -154,12 +154,17 @@ final class ActionUIJSONOutputTests: XCTestCase {
 
     // MARK: - Element values, as the C adapter and the remote server set and read them
 
+    // JSON text as an adapter hands it to the model: parsed, then made Swift-native.
+    private func parsedLikeAnAdapter(_ json: String) throws -> Any {
+        FoundationBridge.native(try ActionUIJSON.value(from: json))
+    }
+
     private func setValue(_ viewID: Int, json: String) throws {
-        model.setElementValue(windowUUID: windowUUID, viewID: viewID, value: try ActionUIJSON.value(from: json))
+        model.setElementValue(windowUUID: windowUUID, viewID: viewID, value: try parsedLikeAnAdapter(json))
     }
 
     private func valueText(_ viewID: Int) -> String {
-        model.getElementValue(windowUUID: windowUUID, viewID: viewID).map(text) ?? "nil"
+        model.getElementValue(windowUUID: windowUUID, viewID: viewID).map({ text(FoundationBridge.foundation($0)) }) ?? "nil"
     }
 
     private func valueString(_ viewID: Int) -> String {
@@ -220,7 +225,7 @@ final class ActionUIJSONOutputTests: XCTestCase {
     // MARK: - States
 
     private func stateText(_ key: String) -> String {
-        model.getElementState(windowUUID: windowUUID, viewID: 6, key: key).map(text) ?? "nil"
+        model.getElementState(windowUUID: windowUUID, viewID: 6, key: key).map({ text(FoundationBridge.foundation($0)) }) ?? "nil"
     }
 
     private func stateString(_ key: String) -> String {
@@ -253,16 +258,16 @@ final class ActionUIJSONOutputTests: XCTestCase {
         var results: [String] = []
         for (index, input) in inputs.enumerated() {
             let key = "j\(index)"
-            model.setElementState(windowUUID: windowUUID, viewID: 6, key: key, value: try ActionUIJSON.value(from: input))
+            model.setElementState(windowUUID: windowUUID, viewID: 6, key: key, value: try parsedLikeAnAdapter(input))
             let state = model.getElementState(windowUUID: windowUUID, viewID: 6, key: key)
             results.append("\(input): \(stateText(key)) | \(stateString(key)) | \(state.map { "\(type(of: $0))" } ?? "nil")")
         }
         XCTAssertEqual(results, [
-            "true: true | true | __NSCFBoolean",
-            "3: 3 | 3.0 | __NSCFNumber",
-            "2.5: 2.5 | 2.5 | __NSCFNumber",
-            "\"s\": \"s\" | s | NSTaggedPointerString",
-            "[1,2]: [1,2] | (\n    1,\n    2\n) | __NSArrayI",
+            "true: true | true | Bool",
+            "3: 3 | 3 | Int",
+            "2.5: 2.5 | 2.5 | Double",
+            "\"s\": \"s\" | s | String",
+            "[1,2]: [1,2] | [1, 2] | Array<Any>",
         ])
     }
 }

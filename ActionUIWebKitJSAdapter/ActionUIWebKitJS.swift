@@ -416,7 +416,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             "viewPartID": viewPartID
         ]
         // Modified: Safely handle context serialization for String, Number, and containers
-        if let context = context {
+        if let context = context.map(FoundationBridge.foundation) {
             if let stringValue = context as? String {
                 // Handle String by setting directly (will be serialized as JSON string)
                 dict["context"] = stringValue
@@ -509,7 +509,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let viewPartID = numberAsInt(args[2]) {
-                let value = args[3]
+                let value = FoundationBridge.native(args[3])
                 print("setElementValue called with windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), value: \(value)")
                 ActionUIWebKitJS.model.setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value)
             } else {
@@ -530,7 +530,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let viewPartID = numberAsInt(args[2]) {
-                let value = ActionUIWebKitJS.model.getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
+                let value = ActionUIWebKitJS.model.getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID).map(FoundationBridge.foundation)
                 // Modified: Handle String and JSON-serializable types
                 let json: String
                 print("getElementValue returned value of type: \(type(of: value))")
@@ -657,7 +657,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let propertyName = args[2] as? String {
-                let value = ActionUIWebKitJS.model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName)
+                let value = ActionUIWebKitJS.model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName).map(FoundationBridge.foundation)
                 let id = body["id"] as? String ?? ""
                 let json: String
                 if let value = value, JSONSerialization.isValidJSONObject(value) {
@@ -683,7 +683,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let propertyName = args[2] as? String {
-                let value = args[3]
+                let value = FoundationBridge.native(args[3])
                 ActionUIWebKitJS.model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
             } else {
                 print("Invalid arguments for setElementProperty: \(args)")
@@ -725,7 +725,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let key = args[2] as? String {
-                let value = ActionUIWebKitJS.model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key)
+                let value = ActionUIWebKitJS.model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key).map(FoundationBridge.foundation)
                 let id = body["id"] as? String ?? ""
                 let json: String
                 if let value = value, JSONSerialization.isValidJSONObject(value) {
@@ -768,7 +768,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let key = args[2] as? String {
-                let value = args[3]
+                let value = FoundationBridge.native(args[3])
                 ActionUIWebKitJS.model.setElementState(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
             } else {
                 print("Invalid arguments for setElementState: \(args)")
