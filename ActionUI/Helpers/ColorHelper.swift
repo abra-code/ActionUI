@@ -1,5 +1,5 @@
 /*
- ColorHelper provides utility functions for converting between SwiftUI Color and string representations (hex or named colors).
+ ColorHelper turns ColorSpec and ShapeStyleSpec (Core/Helpers/ColorSpec.swift), parsed from a document's color strings, into SwiftUI colors and shape styles, and a SwiftUI Color into hex.
  Used by ColorPicker and other views requiring color manipulation.
  */
 
@@ -12,93 +12,47 @@ class ColorHelper {
     // dark smudge.
     static let defaultShadowColor = SwiftUI.Color(.sRGBLinear, white: 0, opacity: 0.33)
 
-    // Resolves a string to a SwiftUI Color
-    // Supports named colors (e.g., "red", "orange", "clear", "accentColor") and hex formats (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
-    // Returns nil if the string is invalid
-    // Design decision: Includes all SwiftUI predefined colors with direct dot notation for compatibility and flexibility
+    // A SwiftUI Color for a color string (Core/Helpers/ColorSpec.swift says which forms), or nil
+    // when the string describes none.
     static func resolveColor(_ string: String?) -> SwiftUI.Color? {
-        guard let string = string else {
-            return nil
-        }
-        
-        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        
-        // Named color mapping
-        // Design decision: Maps all SwiftUI predefined colors (standard and semantic) to support comprehensive color input
-        let namedColors: [String: SwiftUI.Color] = [
-            "red": .red,
-            "blue": .blue,
-            "green": .green,
-            "yellow": .yellow,
-            "orange": .orange,
-            "purple": .purple,
-            "pink": .pink,
-            "mint": .mint,
-            "teal": .teal,
-            "cyan": .cyan,
-            "indigo": .indigo,
-            "brown": .brown,
-            "gray": .gray,
-            "black": .black,
-            "white": .white,
-            "clear": .clear,
-            "primary": .primary,
-            "secondary": .secondary,
-            "accentcolor": .accentColor,
-        ]
-        
-        if let namedColor = namedColors[normalized] {
-            return namedColor
-        }
-
-        // SwiftUI's `<color>.opacity(<fraction>)` (e.g. "gray.opacity(0.15)") - the canonical
-        // way to make a translucent tint. Strip the suffix, resolve the base color, apply the
-        // fraction. Web/Android mirror this (CSS color-mix / Color.copy(alpha:)).
-        if normalized.hasSuffix(")"), let opRange = normalized.range(of: ".opacity(") {
-            let base = String(normalized[..<opRange.lowerBound])
-            let inner = normalized[opRange.upperBound..<normalized.index(before: normalized.endIndex)]
-            if let fraction = Double(inner.trimmingCharacters(in: .whitespaces)),
-               let baseColor = resolveColor(base) {
-                return baseColor.opacity(min(1, max(0, fraction)))
-            }
-        }
-
-        // Hex color parsing
-        let hexSanitized = normalized.replacingOccurrences(of: "#", with: "")
-        
-        var rgb: UInt64 = 0
-        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
-        
-        let r, g, b, a: Double
-        
-        switch hexSanitized.count {
-        case 3: // #RGB
-            r = Double((rgb >> 8) & 0xF) / 15.0
-            g = Double((rgb >> 4) & 0xF) / 15.0
-            b = Double(rgb & 0xF) / 15.0
-            a = 1.0
-        case 4: // #RGBA
-            r = Double((rgb >> 12) & 0xF) / 15.0
-            g = Double((rgb >> 8) & 0xF) / 15.0
-            b = Double((rgb >> 4) & 0xF) / 15.0
-            a = Double(rgb & 0xF) / 15.0
-        case 6: // #RRGGBB
-            r = Double((rgb >> 16) & 0xFF) / 255.0
-            g = Double((rgb >> 8) & 0xFF) / 255.0
-            b = Double(rgb & 0xFF) / 255.0
-            a = 1.0
-        case 8: // #RRGGBBAA
-            r = Double((rgb >> 24) & 0xFF) / 255.0
-            g = Double((rgb >> 16) & 0xFF) / 255.0
-            b = Double((rgb >> 8) & 0xFF) / 255.0
-            a = Double(rgb & 0xFF) / 255.0
-        default:
-            return nil
-        }
-        
-        return SwiftUI.Color(red: r, green: g, blue: b, opacity: a)
+        ColorSpec.parse(string).map(color(for:))
     }
-    
+
+    static func color(for spec: ColorSpec) -> SwiftUI.Color {
+        switch spec {
+        case let .rgba(red, green, blue, alpha):
+            return SwiftUI.Color(red: red, green: green, blue: blue, opacity: alpha)
+        case let .named(name):
+            return color(named: name)
+        case let .withOpacity(base, opacity):
+            return color(for: base).opacity(opacity)
+        }
+    }
+
+    private static func color(named name: ColorName) -> SwiftUI.Color {
+        switch name {
+        case .red: return .red
+        case .blue: return .blue
+        case .green: return .green
+        case .yellow: return .yellow
+        case .orange: return .orange
+        case .purple: return .purple
+        case .pink: return .pink
+        case .mint: return .mint
+        case .teal: return .teal
+        case .cyan: return .cyan
+        case .indigo: return .indigo
+        case .brown: return .brown
+        case .gray: return .gray
+        case .black: return .black
+        case .white: return .white
+        case .clear: return .clear
+        case .primary: return .primary
+        case .secondary: return .secondary
+        case .accentColor: return .accentColor
+        }
+    }
+
     // Converts a SwiftUI Color to a hex string
     // Returns #RRGGBB for opaque colors, #RRGGBBAA for non-opaque
     // Design decision: Uses platform-specific APIs (NSColor/UIColor) for accurate RGBA extraction
@@ -126,65 +80,41 @@ class ColorHelper {
         }
     }
     
-    // Resolves a string to a SwiftUI ShapeStyle (semantic or color)
-    // Checks for semantic named styles, falls back to resolveColor()
-    // Supported semantic styles: background(.secondary/.tertiary/.quaternary), foreground(.secondary/.tertiary/.quaternary),
-    // primary, secondary, tertiary, quaternary, quinary, separator, tint, fill(.secondary/.tertiary/.quaternary),
-    // placeholder, link, selection, windowBackground
+    // A SwiftUI ShapeStyle for a style string: a semantic style ("background.secondary",
+    // "separator", ...) or a color (ShapeStyleSpec in Core/Helpers/ColorSpec.swift); nil for neither.
     static func resolveShapeStyle(_ string: String) -> (any ShapeStyle)? {
-        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        switch normalized {
-        case "background":
-            return .background
-        case "background.secondary":
-            return .background.secondary
-        case "background.tertiary":
-            return .background.tertiary
-        case "background.quaternary":
-            return .background.quaternary
-        case "foreground":
-            return .foreground
-        case "foreground.secondary":
-            return .foreground.secondary
-        case "foreground.tertiary":
-            return .foreground.tertiary
-        case "foreground.quaternary":
-            return .foreground.quaternary
-        case "primary":
-            return .primary
-        case "secondary":
-            return .secondary
-        case "tertiary":
-            return .tertiary
-        case "quaternary":
-            return .quaternary
-        case "quinary":
-        	return .quinary
-        case "separator":
-            return .separator
-        case "tint":
-            return .tint
-        case "fill":
-        	return .fill
-        case "fill.secondary":
-            return .fill.secondary
-        case "fill.tertiary":
-            return .fill.tertiary
-        case "fill.quaternary":
-            return .fill.quaternary
-        case "placeholder":
-            return .placeholder
-        case "link":
-            return .link
-        case "selection":
-        	return .selection
-        case "windowbackground":
-        	return .windowBackground
-        default:
-            if let color = resolveColor(string) {
-                return color
-            } else {
-                return nil
+        ShapeStyleSpec.parse(string).map(shapeStyle(for:))
+    }
+
+    static func shapeStyle(for spec: ShapeStyleSpec) -> any ShapeStyle {
+        switch spec {
+        case let .color(spec):
+            return color(for: spec)
+        case let .style(name):
+            switch name {
+            case .background: return .background
+            case .backgroundSecondary: return .background.secondary
+            case .backgroundTertiary: return .background.tertiary
+            case .backgroundQuaternary: return .background.quaternary
+            case .foreground: return .foreground
+            case .foregroundSecondary: return .foreground.secondary
+            case .foregroundTertiary: return .foreground.tertiary
+            case .foregroundQuaternary: return .foreground.quaternary
+            case .primary: return .primary
+            case .secondary: return .secondary
+            case .tertiary: return .tertiary
+            case .quaternary: return .quaternary
+            case .quinary: return .quinary
+            case .separator: return .separator
+            case .tint: return .tint
+            case .fill: return .fill
+            case .fillSecondary: return .fill.secondary
+            case .fillTertiary: return .fill.tertiary
+            case .fillQuaternary: return .fill.quaternary
+            case .placeholder: return .placeholder
+            case .link: return .link
+            case .selection: return .selection
+            case .windowBackground: return .windowBackground
             }
         }
     }
