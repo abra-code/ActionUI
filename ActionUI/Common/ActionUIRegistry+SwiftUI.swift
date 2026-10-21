@@ -178,7 +178,7 @@ extension ActionUIRegistry {
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
         modifiedView = View.applyModifiers(modifiedView, element, windowUUID, baseModifierProperties(properties, forElementType: element.type), logger)
 
-        // Whole-container tap (Helpers/ContainerActionHelper.swift): a VStack/HStack/ZStack
+        // Whole-container tap (Helpers/ContainerAction+SwiftUI.swift): a VStack/HStack/ZStack
         // carrying an actionID becomes ONE tap target. Applied here, last, because the target
         // has to cover the container's FINAL box - the frame, padding and background that
         // View.applyModifiers just added. Applied inside buildView instead, the shape sizes to

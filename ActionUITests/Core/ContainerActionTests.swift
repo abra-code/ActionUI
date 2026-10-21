@@ -1,4 +1,4 @@
-// Tests/Helpers/ContainerActionTests.swift
+// Core/ContainerActionTests.swift
 /*
  ContainerActionTests.swift
 
@@ -17,7 +17,6 @@
 */
 
 import XCTest
-import SwiftUI
 @testable import ActionUI
 
 @MainActor
@@ -26,7 +25,8 @@ final class ContainerActionTests: XCTestCase {
     private var windowUUID: String!
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
@@ -39,7 +39,6 @@ final class ContainerActionTests: XCTestCase {
         ActionUIModel.resetForTesting()
         logger = nil
         windowUUID = nil
-        try await super.tearDown()
     }
 
     /// A bare VStack element carrying `id`, used only as the identity source for resolve().
@@ -119,6 +118,10 @@ final class ContainerActionTests: XCTestCase {
         ))
         XCTAssertNil(ContainerAction.resolve(
             element: element, properties: ["actionID": "   "], templateContext: nil
+        ))
+        // Characters outside ASCII that Foundation's .whitespacesAndNewlines holds count as blank too.
+        XCTAssertNil(ContainerAction.resolve(
+            element: element, properties: ["actionID": "\t\r\n\u{00A0}\u{200B}\u{3000}"], templateContext: nil
         ))
     }
 
