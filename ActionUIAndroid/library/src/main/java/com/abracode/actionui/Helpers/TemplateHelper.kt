@@ -22,7 +22,7 @@ import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Shared infrastructure for the data-driven repeater (`template`) containers -
- * the Android counterpart of Swift's `Helpers/TemplateHelper.swift`.
+ * the Android counterpart of Swift's `Core/Helpers/TemplateHelper.swift`.
  *
  * When a container (`List`, `Section`) declares a [ActionUIElement.template]
  * instead of (or alongside) `children`, it renders one instance of the template

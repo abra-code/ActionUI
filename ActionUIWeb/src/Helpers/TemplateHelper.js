@@ -1,5 +1,5 @@
 // TemplateHelper.js — the data-driven repeater (template) infrastructure.
-// Web analog of ActionUI/Helpers/TemplateHelper.swift (and the Android
+// Web analog of ActionUI/Core/Helpers/TemplateHelper.swift (and the Android
 // Helpers/TemplateHelper.kt).
 //
 // When a container (List now; later Section) declares a `template` subview

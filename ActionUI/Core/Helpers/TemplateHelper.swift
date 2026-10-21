@@ -1,4 +1,4 @@
-// Helpers/TemplateHelper.swift
+// Core/Helpers/TemplateHelper.swift
 /*
  TemplateHelper provides shared infrastructure for data-driven template containers.
 
@@ -6,16 +6,16 @@
  "children", it renders one instance of the template per row in states["content"] ([[String]]).
 
  Column reference syntax in template string properties:
-   $0  — all columns joined with ", "
-   $1  — column 0 (first column)
-   $2  — column 1 (second column)
-   $N  — column N-1
+   $0  - all columns joined with ", "
+   $1  - column 0 (first column)
+   $2  - column 1 (second column)
+   $N  - column N-1
 
  Action convention for Button and Toggle elements inside a template:
-   actionID   — as declared in template
-   viewID     — the parent container's id (via TemplateContext.parentID)
-   viewPartID — 0-based row index (via TemplateContext.rowIndex)
-   context    — Button: nil (host retrieves row via getElementRows if needed)
+   actionID   - as declared in template
+   viewID     - the parent container's id (via TemplateContext.parentID)
+   viewPartID - 0-based row index (via TemplateContext.rowIndex)
+   context    - Button: nil (host retrieves row via getElementRows if needed)
                 Toggle: the new Bool
 
  Boolean properties from row data:
@@ -35,22 +35,29 @@
    All template views are rendered through the standard ActionUI registry pipeline
    (buildView, then applyViewModifiers) using throw-away ViewModels
    with TemplateContext set. This gives template instances the same property, modifier,
-   and view-building support as regular ActionUI views — no special-casing required.
+   and view-building support as regular ActionUI views - no special-casing required.
+
+   (The view building is in Helpers/TemplateHelper+SwiftUI.swift.)
 
    Button and Toggle check model.templateContext for action dispatch override.
    Container views (HStack, VStack, ZStack) check model.templateContext to render
    their children via TemplateHelper instead of ActionUIView.
 */
 
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 @MainActor
 struct TemplateHelper {
 
-    /// Matches a column reference `$N` (one or more digits). Used for single-pass,
-    /// multi-digit-safe substitution (see `substituteString`).
-    nonisolated static let columnRefRegex = try! NSRegularExpression(pattern: "\\$([0-9]+)")
+    /// Matches a column reference `$N` (one or more ASCII digits). Used for single-pass,
+    /// multi-digit-safe substitution (see `substituteString`). Matched by Unicode scalar, as
+    /// NSRegularExpression matched: a digit followed by a combining mark still ends a reference,
+    /// and a "$" after a prepended character (U+0600) still starts one.
+    nonisolated(unsafe) static let columnRefRegex = /\$([0-9]+)/.matchingSemantics(.unicodeScalar)
 
     // MARK: - Column Substitution
 
@@ -85,31 +92,18 @@ struct TemplateHelper {
     /// matches the Android and Web hosts (both regex-based); the previous ordered
     /// `replacingOccurrences` loop corrupted `$10`+ because `$1` matched inside `$10`.
     static func substituteString(_ str: String, row: [String]) -> String {
-        let ns = str as NSString
-        let matches = columnRefRegex.matches(in: str, range: NSRange(location: 0, length: ns.length))
-        guard !matches.isEmpty else { return str }
-
-        var result = ""
-        var cursor = 0
-        for match in matches {
-            let whole = match.range
-            result += ns.substring(with: NSRange(location: cursor, length: whole.location - cursor))
-            let digits = ns.substring(with: match.range(at: 1))
-            if let n = Int(digits) {
-                if n == 0 {
-                    result += row.joined(separator: ", ")
-                } else if n >= 1 && n <= row.count {
-                    result += row[n - 1]
-                } else {
-                    result += ns.substring(with: whole) // out of range: leave literal
-                }
-            } else {
-                result += ns.substring(with: whole)
+        str.replacing(columnRefRegex) { match -> String in
+            guard let n = Int(match.output.1) else {
+                return String(match.output.0)
             }
-            cursor = whole.location + whole.length
+            if n == 0 {
+                return row.joined(separator: ", ")
+            }
+            if n >= 1 && n <= row.count {
+                return row[n - 1]
+            }
+            return String(match.output.0) // out of range: leave literal
         }
-        result += ns.substring(with: NSRange(location: cursor, length: ns.length - cursor))
-        return result
     }
 
     // MARK: - Boolean Row Data
@@ -137,12 +131,9 @@ struct TemplateHelper {
     /// ("$N", N of 1 or more), else nil. "$0" (all columns) and text around a reference
     /// do not name one column.
     nonisolated static func singleColumnIndex(_ value: Any?) -> Int? {
-        guard let str = value as? String else { return nil }
-        let ns = str as NSString
-        let whole = NSRange(location: 0, length: ns.length)
-        guard let match = columnRefRegex.firstMatch(in: str, range: whole),
-              NSEqualRanges(match.range, whole),
-              let n = Int(ns.substring(with: match.range(at: 1))), n >= 1 else { return nil }
+        guard let str = value as? String,
+              let match = str.wholeMatch(of: columnRefRegex),
+              let n = Int(match.output.1), n >= 1 else { return nil }
         return n - 1
     }
 
@@ -243,52 +234,5 @@ struct TemplateHelper {
             )
         }
         return true
-    }
-
-    // MARK: - Template View Building
-
-    /// Build a SwiftUI view from a template element and a single data row using
-    /// the full ActionUI registry pipeline.
-    ///
-    /// A throw-away ViewModel is created with TemplateContext set, enabling:
-    /// - Button to dispatch actions with parentID/rowIndex
-    /// - Container views to render children via TemplateHelper
-    /// - All registered view types to work with full property and modifier support
-    ///
-    /// - Parameters:
-    ///   - template:    The template element (from subviews["template"] or a child thereof)
-    ///   - row:         Column strings for this row
-    ///   - rowIndex:    0-based row index; used as viewPartID in action dispatch
-    ///   - parentID:    The owning container's element id; used as viewID in action dispatch
-    ///   - windowUUID:  Window identifier
-    ///   - logger:      Logger instance
-    /// - Returns: A rendered SwiftUI view wrapped in AnyView
-    static func buildTemplateView(
-        template: any ActionUIElementBase,
-        row: [String],
-        rowIndex: Int,
-        parentID: Int,
-        windowUUID: String,
-        logger: any ActionUILogger
-    ) -> AnyView {
-        let substitutedProps = instanceProperties(of: template, row: row, logger: logger)
-
-        let vm = ViewModel()
-        vm.templateContext = TemplateContext(parentID: parentID, rowIndex: rowIndex, row: row)
-        vm.seedProperties(substitutedProps)
-
-        // The reads of the throw-away model are not tracked: the container builds a new one on
-        // every render, and a tracked read would make the container render again when a control in
-        // the row writes it (a TextField or Slider setting its value), which builds the row from
-        // its data again and resets the control.
-        let registry = ActionUIRegistry.shared
-        return UntrackedReads.perform {
-            let view = registry.buildView(
-                for: template, model: vm, windowUUID: windowUUID, properties: substitutedProps
-            )
-            return registry.applyViewModifiers(
-                to: view, properties: substitutedProps, element: template, model: vm, windowUUID: windowUUID
-            )
-        }
     }
 }
