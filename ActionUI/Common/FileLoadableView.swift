@@ -8,8 +8,8 @@ import SwiftUI
 // View for synchronous loading: a local file, a bundle resource, or a description already in memory
 @MainActor
 public struct FileLoadableView: SwiftUI.View {
-    // Static dedup tracking — avoids using the observed ViewModel.states, which would trigger re-renders
-    private static var loadedSources: [String: String] = [:]
+    // viewDidLoadActionID once per source (Core/Common/DocumentLoader.swift)
+    private static let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
 
     // Where the description came from, for log messages and viewDidLoad dedup: the file URL, or the
     // name the caller gave to in-memory data.
@@ -24,7 +24,7 @@ public struct FileLoadableView: SwiftUI.View {
     private let error: Error?
 
     public init(fileURL: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
-        let format = fileURL.pathExtension.lowercased() == "plist" ? "plist" : "json"
+        let format = ActionUIDocumentLoader.format(of: fileURL)
         logger.log("Determined format '\(format)' for file URL \(fileURL)", .debug)
         self.init(source: fileURL.absoluteString, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
             try Data(contentsOf: fileURL)
@@ -51,11 +51,7 @@ public struct FileLoadableView: SwiftUI.View {
         // Perform synchronous loading in init
         do {
             let data = try loadData()
-            if isContentView {
-                self.element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
-            } else {
-                self.element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID)
-            }
+            self.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID)
             logger.log("Successfully loaded \(format) for LoadableView from \(source)", .debug)
             self.error = nil
             // Defer fireViewDidLoad to after current body evaluation completes
@@ -65,7 +61,7 @@ public struct FileLoadableView: SwiftUI.View {
             let capturedParentID = parentID
             let capturedActionID = viewDidLoadActionID
             Task { @MainActor in
-                Self.fireViewDidLoad(source: capturedSource, windowUUID: capturedWindowUUID, parentID: capturedParentID, viewDidLoadActionID: capturedActionID)
+                Self.viewDidLoad.fire(source: capturedSource, windowUUID: capturedWindowUUID, parentID: capturedParentID, actionID: capturedActionID)
             }
         } catch {
             self.element = nil
@@ -94,15 +90,5 @@ public struct FileLoadableView: SwiftUI.View {
         } else {
             SwiftUI.Text("No content loaded")
         }
-    }
-
-    private static func fireViewDidLoad(source: String, windowUUID: String, parentID: Int, viewDidLoadActionID: String?) {
-        guard let actionID = viewDidLoadActionID else { return }
-        guard ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] != nil else { return }
-
-        let key = "\(windowUUID)_\(parentID)"
-        guard loadedSources[key] != source else { return }
-        loadedSources[key] = source
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: parentID, viewPartID: 0)
     }
 }

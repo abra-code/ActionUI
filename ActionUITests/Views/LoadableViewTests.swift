@@ -302,19 +302,14 @@ final class LoadableViewTests: XCTestCase {
         return ActionUIModel.shared.windowModels[windowUUID]!
     }
 
-    /// Tracks dedup state for simulateFireViewDidLoad, mirroring the static dict in FileLoadableView/RemoteLoadableView.
-    private var simulatedLoadedSources: [String: String] = [:]
+    /// The viewDidLoad tracking FileLoadableView and RemoteLoadableView use, one per test.
+    private let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
 
-    /// Simulates the fireViewDidLoad logic used by FileLoadableView/RemoteLoadableView.
-    /// This avoids needing SwiftUI view instantiation in unit tests.
+    /// Fires viewDidLoad as FileLoadableView/RemoteLoadableView do after a load, without
+    /// instantiating SwiftUI views. An empty actionID stands for a LoadableView without one.
     private func simulateFireViewDidLoad(parentID: Int, source: String, actionID: String) {
-        guard !actionID.isEmpty else { return }
-        guard ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] != nil else { return }
-
-        let key = "\(windowUUID!)_\(parentID)"
-        guard simulatedLoadedSources[key] != source else { return }
-        simulatedLoadedSources[key] = source
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: parentID, viewPartID: 0)
+        viewDidLoad.fire(source: source, windowUUID: windowUUID, parentID: parentID,
+                         actionID: actionID.isEmpty ? nil : actionID)
     }
 
     func testViewDidLoadActionIDPropertyIsStored() throws {

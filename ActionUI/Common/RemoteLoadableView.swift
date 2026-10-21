@@ -8,8 +8,8 @@ import SwiftUI
 // View for remote asynchronous loading
 @MainActor
 public struct RemoteLoadableView: SwiftUI.View {
-    // Static dedup tracking — avoids using the observed ViewModel.states, which would trigger re-renders
-    private static var loadedSources: [String: String] = [:]
+    // viewDidLoadActionID once per source (Core/Common/DocumentLoader.swift)
+    private static let viewDidLoad = ActionUIDocumentLoader.ViewDidLoad()
 
     let url: URL
     let windowUUID: String
@@ -52,20 +52,15 @@ public struct RemoteLoadableView: SwiftUI.View {
                 .onAppear {
                     Task { @MainActor in
                         do {
-                            var request = URLRequest(url: url)
-                            request.cachePolicy = .reloadRevalidatingCacheData // Balances freshness and performance
-                            let (data, _) = try await URLSession.shared.data(for: request)
-
-                            // Determine format based on URL extension
-                            let format = url.pathExtension.lowercased() == "plist" ? "plist" : "json"
-                            logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
-                            if isContentView {
-                                element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
-                            } else {
-                                element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID)
+                            element = try await ActionUIDocumentLoader.loadRemote(
+                                url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, logger: logger
+                            ) { url in
+                                var request = URLRequest(url: url)
+                                request.cachePolicy = .reloadRevalidatingCacheData // Balances freshness and performance
+                                let (data, _) = try await URLSession.shared.data(for: request)
+                                return data
                             }
-                            logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
-                            fireViewDidLoad()
+                            Self.viewDidLoad.fire(source: url.absoluteString, windowUUID: windowUUID, parentID: parentID, actionID: viewDidLoadActionID)
                         } catch {
                             self.error = error
                             logger.log("Failed to load remote description for LoadableView from \(url): \(error)", .error)
@@ -73,16 +68,5 @@ public struct RemoteLoadableView: SwiftUI.View {
                     }
                 }
         }
-    }
-
-    private func fireViewDidLoad() {
-        guard let actionID = viewDidLoadActionID else { return }
-        guard ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] != nil else { return }
-
-        let key = "\(windowUUID)_\(parentID)"
-        let source = url.absoluteString
-        guard Self.loadedSources[key] != source else { return }
-        Self.loadedSources[key] = source
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: parentID, viewPartID: 0)
     }
 }
