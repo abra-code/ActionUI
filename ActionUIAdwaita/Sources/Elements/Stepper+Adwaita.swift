@@ -5,8 +5,9 @@
  which SwiftUI's Stepper has not, and labelFormat usually shows the value already. As large as it
  is (measured on macOS 27: it does not grow; an empty label keeps its gap).
 
- - The label is labelFormat with the value in it (NumberPrintf; a format it refuses shows the
-   plain value), else the label property. labelsHidden hides it; it still names the stepper.
+ - The label is Core's Stepper.labelText: labelFormat with the value in it (NumberPrintf; a format
+   it refuses shows the plain value), else the label property, as on Apple. labelsHidden hides it;
+   it still names the stepper.
  - A button steps the value by step, kept in the range when there is one, and runs Core's
    Stepper.userSetValue (the value, then actionID with it as context). A button is disabled at its
    end of the range, as SwiftUI disables an arrow there.
@@ -15,8 +16,6 @@
 */
 
 import CAdwaita
-
-@MainActor private var reportedFormats: Set<String> = []
 
 extension Stepper: ActionUIAdwaitaRenderer {
     /// The gap between the label and the buttons (SwiftUI's default spacing).
@@ -53,7 +52,7 @@ extension Stepper: ActionUIAdwaitaRenderer {
               let minus = gtk_widget_get_first_child(buttons), let plus = gtk_widget_get_last_child(buttons) else { return }
         let props = Props(node.properties)
         let value = Stepper.initialValue(node.model) as? Double ?? props.initialValue
-        let text = labelText(props, value)
+        let text = labelText(props, value: value)
         if swiftString(gtk_label_get_text(opaque(label))) != text {
             gtk_label_set_text(opaque(label), text)
         }
@@ -74,19 +73,7 @@ extension Stepper: ActionUIAdwaitaRenderer {
     /// Named after the label it shows, also when labelsHidden hides it.
     static func defaultAccessibleLabel(_ node: RenderNode) -> String? {
         let props = Props(node.properties)
-        return labelText(props, Stepper.initialValue(node.model) as? Double ?? props.initialValue)
-    }
-
-    /// labelFormat with the value in it, else the label.
-    static func labelText(_ props: Props, _ value: Double) -> String {
-        guard let format = props.labelFormat else { return props.label }
-        if let text = NumberPrintf.format(format, value) {
-            return text
-        }
-        if reportedFormats.insert(format).inserted {
-            ActionUIModel.shared.logger.log("Stepper: labelFormat \"\(format)\" is not one number format; showing the value", .warning)
-        }
-        return NumberPrintf.plain(value)
+        return labelText(props, value: Stepper.initialValue(node.model) as? Double ?? props.initialValue)
     }
 
     /// One step from `value` in `direction` (-1 or 1), kept in the range when there is one.

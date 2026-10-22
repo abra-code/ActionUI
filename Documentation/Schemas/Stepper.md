@@ -13,10 +13,13 @@ JSON schema and usage documentation for `Stepper`.
      "range": { "min": 0.0, "max": 10.0 }, // Optional: Dictionary with min/max values; no range clamping if omitted
      "step": 1.0,         // Optional: Step increment (Double), defaults to 1.0
      "label": "Quantity", // Optional: Static string label; ignored when labelFormat is set
-     "labelFormat": "Quantity: %.0f", // Optional: printf-style format string embedding the current value.
-                          // Use float specifiers (%g, %f, %.0f, %.1f, etc.) since the value is always a Double.
-                          // Examples: "Count: %.0f" → "Count: 5", "Rating: %.1f" → "Rating: 2.5",
-                          //           "Volume: %g%%" → "Volume: 50%"
+     "labelFormat": "Quantity: %.0f", // Optional: printf-style format string embedding the current value:
+                          // exactly one of %d %i %f %F %e %E %g %G (with flags, width, precision), plus any %%.
+                          // On Apple platforms and Linux, %d and %i show the value truncated to an integer, and
+                          // any other format (%@, %s, two conversions) shows the plain value instead.
+                          // On Android and the web, use float conversions (%f, %e, %g); %d is not supported there.
+                          // Examples: "Count: %.0f" -> "Count: 5", "Rating: %.1f" -> "Rating: 2.5",
+                          //           "Volume: %g%%" -> "Volume: 50%"
                           // Takes precedence over "label" when both are present.
                           // The label is re-evaluated on every value change — no host code needed.
      "actionID": "stepper.changed" // Optional: String for action triggered on user-initiated value change

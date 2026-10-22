@@ -1,10 +1,10 @@
 // Core/Helpers/NumberPrintf.swift
 /*
- A printf format with one number in it, as Stepper's labelFormat is ("Quantity: %.0f"), which Apple
- renders with String(format:). Only formats that are safe with one Double are accepted: exactly one
- conversion among d i f F e E g G, with optional flags, width and precision, plus any number of
- "%%". Anything else ("%@", "%s", "%d %d", "*" widths, length modifiers) is refused, where Apple's
- String(format:) reads arguments that are not there.
+ A printf format with one number in it, as Stepper's labelFormat is ("Quantity: %.0f"), on Apple
+ and Linux. Only formats that are safe with one Double are accepted: exactly one conversion among
+ d i f F e E g G, with optional flags, width and precision, plus any number of "%%". Anything else
+ ("%@", "%s", "%d %d", "*" widths, length modifiers) is refused, where String(format:) would read
+ arguments that are not there.
 
  The number is formatted by the C library (vsnprintf), so it follows LC_NUMERIC: on Linux GTK sets
  it from the user's locale at startup; an Apple app keeps the C locale, whose decimal point is ".",

@@ -1,7 +1,8 @@
 // Core/Elements/StepperCoreTests.swift
 /*
  Tests for Stepper.userSetValue, what stepping does on every platform: it stores the new value and
- fires actionID with it as context, only when it differs from the value.
+ fires actionID with it as context, only when it differs from the value; and for Stepper.labelText,
+ the label both renderers show.
 */
 
 import XCTest
@@ -42,5 +43,14 @@ final class StepperCoreTests: XCTestCase {
         XCTAssertEqual(fired.first?.context, 4)
         Stepper.userSetValue(4, element: element, model: model, windowUUID: windowUUID, props: props)
         XCTAssertEqual(fired.count, 1, "the same value again: no change, no action")
+    }
+
+    func testTheLabelTextFormatsOneNumberElseShowsThePlainValue() {
+        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "Count: %d", "label": "Ignored"]), value: 5), "Count: 5",
+                       "%d shows the value as an integer (String(format:) showed 0)")
+        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "Rating: %.1f"]), value: 2.5), "Rating: 2.5")
+        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "%@ items"]), value: 2.5), "2.5",
+                       "a format that would read a missing argument shows the plain value")
+        XCTAssertEqual(Stepper.labelText(Stepper.Props(["label": "Quantity"]), value: 5), "Quantity", "no format: the label")
     }
 }

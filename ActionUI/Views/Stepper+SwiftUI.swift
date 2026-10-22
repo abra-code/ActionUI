@@ -12,14 +12,10 @@ extension Stepper: ActionUISwiftUIRenderer {
 
         // labelFormat takes precedence; re-evaluated each body pass so label stays current.
         // This works because ActionUIView.body is re-run whenever model.value changes,
-        // causing buildView to be called again with the updated value.
+        // causing buildView to be called again with the updated value. Formatted by NumberPrintf,
+        // not String(format:), which shows "0" for %d and crashes on %@ or %s.
         let currentValue = model.value as? Double ?? initialValue
-        let label: String
-        if let labelFormat = props.labelFormat {
-            label = String(format: labelFormat, currentValue)
-        } else {
-            label = props.label
-        }
+        let label = Stepper.labelText(props, value: currentValue)
 
         let valueBinding = mainActorBinding(
             get: { model.value as? Double ?? initialValue },
