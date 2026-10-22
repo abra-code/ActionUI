@@ -382,6 +382,10 @@ enum ModifierBox {
         if label != nil || state.label != nil {
             state.label = label
             setString(accessible, GTK_ACCESSIBLE_PROPERTY_LABEL, label)
+            // A GtkLabel names itself from its text, which the reset just removed: give it back.
+            if label == nil, g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_label_get_type()) != 0 {
+                setString(accessible, GTK_ACCESSIBLE_PROPERTY_LABEL, swiftString(gtk_label_get_text(opaque(widget))))
+            }
         }
         // The hint, else the help text, which SwiftUI's .help also gives assistive technologies.
         let hint = [modifiers.accessibilityHint, modifiers.help].compactMap { $0 }.first { !$0.isEmpty }

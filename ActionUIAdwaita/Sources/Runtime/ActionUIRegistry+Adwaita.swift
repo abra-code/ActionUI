@@ -13,6 +13,7 @@ extension ActionUIRegistry {
         "LazyHStack": LazyHStack.self,
         "LazyVStack": LazyVStack.self,
         "Spacer": Spacer.self,
+        "Text": Text.self,
         "VStack": VStack.self,
         "ZStack": ZStack.self,
     ]
