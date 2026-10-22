@@ -122,32 +122,32 @@ extension TextField {
     /// valueChangeActionID, only when it differs from the value.
     @MainActor
     static func userEditedText(_ newValue: String, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
-        userEditedText(newValue, valueChangeActionID: props.valueChangeActionID, element: element, model: model, windowUUID: windowUUID)
+        userEditedText(newValue, valueChangeActionID: props.valueChangeActionID, viewID: element.id, model: model, windowUUID: windowUUID)
     }
 
     /// The user submitted the field (Return, or on macOS and Linux, leaving it): fires actionID.
     @MainActor
     static func userSubmitted(element: any ActionUIElementBase, windowUUID: String, props: Props) {
-        userSubmitted(actionID: props.actionID, element: element, windowUUID: windowUUID)
+        userSubmitted(actionID: props.actionID, viewID: element.id, windowUUID: windowUUID)
     }
 
-    /// What typing does in any text entry (TextField and SecureField): stores the text as the value
+    /// What typing does in any text entry (TextField, SecureField and TextEditor): stores the text as the value
     /// and fires valueChangeActionID, only when it differs from the value.
     @MainActor
-    static func userEditedText(_ newValue: String, valueChangeActionID: String?, element: any ActionUIElementBase, model: ViewModel, windowUUID: String) {
+    static func userEditedText(_ newValue: String, valueChangeActionID: String?, viewID: Int, model: ViewModel, windowUUID: String) {
         guard model.value as? String != newValue else { return }
         model.value = newValue
         if let valueChangeActionID {
-            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
         }
     }
 
     /// What submitting does in any text entry (TextField and SecureField): fires actionID.
     @MainActor
-    static func userSubmitted(actionID: String?, element: any ActionUIElementBase, windowUUID: String) {
+    static func userSubmitted(actionID: String?, viewID: Int, windowUUID: String) {
         guard let actionID else { return }
         // actionHandler logs the call.
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
     }
 }
 

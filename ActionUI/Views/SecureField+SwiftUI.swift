@@ -15,7 +15,7 @@ extension SecureField: ActionUISwiftUIRenderer {
         let initialValue = Self.initialValue(model) as? String ?? ""
 
         let onSubmit = {
-            TextField.userSubmitted(actionID: props.actionID, element: element, windowUUID: windowUUID)
+            TextField.userSubmitted(actionID: props.actionID, viewID: element.id, windowUUID: windowUUID)
         }
 
         let textBinding = mainActorBinding(
@@ -27,7 +27,7 @@ extension SecureField: ActionUISwiftUIRenderer {
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
-                    TextField.userEditedText(newValue, valueChangeActionID: props.valueChangeActionID, element: element, model: model, windowUUID: windowUUID)
+                    TextField.userEditedText(newValue, valueChangeActionID: props.valueChangeActionID, viewID: element.id, model: model, windowUUID: windowUUID)
                 }
             }
         )

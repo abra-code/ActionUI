@@ -83,9 +83,10 @@ enum SignalShape {
 
 /// Connects `run` to `signal` on a GObject, whatever caused the signal. For a signal a user's
 /// input emits, use connectUserSignal, which also ignores the signal while a renderer updates
-/// the widget. Returns GLib's handler id (0 if the signal does not exist, which GLib logs).
+/// the widget. With `after`, `run` runs after the signal's default handler. Returns GLib's handler
+/// id (0 if the signal does not exist, which GLib logs).
 @MainActor @discardableResult
-func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape,
+func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape, after: Bool = false,
                    _ run: @escaping @MainActor () -> Void) -> gulong {
     let data = Unmanaged.passRetained(SignalAction(run)).toOpaque()
     let callback: GCallback
@@ -99,7 +100,8 @@ func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shap
     }
     // GLib calls releaseSignalAction once a connected handler is gone. When connecting fails (an
     // unknown signal, which GLib logs) it never calls it, so the action is released here.
-    let id = g_signal_connect_data(instance, signal, callback, data, releaseSignalAction, GConnectFlags(0))
+    // G_CONNECT_AFTER (1): after the signal's default handler, which does the work of "undo".
+    let id = g_signal_connect_data(instance, signal, callback, data, releaseSignalAction, GConnectFlags(after ? 1 : 0))
     if id == 0 {
         Unmanaged<SignalAction>.fromOpaque(data).release()
     }

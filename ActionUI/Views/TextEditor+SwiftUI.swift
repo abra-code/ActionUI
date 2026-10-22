@@ -89,14 +89,18 @@ extension TextEditor: ActionUISwiftUIRenderer {
                     .onChange(of: text) { _, newValue in
                         // User typing → sync to model asynchronously (safe since @State holds cursor truth)
                         if isReadOnly { return }
-                        if model.value as? String != newValue {
+                        // Also while an update is pending: typing back to the model's value (a
+                        // letter, then Backspace, in one turn) must not leave the pending, older
+                        // text as the last one sent, which onReceive would then show.
+                        if model.value as? String != newValue || tracker.pendingCount > 0 {
                             tracker.pendingCount += 1
                             DispatchQueue.main.async {
-                                model.value = newValue
+                                // Counted down first: a later keystroke's update is still pending, so
+                                // this one's value is ignored by onReceive; the last one's equals the
+                                // text. A value the action sets is then taken, as before.
                                 tracker.pendingCount -= 1
-                                if let valueChangeActionID {
-                                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: elementId, viewPartID: 0)
-                                }
+                                TextField.userEditedText(newValue, valueChangeActionID: valueChangeActionID, viewID: elementId,
+                                                         model: model, windowUUID: windowUUID)
                             }
                         }
                     }
