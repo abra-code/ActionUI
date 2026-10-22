@@ -54,20 +54,92 @@ The installer package (a notarizable `.pkg` that puts the server and its resourc
 
 ## Configure a client
 
+The examples use the installed server, `/usr/local/libexec/actionui-mcp/actionui-mcp`; for a build from this checkout, use the absolute path `swift build --show-bin-path` prints. Every client below starts the server itself and reads its server list only when a session starts, so start a new session after adding it.
+
+Each client decides which folders see a server, and the defaults differ:
+
+| Client | The add command writes to | A project's own file | Seen from subfolders | Trust step for a project's file |
+|---|---|---|---|---|
+| Claude Code | this project only (`local` scope), unless `--scope user` or `--scope project` | `.mcp.json` at the repository root | yes, inside a git repository | each person approves its servers once |
+| Codex | always the user file, `~/.codex/config.toml` | `.codex/config.toml` | yes | loaded only for a trusted project |
+| opencode 1.18 | asks: the current project or global | `opencode.json` at the repository root | yes, up to the git root | none |
+
+For a server meant for every project, as this one usually is, install it per user: `--scope user` in Claude Code, the default in Codex, Global in opencode.
+
+### Claude Code
+
+```sh
+claude mcp add --scope user actionui -- /usr/local/libexec/actionui-mcp/actionui-mcp
+```
+
+Without `--scope`, `claude mcp add` uses the `local` scope: the server is stored in `~/.claude.json` under the project the command ran in, and only sessions started there see it. Inside a git repository that project is the repository, subfolders included; outside one it is that exact folder, so a server added from your home folder is not seen in any folder below it. A session started anywhere else lists no `actionui` server in `/mcp` and reports no error.
+
+- `claude mcp get actionui` prints the scope that applies in the current folder (`Local config`, `Project config` or `User config`); `claude mcp list` lists the servers seen there.
+- To fix a server added with the default scope, add it again with `--scope user`. The old entry can stay, since it starts the same server; to remove it, run `claude mcp remove actionui --scope local` from the folder it was added in. When one name is in several scopes, `local` wins over `project`, and `project` over `user`.
+- `--scope project` writes `.mcp.json` at the repository root for committing, so everyone working in the repository gets the server; Claude Code asks each person to approve it on first use. The path inside is absolute, which suits the installed server, whose path is fixed.
+- Environment variables go after the name, since `-e` takes several values and would take the name as one: `claude mcp add --scope user actionui -e ACTIONUI_MCP_LABEL=my-project -- /usr/local/libexec/actionui-mcp/actionui-mcp`.
+- Each tool call asks for permission by default. To let a tool run without asking, add its name to `permissions.allow` in `~/.claude/settings.json`, for example `"mcp__actionui__show"` (the name is `mcp__<server>__<tool>`); `"mcp__actionui"` allows every tool of the server.
+
+### Codex
+
+```sh
+codex mcp add actionui -- /usr/local/libexec/actionui-mcp/actionui-mcp
+```
+
+`codex mcp add` always writes to `~/.codex/config.toml` (`$CODEX_HOME/config.toml` when that is set) and has no option for a project file. The entry it writes, with the timeout this server needs added by hand:
+
+```toml
+[mcp_servers.actionui]
+command = "/usr/local/libexec/actionui-mcp/actionui-mcp"
+tool_timeout_sec = 3600
+
+[mcp_servers.actionui.env]
+ACTIONUI_MCP_LABEL = "my-project"
+```
+
+- `tool_timeout_sec`: Codex ends a tool call after 60 seconds by default. `ask_user`, `pick_path` and dialog-mode `show_document` wait for the user (dialogs up to their `timeout_s`, one hour by default), and `wait` waits for its own timeout, so raise the limit or a dialog the user is still reading fails on the Codex side.
+- For one project only, put the same table in `.codex/config.toml` in the project (Codex looks in the current folder and the folders above it). Codex reads that file only when the project is trusted, `trust_level = "trusted"` under the project's entry in `[projects]` in `~/.codex/config.toml`; an untrusted project's file is skipped. `codex mcp add` cannot write that file, so edit it by hand.
+- `/mcp` in a Codex session lists the servers it started.
+
+### opencode
+
+`opencode mcp add` (1.18) is interactive. It first asks where to write the server, then for its details: `Current project`, which is `opencode.json` at the repository root, or `Global`, `~/.config/opencode/opencode.json` (or `opencode.jsonc`). The entry, written by hand into either file:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "actionui": {
+      "type": "local",
+      "command": ["/usr/local/libexec/actionui-mcp/actionui-mcp"],
+      "enabled": true,
+      "environment": { "ACTIONUI_MCP_LABEL": "my-project" }
+    }
+  }
+}
+```
+
+- opencode looks for a project's `opencode.json` from the current folder up to the git root, so a project server is seen from every subfolder of the repository and nowhere else. The global and project files are merged, and the project file wins where both set a value.
+- There is no trust step: none is documented, and `opencode mcp list` starts a project's servers without asking, so a cloned repository's `opencode.json` runs its servers as soon as opencode runs in it.
+- `opencode mcp list` shows the servers seen from the current folder and whether they connected.
+- The opencode v2 configuration format puts servers under `mcp.servers` and turns them off with `"disabled": true` instead of `"enabled"`; its `opencode mcp add <name> -- <command>` writes to the project file by default, and `--global` to the global one. Check `opencode --version` and the format its documentation describes before copying the entry above.
+
+### Other clients
+
+Most clients take a JSON entry of this shape, in a file of their own:
+
 ```json
 {
   "mcpServers": {
     "actionui": {
-      "command": "/absolute/path/to/actionui-mcp",
+      "command": "/usr/local/libexec/actionui-mcp/actionui-mcp",
       "env": { "ACTIONUI_MCP_LABEL": "my-project" }
     }
   }
 }
 ```
 
-For Claude Code: `claude mcp add actionui -- /absolute/path/to/actionui-mcp`.
-
-Environment variables:
+### Environment variables
 
 - `ACTIONUI_MCP_LABEL` - text shown after the client name in every title bar.
 - `ACTIONUI_MCP_LOG_LEVEL` - `error`, `warning` (default), `info`, or `debug`; the log goes to stderr.

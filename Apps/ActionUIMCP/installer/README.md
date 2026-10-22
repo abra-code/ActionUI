@@ -8,8 +8,10 @@ Builds an installer package for the ActionUI MCP server with PackageBuilder.app.
 The server finds the bundles next to its own executable, following symlinks, so the folder must stay together. Clients are configured with the full path:
 
 ```sh
-claude mcp add actionui -- /usr/local/libexec/actionui-mcp/actionui-mcp
+claude mcp add --scope user actionui -- /usr/local/libexec/actionui-mcp/actionui-mcp
 ```
+
+Without `--scope user`, Claude Code registers the server only for the project the command ran in, and sessions started anywhere else do not see it. The server's README (`../README.md`, Configure a client) has the details, how to check and fix the scope, and the setup for Codex, opencode and other clients.
 
 There is no link in `/usr/local/bin`. A payload entry must exist on the build machine, and a link to the installed location does not; adding one would take a postinstall script. MCP clients need an absolute path anyway.
 
