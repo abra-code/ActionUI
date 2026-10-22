@@ -15,6 +15,7 @@ extension ActionUIRegistry {
         "Divider": Divider.self,
         "Ellipse": Ellipse.self,
         "EmptyView": EmptyView.self,
+        "Gauge": Gauge.self,
         "GroupBox": GroupBox.self,
         "HStack": HStack.self,
         "Image": Image.self,

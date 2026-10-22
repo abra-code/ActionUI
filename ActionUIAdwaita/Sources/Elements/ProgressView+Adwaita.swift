@@ -78,7 +78,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         attach(ProgressState(), to: indicator, key: progressStateKey)
         if kind == .ring {
             // The state's fraction, 0, which update compares with: a ring at 0 has a value too.
-            setRingValue(indicator, 0)
+            setAccessibleValue(indicator, min: 0, max: 1, now: 0)
         }
         let click = gtk_gesture_click_new()!
         connectUserSignal(UnsafeMutableRawPointer(click), "released", .press) { [weak node] in
@@ -117,7 +117,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         case .ring:
             if state.fraction != fraction {
                 state.fraction = fraction
-                setRingValue(indicator, fraction)
+                setAccessibleValue(indicator, min: 0, max: 1, now: fraction)
                 gtk_widget_queue_draw(indicator)
             }
         case .spinner:
@@ -158,54 +158,10 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// Writes the ring's progress for assistive technologies, as a progress bar's value.
-    private static func setRingValue(_ ring: WidgetPointer, _ fraction: Double) {
-        var properties = [GTK_ACCESSIBLE_PROPERTY_VALUE_MIN, GTK_ACCESSIBLE_PROPERTY_VALUE_MAX, GTK_ACCESSIBLE_PROPERTY_VALUE_NOW]
-        var values = [GValue(), GValue(), GValue()]
-        for (index, (property, value)) in zip(properties, [0, 1, fraction]).enumerated() {
-            gtk_accessible_property_init_value(property, &values[index])
-            g_value_set_double(&values[index], value)
-        }
-        gtk_accessible_update_property_value(OpaquePointer(ring), Int32(properties.count), &properties, &values)
-        for index in values.indices {
-            g_value_unset(&values[index])
-        }
-    }
-
     private static func drawRing(_ ring: WidgetPointer, _ snapshot: OpaquePointer) {
         let fraction = attached(ProgressState.self, on: ring, key: progressStateKey)?.fraction ?? 0
-        let side = Float(Swift.min(gtk_widget_get_width(ring), gtk_widget_get_height(ring)))
-        guard side > ringWidth else { return }
-        var center = graphene_point_t(x: Float(gtk_widget_get_width(ring)) / 2, y: Float(gtk_widget_get_height(ring)) / 2)
-        let radius = (side - ringWidth) / 2
-        var color = GdkRGBA()
-        gtk_widget_get_color(ring, &color)
-        let stroke = gsk_stroke_new(ringWidth)!
-        defer { gsk_stroke_free(stroke) }
-        // The track: the whole circle, faint.
-        var track = color
-        track.alpha *= 0.2
-        let trackBuilder = gsk_path_builder_new()!
-        gsk_path_builder_add_circle(trackBuilder, &center, radius)
-        let trackPath = gsk_path_builder_free_to_path(trackBuilder)!
-        gtk_snapshot_append_stroke(snapshot, trackPath, stroke, &track)
-        gsk_path_unref(trackPath)
-        guard fraction > 0 else { return }
-        // The progress: clockwise from the top.
-        let builder = gsk_path_builder_new()!
-        // Within a hair of a full turn the arc would end where it starts, and an arc to its own start
-        // point draws nothing: draw the circle.
-        if fraction >= 1 - 1e-6 {
-            gsk_path_builder_add_circle(builder, &center, radius)
-        } else {
-            let angle = Float(fraction) * 2 * Float.pi - Float.pi / 2
-            gsk_path_builder_move_to(builder, center.x, center.y - radius)
-            gsk_path_builder_svg_arc_to(builder, radius, radius, 0, fraction > 0.5 ? 1 : 0, 1,
-                                        center.x + radius * cosf(angle), center.y + radius * sinf(angle))
-        }
-        let path = gsk_path_builder_free_to_path(builder)!
-        gtk_snapshot_append_stroke(snapshot, path, stroke, &color)
-        gsk_path_unref(path)
+        // Clockwise from the top, the whole circle.
+        RingDrawing.draw(ring, snapshot, lineWidth: ringWidth, start: -Float.pi / 2, sweep: 2 * Float.pi, fraction: fraction, marker: false)
     }
 
     /// A GtkWidget subclass that draws the ring in the accent color, 32 x 32, a progress bar for

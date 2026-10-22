@@ -205,6 +205,21 @@ func newWidget(_ type: GType, accessibleRole role: GtkAccessibleRole) -> WidgetP
     return widget
 }
 
+/// Writes a widget's value range and current value for assistive technologies (a meter or a
+/// progress bar drawn by ActionUI, which GTK knows nothing about).
+func setAccessibleValue(_ widget: WidgetPointer, min: Double, max: Double, now: Double) {
+    var properties = [GTK_ACCESSIBLE_PROPERTY_VALUE_MIN, GTK_ACCESSIBLE_PROPERTY_VALUE_MAX, GTK_ACCESSIBLE_PROPERTY_VALUE_NOW]
+    var values = [GValue(), GValue(), GValue()]
+    for (index, (property, value)) in zip(properties, [min, max, now]).enumerated() {
+        gtk_accessible_property_init_value(property, &values[index])
+        g_value_set_double(&values[index], value)
+    }
+    gtk_accessible_update_property_value(OpaquePointer(widget), Int32(properties.count), &properties, &values)
+    for index in values.indices {
+        g_value_unset(&values[index])
+    }
+}
+
 // MARK: - Swift objects kept on GObjects
 
 private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in
