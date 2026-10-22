@@ -5,8 +5,7 @@
  against LayoutParity/expected/<fixture>.json, which the Apple side recorded from SwiftUI's own
  layout (ActionUITests/Views/LayoutParityTests.swift).
 
- Colors are rendered by a test renderer with Color's layout (it fills what it is offered) until
- the real one exists; only frames are compared, not pixels.
+ Only frames are compared, not pixels.
 */
 
 import XCTest
@@ -17,20 +16,6 @@ import CAdwaita
 private struct Expectation: Codable {
     var size: [Double]
     var frames: [String: [Double]]
-}
-
-/// Color's layout: an empty widget that expands in both axes, as SwiftUI's Color fills what it is
-/// offered.
-@MainActor
-enum TestColorRenderer: ActionUIAdwaitaRenderer {
-    static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        let widget = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0)!
-        gtk_widget_set_hexpand(widget, 1)
-        gtk_widget_set_vexpand(widget, 1)
-        return widget
-    }
-
-    static func update(_ widget: WidgetPointer, _ node: RenderNode) {}
 }
 
 @MainActor
@@ -54,7 +39,6 @@ final class LayoutParityTests: XCTestCase {
         // sends the non-Sendable test case across actors, which Swift 6 refuses.
         try AdwaitaTestHost.initialize()
         ActionUIRegistry.shared.loadBuiltIns()
-        ActionUIRegistry.shared.renderers["Color"] = TestColorRenderer.self
     }
 
     override func tearDown() async throws {
