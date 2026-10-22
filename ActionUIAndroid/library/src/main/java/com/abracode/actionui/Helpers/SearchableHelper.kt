@@ -77,10 +77,45 @@ internal fun ActionUIViewConstruction.BuildViewWithSearchable(
     // outer property half (transforms / offset / opacity) land on it, so the
     // field and the content move together. The element below takes the inner half
     // through BuildViewWithDecorations (it applies it), with a bare Modifier here.
-    Column(modifier.applyOuterProperties(element.properties, logger, animator)) {
+    //
+    // `hidden` is the exception: it hides the content only, as on Apple and Web, where
+    // `searchable` is applied after `.hidden()` and the field stays visible and usable.
+    // BuildViewWithModifiers left it out of the environment around this Column
+    // (searchableEnvironmentProperties), so the content gets it here: invisible, inert and
+    // out of accessibility (applyOuterProperties' hiddenSubtree), with the narrowed locals.
+    val hidden = element.properties?.booleanProperty("hidden") == true
+    Column(modifier.applyOuterProperties(searchableOuterProperties(element.properties), logger, animator)) {
         SearchField(config, element.id)
-        BuildViewWithDecorations(element, Modifier, animator)
+        if (hidden) {
+            ProvideReactiveEnvironment(HIDDEN_ONLY_PROPERTIES, logger) {
+                BuildViewWithDecorations(element, Modifier.applyOuterProperties(HIDDEN_ONLY_PROPERTIES, logger), animator)
+            }
+        } else {
+            BuildViewWithDecorations(element, Modifier, animator)
+        }
     }
+}
+
+/** Properties that only hide: what a hidden searchable element's content takes. */
+internal val HIDDEN_ONLY_PROPERTIES = JsonObject(mapOf("hidden" to JsonPrimitive(true)))
+
+/**
+ * The properties a searchable element's Column (and the search field in it) takes: all of
+ * them but `hidden`, which goes to the content alone (see [BuildViewWithSearchable]).
+ */
+internal fun searchableOuterProperties(properties: JsonObject?): JsonObject? {
+    if (properties == null || !properties.containsKey("hidden")) return properties
+    return JsonObject(properties.filterKeys { it != "hidden" })
+}
+
+/**
+ * The properties [ProvideReactiveEnvironment] reads for an element: its own, except that a
+ * hidden element with a valid `searchable` leaves `hidden` out, so the environment around its
+ * search field is not narrowed (the content is narrowed inside [BuildViewWithSearchable]).
+ */
+internal fun searchableEnvironmentProperties(properties: JsonObject?): JsonObject? {
+    if (properties?.booleanProperty("hidden") != true || resolveSearchable(properties, null) == null) return properties
+    return searchableOuterProperties(properties)
 }
 
 /** The Material3 search field for [BuildViewWithSearchable]; emits the query on each change. */

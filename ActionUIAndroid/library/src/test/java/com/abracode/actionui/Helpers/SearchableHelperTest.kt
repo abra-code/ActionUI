@@ -5,7 +5,9 @@ import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -97,5 +99,52 @@ class SearchableHelperTest {
         val config = resolveSearchable(props, logger)
         assertEquals(SearchableConfig("demo.search", null), config)
         assertTrue(logger.messages.single().contains("searchable.prompt"))
+    }
+
+    // A hidden searchable element hides its content, not its search field, as on Apple and Web
+    // (where `searchable` is applied after `.hidden()`).
+
+    @Test
+    fun `a hidden searchable element's field environment is not narrowed`() {
+        val props = propertiesOf(
+            """{ "type": "List", "properties": { "hidden": true, "opacity": 0.5, "searchable": { "actionID": "demo.search" } } }"""
+        )
+        val environment = searchableEnvironmentProperties(props)
+        assertNull("the field stays enabled", disabledLocalOverride(environment))
+        assertNull("and keeps input", inputEnabledLocalOverride(environment))
+        val outer = searchableOuterProperties(props)!!
+        assertFalse(outer.containsKey("hidden"))
+        assertTrue("the other outer properties stay on the Column", outer.containsKey("opacity"))
+    }
+
+    @Test
+    fun `a hidden and disabled searchable element's field stays disabled`() {
+        val props = propertiesOf(
+            """{ "type": "List", "properties": { "hidden": true, "disabled": true, "searchable": { "actionID": "demo.search" } } }"""
+        )
+        assertEquals(false, disabledLocalOverride(searchableEnvironmentProperties(props)))
+    }
+
+    @Test
+    fun `the content of a hidden searchable element is narrowed`() {
+        assertEquals(false, disabledLocalOverride(HIDDEN_ONLY_PROPERTIES))
+        assertEquals(false, inputEnabledLocalOverride(HIDDEN_ONLY_PROPERTIES))
+    }
+
+    @Test
+    fun `a hidden element without searchable keeps hidden in its environment`() {
+        val props = propertiesOf("""{ "type": "List", "properties": { "hidden": true } }""")
+        assertSame(props, searchableEnvironmentProperties(props))
+        assertEquals(false, disabledLocalOverride(searchableEnvironmentProperties(props)))
+    }
+
+    @Test
+    fun `a visible searchable element is unchanged`() {
+        val props = propertiesOf(
+            """{ "type": "List", "properties": { "searchable": { "actionID": "demo.search" } } }"""
+        )
+        assertSame(props, searchableEnvironmentProperties(props))
+        assertSame(props, searchableOuterProperties(props))
+        assertNull(searchableOuterProperties(null))
     }
 }

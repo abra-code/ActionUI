@@ -128,7 +128,9 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // font/alignment/selection/control style. See ReactiveEnvironment.kt for why the
     // reactive environment is one provider bounded by axis, not one per property.
     val logger = LocalActionUILogger.current
-    ProvideReactiveEnvironment(effective.properties, logger) {
+    // A hidden searchable element keeps its search field usable: its `hidden` narrows only
+    // the content (SearchableHelper.kt), not this environment around the field.
+    ProvideReactiveEnvironment(searchableEnvironmentProperties(effective.properties), logger) {
         if (enter != null) {
             val visibleState = remember(effective.id) { MutableTransitionState(false) }
             LaunchedEffect(effective.id) { visibleState.targetState = true }
