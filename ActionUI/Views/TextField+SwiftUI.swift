@@ -15,10 +15,7 @@ extension TextField: ActionUISwiftUIRenderer {
         let valueChangeActionID = props.valueChangeActionID
 
         let onSubmit = {
-            if let actionID = actionID {
-                logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-            }
+            TextField.userSubmitted(element: element, windowUUID: windowUUID, props: props)
         }
 
         // Formatted numeric TextField
@@ -63,10 +60,7 @@ extension TextField: ActionUISwiftUIRenderer {
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
-                    model.value = newValue
-                    if let valueChangeActionID {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    TextField.userEditedText(newValue, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

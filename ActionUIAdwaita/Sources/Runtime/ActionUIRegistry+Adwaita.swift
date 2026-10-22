@@ -16,6 +16,7 @@ extension ActionUIRegistry {
         "LazyVStack": LazyVStack.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
+        "TextField": TextField.self,
         "VStack": VStack.self,
         "ZStack": ZStack.self,
     ]

@@ -117,6 +117,27 @@ extension TextField {
     }
 }
 
+extension TextField {
+    /// The user changed the text of a field without a format: stores it as the value and fires
+    /// valueChangeActionID, only when it differs from the value.
+    @MainActor
+    static func userEditedText(_ newValue: String, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.value as? String != newValue else { return }
+        model.value = newValue
+        if let valueChangeActionID = props.valueChangeActionID {
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        }
+    }
+
+    /// The user submitted the field (Return, or on macOS and Linux, leaving it): fires actionID.
+    @MainActor
+    static func userSubmitted(element: any ActionUIElementBase, windowUUID: String, props: Props) {
+        guard let actionID = props.actionID else { return }
+        // actionHandler logs the call.
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+    }
+}
+
 struct TextField: ActionUIElementSpec {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
