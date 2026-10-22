@@ -4,8 +4,8 @@
  element is laid out or shown as a whole, in View.applyModifiers' order: padding, then frame
  (both by its layout manager, with FrameSolver's arithmetic), disabled, hidden, opacity and help.
  Parents lay out boxes, not element widgets: a stack sees the frame's size, its expansion
- (the box's expand flags) and its maximum (FrameConstraints on the box), and a Spacer's marker is
- carried over to its box.
+ (the box's expand flags) and its cap (LayoutCaps reads the frame's maximum from the box), and a
+ Spacer's marker is carried over to its box.
 
  - hidden keeps the element's space, as SwiftUI's .hidden() does: the box is transparent and takes
    no input or focus, but it is laid out.
@@ -47,7 +47,6 @@ enum ModifierBox {
     static func wrap(_ widget: WidgetPointer) -> WidgetPointer {
         let box = makeContainer(layoutType: layoutType())
         attach(BoxLayout(), to: box, key: boxLayoutKey)
-        attach(FrameConstraints(), to: box, key: frameConstraintsKey)
         if let marker = attached(SpacerMarker.self, on: widget, key: spacerMarkerKey) {
             attach(marker, to: box, key: spacerMarkerKey)
         }
@@ -98,10 +97,6 @@ enum ModifierBox {
         layout.alignment = alignment
         setExpand(box, GTK_ORIENTATION_HORIZONTAL, frame.horizontal.expands)
         setExpand(box, GTK_ORIENTATION_VERTICAL, frame.vertical.expands)
-        if let constraints = attached(FrameConstraints.self, on: box, key: frameConstraintsKey) {
-            constraints.maxWidth = frame.horizontal.cap.map(Double.init)
-            constraints.maxHeight = frame.vertical.cap.map(Double.init)
-        }
         gtk_widget_queue_resize(box)
     }
 

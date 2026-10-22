@@ -172,11 +172,8 @@ final class StackLayoutTests: XCTestCase {
     }
 
     func testAFrameCapLimitsAnExpandingChild() throws {
-        let stack = try render(#"{"type": "HStack", "id": 1, "properties": {"spacing": 0}, "children": [\#(block(2, 0, 20, fill: "h")), \#(block(3, 0, 20, fill: "h"))]}"#)
-        let capped = try XCTUnwrap(gtk_widget_get_last_child(stack))
-        let frame = FrameConstraints()
-        frame.maxWidth = 50
-        attach(frame, to: capped, key: frameConstraintsKey)
+        let capped = #"{"type": "Rectangle", "id": 3, "properties": {"w": 0, "h": 20, "fill": "h", "frame": {"maxWidth": 50}}}"#
+        let stack = try render(#"{"type": "HStack", "id": 1, "properties": {"spacing": 0}, "children": [\#(block(2, 0, 20, fill: "h")), \#(capped)]}"#)
         XCTAssertEqual(frames(stack, 300, 20).map { $0[2] }, [250, 50])
     }
 

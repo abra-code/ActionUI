@@ -71,8 +71,7 @@ enum ZStackLayout {
         gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
         let range: StackChild
         if gtk_widget_compute_expand(child, orientation) != 0 {
-            let cap = attached(FrameConstraints.self, on: child, key: frameConstraintsKey)?.maximum(orientation)
-            range = .expanding(minimum: Int(minimum), cap: cap)
+            range = .expanding(minimum: Int(minimum), cap: LayoutCaps.cap(child, orientation))
         } else {
             range = .fixed(minimum: Int(minimum), natural: Int(natural))
         }

@@ -14,8 +14,8 @@
    height is measured for the widths it gives its children, so wrapping text gets taller in a
    narrower stack.
  - A child expands where GTK's computed expand flag says so (set by its renderer, or by its frame
-   through its modifier box, and propagated from its own children as in SwiftUI), and its frame's
-   maximum caps that, through the FrameConstraints attached to it.
+   through its modifier box, and propagated from its own children as in SwiftUI), up to the cap
+   LayoutCaps finds for it: its frame's maximum, or what its own children take at most.
 */
 
 import CAdwaita
@@ -42,26 +42,12 @@ final class StackConfiguration {
     }
 }
 
-/// The frame maximums of a child, attached to it, which cap how far it expands. nil: no cap.
-@MainActor
-final class FrameConstraints {
-    var maxWidth: Double?
-    var maxHeight: Double?
-
-    func maximum(_ orientation: GtkOrientation) -> Int? {
-        let value = orientation == GTK_ORIENTATION_HORIZONTAL ? maxWidth : maxHeight
-        guard let value, value.isFinite else { return nil }
-        return StackSolver.length(value, rounding: .up)
-    }
-}
-
 /// Attached to a Spacer's widget: its stack places it after the other children and puts no
 /// default spacing next to it (StackChild.isSpacer). A box wrapping a Spacer must carry it too.
 @MainActor
 final class SpacerMarker {}
 
 let stackConfigurationKey = "actionui-stack"
-let frameConstraintsKey = "actionui-frame"
 let spacerMarkerKey = "actionui-spacer"
 
 nonisolated(unsafe) private var stackLayoutType: GType = 0
@@ -138,8 +124,7 @@ enum StackLayout {
         let size = measureChild(child, orientation, forSize: forSize)
         var result: StackChild
         if gtk_widget_compute_expand(child, orientation) != 0 {
-            let cap = attached(FrameConstraints.self, on: child, key: frameConstraintsKey)?.maximum(orientation)
-            result = .expanding(minimum: size.minimum, cap: cap)
+            result = .expanding(minimum: size.minimum, cap: LayoutCaps.cap(child, orientation))
         } else {
             result = .fixed(minimum: size.minimum, natural: size.natural)
         }
@@ -153,7 +138,7 @@ enum StackLayout {
 
     /// The spacing between the stack's neighboring children (none next to a Spacer when the stack
     /// was given no spacing).
-    private static func gaps(_ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int] {
+    static func gaps(_ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int] {
         let marks = children.map { StackChild(minimum: 0, maximum: nil, isSpacer: isSpacer($0)) }
         return StackSolver.gaps(marks, spacing: stack.spacing, isDefaultSpacing: stack.isDefaultSpacing)
     }

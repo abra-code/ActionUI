@@ -1,0 +1,10 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 400, "height": 100}}, "children": [
+  {"type": "VStack", "id": 2, "properties": {"spacing": 0}, "children": [
+    {"type": "VStack", "id": 3, "children": [
+      {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"maxWidth": 200}}}
+    ]},
+    {"type": "Color", "id": 5, "properties": {"color": "#00C000", "frame": {"maxWidth": 150}}}
+  ]},
+  {"type": "Spacer", "id": 6},
+  {"type": "Color", "id": 7, "properties": {"color": "#0000FF", "frame": {"width": 20}}}
+]}
