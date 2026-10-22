@@ -26,10 +26,11 @@
 import Foundation
 import PackageDescription
 
-// Two packages, one chosen at the end. applePackage() is the full package for Apple platforms.
-// coreCheckPackage() builds only the portable code in ActionUI/Core, as the module ActionUI; set
-// ACTIONUI_CORE_ONLY=1 to select it on a Mac, which Scripts/check-core.sh does to cross-build Core
-// for Linux. A Linux host builds it too, until the Linux renderer joins.
+// Three packages, one chosen at the end. applePackage() is the full package for Apple platforms,
+// linuxPackage() the one for Linux: the same module ActionUI, made of the portable code in
+// ActionUI/Core and the GTK renderer in ActionUIAdwaita. coreCheckPackage() builds only
+// ActionUI/Core, as the module ActionUI; set ACTIONUI_CORE_ONLY=1 to select it on either host,
+// which Scripts/check-core.sh does on a Mac to cross-build Core for Linux.
 let coreOnly = Context.environment["ACTIONUI_CORE_ONLY"] == "1"
 
 // Every path in a target's folder (`target`, relative to the repository; "" for the root) that is
@@ -385,10 +386,52 @@ Package(
 )
 }
 
+// Linux: GTK 4 and libadwaita from the system (libgtk-4-dev, libadwaita-1-dev and pkg-config to
+// build), never bundled; the version floor is in ActionUIAdwaita/CAdwaita/CAdwaita.h.
+func linuxPackage() -> Package {
+Package(
+    name: "ActionUI",
+    products: [
+        // A shared library, so programs in other languages load it and call its C functions.
+        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI"]),
+    ],
+    targets: [
+        // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
+        .systemLibrary(
+            name: "CAdwaita",
+            path: "ActionUIAdwaita/CAdwaita",
+            pkgConfig: "libadwaita-1"
+        ),
+        // The portable code and the GTK renderer: one module, as ActionUI is on Apple platforms.
+        .target(
+            name: "ActionUI",
+            dependencies: ["CAdwaita"],
+            path: ".",
+            exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
+            sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"]
+        ),
+        // The Core tests, as in coreCheckPackage.
+        .testTarget(
+            name: "ActionUITests",
+            dependencies: ["ActionUI"],
+            path: "ActionUITests",
+            exclude: excludingAllBut(["Core"], in: "ActionUITests"),
+            sources: ["Core"]
+        ),
+        // The renderer tests. They need a display and skip themselves without one.
+        .testTarget(
+            name: "ActionUIAdwaitaTests",
+            dependencies: ["ActionUI", "CAdwaita"],
+            path: "ActionUIAdwaita/Tests"
+        ),
+    ]
+)
+}
+
 // Only the chosen package may be constructed: PackageDescription takes the last Package created as
 // the manifest.
 #if os(Linux)
-let package = coreCheckPackage()
+let package = coreOnly ? coreCheckPackage() : linuxPackage()
 #else
 let package = coreOnly ? coreCheckPackage() : applePackage()
 #endif

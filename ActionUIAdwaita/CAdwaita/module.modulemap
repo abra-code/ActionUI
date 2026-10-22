@@ -1,0 +1,4 @@
+module CAdwaita [system] {
+    header "CAdwaita.h"
+    export *
+}

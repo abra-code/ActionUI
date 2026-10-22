@@ -2,7 +2,8 @@
 #
 # Scripts/check-core.sh - checks that the portable code in ActionUI/Core builds for Linux.
 #
-# 1. Imports: every import line under ActionUI/Core follows the rule in check-core-imports.awk.
+# 1. Imports: every import line under ActionUI/Core and ActionUIAdwaita/Sources (the GTK renderer,
+#    built into the same module on Linux) follows the rule in check-core-imports.awk.
 # 2. Cross-build: builds ActionUI/Core alone (ACTIONUI_CORE_ONLY=1 selects that package) with a
 #    Swift toolchain's static Linux SDK, so anything that needs full Foundation, SwiftUI, AppKit,
 #    UIKit, CoreGraphics or CoreFoundation fails to compile here, on the Mac.
@@ -64,12 +65,15 @@ EOF_TOOLCHAINS
 }
 
 # Step 1: imports.
-core_files="$(/usr/bin/find "$repo/ActionUI/Core" -name '*.swift' -type f | /usr/bin/sort)"
-if [ -z "$core_files" ]; then
-    printf 'check-core: no Swift files under %s\n' "$repo/ActionUI/Core" >&2
-    exit 1
-fi
-printf '%s\n' "$core_files" | /usr/bin/tr '\n' '\0' | /usr/bin/xargs -0 /usr/bin/awk -f "$script_dir/check-core-imports.awk"
+checked_files="$(/usr/bin/find "$repo/ActionUI/Core" "$repo/ActionUIAdwaita/Sources" -name '*.swift' -type f | /usr/bin/sort)"
+case "$checked_files" in
+    *"/ActionUI/Core/"*) ;;
+    *)
+        printf 'check-core: no Swift files under %s\n' "$repo/ActionUI/Core" >&2
+        exit 1
+        ;;
+esac
+printf '%s\n' "$checked_files" | /usr/bin/tr '\n' '\0' | /usr/bin/xargs -0 /usr/bin/awk -f "$script_dir/check-core-imports.awk"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'check-core: imports FAILED (see above)\n' >&2

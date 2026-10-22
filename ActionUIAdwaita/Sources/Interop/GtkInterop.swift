@@ -1,0 +1,156 @@
+// Sources/Interop/GtkInterop.swift
+/*
+ Small helpers for calling GTK's C API from Swift: pointer conversions, signal handlers, Swift
+ objects kept on GObjects, and timers on the GLib main loop.
+
+ GTK 4 declares most widgets as final types, whose instance structs are opaque, so Swift imports
+ their pointers as OpaquePointer; derivable types (GtkWidget, GtkWindow, GtkEntry) keep typed
+ pointers. Conversions go through OpaquePointer either way.
+
+ Lifetimes: a Swift object handed to C (a signal handler's closure, an attached object, a timer's
+ closure) is retained for as long as GLib holds it and released by GLib's destroy notification:
+ when the handler is disconnected, the object finalized, or the timer source removed. Swift never
+ keeps a widget alive on its own; closures capture render nodes weakly.
+*/
+
+import CAdwaita
+
+typealias WidgetPointer = UnsafeMutablePointer<GtkWidget>
+
+@inline(__always) func typed<T>(_ pointer: OpaquePointer) -> UnsafeMutablePointer<T> {
+    UnsafeMutablePointer<T>(pointer)
+}
+
+@inline(__always) func typed<T, U>(_ pointer: UnsafeMutablePointer<U>) -> UnsafeMutablePointer<T> {
+    UnsafeMutablePointer<T>(OpaquePointer(pointer))
+}
+
+@inline(__always) func opaque<U>(_ pointer: UnsafeMutablePointer<U>) -> OpaquePointer {
+    OpaquePointer(pointer)
+}
+
+/// A C string GTK returns (not owned by the caller), as a Swift string.
+func swiftString(_ text: UnsafePointer<CChar>?) -> String? {
+    guard let text else { return nil }
+    return String(cString: text)
+}
+
+// MARK: - Signals
+
+/// What a signal handler runs; retained by GLib for as long as the handler is connected.
+@MainActor final class SignalAction {
+    let run: @MainActor () -> Void
+    init(_ run: @escaping @MainActor () -> Void) { self.run = run }
+}
+
+/// For signals whose handler takes (instance, user data).
+private let twoArgumentTrampoline: @convention(c) (gpointer?, gpointer?) -> Void = { _, data in
+    guard let data else { return }
+    let action = Unmanaged<SignalAction>.fromOpaque(data).takeUnretainedValue()
+    MainActor.assumeIsolated { action.run() }
+}
+
+/// For signals whose handler takes (instance, one argument, user data), such as notify::.
+private let threeArgumentTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> Void = { _, _, data in
+    guard let data else { return }
+    let action = Unmanaged<SignalAction>.fromOpaque(data).takeUnretainedValue()
+    MainActor.assumeIsolated { action.run() }
+}
+
+private let releaseSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
+    guard let data else { return }
+    Unmanaged<SignalAction>.fromOpaque(data).release()
+}
+
+/// The C signature of a signal's handler, which decides the trampoline.
+enum SignalShape {
+    /// (instance, user data): "clicked", "activate", "changed", "map", "destroy"
+    case instanceOnly
+    /// (instance, argument, user data): "notify::<property>"
+    case instanceAndArgument
+}
+
+/// Connects `run` to `signal` on a GObject, whatever caused the signal. For a signal a user's
+/// input emits, use connectUserSignal, which also ignores the signal while a renderer updates
+/// the widget. Returns GLib's handler id (0 if the signal does not exist, which GLib logs).
+@MainActor @discardableResult
+func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape,
+                   _ run: @escaping @MainActor () -> Void) -> gulong {
+    let data = Unmanaged.passRetained(SignalAction(run)).toOpaque()
+    let callback: GCallback
+    switch shape {
+    case .instanceOnly:
+        callback = unsafeBitCast(twoArgumentTrampoline, to: GCallback.self)
+    case .instanceAndArgument:
+        callback = unsafeBitCast(threeArgumentTrampoline, to: GCallback.self)
+    }
+    // GLib calls releaseSignalAction once a connected handler is gone. When connecting fails (an
+    // unknown signal, which GLib logs) it never calls it, so the action is released here.
+    let id = g_signal_connect_data(instance, signal, callback, data, releaseSignalAction, GConnectFlags(0))
+    if id == 0 {
+        Unmanaged<SignalAction>.fromOpaque(data).release()
+    }
+    return id
+}
+
+/// Connects `run` to a signal that a user's input emits ("clicked", "changed", "notify::active").
+/// GTK emits the same signals when code changes the widget, synchronously, so `run` is skipped
+/// while UpdateGuard says a renderer is applying the model to widgets: only the user's changes
+/// reach actions and the model.
+@MainActor @discardableResult
+func connectUserSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape,
+                       _ run: @escaping @MainActor () -> Void) -> gulong {
+    connectSignal(instance, signal, shape) {
+        guard !UpdateGuard.isApplying else { return }
+        run()
+    }
+}
+
+// MARK: - Swift objects kept on GObjects
+
+private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in
+    guard let data else { return }
+    Unmanaged<AnyObject>.fromOpaque(data).release()
+}
+
+/// Keeps `value` on a GObject under `key`, released when the object is finalized or the key is
+/// set again.
+@MainActor func attach(_ value: AnyObject, to object: UnsafeMutableRawPointer, key: String) {
+    let retained = Unmanaged.passRetained(value).toOpaque()
+    g_object_set_data_full(typed(OpaquePointer(object)), key, retained, releaseAttached)
+}
+
+/// The object attach kept on `object` under `key`, if it is a `T`.
+@MainActor func attached<T: AnyObject>(_ type: T.Type, on object: UnsafeMutableRawPointer, key: String) -> T? {
+    guard let data = g_object_get_data(typed(OpaquePointer(object)), key) else { return nil }
+    return Unmanaged<AnyObject>.fromOpaque(data).takeUnretainedValue() as? T
+}
+
+// MARK: - Timers
+
+/// What a timer runs; retained by GLib until its source is removed.
+@MainActor final class TimerAction {
+    let run: @MainActor () -> Void
+    init(_ run: @escaping @MainActor () -> Void) { self.run = run }
+}
+
+private let runTimerOnce: @convention(c) (gpointer?) -> gboolean = { data in
+    guard let data else { return 0 }
+    let action = Unmanaged<TimerAction>.fromOpaque(data).takeUnretainedValue()
+    MainActor.assumeIsolated { action.run() }
+    return 0  // G_SOURCE_REMOVE
+}
+
+private let releaseTimerAction: @convention(c) (gpointer?) -> Void = { data in
+    guard let data else { return }
+    Unmanaged<TimerAction>.fromOpaque(data).release()
+}
+
+/// Runs `run` once on the GLib main loop after `milliseconds`. Returns the source id, which
+/// g_source_remove cancels. DispatchQueue.main.asyncAfter works too (MainLoopBridge); there is no
+/// Timer or RunLoop in FoundationEssentials.
+@MainActor @discardableResult
+func runAfter(milliseconds: UInt32, _ run: @escaping @MainActor () -> Void) -> guint {
+    let data = Unmanaged.passRetained(TimerAction(run)).toOpaque()
+    return g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, runTimerOnce, data, releaseTimerAction)
+}

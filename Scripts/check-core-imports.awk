@@ -1,13 +1,15 @@
 # Scripts/check-core-imports.awk
 #
-# Checks the import lines of the portable Swift files given as arguments (ActionUI/Core). Allowed:
+# Checks the import lines of the Swift files given as arguments: the portable code (ActionUI/Core)
+# and the GTK renderer (ActionUIAdwaita/Sources), which Linux builds into the same module. Allowed:
 #   import Observation, import Dispatch
 #   import FoundationEssentials   directly after   #if canImport(FoundationEssentials)
 #   import Foundation             directly after an #else that follows that import
 #   import Darwin / Glibc / Musl  in Lock.swift only (its C library mutex)
+#   import CAdwaita, import Glibc in the GTK renderer, which builds only on Linux
 # Anything else is reported as "file:line: message", and the exit status is 1.
-# A stray "import Foundation" matters: the static Linux SDK carries full Foundation, so it would
-# compile there and bring the ICU data back into every Linux program.
+# A stray "import Foundation" matters: Linux has full Foundation too, so it would compile there and
+# bring the ICU data back into every Linux program.
 #
 # Usage: /usr/bin/awk -f Scripts/check-core-imports.awk <file.swift>...
 
@@ -20,6 +22,7 @@ function trim(s) {
 FNR == 1 {
     previous = ""
     beforePrevious = ""
+    renderer = (FILENAME ~ /(^|\/)ActionUIAdwaita\/Sources\//)
 }
 
 {
@@ -43,11 +46,13 @@ FNR == 1 {
             ok = (previous == "#if canImport(FoundationEssentials)")
         } else if (module == "Foundation") {
             ok = (previous == "#else" && beforePrevious == "import FoundationEssentials")
+        } else if (renderer && (module == "CAdwaita" || module == "Glibc")) {
+            ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
             ok = (FILENAME ~ /(^|\/)Lock\.swift$/)
         }
         if (!ok) {
-            printf "%s:%d: import %s is not allowed in Core\n", FILENAME, FNR, module
+            printf "%s:%d: import %s is not allowed in %s\n", FILENAME, FNR, module, (renderer ? "the GTK renderer" : "Core")
             failures++
         }
     }
