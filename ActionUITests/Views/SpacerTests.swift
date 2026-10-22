@@ -120,4 +120,29 @@ final class SpacerTests: XCTestCase {
         }
         XCTAssertNil(viewModel.value, "Initial viewModel value should be nil for Spacer")
     }
+
+#if os(macOS)
+    /// The smallest size SwiftUI gives a stack holding only a Spacer with `minLength: 30`.
+    private func fittingSizeOfStack(_ stackType: String) throws -> CGSize {
+        let model = ActionUIModel.shared
+        let element = try model.loadDescription(from: [
+            "id": 1, "type": stackType, "properties": ["spacing": 0],
+            "children": [["id": 2, "type": "Spacer", "properties": ["minLength": 30]]],
+        ], windowUUID: windowUUID)
+        let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[element.id])
+        let host = NSHostingView(rootView: ActionUIView(element: element, model: viewModel, windowUUID: windowUUID))
+        return host.fittingSize
+    }
+
+    func testMinLengthIsAlongTheStacksAxis() throws {
+        // As SwiftUI's Spacer(minLength:): 30 tall and not wide in a VStack, 30 wide in an HStack.
+        let column = try fittingSizeOfStack("VStack")
+        XCTAssertEqual(column.height, 30)
+        XCTAssertEqual(column.width, 0)
+        ActionUIModel.resetForTesting()
+        let row = try fittingSizeOfStack("HStack")
+        XCTAssertEqual(row.width, 30)
+        XCTAssertEqual(row.height, 0)
+    }
+#endif
 }
