@@ -1,0 +1,5 @@
+{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 300, "height": 200}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"maxWidth": "infinity", "minHeight": 30, "maxHeight": 30}}},
+  {"type": "Spacer", "id": 3, "properties": {"minLength": 20}},
+  {"type": "Color", "id": 4, "properties": {"color": "#0000FF", "frame": {"width": 60, "height": 40}}}
+]}

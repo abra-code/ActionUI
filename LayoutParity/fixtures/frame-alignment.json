@@ -1,0 +1,5 @@
+{"type": "VStack", "id": 1, "properties": {"frame": {"width": 300, "height": 200}}, "children": [
+  {"type": "VStack", "id": 2, "properties": {"frame": {"width": 200, "height": 100, "alignment": "bottomTrailing"}}, "children": [
+    {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"width": 40, "height": 30}}}
+  ]}
+]}

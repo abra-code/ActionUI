@@ -1,0 +1,4 @@
+{"type": "ZStack", "id": 1, "properties": {"alignment": "topTrailing", "frame": {"width": 300, "height": 200}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#0000FF", "frame": {"width": 100, "height": 60}}},
+  {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"width": 20, "height": 10}}}
+]}

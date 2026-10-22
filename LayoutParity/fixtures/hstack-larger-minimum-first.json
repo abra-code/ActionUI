@@ -1,0 +1,4 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 200, "height": 60}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#FF0000"}},
+  {"type": "Color", "id": 3, "properties": {"color": "#0000FF", "frame": {"minWidth": 150}}}
+]}
