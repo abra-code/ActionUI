@@ -9,7 +9,10 @@ extension ActionUIRegistry {
     // The GTK renderers of the built-in element types; the others render as the placeholder.
     static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [
         "Button": Button.self,
+        "Capsule": Capsule.self,
+        "Circle": Circle.self,
         "Color": Color.self,
+        "Ellipse": Ellipse.self,
         "EmptyView": EmptyView.self,
         "GroupBox": GroupBox.self,
         "HStack": HStack.self,
@@ -17,6 +20,8 @@ extension ActionUIRegistry {
         "LazyHStack": LazyHStack.self,
         "LazyVStack": LazyVStack.self,
         "Picker": Picker.self,
+        "Rectangle": Rectangle.self,
+        "RoundedRectangle": RoundedRectangle.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextField": TextField.self,
