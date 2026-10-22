@@ -1,0 +1,199 @@
+// Tests/Runtime/AdwaitaApplicationTests.swift
+/*
+ Tests for the application on Linux, each running a real AdwApplication until it ends: windows
+ asked for before the start wait for it and open between willFinishLaunching and
+ didFinishLaunching; a window opens at its document's ideal size, titled by the application's
+ name; a size larger than the monitor is capped, and a minimum larger than it scrolls; a file's
+ document is titled by its name, and one that cannot be loaded shows its error; the user's close
+ of the last window asks shouldTerminate; terminate ends the application and willTerminate fires;
+ a second run while running is refused; the icon is the windows' default icon.
+*/
+
+import XCTest
+import CAdwaita
+@testable import ActionUI
+
+@MainActor
+final class AdwaitaApplicationTests: XCTestCase {
+    private var files: [String] = []
+
+    override func setUp() async throws {
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
+        try AdwaitaTestHost.initialize()
+        ActionUIRegistry.shared.loadBuiltIns()
+    }
+
+    override func tearDown() async throws {
+        for uuid in ["app-w1", "app-w2", "app-big", "app-file", "app-bad", "app-tall"] {
+            ActionUIModel.shared.windowModels[uuid] = nil
+        }
+        for file in files {
+            try? FileManager.default.removeItem(atPath: file)
+        }
+        AdwaitaTestHost.drainMainLoop()
+    }
+
+    private static let document = #"{"type": "VStack", "id": 1, "properties": {"frame": {"minWidth": 300, "idealWidth": 360, "minHeight": 280, "idealHeight": 320}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#
+
+    private func defaultSize(_ window: UnsafeMutablePointer<GtkWindow>) -> (Int32, Int32) {
+        var width: Int32 = 0
+        var height: Int32 = 0
+        gtk_window_get_default_size(window, &width, &height)
+        return (width, height)
+    }
+
+    /// The toolbar view's content: the document's box, or what holds it.
+    private func content(_ window: UnsafeMutablePointer<GtkWindow>) -> WidgetPointer? {
+        guard let toolbar = adw_application_window_get_content(typed(window)) else { return nil }
+        return adw_toolbar_view_get_content(OpaquePointer(toolbar))
+    }
+
+    func testWindowsWaitForTheStartAndOpenAtTheIdealSize() throws {
+        let app = AdwaitaApplication()
+        app.name = "Linux Test App"
+        var events: [String] = []
+        var size: (Int32, Int32) = (0, 0)
+        var title: String?
+        app.handlers.willFinishLaunching = { events.append("willFinishLaunching") }
+        app.handlers.windowWillPresent = { events.append("present \($0)") }
+        app.handlers.windowWillClose = { events.append("close \($0)") }
+        app.handlers.didFinishLaunching = {
+            events.append("didFinishLaunching")
+            if let window = app.gtkWindow("app-w1") {
+                size = self.defaultSize(window)
+                title = swiftString(gtk_window_get_title(window))
+            }
+            app.closeWindow("app-w1")
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
+        XCTAssertEqual(app.run(), 0, "the last window closed: the application ended")
+        XCTAssertEqual(events, ["willFinishLaunching", "present app-w1", "didFinishLaunching", "close app-w1"])
+        XCTAssertEqual(size.0, 360, "the root frame's ideal width")
+        XCTAssertGreaterThan(size.1, 320, "the ideal height plus the header bar")
+        XCTAssertEqual(title, "Linux Test App", "a JSON document is titled by the application's name")
+    }
+
+    func testASizeLargerThanTheMonitorIsCappedAndALargerMinimumScrolls() throws {
+        var monitorWidth: Int32 = 0
+        var monitorHeight: Int32 = 0
+        if let display = gdk_display_get_default(), let item = g_list_model_get_item(gdk_display_get_monitors(display), 0) {
+            var geometry = GdkRectangle()
+            gdk_monitor_get_geometry(OpaquePointer(item), &geometry)
+            monitorWidth = geometry.width
+            monitorHeight = geometry.height
+            g_object_unref(item)
+        }
+        let app = AdwaitaApplication()
+        var size: (Int32, Int32) = (0, 0)
+        var scrolls = false
+        var tallScrolls = false
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"idealWidth": 50000, "idealHeight": 200}}}"#.utf8),
+                              windowUUID: "app-w1", title: "Ideal")
+            app.presentWindow(json: Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 50000, "minHeight": 100}}}"#.utf8),
+                              windowUUID: "app-big", title: "Minimum")
+            // Under the monitor's height, but not with the header bar on top.
+            app.presentWindow(json: Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 100, "minHeight": \#(monitorHeight - 10)}}}"#.utf8),
+                              windowUUID: "app-tall", title: "Tall")
+            if let window = app.gtkWindow("app-w1") { size = self.defaultSize(window) }
+            if let window = app.gtkWindow("app-big"), let content = self.content(window) {
+                scrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
+            }
+            if let window = app.gtkWindow("app-tall"), let content = self.content(window) {
+                tallScrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
+            }
+            app.closeWindow("app-w1")
+            app.closeWindow("app-big")
+            app.closeWindow("app-tall")
+        }
+        app.run()
+        XCTAssertGreaterThan(monitorWidth, 0)
+        XCTAssertEqual(size.0, monitorWidth, "capped at the monitor")
+        XCTAssertTrue(scrolls, "a minimum wider than the monitor scrolls")
+        XCTAssertTrue(tallScrolls, "a minimum taller than the monitor with the header bar scrolls")
+    }
+
+    func testAFileIsTitledByItsNameAndABadDocumentShowsItsError() throws {
+        let path = NSTemporaryDirectory() + "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier).json"
+        try Self.document.write(toFile: path, atomically: true, encoding: .utf8)
+        files.append(path)
+        let app = AdwaitaApplication()
+        var title: String?
+        var errorText: String?
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(url: path, windowUUID: "app-file", title: nil)
+            app.presentWindow(json: Data("{ not json".utf8), windowUUID: "app-bad", title: "Bad")
+            title = app.gtkWindow("app-file").flatMap { swiftString(gtk_window_get_title($0)) }
+            if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
+                errorText = swiftString(gtk_label_get_text(opaque(label)))
+            }
+            app.closeWindow("app-file")
+            app.closeWindow("app-bad")
+        }
+        app.run()
+        XCTAssertEqual(title, "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier)")
+        XCTAssertTrue(errorText?.hasPrefix("The document could not be loaded") == true, "got \(errorText ?? "nil")")
+    }
+
+    func testClosingTheLastWindowAsksAndTerminateEndsTheApplication() throws {
+        let app = AdwaitaApplication()
+        var allow = false
+        var asked = 0
+        var stillOpen = false
+        var terminated = false
+        var secondRun: Int32 = 0
+        app.handlers.shouldTerminate = {
+            asked += 1
+            return allow
+        }
+        app.handlers.willTerminate = { terminated = true }
+        let toplevels = g_list_model_get_n_items(gtk_window_get_toplevels())
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            secondRun = app.run()
+            // The user's close of the last window: refused.
+            if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
+            stillOpen = app.gtkWindow("app-w1") != nil
+            allow = true
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(secondRun, 1, "a second run while running is refused")
+        XCTAssertTrue(stillOpen, "shouldTerminate said no: the window stays")
+        XCTAssertEqual(asked, 2, "asked for the close and for terminate")
+        XCTAssertTrue(terminated, "willTerminate fired")
+        XCTAssertEqual(g_list_model_get_n_items(gtk_window_get_toplevels()), toplevels, "the window open at terminate is gone")
+    }
+
+    func testAnApplicationWithNoWindowYetWaitsForItsFirst() throws {
+        let app = AdwaitaApplication()
+        var presented = false
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a hold never released, or a close that does not end the application,
+            // fails the test instead of hanging it.
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            // As a host whose document arrives later: no window when launching ends.
+            _ = runAfter(milliseconds: 50) {
+                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: "Later")
+                presented = app.gtkWindow("app-w2") != nil
+                app.closeWindow("app-w2")
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(presented, "the application waited for its first window")
+    }
+
+    func testTheIconIsTheWindowsDefaultIcon() throws {
+        let app = AdwaitaApplication()
+        app.icon = "applications-science"
+        var icon: String?
+        app.handlers.didFinishLaunching = {
+            icon = swiftString(gtk_window_get_default_icon_name())
+            app.terminate()
+        }
+        app.run()
+        XCTAssertEqual(icon, "applications-science")
+    }
+}

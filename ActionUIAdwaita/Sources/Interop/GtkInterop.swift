@@ -143,6 +143,40 @@ func connectObjectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
     return id
 }
 
+/// What a handler that answers its signal runs; retained by GLib while it is connected.
+@MainActor final class BooleanSignalAction {
+    let run: @MainActor () -> Bool
+    init(_ run: @escaping @MainActor () -> Bool) { self.run = run }
+}
+
+/// For signals whose handler takes (instance, user data) and returns a gboolean, such as
+/// GtkWindow's "close-request".
+private let booleanTrampoline: @convention(c) (gpointer?, gpointer?) -> gboolean = { _, data in
+    guard let data else { return 0 }
+    let action = Unmanaged<BooleanSignalAction>.fromOpaque(data).takeUnretainedValue()
+    return MainActor.assumeIsolated { action.run() } ? 1 : 0
+}
+
+private let releaseBooleanSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
+    guard let data else { return }
+    Unmanaged<BooleanSignalAction>.fromOpaque(data).release()
+}
+
+/// Connects `run` to a signal whose handler returns a gboolean (instance, user data), and
+/// returns its answer to GTK: for "close-request", true keeps the window open. Returns GLib's
+/// handler id (0 if the signal does not exist).
+@MainActor @discardableResult
+func connectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
+                          _ run: @escaping @MainActor () -> Bool) -> gulong {
+    let data = Unmanaged.passRetained(BooleanSignalAction(run)).toOpaque()
+    let callback = unsafeBitCast(booleanTrampoline, to: GCallback.self)
+    let id = g_signal_connect_data(instance, signal, callback, data, releaseBooleanSignalAction, GConnectFlags(0))
+    if id == 0 {
+        Unmanaged<BooleanSignalAction>.fromOpaque(data).release()
+    }
+    return id
+}
+
 // MARK: - Swift objects kept on GObjects
 
 private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in
