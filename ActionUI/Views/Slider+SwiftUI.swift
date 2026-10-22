@@ -17,15 +17,10 @@ extension Slider: ActionUISwiftUIRenderer {
                 guard model.value as? Double != newValue else {
                     return
                 }
-                if props.accepts(newValue) {
-                    // Use DispatchQueue.main.async to guarantee deferred execution and avoid
-                    // "publishing changes from within view updates" warning
-                    DispatchQueue.main.async {
-                        model.value = newValue
-                        if let valueChangeActionID = props.valueChangeActionID {
-                            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                        }
-                    }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    Slider.userSetValue(newValue, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

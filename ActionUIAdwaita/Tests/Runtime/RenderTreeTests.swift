@@ -198,12 +198,12 @@ final class RenderTreeTests: XCTestCase {
 
     func testATypeWithoutARendererShowsThePlaceholder() throws {
         let window = try render("""
-            {"type": "VStack", "id": 1, "children": [{"type": "Slider", "id": 2}]}
+            {"type": "VStack", "id": 1, "children": [{"type": "Map", "id": 2}]}
             """)
         let root = try XCTUnwrap(window.root)
         let placeholder = try XCTUnwrap(root.childNodes[2])
         XCTAssertTrue(placeholder.renderer == PlaceholderRenderer.self)
-        XCTAssertEqual(labels(root.widget), ["Slider is not available on Linux yet"])
+        XCTAssertEqual(labels(root.widget), ["Map is not available on Linux yet"])
         XCTAssertNotEqual(gtk_widget_has_css_class(placeholder.widget, "dim-label"), 0)
     }
 

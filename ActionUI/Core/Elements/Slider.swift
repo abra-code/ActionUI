@@ -61,6 +61,17 @@ extension Slider {
             (min...max).contains(value)
         }
     }
+
+    /// The user moved the slider: stores the position as the value and fires valueChangeActionID,
+    /// only when it is inside the range and differs from the value.
+    @MainActor
+    static func userSetValue(_ newValue: Double, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard props.accepts(newValue), model.value as? Double != newValue else { return }
+        model.value = newValue
+        if let valueChangeActionID = props.valueChangeActionID {
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        }
+    }
 }
 
 struct Slider: ActionUIElementSpec {
