@@ -6,9 +6,14 @@
 */
 
 extension ActionUIRegistry {
-    // The GTK renderers of the built-in element types. None yet: every element renders as the
-    // placeholder.
-    static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [:]
+    // The GTK renderers of the built-in element types; the others render as the placeholder.
+    static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [
+        "HStack": HStack.self,
+        "LazyHStack": LazyHStack.self,
+        "LazyVStack": LazyVStack.self,
+        "Spacer": Spacer.self,
+        "VStack": VStack.self,
+    ]
 
     // Static because an extension cannot add stored instance properties; the registry is a single
     // shared instance.

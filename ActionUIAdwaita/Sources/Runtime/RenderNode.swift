@@ -48,6 +48,12 @@ final class RenderNode {
         ActionUIRegistry.shared.applyDynamicSubviews(to: element, model: model)
     }
 
+    /// The elements in one of the effective element's subview lists ("children", "rows"). A
+    /// tracked read.
+    func subviews(_ key: String) -> [any ActionUIElementBase] {
+        effectiveElement.subviews?[key] as? [any ActionUIElementBase] ?? []
+    }
+
     /// Makes the node and its widget; the caller syncs it (sync) once it is placed.
     init(element: any ActionUIElementBase, model: ViewModel, windowModel: WindowModel, parent: RenderNode?) {
         self.element = element
