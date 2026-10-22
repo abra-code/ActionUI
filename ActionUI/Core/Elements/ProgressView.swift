@@ -48,6 +48,22 @@ extension ProgressView {
             actionID = properties["actionID"] as? String
         }
     }
+
+    /// The progress shown with its total, nil when indeterminate: states["progress"], which a host
+    /// sets at run time, else the value; the total is 1.0 when not given. A progress above the total
+    /// is indeterminate too.
+    static func determinateProgress(_ model: ViewModel, _ props: Props) -> (value: Double, total: Double)? {
+        guard let value = model.states.double(forKey: "progress") ?? initialValue(model) as? Double else { return nil }
+        let total = props.total ?? 1.0
+        return value <= total ? (value, total) : nil
+    }
+
+    /// The user tapped the progress view: fires actionID.
+    @MainActor
+    static func userTapped(element: any ActionUIElementBase, windowUUID: String, props: Props) {
+        guard let actionID = props.actionID else { return }
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+    }
 }
 
 struct ProgressView: ActionUIElementSpec {

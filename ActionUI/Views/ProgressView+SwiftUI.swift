@@ -7,22 +7,13 @@ import UIKit
 
 extension ProgressView: ActionUISwiftUIRenderer {
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let initialValue = Self.initialValue(model) as? Double
         let props = Props(properties)
         let title: String? = props.title
-        let actionID: String? = props.actionID
 
-        // The runtime states["progress"] override wins over the initial JSON value.
-        let currentValue: Double? = model.states.double(forKey: "progress") ?? initialValue
-
-        // total defaults to 1.0 when a value is present (matching the documented
-        // contract and the Android/Web ports); a total of the wrong type reads as
-        // nil. With no value at all
-        // the progress is indeterminate, so total stays nil.
-        let total: Double? = props.total ?? (currentValue != nil ? 1.0 : nil)
-
+        // states["progress"] wins over the initial JSON value; total defaults to 1.0 when a value
+        // is present (matching the documented contract and the Android/Web ports).
         let progressView: any SwiftUI.View
-        if let value = currentValue, let total = total, value <= total {
+        if let (value, total) = ProgressView.determinateProgress(model, props) {
             progressView = title != nil ?
             SwiftUI.ProgressView(title!, value: value, total: total) :
             SwiftUI.ProgressView(value: value, total: total)
@@ -34,9 +25,7 @@ extension ProgressView: ActionUISwiftUIRenderer {
         
         return progressView
             .onTapGesture {
-                if let actionID = actionID {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                }
+                ProgressView.userTapped(element: element, windowUUID: windowUUID, props: props)
             }
     }
     

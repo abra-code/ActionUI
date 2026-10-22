@@ -57,6 +57,15 @@ private let threeArgumentTrampoline: @convention(c) (gpointer?, gpointer?, gpoin
     MainActor.assumeIsolated { action.run() }
 }
 
+/// For a click gesture's "pressed" and "released": (instance, press count, x, y, user data). The
+/// doubles travel in floating-point registers, so the user data is not where a three-pointer
+/// trampoline would look.
+private let pressTrampoline: @convention(c) (gpointer?, gint, gdouble, gdouble, gpointer?) -> Void = { _, _, _, _, data in
+    guard let data else { return }
+    let action = Unmanaged<SignalAction>.fromOpaque(data).takeUnretainedValue()
+    MainActor.assumeIsolated { action.run() }
+}
+
 private let releaseSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
     guard let data else { return }
     Unmanaged<SignalAction>.fromOpaque(data).release()
@@ -68,6 +77,8 @@ enum SignalShape {
     case instanceOnly
     /// (instance, argument, user data): "notify::<property>"
     case instanceAndArgument
+    /// (instance, press count, x, y, user data): a GtkGestureClick's "pressed" and "released"
+    case press
 }
 
 /// Connects `run` to `signal` on a GObject, whatever caused the signal. For a signal a user's
@@ -83,6 +94,8 @@ func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shap
         callback = unsafeBitCast(twoArgumentTrampoline, to: GCallback.self)
     case .instanceAndArgument:
         callback = unsafeBitCast(threeArgumentTrampoline, to: GCallback.self)
+    case .press:
+        callback = unsafeBitCast(pressTrampoline, to: GCallback.self)
     }
     // GLib calls releaseSignalAction once a connected handler is gone. When connecting fails (an
     // unknown signal, which GLib logs) it never calls it, so the action is released here.
