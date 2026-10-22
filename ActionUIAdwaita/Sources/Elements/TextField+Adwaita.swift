@@ -94,8 +94,9 @@ extension TextField: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// Whether the focus of the entry's window is the entry or inside it (its text widget).
-    private static func containsWindowFocus(_ entry: WidgetPointer) -> Bool {
+    /// Whether the focus of the entry's window is the entry or inside it (its text widget). SecureField
+    /// uses it too.
+    static func containsWindowFocus(_ entry: WidgetPointer) -> Bool {
         guard let root = gtk_widget_get_root(entry), let focus = gtk_root_get_focus(root) else { return false }
         return focus == entry || gtk_widget_is_ancestor(focus, entry) != 0
     }

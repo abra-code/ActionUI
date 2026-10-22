@@ -18,7 +18,7 @@
      "value": 9.99,                  // Optional: Initial numeric value (Int, Double, or String). Used instead of "text" when format is set. Defaults to 0
      "textContentType": "username",  // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
      "actionID": "text.submit",      // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
-                                     //   On macOS, actionID is also triggered when the field loses focus (tab away, click elsewhere),
+                                     //   On macOS and Linux, actionID is also triggered when the field loses focus (tab away, click elsewhere),
                                      //   matching classic AppKit text field behavior where ending editing commits the value.
                                      //   Without an actionID the field has no submit handler, so on macOS Return falls through
                                      //   to the window's default button (a Button with keyboardShortcut return and modifiers []).
@@ -50,7 +50,7 @@
    }
  }
 
-   // Note: The TextField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). On macOS, actionID is also triggered on focus loss (tab, click away) to match classic AppKit behavior. valueChangeActionID is triggered continously on each change via the binding's set closure.
+   // Note: The TextField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). On macOS and Linux, actionID is also triggered on focus loss (tab, click away) to match classic AppKit behavior. valueChangeActionID is triggered continously on each change via the binding's set closure.
    Supported values for "textContentType": "name", "namePrefix", "givenName", "middleName", "familyName", "nameSuffix", "nickname", "jobTitle", "organizationName", "location", "fullStreetAddress", "streetAddressLine1", "streetAddressLine2", "addressCity", "addressState", "addressCityAndState", "sublocality", "countryName", "postalCode", "telephoneNumber", "emailAddress", "url", "creditCardNumber", "creditCardSecurityCode", "creditCardName", "creditCardExpiration", "creditCardType", "username", "password", "newPassword", "oneTimeCode", "shipmentTrackingNumber", "flightNumber", "dateTime", "birthdate", "birthdateDay", "birthdateMonth", "birthdateYear", "paymentMethod" (ignored on macOS). Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
 
    // Note: actionID is triggered via onSubmit for user-initiated submits (e.g., Return key).  Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers. On macOS, the default text field style (likely rounded) is used.
@@ -122,17 +122,30 @@ extension TextField {
     /// valueChangeActionID, only when it differs from the value.
     @MainActor
     static func userEditedText(_ newValue: String, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
-        guard model.value as? String != newValue else { return }
-        model.value = newValue
-        if let valueChangeActionID = props.valueChangeActionID {
-            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-        }
+        userEditedText(newValue, valueChangeActionID: props.valueChangeActionID, element: element, model: model, windowUUID: windowUUID)
     }
 
     /// The user submitted the field (Return, or on macOS and Linux, leaving it): fires actionID.
     @MainActor
     static func userSubmitted(element: any ActionUIElementBase, windowUUID: String, props: Props) {
-        guard let actionID = props.actionID else { return }
+        userSubmitted(actionID: props.actionID, element: element, windowUUID: windowUUID)
+    }
+
+    /// What typing does in any text entry (TextField and SecureField): stores the text as the value
+    /// and fires valueChangeActionID, only when it differs from the value.
+    @MainActor
+    static func userEditedText(_ newValue: String, valueChangeActionID: String?, element: any ActionUIElementBase, model: ViewModel, windowUUID: String) {
+        guard model.value as? String != newValue else { return }
+        model.value = newValue
+        if let valueChangeActionID {
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        }
+    }
+
+    /// What submitting does in any text entry (TextField and SecureField): fires actionID.
+    @MainActor
+    static func userSubmitted(actionID: String?, element: any ActionUIElementBase, windowUUID: String) {
+        guard let actionID else { return }
         // actionHandler logs the call.
         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
     }

@@ -12,18 +12,12 @@ extension SecureField: ActionUISwiftUIRenderer {
         let props = Props(properties)
         let title = props.title
         let prompt = props.prompt.map { SwiftUI.Text($0) }
-        let actionID = props.actionID
         let initialValue = Self.initialValue(model) as? String ?? ""
 
         let onSubmit = {
-            if let actionID = actionID {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-            }
+            TextField.userSubmitted(actionID: props.actionID, element: element, windowUUID: windowUUID)
         }
 
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = props.valueChangeActionID
         let textBinding = mainActorBinding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
@@ -33,10 +27,7 @@ extension SecureField: ActionUISwiftUIRenderer {
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
-                    model.value = newValue
-                    if let valueChangeActionID {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    TextField.userEditedText(newValue, valueChangeActionID: props.valueChangeActionID, element: element, model: model, windowUUID: windowUUID)
                 }
             }
         )
