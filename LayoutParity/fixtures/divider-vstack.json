@@ -1,0 +1,5 @@
+{"type": "VStack", "id": 1, "properties": {"spacing": 8, "frame": {"width": 100, "height": 60}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"height": 20}}},
+  {"type": "Divider", "id": 3},
+  {"type": "Color", "id": 4, "properties": {"color": "#0000FF"}}
+]}

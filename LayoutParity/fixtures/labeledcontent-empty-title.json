@@ -1,0 +1,6 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 300, "height": 60}}, "children": [
+  {"type": "LabeledContent", "id": 2, "properties": {"title": ""}, "children": [
+    {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"maxWidth": 100, "maxHeight": 30}}},
+    {"type": "Color", "id": 4, "properties": {"color": "#00FF00", "frame": {"width": 20, "height": 20}}}]},
+  {"type": "Color", "id": 5, "properties": {"color": "#0000FF"}}
+]}

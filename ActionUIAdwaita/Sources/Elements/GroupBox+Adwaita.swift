@@ -85,16 +85,9 @@ extension GroupBox: ActionUIAdwaitaRenderer {
         return sizes.max() ?? 0
     }
 
-    /// A vertical GtkBox whose accessible role is group (the role can only be set when the widget
-    /// is made).
+    /// A vertical GtkBox whose accessible role is group.
     private static func groupBox() -> WidgetPointer {
-        let name: StaticString = "accessible-role"
-        var names: [UnsafePointer<CChar>?] = [UnsafeRawPointer(name.utf8Start).assumingMemoryBound(to: CChar.self)]
-        var role = GValue()
-        g_value_init(&role, gtk_accessible_role_get_type())
-        g_value_set_enum(&role, Int32(GTK_ACCESSIBLE_ROLE_GROUP.rawValue))
-        let box: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(gtk_box_get_type(), 1, &names, &role)!))
-        g_value_unset(&role)
+        let box = newWidget(gtk_box_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_GROUP)
         gtk_orientable_set_orientation(OpaquePointer(box), GTK_ORIENTATION_VERTICAL)
         gtk_box_set_spacing(typed(box), titleSpacing)
         return box

@@ -177,6 +177,21 @@ func connectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
     return id
 }
 
+// MARK: - Widgets with an accessible role
+
+/// A new widget of `type` with `role` as its accessible role, which can only be set when the
+/// widget is made. It comes with GTK's floating reference, as gtk_*_new returns.
+func newWidget(_ type: GType, accessibleRole role: GtkAccessibleRole) -> WidgetPointer {
+    let name: StaticString = "accessible-role"
+    var names: [UnsafePointer<CChar>?] = [UnsafeRawPointer(name.utf8Start).assumingMemoryBound(to: CChar.self)]
+    var value = GValue()
+    g_value_init(&value, gtk_accessible_role_get_type())
+    g_value_set_enum(&value, Int32(role.rawValue))
+    let widget: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(type, 1, &names, &value)!))
+    g_value_unset(&value)
+    return widget
+}
+
 // MARK: - Swift objects kept on GObjects
 
 private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in

@@ -1,9 +1,9 @@
 // Sources/Elements/Spacer+Adwaita.swift
 /*
  Spacer on GTK: an empty widget that expands along its parent stack's axis (vertically in a
- GroupBox, whose content is a vertical stack; in both axes outside a stack), at least minLength
- long in that axis (8, SwiftUI's usual spacing, when not given), as SwiftUI's Spacer(minLength:)
- is.
+ GroupBox, whose content is a vertical stack, horizontally in LabeledContent's row; in both axes
+ outside a stack), at least minLength long in that axis (8, SwiftUI's usual spacing, when not
+ given), as SwiftUI's Spacer(minLength:) is.
 */
 
 import CAdwaita
@@ -29,11 +29,12 @@ extension Spacer: ActionUIAdwaitaRenderer {
         gtk_widget_set_vexpand(widget, vertical ? 1 : 0)
     }
 
-    /// The axis of the stack the spacer is in; nil outside a stack.
+    /// The axis of the stack the element is in (from its parent element's type); nil outside a stack.
+    /// Divider uses it too.
     static func parentAxis(_ node: RenderNode) -> StackAxis? {
         switch node.parent?.element.type {
         case "VStack", "LazyVStack", "GroupBox": return .vertical
-        case "HStack", "LazyHStack": return .horizontal
+        case "HStack", "LazyHStack", "LabeledContent": return .horizontal
         default: return nil
         }
     }
