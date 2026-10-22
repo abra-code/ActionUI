@@ -10,6 +10,8 @@
  - A VStack or HStack: along its axis, the sum of its children's largest sizes plus the spacing
    between them; across it, the largest of its children's.
  - A ZStack: the largest of its children's, in each axis.
+ - A GroupBox: its card's (its children's, as a VStack's, plus the padding) and its title's, one
+   above the other (GroupBox.cap).
  - A child's largest size is its cap where it expands and its natural size where it does not.
  - nil: unbounded. That is any other widget that expands (a Color, a Spacer), and any container
    with an unbounded child in that axis.
@@ -29,6 +31,9 @@ enum LayoutCaps {
         }
         if attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) != nil {
             return largestOfChildren(widget, orientation)
+        }
+        if attached(GroupBoxMarker.self, on: widget, key: groupBoxMarkerKey) != nil {
+            return GroupBox.cap(widget, orientation)
         }
         return nil
     }

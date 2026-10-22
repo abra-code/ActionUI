@@ -1,0 +1,5 @@
+{"type": "VStack", "id": 1, "properties": {"frame": {"width": 300, "height": 200}}, "children": [
+  {"type": "GroupBox", "id": 3, "children": [
+    {"type": "Color", "id": 2, "properties": {"color": "#00FF00"}}
+  ]}
+]}

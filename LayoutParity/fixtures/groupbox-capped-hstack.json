@@ -1,0 +1,6 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 300, "height": 100}}, "children": [
+  {"type": "GroupBox", "id": 4, "children": [
+    {"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"maxWidth": 100}}}
+  ]},
+  {"type": "Color", "id": 3, "properties": {"color": "#0000FF"}}
+]}

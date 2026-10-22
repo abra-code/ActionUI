@@ -1,0 +1,6 @@
+{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 300, "height": 200}}, "children": [
+  {"type": "GroupBox", "id": 4, "children": [
+    {"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}
+  ]},
+  {"type": "Color", "id": 3, "properties": {"color": "#0000FF"}}
+]}

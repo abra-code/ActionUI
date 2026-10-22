@@ -10,6 +10,8 @@ extension ActionUIRegistry {
     static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [
         "Button": Button.self,
         "Color": Color.self,
+        "EmptyView": EmptyView.self,
+        "GroupBox": GroupBox.self,
         "HStack": HStack.self,
         "Image": Image.self,
         "LazyHStack": LazyHStack.self,
