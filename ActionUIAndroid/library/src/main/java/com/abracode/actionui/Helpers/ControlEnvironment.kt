@@ -79,7 +79,7 @@ val LocalActionUILabelsHidden: ProvidableCompositionLocal<Boolean> =
  * [ProvideReactiveEnvironment].
  *
  * A `hidden` element is invisible AND non-interactive on Apple (`.hidden()`,
- * removed from hit-testing) and web (`display:none`, removed from the layout and
+ * removed from hit-testing) and web (`visibility: hidden`, still laid out but out of
  * hit-testing). On Android `hidden` maps to `alpha(0f)` (invisible but still laid
  * out - the reserve-space semantics of `hidden`), which
  * leaves the subtree HIT-TESTABLE. In the section-switcher idiom (overlapping

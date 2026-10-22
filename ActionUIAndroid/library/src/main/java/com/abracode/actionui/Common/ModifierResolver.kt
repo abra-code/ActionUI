@@ -215,7 +215,7 @@ fun Modifier.applyOuterProperties(
  * fully laid out AND fully hit-testable, so a hidden Button sitting over visible
  * content silently swallowed taps meant for what was underneath, and TalkBack
  * still announced controls that were not on screen. Apple's `.hidden()` and web's
- * `display: none` both take the view out of hit testing and out of accessibility,
+ * `visibility: hidden` both take the view out of hit testing and out of accessibility,
  * so this was a real cross-platform divergence rather than a cosmetic one:
  * identical JSON behaved differently on Android in a way no author could see.
  *
@@ -242,7 +242,7 @@ fun Modifier.applyOuterProperties(
  * still ate its taps, only now silently rather than by firing. Measured on a Pixel
  * 7a: SharedCare's Home carries an always-present hidden states overlay, and with
  * the consuming version NOTHING on that screen could be tapped - on Apple and web,
- * where `.hidden()` and `display: none` both leave hit testing entirely, the same
+ * where `.hidden()` and `visibility: hidden` both leave hit testing entirely, the same
  * JSON worked.
  */
 private fun Modifier.hiddenSubtree(): Modifier = this

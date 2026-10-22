@@ -298,6 +298,8 @@ const PROPERTY_APPLIERS = {
     hidden: (node, value) => {
         const on = value === true;
         node.style.visibility = on ? "hidden" : "";
+        // The decoration / safe-area inset wrapper around the node, if any (buildElementView).
+        if (node.auiHiddenRoot) node.auiHiddenRoot.style.visibility = on ? "hidden" : "";
         // Toolbar chrome COLLAPSES rather than reserving its slot (Helpers/ToolbarHelper.js).
         // Chrome nodes are built even when authored hidden, precisely so this path works:
         // a host can reveal a hidden bar item at runtime the way Android's recomposing
@@ -382,20 +384,17 @@ export function applyViewModifiers(node, element, properties, ctx) {
     // Android suppresses input at any given time, all of it is layout-inert and the space
     // stays reserved).
     //
-    // Two places where matching Apple is NOT the goal, both deliberate:
-    //  - Accessibility. Apple's `.hidden()` leaves the element IN the accessibility tree,
-    //    which is why a host hiding chrome on Apple must also author `accessibilityHidden`
-    //    and blank the label. Web and Android both drop it. That is better, not parity.
-    //  - The element's own painted decoration. `View.swift` applies `.hidden()` (1265)
-    //    BEFORE `background` (1328), `cornerRadius` (1348), `border` (1419) and the
-    //    view-valued `background`/`overlay` (1339/1427), so on Apple all of those still
-    //    paint around an invisible view. Here `visibility: hidden` suppresses the element's
-    //    own paint (background color, corner radius) - the Android outcome, and the one an
-    //    author asking for "hidden" expects. What it does NOT reach is what a later WRAPPER
-    //    adds outside this node in buildElementView (a view-valued overlay/background
-    //    subview, swipeActions panels, a safeAreaInset bar, a searchable field, toolbar
-    //    chrome); those still paint, which is the Apple outcome. Web therefore sits between
-    //    the two hosts on this one combination.
+    // One place where matching Apple is NOT the goal, deliberately: accessibility. Apple's
+    // `.hidden()` leaves the element IN the accessibility tree, which is why a host hiding
+    // chrome on Apple must also author `accessibilityHidden` and blank the label. Web and
+    // Android both drop it. That is better, not parity.
+    //
+    // The element's painted decoration hides with it on every host: Apple applies
+    // `.hidden()` after the background, border, overlay, safe-area inset and shadow.
+    // Here `visibility: hidden` covers the element's own paint (background color, corner
+    // radius), and buildElementView puts it on the outermost decoration / swipe /
+    // safe-area inset wrapper too, so the view-valued background/overlay and the inset bar
+    // hide as well. The searchable field and toolbar chrome outside those stay, as on Apple.
     //
     // There is no collapse semantic on any host; the ZStack panel-switcher idiom (all
     // bodies overlaid, one visible) is what authors use instead. Toolbars are the single

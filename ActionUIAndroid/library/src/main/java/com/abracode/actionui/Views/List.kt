@@ -140,7 +140,7 @@ object ListView : ActionUIViewConstruction {
         val listState = rememberLazyListState()
         RegisterLazyScrollHandle(element, listState, vertical = true)
 
-        // A hidden subtree must not consume touch - Apple's `.hidden()` and web's `display:none`
+        // A hidden subtree must not consume touch - Apple's `.hidden()` and web's `visibility: hidden`
         // are non-interactive, but Android `hidden` is only `alpha(0f)` (invisible, still laid out
         // AND still hit-testable). In the section-switcher idiom (overlapping bodies in a ZStack,
         // all but one hidden) an invisible List on top in z-order would otherwise steal the vertical

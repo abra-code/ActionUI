@@ -107,6 +107,15 @@ export function buildElementView(element, ctx) {
     // padding) and the content takes the rest. A no-op unless a safeAreaInset subview is declared;
     // data-aui-id stays on the inner node, like the other wraps.
     const safeAreaInset = wrapWithSafeAreaInset(swiped, element, properties, ctx);
+    // `hidden` hides the whole element, as on Apple, Android and Linux: the view-valued
+    // background/overlay and the safe-area inset bar around the node too, not only the node.
+    // The outermost of those wrappers takes `visibility: hidden` (which its descendants
+    // inherit); the search field and toolbar chrome outside it stay, as they do on Apple. The
+    // node remembers that wrapper so a runtime setElementProperty("hidden") reaches it.
+    if (safeAreaInset !== node) {
+        node.auiHiddenRoot = safeAreaInset;
+        if (properties.hidden === true) safeAreaInset.style.visibility = "hidden";
+    }
     // The `searchable` modifier (List / NavigationStack) wraps the node with a
     // search field above its content. Inside the toolbar wrap, so on a List with a
     // navigationTitle the field sits below the title bar (the iOS placement). A

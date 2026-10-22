@@ -30,9 +30,8 @@
  - The border is a CSS outline on the content group, so it moves with offset, rotation and scale
    and follows a corner radius; SwiftUI's border stays at the layout frame and square. Drawing it
    by hand would lose the theme's colors for named border colors.
- - hidden and opacity apply to the whole box, background, border and shadow included, as the Web
-   and Android renderers do; on Apple a hidden element still draws the background, border and
-   shadow applied after .hidden(), and opacity does not fade the border and shadow.
+ - opacity fades the whole box, border and shadow included; on Apple it applies before the border
+   and shadow, which stay unfaded. (hidden hides the whole element on every renderer.)
 */
 
 import CAdwaita
