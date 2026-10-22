@@ -53,6 +53,8 @@ final class GroupBoxRendererTests: XCTestCase {
         XCTAssertNotEqual(gtk_widget_has_css_class(try content(node), "card"), 0)
         XCTAssertEqual(gtk_accessible_get_accessible_role(OpaquePointer(node.widget)), GTK_ACCESSIBLE_ROLE_GROUP)
         XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(node.widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0)
+        XCTAssertEqual(gtk_accessible_get_accessible_role(OpaquePointer(try title(node))), GTK_ACCESSIBLE_ROLE_PRESENTATION,
+                       "the title is read once, as the group's name")
         let child = try XCTUnwrap(node.childNodes[2])
         XCTAssertTrue(gtk_widget_get_parent(child.outerWidget) == (try content(node)), "the children are in the card")
 

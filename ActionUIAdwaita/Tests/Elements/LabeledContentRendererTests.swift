@@ -2,7 +2,7 @@
 /*
  Tests for the LabeledContent renderer on GTK: the title, then the children in a row, 8 points
  apart (measured on macOS 27); as large as that unless a child fills; an empty title keeps its
- gap, as in SwiftUI.
+ gap, as in SwiftUI; the row is a group named after the title, which is read once.
 */
 
 import XCTest
@@ -80,5 +80,20 @@ final class LabeledContentRendererTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         gtk_widget_allocate(node.outerWidget, 400, 40, -1, nil)
         XCTAssertEqual(span(try XCTUnwrap(node.childNodes[2]).outerWidget, in: node.widget), [8, 392], "an empty title still has its gap, as in SwiftUI")
+    }
+
+    func testTheRowIsAGroupNamedAfterTheTitle() throws {
+        let root = try render(##"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "LabeledContent", "id": 2, "properties": {"title": "Name"}, "children": [{"type": "Text", "id": 3, "properties": {"text": "Ann"}}]},
+              {"type": "LabeledContent", "id": 4, "properties": {"title": ""}, "children": [{"type": "Text", "id": 5, "properties": {"text": "Bo"}}]}]}
+            """##)
+        let named = try XCTUnwrap(root.childNodes[2]).widget!
+        XCTAssertEqual(gtk_accessible_get_accessible_role(OpaquePointer(named)), GTK_ACCESSIBLE_ROLE_GROUP)
+        XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(named), GTK_ACCESSIBLE_PROPERTY_LABEL), 0, "named after its title")
+        let title = try XCTUnwrap(gtk_widget_get_first_child(named))
+        XCTAssertEqual(gtk_accessible_get_accessible_role(OpaquePointer(title)), GTK_ACCESSIBLE_ROLE_PRESENTATION, "the title is read once, as the name")
+        let untitled = try XCTUnwrap(root.childNodes[4]).widget!
+        XCTAssertEqual(gtk_test_accessible_has_property(OpaquePointer(untitled), GTK_ACCESSIBLE_PROPERTY_LABEL), 0, "no title, no name")
     }
 }

@@ -6,6 +6,10 @@
 
  Two stacks: the row of the title and the content, and the content's own row, which holds the
  children's boxes. An empty title keeps its gap, as in SwiftUI (measured: the content starts at 8).
+
+ Assistive technologies read the row as a group named after the title (accessibilityLabel, else the
+ title), with the content inside; the title label itself has the presentation role, so the title is
+ read once.
 */
 
 import CAdwaita
@@ -14,7 +18,7 @@ extension LabeledContent: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let row = StackLayout.makeStack(axis: .horizontal)
         StackLayout.configure(row, spacing: nil, alignment: .center)
-        let title = gtk_label_new(nil)!
+        let title = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
         gtk_label_set_xalign(opaque(title), 0)
         gtk_widget_set_parent(title, row)
         let content = StackLayout.makeStack(axis: .horizontal)
@@ -30,5 +34,10 @@ extension LabeledContent: ActionUIAdwaitaRenderer {
             gtk_label_set_text(opaque(title), text)
         }
         syncContainerChildren(node, content, node.subviews("children"))
+    }
+
+    /// Named after its title, as a group around its content.
+    static func defaultAccessibleLabel(_ node: RenderNode) -> String? {
+        Props(node.properties).title
     }
 }

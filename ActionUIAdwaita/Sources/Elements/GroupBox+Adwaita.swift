@@ -6,7 +6,8 @@
  VStack of the same views puts none), and the box is as large as its children unless one of them
  fills. A title puts the box 17 points lower; here the title label and a 4 px gap do.
 
- The element widget is a group for assistive technologies, named after the title.
+ The element widget is a group for assistive technologies, named after the title, which is read once
+ (the visible title label has the presentation role).
 
  Not yet: the template form (rows from setElementRows) shows no rows; logged once.
 */
@@ -31,7 +32,8 @@ extension GroupBox: ActionUIAdwaitaRenderer {
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let group = groupBox()
-        let title = gtk_label_new(nil)!
+        // Left out of the accessibility tree: the group carries the title as its name.
+        let title = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
         gtk_label_set_xalign(opaque(title), 0)
         gtk_widget_set_visible(title, 0)
         gtk_box_append(typed(group), title)
