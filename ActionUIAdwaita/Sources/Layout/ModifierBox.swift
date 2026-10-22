@@ -1,27 +1,53 @@
 // Sources/Layout/ModifierBox.swift
 /*
- The box every element's widget sits in, which applies the base modifiers that change how the
- element is laid out or shown as a whole, in View.applyModifiers' order: padding, then frame
- (both by its layout manager, with FrameSolver's arithmetic), disabled, hidden, opacity and help.
- Parents lay out boxes, not element widgets: a stack sees the frame's size, its expansion
- (the box's expand flags) and its cap (LayoutCaps reads the frame's maximum from the box), and a
- Spacer's marker is carried over to its box.
+ The box every element's widget sits in, which applies the base modifiers, in
+ View.applyModifiers' order. Two widgets, so painting follows the frame, not the space the box is
+ given:
+
+   ModifierBox (outer)    the frame (fixed, min, ideal, max) by its layout manager, with
+                          FrameSolver's arithmetic; offset, rotation and scale in the transform it
+                          gives the content group; hidden, opacity; the shadow, drawn in the shape
+                          of what is drawn as SwiftUI's is (not a box shadow)
+     content group        exactly the frame's size: the padding and the element's alignment in
+                          it; background, cornerRadius and clipShape (rounded and clipped), border
+       element widget     disabled, help; font, foregroundStyle and tint, which its descendants
+                          inherit
+
+ Parents lay out the outer box: a stack sees the frame's size, its expansion (the box's expand
+ flags) and its cap (LayoutCaps reads the frame from the box), and a Spacer's marker is carried
+ over to its box.
 
  - hidden keeps the element's space, as SwiftUI's .hidden() does: the box is transparent and takes
    no input or focus, but it is laid out.
  - A box given more than its frame takes (the window's root, a filling GTK parent) centers the
-   frame in the extra space, as SwiftUI's parent would; the content never gets that space.
+   frame in the extra space, as SwiftUI's parent would; the content never gets that space, and
+   the background fills only the frame.
  - disabled makes the element's widget insensitive, which GTK passes on to its descendants.
+ - offset, rotation and scale move what is drawn, not the layout, as in SwiftUI: offset first,
+   then rotation around the center, then scale around its anchor.
+
+ Known differences from the Apple renderer's order (View.applyModifiers):
+ - The border is a CSS outline on the content group, so it moves with offset, rotation and scale
+   and follows a corner radius; SwiftUI's border stays at the layout frame and square. Drawing it
+   by hand would lose the theme's colors for named border colors.
+ - hidden and opacity apply to the whole box, background, border and shadow included, as the Web
+   and Android renderers do; on Apple a hidden element still draws the background, border and
+   shadow applied after .hidden(), and opacity does not fade the border and shadow.
 */
 
 import CAdwaita
 
-/// What a box applies, attached to it and set by update.
+/// What a box lays out, attached to the outer box and set by update.
 @MainActor
 final class BoxLayout {
     var padding = (horizontal: PaddingAxis(), vertical: PaddingAxis())
     var frame = (horizontal: FrameAxis.none, vertical: FrameAxis.none)
     var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
+    /// Offset, then rotation in degrees around the center, then scale around `scaleAnchor`.
+    var offset = (x: 0.0, y: 0.0)
+    var rotation = 0.0
+    var scale = (x: 1.0, y: 1.0)
+    var scaleAnchor = (x: 0.5, y: 0.5)
 
     func padding(_ orientation: GtkOrientation) -> PaddingAxis {
         orientation == GTK_ORIENTATION_HORIZONTAL ? padding.horizontal : padding.vertical
@@ -34,31 +60,63 @@ final class BoxLayout {
     func alignment(_ orientation: GtkOrientation) -> StackSolver.Alignment {
         orientation == GTK_ORIENTATION_HORIZONTAL ? alignment.horizontal : alignment.vertical
     }
+
+    var hasTransform: Bool {
+        offset != (0, 0) || rotation != 0 || scale != (1, 1)
+    }
+}
+
+/// The shadow a box draws, attached to the outer box.
+@MainActor
+final class BoxShadow {
+    var shadow: GskShadow?
 }
 
 let boxLayoutKey = "actionui-box"
+let boxShadowKey = "actionui-shadow"
 
 nonisolated(unsafe) private var boxLayoutType: GType = 0
+nonisolated(unsafe) private var contentLayoutType: GType = 0
+nonisolated(unsafe) private var boxWidgetType: GType = 0
+nonisolated(unsafe) private var boxParentClass: UnsafeMutablePointer<GtkWidgetClass>?
 
 @MainActor
 enum ModifierBox {
-    /// A new box holding `widget`. The box carries the widget's SpacerMarker, so its stack treats
-    /// the box as the Spacer.
+    /// SwiftUI's shadow color when none is given (ColorHelper.defaultShadowColor).
+    static let defaultShadowColor = GdkRGBA(red: 0, green: 0, blue: 0, alpha: 0.33)
+
+    /// A new box holding `widget` in its content group. The box carries the widget's
+    /// SpacerMarker, so its stack treats the box as the Spacer.
     static func wrap(_ widget: WidgetPointer) -> WidgetPointer {
-        let box = makeContainer(layoutType: layoutType())
+        let box: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(boxType(), 0, nil, nil)!))
+        let manager: UnsafeMutablePointer<GtkLayoutManager> = typed(OpaquePointer(g_object_new_with_properties(layoutType(), 0, nil, nil)!))
+        gtk_widget_set_layout_manager(box, manager)
         attach(BoxLayout(), to: box, key: boxLayoutKey)
+        attach(BoxShadow(), to: box, key: boxShadowKey)
         if let marker = attached(SpacerMarker.self, on: widget, key: spacerMarkerKey) {
             attach(marker, to: box, key: spacerMarkerKey)
         }
-        gtk_widget_set_parent(widget, box)
+        let content = makeContainer(layoutType: contentType())
+        gtk_widget_set_parent(content, box)
+        gtk_widget_set_parent(widget, content)
         return box
     }
 
-    /// Applies the node's base modifiers to its box and its widget.
+    /// The content group of a box: the widget between the box and the element's widget.
+    static func content(of box: WidgetPointer) -> WidgetPointer? {
+        gtk_widget_get_first_child(box)
+    }
+
+    /// Applies the node's base modifiers to its box, its content group and its widget.
     static func update(_ box: WidgetPointer, _ node: RenderNode) {
         let modifiers = BaseModifiers(node.properties)
         let widget: WidgetPointer = node.widget
         applyLayout(box, modifiers)
+        if let content = content(of: box) {
+            applyPaint(content, modifiers)
+        }
+        applyShadow(box, modifiers.shadow)
+        applyText(widget, modifiers)
 
         let sensitive: gboolean = modifiers.disabled == true ? 0 : 1
         if gtk_widget_get_sensitive(widget) != sensitive {
@@ -91,13 +149,36 @@ enum ModifierBox {
         let padding = paddingAxes(modifiers.padding)
         let frame = frameAxes(modifiers.frame)
         let alignment = alignmentAxes(modifiers.frame?.alignment)
-        guard layout.padding != padding || layout.frame != frame || layout.alignment != alignment else { return }
+        let offset = (x: finite(modifiers.offset?.x, 0), y: finite(modifiers.offset?.y, 0))
+        let rotation = finite(modifiers.rotationDegrees, 0)
+        let scale = (x: finite(modifiers.scale?.x, 1), y: finite(modifiers.scale?.y, 1))
+        let anchor = unitPoint(modifiers.scale?.anchor ?? .center)
+        let layoutChanged = layout.padding != padding || layout.frame != frame || layout.alignment != alignment
+        let transformChanged = layout.offset != offset || layout.rotation != rotation || layout.scale != scale
+            || layout.scaleAnchor != anchor
+        guard layoutChanged || transformChanged else { return }
         layout.padding = padding
         layout.frame = frame
         layout.alignment = alignment
+        layout.offset = offset
+        layout.rotation = rotation
+        layout.scale = scale
+        layout.scaleAnchor = anchor
         setExpand(box, GTK_ORIENTATION_HORIZONTAL, frame.horizontal.expands)
         setExpand(box, GTK_ORIENTATION_VERTICAL, frame.vertical.expands)
-        gtk_widget_queue_resize(box)
+        if layoutChanged {
+            gtk_widget_queue_resize(box)
+            if let content = content(of: box) {
+                gtk_widget_queue_resize(content)
+            }
+        } else {
+            gtk_widget_queue_allocate(box)
+        }
+    }
+
+    private static func finite(_ value: Double?, _ fallback: Double) -> Double {
+        guard let value, value.isFinite else { return fallback }
+        return value
     }
 
     /// Forces the box's expansion in one axis, or lets it follow the element (nil).
@@ -159,8 +240,145 @@ enum ModifierBox {
         }
     }
 
-    // MARK: The layout manager
+    /// An anchor name as a unit point: (0, 0) top leading, (1, 1) bottom trailing.
+    static func unitPoint(_ name: BaseModifiers.AlignmentName) -> (x: Double, y: Double) {
+        let axes = alignmentAxes(name)
+        func fraction(_ alignment: StackSolver.Alignment) -> Double {
+            switch alignment {
+            case .start: return 0
+            case .center: return 0.5
+            case .end: return 1
+            }
+        }
+        return (fraction(axes.horizontal), fraction(axes.vertical))
+    }
 
+    // MARK: Painting
+
+    /// The content group's background, rounding and clip, and border.
+    private static func applyPaint(_ content: WidgetPointer, _ modifiers: BaseModifiers) {
+        let background = modifiers.background.flatMap(ShapeStyleSpec.parse).map {
+            ["background-color: \(ColorCSS.value($0));"]
+        } ?? []
+        StyleSheet.shared.apply(background, to: content, slot: "background")
+
+        let radius = cornerRadius(modifiers)
+        StyleSheet.shared.apply(radius.map { ["border-radius: \($0);"] } ?? [], to: content, slot: "shape")
+        let clips = radius != nil
+        let overflow = clips ? GTK_OVERFLOW_HIDDEN : GTK_OVERFLOW_VISIBLE
+        if gtk_widget_get_overflow(content) != overflow {
+            gtk_widget_set_overflow(content, overflow)
+        }
+
+        var border: [String] = []
+        if let spec = modifiers.border, spec.width.isFinite, spec.width > 0 {
+            let width = FontCSS.pixels(spec.width)
+            let color = ColorSpec.parse(spec.color).map(ColorCSS.value) ?? "#000000"
+            // Inside the frame, as SwiftUI's border, drawn over the content.
+            border = ["outline: \(width)px solid \(color);", "outline-offset: -\(width)px;"]
+        }
+        StyleSheet.shared.apply(border, to: content, slot: "border")
+    }
+
+    /// The CSS border-radius of cornerRadius and clipShape (clipShape wins, as it clips after),
+    /// nil for neither. A circle in a frame that is not square is an ellipse here.
+    static func cornerRadius(_ modifiers: BaseModifiers) -> String? {
+        switch modifiers.clipShape {
+        case .circle, .ellipse:
+            return "50%"
+        case .capsule:
+            return "9999px"
+        case .rectangle:
+            // No rounding, but a clip to the frame (a non-nil result turns the clip on).
+            return "0"
+        case let .roundedRectangle(radiusX, radiusY):
+            return "\(FontCSS.pixels(max(radiusX, 0.1)))px / \(FontCSS.pixels(max(radiusY, 0.1)))px"
+        case nil:
+            break
+        }
+        guard let radius = modifiers.cornerRadius, radius.isFinite, radius > 0 else { return nil }
+        return "\(FontCSS.pixels(radius))px"
+    }
+
+    private static func applyShadow(_ box: WidgetPointer, _ shadow: BaseModifiers.Shadow?) {
+        guard let state = attached(BoxShadow.self, on: box, key: boxShadowKey) else { return }
+        var next: GskShadow?
+        if let shadow, shadow.radius.isFinite, shadow.x.isFinite, shadow.y.isFinite {
+            let color = ColorSpec.parse(shadow.color).map { spec -> GdkRGBA in
+                let value = ColorCSS.components(spec)
+                return GdkRGBA(red: Float(value.red), green: Float(value.green), blue: Float(value.blue), alpha: Float(value.alpha))
+            } ?? defaultShadowColor
+            next = GskShadow(color: color, dx: Float(shadow.x), dy: Float(shadow.y),
+                             radius: Float(min(max(shadow.radius, 0), 1000)))
+        }
+        let same: Bool
+        switch (state.shadow, next) {
+        case (nil, nil): same = true
+        case let (old?, new?):
+            same = old.dx == new.dx && old.dy == new.dy && old.radius == new.radius
+                && old.color.red == new.color.red && old.color.green == new.color.green
+                && old.color.blue == new.color.blue && old.color.alpha == new.color.alpha
+        default: same = false
+        }
+        guard !same else { return }
+        state.shadow = next
+        gtk_widget_queue_draw(box)
+    }
+
+    /// The element widget's font, foreground color and tint, which its descendants inherit.
+    private static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
+        if let value = modifiers.font {
+            let style = FontCSS.style(FontSpec.parse(value, logger: ActionUIModel.shared.logger))
+            StyleSheet.shared.apply(style.declarations, named: style.classes, to: widget, slot: "font")
+        } else {
+            StyleSheet.shared.apply([], to: widget, slot: "font")
+        }
+        let foreground = modifiers.foregroundStyle.flatMap(ShapeStyleSpec.parse).map { ["color: \(ColorCSS.value($0));"] } ?? []
+        StyleSheet.shared.apply(foreground, to: widget, slot: "foreground")
+        // libadwaita's accent: controls draw with --accent-bg-color, text and links with
+        // --accent-color.
+        let tint = modifiers.tint.flatMap(ShapeStyleSpec.parse).map { style -> [String] in
+            let value = ColorCSS.value(style)
+            return ["--accent-bg-color: \(value);", "--accent-color: \(value);"]
+        } ?? []
+        StyleSheet.shared.apply(tint, to: widget, slot: "tint")
+    }
+
+    // MARK: The widgets and layout managers
+
+    /// The outer box: a container that draws its content with the box's shadow.
+    static func boxType() -> GType {
+        if boxWidgetType != 0 { return boxWidgetType }
+        let parent = actionUIContainerType()
+        var info = GTypeInfo()
+        info.class_size = guint16(MemoryLayout<GtkWidgetClass>.size)
+        info.instance_size = guint16(MemoryLayout<GtkWidget>.size)
+        info.class_init = { klass, _ in
+            guard let klass else { return }
+            boxParentClass = g_type_class_peek_parent(klass)?.assumingMemoryBound(to: GtkWidgetClass.self)
+            let widgetClass = klass.assumingMemoryBound(to: GtkWidgetClass.self)
+            widgetClass.pointee.snapshot = { widget, snapshot in
+                guard let widget, let snapshot else { return }
+                MainActor.assumeIsolated { ModifierBox.snapshot(widget, snapshot) }
+            }
+            gtk_widget_class_set_css_name(widgetClass, "actionui-box")
+        }
+        boxWidgetType = g_type_register_static(parent, "ActionUIModifierBox", &info, GTypeFlags(0))
+        return boxWidgetType
+    }
+
+    private static func snapshot(_ box: WidgetPointer, _ snapshot: OpaquePointer) {
+        let drawChildren = { boxParentClass?.pointee.snapshot?(box, snapshot) }
+        guard var shadow = attached(BoxShadow.self, on: box, key: boxShadowKey)?.shadow else {
+            drawChildren()
+            return
+        }
+        gtk_snapshot_push_shadow(snapshot, &shadow, 1)
+        drawChildren()
+        gtk_snapshot_pop(snapshot)
+    }
+
+    /// The outer box's layout: the frame, centered when the box is bigger, with the transform.
     static func layoutType() -> GType {
         if boxLayoutType != 0 { return boxLayoutType }
         var info = GTypeInfo()
@@ -172,7 +390,7 @@ enum ModifierBox {
             layoutClass.pointee.get_request_mode = { _, _ in GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH }
             layoutClass.pointee.measure = { _, widget, orientation, forSize, minimum, natural, minimumBaseline, naturalBaseline in
                 guard let widget else { return }
-                let size = MainActor.assumeIsolated { ModifierBox.measure(widget, orientation, forSize: Int(forSize)) }
+                let size = MainActor.assumeIsolated { ModifierBox.measureBox(widget, orientation, forSize: Int(forSize)) }
                 minimum?.pointee = Int32(clamping: size.minimum)
                 natural?.pointee = Int32(clamping: size.natural)
                 minimumBaseline?.pointee = -1
@@ -180,19 +398,49 @@ enum ModifierBox {
             }
             layoutClass.pointee.allocate = { _, widget, width, height, _ in
                 guard let widget else { return }
-                MainActor.assumeIsolated { ModifierBox.allocate(widget, width: Int(width), height: Int(height)) }
+                MainActor.assumeIsolated { ModifierBox.allocateBox(widget, width: Int(width), height: Int(height)) }
             }
         }
         boxLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIModifierLayout", &info, GTypeFlags(0))
         return boxLayoutType
     }
 
-    private static func layout(_ box: WidgetPointer) -> BoxLayout {
+    /// The content group's layout: the padding, and the element aligned in what is left.
+    static func contentType() -> GType {
+        if contentLayoutType != 0 { return contentLayoutType }
+        var info = GTypeInfo()
+        info.class_size = guint16(MemoryLayout<GtkLayoutManagerClass>.size)
+        info.instance_size = guint16(MemoryLayout<GtkLayoutManager>.size)
+        info.class_init = { klass, _ in
+            guard let klass else { return }
+            let layoutClass = klass.assumingMemoryBound(to: GtkLayoutManagerClass.self)
+            layoutClass.pointee.get_request_mode = { _, _ in GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH }
+            layoutClass.pointee.measure = { _, widget, orientation, forSize, minimum, natural, minimumBaseline, naturalBaseline in
+                guard let widget else { return }
+                let size = MainActor.assumeIsolated { ModifierBox.measureContent(widget, orientation, forSize: Int(forSize)) }
+                minimum?.pointee = Int32(clamping: size.minimum)
+                natural?.pointee = Int32(clamping: size.natural)
+                minimumBaseline?.pointee = -1
+                naturalBaseline?.pointee = -1
+            }
+            layoutClass.pointee.allocate = { _, widget, width, height, _ in
+                guard let widget else { return }
+                MainActor.assumeIsolated { ModifierBox.allocateContent(widget, width: Int(width), height: Int(height)) }
+            }
+        }
+        contentLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIContentLayout", &info, GTypeFlags(0))
+        return contentLayoutType
+    }
+
+    // MARK: Measuring and placing
+
+    private static func layout(ofBox box: WidgetPointer) -> BoxLayout {
         attached(BoxLayout.self, on: box, key: boxLayoutKey) ?? BoxLayout()
     }
 
-    private static func other(_ orientation: GtkOrientation) -> GtkOrientation {
-        orientation == GTK_ORIENTATION_HORIZONTAL ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
+    /// The BoxLayout of the box a content group is in.
+    private static func layout(ofContent content: WidgetPointer) -> BoxLayout {
+        gtk_widget_get_parent(content).map { layout(ofBox: $0) } ?? BoxLayout()
     }
 
     private static func measureChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
@@ -202,56 +450,106 @@ enum ModifierBox {
         return (Int(minimum), Int(natural))
     }
 
-    /// The frame's and the child's sizes in one axis when the box is `boxSize` in that axis: the
-    /// frame takes what it does of the box (a parent may give more than the frame asked for), the
-    /// child is offered the frame less the padding and takes that clamped to its range.
-    private static func childSize(_ child: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation,
-                                  boxSize: Int, forSize: Int = -1) -> (frame: Int, content: Int) {
-        let measured = measureChild(child, orientation, forSize: forSize)
-        let padding = layout.padding(orientation)
-        let expands = gtk_widget_compute_expand(child, orientation) != 0
-        let frame = layout.frame(orientation).size(in: boxSize, contentMinimum: measured.minimum + padding.total,
-                                                   contentNatural: measured.natural + padding.total, contentExpands: expands)
-        let content = FrameSolver.contentSize(in: frame, padding: padding, minimum: measured.minimum,
-                                              natural: measured.natural, expands: expands)
-        return (frame, content)
+    /// The frame's size in one axis when the box is `boxSize`: what the frame takes of it (a
+    /// parent may give more than the frame asked for).
+    private static func frameSize(_ content: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation,
+                                  boxSize: Int, forSize: Int = -1) -> Int {
+        let measured = measureChild(content, orientation, forSize: forSize)
+        return layout.frame(orientation).size(in: boxSize, contentMinimum: measured.minimum,
+                                              contentNatural: measured.natural,
+                                              contentExpands: gtk_widget_compute_expand(content, orientation) != 0)
     }
 
-    private static func measure(_ box: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
-        guard let child = layoutChildren(box).first else { return (0, 0) }
-        let layout = layout(box)
-        // Height for width: the child's height for the width it gets in a box that wide.
-        var childForSize = -1
+    static func measureBox(_ box: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
+        guard let content = layoutChildren(box).first else { return (0, 0) }
+        let layout = layout(ofBox: box)
+        // Height for width: the content group's height at the frame's width in a box that wide.
+        var contentForSize = -1
         if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
-            childForSize = childSize(child, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: forSize).content
+            contentForSize = frameSize(content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: forSize)
         }
-        let measured = measureChild(child, orientation, forSize: childForSize)
-        let padding = layout.padding(orientation).total
+        let measured = measureChild(content, orientation, forSize: contentForSize)
         let frame = layout.frame(orientation)
-        let contentMinimum = measured.minimum + padding
-        let contentNatural = measured.natural + padding
-        // Negative padding can take the padded size below 0; GTK sizes are never negative.
-        return (max(frame.minimumSize(content: contentMinimum), 0),
-                max(frame.naturalSize(content: contentNatural, contentMinimum: contentMinimum), 0))
+        return (frame.minimumSize(content: measured.minimum),
+                frame.naturalSize(content: measured.natural, contentMinimum: measured.minimum))
     }
 
-    private static func allocate(_ box: WidgetPointer, width: Int, height: Int) {
-        guard let child = layoutChildren(box).first else { return }
-        let layout = layout(box)
-        let widths = childSize(child, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
-        let heights = childSize(child, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: widths.content)
-        // The frame is centered in a box bigger than it (as SwiftUI's parent centers it); the
-        // content is aligned in the frame less the padding.
+    static func allocateBox(_ box: WidgetPointer, width: Int, height: Int) {
+        guard let content = layoutChildren(box).first else { return }
+        let layout = layout(ofBox: box)
+        let frameWidth = frameSize(content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
+        let frameHeight = frameSize(content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
+        // The frame is centered in a box bigger than it, as SwiftUI's parent centers it.
+        var origin = graphene_point_t(x: Float(StackSolver.centeredStart(length: frameWidth, available: width)),
+                                      y: Float(StackSolver.centeredStart(length: frameHeight, available: height)))
+        var transform = gsk_transform_translate(nil, &origin)
+        if layout.hasTransform {
+            transform = applyEffects(transform, layout, width: Double(frameWidth), height: Double(frameHeight))
+        }
+        gtk_widget_allocate(content, Int32(clamping: frameWidth), Int32(clamping: frameHeight), -1, transform)
+    }
+
+    /// Scale around its anchor, rotation around the center, and the offset, composed so a point
+    /// of the content is offset first, then rotated, then scaled, as SwiftUI applies them.
+    private static func applyEffects(_ start: OpaquePointer?, _ layout: BoxLayout, width: Double, height: Double) -> OpaquePointer? {
+        var transform = start
+        if layout.scale != (1, 1) {
+            var anchor = graphene_point_t(x: Float(width * layout.scaleAnchor.x), y: Float(height * layout.scaleAnchor.y))
+            var back = graphene_point_t(x: -anchor.x, y: -anchor.y)
+            transform = gsk_transform_translate(transform, &anchor)
+            transform = gsk_transform_scale(transform, Float(layout.scale.x), Float(layout.scale.y))
+            transform = gsk_transform_translate(transform, &back)
+        }
+        if layout.rotation != 0 {
+            var center = graphene_point_t(x: Float(width / 2), y: Float(height / 2))
+            var back = graphene_point_t(x: -center.x, y: -center.y)
+            transform = gsk_transform_translate(transform, &center)
+            transform = gsk_transform_rotate(transform, Float(layout.rotation))
+            transform = gsk_transform_translate(transform, &back)
+        }
+        if layout.offset != (0, 0) {
+            var offset = graphene_point_t(x: Float(layout.offset.x), y: Float(layout.offset.y))
+            transform = gsk_transform_translate(transform, &offset)
+        }
+        return transform
+    }
+
+    /// The element's size in one axis in a content group of `size`: offered the size less the
+    /// padding, clamped to its own range.
+    private static func elementSize(_ element: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation,
+                                    size: Int, forSize: Int = -1) -> Int {
+        let measured = measureChild(element, orientation, forSize: forSize)
+        return FrameSolver.contentSize(in: size, padding: layout.padding(orientation), minimum: measured.minimum,
+                                       natural: measured.natural,
+                                       expands: gtk_widget_compute_expand(element, orientation) != 0)
+    }
+
+    static func measureContent(_ content: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
+        guard let element = layoutChildren(content).first else { return (0, 0) }
+        let layout = layout(ofContent: content)
+        var elementForSize = -1
+        if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
+            elementForSize = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: forSize)
+        }
+        let measured = measureChild(element, orientation, forSize: elementForSize)
+        let padding = layout.padding(orientation).total
+        // Negative padding can take the padded size below 0; GTK sizes are never negative.
+        return (max(measured.minimum + padding, 0), max(measured.natural + padding, 0))
+    }
+
+    static func allocateContent(_ content: WidgetPointer, width: Int, height: Int) {
+        guard let element = layoutChildren(content).first else { return }
+        let layout = layout(ofContent: content)
+        let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: width)
+        let elementHeight = elementSize(element, layout, GTK_ORIENTATION_VERTICAL, size: height, forSize: elementWidth)
         let horizontal = layout.padding.horizontal
         let vertical = layout.padding.vertical
-        let x = StackSolver.centeredStart(length: widths.frame, available: width) + horizontal.before
-            + StackSolver.alignedOffset(size: widths.content, block: widths.frame - horizontal.total,
-                                        alignment: layout.alignment.horizontal)
-        let y = StackSolver.centeredStart(length: heights.frame, available: height) + vertical.before
-            + StackSolver.alignedOffset(size: heights.content, block: heights.frame - vertical.total,
-                                        alignment: layout.alignment.vertical)
+        let x = horizontal.before + StackSolver.alignedOffset(size: elementWidth, block: width - horizontal.total,
+                                                             alignment: layout.alignment.horizontal)
+        let y = vertical.before + StackSolver.alignedOffset(size: elementHeight, block: height - vertical.total,
+                                                           alignment: layout.alignment.vertical)
         var origin = graphene_point_t(x: Float(x), y: Float(y))
-        gtk_widget_allocate(child, Int32(clamping: widths.content), Int32(clamping: heights.content), -1,
+        gtk_widget_allocate(element, Int32(clamping: elementWidth), Int32(clamping: elementHeight), -1,
                             gsk_transform_translate(nil, &origin))
     }
 }

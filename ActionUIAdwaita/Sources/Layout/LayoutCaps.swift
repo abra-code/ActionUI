@@ -5,7 +5,7 @@
  that, so a VStack holding a child framed to maxWidth 200 stops at 200 like its child, and a
  Spacer beside it gets the rest.
 
- - A ModifierBox: its frame's maximum; without one, its content's cap plus the padding, and at
+ - A ModifierBox: its frame's maximum; without one, its element's cap plus the padding, and at
    least the frame's minimum.
  - A VStack or HStack: along its axis, the sum of its children's largest sizes plus the spacing
    between them; across it, the largest of its children's.
@@ -52,8 +52,8 @@ enum LayoutCaps {
         if let maximum = frame.maximum {
             return maximum == FrameAxis.infinity ? nil : maximum
         }
-        guard let child = layoutChildren(box).first,
-              let content = largestSize(child, orientation) else { return nil }
+        guard let group = ModifierBox.content(of: box), let element = layoutChildren(group).first,
+              let content = largestSize(element, orientation) else { return nil }
         let padded = content + layout.padding(orientation).total
         return frame.minimum.map { max(padded, $0) } ?? padded
     }

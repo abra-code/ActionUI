@@ -82,6 +82,42 @@ enum ColorCSS {
         }
     }
 
+    /// A color as red, green, blue and alpha in 0...1, for drawing calls that take components (a
+    /// shadow). Named colors take Apple's light-mode values; primary is black and secondary black
+    /// at half opacity, and the accent color is blue.
+    static func components(_ color: ColorSpec) -> (red: Double, green: Double, blue: Double, alpha: Double) {
+        switch color {
+        case let .rgba(red, green, blue, alpha):
+            func unit(_ value: Double) -> Double { value.isFinite ? min(max(value, 0), 1) : 0 }
+            return (unit(red), unit(green), unit(blue), unit(alpha))
+        case let .withOpacity(base, opacity):
+            let value = components(base)
+            return (value.red, value.green, value.blue, value.alpha * (opacity.isFinite ? min(max(opacity, 0), 1) : 1))
+        case let .named(name):
+            let bytes: (Double, Double, Double, Double)
+            switch name {
+            case .red: bytes = (255, 59, 48, 1)
+            case .orange: bytes = (255, 149, 0, 1)
+            case .yellow: bytes = (255, 204, 0, 1)
+            case .green: bytes = (52, 199, 89, 1)
+            case .blue, .accentColor: bytes = (0, 122, 255, 1)
+            case .purple: bytes = (175, 82, 222, 1)
+            case .pink: bytes = (255, 45, 85, 1)
+            case .mint: bytes = (0, 199, 190, 1)
+            case .teal: bytes = (48, 176, 199, 1)
+            case .cyan: bytes = (50, 173, 230, 1)
+            case .indigo: bytes = (88, 86, 214, 1)
+            case .brown: bytes = (162, 132, 94, 1)
+            case .gray: bytes = (142, 142, 147, 1)
+            case .black, .primary: bytes = (0, 0, 0, 1)
+            case .secondary: bytes = (0, 0, 0, 0.5)
+            case .white: bytes = (255, 255, 255, 1)
+            case .clear: bytes = (0, 0, 0, 0)
+            }
+            return (bytes.0 / 255, bytes.1 / 255, bytes.2 / 255, bytes.3)
+        }
+    }
+
     /// A component in 0...1 as 0...255.
     private static func channel(_ component: Double) -> Int {
         guard component.isFinite else { return 0 }

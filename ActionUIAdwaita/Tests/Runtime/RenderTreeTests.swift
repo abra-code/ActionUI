@@ -96,7 +96,8 @@ final class RenderTreeTests: XCTestCase {
         var texts: [String] = []
         var child = gtk_widget_get_first_child(box)
         while let current = child {
-            let label = gtk_widget_get_first_child(current) ?? current
+            // The node's box holds a content group, which holds the label.
+            let label = gtk_widget_get_first_child(current).flatMap { gtk_widget_get_first_child($0) } ?? current
             texts.append(swiftString(gtk_label_get_text(opaque(label))) ?? "?")
             child = gtk_widget_get_next_sibling(current)
         }
