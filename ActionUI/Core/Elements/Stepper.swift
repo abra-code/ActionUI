@@ -50,6 +50,17 @@ extension Stepper {
             actionID = properties["actionID"] as? String
         }
     }
+
+    /// The user stepped the value: stores it and fires actionID with it as context, only when it
+    /// differs from the value.
+    @MainActor
+    static func userSetValue(_ newValue: Double, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.value as? Double != newValue else { return }
+        model.value = newValue
+        if let actionID = props.actionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+        }
+    }
 }
 
 struct Stepper: ActionUIElementSpec {

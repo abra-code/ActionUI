@@ -21,9 +21,6 @@ extension Stepper: ActionUISwiftUIRenderer {
             label = props.label
         }
 
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let actionID = props.actionID
         let valueBinding = mainActorBinding(
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
@@ -31,10 +28,7 @@ extension Stepper: ActionUISwiftUIRenderer {
                 // DispatchQueue.main.async avoids "publishing changes from within view updates" warning.
                 // actionID fires only on user interaction (binding setter), not programmatic updates.
                 DispatchQueue.main.async {
-                    model.value = newValue
-                    if let actionID {
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
-                    }
+                    Stepper.userSetValue(newValue, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

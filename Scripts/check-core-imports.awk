@@ -5,7 +5,8 @@
 #   import Observation, import Dispatch
 #   import FoundationEssentials   directly after   #if canImport(FoundationEssentials)
 #   import Foundation             directly after an #else that follows that import
-#   import Darwin / Glibc / Musl  in Lock.swift only (its C library mutex)
+#   import Darwin / Glibc / Musl  in Lock.swift (its C library mutex) and NumberPrintf.swift
+#                                 (vsnprintf) only
 #   import CAdwaita, import Glibc in the GTK renderer, which builds only on Linux
 # Anything else is reported as "file:line: message", and the exit status is 1.
 # A stray "import Foundation" matters: Linux has full Foundation too, so it would compile there and
@@ -49,7 +50,7 @@ FNR == 1 {
         } else if (renderer && (module == "CAdwaita" || module == "Glibc")) {
             ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
-            ok = (FILENAME ~ /(^|\/)Lock\.swift$/)
+            ok = (FILENAME ~ /(^|\/)(Lock|NumberPrintf)\.swift$/)
         }
         if (!ok) {
             printf "%s:%d: import %s is not allowed in %s\n", FILENAME, FNR, module, (renderer ? "the GTK renderer" : "Core")
