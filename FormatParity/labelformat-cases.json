@@ -1,0 +1,776 @@
+{
+  "cases" : [
+    {
+      "expected" : "Count: 5",
+      "format" : "Count: %d",
+      "value" : 5
+    },
+    {
+      "expected" : "7 items",
+      "format" : "%i items",
+      "value" : 7.9
+    },
+    {
+      "expected" : "-7",
+      "format" : "%d",
+      "value" : -7.9
+    },
+    {
+      "expected" : "0",
+      "format" : "%d",
+      "value" : -0.4
+    },
+    {
+      "expected" : "   42|",
+      "format" : "%5d|",
+      "value" : 42
+    },
+    {
+      "expected" : "42   |",
+      "format" : "%-5d|",
+      "value" : 42
+    },
+    {
+      "expected" : "00042",
+      "format" : "%05d",
+      "value" : 42
+    },
+    {
+      "expected" : "-0042",
+      "format" : "%05d",
+      "value" : -42
+    },
+    {
+      "expected" : "+3",
+      "format" : "%+d",
+      "value" : 3
+    },
+    {
+      "expected" : " 3",
+      "format" : "% d",
+      "value" : 3
+    },
+    {
+      "expected" : "+3",
+      "format" : "%+ d",
+      "value" : 3
+    },
+    {
+      "expected" : "007",
+      "format" : "%.3d",
+      "value" : 7
+    },
+    {
+      "expected" : "   007",
+      "format" : "%06.3d",
+      "value" : 7
+    },
+    {
+      "expected" : "7",
+      "format" : "%#d",
+      "value" : 7
+    },
+    {
+      "expected" : "9007199254740992",
+      "format" : "%d",
+      "value" : 9007199254740992
+    },
+    {
+      "expected" : null,
+      "format" : "%d",
+      "value" : 1e+300
+    },
+    {
+      "expected" : null,
+      "format" : "%d",
+      "value" : "inf"
+    },
+    {
+      "expected" : null,
+      "format" : "%d",
+      "value" : "nan"
+    },
+    {
+      "expected" : "Rating: 2.5",
+      "format" : "Rating: %.1f",
+      "value" : 2.5
+    },
+    {
+      "expected" : "3.141590",
+      "format" : "%f",
+      "value" : 3.14159
+    },
+    {
+      "expected" : "-0.000000",
+      "format" : "%f",
+      "value" : "-0"
+    },
+    {
+      "expected" : "2",
+      "format" : "%.0f",
+      "value" : 2.5
+    },
+    {
+      "expected" : "4",
+      "format" : "%.0f",
+      "value" : 3.5
+    },
+    {
+      "expected" : "-0",
+      "format" : "%.0f",
+      "value" : -0.4
+    },
+    {
+      "expected" : "0.12",
+      "format" : "%.2f",
+      "value" : 0.125
+    },
+    {
+      "expected" : "0.38",
+      "format" : "%.2f",
+      "value" : 0.375
+    },
+    {
+      "expected" : "0.1",
+      "format" : "%.1f",
+      "value" : 0.05
+    },
+    {
+      "expected" : "0.1",
+      "format" : "%.1f",
+      "value" : 0.15
+    },
+    {
+      "expected" : "3.",
+      "format" : "%#.0f",
+      "value" : 3
+    },
+    {
+      "expected" : "+003.142",
+      "format" : "%+08.3f",
+      "value" : 3.14159
+    },
+    {
+      "expected" : "3.14    |",
+      "format" : "%-8.2f|",
+      "value" : 3.14159
+    },
+    {
+      "expected" : " 1.50",
+      "format" : "% .2f",
+      "value" : 1.5
+    },
+    {
+      "expected" : "-000001.50",
+      "format" : "%010.2f",
+      "value" : -1.5
+    },
+    {
+      "expected" : "0.10000000000000000555",
+      "format" : "%.20f",
+      "value" : 0.1
+    },
+    {
+      "expected" : "1000000000000000000000.000000",
+      "format" : "%f",
+      "value" : 1e+21
+    },
+    {
+      "expected" : "3",
+      "format" : "%.f",
+      "value" : 2.7
+    },
+    {
+      "expected" : "inf",
+      "format" : "%f",
+      "value" : "inf"
+    },
+    {
+      "expected" : "-INF",
+      "format" : "%F",
+      "value" : "-inf"
+    },
+    {
+      "expected" : "     inf",
+      "format" : "%08f",
+      "value" : "inf"
+    },
+    {
+      "expected" : "nan",
+      "format" : "%f",
+      "value" : "nan"
+    },
+    {
+      "expected" : "1.500000e+03",
+      "format" : "%e",
+      "value" : 1500
+    },
+    {
+      "expected" : "1.230000E-04",
+      "format" : "%E",
+      "value" : 0.000123
+    },
+    {
+      "expected" : "9.99e+00",
+      "format" : "%.2e",
+      "value" : 9.995
+    },
+    {
+      "expected" : "2e+01",
+      "format" : "%.0e",
+      "value" : 25
+    },
+    {
+      "expected" : "2.e+01",
+      "format" : "%#.0e",
+      "value" : 25
+    },
+    {
+      "expected" : "0.000000e+00",
+      "format" : "%e",
+      "value" : 0
+    },
+    {
+      "expected" : "1.000000e-300",
+      "format" : "%e",
+      "value" : 1e-300
+    },
+    {
+      "expected" : "1.797693e+308",
+      "format" : "%e",
+      "value" : 1.7976931348623157e+308
+    },
+    {
+      "expected" : "  -1.235e+04|",
+      "format" : "%12.3e|",
+      "value" : -12345.678
+    },
+    {
+      "expected" : "Volume: 50%",
+      "format" : "Volume: %g%%",
+      "value" : 50
+    },
+    {
+      "expected" : "0.0001",
+      "format" : "%g",
+      "value" : 0.0001
+    },
+    {
+      "expected" : "1e-05",
+      "format" : "%g",
+      "value" : 1e-05
+    },
+    {
+      "expected" : "123456",
+      "format" : "%g",
+      "value" : 123456
+    },
+    {
+      "expected" : "1.23457e+06",
+      "format" : "%g",
+      "value" : 1234567
+    },
+    {
+      "expected" : "100000",
+      "format" : "%g",
+      "value" : 100000
+    },
+    {
+      "expected" : "1e+06",
+      "format" : "%g",
+      "value" : 999999.5
+    },
+    {
+      "expected" : "2.5",
+      "format" : "%.3g",
+      "value" : 2.5
+    },
+    {
+      "expected" : "2",
+      "format" : "%.0g",
+      "value" : 2.5
+    },
+    {
+      "expected" : "0.1",
+      "format" : "%.10g",
+      "value" : 0.1
+    },
+    {
+      "expected" : "2.50000",
+      "format" : "%#g",
+      "value" : 2.5
+    },
+    {
+      "expected" : "1.00",
+      "format" : "%#.3g",
+      "value" : 1
+    },
+    {
+      "expected" : "1.2345E-05",
+      "format" : "%G",
+      "value" : 1.2345e-05
+    },
+    {
+      "expected" : "-0",
+      "format" : "%g",
+      "value" : "-0"
+    },
+    {
+      "expected" : "INF",
+      "format" : "%G",
+      "value" : "inf"
+    },
+    {
+      "expected" : "00000002.5",
+      "format" : "%010g",
+      "value" : 2.5
+    },
+    {
+      "expected" : "v1.2: 3.2",
+      "format" : "v1.2: %.1f",
+      "value" : 3.25
+    },
+    {
+      "expected" : "100% done at 100%",
+      "format" : "100%% done at %.0f%%",
+      "value" : 99.5
+    },
+    {
+      "expected" : "؀1",
+      "format" : "؀%.0f",
+      "value" : 1
+    },
+    {
+      "expected" : "été 3 – fin",
+      "format" : "été %d – fin",
+      "value" : 3
+    },
+    {
+      "expected" : null,
+      "format" : "%@",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%s",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%d %d",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%*d",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%ld",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%'.2f",
+      "value" : 1234.5
+    },
+    {
+      "expected" : null,
+      "format" : "%1$d",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%n",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%x",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "50%",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "no conversion",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "؀%s %.0f",
+      "value" : 1
+    },
+    {
+      "decimalSeparator" : ",",
+      "expected" : "2,50",
+      "format" : "%.2f",
+      "value" : 2.5
+    },
+    {
+      "decimalSeparator" : ",",
+      "expected" : "v1.2: 3,2",
+      "format" : "v1.2: %.1f",
+      "value" : 3.25
+    },
+    {
+      "decimalSeparator" : ",",
+      "expected" : "1,500000e+03",
+      "format" : "%e",
+      "value" : 1500
+    },
+    {
+      "decimalSeparator" : ",",
+      "expected" : "5",
+      "format" : "%d",
+      "value" : 5
+    },
+    {
+      "decimalSeparator" : "٫",
+      "expected" : "0٫5",
+      "format" : "%g",
+      "value" : 0.5
+    },
+    {
+      "expected" : "+0",
+      "format" : "%+d",
+      "value" : -0.4
+    },
+    {
+      "expected" : "nan",
+      "format" : "%+f",
+      "value" : "nan"
+    },
+    {
+      "expected" : "",
+      "format" : "%.0d",
+      "value" : 0
+    },
+    {
+      "expected" : "     |",
+      "format" : "%5.0d|",
+      "value" : 0
+    },
+    {
+      "expected" : "+",
+      "format" : "%+.0d",
+      "value" : 0
+    },
+    {
+      "expected" : "   nan|",
+      "format" : "% 6f|",
+      "value" : "nan"
+    },
+    {
+      "expected" : "10.00",
+      "format" : "%.2f",
+      "value" : 9.9999
+    },
+    {
+      "expected" : "100.0",
+      "format" : "%5.1f",
+      "value" : 99.95
+    },
+    {
+      "expected" : "0",
+      "format" : "%.0f",
+      "value" : 0.5
+    },
+    {
+      "expected" : "-2",
+      "format" : "%.0f",
+      "value" : -2.5
+    },
+    {
+      "expected" : "1.000",
+      "format" : "%.3f",
+      "value" : 1.0005
+    },
+    {
+      "expected" : "-0.0",
+      "format" : "%.1f",
+      "value" : -0.04
+    },
+    {
+      "expected" : "-0",
+      "format" : "%+.0f",
+      "value" : "-0"
+    },
+    {
+      "expected" : "1000000000000000052504760255204420248704468581108159154915854115511802457988908195786371375080447864043704443832883878176942523235360430575644792184786706982848387200926575803737830233794788090059368953234970799945081119038967640880074652742780142494579258788820056842838115669472196386865459400540160",
+      "format" : "%.0f",
+      "value" : 1e+300
+    },
+    {
+      "expected" : "0.0001",
+      "format" : "%g",
+      "value" : 9.9999995e-05
+    },
+    {
+      "expected" : "10",
+      "format" : "%g",
+      "value" : 9.9999995
+    },
+    {
+      "expected" : "1e+02",
+      "format" : "%.2g",
+      "value" : 99.5
+    },
+    {
+      "expected" : "0.10000000000000001",
+      "format" : "%.17g",
+      "value" : 0.1
+    },
+    {
+      "expected" : "1e+100",
+      "format" : "%g",
+      "value" : 1e+100
+    },
+    {
+      "expected" : "0.00000",
+      "format" : "%#g",
+      "value" : 0
+    },
+    {
+      "expected" : "0.",
+      "format" : "%#.0g",
+      "value" : 0
+    },
+    {
+      "expected" : "1.e+10",
+      "format" : "%#.0g",
+      "value" : 10000000000
+    },
+    {
+      "expected" : "1.2346e+05",
+      "format" : "%#.5g",
+      "value" : 123456
+    },
+    {
+      "expected" : "123456.",
+      "format" : "%#.6g",
+      "value" : 123456
+    },
+    {
+      "expected" : "-00003.142",
+      "format" : "%010.4g",
+      "value" : -3.14159
+    },
+    {
+      "expected" : "4.940656e-324",
+      "format" : "%e",
+      "value" : 5e-324
+    },
+    {
+      "expected" : "4.9406564584124654417656879e-324",
+      "format" : "%.25e",
+      "value" : 5e-324
+    },
+    {
+      "expected" : "4.94066e-324",
+      "format" : "%g",
+      "value" : 5e-324
+    },
+    {
+      "expected" : "2.225074e-308",
+      "format" : "%e",
+      "value" : 2.2250738585072014e-308
+    },
+    {
+      "expected" : "1.0000000000000000555111512312578270211816e-01",
+      "format" : "%.40e",
+      "value" : 0.1
+    },
+    {
+      "expected" : "1.00e+01",
+      "format" : "%.2e",
+      "value" : 9.9999
+    },
+    {
+      "expected" : "1e+01",
+      "format" : "%.0e",
+      "value" : 9.5
+    },
+    {
+      "expected" : "8e+00",
+      "format" : "%.0e",
+      "value" : 8.5
+    },
+    {
+      "expected" : "+0.000000e+00",
+      "format" : "%+e",
+      "value" : 0
+    },
+    {
+      "expected" : "      3.|",
+      "format" : "%#8.0f|",
+      "value" : 3
+    },
+    {
+      "expected" : "3.      |",
+      "format" : "%#-8.0f|",
+      "value" : 3
+    },
+    {
+      "expected" : "0000003.",
+      "format" : "%#08.0f",
+      "value" : 3
+    },
+    {
+      "decimalSeparator" : ",",
+      "expected" : "3,",
+      "format" : "%#.0f",
+      "value" : 3
+    },
+    {
+      "expected" : "42   |",
+      "format" : "%-05d|",
+      "value" : 42
+    },
+    {
+      "expected" : "42   |",
+      "format" : "%0-5d|",
+      "value" : 42
+    },
+    {
+      "expected" : "-1.50   |",
+      "format" : "%-08.2f|",
+      "value" : -1.5
+    },
+    {
+      "expected" : " 0042",
+      "format" : "% 05d",
+      "value" : 42
+    },
+    {
+      "expected" : "+5",
+      "format" : "%++d",
+      "value" : 5
+    },
+    {
+      "expected" : "-007",
+      "format" : "%.3d",
+      "value" : -7
+    },
+    {
+      "expected" : "-9223372036854775808",
+      "format" : "%d",
+      "value" : -9.223372036854776e+18
+    },
+    {
+      "expected" : null,
+      "format" : "%d",
+      "value" : 9.223372036854776e+18
+    },
+    {
+      "expected" : "1000000000000000000",
+      "format" : "%d",
+      "value" : 1e+18
+    },
+    {
+      "expected" : "      -INF",
+      "format" : "%010G",
+      "value" : "-inf"
+    },
+    {
+      "expected" : "+INF",
+      "format" : "%+F",
+      "value" : "inf"
+    },
+    {
+      "expected" : " inf",
+      "format" : "% e",
+      "value" : "inf"
+    },
+    {
+      "expected" : null,
+      "format" : "%.2147483648f",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%2147483648d",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%.99999999999f",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%5%",
+      "value" : 1
+    },
+    {
+      "expected" : "😀 5 😀",
+      "format" : "😀 %d 😀",
+      "value" : 5
+    },
+    {
+      "expected" : "5́",
+      "format" : "%d́",
+      "value" : 5
+    },
+    {
+      "expected" : null,
+      "format" : "%́d",
+      "value" : 5
+    },
+    {
+      "expected" : "é 2.5",
+      "format" : "é %.1f",
+      "value" : 2.5
+    },
+    {
+      "expected" : null,
+      "format" : "%4097d",
+      "value" : 1
+    },
+    {
+      "expected" : null,
+      "format" : "%.4097f",
+      "value" : 1
+    },
+    {
+      "expected" : "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |",
+      "format" : "%4096.0d|",
+      "value" : 0
+    }
+  ],
+  "plain" : [
+    {
+      "expected" : "5",
+      "value" : 5
+    },
+    {
+      "expected" : "2.5",
+      "value" : 2.5
+    },
+    {
+      "expected" : "1e+21",
+      "value" : 1e+21
+    },
+    {
+      "expected" : "0.0001",
+      "value" : 0.0001
+    },
+    {
+      "expected" : "-0",
+      "value" : "-0"
+    },
+    {
+      "expected" : "inf",
+      "value" : "inf"
+    },
+    {
+      "decimalSeparator" : ",",
+      "expected" : "2,5",
+      "value" : 2.5
+    }
+  ]
+}

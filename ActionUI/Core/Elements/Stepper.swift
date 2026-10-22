@@ -8,10 +8,13 @@
      "range": { "min": 0.0, "max": 10.0 }, // Optional: Dictionary with min/max values; no range clamping if omitted
      "step": 1.0,         // Optional: Step increment (Double), defaults to 1.0
      "label": "Quantity", // Optional: Static string label; ignored when labelFormat is set
-     "labelFormat": "Quantity: %.0f", // Optional: printf-style format string embedding the current value: exactly one
-                          // of %d %i %f %F %e %E %g %G (with flags, width, precision), plus any %%. %d and %i
-                          // show the value truncated to an integer. Any other format (%@, %s, two conversions)
-                          // shows the plain value instead (NumberPrintf).
+     "labelFormat": "Quantity: %.0f", // Optional: printf-style format string embedding the current value:
+                          // exactly one of %d %i %f %F %e %E %g %G (flags - + space # 0, width, precision), plus
+                          // any %%. %d and %i show the value truncated to an integer. The number is formatted as
+                          // C's printf does, with the user's decimal separator ("2,5" in a German locale).
+                          // Any other format (%@, %s, two conversions, the ' flag, a width or precision over 4096)
+                          // shows the plain value instead
+                          // (NumberPrintf). The same on every platform.
                           // Examples: "Count: %d" -> "Count: 5", "Rating: %.1f" -> "Rating: 2.5",
                           //           "Volume: %g%%" -> "Volume: 50%"
                           // Takes precedence over "label" when both are present.

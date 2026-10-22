@@ -122,7 +122,15 @@ class StepperTest {
     @Test
     fun `labelFormat takes precedence and formats the current value`() {
         val props = buildJsonObject { put("label", "ignored"); put("labelFormat", "Count: %.0f") }
-        assertEquals("Count: 5", stepperLabel(props, 5.0, CapturingLogger()))
+        assertEquals("Count: 5", stepperLabel(props, 5.0, CapturingLogger(), "."))
+        val rating = buildJsonObject { put("labelFormat", "Rating: %.1f") }
+        assertEquals("with the system's decimal separator", "Rating: 2,5", stepperLabel(rating, 2.5, CapturingLogger(), ","))
+    }
+
+    @Test
+    fun `an integer conversion shows the value truncated`() {
+        val props = buildJsonObject { put("label", "ignored"); put("labelFormat", "Count: %d") }
+        assertEquals("Count: 5", stepperLabel(props, 5.9, CapturingLogger(), "."))
     }
 
     @Test
@@ -133,11 +141,12 @@ class StepperTest {
     }
 
     @Test
-    fun `malformed labelFormat warns and falls back to the plain label`() {
+    fun `a format that is not one number warns once and shows the plain value`() {
         val logger = CapturingLogger()
-        // %d is an integer conversion; the value is a Double, so this is malformed.
-        val props = buildJsonObject { put("label", "Quantity"); put("labelFormat", "Count: %d") }
-        assertEquals("Quantity", stepperLabel(props, 5.0, logger))
-        assertTrue(logger.warnings.any { it.contains("labelFormat") })
+        // Two conversions: a format that would read a missing argument.
+        val props = buildJsonObject { put("label", "Quantity"); put("labelFormat", "Count: %f of %f (StepperTest)") }
+        assertEquals("2.5", stepperLabel(props, 2.5, logger, "."))
+        assertEquals("2.5", stepperLabel(props, 2.5, logger, "."))
+        assertEquals(1, logger.warnings.count { it.contains("labelFormat") })
     }
 }

@@ -10,14 +10,15 @@
 //   range        { min, max } (optional; no clamping when omitted, min <= max).
 //   step         positive increment (Double, defaults to 1.0).
 //   label        static label text; ignored when labelFormat is set.
-//   labelFormat  printf-style format string embedding the current value as a
-//                Double (e.g. "Count: %.0f", "Volume: %g%%"). Takes precedence
-//                over label and is re-evaluated on every change.
+//   labelFormat  printf-style format string embedding the current value (e.g.
+//                "Count: %d", "Volume: %g%%"; NumberPrintf). Takes precedence over
+//                label and is re-evaluated on every change.
 //   actionID     dispatched on user-initiated change only (a −/+ press), matching
 //                the Apple binding setter; programmatic setElementValue is silent.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
+import { formatNumber, plainNumber, systemDecimalSeparator } from "../Helpers/NumberPrintf.js";
 
 register("Stepper", {
     valueType: "double",
@@ -101,7 +102,7 @@ register("Stepper", {
         // Label text reflects labelFormat (re-evaluated per change) or the static
         // label; the box collapses when there is nothing to show, like SwiftUI.
         const renderLabel = () => {
-            const text = hasFormat ? formatLabel(properties.labelFormat, current) : (properties.label ?? "");
+            const text = hasFormat ? stepperLabel(properties.labelFormat, current, ctx.logger) : (properties.label ?? "");
             labelText.textContent = text;
             labelText.style.display = text === "" ? "none" : "";
         };
@@ -165,40 +166,17 @@ function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
 }
 
-// A focused printf subset matching Swift/Kotlin String(format:) for a single
-// Double argument: %% → "%", and one float conversion (%f/%e/%g, optional width
-// and .precision, upper/lower case). The Stepper value is always a Double, so
-// integer specifiers are unnecessary; the documented examples use %f/%.0f/%.1f/%g.
-function formatLabel(format, value) {
-    return format.replace(/%(?:%|(-)?(\d+)?(?:\.(\d+))?([fFeEgG]))/g, (match, leftAlign, width, precision, conv) => {
-        if (match === "%%") return "%";
-        const p = precision !== undefined ? parseInt(precision, 10) : undefined;
-        let s;
-        switch (conv.toLowerCase()) {
-            case "f": s = value.toFixed(p ?? 6); break;
-            case "e": s = value.toExponential(p ?? 6); break;
-            default:  s = formatG(value, p); break; // "g"
-        }
-        if (conv === conv.toUpperCase()) s = s.toUpperCase();
-        if (width !== undefined) {
-            const w = parseInt(width, 10);
-            s = leftAlign ? s.padEnd(w) : s.padStart(w);
-        }
-        return s;
-    });
-}
+// The label, as on every platform: labelFormat with the value in it (NumberPrintf, with the
+// system's decimal separator); a format NumberPrintf refuses shows the plain value and is logged
+// once per format.
+const reportedLabelFormats = new Set();
 
-// C %g: precision P significant digits (default 6, 0 treated as 1); %e form when
-// the exponent is < -4 or >= P, else %f form; trailing zeros stripped.
-function formatG(value, precision) {
-    let p = precision === undefined ? 6 : precision;
-    if (p === 0) p = 1;
-    if (value === 0) return "0";
-    const exp = Math.floor(Math.log10(Math.abs(value)));
-    if (exp < -4 || exp >= p) {
-        return value.toExponential(p - 1).replace(/\.?0+e/, "e");
+export function stepperLabel(format, value, logger, decimalSeparator = systemDecimalSeparator()) {
+    const text = formatNumber(format, value, decimalSeparator);
+    if (text !== null) return text;
+    if (!reportedLabelFormats.has(format)) {
+        reportedLabelFormats.add(format);
+        logger?.log(`Stepper: labelFormat "${format}" is not one number format; showing the value`, "warning");
     }
-    let s = value.toFixed(Math.max(0, p - 1 - exp));
-    if (s.indexOf(".") >= 0) s = s.replace(/\.?0+$/, "");
-    return s;
+    return plainNumber(value, decimalSeparator);
 }

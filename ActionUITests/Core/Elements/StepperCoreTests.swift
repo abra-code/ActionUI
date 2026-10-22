@@ -46,10 +46,11 @@ final class StepperCoreTests: XCTestCase {
     }
 
     func testTheLabelTextFormatsOneNumberElseShowsThePlainValue() {
+        let separator = NumberPrintf.systemDecimalSeparator
         XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "Count: %d", "label": "Ignored"]), value: 5), "Count: 5",
                        "%d shows the value as an integer (String(format:) showed 0)")
-        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "Rating: %.1f"]), value: 2.5), "Rating: 2.5")
-        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "%@ items"]), value: 2.5), "2.5",
+        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "Rating: %.1f"]), value: 2.5), "Rating: 2\(separator)5", "with the system's decimal separator")
+        XCTAssertEqual(Stepper.labelText(Stepper.Props(["labelFormat": "%@ items"]), value: 2.5), "2\(separator)5",
                        "a format that would read a missing argument shows the plain value")
         XCTAssertEqual(Stepper.labelText(Stepper.Props(["label": "Quantity"]), value: 5), "Quantity", "no format: the label")
     }

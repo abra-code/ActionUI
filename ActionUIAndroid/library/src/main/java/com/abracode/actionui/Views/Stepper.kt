@@ -26,10 +26,10 @@ import com.abracode.actionui.Helpers.ChromeSymbolIcon
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.LocalActionUITint
+import com.abracode.actionui.Helpers.NumberPrintf
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
-import java.util.Locale
 
 /**
  * Discrete value stepper: a label plus decrement/increment controls. Mirror of
@@ -183,22 +183,23 @@ internal fun steppedValue(current: Double, step: Double, increment: Boolean, ran
 }
 
 /**
- * Resolves the stepper label, mirroring the Apple precedence: a `labelFormat`
- * printf-style string applied to [value] wins over a plain `label`; absent both,
- * the empty string. A malformed format (e.g. an integer conversion against the
- * Double value) warns and falls back to the plain `label`. Locale-fixed to
- * [Locale.US] so `"%.1f"` formats with a dot on every device.
+ * The stepper label, as on every platform: `labelFormat` with [value] in it (NumberPrintf, with the
+ * system's decimal separator) wins over a plain `label`; absent both, the empty string. A format
+ * NumberPrintf refuses shows the plain value and is logged once per format.
  */
-internal fun stepperLabel(props: JsonObject?, value: Double, logger: ActionUILogger): String {
-    val plain = props?.stringProperty("label") ?: ""
-    val format = props?.stringProperty("labelFormat") ?: return plain
-    return try {
-        String.format(Locale.US, format, value)
-    } catch (e: IllegalArgumentException) {
-        logger.log(
-            "Stepper labelFormat '$format' is not a valid float format; ignoring",
-            LoggerLevel.warning
-        )
-        plain
+internal fun stepperLabel(
+    props: JsonObject?,
+    value: Double,
+    logger: ActionUILogger,
+    decimalSeparator: String = NumberPrintf.systemDecimalSeparator(),
+): String {
+    val format = props?.stringProperty("labelFormat") ?: return props?.stringProperty("label") ?: ""
+    NumberPrintf.format(format, value, decimalSeparator)?.let { return it }
+    if (reportedLabelFormats.add(format)) {
+        logger.log("Stepper: labelFormat '$format' is not one number format; showing the value", LoggerLevel.warning)
     }
+    return NumberPrintf.plain(value, decimalSeparator)
 }
+
+/** Formats refused so far, each logged once. Read and written on the main thread (composition). */
+private val reportedLabelFormats = mutableSetOf<String>()
