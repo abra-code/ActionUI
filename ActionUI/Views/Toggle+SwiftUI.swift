@@ -50,10 +50,7 @@ extension Toggle: ActionUISwiftUIRenderer {
                 // on user interaction. .onChange would also fire on programmatic value changes,
                 // which can cause cascading actions and unexpected behavior.
                 DispatchQueue.main.async {
-                    model.value = newValue
-                    if let actionID {
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
-                    }
+                    Toggle.userSetValue(newValue, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

@@ -50,6 +50,17 @@ extension Toggle {
             actionID = properties["actionID"] as? String
         }
     }
+
+    /// The user turned the toggle on or off: stores the state as the value and fires actionID with
+    /// it as context, only when it differs from the value.
+    @MainActor
+    static func userSetValue(_ newValue: Bool, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.value as? Bool != newValue else { return }
+        model.value = newValue
+        if let actionID = props.actionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+        }
+    }
 }
 
 struct Toggle: ActionUIElementSpec {

@@ -20,6 +20,7 @@ extension ActionUIRegistry {
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextField": TextField.self,
+        "Toggle": Toggle.self,
         "VStack": VStack.self,
         "ZStack": ZStack.self,
     ]
