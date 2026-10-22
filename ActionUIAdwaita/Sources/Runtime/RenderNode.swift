@@ -27,8 +27,11 @@ final class RenderNode {
     let depth: Int
     let renderer: any ActionUIAdwaitaRenderer.Type
     /// The renderer's widget. Set at the end of init: makeWidget receives the node itself, so a
-    /// renderer can connect signals that capture it.
+    /// renderer can connect signals that capture it. Replaced when the renderer's widgetKind
+    /// changes.
     private(set) var widget: WidgetPointer!
+    /// The renderer's widgetKind when `widget` was made: the kind makeWidget makes.
+    private(set) var widgetKind = 0
     /// The ModifierBox holding `widget`: what a parent places among its children.
     private(set) var outerWidget: WidgetPointer!
     /// False once the node has left the tree.
@@ -67,6 +70,7 @@ final class RenderNode {
         self.parent = parent
         self.depth = parent.map { $0.depth + 1 } ?? 0
         self.renderer = ActionUIRegistry.shared.adwaitaRenderer(forElementType: element.type)
+        self.widgetKind = renderer.widgetKind(self)
         let widget = renderer.makeWidget(self)
         // Sinks GTK's floating reference into the node's own.
         g_object_ref_sink(UnsafeMutableRawPointer(widget))
@@ -95,6 +99,10 @@ final class RenderNode {
             withObservationTracking {
                 let modifiers = BaseModifiers(properties)
                 environment = (parent?.environment ?? Environment()).applying(modifiers)
+                let kind = renderer.widgetKind(self)
+                if kind != widgetKind {
+                    replaceWidget(kind: kind)
+                }
                 renderer.update(widget, self)
                 ModifierBox.update(outerWidget, self, modifiers)
             } onChange: { [weak self] in
@@ -119,6 +127,27 @@ final class RenderNode {
         for child in created {
             child.sync()
         }
+    }
+
+    /// Puts a new widget of `kind` from the renderer in the box, in place of the current one. The
+    /// update that follows makes it show the model, and ModifierBox's update, which compares with
+    /// the widget itself, applies the base modifiers to it. Child boxes in the old widget are taken
+    /// out; the update puts them in the new one.
+    private func replaceWidget(kind: Int) {
+        let old: WidgetPointer = widget
+        widgetKind = kind
+        let new = renderer.makeWidget(self)
+        g_object_ref_sink(UnsafeMutableRawPointer(new))
+        // Set before the new widget is placed, so signals its mapping emits see it.
+        widget = new
+        for child in childNodes.values where gtk_widget_is_ancestor(child.outerWidget, old) != 0 {
+            gtk_widget_unparent(child.outerWidget)
+        }
+        if let content = ModifierBox.content(of: outerWidget) {
+            gtk_widget_unparent(old)
+            gtk_widget_set_parent(new, content)
+        }
+        g_object_unref(UnsafeMutableRawPointer(old))
     }
 
     // MARK: Children

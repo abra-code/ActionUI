@@ -146,25 +146,6 @@ final class PaintModifierTests: XCTestCase {
         gdk_paintable_snapshot(paintable, snapshot, 40, 20)
         let rendered = try XCTUnwrap(gtk_snapshot_free_to_node(snapshot), "the box drew nothing")
         defer { gsk_render_node_unref(rendered) }
-        XCTAssertTrue(Self.contains(rendered, GSK_SHADOW_NODE), "no shadow node in what the box drew")
-    }
-
-    /// Whether `node` or a node inside it is of `type`.
-    private static func contains(_ node: OpaquePointer, _ type: GskRenderNodeType) -> Bool {
-        let own = gsk_render_node_get_node_type(node)
-        if own == type { return true }
-        switch own {
-        case GSK_CONTAINER_NODE:
-            for index in 0..<gsk_container_node_get_n_children(node) {
-                if let child = gsk_container_node_get_child(node, index), contains(child, type) { return true }
-            }
-            return false
-        case GSK_TRANSFORM_NODE: return gsk_transform_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_OPACITY_NODE: return gsk_opacity_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_CLIP_NODE: return gsk_clip_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_ROUNDED_CLIP_NODE: return gsk_rounded_clip_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_DEBUG_NODE: return gsk_debug_node_get_child(node).map { contains($0, type) } ?? false
-        default: return false
-        }
+        XCTAssertTrue(AdwaitaTestHost.contains(rendered, GSK_SHADOW_NODE), "no shadow node in what the box drew")
     }
 }

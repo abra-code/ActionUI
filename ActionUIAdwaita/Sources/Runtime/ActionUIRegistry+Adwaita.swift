@@ -10,6 +10,7 @@ extension ActionUIRegistry {
     static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [
         "Color": Color.self,
         "HStack": HStack.self,
+        "Image": Image.self,
         "LazyHStack": LazyHStack.self,
         "LazyVStack": LazyVStack.self,
         "Spacer": Spacer.self,

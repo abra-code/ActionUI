@@ -17,9 +17,16 @@ struct Expansion: OptionSet {
 
 @MainActor
 protocol ActionUIAdwaitaRenderer {
-    /// Creates the element's widget, once per element instance. Reads nothing from the model:
-    /// what the widget shows is set by `update`, which runs right after.
+    /// Creates the element's widget, once per element instance and widget kind. Reads nothing
+    /// from the model; the kind to make is `node.widgetKind`, which the node set from widgetKind
+    /// just before. What the widget shows is set by `update`, which runs right after.
     static func makeWidget(_ node: RenderNode) -> WidgetPointer
+
+    /// Which kind of widget the element needs, for an element whose GTK widget type depends on
+    /// the model (an Image shows a symbol in a GtkImage and a file in a GtkPicture). Read at the
+    /// start of every sync; when it changes, the node replaces its widget with a new one from
+    /// makeWidget. Default: 0, a single kind.
+    static func widgetKind(_ node: RenderNode) -> Int
 
     /// Makes the widget show the model: properties, value, states, children. Runs after makeWidget
     /// and again whenever anything it read changed. Idempotent. Never writes the model and never
@@ -32,5 +39,7 @@ protocol ActionUIAdwaitaRenderer {
 }
 
 extension ActionUIAdwaitaRenderer {
+    static func widgetKind(_ node: RenderNode) -> Int { 0 }
+
     static var defaultExpansion: Expansion { [] }
 }
