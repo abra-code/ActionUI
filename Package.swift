@@ -207,12 +207,14 @@ Package(
         //       ActionUICAdapter.h   - umbrella (may keep <ActionUICAdapter/ActionUIC.h>)
         //       ActionUIC.h          - typedefs and public C API
         //     ActionUIC.swift, ActionUIC+Apple.swift - compiled by ActionUICAdapter target below
+        //     ActionUIC+Linux.swift                   - compiled by linuxPackage's ActionUICAdapter
         .target(
             name: "ActionUICAdapterHeaders",
             path: "ActionUICAdapter",
             exclude: [
                 "ActionUIC.swift",
                 "ActionUIC+Apple.swift",
+                "ActionUIC+Linux.swift",
             ],
             publicHeadersPath: "include"
         ),
@@ -231,6 +233,7 @@ Package(
                 // Exclude C sources and headers — owned by ActionUICAdapterHeaders
                 "dummy.c",
                 "include",
+                "ActionUIC+Linux.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Apple.swift"],
         ),
@@ -393,7 +396,7 @@ Package(
     name: "ActionUI",
     products: [
         // A shared library, so programs in other languages load it and call its C functions.
-        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI"]),
+        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter"]),
     ],
     targets: [
         // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
@@ -409,6 +412,24 @@ Package(
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
             sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"]
+        ),
+        // The C interface: its C header as a module (only ActionUIC.h: the folder's umbrella
+        // header is Objective-C), and the functions that work with values and JSON text
+        // (ActionUIC.swift; the Apple-only ones, which hand out native views, are not built).
+        .systemLibrary(
+            name: "ActionUICAdapterHeaders",
+            path: "ActionUIAdwaita/CAdapterHeaders"
+        ),
+        .target(
+            name: "ActionUICAdapter",
+            dependencies: ["ActionUI", "ActionUICAdapterHeaders"],
+            path: "ActionUICAdapter",
+            exclude: [
+                "dummy.c",
+                "include",
+                "ActionUIC+Apple.swift",
+            ],
+            sources: ["ActionUIC.swift", "ActionUIC+Linux.swift"]
         ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(

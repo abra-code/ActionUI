@@ -16,8 +16,23 @@
 //  (but only when __OBJC__ is defined)
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+import Dispatch
 import ActionUI
+
+// The C library (strdup, free, the per-thread last error), which FoundationEssentials does not
+// re-export.
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#endif
 
 #if SWIFT_PACKAGE
 import ActionUICAdapterHeaders
@@ -25,11 +40,28 @@ import ActionUICAdapterHeaders
 
 // MARK: - Concurrency Helpers
 
+// The main queue carries this key, and the main thread runs with the main queue as its current
+// queue except inside another queue's work, so the key is present on the main thread and absent on
+// any other. (Foundation's Thread is not in FoundationEssentials.) The one difference from
+// Thread.isMainThread: a call made inside a block the main thread runs for another queue
+// (DispatchQueue.global().sync from the main thread) counts as off the main thread; C, Python,
+// Node.js and Rust callers never do that. A host must also not call dispatch_main(), which runs
+// main-queue work on other threads; GTK and AppKit hosts run their own main loop instead.
+private let mainQueueKey: DispatchSpecificKey<Bool> = {
+    let key = DispatchSpecificKey<Bool>()
+    DispatchQueue.main.setSpecific(key: key, value: true)
+    return key
+}()
+
+private var isMainThread: Bool {
+    DispatchQueue.getSpecific(key: mainQueueKey) == true
+}
+
 /// Execute operation on main actor asynchronously (fire-and-forget)
 /// Safe to call from any thread
 @inline(__always)
 func runOnMainActorAsync(_ operation: @escaping @MainActor () -> Void) {
-    if Thread.isMainThread {
+    if isMainThread {
         // Already on main thread - execute directly
         MainActor.assumeIsolated {
             operation()
@@ -57,7 +89,7 @@ func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
     // nonisolated(unsafe) box: this is sound because both paths are fully synchronous (direct execution
     // or DispatchQueue.main.sync), so there is never concurrent access to `result`.
     nonisolated(unsafe) var result: T!
-    if Thread.isMainThread {
+    if isMainThread {
         // Already on main thread - execute directly (zero overhead)
         MainActor.assumeIsolated {
             result = operation()
@@ -242,19 +274,41 @@ public func actionUIRemoveDefaultActionHandler() {
 // it, and the caller reads it right after its own call. A single slot shared by all threads would
 // be written concurrently by callers on different threads (a data race on the String) and would
 // let one thread read another's error.
-private let lastErrorThreadKey = "com.abracode.actionui.cadapter.lastError"
+// Each thread's slot holds a retained LastError, released when the error is replaced or cleared,
+// or by the key's destructor when the thread ends.
+private final class LastError {
+    let message: String
+    init(_ message: String) { self.message = message }
+}
+
+private func releaseLastError(_ slot: UnsafeMutableRawPointer?) {
+    guard let slot else { return }
+    Unmanaged<LastError>.fromOpaque(slot).release()
+}
+
+private let lastErrorKey: pthread_key_t = {
+    var key = pthread_key_t()
+    // The destructor's parameter is optional in Glibc's declaration and not in Darwin's; a call
+    // through releaseLastError, which takes an optional, fits both.
+    let status = pthread_key_create(&key) { releaseLastError($0) }
+    precondition(status == 0, "ActionUI C adapter: pthread_key_create failed (\(status))")
+    return key
+}()
 
 private var lastError: String? {
     get {
-        Thread.current.threadDictionary[lastErrorThreadKey] as? String
+        guard let slot = pthread_getspecific(lastErrorKey) else { return nil }
+        return Unmanaged<LastError>.fromOpaque(slot).takeUnretainedValue().message
     }
     set {
-        let threadDictionary = Thread.current.threadDictionary
-        if let newValue {
-            threadDictionary[lastErrorThreadKey] = newValue
-        } else {
-            threadDictionary.removeObject(forKey: lastErrorThreadKey)
+        let old = pthread_getspecific(lastErrorKey)
+        let new = newValue.map { Unmanaged.passRetained(LastError($0)).toOpaque() }
+        // Fails only when the C library cannot allocate the thread's slot; the old value stays.
+        guard pthread_setspecific(lastErrorKey, new) == 0 else {
+            releaseLastError(new)
+            return
         }
+        releaseLastError(old)
     }
 }
 
@@ -289,11 +343,12 @@ public func actionUIClearError() {
 // failure text available through actionUIGetLastError().
 
 /// Convert any value to a JSON string safely (see ActionUIJSON.string(from:)). A Foundation
-/// object a Swift host stored (an NSNumber, say) is made Swift-native first.
+/// object a Swift host stored (an NSNumber, say) is made Swift-native first (hostNative, in
+/// ActionUIC+Apple.swift; Linux has no Foundation objects).
 /// Returns nil and records the error when the value has no JSON representation.
 private func safeJSONString(from value: Any) -> String? {
     do {
-        return try ActionUIJSON.string(from: FoundationBridge.native(value))
+        return try ActionUIJSON.string(from: hostNative(value))
     } catch {
         setError(jsonErrorMessage(error))
         return nil
@@ -1132,8 +1187,7 @@ public func actionUIInsertRow(
                 container: swiftContainer,
                 position: swiftPosition
             )
-            guard let data = try? JSONSerialization.data(withJSONObject: ids),
-                  let str = String(data: data, encoding: .utf8) else {
+            guard let str = try? ActionUIJSON.string(from: ids) else {
                 setError("actionUIInsertRow: failed to serialize inserted ids")
                 return nil
             }
@@ -1224,7 +1278,7 @@ public func actionUIPresentModal(
             )
             return true
         } catch {
-            setError("actionUIPresentModal: \(error.localizedDescription)")
+            setError("actionUIPresentModal: \(error)")
             return false
         }
     }

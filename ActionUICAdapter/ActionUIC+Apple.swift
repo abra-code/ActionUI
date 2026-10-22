@@ -2,6 +2,7 @@
 //
 //  The C functions that hand a host a native view or measure SwiftUI content: Apple only. The
 //  rest of the C interface, which works with values and JSON text, is in ActionUIC.swift.
+//  Also the Apple side of hostNative (the Linux side is ActionUIC+Linux.swift).
 //
 
 import Foundation
@@ -19,6 +20,14 @@ import AppKit
 #if canImport(UIKit)
 import UIKit
 #endif
+
+// MARK: - Host values
+
+/// A value a host stored, made Swift-native for ActionUIJSON: Objective-C and Swift hosts on Apple
+/// can store Foundation objects (NSNumber, NSString, NSNull) as element values.
+func hostNative(_ value: Any) -> Any {
+    FoundationBridge.native(value)
+}
 
 // MARK: - UI Loading
 
