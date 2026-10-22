@@ -1,0 +1,93 @@
+// ActionUIAdwaita/Viewer/main.swift
+/*
+ ActionUIAdwaitaViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication.
+
+ Usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>]
+
+ - --dark: libadwaita's dark style, whatever the desktop's.
+ - --screenshot: once the window has drawn, saves it as a PNG file (drawn by the window's own
+   renderer, header bar included) and quits; the exit status says whether it was written.
+ - A document that cannot be loaded shows its error in the window (saved too with --screenshot),
+   and the exit status is 65.
+ Actions the document fires have no handler here; they are logged.
+*/
+
+import CAdwaita
+import Dispatch
+import Glibc
+import ActionUI
+
+let usage = "usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>]"
+let windowUUID = "viewer"
+/// How long the window has to draw before a screenshot is taken.
+let screenshotDelay = DispatchTimeInterval.milliseconds(600)
+
+var documentPath: String?
+var screenshotPath: String?
+var dark = false
+var arguments = CommandLine.arguments.dropFirst()
+while let argument = arguments.popFirst() {
+    switch argument {
+    case "--dark":
+        dark = true
+    case "--screenshot":
+        guard let path = arguments.popFirst() else {
+            print(usage)
+            exit(64)
+        }
+        screenshotPath = path
+    default:
+        guard documentPath == nil, !argument.hasPrefix("--") else {
+            print(usage)
+            exit(64)
+        }
+        documentPath = argument
+    }
+}
+guard let documentPath else {
+    print(usage)
+    exit(64)
+}
+
+var status: Int32 = 0
+/// Set when the screenshot was tried; the window can close before then, ending the application.
+var screenshotTried = false
+MainActor.assumeIsolated {
+    let app = AdwaitaApplication.shared
+    app.name = "ActionUI Viewer"
+    app.applicationID = "com.abracode.actionui.viewer"
+    app.handlers.willFinishLaunching = {
+        if dark {
+            adw_style_manager_set_color_scheme(adw_style_manager_get_default(), ADW_COLOR_SCHEME_FORCE_DARK)
+        }
+    }
+    app.handlers.didFinishLaunching = {
+        // A document that could not be loaded shows its error in the window; the run still fails.
+        if !app.showsDocument(windowUUID) {
+            print("ActionUIAdwaitaViewer: \(documentPath) could not be loaded")
+            status = 65
+        }
+        if let screenshotPath {
+            DispatchQueue.main.asyncAfter(deadline: .now() + screenshotDelay) {
+                screenshotTried = true
+                if app.savePNG(windowUUID: windowUUID, path: screenshotPath) {
+                    print("ActionUIAdwaitaViewer: saved \(screenshotPath)")
+                } else {
+                    print("ActionUIAdwaitaViewer: could not save \(screenshotPath)")
+                    status = 1
+                }
+                app.terminate()
+            }
+        }
+    }
+    app.presentWindow(url: documentPath, windowUUID: windowUUID, title: nil)
+    let runStatus = app.run()
+    if let screenshotPath, !screenshotTried {
+        print("ActionUIAdwaitaViewer: the window closed before \(screenshotPath) was saved")
+        status = 1
+    }
+    if status == 0 {
+        status = runStatus
+    }
+}
+exit(status)

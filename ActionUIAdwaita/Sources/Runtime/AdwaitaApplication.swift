@@ -124,6 +124,35 @@ public final class AdwaitaApplication {
         windows[windowUUID]?.window
     }
 
+    /// Whether the window showing `windowUUID` holds its document, false when it shows why the
+    /// document could not be loaded (or is not on screen).
+    public func showsDocument(_ windowUUID: String) -> Bool {
+        windows[windowUUID]?.renderTree?.root != nil
+    }
+
+    /// Saves what the window showing `windowUUID` draws, header bar included, as a PNG file at
+    /// `path`, drawn by the window's own renderer: no screen capture, so it needs no permission
+    /// and works on a locked screen. False when the window is not on screen and drawn yet, or the
+    /// file cannot be written.
+    public func savePNG(windowUUID: String, path: String) -> Bool {
+        guard let window = windows[windowUUID]?.window, gtk_widget_get_mapped(typed(window)) != 0 else { return false }
+        let widget: WidgetPointer = typed(window)
+        let width = gtk_widget_get_width(widget)
+        let height = gtk_widget_get_height(widget)
+        guard width > 0, height > 0, let renderer = gtk_native_get_renderer(OpaquePointer(window)) else { return false }
+        let paintable = gtk_widget_paintable_new(widget)!
+        defer { g_object_unref(UnsafeMutableRawPointer(paintable)) }
+        let snapshot = gtk_snapshot_new()!
+        gdk_paintable_snapshot(paintable, snapshot, Double(width), Double(height))
+        guard let node = gtk_snapshot_free_to_node(snapshot) else { return false }
+        defer { gsk_render_node_unref(node) }
+        var viewport = graphene_rect_t(origin: graphene_point_t(x: 0, y: 0),
+                                       size: graphene_size_t(width: Float(width), height: Float(height)))
+        guard let texture = gsk_renderer_render_texture(renderer, node, &viewport) else { return false }
+        defer { g_object_unref(UnsafeMutableRawPointer(texture)) }
+        return gdk_texture_save_to_png(texture, path) != 0
+    }
+
     // MARK: Running
 
     /// Runs the application until it ends; returns GApplication's exit status. A second call

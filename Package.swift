@@ -443,6 +443,12 @@ Package(
             dependencies: ["ActionUI", "ActionUIAppHeaders"],
             path: "ActionUIAdwaitaApplication"
         ),
+        // Opens an ActionUI document in a window, and saves screenshots of it.
+        .executableTarget(
+            name: "ActionUIAdwaitaViewer",
+            dependencies: ["ActionUI", "CAdwaita"],
+            path: "ActionUIAdwaita/Viewer"
+        ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(
             name: "ActionUITests",
@@ -454,7 +460,7 @@ Package(
         // The renderer tests. They need a display and skip themselves without one.
         .testTarget(
             name: "ActionUIAdwaitaTests",
-            dependencies: ["ActionUI", "CAdwaita", "ActionUIAdwaitaApplication"],
+            dependencies: ["ActionUI", "CAdwaita", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer"],
             path: "ActionUIAdwaita/Tests"
         ),
     ]
