@@ -191,10 +191,6 @@ extension View: ActionUISwiftUIRenderer {
             modifiedView = modifiedView.disabled(disabled)
         }
 
-        if mods.hidden {
-            modifiedView = modifiedView.hidden()
-        }
-
         // frame is applied BEFORE the decoration below (background color/view,
         // cornerRadius, clipShape) so a background FILLS the frame and the rounding/
         // clip shapes that filled, sized box - the intuitive "sized box" semantics
@@ -408,6 +404,14 @@ extension View: ActionUISwiftUIRenderer {
         if let shadow = mods.shadow {
             let color = ColorHelper.resolveColor(shadow.color) ?? ColorHelper.defaultShadowColor
             modifiedView = modifiedView.shadow(color: color, radius: shadow.radius, x: shadow.x, y: shadow.y)
+        }
+
+        // hidden after everything drawn: the view's background, border, overlay, safe-area inset
+        // and shadow hide with it, as on Web, Android and Linux. Applied earlier (it once came right
+        // after disabled), a hidden view still drew the decoration applied after it. The modifiers
+        // below draw nothing of their own.
+        if mods.hidden {
+            modifiedView = modifiedView.hidden()
         }
 
         // Apply animation (after all decorative modifiers; before behavioral/structural wrappers)
