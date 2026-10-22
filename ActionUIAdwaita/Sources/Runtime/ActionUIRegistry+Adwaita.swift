@@ -8,6 +8,7 @@
 extension ActionUIRegistry {
     // The GTK renderers of the built-in element types; the others render as the placeholder.
     static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [
+        "Button": Button.self,
         "Color": Color.self,
         "HStack": HStack.self,
         "Image": Image.self,

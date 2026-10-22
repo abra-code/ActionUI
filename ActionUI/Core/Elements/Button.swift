@@ -54,6 +54,34 @@ extension Button {
     }
 }
 
+extension Button {
+    /// What a tap does, on every platform: shows or hides the popover (firing popoverActionID when
+    /// it opens), opens the sheet and the full-screen cover (a tap never closes them), then fires
+    /// actionID. Inside a template row, actionID names the template's element and the row; the
+    /// popover action names the element only.
+    @MainActor
+    static func userTapped(element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        let actionViewID = model.templateContext?.parentID ?? element.id
+        let actionViewPartID = model.templateContext?.rowIndex ?? 0
+        if element.subviews?["popover"] != nil {
+            let willShow = !(model.states["popoverVisible"] as? Bool ?? false)
+            model.states["popoverVisible"] = willShow
+            if willShow, let popoverActionID = props.popoverActionID {
+                ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: 0)
+            }
+        }
+        if element.subviews?["sheet"] != nil {
+            model.states["sheetVisible"] = true
+        }
+        if element.subviews?["fullScreenCover"] != nil {
+            model.states["fullScreenCoverVisible"] = true
+        }
+        if let actionID = props.actionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: actionViewPartID)
+        }
+    }
+}
+
 struct Button: ActionUIElementSpec {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }

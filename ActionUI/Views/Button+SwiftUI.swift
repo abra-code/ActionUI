@@ -12,8 +12,7 @@ extension Button: ActionUISwiftUIRenderer {
         let title = props.title
         let systemImage = props.systemImage
         let assetImage  = props.assetImage
-        let actionID = props.actionID
-        
+
         var buttonRole: ButtonRole?
         switch props.role {
         case .destructive: buttonRole = .destructive
@@ -53,33 +52,11 @@ extension Button: ActionUISwiftUIRenderer {
             }
         }
         
-        let hasPopover = element.subviews?["popover"] != nil
-        let hasSheet = element.subviews?["sheet"] != nil
-        let hasFullScreenCover = element.subviews?["fullScreenCover"] != nil
-        let popoverActionID = props.popoverActionID
-        // Template-aware action dispatch: use parentID/rowIndex when rendering inside a template
-        let actionViewID = model.templateContext?.parentID ?? element.id
-        let actionViewPartID = model.templateContext?.rowIndex ?? 0
         return SwiftUI.Button(
             role: buttonRole,
             action: {
-                if hasPopover {
-                    let willShow = !(model.states["popoverVisible"] as? Bool ?? false)
-                    model.states["popoverVisible"] = willShow
-                    if willShow, let popoverActionID = popoverActionID {
-                        ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: 0)
-                    }
-                }
-                // Sheets/covers are opened (not toggled) by a Button tap — dismissed via swipe or explicit setElementState
-                if hasSheet {
-                    model.states["sheetVisible"] = true
-                }
-                if hasFullScreenCover {
-                    model.states["fullScreenCoverVisible"] = true
-                }
-                if let actionID = actionID {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: actionViewPartID)
-                }
+                // Popover, sheet, cover and actions, template-aware: Core's Button.userTapped.
+                Button.userTapped(element: element, model: model, windowUUID: windowUUID, props: props)
             },
             label: {
                 AnyView(makeLabel())
