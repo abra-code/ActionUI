@@ -14,6 +14,7 @@ extension ActionUIRegistry {
         "Image": Image.self,
         "LazyHStack": LazyHStack.self,
         "LazyVStack": LazyVStack.self,
+        "Picker": Picker.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextField": TextField.self,

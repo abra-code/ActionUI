@@ -106,6 +106,43 @@ func connectUserSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ 
     }
 }
 
+/// What a handler given the signal's argument runs; retained by GLib while it is connected.
+@MainActor final class ObjectSignalAction {
+    let run: @MainActor (UnsafeMutableRawPointer) -> Void
+    init(_ run: @escaping @MainActor (UnsafeMutableRawPointer) -> Void) { self.run = run }
+}
+
+/// For signals whose handler takes (instance, object, user data) and needs the object, such as a
+/// list item factory's "setup" and "bind".
+private let objectArgumentTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> Void = { _, object, data in
+    guard let object, let data else { return }
+    let action = Unmanaged<ObjectSignalAction>.fromOpaque(data).takeUnretainedValue()
+    // A pointer is not Sendable; its address is. GLib emits on the main thread.
+    let address = UInt(bitPattern: object)
+    MainActor.assumeIsolated { action.run(UnsafeMutableRawPointer(bitPattern: address)!) }
+}
+
+private let releaseObjectSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
+    guard let data else { return }
+    Unmanaged<ObjectSignalAction>.fromOpaque(data).release()
+}
+
+/// Connects `run` to a signal whose handler takes one object argument (instance, object, user
+/// data), passing the object: a list item factory's "setup", "bind" and "unbind". Not for user
+/// input, which goes through connectUserSignal. Returns GLib's handler id (0 if the signal does
+/// not exist).
+@MainActor @discardableResult
+func connectObjectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
+                         _ run: @escaping @MainActor (UnsafeMutableRawPointer) -> Void) -> gulong {
+    let data = Unmanaged.passRetained(ObjectSignalAction(run)).toOpaque()
+    let callback = unsafeBitCast(objectArgumentTrampoline, to: GCallback.self)
+    let id = g_signal_connect_data(instance, signal, callback, data, releaseObjectSignalAction, GConnectFlags(0))
+    if id == 0 {
+        Unmanaged<ObjectSignalAction>.fromOpaque(data).release()
+    }
+    return id
+}
+
 // MARK: - Swift objects kept on GObjects
 
 private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in

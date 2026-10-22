@@ -132,7 +132,7 @@ enum ModifierBox {
         }
         applyShadow(box, modifiers.shadow)
         applyText(widget, modifiers)
-        applyAccessibility(widget, modifiers)
+        applyAccessibility(widget, node, modifiers)
 
         let sensitive: gboolean = modifiers.disabled == true ? 0 : 1
         if gtk_widget_get_sensitive(widget) != sensitive {
@@ -362,11 +362,12 @@ enum ModifierBox {
 
     // MARK: Accessibility
 
-    /// The element's accessibility label and hint, its hidden state (accessibilityHidden, or
-    /// hidden, which keeps it out of the tree as on Apple and Android) and its identifier, which
-    /// GTK has no property for: it becomes the widget's name, which test tools and the
+    /// The element's accessible name (accessibilityLabel, else the renderer's default name) and
+    /// hint, written to the renderer's accessible widget; its hidden state (accessibilityHidden,
+    /// or hidden, which keeps it out of the tree as on Apple and Android) and its identifier,
+    /// which GTK has no property for: it becomes the widget's name, which test tools and the
     /// inspector show.
-    private static func applyAccessibility(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
+    private static func applyAccessibility(_ widget: WidgetPointer, _ node: RenderNode, _ modifiers: BaseModifiers) {
         let state: AccessibilityState
         if let existing = attached(AccessibilityState.self, on: widget, key: accessibilityStateKey) {
             state = existing
@@ -375,23 +376,21 @@ enum ModifierBox {
             attach(state, to: widget, key: accessibilityStateKey)
         }
         let accessible = OpaquePointer(widget)
+        let named = OpaquePointer(node.renderer.accessibleWidget(widget))
         // A label or hint is written on every update, not only when it changed: a widget can
         // write the same properties itself (GtkLabel sets its label from its text), and GTK
         // ignores a write of the value it already has. Only the reset depends on the last value.
-        let label = modifiers.accessibilityLabel.flatMap { $0.isEmpty ? nil : $0 }
+        let label = [modifiers.accessibilityLabel, node.renderer.defaultAccessibleLabel(node)]
+            .compactMap { $0 }.first { !$0.isEmpty }
         if label != nil || state.label != nil {
             state.label = label
-            setString(accessible, GTK_ACCESSIBLE_PROPERTY_LABEL, label)
-            // A GtkLabel names itself from its text, which the reset just removed: give it back.
-            if label == nil, g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_label_get_type()) != 0 {
-                setString(accessible, GTK_ACCESSIBLE_PROPERTY_LABEL, swiftString(gtk_label_get_text(opaque(widget))))
-            }
+            setString(named, GTK_ACCESSIBLE_PROPERTY_LABEL, label)
         }
         // The hint, else the help text, which SwiftUI's .help also gives assistive technologies.
         let hint = [modifiers.accessibilityHint, modifiers.help].compactMap { $0 }.first { !$0.isEmpty }
         if hint != nil || state.hint != nil {
             state.hint = hint
-            setString(accessible, GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, hint)
+            setString(named, GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, hint)
         }
         let hidden = modifiers.hidden || modifiers.accessibilityHidden == true
         if state.hidden != hidden {

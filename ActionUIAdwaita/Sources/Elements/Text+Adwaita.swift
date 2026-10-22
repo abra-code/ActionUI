@@ -84,6 +84,12 @@ extension Text: ActionUIAdwaitaRenderer {
         }
     }
 
+    /// Named after its text, which a GtkLabel also writes itself; ModifierBox writes it back when an
+    /// accessibilityLabel is removed (resetting the label removes GtkLabel's own).
+    static func defaultAccessibleLabel(_ node: RenderNode) -> String? {
+        displayedText(node)
+    }
+
     /// What the label shows: the value, else the markdown, else the text property.
     static func displayedText(_ node: RenderNode) -> String {
         if let attributed = node.model.value as? AttributedString {

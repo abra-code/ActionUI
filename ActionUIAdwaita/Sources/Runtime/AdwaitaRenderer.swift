@@ -36,10 +36,24 @@ protocol ActionUIAdwaitaRenderer {
 
     /// Expansion before frame modifiers. Default: none.
     static var defaultExpansion: Expansion { get }
+
+    /// The widget assistive technologies read for the element, when it is not the element's
+    /// widget itself but one inside it (a Picker's dropdown beside its title): ModifierBox writes
+    /// the accessible label and hint there. Default: the widget.
+    static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer
+
+    /// The element's accessible name when the document gives no accessibilityLabel, as SwiftUI
+    /// names a control after its title and a Text after its text. ModifierBox writes it after the
+    /// renderer's update. Default: nil, the name GTK gives the widget itself.
+    static func defaultAccessibleLabel(_ node: RenderNode) -> String?
 }
 
 extension ActionUIAdwaitaRenderer {
     static func widgetKind(_ node: RenderNode) -> Int { 0 }
+
+    static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer { widget }
+
+    static func defaultAccessibleLabel(_ node: RenderNode) -> String? { nil }
 
     static var defaultExpansion: Expansion { [] }
 }

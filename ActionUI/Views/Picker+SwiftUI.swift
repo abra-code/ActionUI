@@ -10,9 +10,6 @@ extension Picker: ActionUISwiftUIRenderer {
         let initialValue = Self.initialValue(model) as? String ?? allItems.first?.tag ?? ""
 
         // Create a specific binding for the value to ensure reactivity
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let actionID = props.actionID
         let valueBinding: Binding<String> = mainActorBinding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
@@ -24,10 +21,7 @@ extension Picker: ActionUISwiftUIRenderer {
                 // on user interaction. .onChange would also fire on programmatic value changes,
                 // which can cause cascading actions and unexpected behavior.
                 DispatchQueue.main.async {
-                    model.value = newValue
-                    if let actionID {
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
-                    }
+                    Picker.userSelected(newValue, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

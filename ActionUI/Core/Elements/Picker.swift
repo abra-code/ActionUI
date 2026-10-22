@@ -139,6 +139,19 @@ extension Picker {
     }
 }
 
+extension Picker {
+    /// The user chose an option: stores its tag as the value and fires actionID with the tag as
+    /// context, only when it differs from the value.
+    @MainActor
+    static func userSelected(_ tag: String, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.value as? String != tag else { return }
+        model.value = tag
+        if let actionID = props.actionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: tag)
+        }
+    }
+}
+
 struct Picker: ActionUIElementSpec {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil

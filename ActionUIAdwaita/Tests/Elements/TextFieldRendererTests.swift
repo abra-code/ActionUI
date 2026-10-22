@@ -148,6 +148,18 @@ final class TextFieldRendererTests: XCTestCase {
         XCTAssertEqual(fired, [], "closing the window does not submit")
     }
 
+    func testTheTitleNamesTheField() throws {
+        let root = try render(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "TextField", "id": 2, "properties": {"title": "Name", "prompt": "Your name"}},
+              {"type": "TextField", "id": 3, "properties": {"prompt": "Anything"}}]}
+            """#)
+        XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(try XCTUnwrap(root.childNodes[2]).widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0,
+                          "named after its title, as in SwiftUI")
+        XCTAssertEqual(gtk_test_accessible_has_property(OpaquePointer(try XCTUnwrap(root.childNodes[3]).widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0,
+                       "no title, no name")
+    }
+
     func testTheContentTypeSetsTheInputPurpose() throws {
         let node = try render(#"{"type": "TextField", "id": 1, "properties": {"textContentType": "emailAddress"}}"#)
         XCTAssertEqual(gtk_entry_get_input_purpose(entry(node)), GTK_INPUT_PURPOSE_EMAIL)

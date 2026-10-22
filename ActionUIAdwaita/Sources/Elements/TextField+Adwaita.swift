@@ -11,6 +11,7 @@
    commits; not the window becoming inactive or closing. Without an actionID, Return activates the
    window's default widget.
  - textContentType becomes GTK's input purpose, which on-screen keyboards and input methods read.
+ - Its accessible name is accessibilityLabel, else the title, as in SwiftUI.
 
  Not yet: axis vertical shows a single line (GtkTextView comes with TextEditor), and a number
  format shows and stores plain text (the formatter comes with localized formatting); both are
@@ -72,6 +73,11 @@ extension TextField: ActionUIAdwaitaRenderer {
         if props.format != nil {
             reportOnce("number formats show plain text on Linux for now")
         }
+    }
+
+    /// Named after its title, as SwiftUI names a TextField (an entry has no name of its own).
+    static func defaultAccessibleLabel(_ node: RenderNode) -> String? {
+        Props(node.properties).title
     }
 
     /// GTK's input purpose for a textContentType (Apple's UITextContentType names).
