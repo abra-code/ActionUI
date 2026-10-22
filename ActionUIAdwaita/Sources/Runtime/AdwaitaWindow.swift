@@ -14,8 +14,8 @@ final class AdwaitaWindow {
 
     var windowUUID: String { windowModel.windowUUID }
 
-    /// The window's content: the root node's widget.
-    var contentWidget: WidgetPointer? { root?.widget }
+    /// The window's content: the root node's box.
+    var contentWidget: WidgetPointer? { root?.outerWidget }
 
     /// Builds and syncs the tree for the element loaded into `windowModel`.
     init(windowModel: WindowModel) {

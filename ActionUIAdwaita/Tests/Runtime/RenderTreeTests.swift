@@ -46,13 +46,13 @@ enum TestStackRenderer: ActionUIAdwaitaRenderer {
         let children = node.effectiveElement.subviews?["children"] as? [any ActionUIElementBase] ?? []
         var previous: WidgetPointer?
         node.syncChildren(children, insert: { child, _ in
-            if gtk_widget_get_parent(child.widget) == nil {
-                gtk_box_append(box, child.widget)
+            if gtk_widget_get_parent(child.outerWidget) == nil {
+                gtk_box_append(box, child.outerWidget)
             }
-            gtk_box_reorder_child_after(box, child.widget, previous)
-            previous = child.widget
+            gtk_box_reorder_child_after(box, child.outerWidget, previous)
+            previous = child.outerWidget
         }, remove: { child in
-            gtk_box_remove(box, child.widget)
+            gtk_box_remove(box, child.outerWidget)
         })
     }
 }
@@ -91,12 +91,13 @@ final class RenderTreeTests: XCTestCase {
         return AdwaitaWindow(windowModel: windowModel)
     }
 
-    /// The texts of a box's labels, in order.
+    /// The texts of a box's labels, in order (each label inside its node's ModifierBox).
     private func labels(_ box: WidgetPointer) -> [String] {
         var texts: [String] = []
         var child = gtk_widget_get_first_child(box)
         while let current = child {
-            texts.append(swiftString(gtk_label_get_text(opaque(current))) ?? "?")
+            let label = gtk_widget_get_first_child(current) ?? current
+            texts.append(swiftString(gtk_label_get_text(opaque(label))) ?? "?")
             child = gtk_widget_get_next_sibling(current)
         }
         return texts

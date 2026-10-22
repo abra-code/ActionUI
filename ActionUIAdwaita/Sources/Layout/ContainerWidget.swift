@@ -61,20 +61,20 @@ nonisolated(unsafe) private var containerParentClass: UnsafeMutablePointer<GObje
     return widget
 }
 
-/// Makes `container`'s children the widgets of `elements`' nodes, in order: new ones are added,
+/// Makes `container`'s children the boxes of `elements`' nodes, in order: new ones are added,
 /// moved ones moved, removed ones taken out.
 @MainActor func syncContainerChildren(_ node: RenderNode, _ container: WidgetPointer,
                                       _ elements: [any ActionUIElementBase]) {
     var previous: WidgetPointer?
     node.syncChildren(elements, insert: { child, _ in
-        let widget: WidgetPointer = child.widget
+        let widget: WidgetPointer = child.outerWidget
         // Already in place: nothing to do (gtk_widget_insert_after would still relayout).
         if gtk_widget_get_parent(widget) != container || gtk_widget_get_prev_sibling(widget) != previous {
             gtk_widget_insert_after(widget, container, previous)
         }
         previous = widget
     }, remove: { child in
-        gtk_widget_unparent(child.widget)
+        gtk_widget_unparent(child.outerWidget)
     })
 }
 

@@ -141,6 +141,13 @@ enum StackSolver {
         return Int(min(value.rounded(rounding), Double(maximumLength)))
     }
 
+    /// A signed length from a document (a padding) as whole pixels: rounded, and within
+    /// maximumLength either way.
+    static func signedLength(_ value: Double) -> Int {
+        guard value.isFinite else { return 0 }
+        return Int(min(max(value.rounded(), -Double(maximumLength)), Double(maximumLength)))
+    }
+
     /// Where content of `length` starts in `available` space: centered, as SwiftUI centers a stack
     /// in a larger proposal (and an overflowing one around the middle).
     static func centeredStart(length: Int, available: Int) -> Int {

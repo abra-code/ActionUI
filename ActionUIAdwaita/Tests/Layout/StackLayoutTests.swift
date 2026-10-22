@@ -62,12 +62,13 @@ final class StackLayoutTests: XCTestCase {
         ActionUIRegistry.shared.loadBuiltIns()
     }
 
-    /// The root widget of `json`, rendered (kept alive until the test ends).
+    /// The root element's widget (the stack itself, inside its box) of `json`, rendered (kept
+    /// alive until the test ends). The stack's children are their nodes' boxes.
     private func render(_ json: String) throws -> WidgetPointer {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         windows.append(window)
-        return try XCTUnwrap(window.contentWidget)
+        return try XCTUnwrap(window.root?.widget)
     }
 
     private func block(_ id: Int, _ width: Int, _ height: Int, fill: String? = nil) -> String {

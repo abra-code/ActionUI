@@ -13,6 +13,7 @@ extension ActionUIRegistry {
         "LazyVStack": LazyVStack.self,
         "Spacer": Spacer.self,
         "VStack": VStack.self,
+        "ZStack": ZStack.self,
     ]
 
     // Static because an extension cannot add stored instance properties; the registry is a single

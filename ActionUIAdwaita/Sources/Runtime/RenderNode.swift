@@ -1,13 +1,14 @@
 // Sources/Runtime/RenderNode.swift
 /*
- One element instance in a window's render tree: the element, its view model, its renderer and
- the widget the renderer made.
+ One element instance in a window's render tree: the element, its view model, its renderer, the
+ widget the renderer made, and the ModifierBox around it, which applies the base modifiers and is
+ what the parent lays out.
 
  Syncing a node runs its renderer's update inside UpdateGuard (so the signals GTK emits for the
  renderer's own widget changes reach no action) and inside withObservationTracking (so a change to
  anything the update read marks the node dirty, and SyncScheduler syncs it again).
 
- Ownership: a node keeps a reference on its widget, so the widget lives as long as the node even
+ Ownership: a node keeps a reference on its widget and its box, so they live as long as the node even
  when GTK drops its own (a closed window); a parent keeps its child nodes; the window keeps the
  root. Closures handed to GTK capture nodes weakly. A node that leaves the tree is detached: its
  widget is unparented and a pending sync of it is skipped.
@@ -28,6 +29,8 @@ final class RenderNode {
     /// The renderer's widget. Set at the end of init: makeWidget receives the node itself, so a
     /// renderer can connect signals that capture it.
     private(set) var widget: WidgetPointer!
+    /// The ModifierBox holding `widget`: what a parent places among its children.
+    private(set) var outerWidget: WidgetPointer!
     /// False once the node has left the tree.
     private(set) var isAttached = true
     /// The child nodes, keyed by element id.
@@ -66,9 +69,15 @@ final class RenderNode {
         // Sinks GTK's floating reference into the node's own.
         g_object_ref_sink(UnsafeMutableRawPointer(widget))
         self.widget = widget
+        let box = ModifierBox.wrap(widget)
+        g_object_ref_sink(UnsafeMutableRawPointer(box))
+        self.outerWidget = box
     }
 
     isolated deinit {
+        if let outerWidget {
+            g_object_unref(UnsafeMutableRawPointer(outerWidget))
+        }
         if let widget {
             g_object_unref(UnsafeMutableRawPointer(widget))
         }
@@ -82,6 +91,7 @@ final class RenderNode {
         UpdateGuard.applying {
             withObservationTracking {
                 renderer.update(widget, self)
+                ModifierBox.update(outerWidget, self)
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
                 // main thread, before the new value is stored.
