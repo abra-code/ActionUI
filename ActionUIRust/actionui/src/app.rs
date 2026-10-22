@@ -256,6 +256,14 @@ impl App {
         Ok(())
     }
 
+    /// Sets the reverse-DNS application ID ("org.example.App"). Linux needs one; on macOS the
+    /// bundle identifier serves and this does nothing. Call it before [`App::run`].
+    pub fn set_application_id(&self, application_id: &str) -> Result<()> {
+        let application_id = ffi::cstring("application ID", application_id)?;
+        unsafe { sys::actionUIAppSetApplicationID(application_id.as_ptr()) };
+        Ok(())
+    }
+
     /// Sets the Dock and About-panel icon from an image file (icns, png and others).
     /// Call it before [`App::run`]. A file that is not an image is ignored.
     pub fn set_icon(&self, path: impl AsRef<Path>) -> Result<()> {

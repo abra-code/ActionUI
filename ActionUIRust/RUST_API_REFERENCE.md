@@ -100,6 +100,7 @@ Two behaviors to know:
 | `App::new() -> Result<App>` | Creates the application. Call once, on the main thread, first. |
 | `App::get() -> Option<App>` | The application, when it exists and this is the main thread. |
 | `set_name(&self, name: &str) -> Result<()>` | Names the application in the menu bar and the Dock. For a bare executable only; see below. Call before `run`. |
+| `set_application_id(&self, application_id: &str) -> Result<()>` | Sets the reverse-DNS application ID ("org.example.App"), which Linux needs; on macOS the bundle identifier serves and this does nothing. Call before `run`. |
 | `set_icon(&self, path) -> Result<()>` | Sets the Dock and About-panel icon from an image file (icns, png and others). Call before `run`. |
 | `run(self) -> !` | Runs the event loop. Does not return. |
 | `terminate(&self)` | Asks the application to quit, as the Quit menu item does, and returns. The should-terminate handler can still refuse. |

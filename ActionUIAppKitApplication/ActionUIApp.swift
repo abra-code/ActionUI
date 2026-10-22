@@ -307,6 +307,15 @@ public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
     }
 }
 
+// MARK: - Application ID
+
+/// Set the application's reverse-DNS identifier. Linux needs one for its application object; on
+/// Apple platforms the bundle identifier serves (actionUIAppSetName sets one for an unbundled
+/// process), so this does nothing. It exists so one host program works on both.
+@_cdecl("actionUIAppSetApplicationID")
+public func actionUIAppSetApplicationID(_ applicationID: UnsafePointer<CChar>) {
+}
+
 // MARK: - App icon
 
 /// Set the application icon (Dock + About panel).

@@ -37,7 +37,7 @@ typedef bool (*ActionUIAppShouldTerminateHandler)(void);
 // MARK: - Window callbacks
 
 /// Fired when a tracked window is about to close.
-/// windowUUID — the UUID that was passed to actionUIAppLoadAndPresentWindow.
+/// windowUUID - the UUID that was passed to actionUIAppLoadAndPresentWindow.
 typedef void (*ActionUIAppWindowHandler)(const char* windowUUID);
 
 // The Swift-generated declarations are noexcept in C++, so these are too: a C++ or
@@ -70,6 +70,7 @@ void actionUIAppSetWindowWillPresentHandler(ActionUIAppWindowHandler handler) AC
 
 // The application
 void actionUIAppSetName(const char *name) ACTIONUI_NOEXCEPT;
+void actionUIAppSetApplicationID(const char *applicationID) ACTIONUI_NOEXCEPT;  // reverse DNS; needed on Linux, nothing on Apple (the bundle identifier)
 void actionUIAppSetIcon(const char *path) ACTIONUI_NOEXCEPT;
 void actionUIAppRun(void) ACTIONUI_NOEXCEPT;
 void actionUIAppTerminate(void) ACTIONUI_NOEXCEPT;

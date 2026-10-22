@@ -2,6 +2,7 @@
 /*
  The application on Linux: an AdwApplication, its windows and its lifecycle, which the
  actionUIApp* C functions drive (on Apple, ActionUIAppKitApplication does this with NSApplication).
+ Public, for them and for Swift programs, which can use it directly.
 
  - run() starts GTK's main loop (with MainLoopBridge, so main-actor work runs) and returns when
    the application ends. It runs once at a time.
@@ -37,30 +38,30 @@ import CAdwaita
 import Dispatch
 
 @MainActor
-final class AdwaitaApplication {
-    static let shared = AdwaitaApplication()
+public final class AdwaitaApplication {
+    public static let shared = AdwaitaApplication()
 
     /// The lifecycle callbacks of the host, all optional.
-    struct Handlers {
-        var willFinishLaunching: (() -> Void)?
-        var didFinishLaunching: (() -> Void)?
-        var willBecomeActive: (() -> Void)?
-        var didBecomeActive: (() -> Void)?
-        var willResignActive: (() -> Void)?
-        var didResignActive: (() -> Void)?
-        var willTerminate: (() -> Void)?
+    public struct Handlers {
+        public var willFinishLaunching: (() -> Void)?
+        public var didFinishLaunching: (() -> Void)?
+        public var willBecomeActive: (() -> Void)?
+        public var didBecomeActive: (() -> Void)?
+        public var willResignActive: (() -> Void)?
+        public var didResignActive: (() -> Void)?
+        public var willTerminate: (() -> Void)?
         /// Asked before the application ends by the user's hand or terminate(); false cancels.
-        var shouldTerminate: (() -> Bool)?
-        var windowWillPresent: ((String) -> Void)?
-        var windowWillClose: ((String) -> Void)?
+        public var shouldTerminate: (() -> Bool)?
+        public var windowWillPresent: ((String) -> Void)?
+        public var windowWillClose: ((String) -> Void)?
     }
 
     /// Apple's fallback window size when the content reports almost none.
     static let fallbackSize = (width: Int32(480), height: Int32(320))
 
-    var handlers = Handlers()
+    public var handlers = Handlers()
     /// The application's name: window titles default to it, and the default application ID.
-    var name: String? {
+    public var name: String? {
         didSet {
             // GLib keeps the first name a process sets and warns at every later one.
             if let name, !Self.glibNameSet {
@@ -71,9 +72,9 @@ final class AdwaitaApplication {
     }
     private static var glibNameSet = false
     /// The reverse-DNS application ID; nil makes one from the name.
-    var applicationID: String?
+    public var applicationID: String?
     /// The windows' icon: an icon theme name, or the path of an image file.
-    var icon: String? {
+    public var icon: String? {
         didSet { applyIcon() }
     }
 
@@ -128,7 +129,7 @@ final class AdwaitaApplication {
     /// Runs the application until it ends; returns GApplication's exit status. A second call
     /// while it runs is refused (logged, returns 1).
     @discardableResult
-    func run() -> Int32 {
+    public func run() -> Int32 {
         guard application == nil else {
             ActionUIModel.shared.logger.log("The application is already running; a second run is refused", .error)
             return 1
@@ -157,7 +158,7 @@ final class AdwaitaApplication {
     }
 
     /// Ends the application, unless the shouldTerminate handler says no.
-    func terminate() {
+    public func terminate() {
         guard let application else { return }
         if let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() { return }
         g_application_quit(typed(application))
@@ -231,13 +232,13 @@ final class AdwaitaApplication {
 
     /// Loads a document from `urlString` (a file URL or path) and shows it in a new window titled
     /// `title`, else the file's name. Before the application starts, the window waits.
-    func presentWindow(url urlString: String, windowUUID: String, title: String?) {
+    public func presentWindow(url urlString: String, windowUUID: String, title: String?) {
         present(.url(urlString), windowUUID: windowUUID, title: title)
     }
 
     /// Loads the document in `json` and shows it in a new window titled `title`, else the
     /// application's name. Before the application starts, the window waits.
-    func presentWindow(json: Data, windowUUID: String, title: String?) {
+    public func presentWindow(json: Data, windowUUID: String, title: String?) {
         present(.json(json), windowUUID: windowUUID, title: title)
     }
 
@@ -307,7 +308,7 @@ final class AdwaitaApplication {
 
     /// Closes the window showing `windowUUID`; windowWillClose fires, shouldTerminate is not
     /// asked. A window still waiting for the application to start is dropped.
-    func closeWindow(_ windowUUID: String) {
+    public func closeWindow(_ windowUUID: String) {
         pendingWindows.removeAll { $0.windowUUID == windowUUID }
         guard let presented = windows[windowUUID] else { return }
         presented.closingByHost = true

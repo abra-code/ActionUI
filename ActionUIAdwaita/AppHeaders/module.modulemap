@@ -1,0 +1,8 @@
+// The application functions' C header as the module ActionUIAppHeaders, which the Linux
+// ActionUIAdwaitaApplication target imports for the handler types. The Apple build uses the
+// header from the ActionUIAppKitApplication target; its umbrella header there imports
+// Foundation/Foundation.h (Objective-C, Apple only), while ActionUIApp.h itself is plain C.
+module ActionUIAppHeaders {
+    header "../../ActionUIAppKitApplication/include/ActionUIApp.h"
+    export *
+}

@@ -6,6 +6,7 @@
 # Pairs checked (Swift folder -> header):
 #   ActionUICAdapter            -> ActionUICAdapter/include/ActionUIC.h
 #   ActionUIAppKitApplication   -> ActionUIAppKitApplication/include/ActionUIApp.h
+#   ActionUIAdwaitaApplication  -> ActionUIAppKitApplication/include/ActionUIApp.h (Linux, same header)
 #
 # Usage: Scripts/check-c-prototypes.sh
 # Exit status: 0 passed, 1 a function and its prototype disagree, 2 a file is missing,
@@ -72,6 +73,11 @@ if [ "$status" -gt "$result" ]; then
     result=$status
 fi
 check_pair ActionUIAppKitApplication ActionUIAppKitApplication/include/ActionUIApp.h
+status=$?
+if [ "$status" -gt "$result" ]; then
+    result=$status
+fi
+check_pair ActionUIAdwaitaApplication ActionUIAppKitApplication/include/ActionUIApp.h
 status=$?
 if [ "$status" -gt "$result" ]; then
     result=$status

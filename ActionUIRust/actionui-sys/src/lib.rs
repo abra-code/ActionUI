@@ -161,6 +161,7 @@ unsafe extern "C" {
     pub fn actionUIAppSetWindowWillPresentHandler(handler: ActionUIAppWindowHandler);
 
     pub fn actionUIAppSetName(name: *const c_char);
+    pub fn actionUIAppSetApplicationID(applicationID: *const c_char);
     pub fn actionUIAppSetIcon(path: *const c_char);
 
     /// Runs the application until it terminates. Main thread only.

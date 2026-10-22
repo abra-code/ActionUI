@@ -396,7 +396,7 @@ Package(
     name: "ActionUI",
     products: [
         // A shared library, so programs in other languages load it and call its C functions.
-        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter"]),
+        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter", "ActionUIAdwaitaApplication"]),
     ],
     targets: [
         // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
@@ -431,6 +431,18 @@ Package(
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Linux.swift"]
         ),
+        // The application functions (actionUIApp*), over AdwaitaApplication; their C header's
+        // handler types come from ActionUIApp.h as a module (only that header: its folder's
+        // umbrella header is Objective-C).
+        .systemLibrary(
+            name: "ActionUIAppHeaders",
+            path: "ActionUIAdwaita/AppHeaders"
+        ),
+        .target(
+            name: "ActionUIAdwaitaApplication",
+            dependencies: ["ActionUI", "ActionUIAppHeaders"],
+            path: "ActionUIAdwaitaApplication"
+        ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(
             name: "ActionUITests",
@@ -442,7 +454,7 @@ Package(
         // The renderer tests. They need a display and skip themselves without one.
         .testTarget(
             name: "ActionUIAdwaitaTests",
-            dependencies: ["ActionUI", "CAdwaita"],
+            dependencies: ["ActionUI", "CAdwaita", "ActionUIAdwaitaApplication"],
             path: "ActionUIAdwaita/Tests"
         ),
     ]
