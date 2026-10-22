@@ -50,6 +50,9 @@ extension TextEditor: ActionUISwiftUIRenderer {
     private struct TextEditorContainer: SwiftUI.View {
         let model: ViewModel
         @State private var text: String
+        /// How many times typing was ignored in a read-only editor; the editor's identity, so it is
+        /// made again with its text.
+        @State private var ignoredEdits = 0
         @State private var tracker = PendingUpdateTracker()
         let initialValue: String
         let isReadOnly: Bool
@@ -113,10 +116,20 @@ extension TextEditor: ActionUISwiftUIRenderer {
             }
         }
 
+        /// The text the editor shows and edits; read-only, a binding that ignores what is typed: SwiftUI
+        /// has no read-only TextEditor, and the editor then shows the text again at once while it stays
+        /// selectable (measured on macOS 27, where .disabled(true) still let the text view change). The
+        /// ignored edit still makes the editor again: the text view's undo would otherwise undo it on the
+        /// text shown again, which raised NSRangeException on macOS 27 after typing at the end.
+        private var editorText: Binding<String> {
+            isReadOnly ? Binding(get: { text }, set: { if $0 != text { ignoredEdits += 1 } }) : $text
+        }
+
         @ViewBuilder
         private var textEditorView: some SwiftUI.View {
             if let placeholder, !placeholder.isEmpty {
-                SwiftUI.TextEditor(text: $text)
+                SwiftUI.TextEditor(text: editorText)
+                    .id(ignoredEdits)
                     .overlay(
                         SwiftUI.Group {
                             if text.isEmpty {
@@ -130,7 +143,8 @@ extension TextEditor: ActionUISwiftUIRenderer {
                         alignment: .topLeading
                     )
             } else {
-                SwiftUI.TextEditor(text: $text)
+                SwiftUI.TextEditor(text: editorText)
+                    .id(ignoredEdits)
             }
         }
     }
@@ -141,6 +155,9 @@ extension TextEditor: ActionUISwiftUIRenderer {
     private struct AttributedTextEditorContainer: SwiftUI.View {
         let model: ViewModel
         @State private var attributedContent: AttributedString
+        /// How many times typing was ignored in a read-only editor; the editor's identity, so it is
+        /// made again with its content.
+        @State private var ignoredEdits = 0
         @State private var tracker = PendingUpdateTracker()
         let initialMarkdown: String
         let isReadOnly: Bool
@@ -198,10 +215,22 @@ extension TextEditor: ActionUISwiftUIRenderer {
                 }
         }
 
+        /// The content the editor shows and edits; read-only, a binding that ignores what is typed, as
+        /// in TextEditorContainer.editorText. The attributed editor does not show its content again by
+        /// itself then (measured on macOS 27), so an ignored edit makes it again. Only an edit: a
+        /// selection change also sets the content, unchanged, and making the editor again then would
+        /// drop the selection and the focus.
+        private var editorContent: Binding<AttributedString> {
+            isReadOnly
+                ? Binding(get: { attributedContent }, set: { if $0 != attributedContent { ignoredEdits += 1 } })
+                : $attributedContent
+        }
+
         @ViewBuilder
         private var attributedEditorView: some SwiftUI.View {
             if let placeholder, !placeholder.isEmpty {
-                SwiftUI.TextEditor(text: $attributedContent)
+                SwiftUI.TextEditor(text: editorContent)
+                    .id(ignoredEdits)
                     .overlay(
                         SwiftUI.Group {
                             if attributedContent.characters.isEmpty {
@@ -215,7 +244,8 @@ extension TextEditor: ActionUISwiftUIRenderer {
                         alignment: .topLeading
                     )
             } else {
-                SwiftUI.TextEditor(text: $attributedContent)
+                SwiftUI.TextEditor(text: editorContent)
+                    .id(ignoredEdits)
             }
         }
     }
