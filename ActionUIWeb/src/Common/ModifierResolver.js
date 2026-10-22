@@ -135,7 +135,9 @@ export function resolveColor(value, logger) {
     return null;
 }
 
-const DEFAULT_PADDING = 8; // pt; approximates SwiftUI's adaptive default
+// SwiftUI's .padding() with no length: 16 pt on each edge on macOS (measured: a 10 x 10 view
+// padded that way fits 42 x 42), as on Android.
+const DEFAULT_PADDING = 16;
 
 function applyPadding(node, padding, logger) {
     if (typeof padding === "number") {

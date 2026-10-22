@@ -86,7 +86,7 @@ function applied(properties, element = { id: 1 }) {
 
 test("padding: number, default keyword, and per-edge object", () => {
     assert.equal(applied({ padding: 12 }).node.style.padding, "12px");
-    assert.match(applied({ padding: "default" }).node.style.padding, /px$/);
+    assert.equal(applied({ padding: "default" }).node.style.padding, "16px", "SwiftUI's default padding on macOS");
     assert.equal(applied({ padding: { top: 1, bottom: 2, leading: 3, trailing: 4 } }).node.style.padding, "1px 4px 2px 3px");
 });
 
