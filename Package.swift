@@ -461,7 +461,9 @@ Package(
         .testTarget(
             name: "ActionUIAdwaitaTests",
             dependencies: ["ActionUI", "CAdwaita", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer"],
-            path: "ActionUIAdwaita/Tests"
+            path: "ActionUIAdwaita/Tests",
+            // Programs in other languages that the tests run (the Python host).
+            exclude: ["Hosts"]
         ),
     ]
 )
