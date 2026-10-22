@@ -4,6 +4,11 @@
  main queue, syncs each dirty node once, parents first, which also re-registers their observation
  tracking. A node that left the tree since it was marked (its parent's sync removed it in the same
  flush) is skipped.
+
+ Nodes marked while the flush runs (the children of a node whose environment changed) are synced in
+ the same flush, in further rounds, so a change reaches every level before GTK draws a frame. The
+ rounds are capped, so a renderer that keeps marking nodes dirty cannot hold the main loop; what is
+ left waits for the next flush.
 */
 
 import Dispatch
@@ -25,13 +30,20 @@ final class SyncScheduler {
         }
     }
 
-    /// Syncs the dirty nodes, parents first. Nodes marked during the flush wait for the next one.
+    /// The most rounds one flush runs.
+    static let maximumRounds = 64
+
+    /// Syncs the dirty nodes, parents first, and those they mark dirty, in rounds.
     func flush() {
-        flushQueued = false
-        let nodes = dirty.values.sorted { $0.depth < $1.depth }
-        dirty = [:]
-        for node in nodes where node.isAttached {
-            node.sync()
-        }
+        var rounds = 0
+        repeat {
+            flushQueued = false
+            let nodes = dirty.values.sorted { $0.depth < $1.depth }
+            dirty = [:]
+            for node in nodes where node.isAttached {
+                node.sync()
+            }
+            rounds += 1
+        } while !dirty.isEmpty && rounds < Self.maximumRounds
     }
 }

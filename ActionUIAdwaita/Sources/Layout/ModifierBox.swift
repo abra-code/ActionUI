@@ -11,7 +11,10 @@
      content group        exactly the frame's size: the padding and the element's alignment in
                           it; background, cornerRadius and clipShape (rounded and clipped), border
        element widget     disabled, help; font, foregroundStyle and tint, which its descendants
-                          inherit
+                          inherit; the accessibility label, hint, hidden state and identifier
+                          (the box and the content group have the generic role, unnamed
+                          panels assistive technologies pass over: GTK leaves a presentation
+                          or none widget out of the tree with all its descendants)
 
  Parents lay out the outer box: a stack sees the frame's size, its expansion (the box's expand
  flags) and its cap (LayoutCaps reads the frame from the box), and a Spacer's marker is carried
@@ -71,13 +74,25 @@ final class BoxShadow {
     var shadow: GskShadow?
 }
 
+/// The accessibility values last given to an element's widget, attached to it.
+@MainActor
+final class AccessibilityState {
+    var label: String?
+    var hint: String?
+    var hidden = false
+    var identifier: String?
+}
+
 let boxLayoutKey = "actionui-box"
 let boxShadowKey = "actionui-shadow"
+let accessibilityStateKey = "actionui-accessibility"
 
 nonisolated(unsafe) private var boxLayoutType: GType = 0
 nonisolated(unsafe) private var contentLayoutType: GType = 0
 nonisolated(unsafe) private var boxWidgetType: GType = 0
 nonisolated(unsafe) private var boxParentClass: UnsafeMutablePointer<GtkWidgetClass>?
+nonisolated(unsafe) private var contentGroupType: GType = 0
+nonisolated(unsafe) private var contentParentClass: UnsafeMutablePointer<GtkWidgetClass>?
 
 @MainActor
 enum ModifierBox {
@@ -95,7 +110,9 @@ enum ModifierBox {
         if let marker = attached(SpacerMarker.self, on: widget, key: spacerMarkerKey) {
             attach(marker, to: box, key: spacerMarkerKey)
         }
-        let content = makeContainer(layoutType: contentType())
+        let content: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(contentWidgetType(), 0, nil, nil)!))
+        let contentManager: UnsafeMutablePointer<GtkLayoutManager> = typed(OpaquePointer(g_object_new_with_properties(contentType(), 0, nil, nil)!))
+        gtk_widget_set_layout_manager(content, contentManager)
         gtk_widget_set_parent(content, box)
         gtk_widget_set_parent(widget, content)
         return box
@@ -107,8 +124,7 @@ enum ModifierBox {
     }
 
     /// Applies the node's base modifiers to its box, its content group and its widget.
-    static func update(_ box: WidgetPointer, _ node: RenderNode) {
-        let modifiers = BaseModifiers(node.properties)
+    static func update(_ box: WidgetPointer, _ node: RenderNode, _ modifiers: BaseModifiers) {
         let widget: WidgetPointer = node.widget
         applyLayout(box, modifiers)
         if let content = content(of: box) {
@@ -116,6 +132,7 @@ enum ModifierBox {
         }
         applyShadow(box, modifiers.shadow)
         applyText(widget, modifiers)
+        applyAccessibility(widget, modifiers)
 
         let sensitive: gboolean = modifiers.disabled == true ? 0 : 1
         if gtk_widget_get_sensitive(widget) != sensitive {
@@ -343,7 +360,108 @@ enum ModifierBox {
         StyleSheet.shared.apply(tint, to: widget, slot: "tint")
     }
 
+    // MARK: Accessibility
+
+    /// The element's accessibility label and hint, its hidden state (accessibilityHidden, or
+    /// hidden, which keeps it out of the tree as on Apple and Android) and its identifier, which
+    /// GTK has no property for: it becomes the widget's name, which test tools and the
+    /// inspector show.
+    private static func applyAccessibility(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
+        let state: AccessibilityState
+        if let existing = attached(AccessibilityState.self, on: widget, key: accessibilityStateKey) {
+            state = existing
+        } else {
+            state = AccessibilityState()
+            attach(state, to: widget, key: accessibilityStateKey)
+        }
+        let accessible = OpaquePointer(widget)
+        // A label or hint is written on every update, not only when it changed: a widget can
+        // write the same properties itself (GtkLabel sets its label from its text), and GTK
+        // ignores a write of the value it already has. Only the reset depends on the last value.
+        let label = modifiers.accessibilityLabel.flatMap { $0.isEmpty ? nil : $0 }
+        if label != nil || state.label != nil {
+            state.label = label
+            setString(accessible, GTK_ACCESSIBLE_PROPERTY_LABEL, label)
+        }
+        // The hint, else the help text, which SwiftUI's .help also gives assistive technologies.
+        let hint = [modifiers.accessibilityHint, modifiers.help].compactMap { $0 }.first { !$0.isEmpty }
+        if hint != nil || state.hint != nil {
+            state.hint = hint
+            setString(accessible, GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, hint)
+        }
+        let hidden = modifiers.hidden || modifiers.accessibilityHidden == true
+        if state.hidden != hidden {
+            state.hidden = hidden
+            // Shown again: the state GTK keeps itself, hidden while unmapped.
+            setHidden(accessible, hidden || gtk_widget_get_mapped(widget) == 0)
+        }
+        let identifier = modifiers.accessibilityIdentifier.flatMap { $0.isEmpty ? nil : $0 }
+        if state.identifier != identifier {
+            state.identifier = identifier
+            // nil restores the default name, the widget's type name (as the name property's
+            // default, NULL, does).
+            gtk_widget_set_name(widget, identifier)
+        }
+    }
+
+    /// Sets the hidden state.
+    private static func setHidden(_ accessible: OpaquePointer, _ hidden: Bool) {
+        var value = GValue()
+        gtk_accessible_state_init_value(GTK_ACCESSIBLE_STATE_HIDDEN, &value)
+        g_value_set_boolean(&value, hidden ? 1 : 0)
+        var name = GTK_ACCESSIBLE_STATE_HIDDEN
+        gtk_accessible_update_state_value(accessible, 1, &name, &value)
+        g_value_unset(&value)
+    }
+
+    /// GTK sets a widget's hidden state to false whenever it maps, after its map handlers run, so
+    /// the content group hides its element again once it has mapped it (the element maps inside
+    /// the content group's map).
+    private static func contentMapped(_ content: WidgetPointer) {
+        guard let widget = gtk_widget_get_first_child(content),
+              attached(AccessibilityState.self, on: widget, key: accessibilityStateKey)?.hidden == true else { return }
+        setHidden(OpaquePointer(widget), true)
+    }
+
+    /// Sets a string accessibility property, or resets it for nil.
+    private static func setString(_ accessible: OpaquePointer, _ property: GtkAccessibleProperty, _ text: String?) {
+        guard let text else {
+            gtk_accessible_reset_property(accessible, property)
+            return
+        }
+        var value = GValue()
+        gtk_accessible_property_init_value(property, &value)
+        g_value_set_string(&value, text)
+        var name = property
+        gtk_accessible_update_property_value(accessible, 1, &name, &value)
+        g_value_unset(&value)
+    }
+
     // MARK: The widgets and layout managers
+
+    /// The content group: a container with no meaning to assistive technologies, which keeps a
+    /// hidden element hidden from them when it maps.
+    static func contentWidgetType() -> GType {
+        if contentGroupType != 0 { return contentGroupType }
+        let parent = actionUIContainerType()
+        var info = GTypeInfo()
+        info.class_size = guint16(MemoryLayout<GtkWidgetClass>.size)
+        info.instance_size = guint16(MemoryLayout<GtkWidget>.size)
+        info.class_init = { klass, _ in
+            guard let klass else { return }
+            contentParentClass = g_type_class_peek_parent(klass)?.assumingMemoryBound(to: GtkWidgetClass.self)
+            let widgetClass = klass.assumingMemoryBound(to: GtkWidgetClass.self)
+            widgetClass.pointee.map = { widget in
+                guard let widget else { return }
+                contentParentClass?.pointee.map?(widget)
+                MainActor.assumeIsolated { ModifierBox.contentMapped(widget) }
+            }
+            gtk_widget_class_set_css_name(widgetClass, "actionui-content")
+            gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_GENERIC)
+        }
+        contentGroupType = g_type_register_static(parent, "ActionUIContentGroup", &info, GTypeFlags(0))
+        return contentGroupType
+    }
 
     /// The outer box: a container that draws its content with the box's shadow.
     static func boxType() -> GType {
@@ -361,6 +479,7 @@ enum ModifierBox {
                 MainActor.assumeIsolated { ModifierBox.snapshot(widget, snapshot) }
             }
             gtk_widget_class_set_css_name(widgetClass, "actionui-box")
+            gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_GENERIC)
         }
         boxWidgetType = g_type_register_static(parent, "ActionUIModifierBox", &info, GTypeFlags(0))
         return boxWidgetType

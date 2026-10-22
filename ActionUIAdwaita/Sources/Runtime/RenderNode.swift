@@ -33,6 +33,8 @@ final class RenderNode {
     private(set) var outerWidget: WidgetPointer!
     /// False once the node has left the tree.
     private(set) var isAttached = true
+    /// The inherited base modifiers (Environment), computed at the start of each sync.
+    private(set) var environment = Environment()
     /// The child nodes, keyed by element id.
     private(set) var childNodes: [Int: RenderNode] = [:]
     /// Child nodes made during this node's sync, synced after it, outside its observation
@@ -88,10 +90,13 @@ final class RenderNode {
     /// Makes the widget show the model, and watches what that read.
     func sync() {
         guard isAttached else { return }
+        let previousEnvironment = environment
         UpdateGuard.applying {
             withObservationTracking {
+                let modifiers = BaseModifiers(properties)
+                environment = (parent?.environment ?? Environment()).applying(modifiers)
                 renderer.update(widget, self)
-                ModifierBox.update(outerWidget, self)
+                ModifierBox.update(outerWidget, self, modifiers)
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
                 // main thread, before the new value is stored.
@@ -103,6 +108,14 @@ final class RenderNode {
         }
         let created = unsyncedChildren
         unsyncedChildren = []
+        // A changed environment reaches the existing children (new ones compute theirs below).
+        // A set: a linear search per child is quadratic in a wide container's first sync.
+        if environment != previousEnvironment {
+            let new = Set(created.map(ObjectIdentifier.init))
+            for child in childNodes.values where !new.contains(ObjectIdentifier(child)) {
+                SyncScheduler.shared.markDirty(child)
+            }
+        }
         for child in created {
             child.sync()
         }
