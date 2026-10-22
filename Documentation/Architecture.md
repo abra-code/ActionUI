@@ -1,6 +1,6 @@
 # ActionUI Architecture (Apple Platforms)
 
-> **Scope:** This document describes the **Apple-platform renderer** (SwiftUI on macOS, iOS, iPadOS, watchOS, tvOS, visionOS), which is the reference implementation. ActionUI renders the same JSON on two other platforms — **Android** (Jetpack Compose) and the **Web** (DOM/CSS) — through independent renderers that mirror this architecture. The [Android Architecture](#android-architecture) and [Web Architecture](#web-architecture) sections near the end summarize how each maps onto this design and where it differs. The pipeline, model, action system, and language adapters below are Apple-specific unless noted.
+> **Scope:** This document describes the **Apple-platform renderer** (SwiftUI on macOS, iOS, iPadOS, watchOS, tvOS, visionOS), which is the reference implementation. ActionUI renders the same JSON on three other platforms - **Android** (Jetpack Compose), the **Web** (DOM/CSS) and **Linux** (GTK 4 and libadwaita, in Swift, sharing the portable core) - through renderers that mirror this architecture. The [Android Architecture](#android-architecture), [Web Architecture](#web-architecture) and [Linux Architecture](#linux-architecture) sections near the end summarize how each maps onto this design and where it differs. The pipeline, model, action system, and language adapters below are Apple-specific unless noted.
 
 ## Overview
 
@@ -181,6 +181,7 @@ See `ActionUIRust/README.md`, `ActionUIRust/RUST_API_REFERENCE.md` and `ActionUI
 - watchOS 10.6+
 - tvOS 17.6+
 - visionOS 2.6+
+- Linux: GNOME 48 and later (GTK 4.18, libadwaita 1.7); see Linux Architecture below
 
 Platform-specific views (e.g., Table on macOS) are conditionally available. Unsupported features degrade gracefully: they are ignored, never a crash.
 
@@ -215,8 +216,29 @@ The Web renderer targets any modern browser and reproduces this architecture in 
 - SF Symbol names are resolved to Material Symbol glyphs for the web font, and lazy containers use `content-visibility` plus incremental rendering in place of the native lazy stacks.
 - There is no compiled language adapter layer; app logic is JavaScript in the page. A [live demo](https://abracode.com/ActionUIWeb/demo/) runs the renderer directly from static files.
 
+## Linux Architecture
+
+The Linux renderer targets **GNOME 48 and later** (GTK 4.18, libadwaita 1.7) and is written in **Swift 6**, with **GTK 4 and libadwaita** as the native UI layer in place of SwiftUI. It is built from the same Swift package as the Apple frameworks.
+
+**What is the same:**
+- The same JSON schema, element names and property names. A document written for Apple renders on Linux with no changes; an element the Linux renderer does not have yet shows a placeholder that names its type.
+- The same portable core, compiled once for both platforms: the element specs and their typed properties, `ActionUIModel`, the JSON layer and the document loader (`ActionUI/Core`). It uses `FoundationEssentials` only, not full Foundation, so the library carries no ICU data.
+- The same C interface: the functions of `ActionUIC.h` and `ActionUIApp.h`, with the same names and signatures. A Python, C, Rust or Node.js host written for macOS runs on Linux with the same calls. The functions Linux does not have yet (the menu bar, alerts, file panels, the remote server) answer as failures and log why.
+
+**What differs:**
+- **Retained widgets.** Each element gets one GTK widget for its lifetime. A node per element watches what it read from the model (Observation) and updates its widget when that changes. SwiftUI instead rebuilds views and diffs them.
+- **SwiftUI's layout, reproduced.** Stacks offer space the way SwiftUI does: the least flexible child first, Spacers last, frames with minimum, ideal and maximum sizes. The layout parity fixtures (`LayoutParity/`) are documents whose frames were recorded from SwiftUI; both renderers are tested against the same recordings.
+- **libadwaita's look:** its controls, header bar, cards and dark style. SF Symbol names map to the Adwaita icon theme; a name with no counterpart shows `image-missing`.
+- **The application ends with its last window,** as GNOME applications do. On macOS an application keeps running without windows.
+- **One library.** On Apple platforms the application layer (`ActionUIAppKitApplication`) is a framework of its own, apart from `ActionUI` and the C adapter, because it brings an application delegate, a menu bar and the remote server that an app with its own `NSApplication` does not want. On Linux, `libActionUI.so` holds all three: the renderer, the C adapter and the application functions (`AdwaitaApplication` and the `actionUIApp*` functions):
+  - The application part is small, does nothing until a host calls it, and needs no library the renderer does not already use (GTK, libadwaita, the Swift runtime, `FoundationEssentials`).
+  - The library meant for distribution carries the Swift runtime inside it, so it runs where Swift is not installed. A process can hold only one Swift runtime, so a second ActionUI library carrying its own copy cannot be loaded beside it, and a host that loads one library is the simplest for Python's ctypes and Node.js.
+
+**Swift programs on Linux** use ActionUI as a Swift package dependency: its code is compiled into the program, which uses the toolchain's Swift runtime. They do not load `libActionUI.so`, which would bring a second Swift runtime into the process. `ActionUIAdwaitaViewer` is built this way. `AdwaitaApplication` is the public Swift API for running an application and presenting documents; there is no public API yet for showing ActionUI content in the windows of an application that has its own `GtkApplication`.
+
 ## Tools
 
 - **ActionUIViewer** — Preview JSON files, take screenshots for sharing or AI feedback (`--screenshot out.png`; add `--hide-window` to render in-process without showing a window, which also works with the screen locked)
 - **ActionUIVerifier** — Validate JSON files before deployment
 - **ActionUISwiftTestApp** — Test app with examples of all supported view types
+- **ActionUIAdwaitaViewer** (Linux) - Opens a JSON file in a window; `--dark` for the dark style, `--screenshot out.png` to save the window as an image and quit (drawn by the window itself, so no screen capture is needed)
