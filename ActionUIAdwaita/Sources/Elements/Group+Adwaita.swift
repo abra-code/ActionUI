@@ -27,13 +27,13 @@ import CAdwaita
 @MainActor
 final class GroupMarker {}
 
-let groupMarkerKey = "actionui-group"
+let groupMarkerKey = AttachKey<GroupMarker>("actionui-group")
 
 /// Attached to the box a Group puts around each of its children.
 @MainActor
 final class GroupChildBoxMarker {}
 
-let groupChildBoxMarkerKey = "actionui-group-child-box"
+let groupChildBoxMarkerKey = AttachKey<GroupChildBoxMarker>("actionui-group-child-box")
 
 @MainActor private var reportedTemplate = false
 
@@ -99,22 +99,22 @@ extension Group: ActionUIAdwaitaRenderer {
     /// The Group's widget inside `box`, when `box` is a Group's box (the stacks lay out its
     /// children as their own).
     static func widget(inBox box: WidgetPointer) -> WidgetPointer? {
-        guard attached(BoxLayout.self, on: box, key: boxLayoutKey) != nil,
+        guard attached(on: box, key: boxLayoutKey) != nil,
               let content = ModifierBox.content(of: box),
               let element = gtk_widget_get_first_child(content),
-              attached(GroupMarker.self, on: element, key: groupMarkerKey) != nil else { return nil }
+              attached(on: element, key: groupMarkerKey) != nil else { return nil }
         return element
     }
 
     /// True when `widget` is a Group's widget whose children a stack or ZStack lays out: the
     /// container of its box is one.
     static func isFlattened(_ widget: WidgetPointer) -> Bool {
-        guard attached(GroupMarker.self, on: widget, key: groupMarkerKey) != nil,
+        guard attached(on: widget, key: groupMarkerKey) != nil,
               let content = gtk_widget_get_parent(widget),
               let box = gtk_widget_get_parent(content),
               let container = gtk_widget_get_parent(box) else { return false }
-        return attached(StackConfiguration.self, on: container, key: stackConfigurationKey) != nil
-            || attached(ZStackConfiguration.self, on: container, key: zStackConfigurationKey) != nil
+        return attached(on: container, key: stackConfigurationKey) != nil
+            || attached(on: container, key: zStackConfigurationKey) != nil
     }
 
     /// True for the widgets of a Group whose children a stack lays out, which span the stack: its
@@ -123,23 +123,23 @@ extension Group: ActionUIAdwaitaRenderer {
     /// a sibling before the Group, instead of stopping at the Group over the empty space and over
     /// every sibling that comes before it; the child boxes keep their own area.
     static func passesPicks(_ widget: WidgetPointer) -> Bool {
-        if attached(GroupMarker.self, on: widget, key: groupMarkerKey) != nil {
+        if attached(on: widget, key: groupMarkerKey) != nil {
             return isFlattened(widget)
         }
-        if attached(BoxLayout.self, on: widget, key: boxLayoutKey) != nil {
+        if attached(on: widget, key: boxLayoutKey) != nil {
             guard let group = self.widget(inBox: widget) else { return false }
             return isFlattened(group)
         }
         // A content group: the element's widget is its only child.
         guard let element = gtk_widget_get_first_child(widget),
-              attached(GroupMarker.self, on: element, key: groupMarkerKey) != nil else { return false }
+              attached(on: element, key: groupMarkerKey) != nil else { return false }
         return isFlattened(element)
     }
 
     /// False for a Group's child box around an element that takes no place (an EmptyView, whose
     /// box is not laid out): a stack gives it no place and no spacing either.
     static func takesPlace(_ box: WidgetPointer) -> Bool {
-        guard attached(GroupChildBoxMarker.self, on: box, key: groupChildBoxMarkerKey) != nil,
+        guard attached(on: box, key: groupChildBoxMarkerKey) != nil,
               let content = ModifierBox.content(of: box),
               let element = gtk_widget_get_first_child(content) else { return true }
         return gtk_widget_should_layout(element) != 0
@@ -163,7 +163,7 @@ extension Group: ActionUIAdwaitaRenderer {
         guard let content = gtk_widget_get_parent(child.outerWidget),
               let box = gtk_widget_get_parent(content),
               gtk_widget_get_parent(box) == widget,
-              attached(GroupChildBoxMarker.self, on: box, key: groupChildBoxMarkerKey) != nil else { return nil }
+              attached(on: box, key: groupChildBoxMarkerKey) != nil else { return nil }
         return box
     }
 

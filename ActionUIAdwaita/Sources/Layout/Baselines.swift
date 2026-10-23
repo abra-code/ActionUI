@@ -53,14 +53,14 @@ final class TextLineMarker {
     }
 }
 
-let textLineMarkerKey = "actionui-text-line"
+let textLineMarkerKey = AttachKey<TextLineMarker>("actionui-text-line")
 
 @MainActor
 enum Baselines {
     /// The first text baseline of `widget` laid out `width` x `height`, from its top; nil when
     /// nothing in it has text (it lines up by its bottom).
     static func first(_ widget: WidgetPointer, width: Int, height: Int) -> Int? {
-        if attached(BoxLayout.self, on: widget, key: boxLayoutKey) != nil {
+        if attached(on: widget, key: boxLayoutKey) != nil {
             guard let content = ModifierBox.content(of: widget), let element = layoutChildren(content).first,
                   !Group.isFlattened(element) else { return nil }
             let frame = ModifierBox.contentFrame(widget, width: width, height: height)
@@ -69,13 +69,13 @@ enum Baselines {
         }
         let children: [WidgetPointer]
         let places: [(x: Int, y: Int, width: Int, height: Int)]
-        if attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) != nil {
+        if attached(on: widget, key: stackConfigurationKey) != nil {
             children = stackChildren(widget)
             places = StackLayout.placements(widget, children, width: width, height: height)
-        } else if attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) != nil {
+        } else if attached(on: widget, key: zStackConfigurationKey) != nil {
             children = stackChildren(widget)
             places = ZStackLayout.placements(widget, width: width, height: height)
-        } else if let marker = attached(TextLineMarker.self, on: widget, key: textLineMarkerKey) {
+        } else if let marker = attached(on: widget, key: textLineMarkerKey) {
             let line = fontLine(widget)
             switch marker.place {
             case .centered: return (height - line.ascent - line.descent) / 2 + line.ascent

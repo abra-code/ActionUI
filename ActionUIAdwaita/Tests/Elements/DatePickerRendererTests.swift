@@ -45,7 +45,7 @@ final class DatePickerRendererTests: XCTestCase {
     }
 
     private func parts(_ node: RenderNode) throws -> DatePickerParts {
-        try XCTUnwrap(attached(DatePickerParts.self, on: node.widget, key: datePickerPartsKey))
+        try XCTUnwrap(attached(on: node.widget, key: datePickerPartsKey))
     }
 
     private var value: Date? {

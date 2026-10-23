@@ -38,14 +38,14 @@ enum FormFieldTitle {
 
     /// The entry in the field's widget.
     static func entry(_ widget: WidgetPointer) -> WidgetPointer {
-        guard attached(LabeledRowMarker.self, on: widget, key: labeledRowMarkerKey) != nil else { return widget }
+        guard attached(on: widget, key: labeledRowMarkerKey) != nil else { return widget }
         return gtk_widget_get_last_child(widget) ?? widget
     }
 
     /// Shows `title` before the entry when the field is in a Form, and returns the entry's
     /// placeholder: the prompt, else, outside a Form, the title.
     static func update(_ widget: WidgetPointer, _ node: RenderNode, title: String, prompt: String?) -> String? {
-        if attached(LabeledRowMarker.self, on: widget, key: labeledRowMarkerKey) != nil,
+        if attached(on: widget, key: labeledRowMarkerKey) != nil,
            let label = Gtk.Widget(widget).firstChild {
             Gtk.Label(label.pointer).text = title
             label.isVisible = !node.environment.labelsHidden

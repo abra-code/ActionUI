@@ -37,7 +37,7 @@ final class DatePickerParts {
     var minute: WidgetPointer?
 }
 
-let datePickerPartsKey = "actionui-date-picker"
+let datePickerPartsKey = AttachKey<DatePickerParts>("actionui-date-picker")
 
 extension DatePicker: ActionUIAdwaitaRenderer {
     /// The gap between the title and the control (SwiftUI's default spacing).
@@ -169,7 +169,7 @@ extension DatePicker: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let parts = attached(DatePickerParts.self, on: widget, key: datePickerPartsKey),
+        guard let parts = attached(on: widget, key: datePickerPartsKey),
               let title = gtk_widget_get_first_child(widget) else { return }
         let props = Props(node.properties)
         if swiftString(gtk_label_get_text(opaque(title))) != props.title {
@@ -184,7 +184,7 @@ extension DatePicker: ActionUIAdwaitaRenderer {
 
     /// The control, which assistive technologies read (the box only holds it and the title).
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        guard let parts = attached(DatePickerParts.self, on: widget, key: datePickerPartsKey) else { return widget }
+        guard let parts = attached(on: widget, key: datePickerPartsKey) else { return widget }
         return parts.button ?? parts.calendar ?? parts.hour ?? widget
     }
 
@@ -267,7 +267,7 @@ extension DatePicker: ActionUIAdwaitaRenderer {
         guard kept != picked || kept == before else { return }
         _ = runAfter(milliseconds: 0) { [weak node] in
             guard let node, node.isAttached,
-                  let parts = attached(DatePickerParts.self, on: node.widget, key: datePickerPartsKey) else { return }
+                  let parts = attached(on: node.widget, key: datePickerPartsKey) else { return }
             UpdateGuard.applying { show(currentDate(node), parts, Props(node.properties)) }
         }
     }

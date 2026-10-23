@@ -179,7 +179,7 @@ final class GroupRendererTests: XCTestCase {
         XCTAssertEqual(gtk_widget_get_can_target(childBox), 0)
         XCTAssertEqual(gtk_widget_get_opacity(childBox), 0)
         XCTAssertEqual(try frame(4, in: root, 100, 20)[0], 54, "the hidden child keeps its place")
-        XCTAssertTrue(attached(AccessibilityState.self, on: group.widget, key: accessibilityStateKey)?.hidden ?? false,
+        XCTAssertTrue(attached(on: group.widget, key: accessibilityStateKey)?.hidden ?? false,
                       "hidden on the Group's widget takes its children out of the accessibility tree")
     }
 

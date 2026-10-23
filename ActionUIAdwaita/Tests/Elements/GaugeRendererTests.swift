@@ -122,6 +122,6 @@ final class GaugeRendererTests: XCTestCase {
         let node = try render(#""value": 0, "range": {"min": 0, "max": 100}, "style": "accessoryCircularCapacity""#)
         XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(meter(node)), GTK_ACCESSIBLE_PROPERTY_VALUE_NOW), 0)
         // The range written is the gauge's, not a default, also before the value first changes.
-        XCTAssertEqual(attached(GaugeState.self, on: meter(node), key: gaugeStateKey)?.accessibleValue, [0, 100, 0])
+        XCTAssertEqual(attached(on: meter(node), key: gaugeStateKey)?.accessibleValue, [0, 100, 0])
     }
 }

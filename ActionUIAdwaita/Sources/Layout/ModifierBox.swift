@@ -86,9 +86,9 @@ final class AccessibilityState {
     var identifier: String?
 }
 
-let boxLayoutKey = "actionui-box"
-let boxShadowKey = "actionui-shadow"
-let accessibilityStateKey = "actionui-accessibility"
+let boxLayoutKey = AttachKey<BoxLayout>("actionui-box")
+let boxShadowKey = AttachKey<BoxShadow>("actionui-shadow")
+let accessibilityStateKey = AttachKey<AccessibilityState>("actionui-accessibility")
 
 nonisolated(unsafe) private var boxLayoutType: GType = 0
 nonisolated(unsafe) private var contentLayoutType: GType = 0
@@ -110,7 +110,7 @@ enum ModifierBox {
         gtk_widget_set_layout_manager(box, manager)
         attach(BoxLayout(), to: box, key: boxLayoutKey)
         attach(BoxShadow(), to: box, key: boxShadowKey)
-        if let marker = attached(SpacerMarker.self, on: widget, key: spacerMarkerKey) {
+        if let marker = attached(on: widget, key: spacerMarkerKey) {
             attach(marker, to: box, key: spacerMarkerKey)
         }
         let content: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(contentWidgetType(), 0, nil, nil)!))
@@ -171,7 +171,7 @@ enum ModifierBox {
     // MARK: Layout settings
 
     private static func applyLayout(_ box: WidgetPointer, _ modifiers: BaseModifiers) {
-        guard let layout = attached(BoxLayout.self, on: box, key: boxLayoutKey) else { return }
+        guard let layout = attached(on: box, key: boxLayoutKey) else { return }
         let padding = paddingAxes(modifiers.padding)
         let frame = frameAxes(modifiers.frame)
         let alignment = alignmentAxes(modifiers.frame?.alignment)
@@ -327,7 +327,7 @@ enum ModifierBox {
     }
 
     private static func applyShadow(_ box: WidgetPointer, _ shadow: BaseModifiers.Shadow?) {
-        guard let state = attached(BoxShadow.self, on: box, key: boxShadowKey) else { return }
+        guard let state = attached(on: box, key: boxShadowKey) else { return }
         var next: GskShadow?
         if let shadow, shadow.radius.isFinite, shadow.x.isFinite, shadow.y.isFinite {
             let color = ColorSpec.parse(shadow.color).map { spec -> GdkRGBA in
@@ -379,7 +379,7 @@ enum ModifierBox {
     /// inspector show.
     private static func applyAccessibility(_ widget: WidgetPointer, _ node: RenderNode, _ modifiers: BaseModifiers) {
         let state: AccessibilityState
-        if let existing = attached(AccessibilityState.self, on: widget, key: accessibilityStateKey) {
+        if let existing = attached(on: widget, key: accessibilityStateKey) {
             state = existing
         } else {
             state = AccessibilityState()
@@ -432,7 +432,7 @@ enum ModifierBox {
     /// the content group's map).
     private static func contentMapped(_ content: WidgetPointer) {
         guard let widget = Gtk.Widget(content).firstChild?.pointer,
-              attached(AccessibilityState.self, on: widget, key: accessibilityStateKey)?.hidden == true else { return }
+              attached(on: widget, key: accessibilityStateKey)?.hidden == true else { return }
         setHidden(OpaquePointer(widget), true)
     }
 
@@ -500,7 +500,7 @@ enum ModifierBox {
 
     private static func snapshot(_ box: WidgetPointer, _ snapshot: OpaquePointer) {
         let drawChildren = { boxParentClass?.pointee.snapshot?(box, snapshot) }
-        guard var shadow = attached(BoxShadow.self, on: box, key: boxShadowKey)?.shadow else {
+        guard var shadow = attached(on: box, key: boxShadowKey)?.shadow else {
             drawChildren()
             return
         }
@@ -566,7 +566,7 @@ enum ModifierBox {
     // MARK: Measuring and placing
 
     private static func layout(ofBox box: WidgetPointer) -> BoxLayout {
-        attached(BoxLayout.self, on: box, key: boxLayoutKey) ?? BoxLayout()
+        attached(on: box, key: boxLayoutKey) ?? BoxLayout()
     }
 
     /// The BoxLayout of the box a content group is in.

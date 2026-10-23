@@ -51,8 +51,8 @@ final class StackConfiguration {
 @MainActor
 final class SpacerMarker {}
 
-let stackConfigurationKey = "actionui-stack"
-let spacerMarkerKey = "actionui-spacer"
+let stackConfigurationKey = AttachKey<StackConfiguration>("actionui-stack")
+let spacerMarkerKey = AttachKey<SpacerMarker>("actionui-spacer")
 
 nonisolated(unsafe) private var stackLayoutType: GType = 0
 
@@ -73,7 +73,7 @@ enum StackLayout {
     /// HStack's by text baselines with `alignsBaselines`), relaying it out only when they changed.
     static func configure(_ widget: WidgetPointer, spacing: Double?, alignment: StackSolver.Alignment,
                           alignsBaselines: Bool = false) {
-        guard let configuration = attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) else { return }
+        guard let configuration = attached(on: widget, key: stackConfigurationKey) else { return }
         let points = StackSolver.length(spacing ?? defaultSpacing)
         let isDefault = spacing == nil
         guard configuration.spacing != points || configuration.isDefaultSpacing != isDefault
@@ -137,7 +137,7 @@ enum StackLayout {
     }
 
     private static func isSpacer(_ child: WidgetPointer) -> Bool {
-        attached(SpacerMarker.self, on: child, key: spacerMarkerKey) != nil
+        attached(on: child, key: spacerMarkerKey) != nil
     }
 
     /// The spacing between the stack's neighboring children (none next to a Spacer when the stack
@@ -154,7 +154,7 @@ enum StackLayout {
     }
 
     private static func configuration(_ widget: WidgetPointer) -> StackConfiguration {
-        attached(StackConfiguration.self, on: widget, key: stackConfigurationKey)
+        attached(on: widget, key: stackConfigurationKey)
             ?? StackConfiguration(axis: .vertical, spacing: 0, isDefaultSpacing: false, alignment: .center)
     }
 

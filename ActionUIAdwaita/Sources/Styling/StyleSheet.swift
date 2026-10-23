@@ -33,7 +33,7 @@ final class StyleSlots {
     }
 }
 
-let styleSlotsKey = "actionui-style"
+let styleSlotsKey = AttachKey<StyleSlots>("actionui-style")
 
 @MainActor
 final class StyleSheet {
@@ -86,7 +86,7 @@ final class StyleSheet {
             wanted.append(generated)
         }
         let slots: StyleSlots
-        if let existing = attached(StyleSlots.self, on: widget, key: styleSlotsKey) {
+        if let existing = attached(on: widget, key: styleSlotsKey) {
             slots = existing
         } else {
             slots = StyleSlots()

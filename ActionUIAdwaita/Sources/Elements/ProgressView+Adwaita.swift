@@ -18,7 +18,7 @@
 import CAdwaita
 
 nonisolated(unsafe) private var ringWidgetType: GType = 0
-private let progressStateKey = "actionui-progress-state"
+private let progressStateKey = AttachKey<ProgressState>("actionui-progress-state")
 
 /// What the indicator shows, kept on it: the ring's fraction, and the bar's pulse.
 @MainActor private final class ProgressState {
@@ -102,7 +102,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         if gtk_widget_get_visible(title) != showsTitle {
             gtk_widget_set_visible(title, showsTitle)
         }
-        guard let state = attached(ProgressState.self, on: indicator, key: progressStateKey) else { return }
+        guard let state = attached(on: indicator, key: progressStateKey) else { return }
         let progress = determinateProgress(node.model, props)
         let fraction = progress.map { $0.total > 0 ? Swift.min(Swift.max($0.value / $0.total, 0), 1) : 0 } ?? 0
         switch Kind(rawValue: node.widgetKind) ?? .bar {
@@ -159,7 +159,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
     }
 
     private static func drawRing(_ ring: WidgetPointer, _ snapshot: OpaquePointer) {
-        let fraction = attached(ProgressState.self, on: ring, key: progressStateKey)?.fraction ?? 0
+        let fraction = attached(on: ring, key: progressStateKey)?.fraction ?? 0
         // Clockwise from the top, the whole circle.
         RingDrawing.draw(ring, snapshot, lineWidth: ringWidth, start: -Float.pi / 2, sweep: 2 * Float.pi, fraction: fraction, marker: false)
     }
@@ -194,7 +194,7 @@ private let pulseTick: GtkTickCallback = { widget, clock, _ in
     let address = UInt(bitPattern: widget)
     return MainActor.assumeIsolated {
         let widget = UnsafeMutablePointer<GtkWidget>(bitPattern: address)!
-        guard let state = attached(ProgressState.self, on: widget, key: progressStateKey) else { return 0 }
+        guard let state = attached(on: widget, key: progressStateKey) else { return 0 }
         if now - state.lastPulse >= ProgressView.pulseInterval {
             state.lastPulse = now
             gtk_progress_bar_pulse(OpaquePointer(widget))

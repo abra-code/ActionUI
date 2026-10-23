@@ -24,7 +24,7 @@
 
 import CAdwaita
 
-private let pickerStateKey = "actionui-picker-state"
+private let pickerStateKey = AttachKey<PickerState>("actionui-picker-state")
 
 /// What the control shows, kept on the Picker's box: the sections it was built from, the tag of
 /// each item, and for the menu each section's start, for the radio group its buttons.
@@ -105,7 +105,7 @@ extension Picker: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let state = attached(PickerState.self, on: widget, key: pickerStateKey),
+        guard let state = attached(on: widget, key: pickerStateKey),
               let title = gtk_widget_get_first_child(widget) else { return }
         let control = accessibleWidget(widget)
         let props = Props(node.properties)

@@ -16,7 +16,7 @@ final class ZStackConfiguration {
     var vertical: StackSolver.Alignment = .center
 }
 
-let zStackConfigurationKey = "actionui-zstack"
+let zStackConfigurationKey = AttachKey<ZStackConfiguration>("actionui-zstack")
 
 nonisolated(unsafe) private var zStackLayoutType: GType = 0
 
@@ -31,7 +31,7 @@ enum ZStackLayout {
 
     /// Sets the alignment, relaying the stack out only when it changed.
     static func configure(_ widget: WidgetPointer, horizontal: StackSolver.Alignment, vertical: StackSolver.Alignment) {
-        guard let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey),
+        guard let configuration = attached(on: widget, key: zStackConfigurationKey),
               configuration.horizontal != horizontal || configuration.vertical != vertical else { return }
         configuration.horizontal = horizontal
         configuration.vertical = vertical
@@ -85,7 +85,7 @@ enum ZStackLayout {
     /// in a block as wide as the widest child, centered, each aligned in the block by the stack's
     /// horizontal alignment. FormLayout reads it to find the titles inside a row.
     static func horizontalPlacements(_ widget: WidgetPointer, width: Int) -> [(x: Int, width: Int)] {
-        let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
+        let configuration = attached(on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
         let widths = childWidths(widget, width: width)
         let block = widths.max() ?? 0
         let blockX = StackSolver.centeredStart(length: block, available: width)
@@ -122,7 +122,7 @@ enum ZStackLayout {
     /// as horizontalPlacements, and down in a block as tall as the tallest child, centered, each
     /// aligned in it by the stack's vertical alignment (Baselines reads them too).
     static func placements(_ widget: WidgetPointer, width: Int, height: Int) -> [(x: Int, y: Int, width: Int, height: Int)] {
-        let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
+        let configuration = attached(on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
         let across = horizontalPlacements(widget, width: width)
         let heights = zip(stackChildren(widget), across).map {
             childSize($0, GTK_ORIENTATION_VERTICAL, available: height, forSize: $1.width)

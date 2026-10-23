@@ -31,7 +31,7 @@ import CAdwaita
 @MainActor
 final class FormConfiguration {}
 
-let formConfigurationKey = "actionui-form"
+let formConfigurationKey = AttachKey<FormConfiguration>("actionui-form")
 
 /// Attached to the widget of an element that shows its title in a Form's label column.
 @MainActor
@@ -53,14 +53,14 @@ final class LabeledRowMarker {
     }
 }
 
-let labeledRowMarkerKey = "actionui-labeled-row"
+let labeledRowMarkerKey = AttachKey<LabeledRowMarker>("actionui-labeled-row")
 
 @MainActor
 enum FormLayout {
     /// The leading offset of each of `children` (a stack's children as it lays them out) when
     /// `widget` is a Form; nil when it is not.
     static func offsets(_ widget: WidgetPointer, _ children: [WidgetPointer]) -> [Int]? {
-        guard attached(FormConfiguration.self, on: widget, key: formConfigurationKey) != nil else { return nil }
+        guard attached(on: widget, key: formConfigurationKey) != nil else { return nil }
         let titles = children.map(labelEnd)
         guard let column = titles.compactMap({ $0 }).max() else {
             return Array(repeating: 0, count: children.count)
@@ -75,7 +75,7 @@ enum FormLayout {
     /// header are 5 down; below a row with text, and between rows without text, 8). nil when
     /// `widget` is not a Form.
     static func rowGaps(_ widget: WidgetPointer, _ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int]? {
-        guard attached(FormConfiguration.self, on: widget, key: formConfigurationKey) != nil else { return nil }
+        guard attached(on: widget, key: formConfigurationKey) != nil else { return nil }
         var gaps = StackLayout.uniformGaps(children, stack)
         let hasText = children.map(hasTextBaseline)
         for index in gaps.indices where !hasText[index] && hasText[index + 1] {
@@ -112,23 +112,23 @@ enum FormLayout {
         var widget = widget
         var start = 0
         var width = width
-        while attached(BoxLayout.self, on: widget, key: boxLayoutKey) != nil {
+        while attached(on: widget, key: boxLayoutKey) != nil {
             guard let content = ModifierBox.content(of: widget), let inner = Gtk.Widget(content).firstChild?.pointer else { return nil }
             let placement = ModifierBox.elementPlacement(inBox: widget, width: width)
             start += placement.start
             width = placement.width
             widget = inner
         }
-        if let marker = attached(LabeledRowMarker.self, on: widget, key: labeledRowMarkerKey) {
+        if let marker = attached(on: widget, key: labeledRowMarkerKey) {
             return titleEnd(widget, marker, width: width).map { Double(start + $0) }
         }
-        guard attached(FormConfiguration.self, on: widget, key: formConfigurationKey) == nil else { return nil }
+        guard attached(on: widget, key: formConfigurationKey) == nil else { return nil }
         let children: [WidgetPointer]
         let placements: [(x: Int, width: Int)]
-        if attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) != nil {
+        if attached(on: widget, key: stackConfigurationKey) != nil {
             children = stackChildren(widget)
             placements = StackLayout.horizontalPlacements(widget, children, width: width)
-        } else if attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) != nil {
+        } else if attached(on: widget, key: zStackConfigurationKey) != nil {
             children = stackChildren(widget)
             placements = ZStackLayout.horizontalPlacements(widget, width: width)
         } else {
@@ -148,7 +148,7 @@ enum FormLayout {
             guard let title = Gtk.Widget(widget).firstChild, title.isVisible else { return nil }
             return title.measure(GTK_ORIENTATION_HORIZONTAL).natural
         }
-        guard let stack = attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) else { return nil }
+        guard let stack = attached(on: widget, key: stackConfigurationKey) else { return nil }
         // An HStack of the title and the content, centered in a row wider than they are.
         let children = stackChildren(widget)
         let widths = StackLayout.childWidths(widget, children, width: width)

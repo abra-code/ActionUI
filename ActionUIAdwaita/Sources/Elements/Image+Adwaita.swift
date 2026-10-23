@@ -31,7 +31,7 @@
 import CAdwaita
 
 nonisolated(unsafe) private var scalableIconWidgetType: GType = 0
-private let imageStateKey = "actionui-image-state"
+private let imageStateKey = AttachKey<ImageState>("actionui-image-state")
 
 /// What an Image shows, resolved from its value and properties.
 enum ImageContent: Equatable {
@@ -108,7 +108,7 @@ extension Image: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let state = attached(ImageState.self, on: widget, key: imageStateKey) else { return }
+        guard let state = attached(on: widget, key: imageStateKey) else { return }
         let props = Props(node.properties)
         let content = content(node, props)
         let resizable = isResizable(props)
@@ -285,7 +285,7 @@ extension Image: ActionUIAdwaitaRenderer {
 
     /// The scalable icon's natural side: its em times the widget's font size in pixels.
     private static func naturalIconLength(_ widget: WidgetPointer) -> Int32 {
-        let em = attached(ImageState.self, on: widget, key: imageStateKey)?.em ?? iconSize(nil)
+        let em = attached(on: widget, key: imageStateKey)?.em ?? iconSize(nil)
         let context = gtk_widget_get_pango_context(widget)
         guard let font = pango_context_get_font_description(context) else { return Int32((16 / iconSize(nil) * em).rounded()) }
         var pixels = Double(pango_font_description_get_size(font)) / Double(PANGO_SCALE)
@@ -298,7 +298,7 @@ extension Image: ActionUIAdwaitaRenderer {
     }
 
     private static func drawScalableIcon(_ widget: WidgetPointer, _ snapshot: OpaquePointer) {
-        guard let state = attached(ImageState.self, on: widget, key: imageStateKey), let name = state.iconName,
+        guard let state = attached(on: widget, key: imageStateKey), let name = state.iconName,
               let display = gtk_widget_get_display(widget) else { return }
         let width = Double(gtk_widget_get_width(widget))
         let height = Double(gtk_widget_get_height(widget))

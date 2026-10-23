@@ -37,7 +37,7 @@ final class SizeLimit {
     }
 }
 
-let sizeLimitKey = "actionui-size-limit"
+let sizeLimitKey = AttachKey<SizeLimit>("actionui-size-limit")
 
 @MainActor
 enum LayoutCaps {
@@ -45,21 +45,21 @@ enum LayoutCaps {
     /// height is for `forSize` wide (-1: no width given); a width ignores `forSize`.
     static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Int? {
         let forSize = orientation == GTK_ORIENTATION_VERTICAL ? forSize : -1
-        if let limit = attached(SizeLimit.self, on: widget, key: sizeLimitKey),
+        if let limit = attached(on: widget, key: sizeLimitKey),
            let length = orientation == GTK_ORIENTATION_HORIZONTAL ? limit.width : limit.height {
             return length
         }
-        if let box = attached(BoxLayout.self, on: widget, key: boxLayoutKey) {
+        if let box = attached(on: widget, key: boxLayoutKey) {
             return boxCap(widget, box, orientation, forSize: forSize)
         }
-        if let stack = attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) {
+        if let stack = attached(on: widget, key: stackConfigurationKey) {
             return stackCap(widget, stack, orientation, forSize: forSize)
         }
-        if attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) != nil {
+        if attached(on: widget, key: zStackConfigurationKey) != nil {
             let widths = forSize >= 0 ? ZStackLayout.childWidths(widget, width: forSize) : nil
             return largestOfChildren(stackChildren(widget), orientation, widths: widths)
         }
-        if attached(GroupBoxMarker.self, on: widget, key: groupBoxMarkerKey) != nil {
+        if attached(on: widget, key: groupBoxMarkerKey) != nil {
             return GroupBox.cap(widget, orientation, forSize: forSize)
         }
         return nil

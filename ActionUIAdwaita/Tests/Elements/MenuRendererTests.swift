@@ -81,7 +81,7 @@ final class MenuRendererTests: XCTestCase {
     }
 
     private func actions(_ node: RenderNode) throws -> OpaquePointer {
-        try XCTUnwrap(attached(MenuState.self, on: node.widget, key: menuStateKey)).actions
+        try XCTUnwrap(attached(on: node.widget, key: menuStateKey)).actions
     }
 
     func testTheButtonShowsTheTitleWithAnArrow() throws {
@@ -235,7 +235,7 @@ final class MenuRendererTests: XCTestCase {
         }
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "title", value: "Copy All")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertNotNil(attached(MenuState.self, on: node!.widget, key: menuStateKey)?.pending, "deferred while open")
+        XCTAssertNotNil(attached(on: node!.widget, key: menuStateKey)?.pending, "deferred while open")
         // Set to nil when the button is finalized.
         let slot = UnsafeMutablePointer<gpointer?>.allocate(capacity: 1)
         defer { slot.deallocate() }

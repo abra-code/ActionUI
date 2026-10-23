@@ -72,7 +72,7 @@ final class MenuState {
     }
 }
 
-let menuStateKey = "actionui-menu"
+let menuStateKey = AttachKey<MenuState>("actionui-menu")
 
 extension Menu: ActionUIAdwaitaRenderer {
     /// The prefix of the items' actions (the button's action group).
@@ -103,7 +103,7 @@ extension Menu: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let button = OpaquePointer(widget)
         updateLabel(button, node)
-        guard let state = attached(MenuState.self, on: widget, key: menuStateKey) else { return }
+        guard let state = attached(on: widget, key: menuStateKey) else { return }
         var items: [Int: any ActionUIElementBase] = [:]
         let entries = self.entries(node.subviews("children"), node, &items)
         state.items = items
@@ -297,7 +297,7 @@ extension Menu: ActionUIAdwaitaRenderer {
 
     /// The element item `id` stands for and its view model, while the Menu shows it.
     private static func item(_ id: Int, _ node: RenderNode) -> (any ActionUIElementBase, ViewModel)? {
-        guard let state = attached(MenuState.self, on: node.widget, key: menuStateKey),
+        guard let state = attached(on: node.widget, key: menuStateKey),
               let element = state.items[id], let model = node.windowModel.viewModels[id] else { return nil }
         return (element, model)
     }

@@ -25,7 +25,7 @@
 import CAdwaita
 
 nonisolated(unsafe) private var shapeWidgetType: GType = 0
-private let shapeStateKey = "actionui-shape-state"
+private let shapeStateKey = AttachKey<ShapeState>("actionui-shape-state")
 
 /// The outline a shape element draws, fitted to the widget's allocation.
 enum ShapeOutline: Equatable {
@@ -64,7 +64,7 @@ enum ShapeWidget {
     /// else the foreground color. Redraws only when something changed.
     static func update(_ widget: WidgetPointer, outline: ShapeOutline, fill: String?, stroke: String?, lineWidth: Double) {
         guard let shape = gtk_widget_get_first_child(widget),
-              let state = attached(ShapeState.self, on: shape, key: shapeStateKey) else { return }
+              let state = attached(on: shape, key: shapeStateKey) else { return }
         let fillStyle = fill.flatMap(ShapeStyleSpec.parse)
         let strokeStyle = fillStyle == nil ? stroke.flatMap(ShapeStyleSpec.parse) : nil
         let drawing = ShapeDrawing(outline: outline, strokeWidth: strokeStyle == nil ? nil : max(lineWidth, 0))
@@ -78,11 +78,11 @@ enum ShapeWidget {
 
     /// The drawing the element's widget shows, for tests.
     static func drawing(of widget: WidgetPointer) -> ShapeDrawing? {
-        gtk_widget_get_first_child(widget).flatMap { attached(ShapeState.self, on: $0, key: shapeStateKey)?.drawing }
+        gtk_widget_get_first_child(widget).flatMap { attached(on: $0, key: shapeStateKey)?.drawing }
     }
 
     private static func snapshot(_ widget: WidgetPointer, _ snapshot: OpaquePointer) {
-        guard let drawing = attached(ShapeState.self, on: widget, key: shapeStateKey)?.drawing else { return }
+        guard let drawing = attached(on: widget, key: shapeStateKey)?.drawing else { return }
         let width = Float(gtk_widget_get_width(widget))
         let height = Float(gtk_widget_get_height(widget))
         guard width > 0, height > 0 else { return }

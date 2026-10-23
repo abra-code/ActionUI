@@ -106,22 +106,23 @@ final class GtkInteropTests: XCTestCase {
     }
 
     func testAnAttachedObjectLivesAsLongAsItsGObject() {
+        let testKey = AttachKey<CallCounter>("test-key")
         let button = ownedButton()
         weak var first: CallCounter?
         weak var second: CallCounter?
         do {
             let value = CallCounter()
             first = value
-            attach(value, to: button, key: "test-key")
+            attach(value, to: button, key: testKey)
         }
-        XCTAssertTrue(attached(CallCounter.self, on: button, key: "test-key") === first)
-        XCTAssertNil(attached(TimerAction.self, on: button, key: "test-key"), "another type is not returned")
-        XCTAssertNil(attached(CallCounter.self, on: button, key: "other-key"))
+        XCTAssertTrue(attached(on: button, key: testKey) === first)
+        XCTAssertNil(attached(on: button, key: AttachKey<TimerAction>("test-key")), "another type under the same name is not returned")
+        XCTAssertNil(attached(on: button, key: AttachKey<CallCounter>("other-key")))
 
         do {
             let value = CallCounter()
             second = value
-            attach(value, to: button, key: "test-key")
+            attach(value, to: button, key: testKey)
         }
         XCTAssertNil(first, "replacing the value released the old one")
         XCTAssertNotNil(second)

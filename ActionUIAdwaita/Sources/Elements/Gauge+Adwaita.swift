@@ -20,7 +20,7 @@
 import CAdwaita
 
 nonisolated(unsafe) private var drawingWidgetType: GType = 0
-let gaugeStateKey = "actionui-gauge-state"
+let gaugeStateKey = AttachKey<GaugeState>("actionui-gauge-state")
 
 /// What a drawn gauge shows, kept on the drawing.
 @MainActor final class GaugeState {
@@ -131,7 +131,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
                 gtk_level_bar_set_value(bar, shown + shift)
             }
             setAccessibleValue(meter, min: props.min, max: props.max, now: shown)
-        } else if let state = attached(GaugeState.self, on: meter, key: gaugeStateKey) {
+        } else if let state = attached(on: meter, key: gaugeStateKey) {
             if state.fraction != fraction {
                 state.fraction = fraction
                 gtk_widget_queue_draw(meter)
@@ -146,7 +146,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
 
     /// The level bar or the drawing, which assistive technologies read.
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        if attached(GaugeState.self, on: widget, key: gaugeStateKey) != nil {
+        if attached(on: widget, key: gaugeStateKey) != nil {
             return widget
         }
         if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_overlay_get_type()) != 0 {
@@ -162,7 +162,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
 
     /// The title label: above a level bar, over a circular drawing; nil for the drawn bar.
     private static func titleLabel(_ widget: WidgetPointer) -> WidgetPointer? {
-        if attached(GaugeState.self, on: widget, key: gaugeStateKey) != nil {
+        if attached(on: widget, key: gaugeStateKey) != nil {
             return nil
         }
         if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_overlay_get_type()) != 0 {
@@ -181,7 +181,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
     }
 
     private static func draw(_ widget: WidgetPointer, _ snapshot: OpaquePointer) {
-        guard let state = attached(GaugeState.self, on: widget, key: gaugeStateKey) else { return }
+        guard let state = attached(on: widget, key: gaugeStateKey) else { return }
         switch state.kind {
         case .circular:
             // An open arc of three quarters, its gap centered at the bottom.

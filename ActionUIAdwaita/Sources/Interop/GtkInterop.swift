@@ -272,17 +272,25 @@ private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in
     Unmanaged<AnyObject>.fromOpaque(data).release()
 }
 
-/// Keeps `value` on a GObject under `key`, released when the object is finalized or the key is
-/// set again.
-@MainActor func attach(_ value: AnyObject, to object: UnsafeMutableRawPointer, key: String) {
-    let retained = Unmanaged.passRetained(value).toOpaque()
-    g_object_set_data_full(typed(OpaquePointer(object)), key, retained, releaseAttached)
+/// The name a Swift object is kept under on a GObject (GObject data), and the object's type, so a
+/// key can only store and return its own type.
+struct AttachKey<Value: AnyObject>: Sendable {
+    let name: String
+    init(_ name: String) { self.name = name }
 }
 
-/// The object attach kept on `object` under `key`, if it is a `T`.
-@MainActor func attached<T: AnyObject>(_ type: T.Type, on object: UnsafeMutableRawPointer, key: String) -> T? {
-    guard let data = g_object_get_data(typed(OpaquePointer(object)), key) else { return nil }
-    return Unmanaged<AnyObject>.fromOpaque(data).takeUnretainedValue() as? T
+/// Keeps `value` on a GObject under `key`, released when the object is finalized or the key is
+/// set again.
+@MainActor func attach<Value>(_ value: Value, to object: UnsafeMutableRawPointer, key: AttachKey<Value>) {
+    let retained = Unmanaged.passRetained(value as AnyObject).toOpaque()
+    g_object_set_data_full(typed(OpaquePointer(object)), key.name, retained, releaseAttached)
+}
+
+/// The object attach kept on `object` under `key`; nil when there is none, or when another key of
+/// the same name stored another type.
+@MainActor func attached<Value>(on object: UnsafeMutableRawPointer, key: AttachKey<Value>) -> Value? {
+    guard let data = g_object_get_data(typed(OpaquePointer(object)), key.name) else { return nil }
+    return Unmanaged<AnyObject>.fromOpaque(data).takeUnretainedValue() as? Value
 }
 
 // MARK: - Timers

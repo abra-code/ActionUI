@@ -20,7 +20,7 @@ import CAdwaita
 @MainActor
 final class GroupBoxMarker {}
 
-let groupBoxMarkerKey = "actionui-groupbox"
+let groupBoxMarkerKey = AttachKey<GroupBoxMarker>("actionui-groupbox")
 
 extension GroupBox: ActionUIAdwaitaRenderer {
     /// The content's inset on every side, measured on macOS 27.

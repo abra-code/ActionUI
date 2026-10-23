@@ -48,7 +48,7 @@ final class AccessibilityModifierTests: XCTestCase {
     /// (from its visibility), so gtk_test_accessible_has_state is always true, and the call that
     /// compares its value, gtk_test_accessible_check_state, is variadic, which Swift cannot call.
     private func isHidden(_ widget: WidgetPointer) -> Bool {
-        attached(AccessibilityState.self, on: widget, key: accessibilityStateKey)?.hidden ?? false
+        attached(on: widget, key: accessibilityStateKey)?.hidden ?? false
     }
 
     func testHelpIsTheDescriptionWithoutAHint() throws {
