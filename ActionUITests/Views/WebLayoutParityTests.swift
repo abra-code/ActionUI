@@ -97,7 +97,6 @@ private struct WebHarnessError: Error, CustomStringConvertible {
 final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
     /// match fails the test until it is removed here. The causes, found with this test:
-    /// - spacer: Spacers share space with other flexible views, their minimum included (SwiftUI sizes them last)
     /// - zstack: a stack holding a capped child, in a ZStack in a maxWidth infinity frame, is not drawn
     /// - effects: offset is not applied, and an object scaleEffect (x, y, anchor) is not either
     /// - padding: a view's own CSS padding is a floor under its flex share (flex-basis 0 cannot go below it), so ContentUnavailableView takes 316 of 600 where SwiftUI shares 300 and 300
@@ -111,10 +110,7 @@ final class WebLayoutParityTests: XCTestCase {
         "effects-offset-then-rotation": "effects",
         "effects-scale-around-anchor": "effects",
         "hstack-larger-minimum-first": "minimum",
-        "hstack-spacer-yields": "spacer",
         "labeledcontent-empty-title": "labeledcontent",
-        "nested-cap-cross-axis": "spacer",
-        "nested-cap-propagation": "spacer",
         "nested-unbounded-spacer": "minimum",
     ]
 

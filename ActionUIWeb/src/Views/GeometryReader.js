@@ -12,9 +12,9 @@
 // responsive decision, with the same call on Apple, Android, and the web.
 //
 // Web specifics:
-//   * Greedy fill is the .aui-shape idiom (flex-grow:1 + align-self:stretch);
+//   * Greedy fill is the .aui-shape idiom (flex-grow: var(--aui-view-grow) + align-self:stretch);
 //     an explicit numeric frame dimension pins the box (flex-grow:0 inline), the
-//     same discipline createShapeBox uses. CSS lays it out — no JS measure loop.
+//     same discipline createShapeBox uses. CSS lays it out - no JS measure loop.
 //   * The single-cell grid places the content child by `alignment` via place-self
 //     (the ZStack alignment vocabulary), defaulting to topLeading like Apple.
 //   * A ResizeObserver (the Canvas pattern) keeps a live border-box size that the
