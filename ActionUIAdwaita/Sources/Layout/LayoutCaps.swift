@@ -12,6 +12,8 @@
  - A ZStack: the largest of its children's, in each axis.
  - A GroupBox: its card's (its children's, as a VStack's, plus the padding) and its title's, one
    above the other (GroupBox.cap).
+ - An element widget with a SizeLimit: that size (ContentUnavailableView is at most 400 points
+   wide, as SwiftUI measures it).
  - A child's largest size is its cap where it expands and its natural size where it does not.
  - nil: unbounded. That is any other widget that expands (a Color, a Spacer), and any container
    with an unbounded child in that axis.
@@ -19,10 +21,29 @@
 
 import CAdwaita
 
+/// Attached to an element's widget whose size has a largest value of its own in an axis, as
+/// SwiftUI's ContentUnavailableView is at most 400 points wide: LayoutCaps finds it there.
+@MainActor
+final class SizeLimit {
+    let width: Int?
+    let height: Int?
+
+    init(width: Int? = nil, height: Int? = nil) {
+        self.width = width
+        self.height = height
+    }
+}
+
+let sizeLimitKey = "actionui-size-limit"
+
 @MainActor
 enum LayoutCaps {
     /// The largest size `widget` takes in `orientation` when it expands; nil when unbounded.
     static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation) -> Int? {
+        if let limit = attached(SizeLimit.self, on: widget, key: sizeLimitKey),
+           let length = orientation == GTK_ORIENTATION_HORIZONTAL ? limit.width : limit.height {
+            return length
+        }
         if let box = attached(BoxLayout.self, on: widget, key: boxLayoutKey) {
             return boxCap(widget, box, orientation)
         }

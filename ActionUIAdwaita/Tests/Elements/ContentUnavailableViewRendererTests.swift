@@ -3,7 +3,7 @@
  Tests for the ContentUnavailableView renderer on GTK: the icon, the title and the description one
  above the other; the value as the title; no icon without systemImage and no description without
  one; the search variant's magnifying glass and texts, with the query from the value; greedy in
- width only, and about as tall as on macOS.
+ width only, up to 400 pixels, and about as tall as on macOS.
 */
 
 import XCTest
@@ -41,7 +41,8 @@ final class ContentUnavailableViewRendererTests: XCTestCase {
 
     /// The icon, the title and the description.
     private func parts(_ node: RenderNode) throws -> (icon: WidgetPointer, title: WidgetPointer, description: WidgetPointer) {
-        let icon = try XCTUnwrap(gtk_widget_get_first_child(node.widget))
+        let box = try XCTUnwrap(adw_clamp_get_child(OpaquePointer(node.widget)))
+        let icon = try XCTUnwrap(gtk_widget_get_first_child(box))
         let title = try XCTUnwrap(gtk_widget_get_next_sibling(icon))
         return (icon, title, try XCTUnwrap(gtk_widget_get_next_sibling(title)))
     }
@@ -72,6 +73,32 @@ final class ContentUnavailableViewRendererTests: XCTestCase {
         var natural: Int32 = 0
         gtk_widget_measure(node.widget, GTK_ORIENTATION_VERTICAL, 300, &minimum, &natural, nil, nil)
         XCTAssertLessThan(abs(Int(natural) - 126), 30, "natural height \(natural), margins included")
+    }
+
+    func testAtMost400PixelsWhateverTheTextScale() throws {
+        // AdwClamp's default unit is sp, which the text scaling factor stretches; SwiftUI's 400
+        // points and the SizeLimit stacks read do not scale with it.
+        let node = try render(#""title": "Empty""#)
+        let settings = try XCTUnwrap(gtk_settings_get_default())
+        var dpi = GValue()
+        g_value_init(&dpi, g_type_from_name("gint"))
+        g_object_get_property(typed(settings), "gtk-xft-dpi", &dpi)
+        let previous = g_value_get_int(&dpi)
+        defer {
+            g_value_set_int(&dpi, previous)
+            g_object_set_property(typed(settings), "gtk-xft-dpi", &dpi)
+            g_value_unset(&dpi)
+        }
+        g_value_set_int(&dpi, 2 * 96 * 1024)
+        g_object_set_property(typed(settings), "gtk-xft-dpi", &dpi)
+        gtk_widget_allocate(node.outerWidget, 2000, 200, -1, nil)
+        let box = try XCTUnwrap(adw_clamp_get_child(OpaquePointer(node.widget)))
+        var bounds = graphene_rect_t()
+        _ = gtk_widget_compute_bounds(box, node.widget, &bounds)
+        // The box's bounds leave out its margins.
+        let margin = Int(ContentUnavailableView.margin)
+        XCTAssertEqual(Int(bounds.size.width), 400 - 2 * margin, "the content's width, margins left out")
+        XCTAssertEqual(Int(bounds.origin.x), 800 + margin, "centered in the extra space")
     }
 
     func testNarrowWidthBreaksInsideAWord() throws {

@@ -1,0 +1,4 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 1000, "height": 200}}, "children": [
+  {"type": "ContentUnavailableView", "id": 2, "properties": {"title": "Empty", "padding": 16}},
+  {"type": "Color", "id": 3, "properties": {"color": "#FF0000"}}
+]}

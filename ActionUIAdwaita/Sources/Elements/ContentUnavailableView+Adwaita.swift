@@ -2,9 +2,10 @@
 /*
  ContentUnavailableView on GTK: the icon, the title and the description, centered one above the
  other, with libadwaita's styles (a dimmed icon, a title-2 heading, dimmed wrapping text). As wide
- as it is offered and as tall as it needs (measured on macOS 27: beside a filling Color it took half
- the width; in a column it kept its own height, 126 points with an icon and a title, while a filling
- Color took the rest).
+ as it is offered up to 400 points, centered in more, and as tall as it needs (measured on macOS 27:
+ it asks for 400 at any width, takes 400 beside a filling Color in a 2000-wide row and half of a
+ 600-wide one, and is centered in a wide frame; in a column it keeps its own height, 126 points with
+ an icon and a title). An AdwClamp holds it to 400, and a SizeLimit tells stacks so (LayoutCaps).
 
  Not AdwStatusPage, the plan's choice: even in its compact style its icon and margins made it about
  twice as tall as SwiftUI's view, and its icon size is not a property.
@@ -28,6 +29,8 @@ extension ContentUnavailableView: ActionUIAdwaitaRenderer {
     static let iconSize: Int32 = 48
     static let spacing: Int32 = 8
     static let margin: Int32 = 16
+    /// The widest it gets, measured on macOS 27.
+    static let maximumWidth: Int32 = 400
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let box = gtk_box_new(GTK_ORIENTATION_VERTICAL, spacing)!
@@ -55,11 +58,23 @@ extension ContentUnavailableView: ActionUIAdwaitaRenderer {
         gtk_label_set_wrap_mode(opaque(description), PANGO_WRAP_WORD_CHAR)
         gtk_label_set_justify(opaque(description), GTK_JUSTIFY_CENTER)
         gtk_box_append(typed(box), description)
-        return box
+        let clamp = adw_clamp_new()!
+        adw_clamp_set_maximum_size(OpaquePointer(clamp), maximumWidth)
+        adw_clamp_set_tightening_threshold(OpaquePointer(clamp), maximumWidth)
+        // Pixels, as every other length in the layout: the clamp's default unit, sp, grows with
+        // the text scaling factor (gtk-xft-dpi), which SwiftUI's 400 points and the SizeLimit
+        // below do not.
+        adw_clamp_set_unit(OpaquePointer(clamp), ADW_LENGTH_UNIT_PX)
+        adw_clamp_set_child(OpaquePointer(clamp), box)
+        gtk_widget_set_hexpand(clamp, 1)
+        gtk_widget_set_vexpand(clamp, 0)
+        attach(SizeLimit(width: Int(maximumWidth)), to: clamp, key: sizeLimitKey)
+        return clamp
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let icon = gtk_widget_get_first_child(widget), let title = gtk_widget_get_next_sibling(icon),
+        guard let box = adw_clamp_get_child(OpaquePointer(widget)), let icon = gtk_widget_get_first_child(box),
+              let title = gtk_widget_get_next_sibling(icon),
               let description = gtk_widget_get_next_sibling(title) else { return }
         let content = shown(Props(node.properties), node.model.value as? String)
         if swiftString(gtk_label_get_text(opaque(title))) != content.title {
