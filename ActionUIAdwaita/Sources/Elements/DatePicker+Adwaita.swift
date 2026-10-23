@@ -16,8 +16,9 @@
  - As on macOS, the calendar's month and year arrows only show another month; a click on a day,
    or Space on the focused one, picks it, also the day whose number the calendar already shows
    selected (GtkCalendar reports a pick only when the number changes).
- - labelsHidden hides the title, which still names the control; in a Form the title ends at the
-   label column, and an empty one stays, 0 wide (FormLayout), as for a Picker.
+ - labelsHidden hides the title, which still names the control; an empty title stays, 0 wide, so
+   the control starts 8 after it (measured on macOS 27); in a Form the title ends at the label
+   column (FormLayout), as for a Picker.
 */
 
 #if canImport(FoundationEssentials)
@@ -174,7 +175,7 @@ extension DatePicker: ActionUIAdwaitaRenderer {
         if swiftString(gtk_label_get_text(opaque(title))) != props.title {
             gtk_label_set_text(opaque(title), props.title)
         }
-        let showsTitle: gboolean = (!props.title.isEmpty || node.environment.inForm) && !node.environment.labelsHidden ? 1 : 0
+        let showsTitle: gboolean = node.environment.labelsHidden ? 0 : 1
         if gtk_widget_get_visible(title) != showsTitle {
             gtk_widget_set_visible(title, showsTitle)
         }

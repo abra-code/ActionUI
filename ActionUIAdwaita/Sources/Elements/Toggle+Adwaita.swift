@@ -3,9 +3,9 @@
  Toggle on GTK, in the style the document names:
  - checkbox, and no style: a GtkCheckButton with the title as its label. macOS's default toggle
    is a checkbox, and Linux is a desktop as macOS is.
- - switch: the title beside a GtkSwitch, as macOS shows a switch toggle's label before it. In a
-   Form its title ends at the label column (FormLayout), and an empty one stays, 0 wide, so the
-   switch starts 8 after it; a checkbox keeps its title beside it (measured on macOS 27).
+ - switch: the title beside a GtkSwitch, as macOS shows a switch toggle's label before it. An
+   empty title stays, 0 wide, so the switch starts 8 after it; in a Form the title ends at the
+   label column (FormLayout), while a checkbox keeps its title beside it (measured on macOS 27).
  - button: a GtkToggleButton showing the title, pressed while on.
  None of them grows when offered more space (measured on macOS 27, every style: an HStack with a
  Toggle and a filling Color gives the Toggle only what it needs).
@@ -99,8 +99,8 @@ extension Toggle: ActionUIAdwaitaRenderer {
             if swiftString(gtk_label_get_text(opaque(title))) != props.title {
                 gtk_label_set_text(opaque(title), props.title)
             }
-            // In a Form an empty title stays, 0 wide, for the column of 0 (measured).
-            let visible: gboolean = showsTitle || (node.environment.inForm && !node.environment.labelsHidden) ? 1 : 0
+            // An empty title stays, 0 wide, keeping its gap (measured; a column of 0 in a Form).
+            let visible: gboolean = node.environment.labelsHidden ? 0 : 1
             if gtk_widget_get_visible(title) != visible {
                 gtk_widget_set_visible(title, visible)
             }

@@ -2,7 +2,7 @@
 /*
  Tests for the ColorPicker renderer on GTK: the title beside a GtkColorDialogButton showing the
  value, else selectedColor, and a host value fires nothing; picking a color sets the value and fires
- actionID once; labelsHidden or an empty title hides the title, which still names the button; it
+ actionID once; labelsHidden hides the title, which still names the button (an empty one stays); it
  does not grow.
 */
 
@@ -109,7 +109,7 @@ final class ColorPickerRendererTests: XCTestCase {
         let untitled = try XCTUnwrap(root.childNodes[3])
         let titled = try XCTUnwrap(root.childNodes[4])
         XCTAssertEqual(gtk_widget_get_visible(try title(hidden)), 0, "labelsHidden")
-        XCTAssertEqual(gtk_widget_get_visible(try title(untitled)), 0, "no title")
+        XCTAssertNotEqual(gtk_widget_get_visible(try title(untitled)), 0, "an empty title stays, keeping its gap, as on macOS")
         XCTAssertEqual(try shown(untitled)[3], 0, "no color: clear")
         for node in [hidden, titled] {
             XCTAssertNotEqual(gtk_test_accessible_has_property(button(node), GTK_ACCESSIBLE_PROPERTY_LABEL), 0,

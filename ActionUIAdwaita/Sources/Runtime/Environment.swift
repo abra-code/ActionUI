@@ -23,7 +23,9 @@ struct Environment: Equatable {
     var buttonStyle: BaseModifiers.ButtonStyleName?
     /// Controls show no title of their own (SwiftUI's labelsHidden).
     var labelsHidden = false
-    /// Inside a Form: controls show their titles for its label column, also an empty one.
+    /// Inside a Form: a TextField or SecureField shows its title before it, for the label column
+    /// (FormFieldTitle), where it is the placeholder elsewhere; a LabeledContent puts its title on
+    /// the content's first text baseline.
     var inForm = false
 
     /// This environment with an element's own settings applied over it: the nearest setting

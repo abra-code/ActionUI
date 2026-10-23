@@ -7,7 +7,9 @@
  SecureField rows end at a label column as wide as the widest title, and every row's content starts
  8 points after it (FormLayout, FormFieldTitle). A Section's and a Group's rows are the Form's
  own, so a Section adds no space and its header sits in the content column. Its descendants see
- inForm in their environment, so a control shows an empty title too (a column of 0, as measured).
+ inForm in their environment, so a TextField or SecureField shows its title before it
+ (FormFieldTitle) and a LabeledContent's title sits on its content's first baseline. An empty title
+ makes a column of 0 (measured).
 */
 
 import CAdwaita
