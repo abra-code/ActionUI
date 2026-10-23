@@ -185,16 +185,77 @@ final class ModifierBoxTests: XCTestCase {
     }
 
     func testWrappedTextKeepsACappedSiblingAtItsCap() throws {
-        // LayoutCaps measures heights without a width, so its cap of a VStack holding text that
-        // wraps at 150 is a line of text plus 50, short of the stack's real height: clamped to it,
-        // the stack would have no room left for the Color. Such a stack takes the frame instead.
+        // The VStack's height cap is measured at its width, so the text wrapping at 150 counts with
+        // all its lines: the stack stops at the text plus 50 and is centered in the frame, as in
+        // SwiftUI, and the Color keeps its 50.
         let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
         let node = try render(##"{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 150, "height": 800}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}]}"##)
         gtk_widget_allocate(node.outerWidget, 150, 800, -1, nil)
         let text = try XCTUnwrap(node.childNodes.values.first { $0.element.id == 2 })
         let color = try XCTUnwrap(node.childNodes.values.first { $0.element.id == 3 })
-        XCTAssertGreaterThan(frame(text.widget, in: node.outerWidget)[3], 100, "the text wraps to many lines")
+        let textHeight = frame(text.widget, in: node.outerWidget)[3]
+        XCTAssertGreaterThan(textHeight, 100, "the text wraps to many lines")
         XCTAssertEqual(frame(color.widget, in: node.outerWidget)[3], 50, "the Color keeps its cap under the text")
+        XCTAssertEqual(frame(node.widget, in: node.outerWidget), [0, (800 - textHeight - 50) / 2, 150, textHeight + 50],
+                       "the stack stops at its height for its width, centered")
+    }
+
+    func testAnHStackGivesAWrappedTextColumnItsHeightForItsWidth() throws {
+        // The HStack measures the VStack's height cap at the width it gives it, 150: the text with
+        // all its lines plus 50, so the Color under the text keeps its 50.
+        let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
+        let column = ##"{"type": "VStack", "id": 2, "properties": {"spacing": 0}, "children": [{"type": "Text", "id": 3, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}]}"##
+        let node = try render(#"{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 150, "height": 800}}, "children": [\#(column)]}"#)
+        gtk_widget_allocate(node.outerWidget, 150, 800, -1, nil)
+        let stack = try XCTUnwrap(node.childNodes[2])
+        let text = try XCTUnwrap(stack.childNodes[3])
+        let color = try XCTUnwrap(stack.childNodes[4])
+        let textHeight = frame(text.widget, in: node.outerWidget)[3]
+        XCTAssertGreaterThan(textHeight, 100, "the text wraps to many lines")
+        XCTAssertEqual(frame(color.widget, in: node.outerWidget)[3], 50, "the Color keeps its cap under the text")
+        XCTAssertEqual(frame(stack.outerWidget, in: node.outerWidget)[3], textHeight + 50)
+    }
+
+    func testAZStackGivesAWrappedTextColumnItsHeightForItsWidth() throws {
+        let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
+        let column = ##"{"type": "VStack", "id": 2, "properties": {"spacing": 0}, "children": [{"type": "Text", "id": 3, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}]}"##
+        let node = try render(#"{"type": "ZStack", "id": 1, "properties": {"frame": {"width": 150, "height": 800}}, "children": [\#(column)]}"#)
+        gtk_widget_allocate(node.outerWidget, 150, 800, -1, nil)
+        let stack = try XCTUnwrap(node.childNodes[2])
+        let textHeight = frame(try XCTUnwrap(stack.childNodes[3]).widget, in: node.outerWidget)[3]
+        XCTAssertGreaterThan(textHeight, 100, "the text wraps to many lines")
+        XCTAssertEqual(frame(try XCTUnwrap(stack.childNodes[4]).widget, in: node.outerWidget)[3], 50)
+        XCTAssertEqual(frame(stack.outerWidget, in: node.outerWidget)[3], textHeight + 50)
+    }
+
+    func testAPaddedBoxMeasuresItsCapAtItsContentWidth() throws {
+        // The box is 150 wide with padding 10, so the text wraps at 130 and the cap counts all its
+        // lines: the Color keeps its 50, and the box stops at the text plus 50 plus the padding.
+        let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
+        let column = ##"{"type": "VStack", "id": 2, "properties": {"spacing": 0, "padding": 10, "frame": {"maxWidth": 150}}, "children": [{"type": "Text", "id": 3, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}]}"##
+        let node = try render(#"{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 200, "height": 800}}, "children": [\#(column)]}"#)
+        gtk_widget_allocate(node.outerWidget, 200, 800, -1, nil)
+        let stack = try XCTUnwrap(node.childNodes[2])
+        let text = frame(try XCTUnwrap(stack.childNodes[3]).widget, in: node.outerWidget)
+        XCTAssertEqual(text[2], 130, "the text wraps inside the padding")
+        XCTAssertGreaterThan(text[3], 100, "the text wraps to many lines")
+        XCTAssertEqual(frame(try XCTUnwrap(stack.childNodes[4]).widget, in: node.outerWidget)[3], 50)
+        XCTAssertEqual(frame(stack.outerWidget, in: node.outerWidget), [25, (800 - text[3] - 70) / 2, 150, text[3] + 70])
+    }
+
+    func testAGroupBoxMeasuresItsCapAtItsCardWidth() throws {
+        // The card insets its content 5 on each side, so the text wraps at 140; the GroupBox stops
+        // at the text, the default spacing of 8, the Color's 50 and the padding.
+        let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
+        let box = ##"{"type": "GroupBox", "id": 2, "children": [{"type": "Text", "id": 3, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}]}"##
+        let node = try render(#"{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 150, "height": 800}}, "children": [\#(box)]}"#)
+        gtk_widget_allocate(node.outerWidget, 150, 800, -1, nil)
+        let groupBox = try XCTUnwrap(node.childNodes[2])
+        let text = frame(try XCTUnwrap(groupBox.childNodes[3]).widget, in: node.outerWidget)
+        XCTAssertEqual(text[2], 140, "the text wraps inside the card")
+        XCTAssertGreaterThan(text[3], 100, "the text wraps to many lines")
+        XCTAssertEqual(frame(try XCTUnwrap(groupBox.childNodes[4]).widget, in: node.outerWidget)[3], 50)
+        XCTAssertEqual(frame(groupBox.outerWidget, in: node.outerWidget)[3], text[3] + 8 + 50 + 10)
     }
 
     func testDisabledOpacityAndHelp() throws {

@@ -71,11 +71,16 @@ enum ZStackLayout {
         gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
         let range: StackChild
         if gtk_widget_compute_expand(child, orientation) != 0 {
-            range = .expanding(minimum: Int(minimum), cap: LayoutCaps.cap(child, orientation))
+            range = .expanding(minimum: Int(minimum), cap: LayoutCaps.cap(child, orientation, forSize: forSize))
         } else {
             range = .fixed(minimum: Int(minimum), natural: Int(natural))
         }
         return range.size(offered: available)
+    }
+
+    /// Each child's width when the stack is `width` wide, as allocate gives them.
+    static func childWidths(_ widget: WidgetPointer, width: Int) -> [Int] {
+        layoutChildren(widget).map { childSize($0, GTK_ORIENTATION_HORIZONTAL, available: width) }
     }
 
     private static func measure(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {

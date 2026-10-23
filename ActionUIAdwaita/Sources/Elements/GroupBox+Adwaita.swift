@@ -70,15 +70,17 @@ extension GroupBox: ActionUIAdwaitaRenderer {
 
     /// The largest size the GroupBox takes in `orientation` when it expands (LayoutCaps.cap): its
     /// card's, which is its children's plus the padding, and its title's when shown; stacked with
-    /// the gap vertically, the larger of them horizontally. nil when unbounded.
-    static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation) -> Int? {
+    /// the gap vertically, the larger of them horizontally. A height is for `forSize` wide (-1: no
+    /// width given); the vertical box gives the title and the card that width. nil when unbounded.
+    static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Int? {
         let card = gtk_widget_get_last_child(widget)
         var sizes: [Int] = []
         for child in layoutChildren(widget) {
-            guard let size = LayoutCaps.largestSize(child, orientation) else { return nil }
             // An expanding card's cap is its stack's, inside the CSS padding; a measured size
             // includes it.
             let padded = child == card && gtk_widget_compute_expand(child, orientation) != 0
+            let childForSize = padded && forSize >= 0 ? max(forSize - 2 * contentPadding, 0) : forSize
+            guard let size = LayoutCaps.largestSize(child, orientation, forSize: childForSize) else { return nil }
             sizes.append(padded ? size + 2 * contentPadding : size)
         }
         if orientation == GTK_ORIENTATION_VERTICAL {

@@ -124,7 +124,7 @@ enum StackLayout {
         let size = measureChild(child, orientation, forSize: forSize)
         var result: StackChild
         if gtk_widget_compute_expand(child, orientation) != 0 {
-            result = .expanding(minimum: size.minimum, cap: LayoutCaps.cap(child, orientation))
+            result = .expanding(minimum: size.minimum, cap: LayoutCaps.cap(child, orientation, forSize: forSize))
         } else {
             result = .fixed(minimum: size.minimum, natural: size.natural)
         }
@@ -159,6 +159,17 @@ enum StackLayout {
         children.map { stackChild($0, cross).size(offered: available) }
     }
 
+    /// Each of `children`'s widths when the stack is `width` wide, as allocate gives them: a
+    /// VStack offers each its width, an HStack shares the width out along its axis.
+    static func childWidths(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int) -> [Int] {
+        let stack = configuration(widget)
+        if stack.axis == .vertical {
+            return crossSizes(children, GTK_ORIENTATION_HORIZONTAL, available: width)
+        }
+        let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }
+        return StackSolver.mainSizes(widths, available: width, gaps: gaps(children, stack))
+    }
+
     // MARK: Measure
 
     private static func measure(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> Measured {
@@ -167,13 +178,14 @@ enum StackLayout {
         guard !children.isEmpty else { return Measured(minimum: 0, natural: 0) }
         let (main, cross) = orientations(stack.axis)
         let gaps = Self.gaps(children, stack)
+        // Height for width: the children's heights at the widths the stack gives them (a VStack
+        // offers each its width, an HStack shares it out).
+        var forSizes = Array(repeating: -1, count: children.count)
+        if orientation == GTK_ORIENTATION_VERTICAL, forSize >= 0 {
+            forSizes = childWidths(widget, children, width: forSize)
+        }
 
         if orientation == main {
-            // A VStack's heights for a given width depend on the widths its children get.
-            var forSizes = Array(repeating: -1, count: children.count)
-            if main == GTK_ORIENTATION_VERTICAL, forSize >= 0 {
-                forSizes = crossSizes(children, cross, available: forSize)
-            }
             let spacing = gaps.reduce(0, +)
             var total = Measured(minimum: spacing, natural: spacing)
             for (index, child) in children.enumerated() {
@@ -184,13 +196,7 @@ enum StackLayout {
             return total
         }
 
-        // Cross axis. An HStack's height for a given width: the height of its children at the
-        // widths the stack gives them.
-        var forSizes = Array(repeating: -1, count: children.count)
-        if cross == GTK_ORIENTATION_VERTICAL, forSize >= 0 {
-            let widths = children.map { stackChild($0, main) }
-            forSizes = StackSolver.mainSizes(widths, available: forSize, gaps: gaps)
-        }
+        // Cross axis.
         var total = Measured(minimum: 0, natural: 0)
         for (index, child) in children.enumerated() {
             let size = measureChild(child, cross, forSize: forSizes[index])

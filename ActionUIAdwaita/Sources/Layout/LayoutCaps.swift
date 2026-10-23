@@ -17,6 +17,9 @@
  - A child's largest size is its cap where it expands and its natural size where it does not.
  - nil: unbounded. That is any other widget that expands (a Color, a Spacer), and any container
    with an unbounded child in that axis.
+ - Height for width: a height cap may be asked for a given width. Each child is then measured at
+   the width its container gives it in that width (as the container's allocate does), so text
+   that wraps there counts with all its lines.
 */
 
 import CAdwaita
@@ -38,39 +41,43 @@ let sizeLimitKey = "actionui-size-limit"
 
 @MainActor
 enum LayoutCaps {
-    /// The largest size `widget` takes in `orientation` when it expands; nil when unbounded.
-    static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation) -> Int? {
+    /// The largest size `widget` takes in `orientation` when it expands; nil when unbounded. A
+    /// height is for `forSize` wide (-1: no width given); a width ignores `forSize`.
+    static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Int? {
+        let forSize = orientation == GTK_ORIENTATION_VERTICAL ? forSize : -1
         if let limit = attached(SizeLimit.self, on: widget, key: sizeLimitKey),
            let length = orientation == GTK_ORIENTATION_HORIZONTAL ? limit.width : limit.height {
             return length
         }
         if let box = attached(BoxLayout.self, on: widget, key: boxLayoutKey) {
-            return boxCap(widget, box, orientation)
+            return boxCap(widget, box, orientation, forSize: forSize)
         }
         if let stack = attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) {
-            return stackCap(widget, stack, orientation)
+            return stackCap(widget, stack, orientation, forSize: forSize)
         }
         if attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) != nil {
-            return largestOfChildren(widget, orientation)
+            let widths = forSize >= 0 ? ZStackLayout.childWidths(widget, width: forSize) : nil
+            return largestOfChildren(layoutChildren(widget), orientation, widths: widths)
         }
         if attached(GroupBoxMarker.self, on: widget, key: groupBoxMarkerKey) != nil {
-            return GroupBox.cap(widget, orientation)
+            return GroupBox.cap(widget, orientation, forSize: forSize)
         }
         return nil
     }
 
-    /// The largest size a child takes: its cap where it expands, its natural size where not.
-    static func largestSize(_ child: WidgetPointer, _ orientation: GtkOrientation) -> Int? {
+    /// The largest size a child takes: its cap where it expands, its natural size where not. A
+    /// height is for `forSize` wide (-1: no width given).
+    static func largestSize(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Int? {
         if gtk_widget_compute_expand(child, orientation) != 0 {
-            return cap(child, orientation)
+            return cap(child, orientation, forSize: forSize)
         }
         var minimum: Int32 = 0
         var natural: Int32 = 0
-        gtk_widget_measure(child, orientation, -1, &minimum, &natural, nil, nil)
+        gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
         return Int(natural)
     }
 
-    private static func boxCap(_ box: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation) -> Int? {
+    private static func boxCap(_ box: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation, forSize: Int) -> Int? {
         let frame = layout.frame(orientation)
         if let fixed = frame.fixed {
             return fixed
@@ -78,30 +85,35 @@ enum LayoutCaps {
         if let maximum = frame.maximum {
             return maximum == FrameAxis.infinity ? nil : maximum
         }
-        guard let group = ModifierBox.content(of: box), let element = layoutChildren(group).first,
-              let content = largestSize(element, orientation) else { return nil }
+        guard let group = ModifierBox.content(of: box), let element = layoutChildren(group).first else { return nil }
+        let elementForSize = forSize >= 0 ? ModifierBox.elementWidth(inBox: box, width: forSize) : -1
+        guard let content = largestSize(element, orientation, forSize: elementForSize) else { return nil }
         let padded = content + layout.padding(orientation).total
         return frame.minimum.map { max(padded, $0) } ?? padded
     }
 
-    private static func stackCap(_ widget: WidgetPointer, _ stack: StackConfiguration, _ orientation: GtkOrientation) -> Int? {
+    private static func stackCap(_ widget: WidgetPointer, _ stack: StackConfiguration, _ orientation: GtkOrientation,
+                                 forSize: Int) -> Int? {
+        let children = layoutChildren(widget)
+        let widths = forSize >= 0 ? StackLayout.childWidths(widget, children, width: forSize) : nil
         let main = stack.axis == .vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
         guard orientation == main else {
-            return largestOfChildren(widget, orientation)
+            return largestOfChildren(children, orientation, widths: widths)
         }
-        let children = layoutChildren(widget)
         var total = StackLayout.gaps(children, stack).reduce(0, +)
-        for child in children {
-            guard let size = largestSize(child, orientation) else { return nil }
+        for (index, child) in children.enumerated() {
+            guard let size = largestSize(child, orientation, forSize: widths?[index] ?? -1) else { return nil }
             total += size
         }
         return total
     }
 
-    private static func largestOfChildren(_ widget: WidgetPointer, _ orientation: GtkOrientation) -> Int? {
+    /// The largest of `children`'s largest sizes, each for its width in `widths` when given.
+    private static func largestOfChildren(_ children: [WidgetPointer], _ orientation: GtkOrientation,
+                                          widths: [Int]?) -> Int? {
         var largest = 0
-        for child in layoutChildren(widget) {
-            guard let size = largestSize(child, orientation) else { return nil }
+        for (index, child) in children.enumerated() {
+            guard let size = largestSize(child, orientation, forSize: widths?[index] ?? -1) else { return nil }
             largest = max(largest, size)
         }
         return largest
