@@ -141,6 +141,21 @@ final class StyleSheet {
         reload(rule.group)
     }
 
+    // MARK: Fixed rules
+
+    private var fixedProviders: [String: OpaquePointer] = [:]
+
+    /// Loads `css` once under `name`, for structure a generated class cannot express (the buttons
+    /// of a ControlGroup joined across the boxes their elements sit in). Calling it again with the
+    /// same name does nothing.
+    func installFixedRules(_ name: String, _ css: String) {
+        guard fixedProviders[name] == nil, let display = gdk_display_get_default() else { return }
+        let provider = gtk_css_provider_new()!
+        gtk_css_provider_load_from_string(provider, css)
+        gtk_style_context_add_provider_for_display(display, opaque(provider), guint(GTK_STYLE_PROVIDER_PRIORITY_APPLICATION))
+        fixedProviders[name] = opaque(provider)
+    }
+
     // MARK: Providers
 
     /// A provider with room for one more rule, added for the display when new.
