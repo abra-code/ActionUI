@@ -5,7 +5,7 @@
 // cross-axis align-items). Layout mapping: HStack → flexbox row.
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { ROW_ALIGN, DEFAULT_SPACING, StackAxis } from "../Common/StackAxis.js";
+import { ROW_ALIGN, StackAxis } from "../Common/StackAxis.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
@@ -37,7 +37,13 @@ register("HStack", {
         const node = document.createElement("div");
         node.className = "aui-stack aui-hstack";
         node.dataset.auiAxis = StackAxis.Horizontal;
-        node.style.gap = `${properties.spacing ?? DEFAULT_SPACING}px`;
+        // No spacing given: SwiftUI's default, 8 between views and none next to a Spacer (the
+        // aui-default-spacing rules in theme.css: a gap of 8 that a Spacer's margins cancel).
+        if (typeof properties.spacing === "number") {
+            node.style.gap = `${properties.spacing}px`;
+        } else {
+            node.classList.add("aui-default-spacing");
+        }
         // SwiftUI HStack default alignment is .center.
         node.style.alignItems = ROW_ALIGN[properties.alignment] ?? "center";
         buildFlatChildren(node, element, ctx);

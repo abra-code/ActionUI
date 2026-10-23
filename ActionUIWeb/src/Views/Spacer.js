@@ -2,8 +2,8 @@
 // Web analog of ActionUI/Views/Spacer.swift (PoC subset).
 //
 // Flexible empty space that pushes siblings apart. Maps to a flex-grow:1
-// filler (the `.aui-spacer` rule in theme.css). Property: minLength (Number) →
-// min-width/min-height floor. A stack-less Spacer is inert, matching SwiftUI.
+// filler (the `.aui-spacer` rule in theme.css). Property: minLength (Number) → the
+// minimum along its stack (--aui-spacer-min; 8 by default). A stack-less Spacer is inert, matching SwiftUI.
 
 import { register } from "../Common/ActionUIRegistry.js";
 
@@ -23,9 +23,10 @@ register("Spacer", {
     buildView: (element, properties) => {
         const node = document.createElement("div");
         node.className = "aui-spacer";
+        // Along its stack's axis only, as SwiftUI's Spacer(minLength:) (theme.css reads it per axis;
+        // 8 when not given).
         if (typeof properties.minLength === "number") {
-            node.style.minWidth = `${properties.minLength}px`;
-            node.style.minHeight = `${properties.minLength}px`;
+            node.style.setProperty("--aui-spacer-min", `${properties.minLength}px`);
         }
         return node;
     },

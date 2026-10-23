@@ -98,7 +98,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
     /// match fails the test until it is removed here. The causes, found with this test:
     /// - cap: a stack holding a capped child (maxWidth 200) is taken to expand without limit, so it fills its frame or row instead of stopping at the cap
-    /// - spacing: VStack's default spacing is 8 (ActionUI's is 0), there is a gap next to a Spacer, and a Spacer has no minimum
+    /// - spacing: a GroupBox's content puts 8 points next to a Spacer (its own CSS gap)
     /// - spacer: Spacers share space with other flexible views (SwiftUI sizes them last)
     /// - groupbox: the content inset (13 against 5) and title metrics differ
     /// - unavailable: ContentUnavailableView is not capped at 400
@@ -119,7 +119,7 @@ final class WebLayoutParityTests: XCTestCase {
         "contentunavailable-width-1000": "unavailable",
         "contentunavailable-width-600": "unavailable",
         "contentunavailable-zstack": "unavailable",
-        "divider-hstack-height": "spacing",
+        "divider-hstack-height": "minimum",
         "effects-offset-keeps-layout": "effects",
         "effects-offset-then-rotation": "effects",
         "effects-scale-around-anchor": "effects",
@@ -132,7 +132,6 @@ final class WebLayoutParityTests: XCTestCase {
         "hstack-larger-minimum-first": "minimum",
         "hstack-spacer-yields": "spacer",
         "labeledcontent-empty-title": "labeledcontent",
-        "labeledcontent-spacer": "spacing",
         "nested-cap-cross-axis": "cap",
         "nested-cap-min-only-frame": "minimum",
         "nested-cap-padding-inside-frame": "cap",
@@ -140,6 +139,7 @@ final class WebLayoutParityTests: XCTestCase {
         "nested-cap-sum-in-hstack": "cap",
         "nested-cap-with-padding": "cap",
         "nested-cap-zstack": "cap, zstack",
+        "nested-unbounded-spacer": "minimum",
     ]
 
     /// The LayoutParity folder: this file is ActionUITests/Views/WebLayoutParityTests.swift.

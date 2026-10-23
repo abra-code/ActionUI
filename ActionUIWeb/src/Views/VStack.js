@@ -5,7 +5,7 @@
 // cross-axis align-items). Layout mapping: VStack → flexbox column.
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { COLUMN_ALIGN, DEFAULT_SPACING, StackAxis } from "../Common/StackAxis.js";
+import { COLUMN_ALIGN, StackAxis } from "../Common/StackAxis.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
@@ -36,7 +36,8 @@ register("VStack", {
         const node = document.createElement("div");
         node.className = "aui-stack aui-vstack";
         node.dataset.auiAxis = StackAxis.Vertical;
-        node.style.gap = `${properties.spacing ?? DEFAULT_SPACING}px`;
+        // ActionUI's VStack spacing defaults to 0 (Core's VStack.Props; Apple and Android pass it).
+        node.style.gap = `${properties.spacing ?? 0}px`;
         // SwiftUI VStack default alignment is .center.
         node.style.alignItems = COLUMN_ALIGN[properties.alignment] ?? "center";
         buildFlatChildren(node, element, ctx);

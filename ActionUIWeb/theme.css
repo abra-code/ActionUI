@@ -118,6 +118,23 @@
 /* ---- layout ---- */
 
 .aui-stack { display: flex; }
+/* An HStack given no spacing: SwiftUI's default, 8 between two views and none next to a Spacer
+   (measured on macOS 27). A gap of 8 goes between the flex items, so a Group's children
+   (display: contents) are spaced, and an EmptyView (display: none) and the overlays appended to
+   a window's root (dialogs, popovers, toasts: out of flow) take no part. A Spacer's negative
+   margins cancel the gap on each side it has one: none before a first child, after a last child,
+   or between two Spacers. */
+.aui-hstack.aui-default-spacing { gap: 8px; }
+.aui-hstack.aui-default-spacing > .aui-spacer,
+.aui-hstack.aui-default-spacing > .aui-group > .aui-spacer { margin-inline: -8px; }
+.aui-hstack.aui-default-spacing > .aui-spacer:first-child,
+.aui-hstack.aui-default-spacing > .aui-spacer + .aui-spacer,
+.aui-hstack.aui-default-spacing > .aui-group > .aui-spacer + .aui-spacer { margin-inline-start: 0; }
+.aui-hstack.aui-default-spacing > .aui-spacer:last-child { margin-inline-end: 0; }
+/* A Spacer's minimum length along its stack: its minLength (--aui-spacer-min), else SwiftUI's
+   usual spacing, 8; across the stack it has none. */
+.aui-hstack > .aui-spacer, .aui-hstack > .aui-group > .aui-spacer { min-width: var(--aui-spacer-min, 8px); }
+.aui-vstack > .aui-spacer, .aui-vstack > .aui-group > .aui-spacer { min-height: var(--aui-spacer-min, 8px); }
 .aui-vstack { flex-direction: column; }
 .aui-hstack { flex-direction: row; }
 

@@ -466,12 +466,17 @@ function greedyAxes(type, properties) {
 
 // Whether a stack child (its outermost node) expands in width and in height, as SwiftUI's
 // views do: a Color or shape with no fixed size in that axis, a frame that fills or caps it,
-// a container one of whose children does (markExpansion), and a Spacer along its stack's axis.
+// a container one of whose children does (markExpansion), a Spacer along its stack's axis, and a
+// Divider across it.
 function expansionOf(child, parentAxis) {
     const c = child.classList;
     if (!c) return [false, false];
     if (c.contains("aui-spacer")) {
         return [parentAxis === StackAxis.Horizontal, parentAxis === StackAxis.Vertical];
+    }
+    // A Divider fills across its stack: a vertical rule in an HStack, a horizontal one in a VStack.
+    if (c.contains("aui-divider")) {
+        return [parentAxis === StackAxis.Vertical, parentAxis === StackAxis.Horizontal];
     }
     const shape = c.contains("aui-shape");
     const width = (shape && !child.style.width) || c.contains("aui-fill-width") || c.contains("aui-cap-width")
