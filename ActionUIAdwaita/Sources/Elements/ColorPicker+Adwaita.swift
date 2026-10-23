@@ -10,7 +10,9 @@
  - Picking a color runs Core's ColorPicker.userPicked (the value as sRGB components, then
    actionID); an update fires nothing.
  - labelsHidden, or an empty title, hides the title; it still names the button for assistive
-   technologies, which read the button and not the title beside it.
+   technologies, which read the button and not the title beside it. In a Form the title ends at
+   the label column (FormLayout), and an empty one stays, 0 wide, so the button starts 8 after it
+   (measured on macOS 27).
  - The chooser keeps GTK's own window title, as macOS's color panel is titled Colors whatever the
    picker's title.
 */
@@ -32,6 +34,8 @@ extension ColorPicker: ActionUIAdwaitaRenderer {
         let button = gtk_color_dialog_button_new(gtk_color_dialog_new())!
         gtk_widget_set_valign(button, GTK_ALIGN_CENTER)
         gtk_box_append(typed(box), button)
+        // A Form lines its title up with the other rows' (FormLayout).
+        attach(LabeledRowMarker(.box), to: box, key: labeledRowMarkerKey)
         connectUserSignal(button, "notify::rgba", .instanceAndArgument) { [weak node] in
             guard let node, let rgba = gtk_color_dialog_button_get_rgba(OpaquePointer(button))?.pointee else { return }
             let color = ColorSpec.rgba(red: Double(rgba.red), green: Double(rgba.green), blue: Double(rgba.blue),
@@ -48,7 +52,7 @@ extension ColorPicker: ActionUIAdwaitaRenderer {
         if swiftString(gtk_label_get_text(opaque(title))) != props.title {
             gtk_label_set_text(opaque(title), props.title)
         }
-        let visible: gboolean = !props.title.isEmpty && !node.environment.labelsHidden ? 1 : 0
+        let visible: gboolean = (!props.title.isEmpty || node.environment.inForm) && !node.environment.labelsHidden ? 1 : 0
         if gtk_widget_get_visible(title) != visible {
             gtk_widget_set_visible(title, visible)
         }

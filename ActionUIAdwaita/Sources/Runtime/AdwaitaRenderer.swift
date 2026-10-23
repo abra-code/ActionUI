@@ -50,6 +50,10 @@ protocol ActionUIAdwaitaRenderer {
     /// The base modifiers the element's own box applies (ModifierBox.update), out of the ones the
     /// document gives it; its descendants inherit from all of them (Environment). Default: all.
     static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers
+
+    /// The environment the element and its descendants see, from the one it inherits with its
+    /// own base modifiers applied (a Form sets inForm). Default: that environment.
+    static func environment(_ environment: Environment) -> Environment
 }
 
 extension ActionUIAdwaitaRenderer {
@@ -62,4 +66,6 @@ extension ActionUIAdwaitaRenderer {
     static var defaultExpansion: Expansion { [] }
 
     static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers { modifiers }
+
+    static func environment(_ environment: Environment) -> Environment { environment }
 }

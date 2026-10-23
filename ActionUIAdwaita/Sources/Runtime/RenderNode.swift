@@ -36,7 +36,8 @@ final class RenderNode {
     private(set) var outerWidget: WidgetPointer!
     /// False once the node has left the tree.
     private(set) var isAttached = true
-    /// The inherited base modifiers (Environment), computed at the start of each sync.
+    /// The inherited base modifiers, with what the renderer adds (a Form's inForm; Environment),
+    /// computed at the start of each sync.
     private(set) var environment = Environment()
     /// The child nodes, keyed by element id.
     private(set) var childNodes: [Int: RenderNode] = [:]
@@ -98,7 +99,7 @@ final class RenderNode {
         UpdateGuard.applying {
             withObservationTracking {
                 let modifiers = BaseModifiers(properties)
-                environment = (parent?.environment ?? Environment()).applying(modifiers)
+                environment = renderer.environment((parent?.environment ?? Environment()).applying(modifiers))
                 let kind = renderer.widgetKind(self)
                 if kind != widgetKind {
                     replaceWidget(kind: kind)

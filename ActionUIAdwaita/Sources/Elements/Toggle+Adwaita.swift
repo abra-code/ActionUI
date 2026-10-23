@@ -3,7 +3,9 @@
  Toggle on GTK, in the style the document names:
  - checkbox, and no style: a GtkCheckButton with the title as its label. macOS's default toggle
    is a checkbox, and Linux is a desktop as macOS is.
- - switch: the title beside a GtkSwitch, as macOS shows a switch toggle's label before it.
+ - switch: the title beside a GtkSwitch, as macOS shows a switch toggle's label before it. In a
+   Form its title ends at the label column (FormLayout), and an empty one stays, 0 wide, so the
+   switch starts 8 after it; a checkbox keeps its title beside it (measured on macOS 27).
  - button: a GtkToggleButton showing the title, pressed while on.
  None of them grows when offered more space (measured on macOS 27, every style: an HStack with a
  Toggle and a filling Color gives the Toggle only what it needs).
@@ -52,13 +54,16 @@ extension Toggle: ActionUIAdwaitaRenderer {
             return check
         case .switch:
             let box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, titleSpacing)!
-            let title = gtk_label_new(nil)!
+            // Left out of the accessibility tree: the switch carries the title as its name.
+            let title = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
             gtk_label_set_xalign(opaque(title), 0)
             gtk_widget_set_valign(title, GTK_ALIGN_CENTER)
             gtk_box_append(typed(box), title)
             let toggle = gtk_switch_new()!
             gtk_widget_set_valign(toggle, GTK_ALIGN_CENTER)
             gtk_box_append(typed(box), toggle)
+            // A Form lines its title up with the other rows' (FormLayout).
+            attach(LabeledRowMarker(.box), to: box, key: labeledRowMarkerKey)
             connectUserSignal(toggle, "notify::active", .instanceAndArgument) { [weak node] in
                 guard let node else { return }
                 userToggled(node, on: gtk_switch_get_active(OpaquePointer(toggle)) != 0)
@@ -94,7 +99,8 @@ extension Toggle: ActionUIAdwaitaRenderer {
             if swiftString(gtk_label_get_text(opaque(title))) != props.title {
                 gtk_label_set_text(opaque(title), props.title)
             }
-            let visible: gboolean = showsTitle ? 1 : 0
+            // In a Form an empty title stays, 0 wide, for the column of 0 (measured).
+            let visible: gboolean = showsTitle || (node.environment.inForm && !node.environment.labelsHidden) ? 1 : 0
             if gtk_widget_get_visible(title) != visible {
                 gtk_widget_set_visible(title, visible)
             }

@@ -199,7 +199,8 @@ space differently from SwiftUI's stacks:
   the content beside it; the web stretches each LabeledContent row and puts its content at the
   trailing edge. A macOS Form is also as wide as its rows and centered like a VStack, where the
   web's fills its parent's width (`form-rows-hug`, `form-sections-add-no-space`,
-  `form-filling-row`).
+  `form-filling-row`). An empty control title makes a column of 0 on macOS, so every row starts 8
+  points in; on the web there is no column (`form-empty-control-title`).
 - **A non-uniform scale with a rotation** scales before it rotates (CSS's order for the
   independent `rotate` and `scale` properties), where SwiftUI rotates first. Each alone, and a
   uniform scale with a rotation, match.

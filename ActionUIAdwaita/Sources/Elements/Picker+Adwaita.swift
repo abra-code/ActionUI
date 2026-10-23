@@ -2,7 +2,8 @@
 /*
  Picker on GTK in its menu style: the title beside a GtkDropDown, as macOS shows a menu picker's
  label beside its pop-up button. labelsHidden hides the title; it still names the dropdown for
- assistive technologies, as in SwiftUI.
+ assistive technologies, as in SwiftUI. In a Form the title ends at the label column (FormLayout),
+ and an empty one stays, 0 wide, so the dropdown starts 8 after it (measured on macOS 27).
 
  - The options are the dropdown's items. When the options have sections (a title, or a divider),
    the popup shows each titled section under its title and starts an untitled one with a line,
@@ -40,11 +41,14 @@ extension Picker: ActionUIAdwaitaRenderer {
         let box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, titleSpacing)!
         let state = PickerState()
         attach(state, to: box, key: pickerStateKey)
-        let title = gtk_label_new(nil)!
+        // Left out of the accessibility tree: the dropdown carries the title as its name.
+        let title = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
         gtk_box_append(typed(box), title)
         let expression = gtk_property_expression_new(gtk_string_object_get_type(), nil, "string")
         let dropdown = gtk_drop_down_new(nil, expression)!
         gtk_box_append(typed(box), dropdown)
+        // A Form lines its title up with the other rows' (FormLayout).
+        attach(LabeledRowMarker(.box), to: box, key: labeledRowMarkerKey)
         connectUserSignal(dropdown, "notify::selected", .instanceAndArgument) { [weak node, weak state] in
             guard let node, let state else { return }
             let index = Int(gtk_drop_down_get_selected(OpaquePointer(dropdown)))
@@ -64,7 +68,7 @@ extension Picker: ActionUIAdwaitaRenderer {
         if swiftString(gtk_label_get_text(opaque(title))) != props.title {
             gtk_label_set_text(opaque(title), props.title)
         }
-        let showsTitle: gboolean = !props.title.isEmpty && !node.environment.labelsHidden ? 1 : 0
+        let showsTitle: gboolean = (!props.title.isEmpty || node.environment.inForm) && !node.environment.labelsHidden ? 1 : 0
         if gtk_widget_get_visible(title) != showsTitle {
             gtk_widget_set_visible(title, showsTitle)
         }

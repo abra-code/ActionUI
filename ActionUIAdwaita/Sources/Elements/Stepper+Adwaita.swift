@@ -7,7 +7,7 @@
 
  - The label is Core's Stepper.labelText: labelFormat with the value in it (NumberPrintf; a format
    it refuses shows the plain value), else the label property, as on Apple. labelsHidden hides it;
-   it still names the stepper.
+   it still names the stepper. In a Form the label ends at the label column (FormLayout).
  - A button steps the value by step, kept in the range when there is one, and runs Core's
    Stepper.userSetValue (the value, then actionID with it as context). A button is disabled at its
    end of the range, as SwiftUI disables an arrow there.
@@ -44,6 +44,8 @@ extension Stepper: ActionUIAdwaitaRenderer {
             gtk_box_append(typed(buttons), button)
         }
         gtk_box_append(typed(box), buttons)
+        // A Form lines its label up with the other rows' titles (FormLayout).
+        attach(LabeledRowMarker(.box), to: box, key: labeledRowMarkerKey)
         return box
     }
 

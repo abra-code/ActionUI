@@ -105,6 +105,7 @@ final class WebLayoutParityTests: XCTestCase {
     private static let knownDifferences: [String: String] = [
         "contentunavailable-width-600": "padding",
         "divider-hstack-height": "minimum",
+        "form-empty-control-title": "form",
         "form-filling-row": "form",
         "form-rows-hug": "form",
         "form-sections-add-no-space": "form",

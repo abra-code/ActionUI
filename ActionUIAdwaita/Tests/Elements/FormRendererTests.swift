@@ -154,6 +154,53 @@ final class FormRendererTests: XCTestCase {
         XCTAssertEqual(try frame(4, in: form)[0], 38)
     }
 
+    func testControlTitlesEndAtTheLabelColumn() throws {
+        // Measured on macOS 27: a Picker's, a Stepper's, a ColorPicker's and a switch Toggle's
+        // titles end at the column as a LabeledContent's does, and their controls start 8 after it.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Name", block(3, 20, 20))), {"type": "Picker", "id": 4, "properties": {"title": "A much longer name", "options": ["One", "Two"]}}, {"type": "Stepper", "id": 5, "properties": {"label": "Count"}}, {"type": "ColorPicker", "id": 6, "properties": {"title": "Tint"}}, {"type": "Toggle", "id": 8, "properties": {"title": "On", "style": "switch"}}, \#(block(7, 30, 20))]}"#)
+        let picker = try XCTUnwrap(node(4, in: form)).widget
+        let pickerTitle = frame(try XCTUnwrap(gtk_widget_get_first_child(picker)), in: form)
+        XCTAssertEqual(pickerTitle[0], 0, "the widest title starts at the Form's edge")
+        let column = pickerTitle[2]
+        for id in [2, 5, 6, 8] {
+            let title = frame(try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(node(id, in: form)).widget)), in: form)
+            XCTAssertEqual(title[0] + title[2], column, "row \(id)'s title ends at the column")
+        }
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(picker)), in: form)[0], column + 8, "the dropdown")
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(try XCTUnwrap(node(5, in: form)).widget)), in: form)[0],
+                       column + 8, "the stepper's buttons")
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(try XCTUnwrap(node(6, in: form)).widget)), in: form)[0],
+                       column + 8, "the color button")
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(try XCTUnwrap(node(8, in: form)).widget)), in: form)[0],
+                       column + 8, "the switch")
+        XCTAssertEqual(try frame(3, in: form)[0], column + 8)
+        XCTAssertEqual(try frame(7, in: form)[0], column + 8)
+    }
+
+    func testAnEmptyControlTitleMakesAColumnOfZero() throws {
+        // Measured on macOS 27: as an empty LabeledContent title, the control starts at 8, and
+        // so does every other row.
+        for control in [#"{"type": "Picker", "id": 2, "properties": {"title": "", "options": ["One"]}}"#,
+                        #"{"type": "Stepper", "id": 2, "properties": {"label": ""}}"#,
+                        #"{"type": "ColorPicker", "id": 2, "properties": {"title": ""}}"#,
+                        #"{"type": "Toggle", "id": 2, "properties": {"title": "", "style": "switch"}}"#] {
+            let form = try render(#"{"type": "Form", "id": 1, "children": [\#(control), \#(block(3, 20, 20))]}"#)
+            let widget = try XCTUnwrap(node(2, in: form)).widget
+            XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(widget)), in: form)[0], 8, control)
+            XCTAssertEqual(try frame(3, in: form)[0], 8, control)
+        }
+    }
+
+    func testHiddenLabelsAndACheckboxToggleMakeNoColumn() throws {
+        // Measured on macOS 27: a control under labelsHidden is a row without a title, and a
+        // checkbox Toggle's title stays beside its checkbox.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "Picker", "id": 2, "properties": {"title": "Title", "labelsHidden": true, "options": ["One"]}}, {"type": "Toggle", "id": 4, "properties": {"title": "Toggle"}}, {"type": "Toggle", "id": 5, "properties": {"title": "Switch", "style": "switch", "labelsHidden": true}}, \#(block(3, 20, 20))]}"#)
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(try XCTUnwrap(node(2, in: form)).widget)), in: form)[0], 0)
+        XCTAssertEqual(try frame(4, in: form)[0], 0)
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(try XCTUnwrap(node(5, in: form)).widget)), in: form)[0], 0)
+        XCTAssertEqual(try frame(3, in: form)[0], 0)
+    }
+
     func testATitleChangedAtRunTimeMovesTheOtherRows() throws {
         let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "A", block(3, 20, 20))), \#(labeled(4, "Name", block(5, 40, 20))), \#(block(6, 30, 20))]}"#)
         let before = try frame(5, in: form)[0]
