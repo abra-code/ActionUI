@@ -97,66 +97,49 @@ private struct WebHarnessError: Error, CustomStringConvertible {
 final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
     /// match fails the test until it is removed here. The causes, found with this test:
-    /// - center: the frame sizes the element's own node, so content in a bigger frame is not centered (SwiftUI's frame centers the view it wraps)
-    /// - stretch: a Color with a fixed size sits at its stack's start (.aui-shape align-self: stretch), ignoring the stack's alignment
-    /// - empty: a Color with no frame in a nested stack takes no space (SwiftUI's fills)
-    /// - paint: a Color's fill paints under its own padding (SwiftUI's padding is clear)
-    /// - spacing: VStack default 8 (ActionUI's is 0), a gap next to a Spacer, no Spacer minimum
+    /// - cap: a stack holding a capped child (maxWidth 200) is taken to expand without limit, so it fills its frame or row instead of stopping at the cap
+    /// - spacing: VStack's default spacing is 8 (ActionUI's is 0), there is a gap next to a Spacer, and a Spacer has no minimum
     /// - spacer: Spacers share space with other flexible views (SwiftUI sizes them last)
-    /// - cap: a stack's cap and expansion do not come from its children
-    /// - groupbox: content inset and title metrics differ
+    /// - groupbox: the content inset (13 against 5) and title metrics differ
     /// - unavailable: ContentUnavailableView is not capped at 400
-    /// - zstack: the children are placed at the frame's corner, not in a centered stack
-    /// - order: the least flexible view is not sized first
-    /// - effects: offset, and a scaleEffect with x, y and anchor, are not applied
+    /// - zstack: a capped child in a ZStack's stack is not drawn
+    /// - effects: offset is not applied, and an object scaleEffect (x, y, anchor) is not either
+    /// - labeledcontent: an empty title still takes room, and the content is not laid out as a row
+    /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     private static let knownDifferences: [String: String] = [
-        "cap-in-infinite-frame-leading": "center",
-        "cap-in-infinite-frame-zstack": "empty, zstack",
+        "cap-in-infinite-frame-leading": "cap",
+        "cap-in-infinite-frame-zstack": "cap, zstack",
         "cap-in-wider-frame": "cap",
-        "cap-root-frame-leading": "center",
-        "cap-root-frame-top": "center, stretch",
-        "cap-root-leading": "center, cap",
-        "cap-root-padding-leading": "center, cap",
+        "cap-root-frame-leading": "cap",
+        "cap-root-frame-top": "cap",
+        "cap-root-leading": "cap",
+        "cap-root-padding-leading": "cap",
         "contentunavailable-in-vstack": "unavailable",
         "contentunavailable-padding": "unavailable",
         "contentunavailable-width-1000": "unavailable",
         "contentunavailable-width-600": "unavailable",
         "contentunavailable-zstack": "unavailable",
-        "divider-hstack-height": "spacing, stretch",
-        "effects-offset-keeps-layout": "effects, stretch",
-        "effects-offset-then-rotation": "effects, stretch",
-        "effects-rotation-around-center": "stretch",
-        "effects-scale-around-anchor": "effects, stretch",
-        "frame-alignment": "center",
-        "groupbox-capped-hstack": "empty, groupbox, cap",
-        "groupbox-capped-vstack": "empty, groupbox, cap",
-        "groupbox-children": "groupbox, center, stretch",
-        "groupbox-fills": "empty, groupbox",
+        "divider-hstack-height": "spacing",
+        "effects-offset-keeps-layout": "effects",
+        "effects-offset-then-rotation": "effects",
+        "effects-scale-around-anchor": "effects",
+        "groupbox-capped-hstack": "groupbox, cap",
+        "groupbox-capped-vstack": "groupbox, cap",
+        "groupbox-children": "groupbox",
+        "groupbox-fills": "groupbox",
         "groupbox-spacer-squeezed": "groupbox, spacing",
         "groupbox-spacer-zero-min": "groupbox, spacing",
-        "hstack-default-spacing": "stretch",
-        "hstack-emptyview": "center, stretch",
-        "hstack-fixed-and-filler": "stretch",
-        "hstack-larger-minimum-first": "order",
-        "hstack-spacer-yields": "spacer, stretch",
-        "labeledcontent-empty-title": "empty, stretch",
+        "hstack-larger-minimum-first": "minimum",
+        "hstack-spacer-yields": "spacer",
+        "labeledcontent-empty-title": "labeledcontent",
         "labeledcontent-spacer": "spacing",
-        "nested-cap-cross-axis": "empty, cap",
-        "nested-cap-fixed-frame": "empty",
-        "nested-cap-hidden": "cap",
-        "nested-cap-min-only-frame": "empty",
-        "nested-cap-padding-inside-frame": "paint, cap",
-        "nested-cap-propagation": "empty, cap",
-        "nested-cap-sum-in-hstack": "empty, cap",
-        "nested-cap-with-padding": "empty, cap",
-        "nested-cap-zstack": "empty, zstack",
-        "nested-unbounded": "empty, cap",
-        "nested-unbounded-spacer": "empty, spacer",
-        "padding-in-frame": "center, paint, stretch",
-        "vstack-alignment-leading": "center",
-        "vstack-alignment-trailing": "center, stretch",
-        "vstack-fill-width-and-spacer": "stretch",
-        "zstack-top-trailing": "zstack",
+        "nested-cap-cross-axis": "cap",
+        "nested-cap-min-only-frame": "minimum",
+        "nested-cap-padding-inside-frame": "cap",
+        "nested-cap-propagation": "cap",
+        "nested-cap-sum-in-hstack": "cap",
+        "nested-cap-with-padding": "cap",
+        "nested-cap-zstack": "cap, zstack",
     ]
 
     /// The LayoutParity folder: this file is ActionUITests/Views/WebLayoutParityTests.swift.

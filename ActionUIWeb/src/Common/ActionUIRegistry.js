@@ -22,7 +22,7 @@
 // Unknown types degrade gracefully: a warning is logged and a placeholder
 // element is rendered, mirroring the fail-gracefully design principle.
 
-import { applyViewModifiers } from "./ModifierResolver.js";
+import { applyViewModifiers, finishFrameBox, makeFrameBox, markExpansion, needsFrameBox } from "./ModifierResolver.js";
 import { wrapWithToolbar } from "../Helpers/ToolbarHelper.js";
 import { applyPresentationModifiers } from "../Helpers/PresentationModifier.js";
 import { applyDecorations } from "../Helpers/DecorationModifier.js";
@@ -64,6 +64,8 @@ export function buildElementView(element, ctx) {
     const properties = construction.validateProperties(element.properties, ctx.logger);
     const node = construction.buildView(element, properties, ctx);
     node.dataset.auiType = element.type;
+    // A stack expands where its children do (SwiftUI's propagation); its children are built.
+    markExpansion(node);
     if (element.id > 0) {
         node.dataset.auiId = String(element.id);
         const initial = construction.initialValue?.(element, properties);
@@ -75,6 +77,9 @@ export function buildElementView(element, ctx) {
             ctx.model.seedStates(element.id, states);
         }
     }
+    // The frame box first (padding, frame, background), so the interactions applyViewModifiers
+    // wires cover it; it takes the element once the element's own wrappers are made.
+    const box = needsFrameBox(properties) ? makeFrameBox(node, properties, ctx.logger) : null;
     applyViewModifiers(node, element, properties, ctx);
     // The `animation` modifier: arm a CSS transition on the element node so a later
     // visual mutation (e.g. setElementProperty, which mutates this same node) eases
@@ -93,11 +98,15 @@ export function buildElementView(element, ctx) {
     const refreshed = construction.refreshable
         ? wrapWithPullToRefresh(node, element, properties, ctx)
         : node;
+    // The frame box (padding, frame, background, corner radius) around the element and its
+    // pull-to-refresh wrapper; a no-op without a frame or padding. data-aui-id stays on the
+    // inner node.
+    const framed = box ? finishFrameBox(box, refreshed, node, properties) : refreshed;
     // View-valued overlay / background decorations: wraps the node in a decoration
     // box (the element + absolute decoration layers behind/above it). A no-op
     // unless an overlay/background subview is declared; the data-aui-id stays on
     // the inner node, so host addressing is unaffected (like the toolbar wrap).
-    const decorated = applyDecorations(refreshed, element, properties, ctx);
+    const decorated = applyDecorations(framed, element, properties, ctx);
     // swipeActions (List rows): wraps the node in a swipe-to-reveal container - the edge
     // action panels behind an opaque, translating content layer. A no-op unless a
     // swipeActions subview is declared; the data-aui-id stays on the inner node, so host

@@ -34,6 +34,7 @@
 //                    web type-filtering is coarse (the DnD spec hides item
 //                    contents during dragover).
 
+import { StackAxis } from "./StackAxis.js";
 import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
 import { applyIgnoresSafeArea } from "../Helpers/SafeAreaModifier.js";
 
@@ -163,11 +164,9 @@ function applyPadding(node, padding, logger) {
 // maxHeight ".infinity" -> a fill class the parent stack resolves per axis (grow
 // along its main axis, stretch across its cross axis).
 //
-// `alignment` positions the (possibly smaller) content within the frame box. We
-// stay single-node (no wrapper, so background/border keep filling the framed
-// size) and make the node a grid box (.aui-frame-align) whose content is placed
-// by place-content/place-items. Leaf-oriented: a node that lays out its own
-// children (stack/grid/...) keeps that layout and ignores frame.alignment.
+// `alignment` positions the (possibly smaller) element within the frame box
+// (wrapWithFrameBox), a grid whose one child is placed by place-content/place-items;
+// centered without one, as SwiftUI's frame centers the view it wraps.
 function applyFrame(node, frame, logger) {
     // --- width axis ---
     if (typeof frame.width === "number") {
@@ -232,6 +231,12 @@ function applyFrameAlignment(node, alignment, logger) {
         logger.log(`Invalid value for frame.alignment: expected one of ${FRAME_ALIGN_LIST_TEXT}, got ${alignment}, ignoring alignment`, "warning");
         return;
     }
+    // A frame box holds one element in a track that fills it: the alignment places the
+    // element in the track.
+    if (node.classList.contains("aui-frame-box")) {
+        node.style.placeItems = FRAME_ALIGN[alignment];
+        return;
+    }
     // A container manages its own children's layout; converting it to a grid box
     // would collapse it, so frame.alignment is leaf-oriented (documented divergence).
     if (nodeManagesOwnLayout(node)) return;
@@ -294,7 +299,9 @@ function containerActionDisabled(node) {
 // buildView (Text `text`, Button `title`, ...) are not here — those are the value
 // bridge's job. Each applier resets to the CSS default when the value is absent.
 const PROPERTY_APPLIERS = {
-    opacity: (node, value) => { node.style.opacity = typeof value === "number" ? String(value) : ""; },
+    // Opacity, scale and rotation come after the background and the clip on Apple, so with a
+    // frame box they apply to the box (its padding and background fade and turn with the element).
+    opacity: (node, value) => { (node.auiFrameBox ?? node).style.opacity = typeof value === "number" ? String(value) : ""; },
     hidden: (node, value) => {
         const on = value === true;
         node.style.visibility = on ? "hidden" : "";
@@ -320,15 +327,16 @@ const PROPERTY_APPLIERS = {
         }
     },
     cornerRadius: (node, value) => {
+        const target = node.auiFrameBox ?? node;
         if (typeof value === "number") {
-            node.style.borderRadius = `${value}px`;
-            node.style.overflow = "hidden";
+            target.style.borderRadius = `${value}px`;
+            target.style.overflow = "hidden";
         } else {
-            node.style.borderRadius = "";
-            node.style.overflow = "";
+            target.style.borderRadius = "";
+            target.style.overflow = "";
         }
     },
-    help: (node, value) => { node.title = typeof value === "string" ? value : ""; },
+    help: (node, value) => { (node.auiFrameBox ?? node).title = typeof value === "string" ? value : ""; },
     disabled: (node, value) => {
         const on = value === true;
         node.classList.toggle("aui-disabled", on);
@@ -337,11 +345,13 @@ const PROPERTY_APPLIERS = {
         if (control) control.disabled = on;
     },
     foregroundStyle: (node, value, logger) => { node.style.color = resolveColor(value, logger) ?? ""; },
-    background: (node, value, logger) => { node.style.backgroundColor = resolveColor(value, logger) ?? ""; },
+    background: (node, value, logger) => {
+        (node.auiFrameBox ?? node).style.backgroundColor = resolveColor(value, logger) ?? "";
+    },
     // The independent CSS `scale` / `rotate` transform properties (not `transform`),
     // so the two compose without clobbering each other and each animates on its own.
-    scaleEffect: (node, value) => { node.style.scale = typeof value === "number" ? String(value) : ""; },
-    rotationEffect: (node, value) => { node.style.rotate = typeof value === "number" ? `${value}deg` : ""; },
+    scaleEffect: (node, value) => { (node.auiFrameBox ?? node).style.scale = typeof value === "number" ? String(value) : ""; },
+    rotationEffect: (node, value) => { (node.auiFrameBox ?? node).style.rotate = typeof value === "number" ? `${value}deg` : ""; },
 };
 
 // Lets a view module contribute a runtime `setElementProperty` applier for a
@@ -369,10 +379,149 @@ export function applyElementProperty(node, name, value, logger) {
     return true;
 }
 
+// True when the element gets a frame box (wrapWithFrameBox): it has a frame or padding.
+export function needsFrameBox(properties) {
+    return properties.padding !== undefined
+        || (typeof properties.frame === "object" && properties.frame !== null);
+}
+
+// The frame box: a wrapper around the element that carries its padding, frame, background
+// and corner radius, in View.applyModifiers' order (padding, then frame, then background and
+// the clip), as SwiftUI's modifiers wrap a view. The element keeps its own size inside it and
+// is placed by the frame's alignment (centered by default), so a VStack in a bigger frame is
+// centered, as SwiftUI's frame centers the view it wraps, and a Color's fill stops at its
+// padding. The box is the parent stack's child, so it takes the frame's fill and cap classes.
+// data-aui-id stays on the element, like the other wraps; the runtime background and corner
+// radius appliers find the box through node.auiFrameBox.
+export function wrapWithFrameBox(content, node, properties, logger) {
+    return finishFrameBox(makeFrameBox(node, properties, logger), content, node, properties);
+}
+
+// The frame box with its padding, frame, background, clip and effects, not yet holding the
+// element: made before applyViewModifiers so the interactions it wires (actionID, hover, drop,
+// help, contextMenu) cover the padding and background, as on Apple, where they come after the
+// modifiers.
+export function makeFrameBox(node, properties, logger) {
+    const box = document.createElement("div");
+    box.className = "aui-frame-box";
+    if (properties.padding !== undefined) applyPadding(box, properties.padding, logger);
+    if (typeof properties.frame === "object" && properties.frame !== null) {
+        applyFrame(box, properties.frame, logger);
+    }
+    applyBoxPaint(box, properties, logger);
+    applyBoxEffects(box, properties);
+    node.auiFrameBox = box;
+    return box;
+}
+
+// Puts `content` (the element, or its pull-to-refresh wrapper) in the box and gives the box its
+// content's expansion.
+export function finishFrameBox(box, content, node, properties) {
+    // The `animation` transition applyAnimation armed on the element: the box carries the
+    // background, corner radius, opacity, scale and rotation now, so a runtime change of those
+    // eases on the box too.
+    for (const name of ["transitionProperty", "transitionDuration", "transitionTimingFunction", "transitionDelay"]) {
+        if (node.style[name]) box.style[name] = node.style[name];
+    }
+    // The box expands where its content does, unless its frame sets that axis's size or cap.
+    const frame = typeof properties.frame === "object" && properties.frame !== null ? properties.frame : {};
+    // A control that fills its proposal in SwiftUI (a TextField's width, a List) fills its box.
+    const [greedyWidth, greedyHeight] = greedyAxes(node.dataset?.auiType, properties);
+    if (greedyWidth) content.classList.add("aui-expands-w");
+    if (greedyHeight) content.classList.add("aui-expands-h");
+    const [expandsWidth, expandsHeight] = expansionOf(content, null);
+    if (expandsWidth && frame.width === undefined && frame.maxWidth === undefined) box.classList.add("aui-expands-w");
+    if (expandsHeight && frame.height === undefined && frame.maxHeight === undefined) box.classList.add("aui-expands-h");
+    box.appendChild(content);
+    return box;
+}
+
+// The element types that fill the space they are offered in SwiftUI, in both axes or in width
+// only; everything else (Text, Button, Toggle, Image, ...) keeps its own size. A view in a frame
+// box takes the box's size only where it fills, so a Text in a wide frame is centered, as in
+// SwiftUI. (Shapes and stacks are told by their classes: aui-shape, markExpansion.)
+// Measured on macOS 27 (a view hosted alone in a 600 x 400 window): GroupBox, a segmented Picker
+// and the circular ProgressView keep their content size; the lazy stacks and grids fill their
+// scroll axis only (LazyVStack and LazyVGrid the width, LazyHStack and LazyHGrid the height); a
+// ScrollView fills the axes it scrolls. A Form and a NavigationStack fill only through their
+// children (a Form with a TextField fills the width, a NavigationStack with a List fills both),
+// which this list cannot see, so they are taken as filling, their usual content.
+const GREEDY_BOTH = new Set(["List", "Table", "MapEmbed", "Map", "WebView", "VideoPlayer", "Canvas", "GeometryReader",
+    "TabView", "NavigationStack", "NavigationSplitView", "TextEditor"]);
+const GREEDY_WIDTH = new Set(["TextField", "SecureField", "Slider", "DisclosureGroup", "Form", "LazyVGrid", "LazyVStack"]);
+const GREEDY_HEIGHT = new Set(["LazyHGrid", "LazyHStack"]);
+
+function greedyAxes(type, properties) {
+    if (GREEDY_BOTH.has(type)) return [true, true];
+    if (GREEDY_WIDTH.has(type)) return [true, false];
+    if (GREEDY_HEIGHT.has(type)) return [false, true];
+    if (type === "ProgressView") return [properties.progressViewStyle !== "circular", false];
+    if (type === "Gauge") return [!(typeof properties.style === "string" && properties.style.includes("Circular")), false];
+    if (type === "ScrollView") {
+        const axis = properties.axis ?? "vertical";
+        return [axis !== "vertical", axis !== "horizontal"];
+    }
+    return [false, false];
+}
+
+// Whether a stack child (its outermost node) expands in width and in height, as SwiftUI's
+// views do: a Color or shape with no fixed size in that axis, a frame that fills or caps it,
+// a container one of whose children does (markExpansion), and a Spacer along its stack's axis.
+function expansionOf(child, parentAxis) {
+    const c = child.classList;
+    if (!c) return [false, false];
+    if (c.contains("aui-spacer")) {
+        return [parentAxis === StackAxis.Horizontal, parentAxis === StackAxis.Vertical];
+    }
+    const shape = c.contains("aui-shape");
+    const width = (shape && !child.style.width) || c.contains("aui-fill-width") || c.contains("aui-cap-width")
+        || c.contains("aui-expands-w");
+    const height = (shape && !child.style.height) || c.contains("aui-fill-height") || c.contains("aui-cap-height")
+        || c.contains("aui-expands-h");
+    return [width, height];
+}
+
+// A stack or ZStack expands in an axis when one of its children does, as in SwiftUI (a VStack
+// holding a Color fills what it is offered): marked with aui-expands-w / aui-expands-h, which
+// the parent stack and the frame box read. Called once the container's children are built.
+export function markExpansion(node) {
+    if (!node.classList.contains("aui-stack") && !node.classList.contains("aui-zstack")) return;
+    const axis = node.dataset.auiAxis ?? null;
+    let width = false;
+    let height = false;
+    for (const child of node.children) {
+        const [childWidth, childHeight] = expansionOf(child, axis);
+        width ||= childWidth;
+        height ||= childHeight;
+    }
+    if (width) node.classList.add("aui-expands-w");
+    if (height) node.classList.add("aui-expands-h");
+}
+
+// Background and corner radius, on the frame box when there is one, else on the element.
+function applyBoxPaint(target, properties, logger) {
+    if (typeof properties.cornerRadius === "number") {
+        target.style.borderRadius = `${properties.cornerRadius}px`;
+        target.style.overflow = "hidden";
+    }
+    const background = resolveColor(properties.background, logger);
+    if (background) target.style.backgroundColor = background;
+}
+
+// Opacity, scale and rotation, on the frame box when there is one, else on the element (they
+// come after the background and the clip on Apple).
+function applyBoxEffects(target, properties) {
+    if (typeof properties.opacity === "number") target.style.opacity = String(properties.opacity);
+    if (typeof properties.scaleEffect === "number") target.style.scale = String(properties.scaleEffect);
+    if (typeof properties.rotationEffect === "number") target.style.rotate = `${properties.rotationEffect}deg`;
+}
+
 export function applyViewModifiers(node, element, properties, ctx) {
     const { logger } = ctx;
+    // With a frame box, padding, frame, background and corner radius go on the box instead.
+    const boxed = needsFrameBox(properties);
 
-    if (properties.padding !== undefined) applyPadding(node, properties.padding, logger);
+    if (properties.padding !== undefined && !boxed) applyPadding(node, properties.padding, logger);
     // `hidden` is SwiftUI's `.hidden()`, not `display: none`: the element stays LAID OUT -
     // its space is reserved - while being invisible and untouchable. CSS
     // `visibility: hidden` is that primitive: the box is still generated and sized, it is
@@ -400,16 +549,10 @@ export function applyViewModifiers(node, element, properties, ctx) {
     // bodies overlaid, one visible) is what authors use instead. Toolbars are the single
     // exception - see the chrome note in Helpers/ToolbarHelper.js.
     if (properties.hidden === true) node.style.visibility = "hidden";
-    if (typeof properties.opacity === "number") node.style.opacity = String(properties.opacity);
-    if (typeof properties.cornerRadius === "number") {
-        node.style.borderRadius = `${properties.cornerRadius}px`;
-        node.style.overflow = "hidden";
-    }
+    if (!boxed) applyBoxPaint(node, properties, logger);
 
     const foreground = resolveColor(properties.foregroundStyle, logger);
     if (foreground) node.style.color = foreground;
-    const background = resolveColor(properties.background, logger);
-    if (background) node.style.backgroundColor = background;
 
     if (typeof properties.font === "string") {
         if (FONT_TEXT_STYLES.has(properties.font)) {
@@ -419,15 +562,16 @@ export function applyViewModifiers(node, element, properties, ctx) {
         }
     }
 
-    if (typeof properties.frame === "object" && properties.frame !== null) {
+    if (typeof properties.frame === "object" && properties.frame !== null && !boxed) {
         applyFrame(node, properties.frame, logger);
     }
 
-    // scaleEffect / rotationEffect -> the independent CSS scale / rotate transform
-    // properties (SwiftUI .scaleEffect / .rotationEffect). Animatable, and the
-    // setElementProperty bridge mutates the same two for runtime animation.
-    if (typeof properties.scaleEffect === "number") node.style.scale = String(properties.scaleEffect);
-    if (typeof properties.rotationEffect === "number") node.style.rotate = `${properties.rotationEffect}deg`;
+    // opacity, scaleEffect / rotationEffect (the independent CSS scale / rotate transform
+    // properties, SwiftUI .scaleEffect / .rotationEffect). Animatable, and the
+    // setElementProperty bridge mutates the same three for runtime animation. With a frame box
+    // they go on the box (wrapWithFrameBox): on Apple they come after the background and the
+    // clip, so the padding and background fade and turn with the element.
+    if (!boxed) applyBoxEffects(node, properties);
 
     if (properties.disabled === true) {
         node.classList.add("aui-disabled");
@@ -436,7 +580,11 @@ export function applyViewModifiers(node, element, properties, ctx) {
         if (control) control.disabled = true;
     }
 
-    if (typeof properties.help === "string") node.title = properties.help;
+    // The interactions cover the frame box when there is one: its padding and background are
+    // part of the view a tap, a hover, a drop or a help tag reaches, as on Apple.
+    const hit = node.auiFrameBox ?? node;
+
+    if (typeof properties.help === "string") hit.title = properties.help;
 
     // A view carrying an actionID is tappable as a whole - the way a rich cell wants to
     // be: one target, one a11y element, instead of a small glyph Button inside it.
@@ -474,11 +622,11 @@ export function applyViewModifiers(node, element, properties, ctx) {
         const templateContext = ctx.templateContext;
         const viewID = templateContext ? templateContext.parentID : element.id;
         const viewPartID = templateContext ? templateContext.rowIndex : 0;
-        markHandlesAction(node);
+        markHandlesAction(hit);
         const dispatch = () => ctx.model.dispatchAction(actionID, viewID, viewPartID, null);
-        node.addEventListener("click", (event) => {
+        hit.addEventListener("click", (event) => {
             if (containerActionDisabled(node)) return;
-            if (innerHandlerServed(event, node)) return;
+            if (innerHandlerServed(event, hit)) return;
             event.stopPropagation();
             dispatch();
         });
@@ -494,13 +642,13 @@ export function applyViewModifiers(node, element, properties, ctx) {
         // as a focusable stop that does nothing - `disabled` is not a real attribute on a
         // <div>, so nothing else would remove it. `containerActionDisabled` above is still
         // what makes it inert, since a host can flip `disabled` later.
-        node.setAttribute("role", "button");
-        node.tabIndex = containerActionDisabled(node) ? -1 : 0;
-        node.style.cursor = "pointer";
-        node.addEventListener("keydown", (event) => {
+        hit.setAttribute("role", "button");
+        hit.tabIndex = containerActionDisabled(node) ? -1 : 0;
+        hit.style.cursor = "pointer";
+        hit.addEventListener("keydown", (event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             if (containerActionDisabled(node)) return;
-            if (innerHandlerServed(event, node)) return; // a focused inner control answers first
+            if (innerHandlerServed(event, hit)) return; // a focused inner control answers first
             event.preventDefault();                      // Space would scroll the page
             event.stopPropagation();
             dispatch();
@@ -522,13 +670,13 @@ export function applyViewModifiers(node, element, properties, ctx) {
         queueMicrotask(() => ctx.model.dispatchAction(onAppearActionID, viewID, 0, null));
     }
 
-    applyHoverDrop(node, element, properties, ctx);
+    applyHoverDrop(hit, element, properties, ctx);
 
     // contextMenu (any view): a right-click / long-press floating menu of action
     // items (Helpers/ContextMenuModifier.js). A no-op unless a valid contextMenu is
     // declared. The Apple parity is `.contextMenu`; the Android parity is the
     // long-press DropdownMenu.
-    applyContextMenu(node, element, properties, ctx);
+    applyContextMenu(hit, element, properties, ctx);
 
     // ignoresSafeArea: extend this view into the safe area (negative env() margins on the chosen
     // edges). A no-op when absent/false, or on a non-notched / desktop screen (env() is 0).

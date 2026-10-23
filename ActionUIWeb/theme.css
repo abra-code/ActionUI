@@ -137,6 +137,33 @@
    toggle still wins. Leaf-oriented: stacks/grids keep their own layout (the
    resolver skips them). */
 .aui-frame-align { display: grid; }
+/* The frame box (ModifierResolver wrapWithFrameBox): padding, frame, background and corner
+   radius around one element, which keeps its own size and is centered (or placed by the
+   frame's alignment); a view that fills its proposal (a Color or shape) fills the box. */
+.aui-frame-box {
+    display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    place-items: center; min-width: 0; min-height: 0;
+}
+.aui-frame-box > .aui-shape { place-self: stretch; }
+/* A resizable image fills its frame (its <img> is 100% of the image node), so the node takes
+   the box's size; a non-resizable one keeps its intrinsic size inside the stretched node. */
+.aui-frame-box > .aui-image, .aui-frame-box > .aui-async-image { place-self: stretch; }
+/* A Divider keeps its 1 px rule and its stretch across the stack through a frame box (padding
+   around a Divider): the .aui-vstack > .aui-divider rules above do not reach it there. */
+.aui-vstack > .aui-frame-box:has(> .aui-divider), .aui-hstack > .aui-frame-box:has(> .aui-divider) { align-self: stretch; }
+.aui-vstack > .aui-frame-box > .aui-divider { height: 1px; justify-self: stretch; }
+.aui-hstack > .aui-frame-box > .aui-divider { width: 1px; align-self: stretch; }
+/* Expansion (ModifierResolver markExpansion, wrapWithFrameBox): a stack whose child fills an
+   axis, or a frame box around such content, grows along its stack's axis and stretches across
+   it, as a filling view does; in a frame box or a ZStack it fills that axis. The flex basis is
+   auto, not 0: in a stack sized by its content (a page that scrolls) a basis of 0 collapses the
+   child to nothing (a List with a frame vanished), where SwiftUI gives it its ideal size. */
+.aui-hstack > .aui-expands-w { flex: 1 1 auto; min-width: 0; }
+.aui-vstack > .aui-expands-w { align-self: stretch; }
+.aui-vstack > .aui-expands-h { flex: 1 1 auto; min-height: 0; }
+.aui-hstack > .aui-expands-h { align-self: stretch; }
+.aui-zstack > .aui-expands-w, .aui-frame-box > .aui-expands-w { justify-self: stretch; }
+.aui-zstack > .aui-expands-h, .aui-frame-box > .aui-expands-h { align-self: stretch; }
 
 /* View-valued overlay / background decorations (Helpers/DecorationModifier.js).
    The wrapper is a grid box: the element is its single in-flow grid item and so
@@ -1617,7 +1644,8 @@
    otherwise the content-sized segments leave the extra width as an empty stub on
    the trailing edge. Scoped to the fill case so a content-sized segmented bar
    (no maxWidth) keeps its natural per-segment widths. */
-.aui-picker-segmented.aui-fill-width .aui-segment { flex: 1 1 0; min-width: 0; }
+.aui-picker-segmented.aui-fill-width .aui-segment,
+.aui-fill-width > .aui-picker-segmented .aui-segment { flex: 1 1 0; min-width: 0; }
 .aui-picker-segmented .aui-segment:first-child { border-left: none; }
 .aui-picker-segmented .aui-segment > input { position: absolute; opacity: 0; pointer-events: none; }
 .aui-picker-segmented .aui-segment:has(> input:checked) { background: var(--aui-color-accent); color: #fff; }

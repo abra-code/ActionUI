@@ -98,7 +98,7 @@ export function applyDecorations(node, element, properties, ctx) {
     // Hand the parent-layout role to the wrapper (the new direct child of the parent):
     // fill classes (parent's `> .aui-fill-*` selectors) and a fixed frame's
     // flex-shrink. The element fills the wrapper via the grid item's default stretch.
-    for (const cls of ["aui-fill-width", "aui-fill-height"]) {
+    for (const cls of ["aui-fill-width", "aui-fill-height", "aui-expands-w", "aui-expands-h"]) {
         if (node.classList.contains(cls)) {
             node.classList.remove(cls);
             wrapper.classList.add(cls);

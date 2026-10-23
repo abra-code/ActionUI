@@ -42,7 +42,7 @@ test("a Chart draws the unavailable placeholder, sized by its own frame, with on
     assert.equal(node.className, "aui-content-unavailable");
     const title = node.children.find((child) => child.className === "aui-content-unavailable-title");
     assert.equal(title?.textContent, CHART_PLACEHOLDER.title);
-    assert.equal(node.style.width, "320px", "the element's frame applies");
+    assert.equal(node.auiFrameBox?.style.width, "320px", "the element's frame applies, on its frame box");
     assert.equal(logger.messages.filter((m) => m.level === "warning").length, 1);
     assert.ok(logger.warned("Chart is not supported on the web"));
 

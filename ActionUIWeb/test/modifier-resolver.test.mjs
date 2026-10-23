@@ -1,10 +1,13 @@
 // Tests for src/Common/ModifierResolver.js: resolveColor + applyViewModifiers
 // (the build-time CSS application). applyElementProperty is in property-mutation.test.mjs.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
-import { makeElement, makeLogger } from "./dom-stub.mjs";
-import { resolveColor, applyViewModifiers, markHandlesAction, applyElementProperty } from "../src/Common/ModifierResolver.js";
+import { installDom, makeElement, makeLogger } from "./dom-stub.mjs";
+
+// The frame box is made with document.createElement.
+before(() => installDom());
+import { resolveColor, applyViewModifiers, markHandlesAction, applyElementProperty, needsFrameBox, makeFrameBox, finishFrameBox, wrapWithFrameBox } from "../src/Common/ModifierResolver.js";
 
 test("resolveColor: named -> CSS var, hex pass-through, unknown warns -> null", () => {
     const logger = makeLogger();
@@ -80,14 +83,21 @@ function applied(properties, element = { id: 1 }) {
     const node = makeElement();
     const dispatched = [];
     const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    // As buildElementView does: a frame or padding puts the element in a frame box, which
+    // carries the padding, frame, background and corner radius, and is made first so the
+    // interactions cover it.
+    const made = needsFrameBox(properties) ? makeFrameBox(node, properties, ctx.logger) : null;
     applyViewModifiers(node, element, properties, ctx);
-    return { node, dispatched };
+    const box = made ? finishFrameBox(made, node, node, properties) : node;
+    return { node, box, dispatched };
 }
 
 test("padding: number, default keyword, and per-edge object", () => {
-    assert.equal(applied({ padding: 12 }).node.style.padding, "12px");
-    assert.equal(applied({ padding: "default" }).node.style.padding, "16px", "SwiftUI's default padding on macOS");
-    assert.equal(applied({ padding: { top: 1, bottom: 2, leading: 3, trailing: 4 } }).node.style.padding, "1px 4px 2px 3px");
+    // On the frame box around the element, so a Color's fill stops at its padding.
+    assert.equal(applied({ padding: 12 }).box.style.padding, "12px");
+    assert.ok(!applied({ padding: 12 }).node.style.padding, "not on the element itself");
+    assert.equal(applied({ padding: "default" }).box.style.padding, "16px", "SwiftUI's default padding on macOS");
+    assert.equal(applied({ padding: { top: 1, bottom: 2, leading: 3, trailing: 4 } }).box.style.padding, "1px 4px 2px 3px");
 });
 
 test("opacity / hidden / cornerRadius / colors / help", () => {
@@ -115,10 +125,10 @@ test("hidden reserves its layout space (SwiftUI .hidden() parity)", () => {
     assert.ok(!on.style.display, "the box is never collapsed");
 
     // A sized hidden element keeps its frame, which is the space it reserves.
-    const sized = applied({ hidden: true, frame: { width: 48, height: 32 } }).node;
-    assert.equal(sized.style.visibility, "hidden");
-    assert.equal(sized.style.width, "48px");
-    assert.equal(sized.style.height, "32px");
+    const sized = applied({ hidden: true, frame: { width: 48, height: 32 } });
+    assert.equal(sized.node.style.visibility, "hidden");
+    assert.equal(sized.box.style.width, "48px");
+    assert.equal(sized.box.style.height, "32px");
 
     // Authoring hidden:false (or omitting it) touches nothing.
     assert.ok(!applied({ hidden: false }).node.style.visibility);
@@ -142,23 +152,23 @@ test("scaleEffect / rotationEffect set the CSS scale / rotate", () => {
 });
 
 test("frame: fixed width/height set inline px sizes", () => {
-    const { node } = applied({ frame: { width: 180, height: 52 } });
-    assert.equal(node.style.width, "180px");
-    assert.equal(node.style.height, "52px");
+    const { box } = applied({ frame: { width: 180, height: 52 } });
+    assert.equal(box.style.width, "180px");
+    assert.equal(box.style.height, "52px");
 });
 
 test("frame: maxWidth infinity -> aui-fill-width (SwiftUI .frame(maxWidth: .infinity))", () => {
     // The parent stack's CSS resolves this class per axis - flex:1 1 0 (share the
     // remainder) along an HStack main axis, align-self:stretch across a VStack
     // cross axis. The CSS contract is pinned in stack-fill.test.mjs.
-    const node = applied({ frame: { maxWidth: "infinity" } }).node;
-    assert.ok(node.classList.contains("aui-fill-width"), "maxWidth infinity tags the node fill-width");
+    const node = applied({ frame: { maxWidth: "infinity" } }).box;
+    assert.ok(node.classList.contains("aui-fill-width"), "maxWidth infinity tags the frame box fill-width");
     assert.ok(!node.classList.contains("aui-fill-height"));
 });
 
 test("frame: maxHeight infinity -> aui-fill-height", () => {
-    const node = applied({ frame: { maxHeight: "infinity" } }).node;
-    assert.ok(node.classList.contains("aui-fill-height"), "maxHeight infinity tags the node fill-height");
+    const node = applied({ frame: { maxHeight: "infinity" } }).box;
+    assert.ok(node.classList.contains("aui-fill-height"), "maxHeight infinity tags the frame box fill-height");
     assert.ok(!node.classList.contains("aui-fill-width"));
 });
 
@@ -167,7 +177,7 @@ test("frame: a finite maxWidth GROWS to the cap via the CAP class (alignment-res
     // So a bare finite maxWidth both caps AND tags the axis-aware CAP class (flex
     // along an HStack main axis, width:100% across a VStack cross axis so the
     // parent still centers it) - NOT the fill class, which would stretch/anchor it.
-    const { node } = applied({ frame: { maxWidth: 300 } });
+    const { box: node } = applied({ frame: { maxWidth: 300 } });
     assert.equal(node.style.maxWidth, "min(300px, 100%)");
     assert.ok(node.classList.contains("aui-cap-width"), "a finite maxWidth grows to its cap");
     assert.ok(!node.classList.contains("aui-fill-width"), "finite cap is not the infinity fill (would stretch)");
@@ -175,24 +185,37 @@ test("frame: a finite maxWidth GROWS to the cap via the CAP class (alignment-res
 
 test("frame: a finite maxWidth does NOT grow when the width is already pinned", () => {
     // An explicit width / idealWidth on the same axis pins it; the cap then only bounds.
-    const pinned = applied({ frame: { idealWidth: 200, maxWidth: 300 } }).node;
+    const pinned = applied({ frame: { idealWidth: 200, maxWidth: 300 } }).box;
     assert.ok(!pinned.classList.contains("aui-cap-width"), "a pinned width is not overridden by grow-to-cap");
     assert.ok(!pinned.classList.contains("aui-fill-width"));
 });
 
 test("frame: minWidth sets a hard floor", () => {
-    assert.equal(applied({ frame: { minWidth: 120 } }).node.style.minWidth, "120px");
+    assert.equal(applied({ frame: { minWidth: 120 } }).box.style.minWidth, "120px");
 });
 
-test("FILLS: a sized frame and a background land on the SAME node (background fills the frame)", () => {
-    // The cross-platform FILLS contract on Web: the renderer is single-node, so a
-    // frame's size and the background color sit on one element - the fill covers
-    // the framed box with no content-hugging wrapper, mirroring the reordered
-    // Apple pipeline (frame before background) and the Android sizing/decoration split.
-    const { node } = applied({ frame: { width: 180, height: 52 }, background: "green" });
+test("FILLS: a sized frame and a background land on the SAME box (background fills the frame)", () => {
+    // The cross-platform FILLS contract on Web: a frame's size and the background color sit
+    // on one frame box - the fill covers the framed box, not only the element inside it,
+    // mirroring the Apple pipeline (frame before background) and the Android
+    // sizing/decoration split.
+    const { box: node } = applied({ frame: { width: 180, height: 52 }, background: "green" });
     assert.equal(node.style.width, "180px");
     assert.equal(node.style.height, "52px");
     assert.match(node.style.backgroundColor, /var\(--aui-color-green\)/);
+});
+
+test("a padded or framed element is tapped, hovered and helped over its frame box", () => {
+    // On Apple the tap target, hover, drop, help and context menu come after the modifiers, so
+    // they cover the padding and background; here they go on the frame box.
+    const { node, box, dispatched } = applied({ padding: 12, actionID: "card.tap", help: "Open" });
+    assert.notEqual(box, node);
+    assert.equal(box.getAttribute("role"), "button");
+    assert.equal(box.title, "Open");
+    assert.ok(!node.getAttribute("role"), "not on the element inside");
+    box.fire("click", { target: box, stopPropagation() {} });
+    assert.equal(dispatched.length, 1);
+    assert.equal(dispatched[0][0], "card.tap");
 });
 
 test("actionID wires a click that dispatches; markHandlesAction opts out", () => {
@@ -442,4 +465,46 @@ test("onAppearActionID fires once after mount, with id + null context, guarded p
     applyViewModifiers(node, { id: 5 }, { onAppearActionID: "init" }, ctx);
     await Promise.resolve();
     assert.equal(dispatched.length, 1, "guarded per node: no second fire on the same node");
+});
+
+test("frame box: opacity, scale and rotation sit on the box (after the background, as on Apple); the runtime appliers and the transition follow", () => {
+    const node = makeElement();
+    node.style.transitionProperty = "opacity, scale";
+    node.style.transitionDuration = "0.3s";
+    const logger = makeLogger();
+    applyViewModifiers(node, { id: 1 }, { padding: 8, background: "green", opacity: 0.5, scaleEffect: 2, rotationEffect: 45 }, { logger, model: {} });
+    const box = wrapWithFrameBox(node, node, { padding: 8, background: "green", opacity: 0.5, scaleEffect: 2, rotationEffect: 45 }, logger);
+    assert.equal(box.style.opacity, "0.5");
+    assert.equal(box.style.scale, "2");
+    assert.equal(box.style.rotate, "45deg");
+    assert.ok(!node.style.opacity && !node.style.scale && !node.style.rotate, "not on the element inside");
+    assert.equal(box.style.transitionProperty, "opacity, scale", "the animation transition reaches the box");
+    assert.equal(box.style.transitionDuration, "0.3s");
+    applyElementProperty(node, "opacity", 0.2, logger);
+    applyElementProperty(node, "scaleEffect", 1.5, logger);
+    applyElementProperty(node, "rotationEffect", 90, logger);
+    assert.equal(box.style.opacity, "0.2");
+    assert.equal(box.style.scale, "1.5");
+    assert.equal(box.style.rotate, "90deg");
+});
+
+test("frame box: the element types that fill their proposal in SwiftUI (measured on macOS) fill the box and expand it", () => {
+    const expansion = (type, properties = {}) => {
+        const node = makeElement();
+        node.dataset.auiType = type;
+        const box = wrapWithFrameBox(node, node, { padding: 4, ...properties }, makeLogger());
+        return [box.classList.contains("aui-expands-w"), box.classList.contains("aui-expands-h")];
+    };
+    assert.deepEqual(expansion("List"), [true, true]);
+    assert.deepEqual(expansion("TextField"), [true, false]);
+    assert.deepEqual(expansion("Text"), [false, false]);
+    assert.deepEqual(expansion("Picker", { pickerStyle: "segmented" }), [false, false], "a segmented Picker keeps its content width on macOS");
+    assert.deepEqual(expansion("Form"), [true, false], "a Form fills through its fields");
+    assert.deepEqual(expansion("LazyVGrid"), [true, false]);
+    assert.deepEqual(expansion("LazyHStack"), [false, true]);
+    assert.deepEqual(expansion("ScrollView"), [false, true], "a vertical ScrollView fills its scroll axis only");
+    assert.deepEqual(expansion("ScrollView", { axis: "both" }), [true, true]);
+    assert.deepEqual(expansion("Gauge"), [true, false]);
+    assert.deepEqual(expansion("Gauge", { style: "accessoryCircular" }), [false, false]);
+    assert.deepEqual(expansion("List", { frame: { width: 200 } }), [false, true], "a fixed width stops the expansion on that axis");
 });
