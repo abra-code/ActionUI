@@ -1,0 +1,436 @@
+{
+  "cases" : [
+    {
+      "expected" : "absolute",
+      "url" : "https://example.com"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "HTTPS://EXAMPLE.COM"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://user:pw@example.com:8080/p?q#f"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "mailto:a@b.c"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "mailto:"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "tel:+15551234"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "file:///tmp"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "javascript:alert(1)"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "data:text/plain,hi"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "x-callback://y"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "a+b.c-d:x"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "A:x"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "a:b"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "localhost:3000"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "ab.com:80/x"
+    },
+    {
+      "expected" : "relative",
+      "url" : "example.com"
+    },
+    {
+      "expected" : "relative",
+      "url" : "docs/page"
+    },
+    {
+      "expected" : "relative",
+      "url" : "//example.com"
+    },
+    {
+      "expected" : "relative",
+      "url" : "?q=1"
+    },
+    {
+      "expected" : "relative",
+      "url" : "#top"
+    },
+    {
+      "expected" : "relative",
+      "url" : "foo bar"
+    },
+    {
+      "expected" : "relative",
+      "url" : "%zz"
+    },
+    {
+      "expected" : "relative",
+      "url" : ":foo"
+    },
+    {
+      "expected" : "none",
+      "url" : ""
+    },
+    {
+      "expected" : "relative",
+      "url" : "   "
+    },
+    {
+      "expected" : "relative",
+      "url" : " example.com"
+    },
+    {
+      "expected" : "relative",
+      "url" : "example.com "
+    },
+    {
+      "expected" : "none",
+      "url" : " https://example.com"
+    },
+    {
+      "expected" : "none",
+      "url" : "https://example.com "
+    },
+    {
+      "expected" : "none",
+      "url" : "\thttps://e.com"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://e.com/a b"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://e.com/a b?c d#e f"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://e.com/%zz"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://e.com/\u0000"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://bücher.de/ä"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://eé.com"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://Ａ.com/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://a​b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "https://a　b/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://exa mple.com"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://exa_mple.com"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://ex%41mple.com"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://%zz/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a%b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a<b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a\"b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a|b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a\\b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a^b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a`b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a{b.com/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://ab/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://a b@c.com"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://a@b@c/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http:"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://:80"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://@"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "x://"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "x:///p"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://example.com:"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://example.com:99999"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://ab.com:8a/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://ab.com:-1/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a:b:c/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://[::1]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[::1]:80/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://[zz]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://user@[::1]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[::1%25en0]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[::1"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[::1]x/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a]b/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://a[b/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[v1.x]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[%zz]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[::1%en0 x]/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://[%<]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[<%]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[<]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[a b]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[é]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "http://[[::1]/"
+    },
+    {
+      "expected" : "none",
+      "url" : "//[<]"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "http://1.2.3.999/"
+    },
+    {
+      "expected" : "none",
+      "url" : "1abc:x"
+    },
+    {
+      "expected" : "none",
+      "url" : "+ab:x"
+    },
+    {
+      "expected" : "none",
+      "url" : ".ab:x"
+    },
+    {
+      "expected" : "none",
+      "url" : "-ab:x"
+    },
+    {
+      "expected" : "none",
+      "url" : "1:x"
+    },
+    {
+      "expected" : "none",
+      "url" : "a b:c"
+    },
+    {
+      "expected" : "none",
+      "url" : " ab.com:80"
+    },
+    {
+      "expected" : "none",
+      "url" : "été:x"
+    },
+    {
+      "expected" : "relative",
+      "url" : "a@b:x"
+    },
+    {
+      "expected" : "relative",
+      "url" : "a[b:x"
+    },
+    {
+      "expected" : "relative",
+      "url" : "a]b:x"
+    },
+    {
+      "expected" : "relative",
+      "url" : "a/b:c"
+    },
+    {
+      "expected" : "relative",
+      "url" : "a?b:c"
+    },
+    {
+      "expected" : "relative",
+      "url" : "a#b:c"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "javascript: alert(1)"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "a: b"
+    },
+    {
+      "expected" : "none",
+      "url" : "https://a b/"
+    },
+    {
+      "expected" : "none",
+      "url" : "https://a b/"
+    },
+    {
+      "expected" : "none",
+      "url" : "https://a b/"
+    },
+    {
+      "expected" : "absolute",
+      "url" : "https://e.com/a b"
+    }
+  ]
+}
