@@ -123,7 +123,7 @@ enum ModifierBox {
 
     /// The content group of a box: the widget between the box and the element's widget.
     static func content(of box: WidgetPointer) -> WidgetPointer? {
-        gtk_widget_get_first_child(box)
+        Gtk.Widget(box).firstChild?.pointer
     }
 
     /// Applies the node's base modifiers to its box, its content group and its widget.
@@ -431,7 +431,7 @@ enum ModifierBox {
     /// the content group hides its element again once it has mapped it (the element maps inside
     /// the content group's map).
     private static func contentMapped(_ content: WidgetPointer) {
-        guard let widget = gtk_widget_get_first_child(content),
+        guard let widget = Gtk.Widget(content).firstChild?.pointer,
               attached(AccessibilityState.self, on: widget, key: accessibilityStateKey)?.hidden == true else { return }
         setHidden(OpaquePointer(widget), true)
     }
@@ -574,11 +574,8 @@ enum ModifierBox {
         gtk_widget_get_parent(content).map { layout(ofBox: $0) } ?? BoxLayout()
     }
 
-    private static func measureChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
-        var minimum: Int32 = 0
-        var natural: Int32 = 0
-        gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
-        return (Int(minimum), Int(natural))
+    private static func measureChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> Gtk.Measurement {
+        Gtk.Widget(child).measure(orientation, forSize: forSize)
     }
 
     /// The frame's size in one axis when the box is `boxSize`: what the frame takes of it (a
@@ -590,7 +587,7 @@ enum ModifierBox {
                                   _ orientation: GtkOrientation, boxSize: Int, forSize: Int = -1) -> Int {
         let measured = measureChild(content, orientation, forSize: forSize)
         let frame = layout.frame(orientation)
-        let expands = gtk_widget_compute_expand(content, orientation) != 0
+        let expands = Gtk.Widget(content).expands(orientation)
         let size = frame.size(in: boxSize, contentMinimum: measured.minimum, contentNatural: measured.natural,
                               contentExpands: expands)
         guard expands, frame.fixed == nil, frame.maximum == nil,
@@ -706,7 +703,7 @@ enum ModifierBox {
     private static func elementSize(_ element: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation,
                                     size: Int, forSize: Int = -1) -> Int {
         let measured = measureChild(element, orientation, forSize: forSize)
-        let expands = gtk_widget_compute_expand(element, orientation) != 0
+        let expands = Gtk.Widget(element).expands(orientation)
         let cap = expands ? LayoutCaps.cap(element, orientation, forSize: forSize) : nil
         return FrameSolver.contentSize(in: size, padding: layout.padding(orientation), minimum: measured.minimum,
                                        natural: measured.natural, expands: expands, cap: cap)

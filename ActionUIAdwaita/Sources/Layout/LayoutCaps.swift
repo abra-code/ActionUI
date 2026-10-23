@@ -68,13 +68,10 @@ enum LayoutCaps {
     /// The largest size a child takes: its cap where it expands, its natural size where not. A
     /// height is for `forSize` wide (-1: no width given).
     static func largestSize(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Int? {
-        if gtk_widget_compute_expand(child, orientation) != 0 {
+        if Gtk.Widget(child).expands(orientation) {
             return cap(child, orientation, forSize: forSize)
         }
-        var minimum: Int32 = 0
-        var natural: Int32 = 0
-        gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
-        return Int(natural)
+        return Gtk.Widget(child).measure(orientation, forSize: forSize).natural
     }
 
     private static func boxCap(_ box: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation, forSize: Int) -> Int? {

@@ -86,36 +86,21 @@ enum Baselines {
             // Each part at the box's full height: the controls' parts fill it, are centered in it,
             // or are aligned to its top or bottom (a radio group's title), which the leaf rule
             // below models.
-            var baselines: [Int] = []
-            var child = gtk_widget_get_first_child(widget)
-            while let part = child {
-                if gtk_widget_get_visible(part) != 0 {
-                    var minimum: Int32 = 0
-                    var natural: Int32 = 0
-                    gtk_widget_measure(part, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
-                    if let baseline = first(part, width: Int(natural), height: height) {
-                        baselines.append(baseline)
-                    }
-                }
-                child = gtk_widget_get_next_sibling(part)
+            let baselines = Gtk.Widget(widget).children.filter(\.isVisible).compactMap { part in
+                first(part.pointer, width: part.measure(GTK_ORIENTATION_HORIZONTAL).natural, height: height)
             }
             return baselines.min()
         } else {
-            var minimum: Int32 = 0
-            var natural: Int32 = 0
-            var minimumBaseline: Int32 = -1
-            var naturalBaseline: Int32 = -1
-            gtk_widget_measure(widget, GTK_ORIENTATION_VERTICAL, Int32(clamping: width), &minimum, &natural,
-                               &minimumBaseline, &naturalBaseline)
-            guard naturalBaseline >= 0 else { return nil }
+            let size = Gtk.Widget(widget).measure(GTK_ORIENTATION_VERTICAL, forSize: width)
+            guard let baseline = size.naturalBaseline else { return nil }
             // Given more height than it asked for, a widget aligned to its top keeps its baseline; one
             // aligned to its bottom moves down by all of it; a filling or centered one by half, as GTK
             // centers its text.
-            let extra = max(height - Int(natural), 0)
+            let extra = max(height - size.natural, 0)
             switch gtk_widget_get_valign(widget) {
-            case GTK_ALIGN_START: return Int(naturalBaseline)
-            case GTK_ALIGN_END: return Int(naturalBaseline) + extra
-            default: return Int(naturalBaseline) + extra / 2
+            case GTK_ALIGN_START: return baseline
+            case GTK_ALIGN_END: return baseline + extra
+            default: return baseline + extra / 2
             }
         }
         return zip(children, places).compactMap { child, place in

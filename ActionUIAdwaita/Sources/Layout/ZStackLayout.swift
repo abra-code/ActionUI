@@ -66,14 +66,12 @@ enum ZStackLayout {
 
     /// A child's size in one axis when offered `available`, measured for `forSize` in the other.
     private static func childSize(_ child: WidgetPointer, _ orientation: GtkOrientation, available: Int, forSize: Int = -1) -> Int {
-        var minimum: Int32 = 0
-        var natural: Int32 = 0
-        gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
+        let size = Gtk.Widget(child).measure(orientation, forSize: forSize)
         let range: StackChild
-        if gtk_widget_compute_expand(child, orientation) != 0 {
-            range = .expanding(minimum: Int(minimum), cap: LayoutCaps.cap(child, orientation, forSize: forSize))
+        if Gtk.Widget(child).expands(orientation) {
+            range = .expanding(minimum: size.minimum, cap: LayoutCaps.cap(child, orientation, forSize: forSize))
         } else {
-            range = .fixed(minimum: Int(minimum), natural: Int(natural))
+            range = .fixed(minimum: size.minimum, natural: size.natural)
         }
         return range.size(offered: available)
     }
@@ -102,11 +100,9 @@ enum ZStackLayout {
             if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
                 childForSize = childSize(child, GTK_ORIENTATION_HORIZONTAL, available: forSize)
             }
-            var minimum: Int32 = 0
-            var natural: Int32 = 0
-            gtk_widget_measure(child, orientation, Int32(clamping: childForSize), &minimum, &natural, nil, nil)
-            result.minimum = max(result.minimum, Int(minimum))
-            result.natural = max(result.natural, Int(natural))
+            let size = Gtk.Widget(child).measure(orientation, forSize: childForSize)
+            result.minimum = max(result.minimum, size.minimum)
+            result.natural = max(result.natural, size.natural)
         }
         return result
     }

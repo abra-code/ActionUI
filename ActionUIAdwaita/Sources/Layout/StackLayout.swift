@@ -119,17 +119,15 @@ enum StackLayout {
     }
 
     private static func measureChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Measured {
-        var minimum: Int32 = 0
-        var natural: Int32 = 0
-        gtk_widget_measure(child, orientation, Int32(clamping: forSize), &minimum, &natural, nil, nil)
-        return Measured(minimum: Int(minimum), natural: Int(natural))
+        let size = Gtk.Widget(child).measure(orientation, forSize: forSize)
+        return Measured(minimum: size.minimum, natural: size.natural)
     }
 
     /// A child as StackSolver sees it in one axis, measured for `forSize` in the other.
     private static func stackChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> StackChild {
         let size = measureChild(child, orientation, forSize: forSize)
         var result: StackChild
-        if gtk_widget_compute_expand(child, orientation) != 0 {
+        if Gtk.Widget(child).expands(orientation) {
             result = .expanding(minimum: size.minimum, cap: LayoutCaps.cap(child, orientation, forSize: forSize))
         } else {
             result = .fixed(minimum: size.minimum, natural: size.natural)

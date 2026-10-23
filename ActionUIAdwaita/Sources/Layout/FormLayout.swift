@@ -86,12 +86,9 @@ enum FormLayout {
 
     /// Whether a row has text (a first text baseline, Baselines), at its natural size.
     private static func hasTextBaseline(_ row: WidgetPointer) -> Bool {
-        var minimum: Int32 = 0
-        var width: Int32 = 0
-        var height: Int32 = 0
-        gtk_widget_measure(row, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &width, nil, nil)
-        gtk_widget_measure(row, GTK_ORIENTATION_VERTICAL, width, &minimum, &height, nil, nil)
-        return Baselines.first(row, width: Int(width), height: Int(height)) != nil
+        let width = Gtk.Widget(row).measure(GTK_ORIENTATION_HORIZONTAL).natural
+        let height = Gtk.Widget(row).measure(GTK_ORIENTATION_VERTICAL, forSize: width).natural
+        return Baselines.first(row, width: width, height: height) != nil
     }
 
     /// Where a row's label ends in the row, at the row's natural width (labelEnd(_:width:)),
@@ -99,10 +96,8 @@ enum FormLayout {
     /// padding on a short title; measured: the column is then negative too, and the other rows'
     /// content starts 8 after it), so it is not a StackSolver length.
     private static func labelEnd(_ row: WidgetPointer) -> Int? {
-        var minimum: Int32 = 0
-        var natural: Int32 = 0
-        gtk_widget_measure(row, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
-        return labelEnd(row, width: Int(natural)).map { Int($0.rounded(.toNearestOrAwayFromZero)) }
+        let natural = Gtk.Widget(row).measure(GTK_ORIENTATION_HORIZONTAL).natural
+        return labelEnd(row, width: natural).map { Int($0.rounded(.toNearestOrAwayFromZero)) }
     }
 
     /// Where the label of `widget` laid out `width` wide ends, from its leading edge, as SwiftUI
@@ -118,7 +113,7 @@ enum FormLayout {
         var start = 0
         var width = width
         while attached(BoxLayout.self, on: widget, key: boxLayoutKey) != nil {
-            guard let content = ModifierBox.content(of: widget), let inner = gtk_widget_get_first_child(content) else { return nil }
+            guard let content = ModifierBox.content(of: widget), let inner = Gtk.Widget(content).firstChild?.pointer else { return nil }
             let placement = ModifierBox.elementPlacement(inBox: widget, width: width)
             start += placement.start
             width = placement.width
@@ -150,11 +145,8 @@ enum FormLayout {
     /// title is hidden.
     private static func titleEnd(_ widget: WidgetPointer, _ marker: LabeledRowMarker, width: Int) -> Int? {
         if marker.layout == .box {
-            guard let title = gtk_widget_get_first_child(widget), gtk_widget_get_visible(title) != 0 else { return nil }
-            var minimum: Int32 = 0
-            var natural: Int32 = 0
-            gtk_widget_measure(title, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
-            return Int(natural)
+            guard let title = Gtk.Widget(widget).firstChild, title.isVisible else { return nil }
+            return title.measure(GTK_ORIENTATION_HORIZONTAL).natural
         }
         guard let stack = attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) else { return nil }
         // An HStack of the title and the content, centered in a row wider than they are.

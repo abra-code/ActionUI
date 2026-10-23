@@ -90,13 +90,5 @@ nonisolated(unsafe) private var containerParentWidgetClass: UnsafeMutablePointer
 
 /// The visible children of a container widget, in order: the ones its layout places.
 @MainActor func layoutChildren(_ widget: WidgetPointer) -> [WidgetPointer] {
-    var children: [WidgetPointer] = []
-    var child = gtk_widget_get_first_child(widget)
-    while let current = child {
-        if gtk_widget_should_layout(current) != 0 {
-            children.append(current)
-        }
-        child = gtk_widget_get_next_sibling(current)
-    }
-    return children
+    Gtk.Widget(widget).children.map(\.pointer).filter { gtk_widget_should_layout($0) != 0 }
 }

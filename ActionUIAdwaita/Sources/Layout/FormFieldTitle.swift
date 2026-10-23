@@ -46,14 +46,9 @@ enum FormFieldTitle {
     /// placeholder: the prompt, else, outside a Form, the title.
     static func update(_ widget: WidgetPointer, _ node: RenderNode, title: String, prompt: String?) -> String? {
         if attached(LabeledRowMarker.self, on: widget, key: labeledRowMarkerKey) != nil,
-           let label = gtk_widget_get_first_child(widget) {
-            if swiftString(gtk_label_get_text(opaque(label))) != title {
-                gtk_label_set_text(opaque(label), title)
-            }
-            let visible: gboolean = node.environment.labelsHidden ? 0 : 1
-            if gtk_widget_get_visible(label) != visible {
-                gtk_widget_set_visible(label, visible)
-            }
+           let label = Gtk.Widget(widget).firstChild {
+            Gtk.Label(label.pointer).text = title
+            label.isVisible = !node.environment.labelsHidden
         }
         return node.environment.inForm ? prompt : prompt ?? title
     }
