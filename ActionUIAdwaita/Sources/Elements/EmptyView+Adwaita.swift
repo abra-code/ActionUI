@@ -14,8 +14,6 @@ extension EmptyView: ActionUIAdwaitaRenderer {
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         // The box is what the parent lays out; nothing else changes its visibility.
-        if gtk_widget_get_visible(node.outerWidget) != 0 {
-            gtk_widget_set_visible(node.outerWidget, 0)
-        }
+        Gtk.Widget(node.outerWidget).isVisible = false
     }
 }

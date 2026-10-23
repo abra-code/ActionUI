@@ -9,7 +9,7 @@ import CAdwaita
 enum PlaceholderRenderer: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let label = gtk_label_new("\(node.element.type) is not available on Linux yet")!
-        gtk_widget_add_css_class(label, "dim-label")
+        Gtk.Widget(label).setCSSClass("dim-label", true)
         return label
     }
 

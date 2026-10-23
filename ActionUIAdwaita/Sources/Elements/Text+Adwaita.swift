@@ -38,9 +38,7 @@ extension Text: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let label = opaque(widget)
         let text = displayedText(node)
-        if swiftString(gtk_label_get_text(label)) != text {
-            gtk_label_set_text(label, text)
-        }
+        Gtk.Label(widget).text = text
 
         let environment = node.environment
         let justification: GtkJustification

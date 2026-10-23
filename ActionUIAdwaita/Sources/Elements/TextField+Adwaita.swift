@@ -54,9 +54,7 @@ extension TextField: ActionUIAdwaitaRenderer {
         let entryWidget = FormFieldTitle.entry(widget)
         let entry: UnsafeMutablePointer<GtkEntry> = typed(entryWidget)
         let text = node.model.value as? String ?? props.initialValue
-        if swiftString(gtk_editable_get_text(OpaquePointer(entryWidget))) != text {
-            gtk_editable_set_text(OpaquePointer(entryWidget), text)
-        }
+        Gtk.Editable(entryWidget).text = text
         let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
         if swiftString(gtk_entry_get_placeholder_text(entry)) != placeholder {
             gtk_entry_set_placeholder_text(entry, placeholder)

@@ -38,7 +38,7 @@ extension ControlGroup: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         StyleSheet.shared.installFixedRules(linkedClass, linkedRules)
         let stack = StackLayout.makeStack(axis: .horizontal)
-        gtk_widget_add_css_class(stack, linkedClass)
+        Gtk.Widget(stack).setCSSClass(linkedClass, true)
         return stack
     }
 

@@ -101,7 +101,7 @@ extension Group: ActionUIAdwaitaRenderer {
     static func widget(inBox box: WidgetPointer) -> WidgetPointer? {
         guard attached(on: box, key: boxLayoutKey) != nil,
               let content = ModifierBox.content(of: box),
-              let element = gtk_widget_get_first_child(content),
+              let element = Gtk.Widget(content).firstChild?.pointer,
               attached(on: element, key: groupMarkerKey) != nil else { return nil }
         return element
     }
@@ -131,7 +131,7 @@ extension Group: ActionUIAdwaitaRenderer {
             return isFlattened(group)
         }
         // A content group: the element's widget is its only child.
-        guard let element = gtk_widget_get_first_child(widget),
+        guard let element = Gtk.Widget(widget).firstChild?.pointer,
               attached(on: element, key: groupMarkerKey) != nil else { return false }
         return isFlattened(element)
     }
@@ -141,7 +141,7 @@ extension Group: ActionUIAdwaitaRenderer {
     static func takesPlace(_ box: WidgetPointer) -> Bool {
         guard attached(on: box, key: groupChildBoxMarkerKey) != nil,
               let content = ModifierBox.content(of: box),
-              let element = gtk_widget_get_first_child(content) else { return true }
+              let element = Gtk.Widget(content).firstChild?.pointer else { return true }
         return gtk_widget_should_layout(element) != 0
     }
 
@@ -150,10 +150,8 @@ extension Group: ActionUIAdwaitaRenderer {
     /// allocated widget; the box measures 0 (StackLayout.measure), so no width is needed.
     static func allocateGroups(in container: WidgetPointer, width: Int, height: Int) {
         for child in layoutChildren(container) where widget(inBox: child) != nil {
-            var minimum: Int32 = 0
-            var natural: Int32 = 0
-            gtk_widget_measure(child, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
-            gtk_widget_measure(child, GTK_ORIENTATION_VERTICAL, -1, &minimum, &natural, nil, nil)
+            _ = Gtk.Widget(child).measure(GTK_ORIENTATION_HORIZONTAL)
+            _ = Gtk.Widget(child).measure(GTK_ORIENTATION_VERTICAL)
             gtk_widget_allocate(child, Int32(clamping: width), Int32(clamping: height), -1, nil)
         }
     }

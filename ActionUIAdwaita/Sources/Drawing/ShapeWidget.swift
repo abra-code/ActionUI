@@ -63,7 +63,7 @@ enum ShapeWidget {
     /// Makes the widget draw `outline` with the fill style, else the stroke style (at lineWidth),
     /// else the foreground color. Redraws only when something changed.
     static func update(_ widget: WidgetPointer, outline: ShapeOutline, fill: String?, stroke: String?, lineWidth: Double) {
-        guard let shape = gtk_widget_get_first_child(widget),
+        guard let shape = Gtk.Widget(widget).firstChild?.pointer,
               let state = attached(on: shape, key: shapeStateKey) else { return }
         let fillStyle = fill.flatMap(ShapeStyleSpec.parse)
         let strokeStyle = fillStyle == nil ? stroke.flatMap(ShapeStyleSpec.parse) : nil
@@ -78,7 +78,7 @@ enum ShapeWidget {
 
     /// The drawing the element's widget shows, for tests.
     static func drawing(of widget: WidgetPointer) -> ShapeDrawing? {
-        gtk_widget_get_first_child(widget).flatMap { attached(on: $0, key: shapeStateKey)?.drawing }
+        Gtk.Widget(widget).firstChild.flatMap { attached(on: $0.pointer, key: shapeStateKey)?.drawing }
     }
 
     private static func snapshot(_ widget: WidgetPointer, _ snapshot: OpaquePointer) {

@@ -94,14 +94,9 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         let indicator = accessibleWidget(widget)
         let props = Props(node.properties)
         let text = props.title ?? ""
-        if swiftString(gtk_label_get_text(opaque(title))) != text {
-            gtk_label_set_text(opaque(title), text)
-        }
+        Gtk.Label(title).text = text
         // An empty title still takes its line, as in SwiftUI (measured on macOS 27).
-        let showsTitle: gboolean = props.title == nil ? 0 : 1
-        if gtk_widget_get_visible(title) != showsTitle {
-            gtk_widget_set_visible(title, showsTitle)
-        }
+        Gtk.Widget(title).isVisible = props.title != nil
         guard let state = attached(on: indicator, key: progressStateKey) else { return }
         let progress = determinateProgress(node.model, props)
         let fraction = progress.map { $0.total > 0 ? Swift.min(Swift.max($0.value / $0.total, 0), 1) : 0 } ?? 0
@@ -128,8 +123,8 @@ extension ProgressView: ActionUIAdwaitaRenderer {
     /// The bar, spinner or ring, which assistive technologies read (the box only holds it and the
     /// title).
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        let first = gtk_widget_get_first_child(widget)
-        let last = gtk_widget_get_last_child(widget)
+        let first = Gtk.Widget(widget).firstChild?.pointer
+        let last = Gtk.Widget(widget).lastChild?.pointer
         if let first, g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(first)), gtk_label_get_type()) != 0 {
             return last ?? widget
         }
@@ -144,7 +139,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
     /// The title label: the first child above a bar, the last under a spinner or ring.
     private static func titleLabel(_ widget: WidgetPointer) -> WidgetPointer? {
         let indicator = accessibleWidget(widget)
-        return gtk_widget_get_first_child(widget) == indicator ? gtk_widget_get_last_child(widget) : gtk_widget_get_first_child(widget)
+        return Gtk.Widget(widget).firstChild?.pointer == indicator ? Gtk.Widget(widget).lastChild?.pointer : Gtk.Widget(widget).firstChild?.pointer
     }
 
     /// Starts or stops the bar's pulse, a tick of the frame clock (which runs only while the bar is

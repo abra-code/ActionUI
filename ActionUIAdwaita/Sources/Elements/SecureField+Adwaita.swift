@@ -48,9 +48,7 @@ extension SecureField: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         let text = SecureField.initialValue(node.model) as? String ?? ""
         let entry = FormFieldTitle.entry(widget)
-        if swiftString(gtk_editable_get_text(OpaquePointer(entry))) != text {
-            gtk_editable_set_text(OpaquePointer(entry), text)
-        }
+        Gtk.Editable(entry).text = text
         // GtkPasswordEntry has these as properties only, without setters.
         let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
         Gtk.Widget(entry)[placeholderText] = placeholder

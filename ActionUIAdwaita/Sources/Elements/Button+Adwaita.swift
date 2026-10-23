@@ -118,14 +118,7 @@ extension Button: ActionUIAdwaitaRenderer {
             classes.insert("destructive-action")
         }
         for name in styleClasses {
-            let wanted = classes.contains(name)
-            if (gtk_widget_has_css_class(widget, name) != 0) != wanted {
-                if wanted {
-                    gtk_widget_add_css_class(widget, name)
-                } else {
-                    gtk_widget_remove_css_class(widget, name)
-                }
-            }
+            Gtk.Widget(widget).setCSSClass(name, classes.contains(name))
         }
         let plain = style == .plain ? ["padding: 0;", "min-width: 0;", "min-height: 0;", "background: none;"] : []
         StyleSheet.shared.apply(plain, to: widget, slot: "plain")

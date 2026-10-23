@@ -98,10 +98,10 @@ final class StyleSheet {
         // A class another slot also holds (the same declarations in two slots) stays.
         let kept = Set(slots.classes.values.joined())
         for name in previous where !kept.contains(name) {
-            gtk_widget_remove_css_class(widget, name)
+            Gtk.Widget(widget).setCSSClass(name, false)
         }
         for name in wanted {
-            gtk_widget_add_css_class(widget, name)
+            Gtk.Widget(widget).setCSSClass(name, true)
         }
         // Counted before releasing, so a class in both never drops to no users.
         for name in wanted {

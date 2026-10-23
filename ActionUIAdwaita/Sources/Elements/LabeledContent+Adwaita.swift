@@ -32,14 +32,12 @@ extension LabeledContent: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let title = gtk_widget_get_first_child(widget), let content = gtk_widget_get_last_child(widget) else { return }
+        guard let title = Gtk.Widget(widget).firstChild?.pointer, let content = Gtk.Widget(widget).lastChild?.pointer else { return }
         // In a Form the title sits on the content's first text baseline (Baselines), as macOS
         // lines a Form row up; elsewhere the two are centered.
         StackLayout.configure(widget, spacing: nil, alignment: .center, alignsBaselines: node.environment.inForm)
         let text = Props(node.properties).title
-        if swiftString(gtk_label_get_text(opaque(title))) != text {
-            gtk_label_set_text(opaque(title), text)
-        }
+        Gtk.Label(title).text = text
         syncContainerChildren(node, content, node.subviews("children"))
     }
 

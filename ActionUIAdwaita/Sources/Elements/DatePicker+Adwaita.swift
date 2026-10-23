@@ -128,13 +128,11 @@ extension DatePicker: ActionUIAdwaitaRenderer {
     private static func whenADayIsChosen(_ calendar: WidgetPointer, _ pick: @escaping @MainActor () -> Void) {
         var days: [WidgetPointer] = []
         func collect(_ widget: WidgetPointer) {
-            if gtk_widget_has_css_class(widget, "day-number") != 0 {
+            if Gtk.Widget(widget).hasCSSClass("day-number") {
                 days.append(widget)
             }
-            var child = gtk_widget_get_first_child(widget)
-            while let part = child {
-                collect(part)
-                child = gtk_widget_get_next_sibling(part)
+            for part in Gtk.Widget(widget).children {
+                collect(part.pointer)
             }
         }
         collect(calendar)
@@ -170,15 +168,10 @@ extension DatePicker: ActionUIAdwaitaRenderer {
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         guard let parts = attached(on: widget, key: datePickerPartsKey),
-              let title = gtk_widget_get_first_child(widget) else { return }
+              let title = Gtk.Widget(widget).firstChild?.pointer else { return }
         let props = Props(node.properties)
-        if swiftString(gtk_label_get_text(opaque(title))) != props.title {
-            gtk_label_set_text(opaque(title), props.title)
-        }
-        let showsTitle: gboolean = node.environment.labelsHidden ? 0 : 1
-        if gtk_widget_get_visible(title) != showsTitle {
-            gtk_widget_set_visible(title, showsTitle)
-        }
+        Gtk.Label(title).text = props.title
+        Gtk.Widget(title).isVisible = !node.environment.labelsHidden
         show(currentDate(node), parts, props)
     }
 

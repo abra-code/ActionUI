@@ -46,15 +46,10 @@ extension ColorPicker: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let title = gtk_widget_get_first_child(widget), let button = gtk_widget_get_last_child(widget) else { return }
+        guard let title = Gtk.Widget(widget).firstChild?.pointer, let button = Gtk.Widget(widget).lastChild?.pointer else { return }
         let props = Props(node.properties)
-        if swiftString(gtk_label_get_text(opaque(title))) != props.title {
-            gtk_label_set_text(opaque(title), props.title)
-        }
-        let visible: gboolean = node.environment.labelsHidden ? 0 : 1
-        if gtk_widget_get_visible(title) != visible {
-            gtk_widget_set_visible(title, visible)
-        }
+        Gtk.Label(title).text = props.title
+        Gtk.Widget(title).isVisible = !node.environment.labelsHidden
         let spec = ColorPicker.initialValue(node.model) as? ColorSpec ?? .named(.clear)
         let value = ColorCSS.components(spec)
         var rgba = GdkRGBA(red: Float(value.red), green: Float(value.green), blue: Float(value.blue), alpha: Float(value.alpha))
@@ -66,7 +61,7 @@ extension ColorPicker: ActionUIAdwaitaRenderer {
 
     /// The button, which assistive technologies read (the box only holds it and the title).
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        gtk_widget_get_last_child(widget) ?? widget
+        Gtk.Widget(widget).lastChild?.pointer ?? widget
     }
 
     /// Named after its title, also when labelsHidden hides it, as in SwiftUI.

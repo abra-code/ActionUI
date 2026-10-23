@@ -19,7 +19,7 @@ extension Label: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, iconSpacing)!
         let icon = newWidget(gtk_image_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
-        gtk_widget_set_visible(icon, 0)
+        Gtk.Widget(icon).isVisible = false
         gtk_box_append(typed(box), icon)
         let title = gtk_label_new(nil)!
         gtk_label_set_xalign(opaque(title), 0)
@@ -28,25 +28,20 @@ extension Label: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let icon = gtk_widget_get_first_child(widget), let title = gtk_widget_get_last_child(widget) else { return }
+        guard let icon = Gtk.Widget(widget).firstChild?.pointer, let title = Gtk.Widget(widget).lastChild?.pointer else { return }
         let props = Props(node.properties)
         let text = Label.initialValue(node.model) as? String ?? ""
-        if swiftString(gtk_label_get_text(opaque(title))) != text {
-            gtk_label_set_text(opaque(title), text)
-        }
+        Gtk.Label(title).text = text
         let name = iconName(props)
         if let name, swiftString(gtk_image_get_icon_name(opaque(icon))) != name {
             gtk_image_set_from_icon_name(opaque(icon), name)
         }
-        let showsIcon: gboolean = name == nil ? 0 : 1
-        if gtk_widget_get_visible(icon) != showsIcon {
-            gtk_widget_set_visible(icon, showsIcon)
-        }
+        Gtk.Widget(icon).isVisible = name != nil
     }
 
     /// The title label, which assistive technologies read (the box only holds it and the icon).
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        gtk_widget_get_last_child(widget) ?? widget
+        Gtk.Widget(widget).lastChild?.pointer ?? widget
     }
 
     /// Named after the title it shows, as Text is named after its text.

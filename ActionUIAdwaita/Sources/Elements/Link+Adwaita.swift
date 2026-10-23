@@ -44,10 +44,7 @@ extension Link: ActionUIAdwaitaRenderer {
             gtk_link_button_set_uri(button, uri)
         }
         // The box is what the parent lays out: hidden, it gets no place and no spacing (as EmptyView).
-        let visible: gboolean = uri == nil ? 0 : 1
-        if gtk_widget_get_visible(node.outerWidget) != visible {
-            gtk_widget_set_visible(node.outerWidget, visible)
-        }
+        Gtk.Widget(node.outerWidget).isVisible = uri != nil
         if uri == nil, !reportedMissingURL {
             reportedMissingURL = true
             ActionUIModel.shared.logger.log("Link missing valid URL, showing nothing", .warning)
