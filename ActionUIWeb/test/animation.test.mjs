@@ -70,7 +70,7 @@ test("a wrong top-level type warns and resolves to null", () => {
     assert.ok(logger.warned("expected String or object"));
 });
 
-test("applyAnimation arms the transition longhands incl. scale + rotate", () => {
+test("applyAnimation arms the transition longhands incl. translate, scale and rotate", () => {
     installDom();
     const logger = makeLogger();
     const n = makeElement();
@@ -80,6 +80,8 @@ test("applyAnimation arms the transition longhands incl. scale + rotate", () => 
     assert.equal(n.style.transitionDelay, "0s");
     assert.ok(n.style.transitionProperty.includes("scale"));
     assert.ok(n.style.transitionProperty.includes("rotate"));
+    // An anchored scale or an offset moves translate with scale and rotate; unarmed it would jump.
+    assert.ok(n.style.transitionProperty.split(", ").includes("translate"));
 });
 
 test("applyAnimation is a no-op when no animation is declared", () => {

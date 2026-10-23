@@ -151,6 +151,34 @@ test("scaleEffect / rotationEffect set the CSS scale / rotate", () => {
     assert.equal(applied({ rotationEffect: 45 }).node.style.rotate, "45deg");
 });
 
+test("offset, rotation and an anchored scale apply in SwiftUI's order (offset, rotate, scale)", () => {
+    // CSS rotates and scales around the center; the offset, rotated and scaled, and the anchor's
+    // shift go into translate (percent of the element's own size).
+    assert.equal(applied({ offset: { x: -50, y: 10 } }).node.style.translate, "calc(-50px + 0%) calc(10px + 0%)");
+    const turned = applied({ offset: { x: 30, y: 0 }, rotationEffect: 90 }).node.style;
+    assert.equal(turned.translate, "calc(0px + 0%) calc(30px + 0%)", "the offset turns with the view");
+    assert.equal(turned.rotate, "90deg");
+    const anchored = applied({ scaleEffect: { x: 2, y: 2, anchor: "topTrailing" } }).node.style;
+    assert.equal(anchored.scale, "2");
+    assert.equal(anchored.translate, "calc(0px + -50%) calc(0px + 50%)", "the top trailing corner stays put");
+    assert.ok(!applied({ scaleEffect: 1.25 }).node.style.translate, "a plain scale needs no translate");
+});
+
+test("a runtime scaleEffect keeps the offset and the anchor rule", () => {
+    const { node } = applied({ offset: { x: 10, y: 0 } });
+    applyElementProperty(node, "scaleEffect", 2, makeLogger());
+    assert.equal(node.style.scale, "2");
+    assert.equal(node.style.translate, "calc(20px + 0%) calc(0px + 0%)", "the offset scales with the view");
+});
+
+test("scaleEffect: an anchor that names an Object property is unknown (the center), not a crash", () => {
+    for (const anchor of ["toString", "constructor", "__proto__"]) {
+        const { node } = applied({ scaleEffect: { x: 2, anchor } });
+        assert.equal(node.style.scale, "2 1");
+        assert.ok(!node.style.translate, `${anchor}: scaled around the center`);
+    }
+});
+
 test("frame: fixed width/height set inline px sizes", () => {
     const { box } = applied({ frame: { width: 180, height: 52 } });
     assert.equal(box.style.width, "180px");

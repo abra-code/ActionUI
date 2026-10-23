@@ -55,12 +55,12 @@ const CURVES = {
 };
 
 // The animatable CSS properties our visual modifiers / setElementProperty set
-// (incl. the independent `scale` / `rotate` transform properties for
-// scaleEffect / rotationEffect). An explicit allowlist, NOT `all`: `visibility`
+// (incl. the independent `translate` / `scale` / `rotate` transform properties for
+// offset, scaleEffect and rotationEffect). An explicit allowlist, NOT `all`: `visibility`
 // (what `hidden` sets) is transitionable but flips only at the end of the
 // transition, which would keep a hidden element live for the duration.
 const ANIMATED_PROPERTIES =
-    "opacity, color, background-color, border-color, border-radius, scale, rotate, transform, box-shadow, filter";
+    "opacity, color, background-color, border-color, border-radius, translate, scale, rotate, transform, box-shadow, filter";
 
 // Validates `animation` (shorthand or dict), mirroring Apple's validateProperties
 // block message for message. Returns the normalized config { curve, duration?,

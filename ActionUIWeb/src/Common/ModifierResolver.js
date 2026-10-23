@@ -348,10 +348,19 @@ const PROPERTY_APPLIERS = {
     background: (node, value, logger) => {
         (node.auiFrameBox ?? node).style.backgroundColor = resolveColor(value, logger) ?? "";
     },
-    // The independent CSS `scale` / `rotate` transform properties (not `transform`),
-    // so the two compose without clobbering each other and each animates on its own.
-    scaleEffect: (node, value) => { (node.auiFrameBox ?? node).style.scale = typeof value === "number" ? String(value) : ""; },
-    rotationEffect: (node, value) => { (node.auiFrameBox ?? node).style.rotate = typeof value === "number" ? `${value}deg` : ""; },
+    // The independent CSS `translate` / `rotate` / `scale` properties (not `transform`), recomputed
+    // from the element's stored effects (applyTransformEffects), so an offset and an anchor stay
+    // right and each animates on its own.
+    scaleEffect: (node, value) => {
+        const target = node.auiFrameBox ?? node;
+        target.auiEffects = { ...(target.auiEffects ?? {}), scale: parseScale(value) };
+        applyTransformEffects(target, target.auiEffects);
+    },
+    rotationEffect: (node, value) => {
+        const target = node.auiFrameBox ?? node;
+        target.auiEffects = { ...(target.auiEffects ?? {}), rotation: typeof value === "number" ? value : null };
+        applyTransformEffects(target, target.auiEffects);
+    },
 };
 
 // Lets a view module contribute a runtime `setElementProperty` applier for a
@@ -715,8 +724,67 @@ function applyBoxPaint(target, properties, logger) {
 // come after the background and the clip on Apple).
 function applyBoxEffects(target, properties) {
     if (typeof properties.opacity === "number") target.style.opacity = String(properties.opacity);
-    if (typeof properties.scaleEffect === "number") target.style.scale = String(properties.scaleEffect);
-    if (typeof properties.rotationEffect === "number") target.style.rotate = `${properties.rotationEffect}deg`;
+    target.auiEffects = {
+        offset: parseOffset(properties.offset),
+        rotation: typeof properties.rotationEffect === "number" ? properties.rotationEffect : null,
+        scale: parseScale(properties.scaleEffect),
+    };
+    applyTransformEffects(target, target.auiEffects);
+}
+
+// An offset: {x, y}, numbers (a missing one is 0); null otherwise (ModifierParsing.offset).
+function parseOffset(value) {
+    if (typeof value !== "object" || value === null) return null;
+    const x = value.x === undefined ? 0 : value.x;
+    const y = value.y === undefined ? 0 : value.y;
+    if (typeof x !== "number" || typeof y !== "number" || (value.x === undefined && value.y === undefined)) return null;
+    return { x, y };
+}
+
+// A scale: a number (both axes, around the center), or {x, y, anchor} (a missing factor is 1, an
+// unknown anchor the center); null otherwise (ModifierParsing.scale).
+function parseScale(value) {
+    if (typeof value === "number") return { x: value, y: value, anchor: "center" };
+    if (typeof value !== "object" || value === null) return null;
+    const x = value.x === undefined ? 1 : value.x;
+    const y = value.y === undefined ? 1 : value.y;
+    if (typeof x !== "number" || typeof y !== "number") return null;
+    const anchor = Object.prototype.hasOwnProperty.call(UNIT_POINTS, value.anchor) ? value.anchor : "center";
+    if (value.x === undefined && value.y === undefined && anchor === "center") return null;
+    return { x, y, anchor };
+}
+
+// An anchor name as a unit point: (0, 0) top leading, (1, 1) bottom trailing.
+const UNIT_POINTS = {
+    topLeading: [0, 0], top: [0.5, 0], topTrailing: [1, 0],
+    leading: [0, 0.5], center: [0.5, 0.5], trailing: [1, 0.5],
+    bottomLeading: [0, 1], bottom: [0.5, 1], bottomTrailing: [1, 1],
+};
+
+// offset, rotationEffect and scaleEffect as SwiftUI applies them (View.applyModifiers): offset
+// first, then the rotation around the center, then the scale around its anchor. CSS's independent
+// rotate and scale turn and scale around the center (the default transform origin), so the rest
+// is one translate: the offset rotated and scaled, plus (1 - scale) x (anchor - center), the
+// latter in percent of the element's own size. Exact, except a non-uniform scale with a rotation
+// (CSS scales before it rotates). The independent properties keep a runtime change animatable,
+// and leave `transform` to transitions.
+function applyTransformEffects(target, effects) {
+    const sx = effects.scale?.x ?? 1;
+    const sy = effects.scale?.y ?? 1;
+    const [ax, ay] = UNIT_POINTS[effects.scale?.anchor ?? "center"];
+    const degrees = effects.rotation ?? 0;
+    const radians = degrees * Math.PI / 180;
+    const ox = effects.offset?.x ?? 0;
+    const oy = effects.offset?.y ?? 0;
+    const tx = sx * (ox * Math.cos(radians) - oy * Math.sin(radians));
+    const ty = sy * (ox * Math.sin(radians) + oy * Math.cos(radians));
+    const px = (1 - sx) * (ax - 0.5) * 100;
+    const py = (1 - sy) * (ay - 0.5) * 100;
+    const round = (value) => Math.round(value * 1000) / 1000;
+    target.style.translate = tx || ty || px || py
+        ? `calc(${round(tx)}px + ${round(px)}%) calc(${round(ty)}px + ${round(py)}%)` : "";
+    target.style.rotate = degrees ? `${degrees}deg` : "";
+    target.style.scale = sx !== 1 || sy !== 1 ? (sx === sy ? String(sx) : `${sx} ${sy}`) : "";
 }
 
 export function applyViewModifiers(node, element, properties, ctx) {
