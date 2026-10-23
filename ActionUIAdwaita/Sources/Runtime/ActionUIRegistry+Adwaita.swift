@@ -12,6 +12,7 @@ extension ActionUIRegistry {
         "Capsule": Capsule.self,
         "Circle": Circle.self,
         "Color": Color.self,
+        "ContentUnavailableView": ContentUnavailableView.self,
         "Divider": Divider.self,
         "Ellipse": Ellipse.self,
         "EmptyView": EmptyView.self,
