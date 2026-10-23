@@ -30,13 +30,13 @@ extension Spacer: ActionUIAdwaitaRenderer {
     }
 
     /// The axis of the stack the element is in (from its parent element's type); nil outside a stack.
-    /// In a Group, its stack's (Group+Adwaita); a Group that no stack lays out is a VStack. Divider
-    /// uses it too.
+    /// In a Group or Section, its stack's (Group+Adwaita); one that no stack lays out is a VStack.
+    /// Divider uses it too.
     static func parentAxis(_ node: RenderNode) -> StackAxis? {
         switch node.parent?.element.type {
-        case "VStack", "LazyVStack", "GroupBox": return .vertical
+        case "VStack", "LazyVStack", "GroupBox", "Form": return .vertical
         case "HStack", "LazyHStack", "LabeledContent": return .horizontal
-        case "Group":
+        case "Group", "Section":
             guard let group = node.parent, Group.isFlattened(group.widget) else { return .vertical }
             return parentAxis(group)
         default: return nil

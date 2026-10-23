@@ -45,8 +45,19 @@ extension Group: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
+        syncChildBoxes(widget, node, after: nil)
+        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
+            reportedTemplate = true
+            ActionUIModel.shared.logger.log("Group: the template form shows no rows on Linux yet", .warning)
+        }
+    }
+
+    /// Puts the boxes of `node`'s children in child boxes of `widget`, in order after `first` (a
+    /// Section's header box; nil: from the start), and applies the element's box modifiers to each
+    /// (Section shares it).
+    static func syncChildBoxes(_ widget: WidgetPointer, _ node: RenderNode, after first: WidgetPointer?) {
         let modifiers = BaseModifiers(node.properties)
-        var previous: WidgetPointer?
+        var previous = first
         node.syncChildren(node.subviews("children"), insert: { child, _ in
             let box = childBox(of: child, in: widget) ?? makeChildBox(child)
             // Already in place: nothing to do (gtk_widget_insert_after would still relayout).
@@ -62,10 +73,6 @@ extension Group: ActionUIAdwaitaRenderer {
                 gtk_widget_unparent(box)
             }
         })
-        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
-            reportedTemplate = true
-            ActionUIModel.shared.logger.log("Group: the template form shows no rows on Linux yet", .warning)
-        }
     }
 
     /// The Group's own box applies none of what its child boxes do, except hidden: on the Group's

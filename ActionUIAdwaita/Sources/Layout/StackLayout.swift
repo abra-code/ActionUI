@@ -154,20 +154,24 @@ enum StackLayout {
             : (GTK_ORIENTATION_HORIZONTAL, GTK_ORIENTATION_VERTICAL)
     }
 
-    /// Each child's cross size when the stack's cross size is `available`.
-    private static func crossSizes(_ children: [WidgetPointer], _ cross: GtkOrientation, available: Int) -> [Int] {
-        children.map { stackChild($0, cross).size(offered: available) }
-    }
-
     /// Each of `children`'s widths when the stack is `width` wide, as allocate gives them: a
-    /// VStack offers each its width, an HStack shares the width out along its axis.
+    /// VStack offers each its width (less its offset in a Form), an HStack shares the width out
+    /// along its axis.
     static func childWidths(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int) -> [Int] {
         let stack = configuration(widget)
         if stack.axis == .vertical {
-            return crossSizes(children, GTK_ORIENTATION_HORIZONTAL, available: width)
+            let offsets = leadingOffsets(widget, children)
+            return children.enumerated().map {
+                stackChild($1, GTK_ORIENTATION_HORIZONTAL).size(offered: width - offsets[$0])
+            }
         }
         let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }
         return StackSolver.mainSizes(widths, available: width, gaps: gaps(children, stack))
+    }
+
+    /// Each child's leading offset: after a Form's label column (FormLayout), else 0.
+    static func leadingOffsets(_ widget: WidgetPointer, _ children: [WidgetPointer]) -> [Int] {
+        FormLayout.offsets(widget, children) ?? Array(repeating: 0, count: children.count)
     }
 
     // MARK: Measure
@@ -200,12 +204,14 @@ enum StackLayout {
             return total
         }
 
-        // Cross axis.
+        // Cross axis: the widest child, from its offset in a Form.
+        let offsets = cross == GTK_ORIENTATION_HORIZONTAL
+            ? leadingOffsets(widget, children) : Array(repeating: 0, count: children.count)
         var total = Measured(minimum: 0, natural: 0)
         for (index, child) in children.enumerated() {
             let size = measureChild(child, cross, forSize: forSizes[index])
-            total.minimum = max(total.minimum, size.minimum)
-            total.natural = max(total.natural, size.natural)
+            total.minimum = max(total.minimum, offsets[index] + size.minimum)
+            total.natural = max(total.natural, offsets[index] + size.natural)
         }
         return total
     }
@@ -230,7 +236,7 @@ enum StackLayout {
         var mainSizes: [Int]
         var crossSizes: [Int]
         if vertical {
-            crossSizes = Self.crossSizes(children, cross, available: crossAvailable)
+            crossSizes = childWidths(widget, children, width: crossAvailable)
             let heights = children.enumerated().map { stackChild($1, main, forSize: crossSizes[$0]) }
             mainSizes = StackSolver.mainSizes(heights, available: mainAvailable, gaps: gaps)
         } else {
@@ -241,13 +247,15 @@ enum StackLayout {
             }
         }
 
-        let block = crossSizes.max() ?? 0
+        // A Form's rows start at their offsets (FormLayout); every other stack's at 0.
+        let offsets = vertical ? leadingOffsets(widget, children) : Array(repeating: 0, count: children.count)
+        let block = zip(offsets, crossSizes).map(+).max() ?? 0
         let blockStart = StackSolver.centeredStart(length: block, available: crossAvailable)
         var position = StackSolver.centeredStart(length: StackSolver.length(of: mainSizes, gaps: gaps),
                                                  available: mainAvailable)
         for (index, child) in children.enumerated() {
-            let crossOffset = blockStart + StackSolver.alignedOffset(size: crossSizes[index], block: block,
-                                                                     alignment: stack.alignment)
+            let crossOffset = blockStart + offsets[index]
+                + StackSolver.alignedOffset(size: crossSizes[index], block: block - offsets[index], alignment: stack.alignment)
             var origin = vertical
                 ? graphene_point_t(x: Float(crossOffset), y: Float(position))
                 : graphene_point_t(x: Float(position), y: Float(crossOffset))

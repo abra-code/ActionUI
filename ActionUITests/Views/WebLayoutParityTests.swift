@@ -99,11 +99,15 @@ final class WebLayoutParityTests: XCTestCase {
     /// match fails the test until it is removed here. ActionUIWeb/README.md describes them for
     /// users ("Known layout differences from SwiftUI"). The causes, found with this test:
     /// - padding: a view's own CSS padding is a floor under its flex share (flex-basis 0 cannot go below it), so ContentUnavailableView takes 316 of 600 where SwiftUI shares 300 and 300
+    /// - form: a Form fills its parent's width with its rows at the leading edge, where macOS's hugs its rows and is centered like a VStack; its rows sit 4 lower beside a filling row; no label column
     /// - group: a Group's padding or frame goes on one box around the whole Group, which lays its children out in a column, where SwiftUI applies them to each child in the parent stack
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     private static let knownDifferences: [String: String] = [
         "contentunavailable-width-600": "padding",
         "divider-hstack-height": "minimum",
+        "form-filling-row": "form",
+        "form-rows-hug": "form",
+        "form-sections-add-no-space": "form",
         "group-frame-per-child": "group",
         "group-padding-per-child": "group",
         "hstack-larger-minimum-first": "minimum",

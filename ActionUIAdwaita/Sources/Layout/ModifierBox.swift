@@ -609,6 +609,21 @@ enum ModifierBox {
         return elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: frameWidth)
     }
 
+    /// Where the element starts in a box `width` wide, and its width, as allocateBox and
+    /// allocateContent place it: the frame centered in the box, the padding before, the element
+    /// aligned in the padded frame (FormLayout finds a title's trailing edge through the boxes
+    /// around its row). The box's offset, rotation and scale move no layout.
+    static func elementPlacement(inBox box: WidgetPointer, width: Int) -> (start: Int, width: Int) {
+        guard let content = layoutChildren(box).first, let element = layoutChildren(content).first else { return (0, width) }
+        let layout = layout(ofBox: box)
+        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
+        let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: frameWidth)
+        let padding = layout.padding.horizontal
+        let start = StackSolver.centeredStart(length: frameWidth, available: width) + padding.before
+            + StackSolver.alignedOffset(size: elementWidth, block: frameWidth - padding.total, alignment: layout.alignment.horizontal)
+        return (start, elementWidth)
+    }
+
     static func measureBox(_ box: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
         guard let content = layoutChildren(box).first else { return (0, 0) }
         let layout = layout(ofBox: box)

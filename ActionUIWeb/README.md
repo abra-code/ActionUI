@@ -197,7 +197,9 @@ space differently from SwiftUI's stacks:
   `group-frame-per-child`). A Group with no such modifiers matches.
 - **A Form is a single column.** macOS lines a Form's labels up in a trailing-aligned column with
   the content beside it; the web stretches each LabeledContent row and puts its content at the
-  trailing edge.
+  trailing edge. A macOS Form is also as wide as its rows and centered like a VStack, where the
+  web's fills its parent's width (`form-rows-hug`, `form-sections-add-no-space`,
+  `form-filling-row`).
 - **A non-uniform scale with a rotation** scales before it rotates (CSS's order for the
   independent `rotate` and `scale` properties), where SwiftUI rotates first. Each alone, and a
   uniform scale with a rotation, match.

@@ -98,7 +98,9 @@ enum LayoutCaps {
         let widths = forSize >= 0 ? StackLayout.childWidths(widget, children, width: forSize) : nil
         let main = stack.axis == .vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
         guard orientation == main else {
-            return largestOfChildren(children, orientation, widths: widths)
+            // Across a VStack: the widest child, from its offset in a Form (FormLayout).
+            let offsets = orientation == GTK_ORIENTATION_HORIZONTAL ? StackLayout.leadingOffsets(widget, children) : nil
+            return largestOfChildren(children, orientation, widths: widths, offsets: offsets)
         }
         var total = StackLayout.gaps(children, stack).reduce(0, +)
         for (index, child) in children.enumerated() {
@@ -108,13 +110,14 @@ enum LayoutCaps {
         return total
     }
 
-    /// The largest of `children`'s largest sizes, each for its width in `widths` when given.
+    /// The largest of `children`'s largest sizes, each for its width in `widths` and from its
+    /// offset in `offsets` when given.
     private static func largestOfChildren(_ children: [WidgetPointer], _ orientation: GtkOrientation,
-                                          widths: [Int]?) -> Int? {
+                                          widths: [Int]?, offsets: [Int]? = nil) -> Int? {
         var largest = 0
         for (index, child) in children.enumerated() {
             guard let size = largestSize(child, orientation, forSize: widths?[index] ?? -1) else { return nil }
-            largest = max(largest, size)
+            largest = max(largest, (offsets?[index] ?? 0) + size)
         }
         return largest
     }

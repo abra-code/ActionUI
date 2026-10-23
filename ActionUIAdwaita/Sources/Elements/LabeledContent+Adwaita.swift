@@ -24,6 +24,8 @@ extension LabeledContent: ActionUIAdwaitaRenderer {
         let content = StackLayout.makeStack(axis: .horizontal)
         StackLayout.configure(content, spacing: nil, alignment: .center)
         gtk_widget_insert_after(content, row, title)
+        // A Form lines its title up with the other rows' (FormLayout).
+        attach(LabeledRowMarker(), to: row, key: labeledRowMarkerKey)
         return row
     }
 

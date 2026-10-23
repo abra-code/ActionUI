@@ -1,0 +1,156 @@
+// Tests/Elements/FormRendererTests.swift
+/*
+ Tests for the Form and Section renderers on GTK, against the rules measured on macOS 27: the
+ titles of a Form's LabeledContent rows end at a label column as wide as the widest title, every
+ row's content starts 8 points after it (an empty title makes a column of 0), a Section's rows and
+ header are the Form's own rows, 8 points apart. (Rows without text are in the layout parity
+ fixtures: form-rows-hug, form-sections-add-no-space, form-filling-row; with text, the font
+ differs from macOS, so the rules are checked here.)
+*/
+
+import XCTest
+import CAdwaita
+@testable import ActionUI
+
+@MainActor
+final class FormRendererTests: XCTestCase {
+    private var windowUUID = ""
+    private var windows: [AdwaitaWindow] = []
+
+    override func setUp() async throws {
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
+        try AdwaitaTestHost.initialize()
+        ActionUIRegistry.shared.loadBuiltIns()
+        ActionUIRegistry.shared.renderers["Rectangle"] = TestBlockRenderer.self
+        windowUUID = "form-\(name)"
+    }
+
+    override func tearDown() async throws {
+        windows = []
+        AdwaitaTestHost.drainMainLoop()
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        ActionUIRegistry.shared.loadBuiltIns()
+    }
+
+    private func render(_ json: String) throws -> RenderNode {
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
+        windows.append(window)
+        return try XCTUnwrap(window.root)
+    }
+
+    private func block(_ id: Int, _ width: Int, _ height: Int) -> String {
+        #"{"type": "Rectangle", "id": \#(id), "properties": {"w": \#(width), "h": \#(height)}}"#
+    }
+
+    private func labeled(_ id: Int, _ title: String, _ child: String) -> String {
+        #"{"type": "LabeledContent", "id": \#(id), "properties": {"title": "\#(title)"}, "children": [\#(child)]}"#
+    }
+
+    /// The node with element id `id` among `root`'s descendants.
+    private func node(_ id: Int, in root: RenderNode) -> RenderNode? {
+        if root.element.id == id { return root }
+        for child in root.childNodes.values {
+            if let found = node(id, in: child) { return found }
+        }
+        return nil
+    }
+
+    /// [x, y, width, height] of `widget` in the Form's widget, after laying the Form out at its
+    /// natural size.
+    private func frame(_ widget: WidgetPointer, in form: RenderNode) -> [Int] {
+        var minimum: Int32 = 0
+        var width: Int32 = 0
+        var height: Int32 = 0
+        gtk_widget_measure(form.outerWidget, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &width, nil, nil)
+        gtk_widget_measure(form.outerWidget, GTK_ORIENTATION_VERTICAL, width, &minimum, &height, nil, nil)
+        gtk_widget_allocate(form.outerWidget, width, height, -1, nil)
+        var bounds = graphene_rect_t()
+        _ = gtk_widget_compute_bounds(widget, form.widget, &bounds)
+        return [Int(bounds.origin.x), Int(bounds.origin.y), Int(bounds.size.width), Int(bounds.size.height)]
+    }
+
+    private func frame(_ id: Int, in form: RenderNode) throws -> [Int] {
+        frame(try XCTUnwrap(node(id, in: form)).widget, in: form)
+    }
+
+    /// The title label of LabeledContent `id`.
+    private func title(_ id: Int, in root: RenderNode) throws -> WidgetPointer {
+        try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(node(id, in: root)).widget))
+    }
+
+    func testTitlesEndAtOneColumnAndEveryRowsContentStartsAfterIt() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Name", block(3, 20, 20))), \#(labeled(4, "A much longer name", block(5, 40, 20))), \#(block(6, 30, 20))]}"#)
+        let short = frame(try title(2, in: form), in: form)
+        let long = frame(try title(4, in: form), in: form)
+        XCTAssertEqual(long[0], 0, "the widest title starts at the Form's edge")
+        XCTAssertEqual(short[0] + short[2], long[0] + long[2], "the titles end at one column")
+        let column = long[2] + 8
+        XCTAssertEqual(try frame(3, in: form)[0], column)
+        XCTAssertEqual(try frame(5, in: form)[0], column)
+        XCTAssertEqual(try frame(6, in: form)[0], column, "a row without a title starts at the content too")
+    }
+
+    func testAnEmptyTitleMakesAColumnOfZero() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "", block(3, 20, 20))), \#(block(4, 40, 20))]}"#)
+        XCTAssertEqual(try frame(3, in: form)[0], 8)
+        XCTAssertEqual(try frame(4, in: form)[0], 8)
+    }
+
+    func testWithoutTitlesTheRowsStartAtTheEdgeEightApart() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(block(2, 20, 20)), \#(block(3, 40, 20))]}"#)
+        XCTAssertEqual(try frame(2, in: form), [0, 0, 20, 20])
+        XCTAssertEqual(try frame(3, in: form), [0, 28, 40, 20])
+    }
+
+    func testASectionsRowsAndHeaderAreTheFormsRows() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Name", block(3, 20, 20))), {"type": "Section", "id": 4, "properties": {"header": "Head"}, "children": [\#(labeled(5, "A much longer name", block(6, 40, 20)))]}, {"type": "Section", "id": 7, "children": [\#(block(8, 30, 20))]}]}"#)
+        let long = frame(try title(5, in: form), in: form)
+        let column = long[2] + 8
+        XCTAssertEqual(try frame(3, in: form)[0], column, "a title in a Section sets the Form's column")
+        XCTAssertEqual(try frame(6, in: form)[0], column)
+        XCTAssertEqual(try frame(8, in: form)[0], column)
+
+        let section = try XCTUnwrap(node(4, in: form))
+        let headerBox = try XCTUnwrap(gtk_widget_get_first_child(section.widget))
+        let header = try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(ModifierBox.content(of: headerBox))))
+        XCTAssertEqual(swiftString(gtk_label_get_text(opaque(header))), "Head")
+        let headerFrame = frame(header, in: form)
+        XCTAssertEqual(headerFrame[0], column, "the header is in the content column")
+        let first = try frame(3, in: form)
+        XCTAssertEqual(headerFrame[1], first[1] + first[3] + 8, "8 below the row before")
+        XCTAssertEqual(frame(try title(5, in: form), in: form)[1] >= headerFrame[1] + headerFrame[3] + 8, true,
+                       "the Section's first row 8 below its header")
+
+        let untitled = try XCTUnwrap(node(7, in: form))
+        let hiddenBox = try XCTUnwrap(gtk_widget_get_first_child(untitled.widget))
+        let hidden = try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(ModifierBox.content(of: hiddenBox))))
+        XCTAssertEqual(gtk_widget_get_visible(hidden), 0, "no header, no label")
+        let last = try frame(8, in: form)
+        let before = try frame(6, in: form)
+        XCTAssertEqual(last[1] - (before[1] + before[3]) >= 8, true, "a Section without a header adds no row")
+    }
+
+    func testATitleEndsWhereItsRowPutsItPaddingAndFrameIncluded() throws {
+        // Measured on macOS 27: the column takes the title's trailing edge as the row lays it
+        // out, so a leading padding of 30 on an empty-titled row makes a column of 30, and a row
+        // framed 200 wide centers its 28 of content and makes a column of 86.
+        let padded = try render(#"{"type": "Form", "id": 1, "children": [{"type": "LabeledContent", "id": 2, "properties": {"title": "", "padding": {"leading": 30}}, "children": [\#(block(3, 20, 20))]}, \#(block(4, 40, 20))]}"#)
+        XCTAssertEqual(try frame(3, in: padded)[0], 38)
+        XCTAssertEqual(try frame(4, in: padded)[0], 38, "the row without a title starts at the content column")
+        let framed = try render(#"{"type": "Form", "id": 1, "children": [{"type": "LabeledContent", "id": 2, "properties": {"title": "", "frame": {"width": 200}}, "children": [\#(block(3, 20, 20))]}, \#(block(4, 40, 20))]}"#)
+        XCTAssertEqual(try frame(3, in: framed)[0], 94)
+        XCTAssertEqual(try frame(4, in: framed)[0], 94)
+    }
+
+    func testAGroupsPaddingMovesItsRowsTitlesAndTheColumnWithThem() throws {
+        // Measured on macOS 27: the Group's leading padding of 30 goes on each of its rows; the
+        // titled one's title ends at 30, the column; the untitled one starts at the content
+        // column, its padding inside.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "Group", "id": 9, "properties": {"padding": {"leading": 30}}, "children": [{"type": "LabeledContent", "id": 2, "properties": {"title": ""}, "children": [\#(block(3, 20, 20))]}, \#(block(7, 30, 20))]}, \#(block(4, 40, 20))]}"#)
+        XCTAssertEqual(try frame(3, in: form)[0], 38)
+        XCTAssertEqual(try frame(7, in: form)[0], 68)
+        XCTAssertEqual(try frame(4, in: form)[0], 38)
+    }
+}
