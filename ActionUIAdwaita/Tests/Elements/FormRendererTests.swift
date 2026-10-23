@@ -153,4 +153,55 @@ final class FormRendererTests: XCTestCase {
         XCTAssertEqual(try frame(7, in: form)[0], 68)
         XCTAssertEqual(try frame(4, in: form)[0], 38)
     }
+
+    func testATitleChangedAtRunTimeMovesTheOtherRows() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "A", block(3, 20, 20))), \#(labeled(4, "Name", block(5, 40, 20))), \#(block(6, 30, 20))]}"#)
+        let before = try frame(5, in: form)[0]
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "title", value: "A much longer name")
+        AdwaitaTestHost.drainMainLoop()
+        let long = frame(try title(2, in: form), in: form)
+        let column = long[2] + 8
+        XCTAssertGreaterThan(column, before, "the longer title widens the column")
+        XCTAssertEqual(try frame(3, in: form)[0], column)
+        XCTAssertEqual(try frame(5, in: form)[0], column, "the other titled row moves to the new column")
+        XCTAssertEqual(try frame(6, in: form)[0], column, "the untitled row moves to the new column")
+    }
+
+    func testASectionKeepsItsHeaderFirstThroughInsertsAndRemovals() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "Section", "id": 4, "properties": {"header": "Head"}, "children": [\#(block(5, 20, 20))]}]}"#)
+        let section = try XCTUnwrap(node(4, in: form))
+        func header() throws -> WidgetPointer {
+            let headerBox = try XCTUnwrap(gtk_widget_get_first_child(section.widget))
+            return try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(ModifierBox.content(of: headerBox))))
+        }
+
+        _ = try ActionUIModel.shared.insertElement(windowUUID: windowUUID, parentID: 4, json: block(6, 30, 20), position: .prepend)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(swiftString(gtk_label_get_text(opaque(try header()))), "Head", "a prepended row goes after the header")
+        var headerFrame = frame(try header(), in: form)
+        let inserted = try frame(6, in: form)
+        XCTAssertEqual(inserted[1], headerFrame[1] + headerFrame[3] + 8, "the prepended row 8 below the header")
+        XCTAssertEqual(try frame(5, in: form)[1], inserted[1] + inserted[3] + 8)
+
+        try ActionUIModel.shared.removeElement(windowUUID: windowUUID, viewID: 6)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNil(node(6, in: form))
+        XCTAssertEqual(swiftString(gtk_label_get_text(opaque(try header()))), "Head")
+        headerFrame = frame(try header(), in: form)
+        XCTAssertEqual(try frame(5, in: form)[1], headerFrame[1] + headerFrame[3] + 8, "the remaining row moves up under the header")
+    }
+
+    func testAFormAtTheWindowRootIsCentered() throws {
+        // Measured on macOS 27: a Form is as large as its rows and centered in its parent, like a
+        // VStack; its rows keep to its leading edge.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(block(2, 20, 20)), \#(block(3, 40, 20))]}"#)
+        gtk_widget_allocate(form.outerWidget, 200, 200, -1, nil)
+        func frame(_ id: Int) throws -> [Int] {
+            var bounds = graphene_rect_t()
+            _ = gtk_widget_compute_bounds(try XCTUnwrap(node(id, in: form)).widget, form.outerWidget, &bounds)
+            return [Int(bounds.origin.x), Int(bounds.origin.y), Int(bounds.size.width), Int(bounds.size.height)]
+        }
+        XCTAssertEqual(try frame(2), [80, 76, 20, 20])
+        XCTAssertEqual(try frame(3), [80, 104, 40, 20])
+    }
 }
