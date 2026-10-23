@@ -106,17 +106,12 @@ extension Picker: ActionUIAdwaitaRenderer {
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         guard let state = attached(on: widget, key: pickerStateKey),
-              let title = gtk_widget_get_first_child(widget) else { return }
+              let title = Gtk.Widget(widget).firstChild?.pointer else { return }
         let control = accessibleWidget(widget)
         let props = Props(node.properties)
 
-        if swiftString(gtk_label_get_text(opaque(title))) != props.title {
-            gtk_label_set_text(opaque(title), props.title)
-        }
-        let showsTitle: gboolean = node.environment.labelsHidden ? 0 : 1
-        if gtk_widget_get_visible(title) != showsTitle {
-            gtk_widget_set_visible(title, showsTitle)
-        }
+        Gtk.Label(title).text = props.title
+        Gtk.Widget(title).isVisible = !node.environment.labelsHidden
 
         let kind = Kind(rawValue: node.widgetKind) ?? .menu
         if state.sections != props.sections {
@@ -155,10 +150,7 @@ extension Picker: ActionUIAdwaitaRenderer {
                 gtk_box_set_spacing(typed(control), props.horizontalRadioGroupLayout ? titleSpacing : 0)
             }
             for (position, radio) in state.radios.enumerated() {
-                let active: gboolean = position == index ? 1 : 0
-                if gtk_check_button_get_active(typed(radio)) != active {
-                    gtk_check_button_set_active(typed(radio), active)
-                }
+                Gtk.CheckButton(radio).isActive = position == index
             }
             alignBesideFirstRow(title, control)
         }
@@ -166,7 +158,7 @@ extension Picker: ActionUIAdwaitaRenderer {
 
     /// The control, which assistive technologies read (the box only holds it and the title).
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        gtk_widget_get_last_child(widget) ?? widget
+        Gtk.Widget(widget).lastChild?.pointer ?? widget
     }
 
     /// Named after its title, also when labelsHidden hides it, as in SwiftUI.
@@ -184,12 +176,9 @@ extension Picker: ActionUIAdwaitaRenderer {
     /// Moves `title` down by half of what the radio column's first row is taller than the title, so
     /// its text is on the row's line.
     private static func alignBesideFirstRow(_ title: WidgetPointer, _ column: WidgetPointer) {
-        guard gtk_widget_get_visible(title) != 0, let first = gtk_widget_get_first_child(column) else { return }
-        var minimum: Int32 = 0
-        var row: Int32 = 0
-        var label: Int32 = 0
-        gtk_widget_measure(first, GTK_ORIENTATION_VERTICAL, -1, &minimum, &row, nil, nil)
-        gtk_widget_measure(title, GTK_ORIENTATION_VERTICAL, -1, &minimum, &label, nil, nil)
+        guard Gtk.Widget(title).isVisible, let first = Gtk.Widget(column).firstChild?.pointer else { return }
+        let row = Int32(clamping: Gtk.Widget(first).measure(GTK_ORIENTATION_VERTICAL).natural)
+        let label = Int32(clamping: Gtk.Widget(title).measure(GTK_ORIENTATION_VERTICAL).natural)
         let margin = max(0, (row - (label - gtk_widget_get_margin_top(title))) / 2)
         if gtk_widget_get_margin_top(title) != margin {
             gtk_widget_set_margin_top(title, margin)
@@ -213,7 +202,7 @@ extension Picker: ActionUIAdwaitaRenderer {
     /// One radio button per item, in one group, under each titled section's heading; an untitled
     /// section after the first starts with a line, as the menu's popup shows it.
     private static func setRadios(_ column: WidgetPointer, _ sections: [Props.OptionSection], _ state: PickerState, _ node: RenderNode) {
-        while let child = gtk_widget_get_first_child(column) {
+        while let child = Gtk.Widget(column).firstChild?.pointer {
             gtk_box_remove(typed(column), child)
         }
         state.radios = []
@@ -221,7 +210,7 @@ extension Picker: ActionUIAdwaitaRenderer {
             if let title = section.title, !title.isEmpty {
                 let heading = gtk_label_new(title)!
                 gtk_label_set_xalign(opaque(heading), 0)
-                gtk_widget_add_css_class(heading, "heading")
+                Gtk.Widget(heading).setCSSClass("heading", true)
                 gtk_box_append(typed(column), heading)
             } else if position > 0 {
                 gtk_box_append(typed(column), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL))
@@ -233,7 +222,7 @@ extension Picker: ActionUIAdwaitaRenderer {
                 }
                 let tag = item.tag
                 connectUserSignal(radio, "toggled", .instanceOnly) { [weak node] in
-                    guard let node, gtk_check_button_get_active(typed(radio)) != 0 else { return }
+                    guard let node, Gtk.CheckButton(radio).isActive else { return }
                     userSelected(tag, node)
                 }
                 gtk_box_append(typed(column), radio)
@@ -282,7 +271,7 @@ extension Picker: ActionUIAdwaitaRenderer {
         }
         connectObjectSignal(UnsafeMutableRawPointer(factory), "bind") { [weak state] header in
             guard let state, let box = gtk_list_header_get_child(OpaquePointer(header)) else { return }
-            while let child = gtk_widget_get_first_child(box) {
+            while let child = Gtk.Widget(box).firstChild?.pointer {
                 gtk_box_remove(typed(box), child)
             }
             let start = Int(gtk_list_header_get_start(OpaquePointer(header)))
@@ -290,7 +279,7 @@ extension Picker: ActionUIAdwaitaRenderer {
             if let title = section.title, !title.isEmpty {
                 let label = gtk_label_new(title)!
                 gtk_label_set_xalign(opaque(label), 0)
-                gtk_widget_add_css_class(label, "heading")
+                Gtk.Widget(label).setCSSClass("heading", true)
                 gtk_box_append(typed(box), label)
             } else if section.start > 0 {
                 gtk_box_append(typed(box), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL))

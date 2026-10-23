@@ -44,16 +44,16 @@ extension ContentUnavailableView: ActionUIAdwaitaRenderer {
         // description of SwiftUI's view (measured on macOS 27); an unnamed image reads as "image".
         let icon = newWidget(gtk_image_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
         gtk_image_set_pixel_size(opaque(icon), iconSize)
-        gtk_widget_add_css_class(icon, "dim-label")
+        Gtk.Widget(icon).setCSSClass("dim-label", true)
         gtk_box_append(typed(box), icon)
         let title = gtk_label_new(nil)!
-        gtk_widget_add_css_class(title, "title-2")
+        Gtk.Widget(title).setCSSClass("title-2", true)
         gtk_label_set_wrap(opaque(title), 1)
         gtk_label_set_wrap_mode(opaque(title), PANGO_WRAP_WORD_CHAR)
         gtk_label_set_justify(opaque(title), GTK_JUSTIFY_CENTER)
         gtk_box_append(typed(box), title)
         let description = gtk_label_new(nil)!
-        gtk_widget_add_css_class(description, "dim-label")
+        Gtk.Widget(description).setCSSClass("dim-label", true)
         gtk_label_set_wrap(opaque(description), 1)
         gtk_label_set_wrap_mode(opaque(description), PANGO_WRAP_WORD_CHAR)
         gtk_label_set_justify(opaque(description), GTK_JUSTIFY_CENTER)
@@ -73,17 +73,13 @@ extension ContentUnavailableView: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let box = adw_clamp_get_child(OpaquePointer(widget)), let icon = gtk_widget_get_first_child(box),
-              let title = gtk_widget_get_next_sibling(icon),
-              let description = gtk_widget_get_next_sibling(title) else { return }
+        guard let box = adw_clamp_get_child(OpaquePointer(widget)), let icon = Gtk.Widget(box).firstChild?.pointer,
+              let title = Gtk.Widget(icon).nextSibling?.pointer,
+              let description = Gtk.Widget(title).nextSibling?.pointer else { return }
         let content = shown(Props(node.properties), node.model.value as? String)
-        if swiftString(gtk_label_get_text(opaque(title))) != content.title {
-            gtk_label_set_text(opaque(title), content.title)
-        }
+        Gtk.Label(title).text = content.title
         let text = content.description ?? ""
-        if swiftString(gtk_label_get_text(opaque(description))) != text {
-            gtk_label_set_text(opaque(description), text)
-        }
+        Gtk.Label(description).text = text
         setVisible(description, !text.isEmpty)
         if let name = content.icon, swiftString(gtk_image_get_icon_name(opaque(icon))) != name {
             gtk_image_set_from_icon_name(opaque(icon), name)
@@ -103,9 +99,6 @@ extension ContentUnavailableView: ActionUIAdwaitaRenderer {
     }
 
     private static func setVisible(_ widget: WidgetPointer, _ visible: Bool) {
-        let flag: gboolean = visible ? 1 : 0
-        if gtk_widget_get_visible(widget) != flag {
-            gtk_widget_set_visible(widget, flag)
-        }
+        Gtk.Widget(widget).isVisible = visible
     }
 }

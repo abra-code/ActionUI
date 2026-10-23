@@ -33,10 +33,10 @@ extension GroupBox: ActionUIAdwaitaRenderer {
         // Left out of the accessibility tree: the group carries the title as its name.
         let title = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
         gtk_label_set_xalign(opaque(title), 0)
-        gtk_widget_set_visible(title, 0)
+        Gtk.Widget(title).isVisible = false
         gtk_box_append(typed(group), title)
         let content = StackLayout.makeStack(axis: .vertical)
-        gtk_widget_add_css_class(content, "card")
+        Gtk.Widget(content).setCSSClass("card", true)
         StyleSheet.shared.apply(["padding: \(contentPadding)px;"], to: content, slot: "groupBoxPadding")
         // SwiftUI's default spacing: 8 points between the children, none next to a Spacer (measured
         // on macOS 27).
@@ -47,15 +47,10 @@ extension GroupBox: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let title = gtk_widget_get_first_child(widget), let content = gtk_widget_get_last_child(widget) else { return }
+        guard let title = Gtk.Widget(widget).firstChild?.pointer, let content = Gtk.Widget(widget).lastChild?.pointer else { return }
         let text = Props(node.properties).title ?? ""
-        if swiftString(gtk_label_get_text(opaque(title))) != text {
-            gtk_label_set_text(opaque(title), text)
-        }
-        let showsTitle: gboolean = text.isEmpty ? 0 : 1
-        if gtk_widget_get_visible(title) != showsTitle {
-            gtk_widget_set_visible(title, showsTitle)
-        }
+        Gtk.Label(title).text = text
+        Gtk.Widget(title).isVisible = !text.isEmpty
         syncContainerChildren(node, content, node.subviews("children"))
         if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
             reportedTemplate = true
@@ -73,12 +68,12 @@ extension GroupBox: ActionUIAdwaitaRenderer {
     /// the gap vertically, the larger of them horizontally. A height is for `forSize` wide (-1: no
     /// width given); the vertical box gives the title and the card that width. nil when unbounded.
     static func cap(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> Int? {
-        let card = gtk_widget_get_last_child(widget)
+        let card = Gtk.Widget(widget).lastChild?.pointer
         var sizes: [Int] = []
         for child in layoutChildren(widget) {
             // An expanding card's cap is its stack's, inside the CSS padding; a measured size
             // includes it.
-            let padded = child == card && gtk_widget_compute_expand(child, orientation) != 0
+            let padded = child == card && Gtk.Widget(child).expands(orientation)
             let childForSize = padded && forSize >= 0 ? max(forSize - 2 * contentPadding, 0) : forSize
             guard let size = LayoutCaps.largestSize(child, orientation, forSize: childForSize) else { return nil }
             sizes.append(padded ? size + 2 * contentPadding : size)

@@ -87,7 +87,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
             gtk_overlay_set_child(OpaquePointer(overlay), drawing)
             gtk_widget_set_halign(title, GTK_ALIGN_CENTER)
             gtk_widget_set_valign(title, kind == .circular ? GTK_ALIGN_END : GTK_ALIGN_CENTER)
-            gtk_widget_add_css_class(title, kind == .circular ? "caption" : "title-4")
+            Gtk.Widget(title).setCSSClass(kind == .circular ? "caption" : "title-4", true)
             gtk_label_set_ellipsize(opaque(title), PANGO_ELLIPSIZE_END)
             gtk_label_set_max_width_chars(opaque(title), kind == .circular ? 6 : 4)
             gtk_overlay_add_overlay(OpaquePointer(overlay), title)
@@ -105,13 +105,8 @@ extension Gauge: ActionUIAdwaitaRenderer {
         let meter = accessibleWidget(widget)
         if let title = titleLabel(widget) {
             let text = props.title ?? ""
-            if swiftString(gtk_label_get_text(opaque(title))) != text {
-                gtk_label_set_text(opaque(title), text)
-            }
-            let visible: gboolean = props.title == nil ? 0 : 1
-            if gtk_widget_get_visible(title) != visible {
-                gtk_widget_set_visible(title, visible)
-            }
+            Gtk.Label(title).text = text
+            Gtk.Widget(title).isVisible = props.title != nil
             let xalign: Float = props.style == nil ? 0.5 : 0
             if kind == .levelBar, gtk_label_get_xalign(opaque(title)) != xalign {
                 gtk_label_set_xalign(opaque(title), xalign)
@@ -152,7 +147,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
         if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_overlay_get_type()) != 0 {
             return gtk_overlay_get_child(OpaquePointer(widget)) ?? widget
         }
-        return gtk_widget_get_last_child(widget) ?? widget
+        return Gtk.Widget(widget).lastChild?.pointer ?? widget
     }
 
     /// Named after its title.
@@ -166,9 +161,9 @@ extension Gauge: ActionUIAdwaitaRenderer {
             return nil
         }
         if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_overlay_get_type()) != 0 {
-            return gtk_widget_get_last_child(widget)
+            return Gtk.Widget(widget).lastChild?.pointer
         }
-        return gtk_widget_get_first_child(widget)
+        return Gtk.Widget(widget).firstChild?.pointer
     }
 
     private static func makeDrawing(_ kind: Kind) -> WidgetPointer {

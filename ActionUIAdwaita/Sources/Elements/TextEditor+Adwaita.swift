@@ -31,7 +31,7 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         let overlay = gtk_overlay_new()!
         let scrolled = gtk_scrolled_window_new()!
         gtk_scrolled_window_set_policy(OpaquePointer(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC)
-        gtk_widget_add_css_class(scrolled, "card")
+        Gtk.Widget(scrolled).setCSSClass("card", true)
         let view = gtk_text_view_new()!
         gtk_text_view_set_wrap_mode(typed(view), GTK_WRAP_WORD_CHAR)
         for margin in [gtk_text_view_set_left_margin, gtk_text_view_set_right_margin, gtk_text_view_set_top_margin, gtk_text_view_set_bottom_margin] {
@@ -42,7 +42,7 @@ extension TextEditor: ActionUIAdwaitaRenderer {
 
         // Left out of the accessibility tree: the text view carries the placeholder as its name.
         let placeholder = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
-        gtk_widget_add_css_class(placeholder, "dim-label")
+        Gtk.Widget(placeholder).setCSSClass("dim-label", true)
         gtk_widget_set_halign(placeholder, GTK_ALIGN_START)
         gtk_widget_set_valign(placeholder, GTK_ALIGN_START)
         gtk_widget_set_margin_start(placeholder, 6)
@@ -101,13 +101,13 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         // count, not the text: no copy of a long text per keystroke.)
         connectSignal(UnsafeMutableRawPointer(buffer), "changed", .instanceOnly) {
             let hasPlaceholder = gtk_label_get_text(opaque(placeholder)).map { $0.pointee != 0 } ?? false
-            gtk_widget_set_visible(placeholder, hasPlaceholder && gtk_text_buffer_get_char_count(buffer) == 0 ? 1 : 0)
+            Gtk.Widget(placeholder).isVisible = hasPlaceholder && gtk_text_buffer_get_char_count(buffer) == 0
         }
         return overlay
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let view = accessibleWidgetIfAny(widget), let placeholder = gtk_widget_get_last_child(widget) else { return }
+        guard let view = accessibleWidgetIfAny(widget), let placeholder = Gtk.Widget(widget).lastChild?.pointer else { return }
         let props = Props(node.properties)
         let buffer = gtk_text_view_get_buffer(typed(view))!
         let text = TextEditor.initialValue(node.model) as? String ?? ""
@@ -121,13 +121,8 @@ extension TextEditor: ActionUIAdwaitaRenderer {
             gtk_text_view_set_editable(typed(view), editable)
         }
         let placeholderText = props.placeholder ?? ""
-        if swiftString(gtk_label_get_text(opaque(placeholder))) != placeholderText {
-            gtk_label_set_text(opaque(placeholder), placeholderText)
-        }
-        let showsPlaceholder: gboolean = !placeholderText.isEmpty && text.isEmpty ? 1 : 0
-        if gtk_widget_get_visible(placeholder) != showsPlaceholder {
-            gtk_widget_set_visible(placeholder, showsPlaceholder)
-        }
+        Gtk.Label(placeholder).text = placeholderText
+        Gtk.Widget(placeholder).isVisible = !placeholderText.isEmpty && text.isEmpty
         if props.markdown != nil, !reportedMarkdown {
             reportedMarkdown = true
             ActionUIModel.shared.logger.log("TextEditor: markdown is shown as its source text on Linux for now", .warning)

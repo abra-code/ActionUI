@@ -20,7 +20,7 @@ extension Section: ActionUIAdwaitaRenderer {
         let widget = Group.makeWidget(node)
         let header = gtk_label_new(nil)!
         gtk_label_set_xalign(opaque(header), 0)
-        gtk_widget_set_visible(header, 0)
+        Gtk.Widget(header).isVisible = false
         let box = ModifierBox.wrap(header)
         attach(GroupChildBoxMarker(), to: box, key: groupChildBoxMarkerKey)
         gtk_widget_set_parent(box, widget)
@@ -28,16 +28,11 @@ extension Section: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let box = gtk_widget_get_first_child(widget), let content = ModifierBox.content(of: box),
-              let header = gtk_widget_get_first_child(content) else { return }
+        guard let box = Gtk.Widget(widget).firstChild?.pointer, let content = ModifierBox.content(of: box),
+              let header = Gtk.Widget(content).firstChild?.pointer else { return }
         let text = Props(node.properties).header ?? ""
-        if swiftString(gtk_label_get_text(opaque(header))) != text {
-            gtk_label_set_text(opaque(header), text)
-        }
-        let showsHeader: gboolean = text.isEmpty ? 0 : 1
-        if gtk_widget_get_visible(header) != showsHeader {
-            gtk_widget_set_visible(header, showsHeader)
-        }
+        Gtk.Label(header).text = text
+        Gtk.Widget(header).isVisible = !text.isEmpty
         ModifierBox.applyBoxModifiers(box, BaseModifiers(node.properties))
         Group.syncChildBoxes(widget, node, after: box)
         if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {

@@ -49,7 +49,7 @@ extension Toggle: ActionUIAdwaitaRenderer {
             let check = gtk_check_button_new()!
             connectUserSignal(check, "toggled", .instanceOnly) { [weak node] in
                 guard let node else { return }
-                userToggled(node, on: gtk_check_button_get_active(typed(check)) != 0)
+                userToggled(node, on: Gtk.CheckButton(check).isActive)
             }
             return check
         case .switch:
@@ -90,20 +90,13 @@ extension Toggle: ActionUIAdwaitaRenderer {
             if swiftString(gtk_check_button_get_label(check)) != label {
                 gtk_check_button_set_label(check, label)
             }
-            if (gtk_check_button_get_active(check) != 0) != on {
-                gtk_check_button_set_active(check, on ? 1 : 0)
-            }
+            Gtk.CheckButton(widget).isActive = on
         case .switch:
-            guard let title = gtk_widget_get_first_child(widget) else { return }
+            guard let title = Gtk.Widget(widget).firstChild?.pointer else { return }
             let toggle = OpaquePointer(accessibleWidget(widget))
-            if swiftString(gtk_label_get_text(opaque(title))) != props.title {
-                gtk_label_set_text(opaque(title), props.title)
-            }
+            Gtk.Label(title).text = props.title
             // An empty title stays, 0 wide, keeping its gap (measured; a column of 0 in a Form).
-            let visible: gboolean = node.environment.labelsHidden ? 0 : 1
-            if gtk_widget_get_visible(title) != visible {
-                gtk_widget_set_visible(title, visible)
-            }
+            Gtk.Widget(title).isVisible = !node.environment.labelsHidden
             if (gtk_switch_get_active(toggle) != 0) != on {
                 gtk_switch_set_active(toggle, on ? 1 : 0)
             }
@@ -123,7 +116,7 @@ extension Toggle: ActionUIAdwaitaRenderer {
     /// the title); the widget itself for the other styles.
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
         let isBox = g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_box_get_type()) != 0
-        return isBox ? gtk_widget_get_last_child(widget) ?? widget : widget
+        return isBox ? Gtk.Widget(widget).lastChild?.pointer ?? widget : widget
     }
 
     /// Named after its title, also when labelsHidden hides it, as in SwiftUI.

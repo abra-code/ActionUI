@@ -29,7 +29,7 @@ extension Stepper: ActionUIAdwaitaRenderer {
         gtk_label_set_xalign(opaque(label), 0)
         gtk_box_append(typed(box), label)
         let buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0)!
-        gtk_widget_add_css_class(buttons, "linked")
+        Gtk.Widget(buttons).setCSSClass("linked", true)
         gtk_widget_set_valign(buttons, GTK_ALIGN_CENTER)
         for (icon, name, direction) in [("list-remove-symbolic", "Decrement", -1.0), ("list-add-symbolic", "Increment", 1.0)] {
             let button = gtk_button_new_from_icon_name(icon)!
@@ -50,26 +50,15 @@ extension Stepper: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
-        guard let label = gtk_widget_get_first_child(widget), let buttons = gtk_widget_get_last_child(widget),
-              let minus = gtk_widget_get_first_child(buttons), let plus = gtk_widget_get_last_child(buttons) else { return }
+        guard let label = Gtk.Widget(widget).firstChild?.pointer, let buttons = Gtk.Widget(widget).lastChild?.pointer,
+              let minus = Gtk.Widget(buttons).firstChild?.pointer, let plus = Gtk.Widget(buttons).lastChild?.pointer else { return }
         let props = Props(node.properties)
         let value = Stepper.initialValue(node.model) as? Double ?? props.initialValue
         let text = labelText(props, value: value)
-        if swiftString(gtk_label_get_text(opaque(label))) != text {
-            gtk_label_set_text(opaque(label), text)
-        }
-        let showsLabel: gboolean = node.environment.labelsHidden ? 0 : 1
-        if gtk_widget_get_visible(label) != showsLabel {
-            gtk_widget_set_visible(label, showsLabel)
-        }
-        let canDecrement: gboolean = props.range.map { value > $0.lowerBound } ?? true ? 1 : 0
-        let canIncrement: gboolean = props.range.map { value < $0.upperBound } ?? true ? 1 : 0
-        if gtk_widget_get_sensitive(minus) != canDecrement {
-            gtk_widget_set_sensitive(minus, canDecrement)
-        }
-        if gtk_widget_get_sensitive(plus) != canIncrement {
-            gtk_widget_set_sensitive(plus, canIncrement)
-        }
+        Gtk.Label(label).text = text
+        Gtk.Widget(label).isVisible = !node.environment.labelsHidden
+        Gtk.Widget(minus).isSensitive = props.range.map { value > $0.lowerBound } ?? true
+        Gtk.Widget(plus).isSensitive = props.range.map { value < $0.upperBound } ?? true
     }
 
     /// Named after the label it shows, also when labelsHidden hides it.
