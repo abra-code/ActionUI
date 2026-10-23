@@ -9,6 +9,7 @@ ActionUI promises that one document lays out the same on every platform. These f
 
 - Apple: `ActionUITests/Views/LayoutParityTests.swift` renders each fixture with the SwiftUI renderer, draws it into a bitmap and reads each Color's frame from its pixels. It checks the frames against `expected/`.
 - Linux (GTK): `ActionUIAdwaita/Tests/Layout/LayoutParityTests.swift` lays out each fixture with the GTK renderer and checks the same frames. A fixture GTK does not match yet is listed there with the reason.
+- Web: `ActionUITests/Views/WebLayoutParityTests.swift` (on a Mac) renders each fixture with ActionUIWeb in a WKWebView, which loads the web renderer's own files with no server, and reads each Color's frame from the pixels of a snapshot. A fixture the web renderer does not match yet is listed there with its causes.
 
 Frames may differ by up to 1 point: SwiftUI places views at fractions of a point, and GTK places them at whole pixels.
 
