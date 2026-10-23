@@ -94,11 +94,15 @@ final class ContentUnavailableViewRendererTests: XCTestCase {
         gtk_widget_allocate(node.outerWidget, 2000, 200, -1, nil)
         let box = try XCTUnwrap(adw_clamp_get_child(OpaquePointer(node.widget)))
         var bounds = graphene_rect_t()
-        _ = gtk_widget_compute_bounds(box, node.widget, &bounds)
+        _ = gtk_widget_compute_bounds(box, node.outerWidget, &bounds)
         // The box's bounds leave out its margins.
         let margin = Int(ContentUnavailableView.margin)
         XCTAssertEqual(Int(bounds.size.width), 400 - 2 * margin, "the content's width, margins left out")
         XCTAssertEqual(Int(bounds.origin.x), 800 + margin, "centered in the extra space")
+        // A background would be 400 wide too: the painted content group stops at the view.
+        let content = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        _ = gtk_widget_compute_bounds(content, node.outerWidget, &bounds)
+        XCTAssertEqual([Int(bounds.origin.x), Int(bounds.size.width)], [800, 400], "the content group")
     }
 
     func testNarrowWidthBreaksInsideAWord() throws {

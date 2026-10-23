@@ -24,7 +24,10 @@
    no input or focus, but it is laid out.
  - A box given more than its frame takes (the window's root, a filling GTK parent) centers the
    frame in the extra space, as SwiftUI's parent would; the content never gets that space, and
-   the background fills only the frame.
+   the background fills only the frame. Without a size or maximum of its own, the frame of content
+   that expands only so far (LayoutCaps) stops at that cap, and an element in a bigger frame stops
+   at its own cap and is aligned in it, as SwiftUI's views stop at their size. A cap LayoutCaps
+   measured without the width is not applied where text wraps at that width (trustedCap).
  - disabled makes the element's widget insensitive, which GTK passes on to its descendants.
  - offset, rotation and scale move what is drawn, not the layout, as in SwiftUI: offset first,
    then rotation around the center, then scale around its anchor.
@@ -572,13 +575,34 @@ enum ModifierBox {
     }
 
     /// The frame's size in one axis when the box is `boxSize`: what the frame takes of it (a
-    /// parent may give more than the frame asked for).
-    private static func frameSize(_ content: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation,
-                                  boxSize: Int, forSize: Int = -1) -> Int {
+    /// parent may give more than the frame asked for). Without a size or maximum of its own, a
+    /// frame of content that expands only so far (a VStack of capped children, a
+    /// ContentUnavailableView) stops at the box's cap, as SwiftUI's view stops at its own size, so
+    /// the background, border and shadow stop there too and the frame is centered in the rest.
+    private static func frameSize(_ box: WidgetPointer, _ content: WidgetPointer, _ layout: BoxLayout,
+                                  _ orientation: GtkOrientation, boxSize: Int, forSize: Int = -1) -> Int {
         let measured = measureChild(content, orientation, forSize: forSize)
-        return layout.frame(orientation).size(in: boxSize, contentMinimum: measured.minimum,
-                                              contentNatural: measured.natural,
-                                              contentExpands: gtk_widget_compute_expand(content, orientation) != 0)
+        let frame = layout.frame(orientation)
+        let expands = gtk_widget_compute_expand(content, orientation) != 0
+        let size = frame.size(in: boxSize, contentMinimum: measured.minimum, contentNatural: measured.natural,
+                              contentExpands: expands)
+        guard expands, frame.fixed == nil, frame.maximum == nil,
+              let cap = trustedCap(of: box, for: content, orientation, natural: measured.natural, forSize: forSize) else {
+            return size
+        }
+        return max(min(size, cap), frame.minimumSize(content: measured.minimum))
+    }
+
+    /// `widget`'s cap (LayoutCaps.cap) for sizing `child`, measured `natural` for `forSize` in the
+    /// other axis: nil, as for unbounded content, when the child's natural size differs from its
+    /// size measured for none. LayoutCaps measures without a size in the other axis, so its cap of
+    /// a stack holding text that wraps at this width is short by the extra lines, and clamping to
+    /// it would squeeze the stack's other children; such content takes the space, as before.
+    private static func trustedCap(of widget: WidgetPointer, for child: WidgetPointer, _ orientation: GtkOrientation,
+                                   natural: Int, forSize: Int) -> Int? {
+        guard let cap = LayoutCaps.cap(widget, orientation) else { return nil }
+        if forSize >= 0, measureChild(child, orientation, forSize: -1).natural != natural { return nil }
+        return cap
     }
 
     static func measureBox(_ box: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
@@ -587,7 +611,7 @@ enum ModifierBox {
         // Height for width: the content group's height at the frame's width in a box that wide.
         var contentForSize = -1
         if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
-            contentForSize = frameSize(content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: forSize)
+            contentForSize = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: forSize)
         }
         let measured = measureChild(content, orientation, forSize: contentForSize)
         let frame = layout.frame(orientation)
@@ -598,8 +622,8 @@ enum ModifierBox {
     static func allocateBox(_ box: WidgetPointer, width: Int, height: Int) {
         guard let content = layoutChildren(box).first else { return }
         let layout = layout(ofBox: box)
-        let frameWidth = frameSize(content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
-        let frameHeight = frameSize(content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
+        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
+        let frameHeight = frameSize(box, content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
         // The frame is centered in a box bigger than it, as SwiftUI's parent centers it.
         var origin = graphene_point_t(x: Float(StackSolver.centeredStart(length: frameWidth, available: width)),
                                       y: Float(StackSolver.centeredStart(length: frameHeight, available: height)))
@@ -636,13 +660,15 @@ enum ModifierBox {
     }
 
     /// The element's size in one axis in a content group of `size`: offered the size less the
-    /// padding, clamped to its own range.
+    /// padding, clamped to its own range, up to its cap when it expands (a frame bigger than a
+    /// capped VStack centers the VStack, as SwiftUI's frame does, rather than widening it).
     private static func elementSize(_ element: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation,
                                     size: Int, forSize: Int = -1) -> Int {
         let measured = measureChild(element, orientation, forSize: forSize)
+        let expands = gtk_widget_compute_expand(element, orientation) != 0
+        let cap = expands ? trustedCap(of: element, for: element, orientation, natural: measured.natural, forSize: forSize) : nil
         return FrameSolver.contentSize(in: size, padding: layout.padding(orientation), minimum: measured.minimum,
-                                       natural: measured.natural,
-                                       expands: gtk_widget_compute_expand(element, orientation) != 0)
+                                       natural: measured.natural, expands: expands, cap: cap)
     }
 
     static func measureContent(_ content: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {

@@ -119,11 +119,12 @@ enum FrameSolver {
     static let systemPadding = 16
 
     /// The content's size in a frame (or box) of `size`: offered the size less the padding, it
-    /// takes that clamped to its own range ([minimum, natural], or [minimum, unbounded] when it
-    /// expands), so it may be smaller than the space or overflow it.
-    static func contentSize(in size: Int, padding: PaddingAxis, minimum: Int, natural: Int, expands: Bool) -> Int {
+    /// takes that clamped to its own range ([minimum, natural], or [minimum, cap] when it expands,
+    /// the cap nil for unbounded), so it may be smaller than the space or overflow it.
+    static func contentSize(in size: Int, padding: PaddingAxis, minimum: Int, natural: Int, expands: Bool,
+                            cap: Int? = nil) -> Int {
         let offered = size - padding.total
-        let upper = expands ? offered : min(offered, natural)
+        let upper = expands ? min(offered, cap ?? offered) : min(offered, natural)
         return max(minimum, upper)
     }
 }

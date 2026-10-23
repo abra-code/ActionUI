@@ -161,6 +161,42 @@ final class ModifierBoxTests: XCTestCase {
         XCTAssertEqual(frame(maximum.widget, in: maximum.outerWidget), [100, 0, 10, 10])
     }
 
+    func testDecorationStopsAtTheCapOfWhatABoxHolds() throws {
+        // SwiftUI: a VStack holding a child framed to maxWidth 200 is 200 wide however much its
+        // parent offers, so its background is too; the window's root gives its box 1000 here.
+        let child = block(2, 10, 10, #""frame": {"maxWidth": 200}"#, fill: "h")
+        let node = try render(#"{"type": "VStack", "id": 1, "properties": {"background": "red"}, "children": [\#(child)]}"#)
+        gtk_widget_allocate(node.outerWidget, 1000, 100, -1, nil)
+        let content = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        XCTAssertEqual(frame(content, in: node.outerWidget), [400, 45, 200, 10], "the painted group, centered")
+        XCTAssertEqual(frame(node.widget, in: node.outerWidget), [400, 45, 200, 10])
+    }
+
+    func testAFrameWiderThanACappedElementCentersIt() throws {
+        // SwiftUI: frame(maxWidth: .infinity) around that VStack takes the width (its background
+        // too), and the VStack in it stays 200, centered; leading alignment inside the VStack
+        // does not move it.
+        let child = block(2, 10, 10, #""frame": {"maxWidth": 200}"#, fill: "h")
+        let node = try render(#"{"type": "VStack", "id": 1, "properties": {"alignment": "leading", "background": "red", "frame": {"maxWidth": "infinity"}}, "children": [\#(child)]}"#)
+        gtk_widget_allocate(node.outerWidget, 1000, 100, -1, nil)
+        let content = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        XCTAssertEqual(frame(content, in: node.outerWidget), [0, 45, 1000, 10])
+        XCTAssertEqual(frame(node.widget, in: node.outerWidget), [400, 45, 200, 10])
+    }
+
+    func testWrappedTextKeepsACappedSiblingAtItsCap() throws {
+        // LayoutCaps measures heights without a width, so its cap of a VStack holding text that
+        // wraps at 150 is a line of text plus 50, short of the stack's real height: clamped to it,
+        // the stack would have no room left for the Color. Such a stack takes the frame instead.
+        let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
+        let node = try render(##"{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 150, "height": 800}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}]}"##)
+        gtk_widget_allocate(node.outerWidget, 150, 800, -1, nil)
+        let text = try XCTUnwrap(node.childNodes.values.first { $0.element.id == 2 })
+        let color = try XCTUnwrap(node.childNodes.values.first { $0.element.id == 3 })
+        XCTAssertGreaterThan(frame(text.widget, in: node.outerWidget)[3], 100, "the text wraps to many lines")
+        XCTAssertEqual(frame(color.widget, in: node.outerWidget)[3], 50, "the Color keeps its cap under the text")
+    }
+
     func testDisabledOpacityAndHelp() throws {
         let node = try render(block(1, 10, 10, #""disabled": true, "opacity": 0.5, "help": "A tip""#))
         XCTAssertEqual(gtk_widget_get_sensitive(node.widget), 0)
