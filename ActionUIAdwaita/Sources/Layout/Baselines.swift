@@ -15,7 +15,8 @@
  (StackLayout.placements, ZStackLayout.placements, ModifierBox.contentFrame and elementFrame), so an
  HStack can find its children's baselines before it places them. A GTK widget of its own (a label,
  an entry) gives the baseline GTK measures for it at that width, moved down by half of any height
- it gets beyond what it asked for, as GTK centers its text then.
+ it gets beyond what it asked for, as GTK centers its text then (by none or all of it when it is
+ aligned to its top or bottom).
 
  Only the first baseline: GTK reports one per widget, so a stack aligned on lastTextBaseline uses it
  too, which differs from SwiftUI only for text of more than one line.
@@ -82,8 +83,9 @@ enum Baselines {
             }
         } else if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_box_get_type()) != 0,
                   gtk_orientable_get_orientation(OpaquePointer(widget)) == GTK_ORIENTATION_HORIZONTAL {
-            // Each part at the box's full height: the controls' parts fill it or are centered in
-            // it, which the leaf rule below models; a part aligned to the start or end would not be.
+            // Each part at the box's full height: the controls' parts fill it, are centered in it,
+            // or are aligned to its top or bottom (a radio group's title), which the leaf rule
+            // below models.
             var baselines: [Int] = []
             var child = gtk_widget_get_first_child(widget)
             while let part = child {
@@ -106,7 +108,15 @@ enum Baselines {
             gtk_widget_measure(widget, GTK_ORIENTATION_VERTICAL, Int32(clamping: width), &minimum, &natural,
                                &minimumBaseline, &naturalBaseline)
             guard naturalBaseline >= 0 else { return nil }
-            return Int(naturalBaseline) + max(height - Int(natural), 0) / 2
+            // Given more height than it asked for, a widget aligned to its top keeps its baseline; one
+            // aligned to its bottom moves down by all of it; a filling or centered one by half, as GTK
+            // centers its text.
+            let extra = max(height - Int(natural), 0)
+            switch gtk_widget_get_valign(widget) {
+            case GTK_ALIGN_START: return Int(naturalBaseline)
+            case GTK_ALIGN_END: return Int(naturalBaseline) + extra
+            default: return Int(naturalBaseline) + extra / 2
+            }
         }
         return zip(children, places).compactMap { child, place in
             first(child, width: place.width, height: place.height).map { place.y + $0 }
