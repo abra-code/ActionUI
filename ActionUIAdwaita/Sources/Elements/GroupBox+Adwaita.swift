@@ -2,8 +2,8 @@
 /*
  GroupBox on GTK: its children in a libadwaita card, under its title when it has one, as macOS
  puts a GroupBox's title above its box. Measured on macOS 27 (the layout parity fixtures): the
- content is inset 5 points on every side, the children are centered and 8 points apart (where a
- VStack of the same views puts none), and the box is as large as its children unless one of them
+ content is inset 5 points on every side, the children are centered and 8 points apart, none next
+ to a Spacer (where a VStack of the same views puts none at all), and the box is as large as its children unless one of them
  fills. A title puts the box 17 points lower; here the title label and a 4 px gap do.
 
  The element widget is a group for assistive technologies, named after the title, which is read once
@@ -25,8 +25,6 @@ let groupBoxMarkerKey = "actionui-groupbox"
 extension GroupBox: ActionUIAdwaitaRenderer {
     /// The content's inset on every side, measured on macOS 27.
     static let contentPadding = 5
-    /// The spacing between children, measured on macOS 27.
-    static let childSpacing = 8.0
     /// The gap between the title and the box.
     static let titleSpacing: Int32 = 4
 
@@ -40,7 +38,9 @@ extension GroupBox: ActionUIAdwaitaRenderer {
         let content = StackLayout.makeStack(axis: .vertical)
         gtk_widget_add_css_class(content, "card")
         StyleSheet.shared.apply(["padding: \(contentPadding)px;"], to: content, slot: "groupBoxPadding")
-        StackLayout.configure(content, spacing: childSpacing, alignment: .center)
+        // SwiftUI's default spacing: 8 points between the children, none next to a Spacer (measured
+        // on macOS 27).
+        StackLayout.configure(content, spacing: nil, alignment: .center)
         gtk_box_append(typed(group), content)
         attach(GroupBoxMarker(), to: group, key: groupBoxMarkerKey)
         return group

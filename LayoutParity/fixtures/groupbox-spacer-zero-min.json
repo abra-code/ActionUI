@@ -1,0 +1,7 @@
+{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 300, "height": 200, "alignment": "top"}}, "children": [
+  {"type": "GroupBox", "id": 2, "properties": {"frame": {"height": 70}}, "children": [
+    {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"width": 30, "height": 20}}},
+    {"type": "Spacer", "id": 4, "properties": {"minLength": 0}},
+    {"type": "Color", "id": 5, "properties": {"color": "#0000FF", "frame": {"width": 40, "height": 20}}},
+    {"type": "Color", "id": 6, "properties": {"color": "#00FF00", "frame": {"width": 20, "height": 10}}}]}
+]}
