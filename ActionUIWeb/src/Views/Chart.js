@@ -42,7 +42,7 @@ register("Chart", {
         // The look only: a chart is not held to ContentUnavailableView's 400 width.
         node.classList.remove("aui-cap-width");
         node.style.maxWidth = "";
-        delete node.auiWidthCap;
+        delete node.auiExtent;
         if (element.id > 0) {
             let value = "";
             let rows = [];

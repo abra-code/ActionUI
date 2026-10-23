@@ -51,7 +51,7 @@ register("GroupBox", {
         buildFlatChildren(card, element, ctx);
         // The card expands where its children do; the GroupBox then expands where the card does
         // (buildElementView marks the GroupBox itself).
-        markExpansion(card);
+        markExpansion(card, { w: 10, h: 10 }); // the card's padding, 5 on each side
         node.appendChild(card);
         return node;
     },

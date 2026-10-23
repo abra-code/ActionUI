@@ -9,6 +9,7 @@
 //   FLAT  — an ordered list of child element nodes (stacks, Form, Section, List).
 //   ROWS  — a 2-D grid of cells laid out by explicit grid-row/column (Grid).
 
+import { refreshExpansion } from "../Common/ModifierResolver.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 
 // A flat-container binding over `mount`, whose tracked children are direct DOM
@@ -36,12 +37,14 @@ export function flatContainerBinding(mount, initialSlots, options = {}) {
             const ref = slots[index]?.dom ?? null; // null => append to end of mount
             mount.insertBefore(dom, ref);
             slots.splice(index, 0, { id, dom });
+            refreshExpansion(mount);
         },
         remove(id) {
             const i = slots.findIndex((slot) => slot.id === id);
             if (i < 0) return false;
             slots[i].dom.remove();
             slots.splice(i, 1);
+            refreshExpansion(mount);
             return true;
         },
     };

@@ -429,19 +429,57 @@ export function finishFrameBox(box, content, node, properties) {
     const [greedyWidth, greedyHeight] = greedyAxes(node.dataset?.auiType, properties);
     if (greedyWidth) content.classList.add("aui-expands-w");
     if (greedyHeight) content.classList.add("aui-expands-h");
-    const [expandsWidth, expandsHeight] = expansionOf(content, null);
-    // An element with a width cap of its own (ContentUnavailableView, 400): the box stops at it
-    // plus the padding, at least the frame's minimum, as SwiftUI's frame and padding do.
-    const widthCap = typeof node.auiWidthCap === "number" && frame.width === undefined && frame.maxWidth === undefined
-        ? Math.max(node.auiWidthCap + horizontalPadding(properties.padding), typeof frame.minWidth === "number" ? frame.minWidth : 0)
-        : null;
-    if (widthCap !== null) {
-        box.classList.add("aui-cap-width");
-        box.style.maxWidth = `min(${widthCap}px, 100%)`;
-    } else if (expandsWidth && frame.width === undefined && frame.maxWidth === undefined) box.classList.add("aui-expands-w");
-    if (expandsHeight && frame.height === undefined && frame.maxHeight === undefined) box.classList.add("aui-expands-h");
+    box.auiBoxPass = { content, properties };
+    markBoxExtent(box);
     box.appendChild(content);
     return box;
+}
+
+// The frame box's expansion and extent from its frame and its content (finishFrameBox); run
+// again after a child of the content is inserted or removed (refreshExpansion).
+function markBoxExtent(box) {
+    const { content, properties } = box.auiBoxPass;
+    beginPass(box);
+    const frame = typeof properties.frame === "object" && properties.frame !== null ? properties.frame : {};
+    const [expandsWidth, expandsHeight] = expansionOf(content, null);
+    // The box's extent per axis, as SwiftUI's frame and padding give it: the frame's own size or
+    // cap where it sets one; else the content's cap or fixed size plus the padding, at least the
+    // frame's minimum; else it expands where the content does.
+    // A negative side makes CSS drop the whole padding declaration, so none is drawn.
+    const pad = paddingIsDrawn(properties.padding)
+        ? { w: horizontalPadding(properties.padding), h: verticalPadding(properties.padding) }
+        : { w: 0, h: 0 };
+    for (const a of ["w", "h"]) {
+        const fixed = a === "w" ? frame.width : frame.height;
+        const maximum = a === "w" ? frame.maxWidth : frame.maxHeight;
+        const minimum = a === "w" ? frame.minWidth : frame.minHeight;
+        if (typeof fixed === "number") {
+            box.auiExtent = { ...(box.auiExtent ?? {}), [a]: { kind: "fixed", value: fixed } };
+            continue;
+        }
+        if (typeof maximum === "number") {
+            box.auiExtent = { ...(box.auiExtent ?? {}), [a]: { kind: "cap", value: Math.max(maximum, typeof minimum === "number" ? minimum : 0) } };
+            continue;
+        }
+        if (maximum !== undefined) continue; // infinity: the fill class
+        const expands = a === "w" ? expandsWidth : expandsHeight;
+        const ideal = a === "w" ? frame.idealWidth : frame.idealHeight;
+        if (typeof ideal === "number") {
+            // The ideal is the box's CSS size (applyFrame), not the content's: no extent is
+            // recorded, and the box expands where the content does.
+            if (expands) markClass(box, a === "w" ? "aui-expands-w" : "aui-expands-h");
+            continue;
+        }
+        const known = content.auiExtent?.[a];
+        const floor = typeof minimum === "number" ? minimum : 0;
+        if (expands && known?.kind === "cap") {
+            setExtent(box, a, "cap", Math.max(known.value + pad[a], floor));
+        } else if (expands) {
+            markClass(box, a === "w" ? "aui-expands-w" : "aui-expands-h");
+        } else if (known?.kind === "fixed" && typeof minimum !== "number") {
+            box.auiExtent = { ...(box.auiExtent ?? {}), [a]: { kind: "fixed", value: known.value + pad[a] } };
+        }
+    }
 }
 
 // The element types that fill the space they are offered in SwiftUI, in both axes or in width
@@ -496,19 +534,128 @@ function expansionOf(child, parentAxis) {
 
 // A stack or ZStack expands in an axis when one of its children does, as in SwiftUI (a VStack
 // holding a Color fills what it is offered): marked with aui-expands-w / aui-expands-h, which
-// the parent stack and the frame box read. Called once the container's children are built.
-export function markExpansion(node) {
-    if (!node.classList.contains("aui-stack") && !node.classList.contains("aui-zstack")) return;
-    const axis = node.dataset.auiAxis ?? null;
+// the parent stack and the frame box read. Where every child's extent in an axis is known (a
+// fixed size, or a cap such as a frame's maxWidth or ContentUnavailableView's 400), the
+// container's own extent follows, as SwiftUI's stacks compute it: the sum along the stack plus
+// its spacing, the largest across it. Then an expanding container is capped there (aui-cap-*
+// and a max size, as a frame's maxWidth is) instead of expanding without limit, and a container
+// that does not expand records its fixed size for its own parent. `inset` adds a container's
+// own CSS padding (a GroupBox card's 5 on each side). Called once the children are built.
+export function markExpansion(node, inset = { w: 0, h: 0 }) {
+    const zstack = node.classList.contains("aui-zstack");
+    if (!node.classList.contains("aui-stack") && !zstack) return;
+    beginPass(node);
+    node.auiPass = { inset };
+    const axis = zstack ? null : (node.dataset.auiAxis ?? null);
+    const children = layoutChildren(node);
     let width = false;
     let height = false;
-    for (const child of node.children) {
+    for (const child of children) {
         const [childWidth, childHeight] = expansionOf(child, axis);
         width ||= childWidth;
         height ||= childHeight;
     }
-    if (width) node.classList.add("aui-expands-w");
-    if (height) node.classList.add("aui-expands-h");
+    const along = (a) => (a === "w" ? axis === StackAxis.Horizontal : axis === StackAxis.Vertical);
+    // A container that fills an axis by type (a Form, a LazyVStack) is not held to its children.
+    const [greedyWidth, greedyHeight] = greedyAxes(node.dataset?.auiType, {});
+    for (const [a, expands] of [["w", width], ["h", height]]) {
+        const extents = children.map((child) => extentOf(child, a, axis));
+        const greedy = a === "w" ? greedyWidth : greedyHeight;
+        if (greedy || extents.some((e) => e.kind === "unknown" || e.kind === "unbounded")) {
+            if (expands) markClass(node, a === "w" ? "aui-expands-w" : "aui-expands-h");
+            continue;
+        }
+        const values = extents.map((e) => e.value);
+        let total;
+        if (along(a)) {
+            const shown = children.filter((child) => !child.classList.contains("aui-empty")).length;
+            total = values.reduce((sum, value) => sum + value, 0) + Math.max(shown - 1, 0) * stackSpacing(node);
+        } else {
+            total = values.reduce((most, value) => Math.max(most, value), 0);
+        }
+        total += inset[a];
+        setExtent(node, a, expands ? "cap" : "fixed", total);
+    }
+}
+
+// A stack's children as its layout sees them: a Group's children (display: contents) in its place.
+function layoutChildren(node) {
+    const result = [];
+    for (const child of node.children) {
+        if (child.classList?.contains("aui-group")) {
+            result.push(...layoutChildren(child));
+        } else {
+            result.push(child);
+        }
+    }
+    return result;
+}
+
+// The spacing between a stack's shown children: its inline gap, or 8 for SwiftUI's default
+// (aui-default-spacing; no Spacer is among them when this is asked, a Spacer being unbounded).
+function stackSpacing(node) {
+    if (node.classList.contains("aui-default-spacing")) return 8;
+    const gap = parseFloat(node.style.gap);
+    return Number.isFinite(gap) ? gap : 0;
+}
+
+// A child's extent in axis `a` ("w" or "h") inside a parent laid out along `parentAxis`: a fixed
+// size, a cap (it expands up to it), unbounded (it expands without one) or unknown (its content
+// decides, as a Text's does).
+function extentOf(child, a, parentAxis) {
+    const c = child.classList;
+    if (c?.contains("aui-empty")) return { kind: "fixed", value: 0 };
+    const alongParent = a === "w" ? parentAxis === StackAxis.Horizontal : parentAxis === StackAxis.Vertical;
+    if (c?.contains("aui-spacer")) return alongParent ? { kind: "unbounded" } : { kind: "fixed", value: 0 };
+    const [expandsWidth, expandsHeight] = expansionOf(child, parentAxis);
+    const known = child.auiExtent?.[a];
+    if (a === "w" ? expandsWidth : expandsHeight) {
+        return known?.kind === "cap" ? known : { kind: "unbounded" };
+    }
+    return known?.kind === "fixed" ? known : { kind: "unknown" };
+}
+
+// Records a node's extent in axis `a` and, for a cap, makes it expand only up to it.
+function setExtent(node, a, kind, value) {
+    node.auiExtent = { ...(node.auiExtent ?? {}), [a]: { kind, value } };
+    if (kind !== "cap") return;
+    markClass(node, a === "w" ? "aui-cap-width" : "aui-cap-height");
+    if (a === "w") {
+        node.style.maxWidth = `min(${value}px, 100%)`;
+        node.auiMarks.maxWidth = true;
+    } else {
+        node.style.maxHeight = `min(${value}px, 100%)`;
+        node.auiMarks.maxHeight = true;
+    }
+}
+
+// Starts an extent pass on a node: takes off what its last pass set (the classes and max sizes
+// recorded in auiMarks, never a frame's own) and forgets its extent.
+function beginPass(node) {
+    const marks = node.auiMarks;
+    if (marks) {
+        for (const name of marks.classes) node.classList.remove(name);
+        if (marks.maxWidth) node.style.maxWidth = "";
+        if (marks.maxHeight) node.style.maxHeight = "";
+    }
+    node.auiMarks = { classes: [], maxWidth: false, maxHeight: false };
+    node.auiExtent = undefined;
+}
+
+// Adds a class an extent pass decided, so the next pass can take it off.
+function markClass(node, name) {
+    node.classList.add(name);
+    node.auiMarks.classes.push(name);
+}
+
+// After a child is inserted into or removed from `container` at run time: its extent pass runs
+// again, and each ancestor's, stack or frame box, up the tree, as the marks made at build time
+// no longer hold (a Text inserted beside a capped Color makes its stack unbounded again).
+export function refreshExpansion(container) {
+    for (let node = container; node && node.nodeType === 1; node = node.parentNode) {
+        if (node.auiPass) markExpansion(node, node.auiPass.inset);
+        if (node.auiBoxPass) markBoxExtent(node);
+    }
 }
 
 // The leading plus trailing padding of a padding property, in points.
@@ -517,6 +664,26 @@ function horizontalPadding(padding) {
     if (padding === "default") return 2 * DEFAULT_PADDING;
     if (typeof padding === "object" && padding !== null) {
         return (Number(padding.leading) || 0) + (Number(padding.trailing) || 0);
+    }
+    return 0;
+}
+
+// False when a side of a padding property is negative: CSS drops the whole padding declaration
+// applyPadding writes, so the box draws none of it.
+function paddingIsDrawn(padding) {
+    if (typeof padding === "number") return padding >= 0;
+    if (typeof padding === "object" && padding !== null) {
+        return !Object.values(padding).some((side) => Number(side) < 0);
+    }
+    return true;
+}
+
+// The top plus bottom padding of a padding property, in points.
+function verticalPadding(padding) {
+    if (typeof padding === "number") return 2 * padding;
+    if (padding === "default") return 2 * DEFAULT_PADDING;
+    if (typeof padding === "object" && padding !== null) {
+        return (Number(padding.top) || 0) + (Number(padding.bottom) || 0);
     }
     return 0;
 }

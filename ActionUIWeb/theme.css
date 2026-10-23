@@ -173,7 +173,8 @@
 .aui-frame-box > .aui-shape { place-self: stretch; }
 /* A view with a width cap of its own (ContentUnavailableView) takes the box's width up to it,
    centered. */
-.aui-frame-box > .aui-cap-width { width: 100%; }
+.aui-frame-box > .aui-cap-width, .aui-zstack > .aui-cap-width { width: 100%; }
+.aui-frame-box > .aui-cap-height, .aui-zstack > .aui-cap-height { height: 100%; }
 /* A resizable image fills its frame (its <img> is 100% of the image node), so the node takes
    the box's size; a non-resizable one keeps its intrinsic size inside the stretched node. */
 .aui-frame-box > .aui-image, .aui-frame-box > .aui-async-image { place-self: stretch; }

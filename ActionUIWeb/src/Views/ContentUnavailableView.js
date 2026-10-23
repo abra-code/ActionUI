@@ -76,7 +76,7 @@ register("ContentUnavailableView", {
         // (measured on macOS 27): the cap of frame(maxWidth: 400).
         node.classList.add("aui-cap-width");
         node.style.maxWidth = "min(400px, 100%)";
-        node.auiWidthCap = 400; // a frame box around it stops at it (finishFrameBox)
+        node.auiExtent = { w: { kind: "cap", value: 400 } }; // its stack and frame box stop at it
         // (Chart.js borrows this buildView for its placeholder and takes the cap off again.)
 
         const render = (value) => {
