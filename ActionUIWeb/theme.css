@@ -125,6 +125,15 @@
    margins cancel the gap on each side it has one: none before a first child, after a last child,
    or between two Spacers. */
 .aui-hstack.aui-default-spacing { gap: 8px; }
+/* The same in a vertical stack given no spacing where SwiftUI's default applies (a GroupBox's
+   card; a VStack's own default is 0 in ActionUI). */
+.aui-vstack.aui-default-spacing { gap: 8px; }
+.aui-vstack.aui-default-spacing > .aui-spacer,
+.aui-vstack.aui-default-spacing > .aui-group > .aui-spacer { margin-block: -8px; }
+.aui-vstack.aui-default-spacing > .aui-spacer:first-child,
+.aui-vstack.aui-default-spacing > .aui-spacer + .aui-spacer,
+.aui-vstack.aui-default-spacing > .aui-group > .aui-spacer + .aui-spacer { margin-block-start: 0; }
+.aui-vstack.aui-default-spacing > .aui-spacer:last-child { margin-block-end: 0; }
 .aui-hstack.aui-default-spacing > .aui-spacer,
 .aui-hstack.aui-default-spacing > .aui-group > .aui-spacer { margin-inline: -8px; }
 .aui-hstack.aui-default-spacing > .aui-spacer:first-child,
@@ -311,17 +320,19 @@
     padding: 8px 0 4px;
 }
 
-/* GroupBox: the default SwiftUI style — a bordered rounded box with a subtle
-   fill, the title label above the content. */
-.aui-groupbox {
-    align-items: flex-start;
-    gap: 8px;
-    border: 1px solid var(--aui-control-border);
+/* GroupBox (Views/GroupBox.js): the title above a card, as macOS 27 draws it (measured). The
+   card is a fill with no outline; it insets its content 5 points on every side and centers it,
+   and keeps its children's width under a wider title (both at the leading edge) unless a child
+   fills. The title is the subheadline size, regular, inset 10 points; it and the gap take 17
+   points, an empty title too. */
+.aui-groupbox { align-items: flex-start; gap: 4px; }
+.aui-groupbox-card {
+    align-items: center;
     border-radius: 8px;
-    padding: 12px;
+    padding: 5px;
     background: color-mix(in srgb, var(--aui-color-gray) 7%, transparent);
 }
-.aui-groupbox-title { font-weight: 600; }
+.aui-groupbox-title { font-size: 11px; line-height: 13px; min-height: 13px; padding-inline-start: 10px; }
 
 /* LabeledContent: leading title, trailing content. The title flexes to push
    the children to the trailing edge (the SwiftUI label-left/content-right
@@ -337,7 +348,7 @@
 
     /* Inset-grouped Form (the iOS phone idiom): a Form renders its Sections as
        rounded, subtly-filled cards instead of a flat stack, so grouped rows read as
-       a unit - matching the GroupBox card already used alongside them. Wider gaps
+       a unit, in the same fill as a GroupBox card (with a larger inset). Wider gaps
        separate the groups. Desktop keeps the flat macOS-style stack. The section
        header sits at the card's top here; a faithful header-above-the-card layout
        would need a row wrapper in Section.js (a later refinement). A List is already

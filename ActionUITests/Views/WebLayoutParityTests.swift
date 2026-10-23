@@ -98,9 +98,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
     /// match fails the test until it is removed here. The causes, found with this test:
     /// - cap: a stack holding a capped child (maxWidth 200) is taken to expand without limit, so it fills its frame or row instead of stopping at the cap
-    /// - spacing: a GroupBox's content puts 8 points next to a Spacer (its own CSS gap)
     /// - spacer: Spacers share space with other flexible views (SwiftUI sizes them last)
-    /// - groupbox: the content inset (13 against 5) and title metrics differ
     /// - unavailable: ContentUnavailableView is not capped at 400
     /// - zstack: a capped child in a ZStack's stack is not drawn
     /// - effects: offset is not applied, and an object scaleEffect (x, y, anchor) is not either
@@ -123,12 +121,8 @@ final class WebLayoutParityTests: XCTestCase {
         "effects-offset-keeps-layout": "effects",
         "effects-offset-then-rotation": "effects",
         "effects-scale-around-anchor": "effects",
-        "groupbox-capped-hstack": "groupbox, cap",
-        "groupbox-capped-vstack": "groupbox, cap",
-        "groupbox-children": "groupbox",
-        "groupbox-fills": "groupbox",
-        "groupbox-spacer-squeezed": "groupbox, spacing",
-        "groupbox-spacer-zero-min": "groupbox, spacing",
+        "groupbox-capped-hstack": "cap",
+        "groupbox-capped-vstack": "cap",
         "hstack-larger-minimum-first": "minimum",
         "hstack-spacer-yields": "spacer",
         "labeledcontent-empty-title": "labeledcontent",
