@@ -84,14 +84,4 @@ extension Stepper: ActionUIAdwaitaRenderer {
         guard let range = props.range else { return next }
         return Swift.min(Swift.max(next, range.lowerBound), range.upperBound)
     }
-
-    /// Sets a widget's accessible name.
-    private static func setAccessibleLabel(_ widget: WidgetPointer, _ name: String) {
-        var value = GValue()
-        gtk_accessible_property_init_value(GTK_ACCESSIBLE_PROPERTY_LABEL, &value)
-        g_value_set_string(&value, name)
-        var property = GTK_ACCESSIBLE_PROPERTY_LABEL
-        gtk_accessible_update_property_value(OpaquePointer(widget), 1, &property, &value)
-        g_value_unset(&value)
-    }
 }

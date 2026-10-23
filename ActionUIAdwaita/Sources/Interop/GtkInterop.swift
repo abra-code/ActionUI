@@ -66,6 +66,38 @@ private let pressTrampoline: @convention(c) (gpointer?, gint, gdouble, gdouble, 
     MainActor.assumeIsolated { action.run() }
 }
 
+/// A key controller's "key-released" handler, given the key's value.
+@MainActor
+private final class KeyAction {
+    let run: @MainActor (guint) -> Void
+    init(_ run: @escaping @MainActor (guint) -> Void) { self.run = run }
+}
+
+/// For a key controller's "key-released": (instance, keyval, keycode, state, user data), all in
+/// integer registers.
+private let keyReleasedTrampoline: @convention(c) (gpointer?, guint, guint, guint, gpointer?) -> Void = { _, keyval, _, _, data in
+    guard let data else { return }
+    let action = Unmanaged<KeyAction>.fromOpaque(data).takeUnretainedValue()
+    MainActor.assumeIsolated { action.run(keyval) }
+}
+
+private let releaseKeyAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
+    guard let data else { return }
+    Unmanaged<KeyAction>.fromOpaque(data).release()
+}
+
+/// Connects `run` to a key controller's "key-released", with the released key's value (GDK_KEY_*).
+@MainActor @discardableResult
+func connectKeyReleased(_ controller: UnsafeMutableRawPointer, _ run: @escaping @MainActor (guint) -> Void) -> gulong {
+    let data = Unmanaged.passRetained(KeyAction(run)).toOpaque()
+    let id = g_signal_connect_data(controller, "key-released", unsafeBitCast(keyReleasedTrampoline, to: GCallback.self),
+                                   data, releaseKeyAction, GConnectFlags(0))
+    if id == 0 {
+        Unmanaged<KeyAction>.fromOpaque(data).release()
+    }
+    return id
+}
+
 private let releaseSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
     guard let data else { return }
     Unmanaged<SignalAction>.fromOpaque(data).release()
@@ -220,6 +252,17 @@ func setAccessibleValue(_ widget: WidgetPointer, min: Double, max: Double, now: 
     for index in values.indices {
         g_value_unset(&values[index])
     }
+}
+
+/// Sets a widget's accessible name (a part with no text of its own: a stepper's buttons, a date
+/// picker's hour and minute fields).
+func setAccessibleLabel(_ widget: WidgetPointer, _ name: String) {
+    var value = GValue()
+    gtk_accessible_property_init_value(GTK_ACCESSIBLE_PROPERTY_LABEL, &value)
+    g_value_set_string(&value, name)
+    var property = GTK_ACCESSIBLE_PROPERTY_LABEL
+    gtk_accessible_update_property_value(OpaquePointer(widget), 1, &property, &value)
+    g_value_unset(&value)
 }
 
 // MARK: - Swift objects kept on GObjects

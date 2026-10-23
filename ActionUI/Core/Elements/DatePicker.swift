@@ -67,6 +67,31 @@ extension DatePicker {
             valueChangeActionID = properties["valueChangeActionID"] as? String
         }
     }
+
+    /// The dates the picker keeps to: both ends given, parsed, and in order; else nil (no limit),
+    /// as the SwiftUI renderer reads "range".
+    static func dateRange(_ props: Props) -> ClosedRange<Date>? {
+        guard let range = props.range, let start = DateHelper.parseDate(from: range.start),
+              let end = DateHelper.parseDate(from: range.end), start <= end else { return nil }
+        return start...end
+    }
+
+    /// `date` kept in `range`.
+    static func clamped(_ date: Date, to range: ClosedRange<Date>?) -> Date {
+        guard let range else { return date }
+        return min(max(date, range.lowerBound), range.upperBound)
+    }
+
+    /// The user picked a date: stores it as the value and fires valueChangeActionID, only when it
+    /// differs from the value (a renderer keeps it in the range first, as SwiftUI's picker does).
+    @MainActor
+    static func userSelected(_ date: Date, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.value as? Date != date else { return }
+        model.value = date
+        if let valueChangeActionID = props.valueChangeActionID {
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        }
+    }
 }
 
 struct DatePicker: ActionUIElementSpec {
