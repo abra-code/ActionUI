@@ -98,6 +98,13 @@ final class FormRendererTests: XCTestCase {
         XCTAssertEqual(try frame(4, in: form)[0], 8)
     }
 
+    func testANegativeLeadingPaddingOnATitledRowMakesANegativeColumn() throws {
+        // Measured on macOS 27: an empty title padded 3 points before the row's leading edge ends
+        // at -3, the column is -3, and a row without a title starts 8 after it, at 5.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "LabeledContent", "id": 2, "properties": {"title": "", "padding": {"leading": -3}}, "children": [\#(block(3, 30, 20))]}, \#(block(4, 40, 20))]}"#)
+        XCTAssertEqual(try frame(4, in: form)[0], 5)
+    }
+
     func testWithoutTitlesTheRowsStartAtTheEdgeEightApart() throws {
         let form = try render(#"{"type": "Form", "id": 1, "children": [\#(block(2, 20, 20)), \#(block(3, 40, 20))]}"#)
         XCTAssertEqual(try frame(2, in: form), [0, 0, 20, 20])
@@ -245,6 +252,60 @@ final class FormRendererTests: XCTestCase {
         let column = frame(try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(node(2, in: form)).widget)), in: form)[2]
         let widget = try XCTUnwrap(node(3, in: form)).widget
         XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(widget)), in: form)[0], column + 8)
+    }
+
+    /// Where `widget`'s title (its first child) ends in the Form.
+    private func titleEnd(_ widget: WidgetPointer, in form: RenderNode) throws -> Int {
+        let title = frame(try XCTUnwrap(gtk_widget_get_first_child(widget)), in: form)
+        return title[0] + title[2]
+    }
+
+    private func picker(_ id: Int, _ title: String) -> String {
+        #"{"type": "Picker", "id": \#(id), "properties": {"title": "\#(title)", "options": ["One"]}}"#
+    }
+
+    func testATitleInsideAStackRowSetsTheColumn() throws {
+        // Measured on macOS 27: an HStack row takes its label from the titled control in it, where
+        // the row places it: after a 30-point Color, the title ends at 30 + 8 + its width.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "HStack", "id": 2, "children": [\#(block(3, 30, 20)), \#(picker(4, "Name"))]}, \#(block(5, 20, 20))]}"#)
+        XCTAssertEqual(try frame(3, in: form)[0], 0, "the row is not moved: its label is the column")
+        let column = try titleEnd(try XCTUnwrap(node(4, in: form)).widget, in: form)
+        XCTAssertEqual(column, 30 + 8 + frame(try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(node(4, in: form)).widget)), in: form)[2])
+        XCTAssertEqual(try frame(5, in: form)[0], column + 8)
+    }
+
+    func testTitlesInOneRowMakeTheirAverage() throws {
+        // Measured on macOS 27: SwiftUI averages the alignment several children give, so two
+        // titles in one HStack row make a column halfway between where they end.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "HStack", "id": 2, "children": [\#(picker(3, "Name")), \#(picker(4, "A longer name"))]}, \#(block(5, 20, 20))]}"#)
+        let first = try titleEnd(try XCTUnwrap(node(3, in: form)).widget, in: form)
+        let second = try titleEnd(try XCTUnwrap(node(4, in: form)).widget, in: form)
+        let column = Int((Double(first + second) / 2).rounded(.toNearestOrAwayFromZero))
+        XCTAssertEqual(try frame(5, in: form)[0], column + 8)
+    }
+
+    func testStackRowsLineUpTheirTitles() throws {
+        // Measured on macOS 27: the row whose title ends sooner moves right to the column (20 here,
+        // 30 - 10), and both pickers start at 30 + 8 + 0 + 8.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "HStack", "id": 2, "children": [\#(block(3, 30, 20)), \#(picker(4, ""))]}, {"type": "HStack", "id": 5, "children": [\#(block(6, 10, 20)), \#(picker(7, ""))]}]}"#)
+        XCTAssertEqual(try frame(3, in: form)[0], 0)
+        XCTAssertEqual(try frame(6, in: form)[0], 20)
+        for id in [4, 7] {
+            XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(try XCTUnwrap(node(id, in: form)).widget)), in: form)[0], 46)
+        }
+    }
+
+    func testALabeledContentOrAZStackInsideARowGivesItsTitle() throws {
+        // Measured on macOS 27: a LabeledContent in an HStack row gives its title as a control does;
+        // a ZStack row gives the title of the control it holds, where it places the control.
+        let labeled = try render(#"{"type": "Form", "id": 1, "children": [{"type": "HStack", "id": 2, "children": [\#(block(3, 30, 20)), \#(labeled(4, "Name", block(5, 20, 20)))]}, \#(block(6, 20, 20))]}"#)
+        let column = try titleEnd(try XCTUnwrap(node(4, in: labeled)).widget, in: labeled)
+        XCTAssertEqual(try frame(5, in: labeled)[0], column + 8)
+        XCTAssertEqual(try frame(6, in: labeled)[0], column + 8)
+
+        let layered = try render(#"{"type": "Form", "id": 1, "children": [{"type": "ZStack", "id": 2, "children": [\#(block(3, 200, 20)), {"type": "HStack", "id": 4, "children": [\#(block(5, 30, 20)), \#(picker(6, ""))]}]}, \#(block(7, 20, 20))]}"#)
+        XCTAssertEqual(try frame(7, in: layered)[0], try frame(5, in: layered)[0] + 30 + 8 + 8,
+                       "the centered HStack's empty title ends 30 + 8 after its start")
     }
 
     func testATitleChangedAtRunTimeMovesTheOtherRows() throws {

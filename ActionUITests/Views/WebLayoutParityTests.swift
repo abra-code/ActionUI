@@ -108,6 +108,8 @@ final class WebLayoutParityTests: XCTestCase {
         "form-empty-control-title": "form",
         "form-empty-text-field-title": "form",
         "form-filling-row": "form",
+        "form-nested-title-in-hstack": "form",
+        "form-nested-titles-average": "form",
         "form-rows-hug": "form",
         "form-sections-add-no-space": "form",
         "group-frame-per-child": "group",

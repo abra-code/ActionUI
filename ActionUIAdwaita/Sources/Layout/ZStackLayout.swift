@@ -83,6 +83,17 @@ enum ZStackLayout {
         stackChildren(widget).map { childSize($0, GTK_ORIENTATION_HORIZONTAL, available: width) }
     }
 
+    /// Where each child starts across a stack `width` wide, and its width, as allocate places it:
+    /// in a block as wide as the widest child, centered, each aligned in the block by the stack's
+    /// horizontal alignment. FormLayout reads it to find the titles inside a row.
+    static func horizontalPlacements(_ widget: WidgetPointer, width: Int) -> [(x: Int, width: Int)] {
+        let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
+        let widths = childWidths(widget, width: width)
+        let block = widths.max() ?? 0
+        let blockX = StackSolver.centeredStart(length: block, available: width)
+        return widths.map { (blockX + StackSolver.alignedOffset(size: $0, block: block, alignment: configuration.horizontal), $0) }
+    }
+
     private static func measure(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
         var result = (minimum: 0, natural: 0)
         for child in stackChildren(widget) {
@@ -105,14 +116,13 @@ enum ZStackLayout {
         let children = stackChildren(widget)
         guard !children.isEmpty else { return }
         let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
-        let widths = children.map { childSize($0, GTK_ORIENTATION_HORIZONTAL, available: width) }
+        let placements = horizontalPlacements(widget, width: width)
+        let widths = placements.map(\.width)
         let heights = children.enumerated().map { childSize($1, GTK_ORIENTATION_VERTICAL, available: height, forSize: widths[$0]) }
-        let blockWidth = widths.max() ?? 0
         let blockHeight = heights.max() ?? 0
-        let blockX = StackSolver.centeredStart(length: blockWidth, available: width)
         let blockY = StackSolver.centeredStart(length: blockHeight, available: height)
         for (index, child) in children.enumerated() {
-            let x = blockX + StackSolver.alignedOffset(size: widths[index], block: blockWidth, alignment: configuration.horizontal)
+            let x = placements[index].x
             let y = blockY + StackSolver.alignedOffset(size: heights[index], block: blockHeight, alignment: configuration.vertical)
             var origin = graphene_point_t(x: Float(x), y: Float(y))
             gtk_widget_allocate(child, Int32(clamping: widths[index]), Int32(clamping: heights[index]), -1,

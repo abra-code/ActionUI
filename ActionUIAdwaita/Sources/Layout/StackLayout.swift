@@ -160,13 +160,41 @@ enum StackLayout {
     static func childWidths(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int) -> [Int] {
         let stack = configuration(widget)
         if stack.axis == .vertical {
-            let offsets = leadingOffsets(widget, children)
-            return children.enumerated().map {
-                stackChild($1, GTK_ORIENTATION_HORIZONTAL).size(offered: width - offsets[$0])
-            }
+            return verticalChildWidths(children, offsets: leadingOffsets(widget, children), width: width)
         }
         let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }
         return StackSolver.mainSizes(widths, available: width, gaps: gaps(children, stack))
+    }
+
+    /// A VStack's children's widths when it is `width` wide: each is offered the width less its
+    /// offset.
+    private static func verticalChildWidths(_ children: [WidgetPointer], offsets: [Int], width: Int) -> [Int] {
+        children.enumerated().map { stackChild($1, GTK_ORIENTATION_HORIZONTAL).size(offered: width - offsets[$0]) }
+    }
+
+    /// Where each of `children` starts across a stack `width` wide, and its width, as allocate
+    /// places it: an HStack's one after another, centered as a group; a VStack's in a block as
+    /// wide as the widest of them (from its offset in a Form), centered, each aligned in the block
+    /// by the stack's alignment. FormLayout reads it to find the titles inside a row.
+    static func horizontalPlacements(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int) -> [(x: Int, width: Int)] {
+        let stack = configuration(widget)
+        if stack.axis == .horizontal {
+            let gaps = Self.gaps(children, stack)
+            let widths = StackSolver.mainSizes(children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }, available: width, gaps: gaps)
+            var x = StackSolver.centeredStart(length: StackSolver.length(of: widths, gaps: gaps), available: width)
+            return widths.enumerated().map { index, size in
+                defer { x += size + (index < gaps.count ? gaps[index] : 0) }
+                return (x, size)
+            }
+        }
+        let offsets = leadingOffsets(widget, children)
+        let widths = verticalChildWidths(children, offsets: offsets, width: width)
+        let block = zip(offsets, widths).map(+).max() ?? 0
+        let blockStart = StackSolver.centeredStart(length: block, available: width)
+        return widths.indices.map { index in
+            let aligned = StackSolver.alignedOffset(size: widths[index], block: block - offsets[index], alignment: stack.alignment)
+            return (blockStart + offsets[index] + aligned, widths[index])
+        }
     }
 
     /// Each child's leading offset: after a Form's label column (FormLayout), else 0.
@@ -225,45 +253,33 @@ enum StackLayout {
         let stack = configuration(widget)
         let children = stackChildren(widget)
         guard !children.isEmpty else { return }
-        let vertical = stack.axis == .vertical
-        let (main, cross) = orientations(stack.axis)
-        let mainAvailable = vertical ? height : width
-        let crossAvailable = vertical ? width : height
         let gaps = Self.gaps(children, stack)
 
-        // A VStack's widths first (its children's heights depend on them); an HStack's widths
-        // are its main sizes, and its children's heights depend on those.
-        var mainSizes: [Int]
-        var crossSizes: [Int]
-        if vertical {
-            crossSizes = childWidths(widget, children, width: crossAvailable)
-            let heights = children.enumerated().map { stackChild($1, main, forSize: crossSizes[$0]) }
-            mainSizes = StackSolver.mainSizes(heights, available: mainAvailable, gaps: gaps)
-        } else {
-            let widths = children.map { stackChild($0, main) }
-            mainSizes = StackSolver.mainSizes(widths, available: mainAvailable, gaps: gaps)
-            crossSizes = children.enumerated().map {
-                stackChild($1, cross, forSize: mainSizes[$0]).size(offered: crossAvailable)
+        // The widths and places across first (a Form's rows start at their offsets, FormLayout);
+        // the children's heights depend on their widths.
+        let placements = horizontalPlacements(widget, children, width: width)
+        var heights: [Int]
+        var ys: [Int]
+        if stack.axis == .vertical {
+            let rows = children.enumerated().map { stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: placements[$0].width) }
+            heights = StackSolver.mainSizes(rows, available: height, gaps: gaps)
+            var position = StackSolver.centeredStart(length: StackSolver.length(of: heights, gaps: gaps), available: height)
+            ys = heights.enumerated().map { index, size in
+                defer { position += size + (index < gaps.count ? gaps[index] : 0) }
+                return position
             }
+        } else {
+            heights = children.enumerated().map {
+                stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: placements[$0].width).size(offered: height)
+            }
+            let block = heights.max() ?? 0
+            let blockStart = StackSolver.centeredStart(length: block, available: height)
+            ys = heights.map { blockStart + StackSolver.alignedOffset(size: $0, block: block, alignment: stack.alignment) }
         }
-
-        // A Form's rows start at their offsets (FormLayout); every other stack's at 0.
-        let offsets = vertical ? leadingOffsets(widget, children) : Array(repeating: 0, count: children.count)
-        let block = zip(offsets, crossSizes).map(+).max() ?? 0
-        let blockStart = StackSolver.centeredStart(length: block, available: crossAvailable)
-        var position = StackSolver.centeredStart(length: StackSolver.length(of: mainSizes, gaps: gaps),
-                                                 available: mainAvailable)
         for (index, child) in children.enumerated() {
-            let crossOffset = blockStart + offsets[index]
-                + StackSolver.alignedOffset(size: crossSizes[index], block: block - offsets[index], alignment: stack.alignment)
-            var origin = vertical
-                ? graphene_point_t(x: Float(crossOffset), y: Float(position))
-                : graphene_point_t(x: Float(position), y: Float(crossOffset))
-            let transform = gsk_transform_translate(nil, &origin)
-            let childWidth = vertical ? crossSizes[index] : mainSizes[index]
-            let childHeight = vertical ? mainSizes[index] : crossSizes[index]
-            gtk_widget_allocate(child, Int32(clamping: childWidth), Int32(clamping: childHeight), -1, transform)
-            position += mainSizes[index] + (index < gaps.count ? gaps[index] : 0)
+            var origin = graphene_point_t(x: Float(placements[index].x), y: Float(ys[index]))
+            gtk_widget_allocate(child, Int32(clamping: placements[index].width), Int32(clamping: heights[index]), -1,
+                                gsk_transform_translate(nil, &origin))
         }
     }
 }
