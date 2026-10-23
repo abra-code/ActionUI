@@ -207,3 +207,25 @@ test("a pull that starts below the top is a scroll, not a refresh", () => {
     assert.equal(begun.length, 0, "scrolling from mid-list never refreshes");
     assert.equal(wrapper.classList.contains("is-armed"), false);
 });
+
+// ---------------- layout: the wrapper fills as the List does ----------------
+
+test("a refreshable List fills its frame box and its stack: the wrapper takes the List's filling axes", async () => {
+    installDom();
+    const { buildElementView } = await import("../src/Common/ActionUIRegistry.js");
+    const { ActionUIElement } = await import("../src/Common/ActionUIElement.js");
+    const logger = makeLogger();
+    const model = new ActionUIModel("", logger);
+    const ctx = { model, windowUUID: "", logger, build: (child) => buildElementView(child, ctx) };
+    const build = (properties) => buildElementView(ActionUIElement.fromObject({ type: "List", id: 3, properties }, logger), ctx);
+    // The stub keeps classList apart from className: a class set either way counts.
+    const has = (node, cls) => node.classList.contains(cls) || node.className.split(/\s+/).includes(cls);
+    const framed = build({ onRefreshActionID: "r", frame: { maxWidth: "infinity" } });
+    assert.ok(has(framed, "aui-frame-box"));
+    assert.ok(has(framed.children[0], "aui-refresh"));
+    assert.ok(framed.children[0].classList.contains("aui-expands-w"), "the box's content fills the box's width");
+    assert.ok(framed.classList.contains("aui-expands-h"), "the box expands in height, where the List does");
+    const bare = build({ onRefreshActionID: "r" });
+    assert.ok(has(bare, "aui-refresh"));
+    assert.ok(bare.classList.contains("aui-expands-w") && bare.classList.contains("aui-expands-h"), "the stack's child fills, as a bare List does");
+});

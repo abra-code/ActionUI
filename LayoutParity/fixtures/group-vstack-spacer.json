@@ -1,0 +1,9 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 400, "height": 100}}, "children": [
+  {"type": "Group", "id": 2, "children": [
+    {"type": "VStack", "id": 3, "children": [
+      {"type": "Color", "id": 4, "properties": {"color": "#FF0000"}}
+    ]}
+  ]},
+  {"type": "Spacer", "id": 5},
+  {"type": "Color", "id": 6, "properties": {"color": "#0000FF", "frame": {"width": 20}}}
+]}

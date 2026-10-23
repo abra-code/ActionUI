@@ -151,7 +151,7 @@
 .aui-hstack { flex-direction: row; }
 
 .aui-zstack { display: grid; }
-.aui-zstack > * { grid-area: 1 / 1; place-self: center; }
+.aui-zstack > *, .aui-zstack > .aui-group > * { grid-area: 1 / 1; place-self: center; }
 
 /* GeometryReader: a greedy container (fills the proposal, the .aui-shape idiom)
    that places its single content child by alignment via place-self (set inline
@@ -176,8 +176,8 @@
 .aui-frame-box > .aui-shape { place-self: stretch; }
 /* A view with a width cap of its own (ContentUnavailableView) takes the box's width up to it,
    centered. */
-.aui-frame-box > .aui-cap-width, .aui-zstack > .aui-cap-width { width: 100%; }
-.aui-frame-box > .aui-cap-height, .aui-zstack > .aui-cap-height { height: 100%; }
+.aui-frame-box > .aui-cap-width, .aui-zstack > .aui-cap-width, .aui-zstack > .aui-group > .aui-cap-width { width: 100%; }
+.aui-frame-box > .aui-cap-height, .aui-zstack > .aui-cap-height, .aui-zstack > .aui-group > .aui-cap-height { height: 100%; }
 /* A resizable image fills its frame (its <img> is 100% of the image node), so the node takes
    the box's size; a non-resizable one keeps its intrinsic size inside the stretched node. */
 .aui-frame-box > .aui-image, .aui-frame-box > .aui-async-image { place-self: stretch; }
@@ -191,12 +191,12 @@
    it, as a filling view does; in a frame box or a ZStack it fills that axis. The flex basis is
    auto, not 0: in a stack sized by its content (a page that scrolls) a basis of 0 collapses the
    child to nothing (a List with a frame vanished), where SwiftUI gives it its ideal size. */
-.aui-hstack > .aui-expands-w { flex: var(--aui-view-grow, 1000000) 1 auto; min-width: 0; }
-.aui-vstack > .aui-expands-w { align-self: stretch; }
-.aui-vstack > .aui-expands-h { flex: var(--aui-view-grow, 1000000) 1 auto; min-height: 0; }
-.aui-hstack > .aui-expands-h { align-self: stretch; }
-.aui-zstack > .aui-expands-w, .aui-frame-box > .aui-expands-w { justify-self: stretch; }
-.aui-zstack > .aui-expands-h, .aui-frame-box > .aui-expands-h { align-self: stretch; }
+.aui-hstack > .aui-expands-w, .aui-hstack > .aui-group > .aui-expands-w { flex: var(--aui-view-grow, 1000000) 1 auto; min-width: 0; }
+.aui-vstack > .aui-expands-w, .aui-vstack > .aui-group > .aui-expands-w { align-self: stretch; }
+.aui-vstack > .aui-expands-h, .aui-vstack > .aui-group > .aui-expands-h { flex: var(--aui-view-grow, 1000000) 1 auto; min-height: 0; }
+.aui-hstack > .aui-expands-h, .aui-hstack > .aui-group > .aui-expands-h { align-self: stretch; }
+.aui-zstack > .aui-expands-w, .aui-zstack > .aui-group > .aui-expands-w, .aui-frame-box > .aui-expands-w { justify-self: stretch; }
+.aui-zstack > .aui-expands-h, .aui-zstack > .aui-group > .aui-expands-h, .aui-frame-box > .aui-expands-h { align-self: stretch; }
 
 /* View-valued overlay / background decorations (Helpers/DecorationModifier.js).
    The wrapper is a grid box: the element is its single in-flow grid item and so
@@ -221,10 +221,10 @@
    node is attached, so the parent stack resolves the axis here: grow along its
    main axis, stretch across its cross axis. A view that fills only one axis hugs
    its content on the other. */
-.aui-vstack > .aui-fill-width  { align-self: stretch; }
-.aui-hstack > .aui-fill-width  { flex: var(--aui-view-grow, 1000000) 1 0; min-width: 0; }
-.aui-vstack > .aui-fill-height { flex: var(--aui-view-grow, 1000000) 1 0; min-height: 0; }
-.aui-hstack > .aui-fill-height { align-self: stretch; }
+.aui-vstack > .aui-fill-width, .aui-vstack > .aui-group > .aui-fill-width { align-self: stretch; }
+.aui-hstack > .aui-fill-width, .aui-hstack > .aui-group > .aui-fill-width { flex: var(--aui-view-grow, 1000000) 1 0; min-width: 0; }
+.aui-vstack > .aui-fill-height, .aui-vstack > .aui-group > .aui-fill-height { flex: var(--aui-view-grow, 1000000) 1 0; min-height: 0; }
+.aui-hstack > .aui-fill-height, .aui-hstack > .aui-group > .aui-fill-height { align-self: stretch; }
 
 /* A FINITE frame.maxWidth/maxHeight GROWS to its cap (the inline max-*) while
    RESPECTING the parent stack's alignment - unlike .aui-fill-* (the .infinity
@@ -234,10 +234,10 @@
    (flex), bounded by the inline max-*. Cross axis: fill up to the cap via
    width/height:100% (bounded by the inline max-*), leaving align-self at its
    default so the parent's align-items still centers/aligns the capped box. */
-.aui-hstack > .aui-cap-width  { flex: var(--aui-view-grow, 1000000) 1 0; min-width: 0; }
-.aui-vstack > .aui-cap-width  { width: 100%; }
-.aui-vstack > .aui-cap-height { flex: var(--aui-view-grow, 1000000) 1 0; min-height: 0; }
-.aui-hstack > .aui-cap-height { height: 100%; }
+.aui-hstack > .aui-cap-width, .aui-hstack > .aui-group > .aui-cap-width { flex: var(--aui-view-grow, 1000000) 1 0; min-width: 0; }
+.aui-vstack > .aui-cap-width, .aui-vstack > .aui-group > .aui-cap-width { width: 100%; }
+.aui-vstack > .aui-cap-height, .aui-vstack > .aui-group > .aui-cap-height { flex: var(--aui-view-grow, 1000000) 1 0; min-height: 0; }
+.aui-hstack > .aui-cap-height, .aui-hstack > .aui-group > .aui-cap-height { height: 100%; }
 
 /* Lazy stacks/grids share the flex/grid layout (and Divider orientation) of their
    eager twins; the .aui-lazy* classes mark the lazy-only styling. They are eager in
@@ -381,8 +381,8 @@
 .aui-disclosure-content { align-items: flex-start; gap: 8px; padding: 8px 0 0 16px; }
 
 .aui-divider { background: var(--aui-control-border); align-self: stretch; }
-.aui-vstack > .aui-divider { height: 1px; }
-.aui-hstack > .aui-divider { width: 1px; }
+.aui-vstack > .aui-divider, .aui-vstack > .aui-group > .aui-divider { height: 1px; }
+.aui-hstack > .aui-divider, .aui-hstack > .aui-group > .aui-divider { width: 1px; }
 
 /* ---- shapes ---- */
 

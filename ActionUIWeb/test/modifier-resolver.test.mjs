@@ -7,7 +7,7 @@ import { installDom, makeElement, makeLogger } from "./dom-stub.mjs";
 
 // The frame box is made with document.createElement.
 before(() => installDom());
-import { resolveColor, applyViewModifiers, markHandlesAction, applyElementProperty, needsFrameBox, makeFrameBox, finishFrameBox, wrapWithFrameBox } from "../src/Common/ModifierResolver.js";
+import { resolveColor, applyViewModifiers, markHandlesAction, applyElementProperty, needsFrameBox, makeFrameBox, finishFrameBox, wrapWithFrameBox, markGreedy } from "../src/Common/ModifierResolver.js";
 
 test("resolveColor: named -> CSS var, hex pass-through, unknown warns -> null", () => {
     const logger = makeLogger();
@@ -492,6 +492,8 @@ test("frame box: the element types that fill their proposal in SwiftUI (measured
     const expansion = (type, properties = {}) => {
         const node = makeElement();
         node.dataset.auiType = type;
+        // As buildElementView does: the type's filling axes are marked at build time.
+        markGreedy(node, type, { padding: 4, ...properties });
         const box = wrapWithFrameBox(node, node, { padding: 4, ...properties }, makeLogger());
         return [box.classList.contains("aui-expands-w"), box.classList.contains("aui-expands-h")];
     };
@@ -504,6 +506,12 @@ test("frame box: the element types that fill their proposal in SwiftUI (measured
     assert.deepEqual(expansion("LazyHStack"), [false, true]);
     assert.deepEqual(expansion("ScrollView"), [false, true], "a vertical ScrollView fills its scroll axis only");
     assert.deepEqual(expansion("ScrollView", { axis: "both" }), [true, true]);
+    assert.deepEqual(expansion("ScrollView", { axis: 1 }), [false, true], "a non-string axis scrolls vertically, as ScrollView.js builds it");
+    assert.deepEqual(expansion("ProgressView", { value: 0.4 }), [true, false], "a determinate bar fills the width");
+    assert.deepEqual(expansion("ProgressView"), [false, false], "an indeterminate ProgressView is a spinner of its content size in SwiftUI");
+    assert.deepEqual(expansion("ProgressView", { value: 2 }), [false, false], "a value above the total is indeterminate");
+    assert.deepEqual(expansion("ProgressView", { progressViewStyle: "linear" }), [true, false]);
+    assert.deepEqual(expansion("ProgressView", { value: 0.4, progressViewStyle: "circular" }), [false, false]);
     assert.deepEqual(expansion("Gauge"), [true, false]);
     assert.deepEqual(expansion("Gauge", { style: "accessoryCircular" }), [false, false]);
     assert.deepEqual(expansion("List", { frame: { width: 200 } }), [false, true], "a fixed width stops the expansion on that axis");

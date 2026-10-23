@@ -22,7 +22,7 @@
 // Unknown types degrade gracefully: a warning is logged and a placeholder
 // element is rendered, mirroring the fail-gracefully design principle.
 
-import { applyViewModifiers, finishFrameBox, makeFrameBox, markExpansion, needsFrameBox } from "./ModifierResolver.js";
+import { applyViewModifiers, finishFrameBox, makeFrameBox, markExpansion, markGreedy, needsFrameBox } from "./ModifierResolver.js";
 import { wrapWithToolbar } from "../Helpers/ToolbarHelper.js";
 import { applyPresentationModifiers } from "../Helpers/PresentationModifier.js";
 import { applyDecorations } from "../Helpers/DecorationModifier.js";
@@ -64,7 +64,9 @@ export function buildElementView(element, ctx) {
     const properties = construction.validateProperties(element.properties, ctx.logger);
     const node = construction.buildView(element, properties, ctx);
     node.dataset.auiType = element.type;
-    // A stack expands where its children do (SwiftUI's propagation); its children are built.
+    // A control that fills its proposal in SwiftUI (a TextField's width, a List) fills its stack,
+    // framed or not; a stack expands where its children do (SwiftUI's propagation).
+    markGreedy(node, element.type, properties);
     markExpansion(node);
     if (element.id > 0) {
         node.dataset.auiId = String(element.id);
@@ -98,6 +100,9 @@ export function buildElementView(element, ctx) {
     const refreshed = construction.refreshable
         ? wrapWithPullToRefresh(node, element, properties, ctx)
         : node;
+    // The pull-to-refresh wrapper is what the frame box or the stack holds: it fills as the
+    // element does.
+    if (refreshed !== node) markGreedy(refreshed, element.type, properties);
     // The frame box (padding, frame, background, corner radius) around the element and its
     // pull-to-refresh wrapper; a no-op without a frame or padding. data-aui-id stays on the
     // inner node.

@@ -423,12 +423,8 @@ export function finishFrameBox(box, content, node, properties) {
     for (const name of ["transitionProperty", "transitionDuration", "transitionTimingFunction", "transitionDelay"]) {
         if (node.style[name]) box.style[name] = node.style[name];
     }
-    // The box expands where its content does, unless its frame sets that axis's size or cap.
-    const frame = typeof properties.frame === "object" && properties.frame !== null ? properties.frame : {};
-    // A control that fills its proposal in SwiftUI (a TextField's width, a List) fills its box.
-    const [greedyWidth, greedyHeight] = greedyAxes(node.dataset?.auiType, properties);
-    if (greedyWidth) content.classList.add("aui-expands-w");
-    if (greedyHeight) content.classList.add("aui-expands-h");
+    // A control that fills its proposal in SwiftUI (a TextField's width, a List) fills its box:
+    // it was marked so at build time (markGreedy).
     box.auiBoxPass = { content, properties };
     markBoxExtent(box);
     box.appendChild(content);
@@ -497,14 +493,31 @@ const GREEDY_BOTH = new Set(["List", "Table", "MapEmbed", "Map", "WebView", "Vid
 const GREEDY_WIDTH = new Set(["TextField", "SecureField", "Slider", "DisclosureGroup", "Form", "LazyVGrid", "LazyVStack"]);
 const GREEDY_HEIGHT = new Set(["LazyHGrid", "LazyHStack"]);
 
+// Marks an element whose type fills its proposal in SwiftUI (greedyAxes: the GREEDY_* lists and
+// the ProgressView, Gauge and ScrollView cases) as expanding in those axes, so its stack or frame
+// box gives it the space, as SwiftUI does for a TextField's width or a List.
+export function markGreedy(node, type, properties) {
+    const [greedyWidth, greedyHeight] = greedyAxes(type, properties);
+    if (greedyWidth) node.classList.add("aui-expands-w");
+    if (greedyHeight) node.classList.add("aui-expands-h");
+}
+
 function greedyAxes(type, properties) {
     if (GREEDY_BOTH.has(type)) return [true, true];
     if (GREEDY_WIDTH.has(type)) return [true, false];
     if (GREEDY_HEIGHT.has(type)) return [false, true];
-    if (type === "ProgressView") return [properties.progressViewStyle !== "circular", false];
+    if (type === "ProgressView") {
+        // A bar fills the width; SwiftUI's automatic style draws a spinner of its content size
+        // (62 x 53 with a title, measured on macOS 27) while there is no progress.
+        if (properties.progressViewStyle === "linear") return [true, false];
+        const value = properties.value;
+        const determinate = typeof value === "number" && value >= 0 && value <= (properties.total ?? 1);
+        return [properties.progressViewStyle !== "circular" && determinate, false];
+    }
     if (type === "Gauge") return [!(typeof properties.style === "string" && properties.style.includes("Circular")), false];
     if (type === "ScrollView") {
-        const axis = properties.axis ?? "vertical";
+        // As ScrollView.js reads it: a non-string axis scrolls vertically.
+        const axis = typeof properties.axis === "string" ? properties.axis : "vertical";
         return [axis !== "vertical", axis !== "horizontal"];
     }
     return [false, false];

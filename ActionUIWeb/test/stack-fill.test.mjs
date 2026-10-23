@@ -29,19 +29,19 @@ const css = readFileSync(fileURLToPath(new URL("../theme.css", import.meta.url))
     .replace(/\s+/g, " ");
 
 test("HStack main axis: a fill-width child shares the remainder (flex: var(--aui-view-grow) 1 0)", () => {
-    assert.match(css, /\.aui-hstack > \.aui-fill-width\s*\{[^}]*flex:\s*var\(--aui-view-grow(?:, 1000000)?\) 1 0/);
+    assert.match(css, /\.aui-hstack > \.aui-fill-width[^{]*\{[^}]*flex:\s*var\(--aui-view-grow(?:, 1000000)?\) 1 0/);
 });
 
 test("VStack main axis: a fill-height child shares the remainder (flex: var(--aui-view-grow) 1 0)", () => {
-    assert.match(css, /\.aui-vstack > \.aui-fill-height\s*\{[^}]*flex:\s*var\(--aui-view-grow(?:, 1000000)?\) 1 0/);
+    assert.match(css, /\.aui-vstack > \.aui-fill-height[^{]*\{[^}]*flex:\s*var\(--aui-view-grow(?:, 1000000)?\) 1 0/);
 });
 
 test("HStack cross axis: a fill-height child stretches (align-self: stretch)", () => {
-    assert.match(css, /\.aui-hstack > \.aui-fill-height\s*\{[^}]*align-self:\s*stretch/);
+    assert.match(css, /\.aui-hstack > \.aui-fill-height[^{]*\{[^}]*align-self:\s*stretch/);
 });
 
 test("VStack cross axis: a fill-width child stretches (align-self: stretch)", () => {
-    assert.match(css, /\.aui-vstack > \.aui-fill-width\s*\{[^}]*align-self:\s*stretch/);
+    assert.match(css, /\.aui-vstack > \.aui-fill-width[^{]*\{[^}]*align-self:\s*stretch/);
 });
 
 // A FINITE maxWidth/maxHeight uses the CAP class instead, which grows to the cap
@@ -49,16 +49,16 @@ test("VStack cross axis: a fill-width child stretches (align-self: stretch)", ()
 // rather than anchoring left (the .aui-fill-* stretch case). Cross axis grows via
 // width/height:100% (no align-self override), main axis via flex.
 test("VStack cross axis: a cap-width child grows to its cap via width:100% (NOT stretch)", () => {
-    assert.match(css, /\.aui-vstack > \.aui-cap-width\s*\{[^}]*width:\s*100%/);
+    assert.match(css, /\.aui-vstack > \.aui-cap-width[^{]*\{[^}]*width:\s*100%/);
     assert.doesNotMatch(css, /\.aui-vstack > \.aui-cap-width\s*\{[^}]*align-self:\s*stretch/);
 });
 
 test("HStack main axis: a cap-width child grows into the remainder (flex: var(--aui-view-grow) 1 0)", () => {
-    assert.match(css, /\.aui-hstack > \.aui-cap-width\s*\{[^}]*flex:\s*var\(--aui-view-grow(?:, 1000000)?\) 1 0/);
+    assert.match(css, /\.aui-hstack > \.aui-cap-width[^{]*\{[^}]*flex:\s*var\(--aui-view-grow(?:, 1000000)?\) 1 0/);
 });
 
 test("HStack cross axis: a cap-height child grows to its cap via height:100% (NOT stretch)", () => {
-    assert.match(css, /\.aui-hstack > \.aui-cap-height\s*\{[^}]*height:\s*100%/);
+    assert.match(css, /\.aui-hstack > \.aui-cap-height[^{]*\{[^}]*height:\s*100%/);
 });
 
 test("a Spacer grows only into what the views leave (SwiftUI sizes Spacers last)", () => {
