@@ -30,6 +30,9 @@ final class SymbolNamesTests: XCTestCase {
         XCTAssertEqual(SymbolNames.lookup("star"), "non-starred-symbolic")
         XCTAssertEqual(SymbolNames.lookup("star.fill"), "starred-symbolic")
         XCTAssertEqual(SymbolNames.lookup("star.circle.fill"), "starred-symbolic")
+        // Adwaita has no tray: an empty container (owner choice), also for the full tray.
+        XCTAssertEqual(SymbolNames.lookup("tray"), "folder-symbolic")
+        XCTAssertEqual(SymbolNames.lookup("tray.fill"), "folder-symbolic")
     }
 
     func testThemeNamesPassAndUnknownNamesShowImageMissing() {

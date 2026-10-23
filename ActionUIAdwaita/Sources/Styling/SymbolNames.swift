@@ -178,7 +178,8 @@ enum SymbolNames {
         "folder.badge.plus": "folder-new",
         "archivebox": "package-x-generic",
         "shippingbox": "package-x-generic",
-        "tray": "mail-send-receive",
+        // Adwaita has no tray or inbox: an empty container is the closest meaning (owner choice).
+        "tray": "folder",
         "tray.and.arrow.down": "folder-download",
         "envelope": "mail-unread",
         "envelope.open": "mail-read",
