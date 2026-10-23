@@ -21,6 +21,11 @@
  never has to tell floating from borrowed. Adopting a floating pointer would be a mistake (the
  first container to claim it would take this reference too); `adopting:` asserts it does not
  happen.
+
+ Give an owner a name before passing its pointer to C: a named owner lives past the C calls
+ that follow it in its scope, but an unnamed one (`f(makeMenu(x).typed())`) can be released as soon as the pointer is
+ read, before `f` runs. Measured: that form crashed the Menu tests; `let inner = makeMenu(x)`
+ and then `f(inner.typed())` did not.
 */
 
 import CAdwaita

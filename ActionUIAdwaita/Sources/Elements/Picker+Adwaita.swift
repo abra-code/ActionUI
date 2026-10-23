@@ -239,37 +239,36 @@ extension Picker: ActionUIAdwaitaRenderer {
         var start = 0
         for section in sections {
             state.sectionStarts.append((start, section.title))
-            let list = gtk_string_list_new(nil)!
+            let list = OwnedObject(adopting: gtk_string_list_new(nil)!)
             for item in section.items {
-                gtk_string_list_append(list, item.title)
+                gtk_string_list_append(list.opaquePointer, item.title)
             }
-            g_list_store_append(store, UnsafeMutableRawPointer(list))
-            g_object_unref(UnsafeMutableRawPointer(list))
+            g_list_store_append(store, list.pointer)
             start += section.items.count
         }
-        // The flattened model takes the store; the dropdown takes its own reference.
-        let model = gtk_flatten_list_model_new(store)!
-        gtk_drop_down_set_model(dropdown, model)
-        g_object_unref(UnsafeMutableRawPointer(model))
+        // The flattened model takes the store (handed over, so not owned here); the dropdown takes
+        // its own reference to the model.
+        let model = OwnedObject(adopting: gtk_flatten_list_model_new(store)!)
+        gtk_drop_down_set_model(dropdown, model.opaquePointer)
         let useSections = sections.count > 1 || sections.contains { $0.title != nil }
         if useSections {
-            // The dropdown takes its own reference.
+            // The dropdown takes its own reference; named, as an unnamed owner may be released
+            // before the call (Owned.swift).
             let factory = headerFactory(state)
-            gtk_drop_down_set_header_factory(dropdown, factory)
-            g_object_unref(UnsafeMutableRawPointer(factory))
+            gtk_drop_down_set_header_factory(dropdown, factory.opaquePointer)
         } else {
             gtk_drop_down_set_header_factory(dropdown, nil)
         }
     }
 
     /// The popup's section headers: a titled section's title, a line before an untitled section
-    /// that is not the first, nothing before an untitled first one. The caller owns the factory.
-    private static func headerFactory(_ state: PickerState) -> OpaquePointer {
-        let factory = gtk_signal_list_item_factory_new()!
-        connectObjectSignal(UnsafeMutableRawPointer(factory), "setup") { header in
+    /// that is not the first, nothing before an untitled first one.
+    private static func headerFactory(_ state: PickerState) -> OwnedObject {
+        let factory = OwnedObject(adopting: gtk_signal_list_item_factory_new()!)
+        connectObjectSignal(factory.pointer, "setup") { header in
             gtk_list_header_set_child(OpaquePointer(header), gtk_box_new(GTK_ORIENTATION_VERTICAL, 0))
         }
-        connectObjectSignal(UnsafeMutableRawPointer(factory), "bind") { [weak state] header in
+        connectObjectSignal(factory.pointer, "bind") { [weak state] header in
             guard let state, let box = gtk_list_header_get_child(OpaquePointer(header)) else { return }
             while let child = Gtk.Widget(box).firstChild?.pointer {
                 gtk_box_remove(typed(box), child)

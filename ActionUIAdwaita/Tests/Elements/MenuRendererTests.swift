@@ -7,7 +7,7 @@
  into a nested Section or Menu at run time are shown; an underscore in an item's title is not a
  mnemonic; it does not grow. A Toggle is a check item and a Picker a submenu of radio items, their
  marks following the value without rebuilding the menu; a Text, plain or markdown, is an item with
- no action.
+ no action. The built menu holds the only reference to each of its parts.
 */
 
 import XCTest
@@ -351,5 +351,32 @@ final class MenuRendererTests: XCTestCase {
             """#)
         let menu = try XCTUnwrap(link(try model(node), 0, "section"))
         XCTAssertEqual(label(menu, 0), "Hint", "its value is an AttributedString")
+    }
+    func testTheBuiltMenuHoldsTheOnlyReferenceToEachPart() throws {
+        let entries: [MenuEntry] = [
+            .item(id: 2, title: "Copy", enabled: true),
+            .divider,
+            .section(header: "More", entries: [.text("Hint")]),
+            .submenu(title: "Share", entries: [.item(id: 3, title: "Mail", enabled: true)]),
+            .picker(id: 4, title: "Sort", enabled: true, choices: [.init(title: "Name", tag: "name")]),
+        ]
+        let menu = Menu.makeMenu(entries)
+        let count = { (object: UnsafeMutableRawPointer) in object.assumingMemoryBound(to: GObject.self).pointee.ref_count }
+        XCTAssertEqual(count(menu.pointer), 1, "the caller's reference only")
+        // Each part is held by its parent alone; reading a link adds the reader's own reference,
+        // so 2 here means nothing else kept one.
+        let first = try XCTUnwrap(g_menu_model_get_item_link(menu.typed(), 0, "section"))
+        defer { g_object_unref(first) }
+        XCTAssertEqual(count(first), 2)
+        let more = try XCTUnwrap(g_menu_model_get_item_link(menu.typed(), 1, "section"))
+        defer { g_object_unref(more) }
+        XCTAssertEqual(count(more), 2, "a Section's own menu")
+        let last = try XCTUnwrap(g_menu_model_get_item_link(menu.typed(), 2, "section"))
+        defer { g_object_unref(last) }
+        for (index, kind) in [(Int32(0), "submenu"), (Int32(1), "picker")] {
+            let submenu = try XCTUnwrap(g_menu_model_get_item_link(last, index, "submenu"), kind)
+            XCTAssertEqual(count(submenu), 2, kind)
+            g_object_unref(submenu)
+        }
     }
 }

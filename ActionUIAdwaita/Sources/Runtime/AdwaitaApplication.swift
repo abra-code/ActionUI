@@ -140,17 +140,16 @@ public final class AdwaitaApplication {
         let width = gtk_widget_get_width(widget)
         let height = gtk_widget_get_height(widget)
         guard width > 0, height > 0, let renderer = gtk_native_get_renderer(OpaquePointer(window)) else { return false }
-        let paintable = gtk_widget_paintable_new(widget)!
-        defer { g_object_unref(UnsafeMutableRawPointer(paintable)) }
+        let paintable = OwnedObject(adopting: gtk_widget_paintable_new(widget)!)
         let snapshot = gtk_snapshot_new()!
-        gdk_paintable_snapshot(paintable, snapshot, Double(width), Double(height))
+        gdk_paintable_snapshot(paintable.opaquePointer, snapshot, Double(width), Double(height))
         guard let node = gtk_snapshot_free_to_node(snapshot) else { return false }
         defer { gsk_render_node_unref(node) }
         var viewport = graphene_rect_t(origin: graphene_point_t(x: 0, y: 0),
                                        size: graphene_size_t(width: Float(width), height: Float(height)))
-        guard let texture = gsk_renderer_render_texture(renderer, node, &viewport) else { return false }
-        defer { g_object_unref(UnsafeMutableRawPointer(texture)) }
-        return gdk_texture_save_to_png(texture, path) != 0
+        guard let rendered = gsk_renderer_render_texture(renderer, node, &viewport) else { return false }
+        let texture = OwnedObject(adopting: rendered)
+        return gdk_texture_save_to_png(texture.opaquePointer, path) != 0
     }
 
     // MARK: Running
@@ -164,11 +163,12 @@ public final class AdwaitaApplication {
             return 1
         }
         MainLoopBridge.install()
-        let app = adw_application_new(resolvedApplicationID(), G_APPLICATION_NON_UNIQUE)!
-        application = app
-        connectSignal(app, "activate", .instanceOnly) { [weak self] in self?.started() }
-        connectSignal(app, "shutdown", .instanceOnly) { [weak self] in self?.handlers.willTerminate?() }
-        let status = g_application_run(typed(app), 0, nil)
+        // Released when run returns, after the windows are gone.
+        let app = OwnedObject(adopting: adw_application_new(resolvedApplicationID(), G_APPLICATION_NON_UNIQUE)!)
+        application = app.typed()
+        connectSignal(app.pointer, "activate", .instanceOnly) { [weak self] in self?.started() }
+        connectSignal(app.pointer, "shutdown", .instanceOnly) { [weak self] in self?.handlers.willTerminate?() }
+        let status = g_application_run(app.typed(), 0, nil)
         // An application that quits (terminate) leaves its windows open, each holding the
         // application; they go here, with no handler asked or told.
         for presented in Array(windows.values) {
@@ -182,7 +182,6 @@ public final class AdwaitaApplication {
         isActive = false
         holdsForFirstWindow = false
         application = nil
-        g_object_unref(UnsafeMutableRawPointer(app))
         return status
     }
 
@@ -237,9 +236,7 @@ public final class AdwaitaApplication {
             gtk_window_set_default_icon_name(icon)
             return
         }
-        guard let absolute = g_canonicalize_filename(icon, nil) else { return }
-        let path = String(cString: absolute)
-        g_free(absolute)
+        guard let path = takeGString(g_canonicalize_filename(icon, nil)) else { return }
         let parts = path.split(separator: "/", omittingEmptySubsequences: false)
         let folder = parts.dropLast().joined(separator: "/")
         var name = String(parts.last ?? "")
@@ -427,9 +424,9 @@ public final class AdwaitaApplication {
               g_list_model_get_n_items(monitors) > 0, let item = g_list_model_get_item(monitors, 0) else {
             return (8192, 8192)
         }
-        defer { g_object_unref(item) }
+        let monitor = OwnedObject(adopting: item)
         var geometry = GdkRectangle()
-        gdk_monitor_get_geometry(OpaquePointer(item), &geometry)
+        gdk_monitor_get_geometry(monitor.opaquePointer, &geometry)
         return (geometry.width, geometry.height)
     }
 

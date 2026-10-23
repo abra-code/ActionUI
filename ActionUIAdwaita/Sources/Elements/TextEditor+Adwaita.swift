@@ -150,8 +150,6 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         var start = GtkTextIter()
         var end = GtkTextIter()
         gtk_text_buffer_get_bounds(buffer, &start, &end)
-        guard let text = gtk_text_buffer_get_text(buffer, &start, &end, 0) else { return "" }
-        defer { g_free(text) }
-        return String(cString: text)
+        return takeGString(gtk_text_buffer_get_text(buffer, &start, &end, 0)) ?? ""
     }
 }

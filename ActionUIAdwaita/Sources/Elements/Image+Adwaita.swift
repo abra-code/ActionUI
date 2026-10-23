@@ -305,10 +305,10 @@ extension Image: ActionUIAdwaitaRenderer {
         let side = state.fill ? max(width, height) : min(width, height)
         guard side >= 1 else { return }
         let theme = gtk_icon_theme_get_for_display(display)
-        guard let icon = gtk_icon_theme_lookup_icon(theme, name, nil, Int32(side.rounded(.up)),
+        guard let lookedUp = gtk_icon_theme_lookup_icon(theme, name, nil, Int32(side.rounded(.up)),
                                                     gtk_widget_get_scale_factor(widget),
                                                     gtk_widget_get_direction(widget), GtkIconLookupFlags(0)) else { return }
-        defer { g_object_unref(UnsafeMutableRawPointer(icon)) }
+        let icon = OwnedObject(adopting: lookedUp)
         // The text color, then libadwaita's error, warning and success colors, which a symbolic
         // icon's other parts use.
         var colors = [GdkRGBA](repeating: GdkRGBA(), count: 4)
@@ -319,7 +319,7 @@ extension Image: ActionUIAdwaitaRenderer {
         gtk_snapshot_save(snapshot)
         var origin = graphene_point_t(x: Float((width - side) / 2), y: Float((height - side) / 2))
         gtk_snapshot_translate(snapshot, &origin)
-        gtk_symbolic_paintable_snapshot_symbolic(icon, snapshot, side, side, colors, 4)
+        gtk_symbolic_paintable_snapshot_symbolic(icon.opaquePointer, snapshot, side, side, colors, 4)
         gtk_snapshot_restore(snapshot)
     }
 }

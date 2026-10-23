@@ -55,7 +55,10 @@ indirect enum MenuEntry: Equatable {
 /// A Menu's action group and what it was built from, attached to its button.
 @MainActor
 final class MenuState {
-    let actions: OpaquePointer
+    /// The group of the items' actions, which the menu's button shows under actionPrefix. Read
+    /// through optional chaining, which borrows the owner (`!` on it would consume it).
+    var actions: OpaquePointer { (ownedActions?.opaquePointer)! }
+    private var ownedActions: OwnedObject?
     var entries: [MenuEntry]?
     /// What the menu should show once the open menu closes: rebuilding the model makes a new
     /// popover, which would close the menu under the user.
@@ -64,11 +67,12 @@ final class MenuState {
     var items: [Int: any ActionUIElementBase] = [:]
 
     init() {
-        actions = OpaquePointer(g_simple_action_group_new()!)
+        ownedActions = OwnedObject(adopting: OpaquePointer(g_simple_action_group_new()!))
     }
 
     isolated deinit {
-        g_object_unref(UnsafeMutableRawPointer(actions))
+        // Released here, on the main actor (GTK's thread).
+        ownedActions = nil
     }
 }
 
@@ -124,8 +128,7 @@ extension Menu: ActionUIAdwaitaRenderer {
         state.pending = nil
         state.entries = entries
         let model = makeMenu(entries)
-        gtk_menu_button_set_menu_model(button, typed(model))
-        g_object_unref(UnsafeMutableRawPointer(model))
+        gtk_menu_button_set_menu_model(button, model.typed())
     }
 
     /// The title, or the label element rendered as the button's child.
@@ -237,9 +240,7 @@ extension Menu: ActionUIAdwaitaRenderer {
                 break
             case .toggle:
                 let on = Toggle.initialValue(model) as? Bool ?? false
-                if let current = g_action_get_state(action) {
-                    let shown = g_variant_get_boolean(current) != 0
-                    g_variant_unref(current)
+                if let current = g_action_get_state(action), let shown = OwnedVariant(adopting: current).bool {
                     if shown != on {
                         g_simple_action_set_state(action, g_variant_new_boolean(on ? 1 : 0))
                     }
@@ -247,9 +248,7 @@ extension Menu: ActionUIAdwaitaRenderer {
             case .picker:
                 let properties = ActionUIRegistry.shared.currentProperties(element: element, model: model)
                 let chosen = model.value as? String ?? Picker.Props(properties).options.first?.tag ?? ""
-                if let current = g_action_get_state(action) {
-                    let shown = String(cString: g_variant_get_string(current, nil))
-                    g_variant_unref(current)
+                if let current = g_action_get_state(action), let shown = OwnedVariant(adopting: current).string {
                     if shown != chosen {
                         g_simple_action_set_state(action, g_variant_new_string(chosen))
                     }
@@ -290,8 +289,9 @@ extension Menu: ActionUIAdwaitaRenderer {
                                     props: Picker.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
             }
         }
-        g_action_map_add_action(map, action)
-        g_object_unref(UnsafeMutableRawPointer(action))
+        // Ours until the map takes its own reference; released when this returns.
+        let owned = OwnedObject(adopting: action)
+        g_action_map_add_action(map, owned.opaquePointer)
         return action
     }
 
@@ -327,53 +327,56 @@ extension Menu: ActionUIAdwaitaRenderer {
     }
 
     /// The GMenu for `entries`: items in sections, a Divider closing one section and starting the
-    /// next. The caller owns the returned reference.
-    static func makeMenu(_ entries: [MenuEntry]) -> OpaquePointer {
-        let menu = g_menu_new()!
-        var section = g_menu_new()!
-        func closeSection() {
-            if g_menu_model_get_n_items(typed(section)) > 0 {
-                g_menu_append_section(menu, nil, typed(section))
-            }
-            g_object_unref(UnsafeMutableRawPointer(section))
-            section = g_menu_new()!
-        }
+    /// next.
+    static func makeMenu(_ entries: [MenuEntry]) -> OwnedObject {
+        let menu = newMenu()
+        var section = newMenu()
         for entry in entries {
             switch entry {
             case let .item(id, title, _):
-                g_menu_append(section, mnemonicEscaped(title), "\(actionPrefix).\(actionName(id))")
+                g_menu_append(section.opaquePointer, mnemonicEscaped(title), "\(actionPrefix).\(actionName(id))")
             case let .toggle(id, title, _):
-                g_menu_append(section, mnemonicEscaped(title), "\(actionPrefix).\(toggleActionName(id))")
+                g_menu_append(section.opaquePointer, mnemonicEscaped(title), "\(actionPrefix).\(toggleActionName(id))")
             case let .picker(id, title, _, choices):
-                let inner = g_menu_new()!
+                let inner = newMenu()
                 for choice in choices {
-                    let item = g_menu_item_new(mnemonicEscaped(choice.title), nil)!
+                    let item = OwnedObject(adopting: g_menu_item_new(mnemonicEscaped(choice.title), nil)!)
                     // The item takes the floating target.
-                    g_menu_item_set_action_and_target_value(item, "\(actionPrefix).\(pickerActionName(id))", g_variant_new_string(choice.tag))
-                    g_menu_append_item(inner, item)
-                    g_object_unref(UnsafeMutableRawPointer(item))
+                    g_menu_item_set_action_and_target_value(item.opaquePointer, "\(actionPrefix).\(pickerActionName(id))",
+                                                            g_variant_new_string(choice.tag))
+                    g_menu_append_item(inner.opaquePointer, item.opaquePointer)
                 }
-                g_menu_append_submenu(section, mnemonicEscaped(title), typed(inner))
-                g_object_unref(UnsafeMutableRawPointer(inner))
+                g_menu_append_submenu(section.opaquePointer, mnemonicEscaped(title), inner.typed())
             case let .text(text):
                 // No action: GTK shows the item dimmed, and choosing it does nothing.
-                g_menu_append(section, mnemonicEscaped(text), nil)
+                g_menu_append(section.opaquePointer, mnemonicEscaped(text), nil)
             case .divider:
-                closeSection()
+                closeSection(&section, in: menu)
             case let .section(header, children):
-                closeSection()
+                closeSection(&section, in: menu)
+                // Bound to a name: a temporary may be released right after the pointer is read.
                 let inner = makeMenu(children)
-                g_menu_append_section(menu, header, typed(inner))
-                g_object_unref(UnsafeMutableRawPointer(inner))
+                g_menu_append_section(menu.opaquePointer, header, inner.typed())
             case let .submenu(title, children):
                 let inner = makeMenu(children)
-                g_menu_append_submenu(section, mnemonicEscaped(title), typed(inner))
-                g_object_unref(UnsafeMutableRawPointer(inner))
+                g_menu_append_submenu(section.opaquePointer, mnemonicEscaped(title), inner.typed())
             }
         }
-        closeSection()
-        g_object_unref(UnsafeMutableRawPointer(section))
+        closeSection(&section, in: menu)
         return menu
+    }
+
+    /// A new, empty GMenu (GMenus come without a floating reference).
+    private static func newMenu() -> OwnedObject {
+        OwnedObject(adopting: g_menu_new()!)
+    }
+
+    /// Appends `section` to `menu` unless it is empty, and starts a new one in its place.
+    private static func closeSection(_ section: inout OwnedObject, in menu: borrowing OwnedObject) {
+        if g_menu_model_get_n_items(section.typed()) > 0 {
+            g_menu_append_section(menu.opaquePointer, nil, section.typed())
+        }
+        section = newMenu()
     }
 
     /// `text` with each underscore doubled: GTK reads an item's or a submenu's label as a mnemonic,
