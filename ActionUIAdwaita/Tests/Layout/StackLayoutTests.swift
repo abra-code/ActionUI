@@ -202,4 +202,79 @@ final class StackLayoutTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(frames(stack, 10, 50).map { $0[3] }, [10, 30, 10])
     }
+
+    // MARK: Text baselines
+
+    private func text(_ id: Int, _ value: String, padding: String = "") -> String {
+        #"{"type": "Text", "id": \#(id), "properties": {"text": "\#(value)"\#(padding)}}"#
+    }
+
+    /// The label of `stack`'s text with element `value`: the element inside its node's box, found
+    /// by its text.
+    private func label(_ value: String, in stack: WidgetPointer) throws -> WidgetPointer {
+        func find(_ widget: WidgetPointer) -> WidgetPointer? {
+            if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_label_get_type()) != 0,
+               swiftString(gtk_label_get_text(opaque(widget))) == value {
+                return widget
+            }
+            var child = gtk_widget_get_first_child(widget)
+            while let current = child {
+                if let found = find(current) { return found }
+                child = gtk_widget_get_next_sibling(current)
+            }
+            return nil
+        }
+        return try XCTUnwrap(find(stack))
+    }
+
+    /// Where `label`'s text baseline is in `stack`, after the stack was allocated: its top plus
+    /// the baseline GTK measures for it at its width.
+    private func baseline(of label: WidgetPointer, in stack: WidgetPointer) -> Int {
+        var bounds = graphene_rect_t()
+        _ = gtk_widget_compute_bounds(label, stack, &bounds)
+        var minimum: Int32 = 0
+        var natural: Int32 = 0
+        var minimumBaseline: Int32 = -1
+        var naturalBaseline: Int32 = -1
+        gtk_widget_measure(label, GTK_ORIENTATION_VERTICAL, Int32(bounds.size.width), &minimum, &natural, &minimumBaseline, &naturalBaseline)
+        return Int(bounds.origin.y) + Int(naturalBaseline)
+    }
+
+    private func baselineRow(_ children: [String]) -> String {
+        #"{"type": "HStack", "id": 1, "properties": {"spacing": 0, "alignment": "firstTextBaseline"}, "children": [\#(children.joined(separator: ","))]}"#
+    }
+
+    func testAFirstTextBaselineHStackPutsABlocksBottomOnTheTextsBaseline() throws {
+        // Measured on macOS 27: a view without text lines up by its bottom.
+        let stack = try render(baselineRow([block(2, 20, 40), text(3, "Hello")]))
+        let block = frames(stack, 200, 100)[0]
+        XCTAssertEqual(block[1] + block[3], baseline(of: try label("Hello", in: stack), in: stack))
+    }
+
+    func testAStacksBaselineIsItsFirstTexts() throws {
+        // Measured on macOS 27: a VStack's first text baseline is its first text's, below a
+        // view without text.
+        let stack = try render(baselineRow([block(2, 20, 20), #"{"type": "VStack", "id": 3, "properties": {"spacing": 0}, "children": [\#(block(4, 30, 30)), \#(text(5, "One")), \#(text(6, "Two"))]}"#]))
+        let block = frames(stack, 200, 200)[0]
+        XCTAssertEqual(block[1] + block[3], baseline(of: try label("One", in: stack), in: stack))
+    }
+
+    func testPaddingCarriesTheBaselineDown() throws {
+        let stack = try render(baselineRow([block(2, 20, 20), text(3, "Hello", padding: #", "padding": {"top": 15}"#)]))
+        let block = frames(stack, 200, 100)[0]
+        XCTAssertEqual(block[1] + block[3], baseline(of: try label("Hello", in: stack), in: stack))
+    }
+
+    func testABaselineHStackIsAsTallAsTheMostAboveAndBelowItsBaseline() throws {
+        let stack = try render(baselineRow([block(2, 20, 40), text(3, "Hello")]))
+        let label = try label("Hello", in: stack)
+        var minimum: Int32 = 0
+        var natural: Int32 = 0
+        var minimumBaseline: Int32 = -1
+        var naturalBaseline: Int32 = -1
+        gtk_widget_measure(label, GTK_ORIENTATION_VERTICAL, -1, &minimum, &natural, &minimumBaseline, &naturalBaseline)
+        XCTAssertLessThan(naturalBaseline, 40, "the block reaches higher above the baseline than the text")
+        XCTAssertEqual(measure(stack, GTK_ORIENTATION_VERTICAL).1, 40 + natural - naturalBaseline,
+                       "the block above the baseline, the text's descent below it")
+    }
 }

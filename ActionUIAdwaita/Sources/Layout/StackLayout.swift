@@ -7,7 +7,8 @@
    child that expands in that axis takes all of it, up to its frame's maximum). The children form
    a block as wide as the widest of them, centered in the stack; each child is aligned inside the
    block by the stack's alignment, so VStack(alignment: .leading) aligns to the stack's leading
-   edge, not the window's.
+   edge, not the window's. An HStack on firstTextBaseline or lastTextBaseline lines up its
+   children's first text baselines instead (Baselines; one without text by its bottom).
  - Main axis: StackSolver.mainSizes, the group centered when it does not fill the stack. Spacers
    (SpacerMarker on the child) come last and get no default spacing, as in SwiftUI.
  - Height for width: a VStack's children are measured for the width they get, and an HStack's
@@ -33,6 +34,9 @@ final class StackConfiguration {
     /// The stack was given no spacing (SwiftUI's default): there is none next to a Spacer.
     var isDefaultSpacing: Bool
     var alignment: StackSolver.Alignment
+    /// An HStack lines up its children's first text baselines (firstTextBaseline and
+    /// lastTextBaseline; Baselines) instead of aligning them by `alignment`.
+    var alignsBaselines = false
 
     init(axis: StackAxis, spacing: Int, isDefaultSpacing: Bool, alignment: StackSolver.Alignment) {
         self.axis = axis
@@ -65,17 +69,19 @@ enum StackLayout {
         return widget
     }
 
-    /// Sets a stack's spacing (nil: SwiftUI's default, none next to a Spacer) and alignment,
-    /// relaying it out only when they changed.
-    static func configure(_ widget: WidgetPointer, spacing: Double?, alignment: StackSolver.Alignment) {
+    /// Sets a stack's spacing (nil: SwiftUI's default, none next to a Spacer) and alignment (an
+    /// HStack's by text baselines with `alignsBaselines`), relaying it out only when they changed.
+    static func configure(_ widget: WidgetPointer, spacing: Double?, alignment: StackSolver.Alignment,
+                          alignsBaselines: Bool = false) {
         guard let configuration = attached(StackConfiguration.self, on: widget, key: stackConfigurationKey) else { return }
         let points = StackSolver.length(spacing ?? defaultSpacing)
         let isDefault = spacing == nil
         guard configuration.spacing != points || configuration.isDefaultSpacing != isDefault
-                || configuration.alignment != alignment else { return }
+                || configuration.alignment != alignment || configuration.alignsBaselines != alignsBaselines else { return }
         configuration.spacing = points
         configuration.isDefaultSpacing = isDefault
         configuration.alignment = alignment
+        configuration.alignsBaselines = alignsBaselines
         gtk_widget_queue_resize(widget)
     }
 
@@ -235,6 +241,9 @@ enum StackLayout {
         // Cross axis: the widest child, from its offset in a Form.
         let offsets = cross == GTK_ORIENTATION_HORIZONTAL
             ? leadingOffsets(widget, children) : Array(repeating: 0, count: children.count)
+        if stack.alignsBaselines, cross == GTK_ORIENTATION_VERTICAL {
+            return baselineHeight(children, forSizes: forSizes)
+        }
         var total = Measured(minimum: 0, natural: 0)
         for (index, child) in children.enumerated() {
             let size = measureChild(child, cross, forSize: forSizes[index])
@@ -244,24 +253,55 @@ enum StackLayout {
         return total
     }
 
+    /// The height of an HStack that lines up its children's first text baselines (placements):
+    /// the most of a child above its baseline and the most below, each at the child's minimum and
+    /// natural height, and its width (`forSizes`, else its natural width).
+    private static func baselineHeight(_ children: [WidgetPointer], forSizes: [Int]) -> Measured {
+        var above = Measured(minimum: 0, natural: 0)
+        var below = Measured(minimum: 0, natural: 0)
+        for (index, child) in children.enumerated() {
+            let size = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: forSizes[index])
+            let width = forSizes[index] >= 0 ? forSizes[index] : measureChild(child, GTK_ORIENTATION_HORIZONTAL).natural
+            let minimumBaseline = Baselines.first(child, width: width, height: size.minimum) ?? size.minimum
+            let naturalBaseline = Baselines.first(child, width: width, height: size.natural) ?? size.natural
+            above.minimum = max(above.minimum, minimumBaseline)
+            above.natural = max(above.natural, naturalBaseline)
+            below.minimum = max(below.minimum, size.minimum - minimumBaseline)
+            below.natural = max(below.natural, size.natural - naturalBaseline)
+        }
+        return Measured(minimum: above.minimum + below.minimum, natural: above.natural + below.natural)
+    }
+
     // MARK: Allocate
 
     private static func allocate(_ widget: WidgetPointer, width: Int, height: Int) {
         // A Group's widget whose stack places its children: nothing to place here.
         if Group.isFlattened(widget) { return }
         Group.allocateGroups(in: widget, width: width, height: height)
-        let stack = configuration(widget)
         let children = stackChildren(widget)
         guard !children.isEmpty else { return }
-        let gaps = Self.gaps(children, stack)
+        for (child, place) in zip(children, placements(widget, children, width: width, height: height)) {
+            var origin = graphene_point_t(x: Float(place.x), y: Float(place.y))
+            gtk_widget_allocate(child, Int32(clamping: place.width), Int32(clamping: place.height), -1,
+                                gsk_transform_translate(nil, &origin))
+        }
+    }
 
-        // The widths and places across first (a Form's rows start at their offsets, FormLayout);
-        // the children's heights depend on their widths.
-        let placements = horizontalPlacements(widget, children, width: width)
+    /// Each of `children`'s place and size in a stack `width` x `height`, as allocate gives them.
+    /// The widths and places across first (horizontalPlacements); the heights depend on them. A
+    /// VStack's children follow one another, centered as a group; an HStack's are aligned in a
+    /// block as tall as the tallest, centered, or line up their first text baselines (Baselines;
+    /// one without text by its bottom), the block then as tall as the most above a baseline and
+    /// the most below one.
+    static func placements(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int, height: Int)
+        -> [(x: Int, y: Int, width: Int, height: Int)] {
+        let stack = configuration(widget)
+        let gaps = Self.gaps(children, stack)
+        let across = horizontalPlacements(widget, children, width: width)
         var heights: [Int]
         var ys: [Int]
         if stack.axis == .vertical {
-            let rows = children.enumerated().map { stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: placements[$0].width) }
+            let rows = children.enumerated().map { stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: across[$0].width) }
             heights = StackSolver.mainSizes(rows, available: height, gaps: gaps)
             var position = StackSolver.centeredStart(length: StackSolver.length(of: heights, gaps: gaps), available: height)
             ys = heights.enumerated().map { index, size in
@@ -270,16 +310,22 @@ enum StackLayout {
             }
         } else {
             heights = children.enumerated().map {
-                stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: placements[$0].width).size(offered: height)
+                stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: across[$0].width).size(offered: height)
             }
-            let block = heights.max() ?? 0
-            let blockStart = StackSolver.centeredStart(length: block, available: height)
-            ys = heights.map { blockStart + StackSolver.alignedOffset(size: $0, block: block, alignment: stack.alignment) }
+            if stack.alignsBaselines {
+                let baselines = children.indices.map {
+                    Baselines.first(children[$0], width: across[$0].width, height: heights[$0]) ?? heights[$0]
+                }
+                let above = baselines.max() ?? 0
+                let below = zip(heights, baselines).map { $0 - $1 }.max() ?? 0
+                let blockStart = StackSolver.centeredStart(length: above + below, available: height)
+                ys = baselines.map { blockStart + above - $0 }
+            } else {
+                let block = heights.max() ?? 0
+                let blockStart = StackSolver.centeredStart(length: block, available: height)
+                ys = heights.map { blockStart + StackSolver.alignedOffset(size: $0, block: block, alignment: stack.alignment) }
+            }
         }
-        for (index, child) in children.enumerated() {
-            var origin = graphene_point_t(x: Float(placements[index].x), y: Float(ys[index]))
-            gtk_widget_allocate(child, Int32(clamping: placements[index].width), Int32(clamping: heights[index]), -1,
-                                gsk_transform_translate(nil, &origin))
-        }
+        return children.indices.map { (across[$0].x, ys[$0], across[$0].width, heights[$0]) }
     }
 }

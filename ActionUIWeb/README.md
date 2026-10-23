@@ -203,6 +203,11 @@ space differently from SwiftUI's stacks:
   points in; on the web there is no column (`form-empty-control-title`,
   `form-empty-text-field-title`), nor for the titled controls inside a stack row, which macOS lines
   up too (`form-nested-title-in-hstack`, `form-nested-titles-average`).
+- **A view without text lines up by CSS's baseline.** In an HStack on `firstTextBaseline`,
+  SwiftUI lines a view without text up by its bottom, also a filling view, a framed one and a stack
+  holding no text; CSS gives such a box a baseline of its own, so it sits elsewhere
+  (`hstack-baseline-expanding`, `hstack-baseline-frame-bottom`,
+  `hstack-baseline-stack-without-text`). Plain Colors of different heights match.
 - **A non-uniform scale with a rotation** scales before it rotates (CSS's order for the
   independent `rotate` and `scale` properties), where SwiftUI rotates first. Each alone, and a
   uniform scale with a rotation, match.

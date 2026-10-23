@@ -646,16 +646,25 @@ enum ModifierBox {
             return
         }
         let layout = layout(ofBox: box)
-        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
-        let frameHeight = frameSize(box, content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
-        // The frame is centered in a box bigger than it, as SwiftUI's parent centers it.
-        var origin = graphene_point_t(x: Float(StackSolver.centeredStart(length: frameWidth, available: width)),
-                                      y: Float(StackSolver.centeredStart(length: frameHeight, available: height)))
+        let frame = contentFrame(box, width: width, height: height)
+        var origin = graphene_point_t(x: Float(frame.x), y: Float(frame.y))
         var transform = gsk_transform_translate(nil, &origin)
         if layout.hasTransform {
-            transform = applyEffects(transform, layout, width: Double(frameWidth), height: Double(frameHeight))
+            transform = applyEffects(transform, layout, width: Double(frame.width), height: Double(frame.height))
         }
-        gtk_widget_allocate(content, Int32(clamping: frameWidth), Int32(clamping: frameHeight), -1, transform)
+        gtk_widget_allocate(content, Int32(clamping: frame.width), Int32(clamping: frame.height), -1, transform)
+    }
+
+    /// Where the content group (the frame) is in a box `width` x `height`, and its size, as
+    /// allocateBox places it: centered in a box bigger than it, as SwiftUI's parent centers it.
+    /// The box's offset, rotation and scale move no layout. Baselines reads it too.
+    static func contentFrame(_ box: WidgetPointer, width: Int, height: Int) -> (x: Int, y: Int, width: Int, height: Int) {
+        guard let content = layoutChildren(box).first else { return (0, 0, width, height) }
+        let layout = layout(ofBox: box)
+        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
+        let frameHeight = frameSize(box, content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
+        return (StackSolver.centeredStart(length: frameWidth, available: width),
+                StackSolver.centeredStart(length: frameHeight, available: height), frameWidth, frameHeight)
     }
 
     /// Gives `child` the whole `width` x `height` at its parent's origin (measured first, as GTK
@@ -722,6 +731,17 @@ enum ModifierBox {
             allocateWhole(element, width: width, height: height)
             return
         }
+        let frame = elementFrame(content, width: width, height: height)
+        var origin = graphene_point_t(x: Float(frame.x), y: Float(frame.y))
+        gtk_widget_allocate(element, Int32(clamping: frame.width), Int32(clamping: frame.height), -1,
+                            gsk_transform_translate(nil, &origin))
+    }
+
+    /// Where the element is in a content group `width` x `height`, and its size, as
+    /// allocateContent places it: after the padding, aligned in what is left by the frame's
+    /// alignment. Baselines reads it too.
+    static func elementFrame(_ content: WidgetPointer, width: Int, height: Int) -> (x: Int, y: Int, width: Int, height: Int) {
+        guard let element = layoutChildren(content).first else { return (0, 0, width, height) }
         let layout = layout(ofContent: content)
         let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: width)
         let elementHeight = elementSize(element, layout, GTK_ORIENTATION_VERTICAL, size: height, forSize: elementWidth)
@@ -731,8 +751,6 @@ enum ModifierBox {
                                                              alignment: layout.alignment.horizontal)
         let y = vertical.before + StackSolver.alignedOffset(size: elementHeight, block: height - vertical.total,
                                                            alignment: layout.alignment.vertical)
-        var origin = graphene_point_t(x: Float(x), y: Float(y))
-        gtk_widget_allocate(element, Int32(clamping: elementWidth), Int32(clamping: elementHeight), -1,
-                            gsk_transform_translate(nil, &origin))
+        return (x, y, elementWidth, elementHeight)
     }
 }

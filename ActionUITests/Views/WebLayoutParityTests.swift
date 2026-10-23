@@ -98,6 +98,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
     /// match fails the test until it is removed here. ActionUIWeb/README.md describes them for
     /// users ("Known layout differences from SwiftUI"). The causes, found with this test:
+    /// - baseline: an HStack on firstTextBaseline aligns CSS baselines, and CSS gives a box without text a baseline from its content or edge where SwiftUI lines it up by its bottom (an expanding child, a framed child, a stack without text)
     /// - padding: a view's own CSS padding is a floor under its flex share (flex-basis 0 cannot go below it), so ContentUnavailableView takes 316 of 600 where SwiftUI shares 300 and 300
     /// - form: a Form fills its parent's width with its rows at the leading edge, where macOS's hugs its rows and is centered like a VStack; its rows sit 4 lower beside a filling row; no label column
     /// - group: a Group's padding or frame goes on one box around the whole Group, which lays its children out in a column, where SwiftUI applies them to each child in the parent stack
@@ -114,6 +115,9 @@ final class WebLayoutParityTests: XCTestCase {
         "form-sections-add-no-space": "form",
         "group-frame-per-child": "group",
         "group-padding-per-child": "group",
+        "hstack-baseline-expanding": "baseline",
+        "hstack-baseline-frame-bottom": "baseline",
+        "hstack-baseline-stack-without-text": "baseline",
         "hstack-larger-minimum-first": "minimum",
         "nested-unbounded-spacer": "minimum",
     ]

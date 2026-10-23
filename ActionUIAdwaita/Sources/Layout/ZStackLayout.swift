@@ -115,18 +115,27 @@ enum ZStackLayout {
         Group.allocateGroups(in: widget, width: width, height: height)
         let children = stackChildren(widget)
         guard !children.isEmpty else { return }
+        for (child, place) in zip(children, placements(widget, width: width, height: height)) {
+            var origin = graphene_point_t(x: Float(place.x), y: Float(place.y))
+            gtk_widget_allocate(child, Int32(clamping: place.width), Int32(clamping: place.height), -1,
+                                gsk_transform_translate(nil, &origin))
+        }
+    }
+
+    /// Each child's place and size in a stack `width` x `height`, as allocate gives them: across
+    /// as horizontalPlacements, and down in a block as tall as the tallest child, centered, each
+    /// aligned in it by the stack's vertical alignment (Baselines reads them too).
+    static func placements(_ widget: WidgetPointer, width: Int, height: Int) -> [(x: Int, y: Int, width: Int, height: Int)] {
         let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
-        let placements = horizontalPlacements(widget, width: width)
-        let widths = placements.map(\.width)
-        let heights = children.enumerated().map { childSize($1, GTK_ORIENTATION_VERTICAL, available: height, forSize: widths[$0]) }
+        let across = horizontalPlacements(widget, width: width)
+        let heights = zip(stackChildren(widget), across).map {
+            childSize($0, GTK_ORIENTATION_VERTICAL, available: height, forSize: $1.width)
+        }
         let blockHeight = heights.max() ?? 0
         let blockY = StackSolver.centeredStart(length: blockHeight, available: height)
-        for (index, child) in children.enumerated() {
-            let x = placements[index].x
+        return heights.indices.map { index in
             let y = blockY + StackSolver.alignedOffset(size: heights[index], block: blockHeight, alignment: configuration.vertical)
-            var origin = graphene_point_t(x: Float(x), y: Float(y))
-            gtk_widget_allocate(child, Int32(clamping: widths[index]), Int32(clamping: heights[index]), -1,
-                                gsk_transform_translate(nil, &origin))
+            return (across[index].x, y, across[index].width, heights[index])
         }
     }
 }
