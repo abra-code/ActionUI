@@ -92,13 +92,18 @@ extension Text: ActionUIAdwaitaRenderer {
 
     /// What the label shows: the value, else the markdown, else the text property.
     static func displayedText(_ node: RenderNode) -> String {
-        if let attributed = node.model.value as? AttributedString {
+        displayedText(node.model.value, node.properties)
+    }
+
+    /// What a Text with `value` and `properties` shows (also as a menu item).
+    static func displayedText(_ value: Any?, _ properties: [String: Any]) -> String {
+        if let attributed = value as? AttributedString {
             return String(attributed.characters)
         }
-        if let plain = node.model.value as? String {
+        if let plain = value as? String {
             return plain
         }
-        let props = Props(node.properties)
+        let props = Props(properties)
         return props.markdown ?? props.text
     }
 }

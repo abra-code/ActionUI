@@ -5,7 +5,9 @@
  is a submenu, a hidden Button is left out); choosing an item runs the Button's actionID once, a
  disabled Button's item is disabled; the menu is rebuilt only when it changes; children inserted
  into a nested Section or Menu at run time are shown; an underscore in an item's title is not a
- mnemonic; it does not grow.
+ mnemonic; it does not grow. A Toggle is a check item and a Picker a submenu of radio items, their
+ marks following the value without rebuilding the menu; a Text, plain or markdown, is an item with
+ no action.
 */
 
 import XCTest
@@ -263,5 +265,91 @@ final class MenuRendererTests: XCTestCase {
         XCTAssertEqual(gtk_menu_button_get_child(OpaquePointer(node.widget)), image.outerWidget)
         XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(node.widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0,
                           "still named after the title")
+    }
+
+    // MARK: Toggle, Picker and Text items
+
+    private let settings = #"""
+        {"type": "Menu", "id": 1, "properties": {"title": "View"}, "children": [
+          {"type": "Toggle", "id": 2, "properties": {"title": "Wrap", "isOn": true, "actionID": "test.copy"}},
+          {"type": "Picker", "id": 3, "properties": {"title": "Sort", "options": [{"title": "Name", "tag": "name"}, {"title": "Date", "tag": "date"}], "actionID": "test.share"}},
+          {"type": "Text", "id": 4, "properties": {"text": "Hint"}}]}
+        """#
+
+    private func value(_ id: Int) -> Any? {
+        ActionUIModel.shared.windowModels[windowUUID]?.viewModels[id]?.value
+    }
+
+    private func state(_ group: OpaquePointer, _ name: String) throws -> OpaquePointer {
+        try XCTUnwrap(g_action_group_get_action_state(group, name))
+    }
+
+    private func attribute(_ model: UnsafeMutablePointer<GMenuModel>, _ index: Int32, _ name: String) -> OpaquePointer? {
+        g_menu_model_get_item_attribute_value(model, index, name, nil)
+    }
+
+    func testAToggleIsACheckItemThatSetsItsValue() throws {
+        let node = try render(settings)
+        let group = try actions(node)
+        let name = Menu.toggleActionName(2)
+        var on = try state(group, name)
+        XCTAssertEqual(g_variant_get_boolean(on), 1, "the check mark follows isOn")
+        g_variant_unref(on)
+
+        g_action_group_activate_action(group, name, nil)
+        XCTAssertEqual(value(2) as? Bool, false, "choosing it sets the other state")
+        XCTAssertEqual(fired, ["test.copy"])
+        AdwaitaTestHost.drainMainLoop()
+        on = try state(group, name)
+        XCTAssertEqual(g_variant_get_boolean(on), 0)
+        g_variant_unref(on)
+
+        let menu = try model(node)
+        ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 2, value: true)
+        AdwaitaTestHost.drainMainLoop()
+        on = try state(group, name)
+        XCTAssertEqual(g_variant_get_boolean(on), 1, "a host value moves the check mark")
+        g_variant_unref(on)
+        XCTAssertEqual(try model(node), menu, "without rebuilding the menu")
+        XCTAssertEqual(fired, ["test.copy"], "a host value fires nothing")
+    }
+
+    func testAPickerIsASubmenuOfRadioItems() throws {
+        let node = try render(settings)
+        let menu = try XCTUnwrap(link(try model(node), 0, "section"))
+        XCTAssertEqual(label(menu, 1), "Sort")
+        let choices = try XCTUnwrap(link(menu, 1, "submenu"), "the options right in the submenu")
+        XCTAssertEqual([0, 1].map { label(choices, $0) }, ["Name", "Date"])
+        let target = try XCTUnwrap(attribute(choices, 1, "target"))
+        XCTAssertEqual(String(cString: g_variant_get_string(target, nil)), "date", "each item targets its tag")
+        g_variant_unref(target)
+
+        let group = try actions(node)
+        let name = Menu.pickerActionName(3)
+        var chosen = try state(group, name)
+        XCTAssertEqual(String(cString: g_variant_get_string(chosen, nil)), "name", "the first option by default")
+        g_variant_unref(chosen)
+        g_action_group_activate_action(group, name, g_variant_new_string("date"))
+        XCTAssertEqual(value(3) as? String, "date")
+        XCTAssertEqual(fired, ["test.share"])
+        AdwaitaTestHost.drainMainLoop()
+        chosen = try state(group, name)
+        XCTAssertEqual(String(cString: g_variant_get_string(chosen, nil)), "date", "the radio mark follows the value")
+        g_variant_unref(chosen)
+    }
+
+    func testATextIsAnItemThatDoesNothing() throws {
+        let menu = try XCTUnwrap(link(try model(try render(settings)), 0, "section"))
+        XCTAssertEqual(label(menu, 2), "Hint")
+        XCTAssertNil(attribute(menu, 2, "action"), "no action: GTK shows it dimmed")
+    }
+
+    func testAMarkdownTextShowsItsText() throws {
+        let node = try render(#"""
+            {"type": "Menu", "id": 1, "properties": {"title": "View"}, "children": [
+              {"type": "Text", "id": 2, "properties": {"markdown": "Hint"}}]}
+            """#)
+        let menu = try XCTUnwrap(link(try model(node), 0, "section"))
+        XCTAssertEqual(label(menu, 0), "Hint", "its value is an AttributedString")
     }
 }

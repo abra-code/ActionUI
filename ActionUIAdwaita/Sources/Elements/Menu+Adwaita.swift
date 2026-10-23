@@ -8,6 +8,13 @@
  group on the button):
  - A Button is an item with its title; choosing it runs Core's Button.userTapped (actionID). A
    disabled Button is a disabled item, a hidden one is left out.
+ - A Toggle is a check item (a stateful action holding its state); choosing it runs Core's
+   Toggle.userSetValue with the other state: the check mark SwiftUI shows for a Toggle in a menu.
+ - A Picker is a submenu named after its title, its options radio items (one stateful action
+   holding the chosen tag); choosing one runs Core's Picker.userSelected: the submenu SwiftUI shows
+   for a Picker in a menu. Its sections are not shown. (Neither form is measured: an open menu
+   cannot be captured in a screenshot.)
+ - A Text is an item that does nothing, which GTK shows dimmed.
  - A Divider starts a new section (GTK draws a line between sections); a Section is a section with
    its header; a nested Menu is a submenu.
  - The menu is rebuilt only when what it shows changes (a title, an item disabled, children added
@@ -19,17 +26,27 @@
  Assistive technologies read the button, named after the title, and the open menu's items, which
  GTK 4.18 exposes without their text (its menu items have no accessible name).
 
- Not yet: other children (Toggle as a check item, Picker as choices, Text); each type is logged
- once. A Button's systemImage and its destructive role are not shown.
+ Not yet: other children; each type is logged once. A Button's systemImage and its destructive
+ role are not shown.
 */
 
 import CAdwaita
 
 @MainActor private var reportedItemTypes: Set<String> = []
 
-/// What a Menu shows, built from its children; compared to skip rebuilding an unchanged menu.
+/// What a Menu shows, built from its children; compared to skip rebuilding an unchanged menu. A
+/// Toggle's state and a Picker's choice are not in it: they live in the items' actions, so a new
+/// value changes no model (a new model would close the open menu).
 indirect enum MenuEntry: Equatable {
+    struct Choice: Equatable {
+        let title: String
+        let tag: String
+    }
+
     case item(id: Int, title: String, enabled: Bool)
+    case toggle(id: Int, title: String, enabled: Bool)
+    case picker(id: Int, title: String, enabled: Bool, choices: [Choice])
+    case text(String)
     case divider
     case section(header: String?, entries: [MenuEntry])
     case submenu(title: String, entries: [MenuEntry])
@@ -43,7 +60,7 @@ final class MenuState {
     /// What the menu should show once the open menu closes: rebuilding the model makes a new
     /// popover, which would close the menu under the user.
     var pending: [MenuEntry]?
-    /// The Button elements the items stand for, by id.
+    /// The Button, Toggle and Picker elements the items stand for, by id.
     var items: [Int: any ActionUIElementBase] = [:]
 
     init() {
@@ -130,7 +147,8 @@ extension Menu: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// What `elements` show as menu entries; the Button elements among them go into `items`.
+    /// What `elements` show as menu entries; the Button, Toggle and Picker elements among them go
+    /// into `items`.
     /// `disabled`: a Section or Menu around them is disabled, which disables them, as in SwiftUI.
     static func entries(_ elements: [any ActionUIElementBase], _ node: RenderNode,
                         _ items: inout [Int: any ActionUIElementBase], disabled: Bool = false) -> [MenuEntry] {
@@ -149,6 +167,16 @@ extension Menu: ActionUIAdwaitaRenderer {
             case "Button":
                 items[element.id] = element
                 result.append(.item(id: element.id, title: Button.Props(properties).title, enabled: !isDisabled))
+            case "Toggle":
+                items[element.id] = element
+                result.append(.toggle(id: element.id, title: Toggle.Props(properties).title, enabled: !isDisabled))
+            case "Picker":
+                items[element.id] = element
+                let picker = Picker.Props(properties)
+                let choices = picker.sections.flatMap(\.items).map { MenuEntry.Choice(title: $0.title, tag: $0.tag) }
+                result.append(.picker(id: element.id, title: picker.title, enabled: !isDisabled, choices: choices))
+            case "Text":
+                result.append(.text(Text.displayedText(model.value, properties)))
             case "Divider":
                 result.append(.divider)
             case "Section":
@@ -167,49 +195,123 @@ extension Menu: ActionUIAdwaitaRenderer {
         return result
     }
 
-    /// One action per item, enabled as the item is; actions of items that left are removed.
+    /// The kind of an item's action.
+    private enum ActionKind {
+        /// A Button: stateless.
+        case button
+        /// A Toggle: a boolean state, which GTK shows as a check mark.
+        case toggle
+        /// A Picker: the chosen tag as a string state, each option's item targeting its tag, which
+        /// GTK shows as radio items.
+        case picker
+    }
+
+    /// One action per item, enabled as the item is, holding a Toggle's state or a Picker's choice
+    /// from its element's value; actions of items that left are removed.
     private static func syncActions(_ state: MenuState, _ entries: [MenuEntry], _ node: RenderNode) {
-        var enabled: [Int: Bool] = [:]
+        var wanted: [String: (id: Int, kind: ActionKind, enabled: Bool)] = [:]
         func collect(_ entries: [MenuEntry]) {
             for entry in entries {
                 switch entry {
-                case let .item(id, _, isEnabled): enabled[id] = isEnabled
+                case let .item(id, _, isEnabled): wanted[actionName(id)] = (id, .button, isEnabled)
+                case let .toggle(id, _, isEnabled): wanted[toggleActionName(id)] = (id, .toggle, isEnabled)
+                case let .picker(id, _, isEnabled, _): wanted[pickerActionName(id)] = (id, .picker, isEnabled)
                 case let .section(_, children), let .submenu(_, children): collect(children)
-                case .divider: break
+                case .divider, .text: break
                 }
             }
         }
         collect(entries)
         let map = state.actions
-        // A set: a search of the ids per action is quadratic in a long menu.
-        let kept = Set(enabled.keys.map(actionName))
-        for name in actionNames(map) where !kept.contains(name) {
+        for name in actionNames(map) where wanted[name] == nil {
             g_action_map_remove_action(map, name)
         }
-        for (id, isEnabled) in enabled {
-            let name = actionName(id)
-            let action: OpaquePointer
-            if let existing = g_action_map_lookup_action(map, name) {
-                action = existing
-            } else {
-                action = g_simple_action_new(name, nil)!
-                g_action_map_add_action(map, action)
-                g_object_unref(UnsafeMutableRawPointer(action))
-                connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node] in
-                    guard let node, let state = attached(MenuState.self, on: node.widget, key: menuStateKey),
-                          let element = state.items[id], let model = node.windowModel.viewModels[id] else { return }
-                    Button.userTapped(element: element, model: model, windowUUID: node.windowUUID,
-                                      props: Button.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
-                }
+        for (name, item) in wanted {
+            let action = g_action_map_lookup_action(map, name) ?? addAction(name, item.id, item.kind, map, node)
+            if (g_action_get_enabled(action) != 0) != item.enabled {
+                g_simple_action_set_enabled(action, item.enabled ? 1 : 0)
             }
-            if (g_action_get_enabled(action) != 0) != isEnabled {
-                g_simple_action_set_enabled(action, isEnabled ? 1 : 0)
+            guard let model = node.windowModel.viewModels[item.id], let element = state.items[item.id] else { continue }
+            switch item.kind {
+            case .button:
+                break
+            case .toggle:
+                let on = Toggle.initialValue(model) as? Bool ?? false
+                if let current = g_action_get_state(action) {
+                    let shown = g_variant_get_boolean(current) != 0
+                    g_variant_unref(current)
+                    if shown != on {
+                        g_simple_action_set_state(action, g_variant_new_boolean(on ? 1 : 0))
+                    }
+                }
+            case .picker:
+                let properties = ActionUIRegistry.shared.currentProperties(element: element, model: model)
+                let chosen = model.value as? String ?? Picker.Props(properties).options.first?.tag ?? ""
+                if let current = g_action_get_state(action) {
+                    let shown = String(cString: g_variant_get_string(current, nil))
+                    g_variant_unref(current)
+                    if shown != chosen {
+                        g_simple_action_set_state(action, g_variant_new_string(chosen))
+                    }
+                }
             }
         }
     }
 
+    /// Adds the action of item `id` to `map` and returns it (the map holds it).
+    private static func addAction(_ name: String, _ id: Int, _ kind: ActionKind, _ map: OpaquePointer, _ node: RenderNode) -> OpaquePointer {
+        let action: OpaquePointer
+        switch kind {
+        case .button:
+            action = g_simple_action_new(name, nil)!
+            connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node] in
+                guard let node, let (element, model) = item(id, node) else { return }
+                Button.userTapped(element: element, model: model, windowUUID: node.windowUUID,
+                                  props: Button.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
+            }
+        case .toggle:
+            action = g_simple_action_new_stateful(name, nil, g_variant_new_boolean(0))!
+            // Handled here, so GLib does not flip the state itself: the next update shows the value.
+            connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node] in
+                guard let node, let (element, model) = item(id, node) else { return }
+                let on = Toggle.initialValue(model) as? Bool ?? false
+                Toggle.userSetValue(!on, element: element, model: model, windowUUID: node.windowUUID,
+                                    props: Toggle.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
+            }
+        case .picker:
+            let stringType = g_variant_type_new("s")
+            action = g_simple_action_new_stateful(name, stringType, g_variant_new_string(""))!
+            g_variant_type_free(stringType)
+            // The chosen option's tag is the action's parameter.
+            connectObjectSignal(UnsafeMutableRawPointer(action), "activate") { [weak node] parameter in
+                guard !UpdateGuard.isApplying, let node, let (element, model) = item(id, node) else { return }
+                let tag = String(cString: g_variant_get_string(OpaquePointer(parameter), nil))
+                Picker.userSelected(tag, element: element, model: model, windowUUID: node.windowUUID,
+                                    props: Picker.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
+            }
+        }
+        g_action_map_add_action(map, action)
+        g_object_unref(UnsafeMutableRawPointer(action))
+        return action
+    }
+
+    /// The element item `id` stands for and its view model, while the Menu shows it.
+    private static func item(_ id: Int, _ node: RenderNode) -> (any ActionUIElementBase, ViewModel)? {
+        guard let state = attached(MenuState.self, on: node.widget, key: menuStateKey),
+              let element = state.items[id], let model = node.windowModel.viewModels[id] else { return nil }
+        return (element, model)
+    }
+
     static func actionName(_ id: Int) -> String {
         "item-\(id)"
+    }
+
+    static func toggleActionName(_ id: Int) -> String {
+        "toggle-\(id)"
+    }
+
+    static func pickerActionName(_ id: Int) -> String {
+        "pick-\(id)"
     }
 
     private static func actionNames(_ map: OpaquePointer) -> [String] {
@@ -240,6 +342,22 @@ extension Menu: ActionUIAdwaitaRenderer {
             switch entry {
             case let .item(id, title, _):
                 g_menu_append(section, mnemonicEscaped(title), "\(actionPrefix).\(actionName(id))")
+            case let .toggle(id, title, _):
+                g_menu_append(section, mnemonicEscaped(title), "\(actionPrefix).\(toggleActionName(id))")
+            case let .picker(id, title, _, choices):
+                let inner = g_menu_new()!
+                for choice in choices {
+                    let item = g_menu_item_new(mnemonicEscaped(choice.title), nil)!
+                    // The item takes the floating target.
+                    g_menu_item_set_action_and_target_value(item, "\(actionPrefix).\(pickerActionName(id))", g_variant_new_string(choice.tag))
+                    g_menu_append_item(inner, item)
+                    g_object_unref(UnsafeMutableRawPointer(item))
+                }
+                g_menu_append_submenu(section, mnemonicEscaped(title), typed(inner))
+                g_object_unref(UnsafeMutableRawPointer(inner))
+            case let .text(text):
+                // No action: GTK shows the item dimmed, and choosing it does nothing.
+                g_menu_append(section, mnemonicEscaped(text), nil)
             case .divider:
                 closeSection()
             case let .section(header, children):
