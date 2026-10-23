@@ -2,11 +2,10 @@
 // Web analog of ActionUI/Views/LabeledContent.swift (and ActionUIAndroid
 // Views/LabeledContent.kt).
 //
-// Pairs a `title` label with content: the title leads, the `children` are
-// pushed to the trailing edge (the SwiftUI label-left / content-right layout,
-// which stays visible in any container — unlike a control's built-in,
-// often-hidden label). The row stretches to the available width like the
-// Android weighted Row; an empty/absent title renders content only.
+// Pairs a `title` label with content. Outside a Form it is an HStack with SwiftUI's default
+// spacing, as on macOS 27 (measured): the title hugs its text, the `children` follow it, and an
+// empty title still takes the gap of 8 before them. In a Form the title flexes and the content
+// goes to the trailing edge (theme.css).
 //
 // Properties: title (String for the leading label, defaults to "").
 
@@ -28,14 +27,17 @@ register("LabeledContent", {
 
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
-        node.className = "aui-stack aui-hstack aui-labeled-content";
+        node.className = "aui-stack aui-hstack aui-default-spacing aui-labeled-content";
         node.dataset.auiAxis = StackAxis.Horizontal;
 
-        // The title flexes (flex:1 in theme.css), pushing the children to the
-        // trailing edge; kept even when empty so content stays trailing.
+        // Kept when empty, as SwiftUI keeps the gap after an empty title. Its extent is then
+        // known (0 by 0), so the row's own follows from its children's (markExpansion).
         const title = document.createElement("span");
         title.className = "aui-labeled-content-title";
         title.textContent = properties.title ?? "";
+        if (title.textContent === "") {
+            title.auiExtent = { w: { kind: "fixed", value: 0 }, h: { kind: "fixed", value: 0 } };
+        }
         node.appendChild(title);
 
         for (const child of element.children()) {

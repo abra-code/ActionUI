@@ -1,5 +1,5 @@
 // Tests for the stacks' default spacing and the Spacer's minimum (src/Views/VStack.js, HStack.js,
-// Spacer.js, theme.css), as ActionUI lays them out on Apple: a VStack given no spacing has 0; an
+// Spacer.js, LabeledContent.js, theme.css), as ActionUI lays them out on Apple: a VStack given no spacing has 0; an
 // HStack given none has SwiftUI's default, 8 between views and none next to a Spacer; a Spacer is
 // at least its minLength (8 by default) along its stack only.
 
@@ -47,4 +47,14 @@ test("a Spacer's minLength is its minimum along its stack only", () => {
     assert.ok(!spacer.style.minWidth && !spacer.style.minHeight, "not both axes inline");
     assert.match(css, /\.aui-hstack > \.aui-spacer[^{]*\{ min-width: var\(--aui-spacer-min, 8px\); \}/);
     assert.match(css, /\.aui-vstack > \.aui-spacer[^{]*\{ min-height: var\(--aui-spacer-min, 8px\); \}/);
+});
+
+test("a LabeledContent is an HStack with the default spacing, and an empty title is 0 by 0", () => {
+    const empty = build("LabeledContent", { title: "" });
+    assert.ok(empty.className.split(" ").includes("aui-default-spacing"));
+    const [title] = empty.querySelectorAll(".aui-labeled-content-title");
+    assert.deepEqual(title.auiExtent, { w: { kind: "fixed", value: 0 }, h: { kind: "fixed", value: 0 } });
+    const named = build("LabeledContent", { title: "Name" });
+    assert.equal(named.querySelectorAll(".aui-labeled-content-title")[0].auiExtent, undefined, "its text decides");
+    assert.match(css, /\.aui-form \.aui-labeled-content-title \{ flex: 1; \}/, "the title flexes only in a Form");
 });

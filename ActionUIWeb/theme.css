@@ -354,17 +354,23 @@
 }
 .aui-groupbox-title { font-size: 11px; line-height: 13px; min-height: 13px; padding-inline-start: 10px; }
 
-/* LabeledContent: leading title, trailing content. The title flexes to push
-   the children to the trailing edge (the SwiftUI label-left/content-right
-   layout); the row stretches like the Android weighted Row. */
-.aui-labeled-content { align-items: center; gap: 8px; align-self: stretch; }
-.aui-labeled-content-title { flex: 1; white-space: nowrap; }
+/* LabeledContent: an HStack with the default spacing (aui-default-spacing), the title hugging
+   its text, as SwiftUI lays it out outside a Form. In a Form the row stretches and the title
+   flexes, pushing the content to the trailing edge, so the rows' content lines up. The row
+   rule has one class's specificity (:where), so a ZStack's placement still outranks it. */
+.aui-labeled-content { align-items: center; }
+.aui-labeled-content-title { white-space: nowrap; }
+:where(.aui-form) .aui-labeled-content { align-self: stretch; }
+.aui-form .aui-labeled-content-title { flex: 1; }
 /* Compact (phone): a label + value is often too wide to sit side by side on a
    phone, so stack the title above the value (the iOS inset-form idiom). This is
-   the common Form row, so it adapts Forms too. */
+   the common Form row, so it adapts Forms too. The doubled class outranks the
+   default spacing's gap and Spacer margins. */
 @media (max-width: 480px) {
-    .aui-labeled-content { flex-direction: column; align-items: stretch; gap: 4px; }
-    .aui-labeled-content-title { flex: none; white-space: normal; }
+    .aui-labeled-content.aui-labeled-content { flex-direction: column; align-items: stretch; gap: 4px; }
+    .aui-labeled-content.aui-labeled-content > .aui-spacer,
+    .aui-labeled-content.aui-labeled-content > .aui-group > .aui-spacer { margin-inline: 0; }
+    .aui-labeled-content-title.aui-labeled-content-title { flex: none; white-space: normal; }
 
     /* Inset-grouped Form (the iOS phone idiom): a Form renders its Sections as
        rounded, subtly-filled cards instead of a flat stack, so grouped rows read as
