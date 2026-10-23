@@ -26,14 +26,18 @@ final class RenderNode {
     /// The number of ancestors: SyncScheduler syncs parents before children.
     let depth: Int
     let renderer: any ActionUIAdwaitaRenderer.Type
-    /// The renderer's widget. Set at the end of init: makeWidget receives the node itself, so a
+    /// The renderer's widget, whose reference the node holds (released with the node, or when the
+    /// widget is replaced). Set at the end of init: makeWidget receives the node itself, so a
     /// renderer can connect signals that capture it. Replaced when the renderer's widgetKind
     /// changes.
-    private(set) var widget: WidgetPointer!
+    var widget: WidgetPointer! { ownedWidget?.widget }
+    private var ownedWidget: OwnedObject?
     /// The renderer's widgetKind when `widget` was made: the kind makeWidget makes.
     private(set) var widgetKind = 0
-    /// The ModifierBox holding `widget`: what a parent places among its children.
-    private(set) var outerWidget: WidgetPointer!
+    /// The ModifierBox holding `widget`: what a parent places among its children. The node holds its
+    /// reference too.
+    var outerWidget: WidgetPointer! { ownedOuterWidget?.widget }
+    private var ownedOuterWidget: OwnedObject?
     /// False once the node has left the tree.
     private(set) var isAttached = true
     /// The inherited base modifiers, with what the renderer adds (a Form's inForm; Environment),
@@ -81,21 +85,15 @@ final class RenderNode {
             self.widgetKind = renderer.widgetKind(self)
         }
         let widget = renderer.makeWidget(self)
-        // Sinks GTK's floating reference into the node's own.
-        g_object_ref_sink(UnsafeMutableRawPointer(widget))
-        self.widget = widget
-        let box = ModifierBox.wrap(widget)
-        g_object_ref_sink(UnsafeMutableRawPointer(box))
-        self.outerWidget = box
+        // GTK's floating references become the node's own.
+        ownedWidget = OwnedObject(retaining: widget)
+        ownedOuterWidget = OwnedObject(retaining: ModifierBox.wrap(widget))
     }
 
     isolated deinit {
-        if let outerWidget {
-            g_object_unref(UnsafeMutableRawPointer(outerWidget))
-        }
-        if let widget {
-            g_object_unref(UnsafeMutableRawPointer(widget))
-        }
+        // Released here, on the main actor (GTK's thread), the box before the widget it holds.
+        ownedOuterWidget = nil
+        ownedWidget = nil
     }
 
     // MARK: Syncing
@@ -143,20 +141,21 @@ final class RenderNode {
     /// the widget itself, applies the base modifiers to it. Child boxes in the old widget are taken
     /// out; the update puts them in the new one.
     private func replaceWidget(kind: Int) {
-        let old: WidgetPointer = widget
         widgetKind = kind
+        // Made while `widget` is still the old one, as before the node owned it through OwnedObject.
         let new = renderer.makeWidget(self)
-        g_object_ref_sink(UnsafeMutableRawPointer(new))
+        // The old widget's reference, released when this returns (at the end of the scope, not at
+        // its last use), after the widget left its box.
+        guard let old = ownedWidget.take() else { return }
         // Set before the new widget is placed, so signals its mapping emits see it.
-        widget = new
-        for child in childNodes.values where gtk_widget_is_ancestor(child.outerWidget, old) != 0 {
+        ownedWidget = OwnedObject(retaining: new)
+        for child in childNodes.values where gtk_widget_is_ancestor(child.outerWidget, old.widget) != 0 {
             gtk_widget_unparent(child.outerWidget)
         }
         if let content = ModifierBox.content(of: outerWidget) {
-            gtk_widget_unparent(old)
+            gtk_widget_unparent(old.widget)
             gtk_widget_set_parent(new, content)
         }
-        g_object_unref(UnsafeMutableRawPointer(old))
     }
 
     // MARK: Children

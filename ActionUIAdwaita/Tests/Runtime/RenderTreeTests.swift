@@ -256,4 +256,47 @@ final class RenderTreeTests: XCTestCase {
         XCTAssertNil(window.root)
         XCTAssertNil(window.contentWidget)
     }
+
+    // MARK: Widget ownership
+
+    private func referenceCount(_ widget: WidgetPointer) -> UInt32 {
+        UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GObject.self).pointee.ref_count
+    }
+
+    func testARemovedNodeReleasesItsWidgetAndBox() throws {
+        let window = try render(document)
+        let widget: WidgetPointer
+        let box: WidgetPointer
+        do {
+            // Scoped: a reference to the node here would keep it, and its widgets, alive.
+            let node = try XCTUnwrap(window.root?.childNodes[2])
+            widget = node.widget
+            box = node.outerWidget
+        }
+        // The test's own references, to watch the counts once the node is gone.
+        g_object_ref(UnsafeMutableRawPointer(widget))
+        g_object_ref(UnsafeMutableRawPointer(box))
+        try ActionUIModel.shared.removeElement(windowUUID: windowUUID, viewID: 2)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNil(window.root?.childNodes[2])
+        XCTAssertEqual(referenceCount(box), 1, "the node released its box")
+        // The box, kept by the test, still holds the widget; once it goes, only the test's is left.
+        g_object_unref(UnsafeMutableRawPointer(box))
+        XCTAssertEqual(referenceCount(widget), 1, "the node released its widget")
+        g_object_unref(UnsafeMutableRawPointer(widget))
+    }
+
+    func testAReplacedWidgetIsReleased() throws {
+        // A Toggle's widget kind follows its style: a new style replaces the widget.
+        let window = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Toggle", "id": 4, "properties": {"title": "On"}}]}"#)
+        let node = try XCTUnwrap(window.root?.childNodes[4])
+        let old: WidgetPointer = node.widget
+        g_object_ref(UnsafeMutableRawPointer(old))
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 4, propertyName: "style", value: "switch")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNotEqual(node.widget, old, "a new widget")
+        XCTAssertNil(gtk_widget_get_parent(old), "out of the box")
+        XCTAssertEqual(referenceCount(old), 1, "the node released the old widget")
+        g_object_unref(UnsafeMutableRawPointer(old))
+    }
 }
