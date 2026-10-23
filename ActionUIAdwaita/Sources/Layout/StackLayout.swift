@@ -173,8 +173,12 @@ enum StackLayout {
     // MARK: Measure
 
     private static func measure(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> Measured {
+        // A Group's widget whose stack places its children takes no size of its own: its box is
+        // given the whole stack, which may be smaller than its children stacked (an HStack's
+        // height), and GTK (with consistency checks) refuses an allocation below the minimum.
+        if Group.isFlattened(widget) { return Measured(minimum: 0, natural: 0) }
         let stack = configuration(widget)
-        let children = layoutChildren(widget)
+        let children = stackChildren(widget)
         guard !children.isEmpty else { return Measured(minimum: 0, natural: 0) }
         let (main, cross) = orientations(stack.axis)
         let gaps = Self.gaps(children, stack)
@@ -209,8 +213,11 @@ enum StackLayout {
     // MARK: Allocate
 
     private static func allocate(_ widget: WidgetPointer, width: Int, height: Int) {
+        // A Group's widget whose stack places its children: nothing to place here.
+        if Group.isFlattened(widget) { return }
+        Group.allocateGroups(in: widget, width: width, height: height)
         let stack = configuration(widget)
-        let children = layoutChildren(widget)
+        let children = stackChildren(widget)
         guard !children.isEmpty else { return }
         let vertical = stack.axis == .vertical
         let (main, cross) = orientations(stack.axis)

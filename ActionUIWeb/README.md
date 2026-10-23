@@ -190,6 +190,11 @@ space differently from SwiftUI's stacks:
   size depends on its font and the width it wraps at, so a stack that holds one is never given a
   limit, and it grows where SwiftUI's stops (a titled LabeledContent with a child framed to
   `maxHeight` 20 is 38 tall in a 60-tall VStack, against SwiftUI's 20).
+- **A Group's modifiers apply to the Group as a whole.** SwiftUI applies a Group's padding,
+  frame and paint to each child, which stays in the parent stack: in an HStack, a Group padded
+  10 holding two 20-wide Colors puts them at 10 and 50. The web puts them on one box around the
+  Group, which then stacks its children in a column (`group-padding-per-child`,
+  `group-frame-per-child`). A Group with no such modifiers matches.
 - **A Form is a single column.** macOS lines a Form's labels up in a trailing-aligned column with
   the content beside it; the web stretches each LabeledContent row and puts its content at the
   trailing edge.

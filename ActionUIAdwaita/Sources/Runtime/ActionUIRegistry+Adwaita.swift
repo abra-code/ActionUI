@@ -20,6 +20,7 @@ extension ActionUIRegistry {
         "Ellipse": Ellipse.self,
         "EmptyView": EmptyView.self,
         "Gauge": Gauge.self,
+        "Group": Group.self,
         "GroupBox": GroupBox.self,
         "HStack": HStack.self,
         "Image": Image.self,

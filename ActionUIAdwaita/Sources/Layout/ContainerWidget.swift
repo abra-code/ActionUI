@@ -10,6 +10,7 @@ import CAdwaita
 
 nonisolated(unsafe) private var containerType: GType = 0
 nonisolated(unsafe) private var containerParentClass: UnsafeMutablePointer<GObjectClass>?
+nonisolated(unsafe) private var containerParentWidgetClass: UnsafeMutablePointer<GtkWidgetClass>?
 
 @MainActor func actionUIContainerType() -> GType {
     if containerType != 0 { return containerType }
@@ -19,6 +20,7 @@ nonisolated(unsafe) private var containerParentClass: UnsafeMutablePointer<GObje
     info.class_init = { klass, _ in
         guard let klass else { return }
         containerParentClass = g_type_class_peek_parent(klass)?.assumingMemoryBound(to: GObjectClass.self)
+        containerParentWidgetClass = g_type_class_peek_parent(klass)?.assumingMemoryBound(to: GtkWidgetClass.self)
         let objectClass = klass.assumingMemoryBound(to: GObjectClass.self)
         objectClass.pointee.dispose = { object in
             guard let object else { return }
@@ -43,6 +45,14 @@ nonisolated(unsafe) private var containerParentClass: UnsafeMutablePointer<GObje
             }
             hexpand?.pointee = horizontal ? 1 : 0
             vexpand?.pointee = vertical ? 1 : 0
+        }
+        // The widgets of a Group that spans its stack (its box and content group derive from this
+        // type too) contain no point of their own, so picking passes through them
+        // (Group.passesPicks).
+        widgetClass.pointee.contains = { widget, x, y in
+            guard let widget else { return 0 }
+            if MainActor.assumeIsolated({ Group.passesPicks(widget) }) { return 0 }
+            return containerParentWidgetClass?.pointee.contains?(widget, x, y) ?? 0
         }
         gtk_widget_class_set_css_name(widgetClass, "actionui-container")
         gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_GROUP)

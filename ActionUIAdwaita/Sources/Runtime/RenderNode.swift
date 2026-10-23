@@ -104,7 +104,7 @@ final class RenderNode {
                     replaceWidget(kind: kind)
                 }
                 renderer.update(widget, self)
-                ModifierBox.update(outerWidget, self, modifiers)
+                ModifierBox.update(outerWidget, self, renderer.boxModifiers(modifiers))
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
                 // main thread, before the new value is stored.

@@ -80,12 +80,12 @@ enum ZStackLayout {
 
     /// Each child's width when the stack is `width` wide, as allocate gives them.
     static func childWidths(_ widget: WidgetPointer, width: Int) -> [Int] {
-        layoutChildren(widget).map { childSize($0, GTK_ORIENTATION_HORIZONTAL, available: width) }
+        stackChildren(widget).map { childSize($0, GTK_ORIENTATION_HORIZONTAL, available: width) }
     }
 
     private static func measure(_ widget: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
         var result = (minimum: 0, natural: 0)
-        for child in layoutChildren(widget) {
+        for child in stackChildren(widget) {
             // Height for width: each child's height for the width it gets in a stack that wide.
             var childForSize = -1
             if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
@@ -101,7 +101,8 @@ enum ZStackLayout {
     }
 
     private static func allocate(_ widget: WidgetPointer, width: Int, height: Int) {
-        let children = layoutChildren(widget)
+        Group.allocateGroups(in: widget, width: width, height: height)
+        let children = stackChildren(widget)
         guard !children.isEmpty else { return }
         let configuration = attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) ?? ZStackConfiguration()
         let widths = children.map { childSize($0, GTK_ORIENTATION_HORIZONTAL, available: width) }

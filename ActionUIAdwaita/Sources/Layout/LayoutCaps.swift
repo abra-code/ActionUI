@@ -57,7 +57,7 @@ enum LayoutCaps {
         }
         if attached(ZStackConfiguration.self, on: widget, key: zStackConfigurationKey) != nil {
             let widths = forSize >= 0 ? ZStackLayout.childWidths(widget, width: forSize) : nil
-            return largestOfChildren(layoutChildren(widget), orientation, widths: widths)
+            return largestOfChildren(stackChildren(widget), orientation, widths: widths)
         }
         if attached(GroupBoxMarker.self, on: widget, key: groupBoxMarkerKey) != nil {
             return GroupBox.cap(widget, orientation, forSize: forSize)
@@ -94,7 +94,7 @@ enum LayoutCaps {
 
     private static func stackCap(_ widget: WidgetPointer, _ stack: StackConfiguration, _ orientation: GtkOrientation,
                                  forSize: Int) -> Int? {
-        let children = layoutChildren(widget)
+        let children = stackChildren(widget)
         let widths = forSize >= 0 ? StackLayout.childWidths(widget, children, width: forSize) : nil
         let main = stack.axis == .vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
         guard orientation == main else {

@@ -129,11 +129,7 @@ enum ModifierBox {
     /// Applies the node's base modifiers to its box, its content group and its widget.
     static func update(_ box: WidgetPointer, _ node: RenderNode, _ modifiers: BaseModifiers) {
         let widget: WidgetPointer = node.widget
-        applyLayout(box, modifiers)
-        if let content = content(of: box) {
-            applyPaint(content, modifiers)
-        }
-        applyShadow(box, modifiers.shadow)
+        applyBoxModifiers(box, modifiers)
         applyText(widget, modifiers)
         applyAccessibility(widget, node, modifiers)
 
@@ -141,6 +137,21 @@ enum ModifierBox {
         if gtk_widget_get_sensitive(widget) != sensitive {
             gtk_widget_set_sensitive(widget, sensitive)
         }
+        let help = modifiers.help.flatMap { $0.isEmpty ? nil : $0 }
+        if swiftString(gtk_widget_get_tooltip_text(widget)) != help {
+            gtk_widget_set_tooltip_text(widget, help)
+        }
+    }
+
+    /// Applies what the box itself draws and lays out: padding, frame, paint, shadow, effects,
+    /// opacity and hidden. A Group's box around each of its children takes these from the Group
+    /// (Group+Adwaita), as SwiftUI applies a Group's modifiers to each child.
+    static func applyBoxModifiers(_ box: WidgetPointer, _ modifiers: BaseModifiers) {
+        applyLayout(box, modifiers)
+        if let content = content(of: box) {
+            applyPaint(content, modifiers)
+        }
+        applyShadow(box, modifiers.shadow)
         let opacity = modifiers.hidden ? 0 : min(max(modifiers.opacity ?? 1, 0), 1)
         // GTK keeps opacity in 8 bits (0.5 reads back as 0.502).
         if abs(gtk_widget_get_opacity(box) - opacity) > 1.0 / 255 {
@@ -154,10 +165,6 @@ enum ModifierBox {
         }
         if gtk_widget_get_can_focus(box) != targetable {
             gtk_widget_set_can_focus(box, targetable)
-        }
-        let help = modifiers.help.flatMap { $0.isEmpty ? nil : $0 }
-        if swiftString(gtk_widget_get_tooltip_text(widget)) != help {
-            gtk_widget_set_tooltip_text(widget, help)
         }
     }
 
@@ -618,6 +625,11 @@ enum ModifierBox {
 
     static func allocateBox(_ box: WidgetPointer, width: Int, height: Int) {
         guard let content = layoutChildren(box).first else { return }
+        // A Group whose stack lays its children out as its own spans the stack (Group+Adwaita).
+        if let element = layoutChildren(content).first, Group.isFlattened(element) {
+            allocateWhole(content, width: width, height: height)
+            return
+        }
         let layout = layout(ofBox: box)
         let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
         let frameHeight = frameSize(box, content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
@@ -629,6 +641,14 @@ enum ModifierBox {
             transform = applyEffects(transform, layout, width: Double(frameWidth), height: Double(frameHeight))
         }
         gtk_widget_allocate(content, Int32(clamping: frameWidth), Int32(clamping: frameHeight), -1, transform)
+    }
+
+    /// Gives `child` the whole `width` x `height` at its parent's origin (measured first, as GTK
+    /// expects of an allocated widget).
+    private static func allocateWhole(_ child: WidgetPointer, width: Int, height: Int) {
+        _ = measureChild(child, GTK_ORIENTATION_HORIZONTAL, forSize: -1)
+        _ = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: width)
+        gtk_widget_allocate(child, Int32(clamping: width), Int32(clamping: height), -1, nil)
     }
 
     /// Scale around its anchor, rotation around the center, and the offset, composed so a point
@@ -683,6 +703,10 @@ enum ModifierBox {
 
     static func allocateContent(_ content: WidgetPointer, width: Int, height: Int) {
         guard let element = layoutChildren(content).first else { return }
+        if Group.isFlattened(element) {
+            allocateWhole(element, width: width, height: height)
+            return
+        }
         let layout = layout(ofContent: content)
         let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: width)
         let elementHeight = elementSize(element, layout, GTK_ORIENTATION_VERTICAL, size: height, forSize: elementWidth)

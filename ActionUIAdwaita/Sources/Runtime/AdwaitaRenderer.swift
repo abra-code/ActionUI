@@ -46,6 +46,10 @@ protocol ActionUIAdwaitaRenderer {
     /// names a control after its title and a Text after its text. ModifierBox writes it after the
     /// renderer's update. Default: nil, the name GTK gives the widget itself.
     static func defaultAccessibleLabel(_ node: RenderNode) -> String?
+
+    /// The base modifiers the element's own box applies (ModifierBox.update), out of the ones the
+    /// document gives it; its descendants inherit from all of them (Environment). Default: all.
+    static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers
 }
 
 extension ActionUIAdwaitaRenderer {
@@ -56,4 +60,6 @@ extension ActionUIAdwaitaRenderer {
     static func defaultAccessibleLabel(_ node: RenderNode) -> String? { nil }
 
     static var defaultExpansion: Expansion { [] }
+
+    static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers { modifiers }
 }

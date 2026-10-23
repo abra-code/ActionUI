@@ -22,9 +22,7 @@ private struct Expectation: Codable {
 final class LayoutParityTests: XCTestCase {
     /// Fixtures GTK does not match yet, with the reason. A fixture that starts to match fails the
     /// test until it is removed here.
-    private static let knownDifferences: [String: String] = [
-        "group-vstack-spacer": "Group has no GTK renderer yet (plan L1)",
-    ]
+    private static let knownDifferences: [String: String] = [:]
 
     /// Frames may differ by this much: SwiftUI places at fractions of a point, GTK whole pixels.
     private static let tolerance = 1.0
