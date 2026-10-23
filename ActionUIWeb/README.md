@@ -162,6 +162,47 @@ VStack/HStack -> flexbox (`spacing` -> `gap`, alignment -> `align-items`),
 ZStack -> single-cell grid, Spacer -> `flex-grow: 1`,
 `frame.maxWidth: "infinity"` -> `flex-grow` + `max-width: 100%`.
 
+## Known layout differences from SwiftUI
+
+SwiftUI on macOS is the reference. The layout parity fixtures (`../LayoutParity/`) record its
+frames, and `ActionUITests/Views/WebLayoutParityTests.swift` checks this renderer against them.
+The web renderer lays out with CSS alone, and these differences remain where CSS flexbox shares
+space differently from SwiftUI's stacks:
+
+- **A flexible view's minimum is added to its share.** SwiftUI offers each flexible child an
+  even share of the stack, raises a child whose minimum is larger to that minimum, and shares
+  the rest among the others. Flexbox starts each child at its minimum (`flex-basis: auto`) and
+  splits what is left evenly on top of it.
+  - An HStack 200 wide holding a Color and a Color with `minWidth` 150: SwiftUI gives 50 and
+    150, the web 25 and 175 (`hstack-larger-minimum-first`).
+  - An HStack 400 wide holding an HStack of a capped Color and a Spacer, beside a Color:
+    SwiftUI gives 200 and 200, the web 204 and 196, the Spacer's minimum of 8 counted twice
+    (`nested-unbounded-spacer`).
+  - A VStack 60 tall holding an HStack with a Divider (which fills the height) and a Color:
+    SwiftUI gives 30 and 30, the web 40 and 20 (`divider-hstack-height`).
+  - `flex-basis: 0` would share like SwiftUI here, but it collapses a filling child that has
+    padding (a List) to nothing in a stack sized by its content.
+- **A view's own padding is a floor under its share.** In an HStack 600 wide, a
+  ContentUnavailableView beside a Color gets 316 on the web where SwiftUI shares 300 and 300
+  (`contentunavailable-width-600`): flexbox never shrinks a box below its padding.
+- **A stack holding a Text has no size limit.** A stack whose children all stop growing
+  somewhere (a frame's `maxWidth`, a fixed size) stops growing there too, as in SwiftUI. A Text's
+  size depends on its font and the width it wraps at, so a stack that holds one is never given a
+  limit, and it grows where SwiftUI's stops (a titled LabeledContent with a child framed to
+  `maxHeight` 20 is 38 tall in a 60-tall VStack, against SwiftUI's 20).
+- **A Form is a single column.** macOS lines a Form's labels up in a trailing-aligned column with
+  the content beside it; the web stretches each LabeledContent row and puts its content at the
+  trailing edge.
+- **A non-uniform scale with a rotation** scales before it rotates (CSS's order for the
+  independent `rotate` and `scale` properties), where SwiftUI rotates first. Each alone, and a
+  uniform scale with a rotation, match.
+
+The first three would need the layout computed in JavaScript: measure each stack's children and
+set their sizes with SwiftUI's sharing rules, as the GTK renderer's `StackSolver` does, instead of
+leaving the sharing to flexbox. That is not done. It would take over the browser's layout of every
+stack, add a measuring pass on every resize and content change, and the differences are a few
+points in uncommon arrangements.
+
 ## Deferred
 
 A short tail of perf/exotic work is intentionally left out. None of it affects

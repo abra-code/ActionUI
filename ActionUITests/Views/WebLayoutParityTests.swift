@@ -96,7 +96,8 @@ private struct WebHarnessError: Error, CustomStringConvertible {
 @MainActor
 final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
-    /// match fails the test until it is removed here. The causes, found with this test:
+    /// match fails the test until it is removed here. ActionUIWeb/README.md describes them for
+    /// users ("Known layout differences from SwiftUI"). The causes, found with this test:
     /// - padding: a view's own CSS padding is a floor under its flex share (flex-basis 0 cannot go below it), so ContentUnavailableView takes 316 of 600 where SwiftUI shares 300 and 300
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     private static let knownDifferences: [String: String] = [
