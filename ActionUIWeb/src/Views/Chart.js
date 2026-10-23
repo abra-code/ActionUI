@@ -39,6 +39,10 @@ register("Chart", {
         // Id 0: the placeholder binds nothing, so it shows its own title, not the chart's value.
         const node = getConstruction("ContentUnavailableView").buildView(
             { id: 0, type: "ContentUnavailableView", properties: CHART_PLACEHOLDER }, CHART_PLACEHOLDER, ctx);
+        // The look only: a chart is not held to ContentUnavailableView's 400 width.
+        node.classList.remove("aui-cap-width");
+        node.style.maxWidth = "";
+        delete node.auiWidthCap;
         if (element.id > 0) {
             let value = "";
             let rows = [];

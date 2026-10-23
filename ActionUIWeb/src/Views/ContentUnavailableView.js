@@ -72,6 +72,12 @@ register("ContentUnavailableView", {
         const isSearch = properties.search === true;
         const node = document.createElement("div");
         node.className = "aui-content-unavailable";
+        // At most 400 wide, filling the width it is offered up to that, as SwiftUI's view is
+        // (measured on macOS 27): the cap of frame(maxWidth: 400).
+        node.classList.add("aui-cap-width");
+        node.style.maxWidth = "min(400px, 100%)";
+        node.auiWidthCap = 400; // a frame box around it stops at it (finishFrameBox)
+        // (Chart.js borrows this buildView for its placeholder and takes the cap off again.)
 
         const render = (value) => {
             node.replaceChildren();

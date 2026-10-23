@@ -430,7 +430,15 @@ export function finishFrameBox(box, content, node, properties) {
     if (greedyWidth) content.classList.add("aui-expands-w");
     if (greedyHeight) content.classList.add("aui-expands-h");
     const [expandsWidth, expandsHeight] = expansionOf(content, null);
-    if (expandsWidth && frame.width === undefined && frame.maxWidth === undefined) box.classList.add("aui-expands-w");
+    // An element with a width cap of its own (ContentUnavailableView, 400): the box stops at it
+    // plus the padding, at least the frame's minimum, as SwiftUI's frame and padding do.
+    const widthCap = typeof node.auiWidthCap === "number" && frame.width === undefined && frame.maxWidth === undefined
+        ? Math.max(node.auiWidthCap + horizontalPadding(properties.padding), typeof frame.minWidth === "number" ? frame.minWidth : 0)
+        : null;
+    if (widthCap !== null) {
+        box.classList.add("aui-cap-width");
+        box.style.maxWidth = `min(${widthCap}px, 100%)`;
+    } else if (expandsWidth && frame.width === undefined && frame.maxWidth === undefined) box.classList.add("aui-expands-w");
     if (expandsHeight && frame.height === undefined && frame.maxHeight === undefined) box.classList.add("aui-expands-h");
     box.appendChild(content);
     return box;
@@ -501,6 +509,16 @@ export function markExpansion(node) {
     }
     if (width) node.classList.add("aui-expands-w");
     if (height) node.classList.add("aui-expands-h");
+}
+
+// The leading plus trailing padding of a padding property, in points.
+function horizontalPadding(padding) {
+    if (typeof padding === "number") return 2 * padding;
+    if (padding === "default") return 2 * DEFAULT_PADDING;
+    if (typeof padding === "object" && padding !== null) {
+        return (Number(padding.leading) || 0) + (Number(padding.trailing) || 0);
+    }
+    return 0;
 }
 
 // Background and corner radius, on the frame box when there is one, else on the element.
