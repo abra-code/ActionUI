@@ -60,6 +60,16 @@ extension DisclosureGroup {
             valueChangeActionID = properties["valueChangeActionID"] as? String
         }
     }
+
+    /// What expanding or collapsing the group does, on every platform: states["isExpanded"] takes
+    /// the new state and valueChangeActionID runs. The state it already has does nothing.
+    static func userSetExpanded(_ expanded: Bool, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.states["isExpanded"] as? Bool != expanded else { return }
+        model.states["isExpanded"] = expanded
+        if let actionID = props.valueChangeActionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        }
+    }
 }
 
 struct DisclosureGroup: ActionUIElementSpec {

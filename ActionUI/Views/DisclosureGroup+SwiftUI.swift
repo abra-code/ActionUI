@@ -9,9 +9,8 @@ extension DisclosureGroup: ActionUISwiftUIRenderer {
         let props = Props(properties)
         let title = props.title
         
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = props.valueChangeActionID
+        // The binding's main-actor closures capture the Sendable Props, not the non-Sendable
+        // [String: Any] properties payload.
         let expandedBinding = mainActorBinding(
             get: { model.states["isExpanded"] as? Bool ?? false },
             set: { newValue in
@@ -21,10 +20,7 @@ extension DisclosureGroup: ActionUISwiftUIRenderer {
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
-                    model.states["isExpanded"] = newValue
-                    if let valueChangeActionID {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    DisclosureGroup.userSetExpanded(newValue, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

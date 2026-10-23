@@ -15,6 +15,7 @@ extension ActionUIRegistry {
         "ColorPicker": ColorPicker.self,
         "ContentUnavailableView": ContentUnavailableView.self,
         "ControlGroup": ControlGroup.self,
+        "DisclosureGroup": DisclosureGroup.self,
         "Divider": Divider.self,
         "Ellipse": Ellipse.self,
         "EmptyView": EmptyView.self,
