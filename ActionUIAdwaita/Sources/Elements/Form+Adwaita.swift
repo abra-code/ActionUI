@@ -1,8 +1,9 @@
 // Sources/Elements/Form+Adwaita.swift
 /*
  Form on GTK: laid out as macOS lays out a Form (its columns style; measured on macOS 27, the
- layout parity fixtures). It is a VStack of its rows, 8 points apart and aligned to its leading
- edge, as large as its rows unless one of them fills, and centered in its parent like a VStack.
+ layout parity fixtures). It is a VStack of its rows, 8 points apart (5 above a row with text below
+ a row without) and aligned to its leading edge, as large as its rows unless one of them fills, and
+ centered in its parent like a VStack.
  The titles of its LabeledContent, Picker, Stepper, ColorPicker, switch Toggle, TextField and
  SecureField rows end at a label column as wide as the widest title, and every row's content starts
  8 points after it (FormLayout, FormFieldTitle). A Section's and a Group's rows are the Form's
@@ -17,6 +18,9 @@ import CAdwaita
 extension Form: ActionUIAdwaitaRenderer {
     /// The space between two rows, measured on macOS 27.
     static let rowSpacing = 8.0
+    /// The space above a row with text below a row without (FormLayout.rowGaps), measured on macOS
+    /// 27.
+    static let rowSpacingBelowNoText = 5.0
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let widget = StackLayout.makeStack(axis: .vertical)

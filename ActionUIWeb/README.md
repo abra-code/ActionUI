@@ -204,7 +204,8 @@ space differently from SwiftUI's stacks:
   `form-empty-text-field-title`), nor for the titled controls inside a stack row, which macOS lines
   up too (`form-nested-title-in-hstack`, `form-nested-titles-average`). A macOS Form row also puts
   its title on its content's first text baseline, so beside a Color the row is the title's descent
-  taller (`form-title-on-content-bottom`, `form-titled-rows-on-baselines`).
+  taller (`form-title-on-content-bottom`, `form-titled-rows-on-baselines`), and a row with text
+  sits 5 points below a row without, not 8 (`form-text-row-spacing`).
 - **A view without text lines up by CSS's baseline.** In an HStack on `firstTextBaseline`,
   SwiftUI lines a view without text up by its bottom, also a filling view, a framed one and a stack
   holding no text; CSS gives such a box a baseline of its own, so it sits elsewhere

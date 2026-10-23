@@ -18,6 +18,8 @@
  after a 30-point Color in an HStack row ends its title, and so the column, at 30 + 8 + its title;
  several titles in one row make the average of where they end, stack by stack (labelEnd).
 
+ Rows are 8 apart, but 5 above a row with text when the row above has none (rowGaps, measured).
+
  The Form is a VStack (StackLayout) that moves each row by its offset here: a row with a label by
  the column less where its label ends, any other row by the column plus 8. A Section's or
  Group's rows are the Form's own (stackChildren), so their titles line up with the Form's.
@@ -65,6 +67,31 @@ enum FormLayout {
         }
         let gap = StackSolver.length(StackLayout.defaultSpacing)
         return titles.map { title in title.map { column - $0 } ?? column + gap }
+    }
+
+    /// The space between each two of a Form's `children` (rows): its spacing (8), but 5 above a row
+    /// with text when the row above has none, as SwiftUI spaces a Form by its text (measured on
+    /// macOS 27: below a Color, a Text, a LabeledContent, a row holding a Picker and a Section's
+    /// header are 5 down; below a row with text, and between rows without text, 8). nil when
+    /// `widget` is not a Form.
+    static func rowGaps(_ widget: WidgetPointer, _ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int]? {
+        guard attached(FormConfiguration.self, on: widget, key: formConfigurationKey) != nil else { return nil }
+        var gaps = StackLayout.uniformGaps(children, stack)
+        let hasText = children.map(hasTextBaseline)
+        for index in gaps.indices where !hasText[index] && hasText[index + 1] {
+            gaps[index] = min(gaps[index], StackSolver.length(Form.rowSpacingBelowNoText))
+        }
+        return gaps
+    }
+
+    /// Whether a row has text (a first text baseline, Baselines), at its natural size.
+    private static func hasTextBaseline(_ row: WidgetPointer) -> Bool {
+        var minimum: Int32 = 0
+        var width: Int32 = 0
+        var height: Int32 = 0
+        gtk_widget_measure(row, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &width, nil, nil)
+        gtk_widget_measure(row, GTK_ORIENTATION_VERTICAL, width, &minimum, &height, nil, nil)
+        return Baselines.first(row, width: Int(width), height: Int(height)) != nil
     }
 
     /// Where a row's label ends in the row, at the row's natural width (labelEnd(_:width:)),
@@ -134,7 +161,7 @@ enum FormLayout {
         let children = stackChildren(widget)
         let widths = StackLayout.childWidths(widget, children, width: width)
         guard let title = widths.first else { return nil }
-        let length = StackSolver.length(of: widths, gaps: StackLayout.gaps(children, stack))
+        let length = StackSolver.length(of: widths, gaps: StackLayout.gaps(widget, children, stack))
         return StackSolver.centeredStart(length: length, available: width) + title
     }
 }

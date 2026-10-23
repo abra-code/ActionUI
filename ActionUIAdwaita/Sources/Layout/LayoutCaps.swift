@@ -102,7 +102,7 @@ enum LayoutCaps {
             let offsets = orientation == GTK_ORIENTATION_HORIZONTAL ? StackLayout.leadingOffsets(widget, children) : nil
             return largestOfChildren(children, orientation, widths: widths, offsets: offsets)
         }
-        var total = StackLayout.gaps(children, stack).reduce(0, +)
+        var total = StackLayout.gaps(widget, children, stack).reduce(0, +)
         for (index, child) in children.enumerated() {
             guard let size = largestSize(child, orientation, forSize: widths?[index] ?? -1) else { return nil }
             total += size

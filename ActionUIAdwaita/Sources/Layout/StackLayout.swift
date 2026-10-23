@@ -143,8 +143,14 @@ enum StackLayout {
     }
 
     /// The spacing between the stack's neighboring children (none next to a Spacer when the stack
-    /// was given no spacing).
-    static func gaps(_ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int] {
+    /// was given no spacing); a Form's rows are spaced by FormLayout.
+    static func gaps(_ widget: WidgetPointer, _ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int] {
+        FormLayout.rowGaps(widget, children, stack) ?? uniformGaps(children, stack)
+    }
+
+    /// The stack's spacing between every two neighbors (none next to a Spacer when the stack was
+    /// given no spacing).
+    static func uniformGaps(_ children: [WidgetPointer], _ stack: StackConfiguration) -> [Int] {
         let marks = children.map { StackChild(minimum: 0, maximum: nil, isSpacer: isSpacer($0)) }
         return StackSolver.gaps(marks, spacing: stack.spacing, isDefaultSpacing: stack.isDefaultSpacing)
     }
@@ -169,7 +175,7 @@ enum StackLayout {
             return verticalChildWidths(children, offsets: leadingOffsets(widget, children), width: width)
         }
         let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }
-        return StackSolver.mainSizes(widths, available: width, gaps: gaps(children, stack))
+        return StackSolver.mainSizes(widths, available: width, gaps: gaps(widget, children, stack))
     }
 
     /// A VStack's children's widths when it is `width` wide: each is offered the width less its
@@ -185,7 +191,7 @@ enum StackLayout {
     static func horizontalPlacements(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int) -> [(x: Int, width: Int)] {
         let stack = configuration(widget)
         if stack.axis == .horizontal {
-            let gaps = Self.gaps(children, stack)
+            let gaps = Self.gaps(widget, children, stack)
             let widths = StackSolver.mainSizes(children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }, available: width, gaps: gaps)
             var x = StackSolver.centeredStart(length: StackSolver.length(of: widths, gaps: gaps), available: width)
             return widths.enumerated().map { index, size in
@@ -219,7 +225,6 @@ enum StackLayout {
         let children = stackChildren(widget)
         guard !children.isEmpty else { return Measured(minimum: 0, natural: 0) }
         let (main, cross) = orientations(stack.axis)
-        let gaps = Self.gaps(children, stack)
         // Height for width: the children's heights at the widths the stack gives them (a VStack
         // offers each its width, an HStack shares it out).
         var forSizes = Array(repeating: -1, count: children.count)
@@ -228,7 +233,8 @@ enum StackLayout {
         }
 
         if orientation == main {
-            let spacing = gaps.reduce(0, +)
+            // Only along the axis: a Form's gaps walk its rows for text (FormLayout.rowGaps).
+            let spacing = Self.gaps(widget, children, stack).reduce(0, +)
             var total = Measured(minimum: spacing, natural: spacing)
             for (index, child) in children.enumerated() {
                 let size = measureChild(child, main, forSize: forSizes[index])
@@ -296,7 +302,7 @@ enum StackLayout {
     static func placements(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int, height: Int)
         -> [(x: Int, y: Int, width: Int, height: Int)] {
         let stack = configuration(widget)
-        let gaps = Self.gaps(children, stack)
+        let gaps = Self.gaps(widget, children, stack)
         let across = horizontalPlacements(widget, children, width: width)
         var heights: [Int]
         var ys: [Int]
