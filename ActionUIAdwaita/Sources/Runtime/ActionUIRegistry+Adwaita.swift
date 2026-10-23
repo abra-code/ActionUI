@@ -28,6 +28,7 @@ extension ActionUIRegistry {
         "LazyHStack": LazyHStack.self,
         "LazyVStack": LazyVStack.self,
         "Link": Link.self,
+        "Menu": Menu.self,
         "Picker": Picker.self,
         "ProgressView": ProgressView.self,
         "Rectangle": Rectangle.self,
