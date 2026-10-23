@@ -20,6 +20,8 @@ extension Slider: ActionUIAdwaitaRenderer {
         let scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 1, 0.01)!
         gtk_scale_set_draw_value(typed(scale), 0)
         gtk_widget_set_hexpand(scale, 1)
+        // Lines up beside its middle, as macOS lines up a Slider's title (Baselines).
+        attach(TextLineMarker(.centered), to: scale, key: textLineMarkerKey)
         let snapBack = SnapBack()
         connectUserSignal(scale, "value-changed", .instanceOnly) { [weak node] in
             guard let node else { return }

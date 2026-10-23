@@ -56,6 +56,9 @@ extension TextEditor: ActionUIAdwaitaRenderer {
 
         gtk_widget_set_hexpand(overlay, 1)
         gtk_widget_set_vexpand(overlay, 1)
+        // Lines up on its first line, 6 below its top (the text view's margin), as macOS lines up a
+        // TextEditor's title near its top (Baselines).
+        attach(TextLineMarker(.top(inset: 6)), to: overlay, key: textLineMarkerKey)
         let buffer = gtk_text_view_get_buffer(typed(view))!
         let report: @MainActor () -> Void = { [weak node] in
             guard let node else { return }

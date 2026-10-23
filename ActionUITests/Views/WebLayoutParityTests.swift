@@ -113,6 +113,8 @@ final class WebLayoutParityTests: XCTestCase {
         "form-nested-titles-average": "form",
         "form-rows-hug": "form",
         "form-sections-add-no-space": "form",
+        "form-title-on-content-bottom": "form",
+        "form-titled-rows-on-baselines": "form",
         "group-frame-per-child": "group",
         "group-padding-per-child": "group",
         "hstack-baseline-expanding": "baseline",

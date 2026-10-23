@@ -46,6 +46,8 @@ extension Picker: ActionUIAdwaitaRenderer {
         gtk_box_append(typed(box), title)
         let expression = gtk_property_expression_new(gtk_string_object_get_type(), nil, "string")
         let dropdown = gtk_drop_down_new(nil, expression)!
+        // Its text is centered, though GTK reports no baseline for it (Baselines).
+        attach(TextLineMarker(.centered), to: dropdown, key: textLineMarkerKey)
         gtk_box_append(typed(box), dropdown)
         // A Form lines its title up with the other rows' (FormLayout).
         attach(LabeledRowMarker(.box), to: box, key: labeledRowMarkerKey)

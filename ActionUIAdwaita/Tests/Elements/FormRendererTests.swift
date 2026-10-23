@@ -125,7 +125,9 @@ final class FormRendererTests: XCTestCase {
         XCTAssertEqual(swiftString(gtk_label_get_text(opaque(header))), "Head")
         let headerFrame = frame(header, in: form)
         XCTAssertEqual(headerFrame[0], column, "the header is in the content column")
-        let first = try frame(3, in: form)
+        // The row before is the LabeledContent, as tall as its block plus its title's descent below
+        // the block's bottom (the title sits on the block's bottom, its baseline in a Form).
+        let first = frame(try XCTUnwrap(node(2, in: form)).outerWidget, in: form)
         XCTAssertEqual(headerFrame[1], first[1] + first[3] + 8, "8 below the row before")
         XCTAssertEqual(frame(try title(5, in: form), in: form)[1] >= headerFrame[1] + headerFrame[3] + 8, true,
                        "the Section's first row 8 below its header")
@@ -306,6 +308,77 @@ final class FormRendererTests: XCTestCase {
         let layered = try render(#"{"type": "Form", "id": 1, "children": [{"type": "ZStack", "id": 2, "children": [\#(block(3, 200, 20)), {"type": "HStack", "id": 4, "children": [\#(block(5, 30, 20)), \#(picker(6, ""))]}]}, \#(block(7, 20, 20))]}"#)
         XCTAssertEqual(try frame(7, in: layered)[0], try frame(5, in: layered)[0] + 30 + 8 + 8,
                        "the centered HStack's empty title ends 30 + 8 after its start")
+    }
+
+    /// Where `label`'s text baseline is in the Form (laid out at its natural size): its top plus
+    /// the baseline GTK measures for it at its width.
+    private func baseline(of label: WidgetPointer, in form: RenderNode) -> Int {
+        let bounds = frame(label, in: form)
+        var minimum: Int32 = 0
+        var natural: Int32 = 0
+        var minimumBaseline: Int32 = -1
+        var naturalBaseline: Int32 = -1
+        gtk_widget_measure(label, GTK_ORIENTATION_VERTICAL, Int32(bounds[2]), &minimum, &natural, &minimumBaseline, &naturalBaseline)
+        return bounds[1] + Int(naturalBaseline)
+    }
+
+    /// The GtkLabel inside `widget` showing `text`.
+    private func label(_ text: String, in widget: WidgetPointer) -> WidgetPointer? {
+        if g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), gtk_label_get_type()) != 0,
+           swiftString(gtk_label_get_text(opaque(widget))) == text {
+            return widget
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            if let found = label(text, in: current) { return found }
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return nil
+    }
+
+    func testAFormRowsTitleSitsOnItsContentsBottomOrFirstLine() throws {
+        // Measured on macOS 27: in a Form, a title sits on its content's first text baseline; a
+        // view without text has its bottom as its baseline.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Swatch", block(3, 20, 40))), {"type": "LabeledContent", "id": 4, "properties": {"title": "Notes"}, "children": [{"type": "Text", "id": 5, "properties": {"text": "First line\nSecond line\nThird line"}}]}]}"#)
+        let swatch = try frame(3, in: form)
+        XCTAssertEqual(baseline(of: try title(2, in: form), in: form), swatch[1] + swatch[3], "on the block's bottom")
+        let notes = try XCTUnwrap(label("First line\nSecond line\nThird line", in: try XCTUnwrap(node(5, in: form)).widget))
+        XCTAssertEqual(baseline(of: try title(4, in: form), in: form), baseline(of: notes, in: form), "on the first line")
+    }
+
+    func testATitleTallerThanItsContentRaisesTheContent() throws {
+        // Measured on macOS 27: beside a Color shorter than the title's ascent (10 points there, 6
+        // here), the Color sits lower in the row, its bottom on the title's baseline.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Name", block(3, 20, 6)))]}"#)
+        let block = try frame(3, in: form)
+        let title = try title(2, in: form)
+        XCTAssertGreaterThan(block[1], frame(title, in: form)[1], "the block below the title's top")
+        XCTAssertEqual(baseline(of: title, in: form), block[1] + block[3])
+    }
+
+    func testATitleBesideAControlSitsOnTheControlsLine() throws {
+        // Measured on macOS 27: beside a Picker the title sits on the pop-up's text, beside a
+        // Slider by its middle (both a centered line on GTK); beside a TextEditor near its top.
+        for content in [picker(3, ""), #"{"type": "Picker", "id": 3, "properties": {"title": "Hidden", "labelsHidden": true, "options": ["One"]}}"#,
+                        #"{"type": "Slider", "id": 3}"#] {
+            let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Name", content))]}"#)
+            let title = frame(try title(2, in: form), in: form)
+            let control = try frame(3, in: form)
+            XCTAssertLessThanOrEqual(abs((title[1] + title[3] / 2) - (control[1] + control[3] / 2)), 2, content)
+        }
+        let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "Name", #"{"type": "TextEditor", "id": 3, "properties": {"text": "Edit me", "frame": {"width": 200, "height": 80}}}"#))]}"#)
+        let editor = try frame(3, in: form)
+        let title = try title(2, in: form)
+        XCTAssertGreaterThanOrEqual(frame(title, in: form)[1], editor[1], "not above the editor")
+        XCTAssertLessThan(baseline(of: title, in: form), editor[1] + editor[3] / 2, "near the top, not the bottom")
+    }
+
+    func testOutsideAFormALabeledContentIsCentered() throws {
+        // Measured on macOS 27: outside a Form the title and the content are centered.
+        let row = try render(labeled(1, "Name", block(2, 20, 40)))
+        let title = frame(try title(1, in: row), in: row)
+        let block = try frame(2, in: row)
+        XCTAssertLessThanOrEqual(abs((title[1] + title[3] / 2) - (block[1] + block[3] / 2)), 1)
     }
 
     func testATitleChangedAtRunTimeMovesTheOtherRows() throws {

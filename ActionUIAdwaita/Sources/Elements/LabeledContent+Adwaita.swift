@@ -2,6 +2,8 @@
 /*
  LabeledContent on GTK: its title, then its children in a row, as macOS lays it out outside a Form
  (measured on macOS 27): the title, 8 points, the children 8 points apart, all centered vertically.
+ In a Form the title sits on the content's first text baseline instead (measured: beside three
+ lines of text it is on the first line; beside a Color, on its bottom).
  It is as large as that unless a child fills, which then takes the rest of the row.
 
  Two stacks: the row of the title and the content, and the content's own row, which holds the
@@ -31,6 +33,9 @@ extension LabeledContent: ActionUIAdwaitaRenderer {
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         guard let title = gtk_widget_get_first_child(widget), let content = gtk_widget_get_last_child(widget) else { return }
+        // In a Form the title sits on the content's first text baseline (Baselines), as macOS
+        // lines a Form row up; elsewhere the two are centered.
+        StackLayout.configure(widget, spacing: nil, alignment: .center, alignsBaselines: node.environment.inForm)
         let text = Props(node.properties).title
         if swiftString(gtk_label_get_text(opaque(title))) != text {
             gtk_label_set_text(opaque(title), text)
