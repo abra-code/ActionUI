@@ -37,24 +37,55 @@ func swiftString(_ text: UnsafePointer<CChar>?) -> String? {
 
 // MARK: - Signals
 
-/// What a signal handler runs; retained by GLib for as long as the handler is connected.
-@MainActor final class SignalAction {
-    let run: @MainActor () -> Void
-    init(_ run: @escaping @MainActor () -> Void) { self.run = run }
+/// A Swift closure handed to GLib (a signal handler, a timer): retained while GLib holds it, and
+/// released by GLib's destroy notification (releaseClosureBox, releaseObject).
+@MainActor final class CallbackBox<Run> {
+    let run: Run
+    init(_ run: Run) { self.run = run }
 }
+
+/// The box behind a callback's user data, which GLib passes back unchanged.
+private func callbackBox<Run>(_ data: gpointer) -> CallbackBox<Run> {
+    Unmanaged<CallbackBox<Run>>.fromOpaque(data).takeUnretainedValue()
+}
+
+/// GLib's destroy notification for a signal handler's box, whatever its closure type.
+private let releaseClosureBox: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
+    guard let data else { return }
+    Unmanaged<AnyObject>.fromOpaque(data).release()
+}
+
+/// Connects `callback`, a trampoline that runs a CallbackBox<Run>, to `signal`, with `run` in the
+/// box. GLib calls releaseClosureBox once a connected handler is gone; when connecting fails (an
+/// unknown signal, which GLib logs) it never calls it, so the box is released here. Returns GLib's
+/// handler id, 0 on failure.
+@MainActor
+private func connectBox<Run>(_ instance: UnsafeMutableRawPointer, _ signal: String, _ callback: GCallback,
+                          after: Bool = false, _ run: Run) -> gulong {
+    let data = Unmanaged.passRetained(CallbackBox(run)).toOpaque()
+    // G_CONNECT_AFTER (1): after the signal's default handler.
+    let id = g_signal_connect_data(instance, signal, callback, data, releaseClosureBox, GConnectFlags(after ? 1 : 0))
+    if id == 0 {
+        Unmanaged<CallbackBox<Run>>.fromOpaque(data).release()
+    }
+    return id
+}
+
+/// A handler that takes nothing and returns nothing, whatever the signal passes.
+typealias SignalRun = @MainActor () -> Void
 
 /// For signals whose handler takes (instance, user data).
 private let twoArgumentTrampoline: @convention(c) (gpointer?, gpointer?) -> Void = { _, data in
     guard let data else { return }
-    let action = Unmanaged<SignalAction>.fromOpaque(data).takeUnretainedValue()
-    MainActor.assumeIsolated { action.run() }
+    let box: CallbackBox<SignalRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run() }
 }
 
 /// For signals whose handler takes (instance, one argument, user data), such as notify::.
 private let threeArgumentTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> Void = { _, _, data in
     guard let data else { return }
-    let action = Unmanaged<SignalAction>.fromOpaque(data).takeUnretainedValue()
-    MainActor.assumeIsolated { action.run() }
+    let box: CallbackBox<SignalRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run() }
 }
 
 /// For a click gesture's "pressed" and "released": (instance, press count, x, y, user data). The
@@ -62,45 +93,24 @@ private let threeArgumentTrampoline: @convention(c) (gpointer?, gpointer?, gpoin
 /// trampoline would look.
 private let pressTrampoline: @convention(c) (gpointer?, gint, gdouble, gdouble, gpointer?) -> Void = { _, _, _, _, data in
     guard let data else { return }
-    let action = Unmanaged<SignalAction>.fromOpaque(data).takeUnretainedValue()
-    MainActor.assumeIsolated { action.run() }
+    let box: CallbackBox<SignalRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run() }
 }
 
-/// A key controller's "key-released" handler, given the key's value.
-@MainActor
-private final class KeyAction {
-    let run: @MainActor (guint) -> Void
-    init(_ run: @escaping @MainActor (guint) -> Void) { self.run = run }
-}
+private typealias KeyRun = @MainActor (guint) -> Void
 
 /// For a key controller's "key-released": (instance, keyval, keycode, state, user data), all in
 /// integer registers.
 private let keyReleasedTrampoline: @convention(c) (gpointer?, guint, guint, guint, gpointer?) -> Void = { _, keyval, _, _, data in
     guard let data else { return }
-    let action = Unmanaged<KeyAction>.fromOpaque(data).takeUnretainedValue()
-    MainActor.assumeIsolated { action.run(keyval) }
-}
-
-private let releaseKeyAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
-    guard let data else { return }
-    Unmanaged<KeyAction>.fromOpaque(data).release()
+    let box: CallbackBox<KeyRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run(keyval) }
 }
 
 /// Connects `run` to a key controller's "key-released", with the released key's value (GDK_KEY_*).
 @MainActor @discardableResult
 func connectKeyReleased(_ controller: UnsafeMutableRawPointer, _ run: @escaping @MainActor (guint) -> Void) -> gulong {
-    let data = Unmanaged.passRetained(KeyAction(run)).toOpaque()
-    let id = g_signal_connect_data(controller, "key-released", unsafeBitCast(keyReleasedTrampoline, to: GCallback.self),
-                                   data, releaseKeyAction, GConnectFlags(0))
-    if id == 0 {
-        Unmanaged<KeyAction>.fromOpaque(data).release()
-    }
-    return id
-}
-
-private let releaseSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
-    guard let data else { return }
-    Unmanaged<SignalAction>.fromOpaque(data).release()
+    connectBox(controller, "key-released", unsafeBitCast(keyReleasedTrampoline, to: GCallback.self), run as KeyRun)
 }
 
 /// The C signature of a signal's handler, which decides the trampoline.
@@ -115,12 +125,11 @@ enum SignalShape {
 
 /// Connects `run` to `signal` on a GObject, whatever caused the signal. For a signal a user's
 /// input emits, use connectUserSignal, which also ignores the signal while a renderer updates
-/// the widget. With `after`, `run` runs after the signal's default handler. Returns GLib's handler
-/// id (0 if the signal does not exist, which GLib logs).
+/// the widget. With `after`, `run` runs after the signal's default handler (which does the work of
+/// "undo"). Returns GLib's handler id (0 if the signal does not exist, which GLib logs).
 @MainActor @discardableResult
 func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape, after: Bool = false,
                    _ run: @escaping @MainActor () -> Void) -> gulong {
-    let data = Unmanaged.passRetained(SignalAction(run)).toOpaque()
     let callback: GCallback
     switch shape {
     case .instanceOnly:
@@ -130,14 +139,7 @@ func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shap
     case .press:
         callback = unsafeBitCast(pressTrampoline, to: GCallback.self)
     }
-    // GLib calls releaseSignalAction once a connected handler is gone. When connecting fails (an
-    // unknown signal, which GLib logs) it never calls it, so the action is released here.
-    // G_CONNECT_AFTER (1): after the signal's default handler, which does the work of "undo".
-    let id = g_signal_connect_data(instance, signal, callback, data, releaseSignalAction, GConnectFlags(after ? 1 : 0))
-    if id == 0 {
-        Unmanaged<SignalAction>.fromOpaque(data).release()
-    }
-    return id
+    return connectBox(instance, signal, callback, after: after, run as SignalRun)
 }
 
 /// Connects `run` to a signal that a user's input emits ("clicked", "changed", "notify::active").
@@ -153,25 +155,16 @@ func connectUserSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ 
     }
 }
 
-/// What a handler given the signal's argument runs; retained by GLib while it is connected.
-@MainActor final class ObjectSignalAction {
-    let run: @MainActor (UnsafeMutableRawPointer) -> Void
-    init(_ run: @escaping @MainActor (UnsafeMutableRawPointer) -> Void) { self.run = run }
-}
+private typealias ObjectRun = @MainActor (UnsafeMutableRawPointer) -> Void
 
 /// For signals whose handler takes (instance, object, user data) and needs the object, such as a
 /// list item factory's "setup" and "bind".
 private let objectArgumentTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> Void = { _, object, data in
     guard let object, let data else { return }
-    let action = Unmanaged<ObjectSignalAction>.fromOpaque(data).takeUnretainedValue()
+    let box: CallbackBox<ObjectRun> = callbackBox(data)
     // A pointer is not Sendable; its address is. GLib emits on the main thread.
     let address = UInt(bitPattern: object)
-    MainActor.assumeIsolated { action.run(UnsafeMutableRawPointer(bitPattern: address)!) }
-}
-
-private let releaseObjectSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
-    guard let data else { return }
-    Unmanaged<ObjectSignalAction>.fromOpaque(data).release()
+    MainActor.assumeIsolated { box.run(UnsafeMutableRawPointer(bitPattern: address)!) }
 }
 
 /// Connects `run` to a signal whose handler takes one object argument (instance, object, user
@@ -181,32 +174,17 @@ private let releaseObjectSignalAction: @convention(c) (gpointer?, UnsafeMutableP
 @MainActor @discardableResult
 func connectObjectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
                          _ run: @escaping @MainActor (UnsafeMutableRawPointer) -> Void) -> gulong {
-    let data = Unmanaged.passRetained(ObjectSignalAction(run)).toOpaque()
-    let callback = unsafeBitCast(objectArgumentTrampoline, to: GCallback.self)
-    let id = g_signal_connect_data(instance, signal, callback, data, releaseObjectSignalAction, GConnectFlags(0))
-    if id == 0 {
-        Unmanaged<ObjectSignalAction>.fromOpaque(data).release()
-    }
-    return id
+    connectBox(instance, signal, unsafeBitCast(objectArgumentTrampoline, to: GCallback.self), run as ObjectRun)
 }
 
-/// What a handler that answers its signal runs; retained by GLib while it is connected.
-@MainActor final class BooleanSignalAction {
-    let run: @MainActor () -> Bool
-    init(_ run: @escaping @MainActor () -> Bool) { self.run = run }
-}
+private typealias BooleanRun = @MainActor () -> Bool
 
 /// For signals whose handler takes (instance, user data) and returns a gboolean, such as
 /// GtkWindow's "close-request".
 private let booleanTrampoline: @convention(c) (gpointer?, gpointer?) -> gboolean = { _, data in
     guard let data else { return 0 }
-    let action = Unmanaged<BooleanSignalAction>.fromOpaque(data).takeUnretainedValue()
-    return MainActor.assumeIsolated { action.run() } ? 1 : 0
-}
-
-private let releaseBooleanSignalAction: @convention(c) (gpointer?, UnsafeMutablePointer<GClosure>?) -> Void = { data, _ in
-    guard let data else { return }
-    Unmanaged<BooleanSignalAction>.fromOpaque(data).release()
+    let box: CallbackBox<BooleanRun> = callbackBox(data)
+    return MainActor.assumeIsolated { box.run() } ? 1 : 0
 }
 
 /// Connects `run` to a signal whose handler returns a gboolean (instance, user data), and
@@ -215,13 +193,7 @@ private let releaseBooleanSignalAction: @convention(c) (gpointer?, UnsafeMutable
 @MainActor @discardableResult
 func connectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
                           _ run: @escaping @MainActor () -> Bool) -> gulong {
-    let data = Unmanaged.passRetained(BooleanSignalAction(run)).toOpaque()
-    let callback = unsafeBitCast(booleanTrampoline, to: GCallback.self)
-    let id = g_signal_connect_data(instance, signal, callback, data, releaseBooleanSignalAction, GConnectFlags(0))
-    if id == 0 {
-        Unmanaged<BooleanSignalAction>.fromOpaque(data).release()
-    }
-    return id
+    connectBox(instance, signal, unsafeBitCast(booleanTrampoline, to: GCallback.self), run as BooleanRun)
 }
 
 // MARK: - Widgets with an accessible role
@@ -267,7 +239,8 @@ func setAccessibleLabel(_ widget: WidgetPointer, _ name: String) {
 
 // MARK: - Swift objects kept on GObjects
 
-private let releaseAttached: @convention(c) (gpointer?) -> Void = { data in
+/// GLib's destroy notification for a retained Swift object (an attached object, a timer's box).
+private let releaseObject: @convention(c) (gpointer?) -> Void = { data in
     guard let data else { return }
     Unmanaged<AnyObject>.fromOpaque(data).release()
 }
@@ -283,7 +256,7 @@ struct AttachKey<Value: AnyObject>: Sendable {
 /// set again.
 @MainActor func attach<Value>(_ value: Value, to object: UnsafeMutableRawPointer, key: AttachKey<Value>) {
     let retained = Unmanaged.passRetained(value as AnyObject).toOpaque()
-    g_object_set_data_full(typed(OpaquePointer(object)), key.name, retained, releaseAttached)
+    g_object_set_data_full(typed(OpaquePointer(object)), key.name, retained, releaseObject)
 }
 
 /// The object attach kept on `object` under `key`; nil when there is none, or when another key of
@@ -295,29 +268,18 @@ struct AttachKey<Value: AnyObject>: Sendable {
 
 // MARK: - Timers
 
-/// What a timer runs; retained by GLib until its source is removed.
-@MainActor final class TimerAction {
-    let run: @MainActor () -> Void
-    init(_ run: @escaping @MainActor () -> Void) { self.run = run }
-}
-
 private let runTimerOnce: @convention(c) (gpointer?) -> gboolean = { data in
     guard let data else { return 0 }
-    let action = Unmanaged<TimerAction>.fromOpaque(data).takeUnretainedValue()
-    MainActor.assumeIsolated { action.run() }
+    let box: CallbackBox<SignalRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run() }
     return 0  // G_SOURCE_REMOVE
 }
 
-private let releaseTimerAction: @convention(c) (gpointer?) -> Void = { data in
-    guard let data else { return }
-    Unmanaged<TimerAction>.fromOpaque(data).release()
-}
-
-/// Runs `run` once on the GLib main loop after `milliseconds`. Returns the source id, which
-/// g_source_remove cancels. DispatchQueue.main.asyncAfter works too (MainLoopBridge); there is no
-/// Timer or RunLoop in FoundationEssentials.
+/// Runs `run` once on the GLib main loop after `milliseconds`; GLib holds it until the source is
+/// removed. Returns the source id, which g_source_remove cancels. DispatchQueue.main.asyncAfter
+/// works too (MainLoopBridge); there is no Timer or RunLoop in FoundationEssentials.
 @MainActor @discardableResult
 func runAfter(milliseconds: UInt32, _ run: @escaping @MainActor () -> Void) -> guint {
-    let data = Unmanaged.passRetained(TimerAction(run)).toOpaque()
-    return g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, runTimerOnce, data, releaseTimerAction)
+    let data = Unmanaged.passRetained(CallbackBox(run as SignalRun)).toOpaque()
+    return g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, runTimerOnce, data, releaseObject)
 }

@@ -1,9 +1,10 @@
 // Tests/Interop/WrapperTests.swift
 /*
- Tests for the Swift wrappers of the C API (Owned.swift, Widgets.swift): each owned type takes the
- right reference for new (floating), handed-over and borrowed pointers and releases it once, also
- on an early return; a handed-over reference is not released; the widget views read and write Booleans, skip
- setting a value the widget already has, walk children in order, and measure with baselines.
+ Tests for the Swift wrappers of the C API (Owned.swift, Widgets.swift, Properties.swift): each
+ owned type takes the right reference for new (floating), handed-over and borrowed pointers and
+ releases it once, also on an early return; a handed-over reference is not released; the widget
+ views read and write Booleans, skip setting a value the widget already has, walk children in
+ order, and measure with baselines; properties read and write by name and skip an equal value.
 */
 
 import XCTest
@@ -189,5 +190,45 @@ final class WrapperTests: XCTestCase {
         XCTAssertFalse(widget.hasCSSClass("heading"))
         XCTAssertTrue(widget.isA(gtk_label_get_type()))
         XCTAssertFalse(widget.isA(gtk_box_get_type()))
+    }
+
+    // MARK: Properties
+
+    func testStringPropertiesReadAndWriteWithNilAsNone() {
+        // A tooltip keeps NULL; a GtkEntry placeholder, once cleared, reads "" (GTK 4.18).
+        let label = OwnedObject(retaining: gtk_label_new("x")!)
+        let widget = Gtk.Widget(label.widget)
+        let tooltip = PropertyKey<String?>("tooltip-text")
+        XCTAssertNil(widget[tooltip])
+        widget[tooltip] = "Help"
+        XCTAssertEqual(widget[tooltip], "Help")
+        XCTAssertEqual(swiftString(gtk_widget_get_tooltip_text(label.widget)), "Help", "the widget's own getter agrees")
+        widget[tooltip] = nil
+        XCTAssertNil(widget[tooltip])
+    }
+
+    func testBooleanAndDoublePropertiesReadAndWrite() {
+        let entry = OwnedObject(retaining: gtk_entry_new()!)
+        let activates = PropertyKey<Bool>("activates-default")
+        Gtk.Widget(entry.widget)[activates] = true
+        XCTAssertTrue(Gtk.Widget(entry.widget)[activates])
+        XCTAssertNotEqual(gtk_entry_get_activates_default(typed(entry.widget)), 0)
+
+        let bar = OwnedObject(retaining: gtk_progress_bar_new()!)
+        let fraction = PropertyKey<Double>("fraction")
+        Gtk.Widget(bar.widget)[fraction] = 0.25
+        XCTAssertEqual(Gtk.Widget(bar.widget)[fraction], 0.25)
+        XCTAssertEqual(gtk_progress_bar_get_fraction(bar.opaquePointer), 0.25)
+    }
+
+    func testSettingAPropertyToItsValueChangesNothing() {
+        let entry = OwnedObject(retaining: gtk_entry_new()!)
+        let widget = Gtk.Widget(entry.widget)
+        let placeholder = PropertyKey<String?>("placeholder-text")
+        var notified = 0
+        connectSignal(entry.pointer, "notify::placeholder-text", .instanceAndArgument) { notified += 1 }
+        widget[placeholder] = "Name"
+        widget[placeholder] = "Name"
+        XCTAssertEqual(notified, 1)
     }
 }

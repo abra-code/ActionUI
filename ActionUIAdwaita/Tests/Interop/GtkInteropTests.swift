@@ -116,7 +116,7 @@ final class GtkInteropTests: XCTestCase {
             attach(value, to: button, key: testKey)
         }
         XCTAssertTrue(attached(on: button, key: testKey) === first)
-        XCTAssertNil(attached(on: button, key: AttachKey<TimerAction>("test-key")), "another type under the same name is not returned")
+        XCTAssertNil(attached(on: button, key: AttachKey<OtherValue>("test-key")), "another type under the same name is not returned")
         XCTAssertNil(attached(on: button, key: AttachKey<CallCounter>("other-key")))
 
         do {
@@ -165,3 +165,6 @@ final class GtkInteropTests: XCTestCase {
         XCTAssertFalse(AdwaitaTestHost.runMainLoop(until: { fired.count > 0 }, timeoutMilliseconds: 50))
     }
 }
+
+/// Another type to store under a key name a test already uses.
+private final class OtherValue {}

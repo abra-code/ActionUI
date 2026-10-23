@@ -16,10 +16,8 @@
 
 import CAdwaita
 
-// G_TYPE_STRING and G_TYPE_BOOLEAN, G_TYPE_MAKE_FUNDAMENTAL(16) and (5): function-like macros Swift
-// does not import.
-private let stringType = GType(16 << G_TYPE_FUNDAMENTAL_SHIFT)
-private let booleanType = GType(5 << G_TYPE_FUNDAMENTAL_SHIFT)
+private let placeholderText = PropertyKey<String?>("placeholder-text")
+private let activatesDefault = PropertyKey<Bool>("activates-default")
 
 extension SecureField: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
@@ -55,13 +53,8 @@ extension SecureField: ActionUIAdwaitaRenderer {
         }
         // GtkPasswordEntry has these as properties only, without setters.
         let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
-        if stringProperty(entry, "placeholder-text") != placeholder {
-            setStringProperty(entry, "placeholder-text", placeholder)
-        }
-        let activatesDefault = props.actionID == nil
-        if boolProperty(entry, "activates-default") != activatesDefault {
-            setBoolProperty(entry, "activates-default", activatesDefault)
-        }
+        Gtk.Widget(entry)[placeholderText] = placeholder
+        Gtk.Widget(entry)[activatesDefault] = props.actionID == nil
     }
 
     /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle).
@@ -77,37 +70,5 @@ extension SecureField: ActionUIAdwaitaRenderer {
     /// Named after its title, as SwiftUI names a SecureField.
     static func defaultAccessibleLabel(_ node: RenderNode) -> String? {
         Props(node.properties).title
-    }
-
-    private static func stringProperty(_ widget: WidgetPointer, _ name: String) -> String? {
-        var value = GValue()
-        g_value_init(&value, stringType)
-        defer { g_value_unset(&value) }
-        g_object_get_property(typed(OpaquePointer(widget)), name, &value)
-        return swiftString(g_value_get_string(&value))
-    }
-
-    private static func setStringProperty(_ widget: WidgetPointer, _ name: String, _ text: String?) {
-        var value = GValue()
-        g_value_init(&value, stringType)
-        defer { g_value_unset(&value) }
-        g_value_set_string(&value, text)
-        g_object_set_property(typed(OpaquePointer(widget)), name, &value)
-    }
-
-    private static func boolProperty(_ widget: WidgetPointer, _ name: String) -> Bool {
-        var value = GValue()
-        g_value_init(&value, booleanType)
-        defer { g_value_unset(&value) }
-        g_object_get_property(typed(OpaquePointer(widget)), name, &value)
-        return g_value_get_boolean(&value) != 0
-    }
-
-    private static func setBoolProperty(_ widget: WidgetPointer, _ name: String, _ flag: Bool) {
-        var value = GValue()
-        g_value_init(&value, booleanType)
-        defer { g_value_unset(&value) }
-        g_value_set_boolean(&value, flag ? 1 : 0)
-        g_object_set_property(typed(OpaquePointer(widget)), name, &value)
     }
 }
