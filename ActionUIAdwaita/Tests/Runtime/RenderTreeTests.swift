@@ -125,6 +125,17 @@ final class RenderTreeTests: XCTestCase {
         XCTAssertEqual(TestUpdates.counts, [1: 1, 2: 1, 3: 2], "neither the parent nor the sibling re-synced")
     }
 
+    func testAPropertyChangeResyncsOnlyTheNodeThatReadIt() throws {
+        // A child is made during its parent's sync: what its init reads (its properties, for its
+        // environment and widget kind) must not become the parent's dependency.
+        let window = try render(document)
+        let root = try XCTUnwrap(window.root)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "text", value: "changed")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNotNil(root.childNodes[3])
+        XCTAssertEqual(TestUpdates.counts, [1: 1, 2: 1, 3: 2], "neither the parent nor the sibling re-synced")
+    }
+
     func testChangesBeforeAFlushCoalesce() throws {
         let window = try render(document)
         let root = try XCTUnwrap(window.root)

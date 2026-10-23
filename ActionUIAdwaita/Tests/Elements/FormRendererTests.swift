@@ -201,6 +201,52 @@ final class FormRendererTests: XCTestCase {
         XCTAssertEqual(try frame(3, in: form)[0], 0)
     }
 
+    func testATextFieldsTitleStandsBeforeItInTheLabelColumn() throws {
+        // Measured on macOS 27: in a Form a TextField's and a SecureField's titles end at the
+        // column and the field starts 8 after it; the placeholder is the prompt alone.
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "Picker", "id": 2, "properties": {"title": "A much longer name", "options": ["One"]}}, {"type": "TextField", "id": 3, "properties": {"title": "Name"}}, {"type": "SecureField", "id": 4, "properties": {"title": "Password", "prompt": "Required"}}, \#(block(5, 30, 20))]}"#)
+        let column = frame(try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(node(2, in: form)).widget)), in: form)[2]
+        for id in [3, 4] {
+            let widget = try XCTUnwrap(node(id, in: form)).widget
+            let title = try XCTUnwrap(gtk_widget_get_first_child(widget))
+            XCTAssertNotEqual(gtk_widget_get_visible(title), 0, "field \(id) shows its title")
+            let titleFrame = frame(title, in: form)
+            XCTAssertEqual(titleFrame[0] + titleFrame[2], column, "field \(id)'s title ends at the column")
+            XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(widget)), in: form)[0], column + 8, "field \(id)")
+        }
+        XCTAssertEqual(try frame(5, in: form)[0], column + 8)
+
+        let field = try XCTUnwrap(node(3, in: form)).widget
+        let entry = try XCTUnwrap(gtk_widget_get_last_child(field))
+        XCTAssertNil(swiftString(gtk_entry_get_placeholder_text(typed(entry))), "no prompt, no placeholder: the title is outside")
+        XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(entry), GTK_ACCESSIBLE_PROPERTY_LABEL), 0,
+                          "the entry is named after the title")
+        XCTAssertNotEqual(gtk_widget_get_hexpand(entry), 0, "the field still fills")
+    }
+
+    func testAnEmptyOrHiddenTextFieldTitle() throws {
+        // Measured on macOS 27: an empty title makes a column of 0 (the field at 8); labelsHidden
+        // makes no column (the field at 0).
+        for (field, x) in [(#"{"type": "TextField", "id": 2, "properties": {"title": ""}}"#, 8),
+                           (#"{"type": "SecureField", "id": 2, "properties": {"title": ""}}"#, 8),
+                           (#"{"type": "TextField", "id": 2, "properties": {"title": "Name", "labelsHidden": true}}"#, 0),
+                           (#"{"type": "SecureField", "id": 2, "properties": {"title": "Name", "labelsHidden": true}}"#, 0)] {
+            let form = try render(#"{"type": "Form", "id": 1, "children": [\#(field), \#(block(3, 20, 20))]}"#)
+            let widget = try XCTUnwrap(node(2, in: form)).widget
+            XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(widget)), in: form)[0], x, field)
+            XCTAssertEqual(try frame(3, in: form)[0], x, field)
+        }
+    }
+
+    func testATextFieldInsertedIntoAFormShowsItsTitle() throws {
+        let form = try render(#"{"type": "Form", "id": 1, "children": [{"type": "Picker", "id": 2, "properties": {"title": "A much longer name", "options": ["One"]}}]}"#)
+        _ = try ActionUIModel.shared.insertElement(windowUUID: windowUUID, parentID: 1, json: #"{"type": "TextField", "id": 3, "properties": {"title": "Name"}}"#)
+        AdwaitaTestHost.drainMainLoop()
+        let column = frame(try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(node(2, in: form)).widget)), in: form)[2]
+        let widget = try XCTUnwrap(node(3, in: form)).widget
+        XCTAssertEqual(frame(try XCTUnwrap(gtk_widget_get_last_child(widget)), in: form)[0], column + 8)
+    }
+
     func testATitleChangedAtRunTimeMovesTheOtherRows() throws {
         let form = try render(#"{"type": "Form", "id": 1, "children": [\#(labeled(2, "A", block(3, 20, 20))), \#(labeled(4, "Name", block(5, 40, 20))), \#(block(6, 30, 20))]}"#)
         let before = try frame(5, in: form)[0]

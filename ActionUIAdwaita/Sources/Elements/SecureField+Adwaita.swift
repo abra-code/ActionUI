@@ -5,7 +5,8 @@
  - as wide as it is offered (SwiftUI's SecureField is greedy in width, as TextField is);
  - the text is the value, else the text property (SecureField.initialValue), set only when it
    differs, since setting it moves the cursor;
- - the placeholder is the prompt, else the title;
+ - the placeholder is the prompt, else the title; in a Form the title stands before the field in
+   the label column and the placeholder is the prompt alone (FormFieldTitle);
  - typing runs Core's TextField.userEditedText (the value, then valueChangeActionID), shared by the
    two entries; Return and leaving the field run TextField.userSubmitted (actionID), as on macOS;
    without an actionID, Return activates the window's default widget;
@@ -42,24 +43,35 @@ extension SecureField: ActionUIAdwaitaRenderer {
             TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id, windowUUID: node.windowUUID)
         }
         gtk_widget_add_controller(entry, focus)
-        return entry
+        return FormFieldTitle.widget(entry, node)
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let props = Props(node.properties)
         let text = SecureField.initialValue(node.model) as? String ?? ""
-        if swiftString(gtk_editable_get_text(OpaquePointer(widget))) != text {
-            gtk_editable_set_text(OpaquePointer(widget), text)
+        let entry = FormFieldTitle.entry(widget)
+        if swiftString(gtk_editable_get_text(OpaquePointer(entry))) != text {
+            gtk_editable_set_text(OpaquePointer(entry), text)
         }
         // GtkPasswordEntry has these as properties only, without setters.
-        let placeholder = props.prompt ?? props.title
-        if stringProperty(widget, "placeholder-text") != placeholder {
-            setStringProperty(widget, "placeholder-text", placeholder)
+        let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
+        if stringProperty(entry, "placeholder-text") != placeholder {
+            setStringProperty(entry, "placeholder-text", placeholder)
         }
         let activatesDefault = props.actionID == nil
-        if boolProperty(widget, "activates-default") != activatesDefault {
-            setBoolProperty(widget, "activates-default", activatesDefault)
+        if boolProperty(entry, "activates-default") != activatesDefault {
+            setBoolProperty(entry, "activates-default", activatesDefault)
         }
+    }
+
+    /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle).
+    static func widgetKind(_ node: RenderNode) -> Int {
+        FormFieldTitle.widgetKind(node)
+    }
+
+    /// The entry, which assistive technologies read (in a Form, beside its title).
+    static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
+        FormFieldTitle.entry(widget)
     }
 
     /// Named after its title, as SwiftUI names a SecureField.
@@ -75,7 +87,7 @@ extension SecureField: ActionUIAdwaitaRenderer {
         return swiftString(g_value_get_string(&value))
     }
 
-    private static func setStringProperty(_ widget: WidgetPointer, _ name: String, _ text: String) {
+    private static func setStringProperty(_ widget: WidgetPointer, _ name: String, _ text: String?) {
         var value = GValue()
         g_value_init(&value, stringType)
         defer { g_value_unset(&value) }

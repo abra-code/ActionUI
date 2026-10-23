@@ -106,6 +106,7 @@ final class WebLayoutParityTests: XCTestCase {
         "contentunavailable-width-600": "padding",
         "divider-hstack-height": "minimum",
         "form-empty-control-title": "form",
+        "form-empty-text-field-title": "form",
         "form-filling-row": "form",
         "form-rows-hug": "form",
         "form-sections-add-no-space": "form",

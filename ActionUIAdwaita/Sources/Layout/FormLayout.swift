@@ -1,12 +1,13 @@
 // Sources/Layout/FormLayout.swift
 /*
  The label column of a Form, as macOS lays out a Form (measured on macOS 27, the layout parity
- fixtures): the titles of its LabeledContent, Picker, Stepper, ColorPicker and switch Toggle rows
- end at a column as wide as the widest title, the content of every row starts 8 points after it (the
- row's own spacing), and a row without a title starts there too. With no titled row there is no
- column, and the rows start at the Form's leading edge. An empty title makes a column of 0, so the
- content starts at 8. A control whose title labelsHidden hides is a row without a title, and a
- checkbox Toggle's title stays beside its checkbox in the content column (measured).
+ fixtures): the titles of its LabeledContent, Picker, Stepper, ColorPicker, switch Toggle, TextField
+ and SecureField rows end at a column as wide as the widest title, the content of every row starts
+ 8 points after it (the row's own spacing), and a row without a title starts there too. With no
+ titled row there is no column, and the rows start at the Form's leading edge. An empty title makes
+ a column of 0, so the content starts at 8. A control whose title labelsHidden hides is a row
+ without a title, and a checkbox Toggle's title stays beside its checkbox in the content column
+ (measured).
 
  The column takes a title's trailing edge as its row lays the title out at the row's natural
  width, not the title's width alone (measured): a row's leading padding, or a frame wider than the
@@ -33,8 +34,9 @@ final class LabeledRowMarker {
         /// A LabeledContent: a StackLayout HStack of the title and the content, centered in a
         /// row wider than they are.
         case stack
-        /// A control (Picker, Stepper, ColorPicker, switch Toggle): a GtkBox whose first child is
-        /// the title, packed at its start; a hidden title (labelsHidden) is no title.
+        /// A control (Picker, Stepper, ColorPicker, switch Toggle, a text field in a Form): a
+        /// GtkBox whose first child is the title, packed at its start; a hidden title
+        /// (labelsHidden) is no title.
         case box
     }
 

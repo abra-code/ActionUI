@@ -71,7 +71,15 @@ final class RenderNode {
         self.parent = parent
         self.depth = parent.map { $0.depth + 1 } ?? 0
         self.renderer = ActionUIRegistry.shared.adwaitaRenderer(forElementType: element.type)
-        self.widgetKind = renderer.widgetKind(self)
+        // As sync computes it, so a widget kind that depends on the environment (a TextField in a
+        // Form) is made right the first time; sync recomputes it under observation. Untracked: a
+        // child is made during its parent's sync, whose observation would take these reads as the
+        // parent's.
+        UntrackedReads.perform {
+            let modifiers = BaseModifiers(ActionUIRegistry.shared.currentProperties(element: element, model: model))
+            self.environment = renderer.environment((parent?.environment ?? Environment()).applying(modifiers))
+            self.widgetKind = renderer.widgetKind(self)
+        }
         let widget = renderer.makeWidget(self)
         // Sinks GTK's floating reference into the node's own.
         g_object_ref_sink(UnsafeMutableRawPointer(widget))

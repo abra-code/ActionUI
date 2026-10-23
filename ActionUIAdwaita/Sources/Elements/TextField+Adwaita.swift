@@ -5,7 +5,8 @@
  - The text is the value, else the text property (Props.initialValue); an update sets it only when
    it differs, since setting an entry's text moves the cursor.
  - The placeholder is the prompt, else the title: macOS shows the title inside the field when there
-   is no prompt.
+   is no prompt. In a Form the title stands before the field in the label column, and the
+   placeholder is the prompt alone (FormFieldTitle).
  - Typing runs Core's TextField.userEditedText (the value, then valueChangeActionID); Return and
    leaving the field run TextField.userSubmitted (actionID), as on macOS, where ending editing
    commits; not the window becoming inactive or closing. Without an actionID, Return activates the
@@ -45,17 +46,18 @@ extension TextField: ActionUIAdwaitaRenderer {
             TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: Props(node.properties))
         }
         gtk_widget_add_controller(entry, focus)
-        return entry
+        return FormFieldTitle.widget(entry, node)
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let props = Props(node.properties)
-        let entry: UnsafeMutablePointer<GtkEntry> = typed(widget)
+        let entryWidget = FormFieldTitle.entry(widget)
+        let entry: UnsafeMutablePointer<GtkEntry> = typed(entryWidget)
         let text = node.model.value as? String ?? props.initialValue
-        if swiftString(gtk_editable_get_text(OpaquePointer(widget))) != text {
-            gtk_editable_set_text(OpaquePointer(widget), text)
+        if swiftString(gtk_editable_get_text(OpaquePointer(entryWidget))) != text {
+            gtk_editable_set_text(OpaquePointer(entryWidget), text)
         }
-        let placeholder = props.prompt ?? props.title
+        let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
         if swiftString(gtk_entry_get_placeholder_text(entry)) != placeholder {
             gtk_entry_set_placeholder_text(entry, placeholder)
         }
@@ -73,6 +75,16 @@ extension TextField: ActionUIAdwaitaRenderer {
         if props.format != nil {
             reportOnce("number formats show plain text on Linux for now")
         }
+    }
+
+    /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle).
+    static func widgetKind(_ node: RenderNode) -> Int {
+        FormFieldTitle.widgetKind(node)
+    }
+
+    /// The entry, which assistive technologies read (in a Form, beside its title).
+    static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
+        FormFieldTitle.entry(widget)
     }
 
     /// Named after its title, as SwiftUI names a TextField (an entry has no name of its own).
