@@ -119,9 +119,7 @@ enum DateFormatting {
         defer { g_time_zone_unref(zone) }
         guard let local = g_date_time_to_timezone(utc, zone) else { return "" }
         defer { g_date_time_unref(local) }
-        guard let text = g_date_time_format(local, format) else { return "" }
-        defer { g_free(text) }
-        return String(cString: text)
+        return takeGString(g_date_time_format(local, format)) ?? ""
     }
 
     private static func withOptionalCString<Result>(_ string: String?, _ body: (UnsafePointer<CChar>?) -> Result) -> Result {

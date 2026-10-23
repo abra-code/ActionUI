@@ -133,10 +133,7 @@ enum ModifierBox {
         applyText(widget, modifiers)
         applyAccessibility(widget, node, modifiers)
 
-        let sensitive: gboolean = modifiers.disabled == true ? 0 : 1
-        if gtk_widget_get_sensitive(widget) != sensitive {
-            gtk_widget_set_sensitive(widget, sensitive)
-        }
+        Gtk.Widget(widget).isSensitive = modifiers.disabled != true
         let help = modifiers.help.flatMap { $0.isEmpty ? nil : $0 }
         if swiftString(gtk_widget_get_tooltip_text(widget)) != help {
             gtk_widget_set_tooltip_text(widget, help)

@@ -290,8 +290,7 @@ public final class AdwaitaApplication {
         adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
         adw_application_window_set_content(typed(window), toolbar)
         // Measured in the window, where the header bar has its style.
-        var headerHeight: Int32 = 0
-        gtk_widget_measure(header, GTK_ORIENTATION_VERTICAL, -1, nil, &headerHeight, nil, nil)
+        let headerHeight = Int32(clamping: Gtk.Widget(header).measure(GTK_ORIENTATION_VERTICAL).natural)
         let monitor = monitorSize()
         let (minimum, natural) = contentSizes(content, widthCap: monitor.width)
         // The window's minimum is the content's plus the header bar's.
@@ -409,13 +408,10 @@ public final class AdwaitaApplication {
     /// The content's minimum and natural size; the heights for the width the window will have
     /// (the natural width, at most `widthCap`), as text wraps taller in a narrower window.
     private func contentSizes(_ content: WidgetPointer, widthCap: Int32) -> (minimum: (width: Int32, height: Int32), natural: (width: Int32, height: Int32)) {
-        var minimumWidth: Int32 = 0
-        var naturalWidth: Int32 = 0
-        gtk_widget_measure(content, GTK_ORIENTATION_HORIZONTAL, -1, &minimumWidth, &naturalWidth, nil, nil)
-        var minimumHeight: Int32 = 0
-        var naturalHeight: Int32 = 0
-        gtk_widget_measure(content, GTK_ORIENTATION_VERTICAL, max(min(naturalWidth, widthCap), minimumWidth), &minimumHeight, &naturalHeight, nil, nil)
-        return ((minimumWidth, minimumHeight), (naturalWidth, naturalHeight))
+        let width = Gtk.Widget(content).measure(GTK_ORIENTATION_HORIZONTAL)
+        let height = Gtk.Widget(content).measure(GTK_ORIENTATION_VERTICAL, forSize: max(min(width.natural, Int(widthCap)), width.minimum))
+        return ((Int32(clamping: width.minimum), Int32(clamping: height.minimum)),
+                (Int32(clamping: width.natural), Int32(clamping: height.natural)))
     }
 
     /// The size of the display's first monitor; a large bound when there is none.

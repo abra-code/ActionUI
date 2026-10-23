@@ -39,7 +39,7 @@ enum FormFieldTitle {
     /// The entry in the field's widget.
     static func entry(_ widget: WidgetPointer) -> WidgetPointer {
         guard attached(on: widget, key: labeledRowMarkerKey) != nil else { return widget }
-        return gtk_widget_get_last_child(widget) ?? widget
+        return Gtk.Widget(widget).lastChild?.pointer ?? widget
     }
 
     /// Shows `title` before the entry when the field is in a Form, and returns the entry's
