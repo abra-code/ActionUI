@@ -150,8 +150,18 @@
 .aui-vstack { flex-direction: column; }
 .aui-hstack { flex-direction: row; }
 
-.aui-zstack { display: grid; }
-.aui-zstack > *, .aui-zstack > .aui-group > * { grid-area: 1 / 1; place-self: center; }
+.aui-zstack { display: grid; place-items: center; }
+.aui-zstack > *, .aui-zstack > .aui-group > * { grid-area: 1 / 1; }
+/* Each child is placed by its ZStack's alignment (place-items, set inline by ZStack.js; a child
+   that is a ZStack itself is placed by its parent's, not its own), not by a view's own align-self
+   for a stack (LabeledContent, Divider, Spacer): the doubled class outranks those single-class
+   rules, and the stretch rules below, later at the same specificity, outrank it. */
+.aui-zstack.aui-zstack > *, .aui-zstack.aui-zstack > .aui-group > * { place-self: auto; }
+/* A Color or shape fills the ZStack in both axes, over the alignment, as in SwiftUI. */
+.aui-zstack > .aui-shape, .aui-zstack > .aui-group > .aui-shape { place-self: stretch; }
+/* A frame that fills (maxWidth or maxHeight infinity) fills the ZStack in that axis. */
+.aui-zstack > .aui-fill-width, .aui-zstack > .aui-group > .aui-fill-width { justify-self: stretch; }
+.aui-zstack > .aui-fill-height, .aui-zstack > .aui-group > .aui-fill-height { align-self: stretch; }
 
 /* GeometryReader: a greedy container (fills the proposal, the .aui-shape idiom)
    that places its single content child by alignment via place-self (set inline

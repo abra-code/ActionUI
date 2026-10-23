@@ -42,12 +42,12 @@ register("ZStack", {
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
         node.className = "aui-zstack";
-        // place-self is set per child (an inline value overrides the stylesheet's
-        // default `.aui-zstack > * { place-self: center }`). Default: center.
-        // The same `prepare` runs on runtime-inserted children, so they share the
-        // stack's alignment.
-        const placeSelf = Z_ALIGN[properties.alignment] ?? "center center";
-        buildFlatChildren(node, element, ctx, { prepare: (built) => { built.style.placeSelf = placeSelf; } });
+        // The alignment, as the grid's place-items (the children's place-self is auto in
+        // theme.css), not an inline place-self per child, so a child that fills can stretch over
+        // it, as in SwiftUI, and inserted children get it too. Not a custom property: a ZStack
+        // child would read its own value instead of its parent's. Default: center.
+        node.style.placeItems = Z_ALIGN[properties.alignment] ?? "center center";
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

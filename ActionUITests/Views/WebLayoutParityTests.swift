@@ -97,13 +97,11 @@ private struct WebHarnessError: Error, CustomStringConvertible {
 final class WebLayoutParityTests: XCTestCase {
     /// Fixtures the web renderer does not match yet, with the causes. A fixture that starts to
     /// match fails the test until it is removed here. The causes, found with this test:
-    /// - zstack: a stack holding a capped child, in a ZStack in a maxWidth infinity frame, is not drawn
     /// - effects: offset is not applied, and an object scaleEffect (x, y, anchor) is not either
     /// - padding: a view's own CSS padding is a floor under its flex share (flex-basis 0 cannot go below it), so ContentUnavailableView takes 316 of 600 where SwiftUI shares 300 and 300
     /// - labeledcontent: an empty title still takes room, and the content is not laid out as a row
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     private static let knownDifferences: [String: String] = [
-        "cap-in-infinite-frame-zstack": "zstack",
         "contentunavailable-width-600": "padding",
         "divider-hstack-height": "minimum",
         "effects-offset-keeps-layout": "effects",

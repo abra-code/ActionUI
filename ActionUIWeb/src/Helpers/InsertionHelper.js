@@ -17,8 +17,8 @@ import { ContainerShape } from "../Common/ActionUIInsertion.js";
 // view ([{ id, dom }] - `dom` is the node actually in `mount`, e.g. a List row
 // wrapper). Options:
 //   wrap(childNode, id) -> domNode  wraps a built child before insertion (List).
-//   prepare(childNode)              mutates the built child in place (ZStack's
-//                                   per-child place-self).
+//   prepare(childNode)              mutates the built child in place before it
+//                                   is placed (none of the stacks needs it now).
 // The binding is the source of truth for child order, so before/after-sibling
 // and at-index positions resolve against `childIds()` and insertions land at the
 // right DOM offset even when the mount also holds non-child nodes (a Section
@@ -53,7 +53,7 @@ export function flatContainerBinding(mount, initialSlots, options = {}) {
 // Builds a flat container's children directly into `mount`, then registers its
 // binding - the one-liner for the simple direct-child containers (the stacks,
 // the lazy grids, Form, GroupBox, Section). `options` are passed through to
-// flatContainerBinding (e.g. ZStack's `prepare`). The `container` name defaults
+// flatContainerBinding (`wrap`, `prepare`). The `container` name defaults
 // to "children".
 export function buildFlatChildren(mount, element, ctx, options = {}) {
     const slots = [];
