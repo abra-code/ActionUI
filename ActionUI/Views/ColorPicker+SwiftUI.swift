@@ -12,9 +12,8 @@ extension ColorPicker: ActionUISwiftUIRenderer {
         let props = Props(properties)
         let title = props.title
 
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let actionID = props.actionID
+        // The binding's main-actor closures capture the Sendable Props, not the non-Sendable
+        // [String: Any] properties payload.
         let colorBinding = mainActorBinding(
             get: { ColorHelper.color(for: model.value as? ColorSpec ?? initialSpec) },
             set: { newValue in
@@ -25,10 +24,7 @@ extension ColorPicker: ActionUISwiftUIRenderer {
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
-                    model.value = picked
-                    if let actionID {
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ColorPicker.userPicked(picked, element: element, model: model, windowUUID: windowUUID, props: props)
                 }
             }
         )

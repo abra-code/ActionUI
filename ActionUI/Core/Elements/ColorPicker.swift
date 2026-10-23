@@ -36,6 +36,16 @@ extension ColorPicker {
             actionID = properties["actionID"] as? String
         }
     }
+
+    /// What picking a color does, on every platform: the color becomes the value and actionID
+    /// runs. The color the value already has does nothing.
+    static func userPicked(_ color: ColorSpec, element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        guard model.value as? ColorSpec != color else { return }
+        model.value = color
+        if let actionID = props.actionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        }
+    }
 }
 
 struct ColorPicker: ActionUIElementSpec {
