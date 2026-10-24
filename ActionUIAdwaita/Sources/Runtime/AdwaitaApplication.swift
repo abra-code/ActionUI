@@ -397,12 +397,14 @@ public final class AdwaitaApplication {
         // AdwDialogHost answers a close request while a dialog is up by closing that dialog, not
         // the window (as for the user's close): the presentations come down first.
         presented.renderTree?.presenter?.stop()
+        presented.renderTree?.root?.takeDownPresentations()
         gtk_window_close(presented.window)
         // GTK closes nothing for a window not realized yet or already closing; a later close by
-        // the user must ask again, and the presentations come back.
+        // the user must ask again, and the presentations (window-level and the elements') come back.
         if windows[windowUUID] === presented {
             presented.closingByHost = false
             presented.renderTree?.presenter?.resume()
+            presented.renderTree?.root?.restorePresentations()
         }
     }
 

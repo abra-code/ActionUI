@@ -6,7 +6,9 @@
 
  Syncing a node runs its renderer's update inside UpdateGuard (so the signals GTK emits for the
  renderer's own widget changes reach no action) and inside withObservationTracking (so a change to
- anything the update read marks the node dirty, and SyncScheduler syncs it again).
+ anything the update read marks the node dirty, and SyncScheduler syncs it again). The sheet,
+ full-screen cover and popover an element declares (NodePresentations) follow its view model's
+ visibility states, read in the same sync.
 
  Ownership: a node keeps a reference on its widget and its box, so they live as long as the node even
  when GTK drops its own (a closed window); a parent keeps its child nodes; the window keeps the
@@ -48,6 +50,8 @@ final class RenderNode {
     /// Child nodes made during this node's sync, synced after it, outside its observation
     /// tracking: what a child reads must mark the child dirty, not its parent.
     private var unsyncedChildren: [RenderNode] = []
+    /// The sheet, full-screen cover and popover the element declares; nil when it declares none.
+    private(set) var presentations: NodePresentations?
 
     var windowUUID: String { windowModel.windowUUID }
 
@@ -88,6 +92,7 @@ final class RenderNode {
         // GTK's floating references become the node's own.
         ownedWidget = OwnedObject(retaining: widget)
         ownedOuterWidget = OwnedObject(retaining: ModifierBox.wrap(widget))
+        presentations = NodePresentations.make(for: self)
     }
 
     isolated deinit {
@@ -102,8 +107,10 @@ final class RenderNode {
     func sync() {
         guard isAttached else { return }
         let previousEnvironment = environment
+        var requestedPresentations: Set<NodePresentations.Kind> = []
         UpdateGuard.applying {
             withObservationTracking {
+                requestedPresentations = presentations?.requested() ?? []
                 let modifiers = BaseModifiers(properties)
                 environment = renderer.environment((parent?.environment ?? Environment()).applying(modifiers))
                 let kind = renderer.widgetKind(self)
@@ -134,6 +141,8 @@ final class RenderNode {
         for child in created {
             child.sync()
         }
+        // After the children, outside the observation: the presentations' trees track their own reads.
+        presentations?.apply(requestedPresentations)
     }
 
     /// Puts a new widget of `kind` from the renderer in the box, in place of the current one. The
@@ -235,8 +244,30 @@ final class RenderNode {
     /// Marks this node and its descendants as out of the tree.
     func detach() {
         isAttached = false
+        presentations?.detach()
         for child in childNodes.values {
             child.detach()
+        }
+    }
+
+    /// Takes down the presentations of this node and its descendants, as detach does (no action,
+    /// the states stay), the nodes staying in the tree: the host closes the window, which
+    /// AdwDialogHost would answer by closing a sheet instead.
+    func takeDownPresentations() {
+        presentations?.detach()
+        for child in childNodes.values {
+            child.takeDownPresentations()
+        }
+    }
+
+    /// Shows again what the states of this node and its descendants ask for, after
+    /// takeDownPresentations (a window that did not close after all).
+    func restorePresentations() {
+        if let presentations {
+            presentations.apply(presentations.requested())
+        }
+        for child in childNodes.values {
+            child.restorePresentations()
         }
     }
 
