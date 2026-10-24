@@ -189,6 +189,8 @@ extension ActionUIRegistry {
             modifiedView, element: element, model: model, windowUUID: windowUUID, properties: properties
         )
 
-        return AnyView(modifiedView)
+        // Inside a ScrollViewReader, the element's id is the identity the reader scrolls to
+        // (Views/ScrollViewReader+SwiftUI.swift); outermost, so it names the whole element.
+        return AnyView(AnyView(modifiedView).modifier(ScrollTargetIdentity(id: element.id)))
     }
 }
