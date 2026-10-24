@@ -2,7 +2,8 @@
 /*
  Tests for ActionUIAdwaitaViewer, run as the program it is: it opens the TemperatureConverter
  sample and saves a screenshot, in the light and the dark style; the PNG is as large as the
- window and the dark one is darker.
+ window and the dark one is darker. The same sample from an http URL opens once it has loaded; one
+ that cannot be loaded fails the run, its error window saved.
 */
 
 import XCTest
@@ -38,7 +39,7 @@ final class ViewerTests: XCTestCase {
     }
 
     /// Runs the viewer with `arguments` for at most 30 s; its exit status, or nil when it had to be
-    /// stopped.
+    /// stopped. The main loop keeps running meanwhile, so a test's http server can answer it.
     private func runViewer(_ arguments: [String]) throws -> Int32? {
         let process = Process()
         process.executableURL = viewer
@@ -46,7 +47,8 @@ final class ViewerTests: XCTestCase {
         try process.run()
         let deadline = Date().addingTimeInterval(30)
         while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
+            AdwaitaTestHost.drainMainLoop()
+            Thread.sleep(forTimeInterval: 0.01)
         }
         guard !process.isRunning else {
             process.terminate()
@@ -92,6 +94,25 @@ final class ViewerTests: XCTestCase {
         let path = NSTemporaryDirectory() + "actionui-viewer-missing-\(ProcessInfo.processInfo.processIdentifier).png"
         files.append(path)
         XCTAssertEqual(try runViewer(["/no/such/document.json", "--screenshot", path]), 65)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path), "the window with the error is saved too")
+    }
+
+    func testAnHTTPDocumentOpensOnceItHasLoaded() throws {
+        let document = try String(contentsOfFile: sample, encoding: .utf8)
+        let server = try TestImageServer(png: [], document: document)
+        defer { server.stop() }
+        let path = NSTemporaryDirectory() + "actionui-viewer-http-\(ProcessInfo.processInfo.processIdentifier).png"
+        files.append(path)
+        XCTAssertEqual(try runViewer([server.base + "/view.json", "--screenshot", path]), 0)
+        XCTAssertGreaterThanOrEqual(try brightness(path).width, 360, "the sample's window")
+    }
+
+    func testAnHTTPDocumentThatCannotBeLoadedFailsTheRun() throws {
+        let server = try TestImageServer(png: [])
+        defer { server.stop() }
+        let path = NSTemporaryDirectory() + "actionui-viewer-http-missing-\(ProcessInfo.processInfo.processIdentifier).png"
+        files.append(path)
+        XCTAssertEqual(try runViewer([server.base + "/missing.json", "--screenshot", path]), 65)
         XCTAssertTrue(FileManager.default.fileExists(atPath: path), "the window with the error is saved too")
     }
 

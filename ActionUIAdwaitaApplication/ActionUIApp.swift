@@ -188,8 +188,8 @@ public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
 
 // MARK: - Windows
 
-/// Loads the ActionUI document at `urlString` (a file URL or path) into a new window. `title`
-/// NULL: the file's name.
+/// Loads the ActionUI document at `urlString` (a file URL or path, or an http or https URL, whose
+/// window appears once it has loaded) into a new window. `title` NULL: the file's name.
 @_cdecl("actionUIAppLoadAndPresentWindow")
 public func actionUIAppLoadAndPresentWindow(_ urlString: UnsafePointer<CChar>,
                                             _ windowUUID: UnsafePointer<CChar>,

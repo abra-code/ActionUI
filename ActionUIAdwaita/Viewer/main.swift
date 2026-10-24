@@ -4,6 +4,7 @@
 
  Usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]...
 
+ The document is a path, a file URL, or an http or https URL (the window appears once it loads).
  - --dark: libadwaita's dark style, whatever the desktop's.
  - --screenshot: once the window has drawn, saves it as a PNG file (drawn by the window's own
    renderer, header bar included) and quits; the exit status says whether it was written.
@@ -78,7 +79,8 @@ MainActor.assumeIsolated {
             adw_style_manager_set_color_scheme(adw_style_manager_get_default(), ADW_COLOR_SCHEME_FORCE_DARK)
         }
     }
-    app.handlers.didFinishLaunching = {
+    // When the window appears, which an http or https document makes later than the launch.
+    app.handlers.windowWillPresent = { _ in
         // A document that could not be loaded shows its error in the window; the run still fails.
         if !app.showsDocument(windowUUID) {
             print("ActionUIAdwaitaViewer: \(documentPath) could not be loaded")

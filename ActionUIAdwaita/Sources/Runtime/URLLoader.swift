@@ -25,6 +25,13 @@ final class LoadedBytes: @unchecked Sendable {
         self.bytes = bytes
     }
 
+    /// A copy of the bytes.
+    var data: Data {
+        var size: gsize = 0
+        guard let start = g_bytes_get_data(bytes, &size), size > 0 else { return Data() }
+        return Data(bytes: start, count: Int(size))
+    }
+
     deinit {
         g_bytes_unref(bytes)
     }
@@ -73,9 +80,7 @@ enum URLLoader {
             fetch(url.absoluteString) { continuation.resume(returning: $0) }
         }
         guard let bytes else { throw ActionUIError("Could not load \(url.absoluteString)") }
-        var size: gsize = 0
-        guard let start = g_bytes_get_data(bytes.bytes, &size), size > 0 else { return Data() }
-        return Data(bytes: start, count: Int(size))
+        return bytes.data
     }
 
     private static func sharedSession() -> UnsafeMutablePointer<SoupSession> {

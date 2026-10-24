@@ -14,7 +14,13 @@
    on Apple), never larger than the monitor: GTK's renderers fail on windows far larger than the
    screen. A document whose minimum is larger than the monitor scrolls.
  - A document that cannot be loaded is logged and shown as its error text in the window, as on
-   Apple. Remote URLs load nowhere yet on Linux (no HTTP client without full Foundation).
+   Apple.
+ - An http or https URL loads first (URLLoader, without blocking the main loop) and the window
+   appears when it has loaded, at the document's size, or with the error when it could not be;
+   Apple shows the window at once with a spinner, but a GTK window takes its size from its
+   content. Closing the window (closeWindow, or by hand the one it replaces) while it loads drops
+   it; presenting the UUID again replaces the load. A loading window keeps the application alive,
+   and counts as a window when the user closes what may be the last one.
  - Closing: GTK ends the application when its last window goes. Closing the last window by hand
    first asks the shouldTerminate handler, and false keeps it open; terminate() asks it too. A
    window closed by the host, or not the last one, just closes; windowWillClose fires for each.
@@ -82,6 +88,11 @@ public final class AdwaitaApplication {
     private(set) var hasStarted = false
     private var pendingWindows: [PendingWindow] = []
     private var windows: [String: PresentedWindow] = [:]
+    /// The windows whose http or https document is loading, each with its load's number: a newer
+    /// presentWindow or a closeWindow makes an older load drop its result. Each load holds the
+    /// application, as the window it stands for would.
+    private var remoteLoads: [String: Int] = [:]
+    private var remoteLoadCounter = 0
     private var isActive = false
     private var activeCheckQueued = false
     /// Whether the application is held open until its first window (GApplication ends with no
@@ -101,6 +112,8 @@ public final class AdwaitaApplication {
     enum WindowSource {
         case url(String)
         case json(Data)
+        /// An http or https URL's document, loaded (nil: it could not be).
+        case fetched(String, Data?)
     }
 
     /// A window on screen: its GTK window and its render tree.
@@ -178,6 +191,8 @@ public final class AdwaitaApplication {
         }
         windows = [:]
         pendingWindows = []
+        // A load still running is dropped; its hold went with the application.
+        remoteLoads = [:]
         hasStarted = false
         isActive = false
         holdsForFirstWindow = false
@@ -256,8 +271,9 @@ public final class AdwaitaApplication {
 
     // MARK: Windows
 
-    /// Loads a document from `urlString` (a file URL or path) and shows it in a new window titled
-    /// `title`, else the file's name. Before the application starts, the window waits.
+    /// Loads a document from `urlString` (a file URL or path, or an http or https URL) and shows it
+    /// in a new window titled `title`, else the file's name. Before the application starts, the
+    /// window waits; an http or https document appears once it has loaded.
     public func presentWindow(url urlString: String, windowUUID: String, title: String?) {
         present(.url(urlString), windowUUID: windowUUID, title: title)
     }
@@ -271,6 +287,11 @@ public final class AdwaitaApplication {
     private func present(_ source: WindowSource, windowUUID: String, title: String?) {
         guard let application, hasStarted else {
             pendingWindows.append(PendingWindow(source: source, windowUUID: windowUUID, title: title))
+            return
+        }
+        dropRemoteLoad(windowUUID)
+        if case .url(let text) = source, Self.isRemote(text) {
+            loadRemote(text, windowUUID: windowUUID, title: title, application: application)
             return
         }
         if let existing = windows[windowUUID] {
@@ -332,9 +353,11 @@ public final class AdwaitaApplication {
     }
 
     /// Closes the window showing `windowUUID`; windowWillClose fires, shouldTerminate is not
-    /// asked. A window still waiting for the application to start is dropped.
+    /// asked. A window still waiting for the application to start, or for its document to load, is
+    /// dropped.
     public func closeWindow(_ windowUUID: String) {
         pendingWindows.removeAll { $0.windowUUID == windowUUID }
+        dropRemoteLoad(windowUUID)
         guard let presented = windows[windowUUID] else { return }
         presented.closingByHost = true
         gtk_window_close(presented.window)
@@ -345,14 +368,16 @@ public final class AdwaitaApplication {
         }
     }
 
-    /// "close-request": whether the window closes. The user's close of the last window asks
-    /// shouldTerminate first.
+    /// "close-request": whether the window closes. The user's close of the last window (no other
+    /// window loading either) asks shouldTerminate first. A load replacing the window is dropped.
     private func windowWillClose(_ windowUUID: String, _ presented: PresentedWindow) -> Bool {
-        if !presented.closingByHost, windows.count == 1, let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() {
+        let isLast = windows.count == 1 && remoteLoads.keys.allSatisfy { $0 == windowUUID }
+        if !presented.closingByHost, isLast, let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() {
             return false
         }
         if windows[windowUUID] === presented {
             windows[windowUUID] = nil
+            dropRemoteLoad(windowUUID)
         }
         handlers.windowWillClose?(windowUUID)
         presented.renderTree?.root?.detach()
@@ -372,13 +397,24 @@ public final class AdwaitaApplication {
                 logger.log("Window \(windowUUID): the JSON could not be loaded: \(error)", .error)
                 return ("The document could not be loaded: \(error)", nil)
             }
+        case .fetched(let text, let data):
+            let url = URL(string: text)
+            let title = url.map { $0.deletingPathExtension().lastPathComponent }.flatMap { $0.isEmpty || $0 == "/" ? nil : $0 }
+            guard let url, let data else {
+                logger.log("Window \(windowUUID): \(text) could not be loaded", .error)
+                return ("\(text) could not be loaded", title)
+            }
+            do {
+                _ = try ActionUIModel.shared.loadDescription(from: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID)
+                return (nil, title)
+            } catch {
+                logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
+                return ("\(text) could not be loaded: \(error)", title)
+            }
         case .url(let text):
             let url: URL
             if text.lowercased().hasPrefix("file://"), let fileURL = URL(string: text) {
                 url = fileURL
-            } else if text.lowercased().hasPrefix("http://") || text.lowercased().hasPrefix("https://") {
-                logger.log("Window \(windowUUID): remote documents cannot be loaded on Linux yet: \(text)", .error)
-                return ("Remote documents cannot be loaded on Linux yet: \(text)", nil)
             } else {
                 url = URL(fileURLWithPath: text)
             }
@@ -392,6 +428,32 @@ public final class AdwaitaApplication {
                 return ("\(url.path) could not be loaded: \(error)", title)
             }
         }
+    }
+
+    /// Whether `text` is an http or https URL, which loads before its window appears.
+    private static func isRemote(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        return lowered.hasPrefix("http://") || lowered.hasPrefix("https://")
+    }
+
+    /// Loads an http or https document, then presents its window (with the error when it could not
+    /// be loaded), unless a newer presentWindow or a closeWindow for the UUID came meanwhile.
+    private func loadRemote(_ text: String, windowUUID: String, title: String?, application: UnsafeMutablePointer<AdwApplication>) {
+        remoteLoadCounter &+= 1
+        let load = remoteLoadCounter
+        remoteLoads[windowUUID] = load
+        g_application_hold(typed(application))
+        URLLoader.fetch(text) { [weak self] bytes in
+            guard let self, self.remoteLoads[windowUUID] == load else { return }
+            // present drops the load and its hold, and the window holds the application.
+            self.present(.fetched(text, bytes?.data), windowUUID: windowUUID, title: title)
+        }
+    }
+
+    /// Ends `windowUUID`'s load, if one is running: its result is dropped, its hold released.
+    private func dropRemoteLoad(_ windowUUID: String) {
+        guard remoteLoads.removeValue(forKey: windowUUID) != nil, let application else { return }
+        g_application_release(typed(application))
     }
 
     /// A window's content when its document could not be loaded: the error, selectable.

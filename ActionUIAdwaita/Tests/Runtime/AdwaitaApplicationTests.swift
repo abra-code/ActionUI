@@ -185,6 +185,62 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertTrue(presented, "the application waited for its first window")
     }
 
+    func testAnHTTPDocumentOpensOnceLoadedAndHoldsTheApplicationMeanwhile() throws {
+        let server = try TestImageServer(png: [], document: Self.document)
+        defer { server.stop() }
+        let app = AdwaitaApplication()
+        var events: [String] = []
+        var title: String?
+        var replacedShowsDocument = false
+        var errorText: String?
+        app.handlers.windowWillPresent = { uuid in
+            events.append("present \(uuid)")
+            switch uuid {
+            case "app-w2":
+                title = app.gtkWindow(uuid).flatMap { swiftString(gtk_window_get_title($0)) }
+                DispatchQueue.main.async {
+                    // Closed while it loads: dropped.
+                    app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w1", title: nil)
+                    app.closeWindow("app-w1")
+                    // Presented again while it loads: the newer window stays.
+                    app.presentWindow(url: server.base + "/missing.json", windowUUID: "app-big", title: nil)
+                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil)
+                    app.presentWindow(url: server.base + "/missing.json", windowUUID: "app-bad", title: nil)
+                }
+            case "app-bad":
+                // Once every request is answered, and a while for the answers to arrive.
+                @MainActor func settle() {
+                    guard server.requests >= 4 else {
+                        _ = runAfter(milliseconds: 50) { settle() }
+                        return
+                    }
+                    _ = runAfter(milliseconds: 300) {
+                        replacedShowsDocument = app.showsDocument("app-big")
+                        if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
+                            errorText = swiftString(gtk_label_get_text(opaque(label)))
+                        }
+                        app.terminate()
+                    }
+                }
+                settle()
+            default:
+                break
+            }
+        }
+        app.handlers.didFinishLaunching = {
+            _ = runAfter(milliseconds: 10000) { app.terminate() }
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            // The only window closes while the next one loads: the application waits for it.
+            app.closeWindow("app-w1")
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil)
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(events, ["present app-w1", "present app-w2", "present app-big", "present app-bad"])
+        XCTAssertEqual(title, "view", "titled by the URL's file name")
+        XCTAssertTrue(replacedShowsDocument, "a replaced load does not replace the newer window")
+        XCTAssertEqual(errorText, server.base + "/missing.json could not be loaded")
+    }
+
     func testTheIconIsTheWindowsDefaultIcon() throws {
         let app = AdwaitaApplication()
         app.icon = "applications-science"
