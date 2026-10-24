@@ -18,6 +18,7 @@
  - Exit status: 64 for bad arguments, 66 when there are no documents or no document Name, 65 when
    the document opened with --open cannot be loaded (its window shows the error).
  The documents' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
+ The Mac app's menu commands (DefaultWindow.json's) are in each window's primary menu.
  What the Linux renderer does not do yet (alerts, sheets, navigation) shows in those documents.
 */
 
@@ -161,6 +162,15 @@ MainActor.assumeIsolated {
             }
             app.terminate()
         }
+    }
+
+    // The Mac app's menu commands (its DefaultWindow's), in each window's primary menu.
+    let defaultWindow = URL(fileURLWithPath: folder).appendingPathComponent("DefaultWindow.json")
+    if let data = try? Data(contentsOf: defaultWindow),
+       let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let commands = document["commands"],
+       let json = try? JSONSerialization.data(withJSONObject: commands) {
+        app.loadMenuBar(json: String(decoding: json, as: UTF8.self))
     }
 
     app.presentWindow(json: Data(launcherDocument.utf8), windowUUID: launcherUUID, title: "ActionUI Demo")

@@ -23,6 +23,8 @@
    and counts as a window when the user closes what may be the last one.
  - Resources: the app's bundle (resourceFolder, AppBundle) and each window's document folder, where
    LoadableView names and image resources are found.
+ - Commands: the CommandMenu and CommandGroup elements loaded (loadMenuBar) in a primary menu at
+   the end of the window's header bar, their shortcuts working in every window (AppCommands).
  - Presentations: each window shows its model's modal, alert, confirmation dialog and toast
    (WindowPresenter); toasts in an AdwToastOverlay around the content, below the header bar.
  - Closing: GTK ends the application when its last window goes. Closing the last window by hand
@@ -215,8 +217,24 @@ public final class AdwaitaApplication {
         hasStarted = false
         isActive = false
         holdsForFirstWindow = false
+        AppCommands.shared.stop()
         application = nil
         return status
+    }
+
+    /// Adds the CommandMenu and CommandGroup elements in `json` (a JSON array) to the
+    /// application's primary menu (AppCommands); nil only makes sure the menu is there. Returns
+    /// false for JSON that is not such an array.
+    @discardableResult
+    public func loadMenuBar(json: String?) -> Bool {
+        AppCommands.shared.load(json: json)
+    }
+
+    /// The UUID of the active window ("" when none of the application's windows is active), the
+    /// window a menu command acts on.
+    func activeWindowUUID() -> String {
+        guard let application, let active = gtk_application_get_active_window(typed(OpaquePointer(application))) else { return "" }
+        return windows.first { $0.value.window == active }?.key ?? ""
     }
 
     /// Ends the application, unless the shouldTerminate handler says no.
@@ -232,6 +250,9 @@ public final class AdwaitaApplication {
         guard !hasStarted else { return }
         hasStarted = true
         applyIcon()
+        if let application {
+            AppCommands.shared.start(application, name: name ?? ProcessInfo.processInfo.processName)
+        }
         handlers.willFinishLaunching?()
         let pending = pendingWindows
         pendingWindows = []
@@ -334,6 +355,8 @@ public final class AdwaitaApplication {
         if renderTree?.showsOwnHeaderBars != true {
             let header = adw_header_bar_new()!
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
+            // The primary menu at the end, outside the toolbars' items.
+            adw_header_bar_pack_end(OpaquePointer(header), AppCommands.shared.makeMenuButton())
             // The document's toolbars show in it.
             renderTree?.root?.screenBar = ScreenBar(header: header, toolbarView: toolbar)
             // Measured in the window, where the header bar has its style.

@@ -189,10 +189,13 @@ public func actionUIAppTerminate() {
     runOnMainActorAsync { AdwaitaApplication.shared.terminate() }
 }
 
-/// Not on Linux yet: there is no menu bar to load.
+/// Adds the CommandMenu and CommandGroup elements in `jsonString` (a JSON array; NULL: none) to
+/// the application's commands, which Linux shows in each window's primary menu (GNOME has no menu
+/// bar), their shortcuts working in every window.
 @_cdecl("actionUIAppLoadMenuBar")
 public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
-    logNotOnLinux("actionUIAppLoadMenuBar (the menu bar)")
+    let json = jsonString.map { String(cString: $0) }
+    runOnMainActorSync { AdwaitaApplication.shared.loadMenuBar(json: json) }
 }
 
 // MARK: - Windows

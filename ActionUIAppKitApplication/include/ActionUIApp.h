@@ -75,7 +75,7 @@ void actionUIAppSetIcon(const char *path) ACTIONUI_NOEXCEPT;
 void actionUIAppSetResourceFolder(const char *path) ACTIONUI_NOEXCEPT;  // the folder of the app's resources, looked up first (Apple: then the main bundle; Linux: else the program's folder); an interpreted host passes its script's; NULL: the platform's own place only
 void actionUIAppRun(void) ACTIONUI_NOEXCEPT;
 void actionUIAppTerminate(void) ACTIONUI_NOEXCEPT;
-void actionUIAppLoadMenuBar(const char *jsonString) ACTIONUI_NOEXCEPT;  // jsonString may be NULL
+void actionUIAppLoadMenuBar(const char *jsonString) ACTIONUI_NOEXCEPT;  // jsonString may be NULL; Linux: the commands go in each window's primary menu (GNOME has no menu bar)
 
 // Windows
 void actionUIAppLoadAndPresentWindow(const char *urlString, const char *windowUUID, const char *title) ACTIONUI_NOEXCEPT;  // title may be NULL
