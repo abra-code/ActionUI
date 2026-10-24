@@ -80,6 +80,10 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let view = adw_navigation_view_new()!
+        // Fills what it is offered, as SwiftUI's does: a root stack with small content still spans
+        // the window, and a stack in a split view column the column.
+        gtk_widget_set_hexpand(view, 1)
+        gtk_widget_set_vexpand(view, 1)
         let (rootToolbar, rootHeader) = makePageToolbar()
         let rootPage = OwnedObject(retaining: UnsafeMutableRawPointer(adw_navigation_page_new(rootToolbar, "")!))
         let state = NavigationStackState(view: OpaquePointer(view), rootPage: rootPage, rootToolbar: OpaquePointer(rootToolbar))

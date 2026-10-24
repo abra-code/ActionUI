@@ -92,6 +92,12 @@ final class NavigationStackRendererTests: XCTestCase {
          ]}
         """#
 
+    func testARootStackWithSmallContentFillsTheWindow() throws {
+        let stack = try present(#"{"type": "NavigationStack", "id": 1, "content": {"type": "Text", "id": 2, "properties": {"text": "Small"}}}"#)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_width(stack.widget) >= 480 }), "as wide as the window")
+        XCTAssertGreaterThan(gtk_widget_get_height(stack.widget), 300)
+    }
+
     func testTheContentIsTheRootPageTitledByTheStack() throws {
         let stack = try present(Self.destinations)
         XCTAssertEqual(try titles(stack), ["Elements"], "the content has no title of its own")

@@ -145,7 +145,9 @@ extension List: ActionUIAdwaitaRenderer {
                 updateRows(state, node, props)
             }
         case .children:
-            let selectable = props.actionID == nil ? GTK_SELECTION_NONE : GTK_SELECTION_SINGLE
+            // Choosable with an actionID, or as a split view's sidebar of destinations.
+            let choosable = props.actionID != nil || NavigationSplitView.isDestinationSidebar(node)
+            let selectable = choosable ? GTK_SELECTION_SINGLE : GTK_SELECTION_NONE
             if gtk_list_box_get_selection_mode(box) != selectable {
                 gtk_list_box_set_selection_mode(box, selectable)
             }
@@ -414,8 +416,10 @@ extension List: ActionUIAdwaitaRenderer {
             let childID = position.flatMap { state.childIDs.indices.contains($0) ? state.childIDs[$0] : nil }
             RowSelection.commitChildSelection(childID, model: node.model, actionID: props.actionID,
                                               windowUUID: node.windowUUID, viewID: node.element.id)
-            // The content of a NavigationStack with destinations pushes the chosen child's.
+            // The content of a NavigationStack with destinations pushes the chosen child's; the
+            // sidebar of a NavigationSplitView with destinations shows it in the detail.
             NavigationStack.contentListChose(node, childID: childID)
+            NavigationSplitView.sidebarListChose(node, childID: childID)
         }
     }
 

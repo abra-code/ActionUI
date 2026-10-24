@@ -39,9 +39,9 @@ final class AdwaitaWindow {
 
     /// Element types whose renderer shows header bars of its own, so the window shows none when the
     /// document is one of them.
-    static let headerBarTypes: Set<String> = ["NavigationStack"]
+    static let headerBarTypes: Set<String> = ["NavigationStack", "NavigationSplitView"]
 
-    /// Whether the document brings its own header bars (its root is a NavigationStack).
+    /// Whether the document brings its own header bars (its root is a navigation container).
     var showsOwnHeaderBars: Bool {
         root.map { Self.headerBarTypes.contains($0.element.type) } ?? false
     }
