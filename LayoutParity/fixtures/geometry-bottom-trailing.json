@@ -1,0 +1,1 @@
+{"type": "GeometryReader", "id": 1, "properties": {"alignment": "bottomTrailing", "frame": {"width": 400, "height": 300}}, "content": {"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"width": 100, "height": 50}}}}

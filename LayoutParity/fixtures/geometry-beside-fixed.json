@@ -1,0 +1,4 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 400, "height": 300}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#00FF00", "frame": {"width": 100, "height": 80}}},
+  {"type": "GeometryReader", "id": 3, "content": {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"width": 60, "height": 40}}}}
+]}

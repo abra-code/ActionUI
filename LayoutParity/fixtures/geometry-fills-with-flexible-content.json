@@ -1,0 +1,4 @@
+{"type": "GeometryReader", "id": 1, "properties": {"frame": {"width": 400, "height": 300}}, "content": {"type": "VStack", "id": 2, "properties": {"spacing": 0}, "children": [
+  {"type": "Color", "id": 3, "properties": {"color": "#FF0000"}},
+  {"type": "Color", "id": 4, "properties": {"color": "#0000FF", "frame": {"height": 100}}}
+]}}

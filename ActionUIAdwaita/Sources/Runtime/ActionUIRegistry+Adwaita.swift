@@ -23,6 +23,7 @@ extension ActionUIRegistry {
         "EmptyView": EmptyView.self,
         "Form": Form.self,
         "Gauge": Gauge.self,
+        "GeometryReader": GeometryReader.self,
         "Group": Group.self,
         "Grid": Grid.self,
         "GroupBox": GroupBox.self,

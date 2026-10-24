@@ -220,6 +220,13 @@ space differently from SwiftUI's stacks:
   and an unframed Color in it is not drawn in a vertical ScrollView and fills the rest of a
   horizontal one, where SwiftUI makes it 10 long (`scrollview-vertical-content`,
   `scrollview-vertical-expanding-content`, `scrollview-horizontal-content`).
+- **A GeometryReader sizes like a flex box.** SwiftUI's GeometryReader shares a stack like a Color
+  and offers its content its whole size; on the web its share grows with its content (250 of 400
+  beside a Color in `geometry-in-hstack-shares`, 175 of 300 in `geometry-in-vstack-shares`, where
+  SwiftUI shares the space equally), and flexible content in it is not drawn
+  (`geometry-fills-with-flexible-content`). In a ScrollView SwiftUI's reader is its ideal 10 points
+  long, its content overflowing from its top leading corner; on the web it takes its content's
+  length and centers it (`geometry-in-scrollview`). Fixed-size content at any alignment matches.
 - **A Grid's flexible cells collapse.** SwiftUI shares a Grid's width among its columns and its
   height among its rows as a stack shares its length, and a flexible cell (a Color without a
   frame) fills its column and row; a Grid with one shares its parent stack like a Color. On the
