@@ -23,6 +23,8 @@
    and counts as a window when the user closes what may be the last one.
  - Resources: the app's bundle (resourceFolder, AppBundle) and each window's document folder, where
    LoadableView names and image resources are found.
+ - A WindowGroup document (a SwiftUI app's window scene on Apple): its content is the window's
+   document, its title the window's, and its commands join the primary menu (windowGroup).
  - Commands: the CommandMenu and CommandGroup elements loaded (loadMenuBar) in a primary menu at
    the end of the window's header bar, their shortcuts working in every window (AppCommands).
  - Presentations: each window shows its model's modal, alert, confirmation dialog and toast
@@ -465,12 +467,13 @@ public final class AdwaitaApplication {
         AppBundle.setDocumentFolder(nil, window: windowUUID)
         switch source {
         case .json(let data):
+            let document = windowGroup(data, format: "json")
             do {
-                _ = try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
-                return (nil, nil)
+                try loadDocument(document, format: "json", windowUUID: windowUUID)
+                return (nil, document.title)
             } catch {
                 logger.log("Window \(windowUUID): the JSON could not be loaded: \(error)", .error)
-                return ("The document could not be loaded: \(error)", nil)
+                return ("The document could not be loaded: \(error)", document.title)
             }
         case .fetched(let text, let data):
             let url = URL(string: text)
@@ -479,12 +482,14 @@ public final class AdwaitaApplication {
                 logger.log("Window \(windowUUID): \(text) could not be loaded", .error)
                 return ("\(text) could not be loaded", title)
             }
+            let format = ActionUIDocumentLoader.format(of: url)
+            let document = windowGroup(data, format: format)
             do {
-                _ = try ActionUIModel.shared.loadDescription(from: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID)
-                return (nil, title)
+                try loadDocument(document, format: format, windowUUID: windowUUID)
+                return (nil, document.title ?? title)
             } catch {
                 logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
-                return ("\(text) could not be loaded: \(error)", title)
+                return ("\(text) could not be loaded: \(error)", document.title ?? title)
             }
         case .url(let text):
             let url: URL
@@ -493,16 +498,72 @@ public final class AdwaitaApplication {
             } else {
                 url = URL(fileURLWithPath: text)
             }
-            let title = url.deletingPathExtension().lastPathComponent
+            var title = url.deletingPathExtension().lastPathComponent
             do {
-                let data = try Data(contentsOf: url)
+                let format = ActionUIDocumentLoader.format(of: url)
+                let document = windowGroup(try Data(contentsOf: url), format: format)
+                title = document.title ?? title
                 AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
-                _ = try ActionUIModel.shared.loadDescription(from: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID)
+                try loadDocument(document, format: format, windowUUID: windowUUID)
                 return (nil, title)
             } catch {
                 logger.log("Window \(windowUUID): \(url.path) could not be loaded: \(error)", .error)
                 return ("\(url.path) could not be loaded: \(error)", title)
             }
+        }
+    }
+
+    /// A WindowGroup document (on Apple, the window scene of a SwiftUI app) as a window: its content
+    /// is the window's document and its title the window's default title, and its commands join the
+    /// primary menu once it has loaded, once per group (by windowGroupID, else title, as Apple names
+    /// the group); one with no content cannot be loaded, as Apple shows "No content provided". Any
+    /// other document comes back as it is. JSON only: a property list has no WindowGroup scene.
+    func windowGroup(_ data: Data, format: String) -> WindowDocument {
+        guard format == "json",
+              let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
+              parsed["type"] as? String == "WindowGroup" else { return WindowDocument(data: data) }
+        // Its platform overrides ("title:linux" and the like) resolved first, as Core resolves them
+        // in the whole document on Apple.
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: ActionUIModel.shared.logger)
+        let root = filter.filter(parsed) as? [String: Any] ?? parsed
+        let properties = root["properties"] as? [String: Any] ?? [:]
+        let title = (properties["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        var document = WindowDocument(data: data, title: title)
+        if let commands = root["commands"] as? [Any], let json = try? ActionUIJSON.string(from: commands) {
+            let key = (properties["windowGroupID"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? title ?? json
+            document.commands = (json, key)
+        }
+        guard let content = root["content"], let json = try? ActionUIJSON.string(from: content) else {
+            // As Apple's WindowGroup shows "No content provided".
+            document.error = "the WindowGroup has no content"
+            return document
+        }
+        document.data = Data(json.utf8)
+        return document
+    }
+
+    /// A window's document as windowGroup leaves it: what to load, its default title, the commands
+    /// to add once it has loaded, or why it cannot be.
+    struct WindowDocument {
+        var data: Data
+        var title: String? = nil
+        var commands: (json: String, key: String)? = nil
+        var error: String? = nil
+    }
+
+    private struct DocumentError: Error, CustomStringConvertible {
+        let description: String
+    }
+
+    /// Loads `document` into the model under `windowUUID`, then adds its commands to the primary
+    /// menu: a WindowGroup that fails to load brings none, as on Apple, where it has no scene.
+    private func loadDocument(_ document: WindowDocument, format: String, windowUUID: String) throws {
+        if let error = document.error {
+            throw DocumentError(description: error)
+        }
+        _ = try ActionUIModel.shared.loadDescription(from: document.data, format: format, windowUUID: windowUUID)
+        if let commands = document.commands {
+            AppCommands.shared.load(json: commands.json, once: commands.key)
         }
     }
 

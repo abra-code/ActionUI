@@ -4,7 +4,8 @@
  top targets' groups, each CommandMenu as a submenu, then the bottom targets and About), placement
  before, after and replacing (a childless replacing group removing About), Dividers as sections;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
- a disabled item's action disabled; Ctrl+Q quitting.
+ a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
+ title and its commands (its platform overrides applied), loaded once per group.
 */
 
 import XCTest
@@ -160,6 +161,51 @@ final class AppCommandsTests: XCTestCase {
         let name = try XCTUnwrap(actionName(commands.menu.opaquePointer, [0, 0]))
         XCTAssertEqual(g_action_get_enabled(try XCTUnwrap(g_action_map_lookup_action(OpaquePointer(application), String(name.dropFirst(4))))), 0,
                        "greyed out, as AppKit shows a menu item without an action")
+    }
+
+    func testAWindowGroupDocumentIsItsContentWithItsTitle() throws {
+        let document = #"""
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "Default Window", "windowGroupID": "test-group"},
+             "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
+             "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Group Tools"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
+            """#
+        let group = AdwaitaApplication.shared.windowGroup(Data(document.utf8), format: "json")
+        XCTAssertEqual(group.title, "Default Window")
+        let content = try XCTUnwrap(try ActionUIJSON.value(from: String(decoding: group.data, as: UTF8.self)) as? [String: Any])
+        XCTAssertEqual(content["type"] as? String, "Text")
+        XCTAssertEqual(content["id"] as? Int, 2)
+        XCTAssertEqual(group.commands?.key, "test-group", "its commands, for the primary menu once it has loaded")
+        XCTAssertTrue(group.commands?.json.contains("Group Tools") ?? false)
+        XCTAssertNil(group.error)
+        let plain = Data(#"{"type": "Text", "id": 1}"#.utf8)
+        XCTAssertEqual(AdwaitaApplication.shared.windowGroup(plain, format: "json").data, plain, "any other document as it is")
+        XCTAssertNil(AdwaitaApplication.shared.windowGroup(plain, format: "json").title)
+    }
+
+    func testAWindowGroupWithoutContentCannotBeLoaded() {
+        let group = AdwaitaApplication.shared.windowGroup(Data(#"{"type": "WindowGroup", "properties": {"title": "Empty"}}"#.utf8), format: "json")
+        XCTAssertEqual(group.error, "the WindowGroup has no content", "as Apple shows \"No content provided\"")
+        XCTAssertEqual(group.title, "Empty")
+    }
+
+    func testAWindowGroupsPlatformOverridesApply() throws {
+        let document = #"""
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "Mac Window", "title:linux": "Linux Window"},
+             "content": {"type": "Text", "id": 2}, "content:linux": {"type": "Text", "id": 3}}
+            """#
+        let group = AdwaitaApplication.shared.windowGroup(Data(document.utf8), format: "json")
+        XCTAssertEqual(group.title, "Linux Window")
+        let content = try XCTUnwrap(try ActionUIJSON.value(from: String(decoding: group.data, as: UTF8.self)) as? [String: Any])
+        XCTAssertEqual(content["id"] as? Int, 3)
+    }
+
+    func testAGroupsCommandsLoadOnceForAllItsWindows() {
+        let commands = AppCommands()
+        let json = #"[{"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [{"type": "Button", "properties": {"title": "Go"}}]}]"#
+        commands.load(json: json, once: "group")
+        commands.load(json: json, once: "group")
+        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Go]]", "[About ]"])
     }
 
     func testShortcutsBecomeGTKAccelerators() {

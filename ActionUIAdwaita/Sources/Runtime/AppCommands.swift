@@ -86,6 +86,17 @@ final class AppCommands {
         return true
     }
 
+    /// The keys of the command sets loaded with `once`.
+    private var loadedKeys: Set<String> = []
+
+    /// As load(json:), unless commands with `key` were loaded already (a WindowGroup's, for each
+    /// window of the group).
+    @discardableResult
+    func load(json: String, once key: String) -> Bool {
+        guard loadedKeys.insert(key).inserted else { return true }
+        return load(json: json)
+    }
+
     /// The application started: its actions can be installed.
     func start(_ application: UnsafeMutablePointer<AdwApplication>, name: String) {
         self.application = application
