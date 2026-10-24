@@ -87,7 +87,8 @@ register("List", {
     // (set/append/clearElementRows), not this container.
     insertableContainers: { children: ContainerShape.FLAT },
 
-    // Mirrors List.swift validateProperties (warning text included verbatim).
+    // Normalizes as Apple's List.Props reads the properties (List.swift), warning about some
+    // values the verifier refuses (the warning texts are those of Apple's former validator).
     validateProperties: (properties, logger) => {
         const validated = { ...properties };
 
@@ -104,12 +105,18 @@ register("List", {
             logger.log("List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", "warning");
             itemType.viewType = "Text";
         }
+        // dataInterpretation and actionContext are optional: a missing one takes its default
+        // silently, as Apple's List.Props reads it; only a value that is there and wrong warns.
         if (viewType === "Image" && !DATA_INTERPRETATIONS.includes(itemType.dataInterpretation)) {
-            logger.log(`List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for ${viewType}; defaulting to systemName`, "warning");
+            if (itemType.dataInterpretation !== undefined) {
+                logger.log(`List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for ${viewType}; defaulting to systemName`, "warning");
+            }
             itemType.dataInterpretation = "systemName";
         }
         if (viewType === "Button" && !ITEM_ACTION_CONTEXTS.includes(itemType.actionContext)) {
-            logger.log("List itemType.actionContext must be 'title' or 'rowIndex' for Button; defaulting to title", "warning");
+            if (itemType.actionContext !== undefined) {
+                logger.log("List itemType.actionContext must be 'title' or 'rowIndex' for Button; defaulting to title", "warning");
+            }
             itemType.actionContext = "title";
         }
         validated.itemType = itemType;

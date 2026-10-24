@@ -65,7 +65,8 @@ register("Table", {
     // The selected row, columns tab-joined, as a String ("" = none). See header.
     valueType: "string",
 
-    // Mirrors Table.swift validateProperties (warning text included verbatim).
+    // Normalizes as Apple's Table.Props reads the properties (Table.swift), warning about some
+    // values the verifier refuses (the warning texts are those of Apple's former validator).
     validateProperties: (properties, logger) => {
         const validated = { ...properties };
 
@@ -100,13 +101,19 @@ register("Table", {
                     delete ct.disabledColumn;
                 }
             }
+            // dataInterpretation and actionContext are optional: a missing one takes its default
+            // silently, as Apple's Table.Props reads it; only a value that is there and wrong warns.
             if (vt === "Image" && !DATA_INTERPRETATIONS.includes(ct.dataInterpretation)) {
-                logger.log(`Table columnTypes[${i}].dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for Image; defaulting to systemName`, "warning");
+                if (ct.dataInterpretation !== undefined) {
+                    logger.log(`Table columnTypes[${i}].dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for Image; defaulting to systemName`, "warning");
+                }
                 ct.dataInterpretation = "systemName";
             }
             if (vt === "Button") {
                 if (!CELL_ACTION_CONTEXTS.includes(ct.actionContext)) {
-                    logger.log(`Table columnTypes[${i}].actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title`, "warning");
+                    if (ct.actionContext !== undefined) {
+                        logger.log(`Table columnTypes[${i}].actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title`, "warning");
+                    }
                     ct.actionContext = "title";
                 }
                 if (ct.dataInterpretation !== undefined && !DATA_INTERPRETATIONS.includes(ct.dataInterpretation)) {

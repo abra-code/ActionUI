@@ -150,3 +150,35 @@ test("ContentUnavailableView: materialName draws a glyph and wins over systemIma
     assert.notEqual(glyph({ search: true, query: "planets", materialName: "history" }).textContent, "history",
                     "the search variant keeps its own magnifying glass");
 });
+
+// dataInterpretation and actionContext are optional, as Apple's List.Props and Table.Props read
+// them: a missing one takes its default without a warning; a wrong one still warns.
+test("List itemType: a missing actionContext or dataInterpretation defaults silently", () => {
+    const logger = makeLogger();
+    const button = getConstruction("List").validateProperties({ itemType: { viewType: "Button", actionID: "a" } }, logger);
+    assert.equal(button.itemType.actionContext, "title");
+    const image = getConstruction("List").validateProperties({ itemType: { viewType: "Image" } }, logger);
+    assert.equal(image.itemType.dataInterpretation, "systemName");
+    assert.equal(logger.warningCount(), 0, JSON.stringify(logger.messages));
+
+    const wrong = makeLogger();
+    getConstruction("List").validateProperties({ itemType: { viewType: "Button", actionContext: "column" } }, wrong);
+    getConstruction("List").validateProperties({ itemType: { viewType: "Image", dataInterpretation: 3 } }, wrong);
+    assert.ok(wrong.warned("actionContext must be"), "a wrong actionContext warns");
+    assert.ok(wrong.warned("dataInterpretation must be"), "a wrong dataInterpretation warns");
+});
+
+test("Table columnTypes: a missing actionContext or dataInterpretation defaults silently", () => {
+    const logger = makeLogger();
+    const out = getConstruction("Table").validateProperties(
+        { columns: ["Open", "Icon"], columnTypes: [{ viewType: "Button", actionID: "a" }, { viewType: "Image" }] }, logger);
+    assert.equal(out.columnTypes[0].actionContext, "title");
+    assert.equal(out.columnTypes[1].dataInterpretation, "systemName");
+    assert.equal(logger.warningCount(), 0, JSON.stringify(logger.messages));
+
+    const wrong = makeLogger();
+    getConstruction("Table").validateProperties(
+        { columns: ["Open", "Icon"], columnTypes: [{ viewType: "Button", actionContext: "cell" }, { viewType: "Image", dataInterpretation: "url" }] }, wrong);
+    assert.ok(wrong.warned("columnTypes[0].actionContext must be"), "a wrong actionContext warns");
+    assert.ok(wrong.warned("columnTypes[1].dataInterpretation must be"), "a wrong dataInterpretation warns");
+});
