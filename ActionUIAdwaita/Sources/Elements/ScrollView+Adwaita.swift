@@ -10,8 +10,8 @@
  without a scrollbar (GTK_POLICY_EXTERNAL). macOS draws overlay scrollers, as libadwaita does, so
  the scrollbars take no space on either.
 
- Not here: onRefreshActionID (pull to refresh, which desktops do not have); scrolling to an
- element (ScrollViewReader).
+ Not here: onRefreshActionID (pull to refresh, which desktops do not have). Scrolling to an element
+ is ScrollViewReader's (ScrollViewReader+Adwaita.swift).
 */
 
 import CAdwaita

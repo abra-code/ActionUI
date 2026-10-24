@@ -140,6 +140,8 @@ enum ScrollLayout {
         var origin = graphene_point_t(x: Float(x), y: Float(y))
         gtk_widget_allocate(child, Int32(clamping: childWidth), Int32(clamping: childHeight), -1,
                             gsk_transform_translate(nil, &origin))
+        // A ScrollViewReader around it may be waiting for this layout to scroll.
+        ScrollViewReader.layoutChanged(widget)
     }
 
     /// The largest size a ScrollView takes in `orientation` when it expands (LayoutCaps.cap):

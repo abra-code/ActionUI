@@ -39,6 +39,7 @@ extension ActionUIRegistry {
         "RoundedRectangle": RoundedRectangle.self,
         "Section": Section.self,
         "ScrollView": ScrollView.self,
+        "ScrollViewReader": ScrollViewReader.self,
         "SecureField": SecureField.self,
         "Slider": Slider.self,
         "Stepper": Stepper.self,
