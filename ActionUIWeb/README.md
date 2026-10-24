@@ -211,6 +211,15 @@ space differently from SwiftUI's stacks:
   holding no text; CSS gives such a box a baseline of its own, so it sits elsewhere
   (`hstack-baseline-expanding`, `hstack-baseline-frame-bottom`,
   `hstack-baseline-stack-without-text`). Plain Colors of different heights match.
+- **A ScrollView sizes like a flex box.** SwiftUI's ScrollView shares space along its scroll
+  axis like a Color, takes its content's size across it, and gives the content its ideal length
+  along the axis (an unframed Color is 10) and the ScrollView's size across. On the web its share
+  along the axis grows with its content (250 of 400 beside a Color in
+  `scrollview-horizontal-in-hstack`, 175 of 300 in `scrollview-vertical-in-vstack`, where SwiftUI
+  shares the space equally), the content is not offered the ScrollView's size across the axis,
+  and an unframed Color in it is not drawn in a vertical ScrollView and fills the rest of a
+  horizontal one, where SwiftUI makes it 10 long (`scrollview-vertical-content`,
+  `scrollview-vertical-expanding-content`, `scrollview-horizontal-content`).
 - **A non-uniform scale with a rotation** scales before it rotates (CSS's order for the
   independent `rotate` and `scale` properties), where SwiftUI rotates first. Each alone, and a
   uniform scale with a rotation, match.

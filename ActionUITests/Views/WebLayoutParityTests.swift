@@ -103,6 +103,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// - form: a Form fills its parent's width with its rows at the leading edge, where macOS's hugs its rows and is centered like a VStack; its rows sit 4 lower beside a filling row; no label column
     /// - group: a Group's padding or frame goes on one box around the whole Group, which lays its children out in a column, where SwiftUI applies them to each child in the parent stack
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
+    /// - scrollview: a ScrollView's share along its axis grows with its content, its content is not offered the ScrollView's size across the axis, and an unframed Color in it collapses (vertical) or fills the rest (horizontal), where SwiftUI shares the axis like a Color, sizes across to the content, and gives the content its ideal length
     private static let knownDifferences: [String: String] = [
         "contentunavailable-width-600": "padding",
         "divider-hstack-height": "minimum",
@@ -123,6 +124,11 @@ final class WebLayoutParityTests: XCTestCase {
         "hstack-baseline-stack-without-text": "baseline",
         "hstack-larger-minimum-first": "minimum",
         "nested-unbounded-spacer": "minimum",
+        "scrollview-horizontal-content": "scrollview",
+        "scrollview-horizontal-in-hstack": "scrollview",
+        "scrollview-vertical-content": "scrollview",
+        "scrollview-vertical-expanding-content": "scrollview",
+        "scrollview-vertical-in-vstack": "scrollview",
     ]
 
     /// The LayoutParity folder: this file is ActionUITests/Views/WebLayoutParityTests.swift.

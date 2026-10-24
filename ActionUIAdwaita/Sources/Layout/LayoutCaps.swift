@@ -12,6 +12,8 @@
  - A ZStack: the largest of its children's, in each axis.
  - A GroupBox: its card's (its children's, as a VStack's, plus the padding) and its title's, one
    above the other (GroupBox.cap).
+ - A ScrollView: unbounded along its scroll axes, its content's largest size across them
+   (ScrollLayout.cap).
  - An element widget with a SizeLimit: that size (ContentUnavailableView is at most 400 points
    wide, as SwiftUI measures it).
  - A child's largest size is its cap where it expands and its natural size where it does not.
@@ -61,6 +63,9 @@ enum LayoutCaps {
         }
         if attached(on: widget, key: groupBoxMarkerKey) != nil {
             return GroupBox.cap(widget, orientation, forSize: forSize)
+        }
+        if let scroll = attached(on: widget, key: scrollConfigurationKey) {
+            return ScrollLayout.cap(scroll, orientation, forSize: forSize)
         }
         return nil
     }
