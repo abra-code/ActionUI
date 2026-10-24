@@ -51,6 +51,7 @@ def test_module_api_surface():
         "app_remote_server_token",
         "app_set_name",
         "app_set_icon",
+        "app_set_resource_folder",
         "app_run",
         "app_terminate",
         "app_load_and_present_window",

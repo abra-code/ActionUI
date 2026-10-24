@@ -3,8 +3,9 @@
  Where an app's resources are on Linux, which has no app bundles. An ActionUI app ships as a
  simplified iOS-style bundle: a folder holding the program and its resources side by side
  (documents, images), named `Name.app` by the convention carried over from Apple, not required.
- The bundle is the folder of the running program; a host can set another (a development build
- pointing at its sources, a Python host, whose program is python3) or none.
+ The bundle is the folder of the running program, unless the host names another
+ (ActionUIResourceFolder: a development build pointing at its sources, a Python host, whose
+ program is python3).
 
  - LoadableView `name`: a file of that name in the folder of the document holding the
    LoadableView (the file an enclosing LoadableView loaded, else the window's document), then in
@@ -24,8 +25,10 @@ import Glibc
 
 @MainActor
 enum AppBundle {
-    /// The folder resources are looked up in; nil: none.
-    static var folder: String? = defaultFolder()
+    /// The folder resources are looked up in: the host's (ActionUIResourceFolder), else the running
+    /// program's folder; nil only when neither is known.
+    static var folder: String? { ActionUIResourceFolder.path ?? programFolder }
+    private static let programFolder = defaultFolder()
 
     /// The folder of each window's document, by window, when it came from a file.
     private static var documentFolders: [String: String] = [:]

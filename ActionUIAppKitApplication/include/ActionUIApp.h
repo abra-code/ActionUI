@@ -72,7 +72,7 @@ void actionUIAppSetWindowWillPresentHandler(ActionUIAppWindowHandler handler) AC
 void actionUIAppSetName(const char *name) ACTIONUI_NOEXCEPT;
 void actionUIAppSetApplicationID(const char *applicationID) ACTIONUI_NOEXCEPT;  // reverse DNS; needed on Linux, nothing on Apple (the bundle identifier)
 void actionUIAppSetIcon(const char *path) ACTIONUI_NOEXCEPT;
-void actionUIAppSetResourceFolder(const char *path) ACTIONUI_NOEXCEPT;  // path may be NULL (none); the app's resources (Linux: by default the program's folder; an interpreted host passes its script's); nothing on Apple (the main bundle)
+void actionUIAppSetResourceFolder(const char *path) ACTIONUI_NOEXCEPT;  // the folder of the app's resources, looked up first (Apple: then the main bundle; Linux: else the program's folder); an interpreted host passes its script's; NULL: the platform's own place only
 void actionUIAppRun(void) ACTIONUI_NOEXCEPT;
 void actionUIAppTerminate(void) ACTIONUI_NOEXCEPT;
 void actionUIAppLoadMenuBar(const char *jsonString) ACTIONUI_NOEXCEPT;  // jsonString may be NULL

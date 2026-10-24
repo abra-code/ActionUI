@@ -425,4 +425,21 @@ final class LoadableViewTests: XCTestCase {
 
         XCTAssertNil(windowModel.viewModels[parentID], "Old LoadableView ViewModel should be gone after full reload")
     }
+
+    func testANameIsFoundInTheHostsResourceFolderBeforeTheBundle() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-view-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        let file = folder.appendingPathComponent("Panel.json")
+        try Data("{}".utf8).write(to: file)
+        XCTAssertNil(LoadableView.resourceURL("Panel", "json"))
+        ActionUIResourceFolder.path = folder.path
+        XCTAssertEqual(LoadableView.resourceURL("Panel", "json")?.path, file.path)
+        XCTAssertNil(LoadableView.resourceURL("Panel", "plist"))
+        let source = ActionUIDocumentLoader.source(for: "Panel", bundleURL: LoadableView.resourceURL, logger: logger)
+        XCTAssertEqual(try source.get(), .file(URL(fileURLWithPath: file.path)), "a name without an extension finds Panel.json")
+    }
 }

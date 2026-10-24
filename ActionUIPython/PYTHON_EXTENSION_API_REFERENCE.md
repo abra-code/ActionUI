@@ -226,6 +226,17 @@ void actionUIAppSetIcon(const char* path);
 // Must be called before actionUIAppRun() for the icon to appear on launch.
 ```
 
+### App resource folder
+
+```c
+void actionUIAppSetResourceFolder(const char* path);
+// The folder of the app's resources: LoadableView names, Image resourceName
+// and WebView userScript resourceName are looked up there first, then in the
+// main bundle (Python's own, for a script). NULL: the main bundle only.
+// Python: _actionui.app_set_resource_folder(path_or_None); Application sets
+// it to the main script's folder unless given resource_folder.
+```
+
 ### App control
 
 ```c
@@ -389,6 +400,11 @@ app = actionui.Application(name="My App")     # set the app name in the menu bar
 app = actionui.Application(icon="icon.png")   # custom icon (Dock + About panel)
 app = actionui.Application(name="My App", icon="icon.png")  # both
 # If icon is omitted, the default ActionUI icon (shipped with the module) is used.
+app = actionui.Application(resource_folder="ui")  # where the app's resources are
+# resource_folder: where LoadableView names, Image resourceName and WebView script
+# resources are looked up before the main bundle (Python's). If omitted, the folder
+# of the main script, so an app's documents can be named without a path. A
+# relative resource_folder is taken from the current directory, not the script's.
 ```
 
 #### Lifecycle decorators

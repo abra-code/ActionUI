@@ -299,6 +299,13 @@ static PyObject* py_app_set_icon(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_app_set_resource_folder(PyObject* self, PyObject* args) {
+    const char* path;
+    if (PyArg_ParseTuple(args, "z", &path) == 0) return NULL;
+    actionUIAppSetResourceFolder(path);
+    Py_RETURN_NONE;
+}
+
 /* Set while app_run is on the stack. Read and written with the GIL held. */
 static bool s_app_running = false;
 
@@ -1274,6 +1281,8 @@ static PyMethodDef ActionUIMethods[] = {
      "app_set_name(name) — set the application name for the menu bar."},
     {"app_set_icon",                  py_app_set_icon,                  METH_VARARGS,
      "app_set_icon(path) — set the application icon (Dock + About panel)."},
+    {"app_set_resource_folder",       py_app_set_resource_folder,       METH_VARARGS,
+     "app_set_resource_folder(path|None) - the folder where LoadableView names and image resources are looked up first (None: the main bundle only)."},
     {"app_run",                       py_app_run,                       METH_NOARGS,
      "app_run() — start NSApplication run loop; blocks until the app terminates."},
     {"app_terminate",                 py_app_terminate,                 METH_NOARGS,

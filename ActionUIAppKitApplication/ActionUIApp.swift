@@ -316,11 +316,13 @@ public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
 public func actionUIAppSetApplicationID(_ applicationID: UnsafePointer<CChar>) {
 }
 
-/// Set the folder of the app's resources. On Linux an app's resources are found there (by default
-/// the program's folder); on Apple platforms the main bundle serves, so this does nothing. It exists
-/// so one host program works on both.
+/// Set the folder of the app's resources (ActionUIResourceFolder): LoadableView names, Image
+/// resourceName and WebView userScript resourceName are looked up there first, then in the main
+/// bundle. An interpreted host, whose main bundle is the interpreter's, passes its script's folder;
+/// NULL: the main bundle only.
 @_cdecl("actionUIAppSetResourceFolder")
 public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
+    ActionUIResourceFolder.path = path.map { String(cString: $0) }
 }
 
 // MARK: - App icon

@@ -29,7 +29,7 @@ final class AppBundleTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
         AppBundle.setDocumentFolder(nil, window: windowUUID)
-        AppBundle.folder = AppBundle.defaultFolder()
+        ActionUIResourceFolder.path = nil
         for folder in folders {
             try? FileManager.default.removeItem(atPath: folder)
         }
@@ -89,7 +89,7 @@ final class AppBundleTests: XCTestCase {
     func testALoadableViewNameFallsBackToTheBundle() throws {
         let bundle = try folder()
         try write(#"{"type": "Text", "id": 10, "properties": {"text": "Bundled"}}"#, "Shared.json", in: bundle)
-        AppBundle.folder = bundle
+        ActionUIResourceFolder.path = bundle
         AppBundle.setDocumentFolder(try folder(), window: windowUUID)
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"name": "Shared.json"}}"#)
         XCTAssertEqual(node.childNodes[10].map { Gtk.Label($0.widget).text }, "Bundled")
@@ -100,7 +100,7 @@ final class AppBundleTests: XCTestCase {
         let png = TestImages.png(width: 12, height: 8)
         try Data(png).write(to: URL(fileURLWithPath: bundle).appendingPathComponent("photo.png"))
         try Data(png).write(to: URL(fileURLWithPath: bundle).appendingPathComponent("BundleOrb.png"))
-        AppBundle.folder = bundle
+        ActionUIResourceFolder.path = bundle
         let node = try render(#"{"type": "HStack", "id": 1, "children": [{"type": "Image", "id": 2, "properties": {"resourceName": "photo.png"}}, {"type": "Image", "id": 3, "properties": {"assetName": "BundleOrb"}}]}"#)
         let resource = try XCTUnwrap(node.childNodes[2])
         XCTAssertEqual(typeName(resource.widget), "GtkPicture")

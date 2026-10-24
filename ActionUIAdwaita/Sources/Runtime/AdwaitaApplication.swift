@@ -82,11 +82,12 @@ public final class AdwaitaApplication {
     /// The reverse-DNS application ID; nil makes one from the name.
     public var applicationID: String?
     /// The folder of the app's resources (AppBundle): the running program's folder unless set (a
-    /// host whose program is not in its bundle, such as python3, sets its own or nil). LoadableView
-    /// names and Image resourceName and assetName are looked up there.
+    /// host whose program is not in its bundle, such as python3, sets its own; nil: back to the
+    /// program's, ActionUIResourceFolder). LoadableView names and Image resourceName and assetName
+    /// are looked up there.
     public var resourceFolder: String? {
         get { AppBundle.folder }
-        set { AppBundle.folder = newValue }
+        set { ActionUIResourceFolder.path = newValue }
     }
     /// The windows' icon: an icon theme name (an image of that name in the app's bundle counts),
     /// or the path of an image file.

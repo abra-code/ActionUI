@@ -102,6 +102,7 @@ Two behaviors to know:
 | `set_name(&self, name: &str) -> Result<()>` | Names the application in the menu bar and the Dock. For a bare executable only; see below. Call before `run`. |
 | `set_application_id(&self, application_id: &str) -> Result<()>` | Sets the reverse-DNS application ID ("org.example.App"), which Linux needs; on macOS the bundle identifier serves and this does nothing. Call before `run`. |
 | `set_icon(&self, path) -> Result<()>` | Sets the Dock and About-panel icon from an image file (icns, png and others). Call before `run`. |
+| `set_resource_folder(&self, path: Option<&Path>) -> Result<()>` | Sets the folder of the app's resources: LoadableView names, Image resourceName and WebView script resources are looked up there first (macOS: then in the main bundle; Linux: in place of the program's folder). `None` goes back to the platform's own place. Call before `run`. |
 | `run(self) -> !` | Runs the event loop. Does not return. |
 | `terminate(&self)` | Asks the application to quit, as the Quit menu item does, and returns. The should-terminate handler can still refuse. |
 

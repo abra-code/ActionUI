@@ -155,7 +155,7 @@ public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
 
 /// The folder of the app's resources, where LoadableView names and image resources are found (by
 /// default the running program's folder, its bundle). An interpreted host, whose program is the
-/// interpreter, passes its script's folder; NULL: none.
+/// interpreter, passes its script's folder; NULL: back to the program's folder.
 @_cdecl("actionUIAppSetResourceFolder")
 public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
     let swiftPath = path.map { String(cString: $0) }

@@ -63,6 +63,11 @@ const app = new actionui.Application({ name: 'My App', icon: 'icon.icns' });
 
 // If icon is omitted, the default ActionUI icon (shipped with the addon) is used.
 
+// resourceFolder: where LoadableView names, Image resourceName and WebView script
+// resources are looked up before the main bundle (node's). If omitted, the folder
+// of the main script, so an app's documents can be named without a path.
+const app = new actionui.Application({ resourceFolder: path.join(__dirname, 'ui') });
+
 // Retrieve the existing instance from anywhere:
 const app = actionui.Application.instance();
 ```
@@ -487,6 +492,7 @@ native.appSetWindowWillPresent(fn) // fn(windowUuid: string)
 // App control
 native.appSetName(name)
 native.appSetIcon(absolutePath)
+native.appSetResourceFolder(absolutePath)  // or null: the main bundle only
 native.appRun()
 native.appTerminate()
 native.appLoadAndPresentWindow(url, uuid, title)

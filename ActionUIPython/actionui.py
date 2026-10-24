@@ -129,7 +129,8 @@ class Application:
 
     _instance: Optional['Application'] = None
 
-    def __init__(self, name: Optional[str] = None, icon: Optional[str] = None):
+    def __init__(self, name: Optional[str] = None, icon: Optional[str] = None,
+                 resource_folder: Optional[str] = None):
         """Create the application singleton.
 
         Args:
@@ -139,6 +140,10 @@ class Application:
                   application icon in the Dock and About panel.  If ``None``,
                   the default ActionUI icon shipped alongside this module is
                   used automatically.
+            resource_folder: The folder of the app's resources: LoadableView
+                  names, Image resourceName and WebView script resources are
+                  looked up there before the main bundle (which is Python's).
+                  If ``None``, the folder of the main script, when there is one.
         """
         if Application._instance is not None:
             raise RuntimeError("Only one Application instance can exist")
@@ -166,6 +171,14 @@ class Application:
             default_icon = os.path.join(os.path.dirname(__file__), "actionui-app-icon.icns")
             if os.path.isfile(default_icon):
                 _actionui.app_set_icon(default_icon)
+
+        if resource_folder is None:
+            import __main__
+            main_file = getattr(__main__, "__file__", None)
+            if main_file:
+                resource_folder = os.path.dirname(os.path.abspath(main_file))
+        if resource_folder is not None:
+            _actionui.app_set_resource_folder(os.path.abspath(resource_folder))
 
         _actionui.set_default_action_handler(self._action_bridge)
         # Register internal bridges so we always handle window lifecycle

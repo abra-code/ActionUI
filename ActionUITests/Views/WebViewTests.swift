@@ -605,6 +605,20 @@ final class WebViewTests: XCTestCase {
         XCTAssertEqual(source, "console.log('from file');")
     }
 
+    func testWebViewSupport_ResolveJSSource_ResourceInTheHostsResourceFolder() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("webview-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        try "var fromFolder = 1;".write(to: folder.appendingPathComponent("FolderScript.js"), atomically: true, encoding: .utf8)
+        ActionUIResourceFolder.path = folder.path
+        XCTAssertEqual(WebViewSupport.resolveJSSource(from: ["resourceName": "FolderScript.js"], logger: logger), "var fromFolder = 1;")
+        XCTAssertEqual(WebViewSupport.resolveJSSource(from: ["resourceName": "FolderScript"], logger: logger), "var fromFolder = 1;",
+                       "a name without .js finds the .js file")
+    }
+
     func testWebViewSupport_ResolveJSSource_MissingFile_ReturnsNil() {
         ActionUIModel.shared.logger = consoleLogger
         let source = WebViewSupport.resolveJSSource(from: ["filePath": "/no/such/file.js"], logger: consoleLogger)

@@ -37,7 +37,8 @@
    Both backings expose the identical observable surface and honour the same properties.
 
  Note: userScripts are injected via WKUserScript on each page load.
- The "resourceName" lookup strips a trailing .js extension then calls Bundle.main.path(forResource:ofType:),
+ The "resourceName" lookup tries the host's resource folder (ActionUIResourceFolder) first, then strips a
+ trailing .js extension and calls Bundle.main.path(forResource:ofType:),
  mirroring Image.swift's resourceName pattern.
 
  Observable state (via getElementValue / getElementState):

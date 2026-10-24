@@ -70,7 +70,7 @@ function testNativeAPISurface() {
         'appSetWillTerminate',       'appSetShouldTerminate',
         'appSetWindowWillClose',     'appSetWindowWillPresent',
         // App control
-        'appSetName', 'appSetIcon',
+        'appSetName', 'appSetIcon', 'appSetResourceFolder',
         'appRun', 'appTerminate',
         'appLoadAndPresentWindow', 'appCloseWindow',
         'appLoadMenuBar',

@@ -90,11 +90,11 @@ final class ActionUIAppFunctionTests: XCTestCase {
     }
 
     func testAHostSetsTheResourceFolder() {
-        defer { AdwaitaApplication.shared.resourceFolder = AppBundle.defaultFolder() }
+        defer { AdwaitaApplication.shared.resourceFolder = nil }
         actionUIAppSetResourceFolder("/opt/example/app")
         XCTAssertEqual(AdwaitaApplication.shared.resourceFolder, "/opt/example/app")
         actionUIAppSetResourceFolder(nil)
-        XCTAssertNil(AdwaitaApplication.shared.resourceFolder, "NULL: none")
+        XCTAssertEqual(AdwaitaApplication.shared.resourceFolder, AppBundle.defaultFolder(), "NULL: back to the program's folder")
     }
 
     func testTheFunctionsNotOnLinuxYetAnswerAsFailures() {

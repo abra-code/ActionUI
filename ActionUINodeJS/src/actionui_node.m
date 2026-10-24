@@ -1526,6 +1526,24 @@ static napi_value node_app_set_icon(napi_env env, napi_callback_info info) {
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
+static napi_value node_app_set_resource_folder(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    napi_valuetype vtype = napi_undefined;
+    if (argc >= 1) napi_typeof(env, argv[0], &vtype);
+    if (vtype == napi_null || vtype == napi_undefined) {
+        actionUIAppSetResourceFolder(NULL);
+    } else {
+        char path[4096]; size_t len;
+        if (napi_get_value_string_utf8(env, argv[0], path, sizeof(path), &len) != napi_ok) {
+            napi_throw_type_error(env, NULL, "appSetResourceFolder: expected a string or null");
+            return NULL;
+        }
+        actionUIAppSetResourceFolder(path);
+    }
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
 static napi_value node_app_run(napi_env env, napi_callback_info info) {
     if (!require_main_env(env, "appRun")) return NULL;
     /* A second appRun from inside a callback would set up the pump a second time, leaking the
@@ -1886,6 +1904,7 @@ static napi_value Init(napi_env env, napi_value exports) {
     /* App control */
     EXPORT_FN(exports, "appSetName",               node_app_set_name);
     EXPORT_FN(exports, "appSetIcon",               node_app_set_icon);
+    EXPORT_FN(exports, "appSetResourceFolder",     node_app_set_resource_folder);
     EXPORT_FN(exports, "appRun",                   node_app_run);
     EXPORT_FN(exports, "appTerminate",             node_app_terminate);
     EXPORT_FN(exports, "appStartRemoteServer",     node_app_start_remote_server);

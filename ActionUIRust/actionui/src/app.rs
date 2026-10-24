@@ -273,6 +273,17 @@ impl App {
         Ok(())
     }
 
+    /// Sets the folder of the app's resources: LoadableView names, Image resourceName and
+    /// WebView script resources are looked up there first (macOS: then in the main bundle;
+    /// Linux: in place of the program's folder). `None` goes back to the platform's own place.
+    /// For a program run as a bare executable whose resources are elsewhere. Call it before
+    /// [`App::run`].
+    pub fn set_resource_folder(&self, path: Option<&Path>) -> Result<()> {
+        let path = path.map(|path| ffi::cstring("resource folder", &path.to_string_lossy())).transpose()?;
+        unsafe { sys::actionUIAppSetResourceFolder(path.as_ref().map_or(std::ptr::null(), |path| path.as_ptr())) };
+        Ok(())
+    }
+
     /// Runs the event loop. It does not return: quitting the application ends the
     /// process from inside the loop, so code after this call, and the destructors of
     /// values still alive in `main`, do not run. (Handlers, and what they captured, are

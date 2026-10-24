@@ -72,7 +72,9 @@ enum WebViewSupport {
         if let resourceName = script.resourceName {
             // Strip .js extension to use Bundle path(forResource:ofType:)
             let nameWithoutExt = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
-            if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
+            // The host's resource folder (ActionUIResourceFolder) first, then the main bundle.
+            if let path = ActionUIResourceFolder.file(nameWithoutExt + ".js") ?? ActionUIResourceFolder.file(resourceName)
+                ?? Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
                 do {
                     return try String(contentsOfFile: path, encoding: .utf8)
                 } catch {

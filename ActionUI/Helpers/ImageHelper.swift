@@ -59,12 +59,13 @@ extension SwiftUI.Image {
 }
 
 class ImageHelper {
-    /// The platform checks of ImageSource.resolve: file types by UTType, resources in the main
-    /// bundle, assets by UIImage(named:) or NSImage(named:).
+    /// The platform checks of ImageSource.resolve: file types by UTType, resources in the host's
+    /// resource folder (ActionUIResourceFolder) then the main bundle, assets by UIImage(named:) or
+    /// NSImage(named:).
     static var lookup: ImageSource.Lookup {
         ImageSource.Lookup(
             isImageFile: { validateImageFilePath($0) != nil },
-            resourcePath: { Bundle.main.path(forResource: $0, ofType: nil) },
+            resourcePath: { ActionUIResourceFolder.file($0) ?? Bundle.main.path(forResource: $0, ofType: nil) },
             assetExists: { name in
 #if canImport(UIKit)
                 UIImage(named: name) != nil

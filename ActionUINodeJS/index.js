@@ -300,7 +300,7 @@ function _buttonToDict(btn) {
 let _appInstance = null;
 
 class Application {
-    constructor({ name, icon } = {}) {
+    constructor({ name, icon, resourceFolder } = {}) {
         if (_appInstance != null) throw new Error('Only one Application instance can exist');
         _appInstance = this;
 
@@ -319,6 +319,12 @@ class Application {
             const defaultIcon = path.join(__dirname, 'actionui-app-icon.icns');
             if (fs.existsSync(defaultIcon)) _actionui.appSetIcon(defaultIcon);
         }
+
+        // The folder of the app's resources: LoadableView names, Image resourceName and WebView
+        // script resources are looked up there before the main bundle (which is node's). By
+        // default the main script's folder, when there is one.
+        const folder = resourceFolder ?? (require.main?.filename ? path.dirname(require.main.filename) : null);
+        if (folder != null) _actionui.appSetResourceFolder(path.resolve(folder));
 
         // Route all actions through a single default bridge; per-action
         // registration still calls actionUIRegisterActionHandler so ActionUI's

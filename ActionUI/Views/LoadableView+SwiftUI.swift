@@ -18,10 +18,11 @@ extension LoadableView: ActionUISwiftUIRenderer {
         }
 
         // Where the text points (Core/Common/DocumentLoader.swift): a remote URL, a file, or a
-        // resource bundled with the program.
+        // resource of the app: in the host's resource folder (ActionUIResourceFolder), then
+        // bundled with the program.
         let source = ActionUIDocumentLoader.source(
             for: value,
-            bundleURL: { name, ext in Bundle.main.url(forResource: name, withExtension: ext) },
+            bundleURL: resourceURL,
             logger: logger
         )
         switch source {
@@ -32,5 +33,12 @@ extension LoadableView: ActionUISwiftUIRenderer {
         case .success(.file(let fileURL)):
             return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
         }
+    }
+
+    /// A resource of the app by name and extension: in the host's resource folder
+    /// (ActionUIResourceFolder), then in the main bundle.
+    nonisolated static func resourceURL(_ name: String, _ ext: String) -> URL? {
+        ActionUIResourceFolder.file("\(name).\(ext)").map { URL(fileURLWithPath: $0) }
+            ?? Bundle.main.url(forResource: name, withExtension: ext)
     }
 }

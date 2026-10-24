@@ -8,7 +8,7 @@
      "systemName": "star.fill",  // Optional: String for SF Symbol
      "assetName": "customImage",      // Optional: String for asset catalog image name
      "filePath": "/path/to/image.jpg", // Optional: String for local file path
-     "resourceName": "yourImage.png",  Optional: String for bundle resource image name with extension
+     "resourceName": "yourImage.png",  Optional: String for a resource image name with extension (the host's resource folder, then the bundle)
      "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if contentMode is specified
      "contentMode": "fit",       // Optional: String ("fit" or "fill") for aspect-ratio scaling mode, defaults to "fit"
      "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
