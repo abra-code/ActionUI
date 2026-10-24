@@ -130,6 +130,23 @@ func connectKeyPressed(_ controller: UnsafeMutableRawPointer, _ run: @escaping @
     connectBox(controller, "key-pressed", unsafeBitCast(keyPressedTrampoline, to: GCallback.self), run as KeyPressRun)
 }
 
+private typealias PointRun = @MainActor (Double, Double) -> Void
+
+/// For signals whose handler takes (instance, x, y, user data): a drag gesture's "drag-begin",
+/// "drag-update" and "drag-end" (an offset for the last two), a motion controller's "motion" and
+/// "enter". The doubles travel in floating-point registers.
+private let pointTrampoline: @convention(c) (gpointer?, gdouble, gdouble, gpointer?) -> Void = { _, x, y, data in
+    guard let data else { return }
+    let box: CallbackBox<PointRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run(x, y) }
+}
+
+/// Connects `run` to a signal whose handler takes a point or an offset (see pointTrampoline).
+@MainActor @discardableResult
+func connectPoint(_ instance: UnsafeMutableRawPointer, _ signal: String, _ run: @escaping @MainActor (Double, Double) -> Void) -> gulong {
+    connectBox(instance, signal, unsafeBitCast(pointTrampoline, to: GCallback.self), run as PointRun)
+}
+
 /// The C signature of a signal's handler, which decides the trampoline.
 enum SignalShape {
     /// (instance, user data): "clicked", "activate", "changed", "map", "destroy"

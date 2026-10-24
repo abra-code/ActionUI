@@ -16,6 +16,7 @@
    boxes are placed in the stack's coordinates; they measure 0 and contain no point of their own
    (passesPicks), so a click or hover beside the Group's children reaches the stack or a sibling
    before the Group, as SwiftUI's Group has no area of its own.
+ - In an HSplitView or VSplitView each child box is a pane of its own, as on macOS (SplitLayout).
  - Elsewhere (a window's root, inside another Group's child box) the Group lays its children out
    as a VStack with no spacing. A Group in a Group is not laid out as the outer stack's children.
  - The template form shows no rows yet, as on GroupBox.
@@ -106,8 +107,8 @@ extension Group: ActionUIAdwaitaRenderer {
         return element
     }
 
-    /// True when `widget` is a Group's widget whose children a stack or ZStack lays out: the
-    /// container of its box is one.
+    /// True when `widget` is a Group's widget whose children a stack, a ZStack or a split view lays
+    /// out: the container of its box is one.
     static func isFlattened(_ widget: WidgetPointer) -> Bool {
         guard attached(on: widget, key: groupMarkerKey) != nil,
               let content = gtk_widget_get_parent(widget),
@@ -115,6 +116,7 @@ extension Group: ActionUIAdwaitaRenderer {
               let container = gtk_widget_get_parent(box) else { return false }
         return attached(on: container, key: stackConfigurationKey) != nil
             || attached(on: container, key: zStackConfigurationKey) != nil
+            || attached(on: container, key: splitStateKey) != nil
     }
 
     /// True for the widgets of a Group whose children a stack lays out, which span the stack: its
