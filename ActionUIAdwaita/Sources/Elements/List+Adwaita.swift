@@ -1,0 +1,347 @@
+// Sources/Elements/List+Adwaita.swift
+/*
+ List on GTK: a GtkListBox in a GtkScrolledWindow, as greedy as SwiftUI's List (it shares a stack
+ like a Color, measured: the list-in-hstack-shares and list-in-vstack-shares layout parity
+ fixtures). Two of the element's forms:
+
+ - Rows (Form 1): one row per content row (setElementRows) whose first column is not empty, its
+   text the first column. Selectable whether or not an actionID is set: a selection the user makes
+   becomes the value (the row's columns) and fires actionID (Core RowSelection); a double click (or
+   Return) fires doubleClickActionID with the row's index in the content.
+ - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
+   the selected child's id as text, and actionID fires with the id as its context; without one,
+   the rows are not selectable and the children handle their own input.
+
+ The value selects its row when a host sets it; a rows change keeps the selection on its row
+ (Core). Styles: automatic, inset and plain show rows separated by lines, as macOS draws them;
+ sidebar uses libadwaita's navigation-sidebar; grouped and insetGrouped its boxed-list cards.
+
+ Not yet: the template form (rows from a template element), Button and Image cells (shown as
+ text), the row styling properties; logged once each. onRefreshActionID does nothing (pull to
+ refresh; desktops have none).
+*/
+
+import CAdwaita
+
+@MainActor private var reportedTemplate = false
+@MainActor private var reportedViewType = false
+@MainActor private var reportedRowStyling = false
+
+/// A List's rows as last shown, attached to its scrolled window: the signal handlers map a row
+/// back to its content row or child.
+@MainActor
+final class ListState {
+    enum Mode {
+        case rows, children
+    }
+
+    let box: WidgetPointer
+    var mode = Mode.rows
+    /// The content as drawn (rows mode), and the content index of each row shown.
+    var drawnRows: [[String]] = []
+    var shownIndices: [Int] = []
+    /// The element id of each row's child (children mode).
+    var childIDs: [Int] = []
+    /// True from a click in the list until the main loop runs after the click ends, and from a key
+    /// press until the main loop runs after it: a selection made then is the user's. GTK also
+    /// selects the row focus moves onto (the first one when the window gives the list its first
+    /// focus); that one is not.
+    var userInput = false
+    /// Counts the presses: the end of an earlier one does not end a later one.
+    var inputSerial = 0
+
+    init(box: WidgetPointer) {
+        self.box = box
+    }
+}
+
+let listStateKey = AttachKey<ListState>("actionui-list")
+
+extension List: ActionUIAdwaitaRenderer {
+    /// macOS's list rows: a line of body text 4 points from the row's top and bottom, 8 points
+    /// in from the row's edges inside a list inset by 8.
+    static let rowRules = """
+        list.actionui-list { padding: 4px 8px; }
+        list.actionui-list > row { padding: 4px 8px; min-height: 16px; }
+        """
+
+    static func makeWidget(_ node: RenderNode) -> WidgetPointer {
+        StyleSheet.shared.installFixedRules("actionui-list", rowRules)
+        let scroller = gtk_scrolled_window_new()!
+        gtk_scrolled_window_set_policy(OpaquePointer(scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC)
+        gtk_widget_set_hexpand(scroller, 1)
+        gtk_widget_set_vexpand(scroller, 1)
+        let box = gtk_list_box_new()!
+        // A double click (or Return) activates a row; a single click selects it.
+        gtk_list_box_set_activate_on_single_click(OpaquePointer(box), 0)
+        gtk_scrolled_window_set_child(OpaquePointer(scroller), box)
+        let state = ListState(box: box)
+        attach(state, to: scroller, key: listStateKey)
+        watchUserInput(box, state)
+        connectUserSignal(box, "row-selected", .instanceAndArgument) { [weak node] in
+            guard let node else { return }
+            userSelected(node, state)
+        }
+        connectUserSignal(box, "row-activated", .instanceAndArgument) { [weak node] in
+            guard let node else { return }
+            userActivated(node, state)
+        }
+        return scroller
+    }
+
+    static func update(_ widget: WidgetPointer, _ node: RenderNode) {
+        guard let state = attached(on: widget, key: listStateKey) else { return }
+        let props = Props(node.properties)
+        applyStyle(state.box, props.listStyle)
+        reportGaps(node, props)
+
+        let children = node.subviews("children")
+        let mode: ListState.Mode = children.isEmpty ? .rows : .children
+        if mode != state.mode {
+            removeAllRows(state, node)
+            state.mode = mode
+        }
+        let box = OpaquePointer(state.box)
+        switch mode {
+        case .rows:
+            let selectable = GTK_SELECTION_SINGLE
+            if gtk_list_box_get_selection_mode(box) != selectable {
+                gtk_list_box_set_selection_mode(box, selectable)
+            }
+            updateRows(state, node)
+        case .children:
+            let selectable = props.actionID == nil ? GTK_SELECTION_NONE : GTK_SELECTION_SINGLE
+            if gtk_list_box_get_selection_mode(box) != selectable {
+                gtk_list_box_set_selection_mode(box, selectable)
+            }
+            updateChildren(state, node, children)
+        }
+    }
+
+    // MARK: Rows
+
+    private static func updateRows(_ state: ListState, _ node: RenderNode) {
+        // A template's rows are not shown yet (reportGaps).
+        let hasTemplate = node.effectiveElement.subviews?["template"] != nil
+        let items = hasTemplate ? [] : node.model.states["content"] as? [[String]] ?? []
+        let shown = shownRowIndices(items)
+        state.drawnRows = items
+        state.shownIndices = shown
+        let box = OpaquePointer(state.box)
+        for (position, index) in shown.enumerated() {
+            if let row = gtk_list_box_get_row_at_index(box, Int32(position)),
+               let label = gtk_list_box_row_get_child(row) {
+                Gtk.Label(label).text = items[index][0]
+            } else {
+                gtk_list_box_append(box, rowLabel(items[index][0]))
+            }
+        }
+        while let extra = gtk_list_box_get_row_at_index(box, Int32(shown.count)) {
+            gtk_list_box_remove(box, typed(extra))
+        }
+        let selected = RowSelection.selectedIndex(value: node.model.value, in: items).flatMap { shown.firstIndex(of: $0) }
+        select(state, position: selected)
+    }
+
+    /// A row's text: wrapped, at the leading edge, as SwiftUI draws a Text in a List.
+    private static func rowLabel(_ text: String) -> WidgetPointer {
+        let label = gtk_label_new(text)!
+        gtk_label_set_xalign(opaque(label), 0)
+        gtk_label_set_wrap(opaque(label), 1)
+        gtk_label_set_wrap_mode(opaque(label), PANGO_WRAP_WORD_CHAR)
+        return label
+    }
+
+    // MARK: Children
+
+    private static func updateChildren(_ state: ListState, _ node: RenderNode, _ children: [any ActionUIElementBase]) {
+        let box = OpaquePointer(state.box)
+        node.syncChildren(children, insert: { child, index in
+            let outer: WidgetPointer = child.outerWidget
+            let row = Self.row(of: outer)
+            if let row, gtk_list_box_row_get_index(typed(row)) == Int32(index) { return }
+            if let row {
+                // Moved: the node keeps the box alive while its row (and holder) goes.
+                gtk_list_box_remove(box, row)
+            }
+            // At the leading edge of the row, as SwiftUI places a row's content; one that expands
+            // fills the row.
+            let holder = ListRowLayout.makeHolder()
+            if gtk_widget_get_parent(outer) != nil {
+                gtk_widget_unparent(outer)
+            }
+            gtk_widget_set_parent(outer, holder)
+            gtk_list_box_insert(box, holder, Int32(index))
+        }, remove: { child in
+            if let row = Self.row(of: child.outerWidget) {
+                gtk_list_box_remove(box, row)
+            }
+        })
+        state.childIDs = children.map(\.id)
+        let selected = RowSelection.selectedChildID(value: node.model.value).flatMap { state.childIDs.firstIndex(of: $0) }
+        select(state, position: selected)
+    }
+
+    /// The list row holding a child's box (inside the holder that aligns it).
+    private static func row(of outer: WidgetPointer) -> WidgetPointer? {
+        Gtk.Widget(outer).parent?.parent?.pointer
+    }
+
+    // MARK: Selection
+
+    /// Shows the selection at `position` among the rows (none for nil), without firing anything
+    /// (the update runs inside UpdateGuard).
+    private static func select(_ state: ListState, position: Int?) {
+        let box = OpaquePointer(state.box)
+        let current = gtk_list_box_get_selected_row(box).map { Int(gtk_list_box_row_get_index($0)) }
+        guard current != position else { return }
+        if let position, let row = gtk_list_box_get_row_at_index(box, Int32(position)) {
+            gtk_list_box_select_row(box, row)
+        } else {
+            gtk_list_box_unselect_all(box)
+        }
+    }
+
+    /// The position of the selected row, or nil.
+    private static func selectedPosition(_ state: ListState) -> Int? {
+        gtk_list_box_get_selected_row(OpaquePointer(state.box)).map { Int(gtk_list_box_row_get_index($0)) }
+    }
+
+    private static func userSelected(_ node: RenderNode, _ state: ListState) {
+        guard state.userInput else {
+            // GTK's selection of a focused row, not the user's: show the model's again.
+            UpdateGuard.applying { select(state, position: modelPosition(node, state)) }
+            return
+        }
+        let props = Props(node.properties)
+        let position = selectedPosition(state)
+        switch state.mode {
+        case .rows:
+            let index = position.flatMap { state.shownIndices.indices.contains($0) ? state.shownIndices[$0] : nil }
+            guard let clicked = RowSelection.clickedRow(index: index, in: state.drawnRows) else { return }
+            RowSelection.commitRowSelection(clicked, drawnRows: state.drawnRows, model: node.model, actionID: props.actionID,
+                                            windowUUID: node.windowUUID, viewID: node.element.id)
+        case .children:
+            let childID = position.flatMap { state.childIDs.indices.contains($0) ? state.childIDs[$0] : nil }
+            RowSelection.commitChildSelection(childID, model: node.model, actionID: props.actionID,
+                                              windowUUID: node.windowUUID, viewID: node.element.id)
+        }
+    }
+
+    /// A double click or Return on a row: as SwiftUI's primaryAction, the row becomes the value and
+    /// doubleClickActionID fires with its index in the content. When that changes the selection
+    /// (Return on a row reached with Tab selects it in the same press), actionID fires first, as
+    /// the first click of a double click fires it.
+    private static func userActivated(_ node: RenderNode, _ state: ListState) {
+        let props = Props(node.properties)
+        guard state.mode == .rows, let actionID = props.doubleClickActionID,
+              let position = selectedPosition(state), state.shownIndices.indices.contains(position) else { return }
+        let index = state.shownIndices[position]
+        let current = node.model.states["content"] as? [[String]] ?? []
+        let row = ActionUIModel.reconciledSelection(state.drawnRows[index], from: state.drawnRows, to: current)
+        let changed = (node.model.value as? [String] ?? []) != row
+        node.model.value = row
+        if changed {
+            node.fire(props.actionID)
+        }
+        node.fire(actionID, context: index)
+    }
+
+    // MARK: Style
+
+    private static func applyStyle(_ box: WidgetPointer, _ style: Props.ListStyle?) {
+        let widget = Gtk.Widget(box)
+        let sidebar = style == .sidebar
+        let cards = style == .grouped || style == .insetGrouped
+        widget.setCSSClass("actionui-list", !sidebar && !cards)
+        widget.setCSSClass("navigation-sidebar", sidebar)
+        widget.setCSSClass("boxed-list", cards)
+        let separators: gboolean = !sidebar && !cards ? 1 : 0
+        if gtk_list_box_get_show_separators(OpaquePointer(box)) != separators {
+            gtk_list_box_set_show_separators(OpaquePointer(box), separators)
+        }
+    }
+
+    private static func removeAllRows(_ state: ListState, _ node: RenderNode) {
+        let box = OpaquePointer(state.box)
+        if state.mode == .children {
+            // The child nodes go too; a later children update makes them again.
+            node.syncChildren([], insert: { _, _ in }, remove: { child in
+                if let row = Self.row(of: child.outerWidget) {
+                    gtk_list_box_remove(box, row)
+                }
+            })
+        }
+        gtk_list_box_remove_all(box)
+        state.drawnRows = []
+        state.shownIndices = []
+        state.childIDs = []
+    }
+
+    private static func reportGaps(_ node: RenderNode, _ props: Props) {
+        let logger = ActionUIModel.shared.logger
+        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
+            reportedTemplate = true
+            logger.log("List: the template form shows no rows on Linux yet", .warning)
+        }
+        if !reportedViewType, props.viewType != .text {
+            reportedViewType = true
+            logger.log("List: \(props.viewType.rawValue) cells are shown as text on Linux for now", .warning)
+        }
+        if !reportedRowStyling, props.hasRowModifiers {
+            reportedRowStyling = true
+            logger.log("List: row styling (listRowBackground, listRowSeparator, listRowInsets) is not applied on Linux yet", .warning)
+        }
+    }
+}
+
+extension List {
+    /// Marks the list's clicks and key presses (seen in the capture phase, before the list handles
+    /// them) as the user's: a click until the main loop runs after its gesture ends (released or
+    /// canceled; "stopped" also comes while the button is down: the double-click timer, a press
+    /// away from the last click, a small drag), a key press until the main loop runs after it (the
+    /// list selects while handling the press; a key that moves focus out sends its release
+    /// elsewhere).
+    fileprivate static func watchUserInput(_ box: WidgetPointer, _ state: ListState) {
+        let click = gtk_gesture_click_new()!
+        gtk_gesture_single_set_button(click, 0)
+        gtk_event_controller_set_propagation_phase(click, GTK_PHASE_CAPTURE)
+        connectSignal(UnsafeMutableRawPointer(click), "pressed", .press) { [weak state] in beginUserInput(state) }
+        connectSignal(UnsafeMutableRawPointer(click), "end", .instanceAndArgument) { [weak state] in endUserInput(state) }
+        gtk_widget_add_controller(box, click)
+        let keys = gtk_event_controller_key_new()!
+        gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE)
+        connectKeyPressed(UnsafeMutableRawPointer(keys)) { [weak state] _ in
+            beginUserInput(state)
+            endUserInput(state)
+            return false
+        }
+        gtk_widget_add_controller(box, keys)
+    }
+
+    fileprivate static func beginUserInput(_ state: ListState?) {
+        guard let state else { return }
+        state.userInput = true
+        state.inputSerial &+= 1
+    }
+
+    /// After the event's handlers (the list selects on a click's release) have run, unless another
+    /// press came first.
+    fileprivate static func endUserInput(_ state: ListState?) {
+        guard let serial = state?.inputSerial else { return }
+        runAfter(milliseconds: 0) { [weak state] in
+            guard let state, state.inputSerial == serial else { return }
+            state.userInput = false
+        }
+    }
+
+    /// The position among the rows of the model's selection.
+    fileprivate static func modelPosition(_ node: RenderNode, _ state: ListState) -> Int? {
+        switch state.mode {
+        case .rows:
+            return RowSelection.selectedIndex(value: node.model.value, in: state.drawnRows).flatMap { state.shownIndices.firstIndex(of: $0) }
+        case .children:
+            return RowSelection.selectedChildID(value: node.model.value).flatMap { state.childIDs.firstIndex(of: $0) }
+        }
+    }
+}

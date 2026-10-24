@@ -113,6 +113,23 @@ func connectKeyReleased(_ controller: UnsafeMutableRawPointer, _ run: @escaping 
     connectBox(controller, "key-released", unsafeBitCast(keyReleasedTrampoline, to: GCallback.self), run as KeyRun)
 }
 
+private typealias KeyPressRun = @MainActor (guint) -> Bool
+
+/// For a key controller's "key-pressed": (instance, keyval, keycode, state, user data), all in
+/// integer registers, returning whether the key was handled.
+private let keyPressedTrampoline: @convention(c) (gpointer?, guint, guint, guint, gpointer?) -> gboolean = { _, keyval, _, _, data in
+    guard let data else { return 0 }
+    let box: CallbackBox<KeyPressRun> = callbackBox(data)
+    return MainActor.assumeIsolated { box.run(keyval) } ? 1 : 0
+}
+
+/// Connects `run` to a key controller's "key-pressed", with the pressed key's value (GDK_KEY_*);
+/// `run` returns true when it handled the key, which stops it there.
+@MainActor @discardableResult
+func connectKeyPressed(_ controller: UnsafeMutableRawPointer, _ run: @escaping @MainActor (guint) -> Bool) -> gulong {
+    connectBox(controller, "key-pressed", unsafeBitCast(keyPressedTrampoline, to: GCallback.self), run as KeyPressRun)
+}
+
 /// The C signature of a signal's handler, which decides the trampoline.
 enum SignalShape {
     /// (instance, user data): "clicked", "activate", "changed", "map", "destroy"
