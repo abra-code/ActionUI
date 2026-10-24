@@ -23,6 +23,8 @@
    and counts as a window when the user closes what may be the last one.
  - Resources: the app's bundle (resourceFolder, AppBundle) and each window's document folder, where
    LoadableView names and image resources are found.
+ - Presentations: each window shows its model's modal, alert, confirmation dialog and toast
+   (WindowPresenter); toasts in an AdwToastOverlay around the content, below the header bar.
  - Closing: GTK ends the application when its last window goes. Closing the last window by hand
    first asks the shouldTerminate handler, and false keeps it open; terminate() asks it too. A
    window closed by the host, or not the last one, just closes; windowWillClose fires for each.
@@ -148,6 +150,12 @@ public final class AdwaitaApplication {
         windows[windowUUID]?.window
     }
 
+    /// The modals, dialogs and toasts of the window showing `windowUUID`, if it is on screen with
+    /// its document.
+    func presenter(_ windowUUID: String) -> WindowPresenter? {
+        windows[windowUUID]?.renderTree?.presenter
+    }
+
     /// Whether the window showing `windowUUID` holds its document, false when it shows why the
     /// document could not be loaded (or is not on screen).
     public func showsDocument(_ windowUUID: String) -> Bool {
@@ -197,7 +205,7 @@ public final class AdwaitaApplication {
         // application; they go here, with no handler asked or told.
         for presented in Array(windows.values) {
             presented.closingByHost = true
-            presented.renderTree?.root?.detach()
+            presented.renderTree?.detach()
             gtk_window_destroy(presented.window)
         }
         windows = [:]
@@ -310,7 +318,7 @@ public final class AdwaitaApplication {
         if let existing = windows[windowUUID] {
             ActionUIModel.shared.logger.log("A window \(windowUUID) is already on screen; closing it for the new one", .warning)
             existing.closingByHost = true
-            existing.renderTree?.root?.detach()
+            existing.renderTree?.detach()
             gtk_window_destroy(existing.window)
         }
         let loaded = load(source, windowUUID: windowUUID)
@@ -328,14 +336,18 @@ public final class AdwaitaApplication {
         let monitor = monitorSize()
         let (minimum, natural) = contentSizes(content, widthCap: monitor.width)
         // The window's minimum is the content's plus the header bar's.
+        // Toasts show over the content, below the header bar.
+        let toastOverlay = adw_toast_overlay_new()!
+        adw_toolbar_view_set_content(OpaquePointer(toolbar), toastOverlay)
         if minimum.width > monitor.width || minimum.height + headerHeight > monitor.height {
             ActionUIModel.shared.logger.log("Window \(windowUUID): the document's minimum size \(minimum.width) x \(minimum.height) is larger than the screen; it scrolls", .warning)
             let scroller = gtk_scrolled_window_new()!
             gtk_scrolled_window_set_child(opaque(scroller), content)
-            adw_toolbar_view_set_content(OpaquePointer(toolbar), scroller)
+            adw_toast_overlay_set_child(OpaquePointer(toastOverlay), scroller)
         } else {
-            adw_toolbar_view_set_content(OpaquePointer(toolbar), content)
+            adw_toast_overlay_set_child(OpaquePointer(toastOverlay), content)
         }
+        renderTree?.startPresenting(over: toastOverlay, toastOverlay: OpaquePointer(toastOverlay))
 
         let small = natural.width < 10 || natural.height < 10
         let width = small ? Self.fallbackSize.width : natural.width
@@ -350,7 +362,7 @@ public final class AdwaitaApplication {
         }
         connectSignal(window, "destroy", .instanceOnly) { [weak self, weak presented] in
             guard let self, let presented, self.windows[windowUUID] === presented else { return }
-            presented.renderTree?.root?.detach()
+            presented.renderTree?.detach()
             self.windows[windowUUID] = nil
             AppBundle.setDocumentFolder(nil, window: windowUUID)
         }
@@ -382,11 +394,15 @@ public final class AdwaitaApplication {
         dropRemoteLoad(windowUUID)
         guard let presented = windows[windowUUID] else { return }
         presented.closingByHost = true
+        // AdwDialogHost answers a close request while a dialog is up by closing that dialog, not
+        // the window (as for the user's close): the presentations come down first.
+        presented.renderTree?.presenter?.stop()
         gtk_window_close(presented.window)
         // GTK closes nothing for a window not realized yet or already closing; a later close by
-        // the user must ask again.
+        // the user must ask again, and the presentations come back.
         if windows[windowUUID] === presented {
             presented.closingByHost = false
+            presented.renderTree?.presenter?.resume()
         }
     }
 
@@ -403,7 +419,7 @@ public final class AdwaitaApplication {
             AppBundle.setDocumentFolder(nil, window: windowUUID)
         }
         handlers.windowWillClose?(windowUUID)
-        presented.renderTree?.root?.detach()
+        presented.renderTree?.detach()
         return true
     }
 

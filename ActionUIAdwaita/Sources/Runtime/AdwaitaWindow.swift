@@ -1,7 +1,8 @@
 // Sources/Runtime/AdwaitaWindow.swift
 /*
  The render tree of one ActionUI window: the root node built from the window model's loaded
- element. Presenting it in a GTK window comes with the application runtime.
+ element, and, once the window is on screen, its window-level presentations (WindowPresenter).
+ Presenting it in a GTK window comes with the application runtime.
 */
 
 import CAdwaita
@@ -11,6 +12,8 @@ final class AdwaitaWindow {
     let windowModel: WindowModel
     /// The root element's node; nil when the window model has no element loaded.
     private(set) var root: RenderNode?
+    /// The window's modals, dialogs and toasts, once the window is on screen.
+    private(set) var presenter: WindowPresenter?
 
     var windowUUID: String { windowModel.windowUUID }
 
@@ -33,8 +36,23 @@ final class AdwaitaWindow {
         root.sync()
     }
 
+    /// Starts showing the window model's modals, dialogs and toasts: dialogs over `parent`'s
+    /// window, toasts in `toastOverlay` (an AdwToastOverlay).
+    func startPresenting(over parent: WidgetPointer, toastOverlay: OpaquePointer) {
+        presenter?.stop()
+        presenter = WindowPresenter(windowModel: windowModel, parent: parent, toastOverlay: toastOverlay)
+    }
+
+    /// The window is going away: its nodes leave the tree and its presentations come down.
+    func detach() {
+        presenter?.stop()
+        presenter = nil
+        root?.detach()
+    }
+
     // A flush queued before the window went away holds its nodes; detached, they are skipped.
     isolated deinit {
+        presenter?.stop()
         root?.detach()
     }
 }

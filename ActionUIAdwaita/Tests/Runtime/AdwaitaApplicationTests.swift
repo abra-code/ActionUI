@@ -6,7 +6,8 @@
  name; a size larger than the monitor is capped, and a minimum larger than it scrolls; a file's
  document is titled by its name, and one that cannot be loaded shows its error; the user's close
  of the last window asks shouldTerminate; terminate ends the application and willTerminate fires;
- a second run while running is refused; the icon is the windows' default icon.
+ a second run while running is refused; the host's close of a window showing a modal and an
+ alert closes the window; the icon is the windows' default icon.
 */
 
 import XCTest
@@ -45,8 +46,9 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     /// The toolbar view's content: the document's box, or what holds it.
     private func content(_ window: UnsafeMutablePointer<GtkWindow>) -> WidgetPointer? {
-        guard let toolbar = adw_application_window_get_content(typed(window)) else { return nil }
-        return adw_toolbar_view_get_content(OpaquePointer(toolbar))
+        guard let toolbar = adw_application_window_get_content(typed(window)),
+              let overlay = adw_toolbar_view_get_content(OpaquePointer(toolbar)) else { return nil }
+        return adw_toast_overlay_get_child(OpaquePointer(overlay))
     }
 
     func testWindowsWaitForTheStartAndOpenAtTheIdealSize() throws {
@@ -171,6 +173,36 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(asked, 2, "asked for the close and for terminate")
         XCTAssertTrue(terminated, "willTerminate fired")
         XCTAssertEqual(g_list_model_get_n_items(gtk_window_get_toplevels()), toplevels, "the window open at terminate is gone")
+    }
+
+    func testTheHostClosesAWindowShowingAModalAndAnAlert() throws {
+        let app = AdwaitaApplication()
+        var events: [String] = []
+        var shown = false
+        var stillOpen = true
+        app.handlers.windowWillClose = { events.append("close \($0)") }
+        ActionUIModel.shared.registerActionHandler(for: "app.dismissed") { id, _, _, _, _ in
+            MainActor.assumeIsolated { events.append(id) }
+        }
+        defer { ActionUIModel.shared.unregisterActionHandler(for: "app.dismissed") }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a window that stays open fails the test instead of hanging it.
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            try? ActionUIModel.shared.presentModal(windowUUID: "app-w1", data: Data(#"{"type": "Text", "id": 50, "properties": {"text": "Sheet"}}"#.utf8),
+                                                   format: "json", style: .sheet, onDismissActionID: "app.dismissed")
+            ActionUIModel.shared.presentAlert(windowUUID: "app-w1", title: "Alert", buttons: [DialogButton(title: "Cancel", role: .cancel, actionID: "app.dismissed")])
+            _ = runAfter(milliseconds: 300) {
+                shown = app.presenter("app-w1")?.modalRoot != nil && app.presenter("app-w1")?.dialogWidget != nil
+                // AdwDialogHost would close the top dialog instead of the window.
+                app.closeWindow("app-w1")
+                stillOpen = app.gtkWindow("app-w1") != nil
+            }
+        }
+        XCTAssertEqual(app.run(), 0, "the last window closed: the application ended")
+        XCTAssertTrue(shown)
+        XCTAssertFalse(stillOpen)
+        XCTAssertEqual(events, ["close app-w1"], "no dialog's action fired")
     }
 
     func testAnApplicationWithNoWindowYetWaitsForItsFirst() throws {
