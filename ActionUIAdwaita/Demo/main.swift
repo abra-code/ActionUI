@@ -6,16 +6,19 @@
  (ActionUISwiftTestApp/Resources), shipped in a simplified iOS-style bundle with the program
  (Scripts/make-linux-demo-bundle.sh builds ActionUIDemo.app).
 
- Usage: ActionUIDemo [--resources <folder>] [--open <Name>] [--dark] [--screenshot <file.png>]
+ Usage: ActionUIDemo [--resources <folder>] [--open <Name> [--action <actionID>]] [--dark] [--screenshot <file.png>]
 
  - --resources: the folder of the documents, when the program is not in its bundle (a development
    build); else the bundle (AppBundle).
  - --open: also opens the document Name (Name.json) at launch.
+ - --action: fires the action on that document once it is shown, from the element whose actionID
+   it is (0 when none), as clicking it would (for screenshots of what a handler does).
  - --screenshot: once the last window opened at launch has drawn (the --open one, else the
    launcher), saves it as a PNG file and quits.
  - Exit status: 64 for bad arguments, 66 when there are no documents or no document Name, 65 when
    the document opened with --open cannot be loaded (its window shows the error).
- The documents' actions have no handlers yet (the Mac app's handlers come next); they are logged.
+ The documents' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
+ What the Linux renderer does not do yet (alerts, sheets, navigation) shows in those documents.
 */
 
 import CAdwaita
@@ -23,8 +26,9 @@ import Dispatch
 import Foundation
 import Glibc
 import ActionUI
+import ActionUISwiftAdapter
 
-let usage = "usage: ActionUIDemo [--resources <folder>] [--open <Name>] [--dark] [--screenshot <file.png>]"
+let usage = "usage: ActionUIDemo [--resources <folder>] [--open <Name> [--action <actionID>]] [--dark] [--screenshot <file.png>]"
 // A name no document file gives (documents open under their names).
 let launcherUUID = "actionui-demo-launcher"
 let launcherListID = 1
@@ -34,12 +38,13 @@ let screenshotDelay = DispatchTimeInterval.milliseconds(600)
 
 var resourcesArgument: String?
 var openName: String?
+var actionArgument: String?
 var screenshotPath: String?
 var dark = false
 var arguments = CommandLine.arguments.dropFirst()
 while let argument = arguments.popFirst() {
     switch argument {
-    case "--resources", "--open", "--screenshot":
+    case "--resources", "--open", "--action", "--screenshot":
         guard let value = arguments.popFirst() else {
             print(usage)
             exit(64)
@@ -47,6 +52,7 @@ while let argument = arguments.popFirst() {
         switch argument {
         case "--resources": resourcesArgument = value
         case "--open": openName = value
+        case "--action": actionArgument = value
         default: screenshotPath = value
         }
     case "--dark":
@@ -55,6 +61,10 @@ while let argument = arguments.popFirst() {
         print(usage)
         exit(64)
     }
+}
+if actionArgument != nil && openName == nil {
+    print(usage)
+    exit(64)
 }
 
 /// The launcher: a list of the documents, a click opening one.
@@ -104,6 +114,10 @@ MainActor.assumeIsolated {
         app.presentWindow(url: path, windowUUID: name, title: name)
     }
 
+    // The Mac app's handlers; the modal sheet's document is in the resources too.
+    DemoHandlers.register(resourceURL: { name, ext in
+        URL(fileURLWithPath: folder).appendingPathComponent("\(name).\(ext)")
+    })
     ActionUIModel.shared.registerActionHandler(for: openActionID) { _, windowUUID, viewID, _, _ in
         MainActor.assumeIsolated {
             guard let row = ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: viewID) as? [String],
@@ -126,6 +140,15 @@ MainActor.assumeIsolated {
         if windowUUID == openName, !app.showsDocument(windowUUID) {
             print("ActionUIDemo: \(windowUUID).json could not be loaded")
             status = 65
+        }
+        if windowUUID == openName, let actionArgument {
+            // Once the window is on screen, from the element whose action it is, as a click on it would.
+            DispatchQueue.main.async {
+                let source = ActionUISwift.getElementInfo(windowUUID: windowUUID).keys.sorted().first { id in
+                    ActionUISwift.getElementProperty(windowUUID: windowUUID, viewID: id, propertyName: "actionID") as? String == actionArgument
+                }
+                ActionUIModel.shared.actionHandler(actionArgument, windowUUID: windowUUID, viewID: source ?? 0, viewPartID: 0, context: nil)
+            }
         }
         guard let screenshotPath, windowUUID == screenshotWindow else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + screenshotDelay) {

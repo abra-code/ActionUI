@@ -457,12 +457,22 @@ Package(
             dependencies: ["ActionUI", "CAdwaita"],
             path: "ActionUIAdwaita/Viewer"
         ),
-        // The Linux counterpart of ActionUISwiftTestApp: a launcher of the test app's documents, shipped
-        // as ActionUIDemo.app (Scripts/make-linux-demo-bundle.sh).
+        // The Swift adapter without its SwiftUI views (ActionUISwift+SwiftUI.swift), for Swift programs.
+        .target(
+            name: "ActionUISwiftAdapter",
+            dependencies: ["ActionUI"],
+            path: "ActionUISwiftAdapter",
+            exclude: ["ActionUISwift+SwiftUI.swift", "ActionUISwiftAdapter.docc"]
+        ),
+        // The Linux counterpart of ActionUISwiftTestApp: a launcher of the test app's documents, with the
+        // test app's own action handlers (ActionUISwiftTestApp/DemoHandlers.swift), shipped as
+        // ActionUIDemo.app (Scripts/make-linux-demo-bundle.sh).
         .executableTarget(
             name: "ActionUIAdwaitaDemo",
-            dependencies: ["ActionUI", "CAdwaita"],
-            path: "ActionUIAdwaita/Demo"
+            dependencies: ["ActionUI", "CAdwaita", "ActionUISwiftAdapter"],
+            path: ".",
+            exclude: excludingAllBut(["ActionUIAdwaita/Demo", "ActionUISwiftTestApp/DemoHandlers.swift"]),
+            sources: ["ActionUIAdwaita/Demo", "ActionUISwiftTestApp/DemoHandlers.swift"]
         ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(

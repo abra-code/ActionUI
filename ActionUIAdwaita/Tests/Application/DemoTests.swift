@@ -1,8 +1,8 @@
 // Tests/Application/DemoTests.swift
 /*
  Tests for ActionUIDemo (the ActionUIAdwaitaDemo program), run as the program it is, with the test
- app's documents: the launcher and a document opened at launch are saved as screenshots; a document
- that cannot be loaded fails the run; an unknown document, no documents, and bad arguments stop it
+ app's documents: the launcher and a document opened at launch are saved as screenshots; an action
+ fired at launch runs the test app's handler; a document that cannot be loaded fails the run; an unknown document, no documents, and bad arguments stop it
  with an error.
 */
 
@@ -71,6 +71,13 @@ final class DemoTests: XCTestCase {
         let button = screenshotPath("button")
         XCTAssertEqual(try runDemo(["--resources", resources, "--open", "Button", "--screenshot", button]), 0)
         XCTAssertTrue(FileManager.default.fileExists(atPath: button))
+        // The test app's handler fills the list: the window differs from the one without the action
+        // (the screenshots of one window are the same file from run to run).
+        let emptyList = screenshotPath("list-empty")
+        XCTAssertEqual(try runDemo(["--resources", resources, "--open", "List", "--screenshot", emptyList]), 0)
+        let list = screenshotPath("list")
+        XCTAssertEqual(try runDemo(["--resources", resources, "--open", "List", "--action", "list.demo.load", "--screenshot", list]), 0)
+        XCTAssertNotEqual(FileManager.default.contents(atPath: list), FileManager.default.contents(atPath: emptyList), "list.demo.load changed nothing")
     }
 
     func testADocumentThatCannotBeLoadedFailsTheRun() throws {
@@ -86,5 +93,6 @@ final class DemoTests: XCTestCase {
         XCTAssertEqual(try runDemo(["--resources", NSTemporaryDirectory() + "actionui-demo-empty-\(ProcessInfo.processInfo.processIdentifier)"]), 66)
         XCTAssertEqual(try runDemo(["--open"]), 64)
         XCTAssertEqual(try runDemo(["--frobnicate"]), 64)
+        XCTAssertEqual(try runDemo(["--action", "list.demo.load"]), 64, "an action needs a document")
     }
 }
