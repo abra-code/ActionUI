@@ -23,6 +23,7 @@ extension ActionUIRegistry {
         "Form": Form.self,
         "Gauge": Gauge.self,
         "Group": Group.self,
+        "Grid": Grid.self,
         "GroupBox": GroupBox.self,
         "HStack": HStack.self,
         "Image": Image.self,

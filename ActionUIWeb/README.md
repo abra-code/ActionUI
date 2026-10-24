@@ -220,6 +220,17 @@ space differently from SwiftUI's stacks:
   and an unframed Color in it is not drawn in a vertical ScrollView and fills the rest of a
   horizontal one, where SwiftUI makes it 10 long (`scrollview-vertical-content`,
   `scrollview-vertical-expanding-content`, `scrollview-horizontal-content`).
+- **A Grid's flexible cells collapse.** SwiftUI shares a Grid's width among its columns and its
+  height among its rows as a stack shares its length, and a flexible cell (a Color without a
+  frame) fills its column and row; a Grid with one shares its parent stack like a Color. On the
+  web the Grid's tracks are sized by their content, so such a cell is not drawn, the other cells
+  sit closer together, and the Grid takes only its fixed cells' size in a stack
+  (`grid-flexible-cell`, `grid-flexible-lines`, `grid-in-hstack-shares`). A Spacer or a Divider
+  in a Grid is such a cell (`grid-spacer-column-last`, `grid-spacer-row-last`,
+  `grid-spacer-explicit-spacing`, `grid-spacer-mixed-lines`, `grid-divider-in-row`). An EmptyView
+  also keeps a cell, and a row of only EmptyViews a row and its spacing, where SwiftUI gives it
+  none (`grid-emptyview-takes-no-cell`, `grid-emptyview-row-takes-no-row`). Grids of fixed-size
+  cells match.
 - **A non-uniform scale with a rotation** scales before it rotates (CSS's order for the
   independent `rotate` and `scale` properties), where SwiftUI rotates first. Each alone, and a
   uniform scale with a rotation, match.

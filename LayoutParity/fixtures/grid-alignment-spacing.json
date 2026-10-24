@@ -1,0 +1,4 @@
+{"type": "Grid", "id": 1, "properties": {"alignment": "topLeading", "horizontalSpacing": 10, "verticalSpacing": 20, "frame": {"width": 400, "height": 300}}, "rows": [
+  [{"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"width": 50, "height": 20}}}, {"type": "Color", "id": 3, "properties": {"color": "#00FF00", "frame": {"width": 100, "height": 40}}}],
+  [{"type": "Color", "id": 4, "properties": {"color": "#0000FF", "frame": {"width": 80, "height": 30}}}, {"type": "Color", "id": 5, "properties": {"color": "#FFFF00", "frame": {"width": 30, "height": 10}}}]
+]}

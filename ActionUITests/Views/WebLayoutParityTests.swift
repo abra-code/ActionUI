@@ -101,6 +101,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// - baseline: an HStack on firstTextBaseline aligns CSS baselines, and CSS gives a box without text a baseline from its content or edge where SwiftUI lines it up by its bottom (an expanding child, a framed child, a stack without text)
     /// - padding: a view's own CSS padding is a floor under its flex share (flex-basis 0 cannot go below it), so ContentUnavailableView takes 316 of 600 where SwiftUI shares 300 and 300
     /// - form: a Form fills its parent's width with its rows at the leading edge, where macOS's hugs its rows and is centered like a VStack; its rows sit 4 lower beside a filling row; no label column
+    /// - grid: a Grid's tracks are sized by their content, so a flexible cell (an unframed Color) is not drawn and the Grid does not share its stack, where SwiftUI shares the Grid's size among its columns and rows like a stack and the flexible cell fills its column and row; a Spacer or Divider in a Grid is such a cell, and an EmptyView keeps a cell (and a row of only EmptyViews a row and its spacing), where SwiftUI gives it none
     /// - group: a Group's padding or frame goes on one box around the whole Group, which lays its children out in a column, where SwiftUI applies them to each child in the parent stack
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     /// - scrollview: a ScrollView's share along its axis grows with its content, its content is not offered the ScrollView's size across the axis, and an unframed Color in it collapses (vertical) or fills the rest (horizontal), where SwiftUI shares the axis like a Color, sizes across to the content, and gives the content its ideal length
@@ -117,6 +118,16 @@ final class WebLayoutParityTests: XCTestCase {
         "form-text-row-spacing": "form",
         "form-title-on-content-bottom": "form",
         "form-titled-rows-on-baselines": "form",
+        "grid-divider-in-row": "grid",
+        "grid-emptyview-row-takes-no-row": "grid",
+        "grid-emptyview-takes-no-cell": "grid",
+        "grid-flexible-cell": "grid",
+        "grid-flexible-lines": "grid",
+        "grid-in-hstack-shares": "grid",
+        "grid-spacer-column-last": "grid",
+        "grid-spacer-explicit-spacing": "grid",
+        "grid-spacer-mixed-lines": "grid",
+        "grid-spacer-row-last": "grid",
         "group-frame-per-child": "group",
         "group-padding-per-child": "group",
         "hstack-baseline-expanding": "baseline",

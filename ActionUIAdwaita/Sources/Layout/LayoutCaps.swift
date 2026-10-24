@@ -14,6 +14,7 @@
    above the other (GroupBox.cap).
  - A ScrollView: unbounded along its scroll axes, its content's largest size across them
    (ScrollLayout.cap).
+ - A Grid: its columns' (or rows') largest sizes plus the spacing (GridLayout.cap).
  - An element widget with a SizeLimit: that size (ContentUnavailableView is at most 400 points
    wide, as SwiftUI measures it).
  - A child's largest size is its cap where it expands and its natural size where it does not.
@@ -66,6 +67,9 @@ enum LayoutCaps {
         }
         if let scroll = attached(on: widget, key: scrollConfigurationKey) {
             return ScrollLayout.cap(scroll, orientation, forSize: forSize)
+        }
+        if attached(on: widget, key: gridConfigurationKey) != nil {
+            return GridLayout.cap(widget, orientation, forSize: forSize)
         }
         return nil
     }

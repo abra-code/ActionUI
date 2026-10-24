@@ -1,0 +1,1 @@
+{"type": "Grid", "id": 1, "properties": {"frame": {"width": 400, "height": 300}}, "rows": [[{"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"width": 50, "height": 20}}}, {"type": "Divider", "id": 3}, {"type": "Color", "id": 4, "properties": {"color": "#00FF00", "frame": {"width": 30, "height": 10}}}]]}
