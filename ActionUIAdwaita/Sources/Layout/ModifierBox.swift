@@ -134,6 +134,9 @@ enum ModifierBox {
         applyAccessibility(widget, node, modifiers)
 
         Gtk.Widget(widget).isSensitive = modifiers.disabled != true
+        // On the control itself, which GTK activates: a switch toggle's switch, not the box that
+        // holds it beside its title.
+        ViewShortcut.apply(modifiers.keyboardShortcut, to: node.renderer.accessibleWidget(widget))
         let help = modifiers.help.flatMap { $0.isEmpty ? nil : $0 }
         if swiftString(gtk_widget_get_tooltip_text(widget)) != help {
             gtk_widget_set_tooltip_text(widget, help)

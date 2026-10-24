@@ -326,13 +326,18 @@ final class AppCommands {
     /// Ctrl (Linux has no Command key), option is Alt; modifiers missing are Ctrl, an empty list
     /// none. nil for a missing or unknown key.
     static func accelerator(_ shortcut: [String: Any]) -> String? {
-        guard let key = shortcut["key"] as? String, let keyName = keyName(key) else { return nil }
-        let modifiers = shortcut["modifiers"] as? [String] ?? ["command"]
-        let lowered = Set(modifiers.map { $0.lowercased() })
-        var control = lowered.contains("command") || lowered.contains("control")
-        let alt = lowered.contains("option")
-        let shift = lowered.contains("shift")
-        // A list of names none of which is known keeps the default, as on macOS: not the bare key.
+        guard let key = shortcut["key"] as? String else { return nil }
+        return accelerator(key: key, modifiers: ModifierParsing.keyboardShortcutModifiers(shortcut["modifiers"]))
+    }
+
+    /// The accelerator of `key` with `modifiers` as Core resolves them (BaseModifiers'
+    /// keyboardShortcut: an empty set is the bare key). Caps Lock alone, which GTK cannot hold down
+    /// as a modifier, keeps the default: not the bare key.
+    static func accelerator(key: String, modifiers: Set<BaseModifiers.ModifierKey>) -> String? {
+        guard let keyName = keyName(key) else { return nil }
+        var control = modifiers.contains(.command) || modifiers.contains(.control)
+        let alt = modifiers.contains(.option)
+        let shift = modifiers.contains(.shift)
         if !modifiers.isEmpty && !control && !alt && !shift { control = true }
         return (control ? "<Control>" : "") + (alt ? "<Alt>" : "") + (shift ? "<Shift>" : "") + keyName
     }
@@ -352,6 +357,7 @@ final class AppCommands {
         case "rightarrow": return "Right"
         case "home": return "Home"
         case "end": return "End"
+        case "clear": return "Clear"
         case "pageup": return "Page_Up"
         case "pagedown": return "Page_Down"
         case let name where name.count >= 2 && name.hasPrefix("f") && Int(name.dropFirst()).map({ (1...12).contains($0) }) == true:
