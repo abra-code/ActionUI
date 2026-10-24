@@ -73,6 +73,18 @@ final class RenderNode {
     /// (set before the first sync): a NavigationStack there takes the window's or the dialog's place
     /// for a header bar.
     var isWindowRoot = false
+    /// True for the node whose header bar carries the window's primary menu (AppCommands) because
+    /// the window shows none of its own: a NavigationStack or NavigationSplitView that is a window's
+    /// document, and from a split view the column carrying the menu when that is a
+    /// NavigationStack. The application sets it on a window's document after the first sync, so a
+    /// change syncs the node again.
+    var showsPrimaryMenu = false {
+        didSet {
+            if showsPrimaryMenu != oldValue {
+                SyncScheduler.shared.markDirty(self)
+            }
+        }
+    }
 
     var windowUUID: String { windowModel.windowUUID }
 

@@ -361,6 +361,9 @@ public final class AdwaitaApplication {
             renderTree?.root?.screenBar = ScreenBar(header: header, toolbarView: toolbar)
             // Measured in the window, where the header bar has its style.
             headerHeight = Int32(clamping: Gtk.Widget(header).measure(GTK_ORIENTATION_VERTICAL).natural)
+        } else {
+            // The document's own header bars carry the primary menu.
+            renderTree?.root?.showsPrimaryMenu = true
         }
         let monitor = monitorSize()
         let (minimum, natural) = contentSizes(content, widthCap: monitor.width)

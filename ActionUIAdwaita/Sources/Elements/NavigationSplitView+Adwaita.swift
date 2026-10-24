@@ -5,8 +5,9 @@
  split views). Every column has its own header bar, the GNOME way, titled by its element's
  navigationTitle (the detail's, when it has none, shows the window's title); libadwaita keeps the
  window's buttons at the window's edges. A split view that is the window's whole document takes
- the window's place for a header bar, as a NavigationStack does. A column that is itself a
- NavigationStack brings its own header bars, so the column shows none.
+ the window's place for a header bar, as a NavigationStack does, its sidebar's carrying the primary
+ menu (the application's commands), the detail's while the sidebar is hidden. A column that is
+ itself a NavigationStack brings its own header bars, so the column shows none.
 
  - states["columnVisibility"], as on Apple: "all" and "automatic" show every column, "doubleColumn"
    hides the sidebar (in two columns it shows both), "detail" shows the detail alone. A toggle at
@@ -58,11 +59,24 @@ final class SplitViewParts {
     let content: SplitViewColumn?
     let detail = SplitViewColumn()
     let sidebarToggle: WidgetPointer
+    /// The window's primary menu buttons at the end of the sidebar's and the detail's header bars:
+    /// the sidebar's shown when the split view carries the menu (RenderNode.showsPrimaryMenu),
+    /// where GNOME apps show it, the detail's instead while the sidebar is hidden, so the menu
+    /// stays within reach.
+    let primaryMenu: WidgetPointer
+    let detailMenu: WidgetPointer
 
     init(outer: OpaquePointer, inner: OpaquePointer?) {
         self.outer = outer
         self.inner = inner
         content = inner == nil ? nil : SplitViewColumn()
+        // Packed before the column's toolbar items, so it stays outermost.
+        primaryMenu = AppCommands.shared.makeMenuButton()
+        gtk_widget_set_visible(primaryMenu, 0)
+        adw_header_bar_pack_end(OpaquePointer(sidebar.header), primaryMenu)
+        detailMenu = AppCommands.shared.makeMenuButton()
+        gtk_widget_set_visible(detailMenu, 0)
+        adw_header_bar_pack_end(OpaquePointer(detail.header), detailMenu)
         sidebarToggle = gtk_toggle_button_new()!
         gtk_button_set_icon_name(typed(sidebarToggle), "sidebar-show-symbolic")
         setAccessibleLabel(sidebarToggle, "Sidebar")
@@ -139,6 +153,11 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
             let column = columns[index].column
             // A column that is a NavigationStack brings its own header bars, as the window's would.
             child.isWindowRoot = node.isWindowRoot && AdwaitaWindow.headerBarTypes.contains(child.element.type)
+            // A column with header bars of its own carries the primary menu itself: the sidebar, or
+            // the detail while the sidebar is hidden.
+            let menuColumn = showsSidebar ? parts.sidebar : parts.detail
+            child.showsPrimaryMenu = node.showsPrimaryMenu && column === menuColumn
+                && AdwaitaWindow.headerBarTypes.contains(child.element.type)
             // The toolbars of the views in a column show in its header bar, unless the column brings
             // its own bars; the title is set below, principal items in its place.
             if child.screenBar == nil, !AdwaitaWindow.headerBarTypes.contains(child.element.type) {
@@ -170,6 +189,11 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
         if let sidebar, let child = node.childNodes[sidebar.id] {
             setWidth(parts.outer, BaseModifiers(child.properties).columnWidth)
         }
+        let carriesMenu = { (column: (any ActionUIElementBase)?) in
+            node.showsPrimaryMenu && !(column.map { AdwaitaWindow.headerBarTypes.contains($0.type) } ?? true)
+        }
+        Gtk.Widget(parts.primaryMenu).isVisible = showsSidebar && carriesMenu(sidebar)
+        Gtk.Widget(parts.detailMenu).isVisible = !showsSidebar && carriesMenu(detail)
         if let content, let inner = parts.inner, let child = node.childNodes[content.id] {
             setWidth(inner, BaseModifiers(child.properties).columnWidth)
         }

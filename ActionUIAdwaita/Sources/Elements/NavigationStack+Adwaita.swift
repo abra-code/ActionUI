@@ -4,7 +4,8 @@
  a page of its own. Every page has its own header bar, the GNOME way, with the page's title (its
  element's navigationTitle; the root's falls back to the stack's own, then the window's) and a
  back button. A stack that is the window's whole document takes the window's place for a header
- bar (AdwaitaApplication shows none of its own), so its header bars carry the window's buttons.
+ bar (AdwaitaApplication shows none of its own), so its header bars carry the window's buttons, and
+ its root page's the primary menu (the application's commands).
 
  What is pushed, as on Apple (NavigationStack+SwiftUI.swift):
  - states["navigationPath"], [Int]: the destinations pushed, by id, from "destinations". Writing it
@@ -47,6 +48,9 @@ final class NavigationStackState {
     let rootToolbar: OpaquePointer
     /// The root page's header bar.
     let rootHeader: WidgetPointer
+    /// The window's primary menu button at the end of the root page's header bar, shown when the
+    /// stack carries it (RenderNode.showsPrimaryMenu), as GNOME apps show it on their main page.
+    let primaryMenu: WidgetPointer
     /// The screens above the root, in order.
     var entries: [NavigationEntry] = []
     /// The page of each pushed screen, by its element's id, with its toolbar view and header bar.
@@ -54,11 +58,13 @@ final class NavigationStackState {
     /// The header bars, which show the window's buttons only on the window's own stack.
     var headerBars: [WidgetPointer] = []
 
-    init(view: OpaquePointer, rootPage: consuming OwnedObject, rootToolbar: OpaquePointer, rootHeader: WidgetPointer) {
+    init(view: OpaquePointer, rootPage: consuming OwnedObject, rootToolbar: OpaquePointer, rootHeader: WidgetPointer,
+         primaryMenu: WidgetPointer) {
         self.view = view
         self.rootPage = rootPage
         self.rootToolbar = rootToolbar
         self.rootHeader = rootHeader
+        self.primaryMenu = primaryMenu
     }
 
     /// The destination ids of the entries: what the path should hold.
@@ -91,8 +97,13 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
         gtk_widget_set_hexpand(view, 1)
         gtk_widget_set_vexpand(view, 1)
         let (rootToolbar, rootHeader) = makePageToolbar()
+        // Packed before the page's toolbar items, so it stays outermost.
+        let primaryMenu = AppCommands.shared.makeMenuButton()
+        gtk_widget_set_visible(primaryMenu, 0)
+        adw_header_bar_pack_end(OpaquePointer(rootHeader), primaryMenu)
         let rootPage = OwnedObject(retaining: UnsafeMutableRawPointer(adw_navigation_page_new(rootToolbar, "")!))
-        let state = NavigationStackState(view: OpaquePointer(view), rootPage: rootPage, rootToolbar: OpaquePointer(rootToolbar), rootHeader: rootHeader)
+        let state = NavigationStackState(view: OpaquePointer(view), rootPage: rootPage, rootToolbar: OpaquePointer(rootToolbar), rootHeader: rootHeader,
+                                         primaryMenu: primaryMenu)
         state.headerBars.append(rootHeader)
         adw_navigation_view_add(OpaquePointer(view), state.rootPage.typed())
         attach(state, to: view, key: navigationStackStateKey)
@@ -197,6 +208,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
             guard let page = state.pages[entry.element.id], let child = node.childNodes[entry.element.id] else { continue }
             setTitle(page.page.typed(), nonEmpty(BaseModifiers(child.properties).navigationTitle) ?? nonEmpty(entry.linkTitle) ?? rootTitle)
         }
+        Gtk.Widget(state.primaryMenu).isVisible = node.showsPrimaryMenu
         // The window's buttons on the stack's header bars only when the stack is the window's document.
         for header in state.headerBars where adw_header_bar_get_show_end_title_buttons(OpaquePointer(header)) != (node.isWindowRoot ? 1 : 0) {
             adw_header_bar_set_show_end_title_buttons(OpaquePointer(header), node.isWindowRoot ? 1 : 0)
