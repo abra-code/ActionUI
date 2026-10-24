@@ -63,16 +63,12 @@ final class ListState {
     /// The list's environment when the rows were last updated: the rows are not child nodes, so
     /// the list's sync does not pass a changed environment on to them.
     var rowEnvironment = Environment()
-    /// True from a click in the list until the main loop runs after the click ends, and from a key
-    /// press until the main loop runs after it: a selection made then is the user's. GTK also
-    /// selects the row focus moves onto (the first one when the window gives the list its first
-    /// focus); that one is not.
-    var userInput = false
-    /// Counts the presses: the end of an earlier one does not end a later one.
-    var inputSerial = 0
+    /// Whether a selection is the user's: GTK also selects the row focus moves onto.
+    let input: UserInputWatch
 
     init(box: WidgetPointer) {
         self.box = box
+        input = UserInputWatch(watching: box)
     }
 }
 
@@ -101,7 +97,6 @@ extension List: ActionUIAdwaitaRenderer {
         }
         let state = ListState(box: box)
         attach(state, to: scroller, key: listStateKey)
-        watchUserInput(box, state)
         connectUserSignal(box, "row-selected", .instanceAndArgument) { [weak node] in
             guard let node else { return }
             userSelected(node, state)
@@ -248,7 +243,7 @@ extension List: ActionUIAdwaitaRenderer {
     /// An Image cell: the text read as itemType.dataInterpretation says (ImageSource, as SwiftUI's
     /// cell reads it), shown as Image shows it unresized: a symbol at the font's icon size, a file
     /// at its own size; at the leading edge.
-    private static func imageCell(_ text: String, _ interpretation: Props.DataInterpretation) -> WidgetPointer {
+    static func imageCell(_ text: String, _ interpretation: Props.DataInterpretation) -> WidgetPointer {
         let content = Image.content(ImageSource.resolve(text, interpretation: interpretation.rawValue, lookup: Image.lookup))
         let widget: WidgetPointer
         if case .file(let path) = content {
@@ -399,7 +394,7 @@ extension List: ActionUIAdwaitaRenderer {
     }
 
     private static func userSelected(_ node: RenderNode, _ state: ListState) {
-        guard state.userInput else {
+        guard state.input.isActive else {
             // GTK's selection of a focused row, not the user's: show the model's again.
             UpdateGuard.applying { select(state, position: modelPosition(node, state)) }
             return
@@ -541,45 +536,6 @@ extension List: ActionUIAdwaitaRenderer {
 }
 
 extension List {
-    /// Marks the list's clicks and key presses (seen in the capture phase, before the list handles
-    /// them) as the user's: a click until the main loop runs after its gesture ends (released or
-    /// canceled; "stopped" also comes while the button is down: the double-click timer, a press
-    /// away from the last click, a small drag), a key press until the main loop runs after it (the
-    /// list selects while handling the press; a key that moves focus out sends its release
-    /// elsewhere).
-    fileprivate static func watchUserInput(_ box: WidgetPointer, _ state: ListState) {
-        let click = gtk_gesture_click_new()!
-        gtk_gesture_single_set_button(click, 0)
-        gtk_event_controller_set_propagation_phase(click, GTK_PHASE_CAPTURE)
-        connectSignal(UnsafeMutableRawPointer(click), "pressed", .press) { [weak state] in beginUserInput(state) }
-        connectSignal(UnsafeMutableRawPointer(click), "end", .instanceAndArgument) { [weak state] in endUserInput(state) }
-        gtk_widget_add_controller(box, click)
-        let keys = gtk_event_controller_key_new()!
-        gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE)
-        connectKeyPressed(UnsafeMutableRawPointer(keys)) { [weak state] _ in
-            beginUserInput(state)
-            endUserInput(state)
-            return false
-        }
-        gtk_widget_add_controller(box, keys)
-    }
-
-    fileprivate static func beginUserInput(_ state: ListState?) {
-        guard let state else { return }
-        state.userInput = true
-        state.inputSerial &+= 1
-    }
-
-    /// After the event's handlers (the list selects on a click's release) have run, unless another
-    /// press came first.
-    fileprivate static func endUserInput(_ state: ListState?) {
-        guard let serial = state?.inputSerial else { return }
-        runAfter(milliseconds: 0) { [weak state] in
-            guard let state, state.inputSerial == serial else { return }
-            state.userInput = false
-        }
-    }
-
     /// The position among the rows of the model's selection.
     fileprivate static func modelPosition(_ node: RenderNode, _ state: ListState) -> Int? {
         switch state.mode {

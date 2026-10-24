@@ -126,7 +126,7 @@ extension Table: ActionUISwiftUIRenderer {
                             TableToggleCell(
                                 isOn: TemplateHelper.rowBool(value) ?? false,
                                 style: toggleStyle,
-                                isDisabled: disabledColumn.map { $0 <= row.values.count && TemplateHelper.rowBool(row.values[$0 - 1]) == true } ?? false
+                                isDisabled: Table.isCellDisabled(disabledColumn: disabledColumn, row: row.values)
                             ) { newValue in
                                 Table.commitCellToggle(
                                     newValue, drawnRow: row.values,
@@ -191,30 +191,6 @@ extension Table: ActionUISwiftUIRenderer {
         #else
         return SwiftUI.EmptyView()
         #endif
-    }
-    
-    /// A user toggle of a Toggle cell: writes "true" or "false" into that cell of the rows
-    /// (the selection follows its row), then fires the column's `actionID` with the column
-    /// as `viewPartID` and the row index as context, the Button cell's "rowIndex" convention.
-    /// Returns whether the toggle was taken (false when the row is gone).
-    @discardableResult
-    static func commitCellToggle(
-        _ isOn: Bool,
-        drawnRow: [String],
-        rowIndex: Int,
-        column: Int,
-        actionID: String?,
-        windowUUID: String,
-        viewID: Int
-    ) -> Bool {
-        guard let index = TemplateHelper.writeRowCell(
-            windowUUID: windowUUID, containerID: viewID, drawnRow: drawnRow,
-            rowIndex: rowIndex, column: column, text: TemplateHelper.rowBoolText(isOn)
-        ) else { return false }
-        if let actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: column, context: index)
-        }
-        return true
     }
 
     /// The Table's selection binding, by row id ("row-<index>") into `rowData`, the rows this

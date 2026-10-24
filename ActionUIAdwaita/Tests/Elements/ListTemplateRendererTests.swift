@@ -85,7 +85,7 @@ final class ListTemplateRendererTests: XCTestCase {
         let node = try render(textTemplate)
         setRows([["Apple", "a"], ["Cherry", "c"]])
         let state = try state(node)
-        state.userInput = true
+        state.input.isActive = true
         let box = OpaquePointer(state.box)
         gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, 1)))
         AdwaitaTestHost.drainMainLoop()

@@ -130,6 +130,23 @@ func connectKeyPressed(_ controller: UnsafeMutableRawPointer, _ run: @escaping @
     connectBox(controller, "key-pressed", unsafeBitCast(keyPressedTrampoline, to: GCallback.self), run as KeyPressRun)
 }
 
+private typealias PositionRun = @MainActor (guint) -> Void
+
+/// For signals whose handler takes (instance, position, user data), the position a guint in an
+/// integer register: GtkColumnView's and GtkListView's "activate".
+private let positionTrampoline: @convention(c) (gpointer?, guint, gpointer?) -> Void = { _, position, data in
+    guard let data else { return }
+    let box: CallbackBox<PositionRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run(position) }
+}
+
+/// Connects `run` to a signal whose handler takes a position in a list model (see
+/// positionTrampoline).
+@MainActor @discardableResult
+func connectPosition(_ instance: UnsafeMutableRawPointer, _ signal: String, _ run: @escaping @MainActor (guint) -> Void) -> gulong {
+    connectBox(instance, signal, unsafeBitCast(positionTrampoline, to: GCallback.self), run as PositionRun)
+}
+
 private typealias PointRun = @MainActor (Double, Double) -> Void
 
 /// For signals whose handler takes (instance, x, y, user data): a drag gesture's "drag-begin",

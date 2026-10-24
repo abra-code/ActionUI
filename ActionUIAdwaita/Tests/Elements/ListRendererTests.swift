@@ -77,7 +77,7 @@ final class ListRendererTests: XCTestCase {
     /// Selects the row at `position` as the user's click would (its press marks user input).
     private func click(_ node: RenderNode, _ position: Int32) throws {
         let box = try box(node)
-        try XCTUnwrap(attached(on: node.widget, key: listStateKey)).userInput = true
+        try XCTUnwrap(attached(on: node.widget, key: listStateKey)).input.isActive = true
         gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, position)))
         AdwaitaTestHost.drainMainLoop()
     }
@@ -143,7 +143,7 @@ final class ListRendererTests: XCTestCase {
         setRows([["Apple"], ["Cherry"]])
         // Return on a row reached with Tab: GTK selects it and activates it in the same press.
         let box = try box(node)
-        try XCTUnwrap(attached(on: node.widget, key: listStateKey)).userInput = true
+        try XCTUnwrap(attached(on: node.widget, key: listStateKey)).input.isActive = true
         let row = try XCTUnwrap(gtk_list_box_get_row_at_index(box, 1))
         gtk_list_box_select_row(box, row)
         activate(box, row)
