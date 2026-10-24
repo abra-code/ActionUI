@@ -14,7 +14,7 @@ extension LazyHStack: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let props = Props(node.properties)
         StackLayout.configure(widget, spacing: props.spacing, alignment: stackAlignment(props.alignment))
-        syncContainerChildren(node, widget, node.subviews("children"))
+        syncContainerContent(node, widget)
     }
 
     static func stackAlignment(_ alignment: Props.Alignment) -> StackSolver.Alignment {

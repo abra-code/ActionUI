@@ -1,6 +1,7 @@
 // Sources/Elements/ZStack+Adwaita.swift
 /*
- ZStack on GTK: a container laid out by ZStackLayout, its children layered in order.
+ ZStack on GTK: a container laid out by ZStackLayout, its children (or one template instance
+ per content row, as VStack's) layered in order.
 */
 
 import CAdwaita
@@ -14,7 +15,7 @@ extension ZStack: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         let alignment = alignments(props.alignment)
         ZStackLayout.configure(widget, horizontal: alignment.horizontal, vertical: alignment.vertical)
-        syncContainerChildren(node, widget, node.subviews("children"))
+        syncContainerContent(node, widget)
     }
 
     static func alignments(_ alignment: Props.Alignment) -> (horizontal: StackSolver.Alignment, vertical: StackSolver.Alignment) {

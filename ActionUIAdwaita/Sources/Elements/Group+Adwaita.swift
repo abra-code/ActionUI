@@ -19,7 +19,8 @@
  - In an HSplitView or VSplitView each child box is a pane of its own, as on macOS (SplitLayout).
  - Elsewhere (a window's root, inside another Group's child box) the Group lays its children out
    as a VStack with no spacing. A Group in a Group is not laid out as the outer stack's children.
- - The template form shows no rows yet, as on GroupBox.
+ - The template form shows one child per content row (setElementRows): the template shown with
+   the row's data, as on Apple (syncContent).
 */
 
 import CAdwaita
@@ -36,8 +37,6 @@ final class GroupChildBoxMarker {}
 
 let groupChildBoxMarkerKey = AttachKey<GroupChildBoxMarker>("actionui-group-child-box")
 
-@MainActor private var reportedTemplate = false
-
 extension Group: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let widget = StackLayout.makeStack(axis: .vertical)
@@ -47,19 +46,15 @@ extension Group: ActionUIAdwaitaRenderer {
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         syncChildBoxes(widget, node, after: nil)
-        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
-            reportedTemplate = true
-            ActionUIModel.shared.logger.log("Group: the template form shows no rows on Linux yet", .warning)
-        }
     }
 
-    /// Puts the boxes of `node`'s children in child boxes of `widget`, in order after `first` (a
-    /// Section's header box; nil: from the start), and applies the element's box modifiers to each
-    /// (Section shares it).
+    /// Puts the boxes of what `node` shows (its children, or its template instances) in child boxes
+    /// of `widget`, in order after `first` (a Section's header box; nil: from the start), and applies
+    /// the element's box modifiers to each (Section shares it).
     static func syncChildBoxes(_ widget: WidgetPointer, _ node: RenderNode, after first: WidgetPointer?) {
         let modifiers = BaseModifiers(node.properties)
         var previous = first
-        node.syncChildren(node.subviews("children"), insert: { child, _ in
+        syncContent(node, rowsOwner: widget, insert: { child, _ in
             let box = childBox(of: child, in: widget) ?? makeChildBox(child)
             // Already in place: nothing to do (gtk_widget_insert_after would still relayout).
             if gtk_widget_get_parent(box) != widget || gtk_widget_get_prev_sibling(box) != previous {

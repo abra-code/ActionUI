@@ -9,12 +9,10 @@
  The element widget is a group for assistive technologies, named after the title, which is read once
  (the visible title label has the presentation role).
 
- Not yet: the template form (rows from setElementRows) shows no rows; logged once.
+ The template form shows one template instance per content row (setElementRows) as the content.
 */
 
 import CAdwaita
-
-@MainActor private var reportedTemplate = false
 
 /// Attached to a GroupBox's widget: LayoutCaps finds how far the GroupBox expands through it.
 @MainActor
@@ -51,11 +49,7 @@ extension GroupBox: ActionUIAdwaitaRenderer {
         let text = Props(node.properties).title ?? ""
         Gtk.Label(title).text = text
         Gtk.Widget(title).isVisible = !text.isEmpty
-        syncContainerChildren(node, content, node.subviews("children"))
-        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
-            reportedTemplate = true
-            ActionUIModel.shared.logger.log("GroupBox: the template form shows no rows on Linux yet", .warning)
-        }
+        syncContainerContent(node, content)
     }
 
     /// Named after its title, as a group.

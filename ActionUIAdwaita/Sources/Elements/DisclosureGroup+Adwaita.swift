@@ -15,7 +15,8 @@
  - Assistive technologies read the GtkExpander as a button with its expanded state, named after
    the title: GTK names it from its content, which takes in the children while expanded.
 
- Not yet: template mode (rows from states["content"]); templates come with the collections.
+ - The template form shows one template instance per content row (setElementRows) as the
+   children.
 */
 
 import CAdwaita
@@ -50,7 +51,7 @@ extension DisclosureGroup: ActionUIAdwaitaRenderer {
         // SwiftUI's default spacing: 8 points between the children, none next to a Spacer (measured
         // on macOS 27).
         StackLayout.configure(column, spacing: nil, alignment: .center)
-        syncContainerChildren(node, column, node.subviews("children"))
+        syncContainerContent(node, column)
     }
 
     /// Named after its title, not its content (GTK's name for a button), which includes the

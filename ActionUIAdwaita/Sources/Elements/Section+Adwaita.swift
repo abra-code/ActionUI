@@ -8,12 +8,10 @@
 
  The header is a label in a child box of the Section's, hidden without a header (it then takes no
  place). Elsewhere than in a stack the Section is a VStack with no spacing, the header first.
- The template form shows no rows yet, as on Group.
+ The template form shows one row per content row after the header, as on Group.
 */
 
 import CAdwaita
-
-@MainActor private var reportedTemplate = false
 
 extension Section: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
@@ -35,10 +33,6 @@ extension Section: ActionUIAdwaitaRenderer {
         Gtk.Widget(header).isVisible = !text.isEmpty
         ModifierBox.applyBoxModifiers(box, BaseModifiers(node.properties))
         Group.syncChildBoxes(widget, node, after: box)
-        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
-            reportedTemplate = true
-            ActionUIModel.shared.logger.log("Section: the template form shows no rows on Linux yet", .warning)
-        }
     }
 
     static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers {

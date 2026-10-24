@@ -71,6 +71,49 @@ nonisolated(unsafe) private var containerParentWidgetClass: UnsafeMutablePointer
     return widget
 }
 
+/// Makes `container`'s children the boxes of what `node` shows (syncContent): its children, or one
+/// template instance per content row.
+@MainActor func syncContainerContent(_ node: RenderNode, _ container: WidgetPointer) {
+    var previous: WidgetPointer?
+    syncContent(node, rowsOwner: container, insert: { child, _ in
+        let widget: WidgetPointer = child.outerWidget
+        if gtk_widget_get_parent(widget) != container || gtk_widget_get_prev_sibling(widget) != previous {
+            gtk_widget_insert_after(widget, container, previous)
+        }
+        previous = widget
+    }, remove: { child in
+        gtk_widget_unparent(child.outerWidget)
+    })
+}
+
+private let templateRowsKey = AttachKey<TemplateRows>("actionui-template-rows")
+
+/// Syncs what a container shows: with a template, one instance per content row (setElementRows;
+/// the template shown with the row's data, as on Apple), kept in a TemplateRows attached to
+/// `rowsOwner`; else its children. `insert` is called for every node shown, in order (also for
+/// one already in place, which may have moved); `remove` takes a gone node's box out.
+@MainActor func syncContent(_ node: RenderNode, rowsOwner: WidgetPointer,
+                            insert: (RenderNode, Int) -> Void, remove: (RenderNode) -> Void) {
+    guard let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase else {
+        attached(on: rowsOwner, key: templateRowsKey)?.removeAll(remove: remove)
+        node.syncChildren(node.subviews("children"), insert: insert, remove: remove)
+        return
+    }
+    node.syncChildren([], insert: { _, _ in }, remove: remove)
+    let rows: TemplateRows
+    if let existing = attached(on: rowsOwner, key: templateRowsKey) {
+        rows = existing
+    } else {
+        rows = TemplateRows()
+        attach(rows, to: rowsOwner, key: templateRowsKey)
+    }
+    rows.sync(node, template: template, rows: node.model.states["content"] as? [[String]] ?? [],
+              insert: { _, _ in }, remove: remove)
+    for (index, instance) in rows.nodes.enumerated() {
+        insert(instance, index)
+    }
+}
+
 /// Makes `container`'s children the boxes of `elements`' nodes, in order: new ones are added,
 /// moved ones moved, removed ones taken out.
 @MainActor func syncContainerChildren(_ node: RenderNode, _ container: WidgetPointer,
