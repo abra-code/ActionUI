@@ -55,6 +55,9 @@ final class RenderNode {
     private(set) var presentations: NodePresentations?
     /// The toolbar the element declares, shown in its screen's header bar; nil when it declares none.
     private(set) var toolbar: NodeToolbar?
+    /// True when NodeAppearance watches the box for the element's onAppearActionID and
+    /// onDisappearActionID.
+    private var watchesAppearance = false
     /// The persistent toolbar of the navigation container this node is a screen of, set by the
     /// container before the node's first sync (NodeToolbar.persistent(on:items:)).
     var persistentToolbar: NodeToolbar? {
@@ -127,6 +130,7 @@ final class RenderNode {
         ownedOuterWidget = OwnedObject(retaining: ModifierBox.wrap(widget))
         presentations = NodePresentations.make(for: self)
         toolbar = NodeToolbar.make(for: self)
+        watchesAppearance = NodeAppearance.watch(self)
     }
 
     isolated deinit {
@@ -291,6 +295,10 @@ final class RenderNode {
 
     /// Marks this node and its descendants as out of the tree.
     func detach() {
+        // Once: a closing window's tree is detached again when it is released.
+        if isAttached && watchesAppearance {
+            NodeAppearance.left(self)
+        }
         isAttached = false
         presentations?.detach()
         toolbar?.detach()
