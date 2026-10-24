@@ -8,7 +8,7 @@
  Children: one row per child; selectable with an actionID (the child's id as value and context),
  not without, its content at the leading edge. A selection GTK makes when focus enters (not the
  user's) is undone. Styles: separated rows by default, navigation-sidebar for sidebar, boxed-list
- for the iOS styles.
+ for the iOS styles (row metrics and styling: ListRowStyleRendererTests).
  (Its size against SwiftUI is in the layout parity fixtures list-in-hstack-shares and
  list-in-vstack-shares.)
 */
@@ -326,12 +326,11 @@ final class ListRendererTests: XCTestCase {
     func testStylesMapToListBoxLooks() throws {
         let node = try render(rowsList)
         let box: WidgetPointer = typed(try box(node))
-        XCTAssertTrue(Gtk.Widget(box).hasCSSClass("actionui-list"))
         XCTAssertNotEqual(gtk_list_box_get_show_separators(OpaquePointer(box)), 0)
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "listStyle", value: "sidebar")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertTrue(Gtk.Widget(box).hasCSSClass("navigation-sidebar"))
-        XCTAssertFalse(Gtk.Widget(box).hasCSSClass("actionui-list"))
+        XCTAssertEqual(gtk_list_box_get_show_separators(OpaquePointer(box)), 0)
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "listStyle", value: "insetGrouped")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertTrue(Gtk.Widget(box).hasCSSClass("boxed-list"))

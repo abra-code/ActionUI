@@ -20,11 +20,15 @@
    row whose data or place changes is made again; the others keep their widgets.
 
  The value selects its row when a host sets it; a rows change keeps the selection on its row
- (Core). Styles: automatic, inset and plain show rows separated by lines, as macOS draws them;
+ (Core). Styles: automatic, inset and plain show rows separated by lines (none below the last
+ row), as macOS draws them;
  sidebar uses libadwaita's navigation-sidebar; grouped and insetGrouped its boxed-list cards.
+ Row styling applies to the rows of every form, as on macOS (rowMetrics): listRowBackground fills
+ a row that is not selected; listRowSeparator hidden takes the lines away, visible shows them in
+ the sidebar too; listRowSeparatorTint colors them; listRowInsets sets the space around a row's
+ content.
 
- Not yet: AsyncImage cells (shown as text: Linux has no AsyncImage yet), the row styling
- properties; logged once each.
+ Not yet: AsyncImage cells (shown as text: Linux has no AsyncImage yet), logged once.
  onRefreshActionID does nothing (pull to refresh; desktops have none). A template row whose data
  changes is made again, so a control in it loses keyboard focus after a toggle (SwiftUI keeps rows
  by index).
@@ -33,7 +37,6 @@
 import CAdwaita
 
 @MainActor private var reportedViewType = false
-@MainActor private var reportedRowStyling = false
 
 /// A List's rows as last shown, attached to its scrolled window: the signal handlers map a row
 /// back to its content row or child.
@@ -76,17 +79,11 @@ final class ListState {
 let listStateKey = AttachKey<ListState>("actionui-list")
 
 extension List: ActionUIAdwaitaRenderer {
-    /// macOS's list rows: a line of body text 4 points from the row's top and bottom, 8 points
-    /// in from the row's edges inside a list inset by 8. An Image cell's symbol is Image's
-    /// medium size.
-    static let rowRules = """
-        list.actionui-list { padding: 4px 8px; }
-        list.actionui-list > row { padding: 4px 8px; min-height: 16px; }
-        image.actionui-list-icon { -gtk-icon-size: 1.1em; }
-        """
+    /// An Image cell's symbol: Image's medium size.
+    static let cellRules = "image.actionui-list-icon { -gtk-icon-size: 1.1em; }"
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        StyleSheet.shared.installFixedRules("actionui-list", rowRules)
+        StyleSheet.shared.installFixedRules("actionui-list", cellRules)
         let scroller = gtk_scrolled_window_new()!
         gtk_scrolled_window_set_policy(OpaquePointer(scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC)
         gtk_widget_set_hexpand(scroller, 1)
@@ -112,7 +109,7 @@ extension List: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         guard let state = attached(on: widget, key: listStateKey) else { return }
         let props = Props(node.properties)
-        applyStyle(state.box, props.listStyle)
+        applyStyle(state.box, props)
         reportGaps(node, props)
 
         let children = node.subviews("children")
@@ -400,17 +397,78 @@ extension List: ActionUIAdwaitaRenderer {
 
     // MARK: Style
 
-    private static func applyStyle(_ box: WidgetPointer, _ style: Props.ListStyle?) {
+    /// The style's look and the row styling. The rules are generated per look and aimed at the
+    /// list's rows; they are the application's, so they win over libadwaita's list styles.
+    private static func applyStyle(_ box: WidgetPointer, _ props: Props) {
         let widget = Gtk.Widget(box)
+        let style = props.listStyle
         let sidebar = style == .sidebar
         let cards = style == .grouped || style == .insetGrouped
-        widget.setCSSClass("actionui-list", !sidebar && !cards)
+        let plain = !sidebar && !cards
         widget.setCSSClass("navigation-sidebar", sidebar)
         widget.setCSSClass("boxed-list", cards)
-        let separators: gboolean = !sidebar && !cards ? 1 : 0
-        if gtk_list_box_get_show_separators(OpaquePointer(box)) != separators {
-            gtk_list_box_set_show_separators(OpaquePointer(box), separators)
+        let separators: Bool
+        switch props.rowSeparator {
+        case .hidden?: separators = false
+        case .visible?: separators = !cards // the cards draw their own lines
+        case .automatic?, nil: separators = plain
         }
+        let showSeparators: gboolean = separators ? 1 : 0
+        if gtk_list_box_get_show_separators(OpaquePointer(box)) != showSeparators {
+            gtk_list_box_set_show_separators(OpaquePointer(box), showSeparators)
+        }
+
+        let sheet = StyleSheet.shared
+        // listRowBackground: a selected row shows the selection instead.
+        let background = props.rowBackground.flatMap(ColorSpec.parse).map(ColorCSS.value)
+        sheet.apply(background.map { ["background-color: \($0);"] } ?? [], to: box, slot: "rowBackground",
+                    selector: "{} > row:not(:selected)")
+        var lines: [String] = []
+        if props.rowSeparator == .hidden {
+            lines.append("border-bottom-width: 0;") // the cards' lines
+        }
+        if let tint = props.rowSeparatorTint.flatMap(ColorSpec.parse) {
+            lines.append("border-bottom-color: \(ColorCSS.value(tint));")
+        }
+        sheet.apply(lines, to: box, slot: "rowLines", selector: "{} > row")
+        // No line below the last row, as on macOS (GTK draws one below every row).
+        sheet.apply(["border-bottom-width: 0;"], to: box, slot: "lastRowLine", selector: "{} > row:last-child")
+        let metrics = rowMetrics(plain: plain, background: background != nil, insets: props.rowInsets)
+        sheet.apply(metrics.list, to: box, slot: "listPadding")
+        sheet.apply(metrics.row, to: box, slot: "rowPadding", selector: "{} > row")
+    }
+
+    /// The list's padding and its rows' padding and minimum height, as CSS declarations. The plain
+    /// styles draw macOS's rows: 24 points tall at least, the text 4 points from the row's top and
+    /// bottom and 16 from the list's sides (8 of the list, 8 of the row; all 16 of the row when it
+    /// has a background, which fills the row's width, as on macOS). listRowInsets replaces the 4
+    /// points above and below, and adds its leading and trailing to the 16 (measured on macOS 27).
+    /// The other styles keep libadwaita's rows unless listRowInsets is set. Leading is the left side
+    /// (no right-to-left yet).
+    static func rowMetrics(plain: Bool, background: Bool, insets: Props.RowInsets?) -> (list: [String], row: [String]) {
+        let edges: (top: Double, leading: Double, bottom: Double, trailing: Double)?
+        switch insets {
+        case .uniform(let n)?: edges = (n, n, n, n)
+        case .edges(let top, let leading, let bottom, let trailing)?: edges = (top, leading, bottom, trailing)
+        case nil: edges = nil
+        }
+        guard plain || edges != nil else { return ([], []) }
+        let inset = edges ?? (4, 0, 4, 0)
+        let listSide: Double = plain && !background ? 8 : 0
+        let rowSide = (plain ? 16 : 8) - listSide
+        let list = plain ? ["padding: 4px \(css(listSide));"] : []
+        var row = ["padding: \(css(inset.top)) \(css(rowSide + inset.trailing)) \(css(inset.bottom)) \(css(rowSide + inset.leading));"]
+        if plain {
+            row.append("min-height: \(css(max(0, 24 - inset.top - inset.bottom)));")
+        }
+        return (list, row)
+    }
+
+    /// A length in pixels, to a tenth; negative lengths and NaN are 0, huge ones 100000 (Int(1e20)
+    /// traps, and "\(1e-7)" is "1e-07", which CSS refuses).
+    private static func css(_ length: Double) -> String {
+        let tenths = Int((min(max(0, length), 100_000) * 10).rounded())
+        return tenths % 10 == 0 ? "\(tenths / 10)px" : "\(tenths / 10).\(tenths % 10)px"
     }
 
     private static func removeAllRows(_ state: ListState, _ node: RenderNode) {
@@ -439,10 +497,6 @@ extension List: ActionUIAdwaitaRenderer {
         if !reportedViewType, props.viewType == .asyncImage {
             reportedViewType = true
             logger.log("List: AsyncImage cells are shown as text on Linux for now", .warning)
-        }
-        if !reportedRowStyling, props.hasRowModifiers {
-            reportedRowStyling = true
-            logger.log("List: row styling (listRowBackground, listRowSeparator, listRowInsets) is not applied on Linux yet", .warning)
         }
     }
 }

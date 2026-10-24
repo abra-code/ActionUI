@@ -7,7 +7,9 @@
  A widget's classes are kept per slot ("background", "font", ...): applying a slot again replaces
  that slot's classes, so a property change swaps a class instead of adding one. A slot can also
  hold named classes, such as libadwaita's "title-1" or "card". The order between generated
- classes is not defined, so two slots never set the same property on one widget.
+ classes is not defined, so two slots never set the same property on one widget to different
+ values. A rule can also aim at parts of the widget with the class, such as a list's rows
+ ("{} > row").
 
  The sheet stays small and cheap to change, also while a color is dragged through
  setElementValue (one new look per frame):
@@ -43,9 +45,19 @@ final class StyleSheet {
     static let rulesPerProvider = 64
 
     private struct Rule {
+        /// The selector, "{}" standing for the class.
+        let selector: String
         let body: String
         let group: Int
         var users = 0
+
+        var key: String { Self.key(selector, body) }
+
+        static func key(_ selector: String, _ body: String) -> String { "\(selector) { \(body) }" }
+
+        func text(_ name: String) -> String {
+            "\(selector.replacing("{}", with: ".\(name)")) { \(body) }"
+        }
     }
 
     private struct Group {
@@ -55,34 +67,37 @@ final class StyleSheet {
         var installed = false
     }
 
-    private var nameForBody: [String: String] = [:]
+    private var nameForRule: [String: String] = [:]
     private var rules: [String: Rule] = [:]
     private var groups: [Group] = []
     private var nextNumber = 1
 
     /// The generated class for these CSS declarations ("color: red;"), adding its rule the first
-    /// time; nil for none. A rule no widget slot uses is dropped once one has used it.
-    func className(for declarations: [String]) -> String? {
+    /// time; nil for none. The rule's selector is `selector` with "{}" standing for the class: the
+    /// class itself by default, or parts of the widget, such as "{} > row" for a list's rows. A
+    /// rule no widget slot uses is dropped once one has used it.
+    func className(for declarations: [String], selector: String = "{}") -> String? {
         guard !declarations.isEmpty else { return nil }
         let body = declarations.joined(separator: " ")
-        if let existing = nameForBody[body] {
+        if let existing = nameForRule[Rule.key(selector, body)] {
             return existing
         }
         let name = "aui-\(nextNumber)"
         nextNumber += 1
         let group = groupWithRoom()
-        nameForBody[body] = name
-        rules[name] = Rule(body: body, group: group)
+        let rule = Rule(selector: selector, body: body, group: group)
+        nameForRule[rule.key] = name
+        rules[name] = rule
         groups[group].names.append(name)
         reload(group)
         return name
     }
 
     /// Gives `widget` the classes for `declarations` and `named` in `slot`, in place of the
-    /// slot's previous ones.
-    func apply(_ declarations: [String], named: [String] = [], to widget: WidgetPointer, slot: String) {
+    /// slot's previous ones. The generated class's rule has `selector` (see className(for:)).
+    func apply(_ declarations: [String], named: [String] = [], to widget: WidgetPointer, slot: String, selector: String = "{}") {
         var wanted = named
-        if let generated = className(for: declarations) {
+        if let generated = className(for: declarations, selector: selector) {
             wanted.append(generated)
         }
         let slots: StyleSlots
@@ -114,7 +129,7 @@ final class StyleSheet {
 
     /// The CSS rules in use (for tests).
     var css: String {
-        groups.flatMap { $0.names }.compactMap { name in rules[name].map { ".\(name) { \($0.body) }" } }
+        groups.flatMap { $0.names }.compactMap { name in rules[name].map { $0.text(name) } }
             .joined(separator: "\n")
     }
 
@@ -136,7 +151,7 @@ final class StyleSheet {
             return
         }
         rules[name] = nil
-        nameForBody[rule.body] = nil
+        nameForRule[rule.key] = nil
         groups[rule.group].names.removeAll { $0 == name }
         reload(rule.group)
     }
@@ -174,7 +189,7 @@ final class StyleSheet {
                                                        guint(GTK_STYLE_PROVIDER_PRIORITY_APPLICATION))
             groups[group].installed = true
         }
-        let text = groups[group].names.compactMap { name in rules[name].map { ".\(name) { \($0.body) }" } }
+        let text = groups[group].names.compactMap { name in rules[name].map { $0.text(name) } }
             .joined(separator: "\n")
         gtk_css_provider_load_from_string(typed(groups[group].provider), text)
     }
