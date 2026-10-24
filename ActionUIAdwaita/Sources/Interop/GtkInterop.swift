@@ -147,6 +147,24 @@ func connectPosition(_ instance: UnsafeMutableRawPointer, _ signal: String, _ ru
     connectBox(instance, signal, unsafeBitCast(positionTrampoline, to: GCallback.self), run as PositionRun)
 }
 
+private typealias ClickRun = @MainActor (Int, Double, Double) -> Void
+
+/// For a click gesture's "pressed" and "released" with what they carry: (instance, press count,
+/// x, y, user data), the count and the user data in integer registers, the point in
+/// floating-point ones.
+private let clickTrampoline: @convention(c) (gpointer?, gint, gdouble, gdouble, gpointer?) -> Void = { _, count, x, y, data in
+    guard let data else { return }
+    let box: CallbackBox<ClickRun> = callbackBox(data)
+    MainActor.assumeIsolated { box.run(Int(count), x, y) }
+}
+
+/// Connects `run` to a click gesture's "pressed" or "released", with the press count and the
+/// point in the gesture's widget.
+@MainActor @discardableResult
+func connectClick(_ gesture: UnsafeMutableRawPointer, _ signal: String, _ run: @escaping @MainActor (Int, Double, Double) -> Void) -> gulong {
+    connectBox(gesture, signal, unsafeBitCast(clickTrampoline, to: GCallback.self), run as ClickRun)
+}
+
 private typealias PointRun = @MainActor (Double, Double) -> Void
 
 /// For signals whose handler takes (instance, x, y, user data): a drag gesture's "drag-begin",
