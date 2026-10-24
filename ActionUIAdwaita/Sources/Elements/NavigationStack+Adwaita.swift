@@ -18,7 +18,9 @@
 
  The pages follow the path: a path that grows by one pushes (animated), one that shrinks pops back
  (animated), anything else replaces the stack. The toolbars of the views on a page show in its
- header bar (ScreenBar, NodeToolbar); persistentToolbar is not shown yet.
+ header bar (ScreenBar, NodeToolbar); the stack's persistentToolbar (and its toolbar, the deprecated
+ alias) shows on every page, at the outer edge of the bar, after a split view's when the stack is its
+ detail.
 */
 
 #if canImport(FoundationEssentials)
@@ -150,7 +152,13 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
 
         var children: [any ActionUIElementBase] = content.map { [$0] } ?? []
         children += state.entries.map(\.element)
+        // The items every screen shows: a split view's when the stack is its detail, then the stack's
+        // own persistent toolbar (the outer container's first, as on Apple and Android).
+        let persistent = NavigationSplitView.detailPersistentItems(node) + ToolbarHelper.persistentToolbarItems(of: element)
         node.syncChildren(children, insert: { child, index in
+            if child.persistentToolbar == nil {
+                child.persistentToolbar = NodeToolbar.persistent(on: child, items: persistent)
+            }
             if child.element.id == content?.id {
                 // The toolbars of the views on a page show in its header bar.
                 if child.screenBar == nil {

@@ -9,7 +9,9 @@
  Each view's items are a contribution, kept in the order the views first contributed: the leading
  items in a box at the start of the bar, the trailing ones in a box at its end, the principal ones
  in place of the title. A slot with no items takes no room; without principal items the bar shows
- its title again.
+ its title again. A navigation container's persistent items are an outer contribution: at the outer
+ edge of the bar, before the leading items and after the trailing ones, as ToolbarHelper orders
+ them against the screen's own.
 */
 
 import CAdwaita
@@ -24,8 +26,9 @@ final class ScreenBar {
     private let start: OwnedObject
     private let end: OwnedObject
     private let principal: OwnedObject
-    /// Each contributing view's items by slot, in the order the views first contributed.
-    private var contributions: [(owner: ObjectIdentifier, items: [Slot: [WidgetPointer]])] = []
+    /// Each contributing view's items by slot, in the order the views first contributed, and whether
+    /// they go at the outer edge.
+    private var contributions: [(owner: ObjectIdentifier, outer: Bool, items: [Slot: [WidgetPointer]])] = []
     /// Called when the principal items come or go, instead of setting the header bar's title widget:
     /// for a header bar whose title widget a renderer sets itself (a split view column's).
     private let principalChanged: (() -> Void)?
@@ -64,8 +67,9 @@ final class ScreenBar {
         Gtk.Widget(box(slot)).children.map(\.pointer)
     }
 
-    /// Shows `items` as `owner`'s contribution, replacing its earlier one.
-    func set(owner: AnyObject, items: [(slot: Slot, widget: WidgetPointer)]) {
+    /// Shows `items` as `owner`'s contribution, replacing its earlier one; `outer` puts them at the
+    /// outer edge of the bar.
+    func set(owner: AnyObject, items: [(slot: Slot, widget: WidgetPointer)], outer: Bool = false) {
         var bySlot: [Slot: [WidgetPointer]] = [:]
         for item in items {
             bySlot[item.slot, default: []].append(item.widget)
@@ -76,7 +80,7 @@ final class ScreenBar {
             contributions[index].items = bySlot
         } else {
             guard !items.isEmpty else { return }
-            contributions.append((id, bySlot))
+            contributions.append((id, outer, bySlot))
         }
         show()
     }
@@ -96,7 +100,9 @@ final class ScreenBar {
         let hadPrincipal = principalWidget != nil
         for slot in Slot.allCases {
             let box = self.box(slot)
-            let wanted = contributions.flatMap { $0.items[slot] ?? [] }
+            let inner = contributions.filter { !$0.outer }.flatMap { $0.items[slot] ?? [] }
+            let outer = contributions.filter(\.outer).flatMap { $0.items[slot] ?? [] }
+            let wanted = slot == .leading ? outer + inner : inner + outer
             let current = Gtk.Widget(box).children.map(\.pointer)
             guard current != wanted else { continue }
             for child in current {

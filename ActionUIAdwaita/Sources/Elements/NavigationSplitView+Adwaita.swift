@@ -20,10 +20,12 @@
    without one it shows "detail". A host's write of the state switches the detail.
 
  - The toolbars of the views in a column show in its header bar (ScreenBar, NodeToolbar); principal
-   items take the place of the column's title.
+   items take the place of the column's title. persistentToolbar (and toolbar, its deprecated alias)
+   shows on the detail column, at the outer edge of its bar; a detail that is a NavigationStack
+   shows it on each of its pages (detailPersistentItems).
 
  Not here yet: style (balanced and prominentDetail look the same), collapsing into one column in a
- narrow window, persistentToolbar.
+ narrow window (where the persistent items would show on the leading columns too).
 */
 
 import CAdwaita
@@ -143,6 +145,11 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
                 child.screenBar = ScreenBar(header: column.header, principalChanged: { [weak node] in
                     if let node { SyncScheduler.shared.markDirty(node) }
                 })
+                // The persistent items show on the detail column (a detail NavigationStack shows them
+                // on its pages itself), as on platforms whose columns each own a bar.
+                if column === parts.detail, child.persistentToolbar == nil {
+                    child.persistentToolbar = NodeToolbar.persistent(on: child, items: ToolbarHelper.persistentToolbarItems(of: element))
+                }
             }
             if adw_toolbar_view_get_content(OpaquePointer(column.toolbar)) != child.outerWidget {
                 adw_toolbar_view_set_content(OpaquePointer(column.toolbar), child.outerWidget)
@@ -242,6 +249,15 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
         if let actionID = Props(node.properties).valueChangeActionID {
             ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
         }
+    }
+
+    /// The persistent toolbar items of the split view whose detail column `stack` (a NavigationStack)
+    /// is, which the stack shows on its pages; none when it is not a split view's detail.
+    static func detailPersistentItems(_ stack: RenderNode) -> [any ActionUIElementBase] {
+        guard let split = stack.parent, split.element.type == "NavigationSplitView",
+              let parts = attached(on: split.widget, key: splitViewPartsKey),
+              adw_toolbar_view_get_content(OpaquePointer(parts.detail.toolbar)) == stack.outerWidget else { return [] }
+        return ToolbarHelper.persistentToolbarItems(of: split.element)
     }
 
     /// Whether `list` is the sidebar of a split view with destinations: its children can be chosen

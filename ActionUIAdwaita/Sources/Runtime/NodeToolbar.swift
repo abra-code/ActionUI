@@ -14,8 +14,9 @@
 
  The contents are nodes of the view's (made like its children, not among them), so they inherit
  its environment. A navigation container's own toolbar is its persistent toolbar
- (ToolbarHelper.screenToolbarItems), not shown yet. A view with no screen above it (a popover)
- shows no toolbar.
+ (ToolbarHelper.screenToolbarItems leaves it out): the container gives each of its screens a
+ NodeToolbar of its persistent items (persistent(on:items:)), shown at the outer edge of the
+ screen's bar. A view with no screen above it (a popover) shows no toolbar.
 */
 
 import CAdwaita
@@ -23,6 +24,10 @@ import CAdwaita
 @MainActor
 final class NodeToolbar {
     private weak var node: RenderNode?
+    /// The ToolbarItem and ToolbarItemGroup elements shown.
+    private let items: [any ActionUIElementBase]
+    /// Whether the items go at the outer edge of the bar (a navigation container's persistent ones).
+    private let outer: Bool
     /// The content nodes, by element id.
     private var itemNodes: [Int: RenderNode] = [:]
     private weak var bar: ScreenBar?
@@ -38,11 +43,20 @@ final class NodeToolbar {
 
     /// A node's toolbar, or nil when its element declares none.
     static func make(for node: RenderNode) -> NodeToolbar? {
-        ToolbarHelper.screenToolbarItems(of: node.element).isEmpty ? nil : NodeToolbar(node)
+        let items = ToolbarHelper.screenToolbarItems(of: node.element)
+        return items.isEmpty ? nil : NodeToolbar(node, items: items, outer: false)
     }
 
-    private init(_ node: RenderNode) {
+    /// A navigation container's persistent items (ToolbarHelper.persistentToolbarItems) on the
+    /// screen whose root is `node`, at the outer edge of its bar; nil for none.
+    static func persistent(on node: RenderNode, items: [any ActionUIElementBase]) -> NodeToolbar? {
+        items.isEmpty ? nil : NodeToolbar(node, items: items, outer: true)
+    }
+
+    private init(_ node: RenderNode, items: [any ActionUIElementBase], outer: Bool) {
         self.node = node
+        self.items = items
+        self.outer = outer
         Self.live[ObjectIdentifier(self)] = WeakToolbar(self)
     }
 
@@ -71,9 +85,9 @@ final class NodeToolbar {
     /// sync after it, as new children do.
     func update() {
         guard let node else { return }
-        var items: [(slot: ScreenBar.Slot, widget: WidgetPointer)] = []
+        var shown: [(slot: ScreenBar.Slot, widget: WidgetPointer)] = []
         var kept: [Int: RenderNode] = [:]
-        for item in ToolbarHelper.screenToolbarItems(of: node.element) {
+        for item in self.items {
             let placement = ToolbarHelper.placementName(current: node.windowModel.viewModels[item.id]?.properties,
                                                         element: item.properties)
             guard let slot = Self.slot(placement) else { continue }
@@ -86,7 +100,7 @@ final class NodeToolbar {
             for content in contents where kept[content.id] == nil {
                 let contentNode = itemNodes[content.id] ?? node.auxiliaryNode(for: content)
                 kept[content.id] = contentNode
-                items.append((slot, contentNode.outerWidget))
+                shown.append((slot, contentNode.outerWidget))
             }
         }
         let gone = itemNodes.filter { kept[$0.key] == nil }
@@ -96,7 +110,7 @@ final class NodeToolbar {
             self.bar?.remove(owner: self)
             self.bar = bar
         }
-        bar?.set(owner: self, items: items)
+        bar?.set(owner: self, items: shown, outer: outer)
         // After the bar let their boxes go.
         for node in gone.values {
             if gtk_widget_get_parent(node.outerWidget) != nil {

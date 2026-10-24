@@ -55,6 +55,15 @@ final class RenderNode {
     private(set) var presentations: NodePresentations?
     /// The toolbar the element declares, shown in its screen's header bar; nil when it declares none.
     private(set) var toolbar: NodeToolbar?
+    /// The persistent toolbar of the navigation container this node is a screen of, set by the
+    /// container before the node's first sync (NodeToolbar.persistent(on:items:)).
+    var persistentToolbar: NodeToolbar? {
+        didSet {
+            guard persistentToolbar !== oldValue else { return }
+            oldValue?.detach()
+            SyncScheduler.shared.markDirty(self)
+        }
+    }
     /// The header bar of the screen this node is the root of (a page's, a column's, a window's), set
     /// by whoever made the bar. Setting it shows the toolbars of the nodes below in it.
     var screenBar: ScreenBar? {
@@ -132,6 +141,7 @@ final class RenderNode {
                 }
                 renderer.update(widget, self)
                 toolbar?.update()
+                persistentToolbar?.update()
                 ModifierBox.update(outerWidget, self, renderer.boxModifiers(modifiers))
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
@@ -148,7 +158,7 @@ final class RenderNode {
         // A set: a linear search per child is quadratic in a wide container's first sync.
         if environment != previousEnvironment {
             let new = Set(created.map(ObjectIdentifier.init))
-            for child in Array(childNodes.values) + (toolbar?.nodes ?? []) where !new.contains(ObjectIdentifier(child)) {
+            for child in Array(childNodes.values) + (toolbar?.nodes ?? []) + (persistentToolbar?.nodes ?? []) where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
             }
         }
@@ -272,6 +282,7 @@ final class RenderNode {
         isAttached = false
         presentations?.detach()
         toolbar?.detach()
+        persistentToolbar?.detach()
         for child in childNodes.values {
             child.detach()
         }

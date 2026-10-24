@@ -5,7 +5,8 @@
  split view column's (principal items in place of the column's title), the window's once it has
  one. The leading, principal and trailing placements; a ToolbarItemGroup's children in order; a
  changed placement moves the item; items leave the bar with their view; a navigation container's
- own toolbar is not a screen toolbar.
+ persistent items on every screen it shows, at the outer edge of the bar, the outer container's
+ first.
 */
 
 import XCTest
@@ -41,6 +42,9 @@ final class ToolbarRendererTests: XCTestCase {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         renderTree = tree
+        if let gtkWindow {
+            gtk_window_destroy(gtkWindow)
+        }
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
         gtkWindow = window
         adw_window_set_content(typed(window), tree.contentWidget)
@@ -56,13 +60,14 @@ final class ToolbarRendererTests: XCTestCase {
         return bar.widgets(slot).compactMap { widget in Self.node(showing: widget, from: root)?.element.id }
     }
 
-    /// The node whose box is `widget`, among `root`'s descendants and their toolbar items.
+    /// The node whose box is `widget`, among `root`'s descendants and their toolbar and persistent
+    /// toolbar items.
     private static func node(showing widget: WidgetPointer, from root: RenderNode) -> RenderNode? {
         if root.outerWidget == widget { return root }
         for child in root.childNodes.values {
             if let found = node(showing: widget, from: child) { return found }
         }
-        return root.toolbar?.itemNode(showing: widget)
+        return root.toolbar?.itemNode(showing: widget) ?? root.persistentToolbar?.itemNode(showing: widget)
     }
 
     private static func button(_ id: Int) -> String {
@@ -71,7 +76,7 @@ final class ToolbarRendererTests: XCTestCase {
 
     private static let stack = #"""
         {"type": "NavigationStack", "id": 1, "toolbar": [
-            {"type": "ToolbarItem", "id": 90, "content": \#(button(91))}],
+            {"type": "ToolbarItem", "id": 90, "properties": {"placement": "topBarLeading"}, "content": \#(button(91))}],
          "content": {"type": "VStack", "id": 2, "properties": {"navigationTitle": "Inbox"}, "toolbar": [
             {"type": "ToolbarItem", "id": 10, "properties": {"placement": "topBarLeading"}, "content": \#(button(11))},
             {"type": "ToolbarItemGroup", "id": 12, "properties": {"placement": "topBarTrailing"}, "children": [\#(button(13)), \#(button(14))]},
@@ -87,12 +92,11 @@ final class ToolbarRendererTests: XCTestCase {
         let stack = try present(Self.stack)
         let content = try XCTUnwrap(stack.childNodes[2])
         let bar = try XCTUnwrap(content.screenBar)
-        XCTAssertEqual(ids(bar, .leading, in: stack), [11])
+        XCTAssertEqual(ids(bar, .leading, in: stack), [91, 11], "the stack's toolbar is its persistent toolbar, at the outer edge")
         XCTAssertEqual(ids(bar, .trailing, in: stack), [13, 14, 31], "a group's children in order, then the view below's items")
         XCTAssertEqual(ids(bar, .principal, in: stack), [16])
         let state = try XCTUnwrap(attached(on: stack.widget, key: navigationStackStateKey))
         XCTAssertTrue(adw_header_bar_get_title_widget(OpaquePointer(state.rootHeader)) == bar.principalWidget, "principal items replace the title")
-        XCTAssertFalse(ids(bar, .trailing, in: stack).contains(91), "the stack's own toolbar is its persistent toolbar, not a screen's")
     }
 
     func testAPushedPagesItemsShowInItsBarAndLeaveWithIt() throws {
@@ -102,9 +106,11 @@ final class ToolbarRendererTests: XCTestCase {
         let detail = try XCTUnwrap(stack.childNodes[5])
         let bar = try XCTUnwrap(detail.screenBar)
         XCTAssertEqual(ids(bar, .trailing, in: stack), [51])
+        XCTAssertEqual(ids(bar, .leading, in: stack), [91], "the persistent items on every page")
         XCTAssertTrue(ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 1, key: "navigationPath", value: [Int]()))
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(bar.widgets(.trailing), [], "the screen left the tree, its items the bar")
+        XCTAssertEqual(bar.widgets(.leading), [], "and its persistent items")
     }
 
     func testAChangedPlacementMovesTheItem() throws {
@@ -112,7 +118,7 @@ final class ToolbarRendererTests: XCTestCase {
         let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "placement", value: "primaryAction")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(ids(bar, .leading, in: stack), [])
+        XCTAssertEqual(ids(bar, .leading, in: stack), [91])
         XCTAssertEqual(ids(bar, .trailing, in: stack), [11, 13, 14, 31])
     }
 
@@ -122,7 +128,7 @@ final class ToolbarRendererTests: XCTestCase {
         let state = try XCTUnwrap(attached(on: stack.widget, key: navigationStackStateKey))
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 15, propertyName: "placement", value: "topBarLeading")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(ids(bar, .leading, in: stack), [11, 16])
+        XCTAssertEqual(ids(bar, .leading, in: stack), [91, 11, 16])
         XCTAssertNil(bar.principalWidget)
         XCTAssertNil(adw_header_bar_get_title_widget(OpaquePointer(state.rootHeader)), "without principal items the bar shows its title again")
 
@@ -132,7 +138,7 @@ final class ToolbarRendererTests: XCTestCase {
         let endBox = try XCTUnwrap(detailBar.widgets(.trailing).first.flatMap { gtk_widget_get_parent($0) })
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 50, propertyName: "placement", value: "cancellationAction")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(ids(detailBar, .leading, in: stack), [51])
+        XCTAssertEqual(ids(detailBar, .leading, in: stack), [91, 51])
         XCTAssertEqual(gtk_widget_get_visible(endBox), 0, "an empty slot takes no room")
     }
 
@@ -200,6 +206,33 @@ final class ToolbarRendererTests: XCTestCase {
         XCTAssertTrue(adw_header_bar_get_title_widget(OpaquePointer(parts.detail.header)) == bar.principalWidget)
         XCTAssertNotNil(bar.principalWidget)
         XCTAssertTrue(adw_header_bar_get_title_widget(OpaquePointer(parts.sidebar.header)) == parts.sidebar.title, "the sidebar keeps its title")
+    }
+
+    func testTrailingPersistentItemsFollowTheScreensOwn() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "persistentToolbar": [{"type": "ToolbarItem", "id": 90, "content": \#(Self.button(91))}],
+             "content": {"type": "VStack", "id": 2, "toolbar": [{"type": "ToolbarItem", "id": 10, "content": \#(Self.button(11))}]}}
+            """#)
+        XCTAssertEqual(ids(stack.childNodes[2]?.screenBar, .trailing, in: stack), [11, 91])
+    }
+
+    func testASplitViewsPersistentItemsShowOnTheDetailOrOnItsStacksPages() throws {
+        let plain = try present(#"""
+            {"type": "NavigationSplitView", "id": 1, "persistentToolbar": [{"type": "ToolbarItem", "id": 90, "content": \#(Self.button(91))}],
+             "sidebar": {"type": "VStack", "id": 2}, "detail": {"type": "VStack", "id": 3}}
+            """#)
+        XCTAssertEqual(ids(plain.childNodes[3]?.screenBar, .trailing, in: plain), [91])
+        XCTAssertEqual(try XCTUnwrap(plain.childNodes[2]?.screenBar).widgets(.trailing), [], "not on the sidebar")
+        renderTree?.detach()
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        let split = try present(#"""
+            {"type": "NavigationSplitView", "id": 1, "persistentToolbar": [{"type": "ToolbarItem", "id": 90, "content": \#(Self.button(91))}],
+             "sidebar": {"type": "VStack", "id": 2},
+             "detail": {"type": "NavigationStack", "id": 4, "persistentToolbar": [{"type": "ToolbarItem", "id": 80, "content": \#(Self.button(81))}],
+               "content": {"type": "VStack", "id": 5}}}
+            """#)
+        let stack = try XCTUnwrap(split.childNodes[4])
+        XCTAssertEqual(ids(stack.childNodes[5]?.screenBar, .trailing, in: split), [91, 81], "the split view's, then the stack's own, as on Apple")
     }
 
     func testPlacementsMapToSlots() {
