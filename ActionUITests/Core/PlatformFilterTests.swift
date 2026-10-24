@@ -205,8 +205,8 @@ final class PlatformFilterTests: XCTestCase {
     }
 
     func testFilterRecursesIntoArrays() throws {
-        // Child element with only :ios type ends up as {} on Android — the
-        // renderer's empty-type guard skips it. Filter does not drop array entries.
+        // Child element with only :ios type ends up as {} on Android: loading skips an element
+        // with no type (ElementSlot; the Android and Web renderers likewise). Filter does not drop array entries.
         let input = #"{"children":[{"type":"Text"},{"type:ios":"Button"}]}"#
         XCTAssertEqual(
             try filterJSON(android, input),

@@ -125,13 +125,15 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         // navigation container rather than to one screen: its items stay in the bar on every
         // screen inside that container (see NavigationStack / NavigationSplitView).
         for key in ["children", "destinations", "toolbar", "persistentToolbar", "contextMenu", "swipeActions"] {
-            if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: ElementCodingKeys(rawValue: key)!) {
+            if let slots = try container.decodeIfPresent([ElementSlot].self, forKey: ElementCodingKeys(rawValue: key)!) {
+                let children = slots.compactMap(\.element)
                 if subviews == nil { subviews = [:] }
                 subviews![key] = children
             }
         }
         
-        if let rows = try container.decodeIfPresent([[ActionUIElement]].self, forKey: .rows) {
+        if let rowSlots = try container.decodeIfPresent([[ElementSlot]].self, forKey: .rows) {
+            let rows = rowSlots.map { $0.compactMap(\.element) }
             if subviews == nil { subviews = [:] }
             subviews!["rows"] = rows
         }
@@ -140,7 +142,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         // menu on long-press (SwiftUI's `.contextMenu` preview: ViewBuilder); the
         // action items live in the `contextMenu` array above.
         for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview", "safeAreaInset"] {
-            if var child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
+            if var child = try container.decodeIfPresent(ElementSlot.self, forKey: ElementCodingKeys(rawValue: key)!)?.element {
                 if key == "template" {
                     child = ActionUIElement.normalizeTemplateIDs(child)
                 }
@@ -150,7 +152,8 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         }
 
         // Decode commands array for WindowGroup
-        if let commandsArray = try container.decodeIfPresent([ActionUIElement].self, forKey: .commands) {
+        if let commandSlots = try container.decodeIfPresent([ElementSlot].self, forKey: .commands) {
+            let commandsArray = commandSlots.compactMap(\.element)
             if !commandsArray.isEmpty {
                 if subviews == nil { subviews = [:] }
                 subviews!["commands"] = commandsArray
@@ -235,7 +238,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         for key in ["children", "destinations", "toolbar", "persistentToolbar"] {
             let childrenArray = dictionary[key] as? [[String: Any]]
             // Note: JSON specifies "children"/"destinations"/"toolbar"/"persistentToolbar" as top-level keys, but we move them to subviews
-            let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
+            let children = try childrenArray?.compactMap { try ElementSlot.element(from: $0, logger: logger) }
             if children != nil {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = children
@@ -246,7 +249,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         // Note: JSON specifies "rows" as a top-level key, but we move it to subviews["rows"]
         if let rowsArray = dictionary["rows"] as? [[[String: Any]]] {
             let rows = try rowsArray.map { row in
-                try row.map { try ActionUIElement(from: $0, logger: logger) }
+                try row.compactMap { try ElementSlot.element(from: $0, logger: logger) }
             }
             
             if subviews == nil { subviews = [:] }
@@ -258,7 +261,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "safeAreaInset"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
-                    var childElement = try ActionUIElement(from: childDict, logger: logger)
+                    guard var childElement = try ElementSlot.element(from: childDict, logger: logger) else { continue }
                     if key == "template" {
                         childElement = ActionUIElement.normalizeTemplateIDs(childElement)
                     }
@@ -273,7 +276,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         
         let commandsArray = dictionary["commands"] as? [[String: Any]]
         // Note: JSON specifies "commands" as a top-level key, but we move it to subviews["commands"]
-        let commands = try commandsArray?.map { try ActionUIElement(from: $0, logger: logger) }
+        let commands = try commandsArray?.compactMap { try ElementSlot.element(from: $0, logger: logger) }
         if commands != nil {
             if subviews == nil { subviews = [:] }
             subviews!["commands"] = commands
@@ -281,6 +284,36 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
 
         self.init(id: id, type: type, properties: properties, subviews: subviews)
     }
+}
+
+/// A child element as decoded: nil for an object with no "type", which is skipped so the rest of
+/// the document loads. PlatformFilter leaves such an object when an element's type is given only
+/// for other platforms ("type:macos" and no "type"), and the element is not shown on this one, as
+/// the Android renderer (no builder for an empty type) and the Web renderer (no element without a
+/// type) skip it. A document whose root has no type still fails to load.
+struct ElementSlot: Decodable {
+    let element: ActionUIElement?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ActionUIElement.ElementCodingKeys.self)
+        guard container.contains(.type) else {
+            decoder.logger?.log(ElementSlot.skippedMessage, .info)
+            element = nil
+            return
+        }
+        element = try ActionUIElement(from: decoder)
+    }
+
+    /// The element `dictionary` describes, or nil when it has no "type" (skipped).
+    static func element(from dictionary: [String: Any], logger: any ActionUILogger) throws -> ActionUIElement? {
+        guard dictionary["type"] != nil else {
+            logger.log(skippedMessage, .info)
+            return nil
+        }
+        return try ActionUIElement(from: dictionary, logger: logger)
+    }
+
+    static let skippedMessage = "Skipped an element with no type (its type is given only for other platforms, or missing)"
 }
 
 // Extension providing template ID normalization.
