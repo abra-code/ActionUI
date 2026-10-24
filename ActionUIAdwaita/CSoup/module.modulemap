@@ -1,0 +1,4 @@
+module CSoup [system] {
+    header "CSoup.h"
+    export *
+}

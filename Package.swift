@@ -389,8 +389,10 @@ Package(
 )
 }
 
-// Linux: GTK 4 and libadwaita from the system (libgtk-4-dev, libadwaita-1-dev and pkg-config to
-// build), never bundled; the version floor is in ActionUIAdwaita/CAdwaita/CAdwaita.h.
+// Linux: GTK 4, libadwaita and libsoup 3 from the system (libgtk-4-dev, libadwaita-1-dev,
+// libsoup-3.0-dev and pkg-config to build), never bundled; the version floors are in
+// ActionUIAdwaita/CAdwaita/CAdwaita.h and ActionUIAdwaita/CSoup/CSoup.h. At run time https URLs
+// also need glib-networking (installed with GNOME).
 func linuxPackage() -> Package {
 Package(
     name: "ActionUI",
@@ -405,10 +407,16 @@ Package(
             path: "ActionUIAdwaita/CAdwaita",
             pkgConfig: "libadwaita-1"
         ),
+        // libsoup 3's C API, for http and https URLs (AsyncImage).
+        .systemLibrary(
+            name: "CSoup",
+            path: "ActionUIAdwaita/CSoup",
+            pkgConfig: "libsoup-3.0"
+        ),
         // The portable code and the GTK renderer: one module, as ActionUI is on Apple platforms.
         .target(
             name: "ActionUI",
-            dependencies: ["CAdwaita"],
+            dependencies: ["CAdwaita", "CSoup"],
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
             sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"]
@@ -460,7 +468,7 @@ Package(
         // The renderer tests. They need a display and skip themselves without one.
         .testTarget(
             name: "ActionUIAdwaitaTests",
-            dependencies: ["ActionUI", "CAdwaita", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer"],
+            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer"],
             path: "ActionUIAdwaita/Tests",
             // Programs in other languages that the tests run (the Python host).
             exclude: ["Hosts"]

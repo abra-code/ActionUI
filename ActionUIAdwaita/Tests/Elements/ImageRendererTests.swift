@@ -153,6 +153,7 @@ final class ImageRendererTests: XCTestCase {
         XCTAssertEqual(measure(node.widget, GTK_ORIENTATION_HORIZONTAL).1, 40)
         XCTAssertEqual(measure(node.widget, GTK_ORIENTATION_VERTICAL).1, 20)
         XCTAssertEqual(gtk_widget_get_hexpand(node.widget), 0)
+        XCTAssertEqual(gtk_picture_get_content_fit(opaque(node.widget)), GTK_CONTENT_FIT_SCALE_DOWN, "never scaled up")
     }
 
     func testAResizableFileScalesKeepingItsAspectRatio() throws {

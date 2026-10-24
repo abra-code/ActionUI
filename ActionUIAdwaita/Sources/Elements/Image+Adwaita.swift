@@ -14,11 +14,11 @@
    looks the icon up at the size it draws it, fitted or filled, in the text color. Its natural size
    is the symbol's; given a width, it is as tall as wide (height for width), as SwiftUI's fitted
    symbol is.
- - A file is a GtkPicture at the image's own size; resizable with a contentMode, it scales to its
-   frame keeping its aspect ratio (fit: contain; fill: cover, clipped to the frame, where SwiftUI
-   draws past it). A file that does not exist shows the photo symbol, as on Apple; one GTK cannot
-   decode shows nothing (Apple: the photo symbol), since telling would mean decoding it on every
-   sync. A PDF is not an image on Linux.
+ - A file is a GtkPicture at the image's own size, never scaled up; resizable with a contentMode,
+   it scales to its frame keeping its aspect ratio (fit: contain; fill: cover, clipped to the frame,
+   where SwiftUI draws past it). A file that does not exist shows the photo symbol, as on Apple; one
+   GTK cannot decode shows nothing (Apple: the photo symbol), since telling would mean decoding it
+   on every sync. A PDF is not an image on Linux.
  - An assetName names an icon of the icon theme, where Linux programs install their own images;
    Linux has no asset catalogs. A runtime value is a theme icon only when SymbolNames does not know
    the name: the theme has full-color icons for many symbol names ("folder"). resourceName finds no
@@ -129,7 +129,8 @@ extension Image: ActionUIAdwaitaRenderer {
             if gtk_picture_get_can_shrink(picture) != canShrink {
                 gtk_picture_set_can_shrink(picture, canShrink)
             }
-            let fit = resizable && props.contentMode == .fill ? GTK_CONTENT_FIT_COVER : GTK_CONTENT_FIT_CONTAIN
+            // Not resizable: its own size, never scaled up when given more room, as on Apple.
+            let fit = !resizable ? GTK_CONTENT_FIT_SCALE_DOWN : props.contentMode == .fill ? GTK_CONTENT_FIT_COVER : GTK_CONTENT_FIT_CONTAIN
             if gtk_picture_get_content_fit(picture) != fit {
                 gtk_picture_set_content_fit(picture, fit)
             }

@@ -7,7 +7,7 @@
 #   import Foundation             directly after an #else that follows that import
 #   import Darwin / Glibc / Musl  in Lock.swift (its C library mutex) and NumberPrintf.swift
 #                                 (vsnprintf) only
-#   import CAdwaita, import Glibc in the GTK renderer, which builds only on Linux
+#   import CAdwaita, import CSoup, import Glibc in the GTK renderer, which builds only on Linux
 # Anything else is reported as "file:line: message", and the exit status is 1.
 # A stray "import Foundation" matters: Linux has full Foundation too, so it would compile there and
 # bring the ICU data back into every Linux program.
@@ -47,7 +47,7 @@ FNR == 1 {
             ok = (previous == "#if canImport(FoundationEssentials)")
         } else if (module == "Foundation") {
             ok = (previous == "#else" && beforePrevious == "import FoundationEssentials")
-        } else if (renderer && (module == "CAdwaita" || module == "Glibc")) {
+        } else if (renderer && (module == "CAdwaita" || module == "CSoup" || module == "Glibc")) {
             ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
             ok = (FILENAME ~ /(^|\/)(Lock|NumberPrintf)\.swift$/)
