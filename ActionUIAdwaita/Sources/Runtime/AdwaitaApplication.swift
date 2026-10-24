@@ -21,6 +21,8 @@
    content. Closing the window (closeWindow, or by hand the one it replaces) while it loads drops
    it; presenting the UUID again replaces the load. A loading window keeps the application alive,
    and counts as a window when the user closes what may be the last one.
+ - Resources: the app's bundle (resourceFolder, AppBundle) and each window's document folder, where
+   LoadableView names and image resources are found.
  - Closing: GTK ends the application when its last window goes. Closing the last window by hand
    first asks the shouldTerminate handler, and false keeps it open; terminate() asks it too. A
    window closed by the host, or not the last one, just closes; windowWillClose fires for each.
@@ -79,7 +81,15 @@ public final class AdwaitaApplication {
     private static var glibNameSet = false
     /// The reverse-DNS application ID; nil makes one from the name.
     public var applicationID: String?
-    /// The windows' icon: an icon theme name, or the path of an image file.
+    /// The folder of the app's resources (AppBundle): the running program's folder unless set (a
+    /// host whose program is not in its bundle, such as python3, sets its own or nil). LoadableView
+    /// names and Image resourceName and assetName are looked up there.
+    public var resourceFolder: String? {
+        get { AppBundle.folder }
+        set { AppBundle.folder = newValue }
+    }
+    /// The windows' icon: an icon theme name (an image of that name in the app's bundle counts),
+    /// or the path of an image file.
     public var icon: String? {
         didSet { applyIcon() }
     }
@@ -248,6 +258,8 @@ public final class AdwaitaApplication {
     private func applyIcon() {
         guard let icon, let display = gdk_display_get_default() else { return }
         guard icon.contains("/") || g_file_test(icon, G_FILE_TEST_IS_REGULAR) != 0 else {
+            // A theme name, or an image of that name in the app's bundle.
+            AppBundle.addToIconTheme()
             gtk_window_set_default_icon_name(icon)
             return
         }
@@ -339,6 +351,7 @@ public final class AdwaitaApplication {
             guard let self, let presented, self.windows[windowUUID] === presented else { return }
             presented.renderTree?.root?.detach()
             self.windows[windowUUID] = nil
+            AppBundle.setDocumentFolder(nil, window: windowUUID)
         }
         connectSignal(window, "notify::is-active", .instanceAndArgument) { [weak self] in
             self?.queueActiveCheck()
@@ -378,6 +391,7 @@ public final class AdwaitaApplication {
         if windows[windowUUID] === presented {
             windows[windowUUID] = nil
             dropRemoteLoad(windowUUID)
+            AppBundle.setDocumentFolder(nil, window: windowUUID)
         }
         handlers.windowWillClose?(windowUUID)
         presented.renderTree?.root?.detach()
@@ -388,6 +402,8 @@ public final class AdwaitaApplication {
     /// the title a file gives.
     private func load(_ source: WindowSource, windowUUID: String) -> (error: String?, defaultTitle: String?) {
         let logger = ActionUIModel.shared.logger
+        // A file's folder is where its LoadableViews find their names; other documents have none.
+        AppBundle.setDocumentFolder(nil, window: windowUUID)
         switch source {
         case .json(let data):
             do {
@@ -421,6 +437,7 @@ public final class AdwaitaApplication {
             let title = url.deletingPathExtension().lastPathComponent
             do {
                 let data = try Data(contentsOf: url)
+                AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
                 _ = try ActionUIModel.shared.loadDescription(from: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID)
                 return (nil, title)
             } catch {

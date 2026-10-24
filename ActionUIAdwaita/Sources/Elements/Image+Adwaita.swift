@@ -20,9 +20,10 @@
    GTK cannot decode shows nothing (Apple: the photo symbol), since telling would mean decoding it
    on every sync. A PDF is not an image on Linux.
  - An assetName names an icon of the icon theme, where Linux programs install their own images;
-   Linux has no asset catalogs. A runtime value is a theme icon only when SymbolNames does not know
-   the name: the theme has full-color icons for many symbol names ("folder"). resourceName finds no
-   resource: Linux programs have no bundle.
+   Linux has no asset catalogs. The app's bundle (AppBundle) is on the theme's search path, so an
+   image file named after the asset at its top level (Orb.png) is found. A runtime value is a theme
+   icon only when SymbolNames does not know the name: the theme has full-color icons for many symbol
+   names ("folder"). resourceName is a file of that name in the app's bundle.
 
  The three kinds are three widget types, so a value that turns a symbol into a file replaces the
  widget (widgetKind).
@@ -209,12 +210,12 @@ extension Image: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// ImageSource's platform checks on Linux: image files by extension, no bundled resources,
-    /// assets as icons of the icon theme that are not symbol names.
+    /// ImageSource's platform checks on Linux: image files by extension, resources in the app's
+    /// bundle, assets as icons of the icon theme that are not symbol names.
     static var lookup: ImageSource.Lookup {
         ImageSource.Lookup(
             isImageFile: { isImageFile($0) },
-            resourcePath: { _ in nil },
+            resourcePath: { AppBundle.resource($0) },
             assetExists: { hasThemeIcon($0) && SymbolNames.lookup($0) == nil }
         )
     }
@@ -246,6 +247,7 @@ extension Image: ActionUIAdwaitaRenderer {
 
     static func hasThemeIcon(_ name: String) -> Bool {
         guard let display = gdk_display_get_default() else { return false }
+        AppBundle.addToIconTheme()
         return gtk_icon_theme_has_icon(gtk_icon_theme_get_for_display(display), name) != 0
     }
 

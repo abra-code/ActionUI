@@ -122,19 +122,25 @@ final class AdwaitaApplicationTests: XCTestCase {
         let app = AdwaitaApplication()
         var title: String?
         var errorText: String?
+        var documentFolder: String?
+        var folderAfterClose: String?
         app.handlers.didFinishLaunching = {
             app.presentWindow(url: path, windowUUID: "app-file", title: nil)
+            documentFolder = AppBundle.documentFolder(window: "app-file")
             app.presentWindow(json: Data("{ not json".utf8), windowUUID: "app-bad", title: "Bad")
             title = app.gtkWindow("app-file").flatMap { swiftString(gtk_window_get_title($0)) }
             if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
                 errorText = swiftString(gtk_label_get_text(opaque(label)))
             }
             app.closeWindow("app-file")
+            folderAfterClose = AppBundle.documentFolder(window: "app-file")
             app.closeWindow("app-bad")
         }
         app.run()
         XCTAssertEqual(title, "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier)")
         XCTAssertTrue(errorText?.hasPrefix("The document could not be loaded") == true, "got \(errorText ?? "nil")")
+        XCTAssertEqual(documentFolder, URL(fileURLWithPath: path).deletingLastPathComponent().path, "the file's folder, where its LoadableViews find their names")
+        XCTAssertNil(folderAfterClose, "dropped when the window closes")
     }
 
     func testClosingTheLastWindowAsksAndTerminateEndsTheApplication() throws {
