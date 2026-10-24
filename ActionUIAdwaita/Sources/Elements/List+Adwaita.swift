@@ -414,6 +414,8 @@ extension List: ActionUIAdwaitaRenderer {
             let childID = position.flatMap { state.childIDs.indices.contains($0) ? state.childIDs[$0] : nil }
             RowSelection.commitChildSelection(childID, model: node.model, actionID: props.actionID,
                                               windowUUID: node.windowUUID, viewID: node.element.id)
+            // The content of a NavigationStack with destinations pushes the chosen child's.
+            NavigationStack.contentListChose(node, childID: childID)
         }
     }
 

@@ -207,6 +207,23 @@ final class WindowPresenterTests: XCTestCase {
         XCTAssertEqual(fired, ["test.dismissed"])
     }
 
+    func testAModalNavigationStackBringsTheDialogsHeaderBars() throws {
+        let presenter = try present()
+        let stack = #"{"type": "NavigationStack", "id": 60, "properties": {"navigationTitle": "Sheet"}, "content": {"type": "Text", "id": 61, "properties": {"text": "Root"}}}"#
+        try ActionUIModel.shared.presentModal(windowUUID: windowUUID, data: Data(stack.utf8), format: "json", style: .sheet)
+        XCTAssertTrue(wait { presenter.modalRoot != nil })
+        let root = try XCTUnwrap(presenter.modalRoot)
+        XCTAssertTrue(root.isWindowRoot)
+        let dialog = try XCTUnwrap(gtk_widget_get_ancestor(root.outerWidget, adw_dialog_get_type()))
+        func headerBars(in widget: WidgetPointer) -> Int {
+            Gtk.Widget(widget).children.reduce(Gtk.Widget(widget).isA(adw_header_bar_get_type()) ? 1 : 0) { $0 + headerBars(in: $1.pointer) }
+        }
+        let state = try XCTUnwrap(attached(on: root.widget, key: navigationStackStateKey))
+        XCTAssertEqual(headerBars(in: dialog), state.headerBars.count, "only the stack's header bars, none of the dialog's own")
+        XCTAssertTrue(state.headerBars.allSatisfy { adw_header_bar_get_show_end_title_buttons(OpaquePointer($0)) != 0 },
+                      "the stack's header bars have the dialog's close button")
+    }
+
     func testAModalTheHostDismissesCloses() throws {
         let presenter = try present()
         record("test.dismissed")

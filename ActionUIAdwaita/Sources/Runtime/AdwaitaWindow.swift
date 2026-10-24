@@ -32,8 +32,18 @@ final class AdwaitaWindow {
             return
         }
         let root = RenderNode(element: element, model: model, windowModel: windowModel, parent: nil)
+        root.isWindowRoot = true
         self.root = root
         root.sync()
+    }
+
+    /// Element types whose renderer shows header bars of its own, so the window shows none when the
+    /// document is one of them.
+    static let headerBarTypes: Set<String> = ["NavigationStack"]
+
+    /// Whether the document brings its own header bars (its root is a NavigationStack).
+    var showsOwnHeaderBars: Bool {
+        root.map { Self.headerBarTypes.contains($0.element.type) } ?? false
     }
 
     /// Starts showing the window model's modals, dialogs and toasts: dialogs over `parent`'s

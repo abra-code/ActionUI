@@ -40,6 +40,8 @@ extension ActionUIRegistry {
         "List": List.self,
         "LoadableView": LoadableView.self,
         "Menu": Menu.self,
+        "NavigationLink": NavigationLink.self,
+        "NavigationStack": NavigationStack.self,
         "Picker": Picker.self,
         "ProgressView": ProgressView.self,
         "Rectangle": Rectangle.self,

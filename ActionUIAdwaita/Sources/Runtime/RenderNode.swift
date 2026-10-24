@@ -52,6 +52,10 @@ final class RenderNode {
     private var unsyncedChildren: [RenderNode] = []
     /// The sheet, full-screen cover and popover the element declares; nil when it declares none.
     private(set) var presentations: NodePresentations?
+    /// True for the root of a window's document, and for a NavigationStack at the root of a dialog
+    /// (set before the first sync): a NavigationStack there takes the window's or the dialog's place
+    /// for a header bar.
+    var isWindowRoot = false
 
     var windowUUID: String { windowModel.windowUUID }
 

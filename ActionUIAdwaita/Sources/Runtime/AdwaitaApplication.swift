@@ -328,11 +328,15 @@ public final class AdwaitaApplication {
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_application_window_new(typed(application))!)
         gtk_window_set_title(window, title ?? loaded.defaultTitle ?? name ?? ProcessInfo.processInfo.processName)
         let toolbar = adw_toolbar_view_new()!
-        let header = adw_header_bar_new()!
-        adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
         adw_application_window_set_content(typed(window), toolbar)
-        // Measured in the window, where the header bar has its style.
-        let headerHeight = Int32(clamping: Gtk.Widget(header).measure(GTK_ORIENTATION_VERTICAL).natural)
+        // A document that brings its own header bars (a NavigationStack's pages) gets none here.
+        var headerHeight: Int32 = 0
+        if renderTree?.showsOwnHeaderBars != true {
+            let header = adw_header_bar_new()!
+            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
+            // Measured in the window, where the header bar has its style.
+            headerHeight = Int32(clamping: Gtk.Widget(header).measure(GTK_ORIENTATION_VERTICAL).natural)
+        }
         let monitor = monitorSize()
         let (minimum, natural) = contentSizes(content, widthCap: monitor.width)
         // The window's minimum is the content's plus the header bar's.

@@ -128,13 +128,17 @@ final class WindowPresenter {
             return
         }
         let root = RenderNode(element: windowModal.element, model: model, windowModel: windowModel, parent: nil)
+        // A NavigationStack brings the dialog's header bars itself (its pages').
+        root.isWindowRoot = AdwaitaWindow.headerBarTypes.contains(windowModal.element.type)
         root.sync()
 
         // Sized by its content's natural size (the header bar's included), as AdwDialog does by default.
         let widget = OwnedObject(retaining: UnsafeMutableRawPointer(adw_dialog_new()!))
         let dialog: UnsafeMutablePointer<AdwDialog> = widget.typed()
         let toolbar = adw_toolbar_view_new()!
-        adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), adw_header_bar_new())
+        if !root.isWindowRoot {
+            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), adw_header_bar_new())
+        }
         adw_toolbar_view_set_content(OpaquePointer(toolbar), root.outerWidget)
         adw_dialog_set_child(dialog, toolbar)
 
