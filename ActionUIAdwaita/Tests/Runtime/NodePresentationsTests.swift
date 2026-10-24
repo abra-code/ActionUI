@@ -301,4 +301,50 @@ final class NodePresentationsTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(fired, [])
     }
+
+    func testPopoverContentWithNothingToFocusTakesTheFocus() throws {
+        // A window of texts only: nothing in it has the focus (GTK's focus code logged a critical).
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+                {"type": "Text", "id": 2, "properties": {"text": "Tap me"},
+                 "popover": {"type": "Text", "id": 20, "properties": {"text": "Only text"}}},
+                {"type": "Text", "id": 3, "properties": {"text": "Tap me too"},
+                 "popover": {"type": "VStack", "id": 30, "children": [{"type": "Button", "id": 31, "properties": {"title": "Act"}}]}}
+            ]}
+            """#)
+        let textOnly = try XCTUnwrap(root.childNodes[2]?.presentations)
+        release(try XCTUnwrap(clickGesture(on: try XCTUnwrap(root.childNodes[2]).outerWidget)))
+        XCTAssertTrue(wait { textOnly.root(.popover) != nil })
+        let content = try XCTUnwrap(textOnly.root(.popover)?.outerWidget)
+        XCTAssertNotEqual(gtk_widget_get_focusable(content), 0)
+        XCTAssertTrue(wait { gtk_widget_is_focus(content) != 0 }, "the keyboard is in the popover, so Escape closes it")
+
+        let withButton = try XCTUnwrap(root.childNodes[3]?.presentations)
+        release(try XCTUnwrap(clickGesture(on: try XCTUnwrap(root.childNodes[3]).outerWidget)))
+        XCTAssertTrue(wait { withButton.root(.popover) != nil })
+        XCTAssertEqual(gtk_widget_get_focusable(try XCTUnwrap(withButton.root(.popover)?.outerWidget)), 0,
+                       "a popover with a control focuses the control, with no extra stop")
+    }
+
+    func testAControlThatCannotTakeTheFocusLeavesItToTheContent() throws {
+        // A disabled stack's Button and a hidden Button cannot take the focus either.
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+                {"type": "Text", "id": 2, "properties": {"text": "Tap me"},
+                 "popover": {"type": "VStack", "id": 20, "properties": {"disabled": true}, "children": [{"type": "Button", "id": 21, "properties": {"title": "Act"}}]}},
+                {"type": "Text", "id": 3, "properties": {"text": "Tap me too"},
+                 "popover": {"type": "VStack", "id": 30, "children": [{"type": "Button", "id": 31, "properties": {"title": "Act", "hidden": true}}]}}
+            ]}
+            """#)
+        for id in [2, 3] {
+            let node = try XCTUnwrap(root.childNodes[id])
+            let presentations = try XCTUnwrap(node.presentations)
+            release(try XCTUnwrap(clickGesture(on: node.outerWidget)))
+            XCTAssertTrue(wait { presentations.root(.popover) != nil })
+            let content = try XCTUnwrap(presentations.root(.popover)?.outerWidget)
+            XCTAssertTrue(wait { gtk_widget_is_focus(content) != 0 }, "element \(id)")
+            gtk_popover_popdown(typed(try XCTUnwrap(presentations.widget(.popover))))
+            XCTAssertTrue(wait { presentations.root(.popover) == nil })
+        }
+    }
 }

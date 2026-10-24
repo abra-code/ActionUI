@@ -12,7 +12,8 @@
  - popover: a GtkPopover on the element's box, on the side popoverArrowEdge names the arrow's edge
    for (an arrow at the top: the popover below). Closing it (a click outside, Escape) sets the state
    false. An element other than a Button shows or hides it on a click, firing popoverActionID when
-   it shows, as PopoverHelper's tap gesture does.
+   it shows, as PopoverHelper's tap gesture does. Content with nothing to focus takes the focus
+   itself, so the keyboard is in the popover and Escape closes it.
 
  The node reads the states while it syncs (so a change re-syncs it) and applies them after, when
  the subview nodes it makes can sync outside its observation. The subview's element is shown in a
@@ -132,6 +133,12 @@ final class NodePresentations {
             widget = OwnedObject(retaining: gtk_popover_new()!)
             let popover: UnsafeMutablePointer<GtkPopover> = widget.typed()
             gtk_popover_set_child(popover, root.outerWidget)
+            // Content with nothing to focus (text, an image) takes the focus itself, as a popover
+            // does on macOS: the keyboard is in the popover, so Escape closes it, and GTK's focus
+            // code, which expects a widget to focus, logs no critical.
+            if !Self.hasFocusableWidget(root.outerWidget) {
+                gtk_widget_set_focusable(root.outerWidget, 1)
+            }
             gtk_popover_set_position(popover, Self.position(BaseModifiers(node.properties).popoverArrowEdge))
             gtk_widget_set_parent(widget.widget, node.outerWidget)
             connectSignal(widget.pointer, "closed", .instanceOnly) { [weak self] in
@@ -153,6 +160,18 @@ final class NodePresentations {
             shown[kind] = Shown(widget: widget, root: root)
             adw_dialog_present(dialog, node.outerWidget)
         }
+    }
+
+    /// Whether `widget` or a widget in it can take the keyboard focus. An invisible or insensitive
+    /// widget, or one with can-focus false (a hidden or disabled element's), keeps it from all of
+    /// its descendants.
+    static func hasFocusableWidget(_ widget: WidgetPointer) -> Bool {
+        guard gtk_widget_get_visible(widget) != 0, gtk_widget_get_sensitive(widget) != 0,
+              gtk_widget_get_can_focus(widget) != 0 else { return false }
+        if gtk_widget_get_focusable(widget) != 0 {
+            return true
+        }
+        return Gtk.Widget(widget).children.contains { hasFocusableWidget($0.pointer) }
     }
 
     /// The GtkPopover position for SwiftUI's arrow edge: the arrow on the popover's top edge points
