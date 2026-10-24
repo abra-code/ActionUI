@@ -142,7 +142,7 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
             // The toolbars of the views in a column show in its header bar, unless the column brings
             // its own bars; the title is set below, principal items in its place.
             if child.screenBar == nil, !AdwaitaWindow.headerBarTypes.contains(child.element.type) {
-                child.screenBar = ScreenBar(header: column.header, principalChanged: { [weak node] in
+                child.screenBar = ScreenBar(header: column.header, toolbarView: column.toolbar, principalChanged: { [weak node] in
                     if let node { SyncScheduler.shared.markDirty(node) }
                 })
                 // The persistent items show on the detail column (a detail NavigationStack shows them

@@ -162,7 +162,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
             if child.element.id == content?.id {
                 // The toolbars of the views on a page show in its header bar.
                 if child.screenBar == nil {
-                    child.screenBar = ScreenBar(header: state.rootHeader)
+                    child.screenBar = ScreenBar(header: state.rootHeader, toolbarView: WidgetPointer(state.rootToolbar))
                 }
                 if adw_toolbar_view_get_content(state.rootToolbar) != child.outerWidget {
                     adw_toolbar_view_set_content(state.rootToolbar, child.outerWidget)
@@ -172,7 +172,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
                 adw_toolbar_view_set_content(OpaquePointer(toolbar), child.outerWidget)
                 let page = OwnedObject(retaining: UnsafeMutableRawPointer(adw_navigation_page_new(toolbar, "")!))
                 state.pages[child.element.id] = NavigationPage(page: page, toolbar: OpaquePointer(toolbar), header: header)
-                child.screenBar = ScreenBar(header: header)
+                child.screenBar = ScreenBar(header: header, toolbarView: toolbar)
                 state.headerBars.append(header)
             }
         }, remove: { child in

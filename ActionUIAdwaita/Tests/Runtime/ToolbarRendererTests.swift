@@ -4,9 +4,10 @@
  header bar, the nearest one above it: a NavigationStack page's (the root's and a pushed one's), a
  split view column's (principal items in place of the column's title), the window's once it has
  one. The leading, principal and trailing placements; a ToolbarItemGroup's children in order; a
- changed placement moves the item; items leave the bar with their view; a navigation container's
- persistent items on every screen it shows, at the outer edge of the bar, the outer container's
- first.
+ changed placement moves the item; secondaryAction items in the screen's "more" menu, which a
+ click or Return on an item closes, bottomBar items in a bar below it (trailing without one);
+ items leave the bar with their view; a navigation container's persistent items on every screen it
+ shows, at the outer edge of the bar, the outer container's first.
 */
 
 import XCTest
@@ -170,7 +171,7 @@ final class ToolbarRendererTests: XCTestCase {
         let root = try present(#"{"type": "VStack", "id": 1, "toolbar": [{"type": "ToolbarItem", "id": 10, "content": \#(Self.button(11))}]}"#)
         let header = adw_header_bar_new()!
         let holder = OwnedObject(retaining: header)
-        root.screenBar = ScreenBar(header: holder.widget)
+        root.screenBar = ScreenBar(header: holder.widget, toolbarView: nil)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(ids(root.screenBar, .trailing, in: root), [11])
         let shown = try XCTUnwrap(root.screenBar?.widgets(.trailing).first)
@@ -187,7 +188,7 @@ final class ToolbarRendererTests: XCTestCase {
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 2, rows: [["Apple"]])
         AdwaitaTestHost.drainMainLoop()
         let holder = OwnedObject(retaining: adw_header_bar_new()!)
-        root.screenBar = ScreenBar(header: holder.widget)
+        root.screenBar = ScreenBar(header: holder.widget, toolbarView: nil)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(root.screenBar?.widgets(.trailing).count, 1, "the row's toolbar found the bar set after its first sync")
     }
@@ -235,7 +236,154 @@ final class ToolbarRendererTests: XCTestCase {
         XCTAssertEqual(ids(stack.childNodes[5]?.screenBar, .trailing, in: split), [91, 81], "the split view's, then the stack's own, as on Apple")
     }
 
+    func testSecondaryActionsShareTheScreensMoreMenu() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "persistentToolbar": [
+                {"type": "ToolbarItem", "id": 90, "properties": {"placement": "secondaryAction"}, "content": \#(Self.button(91))}],
+             "content": {"type": "VStack", "id": 2, "toolbar": [
+                {"type": "ToolbarItem", "id": 10, "properties": {"placement": "secondaryAction"}, "content": \#(Self.button(11))},
+                {"type": "ToolbarItem", "id": 12, "content": \#(Self.button(13))}]}}
+            """#)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        XCTAssertEqual(ids(bar, .overflow, in: stack), [11, 91], "one menu, the screen's items, then the persistent ones")
+        XCTAssertEqual(ids(bar, .trailing, in: stack), [13])
+        XCTAssertTrue(Gtk.Widget(bar.overflowButton).isVisible)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "placement", value: "automatic")
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 90, propertyName: "placement", value: "automatic")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertFalse(Gtk.Widget(bar.overflowButton).isVisible, "no menu without secondary actions")
+    }
+
+    func testAClickInTheMoreMenuClosesIt() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "VStack", "id": 2, "toolbar": [
+                {"type": "ToolbarItem", "id": 10, "properties": {"placement": "secondaryAction"}, "content": \#(Self.button(11))}]}}
+            """#)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        let popover = try XCTUnwrap(gtk_menu_button_get_popover(OpaquePointer(bar.overflowButton)))
+        let menu = try XCTUnwrap(gtk_popover_get_child(popover))
+        gtk_menu_button_popup(OpaquePointer(bar.overflowButton))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_visible(typed(popover)) != 0 }))
+        try Self.releaseClick(in: menu)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_visible(typed(popover)) == 0 }), "a click on an item closes the menu")
+    }
+
+    func testReturnOnAnItemInTheMoreMenuClosesIt() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "VStack", "id": 2, "toolbar": [
+                {"type": "ToolbarItem", "id": 10, "properties": {"placement": "secondaryAction"}, "content": \#(Self.button(11))}]}}
+            """#)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        let popover = try XCTUnwrap(gtk_menu_button_get_popover(OpaquePointer(bar.overflowButton)))
+        let menu = try XCTUnwrap(gtk_popover_get_child(popover))
+        gtk_menu_button_popup(OpaquePointer(bar.overflowButton))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_visible(typed(popover)) != 0 }))
+        let keys = try XCTUnwrap(Self.controller(of: menu, type: gtk_event_controller_key_get_type()))
+        var handled = GValue()
+        g_value_init(&handled, g_type_from_name("gboolean"))
+        var values = [GValue](repeating: GValue(), count: 4)
+        g_value_init(&values[0], gtk_event_controller_key_get_type())
+        g_value_set_object(&values[0], keys)
+        g_value_init(&values[1], g_type_from_name("guint"))
+        g_value_set_uint(&values[1], guint(GDK_KEY_Return))
+        g_value_init(&values[2], g_type_from_name("guint"))
+        g_value_init(&values[3], gdk_modifier_type_get_type())
+        g_signal_emitv(&values, g_signal_lookup("key-pressed", gtk_event_controller_key_get_type()), 0, &handled)
+        for index in values.indices { g_value_unset(&values[index]) }
+        g_value_unset(&handled)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_visible(typed(popover)) == 0 }), "Return on an item closes the menu")
+    }
+
+    /// The first event controller of `type` on `widget`.
+    private static func controller(of widget: WidgetPointer, type: GType) -> UnsafeMutableRawPointer? {
+        let controllers = gtk_widget_observe_controllers(widget)!
+        defer { g_object_unref(UnsafeMutableRawPointer(controllers)) }
+        for index in 0..<g_list_model_get_n_items(controllers) {
+            guard let item = g_list_model_get_item(controllers, index) else { continue }
+            g_object_unref(item)
+            if g_type_check_instance_is_a(item.assumingMemoryBound(to: GTypeInstance.self), type) != 0 {
+                return item
+            }
+        }
+        return nil
+    }
+
+    /// As a click's release in the "more" menu `menu`: its capture-phase click gesture's "released".
+    private static func releaseClick(in menu: WidgetPointer) throws {
+        let controllers = gtk_widget_observe_controllers(menu)!
+        defer { g_object_unref(UnsafeMutableRawPointer(controllers)) }
+        var gesture: UnsafeMutableRawPointer?
+        for index in 0..<g_list_model_get_n_items(controllers) {
+            guard let item = g_list_model_get_item(controllers, index) else { continue }
+            g_object_unref(item)
+            if g_type_check_instance_is_a(item.assumingMemoryBound(to: GTypeInstance.self), gtk_gesture_click_get_type()) != 0 {
+                gesture = item
+            }
+        }
+        var values = [GValue(), GValue(), GValue(), GValue()]
+        g_value_init(&values[0], gtk_gesture_click_get_type())
+        g_value_set_object(&values[0], try XCTUnwrap(gesture))
+        g_value_init(&values[1], g_type_from_name("gint"))
+        g_value_set_int(&values[1], 1)
+        g_value_init(&values[2], g_type_from_name("gdouble"))
+        g_value_init(&values[3], g_type_from_name("gdouble"))
+        g_signal_emitv(&values, g_signal_lookup("released", gtk_gesture_click_get_type()), 0, nil)
+        for index in values.indices { g_value_unset(&values[index]) }
+    }
+
+    /// The first descendant of `widget` of type `type`, depth first.
+    private static func descendant(of widget: WidgetPointer, type: GType) -> WidgetPointer? {
+        for child in Array(Gtk.Widget(widget).children) {
+            if g_type_check_instance_is_a(UnsafeMutableRawPointer(child.pointer).assumingMemoryBound(to: GTypeInstance.self), type) != 0 {
+                return child.pointer
+            }
+            if let found = descendant(of: child.pointer, type: type) { return found }
+        }
+        return nil
+    }
+
+    func testAMenuInTheMoreMenuOpensItsOwnMenu() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "VStack", "id": 2, "toolbar": [
+                {"type": "ToolbarItem", "id": 10, "properties": {"placement": "secondaryAction"}, "content":
+                    {"type": "Menu", "id": 20, "properties": {"title": "Sort"}, "children": [\#(Self.button(21))]}}]}}
+            """#)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        let popover = try XCTUnwrap(gtk_menu_button_get_popover(OpaquePointer(bar.overflowButton)))
+        let menu = try XCTUnwrap(gtk_popover_get_child(popover))
+        gtk_menu_button_popup(OpaquePointer(bar.overflowButton))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_visible(typed(popover)) != 0 }))
+        let nested = try XCTUnwrap(Self.descendant(of: menu, type: gtk_menu_button_get_type()))
+        let nestedPopover = try XCTUnwrap(gtk_menu_button_get_popover(OpaquePointer(nested)))
+        // A click on the Menu: the "more" menu's gesture sees the release first (capture phase, from
+        // the outside in), then the Menu's button opens its own menu.
+        try Self.releaseClick(in: menu)
+        gtk_menu_button_popup(OpaquePointer(nested))
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 200)
+        XCTAssertNotEqual(gtk_widget_get_mapped(typed(nestedPopover)), 0, "the Menu's own menu stays open")
+        XCTAssertNotEqual(gtk_widget_get_visible(typed(popover)), 0)
+    }
+
+    func testBottomBarItemsGoBelowTheScreenOrTrailWithoutABottomBar() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "VStack", "id": 2, "toolbar": [
+                {"type": "ToolbarItemGroup", "id": 10, "properties": {"placement": "bottomBar"}, "children": [\#(Self.button(11)), \#(Self.button(12))]}]}}
+            """#)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        XCTAssertEqual(ids(bar, .bottom, in: stack), [11, 12])
+        XCTAssertTrue(Gtk.Widget(try XCTUnwrap(bar.bottomBar)).isVisible)
+        XCTAssertEqual(ids(bar, .trailing, in: stack), [])
+        let header = OwnedObject(retaining: adw_header_bar_new()!)
+        stack.childNodes[2]?.screenBar = ScreenBar(header: header.widget, toolbarView: nil)
+        AdwaitaTestHost.drainMainLoop()
+        let plain = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        XCTAssertNil(plain.bottomBar)
+        XCTAssertEqual(ids(plain, .trailing, in: stack), [11, 12], "no bottom bar: they trail")
+    }
+
     func testPlacementsMapToSlots() {
+        XCTAssertEqual(NodeToolbar.slot("secondaryAction"), .overflow)
+        XCTAssertEqual(NodeToolbar.slot("bottomBar"), .bottom)
         XCTAssertEqual(NodeToolbar.slot("topBarLeading"), .leading)
         XCTAssertEqual(NodeToolbar.slot("cancellationAction"), .leading)
         XCTAssertEqual(NodeToolbar.slot("navigation"), .leading)

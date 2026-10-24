@@ -8,8 +8,9 @@
  - leading (the start of the bar): topBarLeading, cancellationAction, navigation;
  - principal (in place of the title): principal;
  - trailing (the end of the bar): everything else, as the web renderer places them: automatic,
-   topBarTrailing, primaryAction, confirmationAction, destructiveAction, status, and for now
-   secondaryAction and bottomBar;
+   topBarTrailing, primaryAction, confirmationAction, destructiveAction, status;
+ - overflow (the bar's "more" menu): secondaryAction;
+ - bottom (a bar below the screen): bottomBar;
  - keyboard: not shown (no software keyboard).
 
  The contents are nodes of the view's (made like its children, not among them), so they inherit
@@ -75,8 +76,10 @@ final class NodeToolbar {
         case .topBarLeading, .cancellationAction, .navigation: return .leading
         case .principal: return .principal
         case .keyboard: return nil
+        case .secondaryAction: return .overflow
+        case .bottomBar: return .bottom
         case .automatic, .topBarTrailing, .primaryAction, .confirmationAction, .destructiveAction,
-             .status, .secondaryAction, .bottomBar: return .trailing
+             .status: return .trailing
         }
     }
 
