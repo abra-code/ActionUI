@@ -227,6 +227,13 @@ space differently from SwiftUI's stacks:
   (`geometry-fills-with-flexible-content`). In a ScrollView SwiftUI's reader is its ideal 10 points
   long, its content overflowing from its top leading corner; on the web it takes its content's
   length and centers it (`geometry-in-scrollview`). Fixed-size content at any alignment matches.
+- **LazyVGrid and LazyHGrid lay out differently.** SwiftUI gives fixed columns (rows of a
+  LazyHGrid) their width, shares the rest among flexible ones 8 points apart, makes a flexible cell
+  fill its column and its row and centers each cell in its row (column of a LazyHGrid). On the
+  web a cell without a width (height in a LazyHGrid), such as an unframed Color, is not drawn, the
+  tracks are not 8 points apart and their block starts at the leading (top) edge, a cell sits at
+  the start of its row, and the cells' `content-visibility: auto` (44 point placeholder size)
+  leaves every cell of some grids undrawn (`lazyvgrid-*`, `lazyhgrid-*`).
 - **A Grid's flexible cells collapse.** SwiftUI shares a Grid's width among its columns and its
   height among its rows as a stack shares its length, and a flexible cell (a Color without a
   frame) fills its column and row; a Grid with one shares its parent stack like a Color. On the

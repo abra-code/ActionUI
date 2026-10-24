@@ -104,6 +104,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// - grid: a Grid's tracks are sized by their content, so a flexible cell (an unframed Color) is not drawn and the Grid does not share its stack, where SwiftUI shares the Grid's size among its columns and rows like a stack and the flexible cell fills its column and row; a Spacer or Divider in a Grid is such a cell, and an EmptyView keeps a cell (and a row of only EmptyViews a row and its spacing), where SwiftUI gives it none
     /// - geometry: a GeometryReader's share in a stack grows with its content, and flexible content in it is not drawn, where SwiftUI shares the stack like a Color and gives the content the reader's size; in a ScrollView it takes its content's length and centers it, where SwiftUI's is its ideal 10 with the content at its top leading corner
     /// - group: a Group's padding or frame goes on one box around the whole Group, which lays its children out in a column, where SwiftUI applies them to each child in the parent stack
+    /// - lazygrid: the web's LazyVGrid and LazyHGrid do not lay out as SwiftUI's: a cell without a width in a LazyVGrid (a height in a LazyHGrid), such as an unframed Color, is not drawn, where SwiftUI fills its column (row) with it; the tracks are not 8 points apart and their block starts at the leading (top) edge instead of at the grid's alignment; a cell sits at the start of its line instead of centered in it; and the cells' content-visibility: auto (with a 44 point placeholder size) leaves every cell of some grids undrawn (lazyvgrid-two-flexible)
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     /// - scrollview: a ScrollView's share along its axis grows with its content, its content is not offered the ScrollView's size across the axis, and an unframed Color in it collapses (vertical) or fills the rest (horizontal), where SwiftUI shares the axis like a Color, sizes across to the content, and gives the content its ideal length
     private static let knownDifferences: [String: String] = [
@@ -139,6 +140,15 @@ final class WebLayoutParityTests: XCTestCase {
         "hstack-baseline-frame-bottom": "baseline",
         "hstack-baseline-stack-without-text": "baseline",
         "hstack-larger-minimum-first": "minimum",
+        "lazyhgrid-fixed-alignment-top": "lazygrid",
+        "lazyhgrid-two-flexible": "lazygrid",
+        "lazyvgrid-alignment-leading": "lazygrid",
+        "lazyvgrid-emptyview-takes-no-cell": "lazygrid",
+        "lazyvgrid-fixed-and-flexible": "lazygrid",
+        "lazyvgrid-fixed-only": "lazygrid",
+        "lazyvgrid-flexible-cells": "lazygrid",
+        "lazyvgrid-in-vstack-hugs": "lazygrid",
+        "lazyvgrid-two-flexible": "lazygrid",
         "nested-unbounded-spacer": "minimum",
         "scrollview-horizontal-content": "scrollview",
         "scrollview-horizontal-in-hstack": "scrollview",

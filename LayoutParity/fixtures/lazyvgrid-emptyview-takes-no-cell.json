@@ -1,0 +1,8 @@
+{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 400, "height": 300}}, "children": [
+  {"type": "LazyVGrid", "id": 2, "properties": {"columns": [{"flexible": true}, {"flexible": true}]}, "children": [
+    {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"height": 20}}},
+    {"type": "EmptyView", "id": 4},
+    {"type": "Color", "id": 5, "properties": {"color": "#00FF00", "frame": {"height": 20}}},
+    {"type": "Color", "id": 6, "properties": {"color": "#0000FF", "frame": {"height": 20}}}
+  ]}
+]}
