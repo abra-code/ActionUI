@@ -334,6 +334,8 @@ public final class AdwaitaApplication {
         if renderTree?.showsOwnHeaderBars != true {
             let header = adw_header_bar_new()!
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
+            // The document's toolbars show in it.
+            renderTree?.root?.screenBar = ScreenBar(header: header)
             // Measured in the window, where the header bar has its style.
             headerHeight = Int32(clamping: Gtk.Widget(header).measure(GTK_ORIENTATION_VERTICAL).natural)
         }

@@ -17,7 +17,8 @@
    selection and action), and backing out to the root clears the List's selection.
 
  The pages follow the path: a path that grows by one pushes (animated), one that shrinks pops back
- (animated), anything else replaces the stack. Toolbars and persistentToolbar are not shown yet.
+ (animated), anything else replaces the stack. The toolbars of the views on a page show in its
+ header bar (ScreenBar, NodeToolbar); persistentToolbar is not shown yet.
 */
 
 #if canImport(FoundationEssentials)
@@ -42,6 +43,8 @@ final class NavigationStackState {
     let view: OpaquePointer
     let rootPage: OwnedObject
     let rootToolbar: OpaquePointer
+    /// The root page's header bar.
+    let rootHeader: WidgetPointer
     /// The screens above the root, in order.
     var entries: [NavigationEntry] = []
     /// The page of each pushed screen, by its element's id, with its toolbar view and header bar.
@@ -49,10 +52,11 @@ final class NavigationStackState {
     /// The header bars, which show the window's buttons only on the window's own stack.
     var headerBars: [WidgetPointer] = []
 
-    init(view: OpaquePointer, rootPage: consuming OwnedObject, rootToolbar: OpaquePointer) {
+    init(view: OpaquePointer, rootPage: consuming OwnedObject, rootToolbar: OpaquePointer, rootHeader: WidgetPointer) {
         self.view = view
         self.rootPage = rootPage
         self.rootToolbar = rootToolbar
+        self.rootHeader = rootHeader
     }
 
     /// The destination ids of the entries: what the path should hold.
@@ -86,7 +90,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
         gtk_widget_set_vexpand(view, 1)
         let (rootToolbar, rootHeader) = makePageToolbar()
         let rootPage = OwnedObject(retaining: UnsafeMutableRawPointer(adw_navigation_page_new(rootToolbar, "")!))
-        let state = NavigationStackState(view: OpaquePointer(view), rootPage: rootPage, rootToolbar: OpaquePointer(rootToolbar))
+        let state = NavigationStackState(view: OpaquePointer(view), rootPage: rootPage, rootToolbar: OpaquePointer(rootToolbar), rootHeader: rootHeader)
         state.headerBars.append(rootHeader)
         adw_navigation_view_add(OpaquePointer(view), state.rootPage.typed())
         attach(state, to: view, key: navigationStackStateKey)
@@ -148,6 +152,10 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
         children += state.entries.map(\.element)
         node.syncChildren(children, insert: { child, index in
             if child.element.id == content?.id {
+                // The toolbars of the views on a page show in its header bar.
+                if child.screenBar == nil {
+                    child.screenBar = ScreenBar(header: state.rootHeader)
+                }
                 if adw_toolbar_view_get_content(state.rootToolbar) != child.outerWidget {
                     adw_toolbar_view_set_content(state.rootToolbar, child.outerWidget)
                 }
@@ -156,6 +164,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
                 adw_toolbar_view_set_content(OpaquePointer(toolbar), child.outerWidget)
                 let page = OwnedObject(retaining: UnsafeMutableRawPointer(adw_navigation_page_new(toolbar, "")!))
                 state.pages[child.element.id] = NavigationPage(page: page, toolbar: OpaquePointer(toolbar), header: header)
+                child.screenBar = ScreenBar(header: header)
                 state.headerBars.append(header)
             }
         }, remove: { child in

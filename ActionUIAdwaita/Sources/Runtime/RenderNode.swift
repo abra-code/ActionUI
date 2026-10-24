@@ -8,7 +8,8 @@
  renderer's own widget changes reach no action) and inside withObservationTracking (so a change to
  anything the update read marks the node dirty, and SyncScheduler syncs it again). The sheet,
  full-screen cover and popover an element declares (NodePresentations) follow its view model's
- visibility states, read in the same sync.
+ visibility states, read in the same sync. Its toolbar (NodeToolbar) shows in the header bar of its
+ screen (ScreenBar).
 
  Ownership: a node keeps a reference on its widget and its box, so they live as long as the node even
  when GTK drops its own (a closed window); a parent keeps its child nodes; the window keeps the
@@ -52,6 +53,13 @@ final class RenderNode {
     private var unsyncedChildren: [RenderNode] = []
     /// The sheet, full-screen cover and popover the element declares; nil when it declares none.
     private(set) var presentations: NodePresentations?
+    /// The toolbar the element declares, shown in its screen's header bar; nil when it declares none.
+    private(set) var toolbar: NodeToolbar?
+    /// The header bar of the screen this node is the root of (a page's, a column's, a window's), set
+    /// by whoever made the bar. Setting it shows the toolbars of the nodes below in it.
+    var screenBar: ScreenBar? {
+        didSet { markToolbarsDirty() }
+    }
     /// True for the root of a window's document, and for a NavigationStack at the root of a dialog
     /// (set before the first sync): a NavigationStack there takes the window's or the dialog's place
     /// for a header bar.
@@ -97,6 +105,7 @@ final class RenderNode {
         ownedWidget = OwnedObject(retaining: widget)
         ownedOuterWidget = OwnedObject(retaining: ModifierBox.wrap(widget))
         presentations = NodePresentations.make(for: self)
+        toolbar = NodeToolbar.make(for: self)
     }
 
     isolated deinit {
@@ -122,6 +131,7 @@ final class RenderNode {
                     replaceWidget(kind: kind)
                 }
                 renderer.update(widget, self)
+                toolbar?.update()
                 ModifierBox.update(outerWidget, self, renderer.boxModifiers(modifiers))
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
@@ -138,7 +148,7 @@ final class RenderNode {
         // A set: a linear search per child is quadratic in a wide container's first sync.
         if environment != previousEnvironment {
             let new = Set(created.map(ObjectIdentifier.init))
-            for child in childNodes.values where !new.contains(ObjectIdentifier(child)) {
+            for child in Array(childNodes.values) + (toolbar?.nodes ?? []) where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
             }
         }
@@ -180,21 +190,33 @@ final class RenderNode {
         if let existing = childNodes[element.id] {
             return existing
         }
-        let childModel: ViewModel
-        if let context = model.templateContext {
-            // Inside a template row: the child is a blueprint too, shown with the row's data in a view
-            // model of its own, as on Apple (TemplateHelper).
-            childModel = Self.templateModel(element, context)
-        } else if let registered = windowModel.viewModels[element.id] {
-            childModel = registered
-        } else {
-            ActionUIModel.shared.logger.log("RenderNode: no view model for element \(element.id) (\(element.type)) in window \(windowUUID); rendering it with an empty one", .warning)
-            childModel = ViewModel()
-        }
-        let child = RenderNode(element: element, model: childModel, windowModel: windowModel, parent: self)
+        let child = RenderNode(element: element, model: childModel(for: element), windowModel: windowModel, parent: self)
         childNodes[element.id] = child
         unsyncedChildren.append(child)
         return child
+    }
+
+    /// A node for `element`, with a view model as a child's, that is not one of the child nodes: a
+    /// toolbar item's content, kept by NodeToolbar. Synced right after this node's sync, like a new
+    /// child; its keeper detaches it.
+    func auxiliaryNode(for element: any ActionUIElementBase) -> RenderNode {
+        let node = RenderNode(element: element, model: childModel(for: element), windowModel: windowModel, parent: self)
+        unsyncedChildren.append(node)
+        return node
+    }
+
+    /// The view model of a node made for `element` below this one: its registered one, or inside a
+    /// template row one of its own.
+    private func childModel(for element: any ActionUIElementBase) -> ViewModel {
+        if let context = model.templateContext {
+            // Inside a template row: the child is a blueprint too, shown with the row's data in a view
+            // model of its own, as on Apple (TemplateHelper).
+            return Self.templateModel(element, context)
+        } else if let registered = windowModel.viewModels[element.id] {
+            return registered
+        }
+        ActionUIModel.shared.logger.log("RenderNode: no view model for element \(element.id) (\(element.type)) in window \(windowUUID); rendering it with an empty one", .warning)
+        return ViewModel()
     }
 
     /// A node for one row of a template container: `template` shown with the row's data, in a view
@@ -249,9 +271,43 @@ final class RenderNode {
     func detach() {
         isAttached = false
         presentations?.detach()
+        toolbar?.detach()
         for child in childNodes.values {
             child.detach()
         }
+    }
+
+    /// The screen bar of this node or of the nearest node above it that has one.
+    var nearestScreenBar: ScreenBar? {
+        var current: RenderNode? = self
+        while let node = current {
+            if let bar = node.screenBar {
+                return bar
+            }
+            current = node.parent
+        }
+        return nil
+    }
+
+    /// Syncs again the nodes from this one down that declare a toolbar: their screen bar changed.
+    /// Also those below template rows and toolbar items, which are not child nodes (NodeToolbar
+    /// keeps the list).
+    private func markToolbarsDirty() {
+        for node in NodeToolbar.nodes(below: self) {
+            SyncScheduler.shared.markDirty(node)
+        }
+    }
+
+    /// Whether `ancestor` is this node or one above it.
+    func isDescendant(of ancestor: RenderNode) -> Bool {
+        var current: RenderNode? = self
+        while let node = current {
+            if node === ancestor {
+                return true
+            }
+            current = node.parent
+        }
+        return false
     }
 
     /// Takes down the presentations of this node and its descendants, as detach does (no action,

@@ -137,7 +137,10 @@ final class WindowPresenter {
         let dialog: UnsafeMutablePointer<AdwDialog> = widget.typed()
         let toolbar = adw_toolbar_view_new()!
         if !root.isWindowRoot {
-            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), adw_header_bar_new())
+            let header = adw_header_bar_new()!
+            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
+            // The modal's toolbars show in it.
+            root.screenBar = ScreenBar(header: header)
         }
         adw_toolbar_view_set_content(OpaquePointer(toolbar), root.outerWidget)
         adw_dialog_set_child(dialog, toolbar)

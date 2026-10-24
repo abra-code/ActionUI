@@ -19,8 +19,11 @@
    Apple), after the List's own selection and action, and the detail shows that destination;
    without one it shows "detail". A host's write of the state switches the detail.
 
+ - The toolbars of the views in a column show in its header bar (ScreenBar, NodeToolbar); principal
+   items take the place of the column's title.
+
  Not here yet: style (balanced and prominentDetail look the same), collapsing into one column in a
- narrow window, toolbars and persistentToolbar.
+ narrow window, persistentToolbar.
 */
 
 import CAdwaita
@@ -134,6 +137,13 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
             let column = columns[index].column
             // A column that is a NavigationStack brings its own header bars, as the window's would.
             child.isWindowRoot = node.isWindowRoot && AdwaitaWindow.headerBarTypes.contains(child.element.type)
+            // The toolbars of the views in a column show in its header bar, unless the column brings
+            // its own bars; the title is set below, principal items in its place.
+            if child.screenBar == nil, !AdwaitaWindow.headerBarTypes.contains(child.element.type) {
+                child.screenBar = ScreenBar(header: column.header, principalChanged: { [weak node] in
+                    if let node { SyncScheduler.shared.markDirty(node) }
+                })
+            }
             if adw_toolbar_view_get_content(OpaquePointer(column.toolbar)) != child.outerWidget {
                 adw_toolbar_view_set_content(OpaquePointer(column.toolbar), child.outerWidget)
             }
@@ -147,7 +157,7 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
         for (element, column) in columns {
             guard let child = node.childNodes[element.id] else { continue }
             let modifiers = BaseModifiers(child.properties)
-            updateHeader(column, node: node, title: modifiers.navigationTitle,
+            updateHeader(column, node: node, title: modifiers.navigationTitle, principal: child.screenBar?.principalWidget,
                          ownBars: AdwaitaWindow.headerBarTypes.contains(element.type), isDetail: column === parts.detail)
         }
         if let sidebar, let child = node.childNodes[sidebar.id] {
@@ -166,8 +176,10 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
 
     /// The column's header bar: hidden for a column with bars of its own; its title is the column's
     /// navigationTitle (none in a leading column without one, the window's in the detail); the
-    /// window's buttons only on the window's own split view.
-    private static func updateHeader(_ column: SplitViewColumn, node: RenderNode, title: String?, ownBars: Bool, isDetail: Bool) {
+    /// window's buttons only on the window's own split view. Principal toolbar items take the title's
+    /// place.
+    private static func updateHeader(_ column: SplitViewColumn, node: RenderNode, title: String?, principal: WidgetPointer?,
+                                     ownBars: Bool, isDetail: Bool) {
         let header = OpaquePointer(column.header)
         Gtk.Widget(column.header).isVisible = !ownBars
         let windowButtons: gboolean = node.isWindowRoot ? 1 : 0
@@ -175,7 +187,12 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
             adw_header_bar_set_show_end_title_buttons(header, windowButtons)
             adw_header_bar_set_show_start_title_buttons(header, windowButtons)
         }
-        if let title, !title.isEmpty {
+        if let principal {
+            if adw_header_bar_get_title_widget(header) != principal {
+                adw_header_bar_set_title_widget(header, principal)
+            }
+            adw_header_bar_set_show_title(header, 1)
+        } else if let title, !title.isEmpty {
             if swiftString(adw_window_title_get_title(OpaquePointer(column.title))) != title {
                 adw_window_title_set_title(OpaquePointer(column.title), title)
             }
