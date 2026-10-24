@@ -316,6 +316,13 @@ public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
 public func actionUIAppSetApplicationID(_ applicationID: UnsafePointer<CChar>) {
 }
 
+/// Set the folder of the app's resources. On Linux an app's resources are found there (by default
+/// the program's folder); on Apple platforms the main bundle serves, so this does nothing. It exists
+/// so one host program works on both.
+@_cdecl("actionUIAppSetResourceFolder")
+public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
+}
+
 // MARK: - App icon
 
 /// Set the application icon (Dock + About panel).

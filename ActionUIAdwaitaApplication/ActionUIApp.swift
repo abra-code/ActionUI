@@ -153,6 +153,15 @@ public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
     runOnMainActorSync { AdwaitaApplication.shared.icon = swiftPath }
 }
 
+/// The folder of the app's resources, where LoadableView names and image resources are found (by
+/// default the running program's folder, its bundle). An interpreted host, whose program is the
+/// interpreter, passes its script's folder; NULL: none.
+@_cdecl("actionUIAppSetResourceFolder")
+public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
+    let swiftPath = path.map { String(cString: $0) }
+    runOnMainActorSync { AdwaitaApplication.shared.resourceFolder = swiftPath }
+}
+
 /// Runs the application until it ends. Must be called from the main thread; from another
 /// thread it is refused and logged.
 @_cdecl("actionUIAppRun")

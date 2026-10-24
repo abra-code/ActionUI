@@ -4,7 +4,8 @@
  pointers as handlers: a window presented before actionUIAppRun opens at the start, its handlers
  fire in order, and closing it ends the run; a run off the main thread, and a setter from another
  thread before the run, are refused and return; a refused nested run leaves other threads able to
- call; the functions not on Linux yet answer as failures.
+ call; a host sets the resource folder (NULL: none); the functions not on Linux yet answer as
+ failures.
 */
 
 import XCTest
@@ -86,6 +87,14 @@ final class ActionUIAppFunctionTests: XCTestCase {
         actionUIAppLoadAndPresentWindowFromJSON(#"{"type": "Text", "id": 1, "properties": {"text": "Nested"}}"#, "c-app-w1", nil)
         actionUIAppRun()
         XCTAssertEqual(AdwaitaApplication.shared.name, "From a worker during the run", "the setter waited for the main thread, not refused")
+    }
+
+    func testAHostSetsTheResourceFolder() {
+        defer { AdwaitaApplication.shared.resourceFolder = AppBundle.defaultFolder() }
+        actionUIAppSetResourceFolder("/opt/example/app")
+        XCTAssertEqual(AdwaitaApplication.shared.resourceFolder, "/opt/example/app")
+        actionUIAppSetResourceFolder(nil)
+        XCTAssertNil(AdwaitaApplication.shared.resourceFolder, "NULL: none")
     }
 
     func testTheFunctionsNotOnLinuxYetAnswerAsFailures() {

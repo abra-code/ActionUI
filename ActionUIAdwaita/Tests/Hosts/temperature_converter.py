@@ -12,6 +12,7 @@ Usage: python3 temperature_converter.py <libActionUI.so> <TemperatureConverter.j
 """
 
 import ctypes
+import os
 import sys
 
 WINDOW = b"temperature-converter"
@@ -44,6 +45,7 @@ def load(library_path):
     lib.actionUIGetVersion.restype = ctypes.c_void_p
     lib.actionUIAppSetName.argtypes = [ctypes.c_char_p]
     lib.actionUIAppSetApplicationID.argtypes = [ctypes.c_char_p]
+    lib.actionUIAppSetResourceFolder.argtypes = [ctypes.c_char_p]
     lib.actionUIAppSetDidFinishLaunchingHandler.argtypes = [LIFECYCLE_HANDLER]
     lib.actionUIAppLoadAndPresentWindow.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
     return lib
@@ -115,6 +117,8 @@ def main():
     lib.actionUIRegisterActionHandler(b"temp.recompute", handler)
     lib.actionUIAppSetName(b"Temperature Converter (Python)")
     lib.actionUIAppSetApplicationID(b"com.abracode.actionui.TemperatureConverterPython")
+    # The program is python3, so its folder is no bundle: the script's folder holds the app's files.
+    lib.actionUIAppSetResourceFolder(os.fsencode(os.path.dirname(os.path.abspath(sys.argv[0]))))
     if check:
         lib.actionUIAppSetDidFinishLaunchingHandler(launched)
     lib.actionUIAppLoadAndPresentWindow(arguments[1].encode("utf-8"), WINDOW, b"Temperature Converter (Python)")
