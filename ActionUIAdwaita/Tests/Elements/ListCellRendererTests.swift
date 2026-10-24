@@ -4,7 +4,8 @@
  width at the leading edge, whose click fires itemType.actionID with the row's text or its index in
  the content, taking the inherited buttonStyle; an Image cell showing a symbol or a file as
  dataInterpretation reads the text; a changed text updates the row's cell in place (an image's
- widget is made again); a new viewType makes the rows again; AsyncImage cells are text.
+ widget is made again); a new viewType makes the rows again; an AsyncImage cell showing a spinner
+ until its image has loaded, and when it cannot be, then the image across the row.
 */
 
 import XCTest
@@ -24,6 +25,7 @@ final class ListCellRendererTests: XCTestCase {
         // sends the non-Sendable test case across actors, which Swift 6 refuses.
         try AdwaitaTestHost.initialize()
         ActionUIRegistry.shared.loadBuiltIns()
+        RemoteImages.shared.removeAll()
         windowUUID = "list-cell-\(name)"
         fired = []
         for id in actionIDs {
@@ -44,6 +46,7 @@ final class ListCellRendererTests: XCTestCase {
             try? FileManager.default.removeItem(atPath: path)
         }
         files = []
+        RemoteImages.shared.removeAll()
         ActionUIRegistry.shared.loadBuiltIns()
     }
 
@@ -185,11 +188,43 @@ final class ListCellRendererTests: XCTestCase {
         XCTAssertTrue(fired.isEmpty)
     }
 
-    func testAsyncImageCellsAreText() throws {
+    func testAnAsyncImageCellShowsASpinnerThenTheImageAcrossTheRow() throws {
+        let url = TestImages.fileURL(try pngFile())
         let node = try render(#"{"type": "List", "id": 1, "properties": {"itemType": {"viewType": "AsyncImage"}}}"#)
-        setRows([["https://example.com/a.png"]])
-        let cell = try XCTUnwrap(try cells(node).first)
-        XCTAssertEqual(typeName(cell), "GtkLabel")
-        XCTAssertEqual(Gtk.Label(cell).text, "https://example.com/a.png")
+        setRows([[url], [url], [url]])
+        XCTAssertEqual(try cells(node).map { typeName($0) }, Array(repeating: "AdwSpinner", count: 3))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { (try? self.cells(node).allSatisfy { self.typeName($0) == "GtkPicture" }) == true }))
+        // Shorter than the rows: they keep their heights and the list scrolls.
+        gtk_widget_allocate(node.outerWidget, 300, 100, -1, nil)
+        for picture in try cells(node) {
+            var bounds = graphene_rect_t()
+            XCTAssertNotEqual(gtk_widget_compute_bounds(picture, node.outerWidget, &bounds), 0)
+            // The 20 x 10 image across the row's content (300 less 16 at each side), half as tall.
+            XCTAssertEqual(bounds.size.width, 268)
+            XCTAssertEqual(bounds.size.height, 134)
+        }
+    }
+
+    func testAnAsyncImageCellThatCannotLoadKeepsTheSpinner() throws {
+        let node = try render(#"{"type": "List", "id": 1, "properties": {"itemType": {"viewType": "AsyncImage"}}}"#)
+        let missing = "file:///no/such/image.png"
+        setRows([[missing]])
+        // Waiters run in the order they asked, so the cell's has run when this one does.
+        var failed = false
+        RemoteImages.shared.load(missing) { loaded in failed = !loaded }
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { failed }))
+        XCTAssertEqual(typeName(try XCTUnwrap(try cells(node).first)), "AdwSpinner")
+    }
+
+    func testAnAsyncImageCellShowsAKeptImageAtOnceAndANewTextAgain() throws {
+        let kept = TestImages.fileURL(try pngFile())
+        var loaded = false
+        RemoteImages.shared.load(kept) { _ in loaded = true }
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { loaded }))
+        let node = try render(#"{"type": "List", "id": 1, "properties": {"itemType": {"viewType": "AsyncImage"}}}"#)
+        setRows([[kept]])
+        XCTAssertEqual(typeName(try XCTUnwrap(try cells(node).first)), "GtkPicture", "no spinner first")
+        setRows([["file:///no/such/image.png"]])
+        XCTAssertEqual(typeName(try XCTUnwrap(try cells(node).first)), "AdwSpinner", "a new text loads again")
     }
 }

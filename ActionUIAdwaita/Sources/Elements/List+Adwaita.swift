@@ -9,9 +9,12 @@
    width at the leading edge, taking the inherited buttonStyle, whose click fires itemType.actionID
    with the text (or with the row's index in the content for actionContext rowIndex); an Image
    reading the text as itemType.dataInterpretation says, a symbol at Image's medium size or a file
-   at its own size. Selectable whether or not an actionID is set: a selection the user makes
-   becomes the value (the row's columns) and fires actionID (Core RowSelection); a double click (or
-   Return) fires doubleClickActionID with the row's index in the content.
+   at its own size; an AsyncImage loading the text as a URL (RemoteImages), a spinner until it has
+   loaded and also when it cannot be loaded, then the image scaled to the row's width (SwiftUI's
+   cell: resizable, scaledToFit, a ProgressView placeholder). Selectable whether or not an
+   actionID is set: a selection the user makes becomes the value (the row's columns) and fires
+   actionID (Core RowSelection); a double click (or Return) fires doubleClickActionID with the
+   row's index in the content.
  - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
    the selected child's id as text, and actionID fires with the id as its context; without one,
    the rows are not selectable and the children handle their own input.
@@ -21,22 +24,19 @@
 
  The value selects its row when a host sets it; a rows change keeps the selection on its row
  (Core). Styles: automatic, inset and plain show rows separated by lines (none below the last
- row), as macOS draws them;
- sidebar uses libadwaita's navigation-sidebar; grouped and insetGrouped its boxed-list cards.
+ row), as macOS draws them; sidebar uses libadwaita's navigation-sidebar; grouped and insetGrouped
+ its boxed-list cards.
  Row styling applies to the rows of every form, as on macOS (rowMetrics): listRowBackground fills
  a row that is not selected; listRowSeparator hidden takes the lines away, visible shows them in
  the sidebar too; listRowSeparatorTint colors them; listRowInsets sets the space around a row's
  content.
 
- Not yet: AsyncImage cells (shown as text: Linux has no AsyncImage yet), logged once.
  onRefreshActionID does nothing (pull to refresh; desktops have none). A template row whose data
  changes is made again, so a control in it loses keyboard focus after a toggle (SwiftUI keeps rows
  by index).
 */
 
 import CAdwaita
-
-@MainActor private var reportedViewType = false
 
 /// A List's rows as last shown, attached to its scrolled window: the signal handlers map a row
 /// back to its content row or child.
@@ -92,6 +92,13 @@ extension List: ActionUIAdwaitaRenderer {
         // A double click (or Return) activates a row; a single click selects it.
         gtk_list_box_set_activate_on_single_click(OpaquePointer(box), 0)
         gtk_scrolled_window_set_child(OpaquePointer(scroller), box)
+        // Rows at their natural heights, as SwiftUI gives them, and the list scrolls: the viewport
+        // GTK adds gives its child only its minimum height when that is more than the list's, and
+        // the list box then shrinks rows that can shrink (an AsyncImage cell's picture, a resizable
+        // image) to nothing.
+        if let viewport = gtk_widget_get_parent(box) {
+            gtk_scrollable_set_vscroll_policy(OpaquePointer(viewport), GTK_SCROLL_NATURAL)
+        }
         let state = ListState(box: box)
         attach(state, to: scroller, key: listStateKey)
         watchUserInput(box, state)
@@ -110,8 +117,6 @@ extension List: ActionUIAdwaitaRenderer {
         guard let state = attached(on: widget, key: listStateKey) else { return }
         let props = Props(node.properties)
         applyStyle(state.box, props)
-        reportGaps(node, props)
-
         let children = node.subviews("children")
         let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase
         let mode: ListState.Mode = template != nil ? .template : children.isEmpty ? .rows : .children
@@ -156,8 +161,7 @@ extension List: ActionUIAdwaitaRenderer {
         state.drawnRows = items
         state.shownIndices = shown
         let box = OpaquePointer(state.box)
-        // AsyncImage cells are text until Linux has AsyncImage.
-        let cellType = props.viewType == .asyncImage ? .text : props.viewType
+        let cellType = props.viewType
         if cellType != state.cellType || (cellType == .image && props.dataInterpretation != state.cellInterpretation) {
             gtk_list_box_remove_all(box)
             state.cellTexts = []
@@ -196,7 +200,7 @@ extension List: ActionUIAdwaitaRenderer {
     /// A new row's cell showing `text`, of the state's cell type.
     private static func makeCell(_ text: String, _ state: ListState, _ node: RenderNode) -> WidgetPointer {
         switch state.cellType {
-        case .text, .asyncImage:
+        case .text:
             return rowLabel(text)
         case .button:
             // At its natural width at the leading edge, as SwiftUI's Button cell.
@@ -210,19 +214,23 @@ extension List: ActionUIAdwaitaRenderer {
             return button
         case .image:
             return imageCell(text, state.cellInterpretation)
+        case .asyncImage:
+            return asyncImageCell(text, state)
         }
     }
 
     /// Shows `text` in an existing row's cell.
     private static func setCellText(_ row: UnsafeMutablePointer<GtkListBoxRow>, _ text: String, _ state: ListState) {
         switch state.cellType {
-        case .text, .asyncImage:
+        case .text:
             if let label = gtk_list_box_row_get_child(row) { Gtk.Label(label).text = text }
         case .button:
             if let button = gtk_list_box_row_get_child(row) { gtk_button_set_label(typed(button), text) }
         case .image:
             // A symbol and a file are different widgets.
             gtk_list_box_row_set_child(row, imageCell(text, state.cellInterpretation))
+        case .asyncImage:
+            gtk_list_box_row_set_child(row, asyncImageCell(text, state))
         }
     }
 
@@ -251,6 +259,39 @@ extension List: ActionUIAdwaitaRenderer {
         gtk_widget_set_halign(widget, GTK_ALIGN_START)
         gtk_widget_set_valign(widget, GTK_ALIGN_CENTER)
         return widget
+    }
+
+    /// An AsyncImage cell: the image the text names once RemoteImages has it, else a spinner at the
+    /// leading edge that the image replaces when it arrives; one that cannot be loaded keeps the
+    /// spinner, as SwiftUI's cell keeps its ProgressView placeholder.
+    private static func asyncImageCell(_ text: String, _ state: ListState) -> WidgetPointer {
+        if let texture = RemoteImages.shared.texture(text) {
+            return pictureCell(texture)
+        }
+        let spinner = adw_spinner_new()!
+        gtk_widget_set_halign(spinner, GTK_ALIGN_START)
+        gtk_widget_set_valign(spinner, GTK_ALIGN_CENTER)
+        RemoteImages.shared.load(text) { [weak state] loaded in
+            guard loaded, let state, state.cellType == .asyncImage,
+                  let texture = RemoteImages.shared.texture(text) else { return }
+            // Every row still showing this text and waiting, wherever it is now.
+            let box = OpaquePointer(state.box)
+            for (position, shown) in state.cellTexts.enumerated() where shown == text {
+                guard let row = gtk_list_box_get_row_at_index(box, Int32(position)),
+                      let child = gtk_list_box_row_get_child(row),
+                      g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(child)), gtk_picture_get_type()) == 0 else { continue }
+                gtk_list_box_row_set_child(row, pictureCell(texture))
+            }
+        }
+        return spinner
+    }
+
+    /// A loaded AsyncImage cell: the image as wide as the row, as tall as its aspect ratio makes it
+    /// (SwiftUI's resizable, scaledToFit image, given the row's width).
+    private static func pictureCell(_ texture: LoadedTexture) -> WidgetPointer {
+        let picture = gtk_picture_new_for_paintable(texture.pointer)!
+        gtk_picture_set_content_fit(opaque(picture), GTK_CONTENT_FIT_CONTAIN)
+        return picture
     }
 
     /// A Button cell's click: itemType.actionID fires with the row's text, or its index in the
@@ -490,14 +531,6 @@ extension List: ActionUIAdwaitaRenderer {
         state.shownIndices = []
         state.cellTexts = []
         state.childIDs = []
-    }
-
-    private static func reportGaps(_ node: RenderNode, _ props: Props) {
-        let logger = ActionUIModel.shared.logger
-        if !reportedViewType, props.viewType == .asyncImage {
-            reportedViewType = true
-            logger.log("List: AsyncImage cells are shown as text on Linux for now", .warning)
-        }
     }
 }
 
