@@ -168,7 +168,11 @@ final class RenderNode {
             return existing
         }
         let childModel: ViewModel
-        if let registered = windowModel.viewModels[element.id] {
+        if let context = model.templateContext {
+            // Inside a template row: the child is a blueprint too, shown with the row's data in a view
+            // model of its own, as on Apple (TemplateHelper).
+            childModel = Self.templateModel(element, context)
+        } else if let registered = windowModel.viewModels[element.id] {
             childModel = registered
         } else {
             ActionUIModel.shared.logger.log("RenderNode: no view model for element \(element.id) (\(element.type)) in window \(windowUUID); rendering it with an empty one", .warning)
@@ -178,6 +182,26 @@ final class RenderNode {
         childNodes[element.id] = child
         unsyncedChildren.append(child)
         return child
+    }
+
+    /// A node for one row of a template container: `template` shown with the row's data, in a view
+    /// model of its own whose TemplateContext names this node as the parent (the id actions report)
+    /// and the row's index and data. Synced right after this node's sync, like a new child. The
+    /// container keeps it, not childNodes (every row has the template's ids), and detaches it when
+    /// its row goes.
+    func templateRowNode(_ template: any ActionUIElementBase, row: [String], rowIndex: Int) -> RenderNode {
+        let context = TemplateContext(parentID: element.id, rowIndex: rowIndex, row: row)
+        let node = RenderNode(element: template, model: Self.templateModel(template, context), windowModel: windowModel, parent: self)
+        unsyncedChildren.append(node)
+        return node
+    }
+
+    /// A template instance's view model: the element's properties with the row's data substituted.
+    private static func templateModel(_ element: any ActionUIElementBase, _ context: TemplateContext) -> ViewModel {
+        let model = ViewModel()
+        model.templateContext = context
+        model.seedProperties(TemplateHelper.instanceProperties(of: element, row: context.row, logger: ActionUIModel.shared.logger))
+        return model
     }
 
     /// Reconciles the child nodes with `elements`, keyed by element id, in order. `insert` places a
@@ -202,6 +226,8 @@ final class RenderNode {
 
     /// True when the window has another view model for this node's element id.
     private var isReplaced: Bool {
+        // A template instance's model is its own; the id may name the blueprint's registered one.
+        guard model.templateContext == nil else { return false }
         guard let registered = windowModel.viewModels[element.id] else { return false }
         return registered !== model
     }

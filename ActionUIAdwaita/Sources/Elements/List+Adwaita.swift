@@ -2,7 +2,7 @@
 /*
  List on GTK: a GtkListBox in a GtkScrolledWindow, as greedy as SwiftUI's List (it shares a stack
  like a Color, measured: the list-in-hstack-shares and list-in-vstack-shares layout parity
- fixtures). Two of the element's forms:
+ fixtures). Its three forms:
 
  - Rows (Form 1): one row per content row (setElementRows) whose first column is not empty, its
    text the first column. Selectable whether or not an actionID is set: a selection the user makes
@@ -11,19 +11,22 @@
  - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
    the selected child's id as text, and actionID fires with the id as its context; without one,
    the rows are not selectable and the children handle their own input.
+ - Template (Form 3): one row per content row, the template element shown with the row's data
+   ($1 is its first column; RenderNode.templateRowNode), selected and activated as rows are. A
+   row whose data or place changes is made again; the others keep their widgets.
 
  The value selects its row when a host sets it; a rows change keeps the selection on its row
  (Core). Styles: automatic, inset and plain show rows separated by lines, as macOS draws them;
  sidebar uses libadwaita's navigation-sidebar; grouped and insetGrouped its boxed-list cards.
 
- Not yet: the template form (rows from a template element), Button and Image cells (shown as
- text), the row styling properties; logged once each. onRefreshActionID does nothing (pull to
- refresh; desktops have none).
+ Not yet: Button and Image cells (shown as text), the row styling properties; logged once each.
+ onRefreshActionID does nothing (pull to refresh; desktops have none). A template row whose data
+ changes is made again, so a control in it loses keyboard focus after a toggle (SwiftUI keeps rows
+ by index).
 */
 
 import CAdwaita
 
-@MainActor private var reportedTemplate = false
 @MainActor private var reportedViewType = false
 @MainActor private var reportedRowStyling = false
 
@@ -32,7 +35,7 @@ import CAdwaita
 @MainActor
 final class ListState {
     enum Mode {
-        case rows, children
+        case rows, children, template
     }
 
     let box: WidgetPointer
@@ -42,6 +45,11 @@ final class ListState {
     var shownIndices: [Int] = []
     /// The element id of each row's child (children mode).
     var childIDs: [Int] = []
+    /// Each row's template instance (template mode).
+    var rowNodes: [RenderNode] = []
+    /// The list's environment when the rows were last updated: the rows are not child nodes, so
+    /// the list's sync does not pass a changed environment on to them.
+    var rowEnvironment = Environment()
     /// True from a click in the list until the main loop runs after the click ends, and from a key
     /// press until the main loop runs after it: a selection made then is the user's. GTK also
     /// selects the row focus moves onto (the first one when the window gives the list its first
@@ -96,19 +104,32 @@ extension List: ActionUIAdwaitaRenderer {
         reportGaps(node, props)
 
         let children = node.subviews("children")
-        let mode: ListState.Mode = children.isEmpty ? .rows : .children
+        let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase
+        let mode: ListState.Mode = template != nil ? .template : children.isEmpty ? .rows : .children
         if mode != state.mode {
             removeAllRows(state, node)
             state.mode = mode
         }
         let box = OpaquePointer(state.box)
         switch mode {
-        case .rows:
+        case .rows, .template:
             let selectable = GTK_SELECTION_SINGLE
             if gtk_list_box_get_selection_mode(box) != selectable {
                 gtk_list_box_set_selection_mode(box, selectable)
             }
-            updateRows(state, node)
+            if let template {
+                // A kept row sees a changed environment (labelsHidden on the list); new rows
+                // compute theirs when made.
+                if node.environment != state.rowEnvironment {
+                    state.rowEnvironment = node.environment
+                    for rowNode in state.rowNodes {
+                        SyncScheduler.shared.markDirty(rowNode)
+                    }
+                }
+                updateTemplateRows(state, node, template)
+            } else {
+                updateRows(state, node)
+            }
         case .children:
             let selectable = props.actionID == nil ? GTK_SELECTION_NONE : GTK_SELECTION_SINGLE
             if gtk_list_box_get_selection_mode(box) != selectable {
@@ -121,9 +142,7 @@ extension List: ActionUIAdwaitaRenderer {
     // MARK: Rows
 
     private static func updateRows(_ state: ListState, _ node: RenderNode) {
-        // A template's rows are not shown yet (reportGaps).
-        let hasTemplate = node.effectiveElement.subviews?["template"] != nil
-        let items = hasTemplate ? [] : node.model.states["content"] as? [[String]] ?? []
+        let items = node.model.states["content"] as? [[String]] ?? []
         let shown = shownRowIndices(items)
         state.drawnRows = items
         state.shownIndices = shown
@@ -152,6 +171,49 @@ extension List: ActionUIAdwaitaRenderer {
         return label
     }
 
+    // MARK: Template rows
+
+    private static func updateTemplateRows(_ state: ListState, _ node: RenderNode, _ template: any ActionUIElementBase) {
+        let rows = node.model.states["content"] as? [[String]] ?? []
+        state.drawnRows = rows
+        state.shownIndices = Array(rows.indices)
+        let box = OpaquePointer(state.box)
+        for (index, row) in rows.enumerated() {
+            // A row shown with the same data at the same place keeps its instance (and its widgets'
+            // state); its index is in the instance's TemplateContext, the one its actions report.
+            if index < state.rowNodes.count, state.rowNodes[index].model.templateContext?.row == row { continue }
+            let rowNode = node.templateRowNode(template, row: row, rowIndex: index)
+            if index < state.rowNodes.count {
+                state.rowNodes[index].detach()
+                if let old = gtk_list_box_get_row_at_index(box, Int32(index)) {
+                    gtk_list_box_remove(box, typed(old))
+                }
+                state.rowNodes[index] = rowNode
+            } else {
+                state.rowNodes.append(rowNode)
+            }
+            insertHolder(box, rowNode.outerWidget, at: index)
+        }
+        while state.rowNodes.count > rows.count {
+            state.rowNodes.removeLast().detach()
+            if let extra = gtk_list_box_get_row_at_index(box, Int32(rows.count)) {
+                gtk_list_box_remove(box, typed(extra))
+            }
+        }
+        select(state, position: RowSelection.selectedIndex(value: node.model.value, in: rows))
+    }
+
+    /// Puts an element's box in a new row at `index`, in a holder that places it at the leading edge,
+    /// as SwiftUI places a row's content; one that expands fills the row.
+    private static func insertHolder(_ box: OpaquePointer, _ outer: WidgetPointer, at index: Int) {
+        let holder = ListRowLayout.makeHolder()
+        if gtk_widget_get_parent(outer) != nil {
+            gtk_widget_unparent(outer)
+        }
+        gtk_widget_set_parent(outer, holder)
+        gtk_list_box_insert(box, holder, Int32(index))
+    }
+
     // MARK: Children
 
     private static func updateChildren(_ state: ListState, _ node: RenderNode, _ children: [any ActionUIElementBase]) {
@@ -164,14 +226,7 @@ extension List: ActionUIAdwaitaRenderer {
                 // Moved: the node keeps the box alive while its row (and holder) goes.
                 gtk_list_box_remove(box, row)
             }
-            // At the leading edge of the row, as SwiftUI places a row's content; one that expands
-            // fills the row.
-            let holder = ListRowLayout.makeHolder()
-            if gtk_widget_get_parent(outer) != nil {
-                gtk_widget_unparent(outer)
-            }
-            gtk_widget_set_parent(outer, holder)
-            gtk_list_box_insert(box, holder, Int32(index))
+            insertHolder(box, outer, at: index)
         }, remove: { child in
             if let row = Self.row(of: child.outerWidget) {
                 gtk_list_box_remove(box, row)
@@ -216,7 +271,7 @@ extension List: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         let position = selectedPosition(state)
         switch state.mode {
-        case .rows:
+        case .rows, .template:
             let index = position.flatMap { state.shownIndices.indices.contains($0) ? state.shownIndices[$0] : nil }
             guard let clicked = RowSelection.clickedRow(index: index, in: state.drawnRows) else { return }
             RowSelection.commitRowSelection(clicked, drawnRows: state.drawnRows, model: node.model, actionID: props.actionID,
@@ -234,7 +289,7 @@ extension List: ActionUIAdwaitaRenderer {
     /// the first click of a double click fires it.
     private static func userActivated(_ node: RenderNode, _ state: ListState) {
         let props = Props(node.properties)
-        guard state.mode == .rows, let actionID = props.doubleClickActionID,
+        guard state.mode != .children, let actionID = props.doubleClickActionID,
               let position = selectedPosition(state), state.shownIndices.indices.contains(position) else { return }
         let index = state.shownIndices[position]
         let current = node.model.states["content"] as? [[String]] ?? []
@@ -272,6 +327,10 @@ extension List: ActionUIAdwaitaRenderer {
                 }
             })
         }
+        for rowNode in state.rowNodes {
+            rowNode.detach()
+        }
+        state.rowNodes = []
         gtk_list_box_remove_all(box)
         state.drawnRows = []
         state.shownIndices = []
@@ -280,10 +339,6 @@ extension List: ActionUIAdwaitaRenderer {
 
     private static func reportGaps(_ node: RenderNode, _ props: Props) {
         let logger = ActionUIModel.shared.logger
-        if !reportedTemplate, node.effectiveElement.subviews?["template"] != nil {
-            reportedTemplate = true
-            logger.log("List: the template form shows no rows on Linux yet", .warning)
-        }
         if !reportedViewType, props.viewType != .text {
             reportedViewType = true
             logger.log("List: \(props.viewType.rawValue) cells are shown as text on Linux for now", .warning)
@@ -338,7 +393,7 @@ extension List {
     /// The position among the rows of the model's selection.
     fileprivate static func modelPosition(_ node: RenderNode, _ state: ListState) -> Int? {
         switch state.mode {
-        case .rows:
+        case .rows, .template:
             return RowSelection.selectedIndex(value: node.model.value, in: state.drawnRows).flatMap { state.shownIndices.firstIndex(of: $0) }
         case .children:
             return RowSelection.selectedChildID(value: node.model.value).flatMap { state.childIDs.firstIndex(of: $0) }

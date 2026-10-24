@@ -14,10 +14,9 @@
  - labelsHidden hides the title of a checkbox or switch; it still names the control for assistive
    technologies, as in SwiftUI. A button toggle keeps its title, which is all it shows.
  - Turning it on or off runs Core's Toggle.userSetValue (the value, then actionID with the new
-   state as context); an update fires nothing.
+   state as context); an update fires nothing. In a template row the row holds the state: a toggle
+   is written into the row and the action fires with the row index (TemplateHelper.commitRowToggle).
  - Its accessible name is accessibilityLabel, else the title.
-
- Not yet: a Toggle in a data-driven template row (templates come with the collections).
 */
 
 import CAdwaita
@@ -132,7 +131,22 @@ extension Toggle: ActionUIAdwaitaRenderer {
     }
 
     private static func userToggled(_ node: RenderNode, on: Bool) {
-        Toggle.userSetValue(on, element: node.element, model: node.model, windowUUID: node.windowUUID,
-                            props: Props(node.properties))
+        let props = Props(node.properties)
+        guard let context = node.model.templateContext else {
+            Toggle.userSetValue(on, element: node.element, model: node.model, windowUUID: node.windowUUID, props: props)
+            return
+        }
+        // In a template row the row holds the state: the toggle is written into it (the container
+        // shows the row again) and the action fires with the row index, as on Apple. The template's
+        // own isOn names the column; without one the Toggle only shows the row and turns back.
+        let column = TemplateHelper.singleColumnIndex(node.element.properties["isOn"])
+        if column == nil {
+            TemplateHelper.warnOnce("Toggle isOn in a template must be a single column reference such as \"$1\" to keep its state; this Toggle is display-only", logger: ActionUIModel.shared.logger)
+        }
+        let taken = TemplateHelper.commitRowToggle(on, context: context, column: column, actionID: props.actionID,
+                                                   windowUUID: node.windowUUID)
+        if !taken {
+            SyncScheduler.shared.markDirty(node)
+        }
     }
 }
