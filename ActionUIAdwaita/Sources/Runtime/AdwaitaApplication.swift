@@ -365,6 +365,14 @@ public final class AdwaitaApplication {
         }
     }
 
+    /// Brings the window showing `windowUUID` to the front; false when it is not on screen.
+    @discardableResult
+    public func showWindow(_ windowUUID: String) -> Bool {
+        guard let window = windows[windowUUID]?.window else { return false }
+        gtk_window_present(window)
+        return true
+    }
+
     /// Closes the window showing `windowUUID`; windowWillClose fires, shouldTerminate is not
     /// asked. A window still waiting for the application to start, or for its document to load, is
     /// dropped.

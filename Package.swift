@@ -457,6 +457,13 @@ Package(
             dependencies: ["ActionUI", "CAdwaita"],
             path: "ActionUIAdwaita/Viewer"
         ),
+        // The Linux counterpart of ActionUISwiftTestApp: a launcher of the test app's documents, shipped
+        // as ActionUIDemo.app (Scripts/make-linux-demo-bundle.sh).
+        .executableTarget(
+            name: "ActionUIAdwaitaDemo",
+            dependencies: ["ActionUI", "CAdwaita"],
+            path: "ActionUIAdwaita/Demo"
+        ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(
             name: "ActionUITests",
@@ -468,7 +475,7 @@ Package(
         // The renderer tests. They need a display and skip themselves without one.
         .testTarget(
             name: "ActionUIAdwaitaTests",
-            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer"],
+            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer", "ActionUIAdwaitaDemo"],
             path: "ActionUIAdwaita/Tests",
             // Programs in other languages that the tests run (the Python host).
             exclude: ["Hosts"]
