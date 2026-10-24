@@ -53,6 +53,7 @@ extension ActionUIRegistry {
         "SecureField": SecureField.self,
         "Slider": Slider.self,
         "Stepper": Stepper.self,
+        "TabView": TabView.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextEditor": TextEditor.self,
