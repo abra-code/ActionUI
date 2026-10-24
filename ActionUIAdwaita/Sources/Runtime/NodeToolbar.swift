@@ -18,6 +18,11 @@
  (ToolbarHelper.screenToolbarItems leaves it out): the container gives each of its screens a
  NodeToolbar of its persistent items (persistent(on:items:)), shown at the outer edge of the
  screen's bar. A view with no screen above it (a popover) shows no toolbar.
+
+ searchable: a search field (GtkSearchEntry) in the screen's bar, its prompt as the placeholder,
+ firing actionID with the query on every change, as SwiftUI's search field in the navigation bar
+ does (Escape clears it, as on macOS); the host filters and pushes the rows again. Not yet on a navigation container itself, and
+ not for a searchable property added at run time to a view that had none.
 */
 
 import CAdwaita
@@ -32,6 +37,13 @@ final class NodeToolbar {
     /// The content nodes, by element id.
     private var itemNodes: [Int: RenderNode] = [:]
     private weak var bar: ScreenBar?
+    /// The search field of a view with searchable (a GtkSearchEntry), made on first need, with a
+    /// reference of its own (released in deinit), and the action its query changes fire.
+    private var searchEntry: WidgetPointer?
+    private var searchActionID: String?
+    /// The query last reported, empty at first, as SwiftUI's query state starts: GTK's entry also
+    /// reports its empty text once by itself after it is made.
+    private var reportedQuery = ""
 
     private final class WeakToolbar {
         weak var toolbar: NodeToolbar?
@@ -42,10 +54,15 @@ final class NodeToolbar {
     /// below it, also those below template rows and toolbar items, which are not child nodes.
     private static var live: [ObjectIdentifier: WeakToolbar] = [:]
 
-    /// A node's toolbar, or nil when its element declares none.
+    /// A node's toolbar, or nil when its element declares none and is not searchable. Called while
+    /// the node is made, which may be in its parent's sync: the read is untracked.
     static func make(for node: RenderNode) -> NodeToolbar? {
         let items = ToolbarHelper.screenToolbarItems(of: node.element)
-        return items.isEmpty ? nil : NodeToolbar(node, items: items, outer: false)
+        // The key alone: parsing every base modifier of every node made would cost more.
+        let searchable = UntrackedReads.perform {
+            ActionUIRegistry.shared.currentProperties(element: node.element, model: node.model)["searchable"] is [String: Any]
+        }
+        return items.isEmpty && !searchable ? nil : NodeToolbar(node, items: items, outer: false)
     }
 
     /// A navigation container's persistent items (ToolbarHelper.persistentToolbarItems) on the
@@ -63,6 +80,9 @@ final class NodeToolbar {
 
     isolated deinit {
         Self.live[ObjectIdentifier(self)] = nil
+        if let searchEntry {
+            g_object_unref(UnsafeMutableRawPointer(searchEntry))
+        }
     }
 
     /// The attached nodes at or below `ancestor` that declare a toolbar.
@@ -106,6 +126,9 @@ final class NodeToolbar {
                 shown.append((slot, contentNode.outerWidget))
             }
         }
+        if !outer, let search = BaseModifiers(node.properties).searchable {
+            shown.append((.search, searchField(search)))
+        }
         let gone = itemNodes.filter { kept[$0.key] == nil }
         itemNodes = kept
         let bar = node.nearestScreenBar
@@ -127,6 +150,42 @@ final class NodeToolbar {
     var nodes: [RenderNode] {
         Array(itemNodes.values)
     }
+
+    /// The search field for `search`: its prompt as the placeholder, its query fired to actionID on
+    /// every change with the query as the context, as SwiftUI's searchable reports it.
+    private func searchField(_ search: BaseModifiers.Searchable) -> WidgetPointer {
+        searchActionID = search.actionID
+        let entry: WidgetPointer
+        if let searchEntry {
+            entry = searchEntry
+        } else {
+            entry = gtk_search_entry_new()!
+            g_object_ref_sink(UnsafeMutableRawPointer(entry))
+            searchEntry = entry
+            // Every change, as SwiftUI reports each one, not after GTK's typing pause.
+            gtk_search_entry_set_search_delay(OpaquePointer(entry), 0)
+            // Escape clears the field, as on macOS, which reports the empty query.
+            connectUserSignal(entry, "stop-search", .instanceOnly) {
+                Gtk.Editable(entry).text = ""
+            }
+            connectUserSignal(entry, "search-changed", .instanceOnly) { [weak self] in
+                guard let self, let node = self.node else { return }
+                let query = Gtk.Editable(entry).text
+                guard query != self.reportedQuery else { return }
+                self.reportedQuery = query
+                node.fire(self.searchActionID, context: query)
+            }
+        }
+        // Without a prompt, "Search", as macOS's field shows (GTK's shows none).
+        let prompt = search.prompt ?? "Search"
+        if swiftString(gtk_search_entry_get_placeholder_text(OpaquePointer(entry))) != prompt {
+            gtk_search_entry_set_placeholder_text(OpaquePointer(entry), prompt)
+        }
+        return entry
+    }
+
+    /// The search field, nil before the first sync of a searchable view.
+    var searchWidget: WidgetPointer? { searchEntry }
 
     /// The content node whose box is `widget`.
     func itemNode(showing widget: WidgetPointer) -> RenderNode? {

@@ -18,6 +18,8 @@
    popover lists the secondaryAction items, as iOS collapses secondary actions into its "..."
    menu; a click on an item, or Return or Space on one, closes it. One menu for the screen's items
    and the persistent ones, as on Apple.
+ - search: the search field of a view with searchable (NodeToolbar), between the trailing items and
+   the menu button, as macOS puts it at the trailing end of the window toolbar.
  - bottom: a bar below the screen's content, the items centered 8 points apart, for bottomBar. A
    screen without a toolbar view to put it in (none is known) shows those items as trailing ones.
 */
@@ -27,7 +29,7 @@ import CAdwaita
 @MainActor
 final class ScreenBar {
     enum Slot: CaseIterable {
-        case leading, principal, trailing, overflow, bottom
+        case leading, principal, trailing, search, overflow, bottom
     }
 
     /// The overflow popover's items: flat, the width of the menu. Hovered, pressed and checked
@@ -41,6 +43,7 @@ final class ScreenBar {
     private let start: OwnedObject
     private let end: OwnedObject
     private let principal: OwnedObject
+    private let search: OwnedObject
     private let moreButton: OwnedObject
     private let overflow: OwnedObject
     /// The toolbar view (AdwToolbarView) the bottom bar goes in, and the bar, each with a reference
@@ -64,6 +67,7 @@ final class ScreenBar {
         start = OwnedObject(retaining: gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6)!)
         end = OwnedObject(retaining: gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6)!)
         principal = OwnedObject(retaining: gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6)!)
+        search = OwnedObject(retaining: gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6)!)
         moreButton = OwnedObject(retaining: gtk_menu_button_new()!)
         overflow = OwnedObject(retaining: gtk_box_new(GTK_ORIENTATION_VERTICAL, 0)!)
         self.principalChanged = principalChanged
@@ -79,6 +83,7 @@ final class ScreenBar {
         }
         Gtk.Widget(start.widget).isVisible = false
         Gtk.Widget(end.widget).isVisible = false
+        Gtk.Widget(search.widget).isVisible = false
 
         gtk_menu_button_set_icon_name(moreButton.opaquePointer, "view-more-symbolic")
         gtk_widget_set_tooltip_text(moreButton.widget, "More")
@@ -109,9 +114,11 @@ final class ScreenBar {
         gtk_widget_add_controller(overflow.widget, keys)
         Gtk.Widget(moreButton.widget).isVisible = false
 
-        // The end of the bar from the outside in: the menu button, then the trailing items.
+        // The end of the bar from the outside in: the menu button, the search field, then the
+        // trailing items.
         adw_header_bar_pack_start(OpaquePointer(header), start.widget)
         adw_header_bar_pack_end(OpaquePointer(header), moreButton.widget)
+        adw_header_bar_pack_end(OpaquePointer(header), search.widget)
         adw_header_bar_pack_end(OpaquePointer(header), end.widget)
 
         if let view = self.toolbarView, let bottom {
@@ -127,6 +134,7 @@ final class ScreenBar {
         let bar = header.opaquePointer
         adw_header_bar_remove(bar, start.widget)
         adw_header_bar_remove(bar, end.widget)
+        adw_header_bar_remove(bar, search.widget)
         adw_header_bar_remove(bar, moreButton.widget)
         if adw_header_bar_get_title_widget(bar) == principal.widget {
             adw_header_bar_set_title_widget(bar, nil)
@@ -204,7 +212,7 @@ final class ScreenBar {
                 gtk_box_append(typed(box), widget)
             }
         }
-        for box in [start.widget, end.widget] + (bottom.map { [$0] } ?? []) {
+        for box in [start.widget, end.widget, search.widget] + (bottom.map { [$0] } ?? []) {
             let widget = Gtk.Widget(box)
             widget.isVisible = widget.firstChild != nil
         }
@@ -249,6 +257,7 @@ final class ScreenBar {
         case .leading: return start.widget
         case .principal: return principal.widget
         case .trailing: return end.widget
+        case .search: return search.widget
         case .overflow: return overflow.widget
         case .bottom: return bottom
         }

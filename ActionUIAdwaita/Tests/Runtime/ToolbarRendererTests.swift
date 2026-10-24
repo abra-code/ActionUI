@@ -381,6 +381,54 @@ final class ToolbarRendererTests: XCTestCase {
         XCTAssertEqual(ids(plain, .trailing, in: stack), [11, 12], "no bottom bar: they trail")
     }
 
+    func testASearchableViewsFieldIsInItsScreensBarAndFiresEachQuery() throws {
+        var queries: [String] = []
+        ActionUIModel.shared.registerActionHandler(for: "test.search") { _, _, _, _, context in
+            MainActor.assumeIsolated { queries.append(context as? String ?? "?") }
+        }
+        defer { ActionUIModel.shared.unregisterActionHandler(for: "test.search") }
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "VStack", "id": 2, "children": [
+                {"type": "List", "id": 3, "properties": {"searchable": {"prompt": "Find", "actionID": "test.search"}}}]}}
+            """#)
+        AdwaitaTestHost.drainMainLoop()
+        let list = try XCTUnwrap(stack.childNodes[2]?.childNodes[3])
+        let entry = try XCTUnwrap(list.toolbar?.searchWidget)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        XCTAssertEqual(bar.widgets(.search), [entry], "in the page's bar")
+        XCTAssertTrue(Gtk.Widget(try XCTUnwrap(gtk_widget_get_parent(entry))).isVisible, "its slot is shown")
+        XCTAssertEqual(swiftString(gtk_search_entry_get_placeholder_text(OpaquePointer(entry))), "Find")
+        XCTAssertEqual(queries, [], "nothing fires before the user types")
+        gtk_editable_set_text(OpaquePointer(entry), "ad")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { queries == ["ad"] }), "the query as the context: \(queries)")
+        gtk_editable_set_text(OpaquePointer(entry), "")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { queries == ["ad", ""] }), "a cleared query fires too: \(queries)")
+        gtk_editable_set_text(OpaquePointer(entry), "al")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { queries.last == "al" }))
+        AdwaitaTestHost.emit("stop-search", on: UnsafeMutableRawPointer(entry))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { queries == ["ad", "", "al", ""] }), "Escape clears the field: \(queries)")
+        XCTAssertEqual(Gtk.Editable(entry).text, "")
+    }
+
+    func testASearchFieldWithoutAPromptSaysSearch() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "List", "id": 2, "properties": {"searchable": {"actionID": "test.search"}}}}
+            """#)
+        let entry = try XCTUnwrap(stack.childNodes[2]?.toolbar?.searchWidget)
+        XCTAssertEqual(swiftString(gtk_search_entry_get_placeholder_text(OpaquePointer(entry))), "Search", "as macOS's field")
+    }
+
+    func testABarWithoutASearchFieldShowsNoEmptySearchSlot() throws {
+        let stack = try present(#"""
+            {"type": "NavigationStack", "id": 1, "content": {"type": "VStack", "id": 2, "children": [{"type": "Text", "id": 3, "properties": {"text": "x"}}]}}
+            """#)
+        let bar = try XCTUnwrap(stack.childNodes[2]?.screenBar)
+        // The slots packed at the end of the header bar, beside the menu button and the window controls.
+        let end = try XCTUnwrap(gtk_widget_get_parent(bar.overflowButton))
+        let emptyShown = Gtk.Widget(end).children.filter { $0.isVisible && $0.firstChild == nil }
+        XCTAssertEqual(emptyShown.count, 0, "an empty slot takes no room")
+    }
+
     func testPlacementsMapToSlots() {
         XCTAssertEqual(NodeToolbar.slot("secondaryAction"), .overflow)
         XCTAssertEqual(NodeToolbar.slot("bottomBar"), .bottom)
