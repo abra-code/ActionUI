@@ -104,7 +104,7 @@ extension Button: ActionUIAdwaitaRenderer {
     }
 
     /// libadwaita's style classes for the style and role, and plain's own CSS.
-    private static func applyStyle(_ widget: WidgetPointer, _ style: BaseModifiers.ButtonStyleName?, role: Props.Role?) {
+    static func applyStyle(_ widget: WidgetPointer, _ style: BaseModifiers.ButtonStyleName?, role: Props.Role?) {
         var classes: Set<String> = []
         switch style {
         case .plain?, .borderless?:

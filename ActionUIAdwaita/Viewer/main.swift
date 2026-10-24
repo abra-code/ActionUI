@@ -2,22 +2,27 @@
 /*
  ActionUIAdwaitaViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication.
 
- Usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>]
+ Usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]...
 
  - --dark: libadwaita's dark style, whatever the desktop's.
  - --screenshot: once the window has drawn, saves it as a PNG file (drawn by the window's own
    renderer, header bar included) and quits; the exit status says whether it was written.
  - A document that cannot be loaded shows its error in the window (saved too with --screenshot),
    and the exit status is 65.
+ - --rows: sets the rows of the element with that id (a List, Table or Chart) from a JSON file
+   holding an array of rows, each an array of strings, as a host's setElementRows does; for
+   screenshots of data. A file that cannot be read or holds no such array stops the viewer (exit
+   status 66).
  Actions the document fires have no handler here; they are logged.
 */
 
 import CAdwaita
 import Dispatch
+import Foundation
 import Glibc
 import ActionUI
 
-let usage = "usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>]"
+let usage = "usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]..."
 let windowUUID = "viewer"
 /// How long the window has to draw before a screenshot is taken.
 let screenshotDelay = DispatchTimeInterval.milliseconds(600)
@@ -25,6 +30,7 @@ let screenshotDelay = DispatchTimeInterval.milliseconds(600)
 var documentPath: String?
 var screenshotPath: String?
 var dark = false
+var elementRows: [(id: Int, rows: [[String]])] = []
 var arguments = CommandLine.arguments.dropFirst()
 while let argument = arguments.popFirst() {
     switch argument {
@@ -36,6 +42,17 @@ while let argument = arguments.popFirst() {
             exit(64)
         }
         screenshotPath = path
+    case "--rows":
+        guard let id = arguments.popFirst().flatMap({ Int($0) }), let path = arguments.popFirst() else {
+            print(usage)
+            exit(64)
+        }
+        guard let data = FileManager.default.contents(atPath: path),
+              let rows = (try? JSONSerialization.jsonObject(with: data)) as? [[String]] else {
+            print("ActionUIAdwaitaViewer: \(path) is not a JSON array of rows of strings")
+            exit(66)
+        }
+        elementRows.append((id, rows))
     default:
         guard documentPath == nil, !argument.hasPrefix("--") else {
             print(usage)
@@ -66,6 +83,9 @@ MainActor.assumeIsolated {
         if !app.showsDocument(windowUUID) {
             print("ActionUIAdwaitaViewer: \(documentPath) could not be loaded")
             status = 65
+        }
+        for (id, rows) in elementRows {
+            ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: id, rows: rows)
         }
         if let screenshotPath {
             DispatchQueue.main.asyncAfter(deadline: .now() + screenshotDelay) {

@@ -196,7 +196,8 @@ extension Image: ActionUIAdwaitaRenderer {
         }
     }
 
-    private static func content(_ source: ImageSource) -> ImageContent {
+    /// What a resolved source shows: a file that does not exist is the photo symbol.
+    static func content(_ source: ImageSource) -> ImageContent {
         switch source {
         case .filePath(let path):
             return g_file_test(path, G_FILE_TEST_IS_REGULAR) != 0 ? .file(path) : .symbol(ImageSource.placeholderSymbol)
