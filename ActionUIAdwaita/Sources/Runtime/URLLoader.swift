@@ -8,6 +8,11 @@
  FoundationNetworking: it needs full Foundation and libcurl on Linux.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
 import CSoup
 
@@ -59,6 +64,18 @@ enum URLLoader {
         default:
             _ = runAfter(milliseconds: 0) { completion(nil) }
         }
+    }
+
+    /// `url`'s bytes as Data, for a caller that takes an asynchronous fetch (ActionUIDocumentLoader);
+    /// throws when fetch gives nil.
+    static func data(_ url: URL) async throws -> Data {
+        let bytes = await withCheckedContinuation { continuation in
+            fetch(url.absoluteString) { continuation.resume(returning: $0) }
+        }
+        guard let bytes else { throw ActionUIError("Could not load \(url.absoluteString)") }
+        var size: gsize = 0
+        guard let start = g_bytes_get_data(bytes.bytes, &size), size > 0 else { return Data() }
+        return Data(bytes: start, count: Int(size))
     }
 
     private static func sharedSession() -> UnsafeMutablePointer<SoupSession> {
