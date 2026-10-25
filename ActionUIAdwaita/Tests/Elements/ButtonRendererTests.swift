@@ -3,7 +3,8 @@
  Tests for the Button renderer on GTK: the content is the title, the icon, or both in an
  AdwButtonContent, and changes between them; a click fires actionID and an update fires nothing;
  imageScale sizes the icon; role and the inherited buttonStyle become libadwaita's style classes,
- and plain loses the button's padding; no relation to its label outranks accessibilityLabel.
+ and plain loses the button's padding; no relation to its label outranks accessibilityLabel; the
+ inherited controlSize sizes the button in macOS's proportions to GNOME's regular one.
 */
 
 import XCTest
@@ -51,6 +52,84 @@ final class ButtonRendererTests: XCTestCase {
         var natural: Int32 = 0
         gtk_widget_measure(widget, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
         return natural
+    }
+
+    private func height(_ widget: WidgetPointer?) -> Int32 {
+        guard let widget else { return 0 }
+        var minimum: Int32 = 0
+        var natural: Int32 = 0
+        gtk_widget_measure(widget, GTK_ORIENTATION_VERTICAL, -1, &minimum, &natural, nil, nil)
+        return natural
+    }
+
+    func testControlSizeSizesTheButtonAsMacOSDoesAgainstGNOMEsRegular() throws {
+        let root = try render(#"""
+            {"type": "HStack", "id": 1, "children": [
+              {"type": "Button", "id": 2, "properties": {"title": "Mini", "controlSize": "mini"}},
+              {"type": "Button", "id": 3, "properties": {"title": "Small", "controlSize": "small"}},
+              {"type": "Button", "id": 4, "properties": {"title": "Regular", "controlSize": "regular"}},
+              {"type": "Button", "id": 5, "properties": {"title": "Large", "controlSize": "large"}},
+              {"type": "Button", "id": 6, "properties": {"title": "Extra", "controlSize": "extraLarge"}},
+              {"type": "Button", "id": 7, "properties": {"title": "Default"}}]}
+            """#)
+        let heights = try (2...7).map { height(try XCTUnwrap(root.childNodes[$0]).widget) }
+        XCTAssertEqual(heights[5], heights[2], "regular is GNOME's own size: \(heights)")
+        // macOS's proportions to regular: 0.54, 0.83, 1.17 and 1.5 of it.
+        let regular = Double(heights[2])
+        for (index, ratio) in [(0, 0.54), (1, 0.83), (3, 1.17), (4, 1.5)] {
+            XCTAssertEqual(Double(heights[index]) / regular, ratio, accuracy: 0.05, "\(heights)")
+        }
+        let mini = try XCTUnwrap(root.childNodes[2]?.widget)
+        let regularWidget = try XCTUnwrap(root.childNodes[4]?.widget)
+        XCTAssertLessThan(width(mini), width(regularWidget), "a smaller font too")
+    }
+
+    func testControlSizeReachesTheButtonsInsideAndTheNearestWins() throws {
+        let root = try render(#"""
+            {"type": "VStack", "id": 1, "properties": {"controlSize": "small"}, "children": [
+              {"type": "Button", "id": 2, "properties": {"title": "Small"}},
+              {"type": "HStack", "id": 3, "properties": {"controlSize": "large"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Large"}}]},
+              {"type": "Button", "id": 5, "properties": {"title": "Plain", "buttonStyle": "plain"}}]}
+            """#)
+        let small = try XCTUnwrap(root.childNodes[2])
+        let large = try XCTUnwrap(root.childNodes[3]?.childNodes[4])
+        XCTAssertEqual(small.environment.controlSize, .small)
+        XCTAssertEqual(large.environment.controlSize, .large)
+        XCTAssertLessThan(height(small.widget), height(large.widget))
+        let plain = try XCTUnwrap(root.childNodes[5]).widget
+        XCTAssertLessThan(height(plain), height(small.widget), "a plain button is its label alone")
+        let own = ControlSizeCSS.button(.mini, content: .title, plain: false, ownFont: true)
+        XCTAssertFalse(own.contains { $0.hasPrefix("font-size") }, "a font of its own stays, as in SwiftUI")
+
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "controlSize", value: "mini")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(small.environment.controlSize, .mini, "a change reaches the descendants")
+        XCTAssertEqual(large.environment.controlSize, .large)
+    }
+
+    func testControlSizeScalesTheSidePaddingOfEachKindAndKeepsAnIconButtonSquare() throws {
+        // libadwaita pads a title 17 px, an icon and a title 9 px, and makes an icon alone a square.
+        let sizes = ["mini", "small", "regular", "large", "extraLarge"]
+        let buttons = sizes.enumerated().map { index, size in
+            #"{"type": "HStack", "id": \#(10 * (index + 1)), "children": ["#
+                + #"{"type": "Button", "id": \#(10 * (index + 1) + 1), "properties": {"title": "Same", "controlSize": "\#(size)"}},"#
+                + #"{"type": "Button", "id": \#(10 * (index + 1) + 2), "properties": {"title": "Same", "systemImage": "plus", "controlSize": "\#(size)"}},"#
+                + #"{"type": "Button", "id": \#(10 * (index + 1) + 3), "properties": {"systemImage": "plus", "controlSize": "\#(size)"}}]}"#
+        }
+        let root = try render(#"{"type": "VStack", "id": 1, "children": ["# + buttons.joined(separator: ",") + "]}")
+        func widget(_ row: Int, _ kind: Int) throws -> WidgetPointer {
+            try XCTUnwrap(root.childNodes[10 * (row + 1)]?.childNodes[10 * (row + 1) + kind]?.widget)
+        }
+        for kind in 1...3 {
+            let widths = try sizes.indices.map { width(try widget($0, kind)) }
+            XCTAssertEqual(widths, widths.sorted(), "kind \(kind) grows with the size: \(widths)")
+            XCTAssertEqual(Set(widths).count, widths.count, "kind \(kind): \(widths)")
+        }
+        for row in sizes.indices {
+            let icon = try widget(row, 3)
+            XCTAssertEqual(width(icon), height(icon), "\(sizes[row]) icon button is a square")
+        }
     }
 
     func testTheContentIsTheTitleTheIconOrBoth() throws {

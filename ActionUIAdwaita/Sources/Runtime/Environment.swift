@@ -2,9 +2,9 @@
 /*
  The base modifiers SwiftUI passes down to descendants through its environment, resolved for one
  node from its own properties and its ancestors', the nearest setting winning:
- multilineTextAlignment, textSelection, buttonStyle and labelsHidden; and whether it is inside a
- Form, which a Form sets for its descendants (ActionUIAdwaitaRenderer.environment), as SwiftUI's
- Form passes its style down: its controls show their titles in its label column.
+ multilineTextAlignment, textSelection, buttonStyle, labelsHidden and controlSize; and whether it
+ is inside a Form, which a Form sets for its descendants (ActionUIAdwaitaRenderer.environment), as
+ SwiftUI's Form passes its style down: its controls show their titles in its label column.
 
  Each node computes its environment once per sync, from its parent's and its own properties
  (parents sync first), and keeps it; renderers read the kept value. When a sync changes a node's
@@ -23,6 +23,8 @@ struct Environment: Equatable {
     var buttonStyle: BaseModifiers.ButtonStyleName?
     /// Controls show no title of their own (SwiftUI's labelsHidden).
     var labelsHidden = false
+    /// How large controls are (ControlSizeCSS); nil for regular, GNOME's own size.
+    var controlSize: BaseModifiers.ControlSizeName?
     /// Inside a Form: a TextField or SecureField shows its title before it, for the label column
     /// (FormFieldTitle), where it is the placeholder elsewhere; a LabeledContent puts its title on
     /// the content's first text baseline.
@@ -46,6 +48,9 @@ struct Environment: Equatable {
         }
         if modifiers.labelsHidden {
             environment.labelsHidden = true
+        }
+        if let size = modifiers.controlSize {
+            environment.controlSize = size
         }
         return environment
     }

@@ -16,6 +16,8 @@
    borderedProminent is suggested-action, filled with the accent color (destructive-action with the
    destructive role); borderless is a flat button; plain is a flat button without padding, minimum
    size or hover background, as large as its content, as SwiftUI's plain button is.
+ - The inherited controlSize makes it mini, small, large or extra large in macOS's proportions to
+   GNOME's regular button (ControlSizeCSS); an icon without an imageScale scales with its font.
 */
 
 import CAdwaita
@@ -69,9 +71,15 @@ extension Button: ActionUIAdwaitaRenderer {
             }
         }
         clearLabelledBy(widget)
-        let iconSize = props.imageScale.map { ["-gtk-icon-size: \(Image.iconSize(imageScale($0)))em;"] } ?? []
+        let iconSize = props.imageScale.map { ["-gtk-icon-size: \(Image.iconSize(imageScale($0)))em;"] }
+            ?? ControlSizeCSS.iconSize(node.environment.controlSize).map { ["-gtk-icon-size: \($0)px;"] } ?? []
         StyleSheet.shared.apply(iconSize, to: widget, slot: "iconSize")
         applyStyle(widget, node.environment.buttonStyle, role: props.role)
+        let content: ControlSizeCSS.ButtonContent = icon == nil ? .title : props.title.isEmpty ? .icon : .iconAndTitle
+        StyleSheet.shared.apply(ControlSizeCSS.button(node.environment.controlSize, content: content,
+                                                      plain: node.environment.buttonStyle == .plain,
+                                                      ownFont: BaseModifiers(node.properties).font != nil),
+                                to: widget, slot: "controlSize")
     }
 
     /// Takes away the labelled-by relation GTK gives a button to its label (gtk_button_set_label,
