@@ -29,10 +29,10 @@ import Glibc
 
 @MainActor
 enum NumberFormatting {
-    /// `value` as `locale` writes it in `format`; nil for the user's locale (ICU reads LC_ALL,
-    /// LC_MESSAGES and LANG), or localeForTesting.
+    /// `value` as `locale` writes it in `format`; nil for the locale the system's settings give
+    /// numbers (SystemLocale: LC_NUMERIC, LC_MONETARY for a currency), or localeForTesting.
     static func string(_ value: Double, format: NumberFormatSpec, locale: String? = nil) -> String {
-        let key = Key(format: format, locale: locale ?? localeForTesting)
+        let key = Key(format: format, locale: locale ?? localeForTesting ?? systemLocale(format))
         if let icu = ICULibrary.shared, let formatter = formatter(icu, key), let text = icuString(icu, formatter, value) {
             return text
         }
@@ -45,7 +45,7 @@ enum NumberFormatting {
     static func number(from text: String, format: NumberFormatSpec, locale: String? = nil) -> Double? {
         let trimmed = String(text.drop { $0.isWhitespace }.reversed().drop { $0.isWhitespace }.reversed())
         guard !trimmed.isEmpty else { return nil }
-        let key = Key(format: format, locale: locale ?? localeForTesting)
+        let key = Key(format: format, locale: locale ?? localeForTesting ?? systemLocale(format))
         if let icu = ICULibrary.shared, let formatter = formatter(icu, key) {
             let utf16 = Array(trimmed.utf16)
             var position: Int32 = 0
@@ -58,6 +58,13 @@ enum NumberFormatting {
 
     /// The locale tests format in when they pass none, instead of the box's.
     static var localeForTesting: String?
+
+    /// The system's locale for numbers in `format`: LC_MONETARY for amounts of money, else
+    /// LC_NUMERIC.
+    private static func systemLocale(_ format: NumberFormatSpec) -> String? {
+        if case .currency = format { return SystemLocale.icuLocale(for: LC_MONETARY) }
+        return SystemLocale.icuLocale(for: LC_NUMERIC)
+    }
 
     private struct Key: Hashable {
         var format: NumberFormatSpec

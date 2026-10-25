@@ -18,14 +18,16 @@ import FoundationEssentials
 import Foundation
 #endif
 import CAdwaita
+import Glibc
 
 @MainActor
 enum DateFormatting {
     /// `date` as `locale` writes it in `timeZone`, in the form CLDR gives for `skeleton`. nil for
-    /// the user's locale (ICU reads LC_ALL, LC_MESSAGES and LANG) and the system's time zone; a
-    /// time zone is an IANA name ("Europe/Warsaw").
+    /// the locale the system's settings give dates (SystemLocale: LC_TIME) and the system's time
+    /// zone; a time zone is an IANA name ("Europe/Warsaw").
     static func string(_ date: Date, skeleton: String, locale: String? = nil, timeZone: String? = nil) -> String {
-        if let icu = ICULibrary.shared, let text = icuString(icu, date, Key(locale: locale, timeZone: timeZone, skeleton: skeleton)) {
+        let key = Key(locale: locale ?? SystemLocale.icuLocale(for: LC_TIME), timeZone: timeZone, skeleton: skeleton)
+        if let icu = ICULibrary.shared, let text = icuString(icu, date, key) {
             return text
         }
         return fallbackString(date, skeleton: skeleton, timeZone: timeZone)
