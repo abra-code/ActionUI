@@ -21,13 +21,13 @@ export const SUPPORTS_POPOVER = typeof HTMLElement !== "undefined"
 
 const GAP = 4; // px between the anchor and the panel
 
-// Positions `panel` (already sized by the browser) relative to `anchor` for the
-// given arrowEdge. arrowEdge names the edge of the anchor the panel's arrow points
-// from, i.e. the side the panel sits on: "top" => panel below (the Menu default),
-// "bottom" => above, "leading" => to the right (LTR), "trailing" => to the left.
-// The panel flips to the opposite side when it would overflow and there is room,
-// then is clamped on-screen - the way SwiftUI menus/popovers flip and clamp.
-export function placeFloatingPanel(panel, anchor, arrowEdge = "top") {
+// Positions `panel` (already sized by the browser) relative to `anchor` on the
+// given side of it: "below" (the default, where menus open), "above", "leading"
+// (to the left, LTR) or "trailing" (to the right). A popover's arrow edge maps to
+// its side in popoverSide (PresentationModifier.js). The panel flips to the
+// opposite side when it would overflow and there is room, then is clamped
+// on-screen - the way SwiftUI menus/popovers flip and clamp.
+export function placeFloatingPanel(panel, anchor, side = "below") {
     const rect = anchor.getBoundingClientRect();
     const vw = document.documentElement.clientWidth;
     const vh = document.documentElement.clientHeight;
@@ -36,10 +36,10 @@ export function placeFloatingPanel(panel, anchor, arrowEdge = "top") {
 
     let left;
     let top;
-    if (arrowEdge === "leading" || arrowEdge === "trailing") {
+    if (side === "leading" || side === "trailing") {
         // Horizontal: beside the anchor, top edges aligned (clamped vertically).
         top = Math.max(GAP, Math.min(rect.top, vh - ph - GAP));
-        if (arrowEdge === "leading") {
+        if (side === "trailing") {
             left = rect.right + GAP;                               // to the right
             if (left + pw > vw - GAP && rect.left - pw - GAP >= GAP) left = rect.left - pw - GAP;
         } else {
@@ -50,7 +50,7 @@ export function placeFloatingPanel(panel, anchor, arrowEdge = "top") {
     } else {
         // Vertical: left edge aligned to the anchor (clamped horizontally).
         left = Math.max(GAP, Math.min(rect.left, vw - pw - GAP));
-        if (arrowEdge === "bottom") {
+        if (side === "above") {
             top = rect.top - ph - GAP;                             // above
             if (top < GAP && rect.bottom + ph + GAP <= vh - GAP) top = rect.bottom + GAP;
         } else {
@@ -74,7 +74,7 @@ export function placeFloatingPanel(panel, anchor, arrowEdge = "top") {
 // the panel.
 //
 // Options:
-//   arrowEdge          placement side (see placeFloatingPanel); default "top".
+//   side               placement side (see placeFloatingPanel); default "below".
 //   containmentRoots   nodes whose subtree counts as "inside" for outside-click
 //                      dismissal (the panel itself is always inside); default [anchor].
 //   fallbackOpenClass  class toggled on the panel when the Popover API is absent.
@@ -82,7 +82,7 @@ export function placeFloatingPanel(panel, anchor, arrowEdge = "top") {
 //                      programmatic close()), so the caller can sync its own state.
 export function makeFloatingPanel(panel, anchor, options = {}) {
     const {
-        arrowEdge = "top",
+        side = "below",
         containmentRoots = [anchor],
         fallbackOpenClass = "is-open",
         onAutoDismiss = null,
@@ -90,7 +90,7 @@ export function makeFloatingPanel(panel, anchor, options = {}) {
 
     if (SUPPORTS_POPOVER) panel.setAttribute("popover", "manual"); // top layer; we own dismissal
 
-    const place = () => placeFloatingPanel(panel, anchor, arrowEdge);
+    const place = () => placeFloatingPanel(panel, anchor, side);
     let open = false;
 
     const isInside = (target) => panel.contains(target)

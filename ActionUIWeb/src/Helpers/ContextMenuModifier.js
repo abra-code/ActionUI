@@ -38,7 +38,7 @@ export function applyContextMenu(node, element, properties, ctx) {
     panel.className = "aui-menu-items aui-context-menu";
     panel.setAttribute("role", "menu");
 
-    const controller = makeFloatingPanel(panel, node, { containmentRoots: [node], arrowEdge: "top" });
+    const controller = makeFloatingPanel(panel, node, { containmentRoots: [node] });
     const dismiss = () => controller.close();
 
     // The preview subtree (when present): an arbitrary element rendered as-is, above the

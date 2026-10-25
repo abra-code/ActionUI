@@ -39,7 +39,15 @@ import { makeFloatingPanel } from "./PopoverPlacement.js";
 // rules for .sheet apply at the same 480px breakpoint).
 import { isCompactWidth } from "./Modality.js";
 
-const POPOVER_EDGES = new Set(["top", "bottom", "leading", "trailing"]);
+// SwiftUI's arrowEdge is the edge of the carrier the arrow is at, and the popover
+// opens on that side (measured on macOS 27): "top" above the carrier (the default),
+// "bottom" below, "leading" before it, "trailing" after it.
+const POPOVER_SIDES = { top: "above", bottom: "below", leading: "leading", trailing: "trailing" };
+
+// The placement side (Helpers/PopoverPlacement.js) for a popoverArrowEdge value.
+export function popoverSide(arrowEdge) {
+    return Object.hasOwn(POPOVER_SIDES, arrowEdge) ? POPOVER_SIDES[arrowEdge] : "above";
+}
 
 // Applies any sheet/fullScreenCover/popover presentation declared on `element`.
 // A no-op for the (overwhelmingly common) element with none. Returns nothing -
@@ -134,7 +142,7 @@ function wireDialogPresentation(node, element, contentElement, style, key, onDis
 // popover: a shared top-layer floating panel (Helpers/PopoverPlacement.js) anchored
 // to the carrier, with the same outside-click/Escape dismissal as Menu.
 function wirePopoverPresentation(node, element, contentElement, properties, ctx, getters, setters) {
-    const arrowEdge = POPOVER_EDGES.has(properties.popoverArrowEdge) ? properties.popoverArrowEdge : "top";
+    const side = popoverSide(properties.popoverArrowEdge);
     const popoverActionID = typeof properties.popoverActionID === "string" ? properties.popoverActionID : null;
 
     const panel = document.createElement("div");
@@ -143,7 +151,7 @@ function wirePopoverPresentation(node, element, contentElement, properties, ctx,
     let appended = false;
 
     const controller = makeFloatingPanel(panel, node, {
-        arrowEdge,
+        side,
         containmentRoots: [node],
         fallbackOpenClass: "is-open",
     });
