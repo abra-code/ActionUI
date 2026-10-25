@@ -50,6 +50,9 @@ extension ColorPicker: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         Gtk.Label(title).text = props.title
         Gtk.Widget(title).isVisible = !node.environment.labelsHidden
+        ControlSizeCSS.applyFont(node, to: widget)
+        ControlSizeCSS.applyPart(ControlSizeCSS.box(node.environment.controlSize, side: 5), to: widget,
+                                 selector: "{} > colorbutton > button")
         let spec = ColorPicker.initialValue(node.model) as? ColorSpec ?? .named(.clear)
         let value = ColorCSS.components(spec)
         var rgba = GdkRGBA(red: Float(value.red), green: Float(value.green), blue: Float(value.blue), alpha: Float(value.alpha))

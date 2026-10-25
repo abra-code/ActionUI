@@ -107,6 +107,10 @@ extension Menu: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let button = OpaquePointer(widget)
         updateLabel(button, node)
+        ControlSizeCSS.applyFont(node, to: widget)
+        ControlSizeCSS.applyPart(ControlSizeCSS.box(node.environment.controlSize, side: 9), to: widget, selector: "{} > button")
+        ControlSizeCSS.applyPart(ControlSizeCSS.arrow(node.environment.controlSize), to: widget,
+                                 selector: "{} > button arrow", slot: "controlSizeArrow")
         guard let state = attached(on: widget, key: menuStateKey) else { return }
         var items: [Int: any ActionUIElementBase] = [:]
         let entries = self.entries(node.subviews("children"), node, &items)

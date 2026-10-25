@@ -72,6 +72,7 @@ extension TextField: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         if isVertical(node) {
             VerticalTextField.update(widget, node)
+            ControlSizeCSS.applyFont(node, to: widget)
             return
         }
         let props = Props(node.properties)
@@ -94,6 +95,8 @@ extension TextField: ActionUIAdwaitaRenderer {
         if gtk_entry_get_input_purpose(entry) != purpose {
             gtk_entry_set_input_purpose(entry, purpose)
         }
+        ControlSizeCSS.applyFont(node, to: widget)
+        ControlSizeCSS.applyPart(ControlSizeCSS.entry(node.environment.controlSize), to: entryWidget)
     }
 
     /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle); 2 more for

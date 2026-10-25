@@ -114,6 +114,19 @@ extension Picker: ActionUIAdwaitaRenderer {
         Gtk.Widget(title).isVisible = !node.environment.labelsHidden
 
         let kind = Kind(rawValue: node.widgetKind) ?? .menu
+        let size = node.environment.controlSize
+        ControlSizeCSS.applyFont(node, to: widget)
+        switch kind {
+        case .menu:
+            ControlSizeCSS.applyPart(ControlSizeCSS.box(size, side: 10), to: widget, selector: "{} > dropdown > button")
+            ControlSizeCSS.applyPart(ControlSizeCSS.arrow(size), to: widget, selector: "{} > dropdown > button arrow", slot: "controlSizeArrow")
+        case .segmented:
+            let parts = ControlSizeCSS.toggleGroup(size)
+            ControlSizeCSS.applyPart(parts.group, to: widget, selector: "{} > toggle-group")
+            ControlSizeCSS.applyPart(parts.toggle, to: widget, selector: "{} > toggle-group > toggle", slot: "controlSizeToggle")
+        case .radioGroup:
+            break
+        }
         if state.sections != props.sections {
             state.sections = props.sections
             state.tags = props.sections.flatMap { $0.items.map(\.tag) }

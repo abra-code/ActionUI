@@ -53,6 +53,8 @@ extension SecureField: ActionUIAdwaitaRenderer {
         let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
         Gtk.Widget(entry)[placeholderText] = placeholder
         Gtk.Widget(entry)[activatesDefault] = props.actionID == nil
+        ControlSizeCSS.applyFont(node, to: widget)
+        ControlSizeCSS.applyPart(ControlSizeCSS.entry(node.environment.controlSize), to: entry)
     }
 
     /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle).

@@ -172,6 +172,11 @@ extension DatePicker: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         Gtk.Label(title).text = props.title
         Gtk.Widget(title).isVisible = !node.environment.labelsHidden
+        ControlSizeCSS.applyFont(node, to: widget)
+        ControlSizeCSS.applyPart(ControlSizeCSS.box(node.environment.controlSize, side: 9), to: widget,
+                                 selector: "{} > menubutton > button")
+        ControlSizeCSS.applyPart(ControlSizeCSS.arrow(node.environment.controlSize), to: widget,
+                                 selector: "{} > menubutton > button arrow", slot: "controlSizeArrow")
         show(currentDate(node), parts, props)
     }
 
