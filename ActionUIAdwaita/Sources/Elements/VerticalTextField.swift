@@ -19,11 +19,13 @@
    as in the one-line field; the placeholder is a dimmed label over the first line, as TextEditor
    shows its own (TextEditor.makePlaceholder, reportEdits).
  - In a Form its title stands beside its first line, as macOS lines it up.
-
- Not yet: a font changed at run time resizes the lines at the next update or showing, not at once.
+ - A font changed at run time resizes it at once: the text view, laying out its lines again,
+   resizes the field.
 */
 
 import CAdwaita
+
+nonisolated(unsafe) private var fieldLayoutType: GType = 0
 
 @MainActor
 enum VerticalTextField {
@@ -56,7 +58,6 @@ enum VerticalTextField {
         // its lines: a scroll bar that may show also makes GTK give the field at least its height
         // (58, a field of 3 lines), too tall for one or two.
         gtk_scrolled_window_set_policy(OpaquePointer(scrolled), GTK_POLICY_NEVER, GTK_POLICY_EXTERNAL)
-        gtk_scrolled_window_set_propagate_natural_height(OpaquePointer(scrolled), 1)
         Gtk.Widget(scrolled).setCSSClass("actionui-vertical-field", true)
         let view = gtk_text_view_new()!
         let textView: UnsafeMutablePointer<GtkTextView> = typed(view)
@@ -67,7 +68,11 @@ enum VerticalTextField {
         gtk_text_view_set_top_margin(textView, inset.vertical)
         gtk_text_view_set_bottom_margin(textView, inset.vertical)
         gtk_scrolled_window_set_child(OpaquePointer(scrolled), view)
-        gtk_overlay_set_child(OpaquePointer(overlay), scrolled)
+        // Its height is its text's, measured by the holder (FieldLayout) at the width it is offered.
+        let holder = makeContainer(layoutType: layoutType())
+        attach(FieldLines(), to: UnsafeMutableRawPointer(holder), key: fieldLinesKey)
+        gtk_widget_set_parent(scrolled, holder)
+        gtk_overlay_set_child(OpaquePointer(overlay), holder)
         let placeholder = TextEditor.makePlaceholder(leading: inset.horizontal, top: inset.vertical)
         gtk_overlay_add_overlay(OpaquePointer(overlay), placeholder)
         gtk_widget_set_hexpand(overlay, 1)
@@ -117,9 +122,8 @@ enum VerticalTextField {
         }
         gtk_widget_add_controller(view, focus)
         // The lines' height in the field's font, once it is styled.
-        connectSignal(view, "map", .instanceOnly) { [weak node] in
-            guard let node else { return }
-            sizeLines(scrolled, view, TextField.Props(node.properties).lineLimit)
+        connectSignal(view, "map", .instanceOnly) {
+            gtk_widget_queue_resize(holder)
         }
 
         let widget = FormFieldTitle.widget(overlay, node)
@@ -149,14 +153,21 @@ enum VerticalTextField {
         if gtk_text_view_get_input_purpose(typed(parts.view)) != purpose {
             gtk_text_view_set_input_purpose(typed(parts.view), purpose)
         }
-        sizeLines(parts.scrolled, parts.view, props.lineLimit)
+        if let holder = gtk_widget_get_parent(parts.scrolled), let lines = attached(on: UnsafeMutableRawPointer(holder), key: fieldLinesKey) {
+            let range = lineRange(props.lineLimit)
+            if lines.range != range {
+                lines.range = range
+                gtk_widget_queue_resize(holder)
+            }
+        }
     }
 
     /// The text view, the scrolled window holding it and the placeholder, in the field's widget.
     static func parts(_ widget: WidgetPointer) -> (view: WidgetPointer, scrolled: WidgetPointer, placeholder: WidgetPointer)? {
         let overlay = FormFieldTitle.entry(widget)
         guard Gtk.Widget(overlay).isA(gtk_overlay_get_type()),
-              let scrolled = gtk_overlay_get_child(OpaquePointer(overlay)),
+              let holder = gtk_overlay_get_child(OpaquePointer(overlay)),
+              let scrolled = gtk_widget_get_first_child(holder),
               let view = gtk_scrolled_window_get_child(OpaquePointer(scrolled)),
               let placeholder = Gtk.Widget(overlay).lastChild?.pointer else { return nil }
         return (view, scrolled, placeholder)
@@ -176,33 +187,104 @@ enum VerticalTextField {
         }
     }
 
-    /// Sizes the scrolled window to the lines `lineLimit` shows, a line being the height of a line
-    /// of the text view's font.
-    private static func sizeLines(_ scrolled: WidgetPointer, _ view: WidgetPointer, _ lineLimit: TextField.Props.LineLimit?) {
-        let range = lineRange(lineLimit)
+    /// The field's height for a width: its text's, laid out at that width less the text's side
+    /// margins, between its fewest and most lines (a line being the height of a line of the text
+    /// view's font), with the top and bottom margins. GtkTextView measures its lines only once it
+    /// is allocated and idle, so a window sized from its content before it shows would count one
+    /// line for a starting text of several.
+    /// `width` nil: no width offered, the text unwrapped (a line per paragraph).
+    private static func height(_ view: WidgetPointer, _ range: (min: Int, max: Int?), width: Int?, chrome: Int) -> (minimum: Int, natural: Int) {
         let line = lineHeight(view)
         let insets = Int(inset.vertical) * 2
-        // Clamped: a document's lineLimit can be any Int, and a product past Int32 (or Int) traps.
-        let height = { (lines: Int) in Int32(clamping: min(lines, Int(Int32.max)) * line + insets) }
-        let least = height(range.min)
-        let most = range.max.map(height) ?? -1
-        let window = OpaquePointer(scrolled)
-        guard gtk_scrolled_window_get_min_content_height(window) != least
-              || gtk_scrolled_window_get_max_content_height(window) != most else { return }
-        // No most first: GTK refuses a least above the current most.
-        gtk_scrolled_window_set_max_content_height(window, -1)
-        gtk_scrolled_window_set_min_content_height(window, least)
-        gtk_scrolled_window_set_max_content_height(window, most)
+        // Clamped: a document's lineLimit can be any Int, and a product past Int traps.
+        let lines = { (count: Int) in min(count, Int(Int32.max)) * line + insets }
+        let least = lines(range.min)
+        let most = range.max.map(lines) ?? Int.max
+        // Paragraph by paragraph, as GtkTextView lays out each line of its buffer (each rounded to
+        // whole pixels), split where the buffer splits its lines.
+        let text = TextEditor.bufferText(gtk_text_view_get_buffer(typed(view))!)
+        let layout = gtk_widget_create_pango_layout(view, nil)!
+        defer { g_object_unref(UnsafeMutableRawPointer(layout)) }
+        // The width GtkTextView wraps at: its own (the scrolled window's, less the CSS boxes and the
+        // side margins that are the scrolled window's minimum width), less a pixel it keeps for the
+        // cursor after the last character.
+        pango_layout_set_width(layout, width.map { Int32(clamping: max($0 - chrome - 1, 1) * 1024) } ?? -1)
+        pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR)
+        var textHeight = 0
+        let paragraphs = text.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r\n" || $0 == "\r" || $0 == "\u{2029}" }
+        for paragraph in paragraphs where textHeight + insets < most {
+            pango_layout_set_text(layout, String(paragraph), -1)
+            textHeight += pixelHeight(layout)
+        }
+        return (least, min(max(textHeight + insets, least), most))
+    }
+
+    /// The fewest and most lines a field shows, on its holder.
+    final class FieldLines {
+        var range: (min: Int, max: Int?) = (1, nil)
+    }
+
+    static let fieldLinesKey = AttachKey<FieldLines>("actionui-vertical-field-lines")
+
+    /// The holder's layout: the scrolled window fills it; its height is the text's (height(_:_:width:)).
+    static func layoutType() -> GType {
+        if fieldLayoutType != 0 { return fieldLayoutType }
+        var info = GTypeInfo()
+        info.class_size = guint16(MemoryLayout<GtkLayoutManagerClass>.size)
+        info.instance_size = guint16(MemoryLayout<GtkLayoutManager>.size)
+        info.class_init = { klass, _ in
+            guard let klass else { return }
+            let layoutClass = klass.assumingMemoryBound(to: GtkLayoutManagerClass.self)
+            layoutClass.pointee.get_request_mode = { _, _ in GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH }
+            layoutClass.pointee.measure = { _, widget, orientation, forSize, minimum, natural, minimumBaseline, naturalBaseline in
+                guard let widget else { return }
+                let size = MainActor.assumeIsolated { VerticalTextField.measure(widget, orientation, forSize: Int(forSize)) }
+                minimum?.pointee = Int32(clamping: size.minimum)
+                natural?.pointee = Int32(clamping: size.natural)
+                minimumBaseline?.pointee = -1
+                naturalBaseline?.pointee = -1
+            }
+            layoutClass.pointee.allocate = { _, widget, width, height, _ in
+                guard let widget else { return }
+                MainActor.assumeIsolated { VerticalTextField.allocate(widget, width: Int(width), height: Int(height)) }
+            }
+        }
+        fieldLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIVerticalFieldLayout", &info, GTypeFlags(0))
+        return fieldLayoutType
+    }
+
+    private static func measure(_ holder: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
+        guard let scrolled = gtk_widget_get_first_child(holder), let view = gtk_scrolled_window_get_child(OpaquePointer(scrolled)) else { return (0, 0) }
+        let across = Gtk.Widget(scrolled).measure(GTK_ORIENTATION_HORIZONTAL)
+        if orientation == GTK_ORIENTATION_HORIZONTAL {
+            return (across.minimum, across.natural)
+        }
+        let range = attached(on: UnsafeMutableRawPointer(holder), key: fieldLinesKey)?.range ?? (1, nil)
+        // Without a width (a container measuring height first), the text unwrapped: the text view's
+        // own natural width is only its margins, at which every character would wrap.
+        return height(view, range, width: forSize >= 0 ? forSize : nil, chrome: across.minimum)
+    }
+
+    private static func allocate(_ holder: WidgetPointer, width: Int, height: Int) {
+        guard let scrolled = gtk_widget_get_first_child(holder) else { return }
+        _ = Gtk.Widget(scrolled).measure(GTK_ORIENTATION_HORIZONTAL)
+        _ = Gtk.Widget(scrolled).measure(GTK_ORIENTATION_VERTICAL, forSize: width)
+        gtk_widget_allocate(scrolled, Int32(clamping: width), Int32(clamping: height), -1, nil)
     }
 
     /// The height of one line of `view`'s text, as it lays a line out.
     private static func lineHeight(_ view: WidgetPointer) -> Int {
         let layout = gtk_widget_create_pango_layout(view, "X")!
         defer { g_object_unref(UnsafeMutableRawPointer(layout)) }
-        var width: Int32 = 0
-        var height: Int32 = 0
-        pango_layout_get_pixel_size(layout, &width, &height)
-        return Int(height)
+        return pixelHeight(layout)
+    }
+
+    /// A layout's height in whole pixels, rounded as GtkTextView rounds each line's (PANGO_PIXELS
+    /// of the logical height; pango_layout_get_pixel_size rounds up, a pixel more for some fonts).
+    private static func pixelHeight(_ layout: OpaquePointer) -> Int {
+        var logical = PangoRectangle()
+        pango_layout_get_extents(layout, nil, &logical)
+        return (Int(logical.height) + 512) >> 10
     }
 
     /// Tells assistive technologies the text view's placeholder, as an entry tells its own.

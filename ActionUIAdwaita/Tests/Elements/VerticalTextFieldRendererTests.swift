@@ -257,4 +257,84 @@ final class VerticalTextFieldRendererTests: XCTestCase {
         XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(field.widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0)
         XCTAssertEqual(swiftString(gtk_editable_get_text(OpaquePointer(field.widget))), "Ann")
     }
+
+    func testStartingTextOfSeveralLinesIsMeasuredBeforeTheFieldShows() throws {
+        // A window is sized from its content before it shows; GtkTextView measures its lines only
+        // once it is allocated, so the field measures its text itself.
+        let json = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"text": "One\nTwo\nThree", "axis": "vertical"}}]}"#
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
+        renderTree = tree
+        // Measured at once, as the application measures a window's content (no idle time for the
+        // text view to measure its lines).
+        let field = try XCTUnwrap(tree.root?.childNodes[2])
+        let before = Gtk.Widget(field.outerWidget).measure(GTK_ORIENTATION_VERTICAL, forSize: 300).natural
+        let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        gtkWindow = window
+        gtk_window_set_default_size(window, 300, 400)
+        adw_window_set_content(typed(window), tree.contentWidget)
+        gtk_window_present(window)
+        let shown = Int(height(field))
+        XCTAssertEqual(before, shown, "the same three lines before and after it shows")
+        setText("One", field)
+        XCTAssertLessThan(Int(height(field)), shown)
+    }
+
+    func testTheMeasuredHeightIsTheHeightTheTextViewLaysOut() throws {
+        // The field lays out its text itself; the text view then shows it. It wraps a pixel short
+        // of its width (room for the cursor), breaks lines at \r\n, \r and U+2029 too, and rounds
+        // each line's height to the nearest pixel: otherwise a line was cut off, or a pixel.
+        let root = try present(#"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"axis": "vertical"}}]}"#)
+        let field = try XCTUnwrap(root.childNodes[2])
+        let parts = try XCTUnwrap(VerticalTextField.parts(field.widget))
+        let holder = try XCTUnwrap(gtk_widget_get_parent(parts.scrolled))
+        let width = Int(gtk_widget_get_width(holder))
+        let buffer = gtk_text_view_get_buffer(typed(parts.view))!
+        let words = "The quick brown fox jumps over the lazy dog, wrapping in fields of text; Mississippi illicit filling willingly. "
+        let long = words + words + words
+        // Every length, so that some line ends within a pixel of the width.
+        var texts = (1...long.count).map { String(long.prefix($0)) }
+        texts += ["a\r\nb\r\nc", "a\rb\rc", "a\u{2029}b\u{2029}c", "one\ntwo\n", "\u{1F600}\n\u{1F600}\n\u{1F600}", long + "\n" + long]
+        var mismatches: [String] = []
+        for text in texts {
+            gtk_text_buffer_set_text(buffer, text, -1)
+            // The text view lays out its lines when idle.
+            AdwaitaTestHost.drainMainLoop()
+            gtk_widget_queue_resize(holder)
+            let shown = Gtk.Widget(parts.view).measure(GTK_ORIENTATION_VERTICAL).natural
+            let measured = Gtk.Widget(holder).measure(GTK_ORIENTATION_VERTICAL, forSize: width).natural
+            if measured != shown {
+                mismatches.append("\(text.debugDescription.prefix(40)) (\(text.count)): \(measured) measured, \(shown) shown")
+            }
+        }
+        XCTAssertEqual(mismatches, [])
+    }
+
+    func testAFontChangedAtRunTimeResizesTheLines() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "TextField", "id": 2, "properties": {"axis": "vertical", "lineLimit": 2, "text": "a\nb\nc"}}]}
+            """#)
+        let field = try XCTUnwrap(root.childNodes[2])
+        let before = height(field)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "font", value: "largeTitle")
+        AdwaitaTestHost.drainMainLoop()
+        let after = Int(height(field))
+        // Two lines of the larger font, at once.
+        let insets = 2 * Int(VerticalTextField.inset.vertical)
+        let line = (Gtk.Widget(try XCTUnwrap(VerticalTextField.parts(field.widget)).view).measure(GTK_ORIENTATION_VERTICAL).natural - insets) / 3
+        XCTAssertGreaterThan(after, Int(before))
+        XCTAssertEqual(after, 2 * line + insets)
+    }
+
+    func testWithoutAWidthTheTextIsMeasuredUnwrapped() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"axis": "vertical",
+              "text": "A long first line that would wrap at any narrow width\nSecond"}}]}
+            """#)
+        let field = try XCTUnwrap(root.childNodes[2])
+        let one = Gtk.Widget(field.outerWidget).measure(GTK_ORIENTATION_VERTICAL, forSize: 2000).natural
+        // A paragraph a line, as at a width wide enough for both.
+        XCTAssertEqual(Gtk.Widget(field.outerWidget).measure(GTK_ORIENTATION_VERTICAL, forSize: -1).natural, one)
+    }
 }
