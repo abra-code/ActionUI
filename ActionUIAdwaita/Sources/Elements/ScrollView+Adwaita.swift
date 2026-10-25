@@ -22,6 +22,7 @@ extension ScrollView: ActionUIAdwaitaRenderer {
         let content = ScrollLayout.makeContent()
         // The scrolled window wraps the container in a GtkViewport, which scrolls it.
         gtk_scrolled_window_set_child(OpaquePointer(scroller), content)
+        ViewportFocus.follow(scroller)
         let configuration = ScrollConfiguration(content: content)
         attach(configuration, to: scroller, key: scrollConfigurationKey)
         attach(configuration, to: content, key: scrollConfigurationKey)

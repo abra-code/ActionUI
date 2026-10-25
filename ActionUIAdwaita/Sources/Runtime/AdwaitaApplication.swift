@@ -377,6 +377,7 @@ public final class AdwaitaApplication {
             ActionUIModel.shared.logger.log("Window \(windowUUID): the document's minimum size \(minimum.width) x \(minimum.height) is larger than the screen; it scrolls", .warning)
             let scroller = gtk_scrolled_window_new()!
             gtk_scrolled_window_set_child(opaque(scroller), content)
+            ViewportFocus.follow(scroller)
             adw_toast_overlay_set_child(OpaquePointer(toastOverlay), scroller)
         } else {
             adw_toast_overlay_set_child(OpaquePointer(toastOverlay), content)

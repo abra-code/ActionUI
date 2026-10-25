@@ -95,6 +95,7 @@ extension List: ActionUIAdwaitaRenderer {
         if let viewport = gtk_widget_get_parent(box) {
             gtk_scrollable_set_vscroll_policy(OpaquePointer(viewport), GTK_SCROLL_NATURAL)
         }
+        ViewportFocus.follow(scroller)
         let state = ListState(box: box)
         attach(state, to: scroller, key: listStateKey)
         connectUserSignal(box, "row-selected", .instanceAndArgument) { [weak node] in
