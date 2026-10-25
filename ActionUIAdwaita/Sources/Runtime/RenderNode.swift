@@ -57,6 +57,8 @@ final class RenderNode {
     private(set) var toolbar: NodeToolbar?
     /// The context menu the element declares, opened on a right click; nil when it declares none.
     private(set) var contextMenu: NodeContextMenu?
+    /// The background and overlay views the element declares; nil when it declares neither.
+    private(set) var decorations: NodeDecorations?
     /// True when NodeAppearance watches the box for the element's onAppearActionID and
     /// onDisappearActionID.
     private var watchesAppearance = false
@@ -133,6 +135,7 @@ final class RenderNode {
         presentations = NodePresentations.make(for: self)
         toolbar = NodeToolbar.make(for: self)
         contextMenu = NodeContextMenu.make(for: self)
+        decorations = NodeDecorations.make(for: self)
         watchesAppearance = NodeAppearance.watch(self)
         NodeHover.watch(self)
         NodeDrop.watch(self)
@@ -164,6 +167,7 @@ final class RenderNode {
                 toolbar?.update()
                 contextMenu?.update()
                 persistentToolbar?.update()
+                decorations?.update(modifiers)
                 ModifierBox.update(outerWidget, self, renderer.boxModifiers(modifiers))
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
@@ -180,7 +184,8 @@ final class RenderNode {
         // A set: a linear search per child is quadratic in a wide container's first sync.
         if environment != previousEnvironment {
             let new = Set(created.map(ObjectIdentifier.init))
-            for child in Array(childNodes.values) + (toolbar?.nodes ?? []) + (persistentToolbar?.nodes ?? []) where !new.contains(ObjectIdentifier(child)) {
+            for child in Array(childNodes.values) + (toolbar?.nodes ?? []) + (persistentToolbar?.nodes ?? []) + (decorations?.nodes ?? [])
+            where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
             }
         }
@@ -310,6 +315,7 @@ final class RenderNode {
         toolbar?.detach()
         persistentToolbar?.detach()
         contextMenu?.detach()
+        decorations?.detach()
         for child in childNodes.values {
             child.detach()
         }

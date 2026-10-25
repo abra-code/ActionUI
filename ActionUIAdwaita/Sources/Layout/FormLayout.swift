@@ -113,7 +113,7 @@ enum FormLayout {
         var start = 0
         var width = width
         while attached(on: widget, key: boxLayoutKey) != nil {
-            guard let content = ModifierBox.content(of: widget), let inner = Gtk.Widget(content).firstChild?.pointer else { return nil }
+            guard let content = ModifierBox.content(of: widget), let inner = ModifierBox.element(inContent: content) else { return nil }
             let placement = ModifierBox.elementPlacement(inBox: widget, width: width)
             start += placement.start
             width = placement.width

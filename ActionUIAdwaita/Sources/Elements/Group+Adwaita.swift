@@ -97,7 +97,7 @@ extension Group: ActionUIAdwaitaRenderer {
     static func widget(inBox box: WidgetPointer) -> WidgetPointer? {
         guard attached(on: box, key: boxLayoutKey) != nil,
               let content = ModifierBox.content(of: box),
-              let element = Gtk.Widget(content).firstChild?.pointer,
+              let element = ModifierBox.element(inContent: content),
               attached(on: element, key: groupMarkerKey) != nil else { return nil }
         return element
     }
@@ -127,8 +127,8 @@ extension Group: ActionUIAdwaitaRenderer {
             guard let group = self.widget(inBox: widget) else { return false }
             return isFlattened(group)
         }
-        // A content group: the element's widget is its only child.
-        guard let element = Gtk.Widget(widget).firstChild?.pointer,
+        // A content group: the element's widget.
+        guard let element = ModifierBox.element(inContent: widget),
               attached(on: element, key: groupMarkerKey) != nil else { return false }
         return isFlattened(element)
     }
@@ -138,7 +138,7 @@ extension Group: ActionUIAdwaitaRenderer {
     static func takesPlace(_ box: WidgetPointer) -> Bool {
         guard attached(on: box, key: groupChildBoxMarkerKey) != nil,
               let content = ModifierBox.content(of: box),
-              let element = Gtk.Widget(content).firstChild?.pointer else { return true }
+              let element = ModifierBox.element(inContent: content) else { return true }
         return gtk_widget_should_layout(element) != 0
     }
 

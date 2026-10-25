@@ -33,14 +33,17 @@ nonisolated(unsafe) private var containerParentWidgetClass: UnsafeMutablePointer
         let widgetClass = klass.assumingMemoryBound(to: GtkWidgetClass.self)
         // A container expands where a child does, as a SwiftUI stack becomes flexible through its
         // children (GtkWidget's own default says no; GtkBox does the same as this). Hidden
-        // children do not expand.
+        // children do not expand, nor do a view's background and overlay views (NodeDecorations),
+        // which take the view's size and do not make it.
         widgetClass.pointee.compute_expand = { widget, hexpand, vexpand in
             var horizontal = false
             var vertical = false
             var child = widget.flatMap { gtk_widget_get_first_child($0) }
             while let current = child {
-                horizontal = horizontal || gtk_widget_compute_expand(current, GTK_ORIENTATION_HORIZONTAL) != 0
-                vertical = vertical || gtk_widget_compute_expand(current, GTK_ORIENTATION_VERTICAL) != 0
+                if g_object_get_data(typed(OpaquePointer(current)), decorationMarkerKey.name) == nil {
+                    horizontal = horizontal || gtk_widget_compute_expand(current, GTK_ORIENTATION_HORIZONTAL) != 0
+                    vertical = vertical || gtk_widget_compute_expand(current, GTK_ORIENTATION_VERTICAL) != 0
+                }
                 child = gtk_widget_get_next_sibling(current)
             }
             hexpand?.pointee = horizontal ? 1 : 0

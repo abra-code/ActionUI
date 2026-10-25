@@ -61,7 +61,7 @@ enum Baselines {
     /// nothing in it has text (it lines up by its bottom).
     static func first(_ widget: WidgetPointer, width: Int, height: Int) -> Int? {
         if attached(on: widget, key: boxLayoutKey) != nil {
-            guard let content = ModifierBox.content(of: widget), let element = layoutChildren(content).first,
+            guard let content = ModifierBox.content(of: widget), let element = ModifierBox.layoutElement(inContent: content),
                   !Group.isFlattened(element) else { return nil }
             let frame = ModifierBox.contentFrame(widget, width: width, height: height)
             let place = ModifierBox.elementFrame(content, width: frame.width, height: frame.height)

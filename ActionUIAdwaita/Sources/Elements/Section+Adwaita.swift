@@ -27,7 +27,7 @@ extension Section: ActionUIAdwaitaRenderer {
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         guard let box = Gtk.Widget(widget).firstChild?.pointer, let content = ModifierBox.content(of: box),
-              let header = Gtk.Widget(content).firstChild?.pointer else { return }
+              let header = ModifierBox.element(inContent: content) else { return }
         let text = Props(node.properties).header ?? ""
         Gtk.Label(header).text = text
         Gtk.Widget(header).isVisible = !text.isEmpty

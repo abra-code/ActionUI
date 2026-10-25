@@ -91,7 +91,7 @@ enum LayoutCaps {
         if let maximum = frame.maximum {
             return maximum == FrameAxis.infinity ? nil : maximum
         }
-        guard let group = ModifierBox.content(of: box), let element = layoutChildren(group).first else { return nil }
+        guard let group = ModifierBox.content(of: box), let element = ModifierBox.layoutElement(inContent: group) else { return nil }
         let elementForSize = forSize >= 0 ? ModifierBox.elementWidth(inBox: box, width: forSize) : -1
         guard let content = largestSize(element, orientation, forSize: elementForSize) else { return nil }
         let padded = content + layout.padding(orientation).total

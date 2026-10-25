@@ -16,6 +16,9 @@
                           panels assistive technologies pass over: GTK leaves a presentation
                           or none widget out of the tree with all its descendants)
 
+ A background view lies in the content group before the element widget, an overlay view in the
+ outer box after the content group (NodeDecorations); neither changes the box's size.
+
  Parents lay out the outer box: a stack sees the frame's size, its expansion (the box's expand
  flags) and its cap (LayoutCaps reads the frame from the box), and a Spacer's marker is carried
  over to its box.
@@ -124,6 +127,41 @@ enum ModifierBox {
     /// The content group of a box: the widget between the box and the element's widget.
     static func content(of box: WidgetPointer) -> WidgetPointer? {
         Gtk.Widget(box).firstChild?.pointer
+    }
+
+    /// The element's widget in a content group: its child that is not a background view
+    /// (NodeDecorations), which comes before it.
+    static func element(inContent content: WidgetPointer) -> WidgetPointer? {
+        Gtk.Widget(content).children.map(\.pointer).first { attached(on: UnsafeMutableRawPointer($0), key: decorationMarkerKey) == nil }
+    }
+
+    /// The element's widget in a content group when it is laid out (not an EmptyView's, not one
+    /// GTK hides), for measuring and placing.
+    static func layoutElement(inContent content: WidgetPointer) -> WidgetPointer? {
+        element(inContent: content).flatMap { gtk_widget_should_layout($0) != 0 ? $0 : nil }
+    }
+
+    /// The background or overlay views among `parent`'s children (a content group's or a box's).
+    private static func decorations(_ parent: WidgetPointer) -> [(WidgetPointer, DecorationMarker)] {
+        layoutChildren(parent).compactMap { child in
+            attached(on: UnsafeMutableRawPointer(child), key: decorationMarkerKey).map { (child, $0) }
+        }
+    }
+
+    /// Places a background or overlay view's box in the frame at (x, y), `width` x `height`: offered
+    /// the frame, as SwiftUI offers it the view's size, a view that expands fills it and another
+    /// takes its own size up to it, aligned in it.
+    private static func allocateDecoration(_ child: WidgetPointer, _ marker: DecorationMarker,
+                                           x: Int, y: Int, width: Int, height: Int) {
+        let widget = Gtk.Widget(child)
+        let horizontal = measureChild(child, GTK_ORIENTATION_HORIZONTAL, forSize: -1)
+        let childWidth = widget.expands(GTK_ORIENTATION_HORIZONTAL) ? width : max(horizontal.minimum, min(horizontal.natural, width))
+        let vertical = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: childWidth)
+        let childHeight = widget.expands(GTK_ORIENTATION_VERTICAL) ? height : max(vertical.minimum, min(vertical.natural, height))
+        var origin = graphene_point_t(
+            x: Float(x + StackSolver.alignedOffset(size: childWidth, block: width, alignment: marker.alignment.horizontal)),
+            y: Float(y + StackSolver.alignedOffset(size: childHeight, block: height, alignment: marker.alignment.vertical)))
+        gtk_widget_allocate(child, Int32(clamping: childWidth), Int32(clamping: childHeight), -1, gsk_transform_translate(nil, &origin))
     }
 
     /// Applies the node's base modifiers to its box, its content group and its widget.
@@ -354,8 +392,9 @@ enum ModifierBox {
         gtk_widget_queue_draw(box)
     }
 
-    /// The element widget's font, foreground color and tint, which its descendants inherit.
-    private static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
+    /// The element widget's font, foreground color and tint, which its descendants inherit (and
+    /// the element's background and overlay views, from their boxes: NodeDecorations).
+    static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
         if let value = modifiers.font {
             let style = FontCSS.style(FontSpec.parse(value, logger: ActionUIModel.shared.logger))
             StyleSheet.shared.apply(style.declarations, named: style.classes, to: widget, slot: "font")
@@ -434,7 +473,7 @@ enum ModifierBox {
     /// the content group hides its element again once it has mapped it (the element maps inside
     /// the content group's map).
     private static func contentMapped(_ content: WidgetPointer) {
-        guard let widget = Gtk.Widget(content).firstChild?.pointer,
+        guard let widget = element(inContent: content),
               attached(on: widget, key: accessibilityStateKey)?.hidden == true else { return }
         setHidden(OpaquePointer(widget), true)
     }
@@ -603,7 +642,7 @@ enum ModifierBox {
     /// The element's width when its box is `width` wide, as allocateBox and allocateContent give
     /// it (LayoutCaps measures the element's height cap at it).
     static func elementWidth(inBox box: WidgetPointer, width: Int) -> Int {
-        guard let content = layoutChildren(box).first, let element = layoutChildren(content).first else { return width }
+        guard let content = layoutChildren(box).first, let element = layoutElement(inContent: content) else { return width }
         let layout = layout(ofBox: box)
         let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
         return elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: frameWidth)
@@ -614,7 +653,7 @@ enum ModifierBox {
     /// aligned in the padded frame (FormLayout finds a title's trailing edge through the boxes
     /// around its row). The box's offset, rotation and scale move no layout.
     static func elementPlacement(inBox box: WidgetPointer, width: Int) -> (start: Int, width: Int) {
-        guard let content = layoutChildren(box).first, let element = layoutChildren(content).first else { return (0, width) }
+        guard let content = layoutChildren(box).first, let element = layoutElement(inContent: content) else { return (0, width) }
         let layout = layout(ofBox: box)
         let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
         let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: frameWidth)
@@ -641,7 +680,7 @@ enum ModifierBox {
     static func allocateBox(_ box: WidgetPointer, width: Int, height: Int) {
         guard let content = layoutChildren(box).first else { return }
         // A Group whose stack lays its children out as its own spans the stack (Group+Adwaita).
-        if let element = layoutChildren(content).first, Group.isFlattened(element) {
+        if let element = layoutElement(inContent: content), Group.isFlattened(element) {
             allocateWhole(content, width: width, height: height)
             return
         }
@@ -653,6 +692,10 @@ enum ModifierBox {
             transform = applyEffects(transform, layout, width: Double(frame.width), height: Double(frame.height))
         }
         gtk_widget_allocate(content, Int32(clamping: frame.width), Int32(clamping: frame.height), -1, transform)
+        // Overlay views: at the frame's place in the layout, not moved by its transform.
+        for (child, marker) in decorations(box) where marker.place == .overlay {
+            allocateDecoration(child, marker, x: frame.x, y: frame.y, width: frame.width, height: frame.height)
+        }
     }
 
     /// Where the content group (the frame) is in a box `width` x `height`, and its size, as
@@ -713,7 +756,7 @@ enum ModifierBox {
     }
 
     static func measureContent(_ content: WidgetPointer, _ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
-        guard let element = layoutChildren(content).first else { return (0, 0) }
+        guard let element = layoutElement(inContent: content) else { return (0, 0) }
         let layout = layout(ofContent: content)
         var elementForSize = -1
         if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
@@ -726,7 +769,7 @@ enum ModifierBox {
     }
 
     static func allocateContent(_ content: WidgetPointer, width: Int, height: Int) {
-        guard let element = layoutChildren(content).first else { return }
+        guard let element = layoutElement(inContent: content) else { return }
         if Group.isFlattened(element) {
             allocateWhole(element, width: width, height: height)
             return
@@ -735,13 +778,17 @@ enum ModifierBox {
         var origin = graphene_point_t(x: Float(frame.x), y: Float(frame.y))
         gtk_widget_allocate(element, Int32(clamping: frame.width), Int32(clamping: frame.height), -1,
                             gsk_transform_translate(nil, &origin))
+        // Background views: the framed size, behind the element.
+        for (child, marker) in decorations(content) where marker.place == .background {
+            allocateDecoration(child, marker, x: 0, y: 0, width: width, height: height)
+        }
     }
 
     /// Where the element is in a content group `width` x `height`, and its size, as
     /// allocateContent places it: after the padding, aligned in what is left by the frame's
     /// alignment. Baselines reads it too.
     static func elementFrame(_ content: WidgetPointer, width: Int, height: Int) -> (x: Int, y: Int, width: Int, height: Int) {
-        guard let element = layoutChildren(content).first else { return (0, 0, width, height) }
+        guard let element = layoutElement(inContent: content) else { return (0, 0, width, height) }
         let layout = layout(ofContent: content)
         let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: width)
         let elementHeight = elementSize(element, layout, GTK_ORIENTATION_VERTICAL, size: height, forSize: elementWidth)
