@@ -5,7 +5,8 @@
  mini and taller at large than at regular, in macOS's proportions (a ColorPicker's swatch keeps a
  mini one 22 px tall), with a smaller title font at mini;
  a TextField and a SecureField are shorter at mini and no taller at large, as macOS's are; a control
- with a font of its own keeps it.
+ with a font of its own keeps it; a checkbox, a switch, a slider and a button toggle step up from
+ mini to large, a progress bar, a ring and a spinner are smaller at mini and no larger past regular.
 */
 
 import XCTest
@@ -101,5 +102,48 @@ final class ControlSizeTests: XCTestCase {
         let inherited = try XCTUnwrap(root.childNodes[2]).widget
         let own = try XCTUnwrap(root.childNodes[3]).widget
         XCTAssertLessThan(width(inherited), width(own), "the own font is not made smaller")
+    }
+
+    /// The indicators, each in a VStack of the given size; ids are 10 * row + column.
+    private static func indicators(_ size: String, _ row: Int) -> String {
+        #"""
+        {"type": "VStack", "id": \#(row * 10), "properties": {"controlSize": "\#(size)"}, "children": [
+          {"type": "Toggle", "id": \#(row * 10 + 1), "properties": {"title": "Check", "style": "checkbox"}},
+          {"type": "Toggle", "id": \#(row * 10 + 2), "properties": {"title": "Switch", "style": "switch"}},
+          {"type": "Slider", "id": \#(row * 10 + 3), "properties": {"value": 0.5}},
+          {"type": "Toggle", "id": \#(row * 10 + 4), "properties": {"title": "Button", "style": "button"}},
+          {"type": "ProgressView", "id": \#(row * 10 + 5), "properties": {"value": 0.5, "total": 1}},
+          {"type": "ProgressView", "id": \#(row * 10 + 6)},
+          {"type": "ProgressView", "id": \#(row * 10 + 7), "properties": {"value": 0.5, "total": 1, "progressViewStyle": "circular"}}]}
+        """#
+    }
+
+    func testIndicatorsTakeMacOSsSteps() throws {
+        let root = try render(#"{"type": "HStack", "id": 1, "children": [\#(Self.indicators("mini", 1)), \#(Self.indicators("regular", 2)), \#(Self.indicators("large", 3))]}"#)
+        func widget(_ row: Int, _ column: Int) -> WidgetPointer? {
+            root.childNodes[row * 10]?.childNodes[row * 10 + column]?.widget
+        }
+        for (column, name) in [(1, "checkbox"), (2, "switch"), (3, "slider"), (4, "button toggle")] {
+            let (mini, regular, large) = (height(widget(1, column)), height(widget(2, column)), height(widget(3, column)))
+            XCTAssertLessThan(mini, regular, "\(name): \(mini) \(regular) \(large)")
+            XCTAssertLessThan(regular, large, "\(name): \(mini) \(regular) \(large)")
+        }
+        // The slider's track keeps its 4 px at each size (a knob's margins larger than half its
+        // size less the track's collapse it).
+        for row in 1...3 {
+            let track = Gtk.Widget(try XCTUnwrap(widget(row, 3))).firstChild?.pointer
+            XCTAssertEqual(height(track), 4, "row \(row)")
+        }
+        let switches = (1...3).map { width(widget($0, 2)) }
+        XCTAssertLessThan(switches[0], switches[1], "a switch narrows with its height: \(switches)")
+        XCTAssertLessThan(switches[1], switches[2], "\(switches)")
+        let bars = (1...3).map { height(widget($0, 5)) }
+        XCTAssertLessThan(bars[0], bars[1], "a progress bar is thinner at mini: \(bars)")
+        XCTAssertEqual(bars[2], bars[1], "and no thicker at large, as on macOS")
+        func side(_ row: Int, _ column: Int) throws -> Int32 {
+            width(ProgressView.accessibleWidget(try XCTUnwrap(widget(row, column))))
+        }
+        XCTAssertEqual(try (1...3).map { try side($0, 7) }, [10, 32, 32], "macOS's ring sides")
+        XCTAssertEqual(try (1...3).map { try side($0, 6) }, [16, 32, 32], "a spinner: libadwaita's 16 px minimum at mini")
     }
 }

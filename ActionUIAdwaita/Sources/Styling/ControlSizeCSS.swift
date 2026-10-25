@@ -26,6 +26,14 @@
  they would hold a mini part at 20 px. A TextField or
  SecureField entry (34 px, 9 px a side) shrinks for mini and small as macOS's does (19 and 21
  points against 24) and does not grow past regular, as macOS's does not.
+
+ Indicators follow macOS's own steps (measured on macOS 27): a checkbox's box is 12, 14, 16, 18 and
+ 18 points (libadwaita's check: 14 px and 3 px padding); a switch 16, 20, 24, 28 and 36 points tall
+ (libadwaita's: 46 x 26, a 20 px knob and 3 px padding); a slider 12, 14, 16, 20 and 20 points
+ (libadwaita's knob: 20 px with -8 px margins over a 4 px track); a progress bar's frame 12,
+ 12, 20, 20 and 20 points (libadwaita's bar: 8 px); a spinner 10, 16, 32, 32 and 32 points, which
+ the renderer's 32 px regular spinner and ring take as they are, except that libadwaita's spinner
+ is never smaller than 16 px, so a mini spinner is as small as a small one.
 */
 
 @MainActor
@@ -101,6 +109,67 @@ enum ControlSizeCSS {
     /// gives it a 16 px icon size and minimum size, and GTK takes the larger); none for 16 px.
     static func arrow(_ size: BaseModifiers.ControlSizeName?) -> [String] {
         iconSize(size).map { ["-gtk-icon-size: \($0)px;", "min-width: \($0)px;", "min-height: \($0)px;"] } ?? []
+    }
+
+    /// A checkbox's own padding and its check's size and padding for `size`; none for regular.
+    static func checkbox(_ size: BaseModifiers.ControlSizeName?) -> (button: [String], check: [String]) {
+        let (padding, check, checkPadding): (Int, Int, Int)
+        switch size {
+        case .mini?: (padding, check, checkPadding) = (2, 10, 2)
+        case .small?: (padding, check, checkPadding) = (3, 12, 3)
+        case .large?, .extraLarge?: (padding, check, checkPadding) = (4, 16, 3)
+        case .regular?, nil: return ([], [])
+        }
+        return (["padding: \(padding)px;"],
+                ["min-width: \(check)px;", "min-height: \(check)px;", "padding: \(checkPadding)px;", "-gtk-icon-size: \(check)px;"])
+    }
+
+    /// A switch's padding, its knob's size and its on and off icons' size for `size`, so it is
+    /// macOS's proportion of libadwaita's 26 px; none for regular.
+    static func toggleSwitch(_ size: BaseModifiers.ControlSizeName?) -> (switch: [String], knob: [String], icons: [String]) {
+        let (padding, knob, icon): (Int, Int, Int)
+        switch size {
+        case .mini?: (padding, knob, icon) = (2, 13, 10)
+        case .small?: (padding, knob, icon) = (3, 16, 13)
+        case .large?: (padding, knob, icon) = (3, 24, 19)
+        case .extraLarge?: (padding, knob, icon) = (4, 32, 26)
+        case .regular?, nil: return ([], [], [])
+        }
+        return (["padding: \(padding)px;"], ["min-width: \(knob)px;", "min-height: \(knob)px;"], ["-gtk-icon-size: \(icon)px;"])
+    }
+
+    /// A slider's padding and its knob's size and margins for `size` (the knob overhangs the 4 px
+    /// track by its negative margins, which must equal half its size less the track's, or the
+    /// track collapses); none for regular.
+    static func slider(_ size: BaseModifiers.ControlSizeName?) -> (scale: [String], knob: [String]) {
+        let knob: Int
+        switch size {
+        case .mini?: knob = 16
+        case .small?: knob = 18
+        case .large?, .extraLarge?: knob = 24
+        case .regular?, nil: return ([], [])
+        }
+        let margin = (knob - 4) / 2
+        return (["padding: \(margin + 4)px;"], ["min-width: \(knob)px;", "min-height: \(knob)px;", "margin: -\(margin)px;"])
+    }
+
+    /// A progress bar's thickness for `size`: thinner at mini and small, as macOS's; none
+    /// otherwise.
+    static func progressBar(_ size: BaseModifiers.ControlSizeName?) -> [String] {
+        switch size {
+        case .mini?, .small?: return ["min-height: 5px;"]
+        case .regular?, .large?, .extraLarge?, nil: return []
+        }
+    }
+
+    /// A spinner's or ring's side for `size`, macOS's: 10 and 16 px for mini and small, else 32
+    /// (a spinner stays 16 px at mini: libadwaita's minimum).
+    static func spinnerSide(_ size: BaseModifiers.ControlSizeName?) -> Int32 {
+        switch size {
+        case .mini?: return 10
+        case .small?: return 16
+        case .regular?, .large?, .extraLarge?, nil: return 32
+        }
     }
 
     /// A text entry's height and side padding for `size`: 26 and 30 px for mini and small (macOS's

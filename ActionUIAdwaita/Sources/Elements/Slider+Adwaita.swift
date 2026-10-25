@@ -66,6 +66,9 @@ extension Slider: ActionUIAdwaitaRenderer {
         if gtk_range_get_value(range) != position {
             gtk_range_set_value(range, position)
         }
+        let parts = ControlSizeCSS.slider(node.environment.controlSize)
+        ControlSizeCSS.applyPart(parts.scale, to: widget)
+        ControlSizeCSS.applyPart(parts.knob, to: widget, selector: "{} > trough > slider", slot: "controlSizeKnob")
     }
 
     static var defaultExpansion: Expansion { .horizontal }

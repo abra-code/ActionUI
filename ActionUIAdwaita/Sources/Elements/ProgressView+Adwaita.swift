@@ -97,11 +97,16 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         Gtk.Label(title).text = text
         // An empty title still takes its line, as in SwiftUI (measured on macOS 27).
         Gtk.Widget(title).isVisible = props.title != nil
+        let size = node.environment.controlSize
+        ControlSizeCSS.applyFont(node, to: widget)
         guard let state = attached(on: indicator, key: progressStateKey) else { return }
         let progress = determinateProgress(node.model, props)
         let fraction = progress.map { $0.total > 0 ? Swift.min(Swift.max($0.value / $0.total, 0), 1) : 0 } ?? 0
         switch Kind(rawValue: node.widgetKind) ?? .bar {
         case .bar:
+            ControlSizeCSS.applyPart(ControlSizeCSS.progressBar(size), to: indicator, selector: "{} > trough")
+            ControlSizeCSS.applyPart(ControlSizeCSS.progressBar(size), to: indicator, selector: "{} > trough > progress",
+                                     slot: "controlSizeProgress")
             // Setting the fraction also ends the activity mode a pulse left, so a pulse that stops
             // sets it even when it is the fraction the bar had.
             let wasPulsing = state.pulseTick != 0
@@ -110,13 +115,24 @@ extension ProgressView: ActionUIAdwaitaRenderer {
                 gtk_progress_bar_set_fraction(OpaquePointer(indicator), fraction)
             }
         case .ring:
+            setSide(indicator, ControlSizeCSS.spinnerSide(size))
             if state.fraction != fraction {
                 state.fraction = fraction
                 setAccessibleValue(indicator, min: 0, max: 1, now: fraction)
                 gtk_widget_queue_draw(indicator)
             }
         case .spinner:
-            break
+            setSide(indicator, ControlSizeCSS.spinnerSide(size))
+        }
+    }
+
+    /// Sizes a spinner or ring `side` x `side` (controlSize; 32 at regular, macOS's).
+    private static func setSide(_ indicator: WidgetPointer, _ side: Int32) {
+        var width: Int32 = 0
+        var height: Int32 = 0
+        gtk_widget_get_size_request(indicator, &width, &height)
+        if width != side || height != side {
+            gtk_widget_set_size_request(indicator, side, side)
         }
     }
 
@@ -155,8 +171,11 @@ extension ProgressView: ActionUIAdwaitaRenderer {
 
     private static func drawRing(_ ring: WidgetPointer, _ snapshot: OpaquePointer) {
         let fraction = attached(on: ring, key: progressStateKey)?.fraction ?? 0
+        // The line keeps its proportion to the side, which controlSize changes.
+        let side = Float(Swift.min(gtk_widget_get_width(ring), gtk_widget_get_height(ring)))
+        let lineWidth = ringWidth * Swift.min(side, Float(indicatorSide)) / Float(indicatorSide)
         // Clockwise from the top, the whole circle.
-        RingDrawing.draw(ring, snapshot, lineWidth: ringWidth, start: -Float.pi / 2, sweep: 2 * Float.pi, fraction: fraction, marker: false)
+        RingDrawing.draw(ring, snapshot, lineWidth: lineWidth, start: -Float.pi / 2, sweep: 2 * Float.pi, fraction: fraction, marker: false)
     }
 
     /// A GtkWidget subclass that draws the ring in the accent color, 32 x 32, a progress bar for

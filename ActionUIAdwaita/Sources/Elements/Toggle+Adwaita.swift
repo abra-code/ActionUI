@@ -90,6 +90,10 @@ extension Toggle: ActionUIAdwaitaRenderer {
                 gtk_check_button_set_label(check, label)
             }
             Gtk.CheckButton(widget).isActive = on
+            let parts = ControlSizeCSS.checkbox(node.environment.controlSize)
+            ControlSizeCSS.applyFont(node, to: widget)
+            ControlSizeCSS.applyPart(parts.button, to: widget)
+            ControlSizeCSS.applyPart(parts.check, to: widget, selector: "{} > check", slot: "controlSizeCheck")
         case .switch:
             guard let title = Gtk.Widget(widget).firstChild?.pointer else { return }
             let toggle = OpaquePointer(accessibleWidget(widget))
@@ -99,6 +103,11 @@ extension Toggle: ActionUIAdwaitaRenderer {
             if (gtk_switch_get_active(toggle) != 0) != on {
                 gtk_switch_set_active(toggle, on ? 1 : 0)
             }
+            let parts = ControlSizeCSS.toggleSwitch(node.environment.controlSize)
+            ControlSizeCSS.applyFont(node, to: widget)
+            ControlSizeCSS.applyPart(parts.switch, to: widget, selector: "{} > switch")
+            ControlSizeCSS.applyPart(parts.knob, to: widget, selector: "{} > switch > slider", slot: "controlSizeKnob")
+            ControlSizeCSS.applyPart(parts.icons, to: widget, selector: "{} > switch > image", slot: "controlSizeIcons")
         case .button:
             let button: UnsafeMutablePointer<GtkToggleButton> = typed(widget)
             if swiftString(gtk_button_get_label(typed(widget))) != props.title {
@@ -108,6 +117,9 @@ extension Toggle: ActionUIAdwaitaRenderer {
                 gtk_toggle_button_set_active(button, on ? 1 : 0)
             }
             clearLabelledBy(widget)
+            StyleSheet.shared.apply(ControlSizeCSS.button(node.environment.controlSize, content: .title, plain: false,
+                                                          ownFont: BaseModifiers(node.properties).font != nil),
+                                    to: widget, slot: "controlSize")
         }
     }
 
