@@ -196,7 +196,12 @@ space differently from SwiftUI's stacks:
   `safearea-bottom-spacing`, `safearea-capped-content`, `safearea-capped-width-leading`,
   `safearea-fixed-filling-bar`, `safearea-hstack-share`, `safearea-inset-wider`,
   `safearea-leading-filling`, `safearea-scroll-list`, `safearea-top-aligned`,
-  `safearea-unframed-bar`).
+  `safearea-unframed-bar`). A view that ignores the safe area does not reach into the inset's room
+  either, where SwiftUI's background or overlay with ignoresSafeArea reaches through the room on
+  the edge it ignores when it touches the frame's edge there (a Color covers the room, a view of
+  fixed size aligned to that edge grows to the element's edge) (`ignoressafearea-background-under-inset`, `ignoressafearea-overlay-under-inset`,
+  `ignoressafearea-other-edge`, `ignoressafearea-child-under-inset`, `ignoressafearea-fixed-at-edges`,
+  `ignoressafearea-fixed-bottom`, `ignoressafearea-fixed-centered`).
 - **A view's own padding is a floor under its share.** In an HStack 600 wide, a
   ContentUnavailableView beside a Color gets 316 on the web where SwiftUI shares 300 and 300
   (`contentunavailable-width-600`): flexbox never shrinks a box below its padding.

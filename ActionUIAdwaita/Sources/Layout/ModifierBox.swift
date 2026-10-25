@@ -58,6 +58,9 @@ final class BoxLayout {
     var rotation = 0.0
     var scale = (x: 1.0, y: 1.0)
     var scaleAnchor = (x: 0.5, y: 0.5)
+    /// How far past the frame a background or overlay view that ignores the safe area reaches on
+    /// each edge (safeAreaReach), set as the box is allocated.
+    var safeAreaReach = (top: 0, bottom: 0, leading: 0, trailing: 0)
 
     func padding(_ orientation: GtkOrientation) -> PaddingAxis {
         orientation == GTK_ORIENTATION_HORIZONTAL ? padding.horizontal : padding.vertical
@@ -153,17 +156,38 @@ enum ModifierBox {
     /// Places a background or overlay view's box in the frame at (x, y), `width` x `height`: offered
     /// the frame, as SwiftUI offers it the view's size, a view that expands fills it and another
     /// takes its own size up to it, aligned in it.
+    /// A view that ignores the safe area and, so placed, touches an edge of the frame that `reach`
+    /// goes past (safeAreaReach) is offered that much more there, from its new top leading corner,
+    /// as SwiftUI's ignoresSafeArea offers its view (measured, the ignoressafearea layout parity
+    /// fixtures: a Color fills the reached space; a fixed-size view centered in the frame stays,
+    /// one aligned to the edge at the inset moves to the box's edge, one aligned to the bottom or
+    /// trailing edge stays).
     private static func allocateDecoration(_ child: WidgetPointer, _ marker: DecorationMarker,
-                                           x: Int, y: Int, width: Int, height: Int) {
+                                           x: Int, y: Int, width: Int, height: Int,
+                                           reach: (top: Int, bottom: Int, leading: Int, trailing: Int)) {
         let widget = Gtk.Widget(child)
-        let horizontal = measureChild(child, GTK_ORIENTATION_HORIZONTAL, forSize: -1)
-        let childWidth = widget.expands(GTK_ORIENTATION_HORIZONTAL) ? width : max(horizontal.minimum, min(horizontal.natural, width))
-        let vertical = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: childWidth)
-        let childHeight = widget.expands(GTK_ORIENTATION_VERTICAL) ? height : max(vertical.minimum, min(vertical.natural, height))
-        var origin = graphene_point_t(
-            x: Float(x + StackSolver.alignedOffset(size: childWidth, block: width, alignment: marker.alignment.horizontal)),
-            y: Float(y + StackSolver.alignedOffset(size: childHeight, block: height, alignment: marker.alignment.vertical)))
-        gtk_widget_allocate(child, Int32(clamping: childWidth), Int32(clamping: childHeight), -1, gsk_transform_translate(nil, &origin))
+        func size(in width: Int, _ height: Int) -> (width: Int, height: Int) {
+            let horizontal = measureChild(child, GTK_ORIENTATION_HORIZONTAL, forSize: -1)
+            let childWidth = widget.expands(GTK_ORIENTATION_HORIZONTAL) ? width : max(horizontal.minimum, min(horizontal.natural, width))
+            let vertical = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: childWidth)
+            let childHeight = widget.expands(GTK_ORIENTATION_VERTICAL) ? height : max(vertical.minimum, min(vertical.natural, height))
+            return (childWidth, childHeight)
+        }
+        var childSize = size(in: width, height)
+        var childX = x + StackSolver.alignedOffset(size: childSize.width, block: width, alignment: marker.alignment.horizontal)
+        var childY = y + StackSolver.alignedOffset(size: childSize.height, block: height, alignment: marker.alignment.vertical)
+        let edges = marker.ignoredSafeAreaEdges
+        let top = edges.contains(.top) && childY <= y ? reach.top : 0
+        let bottom = edges.contains(.bottom) && childY + childSize.height >= y + height ? reach.bottom : 0
+        let leading = edges.contains(.leading) && childX <= x ? reach.leading : 0
+        let trailing = edges.contains(.trailing) && childX + childSize.width >= x + width ? reach.trailing : 0
+        if top + bottom + leading + trailing > 0 {
+            childX -= leading
+            childY -= top
+            childSize = size(in: childSize.width + leading + trailing, childSize.height + top + bottom)
+        }
+        var origin = graphene_point_t(x: Float(childX), y: Float(childY))
+        gtk_widget_allocate(child, Int32(clamping: childSize.width), Int32(clamping: childSize.height), -1, gsk_transform_translate(nil, &origin))
     }
 
     /// Applies the node's base modifiers to its box, its content group and its widget.
@@ -749,6 +773,29 @@ enum ModifierBox {
         return marker.edge == .top || marker.edge == .leading ? (room, 0) : (0, room)
     }
 
+    /// How far past the frame (at `frame` in a box `width` x `height`) a view that ignores the
+    /// safe area reaches on each edge: through the room the box's safe area inset view takes on its
+    /// edge, to the box's edge, when the frame reaches that room (as SwiftUI's view reaches into the
+    /// safe area the inset sets, measured: the ignoressafearea layout parity fixtures).
+    private static func safeAreaReach(_ box: WidgetPointer, frame: (x: Int, y: Int, width: Int, height: Int),
+                                      width: Int, height: Int) -> (top: Int, bottom: Int, leading: Int, trailing: Int) {
+        var reach = (top: 0, bottom: 0, leading: 0, trailing: 0)
+        guard let (_, marker) = insetView(box) else { return reach }
+        switch marker.edge {
+        case .top:
+            if frame.y <= insetRoom(box, GTK_ORIENTATION_VERTICAL, crossSize: width).before { reach.top = max(frame.y, 0) }
+        case .bottom:
+            let end = frame.y + frame.height
+            if end >= height - insetRoom(box, GTK_ORIENTATION_VERTICAL, crossSize: width).after { reach.bottom = max(height - end, 0) }
+        case .leading:
+            if frame.x <= insetRoom(box, GTK_ORIENTATION_HORIZONTAL, crossSize: height).before { reach.leading = max(frame.x, 0) }
+        case .trailing:
+            let end = frame.x + frame.width
+            if end >= width - insetRoom(box, GTK_ORIENTATION_HORIZONTAL, crossSize: height).after { reach.trailing = max(width - end, 0) }
+        }
+        return reach
+    }
+
     /// Places a safe area inset view along its edge of a box `width` x `height`.
     private static func allocateInset(_ box: WidgetPointer, width: Int, height: Int) {
         guard let (child, marker) = insetView(box) else { return }
@@ -783,6 +830,13 @@ enum ModifierBox {
         }
         let layout = layout(ofBox: box)
         let frame = contentFrame(box, width: width, height: height)
+        let reach = safeAreaReach(box, frame: frame, width: width, height: height)
+        if reach != layout.safeAreaReach {
+            layout.safeAreaReach = reach
+            // The background views (allocateContent) reach with it, though the content group may
+            // keep its size and place, when GTK would not allocate it again.
+            gtk_widget_queue_allocate(content)
+        }
         var origin = graphene_point_t(x: Float(frame.x), y: Float(frame.y))
         var transform = gsk_transform_translate(nil, &origin)
         if layout.hasTransform {
@@ -791,7 +845,8 @@ enum ModifierBox {
         gtk_widget_allocate(content, Int32(clamping: frame.width), Int32(clamping: frame.height), -1, transform)
         // Overlay views: at the frame's place in the layout, not moved by its transform.
         for (child, marker) in decorations(box) where marker.place == .overlay {
-            allocateDecoration(child, marker, x: frame.x, y: frame.y, width: frame.width, height: frame.height)
+            allocateDecoration(child, marker, x: frame.x, y: frame.y, width: frame.width, height: frame.height,
+                               reach: layout.safeAreaReach)
         }
         allocateInset(box, width: width, height: height)
     }
@@ -883,8 +938,9 @@ enum ModifierBox {
         gtk_widget_allocate(element, Int32(clamping: frame.width), Int32(clamping: frame.height), -1,
                             gsk_transform_translate(nil, &origin))
         // Background views: the framed size, behind the element.
+        let reach = layout(ofContent: content).safeAreaReach
         for (child, marker) in decorations(content) where marker.place == .background {
-            allocateDecoration(child, marker, x: 0, y: 0, width: width, height: height)
+            allocateDecoration(child, marker, x: 0, y: 0, width: width, height: height, reach: reach)
         }
     }
 

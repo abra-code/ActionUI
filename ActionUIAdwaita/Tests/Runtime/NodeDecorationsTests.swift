@@ -6,7 +6,9 @@
  changes the element's size or expansion; an alignment set at run time places it again; only the
  settings SwiftUI applies after the views reach them (not the element's text style or disabled),
  and its hidden state; the overlay carries the element's context menu, hover, drop and container
- tap; a Group shows none; the views leave with their node.
+ tap; a Group shows none; the views leave with their node. A safe area inset view follows its
+ edge; a view that ignores the safe area reaches into the inset's room when the frame reaches it,
+ following the room and its edges set at run time.
 */
 
 import XCTest
@@ -387,5 +389,46 @@ final class NodeDecorationsTests: XCTestCase {
         // A right click on it opens the element's menu.
         click(try XCTUnwrap(controllers(inset, gtk_gesture_click_get_type(), button: 3).first), "pressed", x: 2, y: 2)
         XCTAssertNotNil(node.contextMenu?.menuWidget)
+    }
+
+    func testAViewThatIgnoresTheSafeAreaFollowsTheInsetsRoomAtRunTime() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "properties": {"frame": {"width": 200, "height": 200}}, "children": [
+              {"type": "Color", "id": 2, "properties": {"color": "clear", "frame": {"width": 100, "height": 50}},
+               "background": {"type": "Color", "id": 4, "properties": {"color": "green", "ignoresSafeArea": true}},
+               "overlay": {"type": "Color", "id": 5, "properties": {"color": "red", "ignoresSafeArea": {"edges": "top"}}},
+               "safeAreaInset": {"type": "Color", "id": 3, "properties": {"color": "blue", "frame": {"width": 20, "height": 20}}}}]}
+            """#)
+        let node = try XCTUnwrap(root.childNodes[2])
+        let box: WidgetPointer = node.outerWidget
+        let background = try XCTUnwrap(node.decorations?.nodes.first?.outerWidget)
+        let overlay = try XCTUnwrap(node.decorations?.overlay?.outerWidget)
+        // Through the bar's room (20 + 8) on the bottom edge it ignores; not on the top edge only.
+        XCTAssertTrue(bounds(background, in: box) == (0, 0, 100, 78))
+        XCTAssertTrue(bounds(overlay, in: box) == (0, 0, 100, 50))
+        // A taller bar: the frame keeps its size and place in the box, the room grows.
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "frame", value: ["width": 20, "height": 30])
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
+        XCTAssertTrue(bounds(background, in: box) == (0, 0, 100, 88), "\(bounds(background, in: box))")
+        // The edges set at run time.
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 4, propertyName: "ignoresSafeArea", value: ["edges": "top"])
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 5, propertyName: "ignoresSafeArea", value: ["edges": "vertical"])
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
+        XCTAssertTrue(bounds(background, in: box) == (0, 0, 100, 50), "\(bounds(background, in: box))")
+        XCTAssertTrue(bounds(overlay, in: box) == (0, 0, 100, 88), "\(bounds(overlay, in: box))")
+    }
+
+    func testAFrameAwayFromTheInsetsRoomDoesNotReachIt() throws {
+        // The window's root gets the whole window: the frame is centered in the room above the bar,
+        // away from it, so the background stops at the frame (SwiftUI's view touches no safe area).
+        let root = try present(#"""
+            {"type": "Color", "id": 2, "properties": {"color": "clear", "frame": {"width": 100, "height": 50}},
+             "background": {"type": "Color", "id": 4, "properties": {"color": "green", "ignoresSafeArea": true}},
+             "safeAreaInset": {"type": "Color", "id": 3, "properties": {"color": "blue", "frame": {"width": 20, "height": 20}}}}
+            """#)
+        let background = try XCTUnwrap(root.decorations?.nodes.first?.outerWidget)
+        let frame = try XCTUnwrap(ModifierBox.content(of: root.outerWidget))
+        XCTAssertGreaterThan(bounds(root.outerWidget, in: root.outerWidget).height, 78 + 20)
+        XCTAssertTrue(bounds(background, in: frame) == (0, 0, 100, 50), "\(bounds(background, in: frame))")
     }
 }

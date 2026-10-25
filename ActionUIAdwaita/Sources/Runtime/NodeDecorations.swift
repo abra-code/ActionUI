@@ -52,6 +52,9 @@ final class DecorationMarker {
     /// A safe area inset view's edge and its distance from the element's frame.
     var edge = Edge.bottom
     var spacing = Int(StackLayout.defaultSpacing)
+    /// The edges a background or overlay view ignores the safe area on (its ignoresSafeArea): it
+    /// reaches past the frame into the room a safe area inset view takes there.
+    var ignoredSafeAreaEdges: Set<Edge> = []
 
     /// Whether a safe area inset view lies along `orientation` (a top or bottom one vertically),
     /// adding its length to the element's.
@@ -172,6 +175,9 @@ final class NodeDecorations {
         if let inset {
             Self.placeInset(inset)
         }
+        for view in [background, overlay].compactMap({ $0 }) {
+            Self.readIgnoredSafeArea(view)
+        }
         let hidden = modifiers.hidden || modifiers.accessibilityHidden == true
         for view in nodes {
             // Hidden from assistive technologies with the element, as SwiftUI's hidden and
@@ -206,6 +212,29 @@ final class NodeDecorations {
         marker.alignment = alignment
         if let parent = gtk_widget_get_parent(view.outerWidget) {
             gtk_widget_queue_resize(parent)
+        }
+    }
+
+    /// A background or overlay view's ignoresSafeArea, as edges (the keyboard region alone ignores
+    /// none: a desktop has no on-screen keyboard to give room to).
+    private static func readIgnoredSafeArea(_ view: RenderNode) {
+        guard let marker = attached(on: UnsafeMutableRawPointer(view.outerWidget), key: decorationMarkerKey) else { return }
+        var edges: Set<DecorationMarker.Edge> = []
+        if let safeArea = BaseModifiers(view.properties).ignoresSafeArea, safeArea.regions != .keyboard {
+            switch safeArea.edges {
+            case .all: edges = [.top, .bottom, .leading, .trailing]
+            case .top: edges = [.top]
+            case .bottom: edges = [.bottom]
+            case .leading: edges = [.leading]
+            case .trailing: edges = [.trailing]
+            case .horizontal: edges = [.leading, .trailing]
+            case .vertical: edges = [.top, .bottom]
+            }
+        }
+        guard marker.ignoredSafeAreaEdges != edges else { return }
+        marker.ignoredSafeAreaEdges = edges
+        if let parent = gtk_widget_get_parent(view.outerWidget) {
+            gtk_widget_queue_allocate(parent)
         }
     }
 
