@@ -210,8 +210,9 @@ extension Menu: ActionUIAdwaitaRenderer {
     }
 
     /// One action per item, enabled as the item is, holding a Toggle's state or a Picker's choice
-    /// from its element's value; actions of items that left are removed.
-    private static func syncActions(_ state: MenuState, _ entries: [MenuEntry], _ node: RenderNode) {
+    /// from its element's value; actions of items that left are removed. Shared with a view's
+    /// context menu (NodeContextMenu), whose state holds its own items.
+    static func syncActions(_ state: MenuState, _ entries: [MenuEntry], _ node: RenderNode) {
         var wanted: [String: (id: Int, kind: ActionKind, enabled: Bool)] = [:]
         func collect(_ entries: [MenuEntry]) {
             for entry in entries {
@@ -230,7 +231,7 @@ extension Menu: ActionUIAdwaitaRenderer {
             g_action_map_remove_action(map, name)
         }
         for (name, item) in wanted {
-            let action = g_action_map_lookup_action(map, name) ?? addAction(name, item.id, item.kind, map, node)
+            let action = g_action_map_lookup_action(map, name) ?? addAction(name, item.id, item.kind, map, state, node)
             if (g_action_get_enabled(action) != 0) != item.enabled {
                 g_simple_action_set_enabled(action, item.enabled ? 1 : 0)
             }
@@ -258,21 +259,22 @@ extension Menu: ActionUIAdwaitaRenderer {
     }
 
     /// Adds the action of item `id` to `map` and returns it (the map holds it).
-    private static func addAction(_ name: String, _ id: Int, _ kind: ActionKind, _ map: OpaquePointer, _ node: RenderNode) -> OpaquePointer {
+    private static func addAction(_ name: String, _ id: Int, _ kind: ActionKind, _ map: OpaquePointer,
+                                  _ state: MenuState, _ node: RenderNode) -> OpaquePointer {
         let action: OpaquePointer
         switch kind {
         case .button:
             action = g_simple_action_new(name, nil)!
-            connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node] in
-                guard let node, let (element, model) = item(id, node) else { return }
+            connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node, weak state] in
+                guard let node, let state, let (element, model) = item(id, state, node) else { return }
                 Button.userTapped(element: element, model: model, windowUUID: node.windowUUID,
                                   props: Button.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
             }
         case .toggle:
             action = g_simple_action_new_stateful(name, nil, g_variant_new_boolean(0))!
             // Handled here, so GLib does not flip the state itself: the next update shows the value.
-            connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node] in
-                guard let node, let (element, model) = item(id, node) else { return }
+            connectUserSignal(UnsafeMutableRawPointer(action), "activate", .instanceAndArgument) { [weak node, weak state] in
+                guard let node, let state, let (element, model) = item(id, state, node) else { return }
                 let on = Toggle.initialValue(model) as? Bool ?? false
                 Toggle.userSetValue(!on, element: element, model: model, windowUUID: node.windowUUID,
                                     props: Toggle.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
@@ -282,8 +284,8 @@ extension Menu: ActionUIAdwaitaRenderer {
             action = g_simple_action_new_stateful(name, stringType, g_variant_new_string(""))!
             g_variant_type_free(stringType)
             // The chosen option's tag is the action's parameter.
-            connectObjectSignal(UnsafeMutableRawPointer(action), "activate") { [weak node] parameter in
-                guard !UpdateGuard.isApplying, let node, let (element, model) = item(id, node) else { return }
+            connectObjectSignal(UnsafeMutableRawPointer(action), "activate") { [weak node, weak state] parameter in
+                guard !UpdateGuard.isApplying, let node, let state, let (element, model) = item(id, state, node) else { return }
                 let tag = String(cString: g_variant_get_string(OpaquePointer(parameter), nil))
                 Picker.userSelected(tag, element: element, model: model, windowUUID: node.windowUUID,
                                     props: Picker.Props(ActionUIRegistry.shared.currentProperties(element: element, model: model)))
@@ -295,10 +297,9 @@ extension Menu: ActionUIAdwaitaRenderer {
         return action
     }
 
-    /// The element item `id` stands for and its view model, while the Menu shows it.
-    private static func item(_ id: Int, _ node: RenderNode) -> (any ActionUIElementBase, ViewModel)? {
-        guard let state = attached(on: node.widget, key: menuStateKey),
-              let element = state.items[id], let model = node.windowModel.viewModels[id] else { return nil }
+    /// The element item `id` stands for and its view model, while the menu shows it.
+    private static func item(_ id: Int, _ state: MenuState, _ node: RenderNode) -> (any ActionUIElementBase, ViewModel)? {
+        guard let element = state.items[id], let model = node.windowModel.viewModels[id] else { return nil }
         return (element, model)
     }
 

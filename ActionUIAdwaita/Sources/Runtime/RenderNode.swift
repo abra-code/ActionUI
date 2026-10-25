@@ -55,6 +55,8 @@ final class RenderNode {
     private(set) var presentations: NodePresentations?
     /// The toolbar the element declares, shown in its screen's header bar; nil when it declares none.
     private(set) var toolbar: NodeToolbar?
+    /// The context menu the element declares, opened on a right click; nil when it declares none.
+    private(set) var contextMenu: NodeContextMenu?
     /// True when NodeAppearance watches the box for the element's onAppearActionID and
     /// onDisappearActionID.
     private var watchesAppearance = false
@@ -130,6 +132,7 @@ final class RenderNode {
         ownedOuterWidget = OwnedObject(retaining: ModifierBox.wrap(widget))
         presentations = NodePresentations.make(for: self)
         toolbar = NodeToolbar.make(for: self)
+        contextMenu = NodeContextMenu.make(for: self)
         watchesAppearance = NodeAppearance.watch(self)
     }
 
@@ -157,6 +160,7 @@ final class RenderNode {
                 }
                 renderer.update(widget, self)
                 toolbar?.update()
+                contextMenu?.update()
                 persistentToolbar?.update()
                 ModifierBox.update(outerWidget, self, renderer.boxModifiers(modifiers))
             } onChange: { [weak self] in
@@ -303,6 +307,7 @@ final class RenderNode {
         presentations?.detach()
         toolbar?.detach()
         persistentToolbar?.detach()
+        contextMenu?.detach()
         for child in childNodes.values {
             child.detach()
         }
