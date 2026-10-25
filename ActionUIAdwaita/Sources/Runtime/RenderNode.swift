@@ -188,7 +188,11 @@ final class RenderNode {
                 contextMenu?.update()
                 persistentToolbar?.update()
                 decorations?.update(modifiers)
-                ModifierBox.update(outerWidget, self, renderer.boxModifiers(modifiers))
+                // The parent filters its own children's boxes only, not its decorations or toolbar
+                // items, which have it as their parent too.
+                let boxModifiers = renderer.boxModifiers(modifiers)
+                let childOf = parent.flatMap { $0.childNodes[element.id] === self ? $0 : nil }
+                ModifierBox.update(outerWidget, self, childOf.map { $0.renderer.childBoxModifiers(boxModifiers) } ?? boxModifiers)
             } onChange: { [weak self] in
                 // The model is main-actor isolated, so changes, and this call, happen on the
                 // main thread, before the new value is stored.

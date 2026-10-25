@@ -2,7 +2,8 @@
 /*
  Tests for the ControlGroup renderer on GTK: its children side by side with no gap, their buttons
  joined by the fixed linked rules (each button after the first, a toggle button too, overlaps the one before by a pixel,
- as libadwaita's linked buttons do); it does not grow.
+ as libadwaita's linked buttons do); it does not grow; its children's padding and frame do not
+ apply, as on macOS.
 */
 
 import XCTest
@@ -66,6 +67,28 @@ final class ControlGroupRendererTests: XCTestCase {
         XCTAssertEqual(widgets[0][0], 0, "the first button keeps its edge")
         XCTAssertEqual(widgets[1][0], boxes[1][0] - 1, "a later button overlaps the one before, as linked buttons do")
         XCTAssertEqual(widgets[2][0], boxes[2][0] - 1)
+    }
+
+    func testAChildsPaddingAndFrameDoNotApplyAsOnMacOS() throws {
+        let root = try render(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "ControlGroup", "id": 2, "children": [
+                {"type": "Button", "id": 3, "properties": {"title": "Back"}},
+                {"type": "Button", "id": 4, "properties": {"title": "Forward"}}]},
+              {"type": "ControlGroup", "id": 5, "children": [
+                {"type": "Button", "id": 6, "properties": {"title": "Back", "padding": "default"}},
+                {"type": "Button", "id": 7, "properties": {"title": "Forward", "padding": "default", "frame": {"width": 200}}}]}]}
+            """#)
+        func size(_ id: Int) throws -> [Int32] {
+            let widget = try XCTUnwrap(root.childNodes[id]?.outerWidget)
+            var minimum: Int32 = 0
+            var width: Int32 = 0
+            var height: Int32 = 0
+            gtk_widget_measure(widget, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &width, nil, nil)
+            gtk_widget_measure(widget, GTK_ORIENTATION_VERTICAL, -1, &minimum, &height, nil, nil)
+            return [width, height]
+        }
+        XCTAssertEqual(try size(5), try size(2), "padded and framed buttons stay joined (macOS: 198 x 24 either way)")
     }
 
     func testDoesNotGrowWhenOfferedMore() throws {

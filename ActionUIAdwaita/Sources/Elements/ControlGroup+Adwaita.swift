@@ -10,6 +10,9 @@
    corners and 1-pixel overlap to the buttons inside the boxes: a Button, a toggle button, and a
    menubutton or dropdown that is an element's own widget.
  - The title is not shown, as macOS shows none for a control group outside a menu or toolbar.
+ - A child's padding and frame are left out (childBoxModifiers): macOS draws the group from its
+   buttons' titles and ignores both (measured: three buttons with padding are 198 x 24 points, as
+   without; a button framed 100 wide keeps its own width), so padded buttons stay joined.
 
  Not yet: a Picker, ColorPicker or Stepper stays apart from the bar (each is a box holding its title
  and its control); macOS joins them into it, a Picker as segments for its title and its menu.
@@ -40,6 +43,14 @@ extension ControlGroup: ActionUIAdwaitaRenderer {
         let stack = StackLayout.makeStack(axis: .horizontal)
         Gtk.Widget(stack).setCSSClass(linkedClass, true)
         return stack
+    }
+
+    /// A child's padding and frame do not apply, as on macOS.
+    static func childBoxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers {
+        var applied = modifiers
+        applied.padding = nil
+        applied.frame = nil
+        return applied
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {

@@ -51,6 +51,11 @@ protocol ActionUIAdwaitaRenderer {
     /// document gives it; its descendants inherit from all of them (Environment). Default: all.
     static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers
 
+    /// The base modifiers a child's box applies, out of the ones its own renderer leaves it
+    /// (boxModifiers): a ControlGroup takes its buttons' padding and frames away, as macOS does.
+    /// Default: all of them.
+    static func childBoxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers
+
     /// The environment the element and its descendants see, from the one it inherits with its
     /// own base modifiers applied (a Form sets inForm). Default: that environment.
     static func environment(_ environment: Environment) -> Environment
@@ -66,6 +71,8 @@ extension ActionUIAdwaitaRenderer {
     static var defaultExpansion: Expansion { [] }
 
     static func boxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers { modifiers }
+
+    static func childBoxModifiers(_ modifiers: BaseModifiers) -> BaseModifiers { modifiers }
 
     static func environment(_ environment: Environment) -> Environment { environment }
 }
