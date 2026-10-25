@@ -1,8 +1,9 @@
 // Sources/Runtime/ContainerTap.swift
 /*
  A VStack, HStack or ZStack carrying an actionID is tappable as a whole on GTK, as on Apple (Core
- ContainerAction decides which and what it dispatches): a click anywhere in the element's box,
- frame, padding and background included, fires the action, with the template row's container id
+ ContainerAction decides which and what it dispatches): a click anywhere in the element's frame,
+ padding and background included (the box's content group: the box itself can be given more, a
+ window's root fills the window), fires the action, with the template row's container id
  and row index inside a template row, else its own id and 0.
 
  - The click gesture is on the box in the bubble phase, so a control inside the cell (a Button, a
@@ -33,8 +34,8 @@ enum ContainerTap {
 
     static let installedKey = AttachKey<Installed>("actionui-container-tap")
 
-    /// Makes `box` (a node's ModifierBox) fire the container's action on a click, or takes the
-    /// tap away when the element dispatches none.
+    /// Makes `box` (a node's frame: its ModifierBox's content group) fire the container's action on
+    /// a click, or takes the tap away when the element dispatches none.
     static func apply(_ node: RenderNode, box: WidgetPointer) {
         let dispatch = ContainerAction.resolve(element: node.element, properties: node.properties,
                                                templateContext: node.model.templateContext)

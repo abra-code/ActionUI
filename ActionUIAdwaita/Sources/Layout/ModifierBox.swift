@@ -130,8 +130,9 @@ enum ModifierBox {
     static func update(_ box: WidgetPointer, _ node: RenderNode, _ modifiers: BaseModifiers) {
         let widget: WidgetPointer = node.widget
         applyBoxModifiers(box, modifiers)
-        // A tappable container's tap covers its whole box (ContainerTap).
-        ContainerTap.apply(node, box: box)
+        // A tappable container's tap covers its frame, the content group, not the space the box
+        // is given beyond it (ContainerTap).
+        ContainerTap.apply(node, box: content(of: box) ?? box)
         applyText(widget, modifiers)
         applyAccessibility(widget, node, modifiers)
 

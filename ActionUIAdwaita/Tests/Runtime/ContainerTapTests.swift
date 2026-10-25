@@ -48,7 +48,7 @@ final class ContainerTapTests: XCTestCase {
     }
 
     private func tap(_ node: RenderNode) -> ContainerTap.Installed? {
-        attached(on: UnsafeMutableRawPointer(node.outerWidget), key: ContainerTap.installedKey)
+        ModifierBox.content(of: node.outerWidget).flatMap { attached(on: UnsafeMutableRawPointer($0), key: ContainerTap.installedKey) }
     }
 
     /// Emits the gesture's "released" at (x, y), as a click's release there.
@@ -92,10 +92,23 @@ final class ContainerTapTests: XCTestCase {
         let second = try XCTUnwrap(Gtk.Widget(root.widget).children.map(\.pointer).dropFirst().first)
         gtk_widget_measure(second, GTK_ORIENTATION_HORIZONTAL, -1, nil, nil, nil, nil)
         gtk_widget_allocate(second, 50, 20, -1, nil)
-        let installed = try XCTUnwrap(attached(on: UnsafeMutableRawPointer(second), key: ContainerTap.installedKey))
+        let installed = try XCTUnwrap(attached(on: UnsafeMutableRawPointer(try XCTUnwrap(ModifierBox.content(of: second))), key: ContainerTap.installedKey))
         release(installed, x: 5, y: 5)
         XCTAssertEqual(fired.map(\.viewID), [1], "the template container's id, as a Button in the row reports")
         XCTAssertEqual(fired.first?.viewPartID, 1, "the row index")
+    }
+
+    func testTheTapIsTheFrameNotTheSpaceTheBoxIsGiven() throws {
+        let root = try render(#"""
+            {"type": "VStack", "id": 1, "properties": {"actionID": "test.cell", "frame": {"width": 40, "height": 20}}}
+            """#)
+        gtk_widget_measure(root.outerWidget, GTK_ORIENTATION_HORIZONTAL, -1, nil, nil, nil, nil)
+        gtk_widget_allocate(root.outerWidget, 200, 100, -1, nil)
+        XCTAssertNil(attached(on: UnsafeMutableRawPointer(root.outerWidget), key: ContainerTap.installedKey),
+                     "not on the box, which a window's root fills")
+        let content = try XCTUnwrap(ModifierBox.content(of: root.outerWidget))
+        XCTAssertNotNil(attached(on: UnsafeMutableRawPointer(content), key: ContainerTap.installedKey))
+        XCTAssertEqual(gtk_widget_get_width(content), 40, "the frame")
     }
 
     func testOnlyAnEnabledStackWithAnActionIsTappable() throws {
