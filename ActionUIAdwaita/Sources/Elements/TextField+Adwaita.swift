@@ -14,15 +14,12 @@
  - textContentType becomes GTK's input purpose, which on-screen keyboards and input methods read.
  - Its accessible name is accessibilityLabel, else the title, as in SwiftUI.
 
- axis vertical makes a field of several lines (VerticalTextField).
-
- Not yet: a number format shows and stores plain text (the formatter comes with localized
- formatting); logged once per element type.
+ axis vertical makes a field of several lines (VerticalTextField). A number format shows the value
+ as the user's locale writes it (FormattedTextField); such a field is one line whatever its axis, as
+ on Apple, where the format takes precedence.
 */
 
 import CAdwaita
-
-@MainActor private var reportedLimits: Set<String> = []
 
 extension TextField: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
@@ -33,21 +30,40 @@ extension TextField: ActionUIAdwaitaRenderer {
         gtk_widget_set_hexpand(entry, 1)
         connectUserSignal(entry, "changed", .instanceOnly) { [weak node] in
             guard let node else { return }
+            let props = Props(node.properties)
+            if let format = props.format {
+                FormattedTextField.userChanged(entry, node, format: format)
+                return
+            }
             let text = swiftString(gtk_editable_get_text(OpaquePointer(entry))) ?? ""
-            TextField.userEditedText(text, element: node.element, model: node.model, windowUUID: node.windowUUID,
-                                     props: Props(node.properties))
+            TextField.userEditedText(text, element: node.element, model: node.model, windowUUID: node.windowUUID, props: props)
         }
         connectUserSignal(entry, "activate", .instanceOnly) { [weak node] in
             guard let node else { return }
-            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: Props(node.properties))
+            let props = Props(node.properties)
+            if let format = props.format {
+                FormattedTextField.commit(entry, node, format: format)
+            }
+            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: props)
         }
         let focus = gtk_event_controller_focus_new()!
         connectUserSignal(UnsafeMutableRawPointer(focus), "leave", .instanceOnly) { [weak node] in
             // Only the focus moving elsewhere submits. GTK also emits "leave" when the window
             // becomes inactive, and keeps its focus in the entry (AppKit ends no editing then), and
             // when the window goes away, after unmapping the entry.
-            guard let node, node.isAttached, gtk_widget_get_mapped(entry) != 0, !containsWindowFocus(entry) else { return }
-            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: Props(node.properties))
+            let focusMoved = !containsWindowFocus(entry)
+            if focusMoved { FormattedTextField.focusLeft(entry) }
+            guard let node, node.isAttached, gtk_widget_get_mapped(entry) != 0, focusMoved else { return }
+            let props = Props(node.properties)
+            if let format = props.format {
+                FormattedTextField.commit(entry, node, format: format)
+            }
+            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: props)
+        }
+        connectUserSignal(UnsafeMutableRawPointer(focus), "enter", .instanceOnly) { [weak node] in
+            // A formatted field takes the value its text shows when editing begins, as SwiftUI's.
+            guard let node, let format = Props(node.properties).format else { return }
+            FormattedTextField.focusEntered(entry, node, format: format)
         }
         gtk_widget_add_controller(entry, focus)
         return FormFieldTitle.widget(entry, node)
@@ -56,14 +72,16 @@ extension TextField: ActionUIAdwaitaRenderer {
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         if isVertical(node) {
             VerticalTextField.update(widget, node)
-            reportFormat(Props(node.properties))
             return
         }
         let props = Props(node.properties)
         let entryWidget = FormFieldTitle.entry(widget)
         let entry: UnsafeMutablePointer<GtkEntry> = typed(entryWidget)
-        let text = node.model.value as? String ?? props.initialValue
-        Gtk.Editable(entryWidget).text = text
+        if let format = props.format {
+            FormattedTextField.update(entryWidget, node, format: format)
+        } else {
+            Gtk.Editable(entryWidget).text = node.model.value as? String ?? props.initialValue
+        }
         let placeholder = FormFieldTitle.update(widget, node, title: props.title, prompt: props.prompt)
         if swiftString(gtk_entry_get_placeholder_text(entry)) != placeholder {
             gtk_entry_set_placeholder_text(entry, placeholder)
@@ -76,19 +94,13 @@ extension TextField: ActionUIAdwaitaRenderer {
         if gtk_entry_get_input_purpose(entry) != purpose {
             gtk_entry_set_input_purpose(entry, purpose)
         }
-        reportFormat(props)
-    }
-
-    private static func reportFormat(_ props: Props) {
-        if props.format != nil {
-            reportOnce("number formats show plain text on Linux for now")
-        }
     }
 
     /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle); 2 more for
-    /// a vertical field (VerticalTextField).
+    /// a vertical field (VerticalTextField), which a number format is not.
     static func widgetKind(_ node: RenderNode) -> Int {
-        FormFieldTitle.widgetKind(node) + (Props(node.properties).axis == .vertical ? 2 : 0)
+        let props = Props(node.properties)
+        return FormFieldTitle.widgetKind(node) + (props.axis == .vertical && props.format == nil ? 2 : 0)
     }
 
     /// Whether the node's widget is a vertical field (the kind it was made as).
@@ -126,11 +138,5 @@ extension TextField: ActionUIAdwaitaRenderer {
     static func containsWindowFocus(_ entry: WidgetPointer) -> Bool {
         guard let root = gtk_widget_get_root(entry), let focus = gtk_root_get_focus(root) else { return false }
         return focus == entry || gtk_widget_is_ancestor(focus, entry) != 0
-    }
-
-    private static func reportOnce(_ limit: String) {
-        if reportedLimits.insert(limit).inserted {
-            ActionUIModel.shared.logger.log("TextField: \(limit)", .warning)
-        }
     }
 }

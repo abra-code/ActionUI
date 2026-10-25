@@ -15,7 +15,7 @@ import FoundationEssentials
 import Foundation
 #endif
 
-enum NumberFormatSpec: Equatable, Sendable {
+enum NumberFormatSpec: Hashable, Sendable {
     case integer
     case decimal(minFraction: Int?, maxFraction: Int?)
     case percent(minFraction: Int?, maxFraction: Int?)

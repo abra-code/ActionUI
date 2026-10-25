@@ -1,7 +1,7 @@
 // Sources/Formatting/ICULibrary.swift
 /*
- The system's ICU, found and loaded at run time, for formatting dates (and later numbers) by the
- user's locale: FoundationEssentials cannot do that, and full Foundation would bring 45 MB of ICU
+ The system's ICU, found and loaded at run time, for formatting dates and numbers by the user's
+ locale: FoundationEssentials cannot do that, and full Foundation would bring 45 MB of ICU
  data into libActionUI.so. Every desktop Linux install has some ICU (Debian 13: libicu76), whose C
  functions carry the major version in their names (udat_format_76), and versions differ between
  distributions, so ActionUI names none: for N from 120 down to 50 it opens libicui18n.so.N (which
@@ -10,8 +10,8 @@
  is a developer package's link, not on users' systems. A miss costs about 4 microseconds (13 the
  first time; measured on Debian 13), once per process, when the first date is formatted. A missing
  function disables ICU as a whole, as does no library at all; callers then fall back to GLib
- (DateFormatting). .NET finds ICU the same way on Linux (System.Globalization.Native's
- pal_icushim.c).
+ (DateFormatting) or to plain digits (NumberFormatting). .NET finds ICU the same way on Linux
+ (System.Globalization.Native's pal_icushim.c).
 
  No ICU header is used: the few C types are declared here (UChar is UInt16, UErrorCode Int32, UDate
  Double milliseconds, the opened objects opaque pointers), with the values the formatters need
@@ -31,11 +31,26 @@ final class ICULibrary {
                                                UnsafePointer<UInt16>?, Int32, UnsafeMutablePointer<ErrorCode>?) -> OpaquePointer?
     typealias FormatDate = @convention(c) (OpaquePointer?, Double, UnsafeMutablePointer<UInt16>?, Int32, OpaquePointer?,
                                            UnsafeMutablePointer<ErrorCode>?) -> Int32
+    typealias OpenNumberFormat = @convention(c) (Int32, UnsafePointer<UInt16>?, Int32, UnsafePointer<CChar>?, OpaquePointer?,
+                                                 UnsafeMutablePointer<ErrorCode>?) -> OpaquePointer?
+    typealias SetNumberAttribute = @convention(c) (OpaquePointer?, Int32, Int32) -> Void
+    typealias SetNumberTextAttribute = @convention(c) (OpaquePointer?, Int32, UnsafePointer<UInt16>?, Int32,
+                                                       UnsafeMutablePointer<ErrorCode>?) -> Void
+    typealias FormatNumber = @convention(c) (OpaquePointer?, Double, UnsafeMutablePointer<UInt16>?, Int32, OpaquePointer?,
+                                             UnsafeMutablePointer<ErrorCode>?) -> Int32
+    typealias ParseNumber = @convention(c) (OpaquePointer?, UnsafePointer<UInt16>?, Int32, UnsafeMutablePointer<Int32>?,
+                                            UnsafeMutablePointer<ErrorCode>?) -> Double
 
     /// U_ZERO_ERROR; an ICU call failed when its status is above it (warnings are below).
     static let noError: ErrorCode = 0
     /// UDAT_PATTERN, the style that tells udat_open to use the pattern it is given.
     static let patternStyle: Int32 = -2
+    /// UNumberFormatStyle values for unum_open.
+    static let decimalStyle: Int32 = 1, currencyStyle: Int32 = 2, percentStyle: Int32 = 3
+    /// UNumberFormatAttribute values for unum_setAttribute.
+    static let maxFractionDigits: Int32 = 6, minFractionDigits: Int32 = 7, lenientParse: Int32 = 19
+    /// UNUM_CURRENCY_CODE, the UNumberFormatTextAttribute naming a currency formatter's currency.
+    static let currencyCode: Int32 = 5
 
     /// The loaded ICU, or nil when none was found (or a test disabled it).
     static var shared: ICULibrary? {
@@ -62,6 +77,13 @@ final class ICULibrary {
     /// udat_open (with patternStyle and a pattern), udat_format.
     let openDateFormat: OpenDateFormat
     let formatDate: FormatDate
+    /// unum_open, unum_setAttribute, unum_setTextAttribute, unum_formatDouble,
+    /// unum_parseDouble: a locale's number formats.
+    let openNumberFormat: OpenNumberFormat
+    let setNumberAttribute: SetNumberAttribute
+    let setNumberTextAttribute: SetNumberTextAttribute
+    let formatNumber: FormatNumber
+    let parseNumber: ParseNumber
 
     private init?(version: Int, i18n: UnsafeMutableRawPointer) {
         func function<T>(_ library: UnsafeMutableRawPointer, _ name: String, as type: T.Type) -> T? {
@@ -72,13 +94,23 @@ final class ICULibrary {
               let bestPattern = function(i18n, "udatpg_getBestPattern", as: BestPattern.self),
               let closePatternGenerator = function(i18n, "udatpg_close", as: ClosePatternGenerator.self),
               let openDateFormat = function(i18n, "udat_open", as: OpenDateFormat.self),
-              let formatDate = function(i18n, "udat_format", as: FormatDate.self) else { return nil }
+              let formatDate = function(i18n, "udat_format", as: FormatDate.self),
+              let openNumberFormat = function(i18n, "unum_open", as: OpenNumberFormat.self),
+              let setNumberAttribute = function(i18n, "unum_setAttribute", as: SetNumberAttribute.self),
+              let setNumberTextAttribute = function(i18n, "unum_setTextAttribute", as: SetNumberTextAttribute.self),
+              let formatNumber = function(i18n, "unum_formatDouble", as: FormatNumber.self),
+              let parseNumber = function(i18n, "unum_parseDouble", as: ParseNumber.self) else { return nil }
         self.version = version
         self.openPatternGenerator = openPatternGenerator
         self.bestPattern = bestPattern
         self.closePatternGenerator = closePatternGenerator
         self.openDateFormat = openDateFormat
         self.formatDate = formatDate
+        self.openNumberFormat = openNumberFormat
+        self.setNumberAttribute = setNumberAttribute
+        self.setNumberTextAttribute = setNumberTextAttribute
+        self.formatNumber = formatNumber
+        self.parseNumber = parseNumber
     }
 
     /// The newest ICU that opens, when it carries every function used; nil otherwise. The library
@@ -87,14 +119,14 @@ final class ICULibrary {
         for version in stride(from: 120, through: 50, by: -1) {
             guard let i18n = dlopen("libicui18n.so.\(version)", RTLD_NOW | RTLD_LOCAL) else { continue }
             if let library = ICULibrary(version: version, i18n: i18n) {
-                ActionUIModel.shared.logger.log("ICU \(version) formats dates by locale", .verbose)
+                ActionUIModel.shared.logger.log("ICU \(version) formats dates and numbers by locale", .verbose)
                 return library
             }
             dlclose(i18n)
-            ActionUIModel.shared.logger.log("ICU \(version) lacks a function ActionUI uses; dates follow the C library's locale", .info)
+            ActionUIModel.shared.logger.log("ICU \(version) lacks a function ActionUI uses; dates follow the C library's locale and numbers show plain digits", .info)
             return nil
         }
-        ActionUIModel.shared.logger.log("No ICU found; dates follow the C library's locale", .info)
+        ActionUIModel.shared.logger.log("No ICU found; dates follow the C library's locale and numbers show plain digits", .info)
         return nil
     }
 }
