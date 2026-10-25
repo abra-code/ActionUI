@@ -105,7 +105,20 @@ extension List: ActionUIAdwaitaRenderer {
             guard let node else { return }
             userActivated(node, state)
         }
+        NodeContextMenu.watchRows(of: box) { [weak node] y in
+            guard let node, let row = gtk_list_box_get_row_at_y(OpaquePointer(box), Int32(y)) else { return nil }
+            return rowNode(state, node, at: Int(gtk_list_box_row_get_index(row)))
+        }
         return scroller
+    }
+
+    /// The node shown in row `index`: a child's or a template's row; nil for a content row.
+    private static func rowNode(_ state: ListState, _ node: RenderNode, at index: Int) -> RenderNode? {
+        switch state.mode {
+        case .rows: nil
+        case .children: index < state.childIDs.count ? node.childNodes[state.childIDs[index]] : nil
+        case .template: index < state.rowNodes.count ? state.rowNodes[index] : nil
+        }
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
