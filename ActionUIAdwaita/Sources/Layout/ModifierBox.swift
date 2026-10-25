@@ -462,7 +462,7 @@ enum ModifierBox {
     }
 
     /// Sets the hidden state.
-    private static func setHidden(_ accessible: OpaquePointer, _ hidden: Bool) {
+    static func setHidden(_ accessible: OpaquePointer, _ hidden: Bool) {
         var value = GValue()
         gtk_accessible_state_init_value(GTK_ACCESSIBLE_STATE_HIDDEN, &value)
         g_value_set_boolean(&value, hidden ? 1 : 0)

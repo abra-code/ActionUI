@@ -33,6 +33,8 @@ final class DecorationMarker {
 
     let place: Place
     var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
+    /// Hidden from assistive technologies with the element (hidden, accessibilityHidden).
+    var hidden = false
 
     init(_ place: Place) {
         self.place = place
@@ -61,19 +63,35 @@ final class NodeDecorations {
         let decorations = NodeDecorations()
         if let background {
             let view = node.auxiliaryNode(for: background)
-            attach(DecorationMarker(.background), to: UnsafeMutableRawPointer(view.outerWidget), key: decorationMarkerKey)
             // First in the content group: drawn behind the element.
             gtk_widget_insert_after(view.outerWidget, content, nil)
+            mark(view, .background, in: content)
             decorations.background = view
         }
         if let overlay {
             let view = node.auxiliaryNode(for: overlay)
-            attach(DecorationMarker(.overlay), to: UnsafeMutableRawPointer(view.outerWidget), key: decorationMarkerKey)
             // Last in the outer box: drawn over the content group.
             gtk_widget_insert_before(view.outerWidget, node.outerWidget, nil)
+            mark(view, .overlay, in: node.outerWidget)
             decorations.overlay = view
         }
         return decorations
+    }
+
+    /// Marks a view's box, a child of `parent`, as a background or overlay view. GTK shows a
+    /// widget to assistive technologies again whenever it maps, after the widget's own "map"
+    /// handlers run, so a view hidden with its element is hidden again by a "map" handler on its
+    /// parent: it runs after the parent's default handler, which maps the parent's children.
+    private static func mark(_ view: RenderNode, _ place: DecorationMarker.Place, in parent: WidgetPointer) {
+        let box: WidgetPointer = view.outerWidget
+        let marker = DecorationMarker(place)
+        attach(marker, to: UnsafeMutableRawPointer(box), key: decorationMarkerKey)
+        // The marker lives as long as the box it is attached to, so once the box is gone the
+        // handler does not touch it.
+        connectSignal(UnsafeMutableRawPointer(parent), "map", .instanceOnly) { [weak marker] in
+            guard marker?.hidden == true, gtk_widget_get_mapped(box) != 0 else { return }
+            ModifierBox.setHidden(OpaquePointer(box), true)
+        }
     }
 
     /// Where the pointer reaches the element: its frame (the box's content group) and its overlay
@@ -93,15 +111,23 @@ final class NodeDecorations {
     }
 
     /// The views' alignments from the element's modifiers; a change places them again. The
-    /// element's font, foregroundStyle, tint and disabled reach them too, as SwiftUI's environment
-    /// reaches a background or overlay applied after them: on GTK these sit on the element's
-    /// widget, which the views are not inside.
+    /// element's font, foregroundStyle, tint and disabled reach them too, as SwiftUI's
+    /// environment reaches a background or overlay applied after them: on GTK these sit on the
+    /// element's widget, which the views are not inside. Its hidden state hides them from
+    /// assistive technologies, as SwiftUI applies hidden and accessibilityHidden after them.
     func update(_ modifiers: BaseModifiers) {
         Self.align(background, ModifierBox.alignmentAxes(modifiers.backgroundAlignment))
         Self.align(overlay, ModifierBox.alignmentAxes(modifiers.overlayAlignment))
+        let hidden = modifiers.hidden || modifiers.accessibilityHidden == true
         for view in nodes {
             ModifierBox.applyText(view.outerWidget, modifiers)
             Gtk.Widget(view.outerWidget).isSensitive = modifiers.disabled != true
+            // Hidden from assistive technologies with the element, as SwiftUI's hidden and
+            // accessibilityHidden, applied after the views, hide them too.
+            if let marker = attached(on: UnsafeMutableRawPointer(view.outerWidget), key: decorationMarkerKey), marker.hidden != hidden {
+                marker.hidden = hidden
+                ModifierBox.setHidden(OpaquePointer(view.outerWidget), hidden || gtk_widget_get_mapped(view.outerWidget) == 0)
+            }
         }
     }
 

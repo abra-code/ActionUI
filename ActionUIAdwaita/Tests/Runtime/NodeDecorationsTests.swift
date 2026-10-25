@@ -4,7 +4,7 @@
  the element in its content group, filling the frame when it expands; an overlay view lies over it
  in the outer box, aligned in the frame at its place in the layout (not moved by offset); neither
  changes the element's size or expansion; an alignment set at run time places it again; the
- element's text style, disabled state and environment reach the views; a Group shows none; the views
+ element's text style, disabled state, hidden state and environment reach the views; a Group shows none; the views
  leave with their node.
 */
 
@@ -279,4 +279,53 @@ final class NodeDecorationsTests: XCTestCase {
         let place = bounds(overlay, in: frame)
         XCTAssertEqual(fired.first?.context?["location"] as? [String: Double], ["x": Double(place.x + 1), "y": Double(place.y + 2)])
     }
+
+    /// Whether GTK holds `widget` hidden from assistive technologies. gtk_test_accessible_check_state
+    /// is variadic, which Swift cannot call; with one integer argument after the state it is called
+    /// as a plain function (the C calling conventions of aarch64 and x86_64 Linux pass it alike).
+    private func isHiddenInGTK(_ widget: WidgetPointer) throws -> Bool {
+        typealias CheckState = @convention(c) (OpaquePointer, GtkAccessibleState, gboolean) -> UnsafeMutablePointer<CChar>?
+        let symbol = try XCTUnwrap(dlsym(dlopen(nil, RTLD_NOW), "gtk_test_accessible_check_state"))
+        let check = unsafeBitCast(symbol, to: CheckState.self)
+        // nil when the state has the value, else a message to free.
+        guard let mismatch = check(OpaquePointer(widget), GTK_ACCESSIBLE_STATE_HIDDEN, 1) else { return true }
+        g_free(mismatch)
+        return false
+    }
+
+    func testTheElementsHiddenStateReachesTheViews() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "Text", "id": 2, "properties": {"text": "Card", "accessibilityHidden": true},
+               "background": {"type": "Color", "id": 5, "properties": {"color": "yellow"}},
+               "overlay": {"type": "Text", "id": 6, "properties": {"text": "!"}}}]}
+            """#)
+        let node = try XCTUnwrap(root.childNodes[2])
+        let boxes = try XCTUnwrap(node.decorations?.nodes).map { $0.outerWidget! }
+        XCTAssertEqual(boxes.count, 2)
+        // GTK's own state, which it sets to shown whenever a widget maps; hiding a box keeps its
+        // descendants (the overlay's Text) out of the accessibility tree too.
+        let hidden = { try boxes.map { try self.isHiddenInGTK($0) } }
+        let remap = {
+            gtk_widget_set_visible(root.outerWidget, 0)
+            AdwaitaTestHost.drainMainLoop()
+            gtk_widget_set_visible(root.outerWidget, 1)
+            AdwaitaTestHost.drainMainLoop()
+        }
+        XCTAssertEqual(boxes.map { gtk_widget_get_mapped($0) }, [1, 1])
+        XCTAssertEqual(try hidden(), [true, true], "declared hidden, shown in a window")
+        remap()
+        XCTAssertEqual(try hidden(), [true, true], "still hidden once mapped again")
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "accessibilityHidden", value: false)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(try hidden(), [false, false])
+        remap()
+        XCTAssertEqual(try hidden(), [false, false], "shown once mapped again")
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "hidden", value: true)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(try hidden(), [true, true], "hidden hides them too")
+        remap()
+        XCTAssertEqual(try hidden(), [true, true])
+    }
+
 }
