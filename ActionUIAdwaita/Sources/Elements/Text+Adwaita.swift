@@ -64,9 +64,10 @@ extension Text: ActionUIAdwaitaRenderer {
     }
 
     /// Where the wrapped text sits in the label: where the parent VStack would place a box as wide
-    /// as its widest line (a tracked read of the parent's properties), else in the middle.
+    /// as its widest line (a tracked read of the parent's properties), else in the middle (also for
+    /// a background or overlay view, which is not in its element's stack).
     static func boxPosition(_ node: RenderNode) -> Float {
-        guard let parent = node.parent else { return 0.5 }
+        guard node.decoration == nil, let parent = node.parent else { return 0.5 }
         let alignment: StackSolver.Alignment
         if parent.renderer == VStack.self {
             alignment = VStack.stackAlignment(VStack.Props(parent.properties).alignment)

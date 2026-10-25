@@ -29,10 +29,12 @@ extension Spacer: ActionUIAdwaitaRenderer {
         gtk_widget_set_vexpand(widget, vertical ? 1 : 0)
     }
 
-    /// The axis of the stack the element is in (from its parent element's type); nil outside a stack.
+    /// The axis of the stack the element is in (from its parent element's type); nil outside a stack
+    /// (also for a background or overlay view, which is not in its element's stack).
     /// In a Group or Section, its stack's (Group+Adwaita); one that no stack lays out is a VStack.
     /// Divider uses it too.
     static func parentAxis(_ node: RenderNode) -> StackAxis? {
+        guard node.decoration == nil else { return nil }
         switch node.parent?.element.type {
         case "VStack", "LazyVStack", "GroupBox", "Form": return .vertical
         case "HStack", "LazyHStack", "LabeledContent": return .horizontal

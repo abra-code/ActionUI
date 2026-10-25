@@ -18,6 +18,10 @@
  The element's onHover, contextMenu, onDrop and container tap cover the overlay too
  (pointerAreas), as SwiftUI applies them after it.
 
+ The views inherit what SwiftUI's modifier order gives them: the element's parent's environment
+ with the element's settings applied after the view (environment(for:of:)), and the element's
+ hidden state; not its font, foregroundStyle, tint or disabled, which SwiftUI applies before them.
+
  Only the views the element declares when its node is made are shown, and none on a Group or a
  Section, whose modifiers SwiftUI applies to each child.
 */
@@ -62,14 +66,14 @@ final class NodeDecorations {
         }
         let decorations = NodeDecorations()
         if let background {
-            let view = node.auxiliaryNode(for: background)
+            let view = node.auxiliaryNode(for: background, decoration: .background)
             // First in the content group: drawn behind the element.
             gtk_widget_insert_after(view.outerWidget, content, nil)
             mark(view, .background, in: content)
             decorations.background = view
         }
         if let overlay {
-            let view = node.auxiliaryNode(for: overlay)
+            let view = node.auxiliaryNode(for: overlay, decoration: .overlay)
             // Last in the outer box: drawn over the content group.
             gtk_widget_insert_before(view.outerWidget, node.outerWidget, nil)
             mark(view, .overlay, in: node.outerWidget)
@@ -94,6 +98,19 @@ final class NodeDecorations {
         }
     }
 
+    /// The environment a background or overlay view inherits: the element's parent's, with only
+    /// the element's settings SwiftUI applies after the view (View.applyModifiers' order):
+    /// textSelection and multilineTextAlignment come after the background and before the overlay,
+    /// buttonStyle and labelsHidden after both. A tracked read of the element's properties.
+    static func environment(for place: DecorationMarker.Place, of element: RenderNode) -> Environment {
+        var modifiers = BaseModifiers(element.properties)
+        if place == .overlay {
+            modifiers.multilineTextAlignment = nil
+            modifiers.textSelection = nil
+        }
+        return (element.parent?.environment ?? Environment()).applying(modifiers)
+    }
+
     /// Where the pointer reaches the element: its frame (the box's content group) and its overlay
     /// view's box. SwiftUI applies onHover, contextMenu, onDrop and the container tap after the
     /// overlay, so they cover it too; on GTK the overlay is beside the frame, not inside it.
@@ -110,18 +127,17 @@ final class NodeDecorations {
         [background, overlay].compactMap { $0 }
     }
 
-    /// The views' alignments from the element's modifiers; a change places them again. The
-    /// element's font, foregroundStyle, tint and disabled reach them too, as SwiftUI's
-    /// environment reaches a background or overlay applied after them: on GTK these sit on the
-    /// element's widget, which the views are not inside. Its hidden state hides them from
-    /// assistive technologies, as SwiftUI applies hidden and accessibilityHidden after them.
+    /// The views' alignments from the element's modifiers; a change places them again. Its
+    /// hidden state hides them from assistive technologies, as SwiftUI applies hidden and
+    /// accessibilityHidden after them. The element's font, foregroundStyle, tint and disabled do
+    /// not reach them, as SwiftUI applies those before them (measured: an overlay after
+    /// foregroundStyle draws in the default style, one after disabled is enabled); on GTK they
+    /// sit on the element's widget, which the views are not inside.
     func update(_ modifiers: BaseModifiers) {
         Self.align(background, ModifierBox.alignmentAxes(modifiers.backgroundAlignment))
         Self.align(overlay, ModifierBox.alignmentAxes(modifiers.overlayAlignment))
         let hidden = modifiers.hidden || modifiers.accessibilityHidden == true
         for view in nodes {
-            ModifierBox.applyText(view.outerWidget, modifiers)
-            Gtk.Widget(view.outerWidget).isSensitive = modifiers.disabled != true
             // Hidden from assistive technologies with the element, as SwiftUI's hidden and
             // accessibilityHidden, applied after the views, hide them too.
             if let marker = attached(on: UnsafeMutableRawPointer(view.outerWidget), key: decorationMarkerKey), marker.hidden != hidden {

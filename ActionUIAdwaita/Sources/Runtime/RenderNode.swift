@@ -26,6 +26,9 @@ final class RenderNode {
     let model: ViewModel
     let windowModel: WindowModel
     private(set) weak var parent: RenderNode?
+    /// Set for a background or overlay view's node (NodeDecorations), whose parent is the element it
+    /// decorates: it inherits only what SwiftUI's modifier order gives it.
+    let decoration: DecorationMarker.Place?
     /// The number of ancestors: SyncScheduler syncs parents before children.
     let depth: Int
     let renderer: any ActionUIAdwaitaRenderer.Type
@@ -46,6 +49,9 @@ final class RenderNode {
     /// The inherited base modifiers, with what the renderer adds (a Form's inForm; Environment),
     /// computed at the start of each sync.
     private(set) var environment = Environment()
+    /// The environment inherited at the last sync (inheritedEnvironment): a change in it re-syncs
+    /// the background and overlay views, which inherit the parent's environment, not this node's.
+    private var lastInheritedEnvironment = Environment()
     /// The child nodes, keyed by element id.
     private(set) var childNodes: [Int: RenderNode] = [:]
     /// Child nodes made during this node's sync, synced after it, outside its observation
@@ -95,6 +101,14 @@ final class RenderNode {
 
     var windowUUID: String { windowModel.windowUUID }
 
+    /// The environment this node inherits: its parent's; a background or overlay view's from its
+    /// element (NodeDecorations.environment).
+    private var inheritedEnvironment: Environment {
+        guard let parent else { return Environment() }
+        guard let decoration else { return parent.environment }
+        return NodeDecorations.environment(for: decoration, of: parent)
+    }
+
     /// The element's current properties: its view model's store once seeded. A tracked read.
     var properties: [String: Any] {
         ActionUIRegistry.shared.currentProperties(element: element, model: model)
@@ -112,8 +126,10 @@ final class RenderNode {
     }
 
     /// Makes the node and its widget; the caller syncs it (sync) once it is placed.
-    init(element: any ActionUIElementBase, model: ViewModel, windowModel: WindowModel, parent: RenderNode?) {
+    init(element: any ActionUIElementBase, model: ViewModel, windowModel: WindowModel, parent: RenderNode?,
+         decoration: DecorationMarker.Place? = nil) {
         self.element = element
+        self.decoration = decoration
         self.model = model
         self.windowModel = windowModel
         self.parent = parent
@@ -125,7 +141,8 @@ final class RenderNode {
         // parent's.
         UntrackedReads.perform {
             let modifiers = BaseModifiers(ActionUIRegistry.shared.currentProperties(element: element, model: model))
-            self.environment = renderer.environment((parent?.environment ?? Environment()).applying(modifiers))
+            self.lastInheritedEnvironment = inheritedEnvironment
+            self.environment = renderer.environment(lastInheritedEnvironment.applying(modifiers))
             self.widgetKind = renderer.widgetKind(self)
         }
         let widget = renderer.makeWidget(self)
@@ -154,12 +171,14 @@ final class RenderNode {
     func sync() {
         guard isAttached else { return }
         let previousEnvironment = environment
+        let previousInherited = lastInheritedEnvironment
         var requestedPresentations: Set<NodePresentations.Kind> = []
         UpdateGuard.applying {
             withObservationTracking {
                 requestedPresentations = presentations?.requested() ?? []
                 let modifiers = BaseModifiers(properties)
-                environment = renderer.environment((parent?.environment ?? Environment()).applying(modifiers))
+                lastInheritedEnvironment = inheritedEnvironment
+                environment = renderer.environment(lastInheritedEnvironment.applying(modifiers))
                 let kind = renderer.widgetKind(self)
                 if kind != widgetKind {
                     replaceWidget(kind: kind)
@@ -181,11 +200,16 @@ final class RenderNode {
         }
         let created = unsyncedChildren
         unsyncedChildren = []
-        // A changed environment reaches the existing children (new ones compute theirs below).
+        // A changed environment reaches the existing children (new ones compute theirs below);
+        // the background and overlay views inherit the parent's environment with some of this
+        // node's settings (NodeDecorations.environment), whose changes their own sync tracks, so a
+        // change in the inherited environment reaches them though this node's may stay the same.
         // A set: a linear search per child is quadratic in a wide container's first sync.
-        if environment != previousEnvironment {
+        let environmentChanged = environment != previousEnvironment
+        if environmentChanged || lastInheritedEnvironment != previousInherited {
             let new = Set(created.map(ObjectIdentifier.init))
-            for child in Array(childNodes.values) + (toolbar?.nodes ?? []) + (persistentToolbar?.nodes ?? []) + (decorations?.nodes ?? [])
+            let inheriting = environmentChanged ? Array(childNodes.values) + (toolbar?.nodes ?? []) + (persistentToolbar?.nodes ?? []) : []
+            for child in inheriting + (decorations?.nodes ?? [])
             where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
             }
@@ -237,8 +261,9 @@ final class RenderNode {
     /// A node for `element`, with a view model as a child's, that is not one of the child nodes: a
     /// toolbar item's content, kept by NodeToolbar. Synced right after this node's sync, like a new
     /// child; its keeper detaches it.
-    func auxiliaryNode(for element: any ActionUIElementBase) -> RenderNode {
-        let node = RenderNode(element: element, model: childModel(for: element), windowModel: windowModel, parent: self)
+    func auxiliaryNode(for element: any ActionUIElementBase, decoration: DecorationMarker.Place? = nil) -> RenderNode {
+        let node = RenderNode(element: element, model: childModel(for: element), windowModel: windowModel, parent: self,
+                              decoration: decoration)
         unsyncedChildren.append(node)
         return node
     }

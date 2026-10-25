@@ -208,9 +208,10 @@ final class NodeContextMenu {
         ModifierBox.content(of: node.outerWidget) ?? node.outerWidget
     }
 
-    /// True for a List's row: its child, or its template's row.
+    /// True for a List's row: its child, or its template's row (not a background or overlay view on
+    /// the List).
     private static func isListRow(_ node: RenderNode) -> Bool {
-        node.parent?.element.type == "List"
+        node.decoration == nil && node.parent?.element.type == "List"
     }
 
     /// The node left the tree: the menu comes down and leaves the box.

@@ -3,9 +3,10 @@
  Tests for background and overlay views on GTK (NodeDecorations): a background view lies behind
  the element in its content group, filling the frame when it expands; an overlay view lies over it
  in the outer box, aligned in the frame at its place in the layout (not moved by offset); neither
- changes the element's size or expansion; an alignment set at run time places it again; the
- element's text style, disabled state, hidden state and environment reach the views; a Group shows none; the views
- leave with their node.
+ changes the element's size or expansion; an alignment set at run time places it again; only the
+ settings SwiftUI applies after the views reach them (not the element's text style or disabled),
+ and its hidden state; the overlay carries the element's context menu, hover, drop and container
+ tap; a Group shows none; the views leave with their node.
 */
 
 import XCTest
@@ -111,35 +112,49 @@ final class NodeDecorationsTests: XCTestCase {
         XCTAssertEqual(moved.y + moved.height, 60)
     }
 
-    func testTheElementsTextStyleDisabledAndEnvironmentReachTheViews() throws {
-        // As SwiftUI's environment reaches a background or overlay applied after these modifiers;
-        // on GTK they sit on the element's widget, which the views are not inside.
+    func testOnlyWhatSwiftUIAppliesAfterTheViewsReachesThem() throws {
+        // SwiftUI applies font, foregroundStyle, tint and disabled before a background or overlay
+        // view, and they do not reach it (measured: an overlay after foregroundStyle draws in the
+        // default style, one after disabled is enabled); multilineTextAlignment comes after the
+        // background and before the overlay.
         let root = try present(#"""
             {"type": "VStack", "id": 1, "children": [
-              {"type": "Button", "id": 2, "properties": {"title": "Main", "disabled": true, "foregroundStyle": "red", "multilineTextAlignment": "leading"},
+              {"type": "Button", "id": 2, "properties": {"title": "Main", "disabled": true, "foregroundStyle": "red", "multilineTextAlignment": "center"},
                "background": {"type": "Text", "id": 5, "properties": {"text": "Back"}},
-               "overlay": {"type": "Button", "id": 6, "properties": {"title": "Over"}}}]}
+               "overlay": {"type": "Text", "id": 6, "properties": {"text": "Over"}}}]}
             """#)
         let node = try XCTUnwrap(root.childNodes[2])
-        let content = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
-        let background = try XCTUnwrap(Gtk.Widget(content).firstChild?.pointer)
-        let overlay = try XCTUnwrap(Gtk.Widget(node.outerWidget).lastChild?.pointer)
-        var label: WidgetPointer = background
-        while let child = gtk_widget_get_first_child(label) {
-            label = child
-        }
+        let views = try XCTUnwrap(node.decorations?.nodes)
+        let background = try XCTUnwrap(views.first { $0.decoration == .background })
+        let overlay = try XCTUnwrap(views.first { $0.decoration == .overlay })
         var color = GdkRGBA()
-        gtk_widget_get_color(label, &color)
-        XCTAssertGreaterThan(color.red, 0.5)
-        XCTAssertLessThan(color.green, 0.5)
-        XCTAssertEqual(gtk_widget_is_sensitive(overlay), 0)
-        // An environment change on the element reaches the views' nodes.
-        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(label)), GTK_JUSTIFY_LEFT)
-        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "multilineTextAlignment", value: "center")
-        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "disabled", value: false)
+        gtk_widget_get_color(background.widget, &color)
+        XCTAssertLessThan(color.red, 0.5, "not the element's red")
+        XCTAssertEqual(gtk_widget_is_sensitive(overlay.widget), 1, "not the element's disabled")
+        XCTAssertEqual(gtk_widget_is_sensitive(background.widget), 1)
+        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(background.widget)), GTK_JUSTIFY_CENTER)
+        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(overlay.widget)), GTK_JUSTIFY_LEFT)
+        // A change to the element's setting reaches the background view.
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "multilineTextAlignment", value: "trailing")
         _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
-        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(label)), GTK_JUSTIFY_CENTER)
-        XCTAssertEqual(gtk_widget_is_sensitive(overlay), 1)
+        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(background.widget)), GTK_JUSTIFY_RIGHT)
+        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(overlay.widget)), GTK_JUSTIFY_LEFT)
+    }
+
+    func testAChangeToTheElementsParentReachesTheViews() throws {
+        // The overlay view inherits the parent's multilineTextAlignment, not the element's (applied
+        // before it), so a change on the parent reaches it though the element's environment stays.
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "properties": {"multilineTextAlignment": "leading"}, "children": [
+              {"type": "Text", "id": 2, "properties": {"text": "Main", "multilineTextAlignment": "trailing"},
+               "overlay": {"type": "Text", "id": 6, "properties": {"text": "Over"}}}]}
+            """#)
+        let node = try XCTUnwrap(root.childNodes[2])
+        let overlay = try XCTUnwrap(node.decorations?.overlay)
+        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(overlay.widget)), GTK_JUSTIFY_LEFT)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "multilineTextAlignment", value: "center")
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
+        XCTAssertEqual(gtk_label_get_justify(OpaquePointer(overlay.widget)), GTK_JUSTIFY_CENTER)
     }
 
     func testAGroupShowsNoViewsAndItsSiblingsKeepTheirClicks() throws {
@@ -328,4 +343,26 @@ final class NodeDecorationsTests: XCTestCase {
         XCTAssertEqual(try hidden(), [true, true])
     }
 
+
+    func testAViewIsNotInItsElementsStackOrList() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "VStack", "id": 2, "properties": {"alignment": "leading"},
+               "overlay": {"type": "Text", "id": 5, "properties": {"text": "Over"}},
+               "children": [{"type": "Text", "id": 3, "properties": {"text": "In"}}]},
+              {"type": "HStack", "id": 4, "background": {"type": "Spacer", "id": 6},
+               "children": [{"type": "Text", "id": 7, "properties": {"text": "Row"}}]},
+              {"type": "List", "id": 8, "overlay": {"type": "Text", "id": 9, "properties": {"text": "Badge"},
+                 "swipeActions": [{"type": "Button", "id": 10, "properties": {"title": "Pin"}}]},
+               "children": [{"type": "Text", "id": 11, "properties": {"text": "Item"}}]}]}
+            """#)
+        let leading = try XCTUnwrap(root.childNodes[2])
+        XCTAssertEqual(Text.boxPosition(try XCTUnwrap(leading.childNodes[3])), 0, "a child of the leading VStack")
+        XCTAssertEqual(Text.boxPosition(try XCTUnwrap(leading.decorations?.overlay)), 0.5, "the overlay is not in the stack")
+        let row = try XCTUnwrap(root.childNodes[4])
+        let spacer = try XCTUnwrap(row.decorations?.nodes.first)
+        XCTAssertNil(Spacer.parentAxis(spacer), "the background is not in the HStack")
+        let list = try XCTUnwrap(root.childNodes[8])
+        XCTAssertNil(list.decorations?.overlay?.contextMenu, "the overlay is not a List row: no swipe actions")
+    }
 }

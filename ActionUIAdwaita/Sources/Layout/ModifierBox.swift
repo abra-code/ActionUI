@@ -394,9 +394,9 @@ enum ModifierBox {
         gtk_widget_queue_draw(box)
     }
 
-    /// The element widget's font, foreground color and tint, which its descendants inherit (and
-    /// the element's background and overlay views, from their boxes: NodeDecorations).
-    static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
+    /// The element widget's font, foreground color and tint, which its descendants inherit (not
+    /// its background and overlay views, outside the widget, as on Apple: NodeDecorations).
+    private static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
         if let value = modifiers.font {
             let style = FontCSS.style(FontSpec.parse(value, logger: ActionUIModel.shared.logger))
             StyleSheet.shared.apply(style.declarations, named: style.classes, to: widget, slot: "font")
