@@ -76,6 +76,18 @@ enum StackSolver {
     static func mainSizes(_ children: [StackChild], available: Int, gaps: [Int]) -> [Int] {
         guard !children.isEmpty else { return [] }
         var remaining = available - gaps.reduce(0, +)
+        // Children that all have a largest size, given room for all of them at it, each take it.
+        // GTK gives a stack of such children no more than the sum of those sizes (its natural
+        // size, or its cap when it expands), where SwiftUI's parent usually proposes more (a
+        // VStack its width, a wider frame its width), and SwiftUI's shares below give every
+        // child its largest size in that proposal; shared out of just the sum, they can leave
+        // a child short. Proposed exactly the sum or a little more, SwiftUI's own shares do
+        // leave one short, which the allocation cannot tell apart (measured: the ideal layout
+        // parity fixtures, hstack-ideal-exact-width and hstack-ideal-slightly-wider among them).
+        let largest = children.compactMap(\.maximum)
+        if largest.count == children.count, remaining >= largest.reduce(0, +) {
+            return largest
+        }
         var sizes = Array(repeating: 0, count: children.count)
         // SwiftUI's priority groups: the spacers come after everything else. The first group's
         // space leaves out the later groups' minimums, which they get back on their turn.

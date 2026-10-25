@@ -182,6 +182,12 @@ space differently from SwiftUI's stacks:
     SwiftUI gives 30 and 30, the web 40 and 20 (`divider-hstack-height`).
   - `flex-basis: 0` would share like SwiftUI here, but it collapses a filling child that has
     padding (a List) to nothing in a stack sized by its content.
+- **A stack offered its ideal size, or a little more, gives each child its own.** An HStack 107
+  wide holding Colors with `minWidth` 38 and 31 and ideal and largest widths 51 and 44, 12 apart:
+  SwiftUI offers each an even share of what is left and gives 47 and 44, centered; flexbox (and
+  the GTK renderer) gives 51 and 44 (`hstack-ideal-exact-width`). 110 wide, SwiftUI gives 49 and
+  44 (`hstack-ideal-slightly-wider`). Offered at least 114, where the first even share covers 51
+  (as a VStack 400 wide offers its width), SwiftUI gives 51 and 44 too.
 - **A view's own padding is a floor under its share.** In an HStack 600 wide, a
   ContentUnavailableView beside a Color gets 316 on the web where SwiftUI shares 300 and 300
   (`contentunavailable-width-600`): flexbox never shrinks a box below its padding.

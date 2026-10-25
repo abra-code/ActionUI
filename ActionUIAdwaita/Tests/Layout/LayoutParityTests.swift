@@ -22,7 +22,16 @@ private struct Expectation: Codable {
 final class LayoutParityTests: XCTestCase {
     /// Fixtures GTK does not match yet, with the reason. A fixture that starts to match fails the
     /// test until it is removed here.
-    private static let knownDifferences: [String: String] = [:]
+    private static let knownDifferences: [String: String] = [
+        "hstack-ideal-exact-width": idealReason,
+        "hstack-ideal-slightly-wider": idealReason,
+    ]
+
+    /// Offered its ideal width or a little more, SwiftUI's HStack can leave a child short. GTK
+    /// gives a stack whose children all have a largest size no more than their sum, where
+    /// SwiftUI's parent usually proposes more, so the stack gives each child that size then
+    /// (StackSolver.mainSizes).
+    private static let idealReason = "offered its ideal width or a little more, SwiftUI's HStack can leave a child short; GTK gives a stack of bounded children no more than its ideal size where SwiftUI's parent usually offers more, so it gives each child its own size then (StackSolver.mainSizes)"
 
     /// Frames may differ by this much: SwiftUI places at fractions of a point, GTK whole pixels.
     private static let tolerance = 1.0

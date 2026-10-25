@@ -63,6 +63,15 @@ final class StackSolverTests: XCTestCase {
         XCTAssertEqual(sizes([.fixed(minimum: 0, natural: 30), .fixed(minimum: 0, natural: 70)], 500), [30, 70])
     }
 
+    func testBoundedChildrenGivenRoomForAllTheirLargestSizesTakeThem() {
+        // SwiftUI's shares of 95 would offer the first 47 and leave it short; GTK gives such a
+        // stack no more than this sum where SwiftUI's parent usually proposes more.
+        let two: [StackChild] = [.expanding(minimum: 38, cap: 51), .expanding(minimum: 31, cap: 44)]
+        XCTAssertEqual(sizes(two, 107, spacing: 12), [51, 44])
+        // One short of the sum: SwiftUI's shares, the first offered 47.
+        XCTAssertEqual(sizes(two, 106, spacing: 12), [47, 44])
+    }
+
     func testACapBelowTheMinimumKeepsTheMinimum() {
         XCTAssertEqual(StackChild.expanding(minimum: 40, cap: 10).size(offered: 100), 40)
         XCTAssertEqual(StackChild.fixed(minimum: 40, natural: 10).size(offered: 100), 40)

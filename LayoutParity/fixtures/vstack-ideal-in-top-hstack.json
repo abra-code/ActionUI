@@ -1,0 +1,6 @@
+{"type": "HStack", "id": 1, "properties": {"alignment": "top", "frame": {"width": 400, "height": 200}}, "children": [
+  {"type": "VStack", "id": 2, "properties": {"spacing": 12, "frame": {"width": 20}}, "children": [
+    {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"minHeight": 38, "idealHeight": 51, "maxHeight": 51}}},
+    {"type": "Color", "id": 4, "properties": {"color": "#0000FF", "frame": {"minHeight": 31, "idealHeight": 44, "maxHeight": 44}}}]},
+  {"type": "Color", "id": 5, "properties": {"color": "#00FF00", "frame": {"width": 80, "height": 150}}}
+]}
