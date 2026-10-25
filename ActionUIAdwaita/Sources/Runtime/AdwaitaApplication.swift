@@ -11,7 +11,8 @@
  - A window holds an ActionUI document: AdwApplicationWindow > AdwToolbarView (an AdwHeaderBar
    on top, with the title) > the root element's box. It opens at the document's ideal size (the
    root frame's ideal, else its content's natural size; 480 x 320 when that is under 10 x 10, as
-   on Apple), never larger than the monitor: GTK's renderers fail on windows far larger than the
+   on Apple), no wider than 900 unless its minimum needs more (SwiftUI's WindowGroup opens 900
+   wide), and never larger than the monitor: GTK's renderers fail on windows far larger than the
    screen. A document whose minimum is larger than the monitor scrolls.
  - A document that cannot be loaded is logged and shown as its error text in the window, as on
    Apple.
@@ -72,6 +73,10 @@ public final class AdwaitaApplication {
 
     /// Apple's fallback window size when the content reports almost none.
     static let fallbackSize = (width: Int32(480), height: Int32(320))
+    /// The widest a window opens unless its content's minimum needs more: SwiftUI's WindowGroup
+    /// opens 900 points wide on macOS (measured on macOS 27, whatever the content), so a long
+    /// line of text does not open a window as wide as the monitor.
+    static let openingWidth = 900
 
     public var handlers = Handlers()
     /// The application's name: window titles default to it, and the default application ID.
@@ -605,13 +610,15 @@ public final class AdwaitaApplication {
         return label
     }
 
-    /// The content's minimum and natural size; the heights for the width the window will have
-    /// (the natural width, at most `widthCap`), as text wraps taller in a narrower window.
+    /// The content's minimum and natural size; the natural width at most `widthCap`, and at most
+    /// the opening width unless the minimum needs more, and the heights for that width, as text
+    /// wraps taller in a narrower window.
     private func contentSizes(_ content: WidgetPointer, widthCap: Int32) -> (minimum: (width: Int32, height: Int32), natural: (width: Int32, height: Int32)) {
         let width = Gtk.Widget(content).measure(GTK_ORIENTATION_HORIZONTAL)
-        let height = Gtk.Widget(content).measure(GTK_ORIENTATION_VERTICAL, forSize: max(min(width.natural, Int(widthCap)), width.minimum))
+        let opening = max(min(width.natural, Int(widthCap), max(Self.openingWidth, width.minimum)), width.minimum)
+        let height = Gtk.Widget(content).measure(GTK_ORIENTATION_VERTICAL, forSize: opening)
         return ((Int32(clamping: width.minimum), Int32(clamping: height.minimum)),
-                (Int32(clamping: width.natural), Int32(clamping: height.natural)))
+                (Int32(clamping: opening), Int32(clamping: height.natural)))
     }
 
     /// The size of the display's first monitor; a large bound when there is none.

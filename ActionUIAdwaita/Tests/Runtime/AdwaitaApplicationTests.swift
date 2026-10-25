@@ -3,7 +3,8 @@
  Tests for the application on Linux, each running a real AdwApplication until it ends: windows
  asked for before the start wait for it and open between willFinishLaunching and
  didFinishLaunching; a window opens at its document's ideal size, titled by the application's
- name; a size larger than the monitor is capped, and a minimum larger than it scrolls; a file's
+ name; no wider than 900 (SwiftUI's opening width) unless its minimum needs more, a long text
+ wrapping there; a minimum larger than the monitor scrolls; a file's
  document is titled by its name, and one that cannot be loaded shows its error; the user's close
  of the last window asks shouldTerminate; terminate ends the application and willTerminate fires;
  a second run while running is refused; the host's close of a window showing a modal and an
@@ -26,7 +27,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        for uuid in ["app-w1", "app-w2", "app-big", "app-file", "app-bad", "app-tall"] {
+        for uuid in ["app-w1", "app-w2", "app-big", "app-file", "app-bad", "app-tall", "app-wide", "app-text"] {
             ActionUIModel.shared.windowModels[uuid] = nil
         }
         for file in files {
@@ -77,6 +78,27 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(title, "Linux Test App", "a JSON document is titled by the application's name")
     }
 
+    func testAWindowOpensNoWiderThan900UnlessItsMinimumNeedsMore() throws {
+        let app = AdwaitaApplication()
+        var wide: (Int32, Int32) = (0, 0)
+        var text: (Int32, Int32) = (0, 0)
+        let caption = String(repeating: "A long caption that wraps. ", count: 60)
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 1000, "minHeight": 100}}}"#.utf8),
+                              windowUUID: "app-wide", title: "Wide")
+            app.presentWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "\#(caption)"}}]}"#.utf8),
+                              windowUUID: "app-text", title: "Text")
+            if let window = app.gtkWindow("app-wide") { wide = self.defaultSize(window) }
+            if let window = app.gtkWindow("app-text") { text = self.defaultSize(window) }
+            app.closeWindow("app-wide")
+            app.closeWindow("app-text")
+        }
+        app.run()
+        XCTAssertEqual(wide.0, 1000, "its minimum, wider than 900")
+        XCTAssertEqual(text.0, 900, "a long text opens 900 wide, as on macOS")
+        XCTAssertGreaterThan(text.1, 100, "the text wraps to several lines there")
+    }
+
     func testASizeLargerThanTheMonitorIsCappedAndALargerMinimumScrolls() throws {
         var monitorWidth: Int32 = 0
         var monitorHeight: Int32 = 0
@@ -89,6 +111,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         let app = AdwaitaApplication()
         var size: (Int32, Int32) = (0, 0)
+        var bigSize: (Int32, Int32) = (0, 0)
         var scrolls = false
         var tallScrolls = false
         app.handlers.didFinishLaunching = {
@@ -101,6 +124,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                               windowUUID: "app-tall", title: "Tall")
             if let window = app.gtkWindow("app-w1") { size = self.defaultSize(window) }
             if let window = app.gtkWindow("app-big"), let content = self.content(window) {
+                bigSize = self.defaultSize(window)
                 scrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
             }
             if let window = app.gtkWindow("app-tall"), let content = self.content(window) {
@@ -112,7 +136,8 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         app.run()
         XCTAssertGreaterThan(monitorWidth, 0)
-        XCTAssertEqual(size.0, monitorWidth, "capped at the monitor")
+        XCTAssertEqual(size.0, min(monitorWidth, Int32(AdwaitaApplication.openingWidth)), "capped at the opening width and the monitor")
+        XCTAssertEqual(bigSize.0, monitorWidth, "a minimum wider than the monitor opens as wide as the monitor")
         XCTAssertTrue(scrolls, "a minimum wider than the monitor scrolls")
         XCTAssertTrue(tallScrolls, "a minimum taller than the monitor with the header bar scrolls")
     }
