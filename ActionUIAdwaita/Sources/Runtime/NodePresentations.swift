@@ -9,11 +9,11 @@
    the subview's element, as a window-level modal (WindowPresenter). fullScreenCover is a dialog
    too, as macOS makes it a sheet. Closing it sets the state false; any dismissal, by the user or by
    the host's state, fires sheetOnDismissActionID or fullScreenCoverOnDismissActionID.
- - popover: a GtkPopover on the element's box, on the side popoverArrowEdge names the arrow's edge
-   for (an arrow at the top: the popover below). Closing it (a click outside, Escape) sets the state
-   false. An element other than a Button shows or hides it on a click, firing popoverActionID when
-   it shows, as PopoverHelper's tap gesture does. Content with nothing to focus takes the focus
-   itself, so the keyboard is in the popover and Escape closes it.
+ - popover: a GtkPopover on the element's box, on the side popoverArrowEdge names (measured on
+   macOS 27: top puts it above the element, leading before it). Closing it (a click outside,
+   Escape) sets the state false. An element other than a Button shows or hides it on a click,
+   firing popoverActionID when it shows, as PopoverHelper's tap gesture does. Content with nothing
+   to focus takes the focus itself, so the keyboard is in the popover and Escape closes it.
 
  The node reads the states while it syncs (so a change re-syncs it) and applies them after, when
  the subview nodes it makes can sync outside its observation. The subview's element is shown in a
@@ -181,15 +181,16 @@ final class NodePresentations {
         return Gtk.Widget(widget).children.contains { hasFocusableWidget($0.pointer) }
     }
 
-    /// The GtkPopover position for SwiftUI's arrow edge: the arrow on the popover's top edge points
-    /// up at the element, so the popover is below it.
+    /// The GtkPopover position for SwiftUI's arrow edge, the edge of the element the arrow is at:
+    /// the popover is on that side (measured on macOS 27: top above the element, bottom below,
+    /// leading before it, trailing after).
     static func position(_ arrowEdge: BaseModifiers.EdgeName) -> GtkPositionType {
         let rightToLeft = gtk_widget_get_default_direction() == GTK_TEXT_DIR_RTL
         switch arrowEdge {
-        case .top: return GTK_POS_BOTTOM
-        case .bottom: return GTK_POS_TOP
-        case .leading: return rightToLeft ? GTK_POS_LEFT : GTK_POS_RIGHT
-        case .trailing: return rightToLeft ? GTK_POS_RIGHT : GTK_POS_LEFT
+        case .top: return GTK_POS_TOP
+        case .bottom: return GTK_POS_BOTTOM
+        case .leading: return rightToLeft ? GTK_POS_RIGHT : GTK_POS_LEFT
+        case .trailing: return rightToLeft ? GTK_POS_LEFT : GTK_POS_RIGHT
         }
     }
 

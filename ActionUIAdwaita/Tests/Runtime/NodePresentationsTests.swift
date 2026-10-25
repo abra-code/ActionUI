@@ -190,7 +190,7 @@ final class NodePresentationsTests: XCTestCase {
         AdwaitaTestHost.emit("clicked", on: button.widget)
         XCTAssertTrue(wait { presentations.root(.popover) != nil })
         let popover = try XCTUnwrap(presentations.widget(.popover))
-        XCTAssertEqual(gtk_popover_get_position(typed(popover)), GTK_POS_TOP, "an arrow at the bottom: the popover above")
+        XCTAssertEqual(gtk_popover_get_position(typed(popover)), GTK_POS_BOTTOM, "an arrow at the bottom edge: the popover below, as on macOS")
         XCTAssertTrue(gtk_widget_get_parent(popover) == button.outerWidget, "on the element's box")
         let text = try XCTUnwrap(presentations.root(.popover)?.widget)
         XCTAssertEqual(swiftString(gtk_label_get_text(opaque(text))), "In the popover")
@@ -211,7 +211,7 @@ final class NodePresentationsTests: XCTestCase {
         XCTAssertEqual(state(3, "popoverVisible"), true)
         XCTAssertTrue(wait { presentations.root(.popover) != nil })
         let popover = try XCTUnwrap(presentations.widget(.popover))
-        XCTAssertEqual(gtk_popover_get_position(typed(popover)), GTK_POS_LEFT, "an arrow at the trailing edge: the popover before")
+        XCTAssertEqual(gtk_popover_get_position(typed(popover)), GTK_POS_RIGHT, "an arrow at the trailing edge: the popover after, as on macOS")
 
         // As a click outside it does.
         gtk_popover_popdown(typed(popover))
