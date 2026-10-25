@@ -184,8 +184,9 @@ space differently from SwiftUI's stacks:
     padding (a List) to nothing in a stack sized by its content.
 - **A stack offered its ideal size, or a little more, gives each child its own.** An HStack 107
   wide holding Colors with `minWidth` 38 and 31 and ideal and largest widths 51 and 44, 12 apart:
-  SwiftUI offers each an even share of what is left and gives 47 and 44, centered; flexbox (and
-  the GTK renderer) gives 51 and 44 (`hstack-ideal-exact-width`). 110 wide, SwiftUI gives 49 and
+  SwiftUI offers each an even share of what is left and gives 47 and 44, centered; flexbox gives
+  51 and 44 (`hstack-ideal-exact-width`, and aligned by the frame: `hstack-ideal-exact-width-leading`,
+  `vstack-ideal-exact-height-top`). 110 wide, SwiftUI gives 49 and
   44 (`hstack-ideal-slightly-wider`). Offered at least 114, where the first even share covers 51
   (as a VStack 400 wide offers its width), SwiftUI gives 51 and 44 too.
 - **A safe area inset is not laid out along its edge.** SwiftUI's safeAreaInset puts the inset
@@ -214,7 +215,7 @@ space differently from SwiftUI's stacks:
   frame and paint to each child, which stays in the parent stack: in an HStack, a Group padded
   10 holding two 20-wide Colors puts them at 10 and 50. The web puts them on one box around the
   Group, which then stacks its children in a column (`group-padding-per-child`,
-  `group-frame-per-child`). A Group with no such modifiers matches.
+  `group-frame-per-child`, `group-frame-ideal-hstack`). A Group with no such modifiers matches.
 - **A Form is a single column.** macOS lines a Form's labels up in a trailing-aligned column with
   the content beside it; the web stretches each LabeledContent row and puts its content at the
   trailing edge. A macOS Form is also as wide as its rows and centered like a VStack, where the

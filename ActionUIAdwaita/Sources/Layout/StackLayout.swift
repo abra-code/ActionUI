@@ -9,7 +9,8 @@
    block by the stack's alignment, so VStack(alignment: .leading) aligns to the stack's leading
    edge, not the window's. An HStack on firstTextBaseline or lastTextBaseline lines up its
    children's first text baselines instead (Baselines; one without text by its bottom).
- - Main axis: StackSolver.mainSizes, the group centered when it does not fill the stack. Spacers
+ - Main axis: StackSolver.mainSizes, the group centered when it does not fill the stack (aligned
+   as its fixed frame aligns it when that frame proposes the stack its size). Spacers
    (SpacerMarker on the child) come last and get no default spacing, as in SwiftUI.
  - Height for width: a VStack's children are measured for the width they get, and an HStack's
    height is measured for the widths it gives its children, so wrapping text gets taller in a
@@ -173,7 +174,42 @@ enum StackLayout {
             return verticalChildWidths(children, offsets: leadingOffsets(widget, children), width: width)
         }
         let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }
-        return StackSolver.mainSizes(widths, available: width, gaps: gaps(widget, children, stack))
+        return StackSolver.mainSizes(widths, available: width, gaps: gaps(widget, children, stack),
+                                     proposal: exactProposal(widget, GTK_ORIENTATION_HORIZONTAL)?.size)
+    }
+
+    /// What the stack is proposed along `orientation` when that is known exactly: its box's fixed
+    /// frame, less the padding, as SwiftUI's frame proposes its size to its content, and how the
+    /// frame aligns its content there. A box with no frame there passes on what it is proposed,
+    /// less its padding, so a Group's frame (on a child box around the element's own box,
+    /// Group+Adwaita) counts too. nil when no box gives a fixed size there: the stack was given
+    /// what it takes, where SwiftUI's parent usually proposed more (StackSolver.mainSizes).
+    private static func exactProposal(_ widget: WidgetPointer, _ orientation: GtkOrientation)
+        -> (size: Int, alignment: StackSolver.Alignment)? {
+        guard let content = gtk_widget_get_parent(widget), let box = gtk_widget_get_parent(content),
+              ModifierBox.content(of: box) == content, ModifierBox.element(inContent: content) == widget,
+              let layout = attached(on: UnsafeMutableRawPointer(box), key: boxLayoutKey) else { return nil }
+        let padding = layout.padding(orientation).total
+        if let fixed = layout.frame(orientation).fixed {
+            return (max(fixed - padding, 0), layout.alignment(orientation))
+        }
+        // A safe area inset view along the axis would take its room out of what is passed on.
+        let hasInset = layoutChildren(box).contains { child in
+            attached(on: UnsafeMutableRawPointer(child), key: decorationMarkerKey).map { $0.place == .inset && $0.liesAlong(orientation) } ?? false
+        }
+        guard layout.frame(orientation) == .none, !hasInset, let outer = exactProposal(box, orientation) else { return nil }
+        return (max(outer.size - padding, 0), outer.alignment)
+    }
+
+    /// Where the children, `length` long with their gaps, start along the axis of a stack
+    /// `available` long: centered, as SwiftUI's parent centers a stack. Shared out of an exact
+    /// proposal they can take less than the stack's allocation (its children's largest sizes),
+    /// where SwiftUI's stack is as long as its children and its frame aligns it: aligned as the
+    /// frame aligns its content then (measured: hstack-ideal-exact-width-leading).
+    private static func groupStart(length: Int, available: Int,
+                                   proposal: (size: Int, alignment: StackSolver.Alignment)?) -> Int {
+        guard let proposal else { return StackSolver.centeredStart(length: length, available: available) }
+        return StackSolver.alignedOffset(size: length, block: available, alignment: proposal.alignment)
     }
 
     /// A VStack's children's widths when it is `width` wide: each is offered the width less its
@@ -190,8 +226,10 @@ enum StackLayout {
         let stack = configuration(widget)
         if stack.axis == .horizontal {
             let gaps = Self.gaps(widget, children, stack)
-            let widths = StackSolver.mainSizes(children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }, available: width, gaps: gaps)
-            var x = StackSolver.centeredStart(length: StackSolver.length(of: widths, gaps: gaps), available: width)
+            let proposal = exactProposal(widget, GTK_ORIENTATION_HORIZONTAL)
+            let widths = StackSolver.mainSizes(children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }, available: width, gaps: gaps,
+                                               proposal: proposal?.size)
+            var x = groupStart(length: StackSolver.length(of: widths, gaps: gaps), available: width, proposal: proposal)
             return widths.enumerated().map { index, size in
                 defer { x += size + (index < gaps.count ? gaps[index] : 0) }
                 return (x, size)
@@ -306,8 +344,9 @@ enum StackLayout {
         var ys: [Int]
         if stack.axis == .vertical {
             let rows = children.enumerated().map { stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: across[$0].width) }
-            heights = StackSolver.mainSizes(rows, available: height, gaps: gaps)
-            var position = StackSolver.centeredStart(length: StackSolver.length(of: heights, gaps: gaps), available: height)
+            let proposal = exactProposal(widget, GTK_ORIENTATION_VERTICAL)
+            heights = StackSolver.mainSizes(rows, available: height, gaps: gaps, proposal: proposal?.size)
+            var position = groupStart(length: StackSolver.length(of: heights, gaps: gaps), available: height, proposal: proposal)
             ys = heights.enumerated().map { index, size in
                 defer { position += size + (index < gaps.count ? gaps[index] : 0) }
                 return position

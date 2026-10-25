@@ -70,6 +70,12 @@ final class StackSolverTests: XCTestCase {
         XCTAssertEqual(sizes(two, 107, spacing: 12), [51, 44])
         // One short of the sum: SwiftUI's shares, the first offered 47.
         XCTAssertEqual(sizes(two, 106, spacing: 12), [47, 44])
+        // A proposal known exactly (a fixed frame's) is shared as SwiftUI shares it, also when
+        // it is the sum: the first offered 47; one larger than the stack's own size, 51 and 44.
+        let gaps = StackSolver.gaps(two, spacing: 12, isDefaultSpacing: false)
+        XCTAssertEqual(StackSolver.mainSizes(two, available: 107, gaps: gaps, proposal: 107), [47, 44])
+        XCTAssertEqual(StackSolver.mainSizes(two, available: 107, gaps: gaps, proposal: 110), [49, 44])
+        XCTAssertEqual(StackSolver.mainSizes(two, available: 107, gaps: gaps, proposal: 300), [51, 44])
     }
 
     func testACapBelowTheMinimumKeepsTheMinimum() {

@@ -73,19 +73,20 @@ enum StackSolver {
     /// The children's sizes along the stack's axis, in their order, for `available` space and
     /// `gaps` between neighbors. The sizes may add up to less than the space (the stack is then
     /// smaller than its allocation) or more (the children's minimums do not fit).
-    static func mainSizes(_ children: [StackChild], available: Int, gaps: [Int]) -> [Int] {
+    /// `proposal`: what the stack was proposed, when known exactly (a fixed frame's size): the
+    /// space is shared out of it, as SwiftUI shares a proposal.
+    static func mainSizes(_ children: [StackChild], available: Int, gaps: [Int], proposal: Int? = nil) -> [Int] {
         guard !children.isEmpty else { return [] }
-        var remaining = available - gaps.reduce(0, +)
-        // Children that all have a largest size, given room for all of them at it, each take it.
-        // GTK gives a stack of such children no more than the sum of those sizes (its natural
-        // size, or its cap when it expands), where SwiftUI's parent usually proposes more (a
-        // VStack its width, a wider frame its width), and SwiftUI's shares below give every
-        // child its largest size in that proposal; shared out of just the sum, they can leave
-        // a child short. Proposed exactly the sum or a little more, SwiftUI's own shares do
-        // leave one short, which the allocation cannot tell apart (measured: the ideal layout
-        // parity fixtures, hstack-ideal-exact-width and hstack-ideal-slightly-wider among them).
+        var remaining = (proposal ?? available) - gaps.reduce(0, +)
+        // Without a known proposal: children that all have a largest size, given room for all of
+        // them at it, each take it. GTK gives a stack of such children no more than the sum of
+        // those sizes (its natural size, or its cap when it expands), where SwiftUI's parent
+        // usually proposes more (a VStack its width), and SwiftUI's shares below give every child
+        // its largest size in that proposal; shared out of just the sum, they can leave a child
+        // short. A frame of fixed size proposes exactly its size, which SwiftUI shares even when
+        // it leaves a child short (measured: the ideal layout parity fixtures).
         let largest = children.compactMap(\.maximum)
-        if largest.count == children.count, remaining >= largest.reduce(0, +) {
+        if proposal == nil, largest.count == children.count, remaining >= largest.reduce(0, +) {
             return largest
         }
         var sizes = Array(repeating: 0, count: children.count)

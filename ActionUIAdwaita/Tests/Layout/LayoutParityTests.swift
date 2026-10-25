@@ -23,8 +23,6 @@ final class LayoutParityTests: XCTestCase {
     /// Fixtures GTK does not match yet, with the reason. A fixture that starts to match fails the
     /// test until it is removed here.
     private static let knownDifferences: [String: String] = [
-        "hstack-ideal-exact-width": idealReason,
-        "hstack-ideal-slightly-wider": idealReason,
         "ignoressafearea-child-under-inset": ignoredSafeAreaReason,
         "safearea-fixed-filling-bar": insetExpansionReason,
         "safearea-unframed-bar": insetExpansionReason,
@@ -41,7 +39,6 @@ final class LayoutParityTests: XCTestCase {
     /// SwiftUI's parent usually proposes more, so the stack gives each child that size then
     /// (StackSolver.mainSizes).
     private static let ignoredSafeAreaReason = "a view inside an element's content that ignores the safe area reaches, in SwiftUI, past its parents into the room the element's safe area inset view takes; GTK lets only the element's own background and overlay views reach there"
-    private static let idealReason = "offered its ideal width or a little more, SwiftUI's HStack can leave a child short; GTK gives a stack of bounded children no more than its ideal size where SwiftUI's parent usually offers more, so it gives each child its own size then (StackSolver.mainSizes)"
 
     /// Frames may differ by this much: SwiftUI places at fractions of a point, GTK whole pixels.
     private static let tolerance = 1.0

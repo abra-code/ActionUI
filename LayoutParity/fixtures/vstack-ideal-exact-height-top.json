@@ -1,0 +1,4 @@
+{"type": "VStack", "id": 1, "properties": {"spacing": 12, "frame": {"width": 40, "height": 107, "alignment": "top"}}, "children": [
+  {"type": "Color", "id": 3, "properties": {"color": "#FF0000", "frame": {"minHeight": 38, "idealHeight": 51, "maxHeight": 51}}},
+  {"type": "Color", "id": 4, "properties": {"color": "#0000FF", "frame": {"minHeight": 31, "idealHeight": 44, "maxHeight": 44}}}
+]}
