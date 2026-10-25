@@ -4,7 +4,8 @@
  greedy in width; a spinner for an unknown one, 32 x 32 with the title under it; "linear" without a
  progress is a pulsing bar; "circular" with a progress is a ring, a progress bar for assistive
  technologies; states["progress"] moves the bar and can switch the form; the indicator is named
- after the title, which is read once; a click fires actionID.
+ after the title, which is read once; a click fires actionID; a bar takes a frame narrower than
+ libadwaita's 150 px.
 */
 
 import XCTest
@@ -82,6 +83,17 @@ final class ProgressViewRendererTests: XCTestCase {
         _ = ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 1, key: "progress", value: 0.5)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(gtk_progress_bar_get_fraction(OpaquePointer(indicator(node))), 0.5)
+    }
+
+    func testABarTakesAFrameNarrowerThanLibadwaitasMinimum() throws {
+        let node = try render(#""value": 0.5, "frame": {"width": 30}"#)
+        var minimum: Int32 = 0
+        var natural: Int32 = 0
+        gtk_widget_measure(indicator(node), GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
+        XCTAssertLessThanOrEqual(minimum, 30, "SwiftUI's bar is 30 wide in a 30 frame; libadwaita's minimum was 150")
+        XCTAssertLessThanOrEqual(natural, 30, "and wants no width of its own (0 in SwiftUI)")
+        gtk_widget_measure(node.outerWidget, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
+        XCTAssertEqual(natural, 30, "the frame's width")
     }
 
     func testAnUnknownProgressIsASpinnerAboveItsTitle() throws {

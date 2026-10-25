@@ -3,7 +3,9 @@
  ProgressView on GTK, in the form macOS shows (measured on macOS 27):
  - a bar (GtkProgressBar) for a known progress, or for any progress with progressViewStyle
    "linear": as wide as it is offered, the title above it. Without a progress the bar pulses, as
-   SwiftUI's indeterminate linear bar moves.
+   SwiftUI's indeterminate linear bar moves. It wants no width of its own and takes any frame
+   (measured: SwiftUI's is 0 wide unoffered, 30 in a 30 frame), where libadwaita's stylesheet
+   keeps a bar 150 px wide at least, so a narrow frame drew it over its neighbors.
  - a spinner (AdwSpinner) for an unknown progress: 32 x 32, the title under it.
  - a ring for a known progress with progressViewStyle "circular": 32 x 32, filled clockwise from
    the top, the title under it (GTK has no circular gauge, so the ring is drawn).
@@ -61,6 +63,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         case .bar:
             indicator = gtk_progress_bar_new()!
             gtk_widget_set_hexpand(indicator, 1)
+            StyleSheet.shared.apply(["min-width: 0;"], to: indicator, slot: "barWidth", selector: "{} > trough")
             gtk_widget_set_valign(indicator, GTK_ALIGN_CENTER)
             gtk_label_set_xalign(opaque(title), 0)
             gtk_box_append(typed(box), title)
