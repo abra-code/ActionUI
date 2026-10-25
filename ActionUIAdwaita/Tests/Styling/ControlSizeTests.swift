@@ -81,7 +81,7 @@ final class ControlSizeTests: XCTestCase {
             XCTAssertLessThan(mini, regular, "\(name): \(mini) \(regular) \(large)")
             XCTAssertLessThan(regular, large, "\(name): \(mini) \(regular) \(large)")
             // A ColorPicker's swatch holds a 16 px part, which keeps a mini one 22 px tall.
-            if name != "ColorPicker" {
+            if name != "ColorPicker" && name != "Stepper" {
                 XCTAssertEqual(Double(mini) / Double(regular), 0.54, accuracy: 0.03, "\(name): \(mini) \(regular)")
             }
         }
@@ -91,6 +91,8 @@ final class ControlSizeTests: XCTestCase {
             XCTAssertEqual(large, regular, "\(name): no taller than regular, as on macOS")
         }
         XCTAssertLessThan(width(widget(1, 3)), width(widget(2, 3)), "the Stepper's title is smaller at mini")
+        // A Stepper's buttons are its own sizes, about 0.82 of a button's: 16, 28 and 34 px.
+        XCTAssertEqual([1, 2, 3].map { height(widget($0, 3)) }, [16, 28, 34])
     }
 
     func testAControlWithAFontOfItsOwnKeepsIt() throws {

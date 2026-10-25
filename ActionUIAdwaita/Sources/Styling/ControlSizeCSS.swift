@@ -20,9 +20,9 @@
  The other controls built of libadwaita's 34 px button-like parts scale the same way, each from its
  own side padding (measured in libadwaita 1.7): a menu Picker's dropdown button 10 px, a Menu's or
  DatePicker's menu button 9 px, a ColorPicker's button 5 px (its swatch holds a 16 px part, so a
- mini one is 22 px tall, not 18), a Stepper's buttons square; a segmented Picker's group (3 px
- padding) and its 28 px toggles (8 px a side). Their icons (a Stepper's minus and plus) and a
- dropdown's or menu button's arrow (libadwaita's 16 px arrow node) scale as a button's icons do, or
+ mini one is 22 px tall, not 18); a segmented Picker's group (3 px
+ padding) and its 28 px toggles (8 px a side). A Stepper's buttons have sizes of their own
+ (stepperButtons). Icons and a dropdown's or menu button's arrow (libadwaita's 16 px arrow node) scale as a button's icons do, or
  they would hold a mini part at 20 px. A TextField or
  SecureField entry (34 px, 9 px a side) shrinks for mini and small as macOS's does (19 and 21
  points against 24) and does not grow past regular, as macOS's does not.
@@ -74,6 +74,23 @@ enum ControlSizeCSS {
     static func applyPart(_ declarations: [String], to widget: WidgetPointer, selector: String = "{}",
                           slot: String = "controlSizePart") {
         StyleSheet.shared.apply(declarations, to: widget, slot: slot, selector: selector)
+    }
+
+    /// A Stepper's minus and plus buttons for `size`: square, with their icons, 16, 22, 28, 34 and
+    /// 42 px. macOS's stepper is a single narrow control as tall as a button; GNOME's pair of
+    /// buttons at a button's own 34 px looked twice as heavy (owner, 2026-10-25), so the pair is
+    /// about 0.82 of a button at each size, regular too.
+    static func stepperButtons(_ size: BaseModifiers.ControlSizeName?) -> [String] {
+        let (side, icon): (Int, Int)
+        switch size {
+        case .mini?: (side, icon) = (16, 10)
+        case .small?: (side, icon) = (22, 12)
+        case .regular?, nil: (side, icon) = (28, 14)
+        case .large?: (side, icon) = (34, 16)
+        case .extraLarge?: (side, icon) = (42, 20)
+        }
+        let padding = (side - icon) / 2
+        return ["min-width: \(icon)px;", "min-height: \(icon)px;", "padding: \(padding)px;", "-gtk-icon-size: \(icon)px;"]
     }
 
     /// A 34 px button-like part's height and padding for `size`, scaled from the `side` padding

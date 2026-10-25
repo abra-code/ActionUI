@@ -13,6 +13,9 @@
    end of the range, as SwiftUI disables an arrow there.
  - For assistive technologies the stepper is a group named after its label, and the buttons are
    named Decrement and Increment, as VoiceOver names a stepper's parts.
+ - The buttons are about 0.82 of a button's size, 28 px squares at regular (ControlSizeCSS
+   stepperButtons): macOS's stepper is one narrow control, and a pair of full-size buttons looked
+   twice as heavy.
 */
 
 import CAdwaita
@@ -58,8 +61,7 @@ extension Stepper: ActionUIAdwaitaRenderer {
         Gtk.Label(label).text = text
         Gtk.Widget(label).isVisible = !node.environment.labelsHidden
         ControlSizeCSS.applyFont(node, to: widget)
-        ControlSizeCSS.applyPart(ControlSizeCSS.box(node.environment.controlSize, side: 5, square: true)
-                                 + ControlSizeCSS.icons(node.environment.controlSize), to: widget,
+        ControlSizeCSS.applyPart(ControlSizeCSS.stepperButtons(node.environment.controlSize), to: widget,
                                  selector: "{} > box > button")
         Gtk.Widget(minus).isSensitive = props.range.map { value > $0.lowerBound } ?? true
         Gtk.Widget(plus).isSensitive = props.range.map { value < $0.upperBound } ?? true
