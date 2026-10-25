@@ -365,4 +365,27 @@ final class NodeDecorationsTests: XCTestCase {
         let list = try XCTUnwrap(root.childNodes[8])
         XCTAssertNil(list.decorations?.overlay?.contextMenu, "the overlay is not a List row: no swipe actions")
     }
+
+    func testASafeAreaInsetFollowsItsEdgeAndCarriesTheElementsMenu() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "properties": {"frame": {"width": 200, "height": 200}}, "children": [
+              {"type": "Color", "id": 2, "properties": {"color": "red"},
+               "contextMenu": [{"type": "Button", "id": 10, "properties": {"title": "Act", "actionID": "test.menu"}}],
+               "safeAreaInset": {"type": "Color", "id": 3, "properties": {"color": "blue", "frame": {"height": 40}}}}]}
+            """#)
+        let node = try XCTUnwrap(root.childNodes[2])
+        let inset = try XCTUnwrap(node.decorations?.inset?.outerWidget)
+        let frame = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        // Bottom by default, 8 below the frame, which takes the rest.
+        XCTAssertEqual(bounds(frame, in: node.outerWidget).height, 152)
+        XCTAssertEqual(bounds(inset, in: node.outerWidget).y, 160)
+        // The edge set at run time moves it.
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "safeAreaEdge", value: "top")
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
+        XCTAssertEqual(bounds(inset, in: node.outerWidget).y, 0)
+        XCTAssertEqual(bounds(frame, in: node.outerWidget).y, 48)
+        // A right click on it opens the element's menu.
+        click(try XCTUnwrap(controllers(inset, gtk_gesture_click_get_type(), button: 3).first), "pressed", x: 2, y: 2)
+        XCTAssertNotNil(node.contextMenu?.menuWidget)
+    }
 }

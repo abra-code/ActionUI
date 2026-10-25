@@ -6,7 +6,8 @@
  Spacer beside it gets the rest.
 
  - A ModifierBox: its frame's maximum; without one, its element's cap plus the padding, and at
-   least the frame's minimum.
+   least the frame's minimum. A safe area inset view adds its length and spacing along its edge;
+   across it, the box takes the larger of the frame's and the view's (ModifierBox.cap).
  - A VStack or HStack: along its axis, the sum of its children's largest sizes plus the spacing
    between them; across it, the largest of its children's.
  - A ZStack: the largest of its children's, in each axis.
@@ -53,7 +54,9 @@ enum LayoutCaps {
             return length
         }
         if let box = attached(on: widget, key: boxLayoutKey) {
-            return boxCap(widget, box, orientation, forSize: forSize)
+            return ModifierBox.cap(widget, orientation, forSize: forSize) { frameWidth in
+                frameCap(widget, box, orientation, forSize: frameWidth)
+            }
         }
         if let stack = attached(on: widget, key: stackConfigurationKey) {
             return stackCap(widget, stack, orientation, forSize: forSize)
@@ -83,7 +86,10 @@ enum LayoutCaps {
         return Gtk.Widget(child).measure(orientation, forSize: forSize).natural
     }
 
-    private static func boxCap(_ box: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation, forSize: Int) -> Int? {
+    /// The largest size a box's frame takes, without its safe area inset view: a height is for
+    /// the frame `forSize` wide (-1: no width given); a width ignores `forSize`.
+    static func frameCap(_ box: WidgetPointer, _ layout: BoxLayout, _ orientation: GtkOrientation, forSize: Int) -> Int? {
+        let forSize = orientation == GTK_ORIENTATION_VERTICAL ? forSize : -1
         let frame = layout.frame(orientation)
         if let fixed = frame.fixed {
             return fixed
@@ -92,7 +98,7 @@ enum LayoutCaps {
             return maximum == FrameAxis.infinity ? nil : maximum
         }
         guard let group = ModifierBox.content(of: box), let element = ModifierBox.layoutElement(inContent: group) else { return nil }
-        let elementForSize = forSize >= 0 ? ModifierBox.elementWidth(inBox: box, width: forSize) : -1
+        let elementForSize = forSize >= 0 ? ModifierBox.elementWidth(inFrame: box, width: forSize) : -1
         guard let content = largestSize(element, orientation, forSize: elementForSize) else { return nil }
         let padded = content + layout.padding(orientation).total
         return frame.minimum.map { max(padded, $0) } ?? padded

@@ -243,6 +243,21 @@ final class ModifierBoxTests: XCTestCase {
         XCTAssertEqual(frame(stack.outerWidget, in: node.outerWidget), [25, (800 - text[3] - 70) / 2, 150, text[3] + 70])
     }
 
+    func testABoxWithALeadingSafeAreaInsetMeasuresItsCapBesideTheInset() throws {
+        // The inset is 50 wide and 8 from the frame, so the text wraps at 142 and the cap counts
+        // all its lines there: the Color keeps its 50.
+        let words = Array(repeating: "wrap", count: 80).joined(separator: " ")
+        let column = ##"{"type": "VStack", "id": 2, "properties": {"spacing": 0}, "children": [{"type": "Text", "id": 3, "properties": {"text": "\##(words)"}}, {"type": "Color", "id": 4, "properties": {"color": "#FF0000", "frame": {"maxHeight": 50}}}], "safeAreaInset": {"type": "Color", "id": 5, "properties": {"color": "#0000FF", "frame": {"width": 50, "height": 20}, "safeAreaEdge": "leading"}}}"##
+        let node = try render(#"{"type": "VStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 200, "height": 800}}, "children": [\#(column)]}"#)
+        gtk_widget_allocate(node.outerWidget, 200, 800, -1, nil)
+        let stack = try XCTUnwrap(node.childNodes[2])
+        let text = frame(try XCTUnwrap(stack.childNodes[3]).widget, in: node.outerWidget)
+        XCTAssertEqual(text[2], 142, "the text wraps beside the inset")
+        XCTAssertGreaterThan(text[3], 100, "the text wraps to many lines")
+        XCTAssertEqual(frame(try XCTUnwrap(stack.childNodes[4]).widget, in: node.outerWidget)[3], 50)
+        XCTAssertEqual(frame(stack.outerWidget, in: node.outerWidget)[3], text[3] + 50)
+    }
+
     func testAGroupBoxMeasuresItsCapAtItsCardWidth() throws {
         // The card insets its content 5 on each side, so the text wraps at 140; the GroupBox stops
         // at the text, the default spacing of 8, the Color's 50 and the padding.

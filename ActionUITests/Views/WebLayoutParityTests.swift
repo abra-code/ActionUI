@@ -107,6 +107,7 @@ final class WebLayoutParityTests: XCTestCase {
     /// - lazygrid: the web's LazyVGrid and LazyHGrid do not lay out as SwiftUI's: a cell without a width in a LazyVGrid (a height in a LazyHGrid), such as an unframed Color, is not drawn, where SwiftUI fills its column (row) with it; the tracks are not 8 points apart and their block starts at the leading (top) edge instead of at the grid's alignment; a cell sits at the start of its line instead of centered in it; and the cells' content-visibility: auto (with a 44 point placeholder size) leaves every cell of some grids undrawn (lazyvgrid-two-flexible)
     /// - ideal: an HStack offered its ideal width or a little more gives each child its ideal size (flex items keep their basis), where SwiftUI offers each child an even share of what is left and can leave one short (the GTK renderer does the same as the web)
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
+    /// - safearea: a safeAreaInset view and its content are not laid out along the edge: filling content is not drawn, and a bar beside fixed content is drawn over it at the same place, where SwiftUI puts the bar along the edge, safeAreaSpacing (8 by default) away and aligned by safeAreaAlignment, and gives the content the rest of the room
     /// - scrollview: a ScrollView's share along its axis grows with its content, its content is not offered the ScrollView's size across the axis, and an unframed Color in it collapses (vertical) or fills the rest (horizontal), where SwiftUI shares the axis like a Color, sizes across to the content, and gives the content its ideal length
     private static let knownDifferences: [String: String] = [
         "contentunavailable-width-600": "padding",
@@ -154,6 +155,18 @@ final class WebLayoutParityTests: XCTestCase {
         "lazyvgrid-in-vstack-hugs": "lazygrid",
         "lazyvgrid-two-flexible": "lazygrid",
         "nested-unbounded-spacer": "minimum",
+        "safearea-bottom-filling": "safearea",
+        "safearea-bottom-fixed": "safearea",
+        "safearea-bottom-spacing": "safearea",
+        "safearea-capped-content": "safearea",
+        "safearea-capped-width-leading": "safearea",
+        "safearea-fixed-filling-bar": "safearea",
+        "safearea-hstack-share": "safearea",
+        "safearea-inset-wider": "safearea",
+        "safearea-leading-filling": "safearea",
+        "safearea-scroll-list": "safearea",
+        "safearea-top-aligned": "safearea",
+        "safearea-unframed-bar": "safearea",
         "scrollview-horizontal-content": "scrollview",
         "scrollview-horizontal-in-hstack": "scrollview",
         "scrollview-vertical-content": "scrollview",

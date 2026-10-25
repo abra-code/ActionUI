@@ -1,0 +1,5 @@
+{"type": "HStack", "id": 1, "properties": {"frame": {"width": 200, "height": 100}}, "children": [
+  {"type": "Color", "id": 4, "properties": {"color": "#00FF00", "frame": {"width": 50}}},
+  {"type": "Color", "id": 2, "properties": {"color": "#FF0000"},
+   "safeAreaInset": {"type": "Color", "id": 3, "properties": {"color": "#0000FF", "frame": {"width": 30, "height": 50}, "safeAreaEdge": "leading"}}}
+]}

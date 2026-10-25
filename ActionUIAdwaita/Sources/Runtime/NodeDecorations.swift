@@ -22,21 +22,42 @@
  with the element's settings applied after the view (environment(for:of:)), and the element's
  hidden state; not its font, foregroundStyle, tint or disabled, which SwiftUI applies before them.
 
+ A safe area inset view (SwiftUI's .safeAreaInset(edge:alignment:spacing:)) is applied after the
+ overlay: it lies along an edge of the element's outer box, which gives the element's frame the
+ rest of its room, less the inset and its spacing (ModifierBox). Across the edge it fills when it
+ expands, else it takes its own size, aligned by safeAreaAlignment; like the overlay it is not
+ moved by the transforms, and it inherits as the overlay does.
+
  Only the views the element declares when its node is made are shown, and none on a Group or a
  Section, whose modifiers SwiftUI applies to each child.
 */
 
 import CAdwaita
 
-/// On a background or overlay view's box: which it is, and its alignment in the frame.
+/// On a background, overlay or safe area inset view's box: which it is, and its alignment in the
+/// frame (an inset's across its edge).
 @MainActor
 final class DecorationMarker {
     enum Place {
-        case background, overlay
+        case background, overlay, inset
+    }
+
+    /// The edge a safe area inset view lies along.
+    enum Edge: String {
+        case top, bottom, leading, trailing
     }
 
     let place: Place
     var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
+    /// A safe area inset view's edge and its distance from the element's frame.
+    var edge = Edge.bottom
+    var spacing = Int(StackLayout.defaultSpacing)
+
+    /// Whether a safe area inset view lies along `orientation` (a top or bottom one vertically),
+    /// adding its length to the element's.
+    func liesAlong(_ orientation: GtkOrientation) -> Bool {
+        (edge == .top || edge == .bottom) == (orientation == GTK_ORIENTATION_VERTICAL)
+    }
     /// Hidden from assistive technologies with the element (hidden, accessibilityHidden).
     var hidden = false
 
@@ -51,12 +72,16 @@ let decorationMarkerKey = AttachKey<DecorationMarker>("actionui-decoration")
 final class NodeDecorations {
     private var background: RenderNode?
     private(set) var overlay: RenderNode?
+    private(set) var inset: RenderNode?
 
-    /// A node's background and overlay views, or nil when its element declares neither.
+    /// A node's background, overlay and safe area inset views, or nil when its element declares
+    /// none.
     static func make(for node: RenderNode) -> NodeDecorations? {
         let background = node.element.subviews?["background"] as? any ActionUIElementBase
         let overlay = node.element.subviews?["overlay"] as? any ActionUIElementBase
-        guard background != nil || overlay != nil, let content = ModifierBox.content(of: node.outerWidget) else { return nil }
+        let inset = node.element.subviews?["safeAreaInset"] as? any ActionUIElementBase
+        guard background != nil || overlay != nil || inset != nil,
+              let content = ModifierBox.content(of: node.outerWidget) else { return nil }
         // Not on a Group or a Section: SwiftUI applies their modifiers to each child, and the
         // Group's box spans its stack (Group+Adwaita), so one view there would be neither placed
         // nor drawn, and would take the clicks of the stack's other children.
@@ -79,6 +104,13 @@ final class NodeDecorations {
             mark(view, .overlay, in: node.outerWidget)
             decorations.overlay = view
         }
+        if let inset {
+            let view = node.auxiliaryNode(for: inset, decoration: .inset)
+            // In the outer box beside the frame, which ModifierBox lays out in the rest of the box.
+            gtk_widget_insert_before(view.outerWidget, node.outerWidget, nil)
+            mark(view, .inset, in: node.outerWidget)
+            decorations.inset = view
+        }
         return decorations
     }
 
@@ -98,13 +130,14 @@ final class NodeDecorations {
         }
     }
 
-    /// The environment a background or overlay view inherits: the element's parent's, with only
-    /// the element's settings SwiftUI applies after the view (View.applyModifiers' order):
-    /// textSelection and multilineTextAlignment come after the background and before the overlay,
-    /// buttonStyle and labelsHidden after both. A tracked read of the element's properties.
+    /// The environment a background, overlay or safe area inset view inherits: the element's
+    /// parent's, with only the element's settings SwiftUI applies after the view
+    /// (View.applyModifiers' order): textSelection and multilineTextAlignment come after the
+    /// background and before the overlay and the inset, buttonStyle and labelsHidden after all
+    /// three. A tracked read of the element's properties.
     static func environment(for place: DecorationMarker.Place, of element: RenderNode) -> Environment {
         var modifiers = BaseModifiers(element.properties)
-        if place == .overlay {
+        if place != .background {
             modifiers.multilineTextAlignment = nil
             modifiers.textSelection = nil
         }
@@ -112,19 +145,19 @@ final class NodeDecorations {
     }
 
     /// Where the pointer reaches the element: its frame (the box's content group) and its overlay
-    /// view's box. SwiftUI applies onHover, contextMenu, onDrop and the container tap after the
-    /// overlay, so they cover it too; on GTK the overlay is beside the frame, not inside it.
+    /// and safe area inset views' boxes. SwiftUI applies onHover, contextMenu, onDrop and the
+    /// container tap after the overlay and the inset, so they cover them too; on GTK those views
+    /// are beside the frame, not inside it.
     static func pointerAreas(_ node: RenderNode) -> [WidgetPointer] {
         let box: WidgetPointer = node.outerWidget
         let frame = ModifierBox.content(of: box) ?? box
-        guard let overlay = node.decorations?.overlay else { return [frame] }
-        let overlayBox: WidgetPointer = overlay.outerWidget
-        return [frame, overlayBox]
+        let views: [WidgetPointer] = [node.decorations?.overlay, node.decorations?.inset].compactMap { $0?.outerWidget }
+        return [frame] + views
     }
 
     /// The views' nodes, for the environment changes their parent passes down.
     var nodes: [RenderNode] {
-        [background, overlay].compactMap { $0 }
+        [background, overlay, inset].compactMap { $0 }
     }
 
     /// The views' alignments from the element's modifiers; a change places them again. Its
@@ -136,6 +169,9 @@ final class NodeDecorations {
     func update(_ modifiers: BaseModifiers) {
         Self.align(background, ModifierBox.alignmentAxes(modifiers.backgroundAlignment))
         Self.align(overlay, ModifierBox.alignmentAxes(modifiers.overlayAlignment))
+        if let inset {
+            Self.placeInset(inset)
+        }
         let hidden = modifiers.hidden || modifiers.accessibilityHidden == true
         for view in nodes {
             // Hidden from assistive technologies with the element, as SwiftUI's hidden and
@@ -144,6 +180,32 @@ final class NodeDecorations {
                 marker.hidden = hidden
                 ModifierBox.setHidden(OpaquePointer(view.outerWidget), hidden || gtk_widget_get_mapped(view.outerWidget) == 0)
             }
+        }
+    }
+
+    /// A safe area inset view's edge, spacing and alignment, from its own properties (as the
+    /// Apple renderer reads them): safeAreaEdge (bottom by default), safeAreaSpacing (SwiftUI's
+    /// 8 by default, measured) and safeAreaAlignment across the edge (centered by default).
+    private static func placeInset(_ view: RenderNode) {
+        guard let marker = attached(on: UnsafeMutableRawPointer(view.outerWidget), key: decorationMarkerKey) else { return }
+        let properties = view.properties
+        let edge = (properties["safeAreaEdge"] as? String).flatMap(DecorationMarker.Edge.init(rawValue:)) ?? .bottom
+        let spacing = StackSolver.length((properties["safeAreaSpacing"] as? Double)
+            ?? (properties["safeAreaSpacing"] as? Int).map(Double.init) ?? StackLayout.defaultSpacing)
+        var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
+        switch (edge, properties["safeAreaAlignment"] as? String) {
+        case (.top, "leading"), (.bottom, "leading"): alignment.horizontal = .start
+        case (.top, "trailing"), (.bottom, "trailing"): alignment.horizontal = .end
+        case (.leading, "top"), (.trailing, "top"): alignment.vertical = .start
+        case (.leading, "bottom"), (.trailing, "bottom"): alignment.vertical = .end
+        default: break
+        }
+        guard marker.edge != edge || marker.spacing != spacing || marker.alignment != alignment else { return }
+        marker.edge = edge
+        marker.spacing = spacing
+        marker.alignment = alignment
+        if let parent = gtk_widget_get_parent(view.outerWidget) {
+            gtk_widget_queue_resize(parent)
         }
     }
 
@@ -158,7 +220,7 @@ final class NodeDecorations {
 
     /// The node left the tree: the views leave it too.
     func detach() {
-        for view in [background, overlay].compactMap({ $0 }) {
+        for view in nodes {
             view.detach()
             if gtk_widget_get_parent(view.outerWidget) != nil {
                 gtk_widget_unparent(view.outerWidget)
@@ -166,5 +228,6 @@ final class NodeDecorations {
         }
         background = nil
         overlay = nil
+        inset = nil
     }
 }

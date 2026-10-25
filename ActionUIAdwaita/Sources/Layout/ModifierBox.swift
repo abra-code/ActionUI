@@ -17,7 +17,9 @@
                           or none widget out of the tree with all its descendants)
 
  A background view lies in the content group before the element widget, an overlay view in the
- outer box after the content group (NodeDecorations); neither changes the box's size.
+ outer box after the content group (NodeDecorations); neither changes the box's size. A safe area
+ inset view lies in the outer box along an edge, which it adds its length and spacing to; the frame
+ takes the rest.
 
  Parents lay out the outer box: a stack sees the frame's size, its expansion (the box's expand
  flags) and its cap (LayoutCaps reads the frame from the box), and a Spacer's marker is carried
@@ -635,15 +637,15 @@ enum ModifierBox {
         let size = frame.size(in: boxSize, contentMinimum: measured.minimum, contentNatural: measured.natural,
                               contentExpands: expands)
         guard expands, frame.fixed == nil, frame.maximum == nil,
-              let cap = LayoutCaps.cap(box, orientation, forSize: forSize) else {
+              let cap = LayoutCaps.frameCap(box, layout, orientation, forSize: forSize) else {
             return size
         }
         return max(min(size, cap), frame.minimumSize(content: measured.minimum))
     }
 
-    /// The element's width when its box is `width` wide, as allocateBox and allocateContent give
-    /// it (LayoutCaps measures the element's height cap at it).
-    static func elementWidth(inBox box: WidgetPointer, width: Int) -> Int {
+    /// The element's width when its box's frame is `width` wide, as allocateContent gives it
+    /// (LayoutCaps measures the element's height cap at it).
+    static func elementWidth(inFrame box: WidgetPointer, width: Int) -> Int {
         guard let content = layoutChildren(box).first, let element = layoutElement(inContent: content) else { return width }
         let layout = layout(ofBox: box)
         let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
@@ -657,10 +659,12 @@ enum ModifierBox {
     static func elementPlacement(inBox box: WidgetPointer, width: Int) -> (start: Int, width: Int) {
         guard let content = layoutChildren(box).first, let element = layoutElement(inContent: content) else { return (0, width) }
         let layout = layout(ofBox: box)
-        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
+        let inset = insetRoom(box, GTK_ORIENTATION_HORIZONTAL, crossSize: -1)
+        let room = max(width - inset.before - inset.after, 0)
+        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: room)
         let elementWidth = elementSize(element, layout, GTK_ORIENTATION_HORIZONTAL, size: frameWidth)
         let padding = layout.padding.horizontal
-        let start = StackSolver.centeredStart(length: frameWidth, available: width) + padding.before
+        let start = inset.before + StackSolver.centeredStart(length: frameWidth, available: room) + padding.before
             + StackSolver.alignedOffset(size: elementWidth, block: frameWidth - padding.total, alignment: layout.alignment.horizontal)
         return (start, elementWidth)
     }
@@ -671,12 +675,103 @@ enum ModifierBox {
         // Height for width: the content group's height at the frame's width in a box that wide.
         var contentForSize = -1
         if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
-            contentForSize = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: forSize)
+            let inset = insetRoom(box, GTK_ORIENTATION_HORIZONTAL, crossSize: -1)
+            contentForSize = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL,
+                                       boxSize: max(forSize - inset.before - inset.after, 0))
         }
         let measured = measureChild(content, orientation, forSize: contentForSize)
         let frame = layout.frame(orientation)
-        return (frame.minimumSize(content: measured.minimum),
-                frame.naturalSize(content: measured.natural, contentMinimum: measured.minimum))
+        var minimum = frame.minimumSize(content: measured.minimum)
+        var natural = frame.naturalSize(content: measured.natural, contentMinimum: measured.minimum)
+        // A safe area inset view adds its length and spacing along its edge; across it, the box is
+        // as long as the longer of the two.
+        if let (child, marker) = insetView(box) {
+            if marker.liesAlong(orientation) {
+                let inset = insetRoom(box, orientation, crossSize: forSize)
+                minimum += inset.before + inset.after
+                natural += inset.before + inset.after
+            } else {
+                let across = measureChild(child, orientation, forSize: -1)
+                minimum = max(minimum, across.minimum)
+                natural = max(natural, insetSize(child, marker, crossSize: -1).across)
+            }
+        }
+        return (minimum, natural)
+    }
+
+    /// The largest size a box takes (LayoutCaps): its frame's (`frameCap`, given the frame's
+    /// width), with a safe area inset view's length and spacing added along its edge; across it,
+    /// the larger of the frame's and the view's, as a bar that fills across widens a fixed view.
+    static func cap(_ box: WidgetPointer, _ orientation: GtkOrientation, forSize: Int, frameCap: (Int) -> Int?) -> Int? {
+        guard let (child, marker) = insetView(box), let content = layoutChildren(box).first else { return frameCap(forSize) }
+        // A height cap for a box `forSize` wide is its frame's for the frame's width there.
+        var frameWidth = -1
+        if forSize >= 0, orientation == GTK_ORIENTATION_VERTICAL {
+            let inset = insetRoom(box, GTK_ORIENTATION_HORIZONTAL, crossSize: -1)
+            frameWidth = frameSize(box, content, layout(ofBox: box), GTK_ORIENTATION_HORIZONTAL,
+                                   boxSize: max(forSize - inset.before - inset.after, 0))
+        }
+        guard let frame = frameCap(frameWidth) else { return nil }
+        if marker.liesAlong(orientation) {
+            let inset = insetRoom(box, orientation, crossSize: forSize)
+            return frame + inset.before + inset.after
+        }
+        return LayoutCaps.largestSize(child, orientation).map { max(frame, $0) }
+    }
+
+    /// The box's safe area inset view and its marker (NodeDecorations), if any.
+    private static func insetView(_ box: WidgetPointer) -> (WidgetPointer, DecorationMarker)? {
+        decorations(box).first { $0.1.place == .inset }
+    }
+
+    /// A safe area inset view's size: across its edge it fills `crossSize` when it expands, else it
+    /// takes its natural size up to it (its natural size when `crossSize` is -1); along the edge,
+    /// its natural length for that.
+    private static func insetSize(_ child: WidgetPointer, _ marker: DecorationMarker, crossSize: Int) -> (across: Int, along: Int) {
+        let alongVertical = marker.edge == .top || marker.edge == .bottom
+        let acrossOrientation = alongVertical ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL
+        let alongOrientation = alongVertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
+        let measured = measureChild(child, acrossOrientation, forSize: -1)
+        var across = measured.natural
+        if crossSize >= 0 {
+            across = Gtk.Widget(child).expands(acrossOrientation) ? crossSize : max(measured.minimum, min(measured.natural, crossSize))
+        }
+        let along = measureChild(child, alongOrientation, forSize: alongVertical ? across : -1).natural
+        return (across, along)
+    }
+
+    /// The room a safe area inset view takes from the box along `orientation` (`crossSize` across,
+    /// -1 when not known): its length and spacing, before the frame (top, leading) or after it
+    /// (bottom, trailing); none along the other axis, or without an inset.
+    private static func insetRoom(_ box: WidgetPointer, _ orientation: GtkOrientation, crossSize: Int) -> (before: Int, after: Int) {
+        guard let (child, marker) = insetView(box), marker.liesAlong(orientation) else { return (0, 0) }
+        let room = insetSize(child, marker, crossSize: crossSize).along + marker.spacing
+        return marker.edge == .top || marker.edge == .leading ? (room, 0) : (0, room)
+    }
+
+    /// Places a safe area inset view along its edge of a box `width` x `height`.
+    private static func allocateInset(_ box: WidgetPointer, width: Int, height: Int) {
+        guard let (child, marker) = insetView(box) else { return }
+        var rect = (x: 0, y: 0, width: 0, height: 0)
+        switch marker.edge {
+        case .top, .bottom:
+            let size = insetSize(child, marker, crossSize: width)
+            rect.width = size.across
+            rect.height = min(size.along, height)
+            rect.x = StackSolver.alignedOffset(size: size.across, block: width, alignment: marker.alignment.horizontal)
+            rect.y = marker.edge == .top ? 0 : height - rect.height
+        case .leading, .trailing:
+            let size = insetSize(child, marker, crossSize: height)
+            rect.height = size.across
+            rect.width = min(size.along, width)
+            rect.y = StackSolver.alignedOffset(size: size.across, block: height, alignment: marker.alignment.vertical)
+            rect.x = marker.edge == .leading ? 0 : width - rect.width
+        }
+        if marker.edge == .leading || marker.edge == .trailing {
+            _ = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: rect.width)
+        }
+        var origin = graphene_point_t(x: Float(rect.x), y: Float(rect.y))
+        gtk_widget_allocate(child, Int32(clamping: rect.width), Int32(clamping: rect.height), -1, gsk_transform_translate(nil, &origin))
     }
 
     static func allocateBox(_ box: WidgetPointer, width: Int, height: Int) {
@@ -698,18 +793,25 @@ enum ModifierBox {
         for (child, marker) in decorations(box) where marker.place == .overlay {
             allocateDecoration(child, marker, x: frame.x, y: frame.y, width: frame.width, height: frame.height)
         }
+        allocateInset(box, width: width, height: height)
     }
 
     /// Where the content group (the frame) is in a box `width` x `height`, and its size, as
-    /// allocateBox places it: centered in a box bigger than it, as SwiftUI's parent centers it.
+    /// allocateBox places it: centered in a box bigger than it, as SwiftUI's parent centers it, in
+    /// the room a safe area inset view leaves it.
     /// The box's offset, rotation and scale move no layout. Baselines reads it too.
     static func contentFrame(_ box: WidgetPointer, width: Int, height: Int) -> (x: Int, y: Int, width: Int, height: Int) {
         guard let content = layoutChildren(box).first else { return (0, 0, width, height) }
         let layout = layout(ofBox: box)
-        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: width)
-        let frameHeight = frameSize(box, content, layout, GTK_ORIENTATION_VERTICAL, boxSize: height, forSize: frameWidth)
-        return (StackSolver.centeredStart(length: frameWidth, available: width),
-                StackSolver.centeredStart(length: frameHeight, available: height), frameWidth, frameHeight)
+        // The room a safe area inset view leaves the frame.
+        let across = insetRoom(box, GTK_ORIENTATION_HORIZONTAL, crossSize: height)
+        let roomWidth = max(width - across.before - across.after, 0)
+        let frameWidth = frameSize(box, content, layout, GTK_ORIENTATION_HORIZONTAL, boxSize: roomWidth)
+        let down = insetRoom(box, GTK_ORIENTATION_VERTICAL, crossSize: width)
+        let roomHeight = max(height - down.before - down.after, 0)
+        let frameHeight = frameSize(box, content, layout, GTK_ORIENTATION_VERTICAL, boxSize: roomHeight, forSize: frameWidth)
+        return (across.before + StackSolver.centeredStart(length: frameWidth, available: roomWidth),
+                down.before + StackSolver.centeredStart(length: frameHeight, available: roomHeight), frameWidth, frameHeight)
     }
 
     /// Gives `child` the whole `width` x `height` at its parent's origin (measured first, as GTK

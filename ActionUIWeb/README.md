@@ -188,6 +188,15 @@ space differently from SwiftUI's stacks:
   the GTK renderer) gives 51 and 44 (`hstack-ideal-exact-width`). 110 wide, SwiftUI gives 49 and
   44 (`hstack-ideal-slightly-wider`). Offered at least 114, where the first even share covers 51
   (as a VStack 400 wide offers its width), SwiftUI gives 51 and 44 too.
+- **A safe area inset is not laid out along its edge.** SwiftUI's safeAreaInset puts the inset
+  view along its edge, `safeAreaSpacing` (8 by default) from the content and aligned by
+  `safeAreaAlignment`, and gives the content the rest: in a VStack 200 tall, a filling Color
+  takes 152 above a bar 40 tall. Here filling content is not drawn, and a bar beside fixed content
+  is drawn over it at the same place (`safearea-bottom-filling`, `safearea-bottom-fixed`,
+  `safearea-bottom-spacing`, `safearea-capped-content`, `safearea-capped-width-leading`,
+  `safearea-fixed-filling-bar`, `safearea-hstack-share`, `safearea-inset-wider`,
+  `safearea-leading-filling`, `safearea-scroll-list`, `safearea-top-aligned`,
+  `safearea-unframed-bar`).
 - **A view's own padding is a floor under its share.** In an HStack 600 wide, a
   ContentUnavailableView beside a Color gets 316 on the web where SwiftUI shares 300 and 300
   (`contentunavailable-width-600`): flexbox never shrinks a box below its padding.

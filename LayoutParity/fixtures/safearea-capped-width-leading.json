@@ -1,0 +1,4 @@
+{"type": "VStack", "id": 1, "properties": {"frame": {"width": 300, "height": 200}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"maxWidth": 100}},
+   "safeAreaInset": {"type": "Color", "id": 3, "properties": {"color": "#0000FF", "frame": {"width": 30, "height": 50}, "safeAreaEdge": "leading"}}}
+]}

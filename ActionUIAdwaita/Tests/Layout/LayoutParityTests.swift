@@ -25,7 +25,15 @@ final class LayoutParityTests: XCTestCase {
     private static let knownDifferences: [String: String] = [
         "hstack-ideal-exact-width": idealReason,
         "hstack-ideal-slightly-wider": idealReason,
+        "safearea-fixed-filling-bar": insetExpansionReason,
+        "safearea-unframed-bar": insetExpansionReason,
     ]
+
+    /// A safe area inset view that expands makes SwiftUI's view of a fixed size expand with it: a
+    /// bar that fills across its edge widens the view to the width offered, and one that fills
+    /// along it takes the extra length. GTK's box takes its expansion from a fixed frame alone
+    /// (ModifierBox.setExpand), and the view keeps its own length along the edge.
+    private static let insetExpansionReason = "a safe area inset view that expands widens SwiftUI's view of a fixed size (across its edge to the width offered, along it taking the extra length); GTK's box takes its expansion from a fixed frame alone (ModifierBox.setExpand) and the view keeps its own length along the edge"
 
     /// Offered its ideal width or a little more, SwiftUI's HStack can leave a child short. GTK
     /// gives a stack whose children all have a largest size no more than their sum, where
@@ -110,7 +118,8 @@ final class LayoutParityTests: XCTestCase {
 
     private static func node(_ id: Int, in node: RenderNode) -> RenderNode? {
         if node.element.id == id { return node }
-        for child in node.childNodes.values {
+        // With the background, overlay and safe area inset views, which are not child nodes.
+        for child in Array(node.childNodes.values) + (node.decorations?.nodes ?? []) {
             if let found = self.node(id, in: child) { return found }
         }
         return nil
