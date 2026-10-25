@@ -40,18 +40,7 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         gtk_scrolled_window_set_child(OpaquePointer(scrolled), view)
         gtk_overlay_set_child(OpaquePointer(overlay), scrolled)
 
-        // Left out of the accessibility tree: the text view carries the placeholder as its name.
-        let placeholder = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
-        Gtk.Widget(placeholder).setCSSClass("dim-label", true)
-        gtk_widget_set_halign(placeholder, GTK_ALIGN_START)
-        gtk_widget_set_valign(placeholder, GTK_ALIGN_START)
-        gtk_widget_set_margin_start(placeholder, 6)
-        gtk_widget_set_margin_top(placeholder, 6)
-        gtk_widget_set_can_target(placeholder, 0)
-        gtk_widget_set_margin_end(placeholder, 6)
-        gtk_label_set_wrap(opaque(placeholder), 1)
-        gtk_label_set_wrap_mode(opaque(placeholder), PANGO_WRAP_WORD_CHAR)
-        gtk_label_set_xalign(opaque(placeholder), 0)
+        let placeholder = makePlaceholder(leading: 6, top: 6)
         gtk_overlay_add_overlay(OpaquePointer(overlay), placeholder)
 
         gtk_widget_set_hexpand(overlay, 1)
@@ -60,12 +49,38 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         // TextEditor's title near its top (Baselines).
         attach(TextLineMarker(.top(inset: 6)), to: overlay, key: textLineMarkerKey)
         let buffer = gtk_text_view_get_buffer(typed(view))!
-        let report: @MainActor () -> Void = { [weak node] in
+        reportEdits(of: buffer, placeholder: placeholder) { [weak node] in
             guard let node else { return }
             let text = bufferText(buffer)
             TextField.userEditedText(text, valueChangeActionID: Props(node.properties).valueChangeActionID, viewID: node.element.id,
                                      model: node.model, windowUUID: node.windowUUID)
         }
+        return overlay
+    }
+
+    /// A dimmed placeholder label for the top leading corner of a text view, `leading` and `top`
+    /// in from it (its text margins), wrapping; left out of the accessibility tree (the text view
+    /// carries the placeholder as its name). A vertical TextField shows one too.
+    static func makePlaceholder(leading: Int32, top: Int32) -> WidgetPointer {
+        let placeholder = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
+        Gtk.Widget(placeholder).setCSSClass("dim-label", true)
+        gtk_widget_set_halign(placeholder, GTK_ALIGN_START)
+        gtk_widget_set_valign(placeholder, GTK_ALIGN_START)
+        gtk_widget_set_margin_start(placeholder, leading)
+        gtk_widget_set_margin_top(placeholder, top)
+        gtk_widget_set_can_target(placeholder, 0)
+        gtk_widget_set_margin_end(placeholder, leading)
+        gtk_label_set_wrap(opaque(placeholder), 1)
+        gtk_label_set_wrap_mode(opaque(placeholder), PANGO_WRAP_WORD_CHAR)
+        gtk_label_set_xalign(opaque(placeholder), 0)
+        return placeholder
+    }
+
+    /// Runs `report` once per edit the user makes to `buffer` (not for an update), and shows
+    /// `placeholder` only while the text is empty and the placeholder has text. A vertical
+    /// TextField reports its edits this way too.
+    static func reportEdits(of buffer: UnsafeMutablePointer<GtkTextBuffer>, placeholder: WidgetPointer,
+                            _ report: @escaping @MainActor () -> Void) {
         // GtkTextView makes each edit one user action, and typing over a selection, pasting and
         // dropping text are a delete, then an insert, each emitting "changed": the edit is reported
         // once, when its user action ends, as GtkText's "changed" is (no empty value in between).
@@ -103,7 +118,6 @@ extension TextEditor: ActionUIAdwaitaRenderer {
             let hasPlaceholder = gtk_label_get_text(opaque(placeholder)).map { $0.pointee != 0 } ?? false
             Gtk.Widget(placeholder).isVisible = hasPlaceholder && gtk_text_buffer_get_char_count(buffer) == 0
         }
-        return overlay
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {

@@ -22,9 +22,10 @@ enum FormFieldTitle {
         node.environment.inForm ? 1 : 0
     }
 
-    /// The field's widget for `node.widgetKind`: `entry` itself, or a box of a title and `entry`.
+    /// The field's widget: `entry` itself, or in a Form a box of a title and `entry` (the widget kind
+    /// FormFieldTitle.widgetKind gave, which a TextField adds its axis to).
     static func widget(_ entry: WidgetPointer, _ node: RenderNode) -> WidgetPointer {
-        guard node.widgetKind == 1 else { return entry }
+        guard node.environment.inForm else { return entry }
         let box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, spacing)!
         // Left out of the accessibility tree: the entry carries the title as its name.
         let title = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)

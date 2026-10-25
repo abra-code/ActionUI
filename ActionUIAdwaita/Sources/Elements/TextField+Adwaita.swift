@@ -14,9 +14,10 @@
  - textContentType becomes GTK's input purpose, which on-screen keyboards and input methods read.
  - Its accessible name is accessibilityLabel, else the title, as in SwiftUI.
 
- Not yet: axis vertical shows a single line (GtkTextView comes with TextEditor), and a number
- format shows and stores plain text (the formatter comes with localized formatting); both are
- logged once per element type.
+ axis vertical makes a field of several lines (VerticalTextField).
+
+ Not yet: a number format shows and stores plain text (the formatter comes with localized
+ formatting); logged once per element type.
 */
 
 import CAdwaita
@@ -25,6 +26,9 @@ import CAdwaita
 
 extension TextField: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
+        if isVertical(node) {
+            return VerticalTextField.makeWidget(node)
+        }
         let entry = gtk_entry_new()!
         gtk_widget_set_hexpand(entry, 1)
         connectUserSignal(entry, "changed", .instanceOnly) { [weak node] in
@@ -50,6 +54,11 @@ extension TextField: ActionUIAdwaitaRenderer {
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
+        if isVertical(node) {
+            VerticalTextField.update(widget, node)
+            reportFormat(Props(node.properties))
+            return
+        }
         let props = Props(node.properties)
         let entryWidget = FormFieldTitle.entry(widget)
         let entry: UnsafeMutablePointer<GtkEntry> = typed(entryWidget)
@@ -67,22 +76,30 @@ extension TextField: ActionUIAdwaitaRenderer {
         if gtk_entry_get_input_purpose(entry) != purpose {
             gtk_entry_set_input_purpose(entry, purpose)
         }
-        if props.axis == .vertical {
-            reportOnce("axis vertical shows a single line on Linux for now")
-        }
+        reportFormat(props)
+    }
+
+    private static func reportFormat(_ props: Props) {
         if props.format != nil {
             reportOnce("number formats show plain text on Linux for now")
         }
     }
 
-    /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle).
+    /// Outside a Form the bare entry; in a Form its title and the entry (FormFieldTitle); 2 more for
+    /// a vertical field (VerticalTextField).
     static func widgetKind(_ node: RenderNode) -> Int {
-        FormFieldTitle.widgetKind(node)
+        FormFieldTitle.widgetKind(node) + (Props(node.properties).axis == .vertical ? 2 : 0)
     }
 
-    /// The entry, which assistive technologies read (in a Form, beside its title).
+    /// Whether the node's widget is a vertical field (the kind it was made as).
+    private static func isVertical(_ node: RenderNode) -> Bool {
+        node.widgetKind >= 2
+    }
+
+    /// The entry, or a vertical field's text view, which assistive technologies read (in a Form,
+    /// beside its title).
     static func accessibleWidget(_ widget: WidgetPointer) -> WidgetPointer {
-        FormFieldTitle.entry(widget)
+        VerticalTextField.parts(widget)?.view ?? FormFieldTitle.entry(widget)
     }
 
     /// Named after its title, as SwiftUI names a TextField (an entry has no name of its own).
