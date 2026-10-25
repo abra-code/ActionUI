@@ -170,7 +170,9 @@ enum ModifierBox {
         applyBoxModifiers(box, modifiers)
         // A tappable container's tap covers its frame, the content group, not the space the box
         // is given beyond it (ContainerTap).
-        ContainerTap.apply(node, box: content(of: box) ?? box)
+        for area in NodeDecorations.pointerAreas(node) {
+            ContainerTap.apply(node, box: area)
+        }
         applyText(widget, modifiers)
         applyAccessibility(widget, node, modifiers)
 

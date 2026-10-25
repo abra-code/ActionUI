@@ -18,7 +18,8 @@
    changes.
  - As on Apple (a Task), the actions fire on the main queue's next turn.
  - The frame is the box's content group, as for onHover: not the space a parent gives the box
-   beyond it.
+   beyond it. The element's overlay view takes drops too, as SwiftUI's onDrop covers it, with its
+   points reported in the frame; a drag moving between them changes no targeted state.
 
  Only an element declaring onDropActionID and onDropTypes when its node is made takes drops; the
  kinds are the ones it declared then. The action ids are read at the drop.
@@ -64,7 +65,6 @@ enum NodeDrop {
             kinds.formUnion(taken)
         }
         guard !kinds.isEmpty else { return }
-        let target = gtk_drop_target_new(GType(0), GDK_ACTION_COPY)!
         // GTK reads the first of these the drag offers: files before text (see above).
         var gtypes: [GType] = []
         if kinds.contains(.files) {
@@ -73,23 +73,46 @@ enum NodeDrop {
         if kinds.contains(.text) {
             gtypes.append(g_type_from_name("gchararray"))
         }
-        gtk_drop_target_set_gtypes(target, &gtypes, gsize(gtypes.count))
-        // Entering sets the current drop, leaving or dropping clears it.
-        connectSignal(UnsafeMutableRawPointer(target), "notify::current-drop", .instanceAndArgument) { [weak node] in
-            guard let node, node.isAttached else { return }
-            let targeted = gtk_drop_target_get_current_drop(target) != nil
-            guard let actionID = UntrackedReads.perform({ BaseModifiers(node.properties).drop?.targetedActionID }) else { return }
-            fire(node, actionID) { ["isTargeted": targeted] }
-        }
-        connectDrop(UnsafeMutableRawPointer(target)) { [weak node] value, x, y in
+        // On the frame and on the overlay view, which SwiftUI's onDrop covers
+        // (NodeDecorations.pointerAreas); a point on the overlay is reported in the frame.
+        let areas = NodeDecorations.pointerAreas(node)
+        let frame = areas[0]
+        let presence = AreaPresence { [weak node] targeted in
             guard let node, node.isAttached,
-                  let actionID = UntrackedReads.perform({ BaseModifiers(node.properties).drop?.actionID }) else { return false }
-            // Read now: the value is GTK's only during the signal.
-            let items = Self.items(value)
-            fire(node, actionID) { ["items": items, "location": ["x": x, "y": y]] }
-            return true
+                  let actionID = UntrackedReads.perform({ BaseModifiers(node.properties).drop?.targetedActionID }) else { return }
+            node.fire(actionID, context: ["isTargeted": targeted])
         }
-        gtk_widget_add_controller(ModifierBox.content(of: node.outerWidget) ?? node.outerWidget, target)
+        for (index, area) in areas.enumerated() {
+            let target = gtk_drop_target_new(GType(0), GDK_ACTION_COPY)!
+            gtk_drop_target_set_gtypes(target, &gtypes, gsize(gtypes.count))
+            // Entering sets the current drop, leaving or dropping clears it.
+            connectSignal(UnsafeMutableRawPointer(target), "notify::current-drop", .instanceAndArgument) {
+                if gtk_drop_target_get_current_drop(target) != nil {
+                    presence.entered(index)
+                } else {
+                    presence.left(index)
+                }
+            }
+            connectDrop(UnsafeMutableRawPointer(target)) { [weak node] value, x, y in
+                guard let node, node.isAttached,
+                      let actionID = UntrackedReads.perform({ BaseModifiers(node.properties).drop?.actionID }) else { return false }
+                // Read now: the value is GTK's only during the signal.
+                let items = Self.items(value)
+                // GTK's point as is on the frame; on the overlay mapped into the frame (in floats).
+                var location = ["x": x, "y": y]
+                if area != frame {
+                    var inArea = graphene_point_t(x: Float(x), y: Float(y))
+                    var inFrame = inArea
+                    if gtk_widget_compute_point(area, frame, &inArea, &inFrame) != 0 {
+                        location = ["x": Double(inFrame.x), "y": Double(inFrame.y)]
+                    }
+                }
+                let point = location
+                fire(node, actionID) { ["items": items, "location": point] }
+                return true
+            }
+            gtk_widget_add_controller(area, target)
+        }
     }
 
     /// Fires `actionID` on the main queue's next turn, as SwiftUI's Task does; GTK is then out of

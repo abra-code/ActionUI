@@ -1,8 +1,8 @@
 // Sources/Runtime/NodeContextMenu.swift
 /*
- A view's contextMenu on GTK: a right click on the element's frame (or a long press on a touch
- screen, or the Menu key while focus is inside it) opens a menu at the pointer, built from the
- contextMenu elements as a Menu's children are (Menu.entries, the same items, actions and
+ A view's contextMenu on GTK: a right click on the element's frame or its overlay view (or a long
+ press on a touch screen, or the Menu key while focus is inside it) opens a menu at the pointer,
+ built from the contextMenu elements as a Menu's children are (Menu.entries, the same items, actions and
  sections: a Button runs its action, a Toggle toggles, a Picker picks, a Divider separates, a
  Section or nested Menu groups), as macOS opens a view's context menu on a right click.
  contextMenuPreview is iOS's and is not shown, as on macOS.
@@ -54,34 +54,43 @@ final class NodeContextMenu {
 
     private init(_ node: RenderNode) {
         self.node = node
-        let box = Self.area(node)
-        gtk_widget_insert_action_group(box, Menu.actionPrefix, state.actions)
+        let frame = Self.area(node)
+        gtk_widget_insert_action_group(frame, Menu.actionPrefix, state.actions)
+        // On the frame and on the overlay view, which SwiftUI's context menu covers
+        // (NodeDecorations.pointerAreas): a click on the overlay opens the menu where it is.
+        for area in NodeDecorations.pointerAreas(node) {
+            watch(area, frame: frame)
+        }
+    }
+
+    /// Opens the menu on a right click, a long press or the Menu key in `area`.
+    private func watch(_ area: WidgetPointer, frame: WidgetPointer) {
         // A right click.
         let click = gtk_gesture_click_new()!
         gtk_gesture_single_set_button(click, guint(GDK_BUTTON_SECONDARY))
         connectClick(UnsafeMutableRawPointer(click), "pressed") { [weak self] _, x, y in
             guard let self, self.isEnabled else { return }
             gtk_gesture_set_state(click, GTK_EVENT_SEQUENCE_CLAIMED)
-            self.open(x: x, y: y)
+            _ = self.open(from: area, x: x, y: y)
         }
-        gtk_widget_add_controller(box, click)
+        gtk_widget_add_controller(area, click)
         // A long press on a touch screen.
         let press = gtk_gesture_long_press_new()!
         gtk_gesture_single_set_touch_only(press, 1)
         connectPoint(UnsafeMutableRawPointer(press), "pressed") { [weak self] x, y in
             guard let self, self.isEnabled else { return }
             gtk_gesture_set_state(press, GTK_EVENT_SEQUENCE_CLAIMED)
-            self.open(x: x, y: y)
+            _ = self.open(from: area, x: x, y: y)
         }
-        gtk_widget_add_controller(box, press)
-        // The Menu key while focus is inside the view: at its middle.
+        gtk_widget_add_controller(area, press)
+        // The Menu key while focus is inside the view: at the frame's middle.
         let keys = gtk_event_controller_key_new()!
         connectKeyPressed(UnsafeMutableRawPointer(keys)) { [weak self] keyval in
             guard let self, keyval == guint(GDK_KEY_Menu), self.isEnabled else { return false }
-            self.open(x: Double(gtk_widget_get_width(box)) / 2, y: Double(gtk_widget_get_height(box)) / 2)
+            self.open(x: Double(gtk_widget_get_width(frame)) / 2, y: Double(gtk_widget_get_height(frame)) / 2)
             return true
         }
-        gtk_widget_add_controller(box, keys)
+        gtk_widget_add_controller(area, keys)
     }
 
     /// False while the view is disabled (its widget insensitive): a click is then left to the views

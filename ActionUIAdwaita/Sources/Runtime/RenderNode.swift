@@ -132,10 +132,11 @@ final class RenderNode {
         // GTK's floating references become the node's own.
         ownedWidget = OwnedObject(retaining: widget)
         ownedOuterWidget = OwnedObject(retaining: ModifierBox.wrap(widget))
+        // Before the pointer's handlers, which cover the overlay view too (NodeDecorations.pointerAreas).
+        decorations = NodeDecorations.make(for: self)
         presentations = NodePresentations.make(for: self)
         toolbar = NodeToolbar.make(for: self)
         contextMenu = NodeContextMenu.make(for: self)
-        decorations = NodeDecorations.make(for: self)
         watchesAppearance = NodeAppearance.watch(self)
         NodeHover.watch(self)
         NodeDrop.watch(self)

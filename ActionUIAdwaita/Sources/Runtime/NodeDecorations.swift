@@ -15,6 +15,8 @@
  its own size, up to it, and is aligned in it by backgroundAlignment or overlayAlignment (center by
  default). Neither changes the element's size. A background view is drawn before the element and
  an overlay after it, so a click goes to the overlay, then the element, then the background.
+ The element's onHover, contextMenu, onDrop and container tap cover the overlay too
+ (pointerAreas), as SwiftUI applies them after it.
 
  Only the views the element declares when its node is made are shown, and none on a Group or a
  Section, whose modifiers SwiftUI applies to each child.
@@ -42,7 +44,7 @@ let decorationMarkerKey = AttachKey<DecorationMarker>("actionui-decoration")
 @MainActor
 final class NodeDecorations {
     private var background: RenderNode?
-    private var overlay: RenderNode?
+    private(set) var overlay: RenderNode?
 
     /// A node's background and overlay views, or nil when its element declares neither.
     static func make(for node: RenderNode) -> NodeDecorations? {
@@ -72,6 +74,17 @@ final class NodeDecorations {
             decorations.overlay = view
         }
         return decorations
+    }
+
+    /// Where the pointer reaches the element: its frame (the box's content group) and its overlay
+    /// view's box. SwiftUI applies onHover, contextMenu, onDrop and the container tap after the
+    /// overlay, so they cover it too; on GTK the overlay is beside the frame, not inside it.
+    static func pointerAreas(_ node: RenderNode) -> [WidgetPointer] {
+        let box: WidgetPointer = node.outerWidget
+        let frame = ModifierBox.content(of: box) ?? box
+        guard let overlay = node.decorations?.overlay else { return [frame] }
+        let overlayBox: WidgetPointer = overlay.outerWidget
+        return [frame, overlayBox]
     }
 
     /// The views' nodes, for the environment changes their parent passes down.

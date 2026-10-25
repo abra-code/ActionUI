@@ -17,6 +17,8 @@ final class NodeDecorationsTests: XCTestCase {
     private var windowUUID = ""
     private var renderTree: AdwaitaWindow?
     private var gtkWindow: UnsafeMutablePointer<GtkWindow>?
+    private var fired: [(actionID: String, context: [String: Any]?)] = []
+    private let actionIDs = ["test.tap", "test.hover", "test.drop", "test.menu"]
 
     override func setUp() async throws {
         // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
@@ -24,6 +26,12 @@ final class NodeDecorationsTests: XCTestCase {
         try AdwaitaTestHost.initialize()
         ActionUIRegistry.shared.loadBuiltIns()
         windowUUID = "node-decorations-\(name)"
+        fired = []
+        for actionID in actionIDs {
+            ActionUIModel.shared.registerActionHandler(for: actionID) { [weak self] id, _, _, _, context in
+                MainActor.assumeIsolated { self?.fired.append((id, context as? [String: Any])) }
+            }
+        }
     }
 
     override func tearDown() async throws {
@@ -35,6 +43,7 @@ final class NodeDecorationsTests: XCTestCase {
         gtkWindow = nil
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
+        actionIDs.forEach { ActionUIModel.shared.unregisterActionHandler(for: $0) }
     }
 
     private func present(_ json: String) throws -> RenderNode {
@@ -165,5 +174,109 @@ final class NodeDecorationsTests: XCTestCase {
         node.detach()
         XCTAssertEqual(layoutChildren(content).count, 1)
         XCTAssertEqual(layoutChildren(node.outerWidget).count, 1)
+    }
+
+    /// The controllers of `type` on `widget` (a click gesture for `button`, when given).
+    private func controllers(_ widget: WidgetPointer, _ type: GType, button: Int? = nil) -> [UnsafeMutableRawPointer] {
+        let list = gtk_widget_observe_controllers(widget)!
+        defer { g_object_unref(UnsafeMutableRawPointer(list)) }
+        var result: [UnsafeMutableRawPointer] = []
+        for index in 0..<g_list_model_get_n_items(list) {
+            guard let item = g_list_model_get_item(list, index) else { continue }
+            g_object_unref(item)
+            guard g_type_check_instance_is_a(item.assumingMemoryBound(to: GTypeInstance.self), type) != 0 else { continue }
+            if let button, gtk_gesture_single_get_button(OpaquePointer(item)) != guint(button) { continue }
+            result.append(item)
+        }
+        return result
+    }
+
+    /// Emits a click gesture's `signal` ("pressed", "released") at (x, y).
+    private func click(_ gesture: UnsafeMutableRawPointer, _ signal: String, x: Double, y: Double) {
+        var values = [GValue(), GValue(), GValue(), GValue()]
+        g_value_init(&values[0], gtk_gesture_click_get_type())
+        g_value_set_object(&values[0], gesture)
+        g_value_init(&values[1], g_type_from_name("gint"))
+        g_value_set_int(&values[1], 1)
+        g_value_init(&values[2], g_type_from_name("gdouble"))
+        g_value_set_double(&values[2], x)
+        g_value_init(&values[3], g_type_from_name("gdouble"))
+        g_value_set_double(&values[3], y)
+        g_signal_emitv(&values, g_signal_lookup(signal, gtk_gesture_click_get_type()), 0, nil)
+        for index in values.indices { g_value_unset(&values[index]) }
+    }
+
+    private func enter(_ motion: UnsafeMutableRawPointer) {
+        var values = [GValue(), GValue(), GValue()]
+        g_value_init(&values[0], gtk_event_controller_motion_get_type())
+        g_value_set_object(&values[0], motion)
+        g_value_init(&values[1], g_type_from_name("gdouble"))
+        g_value_init(&values[2], g_type_from_name("gdouble"))
+        g_signal_emitv(&values, g_signal_lookup("enter", gtk_event_controller_motion_get_type()), 0, nil)
+        for index in values.indices { g_value_unset(&values[index]) }
+    }
+
+    func testTheOverlayCarriesTheElementsPointerHandlers() throws {
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "VStack", "id": 2, "properties": {"frame": {"width": 100, "height": 60}, "actionID": "test.tap", "onHoverActionID": "test.hover",
+                 "onDropTypes": ["public.plain-text"], "onDropActionID": "test.drop", "overlayAlignment": "topTrailing"},
+               "contextMenu": [{"type": "Button", "id": 10, "properties": {"title": "Act", "actionID": "test.menu"}}],
+               "overlay": {"type": "Circle", "id": 9, "properties": {"fill": "red", "frame": {"width": 12, "height": 12}}},
+               "children": [{"type": "Text", "id": 3, "properties": {"text": "Card"}}]}]}
+            """#)
+        let node = try XCTUnwrap(root.childNodes[2])
+        let frame = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        let overlay = try XCTUnwrap(node.decorations?.overlay?.outerWidget)
+        // The context menu: a right click on the overlay opens it.
+        click(try XCTUnwrap(controllers(overlay, gtk_gesture_click_get_type(), button: 3).first), "pressed", x: 2, y: 2)
+        let menu = try XCTUnwrap(node.contextMenu?.menuWidget, "the element's menu, from the overlay")
+        gtk_popover_popdown(typed(menu))
+        AdwaitaTestHost.drainMainLoop()
+        // The container tap: a click released on the overlay fires the element's action.
+        let tap = try XCTUnwrap(controllers(overlay, gtk_gesture_click_get_type(), button: 1).first)
+        click(tap, "pressed", x: 2, y: 2)
+        click(tap, "released", x: 2, y: 2)
+        XCTAssertEqual(fired.map(\.actionID), ["test.tap"])
+        fired = []
+        // Hover: the pointer moving from the frame onto the overlay stays hovering.
+        let frameMotion = try XCTUnwrap(controllers(frame, gtk_event_controller_motion_get_type()).first)
+        let overlayMotion = try XCTUnwrap(controllers(overlay, gtk_event_controller_motion_get_type()).first)
+        enter(frameMotion)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { self.fired.count == 1 }))
+        AdwaitaTestHost.emit("leave", on: frameMotion)
+        enter(overlayMotion)
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
+        XCTAssertEqual(fired.map { $0.context?["isHovering"] as? Bool }, [true], "no leave between the two")
+        AdwaitaTestHost.emit("leave", on: overlayMotion)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { self.fired.count == 2 }))
+        XCTAssertEqual(fired.last?.context?["isHovering"] as? Bool, false)
+        fired = []
+        // A drop on the overlay, at its point in the frame.
+        let target = try XCTUnwrap(controllers(overlay, gtk_drop_target_get_type()).first)
+        var text = GValue()
+        g_value_init(&text, g_type_from_name("gchararray"))
+        g_value_set_string(&text, "Hello")
+        defer { g_value_unset(&text) }
+        var dropped = GValue()
+        g_value_init(&dropped, g_value_get_type())
+        withUnsafeMutablePointer(to: &text) { g_value_set_boxed(&dropped, $0) }
+        defer { g_value_unset(&dropped) }
+        var values = [GValue(), GValue(), GValue(), GValue()]
+        g_value_init(&values[0], gtk_drop_target_get_type())
+        g_value_set_object(&values[0], target)
+        values[1] = dropped
+        g_value_init(&values[2], g_type_from_name("gdouble"))
+        g_value_set_double(&values[2], 1)
+        g_value_init(&values[3], g_type_from_name("gdouble"))
+        g_value_set_double(&values[3], 2)
+        var handled = GValue()
+        g_value_init(&handled, g_type_from_name("gboolean"))
+        g_signal_emitv(&values, g_signal_lookup("drop", gtk_drop_target_get_type()), 0, &handled)
+        g_value_unset(&handled)
+        for index in [0, 2, 3] { g_value_unset(&values[index]) }
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.fired.isEmpty }))
+        let place = bounds(overlay, in: frame)
+        XCTAssertEqual(fired.first?.context?["location"] as? [String: Double], ["x": Double(place.x + 1), "y": Double(place.y + 2)])
     }
 }

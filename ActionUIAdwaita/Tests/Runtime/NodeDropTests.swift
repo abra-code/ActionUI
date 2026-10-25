@@ -3,9 +3,8 @@
  Tests for onDropActionID on GTK (NodeDrop): a drop target on the element's frame for the kinds its
  onDropTypes name, files asked for before text; a text drop fires the action, on the main queue's
  next turn, with the text and the point; a file drop with the files' paths (a file without one by
- its URI); a drag leaving fires onDropTargetedActionID with false; types Linux does not take, or no
- drop, give no target. (The drop is emitted on the target:
- a real drag is the probe's.)
+ its URI); the targeted state is reported only when it changes; types Linux does not take, or no
+ drop, give no target. (The drop is emitted on the target: a real drag is the probe's.)
 */
 
 import XCTest
@@ -101,13 +100,14 @@ final class NodeDropTests: XCTestCase {
         g_value_init(&text, g_type_from_name("gchararray"))
         g_value_set_string(&text, "Hello")
         defer { g_value_unset(&text) }
-        XCTAssertTrue(drop(target, &text, x: 5, y: 7))
+        // y not a float: the frame's point is reported as GTK gives it.
+        XCTAssertTrue(drop(target, &text, x: 5, y: 7.3))
         XCTAssertTrue(fired.isEmpty, "not while GTK is in the drop")
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !fired.isEmpty }))
         XCTAssertEqual(fired.map(\.actionID), ["test.drop"])
         XCTAssertEqual(fired.first?.context?["items"] as? [String], ["Hello"])
         let location = try XCTUnwrap(fired.first?.context?["location"] as? [String: Double])
-        XCTAssertEqual(location, ["x": 5, "y": 7])
+        XCTAssertEqual(location, ["x": 5, "y": 7.3])
     }
 
     func testAFileDropFiresTheActionWithThePaths() throws {
@@ -124,16 +124,17 @@ final class NodeDropTests: XCTestCase {
         XCTAssertEqual(fired.first?.context?["items"] as? [String], ["/tmp/report.txt", "https://example.com/remote.txt"])
     }
 
-    func testADragLeavingFiresTheTargetedActionWithFalse() throws {
+    func testTheTargetedStateIsReportedOnlyWhenItChanges() throws {
         let root = try render(zone(#"["public.plain-text", "public.folder"]"#))
         let target = try XCTUnwrap(dropTarget(root))
         // Both kinds, files first: a GTK file drag also offers its paths as one text.
         XCTAssertEqual(try gtypes(target), [gdk_file_list_get_type(), g_type_from_name("gchararray")])
-        // No drag over it: the notification a drag leaving makes.
+        // No drag over it: a notification without a drag (as a drag moving from the frame onto the
+        // overlay view makes on the frame) changes nothing, so nothing is reported. (A real drag's
+        // true, then false, is the probe's: a current drop cannot be set here.)
         g_object_notify(target.assumingMemoryBound(to: GObject.self), "current-drop")
-        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !fired.isEmpty }))
-        XCTAssertEqual(fired.map(\.actionID), ["test.targeted"])
-        XCTAssertEqual(fired.first?.context?["isTargeted"] as? Bool, false)
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 100)
+        XCTAssertEqual(fired.map(\.actionID), [])
     }
 
     func testAURLTakesAURIListAndAnItemBothKinds() throws {
