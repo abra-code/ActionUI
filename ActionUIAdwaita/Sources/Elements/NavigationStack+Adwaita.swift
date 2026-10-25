@@ -2,10 +2,11 @@
 /*
  NavigationStack on GTK: an AdwNavigationView. The content is the root page; each pushed screen is
  a page of its own. Every page has its own header bar, the GNOME way, with the page's title (its
- element's navigationTitle; the root's falls back to the stack's own, then the window's) and a
- back button. A stack that is the window's whole document takes the window's place for a header
- bar (AdwaitaApplication shows none of its own), so its header bars carry the window's buttons, and
- its root page's the primary menu (the application's commands).
+ screen's navigationTitle, from any of its views (ScreenTitle); the root's falls back to the
+ stack's own, then the window's) and a back button. A stack that is the window's whole document
+ takes the window's place for a header bar (AdwaitaApplication shows none of its own), so its
+ header bars carry the window's buttons, and its root page's the primary menu (the application's
+ commands).
 
  What is pushed, as on Apple (NavigationStack+SwiftUI.swift):
  - states["navigationPath"], [Int]: the destinations pushed, by id, from "destinations". Writing it
@@ -201,12 +202,12 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
         // the root's falls back to the stack's, the window's, then the application's name.
         // An empty title counts as none.
         let stackTitle = nonEmpty(BaseModifiers(node.properties).navigationTitle)
-        let rootTitle = content.flatMap { node.childNodes[$0.id] }.flatMap { nonEmpty(BaseModifiers($0.properties).navigationTitle) }
+        let rootTitle = content.flatMap { ScreenTitle.find(in: $0, windowModel: node.windowModel) }
             ?? stackTitle ?? windowTitle(widget) ?? nonEmpty(AdwaitaApplication.shared.name) ?? ProcessInfo.processInfo.processName
         setTitle(state.rootPage.typed(), rootTitle)
         for entry in state.entries {
             guard let page = state.pages[entry.element.id], let child = node.childNodes[entry.element.id] else { continue }
-            setTitle(page.page.typed(), nonEmpty(BaseModifiers(child.properties).navigationTitle) ?? nonEmpty(entry.linkTitle) ?? rootTitle)
+            setTitle(page.page.typed(), ScreenTitle.find(in: child.element, windowModel: node.windowModel) ?? nonEmpty(entry.linkTitle) ?? rootTitle)
         }
         Gtk.Widget(state.primaryMenu).isVisible = node.showsPrimaryMenu
         // The window's buttons on the stack's header bars only when the stack is the window's document.

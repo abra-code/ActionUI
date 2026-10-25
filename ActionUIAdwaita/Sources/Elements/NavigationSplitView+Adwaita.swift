@@ -182,8 +182,9 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
 
         for (element, column) in columns {
             guard let child = node.childNodes[element.id] else { continue }
-            let modifiers = BaseModifiers(child.properties)
-            updateHeader(column, node: node, title: modifiers.navigationTitle, principal: child.screenBar?.principalWidget,
+            // The column's navigationTitle, from any of its views.
+            let title = ScreenTitle.find(in: child.element, windowModel: node.windowModel)
+            updateHeader(column, node: node, title: title, principal: child.screenBar?.principalWidget,
                          ownBars: AdwaitaWindow.headerBarTypes.contains(element.type), isDetail: column === parts.detail)
         }
         if let sidebar, let child = node.childNodes[sidebar.id] {
