@@ -4,7 +4,8 @@
  asked for before the start wait for it and open between willFinishLaunching and
  didFinishLaunching; a window opens at its document's ideal size, titled by the application's
  name; no wider than 900 (SwiftUI's opening width) unless its minimum needs more, a long text
- wrapping there; a minimum larger than the monitor scrolls; a file's
+ wrapping there; a document in a ScrollView opens tall enough to show it; a minimum larger than
+ the monitor scrolls; a file's
  document is titled by its name, and one that cannot be loaded shows its error; the user's close
  of the last window asks shouldTerminate; terminate ends the application and willTerminate fires;
  a second run while running is refused; the host's close of a window showing a modal and an
@@ -27,7 +28,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        for uuid in ["app-w1", "app-w2", "app-big", "app-file", "app-bad", "app-tall", "app-wide", "app-text"] {
+        for uuid in ["app-w1", "app-w2", "app-big", "app-file", "app-bad", "app-tall", "app-wide", "app-text", "app-scroll"] {
             ActionUIModel.shared.windowModels[uuid] = nil
         }
         for file in files {
@@ -97,6 +98,77 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(wide.0, 1000, "its minimum, wider than 900")
         XCTAssertEqual(text.0, 900, "a long text opens 900 wide, as on macOS")
         XCTAssertGreaterThan(text.1, 100, "the text wraps to several lines there")
+    }
+
+    func testADocumentInAScrollViewOpensTallEnoughToShowIt() throws {
+        let app = AdwaitaApplication()
+        var size: (Int32, Int32) = (0, 0)
+        var propagates: gboolean = 1
+        let rows = (0..<12).map { #"{"type": "Color", "id": \#($0 + 3), "properties": {"color": "red", "frame": {"width": 200, "height": 40}}}"# }
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "ScrollView", "id": 1, "content": {"type": "VStack", "id": 2, "children": [\#(rows.joined(separator: ","))]}}"#.utf8),
+                              windowUUID: "app-scroll", title: "Scroll")
+            if let window = app.gtkWindow("app-scroll") {
+                size = self.defaultSize(window)
+                if let scroller = self.content(window).flatMap(self.firstScrolledWindow) {
+                    propagates = gtk_scrolled_window_get_propagate_natural_height(OpaquePointer(scroller))
+                }
+            }
+            app.closeWindow("app-scroll")
+        }
+        app.run()
+        // Twelve rows 40 tall (Colors have no spacing between them): 480 and the header bar, under
+        // the box's 800-tall monitor.
+        XCTAssertGreaterThan(size.1, 480, "its content's height and the header bar, not a strip")
+        XCTAssertEqual(propagates, 0, "afterwards it scrolls as before")
+    }
+
+    func testContentThatGrowsOpensAtLeastAsTallAsSwiftUIs() throws {
+        let app = AdwaitaApplication()
+        var list: (Int32, Int32) = (0, 0)
+        var text: (Int32, Int32) = (0, 0)
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [{"type": "Button", "id": 2, "properties": {"title": "Load"}}, {"type": "List", "id": 3}]}"#.utf8),
+                              windowUUID: "app-w1", title: "List")
+            app.presentWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#.utf8),
+                              windowUUID: "app-w2", title: "Text")
+            if let window = app.gtkWindow("app-w1") { list = self.defaultSize(window) }
+            if let window = app.gtkWindow("app-w2") { text = self.defaultSize(window) }
+            app.closeWindow("app-w1")
+            app.closeWindow("app-w2")
+        }
+        app.run()
+        XCTAssertGreaterThan(list.1, AdwaitaApplication.openingHeight, "an empty List: SwiftUI's 418 and the header bar")
+        XCTAssertLessThan(text.1, 200, "content that does not grow keeps its own height")
+    }
+
+    func testATextTallerThanTheMonitorAtTheOpeningWidthScrolls() throws {
+        let app = AdwaitaApplication()
+        var scrolls = false
+        // About 40000 characters: thousands of points tall wrapped at 900, one line unwrapped.
+        let caption = String(repeating: "A long caption that wraps. ", count: 1500)
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "\#(caption)"}}]}"#.utf8),
+                              windowUUID: "app-text", title: "Text")
+            if let window = app.gtkWindow("app-text"), let content = self.content(window) {
+                scrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
+            }
+            app.closeWindow("app-text")
+        }
+        app.run()
+        XCTAssertTrue(scrolls, "its minimum height is the wrapped text's at the opening width")
+    }
+
+    private func firstScrolledWindow(_ widget: WidgetPointer) -> WidgetPointer? {
+        if g_type_check_instance_is_a(widget.withMemoryRebound(to: GTypeInstance.self, capacity: 1) { $0 }, gtk_scrolled_window_get_type()) != 0 {
+            return widget
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            if let found = firstScrolledWindow(current) { return found }
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return nil
     }
 
     func testASizeLargerThanTheMonitorIsCappedAndALargerMinimumScrolls() throws {

@@ -77,6 +77,10 @@ public final class AdwaitaApplication {
     /// opens 900 points wide on macOS (measured on macOS 27, whatever the content), so a long
     /// line of text does not open a window as wide as the monitor.
     static let openingWidth = 900
+    /// The least a window opens tall when its content grows vertically (a List, a ScrollView, a
+    /// Table, a Color): SwiftUI's WindowGroup gives its content 418 points (macOS 27), so an
+    /// empty List waiting for its rows does not open as a strip.
+    static let openingHeight: Int32 = 418
 
     public var handlers = Handlers()
     /// The application's name: window titles default to it, and the default application ID.
@@ -391,7 +395,8 @@ public final class AdwaitaApplication {
 
         let small = natural.width < 10 || natural.height < 10
         let width = small ? Self.fallbackSize.width : natural.width
-        let height = small ? Self.fallbackSize.height : natural.height
+        let grows = gtk_widget_compute_expand(content, GTK_ORIENTATION_VERTICAL) != 0
+        let height = max(small ? Self.fallbackSize.height : natural.height, grows ? Self.openingHeight : 0)
         gtk_window_set_default_size(window, min(width, monitor.width), min(height + headerHeight, monitor.height))
 
         let presented = PresentedWindow(window: window, renderTree: renderTree)
@@ -614,11 +619,51 @@ public final class AdwaitaApplication {
     /// the opening width unless the minimum needs more, and the heights for that width, as text
     /// wraps taller in a narrower window.
     private func contentSizes(_ content: WidgetPointer, widthCap: Int32) -> (minimum: (width: Int32, height: Int32), natural: (width: Int32, height: Int32)) {
-        let width = Gtk.Widget(content).measure(GTK_ORIENTATION_HORIZONTAL)
-        let opening = max(min(width.natural, Int(widthCap), max(Self.openingWidth, width.minimum)), width.minimum)
-        let height = Gtk.Widget(content).measure(GTK_ORIENTATION_VERTICAL, forSize: opening)
-        return ((Int32(clamping: width.minimum), Int32(clamping: height.minimum)),
-                (Int32(clamping: opening), Int32(clamping: height.natural)))
+        let minimumWidth = Gtk.Widget(content).measure(GTK_ORIENTATION_HORIZONTAL).minimum
+        let natural = askingForScrolledContent(in: content) {
+            let width = Gtk.Widget(content).measure(GTK_ORIENTATION_HORIZONTAL)
+            let opening = max(min(width.natural, Int(widthCap), max(Self.openingWidth, minimumWidth)), minimumWidth)
+            return (width: opening, height: Gtk.Widget(content).measure(GTK_ORIENTATION_VERTICAL, forSize: opening).natural)
+        }
+        // The minimum height at the opening width, where text wraps taller than on one line.
+        let minimumHeight = Gtk.Widget(content).measure(GTK_ORIENTATION_VERTICAL, forSize: natural.width).minimum
+        return ((Int32(clamping: minimumWidth), Int32(clamping: minimumHeight)),
+                (Int32(clamping: natural.width), Int32(clamping: natural.height)))
+    }
+
+    /// Runs `measure` with every scrolled window in `content` asking for its content's natural
+    /// size, then as before. A scrolled window asks for almost nothing along an axis it scrolls, so
+    /// a document in a ScrollView (or holding a List) opened as a strip; it opens tall enough to
+    /// show its content now, up to the monitor, as other documents do. The minimum stays the
+    /// scrolled windows' own, so the window can still be made small. (SwiftUI's WindowGroup opens
+    /// 900 x 418 whatever the content; Linux fits the content, the owner's choice.)
+    private func askingForScrolledContent<Result>(in content: WidgetPointer, _ measure: () -> Result) -> Result {
+        var changed: [(scroller: OpaquePointer, width: gboolean, height: gboolean)] = []
+        func visit(_ widget: WidgetPointer) {
+            if g_type_check_instance_is_a(widget.withMemoryRebound(to: GTypeInstance.self, capacity: 1) { $0 }, gtk_scrolled_window_get_type()) != 0 {
+                let scroller = OpaquePointer(widget)
+                let width = gtk_scrolled_window_get_propagate_natural_width(scroller)
+                let height = gtk_scrolled_window_get_propagate_natural_height(scroller)
+                if width == 0 || height == 0 {
+                    changed.append((scroller, width, height))
+                    gtk_scrolled_window_set_propagate_natural_width(scroller, 1)
+                    gtk_scrolled_window_set_propagate_natural_height(scroller, 1)
+                }
+            }
+            var child = gtk_widget_get_first_child(widget)
+            while let current = child {
+                visit(current)
+                child = gtk_widget_get_next_sibling(current)
+            }
+        }
+        visit(content)
+        defer {
+            for (scroller, width, height) in changed {
+                gtk_scrolled_window_set_propagate_natural_width(scroller, width)
+                gtk_scrolled_window_set_propagate_natural_height(scroller, height)
+            }
+        }
+        return measure()
     }
 
     /// The size of the display's first monitor; a large bound when there is none.
