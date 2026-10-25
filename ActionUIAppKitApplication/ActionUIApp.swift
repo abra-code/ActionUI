@@ -470,15 +470,23 @@ public func actionUIAppLoadAndPresentWindowFromJSON(
     }
 }
 
+/// The widest a window opens unless its content needs more: SwiftUI's WindowGroup opens 900
+/// points wide on macOS 27 whatever its content (measured), so a long line of text wraps
+/// instead of opening a window as wide as the line.
+private let openingWidth: CGFloat = 900
+
 /// Create a window around `view`, register it under `windowUUID` and show it.
 @MainActor
 private func presentWindow(with view: any View, windowUUID: String, title: String) {
     let controller = NSHostingController(rootView: AnyView(view))
     controller.view.autoresizingMask = [.width, .height]
 
-    // Use the SwiftUI fitting size; fall back if the view has not yet laid out.
+    // Use the SwiftUI fitting size; fall back if the view has not yet laid out. Content wider
+    // than openingWidth opens at that width instead (cappedSize).
     let fittingSize = controller.view.fittingSize
-    let windowSize  = (fittingSize.width >= 10 && fittingSize.height >= 10)
+    let windowSize  = fittingSize.width > openingWidth
+        ? cappedSize(of: view, in: controller)
+        : (fittingSize.width >= 10 && fittingSize.height >= 10)
         ? fittingSize
         : NSSize(width: 480, height: 320)
 
@@ -520,6 +528,22 @@ private func presentWindow(with view: any View, windowUUID: String, title: Strin
     }
     window.makeKeyAndOrderFront(nil)
     NSApplication.shared.activate()
+}
+
+/// The size a window opens at when its content is wider than openingWidth: that width, or the
+/// content's minimum when that is wider (offered openingWidth, the content reports the width it
+/// takes), and the content's ideal height at that width, so a long text wraps; both within the
+/// screen. The height is measured in a hosting view of its own, which is never shown: an
+/// unbounded height offered to the window's controller would make filling content (a Color) as
+/// tall as the offer, and a width constraint does not wrap text. A ScrollView's ideal height is
+/// its whole content's, hence the screen's limit.
+@MainActor
+private func cappedSize(of view: any View, in controller: NSHostingController<AnyView>) -> NSSize {
+    let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+    let minimum = controller.sizeThatFits(in: NSSize(width: openingWidth, height: 0)).width
+    let width = min(max(openingWidth, minimum), screen.width)
+    let measure = NSHostingView(rootView: AnyView(view).fixedSize(horizontal: false, vertical: true).frame(width: width))
+    return NSSize(width: width, height: min(measure.fittingSize.height, screen.height))
 }
 
 /// Close the window identified by `windowUUID`.
