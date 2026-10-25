@@ -182,6 +182,25 @@ func connectPoint(_ instance: UnsafeMutableRawPointer, _ signal: String, _ run: 
     connectBox(instance, signal, unsafeBitCast(pointTrampoline, to: GCallback.self), run as PointRun)
 }
 
+private typealias DropRun = @MainActor (UnsafePointer<GValue>, Double, Double) -> Bool
+
+/// For GtkDropTarget's "drop": (target, the dropped value, x, y, user data), returning whether the
+/// drop was taken.
+private let dropTrampoline: @convention(c) (gpointer?, UnsafePointer<GValue>?, gdouble, gdouble, gpointer?) -> gboolean = { _, value, x, y, data in
+    guard let value, let data else { return 0 }
+    let box: CallbackBox<DropRun> = callbackBox(data)
+    // A pointer is not Sendable; its address is. GLib emits on the main thread.
+    let address = UInt(bitPattern: value)
+    return MainActor.assumeIsolated { box.run(UnsafePointer(bitPattern: address)!, x, y) } ? 1 : 0
+}
+
+/// Connects `run` to a GtkDropTarget's "drop", with the dropped value and the point in the target's
+/// widget; `run` returns whether it took the drop.
+@MainActor @discardableResult
+func connectDrop(_ target: UnsafeMutableRawPointer, _ run: @escaping @MainActor (UnsafePointer<GValue>, Double, Double) -> Bool) -> gulong {
+    connectBox(target, "drop", unsafeBitCast(dropTrampoline, to: GCallback.self), run as DropRun)
+}
+
 /// The C signature of a signal's handler, which decides the trampoline.
 enum SignalShape {
     /// (instance, user data): "clicked", "activate", "changed", "map", "destroy"

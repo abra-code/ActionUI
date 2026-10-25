@@ -135,6 +135,7 @@ final class RenderNode {
         contextMenu = NodeContextMenu.make(for: self)
         watchesAppearance = NodeAppearance.watch(self)
         NodeHover.watch(self)
+        NodeDrop.watch(self)
     }
 
     isolated deinit {
