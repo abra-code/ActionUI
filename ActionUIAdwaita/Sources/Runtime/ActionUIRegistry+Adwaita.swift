@@ -75,16 +75,18 @@ extension ActionUIRegistry {
         set { Self.adwaitaRenderers = newValue }
     }
 
-    // The GTK built-ins, after loadBuiltIns has filled `specs`, and the markdown parser for Text
-    // (a markdown property, or a value set with the "markdown" content type). Core's other default
-    // hooks stay.
+    // The GTK built-ins, after loadBuiltIns has filled `specs`, and the markdown parser for Text and
+    // TextEditor (a markdown property, or a value set with the "markdown" content type). Core's other
+    // default hooks stay.
     internal func loadRendererBuiltIns() {
         renderers = Self.builtInAdwaitaRenderers
         Self.typesReportedMissing = []
         ActionUIRendererHooks.markdown = MarkdownText.attributedString(markdown:)
-        Text.parseStringValue = { value, contentType, _ in
+        let parseMarkdown: (String, String?, any ActionUILogger) -> Any? = { value, contentType, _ in
             contentType == "markdown" ? MarkdownText.attributedString(markdown: value) : nil
         }
+        Text.parseStringValue = parseMarkdown
+        TextEditor.parseStringValue = parseMarkdown
     }
 
     /// The renderer for an element type, or the placeholder (logged once per type) when the type

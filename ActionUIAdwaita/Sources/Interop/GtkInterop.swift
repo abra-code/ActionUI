@@ -201,6 +201,41 @@ func connectDrop(_ target: UnsafeMutableRawPointer, _ run: @escaping @MainActor 
     connectBox(target, "drop", unsafeBitCast(dropTrampoline, to: GCallback.self), run as DropRun)
 }
 
+private typealias RangeRun = @MainActor (Int, Int) -> Void
+
+/// For a GtkTextBuffer's "insert-text": (buffer, location, text, length in bytes, user data). Run
+/// after the default handler, the location is the end of the inserted text, so the inserted
+/// characters are those from the offset before it.
+private let insertTextTrampoline: @convention(c) (gpointer?, UnsafeMutablePointer<GtkTextIter>?, UnsafePointer<CChar>?, gint, gpointer?) -> Void = { _, location, text, length, data in
+    guard let location, let text, let data else { return }
+    let box: CallbackBox<RangeRun> = callbackBox(data)
+    let end = Int(gtk_text_iter_get_offset(location))
+    let count = Int(g_utf8_strlen(text, gssize(length)))
+    MainActor.assumeIsolated { box.run(end - count, end) }
+}
+
+/// Connects `run` to a GtkTextBuffer's "insert-text", after the text is inserted, with the character
+/// offsets of the inserted text (start, end).
+@MainActor @discardableResult
+func connectTextInserted(_ buffer: UnsafeMutableRawPointer, _ run: @escaping @MainActor (Int, Int) -> Void) -> gulong {
+    connectBox(buffer, "insert-text", unsafeBitCast(insertTextTrampoline, to: GCallback.self), after: true, run as RangeRun)
+}
+
+/// For a GtkTextBuffer's "delete-range": (buffer, start, end, user data).
+private let deleteRangeTrampoline: @convention(c) (gpointer?, UnsafeMutablePointer<GtkTextIter>?, UnsafeMutablePointer<GtkTextIter>?, gpointer?) -> Void = { _, start, end, data in
+    guard let start, let end, let data else { return }
+    let box: CallbackBox<RangeRun> = callbackBox(data)
+    let range = (Int(gtk_text_iter_get_offset(start)), Int(gtk_text_iter_get_offset(end)))
+    MainActor.assumeIsolated { box.run(min(range.0, range.1), max(range.0, range.1)) }
+}
+
+/// Connects `run` to a GtkTextBuffer's "delete-range", before the text is deleted, with the
+/// character offsets of the range (start, end).
+@MainActor @discardableResult
+func connectTextDeleting(_ buffer: UnsafeMutableRawPointer, _ run: @escaping @MainActor (Int, Int) -> Void) -> gulong {
+    connectBox(buffer, "delete-range", unsafeBitCast(deleteRangeTrampoline, to: GCallback.self), run as RangeRun)
+}
+
 /// The C signature of a signal's handler, which decides the trampoline.
 enum SignalShape {
     /// (instance, user data): "clicked", "activate", "changed", "map", "destroy"

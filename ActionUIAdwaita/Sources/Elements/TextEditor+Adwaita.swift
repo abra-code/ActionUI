@@ -5,20 +5,24 @@
 
  - The text is the value, else the text property, else the markdown property (TextEditor.initialValue);
    an update sets it only when it differs, since setting a buffer's text moves the cursor.
+ - With the markdown property it edits styled text, as SwiftUI's TextEditor does from macOS 26: the
+   markdown is shown with its inline styles and links (Markdown/MarkdownBuffer.swift), typed text
+   takes the style around it, and the value is an AttributedString (a String value is read as
+   markdown, as on Apple). Links are drawn, not opened, and there are no formatting commands yet.
  - Typing runs Core's TextField.userEditedText (the value, then valueChangeActionID), as every text
    entry does, once per edit (typing over a selection is one); an update fires nothing.
  - readOnly makes the text view not editable; its cursor stays, for selecting from the keyboard.
  - The placeholder is a dimmed label over the top leading corner while the text is empty, as the
    SwiftUI renderer lays it over SwiftUI's TextEditor.
  - Its accessible name is accessibilityLabel, else the placeholder.
-
- Not yet: markdown is shown and edited as its source text (styled editing, which SwiftUI's TextEditor
- has from macOS 26, is not built; logged once).
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
-
-@MainActor private var reportedMarkdown = false
 
 /// The user action open on a text editor's buffer, if any, and whether its text changed in it.
 @MainActor private final class UserActionState {
@@ -51,8 +55,12 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         let buffer = gtk_text_view_get_buffer(typed(view))!
         reportEdits(of: buffer, placeholder: placeholder) { [weak node] in
             guard let node else { return }
-            let text = bufferText(buffer)
-            TextField.userEditedText(text, valueChangeActionID: Props(node.properties).valueChangeActionID, viewID: node.element.id,
+            let props = Props(node.properties)
+            if props.markdown != nil {
+                userEditedAttributedText(MarkdownBuffer.of(buffer).attributedText(), valueChangeActionID: props.valueChangeActionID, node)
+                return
+            }
+            TextField.userEditedText(bufferText(buffer), valueChangeActionID: props.valueChangeActionID, viewID: node.element.id,
                                      model: node.model, windowUUID: node.windowUUID)
         }
         return overlay
@@ -124,9 +132,20 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         guard let view = accessibleWidgetIfAny(widget), let placeholder = Gtk.Widget(widget).lastChild?.pointer else { return }
         let props = Props(node.properties)
         let buffer = gtk_text_view_get_buffer(typed(view))!
-        let text = TextEditor.initialValue(node.model) as? String ?? ""
-        if bufferText(buffer) != text {
-            gtk_text_buffer_set_text(buffer, text, -1)
+        let isEmpty: Bool
+        if let markdown = props.markdown {
+            let content = markdownContent(node.model.value, markdown: markdown)
+            let styled = MarkdownBuffer.of(buffer)
+            if styled.attributedText() != content {
+                styled.show(content)
+            }
+            isEmpty = content.characters.isEmpty
+        } else {
+            let text = TextEditor.initialValue(node.model) as? String ?? ""
+            if bufferText(buffer) != text {
+                gtk_text_buffer_set_text(buffer, text, -1)
+            }
+            isEmpty = text.isEmpty
         }
         let editable: gboolean = props.readOnly ? 0 : 1
         if gtk_text_view_get_editable(typed(view)) != editable {
@@ -136,10 +155,25 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         }
         let placeholderText = props.placeholder ?? ""
         Gtk.Label(placeholder).text = placeholderText
-        Gtk.Widget(placeholder).isVisible = !placeholderText.isEmpty && text.isEmpty
-        if props.markdown != nil, !reportedMarkdown {
-            reportedMarkdown = true
-            ActionUIModel.shared.logger.log("TextEditor: markdown is shown as its source text on Linux for now", .warning)
+        Gtk.Widget(placeholder).isVisible = !placeholderText.isEmpty && isEmpty
+    }
+
+    /// What a markdown editor shows: its AttributedString value, else its String value or the
+    /// markdown property read as markdown (as SwiftUI's attributed TextEditor reads them).
+    static func markdownContent(_ value: Any?, markdown: String) -> AttributedString {
+        if let attributed = value as? AttributedString {
+            return attributed
+        }
+        return ActionUIRendererHooks.markdown(value as? String ?? markdown)
+    }
+
+    /// What typing does in a markdown editor, as on Apple: stores the styled text as the value and
+    /// fires valueChangeActionID, only when it differs from the value.
+    private static func userEditedAttributedText(_ text: AttributedString, valueChangeActionID: String?, _ node: RenderNode) {
+        guard node.model.value as? AttributedString != text else { return }
+        node.model.value = text
+        if let valueChangeActionID {
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
         }
     }
 
