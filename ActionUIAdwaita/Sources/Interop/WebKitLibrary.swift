@@ -7,9 +7,12 @@
  life of the process. Its license (LGPL 2.1, BSD) allows loading it so.
 
  The library's name carries its API version (6.0, the GTK 4 API) and its ABI version (.so.4, the same
- from WebKitGTK 2.40 to 2.54), and its functions carry no version, so a newer WebKitGTK keeps working
- with no change here. A later ABI version would mean a change in the C interface; the next few are
- tried in case these functions came through it unchanged. Every function used is looked up, and a
+ from WebKitGTK 2.40 to 2.54), and its functions carry no version, so a newer WebKitGTK release keeps
+ working with no change here. A later ABI version would mean a change in the C interface; the next few
+ are tried in case these functions came through it unchanged. A new API version (WebKitGTK went from
+ 4.0 to 4.1 for libsoup 3, then to 6.0 for GTK 4) may change a function's arguments, which looking it
+ up cannot tell, so only the API versions in apiVersions are loaded: one is added there, with its
+ library's ABI version, after the functions declared here are checked against its headers. Every function used is looked up, and a
  missing one disables WebView as a whole, as a missing library does.
 
  No WebKit header is used: the C signatures are declared here, from WebKitGTK 2.54's headers. The web
@@ -40,6 +43,10 @@ final class WebKitLibrary {
     static let allFrames: UInt32 = 0, topFrame: UInt32 = 1
     /// WebKitUserScriptInjectionTime: WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, _END.
     static let documentStart: UInt32 = 0, documentEnd: UInt32 = 1
+
+    /// The API versions whose headers the C signatures here were checked against, newest first, each
+    /// with the ABI version its library had then (6.0: WebKitGTK 2.54, libwebkitgtk-6.0.so.4).
+    static let apiVersions: [(api: String, abi: Int)] = [("6.0", 4)]
 
     /// The package that holds the library on Debian and Ubuntu, named to the user when it is missing.
     static let packageName = "libwebkitgtk-6.0-4"
@@ -137,20 +144,24 @@ final class WebKitLibrary {
         self.releaseScript = releaseScript
     }
 
-    /// WebKitGTK 6.0 at ABI version 4, else at one of the next few, when it carries every function
-    /// used; nil otherwise.
+    /// The first library found, by API version (apiVersions) and then ABI version (the one checked, then
+    /// the next few), when it carries every function used; nil otherwise.
     private static func load() -> WebKitLibrary? {
-        for version in 4...7 {
-            guard let handle = dlopen("libwebkitgtk-6.0.so.\(version)", RTLD_NOW | RTLD_LOCAL) else { continue }
-            if let library = WebKitLibrary(handle) {
-                ActionUIModel.shared.logger.log("WebKitGTK 6.0 (libwebkitgtk-6.0.so.\(version)) shows web views", .verbose)
-                return library
+        for (api, checked) in apiVersions {
+            for abi in checked...(checked + 3) {
+                let name = "libwebkitgtk-\(api).so.\(abi)"
+                guard let handle = dlopen(name, RTLD_NOW | RTLD_LOCAL) else { continue }
+                if let library = WebKitLibrary(handle) {
+                    ActionUIModel.shared.logger.log("WebKitGTK \(api) (\(name)) shows web views", .verbose)
+                    return library
+                }
+                // Left loaded, and no other tried: unloading WebKit after its static constructors ran is
+                // not safe, nor is loading a second WebKit beside it.
+                ActionUIModel.shared.logger.log("\(name) lacks a function ActionUI uses; WebView shows a placeholder", .warning)
+                return nil
             }
-            // Left loaded: unloading WebKit after its static constructors ran is not safe.
-            ActionUIModel.shared.logger.log("libwebkitgtk-6.0.so.\(version) lacks a function ActionUI uses; WebView shows a placeholder", .warning)
-            return nil
         }
-        ActionUIModel.shared.logger.log("WebKitGTK 6.0 is not installed (package \(packageName)); WebView shows a placeholder", .warning)
+        ActionUIModel.shared.logger.log("WebKitGTK \(apiVersions.map(\.api).joined(separator: " or ")) is not installed (package \(packageName)); WebView shows a placeholder", .warning)
         return nil
     }
 }
