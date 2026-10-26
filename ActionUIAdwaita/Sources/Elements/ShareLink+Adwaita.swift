@@ -8,7 +8,9 @@
  - Send by Email...: the user's mail program with a new message, through the desktop's Email portal
    (org.freedesktop.portal.Email), else a mailto: link opened by GTK: the subject property as its
    subject, and the message property, a blank line and the URL as its body (the URL alone without
-   a message), as Mail shares a link on macOS.
+   a message), as Mail shares a link on macOS. When the portal answers that it could open no mail
+   program (none installed, measured in the box: response 2 with no reason given), an alert says
+   so; a canceled request shows nothing.
 
  - The item is a URL string (ShareLink.Props); without one its box is hidden and takes no space or
    spacing, as SwiftUI shows an EmptyView (logged once).
@@ -21,6 +23,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import CAdwaita
+import Dispatch
 
 @MainActor private var reportedMissingItem = false
 private let shareLinkStateKey = AttachKey<ShareLinkState>("actionui-share-link")
@@ -63,15 +66,62 @@ extension ShareLink: ActionUIAdwaitaRenderer {
 
     /// Sends a draft to the user's mail program; replaced in tests.
     static var composeEmail: @MainActor (EmailDraft, WidgetPointer) -> Void = { draft, widget in
-        // Held until the portal answered (D-Bus waits up to 25 seconds): the node can drop the
+        // Held until the portal answered (it may wait for the user): the node can drop the
         // button before then (a window closed), and a freed address must not be read.
         g_object_ref(UnsafeMutableRawPointer(widget))
-        composeWithPortal(draft) { accepted in
+        PortalEmailRequest.send(draft) { outcome in
             defer { g_object_unref(UnsafeMutableRawPointer(widget)) }
-            if !accepted {
-                TextEditor.openURI(mailtoURI(draft), widget)
-            }
+            handle(outcome, draft, widget)
         }
+    }
+
+    /// How the Email portal answered a request.
+    enum EmailOutcome: Equatable {
+        /// The mail program opened (the portal's response 0).
+        case opened
+        /// The user canceled (response 1).
+        case canceled
+        /// The portal could not open a mail program (response 2; it gives no reason).
+        case failed
+        /// No portal answered the call (no session bus, or no Email portal).
+        case noPortal
+    }
+
+    /// The portal's response code as an outcome (org.freedesktop.portal.Request.Response).
+    static func emailOutcome(responseCode: UInt32) -> EmailOutcome {
+        switch responseCode {
+        case 0: return .opened
+        case 1: return .canceled
+        default: return .failed
+        }
+    }
+
+    /// What follows a request: without a portal, a mailto: link; when the portal could open no mail
+    /// program, an alert saying so (the portal gives no reason to show).
+    static func handle(_ outcome: EmailOutcome, _ draft: EmailDraft, _ widget: WidgetPointer) {
+        switch outcome {
+        case .opened, .canceled:
+            break
+        case .noPortal:
+            TextEditor.openURI(mailtoURI(draft), widget)
+        case .failed:
+            ActionUIModel.shared.logger.log("ShareLink: the Email portal could not open an email app", .warning)
+            showEmailFailure(widget)
+        }
+    }
+
+    static let emailFailureHeading = "Could Not Send by Email"
+    static let emailFailureBody = "No email app could be opened. Install or set up an email app, or copy the link instead."
+
+    /// An alert on the button's window saying no email app could be opened.
+    static func showEmailFailure(_ widget: WidgetPointer) {
+        // A button no longer in a window (it closed while the portal worked) has nowhere to show it.
+        guard gtk_widget_get_root(widget) != nil else { return }
+        let alert: UnsafeMutablePointer<AdwAlertDialog> = typed(adw_alert_dialog_new(emailFailureHeading, emailFailureBody)!)
+        adw_alert_dialog_add_response(alert, "ok", "OK")
+        adw_alert_dialog_set_default_response(alert, "ok")
+        adw_alert_dialog_set_close_response(alert, "ok")
+        adw_dialog_present(typed(alert), widget)
     }
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
@@ -164,17 +214,41 @@ extension ShareLink: ActionUIAdwaitaRenderer {
         }
         return encoded
     }
+}
 
-    /// Asks the desktop's Email portal (org.freedesktop.portal.Email.ComposeEmail on the session
-    /// bus) to open a new message; `completion` gets whether the portal took the request (false
-    /// when there is no session bus or no portal answering).
-    private static func composeWithPortal(_ draft: EmailDraft, _ completion: @escaping @MainActor (Bool) -> Void) {
+/// One ComposeEmail request to the desktop's Email portal and its answer: the portal returns a
+/// request handle at once and answers with org.freedesktop.portal.Request.Response on it later
+/// (after the mail program opened, or failed to). The handle's path is made known before the call
+/// with a handle_token, as the portal's documentation asks, so the answer cannot be missed.
+@MainActor private final class PortalEmailRequest {
+    private let bus: OpaquePointer
+    private let completion: @MainActor (ShareLink.EmailOutcome) -> Void
+    private var subscription: guint = 0
+    private var finished = false
+
+    private init(bus: OpaquePointer, completion: @escaping @MainActor (ShareLink.EmailOutcome) -> Void) {
+        self.bus = bus
+        self.completion = completion
+    }
+
+    static func send(_ draft: ShareLink.EmailDraft, _ completion: @escaping @MainActor (ShareLink.EmailOutcome) -> Void) {
         guard let bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nil, nil) else {
-            completion(false)
+            completion(.noPortal)
             return
         }
+        let request = PortalEmailRequest(bus: bus, completion: completion)
+        // Kept alive by its own reference until it finished; GDBus calls back on this main context.
+        let data = Unmanaged.passRetained(request).toOpaque()
+        let token = "actionui\(UInt32.random(in: 0...UInt32.max))"
+        let sender = (swiftString(g_dbus_connection_get_unique_name(bus)) ?? "").dropFirst().replacing(".", with: "_")
+        let path = "/org/freedesktop/portal/desktop/request/\(sender)/\(token)"
+        request.subscription = g_dbus_connection_signal_subscribe(bus, "org.freedesktop.portal.Desktop", "org.freedesktop.portal.Request",
+                                                                  "Response", path, nil, G_DBUS_SIGNAL_FLAGS_NONE,
+                                                                  portalResponseTrampoline, data, nil)
+
         let entryType = g_variant_type_new("{sv}")!
         var entries: [OpaquePointer?] = [
+            g_variant_new_dict_entry(g_variant_new_string("handle_token"), g_variant_new_variant(g_variant_new_string(token))),
             g_variant_new_dict_entry(g_variant_new_string("subject"), g_variant_new_variant(g_variant_new_string(draft.subject))),
             g_variant_new_dict_entry(g_variant_new_string("body"), g_variant_new_variant(g_variant_new_string(draft.body))),
         ]
@@ -190,13 +264,47 @@ extension ShareLink: ActionUIAdwaitaRenderer {
             if let error {
                 ActionUIModel.shared.logger.log("ShareLink: the Email portal did not answer (\(swiftString(error.pointee.message) ?? "")); opening a mailto: link", .info)
                 g_error_free(error)
+                request.finish(.noPortal)
             }
-            g_object_unref(UnsafeMutableRawPointer(bus))
-            completion(reply != nil)
         }
-        let data = Unmanaged.passRetained(CallbackBox(run)).toOpaque()
         g_dbus_connection_call(bus, "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop",
                                "org.freedesktop.portal.Email", "ComposeEmail", parameters, nil,
-                               G_DBUS_CALL_FLAGS_NONE, -1, nil, readyTrampoline, data)
+                               G_DBUS_CALL_FLAGS_NONE, -1, nil, readyTrampoline, Unmanaged.passRetained(CallbackBox(run)).toOpaque())
+    }
+
+    /// The portal's Response: its code is the first value of (ua{sv}).
+    fileprivate func received(_ parameters: OpaquePointer?) {
+        guard let parameters, let code = g_variant_get_child_value(parameters, 0) else { return }
+        defer { g_variant_unref(code) }
+        // Anything but a uint32 there is no answer the portal documents: a failure, not code 0.
+        guard g_variant_classify(code) == G_VARIANT_CLASS_UINT32 else { return finish(.failed) }
+        finish(ShareLink.emailOutcome(responseCode: g_variant_get_uint32(code)))
+    }
+
+    /// Answers once, then stops listening and lets go of the request, after this callback.
+    private func finish(_ outcome: ShareLink.EmailOutcome) {
+        guard !finished else { return }
+        finished = true
+        g_dbus_connection_signal_unsubscribe(bus, subscription)
+        completion(outcome)
+        DispatchQueue.main.async { [self] in
+            g_object_unref(UnsafeMutableRawPointer(bus))
+            // The reference send took for GDBus's callback.
+            Unmanaged.passUnretained(self).release()
+        }
+    }
+}
+
+/// GDBus's signal callback for a request's Response; its user data is the PortalEmailRequest.
+private let portalResponseTrampoline: @convention(c) (OpaquePointer?, UnsafePointer<CChar>?, UnsafePointer<CChar>?, UnsafePointer<CChar>?,
+                                                      UnsafePointer<CChar>?, OpaquePointer?, gpointer?) -> Void = { _, _, _, _, _, parameters, data in
+    guard let data else { return }
+    // Pointers are not Sendable; their addresses are. GDBus calls back on the main thread.
+    let requestAddress = Int(bitPattern: data)
+    let address = parameters.map { Int(bitPattern: UnsafeRawPointer($0)) }
+    MainActor.assumeIsolated {
+        guard let pointer = UnsafeRawPointer(bitPattern: requestAddress) else { return }
+        let request = Unmanaged<PortalEmailRequest>.fromOpaque(pointer).takeUnretainedValue()
+        request.received(address.flatMap { OpaquePointer(bitPattern: $0) })
     }
 }

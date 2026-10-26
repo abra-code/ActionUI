@@ -3,7 +3,9 @@
  Tests for the ShareLink renderer on GTK: a menu button with the share icon and "Share...", named
  so, whose menu offers Copy Link and Send by Email...; without a valid item its box is hidden;
  Copy Link puts the URL on the clipboard; Send by Email... drafts the subject and the message, a
- blank line and the URL; the mailto: fallback is percent-encoded with CRLF line breaks.
+ blank line and the URL; the mailto: fallback is percent-encoded with CRLF line breaks; the
+ Email portal's answer: a failure shows an alert in the button's window, no portal opens the
+ mailto: link, success and cancel show nothing.
 */
 
 import XCTest
@@ -100,6 +102,48 @@ final class ShareLinkRendererTests: XCTestCase {
             ShareLink.EmailDraft(subject: "Check this out", body: "Look at this link!\n\nhttps://example.com"),
             ShareLink.EmailDraft(subject: "", body: "https://example.org"),
         ])
+    }
+
+    func testThePortalsResponseCodesAreOutcomes() {
+        XCTAssertEqual(ShareLink.emailOutcome(responseCode: 0), .opened)
+        XCTAssertEqual(ShareLink.emailOutcome(responseCode: 1), .canceled)
+        XCTAssertEqual(ShareLink.emailOutcome(responseCode: 2), .failed)
+        XCTAssertEqual(ShareLink.emailOutcome(responseCode: 7), .failed, "any other code is a failure")
+    }
+
+    func testAPortalFailureShowsAnAlertAndNoPortalOpensMailto() throws {
+        let saved = TextEditor.openURI
+        defer { TextEditor.openURI = saved }
+        var opened: [String] = []
+        TextEditor.openURI = { uri, _ in opened.append(uri) }
+        let node = try render(#"{"type": "ShareLink", "id": 1, "properties": {"item": "https://example.com"}}"#)
+        let window = adw_window_new()!
+        adw_window_set_content(typed(window), node.outerWidget)
+        gtk_window_present(typed(window))
+        defer {
+            adw_window_set_content(typed(window), nil)
+            gtk_window_destroy(typed(window))
+        }
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        let draft = ShareLink.draft(item: "https://example.com", subject: "S", message: nil)
+
+        for outcome in [ShareLink.EmailOutcome.opened, .canceled] {
+            ShareLink.handle(outcome, draft, node.widget)
+            AdwaitaTestHost.drainMainLoop()
+            XCTAssertNil(adw_window_get_visible_dialog(typed(window)), "\(outcome): nothing shown")
+        }
+        XCTAssertEqual(opened, [])
+
+        ShareLink.handle(.noPortal, draft, node.widget)
+        XCTAssertEqual(opened, [ShareLink.mailtoURI(draft)], "no portal: the mailto: link")
+        XCTAssertNil(adw_window_get_visible_dialog(typed(window)))
+
+        ShareLink.handle(.failed, draft, node.widget)
+        AdwaitaTestHost.drainMainLoop()
+        let dialog = try XCTUnwrap(adw_window_get_visible_dialog(typed(window)), "a failure: an alert")
+        XCTAssertEqual(swiftString(adw_alert_dialog_get_heading(typed(dialog))), ShareLink.emailFailureHeading)
+        XCTAssertEqual(swiftString(adw_alert_dialog_get_body(typed(dialog))), ShareLink.emailFailureBody)
+        adw_dialog_force_close(dialog)
     }
 
     func testTheMailtoFallbackIsPercentEncodedWithCRLFLineBreaks() {
