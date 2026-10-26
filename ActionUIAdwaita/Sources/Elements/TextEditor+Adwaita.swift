@@ -8,7 +8,8 @@
  - With the markdown property it edits styled text, as SwiftUI's TextEditor does from macOS 26: the
    markdown is shown with its inline styles and links (Markdown/MarkdownBuffer.swift), typed text
    takes the style around it, and the value is an AttributedString (a String value is read as
-   markdown, as on Apple). Links are drawn, not opened, and there are no formatting commands yet.
+   markdown, as on Apple). A click on a link opens it in the user's browser, and the pointer is a
+   hand over it, as in SwiftUI's editor on macOS; there are no formatting commands yet.
  - Typing runs Core's TextField.userEditedText (the value, then valueChangeActionID), as every text
    entry does, once per edit (typing over a selection is one); an update fires nothing.
  - readOnly makes the text view not editable; its cursor stays, for selecting from the keyboard.
@@ -41,6 +42,7 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         for margin in [gtk_text_view_set_left_margin, gtk_text_view_set_right_margin, gtk_text_view_set_top_margin, gtk_text_view_set_bottom_margin] {
             margin(typed(view), 6)
         }
+        openLinksOnClick(view)
         gtk_scrolled_window_set_child(OpaquePointer(scrolled), view)
         gtk_overlay_set_child(OpaquePointer(overlay), scrolled)
 
@@ -156,6 +158,62 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         let placeholderText = props.placeholder ?? ""
         Gtk.Label(placeholder).text = placeholderText
         Gtk.Widget(placeholder).isVisible = !placeholderText.isEmpty && isEmpty
+    }
+
+    /// Opens a URL as GTK's own link handlers do (a GtkLabel's link, GtkLinkButton), with the
+    /// widget's window as the parent. Tests replace it.
+    static var openURI: @MainActor (String, WidgetPointer) -> Void = { uri, widget in
+        let launcher = gtk_uri_launcher_new(uri)!
+        gtk_uri_launcher_launch(launcher, gtk_widget_get_root(widget).map { typed($0) }, nil, nil, nil)
+        g_object_unref(UnsafeMutableRawPointer(launcher))
+    }
+
+    /// In a markdown editor, a click on a link opens it, and the pointer is a hand over a link.
+    private static func openLinksOnClick(_ view: WidgetPointer) {
+        let click = gtk_gesture_click_new()!
+        gtk_gesture_single_set_button(click, guint(GDK_BUTTON_PRIMARY))
+        connectClick(UnsafeMutableRawPointer(click), "released") { _, x, y in
+            clickReleased(view, x, y)
+        }
+        gtk_widget_add_controller(view, click)
+        let motion = gtk_event_controller_motion_new()!
+        // Set only when the pointer moves onto or off a link: each set makes a new cursor.
+        var overLink = false
+        connectPoint(UnsafeMutableRawPointer(motion), "motion") { x, y in
+            let buffer = gtk_text_view_get_buffer(typed(view))!
+            guard MarkdownBuffer.existing(buffer) != nil else { return }
+            let onLink = link(at: x, y, in: view) != nil
+            if onLink != overLink {
+                overLink = onLink
+                gtk_widget_set_cursor_from_name(view, onLink ? "pointer" : "text")
+            }
+        }
+        gtk_widget_add_controller(view, motion)
+    }
+
+    /// A click released at `x`, `y` in the text view: opens the link there, unless the click selected
+    /// text (a drag ending on a link is not a click on it).
+    static func clickReleased(_ view: WidgetPointer, _ x: Double, _ y: Double) {
+        let buffer = gtk_text_view_get_buffer(typed(view))!
+        var start = GtkTextIter()
+        var end = GtkTextIter()
+        guard gtk_text_buffer_get_selection_bounds(buffer, &start, &end) == 0, let url = link(at: x, y, in: view) else { return }
+        openURI(url.absoluteString, view)
+    }
+
+    /// The link under `x`, `y` in the text view (its own coordinates), in a markdown editor.
+    static func link(at x: Double, _ y: Double, in view: WidgetPointer) -> URL? {
+        let textView: UnsafeMutablePointer<GtkTextView> = typed(view)
+        guard let markdown = MarkdownBuffer.existing(gtk_text_view_get_buffer(textView)!) else { return nil }
+        var bufferX: Int32 = 0
+        var bufferY: Int32 = 0
+        gtk_text_view_window_to_buffer_coords(textView, GTK_TEXT_WINDOW_WIDGET, Int32(x), Int32(y), &bufferX, &bufferY)
+        var position = GtkTextIter()
+        // The character under the point (get_iter_at_location moves past it on its right half).
+        // Not over the text (past a line's end, below the last line): no link.
+        var trailing: Int32 = 0
+        guard gtk_text_view_get_iter_at_position(textView, &position, &trailing, bufferX, bufferY) != 0 else { return nil }
+        return markdown.link(at: Int(gtk_text_iter_get_offset(&position)))
     }
 
     /// What a markdown editor shows: its AttributedString value, else its String value or the

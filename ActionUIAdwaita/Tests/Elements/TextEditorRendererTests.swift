@@ -200,6 +200,55 @@ final class TextEditorRendererTests: XCTestCase {
         XCTAssertEqual(runs(node), shown, "and nothing of the shown text")
     }
 
+    func testAClickOnALinkOpensIt() throws {
+        let node = try render(#""markdown": "Go to [the site](https://example.com/a) now", "frame": {"width": 300, "height": 100}"#)
+        let window = gtk_window_new()!
+        defer { gtk_window_destroy(typed(window)) }
+        gtk_window_set_child(typed(window), node.outerWidget)
+        defer { gtk_window_set_child(typed(window), nil) }
+        gtk_window_present(typed(window))
+        let textView = view(node)
+        let widget: WidgetPointer = typed(textView)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(widget) != 0 }))
+        var opened: [String] = []
+        let open = TextEditor.openURI
+        TextEditor.openURI = { uri, _ in opened.append(uri) }
+        defer { TextEditor.openURI = open }
+
+        // A point in a character, `tenths` of its width in from its leading edge, in the text
+        // view's coordinates.
+        func point(_ offset: Int, tenths: Int32 = 5) -> (Double, Double) {
+            var position = GtkTextIter()
+            gtk_text_buffer_get_iter_at_offset(buffer(node), &position, Int32(offset))
+            var rect = GdkRectangle()
+            gtk_text_view_get_iter_location(textView, &position, &rect)
+            var x: Int32 = 0
+            var y: Int32 = 0
+            gtk_text_view_buffer_to_window_coords(textView, GTK_TEXT_WINDOW_WIDGET, rect.x + rect.width * tenths / 10, rect.y + rect.height / 2, &x, &y)
+            return (Double(x), Double(y))
+        }
+        func link(_ point: (Double, Double)) -> String? {
+            TextEditor.link(at: point.0, point.1, in: widget)?.absoluteString
+        }
+        let site = point(8)
+        XCTAssertEqual(link(site), "https://example.com/a")
+        XCTAssertNil(link(point(1)), "not on the plain text")
+        XCTAssertNil(link((290, site.1)), "not past the line's end")
+        // The link is "the site", characters 6 to 13: the character under the point counts, not
+        // the caret position nearest to it.
+        XCTAssertNil(link(point(5, tenths: 8)), "not on the right half of the character before the link")
+        XCTAssertEqual(link(point(13, tenths: 8)), "https://example.com/a", "on the right half of the link's last character")
+        TextEditor.clickReleased(widget, site.0, site.1)
+        XCTAssertEqual(opened, ["https://example.com/a"])
+
+        var start = GtkTextIter()
+        var end = GtkTextIter()
+        gtk_text_buffer_get_bounds(buffer(node), &start, &end)
+        gtk_text_buffer_select_range(buffer(node), &start, &end)
+        TextEditor.clickReleased(widget, site.0, site.1)
+        XCTAssertEqual(opened.count, 1, "a drag that selected text opens nothing")
+    }
+
     func testReadOnlyIsNotEditable() throws {
         let node = try render(#""text": "Fixed", "readOnly": true"#)
         XCTAssertEqual(gtk_text_view_get_editable(view(node)), 0)

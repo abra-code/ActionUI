@@ -8,6 +8,8 @@
  - Typed text, a new line included, takes the style of the character before it, at the start of
    the text that of the first character, and typed over a selection that of the selection's first
    character. A link is continued only inside it: text typed right after its end is plain.
+ - A click on a link opens it in the default browser (NSWorkspace, not SwiftUI's openURL), and
+   the pointer is a pointing hand over it. The TextEditor does that on GTK, with this buffer's links.
 */
 
 #if canImport(FoundationEssentials)
@@ -39,6 +41,11 @@ private let markdownBufferKey = AttachKey<MarkdownBuffer>("actionui-markdown-buf
         let made = MarkdownBuffer(buffer)
         attach(made, to: UnsafeMutableRawPointer(buffer), key: markdownBufferKey)
         return made
+    }
+
+    /// The buffer's markdown styles, if it has them (a TextEditor with markdown).
+    static func existing(_ buffer: UnsafeMutablePointer<GtkTextBuffer>) -> MarkdownBuffer? {
+        attached(on: UnsafeMutableRawPointer(buffer), key: markdownBufferKey)
     }
 
     private init(_ buffer: UnsafeMutablePointer<GtkTextBuffer>) {
@@ -120,6 +127,12 @@ private let markdownBufferKey = AttachKey<MarkdownBuffer>("actionui-markdown-buf
             start = next
         }
         return result
+    }
+
+    /// The link of the character at `offset`, if it is in one.
+    func link(at offset: Int) -> URL? {
+        var position = iter(offset)
+        return linkTags.first { gtk_text_iter_has_tag(&position, $0.tag) != 0 }?.url
     }
 
     // MARK: Typing
