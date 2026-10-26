@@ -19,7 +19,7 @@
 
 import CAdwaita
 import Dispatch
-import Foundation
+import FoundationEssentials
 import Glibc
 import ActionUI
 
@@ -49,7 +49,7 @@ while let argument = arguments.popFirst() {
             exit(64)
         }
         guard let data = FileManager.default.contents(atPath: path),
-              let rows = (try? JSONSerialization.jsonObject(with: data)) as? [[String]] else {
+              let rows = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [[String]] else {
             print("ActionUIAdwaitaViewer: \(path) is not a JSON array of rows of strings")
             exit(66)
         }
