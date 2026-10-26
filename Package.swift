@@ -392,7 +392,8 @@ Package(
 // Linux: GTK 4, libadwaita and libsoup 3 from the system (libgtk-4-dev, libadwaita-1-dev,
 // libsoup-3.0-dev and pkg-config to build), never bundled; the version floors are in
 // ActionUIAdwaita/CAdwaita/CAdwaita.h and ActionUIAdwaita/CSoup/CSoup.h. At run time https URLs
-// also need glib-networking (installed with GNOME).
+// also need glib-networking (installed with GNOME). WebView needs WebKitGTK 6.0 (libwebkitgtk-6.0-4),
+// loaded at run time only when a WebView is shown, so it is an app's dependency, not ActionUI's.
 func linuxPackage() -> Package {
 Package(
     name: "ActionUI",
