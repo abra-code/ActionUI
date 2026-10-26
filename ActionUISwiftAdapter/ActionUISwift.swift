@@ -21,6 +21,9 @@ import Foundation
 @MainActor
 public struct ActionUISwift {
     private static let model = ActionUI.ActionUIModel.shared
+
+    /// ActionUI's version, such as "0.9.0" (the release's tag without its "v").
+    nonisolated public static var version: String { ActionUIVersion.string }
     
     /// Sets a custom logger for ActionUI to handle debugging and error reporting.
     /// - Parameter logger: A client-provided logger conforming to ActionUILogger.

@@ -367,7 +367,7 @@ python3 -m build --wheel
 # Or with an explicit plat-name:
 python3 setup.py bdist_wheel --plat-name macosx_14_6_arm64
 
-pip3 install dist/actionui-1.0.0-*.whl
+pip3 install dist/actionui-*.whl
 ```
 
 No ActionUI frameworks need to be shipped with or installed alongside the wheel.

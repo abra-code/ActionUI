@@ -103,7 +103,7 @@ typedef enum {
 // return means failure or nothing found, and actionUIGetLastError says which.
 
 // Library, errors and logging
-char *actionUIGetVersion(void) ACTIONUI_NOEXCEPT;
+char *actionUIGetVersion(void) ACTIONUI_NOEXCEPT;  // ActionUI's version, such as "0.9.0"
 char *actionUIGetLastError(void) ACTIONUI_NOEXCEPT;
 void actionUIClearError(void) ACTIONUI_NOEXCEPT;
 void actionUIFreeString(char *str) ACTIONUI_NOEXCEPT;

@@ -92,6 +92,9 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
 /// All methods are @MainActor to align with ActionUIModel's concurrency model.
 @objc public class ActionUIObjC: NSObject {
     @MainActor private static let model = ActionUIModel.shared
+
+    /// ActionUI's version, such as "0.9.0" (the release's tag without its "v").
+    @objc public class var versionString: NSString { ActionUIVersion.string as NSString }
     
     /// Sets a custom logger for ActionUI to handle debugging and error reporting.
     /// - Parameter logger: A client-provided logger conforming to ActionUIObjCLogger.

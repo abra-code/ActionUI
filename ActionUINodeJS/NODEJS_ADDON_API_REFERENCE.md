@@ -395,7 +395,7 @@ actionui.ButtonRole.DESTRUCTIVE  // 'destructive'
 ### Module-level helpers
 
 ```js
-actionui.getVersion()    // '1.0.0'
+actionui.getVersion()    // ActionUI's version, such as '0.9.0'
 actionui.getLastError()  // string or null
 actionui.clearError()
 ```

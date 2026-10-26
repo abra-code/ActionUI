@@ -1,6 +1,6 @@
 {
   "name": "actionui-web",
-  "version": "0.0.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "description": "ActionUI Web renderer (vanilla ES modules, no build step). The library and demo ship with ZERO runtime dependencies and load directly in the browser. This package.json exists only for the development-only test suite.",

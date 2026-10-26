@@ -28,7 +28,8 @@ For build instructions see **BUILD.md**.
 
 ```c
 char* actionUIGetVersion(void);
-// Returns heap string "1.0.0".  Free with actionUIFreeString().
+// Returns ActionUI's version as a heap string, such as "0.9.0" (the release tag
+// without its "v"). Free with actionUIFreeString().
 ```
 
 ### Logging

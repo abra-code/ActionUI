@@ -126,9 +126,10 @@ private func actionStrdup(_ str: String) -> UnsafeMutablePointer<CChar>? {
 
 // MARK: - Version Info
 
+/// ActionUI's version (ActionUIVersion.string), such as "0.9.0". Free with actionUIFreeString.
 @_cdecl("actionUIGetVersion")
 public func actionUIGetVersion() -> UnsafeMutablePointer<CChar>? {
-    return actionStrdup("1.0.0")
+    return actionStrdup(ActionUIVersion.string)
 }
 
 // MARK: - Logging

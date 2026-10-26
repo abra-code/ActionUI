@@ -22,7 +22,7 @@ package structure and product choices.
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/abra-code/ActionUI", from: "1.0.0"),
+    .package(url: "https://github.com/abra-code/ActionUI", from: "0.9.0"),
 ],
 targets: [
     .target(
