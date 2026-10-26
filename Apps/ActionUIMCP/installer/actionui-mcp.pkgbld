@@ -1,149 +1,164 @@
 {
-  "COMPONENTS": [
+  "COMPONENTS" : [
     {
-      "AUTH": "Root",
-      "DESCRIPTION": "",
-      "IDENTIFIER": "com.abracode.pkg.actionui-mcp",
-      "INSTALL_LOCATION": "/",
-      "OVERWRITE_PERMISSIONS": false,
-      "PAYLOAD": [
+      "TITLE" : "",
+      "OVERWRITE_PERMISSIONS" : false,
+      "PAYLOAD" : [
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/actionui-mcp",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/actionui-mcp",
-          "VERIFY": {
-            "ARCHITECTURES": [
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/actionui-mcp",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/actionui-mcp",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
               "x86_64",
               "arm64"
             ],
-            "HARDENED_RUNTIME": true,
-            "SECURE_TIMESTAMP": true,
-            "SIGNED_BY": "Developer ID Application",
-            "VERSION_FLAG": "--version"
+            "VERSION_FLAG" : "--version",
+            "HARDENED_RUNTIME" : true,
+            "SECURE_TIMESTAMP" : true,
+            "SIGNED_BY" : "Developer ID Application"
           }
         },
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/ActionUI_ActionUIVerifier.bundle",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/ActionUI_ActionUIVerifier.bundle",
-          "VERIFY": {
-            "ARCHITECTURES": [],
-            "HARDENED_RUNTIME": false,
-            "SECURE_TIMESTAMP": false,
-            "SIGNED_BY": "",
-            "VERSION_FLAG": ""
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUI_ActionUIVerifier.bundle",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUI_ActionUIVerifier.bundle",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
           }
         },
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/ActionUI_ActionUIDocumentation.bundle",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/ActionUI_ActionUIDocumentation.bundle",
-          "VERIFY": {
-            "ARCHITECTURES": [],
-            "HARDENED_RUNTIME": false,
-            "SECURE_TIMESTAMP": false,
-            "SIGNED_BY": "",
-            "VERSION_FLAG": ""
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUI_ActionUIDocumentation.bundle",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUI_ActionUIDocumentation.bundle",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
           }
         },
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle",
-          "VERIFY": {
-            "ARCHITECTURES": [],
-            "HARDENED_RUNTIME": false,
-            "SECURE_TIMESTAMP": false,
-            "SIGNED_BY": "",
-            "VERSION_FLAG": ""
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
           }
         },
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/ActionUIDiff_ActionUIDiffDocumentation.bundle",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/ActionUIDiff_ActionUIDiffDocumentation.bundle",
-          "VERIFY": {
-            "ARCHITECTURES": [],
-            "HARDENED_RUNTIME": false,
-            "SECURE_TIMESTAMP": false,
-            "SIGNED_BY": "",
-            "VERSION_FLAG": ""
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIDiff_ActionUIDiffDocumentation.bundle",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIDiff_ActionUIDiffDocumentation.bundle",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
           }
         },
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/ActionUICachedImage_ActionUICachedImageDocumentation.bundle",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/ActionUICachedImage_ActionUICachedImageDocumentation.bundle",
-          "VERIFY": {
-            "ARCHITECTURES": [],
-            "HARDENED_RUNTIME": false,
-            "SECURE_TIMESTAMP": false,
-            "SIGNED_BY": "",
-            "VERSION_FLAG": ""
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUICachedImage_ActionUICachedImageDocumentation.bundle",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUICachedImage_ActionUICachedImageDocumentation.bundle",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
           }
         },
         {
-          "DESTINATION": "/usr/local/libexec/actionui-mcp/ActionUIRichText_ActionUIRichTextDocumentation.bundle",
-          "GROUP": "wheel",
-          "MODE": "0755",
-          "OWNER": "root",
-          "SOURCE": "${ARTIFACTS_DIR}/ActionUIRichText_ActionUIRichTextDocumentation.bundle",
-          "VERIFY": {
-            "ARCHITECTURES": [],
-            "HARDENED_RUNTIME": false,
-            "SECURE_TIMESTAMP": false,
-            "SIGNED_BY": "",
-            "VERSION_FLAG": ""
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIRichText_ActionUIRichTextDocumentation.bundle",
+          "OWNER" : "root",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIRichText_ActionUIRichTextDocumentation.bundle",
+          "GROUP" : "wheel",
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
           }
         }
       ],
-      "POSTINSTALL": "",
-      "PREINSTALL": "",
-      "RELOCATABLE": false,
-      "SELECTED": true,
-      "TITLE": "",
-      "VERSION": ""
+      "PREINSTALL" : "",
+      "DESCRIPTION" : "",
+      "IDENTIFIER" : "com.abracode.pkg.actionui-mcp",
+      "INSTALL_LOCATION" : "\/",
+      "POSTINSTALL" : "",
+      "SELECTED" : true,
+      "VERSION" : "",
+      "ADD_TO_PATH" : "",
+      "RELOCATABLE" : false,
+      "AUTH" : "Root"
     }
   ],
-  "DISTRIBUTION": {
-    "CUSTOMIZE": "never",
-    "HOST_ARCHITECTURES": [
+  "DISTRIBUTION" : {
+    "RESOURCES" : {
+      "BACKGROUND" : "",
+      "CONCLUSION" : "",
+      "LICENSE" : "${PROJECT_DIR}\/..\/..\/..\/LICENSE.txt",
+      "WELCOME" : "${PROJECT_DIR}\/resources\/welcome.txt",
+      "README" : ""
+    },
+    "HOST_ARCHITECTURES" : [
       "arm64",
       "x86_64"
     ],
-    "REQUIRE_SCRIPTS": false,
-    "RESOURCES": {
-      "BACKGROUND": "",
-      "CONCLUSION": "",
-      "LICENSE": "${PROJECT_DIR}/../../../LICENSE.txt",
-      "README": "",
-      "WELCOME": "${PROJECT_DIR}/resources/welcome.txt"
-    },
-    "TITLE": "ActionUI MCP server"
+    "CUSTOMIZE" : "never",
+    "REQUIRE_SCRIPTS" : false,
+    "DOMAIN" : "system",
+    "TITLE" : "ActionUI MCP server"
   },
-  "FORMAT_VERSION": 1,
-  "PROJECT": {
-    "ARTIFACTS_DIR": "artifacts",
-    "MIN_OS_VERSION": "14.6",
-    "NAME": "actionui-mcp",
-    "OUTPUT_DIR": "dist",
-    "PACKAGE_NAME": "${NAME}_${VERSION}.pkg",
-    "VERSION": "0.2.0"
+  "FORMAT_VERSION" : 1,
+  "PROJECT" : {
+    "NAME" : "actionui-mcp",
+    "OUTPUT_DIR" : "dist",
+    "PACKAGE_NAME" : "${NAME}_${VERSION}.pkg",
+    "VERSION" : "0.2.1",
+    "ARTIFACTS_DIR" : "artifacts",
+    "MIN_OS_VERSION" : "14.6"
   },
-  "SIGNING": {
-    "ENABLED": true,
-    "INSTALLER_IDENTITY": ""
+  "SIGNING" : {
+    "ENABLED" : true,
+    "APPLICATION_IDENTITY" : "Developer ID Application: Tomasz Kukielka (T9NM2ZLDTY)",
+    "INSTALLER_IDENTITY" : "Developer ID Installer: Tomasz Kukielka (T9NM2ZLDTY)"
   }
 }
