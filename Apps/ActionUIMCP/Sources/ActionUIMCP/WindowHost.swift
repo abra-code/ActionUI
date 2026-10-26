@@ -119,6 +119,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         if rejectLoadErrors && !errors.isEmpty {
             if let file = loaded.file { try? FileManager.default.removeItem(at: file) }
+            forgetModel(windowID)
             throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))
         }
         let controller = loaded.controller
@@ -165,9 +166,10 @@ final class WindowHost: NSObject, NSWindowDelegate {
     }
 
     /// Loads a document without showing it, for validate_document. Returns what ActionUI logged.
-    /// Note: ActionUI keeps the model of every loaded document for the life of the process.
     func check(document: [String: Any]) throws -> (errors: [String], warnings: [String]) {
-        let loaded = try load(document: document, windowID: UUID().uuidString)
+        let windowID = UUID().uuidString
+        let loaded = try load(document: document, windowID: windowID)
+        forgetModel(windowID)
         return (loaded.entries.filter { $0.level == .error }.map(\.message),
                 loaded.entries.filter { $0.level == .warning }.map(\.message))
     }
@@ -235,7 +237,19 @@ final class WindowHost: NSObject, NSWindowDelegate {
         if eventQueues[windowID] != nil {
             enqueue(window: windowID, action: "window.closed", viewID: 0, part: 0, value: nil, context: nil)
         }
+        forgetModel(windowID)
         updateActivationPolicy()
+    }
+
+    /// Removes a window's ActionUI model once its window is gone, so a long session does not keep
+    /// every document it showed, rendered or validated. After this turn of the run loop: views
+    /// still updating as the window closes find their model. Every value an agent gets is read
+    /// before the window closes (dialog results, events, a kept window's snapshot), and get_values
+    /// refuses a closed window.
+    func forgetModel(_ windowID: String) {
+        DispatchQueue.main.async {
+            ActionUISwift.removeWindow(windowUUID: windowID)
+        }
     }
 
     /// A Dock icon and menu bar only while there is a window or panel to click.

@@ -313,6 +313,10 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         controllers[id] = nil
         if windows.isEmpty {
             DispatchQueue.main.async { NSApp.terminate(nil) }
+        } else {
+            // A keeper can run for days: the closed window's model goes with it, after this turn,
+            // as the server does.
+            DispatchQueue.main.async { ActionUISwift.removeWindow(windowUUID: id) }
         }
     }
 

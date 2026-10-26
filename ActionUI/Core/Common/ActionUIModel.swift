@@ -43,10 +43,19 @@ public class ActionUIModel {
 
     /// UUIDs of every window that currently has a model, sorted for stable output.
     /// A window gets a model when a description is loaded for it and loses it when
-    /// the window is unregistered; the list is the only way for a client that did
+    /// the host removes it (removeWindow); the list is the only way for a client that did
     /// not create the windows itself (a remote binding, a test harness) to discover them.
     public var windowUUIDs: [String] {
         return windowModels.keys.sorted()
+    }
+
+    /// Forgets a window's model: its loaded description and every element's value and states. For
+    /// a host whose window is gone, so a long-running host does not keep every window it ever
+    /// showed. Afterwards the window is unknown, as one never loaded (hasWindow is false, values
+    /// read nil); loading a description for the UUID again starts a new model. An unknown UUID is
+    /// ignored.
+    public func removeWindow(_ windowUUID: String) {
+        windowModels[windowUUID] = nil
     }
 
     /// True when a window model exists for windowUUID. Unlike getElementInfo, which returns

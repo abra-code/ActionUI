@@ -49,7 +49,9 @@ extension WindowHost {
     /// activated (the user keeps focus), so controls draw in their inactive style; the layout is
     /// the same as in a shown window. Returns the capture and the warnings ActionUI logged.
     func renderDocument(_ document: JSONValue, size: NSSize?, delay: Double) async throws -> (Screenshot, [String]) {
-        let loaded = try load(document: document.any as? [String: Any] ?? [:], windowID: UUID().uuidString)
+        let windowID = UUID().uuidString
+        let loaded = try load(document: document.any as? [String: Any] ?? [:], windowID: windowID)
+        defer { forgetModel(windowID) }
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
             throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))

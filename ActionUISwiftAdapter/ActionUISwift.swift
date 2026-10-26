@@ -232,6 +232,14 @@ public struct ActionUISwift {
         return model.windowUUIDs
     }
 
+    /// Forgets a window's model (its description, values and states) once the window is gone, so a
+    /// long-running host does not keep every window it ever showed. Afterwards the window is
+    /// unknown, as one never loaded. An unknown UUID is ignored.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    public static func removeWindow(windowUUID: String) {
+        model.removeWindow(windowUUID)
+    }
+
     /// Returns true when a window model exists for the given UUID.
     /// - Parameter windowUUID: Unique identifier for the window.
     public static func hasWindow(windowUUID: String) -> Bool {

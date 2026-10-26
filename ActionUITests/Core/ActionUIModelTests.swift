@@ -917,6 +917,31 @@ final class ActionUIModelTests: XCTestCase {
         XCTAssertFalse(model.hasWindow("no-such-window"))
     }
 
+    func testRemoveWindowForgetsTheModel() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementValue(windowUUID: windowUUID, viewID: 1, value: true)
+        model.removeWindow(windowUUID)
+        XCTAssertEqual(model.windowUUIDs, [])
+        XCTAssertFalse(model.hasWindow(windowUUID))
+        XCTAssertNil(model.getElementValue(windowUUID: windowUUID, viewID: 1))
+        model.removeWindow("no-such-window")
+        try loadToggleElement()
+        XCTAssertTrue(model.hasWindow(windowUUID), "loading again starts a new model")
+    }
+
+    func testRemoveWindowLeavesOtherWindows() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        let other = "other-window"
+        _ = try model.loadDescription(from: ["id": 1, "type": "Toggle", "properties": ["title": "Other"]], windowUUID: other)
+        model.setElementValue(windowUUID: other, viewID: 1, value: true)
+        model.removeWindow(windowUUID)
+        XCTAssertEqual(model.windowUUIDs, [other])
+        XCTAssertEqual(model.getElementValue(windowUUID: other, viewID: 1) as? Bool, true)
+        model.removeWindow(other)
+    }
+
     func testWindowUUIDsSortedForTwoWindows() throws {
         let elementDict: [String: Any] = [
             "id": 1,

@@ -24,11 +24,14 @@ final class Notice {
     let panel: NSPanel
     /// Owns the SwiftUI tree.
     let controller: NSViewController
+    /// The ActionUI window its document was loaded for, whose model goes with the notice.
+    let windowID: String
     var dismissTask: Task<Void, Never>?
 
-    init(panel: NSPanel, controller: NSViewController) {
+    init(panel: NSPanel, controller: NSViewController, windowID: String) {
         self.panel = panel
         self.controller = controller
+        self.windowID = windowID
     }
 }
 
@@ -54,9 +57,11 @@ extension WindowHost {
             "properties": ["alignment": "leading", "spacing": 4, "padding": 14, "frame": ["width": Self.noticeWidth]],
             "children": children,
         ]
-        let loaded = try load(document: document, windowID: UUID().uuidString)
+        let windowID = UUID().uuidString
+        let loaded = try load(document: document, windowID: windowID)
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
+            forgetModel(windowID)
             throw MCPToolError("the notice could not be shown:\n" + errors.prefix(5).joined(separator: "\n"))
         }
         let size = NSSize(width: Self.noticeWidth, height: max(loaded.fitting.height, 40))
@@ -87,7 +92,7 @@ extension WindowHost {
         background.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(noticeClicked(_:))))
         panel.contentView = background
 
-        let notice = Notice(panel: panel, controller: loaded.controller)
+        let notice = Notice(panel: panel, controller: loaded.controller, windowID: windowID)
         notices.append(notice)
         // Older notices below the bottom of the screen would never be seen.
         while notices.count > Self.maxNotices || (notices.count > 1 && !noticesFitOnScreen) {
@@ -115,6 +120,7 @@ extension WindowHost {
         notices.remove(at: index)
         notice.dismissTask?.cancel()
         notice.panel.close()
+        forgetModel(notice.windowID)
         layOutNotices()
     }
 
