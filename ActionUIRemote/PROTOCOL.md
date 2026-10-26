@@ -140,6 +140,7 @@ Setters return `true` so that a batch reply is easy to scan.
 | `actionui.hello` | none | `{"protocolVersion":1,"host":{"name","version"},"methods":[...sorted],"windows":[...sorted]}` |
 | `actionui.listWindows` | none | `[uuid...]`, sorted |
 | `actionui.getElementInfo` | window | `{"<id>":"<Type>",...}` for positive ids |
+| `actionui.removeWindow` | window | `true`; forgets the window's model once the client is done with it, an unknown window is ignored (no `1001`) |
 | `actionui.getValue` | window, viewID, viewPartID? | value or null |
 | `actionui.setValue` | window, viewID, viewPartID?, value | `true` |
 | `actionui.getValueString` | window, viewID, viewPartID?, contentType? | string or null |
@@ -179,6 +180,9 @@ Notes:
 - Selection methods are programmatic and fire no action.
 - Unknown window and unknown view are checked before every element call, so `1001`/`1002` are
   reported even for methods the engine would otherwise treat as a silent no-op.
+- `removeWindow` is the one window method that does not check for an unknown window: the host
+  forgets the window's model (its loaded description and every element's value and state), and a
+  window it does not know is ignored. Afterwards the window is unknown, as one never loaded.
 
 ## 8. Host extension methods
 

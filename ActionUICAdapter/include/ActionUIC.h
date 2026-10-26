@@ -139,6 +139,9 @@ bool actionUISetElementStateFromString(const char *windowUUID, int64_t viewID, c
 char *actionUIGetElementStateString(const char *windowUUID, int64_t viewID, const char *key) ACTIONUI_NOEXCEPT;
 char *actionUIGetElementInfoJSON(const char *windowUUID) ACTIONUI_NOEXCEPT;
 
+// Windows
+void actionUIRemoveWindow(const char *windowUUID) ACTIONUI_NOEXCEPT;  // forgets a closed window's model
+
 // Rows and selection (Table, List)
 bool actionUISetElementRowsJSON(const char *windowUUID, int64_t viewID, const char *rowsJSON) ACTIONUI_NOEXCEPT;
 bool actionUIAppendElementRowsJSON(const char *windowUUID, int64_t viewID, const char *rowsJSON) ACTIONUI_NOEXCEPT;

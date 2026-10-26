@@ -173,6 +173,10 @@ Host: `actionui_hello`, `actionui_windows`, `actionui_call METHOD [PARAMS_JSON]`
 
 Discovery: `actionui_elements` (alias `actionui_get_element_info`), `actionui_content_size_limits`.
 
+Window model: `actionui_remove_window` makes the host forget the window's model (its loaded
+description and every element's value and state) once you are done with the window. Afterwards the
+window is unknown, as one never loaded; removing an unknown window is ignored.
+
 Values: `actionui_get_value VIEWID [PART]`, `actionui_set_value VIEWID JSON [PART]`,
 `actionui_get_string VIEWID [PART] [CONTENT_TYPE]`, `actionui_set_string VIEWID TEXT [PART] [CONTENT_TYPE]`,
 `actionui_get_int`, `actionui_set_int VIEWID N [PART]`, `actionui_get_double`,

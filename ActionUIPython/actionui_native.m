@@ -1148,6 +1148,20 @@ static PyObject* py_get_content_size_limits(PyObject* self, PyObject* args) {
     return NULL;
 }
 
+// MARK: - Python API: Window Model
+
+/*
+ * Forgets a window's model (loaded description, element values and states)
+ * once the host is done with the window. An unknown windowUUID is ignored.
+ */
+static PyObject* py_remove_window(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    if (PyArg_ParseTuple(args, "s", &windowUUID) == 0)
+        return NULL;
+    actionUIRemoveWindow(windowUUID);
+    Py_RETURN_NONE;
+}
+
 // MARK: - Module Definition
 
 static PyMethodDef ActionUIMethods[] = {
@@ -1253,6 +1267,9 @@ static PyMethodDef ActionUIMethods[] = {
      "get_content_size_limits(windowUUID) -> (min_w, min_h, max_w, max_h)\n"
      "Size limits of the loaded root element content; min == max means fixed size.\n"
      "Raises RuntimeError for an unknown window."},
+    {"remove_window",               py_remove_window,               METH_VARARGS,
+     "remove_window(windowUUID)\n"
+     "Forgets the window's model once the host is done with it; an unknown window is ignored."},
 
     /* App lifecycle — handler registration */
     {"app_set_will_finish_launching", py_app_set_will_finish_launching, METH_VARARGS,

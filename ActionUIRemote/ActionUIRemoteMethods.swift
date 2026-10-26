@@ -43,6 +43,12 @@ enum ActionUIRemoteMethods {
             }
             return info
         }
+        // An unknown window is ignored, as in every adapter, so a second call is harmless.
+        table["actionui.removeWindow"] = { raw in
+            let p = Params(raw)
+            model.removeWindow(try p.string("window"))
+            return true
+        }
 
         // MARK: Values
 

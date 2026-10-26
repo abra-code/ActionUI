@@ -114,6 +114,14 @@
             });
         },
 
+        // Forget a window's model once the host is done with the window (fire-and-forget)
+        removeWindow: function(windowUUID) {
+            window.webkit.messageHandlers.actionUI.postMessage({
+                method: 'removeWindow',
+                args: [windowUUID]
+            });
+        },
+
         // Clear the Table/List selection (fire-and-forget)
         clearElementSelection: function(windowUUID, viewID) {
             window.webkit.messageHandlers.actionUI.postMessage({

@@ -606,6 +606,22 @@ t_eq "CLI rejects 00.9 as a timeout" 2 "$_t_rc"
 _t_out=$(t_cli --help 2>"$_t_err"); _t_rc=$?
 t_eq "CLI --help exits 0" 0 "$_t_rc"
 
+# --- removing a window --------------------------------------------------------------------------
+
+t_run actionui_remove_window
+t_eq "remove_window exits 0 and prints nothing" "0:" "$_t_rc:$_t_out"
+t_contains "remove_window sends the method" '"method": "actionui.removeWindow"' "$(/usr/bin/tail -n 1 "$_t_log")"
+t_run actionui_windows
+t_eq "the window is gone from the host" "" "$_t_out"
+t_run actionui_get_value 2
+t_eq "and is unknown afterwards" 1 "$_t_rc"
+t_contains "with the unknown window code" "[1001]" "$_t_stderr"
+t_run actionui_remove_window
+t_eq "removing it again is ignored" 0 "$_t_rc"
+# The sections below need the fixture window again.
+t_stop_host
+cd "$_t_python_dir" && t_start_host && cd "$_t_here"
+
 # --- the host restarting (persistent connection) -----------------------------------------------
 
 if [ "$_t_transport" = "zsocket" ]; then

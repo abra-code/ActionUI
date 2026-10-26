@@ -174,6 +174,17 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertEqual(info["11"], "Text")
     }
 
+    func testRemoveWindowForgetsTheWindowAndIgnoresAnUnknownOne() throws {
+        XCTAssertEqual(try call("actionui.removeWindow", windowParams()) as? Bool, true)
+        XCTAssertFalse(ActionUIModel.shared.hasWindow(windowUUID))
+        XCTAssertEqual(try call("actionui.listWindows") as? [String], [])
+        assertFailure("actionui.getElementInfo", windowParams(), code: 1001)
+
+        XCTAssertEqual(try call("actionui.removeWindow", windowParams()) as? Bool, true)
+        XCTAssertEqual(try call("actionui.removeWindow", ["window": "nope"]) as? Bool, true)
+        assertFailure("actionui.removeWindow", [:], code: -32602)
+    }
+
     // MARK: - Values, strings, properties, state
 
     func testSetAndGetValueRoundTripAndEngineAgreement() throws {

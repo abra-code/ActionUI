@@ -328,6 +328,16 @@ const info = win.getElementInfo()
 // { 2: 'TextField', 3: 'Button', ... }  — positive view IDs only
 ```
 
+#### Window model
+
+```js
+win.removeWindow()
+// Forget the window's model (loaded description, element values and states)
+// once the host is done with the window. Afterwards the window is unknown, as
+// one never loaded: getElementInfo() is {} and values read null. Loading a
+// description for the same UUID starts a new model.
+```
+
 #### Modal dialogs
 
 ```js
@@ -476,6 +486,9 @@ native.dismissToast(uuid)
 native.loadHostingController(url, uuid, isContentView)
 // Size limits of the loaded root element content; throws for an unknown window
 native.getContentSizeLimits(uuid) // -> { minWidth, minHeight, maxWidth, maxHeight }
+
+// Window model: forget the window's model once the host is done with it (unknown uuid ignored)
+native.removeWindow(uuid)
 
 // Lifecycle setters (pass null to deregister)
 native.appSetWillFinishLaunching(fn)

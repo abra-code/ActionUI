@@ -862,6 +862,19 @@ public func actionUIGetElementInfoJSON(
     return actionStrdup(json)
 }
 
+// MARK: - Windows
+
+/// Forgets a window's model (its description, values and states) once the host is done with the
+/// window, so a long-running host does not keep every window it ever showed. Afterwards the window
+/// is unknown, as one never loaded. An unknown UUID is ignored. Returns when the model is gone.
+@_cdecl("actionUIRemoveWindow")
+public func actionUIRemoveWindow(_ windowUUID: UnsafePointer<CChar>) {
+    let swiftWindowUUID = String(cString: windowUUID)
+    runOnMainActorSync {
+        ActionUIModel.shared.removeWindow(swiftWindowUUID)
+    }
+}
+
 // MARK: - Type-specific Setters
 
 @_cdecl("actionUISetIntValue")

@@ -213,6 +213,14 @@ def test_element_info(uuid_str):
     print("  element_info: OK")
 
 
+def test_remove_window(uuid_str):
+    assert _actionui.remove_window(uuid_str) is None
+    assert _actionui.remove_window(uuid_str) is None   # unknown window is ignored
+    v = _actionui.get_element_info_json(uuid_str)
+    assert v is None or json.loads(v) == {}
+    print("  remove_window: OK")
+
+
 def test_noop_calls(uuid_str):
     vid = 99
     vpid = 0
@@ -288,6 +296,7 @@ def main():
     test_element_property(test_uuid)
     test_element_state(test_uuid)
     test_element_info(test_uuid)
+    test_remove_window(test_uuid)
     test_noop_calls(test_uuid)
     test_modal_noop(test_uuid)
     test_load_hosting_controller(test_uuid)

@@ -441,6 +441,12 @@ async function testAgainstTheFakeHost(directory) {
               JSON.stringify(results));
         check('and the last one wins', (await win.getValue(2)) === 'two');
 
+        check('removeWindow answers true', (await win.removeWindow()) === true);
+        await checkThrows('and the window is unknown afterwards',
+                          () => win.getElementInfo(),
+                          (error) => error instanceof aui.RemoteError && error.code === 1001);
+        check('removing it again is ignored', (await win.removeWindow()) === true);
+
         connection.close();
         check('close leaves the connection unconnected', connection.isConnected === false);
     } finally {

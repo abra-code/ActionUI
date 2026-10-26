@@ -642,6 +642,17 @@ class DiscoveryTests(FakeHostTestCase):
     def test_get_element_info_keys_are_integers(self):
         self.assertEqual(self.win.get_element_info(), FIXTURE)
 
+    def test_remove_window_forgets_the_window(self):
+        self.assertTrue(self.win.remove_window())
+        self.assertEqual(self.connection.call("actionui.listWindows"), [])
+        with self.assertRaises(aui.RemoteError) as caught:
+            self.win.get_element_info()
+        self.assertEqual(caught.exception.code, 1001)
+
+    def test_remove_window_ignores_an_unknown_window(self):
+        self.assertTrue(self.win.remove_window())
+        self.assertTrue(self.win.remove_window())
+
     def test_content_size_limits_is_none_when_the_host_does_not_render(self):
         # A documented divergence: the fake models no layout, so it always answers null.
         self.assertIsNone(self.win.content_size_limits())
@@ -1102,6 +1113,7 @@ class ErrorTests(FakeHostTestCase):
 BATCH_CALLS = [
     ("get_element_info", (), {}, "actionui.getElementInfo"),
     ("content_size_limits", (), {}, "actionui.contentSizeLimits"),
+    ("remove_window", (), {}, "actionui.removeWindow"),
     ("get_value", (2,), {}, "actionui.getValue"),
     ("set_value", (2, 0, "x"), {}, "actionui.setValue"),
     ("get_string", (2,), {}, "actionui.getValueString"),

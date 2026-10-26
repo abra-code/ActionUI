@@ -65,6 +65,17 @@ impl Window {
         Ok(())
     }
 
+    /// Forgets the window's model (its loaded description and every element's value and
+    /// state). Call it once you are done with the window, after it has closed, so a
+    /// long-running host does not keep every window it ever showed. Afterwards the window is
+    /// unknown, as one never loaded: [`Window::element_info`] is empty and values read as
+    /// `None`. Loading a description for the same identifier starts a new model.
+    pub fn remove_window(&self) -> Result<()> {
+        let uuid = self.uuid_c()?;
+        unsafe { sys::actionUIRemoveWindow(uuid.as_ptr()) };
+        Ok(())
+    }
+
     /// `None` until the window's content has been loaded.
     pub fn content_size_limits(&self) -> Result<Option<ContentSizeLimits>> {
         let uuid = self.uuid_c()?;

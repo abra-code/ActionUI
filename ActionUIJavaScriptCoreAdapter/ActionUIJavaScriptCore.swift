@@ -232,6 +232,12 @@ import AppKit
 ///   - Description: Dismisses the current toast and shows the next queued one if any.
 ///   - Example: `ActionUI.dismissToast("win-123");`
 ///
+/// - `removeWindow(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Forgets the window's model (its description, values and states) once the host is done with the window, so a long-running host does not keep every window it ever showed. Afterwards the window is unknown, as one never loaded. An unknown UUID is ignored.
+///   - Example: `ActionUI.removeWindow("window-12345");`
+///
 /// - `getElementState(windowUUID, viewID, key)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -443,6 +449,12 @@ public class ActionUIJavaScriptCore {
             ActionUIJavaScriptCore.model.setElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName, value: value)
         }
         actionUIObject.setValue(setElementProperty, forProperty: "setElementProperty")
+
+        // removeWindow(windowUUID)
+        let removeWindow: @convention(block) (String) -> Void = { windowUUID in
+            ActionUIJavaScriptCore.model.removeWindow(windowUUID)
+        }
+        actionUIObject.setValue(removeWindow, forProperty: "removeWindow")
 
         // getElementInfo(windowUUID) -> {viewID: elementType, ...}
         let getElementInfo: @convention(block) (String) -> JSValue = { windowUUID in

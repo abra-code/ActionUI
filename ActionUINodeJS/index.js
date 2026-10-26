@@ -210,6 +210,15 @@ class Window {
         return result;
     }
 
+    // Forget this window's model (its loaded description and every element's
+    // value and state) once the host is done with the window, so a long-running
+    // host does not keep every window it ever showed. Afterwards the window is
+    // unknown, as if never loaded: getElementInfo() is empty and values read
+    // null. Loading a description for the same UUID starts a new model.
+    removeWindow() {
+        _actionui.removeWindow(this.uuid);
+    }
+
     // Runtime structural mutations
 
     /**

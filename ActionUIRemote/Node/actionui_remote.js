@@ -706,6 +706,17 @@ class Window {
         return this._invoke('actionui.contentSizeLimits', this._params(), POST.sizeLimits);
     }
 
+    // -- window model
+
+    /**
+     * Ask the host to forget this window's model (its loaded description and every element's
+     * value and state) once you are done with the window. Afterwards the window is unknown,
+     * as one never loaded; an unknown window is ignored, so a second call is harmless.
+     */
+    removeWindow() {
+        return this._invoke('actionui.removeWindow', this._params());
+    }
+
     // -- values
 
     getValue(viewId, viewPartId = 0) {

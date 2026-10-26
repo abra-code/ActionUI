@@ -127,6 +127,9 @@ unsafe extern "C" {
 
     pub fn actionUIGetElementInfoJSON(windowUUID: *const c_char) -> *mut c_char;
 
+    /// Forgets a window's model once the host is done with it. An unknown window is ignored.
+    pub fn actionUIRemoveWindow(windowUUID: *const c_char);
+
     /// Returns a retained `NSHostingController`; the caller owns it. For hosts that
     /// create their own windows. Main thread only.
     pub fn actionUILoadHostingControllerFromURL(urlString: *const c_char, windowUUID: *const c_char, isContentView: bool) -> *mut c_void;

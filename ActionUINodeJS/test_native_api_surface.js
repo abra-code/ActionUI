@@ -222,6 +222,14 @@ function testElementInfo(uuid) {
     check('getElementInfoJSON returns null or parses', v === null || typeof v === 'string');
 }
 
+function testRemoveWindow(uuid) {
+    console.log('\n=== Remove window ===');
+    check('removeWindow returns undefined', native.removeWindow(uuid) === undefined);
+    check('removeWindow of an unknown window is ignored', native.removeWindow(uuid) === undefined);
+    const v = native.getElementInfoJSON(uuid);
+    check('getElementInfoJSON is empty afterwards', v === null || Object.keys(JSON.parse(v)).length === 0);
+}
+
 function testNoopCalls(uuid) {
     console.log('\n=== No-op calls (getters without UI) ===');
     const vid = 99;
@@ -378,6 +386,7 @@ function main() {
     testElementProperty(testUuid);
     testElementState(testUuid);
     testElementInfo(testUuid);
+    testRemoveWindow(testUuid);
     testNoopCalls(testUuid);
     testModalNoop(testUuid);
     testLoadHostingController(testUuid);

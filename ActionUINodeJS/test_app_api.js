@@ -63,6 +63,8 @@ function testNativeAPISurface() {
         'presentToast', 'dismissToast',
         // UI loading
         'loadHostingController',
+        // Window model
+        'removeWindow',
         // App lifecycle setters
         'appSetWillFinishLaunching', 'appSetDidFinishLaunching',
         'appSetWillBecomeActive',    'appSetDidBecomeActive',
@@ -113,7 +115,7 @@ function testJSAPISurface(app, win) {
         'getRows', 'setRows', 'appendRows', 'clearRows',
         'getProperty', 'setProperty',
         'getState', 'getStateString', 'setState', 'setStateFromString',
-        'getElementInfo',
+        'getElementInfo', 'removeWindow',
         'presentModal', 'dismissModal',
         'presentAlert', 'presentConfirmationDialog', 'dismissDialog',
         'presentToast', 'dismissToast',

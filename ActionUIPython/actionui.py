@@ -1098,6 +1098,22 @@ class Window:
         return {int(k): v for k, v in json.loads(raw).items()}
 
     # ------------------------------------------------------------------
+    # Window model
+    # ------------------------------------------------------------------
+
+    def remove_window(self):
+        """
+        Forget this window's model (its loaded description and every element's
+        value and state).
+
+        Call it once the host is done with the window, so a long-running host
+        does not keep every window it ever showed. Afterwards the window is
+        unknown, as if never loaded: get_element_info() is empty and values
+        read None. Loading a description for the same UUID starts a new model.
+        """
+        _actionui.remove_window(self.uuid)
+
+    # ------------------------------------------------------------------
     # Runtime structural mutations
     # ------------------------------------------------------------------
 

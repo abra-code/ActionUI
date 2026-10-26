@@ -148,6 +148,16 @@ char* actionUIGetElementInfoJSON(const char* windowUUID);
 // JSON format: {"2":"TextField","3":"Button",...}  (positive view IDs only)
 ```
 
+### Window model
+
+```c
+void actionUIRemoveWindow(const char* windowUUID);
+// Forgets the window's model (loaded description, element values and states)
+// once the host is done with the window. Afterwards the window is unknown, as
+// one never loaded; loading a description for the UUID again starts a new
+// model. An unknown windowUUID is ignored. Synchronous.
+```
+
 ### UI loading
 
 ```c
@@ -647,6 +657,9 @@ window.set_state_from_string(view_id, "progress", "0.75")
 
 # Element info
 info = window.get_element_info()   # -> {2: "TextField", 3: "Button", ...}
+
+# Forget the window's model once the host is done with it (unknown afterwards)
+window.remove_window()
 
 # Content size limits of the loaded root element (min == max means fixed size)
 limits = window.content_size_limits()  # -> (min_w, min_h, max_w, max_h) or None

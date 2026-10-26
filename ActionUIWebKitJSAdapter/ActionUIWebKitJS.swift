@@ -261,6 +261,12 @@ import AppKit
 ///   - Description: Removes the element with viewID from its parent. Refuses to remove the root element. Cascades ViewModels cleanup. Grid rows are not addressable by id — remove cells individually.
 ///   - Example: `ActionUI.removeElement("window-12345", 10);`
 ///
+/// - `removeWindow(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Forgets the window's model (its description, values and states) once the host is done with the window, so a long-running host does not keep every window it ever showed. Afterwards the window is unknown, as one never loaded. An unknown UUID is ignored.
+///   - Example: `ActionUI.removeWindow("window-12345");`
+///
 /// Design decision: APIs are asynchronous where returns are involved (e.g., getElementValue) due to the WebKit bridge's nature. Complex types (e.g., value in setElementValue) are serialized to JSON. Action handlers and logger are stored as global JavaScript functions and called from native code via evaluateJavaScript. The adapter uses a hidden WKWebView (offscreen) to execute JavaScript, enabling remote script loading while maintaining a native ActionUI experience.
 /// App Store compliance: WKWebView allows loading remote JavaScript as web content, which is permitted under App Store guidelines (Guideline 4.7) as long as the app provides substantial native functionality. Scripts can be bundled or fetched non-executably; avoid arbitrary code execution (e.g., eval of user input).
 
@@ -643,6 +649,12 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 ActionUIWebKitJS.model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
             } else {
                 print("Invalid arguments for setElementProperty: \(args)")
+            }
+        case "removeWindow":
+            if args.count == 1, let windowUUID = args[0] as? String {
+                ActionUIWebKitJS.model.removeWindow(windowUUID)
+            } else {
+                print("Invalid arguments for removeWindow: \(args)")
             }
         case "getElementInfo":
             if args.count == 1, let windowUUID = args[0] as? String {

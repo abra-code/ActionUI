@@ -231,6 +231,14 @@ public struct ActionUICpp {
         model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
     }
 
+    /// Forgets a window's model (its description, values and states) once the host is done with the
+    /// window, so a long-running host does not keep every window it ever showed. Afterwards the
+    /// window is unknown, as one never loaded. An unknown UUID is ignored.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor public static func removeWindow(windowUUID: String) {
+        model.removeWindow(windowUUID)
+    }
+
     /// Returns a dictionary mapping user-assigned (positive) view IDs to their view type strings for a given window.
     /// Auto-assigned negative IDs and ID 0 are excluded.
     /// - Parameter windowUUID: Unique identifier for the window.

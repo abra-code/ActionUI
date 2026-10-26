@@ -1256,6 +1256,22 @@ static napi_value node_get_content_size_limits(napi_env env, napi_callback_info 
     return result;
 }
 
+// MARK: - N-API: Window Model
+
+/*
+ * removeWindow(windowUUID)
+ * Forgets the window's model (loaded description, element values and states)
+ * once the host is done with the window. An unknown windowUUID is ignored.
+ */
+static napi_value node_remove_window(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    actionUIRemoveWindow(uuid);
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
 // MARK: - CFRunLoop / libuv Integration
 //
 // [NSApp run] blocks the main thread inside CFRunLoop.  We install:
@@ -1888,6 +1904,9 @@ static napi_value Init(napi_env env, napi_value exports) {
     /* UI loading */
     EXPORT_FN(exports, "loadHostingController",    node_load_hosting_controller);
     EXPORT_FN(exports, "getContentSizeLimits",     node_get_content_size_limits);
+
+    /* Window model */
+    EXPORT_FN(exports, "removeWindow",             node_remove_window);
 
     /* App lifecycle setters */
     EXPORT_FN(exports, "appSetWillFinishLaunching",node_app_set_will_finish_launching);

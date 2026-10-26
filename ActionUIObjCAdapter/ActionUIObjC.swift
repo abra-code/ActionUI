@@ -288,6 +288,14 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         model.setElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String, value: FoundationBridge.native(value))
     }
 
+    /// Forgets a window's model (its description, values and states) once the host is done with the
+    /// window, so a long-running host does not keep every window it ever showed. Afterwards the
+    /// window is unknown, as one never loaded. An unknown UUID is ignored.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor @objc public class func removeWindowWithWindowUUID(_ windowUUID: NSString) {
+        model.removeWindow(windowUUID as String)
+    }
+
     /// Returns a dictionary mapping user-assigned (positive) view IDs to their ActionUI view type strings for a given window.
     /// Auto-assigned negative IDs and ID 0 are excluded.
     /// - Parameter windowUUID: Unique identifier for the window.
