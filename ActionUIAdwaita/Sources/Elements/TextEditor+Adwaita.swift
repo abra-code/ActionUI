@@ -12,8 +12,8 @@
    SwiftUI renderer lays it over SwiftUI's TextEditor.
  - Its accessible name is accessibilityLabel, else the placeholder.
 
- Not yet: markdown is shown and edited as its source text (Linux has no markdown parser yet; logged
- once).
+ Not yet: markdown is shown and edited as its source text (styled editing, which SwiftUI's TextEditor
+ has from macOS 26, is not built; logged once).
 */
 
 import CAdwaita

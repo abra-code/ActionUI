@@ -1,10 +1,10 @@
 // Tests/Elements/TextRendererTests.swift
 /*
- Tests for the Text renderer on GTK: what the label shows (the text property, markdown's source, a
- runtime String or AttributedString value, one line's height for an empty Text), wrapping (natural
- width one line, also inside a word that does not fit, as SwiftUI does; taller when narrower), the
- alignment and selection from the environment, and the accessible name a removed
- accessibilityLabel gives back.
+ Tests for the Text renderer on GTK: what the label shows (the text property, markdown with its
+ styles and links, a runtime String, AttributedString or markdown value, one line's height for an
+ empty Text), wrapping (natural width one line, also inside a word that does not fit, as SwiftUI
+ does; taller when narrower), the alignment and selection from the environment, and the accessible
+ name a removed accessibilityLabel gives back.
 */
 
 import XCTest
@@ -61,9 +61,48 @@ final class TextRendererTests: XCTestCase {
         XCTAssertEqual(text(node), "Attributed")
     }
 
-    func testMarkdownShowsItsSourceUntilTheParserArrives() throws {
-        let node = try render(#"{"type": "Text", "id": 1, "properties": {"markdown": "**Bold**", "text": "plain"}}"#)
-        XCTAssertEqual(text(node), "**Bold**", "markdown takes precedence over text")
+    func testMarkdownShowsItsStylesAndLinks() throws {
+        let node = try render(#"{"type": "Text", "id": 1, "properties": {"markdown": "**Bold** snake_case [link](https://example.com)", "text": "plain"}}"#)
+        let label = opaque(node.widget)
+        XCTAssertEqual(text(node), "Bold snake_case link", "markdown takes precedence over text")
+        XCTAssertNotEqual(gtk_label_get_use_markup(label), 0)
+        XCTAssertEqual(swiftString(gtk_label_get_label(label)), "<b>Bold</b> snake_case <a href=\"https://example.com\">link</a>")
+        XCTAssertEqual(gtk_widget_get_focusable(node.widget), 0, "a link takes no focus, as in SwiftUI's Text")
+        XCTAssertEqual(ActionUIModel.shared.getElementValueAsString(windowUUID: windowUUID, viewID: 1), "Bold snake_case link",
+                       "the value is the shown text, as on Apple")
+    }
+
+    func testTabPassesATextWithALinkOrSelection() throws {
+        let root = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Button", "id": 2, "properties": {"title": "A"}}, {"type": "Text", "id": 3, "properties": {"markdown": "go [link](https://example.com) x"}}, {"type": "Text", "id": 4, "properties": {"text": "y", "textSelection": "enabled"}}, {"type": "Button", "id": 5, "properties": {"title": "B"}}]}"#)
+        let first = try XCTUnwrap(root.childNodes[2]).widget
+        let last = try XCTUnwrap(root.childNodes[5]).widget
+        let window = gtk_window_new()!
+        defer { gtk_window_destroy(typed(window)) }
+        gtk_window_set_child(typed(window), root.outerWidget)
+        defer { gtk_window_set_child(typed(window), nil) }
+        gtk_window_present(typed(window))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(first) != 0 }))
+        XCTAssertNotEqual(gtk_widget_grab_focus(first), 0)
+        gtk_widget_child_focus(window, GTK_DIR_TAB_FORWARD)
+        XCTAssertEqual(gtk_root_get_focus(OpaquePointer(window)), last, "Tab goes from A to B")
+        gtk_widget_child_focus(window, GTK_DIR_TAB_BACKWARD)
+        XCTAssertEqual(gtk_root_get_focus(OpaquePointer(window)), first, "and back")
+    }
+
+    func testAValueReplacesTheMarkdownAndItsStyles() throws {
+        let node = try render(#"{"type": "Text", "id": 1, "properties": {"markdown": "**a < b**"}}"#)
+        let label = opaque(node.widget)
+        XCTAssertEqual(text(node), "a < b")
+        ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: "a < b")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(text(node), "a < b")
+        XCTAssertEqual(gtk_label_get_use_markup(label), 0, "the same text, plain: the bold is gone")
+        ActionUIModel.shared.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: "*x* & y", contentType: "markdown")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(swiftString(gtk_label_get_label(label)), "<i>x</i> &amp; y", "a value set as markdown")
+        ActionUIModel.shared.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: "*x*")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(text(node), "*x*", "a value set as plain text shows as it is")
     }
 
     func testAnEmptyTextKeepsOneLinesHeight() throws {

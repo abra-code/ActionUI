@@ -7,8 +7,10 @@
  one), and it gets taller as it gets narrower.
 
  - The value (a String or an AttributedString set at run time) takes precedence over the markdown
-   and text properties, as on Apple. Markdown shows as its source text until the markdown parser
-   arrives (FoundationEssentials has none).
+   and text properties, as on Apple. Markdown is shown as SwiftUI's Text shows it (inline styles and
+   links, Markdown/MarkdownText.swift), drawn from Pango markup; its links open in the user's browser
+   through GTK's own handler, as SwiftUI's Text opens them with the system. A label with a link
+   takes no keyboard focus either, as SwiftUI's Text on macOS.
  - An empty Text keeps one line's height, as on Apple. Apple needs a zero-width space for that; an
    empty GtkLabel has it already (measured), and the space would become its accessible name.
  - multilineTextAlignment (from the environment) justifies the lines. Where the wrapped text sits in
@@ -32,13 +34,25 @@ extension Text: ActionUIAdwaitaRenderer {
         let label = gtk_label_new(nil)!
         gtk_label_set_wrap(opaque(label), 1)
         gtk_label_set_wrap_mode(opaque(label), PANGO_WRAP_WORD_CHAR)
+        // Tab passes it by: a selectable label or one with a link, kept unfocusable in update,
+        // would otherwise stop Tab (GtkLabel's focus handler claims it moved focus when it did not).
+        gtk_widget_set_can_focus(label, 0)
         return label
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         let label = opaque(widget)
-        let text = displayedText(node)
-        Gtk.Label(widget).text = text
+        let attributed = displayedAttributedText(node.model.value, node.properties)
+        if let markup = MarkdownText.pangoMarkup(attributed) {
+            if gtk_label_get_use_markup(label) == 0 || swiftString(gtk_label_get_label(label)) != markup {
+                gtk_label_set_markup(label, markup)
+            }
+        } else if gtk_label_get_use_markup(label) != 0 {
+            // Its text matches the plain text, but the markup's styles must go.
+            gtk_label_set_text(label, String(attributed.characters))
+        } else {
+            Gtk.Label(widget).text = String(attributed.characters)
+        }
 
         let environment = node.environment
         let justification: GtkJustification
@@ -58,7 +72,10 @@ extension Text: ActionUIAdwaitaRenderer {
         let selectable: gboolean = environment.textSelectable ? 1 : 0
         if gtk_label_get_selectable(label) != selectable {
             gtk_label_set_selectable(label, selectable)
-            // Selectable, not focusable, as SwiftUI's Text (gtk_label_set_selectable turns it on).
+        }
+        // Not focusable, as SwiftUI's Text, also when selectable or with a link (gtk_label_set_selectable
+        // and markup with a link turn it on).
+        if gtk_widget_get_focusable(widget) != 0 {
             gtk_widget_set_focusable(widget, 0)
         }
     }
@@ -94,15 +111,21 @@ extension Text: ActionUIAdwaitaRenderer {
         displayedText(node.model.value, node.properties)
     }
 
-    /// What a Text with `value` and `properties` shows (also as a menu item).
+    /// What a Text with `value` and `properties` shows (also as a menu item), as plain text.
     static func displayedText(_ value: Any?, _ properties: [String: Any]) -> String {
+        String(displayedAttributedText(value, properties).characters)
+    }
+
+    /// What a Text with `value` and `properties` shows: the value, else the markdown (parsed), else
+    /// the text property.
+    static func displayedAttributedText(_ value: Any?, _ properties: [String: Any]) -> AttributedString {
         if let attributed = value as? AttributedString {
-            return String(attributed.characters)
+            return attributed
         }
         if let plain = value as? String {
-            return plain
+            return AttributedString(plain)
         }
         let props = Props(properties)
-        return props.markdown ?? props.text
+        return props.markdown.map(ActionUIRendererHooks.markdown) ?? AttributedString(props.text)
     }
 }
