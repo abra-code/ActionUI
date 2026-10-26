@@ -5,6 +5,16 @@
  (Views/WebViewNative.swift):
  - Made once from its properties: the first page is the value (the url property) when it is a URL,
    else the html with its baseURL (about:blank without one).
+ - Before the first page: customUserAgent, backForwardNavigationGestures (a two-finger swipe on a
+   touchpad; on by default, as on Apple) and the userScripts, each from its source, its filePath, or its
+   resourceName in the resource folder (with or without ".js"; Linux has no app bundle), injected at
+   documentStart or documentEnd, into the main frame only or all frames. A script that cannot be read
+   is skipped and logged.
+ - The back and forward gestures are on only while the web view is shown (mapped): with them on,
+   WebKitGTK 2.54 snapshots the page at each navigation and crashes doing so in a view that is not
+   shown (measured in the box: a URL value sent to a WebView in a window not presented).
+ - magnificationGestures is ignored: WebKitGTK has no setting that turns pinch zoom off. linkPreviews,
+   limitsNavigationsToAppBoundDomains and upgradeKnownHostsToHTTPS are Apple-only and ignored.
  - A later value is a command: a URL to load, or #goBack, #goForward, #reload, #stop. A command that
    leaves the page where it is, or a value that is no URL, is replaced by the current URL (logged when
    there is nothing to go back or forward to, or no URL).
@@ -63,6 +73,7 @@ extension WebView: ActionUIAdwaitaRenderer {
                 }
             }
         }
+        configure(webKit, view, Props(node.properties))
         loadInitialContent(webKit, view, node, state)
         return view
     }
@@ -71,6 +82,64 @@ extension WebView: ActionUIAdwaitaRenderer {
         guard let webKit = WebKitLibrary.shared,
               let state = attached(on: UnsafeMutableRawPointer(widget), key: webViewStateKey) else { return }
         handleCommand(node.model.value as? String, webKit, widget, node, state)
+    }
+
+    /// The settings and the scripts the properties give, before the first page loads.
+    private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props) {
+        let settings = webKit.settings(view)
+        if let userAgent = props.customUserAgent {
+            webKit.setUserAgent(settings, userAgent)
+        }
+        if props.backForwardNavigationGestures {
+            // On while shown only: WebKitGTK crashes snapshotting a page it does not show.
+            connectSignal(UnsafeMutableRawPointer(view), "map", .instanceOnly) {
+                webKit.setBackForwardGestures(webKit.settings(view), 1)
+            }
+            connectSignal(UnsafeMutableRawPointer(view), "unmap", .instanceOnly) {
+                webKit.setBackForwardGestures(webKit.settings(view), 0)
+            }
+        }
+        webKit.setBackForwardGestures(settings, 0)
+        let manager = webKit.userContentManager(view)
+        for script in props.userScripts {
+            guard let source = scriptSource(script), let userScript = webKit.newScript(
+                source, script.forMainFrameOnly ? WebKitLibrary.topFrame : WebKitLibrary.allFrames,
+                script.injectionTime == .documentStart ? WebKitLibrary.documentStart : WebKitLibrary.documentEnd, nil, nil) else { continue }
+            webKit.addScript(manager, userScript)
+            webKit.releaseScript(userScript)
+        }
+    }
+
+    /// A user script's JavaScript: its source, else its file, else its resource (as the Apple backing
+    /// reads them, without an app bundle); nil, logged, when it cannot be read.
+    static func scriptSource(_ script: Props.UserScript) -> String? {
+        let logger = ActionUIModel.shared.logger
+        func read(_ path: String) -> String? {
+            (try? Data(contentsOf: URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
+        }
+        if let source = script.source {
+            return source
+        }
+        if let filePath = script.filePath {
+            guard let source = read(filePath) else {
+                logger.log("WebView userScript: failed to read file at '\(filePath)'", .warning)
+                return nil
+            }
+            return source
+        }
+        if let resourceName = script.resourceName {
+            let name = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
+            guard let path = ActionUIResourceFolder.file(name + ".js") ?? ActionUIResourceFolder.file(resourceName) else {
+                logger.log("WebView userScript: bundle resource '\(resourceName)' not found", .warning)
+                return nil
+            }
+            guard let source = read(path) else {
+                logger.log("WebView userScript: failed to read bundle resource '\(resourceName)'", .warning)
+                return nil
+            }
+            return source
+        }
+        return nil
     }
 
     private static func loadInitialContent(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode, _ state: WebViewState) {

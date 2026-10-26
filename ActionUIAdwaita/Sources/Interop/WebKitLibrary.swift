@@ -28,6 +28,18 @@ final class WebKitLibrary {
     typealias Flag = @convention(c) (WidgetPointer?) -> gboolean
     typealias Text = @convention(c) (WidgetPointer?) -> UnsafePointer<CChar>?
     typealias Number = @convention(c) (WidgetPointer?) -> gdouble
+    typealias Object = @convention(c) (WidgetPointer?) -> OpaquePointer?
+    typealias SetText = @convention(c) (OpaquePointer?, UnsafePointer<CChar>?) -> Void
+    typealias SetFlag = @convention(c) (OpaquePointer?, gboolean) -> Void
+    typealias NewScript = @convention(c) (UnsafePointer<CChar>?, UInt32, UInt32, UnsafePointer<UnsafePointer<CChar>?>?,
+                                          UnsafePointer<UnsafePointer<CChar>?>?) -> OpaquePointer?
+    typealias AddScript = @convention(c) (OpaquePointer?, OpaquePointer?) -> Void
+    typealias Release = @convention(c) (OpaquePointer?) -> Void
+
+    /// WebKitUserContentInjectedFrames: WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, _TOP_FRAME.
+    static let allFrames: UInt32 = 0, topFrame: UInt32 = 1
+    /// WebKitUserScriptInjectionTime: WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, _END.
+    static let documentStart: UInt32 = 0, documentEnd: UInt32 = 1
 
     /// The package that holds the library on Debian and Ubuntu, named to the user when it is missing.
     static let packageName = "libwebkitgtk-6.0-4"
@@ -66,6 +78,18 @@ final class WebKitLibrary {
     let uri: Text
     let title: Text
     let progress: Number
+    /// webkit_web_view_get_settings (owned by the view), webkit_settings_set_user_agent,
+    /// webkit_settings_set_enable_back_forward_navigation_gestures
+    let settings: Object
+    let setUserAgent: SetText
+    let setBackForwardGestures: SetFlag
+    /// webkit_web_view_get_user_content_manager (owned by the view), webkit_user_script_new (source,
+    /// frames, injection time, allow list, block list), webkit_user_content_manager_add_script (which
+    /// keeps the script), webkit_user_script_unref
+    let userContentManager: Object
+    let newScript: NewScript
+    let addScript: AddScript
+    let releaseScript: Release
 
     private init?(_ library: UnsafeMutableRawPointer) {
         func function<T>(_ name: String, as type: T.Type) -> T? {
@@ -83,7 +107,14 @@ final class WebKitLibrary {
               let isLoading = function("webkit_web_view_is_loading", as: Flag.self),
               let uri = function("webkit_web_view_get_uri", as: Text.self),
               let title = function("webkit_web_view_get_title", as: Text.self),
-              let progress = function("webkit_web_view_get_estimated_load_progress", as: Number.self) else { return nil }
+              let progress = function("webkit_web_view_get_estimated_load_progress", as: Number.self),
+              let settings = function("webkit_web_view_get_settings", as: Object.self),
+              let setUserAgent = function("webkit_settings_set_user_agent", as: SetText.self),
+              let setBackForwardGestures = function("webkit_settings_set_enable_back_forward_navigation_gestures", as: SetFlag.self),
+              let userContentManager = function("webkit_web_view_get_user_content_manager", as: Object.self),
+              let newScript = function("webkit_user_script_new", as: NewScript.self),
+              let addScript = function("webkit_user_content_manager_add_script", as: AddScript.self),
+              let releaseScript = function("webkit_user_script_unref", as: Release.self) else { return nil }
         self.newView = newView
         self.loadURI = loadURI
         self.loadHTML = loadHTML
@@ -97,6 +128,13 @@ final class WebKitLibrary {
         self.uri = uri
         self.title = title
         self.progress = progress
+        self.settings = settings
+        self.setUserAgent = setUserAgent
+        self.setBackForwardGestures = setBackForwardGestures
+        self.userContentManager = userContentManager
+        self.newScript = newScript
+        self.addScript = addScript
+        self.releaseScript = releaseScript
     }
 
     /// WebKitGTK 6.0 at ABI version 4, else at one of the next few, when it carries every function
