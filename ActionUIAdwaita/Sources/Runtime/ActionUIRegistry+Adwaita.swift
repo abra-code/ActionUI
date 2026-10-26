@@ -62,6 +62,7 @@ extension ActionUIRegistry {
         "Toggle": Toggle.self,
         "VSplitView": VSplitView.self,
         "VStack": VStack.self,
+        "VideoPlayer": VideoPlayer.self,
         "WebView": WebView.self,
         "ZStack": ZStack.self,
     ]

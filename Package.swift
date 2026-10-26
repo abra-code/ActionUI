@@ -488,8 +488,9 @@ Package(
             name: "ActionUIAdwaitaTests",
             dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer", "ActionUIAdwaitaDemo"],
             path: "ActionUIAdwaita/Tests",
-            // Programs in other languages that the tests run (the Python host).
-            exclude: ["Hosts"]
+            // Programs in other languages that the tests run (the Python host), and the video
+            // VideoPlayer plays.
+            exclude: ["Hosts", "Media"]
         ),
     ]
 )
