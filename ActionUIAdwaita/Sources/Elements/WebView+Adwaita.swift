@@ -6,10 +6,10 @@
  - Made once from its properties: the first page is the value (the url property) when it is a URL,
    else the html with its baseURL (about:blank without one).
  - Before the first page: customUserAgent, backForwardNavigationGestures (a two-finger swipe on a
-   touchpad; on by default, as on Apple) and the userScripts, each from its source, its filePath, or its
-   resourceName in the resource folder (with or without ".js"; Linux has no app bundle), injected at
-   documentStart or documentEnd, into the main frame only or all frames. A script that cannot be read
-   is skipped and logged.
+   touchpad; on by default, as on Apple) and the userScripts, each from its source, its filePath, or
+   its resourceName in the app's bundle (the resource folder, else the program's folder, as for
+   images; with or without ".js"), injected at documentStart or documentEnd, into the main frame only
+   or all frames. A script that cannot be read is skipped and logged.
  - The back and forward gestures are on only while the web view is shown (mapped): with them on,
    WebKitGTK 2.54 snapshots the page at each navigation and crashes doing so in a view that is not
    shown (measured in the box: a URL value sent to a WebView in a window not presented).
@@ -110,8 +110,8 @@ extension WebView: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// A user script's JavaScript: its source, else its file, else its resource (as the Apple backing
-    /// reads them, without an app bundle); nil, logged, when it cannot be read.
+    /// A user script's JavaScript: its source, else its file, else its resource in the app's bundle (as
+    /// the Apple backing reads them); nil, logged, when it cannot be read.
     static func scriptSource(_ script: Props.UserScript) -> String? {
         let logger = ActionUIModel.shared.logger
         func read(_ path: String) -> String? {
@@ -129,7 +129,7 @@ extension WebView: ActionUIAdwaitaRenderer {
         }
         if let resourceName = script.resourceName {
             let name = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
-            guard let path = ActionUIResourceFolder.file(name + ".js") ?? ActionUIResourceFolder.file(resourceName) else {
+            guard let path = AppBundle.resource(name + ".js") ?? AppBundle.resource(resourceName) else {
                 logger.log("WebView userScript: bundle resource '\(resourceName)' not found", .warning)
                 return nil
             }
