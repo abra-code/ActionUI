@@ -7,7 +7,14 @@
 //  the portable part of the Swift adapter.
 //
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Glibc)
+import Glibc
+#endif
 import ActionUI
 import ActionUISwiftAdapter
 
@@ -106,7 +113,7 @@ enum DemoHandlers {
         ActionUISwift.registerActionHandler(actionID: "list.demo.refresh") { _, windowUUID, viewID, _, _ in
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
-                let stamp = Date().formatted(date: .omitted, time: .standard)
+                let stamp = timeNow()
                 ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: viewID, rows: [
                     ["Refreshed at \(stamp)"], ["Swift"], ["Python"], ["Kotlin"], ["TypeScript"], ["Rust"], ["Go"]
                 ])
@@ -242,7 +249,7 @@ enum DemoHandlers {
             let gregorian = Calendar(identifier: .gregorian)
             let firstWeek = gregorian.date(from: DateComponents(year: 2026, month: 8, day: 3, hour: 12))!
             let c = gregorian.dateComponents([.year, .month, .day], from: gregorian.date(byAdding: .day, value: 7 * week, to: firstWeek)!)
-            let key = String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+            let key = "\(zeroPadded(c.year!, 4))-\(zeroPadded(c.month!, 2))-\(zeroPadded(c.day!, 2))"
             return [[key, "iOS", String(1100 + 60 * week + (week % 3) * 40)],
                     [key, "macOS", String(760 + 35 * week - (week % 2) * 30)]]
         }
@@ -847,8 +854,13 @@ enum DemoHandlers {
         // IDs: 1 = LazyVStack container, 2 = TextField input
         // Inserts a right-aligned chat bubble (HStack + Spacer + Text) for each sent message.
         ActionUISwift.registerActionHandler(actionID: "chat.demo.send") { _, windowUUID, _, _, _ in
+            // Not blank by CharacterSet.whitespaces (Zs, tab and U+200B), which FoundationEssentials
+            // lacks. Character.isWhitespace differs: it also refuses newlines (Option-Return on the
+            // Mac) and lets through a lone U+200B.
             guard let text = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 2) as? String,
-                  !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                  text.unicodeScalars.contains(where: {
+                      $0 != "\t" && $0 != "\u{200B}" && $0.properties.generalCategory != .spaceSeparator
+                  }) else { return }
             let bubbleDict: [String: Any] = [
                 "type": "HStack",
                 // transition: a sent bubble slides in from the trailing edge with a fade (insertElement
@@ -866,8 +878,7 @@ enum DemoHandlers {
                     ] as [String: Any]] as [String: Any]
                 ]
             ]
-            guard let data = try? JSONSerialization.data(withJSONObject: bubbleDict),
-                  let json = String(data: data, encoding: .utf8) else { return }
+            guard let json = try? ActionUIJSON.string(from: bubbleDict) else { return }
             do {
                 try ActionUISwift.insertElement(windowUUID: windowUUID, parentID: 1, json: json)
                 ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "")
@@ -876,4 +887,26 @@ enum DemoHandlers {
             }
         }
     }
+}
+
+/// The time of day as the system writes it: Foundation's standard time style on Apple; on Linux,
+/// where FoundationEssentials formats no dates, the C library's format for the locale (strftime's
+/// "%X"; GTK sets the locale from the environment).
+private func timeNow() -> String {
+    #if canImport(FoundationEssentials)
+    var now = time(nil)
+    var parts = tm()
+    localtime_r(&now, &parts)
+    var buffer = [CChar](repeating: 0, count: 64)
+    let count = strftime(&buffer, buffer.count, "%X", &parts)
+    return String(decoding: buffer.prefix(count).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    #else
+    return Date().formatted(date: .omitted, time: .standard)
+    #endif
+}
+
+/// `value` in decimal with leading zeros up to `width` digits, as String(format: "%04d") writes it.
+private func zeroPadded(_ value: Int, _ width: Int) -> String {
+    let digits = String(value)
+    return String(repeating: "0", count: max(0, width - digits.count)) + digits
 }

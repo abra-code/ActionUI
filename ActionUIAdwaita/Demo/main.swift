@@ -24,7 +24,7 @@
 
 import CAdwaita
 import Dispatch
-import Foundation
+import FoundationEssentials
 import Glibc
 import ActionUI
 import ActionUISwiftAdapter
@@ -79,13 +79,14 @@ let launcherDocument = """
 func documentNames(in folder: String) -> [String] {
     let files = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
     return files.filter { name in
-        var isFolder: ObjCBool = false
+        var isFolder = false
         let path = URL(fileURLWithPath: folder).appendingPathComponent(name).path
         return name.hasSuffix(".json") && !name.hasPrefix(".") && name != "DefaultWindow.json"
-            && FileManager.default.fileExists(atPath: path, isDirectory: &isFolder) && !isFolder.boolValue
+            && FileManager.default.fileExists(atPath: path, isDirectory: &isFolder) && !isFolder
     }
         .map { String($0.dropLast(".json".count)) }
-        .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        // Case-insensitive, as the Mac's localizedStandardCompare orders these names (no digits in them).
+        .sorted { $0.lowercased() < $1.lowercased() }
 }
 
 var status: Int32 = 0
@@ -167,10 +168,10 @@ MainActor.assumeIsolated {
     // The Mac app's menu commands (its DefaultWindow's), in each window's primary menu.
     let defaultWindow = URL(fileURLWithPath: folder).appendingPathComponent("DefaultWindow.json")
     if let data = try? Data(contentsOf: defaultWindow),
-       let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let document = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
        let commands = document["commands"],
-       let json = try? JSONSerialization.data(withJSONObject: commands) {
-        app.loadMenuBar(json: String(decoding: json, as: UTF8.self))
+       let json = try? ActionUIJSON.string(from: commands) {
+        app.loadMenuBar(json: json)
     }
 
     app.presentWindow(json: Data(launcherDocument.utf8), windowUUID: launcherUUID, title: "ActionUI Demo")

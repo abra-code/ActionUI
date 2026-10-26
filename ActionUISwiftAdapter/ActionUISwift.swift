@@ -7,7 +7,11 @@
 //
 
 import ActionUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// Public entry point for the ActionUI Swift adapter, providing a simplified, static API to interact with the core ActionUI library.
 /// This struct wraps ActionUIModel to expose methods for setting and getting element values, registering action handlers, and configuring logging.
