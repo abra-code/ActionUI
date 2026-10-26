@@ -2,7 +2,7 @@
 
 **Build native interfaces from JSON, across Apple, Android, and the Web — designed for AI-assisted development and rapid prototyping**
 
-ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **three native renderers** from a shared schema: SwiftUI on Apple platforms, Jetpack Compose on Android, and DOM/CSS in the browser. It replaces Interface Builder, Storyboards, or hand-coded UI with a simple, declarative format that's both human-readable and AI-friendly.
+ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **three native renderers** from a shared schema: SwiftUI on Apple platforms, Jetpack Compose on Android, and DOM/CSS in the browser. A fourth, for **Linux** (GTK 4 and libadwaita, in Swift), renders nearly all core elements. It replaces Interface Builder, Storyboards, or hand-coded UI with a simple, declarative format that's both human-readable and AI-friendly.
 
 **[Try the live browser demo →](https://abracode.com/ActionUIWeb/demo/)** (no install, no local server)
 
@@ -46,6 +46,7 @@ This produces a fully native form — a SwiftUI form on Apple, a Compose form on
 - **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
 - **Apple platforms** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript, Rust
+- **Linux** - native GNOME interfaces (GTK 4 and libadwaita) from the same JSON and the same C interface; all core elements except Chart, Map and ShareLink, no add-ons yet (see [ActionUIAdwaita](ActionUIAdwaita/README.md))
 
 ## Example Apps using ActionUI
 
@@ -78,6 +79,7 @@ app.run()
 ## Documentation
 
 - [Architecture & Technical Details](Documentation/Architecture.md)
+- [ActionUI on Linux](ActionUIAdwaita/README.md)
 - [JSON Specifications](Documentation/ActionUI-JSON-Specifications.json)
 - [Comparison: ActionUI Python vs tkinter](Documentation/Comparison-vs-tkinter.md)
 - [Comparison: ActionUI vs React Native](Documentation/Comparison-vs-ReactNative.md)
@@ -104,6 +106,7 @@ app.run()
 | visionOS | 2.6+           |
 | Android  | 12.0+          |
 | Web      | Any modern browser (ES modules, no build step) |
+| Linux    | GNOME 48+ (GTK 4.18, libadwaita 1.7), e.g. Debian 13, Ubuntu 26.04 |
 
 ## License
 

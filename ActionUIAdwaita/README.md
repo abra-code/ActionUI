@@ -1,0 +1,83 @@
+# ActionUI on Linux (GTK 4 and libadwaita)
+
+ActionUI renders its JSON documents on Linux as native GNOME interfaces: **GTK 4 and libadwaita widgets**, written in **Swift** and built from the same Swift package as the Apple frameworks. A document written for macOS opens on Linux unchanged, with the same element and property names, the same values and actions, and the same C interface for host programs.
+
+For how the renderer works (retained widgets, SwiftUI's layout reproduced, what is shared with Apple) see the Linux section of [Architecture.md](../Documentation/Architecture.md#linux-architecture).
+
+## Requirements
+
+- **GNOME 48 or later:** GTK 4.18, libadwaita 1.7, GLib 2.84 and libsoup 3. Tested on **Debian 13** (GTK 4.18, libadwaita 1.7) and **Ubuntu 26.04** (GTK 4.22, libadwaita 1.9). Ubuntu 24.04's libadwaita 1.5 is too old.
+- To build: a **Swift 6.2** or later toolchain from swift.org, and the development packages (Debian and Ubuntu names):
+
+  ```sh
+  sudo apt install libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev pkg-config
+  ```
+
+- At run time, besides GTK, libadwaita and libsoup:
+  - **glib-networking** for https URLs (installed with GNOME);
+  - **WebKitGTK 6.0** (`libwebkitgtk-6.0-4`) for WebView only. It is loaded when a WebView is first shown, so it is a dependency of the app that shows web pages, not of ActionUI; without it a WebView shows a placeholder that names the package. Ubuntu's desktop installs it; Debian's GNOME desktop does not.
+  - **GStreamer** for VideoPlayer: built into GTK 4.20 and later, a GTK module before that (`libgtk-4-media-gstreamer`, which Debian's GNOME desktop installs), plus the GStreamer plug-ins for the video's format;
+  - **ICU** (any version the system has) for dates and numbers by locale, also loaded when first needed.
+
+## Building and trying it
+
+From the repository root, on Linux:
+
+```sh
+swift build                                   # the library, the viewer and the demo
+swift run ActionUIAdwaitaViewer ActionUISwiftTestApp/Resources/Form.json
+swift run ActionUIAdwaitaDemo --resources ActionUISwiftTestApp/Resources
+```
+
+- **ActionUIAdwaitaViewer** opens one document in a window: a path, a file URL or an http(s) URL. `--dark` uses the dark style; `--screenshot out.png` saves the window as an image once it has drawn and quits (drawn by the window itself, so no screen capture is needed); `--rows <id> <rows.json>` fills a List, Table or Chart for a screenshot.
+- **ActionUIAdwaitaDemo** is the Linux counterpart of ActionUISwiftTestApp: a launcher of all the test app's documents, with the test app's own action handlers. `--open <Name>` also opens one document at launch, `--screenshot` saves it.
+
+A self-contained demo, which runs where Swift is not installed:
+
+```sh
+swift build -c release --static-swift-stdlib --product ActionUIAdwaitaDemo
+Scripts/make-linux-demo-bundle.sh .build/release /tmp     # makes /tmp/ActionUIDemo.app
+/tmp/ActionUIDemo.app/ActionUIDemo
+```
+
+`ActionUIDemo.app` is a plain folder: the program, stripped (about 15 MB), beside its documents and images. The program finds its documents in the folder it runs from.
+
+## Tests
+
+```sh
+swift test
+```
+
+The renderer tests open real windows, so they need a graphical session (Wayland or X11); without one they skip themselves. The layout tests compare frames with recordings taken from SwiftUI (`LayoutParity/`).
+
+## Using it from a program
+
+- **Swift:** depend on the ActionUI package. On Linux its `ActionUI` module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents, and the Swift adapter (`ActionUISwiftAdapter`) offers the same calls as on Apple. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`.
+- **C, Python, Node.js, Rust and other languages:** load `libActionUI.so`, which holds the renderer, the C adapter (`ActionUIC.h`) and the application functions (`ActionUIApp.h`), with the same names and signatures as on macOS. Built with the Swift runtime inside it, it needs no Swift installation:
+
+  ```sh
+  swift build -c release --static-swift-stdlib --product ActionUI   # .build/release/libActionUI.so
+  ```
+
+  `Tests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python, Node.js and Rust packages themselves are macOS-only so far.
+
+## What is there and what is not yet
+
+- **Elements:** every core element type except **Chart, Map and ShareLink**, which show a placeholder naming their type. All but those few of the test app's 108 documents render with nothing missing.
+- **Application functions** (`actionUIApp*`): windows, the lifecycle handlers and the resource folder work. **The menu bar, alerts, open and save panels and the remote server** are not on Linux yet: those calls answer as failures and log why.
+- **Add-ons** (Chat, Diff, RichText, QuickLook, CachedImage) are not on Linux yet; their elements show the placeholder.
+- **Look:** libadwaita's controls, header bar and dark style. SF Symbol names map to the Adwaita icon theme; a name with no counterpart there shows the missing-icon picture.
+- **The application ends with its last window,** as GNOME applications do, where a macOS application keeps running.
+
+## Layout of this folder
+
+| Folder | What |
+|---|---|
+| `Sources/Elements` | one renderer per element type (`Button+Adwaita.swift`, ...) |
+| `Sources/Layout` | SwiftUI's layout reproduced: stacks, grids, frames, scroll views, modifier boxes |
+| `Sources/Runtime` | the render tree, `AdwaitaApplication`, windows, toolbars, menus, presentations |
+| `Sources/Styling`, `Formatting`, `Markdown`, `Drawing` | CSS for colors and fonts, number and date formats, markdown text, shapes |
+| `Sources/Interop` | the Swift side of the GTK, GLib and WebKitGTK C APIs |
+| `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |
+| `Viewer`, `Demo` | ActionUIAdwaitaViewer and ActionUIAdwaitaDemo |
+| `Tests` | the renderer, layout and application tests |
