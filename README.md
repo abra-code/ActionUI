@@ -46,7 +46,7 @@ This produces a fully native form — a SwiftUI form on Apple, a Compose form on
 - **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
 - **Apple platforms** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript, Rust
-- **Linux** - native GNOME interfaces (GTK 4 and libadwaita) from the same JSON and the same C interface; all core elements except Chart, Map and ShareLink, no add-ons yet (see [ActionUIAdwaita](ActionUIAdwaita/README.md))
+- **Linux** - native GNOME interfaces (GTK 4 and libadwaita) from the same JSON and the same C interface; all core elements except Chart and Map, no add-ons yet (see [ActionUIAdwaita](ActionUIAdwaita/README.md))
 
 ## Example Apps using ActionUI
 

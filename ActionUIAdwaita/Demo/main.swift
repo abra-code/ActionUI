@@ -19,8 +19,8 @@
    the document opened with --open cannot be loaded (its window shows the error).
  The documents' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
  The Mac app's menu commands (DefaultWindow.json's) are in each window's primary menu.
- The element types the Linux renderer does not have yet (Chart, Map, ShareLink) show a placeholder in
- those documents.
+ The element types the Linux renderer does not have yet (Chart, Map) show a placeholder in those
+ documents.
 */
 
 import CAdwaita

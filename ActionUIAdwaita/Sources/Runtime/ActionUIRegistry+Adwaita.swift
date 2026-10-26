@@ -52,6 +52,7 @@ extension ActionUIRegistry {
         "ScrollView": ScrollView.self,
         "ScrollViewReader": ScrollViewReader.self,
         "SecureField": SecureField.self,
+        "ShareLink": ShareLink.self,
         "Slider": Slider.self,
         "Stepper": Stepper.self,
         "TabView": TabView.self,

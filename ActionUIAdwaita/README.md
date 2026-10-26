@@ -63,7 +63,8 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 
 ## What is there and what is not yet
 
-- **Elements:** every core element type except **Chart, Map and ShareLink**, which show a placeholder naming their type. All but those few of the test app's 108 documents render with nothing missing.
+- **Elements:** every core element type except **Chart and Map**, which show a placeholder naming their type. All but those few of the test app's 108 documents render with nothing missing.
+- **ShareLink:** Linux desktops have no share sheet, so its button opens a menu of the ways GNOME shares a link: **Copy Link**, and **Send by Email...**, which opens the user's mail program with the subject, the message and the URL (through the desktop's Email portal, else a `mailto:` link).
 - **Application functions** (`actionUIApp*`): windows, the lifecycle handlers and the resource folder work. **The menu bar, alerts, open and save panels and the remote server** are not on Linux yet: those calls answer as failures and log why.
 - **Add-ons** (Chat, Diff, RichText, QuickLook, CachedImage) are not on Linux yet; their elements show the placeholder.
 - **Look:** libadwaita's controls, header bar and dark style. SF Symbol names map to the Adwaita icon theme; a name with no counterpart there shows the missing-icon picture.

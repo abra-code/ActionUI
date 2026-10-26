@@ -38,10 +38,11 @@ final class LoadedBytes: @unchecked Sendable {
 }
 
 /// An asynchronous call's completion: runs with the call's GAsyncResult.
-private typealias ReadyRun = @MainActor (OpaquePointer?) -> Void
+typealias ReadyRun = @MainActor (OpaquePointer?) -> Void
 
-/// GIO's ready callback for one call: runs the box's closure once, then releases the box.
-private let readyTrampoline: @convention(c) (UnsafeMutablePointer<GObject>?, OpaquePointer?, gpointer?) -> Void = { _, result, data in
+/// GIO's ready callback for one call: runs the box's closure once, then releases the box. Its user
+/// data is `Unmanaged.passRetained(CallbackBox(run)).toOpaque()` (also used by ShareLink's D-Bus call).
+let readyTrampoline: @convention(c) (UnsafeMutablePointer<GObject>?, OpaquePointer?, gpointer?) -> Void = { _, result, data in
     guard let data else { return }
     let box = Unmanaged<CallbackBox<ReadyRun>>.fromOpaque(data).takeRetainedValue()
     // A pointer is not Sendable; its address is. GIO calls back on the main thread.
