@@ -55,6 +55,9 @@ state = {
     "window_opened_uuid":       None,
     "window_present_uuid":      None,
     "window_closed_uuid":       None,
+    "window":                   None,
+    "info_in_close":            None,
+    "info_after_close":         None,
     "nested_run_error":         None,
     "errors":                   [],
 }
@@ -119,6 +122,10 @@ def _report():
     print("Window registry cleanup:", flush=True)
     check("_windows dict is empty after window closes",
           len(app._windows) == 0)
+    check("the closing window's elements are readable in window_will_close",
+          bool(state["info_in_close"]))
+    check("the closed window's model is removed after window_will_close",
+          state["info_after_close"] == {})
 
     print(flush=True)
     print("=" * 50, flush=True)
@@ -174,6 +181,7 @@ def _did_finish():
 
     window = app.load_and_present_window(FIXTURE_JSON, title="ActionUI Lifecycle Test")
     state["window_opened_uuid"] = window.uuid
+    state["window"] = window
     print(f"  [CB] window opened: {window.uuid}", flush=True)
 
     def _bg_sequence():
@@ -211,6 +219,7 @@ def _window_will_present(window: actionui.Window):
 @app.window_will_close
 def _window_will_close(window: actionui.Window):
     state["window_closed_uuid"] = window.uuid
+    state["info_in_close"] = window.get_element_info()
     print(f"  [CB] window_will_close: {window.uuid}", flush=True)
 
 
@@ -226,6 +235,8 @@ def _should_terminate() -> bool:
 def _will_terminate():
     state["will_terminate"] = True
     print("  [CB] will_terminate", flush=True)
+    if state.get("window") is not None:
+        state["info_after_close"] = state["window"].get_element_info()
     _report()
 
 

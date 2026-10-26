@@ -221,6 +221,18 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
         if let handler = windowWillCloseHandler {
             uuid.withCString { handler($0) }
         }
+        // The content goes now, so its elements' onDisappearActionID actions are queued ahead of
+        // the removal below and can still read the window's values (measured: with the content
+        // left to go with the window, they ran after the removal and read nothing).
+        window.contentViewController = nil
+        // The window's ActionUI model goes after the handler, which may read its values, and the
+        // rest of this turn of the run loop; an app that opens and closes windows for a long time
+        // would otherwise keep every one. Not when the client opened a window under the same UUID
+        // again by then (from the handler, say): that window's model is in use.
+        DispatchQueue.main.async {
+            guard windows[uuid] == nil else { return }
+            ActionUIModel.shared.removeWindow(uuid)
+        }
     }
 }
 

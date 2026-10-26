@@ -161,7 +161,7 @@ Each takes a closure and replaces the one set before.
 | `on_should_terminate(impl Fn() -> bool)` | The user asked to quit. Return false to keep running. |
 | `on_will_terminate(impl Fn())` | The last chance to save anything: the process ends when the handler returns. |
 | `on_window_will_present(impl Fn(&Window))` | A window's content is loaded and the window is about to be shown. Values set here are in place for the first frame. |
-| `on_window_will_close(impl Fn(&Window))` | A window is closing. |
+| `on_window_will_close(impl Fn(&Window))` | A window is closing. Read its values here: its model is removed after the handler returns. |
 
 The application keeps running after its last window closes, as document applications do. To quit instead:
 
@@ -231,7 +231,7 @@ A handle to one open window. Cloning is cheap; clones name the same window. A `W
 |---|---|
 | `uuid(&self) -> &str` | The identifier ActionUI knows the window by. |
 | `close(&self) -> Result<()>` | Closes the window. The will-close handler runs first. |
-| `remove_window(&self) -> Result<()>` | Forgets the window's model (loaded description, element values and states). Call it once you are done with the window, after it has closed, so a long-running host does not keep every window it ever showed. Afterwards the window is unknown, as one never loaded; loading a description for the same identifier starts a new model. |
+| `remove_window(&self) -> Result<()>` | Forgets the window's model (loaded description, element values and states). Call it once you are done with the window, after it has closed, so a long-running host does not keep every window it ever showed. Afterwards the window is unknown, as one never loaded; loading a description for the same identifier starts a new model. Windows that `App` (ActionUI's own application: ActionUIAppKitApplication on macOS, AdwaitaApplication on Linux) presents have their model removed by it after they close; a program with an application of its own calls this for each window it is done with. |
 | `content_size_limits(&self) -> Result<Option<ContentSizeLimits>>` | The smallest and largest size the content allows (`min_width`, `min_height`, `max_width`, `max_height`). `None` until the content has loaded. |
 
 In every method below, `view_id` is the element's `"id"` from the JSON.

@@ -65,7 +65,7 @@ void actionUIAppSetWillResignActiveHandler(ActionUIAppLifecycleHandler handler) 
 void actionUIAppSetDidResignActiveHandler(ActionUIAppLifecycleHandler handler) ACTIONUI_NOEXCEPT;
 void actionUIAppSetWillTerminateHandler(ActionUIAppLifecycleHandler handler) ACTIONUI_NOEXCEPT;
 void actionUIAppSetShouldTerminateHandler(ActionUIAppShouldTerminateHandler handler) ACTIONUI_NOEXCEPT;
-void actionUIAppSetWindowWillCloseHandler(ActionUIAppWindowHandler handler) ACTIONUI_NOEXCEPT;
+void actionUIAppSetWindowWillCloseHandler(ActionUIAppWindowHandler handler) ACTIONUI_NOEXCEPT;  // read the window's values here: its model is removed after the handler returns
 void actionUIAppSetWindowWillPresentHandler(ActionUIAppWindowHandler handler) ACTIONUI_NOEXCEPT;
 
 // The application

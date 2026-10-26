@@ -9,7 +9,9 @@
  document is titled by its name, and one that cannot be loaded shows its error; the user's close
  of the last window asks shouldTerminate; terminate ends the application and willTerminate fires;
  a second run while running is refused; the host's close of a window showing a modal and an
- alert closes the window; the icon is the windows' default icon.
+ alert closes the window; the icon is the windows' default icon; a closed window's model is
+ readable in the close handler and its elements' disappear actions and removed after them, unless
+ a window is reopened under its UUID.
 */
 
 import XCTest
@@ -77,6 +79,66 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(size.0, 360, "the root frame's ideal width")
         XCTAssertGreaterThan(size.1, 320, "the ideal height plus the header bar")
         XCTAssertEqual(title, "Linux Test App", "a JSON document is titled by the application's name")
+    }
+
+    func testAClosedWindowsModelGoesAfterItsHandlerUnlessTheWindowIsReopened() throws {
+        let app = AdwaitaApplication()
+        var inHandler: Bool?
+        var afterClose: Bool?
+        var reopened = false
+        var keptWhenReopened: Bool?
+        app.handlers.windowWillClose = { uuid in
+            if uuid == "app-w1" {
+                inHandler = ActionUIModel.shared.hasWindow("app-w1")
+            } else if uuid == "app-w2", !reopened {
+                // The client opens a window under the same UUID from the handler.
+                reopened = true
+                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+            }
+        }
+        app.handlers.didFinishLaunching = {
+            app.closeWindow("app-w1")
+            runAfter(milliseconds: 50) {
+                afterClose = ActionUIModel.shared.hasWindow("app-w1")
+                app.closeWindow("app-w2")
+                runAfter(milliseconds: 50) {
+                    keptWhenReopened = ActionUIModel.shared.hasWindow("app-w2") && app.windowUUIDs == ["app-w2"]
+                    app.closeWindow("app-w2")
+                }
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(inHandler, true, "the handler reads the closing window's model")
+        XCTAssertEqual(afterClose, false, "the model goes after the handler")
+        XCTAssertTrue(reopened)
+        XCTAssertEqual(keptWhenReopened, true, "a window reopened under the UUID keeps its model")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertFalse(ActionUIModel.shared.hasWindow("app-w2"), "and loses it when it closes for good")
+    }
+
+    func testAClosingWindowsDisappearActionsReadItsValuesBeforeItsModelGoes() throws {
+        let app = AdwaitaApplication()
+        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"onDisappearActionID": "app.gone"}}]}"#
+        var seen: [String] = []
+        ActionUIModel.shared.registerActionHandler(for: "app.gone") { _, uuid, _, _, _ in
+            seen.append("\(uuid) \(ActionUIModel.shared.getElementValue(windowUUID: uuid, viewID: 2) as? String ?? "nil")")
+        }
+        defer { ActionUIModel.shared.unregisterActionHandler(for: "app.gone") }
+        app.handlers.windowWillPresent = { ActionUIModel.shared.setElementValue(windowUUID: $0, viewID: 2, value: "typed") }
+        app.handlers.didFinishLaunching = {
+            app.closeWindow("app-w1")
+            // As a binding closes a window: from the main queue.
+            DispatchQueue.main.async { app.closeWindow("app-w2") }
+        }
+        app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(document.utf8), windowUUID: "app-w2", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(seen, ["app-w1 typed", "app-w2 typed"], "the disappear actions run before the model goes")
+        XCTAssertFalse(ActionUIModel.shared.hasWindow("app-w1"))
+        XCTAssertFalse(ActionUIModel.shared.hasWindow("app-w2"))
     }
 
     func testAWindowOpensNoWiderThan900UnlessItsMinimumNeedsMore() throws {

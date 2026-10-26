@@ -155,7 +155,11 @@ void actionUIRemoveWindow(const char* windowUUID);
 // Forgets the window's model (loaded description, element values and states)
 // once the host is done with the window. Afterwards the window is unknown, as
 // one never loaded; loading a description for the UUID again starts a new
-// model. An unknown windowUUID is ignored. Synchronous.
+// model. An unknown windowUUID is ignored. Synchronous. Windows presented by
+// ActionUI's own application (actionUIApp*: ActionUIAppKitApplication on macOS,
+// AdwaitaApplication on Linux) have their model removed by it after they close;
+// a program with an application of its own calls this for each window it is
+// done with.
 ```
 
 ### UI loading
@@ -308,6 +312,7 @@ void actionUIAppLoadAndPresentWindowFromJSON(const char* jsonString,
 void actionUIAppCloseWindow(const char* windowUUID);
 // Close the window identified by windowUUID.
 // windowWillClose handler fires before the window is removed from the registry.
+// The window's model is removed after the handler returns: read its values there.
 ```
 
 ### Menu bar
@@ -446,7 +451,7 @@ def _() -> bool:
     return True   # return False to cancel
 
 @app.window_will_close
-def _(window: Window): ...
+def _(window: Window): ...   # read the window's values here; its model goes after
 
 @app.window_will_present
 def _(window: Window): ...

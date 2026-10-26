@@ -85,7 +85,7 @@ app.onWillResignActive(fn)      // fn()
 app.onDidResignActive(fn)       // fn()
 app.onWillTerminate(fn)         // fn()
 app.onShouldTerminate(fn)       // fn() → boolean; return false to cancel quit
-app.onWindowWillClose(fn)       // fn(window: Window)
+app.onWindowWillClose(fn)       // fn(window: Window); read its values here, its model goes after
 app.onWindowWillPresent(fn)     // fn(window: Window)
 // windowWillPresent fires synchronously before makeKeyAndOrderFront.
 // Values/states set here appear before the first frame renders.
@@ -335,7 +335,11 @@ win.removeWindow()
 // Forget the window's model (loaded description, element values and states)
 // once the host is done with the window. Afterwards the window is unknown, as
 // one never loaded: getElementInfo() is {} and values read null. Loading a
-// description for the same UUID starts a new model.
+// description for the same UUID starts a new model. Windows that Application
+// (ActionUI's own application: ActionUIAppKitApplication on macOS,
+// AdwaitaApplication on Linux) presents have their model removed by it after
+// they close (after onWindowWillClose); a program with an application of its
+// own calls this for each window it is done with.
 ```
 
 #### Modal dialogs
@@ -487,7 +491,8 @@ native.loadHostingController(url, uuid, isContentView)
 // Size limits of the loaded root element content; throws for an unknown window
 native.getContentSizeLimits(uuid) // -> { minWidth, minHeight, maxWidth, maxHeight }
 
-// Window model: forget the window's model once the host is done with it (unknown uuid ignored)
+// Window model: forget the window's model once the host is done with it (unknown uuid ignored);
+// ActionUI's own application (app*) removes it for the windows it presents, after they close
 native.removeWindow(uuid)
 
 // Lifecycle setters (pass null to deregister)

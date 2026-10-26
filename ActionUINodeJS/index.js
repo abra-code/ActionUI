@@ -214,7 +214,12 @@ class Window {
     // value and state) once the host is done with the window, so a long-running
     // host does not keep every window it ever showed. Afterwards the window is
     // unknown, as if never loaded: getElementInfo() is empty and values read
-    // null. Loading a description for the same UUID starts a new model.
+    // null. Loading a description for the same UUID starts a new model. Windows
+    // that Application presents have their model removed by it after they close
+    // (after onWindowWillClose); Application is ActionUI's own application
+    // (ActionUIAppKitApplication on macOS, AdwaitaApplication on Linux). A program
+    // that shows windows through an application of its own calls this when it is
+    // done with each window.
     removeWindow() {
         _actionui.removeWindow(this.uuid);
     }

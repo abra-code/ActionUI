@@ -467,6 +467,17 @@ public final class AdwaitaApplication {
         }
         handlers.windowWillClose?(windowUUID)
         presented.renderTree?.detach()
+        // The window's ActionUI model goes after the handler, which may read its values, and the
+        // rest of this turn of the main loop; an app that opens and closes windows for a long time
+        // would otherwise keep every one. Through the main queue, behind the disappear actions the
+        // detach above queued there (NodeAppearance), which read the values too. Not when a window
+        // under the same UUID is on screen or loading again by then (the client reopened it): that
+        // window's model is in use.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.windows[windowUUID] == nil, self.remoteLoads[windowUUID] == nil,
+                  !self.pendingWindows.contains(where: { $0.windowUUID == windowUUID }) else { return }
+            ActionUIModel.shared.removeWindow(windowUUID)
+        }
         return true
     }
 

@@ -1110,6 +1110,11 @@ class Window:
         does not keep every window it ever showed. Afterwards the window is
         unknown, as if never loaded: get_element_info() is empty and values
         read None. Loading a description for the same UUID starts a new model.
+        Windows that actionui.Application presents have their model removed by
+        it after they close (after the window_will_close handler); Application
+        is ActionUI's own application (ActionUIAppKitApplication on macOS,
+        AdwaitaApplication on Linux). A program that shows windows through an
+        application of its own calls this when it is done with each window.
         """
         _actionui.remove_window(self.uuid)
 

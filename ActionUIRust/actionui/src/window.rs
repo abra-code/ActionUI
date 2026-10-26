@@ -70,6 +70,10 @@ impl Window {
     /// long-running host does not keep every window it ever showed. Afterwards the window is
     /// unknown, as one never loaded: [`Window::element_info`] is empty and values read as
     /// `None`. Loading a description for the same identifier starts a new model.
+    /// Windows that [`App`](crate::App) presents have their model removed by it after they
+    /// close (after the will-close handler); `App` is ActionUI's own application
+    /// (ActionUIAppKitApplication on macOS, AdwaitaApplication on Linux). A program that shows
+    /// windows through an application of its own calls this when it is done with each window.
     pub fn remove_window(&self) -> Result<()> {
         let uuid = self.uuid_c()?;
         unsafe { sys::actionUIRemoveWindow(uuid.as_ptr()) };
