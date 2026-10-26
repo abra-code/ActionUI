@@ -27,7 +27,7 @@ import ActionUIDiff
 import ActionUICachedImage
 import ActionUIRichText
 
-let serverVersion = "0.2.0"
+let serverVersion = "0.2.1"
 
 /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
 /// window. No Quit item in the server: quitting would end the client's server; closing windows is
