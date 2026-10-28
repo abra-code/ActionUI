@@ -4,11 +4,9 @@
  *
  * Wraps the C interface of ActionUICAdapter.framework.
  *
- * This file is compiled as Objective-C (.m) so that the Clang front-end
- * defines __OBJC__ automatically.  The Swift-generated bridging header
- * (ActionUICAdapter-Swift.h) guards all @_cdecl function declarations with
- *   #if defined(__OBJC__)
- * which is entered naturally in ObjC compilation mode.
+ * The code is plain C. The file is a .m because the Swift-generated headers
+ * once declared the C functions only inside #if defined(__OBJC__); with the
+ * @c attribute they declare them for plain C as well.
  *
  */
 

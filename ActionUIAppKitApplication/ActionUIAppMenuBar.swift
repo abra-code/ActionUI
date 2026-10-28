@@ -143,7 +143,7 @@ func reinstallMenuBar(appName: String?) {
 /// May be called before or after `actionUIAppRun`, and more than once: each
 /// call adds to the menu bar.  Commands loaded before launch survive the
 /// rebuild of the default menu bar that `actionUIAppSetName` causes at launch.
-@_cdecl("actionUIAppLoadMenuBar")
+@c
 public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
     // Copy the C string into a Swift String before entering the
     // @MainActor-isolated closure to avoid capturing a non-Sendable pointer.

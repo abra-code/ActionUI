@@ -154,12 +154,10 @@ print(f"  ActionUIRemote.framework             OK")
 #
 actionui_extension = Extension(
     '_actionui',
-    # actionui_native.m is compiled as Objective-C so that __OBJC__ is
-    # defined automatically by clang.  The Swift-generated bridging header
-    # (ActionUICAdapter-Swift.h) guards all @_cdecl function declarations
-    # with #if defined(__OBJC__); ObjC compilation mode enters that block
-    # naturally without any preprocessor tricks.  The source code itself
-    # is plain C — only the compilation mode is Objective-C.
+    # actionui_native.m is plain C compiled as Objective-C, for a reason that
+    # no longer holds: the Swift-generated headers once declared the C
+    # functions only inside #if defined(__OBJC__). With the @c attribute
+    # they declare them for plain C as well.
     sources=['actionui_native.m'],
     extra_compile_args=[
         f'-F{fw_dir}',

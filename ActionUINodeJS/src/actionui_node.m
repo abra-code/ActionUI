@@ -5,13 +5,10 @@
  * Wraps the C interface of ActionUICAdapter.framework and
  * ActionUIAppKitApplication.framework using raw N-API (node_api.h).
  *
- * This file is compiled as Objective-C (.m) so that the Clang front-end
- * defines __OBJC__ automatically.  The Swift-generated bridging headers
- * (ActionUICAdapter-Swift.h, ActionUIAppKitApplication-Swift.h) guard all
- * @_cdecl function declarations with:
- *   #if defined(__OBJC__)
- * which is entered naturally in ObjC compilation mode.
- * The code itself is plain C — only the compilation mode is ObjC.
+ * The code is plain C. The file is a .m because the Swift-generated headers
+ * (ActionUICAdapter-Swift.h, ActionUIAppKitApplication-Swift.h) once declared
+ * the C functions only inside #if defined(__OBJC__); with the @c attribute
+ * they declare them for plain C as well.
  *
  * Threading model:
  *   appRun() installs a CFRunLoopObserver, a CFRunLoopTimer, on the main CFRunLoop,

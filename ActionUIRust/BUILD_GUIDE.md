@@ -21,7 +21,7 @@ The five ActionUI frameworks are static libraries. Their code is copied into you
 ## Requirements
 
 - macOS 14.6 or later.
-- Xcode, to build the ActionUI frameworks. The Command Line Tools alone are not enough.
+- Xcode 26.4 or later (Swift 6.3), to build the ActionUI frameworks. The Command Line Tools alone are not enough.
 - Rust 1.85 or later (the crates use the 2024 edition).
 
 ## Build

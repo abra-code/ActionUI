@@ -76,54 +76,54 @@ private func logNotOnLinux(_ what: String) {
 
 // MARK: - Lifecycle handlers
 
-@_cdecl("actionUIAppSetWillFinishLaunchingHandler")
+@c
 public func actionUIAppSetWillFinishLaunchingHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.willFinishLaunching = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetDidFinishLaunchingHandler")
+@c
 public func actionUIAppSetDidFinishLaunchingHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.didFinishLaunching = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetWillBecomeActiveHandler")
+@c
 public func actionUIAppSetWillBecomeActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.willBecomeActive = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetDidBecomeActiveHandler")
+@c
 public func actionUIAppSetDidBecomeActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.didBecomeActive = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetWillResignActiveHandler")
+@c
 public func actionUIAppSetWillResignActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.willResignActive = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetDidResignActiveHandler")
+@c
 public func actionUIAppSetDidResignActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.didResignActive = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetWillTerminateHandler")
+@c
 public func actionUIAppSetWillTerminateHandler(_ handler: ActionUIAppLifecycleHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.willTerminate = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetShouldTerminateHandler")
+@c
 public func actionUIAppSetShouldTerminateHandler(_ handler: ActionUIAppShouldTerminateHandler?) {
     runOnMainActorSync { AdwaitaApplication.shared.handlers.shouldTerminate = handler.map { call in { call() } } }
 }
 
-@_cdecl("actionUIAppSetWindowWillCloseHandler")
+@c
 public func actionUIAppSetWindowWillCloseHandler(_ handler: ActionUIAppWindowHandler?) {
     runOnMainActorSync {
         AdwaitaApplication.shared.handlers.windowWillClose = handler.map { call in { uuid in uuid.withCString { call($0) } } }
     }
 }
 
-@_cdecl("actionUIAppSetWindowWillPresentHandler")
+@c
 public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowHandler?) {
     runOnMainActorSync {
         AdwaitaApplication.shared.handlers.windowWillPresent = handler.map { call in { uuid in uuid.withCString { call($0) } } }
@@ -133,21 +133,21 @@ public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowH
 // MARK: - The application
 
 /// The application's name: window titles default to it, and so does its application ID.
-@_cdecl("actionUIAppSetName")
+@c
 public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
     let swiftName = String(cString: name)
     runOnMainActorSync { AdwaitaApplication.shared.name = swiftName }
 }
 
 /// The reverse-DNS application ID ("org.example.App"); without one it is made from the name.
-@_cdecl("actionUIAppSetApplicationID")
+@c
 public func actionUIAppSetApplicationID(_ applicationID: UnsafePointer<CChar>) {
     let swiftID = String(cString: applicationID)
     runOnMainActorSync { AdwaitaApplication.shared.applicationID = swiftID }
 }
 
 /// The windows' icon: the path of a PNG or SVG file, or an icon theme name.
-@_cdecl("actionUIAppSetIcon")
+@c
 public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
     let swiftPath = String(cString: path)
     runOnMainActorSync { AdwaitaApplication.shared.icon = swiftPath }
@@ -156,7 +156,7 @@ public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
 /// The folder of the app's resources, where LoadableView names and image resources are found (by
 /// default the running program's folder, its bundle). An interpreted host, whose program is the
 /// interpreter, passes its script's folder; NULL: back to the program's folder.
-@_cdecl("actionUIAppSetResourceFolder")
+@c
 public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
     let swiftPath = path.map { String(cString: $0) }
     runOnMainActorSync { AdwaitaApplication.shared.resourceFolder = swiftPath }
@@ -164,7 +164,7 @@ public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
 
 /// Runs the application until it ends. Must be called from the main thread; from another
 /// thread it is refused and logged.
-@_cdecl("actionUIAppRun")
+@c
 public func actionUIAppRun() {
     guard isMainThread else {
         // Printed here, not queued for the main thread's logger: the main thread is not running
@@ -184,7 +184,7 @@ public func actionUIAppRun() {
 }
 
 /// Ends the application, unless the shouldTerminate handler says no.
-@_cdecl("actionUIAppTerminate")
+@c
 public func actionUIAppTerminate() {
     runOnMainActorAsync { AdwaitaApplication.shared.terminate() }
 }
@@ -192,7 +192,7 @@ public func actionUIAppTerminate() {
 /// Adds the CommandMenu and CommandGroup elements in `jsonString` (a JSON array; NULL: none) to
 /// the application's commands, which Linux shows in each window's primary menu (GNOME has no menu
 /// bar), their shortcuts working in every window.
-@_cdecl("actionUIAppLoadMenuBar")
+@c
 public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
     let json = jsonString.map { String(cString: $0) }
     runOnMainActorSync { AdwaitaApplication.shared.loadMenuBar(json: json) }
@@ -202,7 +202,7 @@ public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
 
 /// Loads the ActionUI document at `urlString` (a file URL or path, or an http or https URL, whose
 /// window appears once it has loaded) into a new window. `title` NULL: the file's name.
-@_cdecl("actionUIAppLoadAndPresentWindow")
+@c
 public func actionUIAppLoadAndPresentWindow(_ urlString: UnsafePointer<CChar>,
                                             _ windowUUID: UnsafePointer<CChar>,
                                             _ title: UnsafePointer<CChar>?) {
@@ -216,7 +216,7 @@ public func actionUIAppLoadAndPresentWindow(_ urlString: UnsafePointer<CChar>,
 
 /// Loads the ActionUI document in `jsonString` into a new window. `title` NULL: the
 /// application's name.
-@_cdecl("actionUIAppLoadAndPresentWindowFromJSON")
+@c
 public func actionUIAppLoadAndPresentWindowFromJSON(_ jsonString: UnsafePointer<CChar>,
                                                     _ windowUUID: UnsafePointer<CChar>,
                                                     _ title: UnsafePointer<CChar>?) {
@@ -229,7 +229,7 @@ public func actionUIAppLoadAndPresentWindowFromJSON(_ jsonString: UnsafePointer<
 }
 
 /// Closes the window showing `windowUUID`; the windowWillClose handler fires.
-@_cdecl("actionUIAppCloseWindow")
+@c
 public func actionUIAppCloseWindow(_ windowUUID: UnsafePointer<CChar>) {
     let swiftUUID = String(cString: windowUUID)
     runOnMainActorAsync { AdwaitaApplication.shared.closeWindow(swiftUUID) }
@@ -237,19 +237,19 @@ public func actionUIAppCloseWindow(_ windowUUID: UnsafePointer<CChar>) {
 
 // MARK: - Alerts and file panels (not on Linux yet)
 
-@_cdecl("actionUIAppRunAlert")
+@c
 public func actionUIAppRunAlert(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
     logNotOnLinux("actionUIAppRunAlert")
     return nil
 }
 
-@_cdecl("actionUIAppRunOpenPanel")
+@c
 public func actionUIAppRunOpenPanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
     logNotOnLinux("actionUIAppRunOpenPanel")
     return nil
 }
 
-@_cdecl("actionUIAppRunSavePanel")
+@c
 public func actionUIAppRunSavePanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
     logNotOnLinux("actionUIAppRunSavePanel")
     return nil
@@ -257,27 +257,27 @@ public func actionUIAppRunSavePanel(_ configJSON: UnsafePointer<CChar>?) -> Unsa
 
 // MARK: - The remote server (not on Linux yet)
 
-@_cdecl("actionUIAppStartRemoteServer")
+@c
 public func actionUIAppStartRemoteServer(_ socketPath: UnsafePointer<CChar>?) -> CBool {
     logNotOnLinux("The remote server")
     return false
 }
 
-@_cdecl("actionUIAppStopRemoteServer")
+@c
 public func actionUIAppStopRemoteServer() {
 }
 
-@_cdecl("actionUIAppRemoteServerToken")
+@c
 public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
     nil
 }
 
-@_cdecl("actionUIAppRemoteCopyServerToken")
+@c
 public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?, _ outTokenSize: Int) -> CBool {
     false
 }
 
-@_cdecl("actionUIAppRemoteServerEndpoint")
+@c
 public func actionUIAppRemoteServerEndpoint() -> UnsafePointer<CChar>? {
     nil
 }

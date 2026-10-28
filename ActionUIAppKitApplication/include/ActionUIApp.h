@@ -11,10 +11,12 @@
 //  C types for the AppKit application lifecycle adapter.
 //
 //  The types and a prototype for every function, so plain C clients can call it. The Swift
-//  compiler also declares the functions, in ActionUIAppKitApplication-Swift.h (inside
-//  #if defined(__OBJC__)); Scripts/check-c-prototypes.sh checks the two lists agree.
+//  compiler also declares the @c functions, in ActionUIAppKitApplication-Swift.h (on Linux,
+//  ActionUIAdwaitaApplication-Swift.h). The two declarations must agree:
+//  HeaderCheck/ActionUIAppHeaderCheck.c includes both, so a differing type fails the build, and
+//  Scripts/check-c-prototypes.sh checks the two lists of names agree.
 //
-//  Bool: all @_cdecl functions use Swift's CBool (= stdbool.h bool).
+//  Bool: all the functions use Swift's CBool (= stdbool.h bool).
 //
 
 #ifndef ActionUIApp_h
@@ -91,7 +93,7 @@ char *actionUIAppRunSavePanel(const char *configJSON) ACTIONUI_NOEXCEPT;
 bool actionUIAppStartRemoteServer(const char *socketPath) ACTIONUI_NOEXCEPT;
 void actionUIAppStopRemoteServer(void) ACTIONUI_NOEXCEPT;
 const char *actionUIAppRemoteServerToken(void) ACTIONUI_NOEXCEPT;
-bool actionUIAppRemoteCopyServerToken(char *outToken, long outTokenSize) ACTIONUI_NOEXCEPT;  // false if outToken is NULL or too small; long is NSInteger on Apple
+bool actionUIAppRemoteCopyServerToken(char *outToken, long outTokenSize) ACTIONUI_NOEXCEPT;  // false if outToken is NULL or too small; long is ptrdiff_t (Swift Int) on 64-bit platforms
 const char *actionUIAppRemoteServerEndpoint(void) ACTIONUI_NOEXCEPT;
 
 #ifdef __cplusplus

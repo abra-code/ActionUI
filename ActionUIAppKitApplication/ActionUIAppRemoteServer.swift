@@ -13,7 +13,7 @@
 //  friends), which is the target a host links for this and the only one OMC takes. All this
 //  layer adds is the application name, which only it knows.
 //
-//  Bool: all @_cdecl functions use Swift's CBool (= stdbool.h bool).
+//  Bool: all @c functions use Swift's CBool (= stdbool.h bool).
 //
 
 import AppKit
@@ -26,7 +26,7 @@ import ActionUIRemote
 /// Equivalent to `actionUIRemoteStartServer(socketPath, appName, NULL)`: the only thing added is
 /// the name set with `actionUIAppSetName`, so `actionui.hello` answers with the application's
 /// name rather than the host process's. See `actionUIRemoteStartServer` for everything else.
-@_cdecl("actionUIAppStartRemoteServer")
+@c
 public func actionUIAppStartRemoteServer(_ socketPath: UnsafePointer<CChar>?) -> CBool {
     guard let name = appName else {
         return actionUIRemoteStartServer(socketPath, nil, nil)
@@ -36,14 +36,14 @@ public func actionUIAppStartRemoteServer(_ socketPath: UnsafePointer<CChar>?) ->
 
 /// Stop the server, remove its socket, and unset `ACTIONUI_REMOTE_ENDPOINT`.
 /// Equivalent to `actionUIRemoteStopServer()`.
-@_cdecl("actionUIAppStopRemoteServer")
+@c
 public func actionUIAppStopRemoteServer() {
     actionUIRemoteStopServer()
 }
 
 /// The token the running server requires, or NULL when it requires none.
 /// Equivalent to `actionUIRemoteServerToken()`, including its lifetime.
-@_cdecl("actionUIAppRemoteServerToken")
+@c
 public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
     return actionUIRemoteServerToken()
 }
@@ -51,7 +51,7 @@ public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
 /// The same token, copied into the caller's buffer under the framework's lock.
 /// Equivalent to `actionUIRemoteCopyServerToken`, and what a host with more than one thread
 /// should use: see that function for why the pointer form is not safe against a concurrent stop.
-@_cdecl("actionUIAppRemoteCopyServerToken")
+@c
 public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?,
                                              _ outTokenSize: Int) -> CBool {
     return actionUIRemoteCopyServerToken(outToken, outTokenSize)
@@ -60,7 +60,7 @@ public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CC
 /// The socket path of the running server, or NULL when none is running.
 /// Equivalent to `actionUIRemoteServerEndpoint()`, including its lifetime: the string is owned
 /// by the framework and stays valid until the next start or stop.
-@_cdecl("actionUIAppRemoteServerEndpoint")
+@c
 public func actionUIAppRemoteServerEndpoint() -> UnsafePointer<CChar>? {
     return actionUIRemoteServerEndpoint()
 }

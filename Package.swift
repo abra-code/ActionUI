@@ -1,6 +1,7 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
-// Tools-version 6.0 selects the Swift 6 language mode by default for every target in this package.
+// Tools-version 6.3: the C functions use the @c attribute (Swift 6.3, Xcode 26.4), and the Swift 6
+// language mode is the default for every target in this package.
 //
 // ActionUI SPM Package
 // Source distribution for https://github.com/abra-code/ActionUI
@@ -208,6 +209,8 @@ Package(
         //       ActionUIC.h          - typedefs and public C API
         //     ActionUIC.swift, ActionUIC+Apple.swift - compiled by ActionUICAdapter target below
         //     ActionUIC+Linux.swift                   - compiled by linuxPackage's ActionUICAdapter
+        //     HeaderCheck/                            - compiled by the Xcode framework target, and
+        //                                               by Scripts/check-c-prototypes.sh
         .target(
             name: "ActionUICAdapterHeaders",
             path: "ActionUICAdapter",
@@ -215,6 +218,7 @@ Package(
                 "ActionUIC.swift",
                 "ActionUIC+Apple.swift",
                 "ActionUIC+Linux.swift",
+                "HeaderCheck",
             ],
             publicHeadersPath: "include"
         ),
@@ -233,6 +237,7 @@ Package(
                 // Exclude C sources and headers — owned by ActionUICAdapterHeaders
                 "dummy.c",
                 "include",
+                "HeaderCheck",
                 "ActionUIC+Linux.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Apple.swift"],
@@ -423,8 +428,9 @@ Package(
             sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"]
         ),
         // The C interface: its C header as a module (only ActionUIC.h: the folder's umbrella
-        // header is Objective-C), and the functions that work with values and JSON text
-        // (ActionUIC.swift; the Apple-only ones, which hand out native views, are not built).
+        // header declares version symbols that only the Xcode framework build defines), and the
+        // functions that work with values and JSON text (ActionUIC.swift; the Apple-only ones,
+        // which hand out native views, are not built).
         .systemLibrary(
             name: "ActionUICAdapterHeaders",
             path: "ActionUIAdwaita/CAdapterHeaders"
@@ -436,13 +442,14 @@ Package(
             exclude: [
                 "dummy.c",
                 "include",
+                "HeaderCheck",
                 "ActionUIC+Apple.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Linux.swift"]
         ),
         // The application functions (actionUIApp*), over AdwaitaApplication; their C header's
         // handler types come from ActionUIApp.h as a module (only that header: its folder's
-        // umbrella header is Objective-C).
+        // umbrella header declares version symbols that only the Xcode framework build defines).
         .systemLibrary(
             name: "ActionUIAppHeaders",
             path: "ActionUIAdwaita/AppHeaders"

@@ -10,18 +10,32 @@
 //
 //  Umbrella header for ActionUICAdapter framework.
 //
+//  Plain C, like ActionUIC.h: when modules are off, the Swift-generated ActionUICAdapter-Swift.h
+//  includes this header, so a plain C client of that header compiles it too.
+//
 
-#import <Foundation/Foundation.h>
+#ifndef ActionUICAdapter_h
+#define ActionUICAdapter_h
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //! Project version number for ActionUICAdapter.
-FOUNDATION_EXPORT double ActionUICAdapterVersionNumber;
+extern double ActionUICAdapterVersionNumber;
 
 //! Project version string for ActionUICAdapter.
-FOUNDATION_EXPORT const unsigned char ActionUICAdapterVersionString[];
+extern const unsigned char ActionUICAdapterVersionString[];
 
-// Import the C interface
+#ifdef __cplusplus
+}
+#endif
+
+// Include the C interface
 #if __has_include(<ActionUICAdapter/ActionUIC.h>)
-    #import <ActionUICAdapter/ActionUIC.h>   // Xcode framework build
+    #include <ActionUICAdapter/ActionUIC.h>   // Xcode framework build
 #else
-    #import "ActionUIC.h"                    // SPM build
+    #include "ActionUIC.h"                    // SPM build
+#endif
+
 #endif

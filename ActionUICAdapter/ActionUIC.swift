@@ -11,9 +11,10 @@
 //  Swift implementation of C interface for ActionUI.
 //
 //  NOTE: C types (ActionUILogLevel, ActionUILoggerCallback, ActionUIActionHandler)
-//  are exposed via the framework's umbrella header (ActionUICAdapter.h -> ActionUIC.h)
-//  and automatically declared in the generated ActionUICAdapter-Swift.h header
-//  (but only when __OBJC__ is defined)
+//  are exposed via the framework's umbrella header (ActionUICAdapter.h -> ActionUIC.h).
+//  The @c functions are declared in the generated ActionUICAdapter-Swift.h header too,
+//  for plain C as for Objective-C; HeaderCheck/ActionUICHeaderCheck.c checks that those
+//  declarations agree with ActionUIC.h.
 //
 
 #if canImport(FoundationEssentials)
@@ -127,14 +128,14 @@ private func actionStrdup(_ str: String) -> UnsafeMutablePointer<CChar>? {
 // MARK: - Version Info
 
 /// ActionUI's version (ActionUIVersion.string), such as "0.9.0". Free with actionUIFreeString.
-@_cdecl("actionUIGetVersion")
+@c
 public func actionUIGetVersion() -> UnsafeMutablePointer<CChar>? {
     return actionStrdup(ActionUIVersion.string)
 }
 
 // MARK: - Logging
 
-// nonisolated(unsafe): C bridging state set/read across the @_cdecl entry points. This retains the
+// nonisolated(unsafe): C bridging state set/read across the @c entry points. This retains the
 // adapter's existing single-threaded-caller assumption (no new locking is introduced).
 private nonisolated(unsafe) var cLoggerCallback: ActionUILoggerCallback? = nil
 
@@ -157,7 +158,7 @@ private final class CLoggerBridge: ActionUILogger {
     }
 }
 
-@_cdecl("actionUISetLogger")
+@c
 public func actionUISetLogger(_ callback: ActionUILoggerCallback?) {
     cLoggerCallback = callback
     if callback != nil {
@@ -167,7 +168,7 @@ public func actionUISetLogger(_ callback: ActionUILoggerCallback?) {
     }
 }
 
-@_cdecl("actionUILog")
+@c
 public func actionUILog(_ message: UnsafePointer<CChar>, _ level: ActionUILogLevel) {
     let swiftMessage = String(cString: message)
     let swiftLevel: ActionUI.LoggerLevel = switch level {
@@ -186,7 +187,7 @@ public func actionUILog(_ message: UnsafePointer<CChar>, _ level: ActionUILogLev
 
 // MARK: - Action Handling
 
-// nonisolated(unsafe): see cLoggerCallback. Registered from the @_cdecl entry points, read from the
+// nonisolated(unsafe): see cLoggerCallback. Registered from the @c entry points, read from the
 // bridged action handler (invoked on the main actor).
 private nonisolated(unsafe) var actionHandlers: [String: ActionUIActionHandler] = [:]
 private nonisolated(unsafe) var defaultActionHandler: ActionUIActionHandler? = nil
@@ -218,7 +219,7 @@ private func bridgeActionHandler(actionID: String, windowUUID: String, viewID: I
     }
 }
 
-@_cdecl("actionUIRegisterActionHandler")
+@c
 public func actionUIRegisterActionHandler(_ actionID: UnsafePointer<CChar>, _ handler: @escaping ActionUIActionHandler) -> CBool {
     let swiftActionID = String(cString: actionID)
     actionHandlers[swiftActionID] = handler
@@ -232,7 +233,7 @@ public func actionUIRegisterActionHandler(_ actionID: UnsafePointer<CChar>, _ ha
     return true
 }
 
-@_cdecl("actionUIUnregisterActionHandler")
+@c
 public func actionUIUnregisterActionHandler(_ actionID: UnsafePointer<CChar>) -> CBool {
     let swiftActionID = String(cString: actionID)
     actionHandlers.removeValue(forKey: swiftActionID)
@@ -244,7 +245,7 @@ public func actionUIUnregisterActionHandler(_ actionID: UnsafePointer<CChar>) ->
     return true
 }
 
-@_cdecl("actionUISetDefaultActionHandler")
+@c
 public func actionUISetDefaultActionHandler(_ handler: ActionUIActionHandler?) {
     defaultActionHandler = handler
     
@@ -261,7 +262,7 @@ public func actionUISetDefaultActionHandler(_ handler: ActionUIActionHandler?) {
     }
 }
 
-@_cdecl("actionUIRemoveDefaultActionHandler")
+@c
 public func actionUIRemoveDefaultActionHandler() {
     defaultActionHandler = nil
     runOnMainActorAsync {
@@ -326,13 +327,13 @@ func clearError() {
 
 /// The error recorded by the calling thread's most recent call into this adapter, or NULL when
 /// that call succeeded. Each thread has its own last error.
-@_cdecl("actionUIGetLastError")
+@c
 public func actionUIGetLastError() -> UnsafeMutablePointer<CChar>? {
     guard let error = lastError else { return nil }
     return actionStrdup(error)
 }
 
-@_cdecl("actionUIClearError")
+@c
 public func actionUIClearError() {
     clearError()
 }
@@ -381,7 +382,7 @@ private func jsonErrorMessage(_ error: Error) -> String {
 
 // MARK: - Element Value Management (JSON)
 
-@_cdecl("actionUISetElementValueJSON")
+@c
 public func actionUISetElementValueJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -409,7 +410,7 @@ public func actionUISetElementValueJSON(
     return true
 }
 
-@_cdecl("actionUIGetElementValueJSON")
+@c
 public func actionUIGetElementValueJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -440,7 +441,7 @@ public func actionUIGetElementValueJSON(
 
 // MARK: - Element Value Management (String)
 
-@_cdecl("actionUISetElementValueString")
+@c
 public func actionUISetElementValueString(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -467,7 +468,7 @@ public func actionUISetElementValueString(
     return true
 }
 
-@_cdecl("actionUIGetElementValueString")
+@c
 public func actionUIGetElementValueString(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -501,7 +502,7 @@ public func actionUIGetElementValueString(
 /// Reports the maximum column count across all content rows, including hidden columns
 /// beyond the visible ones defined in the JSON layout.
 /// Returns 0 for non-table elements or if the view is not found.
-@_cdecl("actionUIGetElementColumnCount")
+@c
 public func actionUIGetElementColumnCount(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64
@@ -523,7 +524,7 @@ public func actionUIGetElementColumnCount(
 /// Caller must free the returned string with actionUIFreeString.
 /// Returns NULL if the view is not a table, not found, or has no rows.
 /// JSON format: [["cell1","cell2"],["cell3","cell4"],...]
-@_cdecl("actionUIGetElementRowsJSON")
+@c
 public func actionUIGetElementRowsJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64
@@ -548,7 +549,7 @@ public func actionUIGetElementRowsJSON(
 }
 
 /// Clears all content rows from a table/list view element, preserving column definitions.
-@_cdecl("actionUIClearElementRows")
+@c
 public func actionUIClearElementRows(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64
@@ -563,7 +564,7 @@ public func actionUIClearElementRows(
 /// Replaces all content rows for a table/list view element from a JSON string.
 /// Clears the current selection if the selected row is no longer present.
 /// JSON format: [["cell1","cell2"],["cell3","cell4"],...]
-@_cdecl("actionUISetElementRowsJSON")
+@c
 public func actionUISetElementRowsJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -588,7 +589,7 @@ public func actionUISetElementRowsJSON(
 
 /// Appends rows to a table/list view element's existing content from a JSON string.
 /// JSON format: [["cell1","cell2"],["cell3","cell4"],...]
-@_cdecl("actionUIAppendElementRowsJSON")
+@c
 public func actionUIAppendElementRowsJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -617,7 +618,7 @@ public func actionUIAppendElementRowsJSON(
 /// An index outside 0..<rowCount clears the selection. Does not fire the element's actionID.
 /// Returns true if a row was selected, false if the index was out of range (selection cleared)
 /// or the view is not a Table/List.
-@_cdecl("actionUISelectElementRowByIndex")
+@c
 public func actionUISelectElementRowByIndex(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -638,7 +639,7 @@ public func actionUISelectElementRowByIndex(
 /// A negative `column` matches any column; otherwise matches the given 0-based column only.
 /// Does not fire the element's actionID.
 /// Returns the 0-based index of the selected row, or -1 if no row matched.
-@_cdecl("actionUISelectElementRowWithContent")
+@c
 public func actionUISelectElementRowWithContent(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -659,7 +660,7 @@ public func actionUISelectElementRowWithContent(
 }
 
 /// Clears the current selection of a Table/List view element.
-@_cdecl("actionUIClearElementSelection")
+@c
 public func actionUIClearElementSelection(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64
@@ -676,7 +677,7 @@ public func actionUIClearElementSelection(
 /// Gets a structural property value for a view element, returned as a JSON string.
 /// Caller must free the returned string with actionUIFreeString.
 /// Returns NULL if not found.
-@_cdecl("actionUIGetElementPropertyJSON")
+@c
 public func actionUIGetElementPropertyJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -704,7 +705,7 @@ public func actionUIGetElementPropertyJSON(
 
 /// Sets a structural property value for a view element from a JSON string.
 /// The value is stored as given; the element ignores a value of the wrong type, as it does in a document.
-@_cdecl("actionUISetElementPropertyJSON")
+@c
 public func actionUISetElementPropertyJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -733,7 +734,7 @@ public func actionUISetElementPropertyJSON(
 /// Returns the current value for a single state key of a view element, as a JSON string.
 /// Caller must free the returned string with actionUIFreeString.
 /// Returns NULL if the view or key is not found.
-@_cdecl("actionUIGetElementStateJSON")
+@c
 public func actionUIGetElementStateJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -762,7 +763,7 @@ public func actionUIGetElementStateJSON(
 /// Returns the string representation of a single state value for a view element.
 /// Caller must free the returned string with actionUIFreeString.
 /// Returns NULL if the view or key is not found.
-@_cdecl("actionUIGetElementStateString")
+@c
 public func actionUIGetElementStateString(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -786,7 +787,7 @@ public func actionUIGetElementStateString(
 
 /// Sets a single state key to a new value parsed from a JSON string.
 /// Rejects the update (with an error log) if the new value's type differs from the existing value's type.
-@_cdecl("actionUISetElementStateJSON")
+@c
 public func actionUISetElementStateJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -812,7 +813,7 @@ public func actionUISetElementStateJSON(
 
 /// Sets a single state key by parsing a string into the type of the existing value.
 /// If the key does not yet exist the string is stored as-is.
-@_cdecl("actionUISetElementStateFromString")
+@c
 public func actionUISetElementStateFromString(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -838,7 +839,7 @@ public func actionUISetElementStateFromString(
 /// Caller must free the returned string with actionUIFreeString.
 /// Returns NULL if no window found or no elements with positive IDs.
 /// JSON format: {"2":"TextField","3":"SecureField","4":"Picker",...}
-@_cdecl("actionUIGetElementInfoJSON")
+@c
 public func actionUIGetElementInfoJSON(
     _ windowUUID: UnsafePointer<CChar>
 ) -> UnsafeMutablePointer<CChar>? {
@@ -868,7 +869,7 @@ public func actionUIGetElementInfoJSON(
 /// Forgets a window's model (its description, values and states) once the host is done with the
 /// window, so a long-running host does not keep every window it ever showed. Afterwards the window
 /// is unknown, as one never loaded. An unknown UUID is ignored. Returns when the model is gone.
-@_cdecl("actionUIRemoveWindow")
+@c
 public func actionUIRemoveWindow(_ windowUUID: UnsafePointer<CChar>) {
     let swiftWindowUUID = String(cString: windowUUID)
     runOnMainActorSync {
@@ -878,7 +879,7 @@ public func actionUIRemoveWindow(_ windowUUID: UnsafePointer<CChar>) {
 
 // MARK: - Type-specific Setters
 
-@_cdecl("actionUISetIntValue")
+@c
 public func actionUISetIntValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -899,7 +900,7 @@ public func actionUISetIntValue(
     return true
 }
 
-@_cdecl("actionUISetDoubleValue")
+@c
 public func actionUISetDoubleValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -920,7 +921,7 @@ public func actionUISetDoubleValue(
     return true
 }
 
-@_cdecl("actionUISetBoolValue")
+@c
 public func actionUISetBoolValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -941,7 +942,7 @@ public func actionUISetBoolValue(
     return true
 }
 
-@_cdecl("actionUISetStringValue")
+@c
 public func actionUISetStringValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -965,7 +966,7 @@ public func actionUISetStringValue(
 
 // MARK: - Type-specific Getters
 
-@_cdecl("actionUIGetIntValue")
+@c
 public func actionUIGetIntValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -1006,7 +1007,7 @@ public func actionUIGetIntValue(
     return false
 }
 
-@_cdecl("actionUIGetDoubleValue")
+@c
 public func actionUIGetDoubleValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -1041,7 +1042,7 @@ public func actionUIGetDoubleValue(
     return false
 }
 
-@_cdecl("actionUIGetBoolValue")
+@c
 public func actionUIGetBoolValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -1073,7 +1074,7 @@ public func actionUIGetBoolValue(
     return false
 }
 
-@_cdecl("actionUIGetStringValue")
+@c
 public func actionUIGetStringValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
@@ -1132,7 +1133,7 @@ private func swiftInsertPosition(_ position: ActionUIInsertPosition, param: Int)
 ///   Call `actionUIGetLastError()` for details on failure.
 ///   An element without an "id" gets an auto-assigned negative id, which is a
 ///   success: auto-assigned ids start at -2, so only exactly `-1` means failure.
-@_cdecl("actionUIInsertElement")
+@c
 public func actionUIInsertElement(
     _ windowUUID:     UnsafePointer<CChar>,
     _ parentID:       Int64,
@@ -1177,7 +1178,7 @@ public func actionUIInsertElement(
 ///   - positionParam: Row index for `ActionUIInsertPositionAt`; ignored otherwise.
 /// - Returns: Heap-allocated null-terminated JSON array of inserted cell ids (e.g. `[5,6]`).
 ///   Caller must free with `actionUIFreeString`. Returns NULL on failure.
-@_cdecl("actionUIInsertRow")
+@c
 public func actionUIInsertRow(
     _ windowUUID:     UnsafePointer<CChar>,
     _ parentID:       Int64,
@@ -1222,7 +1223,7 @@ public func actionUIInsertRow(
 ///   - windowUUID: Null-terminated UTF-8 window identifier.
 ///   - viewID: The id of the element to remove.
 /// - Returns: `true` on success; `false` on failure. Call `actionUIGetLastError()` for details.
-@_cdecl("actionUIRemoveElement")
+@c
 public func actionUIRemoveElement(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID:     Int64
@@ -1260,7 +1261,7 @@ private func parseDialogButtons(_ buttonsJSON: String?) -> [ActionUI.DialogButto
 ///   - style: `ActionUIModalStyleSheet` (0) or `ActionUIModalStyleFullScreenCover` (1).
 ///   - onDismissActionID: Optional null-terminated UTF-8 actionID fired on dismiss; pass NULL for none.
 /// - Returns: `true` on success; `false` on failure — call `actionUIGetLastError()` for details.
-@_cdecl("actionUIPresentModal")
+@c
 public func actionUIPresentModal(
     _ windowUUID: UnsafePointer<CChar>,
     _ jsonString: UnsafePointer<CChar>,
@@ -1302,7 +1303,7 @@ public func actionUIPresentModal(
 /// Dismisses the active window-level modal for the given window.
 /// Also fires the `onDismissActionID` if one was registered on present.
 /// - Parameter windowUUID: Null-terminated UTF-8 window identifier.
-@_cdecl("actionUIDismissModal")
+@c
 public func actionUIDismissModal(_ windowUUID: UnsafePointer<CChar>) {
     let swiftWindowUUID = String(cString: windowUUID)
     runOnMainActorAsync {
@@ -1318,7 +1319,7 @@ public func actionUIDismissModal(_ windowUUID: UnsafePointer<CChar>) {
 ///   - buttonsJSON: Optional null-terminated UTF-8 JSON array of button descriptors; pass NULL for a single default OK button.
 ///     Format: `[{"title":"Delete","role":"destructive","actionID":"delete.confirmed"},{"title":"Cancel","role":"cancel"}]`
 /// - Returns: `true` on success.
-@_cdecl("actionUIPresentAlert")
+@c
 public func actionUIPresentAlert(
     _ windowUUID: UnsafePointer<CChar>,
     _ title: UnsafePointer<CChar>,
@@ -1350,7 +1351,7 @@ public func actionUIPresentAlert(
 ///   - buttonsJSON: Null-terminated UTF-8 JSON array of button descriptors.
 ///     Format: `[{"title":"Save","actionID":"doc.save"},{"title":"Don't Save","role":"destructive","actionID":"doc.discard"},{"title":"Cancel","role":"cancel"}]`
 /// - Returns: `true` on success.
-@_cdecl("actionUIPresentConfirmationDialog")
+@c
 public func actionUIPresentConfirmationDialog(
     _ windowUUID: UnsafePointer<CChar>,
     _ title: UnsafePointer<CChar>,
@@ -1373,7 +1374,7 @@ public func actionUIPresentConfirmationDialog(
 /// Dismisses the active window-level alert or confirmation dialog for the given window.
 /// Normally SwiftUI dismisses dialogs automatically when a button is tapped.
 /// - Parameter windowUUID: Null-terminated UTF-8 window identifier.
-@_cdecl("actionUIDismissDialog")
+@c
 public func actionUIDismissDialog(_ windowUUID: UnsafePointer<CChar>) {
     let swiftWindowUUID = String(cString: windowUUID)
     runOnMainActorAsync {
@@ -1390,7 +1391,7 @@ public func actionUIDismissDialog(_ windowUUID: UnsafePointer<CChar>) {
 ///   - actionTitle: Optional null-terminated UTF-8 inline action button title (e.g. "Undo"); pass NULL to omit. Supply together with actionID.
 ///   - actionID: Optional null-terminated UTF-8 actionID fired when the inline action button is tapped; pass NULL to omit.
 /// - Returns: `true` on success.
-@_cdecl("actionUIPresentToast")
+@c
 public func actionUIPresentToast(
     _ windowUUID: UnsafePointer<CChar>,
     _ message: UnsafePointer<CChar>,
@@ -1414,7 +1415,7 @@ public func actionUIPresentToast(
 /// Dismisses the current toast for the given window, showing the next queued toast if any.
 /// The auto-dismiss timer and the inline action button call this for you.
 /// - Parameter windowUUID: Null-terminated UTF-8 window identifier.
-@_cdecl("actionUIDismissToast")
+@c
 public func actionUIDismissToast(_ windowUUID: UnsafePointer<CChar>) {
     let swiftWindowUUID = String(cString: windowUUID)
     runOnMainActorAsync {
@@ -1424,7 +1425,7 @@ public func actionUIDismissToast(_ windowUUID: UnsafePointer<CChar>) {
 
 // MARK: - Memory Management
 
-@_cdecl("actionUIFreeString")
+@c
 public func actionUIFreeString(_ str: UnsafeMutablePointer<CChar>) {
     free(str)
 }

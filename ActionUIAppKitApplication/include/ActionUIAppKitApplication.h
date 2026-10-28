@@ -10,17 +10,32 @@
 //
 //  Umbrella header for ActionUIAppKitApplication framework.
 //
+//  Plain C, like ActionUIApp.h: when modules are off, the Swift-generated
+//  ActionUIAppKitApplication-Swift.h includes this header, so a plain C client of that header
+//  compiles it too.
+//
 
-#import <Foundation/Foundation.h>
+#ifndef ActionUIAppKitApplication_h
+#define ActionUIAppKitApplication_h
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //! Project version number for ActionUIAppKitApplication.
-FOUNDATION_EXPORT double ActionUIAppKitApplicationVersionNumber;
+extern double ActionUIAppKitApplicationVersionNumber;
 
 //! Project version string for ActionUIAppKitApplication.
-FOUNDATION_EXPORT const unsigned char ActionUIAppKitApplicationVersionString[];
+extern const unsigned char ActionUIAppKitApplicationVersionString[];
+
+#ifdef __cplusplus
+}
+#endif
 
 #if __has_include(<ActionUIAppKitApplication/ActionUIApp.h>)
-    #import <ActionUIAppKitApplication/ActionUIApp.h>   // Xcode framework build
+    #include <ActionUIAppKitApplication/ActionUIApp.h>   // Xcode framework build
 #else
-    #import "ActionUIApp.h"                             // SPM build
+    #include "ActionUIApp.h"                             // SPM build
+#endif
+
 #endif

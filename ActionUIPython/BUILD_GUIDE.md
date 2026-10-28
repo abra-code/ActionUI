@@ -27,12 +27,11 @@ the extension do not need any ActionUI files installed on their machine at runti
 **ActionUIC.h** — the C types (enums, callback typedefs) and a plain C prototype for every
 function, checked against the code by `Scripts/check-c-prototypes.sh`.
 
-**ActionUIC.swift** — implements the `actionUI*` functions with `@_cdecl` (the two Apple-only ones,
+**ActionUIC.swift** — implements the `actionUI*` functions with `@c` (the two Apple-only ones,
 which load a native view and measure its content, in `ActionUIC+Apple.swift`).
 
 **Function declarations** are emitted by the Swift compiler into
-`ActionUICAdapter-Swift.h`.  That generated header guards everything with
-`#if defined(__OBJC__)`.
+`ActionUICAdapter-Swift.h` as well, for plain C as for Objective-C.
 
 #### `ActionUIAppKitApplication.framework` — app lifecycle / window API
 
@@ -40,7 +39,7 @@ which load a native view and measure its content, in `ActionUIC+Apple.swift`).
 `ActionUIAppShouldTerminateHandler`, `ActionUIAppWindowHandler`) and a plain C prototype for
 every function.
 
-**ActionUIApp.swift** — implements all `actionUIApp*` functions with `@_cdecl`:
+**ActionUIApp.swift** — implements all `actionUIApp*` functions with `@c`:
 lifecycle handler registration, `actionUIAppSetName`, `actionUIAppSetIcon`,
 `actionUIAppRun` (blocks), `actionUIAppTerminate`,
 `actionUIAppLoadAndPresentWindow`, `actionUIAppCloseWindow`,
@@ -69,15 +68,11 @@ with a `py_*` counterpart.  It imports both generated Swift headers:
 
 #### Why `.m` instead of `.c`?
 
-The Swift compiler wraps all `@_cdecl` declarations in the auto-generated
-bridging headers with `#if defined(__OBJC__)`, even though neither adapter has
-`@objc` classes.  This guard exists to keep ObjC-style nullability annotations
-consistent.
-
-A plain `.c` file cannot include `Foundation.h` (pulled in transitively) due
-to `@class` syntax in `NSObjCRuntime.h`.  Compiling as `.m` causes clang to
-define `__OBJC__` automatically, entering the declaration block naturally.
-The code itself is entirely plain C — only the compilation mode is ObjC.
+For a reason that no longer holds. The C functions used to be declared with
+`@_cdecl`, which the Swift compiler puts only inside `#if defined(__OBJC__)` in
+the generated headers, so the file had to be compiled as Objective-C. With `@c`
+the generated headers declare the functions for plain C as well. The code itself
+is entirely plain C.
 
 This module includes the generated headers. A client that includes only `ActionUIC.h` and
 `ActionUIApp.h`, which declare every function too, compiles as plain C or C++.
@@ -97,7 +92,7 @@ via CommandMenu/CommandGroup JSON.
 | Requirement | Notes |
 |-------------|-------|
 | macOS 14.6+ | arm64 or x86_64 |
-| Xcode + command-line tools | `xcode-select --install` |
+| Xcode 26.4+ + command-line tools | `xcode-select --install`; Swift 6.3 or later |
 | Python 3.8+ with dev headers | `python3-config` must work |
 | Pre-built static frameworks | `ActionUI.framework` + `ActionUICAdapter.framework` + `ActionUIAppKitApplication.framework` (see below) |
 
@@ -243,18 +238,18 @@ clang -shared -fPIC \
 ActionUI/
 ├── ActionUI/                              Core SwiftUI component library
 ├── ActionUICAdapter/
-│   ├── ActionUIC.swift                    @_cdecl element / value / state API
+│   ├── ActionUIC.swift                    @c element / value / state API
 │   ├── dummy.c                            Forces C-linkage output
 │   └── include/
 │       ├── ActionUICAdapter.h             Umbrella header
-│       └── ActionUIC.h                    C types (no function declarations)
+│       └── ActionUIC.h                    C types and function prototypes
 ├── ActionUIAppKitApplication/
-│   ├── ActionUIApp.swift                  @_cdecl app lifecycle / window / name API
+│   ├── ActionUIApp.swift                  @c app lifecycle / window / name API
 │   ├── ActionUIAppMenuBar.swift           Default menu bar + CommandMenu/CommandGroup adapter
 │   ├── dummy.c                            Forces C-linkage output
 │   └── include/
 │       ├── ActionUIAppKitApplication.h    Umbrella header
-│       └── ActionUIApp.h                  C callback typedefs
+│       └── ActionUIApp.h                  C callback typedefs and function prototypes
 └── ActionUIPython/                        ← this directory
     ├── actionui_native.m                  Python C extension (compiled as ObjC)
     ├── actionui.py                        Pythonic wrapper

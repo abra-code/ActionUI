@@ -31,14 +31,14 @@ a `node_*` counterpart using raw N-API (`node_api.h`).
 
 #### Why `.m` instead of `.cc`?
 
-The Swift compiler wraps all `@_cdecl` declarations in the auto-generated bridging
-headers with `#if defined(__OBJC__)`.  A `.cc` (C++) file cannot include
-`Foundation.h` (pulled in transitively) and would not enter the declaration block.
-Compiling as `.m` causes clang to define `__OBJC__` automatically.  The code itself
-is entirely plain C — only the compilation mode is ObjC.
+For a reason that no longer holds. The C functions used to be declared with `@_cdecl`,
+which the Swift compiler puts only inside `#if defined(__OBJC__)` in the generated headers,
+so the file had to be compiled as Objective-C. With `@c` the generated headers declare the
+functions for plain C and C++ as well. The code itself is entirely plain C.
 
-This module includes the generated headers. A client that includes only `ActionUIC.h` and
-`ActionUIApp.h`, which declare every function too, compiles as plain C or C++.
+This module includes the generated headers. `ActionUIC.h` and `ActionUIApp.h` declare every
+function too; a client may include those alone, or with the generated ones. The generated
+headers alone do not give the C types (callback typedefs) to a client compiled with modules on.
 
 #### Why raw N-API instead of node-addon-api?
 
@@ -66,7 +66,7 @@ JavaScript wrapper providing `Application`, `Window`, `ActionContext`.
 | Requirement | Notes |
 |-------------|-------|
 | macOS 14.6+ | arm64 or x86_64 |
-| Xcode + command-line tools | `xcode-select --install` |
+| Xcode 26.4+ + command-line tools | `xcode-select --install`; Swift 6.3 or later |
 | Node.js 18+ | `node --version` |
 | npm 9+ | bundled with Node.js |
 | Pre-built static frameworks | built from the ActionUI Xcode project |

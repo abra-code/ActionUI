@@ -12,13 +12,13 @@
 //  Part of the ActionUI project - provides a dynamic framework for C bindings.
 //
 //  The types (enums, callback typedefs) and a prototype for every function, so plain C
-//  clients can call ActionUI. The Swift compiler also declares the functions, in
-//  ActionUICAdapter-Swift.h (inside #if defined(__OBJC__)); the two declarations agree,
-//  and Scripts/check-c-prototypes.sh checks that every function has a prototype here.
+//  clients can call ActionUI. The Swift compiler also declares the @c functions, in
+//  ActionUICAdapter-Swift.h. The two declarations must agree: HeaderCheck/ActionUICHeaderCheck.c
+//  includes both, so a differing type fails the build, and Scripts/check-c-prototypes.sh
+//  checks that every function has a prototype here.
 //
-//  Bool types: @_cdecl functions use Swift's CBool (= C stdbool.h bool)
-//  for all boolean parameters and return values, so the generated header
-//  emits `bool` rather than ObjC's `BOOL` (which is `signed char` on x86_64).
+//  Bool types: the functions use Swift's CBool (= C stdbool.h bool) for all boolean
+//  parameters and return values; the generated header emits `bool`.
 //
 
 #ifndef ActionUIC_h

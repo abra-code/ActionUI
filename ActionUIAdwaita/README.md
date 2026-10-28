@@ -7,7 +7,7 @@ For how the renderer works (retained widgets, SwiftUI's layout reproduced, what 
 ## Requirements
 
 - **GNOME 48 or later:** GTK 4.18, libadwaita 1.7, GLib 2.84 and libsoup 3. Tested on **Debian 13** (GTK 4.18, libadwaita 1.7) and **Ubuntu 26.04** (GTK 4.22, libadwaita 1.9). Ubuntu 24.04's libadwaita 1.5 is too old.
-- To build: a **Swift 6.2** or later toolchain from swift.org, and the development packages (Debian and Ubuntu names):
+- To build: a **Swift 6.3** or later toolchain from swift.org, and the development packages (Debian and Ubuntu names):
 
   ```sh
   sudo apt install libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev pkg-config

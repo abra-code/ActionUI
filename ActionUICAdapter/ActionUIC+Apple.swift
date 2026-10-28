@@ -32,7 +32,7 @@ func hostNative(_ value: Any) -> Any {
 // MARK: - UI Loading
 
 
-@_cdecl("actionUILoadHostingControllerFromURL")
+@c
 public func actionUILoadHostingControllerFromURL(
     _ urlString: UnsafePointer<CChar>,
     _ windowUUID: UnsafePointer<CChar>,
@@ -85,7 +85,7 @@ public func actionUILoadHostingControllerFromURL(
 /// actionUILoadHostingControllerFromURL has loaded the document.
 /// Out parameters may be NULL to skip a component. Returns false (with an error set)
 /// when the window is unknown or on non-macOS platforms.
-@_cdecl("actionUIGetContentSizeLimits")
+@c
 public func actionUIGetContentSizeLimits(
     _ windowUUID: UnsafePointer<CChar>,
     _ outMinWidth: UnsafeMutablePointer<Double>?,

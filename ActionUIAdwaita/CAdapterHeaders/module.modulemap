@@ -1,7 +1,7 @@
 // The C adapter's public C header as the module ActionUICAdapterHeaders, which ActionUIC.swift
 // imports, for the Linux package. The Apple package builds that module from the whole include
-// folder, whose umbrella header ActionUICAdapter.h imports Foundation/Foundation.h (Objective-C,
-// Apple only); ActionUIC.h itself is plain C.
+// folder, whose umbrella header ActionUICAdapter.h also declares the framework's version
+// symbols, which only the Xcode framework build defines; ActionUIC.h alone is the C interface.
 module ActionUICAdapterHeaders {
     header "../../ActionUICAdapter/include/ActionUIC.h"
     export *

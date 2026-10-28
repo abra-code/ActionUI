@@ -36,7 +36,9 @@ fn rust_type_for_c(c_type: &str) -> String {
         "bool" => "bool",
         "int64_t" => "i64",
         "double" => "f64",
+        // Swift's Int: NSInteger in a @_cdecl declaration, ptrdiff_t in a @c one.
         "NSInteger" => "isize",
+        "ptrdiff_t" => "isize",
         "char const *" => "*const c_char",
         "const char *" => "*const c_char",
         "char *" => "*mut c_char",

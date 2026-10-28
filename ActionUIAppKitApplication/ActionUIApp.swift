@@ -10,7 +10,7 @@
 //
 //  AppKit application lifecycle adapter.
 //
-//  Provides @_cdecl C functions that let non-Swift callers (e.g. Python)
+//  Provides @c C functions that let non-Swift callers (e.g. Python)
 //  configure NSApplication lifecycle callbacks and start the run loop.
 //  The app is a singleton — no object pointer is exposed to the caller;
 //  windows are identified only by caller-supplied UUID strings.
@@ -238,52 +238,52 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
 
 // MARK: - Lifecycle handler registration
 
-@_cdecl("actionUIAppSetWillFinishLaunchingHandler")
+@c
 public func actionUIAppSetWillFinishLaunchingHandler(_ handler: ActionUIAppLifecycleHandler?) {
     willFinishLaunchingHandler = handler
 }
 
-@_cdecl("actionUIAppSetDidFinishLaunchingHandler")
+@c
 public func actionUIAppSetDidFinishLaunchingHandler(_ handler: ActionUIAppLifecycleHandler?) {
     didFinishLaunchingHandler = handler
 }
 
-@_cdecl("actionUIAppSetWillBecomeActiveHandler")
+@c
 public func actionUIAppSetWillBecomeActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     willBecomeActiveHandler = handler
 }
 
-@_cdecl("actionUIAppSetDidBecomeActiveHandler")
+@c
 public func actionUIAppSetDidBecomeActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     didBecomeActiveHandler = handler
 }
 
-@_cdecl("actionUIAppSetWillResignActiveHandler")
+@c
 public func actionUIAppSetWillResignActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     willResignActiveHandler = handler
 }
 
-@_cdecl("actionUIAppSetDidResignActiveHandler")
+@c
 public func actionUIAppSetDidResignActiveHandler(_ handler: ActionUIAppLifecycleHandler?) {
     didResignActiveHandler = handler
 }
 
-@_cdecl("actionUIAppSetWillTerminateHandler")
+@c
 public func actionUIAppSetWillTerminateHandler(_ handler: ActionUIAppLifecycleHandler?) {
     willTerminateHandler = handler
 }
 
-@_cdecl("actionUIAppSetShouldTerminateHandler")
+@c
 public func actionUIAppSetShouldTerminateHandler(_ handler: ActionUIAppShouldTerminateHandler?) {
     shouldTerminateHandler = handler
 }
 
-@_cdecl("actionUIAppSetWindowWillCloseHandler")
+@c
 public func actionUIAppSetWindowWillCloseHandler(_ handler: ActionUIAppWindowHandler?) {
     windowWillCloseHandler = handler
 }
 
-@_cdecl("actionUIAppSetWindowWillPresentHandler")
+@c
 public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowHandler?) {
     windowWillPresentHandler = handler
 }
@@ -295,7 +295,7 @@ public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowH
 /// In regular bundled app, don't use this API - it erases infoDictionary and sets CFBundleName only
 /// Must be called before `actionUIAppRun()`.
 /// Also sets `ProcessInfo.processInfo.processName` so the system picks it up.
-@_cdecl("actionUIAppSetName")
+@c
 public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
     let swiftAppName = String(cString: name)
     appName = swiftAppName
@@ -324,7 +324,7 @@ public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
 /// Set the application's reverse-DNS identifier. Linux needs one for its application object; on
 /// Apple platforms the bundle identifier serves (actionUIAppSetName sets one for an unbundled
 /// process), so this does nothing. It exists so one host program works on both.
-@_cdecl("actionUIAppSetApplicationID")
+@c
 public func actionUIAppSetApplicationID(_ applicationID: UnsafePointer<CChar>) {
 }
 
@@ -332,7 +332,7 @@ public func actionUIAppSetApplicationID(_ applicationID: UnsafePointer<CChar>) {
 /// resourceName and WebView userScript resourceName are looked up there first, then in the main
 /// bundle. An interpreted host, whose main bundle is the interpreter's, passes its script's folder;
 /// NULL: the main bundle only.
-@_cdecl("actionUIAppSetResourceFolder")
+@c
 public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
     ActionUIResourceFolder.path = path.map { String(cString: $0) }
 }
@@ -347,7 +347,7 @@ public func actionUIAppSetResourceFolder(_ path: UnsafePointer<CChar>?) {
 /// and `CFBundleIconName` so the standard About panel (and the dock for
 /// framework-style Python) fall back to `applicationIconImage` instead of
 /// the host executable's icon (e.g. Python.app's rocket).
-@_cdecl("actionUIAppSetIcon")
+@c
 public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
     let swiftPath = String(cString: path)
     guard let image = NSImage(contentsOfFile: swiftPath) else { return }
@@ -374,9 +374,9 @@ public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
 
 /// Start the NSApplication run loop.  Blocks until the app terminates.
 /// Must be called from the main thread.
-@_cdecl("actionUIAppRun")
+@c
 public func actionUIAppRun() {
-    // A @_cdecl function cannot be @MainActor, but this entry point is
+    // A @c function cannot be @MainActor, but this entry point is
     // documented to be called from the main thread, so assume the isolation
     // explicitly to drive the main-actor NSApplication APIs below.
     MainActor.assumeIsolated {
@@ -398,7 +398,7 @@ public func actionUIAppRun() {
 }
 
 /// Request graceful termination (equivalent to Cmd-Q).
-@_cdecl("actionUIAppTerminate")
+@c
 public func actionUIAppTerminate() {
     runOnMainActorAsync {
         NSApplication.shared.terminate(nil)
@@ -418,7 +418,7 @@ public func actionUIAppTerminate() {
 /// Window size is set to the SwiftUI view's fitting size; falls back to
 /// 480×320 if the view has not yet laid out (common for async JSON loads).
 /// Safe to call from applicationDidFinishLaunching — runs on the main thread.
-@_cdecl("actionUIAppLoadAndPresentWindow")
+@c
 public func actionUIAppLoadAndPresentWindow(
     _ urlString: UnsafePointer<CChar>,
     _ windowUUID: UnsafePointer<CChar>,
@@ -461,7 +461,7 @@ public func actionUIAppLoadAndPresentWindow(
 ///
 /// The window is created and sized as by `actionUIAppLoadAndPresentWindow`. A definition
 /// that cannot be parsed is logged and shown as an error text in the window.
-@_cdecl("actionUIAppLoadAndPresentWindowFromJSON")
+@c
 public func actionUIAppLoadAndPresentWindowFromJSON(
     _ jsonString: UnsafePointer<CChar>,
     _ windowUUID: UnsafePointer<CChar>,
@@ -560,7 +560,7 @@ private func cappedSize(of view: any View, in controller: NSHostingController<An
 
 /// Close the window identified by `windowUUID`.
 /// The windowWillClose handler fires as normal before the window is removed.
-@_cdecl("actionUIAppCloseWindow")
+@c
 public func actionUIAppCloseWindow(_ windowUUID: UnsafePointer<CChar>) {
     let uuid = String(cString: windowUUID)
     runOnMainActorAsync {
@@ -590,7 +590,7 @@ private func actionStrdup(_ string: String) -> UnsafeMutablePointer<CChar> {
 ///                                 Defaults to ["OK"] if omitted.
 ///
 /// Returns the title of the clicked button as a C string, or nil on error.
-@_cdecl("actionUIAppRunAlert")
+@c
 public func actionUIAppRunAlert(
     _ configJSON: UnsafePointer<CChar>?
 ) -> UnsafeMutablePointer<CChar>? {
@@ -653,7 +653,7 @@ public func actionUIAppRunAlert(
 ///   treatsFilePackagesAsDirectories: Bool,
 ///   canCreateDirectories: Bool,
 ///   allowsOtherFileTypes: Bool
-@_cdecl("actionUIAppRunOpenPanel")
+@c
 public func actionUIAppRunOpenPanel(
     _ configJSON: UnsafePointer<CChar>?
 ) -> UnsafeMutablePointer<CChar>? {
@@ -692,7 +692,7 @@ public func actionUIAppRunOpenPanel(
 ///   treatsFilePackagesAsDirectories: Bool,
 ///   canCreateDirectories: Bool,
 ///   allowsOtherFileTypes: Bool
-@_cdecl("actionUIAppRunSavePanel")
+@c
 public func actionUIAppRunSavePanel(
     _ configJSON: UnsafePointer<CChar>?
 ) -> UnsafeMutablePointer<CChar>? {
