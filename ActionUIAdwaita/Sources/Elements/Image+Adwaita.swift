@@ -27,8 +27,18 @@
 
  The three kinds are three widget types, so a value that turns a symbol into a file replaces the
  widget (widgetKind).
+
+ A file is loaded again when its value is set again, even to the same path, and when it changed on
+ disk (its modification time or size), not only when its path changes: a host that writes each new
+ image to the same file and sets that path again (PillowUI's preview) sees the new image, as on
+ Apple, where the view reads the file each time it updates. The set (the view model's
+ mutationToken) is what catches a rewrite of the same size: Linux stamps file times from a coarse
+ clock, so rewrites a few milliseconds apart carry the same time (measured).
 */
 
+#if canImport(Glibc)
+import Glibc
+#endif
 import CAdwaita
 
 nonisolated(unsafe) private var scalableIconWidgetType: GType = 0
@@ -50,6 +60,10 @@ enum ImageContent: Equatable {
     /// The kind of widget it is on.
     let kind: Image.Kind
     var path: String?
+    /// The shown file's version when it was loaded.
+    var fileVersion: Image.FileVersion?
+    /// The view model's mutationToken when the file was loaded.
+    var loadedToken: Int?
     var iconName: String?
     var fill = false
     /// The scalable icon's natural size, in em of the font.
@@ -63,6 +77,20 @@ enum ImageContent: Equatable {
 extension Image: ActionUIAdwaitaRenderer {
     enum Kind: Int {
         case icon = 0, picture, scalableIcon
+    }
+
+    /// What tells a rewritten file from the one loaded: its modification time and size.
+    struct FileVersion: Equatable {
+        let seconds: Int
+        let nanoseconds: Int
+        let size: Int
+    }
+
+    /// The file's version now; nil when it cannot be read.
+    static func fileVersion(_ path: String) -> FileVersion? {
+        var info = stat()
+        guard stat(path, &info) == 0 else { return nil }
+        return FileVersion(seconds: Int(info.st_mtim.tv_sec), nanoseconds: Int(info.st_mtim.tv_nsec), size: Int(info.st_size))
     }
 
     /// Icon sizes, in em of the font, for the image scales (nil: medium).
@@ -122,8 +150,12 @@ extension Image: ActionUIAdwaitaRenderer {
         switch content {
         case .file(let path):
             let picture = opaque(widget)
-            if state.path != path {
+            let version = fileVersion(path)
+            let token = node.model.mutationToken
+            if state.path != path || state.fileVersion != version || state.loadedToken != token {
                 state.path = path
+                state.fileVersion = version
+                state.loadedToken = token
                 gtk_picture_set_filename(picture, path)
             }
             let canShrink: gboolean = resizable ? 1 : 0

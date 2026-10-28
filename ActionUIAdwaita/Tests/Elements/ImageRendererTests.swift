@@ -2,12 +2,16 @@
 /*
  Tests for the Image renderer on GTK: a symbol is an Adwaita icon sized from the font and the image
  scale; a resizable symbol scales to its frame in the text color; a file is a picture at its own
- size, or scaled keeping its aspect ratio; a missing file shows the photo symbol; the first source
- that can be shown wins; an assetName is an icon of the theme; a runtime value that needs another
- kind of widget replaces the widget in the same box, keeping the base modifiers.
+ size, or scaled keeping its aspect ratio, and shown again when rewritten under the same path; a
+ missing file shows the photo symbol; the first source that can be shown wins; an assetName is an
+ icon of the theme; a runtime value that needs another kind of widget replaces the widget in the
+ same box, keeping the base modifiers.
 */
 
 import XCTest
+#if canImport(Glibc)
+import Glibc
+#endif
 import CAdwaita
 @testable import ActionUI
 
@@ -42,8 +46,8 @@ final class ImageRendererTests: XCTestCase {
         return try XCTUnwrap(window.root)
     }
 
-    /// A red PNG file of this size, removed after the test.
-    private func pngFile(width: Int32, height: Int32) throws -> String {
+    /// A red PNG file of this size, removed after the test; written over `path` when given.
+    private func pngFile(width: Int32, height: Int32, at path: String? = nil) throws -> String {
         var data = [UInt8](repeating: 0, count: Int(width * height * 4))
         for index in stride(from: 0, to: data.count, by: 4) {
             data[index] = 255
@@ -53,9 +57,11 @@ final class ImageRendererTests: XCTestCase {
         defer { g_bytes_unref(bytes) }
         let texture = gdk_memory_texture_new(width, height, GDK_MEMORY_R8G8B8A8, bytes, gsize(width * 4))!
         defer { g_object_unref(UnsafeMutableRawPointer(texture)) }
-        let path = NSTemporaryDirectory() + "actionui-image-\(ProcessInfo.processInfo.processIdentifier)-\(files.count).png"
+        let path = path ?? NSTemporaryDirectory() + "actionui-image-\(ProcessInfo.processInfo.processIdentifier)-\(files.count).png"
         XCTAssertNotEqual(gdk_texture_save_to_png(texture, path), 0, "could not write \(path)")
-        files.append(path)
+        if !files.contains(path) {
+            files.append(path)
+        }
         return path
     }
 
@@ -154,6 +160,33 @@ final class ImageRendererTests: XCTestCase {
         XCTAssertEqual(measure(node.widget, GTK_ORIENTATION_VERTICAL).1, 20)
         XCTAssertEqual(gtk_widget_get_hexpand(node.widget), 0)
         XCTAssertEqual(gtk_picture_get_content_fit(opaque(node.widget)), GTK_CONTENT_FIT_SCALE_DOWN, "never scaled up")
+    }
+
+    func testAFileWrittenAgainUnderTheSamePathIsShownAgain() throws {
+        // As PillowUI's preview: each new image goes to the same file, whose path is set again.
+        let path = try pngFile(width: 40, height: 20)
+        let node = try render(#"{"type": "Image", "id": 1}"#)
+        ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: path)
+        AdwaitaTestHost.drainMainLoop()
+        let shownWidth = { gdk_paintable_get_intrinsic_width(gtk_picture_get_paintable(opaque(node.widget))) }
+        XCTAssertEqual(shownWidth(), 40)
+
+        _ = try pngFile(width: 30, height: 10, at: path)
+        ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: path)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(shownWidth(), 30, "the rewritten file, not the first one")
+
+        // Rewritten at the same size and stamped with the same time (as a coarse file clock
+        // would): the value set again is what loads it.
+        var before = stat()
+        XCTAssertEqual(stat(path, &before), 0)
+        let shown = gtk_picture_get_paintable(opaque(node.widget))
+        _ = try pngFile(width: 30, height: 10, at: path)
+        var times = [before.st_atim, before.st_mtim]
+        XCTAssertEqual(utimensat(AT_FDCWD, path, &times, 0), 0)
+        ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: path)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertFalse(gtk_picture_get_paintable(opaque(node.widget)) == shown, "loaded again, though time and size are the same")
     }
 
     func testAResizableFileScalesKeepingItsAspectRatio() throws {
