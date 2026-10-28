@@ -71,7 +71,7 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 - **Application functions** (`actionUIApp*`): windows, the lifecycle handlers and the resource folder work. **The menu bar, alerts, open and save panels and the remote server** are not on Linux yet: those calls answer as failures and log why.
 - **Add-ons** (Chat, Diff, RichText, QuickLook, CachedImage) are not on Linux yet; their elements show the placeholder.
 - **Look:** libadwaita's controls, header bar and dark style. SF Symbol names map to the Adwaita icon theme; a name with no counterpart there shows the missing-icon picture.
-- **The application ends with its last window,** as GNOME applications do, where a macOS application keeps running.
+- **Closing the last window:** the user's close ends the application (after asking the shouldTerminate handler), as GNOME applications do: with no window, a Linux application has no Dock icon or menu bar to quit it from. The host's close (`closeWindow`) leaves it running, as on macOS, until the host presents another window or calls `terminate`, so a host can close one window before it opens the next.
 
 ## Layout of this folder
 

@@ -48,6 +48,7 @@ final class ActionUIAppFunctionTests: XCTestCase {
         actionUIAppSetDidFinishLaunchingHandler {
             events.append("didFinishLaunching")
             actionUIAppCloseWindow("c-app-w1")
+            actionUIAppTerminate()
         }
         actionUIAppSetWillTerminateHandler { events.append("willTerminate") }
         actionUIAppLoadAndPresentWindowFromJSON(#"{"type": "Text", "id": 1, "properties": {"text": "From C"}}"#, "c-app-w1", nil)
@@ -82,6 +83,7 @@ final class ActionUIAppFunctionTests: XCTestCase {
             DispatchQueue.global().async {
                 actionUIAppSetName("From a worker during the run")
                 actionUIAppCloseWindow("c-app-w1")
+                actionUIAppTerminate()
             }
         }
         actionUIAppLoadAndPresentWindowFromJSON(#"{"type": "Text", "id": 1, "properties": {"text": "Nested"}}"#, "c-app-w1", nil)

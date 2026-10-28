@@ -30,9 +30,20 @@
    the end of the window's header bar, their shortcuts working in every window (AppCommands).
  - Presentations: each window shows its model's modal, alert, confirmation dialog and toast
    (WindowPresenter); toasts in an AdwToastOverlay around the content, below the header bar.
- - Closing: GTK ends the application when its last window goes. Closing the last window by hand
-   first asks the shouldTerminate handler, and false keeps it open; terminate() asks it too. A
-   window closed by the host, or not the last one, just closes; windowWillClose fires for each.
+ - Closing: GTK ends an application when its last window goes, AppKit does not (an AppKit
+   application with no window keeps running until it is told to terminate). ActionUI follows
+   AppKit for the host and GTK for the user:
+   - The host closing its last window (closeWindow, or dropping the load of its last document)
+     leaves the application running, held open with no window until the host presents another
+     or calls terminate(), which asks the shouldTerminate handler, as on Apple. A host may close
+     one window before it presents the next (a wizard's steps, say); with GTK's rule the
+     application would end in between.
+   - The user closing the last window by hand ends the application, after asking the
+     shouldTerminate handler (false keeps the window open). Here the platforms differ on
+     purpose: an application with no window has no Dock icon or menu bar on Linux to quit it
+     from, so it would be left running out of reach.
+   A window that is not the last one just closes. windowWillClose fires for each window that
+   closes.
    Presenting a window again under the same UUID replaces it, with no windowWillClose (on Apple
    nothing closes then). An application with no window yet when it has started waits for its
    first one, as on Apple, where a document may load later.
@@ -121,9 +132,10 @@ public final class AdwaitaApplication {
     private var remoteLoadCounter = 0
     private var isActive = false
     private var activeCheckQueued = false
-    /// Whether the application is held open until its first window (GApplication ends with no
-    /// window and no hold).
-    private var holdsForFirstWindow = false
+    /// Whether the application is held open while it has no window: until its first window, and
+    /// after the host closed its last one, until its next (GApplication ends with no window and
+    /// no hold). See "Closing" above.
+    private var holdsWhileWindowless = false
     /// Icon folders already in the icon theme's search path.
     private var iconFolders: Set<String> = []
 
@@ -227,7 +239,7 @@ public final class AdwaitaApplication {
         remoteLoads = [:]
         hasStarted = false
         isActive = false
-        holdsForFirstWindow = false
+        holdsWhileWindowless = false
         AppCommands.shared.stop()
         application = nil
         return status
@@ -270,9 +282,8 @@ public final class AdwaitaApplication {
         for window in pending {
             present(window.source, windowUUID: window.windowUUID, title: window.title)
         }
-        if let application, windows.isEmpty {
-            holdsForFirstWindow = true
-            g_application_hold(typed(application))
+        if windows.isEmpty {
+            holdWhileWindowless()
         }
         handlers.didFinishLaunching?()
     }
@@ -416,11 +427,19 @@ public final class AdwaitaApplication {
         }
         handlers.windowWillPresent?(windowUUID)
         gtk_window_present(window)
-        if holdsForFirstWindow {
+        if holdsWhileWindowless {
             // The window holds the application now.
-            holdsForFirstWindow = false
+            holdsWhileWindowless = false
             g_application_release(typed(application))
         }
+    }
+
+    /// Holds the application open with no window (see "Closing" above), once; presenting a window
+    /// releases the hold.
+    private func holdWhileWindowless() {
+        guard !holdsWhileWindowless, let application else { return }
+        holdsWhileWindowless = true
+        g_application_hold(typed(application))
     }
 
     /// Brings the window showing `windowUUID` to the front; false when it is not on screen.
@@ -433,9 +452,13 @@ public final class AdwaitaApplication {
 
     /// Closes the window showing `windowUUID`; windowWillClose fires, shouldTerminate is not
     /// asked. A window still waiting for the application to start, or for its document to load, is
-    /// dropped.
+    /// dropped. The application keeps running when that was its last window (see "Closing" above).
     public func closeWindow(_ windowUUID: String) {
         pendingWindows.removeAll { $0.windowUUID == windowUUID }
+        // The load was the last thing holding the application: it stays open without it.
+        if hasStarted, windows.isEmpty, remoteLoads[windowUUID] != nil, remoteLoads.count == 1 {
+            holdWhileWindowless()
+        }
         dropRemoteLoad(windowUUID)
         guard let presented = windows[windowUUID] else { return }
         presented.closingByHost = true
@@ -454,11 +477,16 @@ public final class AdwaitaApplication {
     }
 
     /// "close-request": whether the window closes. The user's close of the last window (no other
-    /// window loading either) asks shouldTerminate first. A load replacing the window is dropped.
+    /// window loading either) asks shouldTerminate first, and ends the application; the host's
+    /// close of the last window holds the application open instead (see "Closing" above). A load
+    /// replacing the window is dropped.
     private func windowWillClose(_ windowUUID: String, _ presented: PresentedWindow) -> Bool {
         let isLast = windows.count == 1 && remoteLoads.keys.allSatisfy { $0 == windowUUID }
         if !presented.closingByHost, isLast, let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() {
             return false
+        }
+        if presented.closingByHost, isLast {
+            holdWhileWindowless()
         }
         if windows[windowUUID] === presented {
             windows[windowUUID] = nil

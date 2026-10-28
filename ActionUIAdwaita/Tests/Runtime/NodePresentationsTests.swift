@@ -279,9 +279,10 @@ final class NodePresentationsTests: XCTestCase {
                 // AdwDialogHost would close the sheet instead of the window.
                 app.closeWindow(uuid)
                 stillOpen = app.gtkWindow(uuid) != nil
+                app.terminate()
             }
         }
-        XCTAssertEqual(app.run(), 0, "the last window closed: the application ended")
+        XCTAssertEqual(app.run(), 0, "terminate ended the application")
         ActionUIModel.shared.windowModels[uuid] = nil
         XCTAssertTrue(shown)
         XCTAssertFalse(stillOpen)

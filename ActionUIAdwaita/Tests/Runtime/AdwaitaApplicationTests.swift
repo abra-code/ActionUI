@@ -71,10 +71,11 @@ final class AdwaitaApplicationTests: XCTestCase {
                 title = swiftString(gtk_window_get_title(window))
             }
             app.closeWindow("app-w1")
+            app.terminate()
         }
         app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
-        XCTAssertEqual(app.run(), 0, "the last window closed: the application ended")
+        XCTAssertEqual(app.run(), 0, "terminate ended the application")
         XCTAssertEqual(events, ["willFinishLaunching", "present app-w1", "didFinishLaunching", "close app-w1"])
         XCTAssertEqual(size.0, 360, "the root frame's ideal width")
         XCTAssertGreaterThan(size.1, 320, "the ideal height plus the header bar")
@@ -104,6 +105,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 runAfter(milliseconds: 50) {
                     keptWhenReopened = ActionUIModel.shared.hasWindow("app-w2") && app.windowUUIDs == ["app-w2"]
                     app.closeWindow("app-w2")
+                    app.terminate()
                 }
             }
         }
@@ -130,7 +132,10 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             app.closeWindow("app-w1")
             // As a binding closes a window: from the main queue.
-            DispatchQueue.main.async { app.closeWindow("app-w2") }
+            DispatchQueue.main.async {
+                app.closeWindow("app-w2")
+                app.terminate()
+            }
         }
         app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: nil)
         app.presentWindow(json: Data(document.utf8), windowUUID: "app-w2", title: nil)
@@ -155,6 +160,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-text") { text = self.defaultSize(window) }
             app.closeWindow("app-wide")
             app.closeWindow("app-text")
+            app.terminate()
         }
         app.run()
         XCTAssertEqual(wide.0, 1000, "its minimum, wider than 900")
@@ -177,6 +183,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 }
             }
             app.closeWindow("app-scroll")
+            app.terminate()
         }
         app.run()
         // Twelve rows 40 tall (Colors have no spacing between them): 480 and the header bar, under
@@ -198,6 +205,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-w2") { text = self.defaultSize(window) }
             app.closeWindow("app-w1")
             app.closeWindow("app-w2")
+            app.terminate()
         }
         app.run()
         XCTAssertGreaterThan(list.1, AdwaitaApplication.openingHeight, "an empty List: SwiftUI's 418 and the header bar")
@@ -216,6 +224,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 scrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
             }
             app.closeWindow("app-text")
+            app.terminate()
         }
         app.run()
         XCTAssertTrue(scrolls, "its minimum height is the wrapped text's at the opening width")
@@ -267,6 +276,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.closeWindow("app-w1")
             app.closeWindow("app-big")
             app.closeWindow("app-tall")
+            app.terminate()
         }
         app.run()
         XCTAssertGreaterThan(monitorWidth, 0)
@@ -296,6 +306,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.closeWindow("app-file")
             folderAfterClose = AppBundle.documentFolder(window: "app-file")
             app.closeWindow("app-bad")
+            app.terminate()
         }
         app.run()
         XCTAssertEqual(title, "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier)")
@@ -334,6 +345,89 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(g_list_model_get_n_items(gtk_window_get_toplevels()), toplevels, "the window open at terminate is gone")
     }
 
+    func testTheHostsCloseOfTheLastWindowLeavesTheApplicationRunningUntilTerminate() throws {
+        let app = AdwaitaApplication()
+        var asked = 0
+        var runningAfterClose = false
+        var modelAfterClose: Bool?
+        var events: [String] = []
+        app.handlers.shouldTerminate = {
+            asked += 1
+            return true
+        }
+        app.handlers.windowWillClose = { events.append("close \($0)") }
+        app.handlers.willTerminate = { events.append("willTerminate") }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: an application kept open for good fails the count below instead of hanging.
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.closeWindow("app-w1")
+            // Never runs if the close ended the application.
+            _ = runAfter(milliseconds: 200) {
+                runningAfterClose = true
+                modelAfterClose = ActionUIModel.shared.hasWindow("app-w1")
+                app.terminate()
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(runningAfterClose, "the host's close of the last window leaves the application running, as on Apple")
+        XCTAssertEqual(modelAfterClose, false, "the closed window's model goes meanwhile")
+        XCTAssertEqual(asked, 1, "terminate asks shouldTerminate")
+        XCTAssertEqual(events, ["close app-w1", "willTerminate"])
+    }
+
+    func testAWindowPresentedAfterTheHostClosedTheLastOneReleasesTheHold() throws {
+        let app = AdwaitaApplication()
+        var asked = 0
+        var events: [String] = []
+        app.handlers.shouldTerminate = {
+            asked += 1
+            return true
+        }
+        app.handlers.windowWillClose = { events.append("close \($0)") }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a hold left behind fails the count below (it asks a second time).
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.closeWindow("app-w1")
+            _ = runAfter(milliseconds: 100) {
+                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                // The user's close of the last window: asked, and the application ends.
+                if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(events, ["close app-w1", "close app-w2"], "the user's close was carried out, not left to the watchdog")
+        XCTAssertEqual(asked, 1, "the user's close of the new window asked and ended the application: no hold was left")
+    }
+
+    func testTheHostClosingItsLastWindowWhileItsDocumentLoadsLeavesTheApplicationRunning() throws {
+        let server = try TestImageServer(png: [], document: Self.document)
+        defer { server.stop() }
+        let app = AdwaitaApplication()
+        var presented: [String] = []
+        var runningAfterClose = false
+        app.handlers.windowWillPresent = { presented.append($0) }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: an application kept open for good ends here instead of hanging.
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil)
+            // The open window goes while the other loads (the load holds the application), then
+            // the loading one: nothing is left but the hold.
+            app.closeWindow("app-w1")
+            app.closeWindow("app-w2")
+            // Never runs if the second close ended the application.
+            _ = runAfter(milliseconds: 500) {
+                runningAfterClose = true
+                app.terminate()
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(runningAfterClose, "the host dropped its last load: the application keeps running")
+        XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
+    }
+
     func testTheHostClosesAWindowShowingAModalAndAnAlert() throws {
         let app = AdwaitaApplication()
         var events: [String] = []
@@ -355,10 +449,11 @@ final class AdwaitaApplicationTests: XCTestCase {
                 shown = app.presenter("app-w1")?.modalRoot != nil && app.presenter("app-w1")?.dialogWidget != nil
                 // AdwDialogHost would close the top dialog instead of the window.
                 app.closeWindow("app-w1")
+                app.terminate()
                 stillOpen = app.gtkWindow("app-w1") != nil
             }
         }
-        XCTAssertEqual(app.run(), 0, "the last window closed: the application ended")
+        XCTAssertEqual(app.run(), 0, "terminate ended the application")
         XCTAssertTrue(shown)
         XCTAssertFalse(stillOpen)
         XCTAssertEqual(events, ["close app-w1"], "no dialog's action fired")
@@ -376,6 +471,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: "Later")
                 presented = app.gtkWindow("app-w2") != nil
                 app.closeWindow("app-w2")
+                app.terminate()
             }
         }
         XCTAssertEqual(app.run(), 0)
@@ -427,7 +523,8 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             _ = runAfter(milliseconds: 10000) { app.terminate() }
             app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            // The only window closes while the next one loads: the application waits for it.
+            // The only window closes, then the next one loads: the hold the close takes, and then the
+            // load's, keep the application running meanwhile.
             app.closeWindow("app-w1")
             app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil)
         }
