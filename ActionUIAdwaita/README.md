@@ -52,12 +52,15 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 
 ## Using it from a program
 
-- **Swift:** depend on the ActionUI package. On Linux its `ActionUI` module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents, and the Swift adapter (`ActionUISwiftAdapter`) offers the same calls as on Apple. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`.
+- **Swift:** depend on the ActionUI package. On Linux its `ActionUI` module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents, and the Swift adapter (`ActionUISwiftAdapter`) offers the same calls as on Apple. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`, which carries a second, private Swift runtime and libdispatch (its main queue would not be the program's).
 - **C, Python, Node.js, Rust and other languages:** load `libActionUI.so`, which holds the renderer, the C adapter (`ActionUIC.h`) and the application functions (`ActionUIApp.h`), with the same names and signatures as on macOS. Built with the Swift runtime inside it, it needs no Swift installation:
 
   ```sh
   swift build -c release --static-swift-stdlib --product ActionUI   # .build/release/libActionUI.so
+  Scripts/make-linux-library-package.sh .build/release <output folder>
   ```
+
+  The script makes `actionui-<version>-linux-<arch>/` and its `.tar.gz`: the stripped library in `lib/`, a `pkg-config` file (`lib/pkgconfig/actionui.pc`, valid wherever the folder is unpacked), and the two headers at the include paths the Apple frameworks use (`<ActionUICAdapter/ActionUIC.h>`, `<ActionUIAppKitApplication/ActionUIApp.h>`). It is a build input, not an installation: each program ships its own copy of `libActionUI.so` beside its binary (for Python and Node.js, beside the compiled extension) and links with `-Wl,-rpath,'$ORIGIN'`, so it stays self-contained, as an app bundle is on macOS. A host that loads the library by path, as `ctypes` does, needs no link flags.
 
   `Tests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python, Node.js and Rust packages themselves are macOS-only so far.
 
