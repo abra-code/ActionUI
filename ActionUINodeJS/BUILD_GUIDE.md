@@ -151,7 +151,7 @@ libadwaita and libsoup 3.
 The build copies `libActionUI.so` into `build/Release/` beside `actionui.node`, which finds it
 through its `$ORIGIN` rpath. While `appRun()` blocks in the GTK main loop, a GLib source keeps
 Node's event loop running: it watches libuv's backend file descriptor and wakes for libuv's timers,
-as the CFRunLoop observer and timer do on macOS.
+as the CFRunLoop observer, timer and I/O watcher thread do on macOS.
 
 Differences from macOS:
 

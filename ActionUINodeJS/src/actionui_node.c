@@ -7,10 +7,12 @@
  * using raw N-API (node_api.h).
  *
  * Threading model:
- *   appRun() installs a CFRunLoopObserver, a CFRunLoopTimer, on the main CFRunLoop,
- *   then calls actionUIAppRun() which blocks in [NSApp run].
+ *   appRun() installs a CFRunLoopObserver, a CFRunLoopTimer and a CFRunLoopSource on the
+ *   main CFRunLoop, then calls actionUIAppRun() which blocks in [NSApp run].
  *   The observer pumps libuv (uv_run NOWAIT) before every source pass and
- *   before every sleep, arming the timer when libuv has a future deadline.
+ *   before every sleep, arming the timer when libuv has a future deadline; a
+ *   thread watching libuv's backend (kqueue) file descriptor signals the source
+ *   when libuv has I/O, and the source pumps libuv on the main thread.
  *   On Linux, appRun() adds a GLib source to the main context instead, then
  *   calls actionUIAppRun(), which blocks in the GTK main loop: the source
  *   watches libuv's backend (epoll) file descriptor, lets GLib sleep only as
@@ -38,6 +40,10 @@
 #if defined(__APPLE__)
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
+#include <dispatch/dispatch.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
 #else
 #include <glib.h>
 #endif
@@ -1314,7 +1320,9 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
 // [NSApp run] blocks the main thread inside CFRunLoop.  We install:
 //   1. A CFRunLoopObserver — pumps libuv before every source pass and before
 //      every sleep; arms the timer when libuv has a future timer deadline.
-//   2. A one-shot CFRunLoopTimer — fires at libuv's next timer deadline.
+//   2. A CFRunLoopTimer, armed at libuv's next timer deadline.
+//   3. A CFRunLoopSource, signaled by a thread watching libuv's backend descriptor
+//      (uv_io_watch) when libuv has I/O, that pumps libuv.
 //
 // Microtask / nextTick drain (Fix for the "5 s stall"):
 //   uv_run(NOWAIT) runs libuv callbacks but provides no InternalCallbackScope,
@@ -1332,12 +1340,19 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
 // uv_backend_timeout() returns:
 //   0   → work ready now → prevent CFRunLoop from sleeping
 //   N>0 → next timer in N ms → arm CFRunLoopTimer to that deadline
-//   -1  → active I/O handles, no timer → uv_backend_fd kqueue source wakes us
+//   -1  → active I/O handles, no timer → the I/O watcher (uv_io_watch) wakes us
 
 static bool                 s_app_running = false;   /* appRun is on the stack */
 #if defined(__APPLE__)
 static CFRunLoopObserverRef s_cf_observer = NULL;
 static CFRunLoopTimerRef    s_cf_timer    = NULL;
+/* The I/O watcher (uv_io_watch): a thread that waits for libuv's backend descriptor to become
+ * readable, and the main run loop's source it signals. */
+static CFRunLoopSourceRef   s_uv_io_src    = NULL;
+static pthread_t            s_uv_io_thread;
+static bool                 s_uv_io_thread_running = false;
+static int                  s_uv_io_stop[2] = { -1, -1 };   /* a byte written to [1] ends it */
+static dispatch_semaphore_t s_uv_io_pumped = NULL;          /* signaled after each I/O pump */
 /* Note: kqueue code disabled */
 #if KQUEUE_ENABLED
 static CFFileDescriptorRef  s_kq_fdref    = NULL;
@@ -1427,6 +1442,40 @@ static void uv_pump(void) {
     napi_close_handle_scope(env, hs);
 }
 
+/* A referenced, never-sent handle that keeps libuv's loop alive while appRun runs. Without one,
+ * a loop with nothing in it reports uv_backend_timeout 0 ("work ready now"), so the pump woke the
+ * run loop over and over (100% of a CPU, measured on both platforms), and uv_run(NOWAIT) returned
+ * at once without polling for I/O. */
+static uv_async_t* s_uv_keepalive = NULL;
+
+static void free_uv_handle(uv_handle_t* handle) {
+    free(handle);
+}
+
+static void uv_keepalive_start(uv_loop_t* loop) {
+    s_uv_keepalive = (uv_async_t*)calloc(1, sizeof(uv_async_t));
+    if (s_uv_keepalive != NULL && uv_async_init(loop, s_uv_keepalive, NULL) != 0) {
+        free(s_uv_keepalive);
+        s_uv_keepalive = NULL;
+    }
+}
+
+static void uv_keepalive_stop(void) {
+    if (s_uv_keepalive != NULL) {
+        /* Freed by its close callback, on Node's next loop iteration after appRun returns. */
+        uv_close((uv_handle_t*)s_uv_keepalive, free_uv_handle);
+        s_uv_keepalive = NULL;
+    }
+}
+
+/* libuv's next timer in ms (0: work ready now; -1: none), from a fresh clock: uv_backend_timeout
+ * reads the loop's cached time, which only uv_run refreshes, so a timer started from a UI callback
+ * would otherwise always look N ms away. */
+static int uv_next_timeout(uv_loop_t* loop) {
+    uv_update_time(loop);
+    return uv_backend_timeout(loop);
+}
+
 #if defined(__APPLE__)
 
 static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
@@ -1449,6 +1498,80 @@ static void uv_kq_callback(CFFileDescriptorRef fdref,
 }
 #endif // KQUEUE_ENABLED
 
+/* I/O wakeup. libuv's kqueue descriptor (uv_backend_fd) turns readable when libuv has I/O to
+ * handle; nothing else wakes the run loop for it, so with no libuv timer pending a child's output
+ * or a socket's data waited for some unrelated event (two writes 1 s and 3 s after launch arrived
+ * together after 5 s, measured). A thread polls the descriptor, which reports readiness without
+ * taking libuv's events, and signals a run loop source; the main thread pumps libuv in that
+ * source's callout, between AppKit's own callouts. The thread then waits for the pump, since the
+ * descriptor stays readable until libuv has read it. This is the CFFileDescriptor source's job
+ * done without its callbacks, which ran on any kqueue activity (see uv_pump_setup). An I/O callback
+ * that runs a modal (an alert, a file panel) holds its pump until the modal ends, so meanwhile the
+ * thread waits and I/O runs only when the observer pumps. */
+static void* uv_io_watch(void* info) {
+    int backend_fd = (int)(intptr_t)info;
+    for (;;) {
+        struct pollfd fds[2] = {
+            { .fd = backend_fd, .events = POLLIN, .revents = 0 },
+            { .fd = s_uv_io_stop[0], .events = POLLIN, .revents = 0 },
+        };
+        int ready = poll(fds, 2, -1);
+        if (ready < 0 && errno == EINTR) continue;
+        if (ready < 0 || fds[1].revents != 0) break;
+        if (fds[0].revents != 0) {
+            CFRunLoopSourceSignal(s_uv_io_src);
+            CFRunLoopWakeUp(CFRunLoopGetMain());
+            dispatch_semaphore_wait(s_uv_io_pumped, DISPATCH_TIME_FOREVER);
+        }
+    }
+    return NULL;
+}
+
+static void uv_io_perform(void* info) {
+    (void)info;
+    uv_pump();
+    dispatch_semaphore_signal(s_uv_io_pumped);
+}
+
+static void uv_io_watch_start(uv_loop_t* loop) {
+    int backend_fd = uv_backend_fd(loop);
+    if (backend_fd < 0 || pipe(s_uv_io_stop) != 0) return;
+    /* Not inherited by child processes (libuv's fork path keeps every descriptor without it). */
+    fcntl(s_uv_io_stop[0], F_SETFD, FD_CLOEXEC);
+    fcntl(s_uv_io_stop[1], F_SETFD, FD_CLOEXEC);
+    s_uv_io_pumped = dispatch_semaphore_create(0);
+    CFRunLoopSourceContext context = { 0 };
+    context.perform = uv_io_perform;
+    s_uv_io_src = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &context);
+    CFRunLoopAddSource(CFRunLoopGetMain(), s_uv_io_src, kCFRunLoopCommonModes);
+    s_uv_io_thread_running =
+        pthread_create(&s_uv_io_thread, NULL, uv_io_watch, (void*)(intptr_t)backend_fd) == 0;
+}
+
+static void uv_io_watch_stop(void) {
+    if (s_uv_io_thread_running) {
+        char byte = 0;
+        ssize_t written = write(s_uv_io_stop[1], &byte, 1);
+        (void)written;
+        dispatch_semaphore_signal(s_uv_io_pumped);   /* in case it waits for a pump */
+        pthread_join(s_uv_io_thread, NULL);
+        s_uv_io_thread_running = false;
+    }
+    if (s_uv_io_src != NULL) {
+        CFRunLoopSourceInvalidate(s_uv_io_src);
+        CFRelease(s_uv_io_src);
+        s_uv_io_src = NULL;
+    }
+    if (s_uv_io_pumped != NULL) {
+        dispatch_release(s_uv_io_pumped);
+        s_uv_io_pumped = NULL;
+    }
+    for (int i = 0; i < 2; i++) {
+        if (s_uv_io_stop[i] >= 0) close(s_uv_io_stop[i]);
+        s_uv_io_stop[i] = -1;
+    }
+}
+
 static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
                                CFRunLoopActivity   activity,
                                void*               info) {
@@ -1456,7 +1579,7 @@ static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
     if (g_state == NULL || g_state->uv_loop == NULL) return;
     if (activity != kCFRunLoopBeforeWaiting) return;
 
-    int timeout_ms = uv_backend_timeout(g_state->uv_loop);
+    int timeout_ms = uv_next_timeout(g_state->uv_loop);
     if (timeout_ms == 0) {
         /* libuv has more work ready; prevent CFRunLoop from sleeping. */
         CFRunLoopWakeUp(CFRunLoopGetMain());
@@ -1466,11 +1589,15 @@ static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
         CFRunLoopTimerSetNextFireDate(s_cf_timer,
                                       CFAbsoluteTimeGetCurrent() + secs);
     }
-    /* timeout_ms == -1: active I/O handles, no timer deadline.
-     * The observer fires on BeforeSources/AfterWaiting which is sufficient. */
+    /* timeout_ms == -1: no timer deadline; the I/O watcher wakes the run loop for I/O. */
 }
 
 static void uv_pump_setup(uv_loop_t* loop) {
+    if (loop != NULL) {
+        uv_keepalive_start(loop);
+        uv_io_watch_start(loop);
+    }
+
     /* CFRunLoopObserver: pumps libuv before sources, before waiting, and after waiting.
      * This is sufficient to keep Node.js async work running interleaved with AppKit. */
     CFRunLoopObserverContext obs_ctx = { 0, NULL, NULL, NULL, NULL };
@@ -1483,12 +1610,15 @@ static void uv_pump_setup(uv_loop_t* loop) {
     CFRunLoopAddObserver(CFRunLoopGetMain(), s_cf_observer, kCFRunLoopCommonModes);
 
     /* CFRunLoopTimer: fires at libuv's next timer deadline to wake CFRunLoop
-     * when libuv has pending timers. */
+     * when libuv has pending timers. It repeats, with an interval that never comes: CFRunLoop
+     * invalidates a one-shot timer once it has fired, after which re-arming it did nothing, and
+     * a later libuv timer waited for some other event to wake the run loop (a 1500 ms timeout
+     * fired after about 5 s, measured). */
     CFRunLoopTimerContext timer_ctx = { 0, NULL, NULL, NULL, NULL };
     s_cf_timer = CFRunLoopTimerCreate(
         kCFAllocatorDefault,
         CFAbsoluteTimeGetCurrent() + 1e10,  /* disarmed initially */
-        0,     /* interval=0: one-shot, re-armed manually */
+        1e10,  /* repeating, so it stays valid; re-armed manually */
         0, 0,
         uv_cf_timer_cb, &timer_ctx);
     CFRunLoopAddTimer(CFRunLoopGetMain(), s_cf_timer, kCFRunLoopCommonModes);
@@ -1509,10 +1639,8 @@ static void uv_pump_setup(uv_loop_t* loop) {
      * This causes uv_pump() to run mid-delivery of AppKit events,
      * corrupting the responder chain.
      *
-     * The observer + timer combination is sufficient:
-     *   - Observer fires on BeforeSources/AfterWaiting, draining libuv regularly
-     *   - Timer wakes CFRunLoop when libuv has a pending timer deadline
-     *   - I/O completion is handled by libuv timers anyway (network, etc.)
+     * The I/O watcher (uv_io_watch) does this job instead: its thread only signals a run loop
+     * source, whose callout pumps libuv between AppKit's callouts, as the observer does.
      *
      * If you reinstate this, expect text edit fields to misbehave.
      */
@@ -1559,6 +1687,8 @@ static void uv_pump_teardown(void) {
         CFRelease(s_cf_timer);
         s_cf_timer = NULL;
     }
+    uv_io_watch_stop();
+    uv_keepalive_stop();
 
     if (g_state != NULL) g_state->uv_loop = NULL;
 }
@@ -1583,12 +1713,7 @@ typedef struct {
     gpointer backend_tag;   /* libuv's backend descriptor, as added to the source */
 } UvSource;
 
-static GSource*    s_uv_source    = NULL;
-static uv_async_t* s_uv_keepalive = NULL;   /* never sent; referenced while appRun runs */
-
-static void free_uv_handle(uv_handle_t* handle) {
-    free(handle);
-}
+static GSource* s_uv_source = NULL;
 
 static gboolean uv_source_prepare(GSource* source, gint* timeout) {
     (void)source;
@@ -1597,8 +1722,7 @@ static gboolean uv_source_prepare(GSource* source, gint* timeout) {
         return FALSE;
     }
     /* 0: work ready now; N > 0: the next timer in N ms; -1: only I/O, which the descriptor wakes. */
-    uv_update_time(g_state->uv_loop);
-    int next = uv_backend_timeout(g_state->uv_loop);
+    int next = uv_next_timeout(g_state->uv_loop);
     *timeout = next;
     return next == 0;
 }
@@ -1607,8 +1731,7 @@ static gboolean uv_source_check(GSource* source) {
     if (g_state == NULL || g_state->uv_loop == NULL) return FALSE;
     UvSource* uv_source = (UvSource*)source;
     if ((g_source_query_unix_fd(source, uv_source->backend_tag) & G_IO_IN) != 0) return TRUE;
-    uv_update_time(g_state->uv_loop);
-    return uv_backend_timeout(g_state->uv_loop) == 0;   /* a timer came due */
+    return uv_next_timeout(g_state->uv_loop) == 0;   /* a timer came due */
 }
 
 static gboolean uv_source_dispatch(GSource* source, GSourceFunc callback, gpointer user_data) {
@@ -1627,11 +1750,7 @@ static GSourceFuncs s_uv_source_funcs = {
 
 static void uv_pump_setup(uv_loop_t* loop) {
     if (loop == NULL) return;
-    s_uv_keepalive = (uv_async_t*)calloc(1, sizeof(uv_async_t));
-    if (s_uv_keepalive != NULL && uv_async_init(loop, s_uv_keepalive, NULL) != 0) {
-        free(s_uv_keepalive);
-        s_uv_keepalive = NULL;
-    }
+    uv_keepalive_start(loop);
     GSource* source = g_source_new(&s_uv_source_funcs, sizeof(UvSource));
     ((UvSource*)source)->backend_tag = g_source_add_unix_fd(source, uv_backend_fd(loop), G_IO_IN);
     g_source_attach(source, NULL);   /* the default main context, which GTK's main loop runs */
@@ -1644,11 +1763,7 @@ static void uv_pump_teardown(void) {
         g_source_unref(s_uv_source);
         s_uv_source = NULL;
     }
-    if (s_uv_keepalive != NULL) {
-        /* Freed by its close callback, on Node's next loop iteration after appRun returns. */
-        uv_close((uv_handle_t*)s_uv_keepalive, free_uv_handle);
-        s_uv_keepalive = NULL;
-    }
+    uv_keepalive_stop();
     if (g_state != NULL) g_state->uv_loop = NULL;
 }
 
