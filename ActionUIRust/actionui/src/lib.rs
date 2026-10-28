@@ -4,7 +4,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-//! Native macOS user interfaces described in JSON and driven from Rust, through ActionUI.
+//! Native user interfaces described in JSON and driven from Rust, through ActionUI: SwiftUI
+//! on macOS, GTK and libadwaita on Linux.
 //!
 //! The interface (windows, controls, the menu bar) is ActionUI JSON. The program reacts
 //! to named actions and reads and writes element values by their integer IDs.
@@ -44,42 +45,42 @@
 //! A panic in a handler is caught and written to standard error and to ActionUI's log,
 //! and the application keeps running.
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 compile_error!(
-    "the actionui crate supports macOS only; put the dependency under \
-     [target.'cfg(target_os = \"macos\")'.dependencies]"
+    "the actionui crate supports macOS and Linux only; put the dependency under \
+     [target.'cfg(any(target_os = \"macos\", target_os = \"linux\"))'.dependencies]"
 );
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod app;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod dialog;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod error;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod ffi;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod log;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod main_thread;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod panels;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod window;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use app::{ActionContext, App};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use dialog::{ButtonRole, DialogButton, InsertPosition, ModalStyle};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use error::{Error, Result};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use log::LogLevel;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use window::{ContentSizeLimits, Window};
 
-/// The version of the ActionUI frameworks linked into this program.
-#[cfg(target_os = "macos")]
+/// The version of the ActionUI library linked into this program.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub fn version() -> String {
     unsafe { ffi::take_string(actionui_sys::actionUIGetVersion()) }.unwrap_or_default()
 }
@@ -89,10 +90,16 @@ pub fn version() -> String {
 ///
 /// A bundled program takes its name and icon from the bundle's `Info.plist`, and
 /// [`App::set_name`] must not be called for it. A program that can be run both ways calls
-/// `set_name` only when this returns false.
+/// `set_name` only when this returns false. Always false on Linux, which has no bundles.
 #[cfg(target_os = "macos")]
 pub fn running_from_bundle() -> bool {
     std::env::current_exe().is_ok_and(|path| is_inside_bundle(&path))
+}
+
+/// Whether this program was started from inside a macOS application bundle: never on Linux.
+#[cfg(target_os = "linux")]
+pub fn running_from_bundle() -> bool {
+    false
 }
 
 #[cfg(target_os = "macos")]

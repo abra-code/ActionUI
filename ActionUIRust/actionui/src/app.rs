@@ -249,23 +249,26 @@ impl App {
     /// Names the application in the menu bar and the Dock. For a program that runs as a
     /// bare executable (`cargo run`). Do not call it in a program packaged as an `.app`
     /// bundle: the bundle's Info.plist already names it, and this call discards the rest
-    /// of what that file declares. Call it before [`App::run`].
+    /// of what that file declares. On Linux window titles default to it, and so does the
+    /// application ID. Call it before [`App::run`].
     pub fn set_name(&self, name: &str) -> Result<()> {
         let name = ffi::cstring("application name", name)?;
         unsafe { sys::actionUIAppSetName(name.as_ptr()) };
         Ok(())
     }
 
-    /// Sets the reverse-DNS application ID ("org.example.App"). Linux needs one; on macOS the
-    /// bundle identifier serves and this does nothing. Call it before [`App::run`].
+    /// Sets the reverse-DNS application ID ("org.example.App"). Linux needs one and makes it
+    /// from the name without this; on macOS the bundle identifier serves and this does
+    /// nothing. Call it before [`App::run`].
     pub fn set_application_id(&self, application_id: &str) -> Result<()> {
         let application_id = ffi::cstring("application ID", application_id)?;
         unsafe { sys::actionUIAppSetApplicationID(application_id.as_ptr()) };
         Ok(())
     }
 
-    /// Sets the Dock and About-panel icon from an image file (icns, png and others).
-    /// Call it before [`App::run`]. A file that is not an image is ignored.
+    /// Sets the Dock and About-panel icon from an image file (icns, png and others). On Linux
+    /// it is the windows' icon: a PNG or SVG file, or an icon theme name. Call it before
+    /// [`App::run`]. A file that is not an image is ignored.
     pub fn set_icon(&self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref().to_string_lossy();
         let path = ffi::cstring("icon path", &path)?;
@@ -384,10 +387,15 @@ impl App {
     /// must present, are exported in this process's environment
     /// (`ACTIONUI_REMOTE_ENDPOINT`, `ACTIONUI_REMOTE_TOKEN`), so processes started
     /// afterwards inherit them. The server stops when the application terminates.
+    ///
+    /// The remote server is macOS only: on Linux this is always an error.
     pub fn start_remote_server(&self, socket_path: Option<&Path>) -> Result<String> {
         let socket_path = socket_path.map(|path| path.to_string_lossy().into_owned());
         let socket_path = ffi::optional_cstring("socket path", socket_path.as_deref())?;
         let started = unsafe { sys::actionUIAppStartRemoteServer(ffi::optional_ptr(&socket_path)) };
+        if !started && cfg!(not(target_os = "macos")) {
+            return Err(Error::ActionUI("the ActionUI remote server is macOS only".to_string()));
+        }
         if !started {
             // The reason is in ActionUI's log; this function records no last error.
             return Err(Error::ActionUI("the remote server could not be started (already running, or the socket could not be created)".to_string()));

@@ -1,6 +1,6 @@
 //! Helpers shared by the modules that call into `actionui-sys`.
 
-use std::ffi::{CStr, CString, c_char, c_int};
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::io::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -9,13 +9,30 @@ use actionui_sys as sys;
 use crate::error::{Error, Result};
 
 unsafe extern "C" {
-    fn pthread_main_np() -> c_int;
-    fn uuid_generate_random(out: *mut u8);
-    fn uuid_unparse_upper(uuid: *const u8, out: *mut c_char);
+    fn getentropy(buffer: *mut c_void, length: usize) -> c_int;
 }
 
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn pthread_main_np() -> c_int;
+}
+
+#[cfg(target_os = "linux")]
+unsafe extern "C" {
+    fn gettid() -> c_int;
+    fn getpid() -> c_int;
+}
+
+#[cfg(target_os = "macos")]
 pub(crate) fn is_main_thread() -> bool {
     unsafe { pthread_main_np() != 0 }
+}
+
+/// The main thread's ID is the process ID. It is also the thread ActionUI takes for the
+/// main one: the program loads libActionUI.so on it, at startup.
+#[cfg(target_os = "linux")]
+pub(crate) fn is_main_thread() -> bool {
+    unsafe { gettid() == getpid() }
 }
 
 /// For what exists only on the main thread: the application, and the handlers, whose
@@ -81,15 +98,23 @@ pub(crate) fn none_or_error<T>() -> Result<Option<T>> {
     }
 }
 
+/// A random (version 4) UUID in upper case, as uuid_generate_random and uuid_unparse_upper
+/// give it on macOS; Linux's C library has no uuid functions.
 pub(crate) fn new_uuid() -> String {
     let mut bytes = [0u8; 16];
-    // 36 characters and the terminating zero.
-    let mut text = [0 as c_char; 37];
-    unsafe {
-        uuid_generate_random(bytes.as_mut_ptr());
-        uuid_unparse_upper(bytes.as_ptr(), text.as_mut_ptr());
-        CStr::from_ptr(text.as_ptr()).to_string_lossy().into_owned()
+    let status = unsafe { getentropy(bytes.as_mut_ptr().cast(), bytes.len()) };
+    // It fails only for more than 256 bytes or a bad buffer.
+    assert_eq!(status, 0, "getentropy failed");
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    let mut text = String::with_capacity(36);
+    for (index, byte) in bytes.iter().enumerate() {
+        if matches!(index, 4 | 6 | 8 | 10) {
+            text.push('-');
+        }
+        text.push_str(&format!("{byte:02X}"));
     }
+    text
 }
 
 /// Runs a user callback on behalf of a C caller. A panic must not travel into Swift
@@ -132,6 +157,10 @@ mod tests {
         assert_eq!(first.len(), 36);
         assert_eq!(first.matches('-').count(), 4);
         assert_ne!(first, second);
+        // Version 4, the RFC 4122 variant, upper case.
+        assert_eq!(&first[14..15], "4");
+        assert!(matches!(&first[19..20], "8" | "9" | "A" | "B"));
+        assert_eq!(first, first.to_uppercase());
     }
 
     #[test]

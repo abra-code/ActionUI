@@ -1,13 +1,13 @@
 # ActionUI for Rust
 
-Native macOS user interfaces described in ActionUI JSON, with the program's logic in Rust.
+Native user interfaces described in ActionUI JSON, with the program's logic in Rust: SwiftUI windows on macOS, GTK and libadwaita windows on Linux.
 
 Two crates:
 
 - `actionui-sys` - the raw C declarations and the link setup. No logic.
 - `actionui` - the safe API: `App`, `Window`, action and lifecycle handlers, element values, rows, properties, dialogs, file panels, the menu bar.
 
-The Rust program links ActionUI's application layer (`ActionUIAppKitApplication`), the same one the Python and Node.js modules use. That layer creates the windows and the menu bar and runs the event loop; the Rust code describes the interface in JSON and reacts to named actions.
+The Rust program links ActionUI's application layer (`ActionUIAppKitApplication` on macOS, its GTK counterpart on Linux), the same one the Python and Node.js modules use. That layer creates the windows and the menu bar and runs the event loop; the Rust code describes the interface in JSON and reacts to named actions.
 
 Documentation:
 
@@ -19,6 +19,7 @@ Status: `actionui` covers everything the C adapter and the application layer off
 ## Requirements
 
 - macOS 14.6 or later, Xcode (to build the ActionUI frameworks), Rust 1.85 or later.
+- Linux: the ActionUI library package (`libActionUI.so`, made on a Linux machine with Swift), Rust 1.85 or later, and GTK 4, libadwaita and libsoup 3 (their run-time libraries, needed to link as well as to run). See "Building on Linux" in [BUILD_GUIDE.md](BUILD_GUIDE.md).
 
 ## Build
 
@@ -39,18 +40,23 @@ The examples, in `actionui/examples`:
 
 The frameworks are static libraries, so the result is one self-contained executable. It depends only on system frameworks and the Swift runtime that ships with macOS.
 
+On Linux, set `ACTIONUI_LIBRARY_DIR` to the unpacked library package instead. The program links `libActionUI.so`, and run outside cargo it needs a copy of that file beside it.
+
 ## Using the crates from your own project
 
 ```toml
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 actionui = { path = "/path/to/ActionUI/ActionUIRust/actionui" }
 ```
 
-Add this to your project's `.cargo/config.toml`, or the linker warns about every ActionUI object file being built for a newer macOS than the program:
+Add this to your project's `.cargo/config.toml`, or the linker warns about every ActionUI object file being built for a newer macOS than the program; the second part gives Linux programs the `$ORIGIN` rpath through which they find `libActionUI.so` beside them:
 
 ```toml
 [env]
 MACOSX_DEPLOYMENT_TARGET = "14.6"
+
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN"]
 ```
 
 ## A first program
@@ -107,7 +113,7 @@ cargo build --release --example folder_contents
 | Show a sheet, an alert, a list of choices or a toast in a window | `Window::present_modal`, `present_alert`, `present_confirmation_dialog`, `present_toast` |
 | Ask with a standalone alert, or for files | `actionui::panels::Alert`, `OpenPanel`, `SavePanel` |
 | Add menus and menu items | `App::load_menu_bar` |
-| Let child processes drive the windows | `App::start_remote_server` |
+| Let child processes drive the windows (macOS) | `App::start_remote_server` |
 
 ## Tests
 
@@ -116,4 +122,4 @@ cargo test                                                         # no window n
 ACTIONUI_GUI_TESTS=1 cargo test -p actionui --test window_lifecycle   # opens a window
 ```
 
-`actionui-sys/tests/declarations.rs` compares the hand-written declarations with the headers of the frameworks being linked (functions with the generated headers, enums and callback types with the C headers), and fails when one was added, removed or changed on either side. Run it after rebuilding the frameworks.
+`actionui-sys/tests/declarations.rs` compares the hand-written declarations with the headers of the frameworks being linked (functions with the generated headers, enums and callback types with the C headers), and fails when one was added, removed or changed on either side. Run it after rebuilding the frameworks. On Linux it compares them with the library package's C headers.

@@ -1,6 +1,6 @@
 # ActionUI for Rust - API Reference
 
-The `actionui` crate: native macOS windows described in ActionUI JSON, driven from Rust.
+The `actionui` crate: native windows described in ActionUI JSON, driven from Rust, on macOS and Linux. Where Linux differs, the entry says so.
 
 For building and packaging see [BUILD_GUIDE.md](BUILD_GUIDE.md). The same text, method by method, is in the crate's doc comments (`cargo doc --open`).
 
@@ -99,9 +99,9 @@ Two behaviors to know:
 |---|---|
 | `App::new() -> Result<App>` | Creates the application. Call once, on the main thread, first. |
 | `App::get() -> Option<App>` | The application, when it exists and this is the main thread. |
-| `set_name(&self, name: &str) -> Result<()>` | Names the application in the menu bar and the Dock. For a bare executable only; see below. Call before `run`. |
+| `set_name(&self, name: &str) -> Result<()>` | Names the application in the menu bar and the Dock; on Linux window titles and the application ID default to it. For a bare executable only; see below. Call before `run`. |
 | `set_application_id(&self, application_id: &str) -> Result<()>` | Sets the reverse-DNS application ID ("org.example.App"), which Linux needs; on macOS the bundle identifier serves and this does nothing. Call before `run`. |
-| `set_icon(&self, path) -> Result<()>` | Sets the Dock and About-panel icon from an image file (icns, png and others). Call before `run`. |
+| `set_icon(&self, path) -> Result<()>` | Sets the Dock and About-panel icon from an image file (icns, png and others); on Linux the windows' icon, from a PNG or SVG file or an icon theme name. Call before `run`. |
 | `set_resource_folder(&self, path: Option<&Path>) -> Result<()>` | Sets the folder of the app's resources: LoadableView names, Image resourceName and WebView script resources are looked up there first (macOS: then in the main bundle; Linux: in place of the program's folder). `None` goes back to the platform's own place. Call before `run`. |
 | `run(self) -> !` | Runs the event loop. Does not return. |
 | `terminate(&self)` | Asks the application to quit, as the Quit menu item does, and returns. The should-terminate handler can still refuse. |
@@ -197,7 +197,7 @@ Lets other processes of the same user read and drive this application's windows,
 
 | Method | Description |
 |---|---|
-| `start_remote_server(&self, socket_path: Option<&Path>) -> Result<String>` | Starts the server and returns the path of its socket. Without a path it picks one in the temporary directory. |
+| `start_remote_server(&self, socket_path: Option<&Path>) -> Result<String>` | Starts the server and returns the path of its socket. Without a path it picks one in the temporary directory. macOS only: on Linux it returns an error. |
 | `stop_remote_server(&self)` | Stops the server and removes the socket. |
 | `remote_server_endpoint(&self) -> Option<String>` | The socket path while the server runs. |
 | `remote_server_token(&self) -> Option<String>` | The token a client must present, if any. |
@@ -232,7 +232,7 @@ A handle to one open window. Cloning is cheap; clones name the same window. A `W
 | `uuid(&self) -> &str` | The identifier ActionUI knows the window by. |
 | `close(&self) -> Result<()>` | Closes the window. The will-close handler runs first. |
 | `remove_window(&self) -> Result<()>` | Forgets the window's model (loaded description, element values and states). Call it once you are done with the window, after it has closed, so a long-running host does not keep every window it ever showed. Afterwards the window is unknown, as one never loaded; loading a description for the same identifier starts a new model. Windows that `App` (ActionUI's own application: ActionUIAppKitApplication on macOS, AdwaitaApplication on Linux) presents have their model removed by it after they close; a program with an application of its own calls this for each window it is done with. |
-| `content_size_limits(&self) -> Result<Option<ContentSizeLimits>>` | The smallest and largest size the content allows (`min_width`, `min_height`, `max_width`, `max_height`). `None` until the content has loaded. |
+| `content_size_limits(&self) -> Result<Option<ContentSizeLimits>>` | The smallest and largest size the content allows (`min_width`, `min_height`, `max_width`, `max_height`). `None` until the content has loaded, and always on Linux, where ActionUI does not measure the content. |
 
 In every method below, `view_id` is the element's `"id"` from the JSON.
 
@@ -492,8 +492,8 @@ actionui::log::set_logger(|message, level| {
 
 | Function | Description |
 |---|---|
-| `actionui::version() -> String` | The version of the ActionUI frameworks linked into the program. |
-| `actionui::running_from_bundle() -> bool` | Whether the program was started from inside an `.app` bundle. |
+| `actionui::version() -> String` | The version of the ActionUI library linked into the program (the frameworks on macOS, `libActionUI.so` on Linux). |
+| `actionui::running_from_bundle() -> bool` | Whether the program was started from inside an `.app` bundle. Always false on Linux. |
 
 ## The raw layer: `actionui-sys`
 

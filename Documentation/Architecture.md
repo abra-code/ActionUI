@@ -167,6 +167,7 @@ fn main() -> actionui::Result<()> {
 
 - Two crates in `ActionUIRust/`: `actionui-sys` (the C declarations and the link setup) and `actionui` (the safe API).
 - The ActionUI frameworks are linked statically, so the result is one executable that depends only on macOS itself.
+- On Linux the same crates link `libActionUI.so` from the library package and its GTK application layer; the program finds a copy of the library beside it through an `$ORIGIN` rpath.
 - `App` exists only on the main thread; a `Window` can be used from any thread, so a worker thread updates the interface directly.
 - A panic in a handler is caught and logged, and the application keeps running.
 - `make_app_bundle.sh` wraps the executable in an `.app` bundle.

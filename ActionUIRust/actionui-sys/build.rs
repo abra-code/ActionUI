@@ -1,10 +1,17 @@
-// Finds the ActionUI static frameworks and tells cargo how to link them.
+// Finds what implements the ActionUI C functions and tells cargo how to link it.
 //
-// The frameworks are Swift static libraries, so besides the frameworks themselves the
-// final link needs the Swift library search paths: the object files name the Swift
-// libraries they use, and the linker has to be able to find them.
+// macOS: the static frameworks. They are Swift static libraries, so besides the
+// frameworks themselves the final link needs the Swift library search paths: the object
+// files name the Swift libraries they use, and the linker has to be able to find them.
+//
+// Linux: libActionUI.so from the ActionUI library package, which carries the Swift
+// runtime itself. It is copied into OUT_DIR and linked from there: cargo puts search
+// paths inside the target folder on the dynamic library path when it runs a program
+// (cargo run, cargo test), so no absolute rpath goes into the binaries. A program run on
+// its own finds the copy beside it through an $ORIGIN rpath (.cargo/config.toml).
 
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -21,15 +28,73 @@ const FRAMEWORKS: [&str; 5] = [
 // main ones keeps the link independent of that mechanism.
 const SYSTEM_FRAMEWORKS: [&str; 5] = ["Foundation", "AppKit", "SwiftUI", "AVKit", "Charts"];
 
+// In the library package (actionui-<version>-linux-<arch>/).
+const LIBRARY_FILE: &str = "lib/libActionUI.so";
+
 fn main() {
-    println!("cargo:rerun-if-env-changed=ACTIONUI_FRAMEWORKS_DIR");
     println!("cargo:rerun-if-changed=build.rs");
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    if target_os != "macos" {
+    match target_os.as_str() {
+        "macos" => link_frameworks(),
+        "linux" => link_library(),
         // The crate is empty on other systems; nothing to link.
-        return;
+        _ => {}
     }
+}
+
+fn link_library() {
+    println!("cargo:rerun-if-env-changed=ACTIONUI_LIBRARY_DIR");
+
+    let library_dir = find_library_dir();
+    let library = library_dir.join(LIBRARY_FILE);
+    println!("cargo:rerun-if-changed={}", library.display());
+
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
+    let copy = out_dir.join("libActionUI.so");
+    if let Err(error) = fs::copy(&library, &copy) {
+        panic!("could not copy {} to {}: {error}", library.display(), copy.display());
+    }
+
+    println!("cargo:rustc-link-search=native={}", out_dir.display());
+    println!("cargo:rustc-link-lib=dylib=ActionUI");
+
+    // Read by dependent build scripts as DEP_ACTIONUI_LIBRARY_DIR (the package, with its
+    // C headers), and by this crate's tests through env!().
+    println!("cargo:library_dir={}", library_dir.display());
+    println!("cargo:rustc-env=ACTIONUI_SYS_LIBRARY_DIR={}", library_dir.display());
+}
+
+fn find_library_dir() -> PathBuf {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let default_dir = manifest_dir.join("../library");
+
+    if let Ok(value) = env::var("ACTIONUI_LIBRARY_DIR") {
+        let dir = PathBuf::from(&value);
+        if dir.join(LIBRARY_FILE).is_file() {
+            return dir.canonicalize().unwrap_or(dir);
+        }
+        panic!(
+            "ACTIONUI_LIBRARY_DIR is set to '{value}', but there is no {LIBRARY_FILE} in it. \
+             It must be the unpacked ActionUI library package (actionui-<version>-linux-<arch>), \
+             the folder that holds lib/ and include/."
+        );
+    }
+
+    if default_dir.join(LIBRARY_FILE).is_file() {
+        return default_dir.canonicalize().unwrap_or(default_dir);
+    }
+
+    panic!(
+        "The ActionUI library package was not found in '{}'. Unpack actionui-<version>-linux-<arch>.tar.gz \
+         (made by Scripts/make-linux-library-package.sh) and set ACTIONUI_LIBRARY_DIR to the unpacked folder, \
+         or put its lib/ and include/ folders there.",
+        default_dir.display()
+    );
+}
+
+fn link_frameworks() {
+    println!("cargo:rerun-if-env-changed=ACTIONUI_FRAMEWORKS_DIR");
 
     let frameworks_dir = find_frameworks_dir();
     println!("cargo:rerun-if-changed={}", frameworks_dir.display());

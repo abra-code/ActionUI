@@ -74,6 +74,54 @@ strip = "none"
 
 Cargo strips the build tools of a release build, such as serde's derive macro, and the loader of macOS 27 refuses a library stripped by the `strip` tool of Xcode 27. The setting leaves those tools unstripped. It does not change your program.
 
+## Building on Linux
+
+The same crates build on Linux, against the ActionUI library package instead of the frameworks. No Swift installation is needed: `libActionUI.so` carries the Swift runtime, and ActionUI draws with GTK 4 and libadwaita.
+
+Requirements: Rust 1.85 or later, a C linker (`cc`, as for any Rust program), and GTK 4, libadwaita and libsoup 3. Their run-time libraries are enough, but the link needs them too: the linker looks for every library `libActionUI.so` depends on.
+
+1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
+
+   ```sh
+   swift build -c release --static-swift-stdlib --product ActionUI
+   Scripts/make-linux-library-package.sh .build/release <output folder>
+   ```
+
+   and unpack `actionui-<version>-linux-<arch>.tar.gz`.
+
+2. Build, pointing `ACTIONUI_LIBRARY_DIR` at the unpacked folder (or put its `lib/` and `include/` folders in `ActionUIRust/library`):
+
+   ```sh
+   cd ActionUIRust
+   ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 cargo build
+   ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 cargo run --example temperature_converter
+   ```
+
+The program links `libActionUI.so` dynamically. `cargo run` and `cargo test` find the build's copy of it by themselves. To run the program anywhere else, put a copy of `libActionUI.so` in the same folder as the executable: `.cargo/config.toml` gives Linux programs an `$ORIGIN` rpath, so they look for it there. A program of your own needs the same setting in its `.cargo/config.toml` (cargo reads that file from the folder it is started in and the folders above it, not from the dependency's):
+
+```toml
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN"]
+```
+
+A `RUSTFLAGS` environment variable replaces these flags, and a `build.rustflags` setting does not add to them; put the rpath argument there too if you use either.
+
+The dependency names both systems:
+
+```toml
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
+actionui = { path = "/path/to/ActionUI/ActionUIRust/actionui" }
+```
+
+Differences from macOS:
+
+- `Window::content_size_limits` returns `Ok(None)`: ActionUI does not measure the content on Linux.
+- There is no remote server: `App::start_remote_server` returns an error.
+- `actionui::running_from_bundle` returns false, and `make_app_bundle.sh` is for macOS.
+- The menu bar's commands appear in a menu at the end of each window's header bar, as GNOME applications do.
+- `actionui-sys` leaves out `actionUILoadHostingControllerFromURL`, `actionUIGetContentSizeLimits` and the `actionUIRemote*` functions, which Linux does not have.
+- `main_thread::dispatch` hands the closure to GLib's main loop, which GTK runs; the program links `libglib-2.0.so.0`, which `libActionUI.so` needs anyway.
+
 ## Where the interface JSON lives
 
 Three ways, each with its own `App` call:
@@ -134,7 +182,7 @@ ActionUIRust/
   build_frameworks.sh       builds the static frameworks
   make_app_bundle.sh        wraps an executable in an .app bundle
   Cargo.toml                the workspace
-  .cargo/config.toml        the deployment target
+  .cargo/config.toml        the deployment target; the $ORIGIN rpath on Linux
   actionui-sys/
     build.rs                link setup
     src/lib.rs              the C declarations
@@ -168,13 +216,17 @@ cargo test
 ACTIONUI_GUI_TESTS=1 cargo test -p actionui --test window_lifecycle
 ```
 
-The first command needs no window. It includes `actionui-sys/tests/declarations.rs`, which compares the hand-written declarations with the headers of the frameworks being linked and fails when a function, enum or callback type was added, removed or changed on either side. Run it after rebuilding the frameworks.
+The first command needs no window. It includes `actionui-sys/tests/declarations.rs`, which compares the hand-written declarations with the headers of the frameworks being linked and fails when a function, enum or callback type was added, removed or changed on either side. Run it after rebuilding the frameworks. On Linux it compares them with the library package's C headers instead.
 
 The second opens a window for a few seconds and quits by itself. It needs a logged-in session with the display awake. Do not type while it runs: its text field has keyboard focus.
 
 ## Common problems
 
 **`The ActionUI frameworks were not found in ...`** from the `actionui-sys` build script. Run `./build_frameworks.sh`, or point `ACTIONUI_FRAMEWORKS_DIR` at the directory with the `.framework` bundles.
+
+**`The ActionUI library package was not found in ...`** from the build script, on Linux. Set `ACTIONUI_LIBRARY_DIR` to the unpacked library package, as in "Building on Linux".
+
+**`error while loading shared libraries: libActionUI.so`**, on Linux, when the program is run outside cargo. Copy `libActionUI.so` beside the executable; if it is there, the program was built without the `$ORIGIN` rpath (check with `readelf -d`), so cargo was not started in a folder that has the `.cargo/config.toml` shown in "Building on Linux".
 
 **`ld: warning: object file ... was built for newer macOS version`**, many times. Set `MACOSX_DEPLOYMENT_TARGET = "14.6"` as shown above.
 

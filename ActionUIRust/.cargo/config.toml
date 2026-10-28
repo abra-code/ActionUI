@@ -4,3 +4,9 @@
 # workspace needs the same setting in its own .cargo/config.toml.
 [env]
 MACOSX_DEPLOYMENT_TARGET = "14.6"
+
+# On Linux the programs find libActionUI.so in their own folder: copy it beside the
+# program to run it outside cargo (cargo run and cargo test find the build's copy without
+# this). An app that depends on these crates from its own workspace needs the same setting.
+[target.'cfg(target_os = "linux")']
+rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN"]

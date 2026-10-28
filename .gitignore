@@ -9,6 +9,7 @@ ActionUIPython/actionui.egg-info/
 ActionUIPython/__pycache__/
 ActionUIRemote/Python/__pycache__/
 ActionUIPython/frameworks/
+ActionUIPython/library/
 ActionUIPython/build/
 ActionUIPython/dist/
 ActionUIPython/*.so
@@ -21,6 +22,7 @@ CLAUDE.md
 .graphify_python
 AGENTS.md
 ActionUINodeJS/frameworks
+ActionUINodeJS/library
 ActionUINodeJS/prebuilds
 ActionUINodeJS/node_modules
 Skill/dist
@@ -37,4 +39,5 @@ Scripts/make-release.sh
 
 # ActionUI Rust crates
 ActionUIRust/frameworks/
+ActionUIRust/library/
 ActionUIRust/target/

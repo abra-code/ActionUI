@@ -1,26 +1,46 @@
-// Compares the hand-written declarations in src/lib.rs with the C declarations in the
-// generated headers of the frameworks being linked. Fails when a function exists on one
-// side only, or when its parameters or return type differ.
+// Compares the hand-written declarations in src/lib.rs with the C declarations of what is
+// being linked. Fails when a function exists on one side only, or when its parameters or
+// return type differ.
 //
-// The generated headers name the enums and the callback types but do not define them;
-// those are compared with the hand-written C headers the frameworks ship beside them.
+// macOS: the frameworks' generated headers. They name the enums and the callback types
+// but do not define them; those are compared with the hand-written C headers the
+// frameworks ship beside them.
+//
+// Linux: the library package has no generated headers (the framework build checks them
+// against the hand-written ones), so both comparisons use its hand-written C headers,
+// leaving out their Apple-only part, and src/lib.rs's blocks marked macOS only are left
+// out too.
 
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+#[cfg(target_os = "macos")]
 const HEADERS: [&str; 3] = [
     "ActionUICAdapter.framework/Headers/ActionUICAdapter-Swift.h",
     "ActionUIAppKitApplication.framework/Headers/ActionUIAppKitApplication-Swift.h",
     "ActionUIRemote.framework/Headers/ActionUIRemote-Swift.h",
 ];
 
+#[cfg(target_os = "macos")]
 const TYPE_HEADERS: [&str; 2] = [
     "ActionUICAdapter.framework/Headers/ActionUIC.h",
     "ActionUIAppKitApplication.framework/Headers/ActionUIApp.h",
 ];
+
+#[cfg(target_os = "macos")]
+const LINKED_DIR: &str = env!("ACTIONUI_SYS_FRAMEWORKS_DIR");
+
+#[cfg(target_os = "linux")]
+const HEADERS: [&str; 2] = ["include/ActionUICAdapter/ActionUIC.h", "include/ActionUIAppKitApplication/ActionUIApp.h"];
+
+#[cfg(target_os = "linux")]
+const TYPE_HEADERS: [&str; 2] = HEADERS;
+
+#[cfg(target_os = "linux")]
+const LINKED_DIR: &str = env!("ACTIONUI_SYS_LIBRARY_DIR");
 
 const RUST_SOURCE: &str = include_str!("../src/lib.rs");
 
@@ -36,8 +56,9 @@ fn rust_type_for_c(c_type: &str) -> String {
         "bool" => "bool",
         "int64_t" => "i64",
         "double" => "f64",
-        // Swift's Int, as a @c declaration prints it.
-        "ptrdiff_t" => "isize",
+        // Swift's Int, as a @c declaration prints it, and as the hand-written headers
+        // spell it (long is 64 bits wide on the 64-bit platforms ActionUI builds for).
+        "ptrdiff_t" | "long" => "isize",
         "char const *" => "*const c_char",
         "const char *" => "*const c_char",
         "char *" => "*mut c_char",
@@ -74,18 +95,42 @@ fn signature(name: &str, params: &[(String, String)], return_type: &str) -> Stri
     }
 }
 
-fn header_signatures(frameworks_dir: &Path) -> Signatures {
+/// The function declarations of a generated header, each as `type name(parameters)`. A
+/// universal framework's header repeats every declaration once per architecture; the
+/// caller's map keeps one.
+#[cfg(target_os = "macos")]
+fn declarations(text: &str) -> Vec<&str> {
+    text.lines().filter_map(|line| line.strip_prefix("SWIFT_EXTERN ")).collect()
+}
+
+/// The function declarations of a hand-written header outside its Apple-only part, each as
+/// `type name(parameters)`.
+#[cfg(target_os = "linux")]
+fn declarations(text: &str) -> Vec<&str> {
+    let mut found = Vec::new();
+    let mut apple_only = false;
+    for line in text.lines() {
+        let code = line.split("//").next().unwrap_or("").trim();
+        if code == "#if defined(__APPLE__)" {
+            apple_only = true;
+        } else if apple_only && code == "#endif" {
+            apple_only = false;
+        } else if !apple_only {
+            if let Some(declaration) = code.strip_suffix("ACTIONUI_NOEXCEPT;") {
+                found.push(declaration.trim());
+            }
+        }
+    }
+    found
+}
+
+fn header_signatures(linked_dir: &Path) -> Signatures {
     let mut signatures = Signatures::new();
     for header in HEADERS {
-        let path = frameworks_dir.join(header);
+        let path = linked_dir.join(header);
         let text = fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
-        // A universal framework's header repeats every declaration once per architecture;
-        // the map keeps one.
-        for line in text.lines() {
-            let Some(declaration) = line.strip_prefix("SWIFT_EXTERN ") else {
-                continue;
-            };
+        for declaration in declarations(&text) {
             let open = declaration.find('(').expect("declaration has a parameter list");
             let close = declaration.rfind(')').expect("declaration has a parameter list");
             let (return_c_type, name) = split_trailing_identifier(&declaration[..open]);
@@ -106,9 +151,40 @@ fn header_signatures(frameworks_dir: &Path) -> Signatures {
     signatures
 }
 
+/// The lines of src/lib.rs compiled on this system: off macOS, without the `extern` blocks
+/// marked `#[cfg(target_os = "macos")]`.
+fn compiled_rust_lines() -> Vec<&'static str> {
+    let mut lines = Vec::new();
+    let mut macos_only_next = false;
+    let mut in_macos_only_block = false;
+    for line in RUST_SOURCE.lines() {
+        if cfg!(not(target_os = "macos")) {
+            if in_macos_only_block {
+                in_macos_only_block = line != "}";
+                continue;
+            }
+            if line == "#[cfg(target_os = \"macos\")]" {
+                macos_only_next = true;
+                continue;
+            }
+            if macos_only_next && line.starts_with("unsafe extern \"C\" {") {
+                macos_only_next = false;
+                in_macos_only_block = true;
+                continue;
+            }
+            // Other attributes may stand between the gate and the block.
+            if !line.starts_with("#[") {
+                macos_only_next = false;
+            }
+        }
+        lines.push(line);
+    }
+    lines
+}
+
 fn rust_signatures() -> Signatures {
     let mut signatures = Signatures::new();
-    for line in RUST_SOURCE.lines() {
+    for line in compiled_rust_lines() {
         let Some(declaration) = line.trim().strip_prefix("pub fn ") else {
             continue;
         };
@@ -150,22 +226,22 @@ fn differences(in_headers: &Signatures, in_rust: &Signatures) -> Vec<String> {
 }
 
 #[test]
-fn declarations_match_the_framework_headers() {
-    let frameworks_dir = Path::new(env!("ACTIONUI_SYS_FRAMEWORKS_DIR"));
-    let in_headers = header_signatures(frameworks_dir);
+fn declarations_match_the_headers() {
+    let linked_dir = Path::new(LINKED_DIR);
+    let in_headers = header_signatures(linked_dir);
     let in_rust = rust_signatures();
 
     assert!(
         in_headers.len() > 50,
         "only {} declarations found in the headers under {}; the header format may have changed",
         in_headers.len(),
-        frameworks_dir.display()
+        linked_dir.display()
     );
 
     let problems = differences(&in_headers, &in_rust);
     assert!(
         problems.is_empty(),
-        "src/lib.rs and the framework headers disagree:\n{}",
+        "src/lib.rs and the headers disagree:\n{}",
         problems.join("\n")
     );
 }
@@ -223,10 +299,10 @@ fn statements<'a>(code: &'a str, keyword: &str) -> Vec<&'a str> {
 
 /// Every enum, enum value and callback type in the C headers, as comparable text:
 /// `type Name = enum`, `const NAME: Type = value`, `type Name = fn(type, ...) -> type`.
-fn header_types(frameworks_dir: &Path) -> Signatures {
+fn header_types(linked_dir: &Path) -> Signatures {
     let mut types = Signatures::new();
     for header in TYPE_HEADERS {
-        let path = frameworks_dir.join(header);
+        let path = linked_dir.join(header);
         let text = fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
         let code = without_comments(&text);
@@ -306,15 +382,15 @@ fn rust_types() -> Signatures {
 
 #[test]
 fn types_match_the_c_headers() {
-    let frameworks_dir = Path::new(env!("ACTIONUI_SYS_FRAMEWORKS_DIR"));
-    let in_headers = header_types(frameworks_dir);
+    let linked_dir = Path::new(LINKED_DIR);
+    let in_headers = header_types(linked_dir);
     let in_rust = rust_types();
 
     assert!(
         in_headers.len() > 15,
         "only {} types and enum values found in the C headers under {}; the header format may have changed",
         in_headers.len(),
-        frameworks_dir.display()
+        linked_dir.display()
     );
 
     let problems = differences(&in_headers, &in_rust);

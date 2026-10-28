@@ -10,6 +10,7 @@
 // the will-terminate handler, which sets the exit status.
 
 use std::cell::{Cell, RefCell};
+#[cfg(target_os = "macos")]
 use std::ffi::{CStr, c_char, c_void};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -101,7 +102,11 @@ fn check_values(window: &Window) {
     check("the generic setter accepts a string", window.set_value(OUTPUT, "from Rust").is_ok());
 
     let limits = window.content_size_limits();
-    check("the content reports its minimum size", matches!(limits, Ok(Some(limits)) if limits.min_width >= 320.0));
+    if cfg!(target_os = "macos") {
+        check("the content reports its minimum size", matches!(limits, Ok(Some(limits)) if limits.min_width >= 320.0));
+    } else {
+        check("the content reports no size limits off macOS", matches!(limits, Ok(None)));
+    }
 }
 
 fn check_structure(window: &Window) {
@@ -186,6 +191,15 @@ fn check_from_a_worker(window: Window) {
     });
 }
 
+#[cfg(not(target_os = "macos"))]
+fn check_remote_server(app: App) {
+    let endpoint = app.start_remote_server(None);
+    check(&format!("the remote server does not start off macOS (got {endpoint:?})"), matches!(&endpoint, Err(Error::ActionUI(message)) if message.contains("macOS only")));
+    check("it reports no socket path", app.remote_server_endpoint().is_none());
+    check("and no token", app.remote_server_token().is_none());
+}
+
+#[cfg(target_os = "macos")]
 fn check_remote_server(app: App) {
     let endpoint = app.start_remote_server(None);
     check(&format!("the remote server starts (got {endpoint:?})"), matches!(&endpoint, Ok(path) if !path.is_empty()));
@@ -198,7 +212,9 @@ fn check_remote_server(app: App) {
 }
 
 // The menu bar belongs to AppKit and the crate has no call that reads it back, so the test
-// asks the Objective-C runtime for the titles of the top-level menus.
+// asks the Objective-C runtime for the titles of the top-level menus. Linux shows the
+// commands in a menu inside each window, which the test does not read.
+#[cfg(target_os = "macos")]
 #[link(name = "objc")]
 unsafe extern "C" {
     fn objc_getClass(name: *const c_char) -> *mut c_void;
@@ -206,6 +222,7 @@ unsafe extern "C" {
     fn objc_msgSend();
 }
 
+#[cfg(target_os = "macos")]
 fn main_menu_titles() -> Vec<String> {
     type Send0 = unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void;
     type SendCount = unsafe extern "C" fn(*mut c_void, *mut c_void) -> isize;
@@ -234,6 +251,7 @@ fn main_menu_titles() -> Vec<String> {
     titles
 }
 
+#[cfg(target_os = "macos")]
 fn check_menu_bar() {
     let titles = main_menu_titles();
     check(&format!("the menu bar carries the application's name (got {titles:?})"), titles.first().is_some_and(|title| title == APP_NAME));
@@ -316,6 +334,7 @@ fn main() {
         let window = app.present_window_from_json(UI, Some("Lifecycle Test")).expect("present_window_from_json");
         SEEN.with(|seen| *seen.presented.borrow_mut() = Some(window.clone()));
         check_remote_server(app);
+        #[cfg(target_os = "macos")]
         check_menu_bar();
 
         // A panic in a dispatched closure must not take the application down.

@@ -4,12 +4,14 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-//! Raw declarations of the ActionUI C functions, and the link setup for the static
-//! frameworks that implement them. No logic lives here; use the `actionui` crate.
+//! Raw declarations of the ActionUI C functions, and the link setup for what implements
+//! them: the static frameworks on macOS, `libActionUI.so` from the ActionUI library
+//! package on Linux. No logic lives here; use the `actionui` crate.
 //!
 //! The declarations are written by hand, so a build needs no C header parser (bindgen
 //! and libclang). `tests/declarations.rs` compares this file with the frameworks'
-//! generated headers and fails on any difference.
+//! generated headers on macOS, and with the package's C headers on Linux, and fails on
+//! any difference. Declarations Linux lacks are in blocks marked macOS only.
 //!
 //! Rules that hold for every function, unless its comment says otherwise:
 //! - Strings are null-terminated UTF-8.
@@ -19,10 +21,12 @@
 //!   Setters do so asynchronously, getters wait for the result.
 //! - Callbacks are invoked on the main thread.
 
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 #![allow(non_snake_case)]
 
-use std::ffi::{c_char, c_int, c_void};
+use std::ffi::{c_char, c_int};
+#[cfg(target_os = "macos")]
+use std::ffi::c_void;
 
 // MARK: - Types (ActionUIC.h)
 
@@ -130,11 +134,6 @@ unsafe extern "C" {
     /// Forgets a window's model once the host is done with it. An unknown window is ignored.
     pub fn actionUIRemoveWindow(windowUUID: *const c_char);
 
-    /// Returns a retained `NSHostingController`; the caller owns it. For hosts that
-    /// create their own windows. Main thread only.
-    pub fn actionUILoadHostingControllerFromURL(urlString: *const c_char, windowUUID: *const c_char, isContentView: bool) -> *mut c_void;
-    pub fn actionUIGetContentSizeLimits(windowUUID: *const c_char, outMinWidth: *mut f64, outMinHeight: *mut f64, outMaxWidth: *mut f64, outMaxHeight: *mut f64) -> bool;
-
     pub fn actionUIInsertElement(windowUUID: *const c_char, parentID: i64, json: *const c_char, container: *const c_char, position: ActionUIInsertPosition, positionParam: i64) -> i64;
     pub fn actionUIInsertRow(windowUUID: *const c_char, parentID: i64, json: *const c_char, container: *const c_char, position: ActionUIInsertPosition, positionParam: i64) -> *mut c_char;
     pub fn actionUIRemoveElement(windowUUID: *const c_char, viewID: i64) -> bool;
@@ -146,6 +145,17 @@ unsafe extern "C" {
     pub fn actionUIDismissDialog(windowUUID: *const c_char);
     pub fn actionUIPresentToast(windowUUID: *const c_char, message: *const c_char, duration: f64, actionTitle: *const c_char, actionID: *const c_char) -> bool;
     pub fn actionUIDismissToast(windowUUID: *const c_char);
+}
+
+// MARK: - ActionUICAdapter, macOS only
+
+#[cfg(target_os = "macos")]
+#[rustfmt::skip] // tests/declarations.rs reads one declaration per line
+unsafe extern "C" {
+    /// Returns a retained `NSHostingController`; the caller owns it. For hosts that
+    /// create their own windows. Main thread only.
+    pub fn actionUILoadHostingControllerFromURL(urlString: *const c_char, windowUUID: *const c_char, isContentView: bool) -> *mut c_void;
+    pub fn actionUIGetContentSizeLimits(windowUUID: *const c_char, outMinWidth: *mut f64, outMinHeight: *mut f64, outMaxWidth: *mut f64, outMaxHeight: *mut f64) -> bool;
 }
 
 // MARK: - ActionUIAppKitApplication
@@ -184,6 +194,7 @@ unsafe extern "C" {
 
     pub fn actionUIAppLoadMenuBar(jsonString: *const c_char);
 
+    /// On Linux there is no remote server: it returns false, and the others report none.
     pub fn actionUIAppStartRemoteServer(socketPath: *const c_char) -> bool;
     pub fn actionUIAppStopRemoteServer();
     pub fn actionUIAppRemoteServerToken() -> *const c_char;
@@ -191,8 +202,9 @@ unsafe extern "C" {
     pub fn actionUIAppRemoteServerEndpoint() -> *const c_char;
 }
 
-// MARK: - ActionUIRemote
+// MARK: - ActionUIRemote, macOS only
 
+#[cfg(target_os = "macos")]
 #[rustfmt::skip] // tests/declarations.rs reads one declaration per line
 unsafe extern "C" {
     pub fn actionUIRemoteStartServer(socketPath: *const c_char, hostName: *const c_char, hostVersion: *const c_char) -> bool;

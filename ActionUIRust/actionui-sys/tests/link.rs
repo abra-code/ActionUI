@@ -1,6 +1,7 @@
-// Proves the static frameworks link and a call reaches them. Needs no window.
+// Proves the ActionUI library links (the static frameworks on macOS, libActionUI.so on
+// Linux) and a call reaches it. Needs no window.
 
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
 use std::ffi::CStr;
 
