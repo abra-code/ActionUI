@@ -1,12 +1,9 @@
 /*
- * actionui_native.m
+ * actionui_native.c
  * Python C extension module for ActionUI
  *
- * Wraps the C interface of ActionUICAdapter.framework.
- *
- * The code is plain C. The file is a .m because the Swift-generated headers
- * once declared the C functions only inside #if defined(__OBJC__); with the
- * @c attribute they declare them for plain C as well.
+ * Wraps the C interface of ActionUICAdapter.framework and
+ * ActionUIAppKitApplication.framework, declared in their plain C headers.
  *
  */
 
@@ -15,8 +12,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#import <ActionUICAdapter/ActionUICAdapter-Swift.h>
-#import <ActionUIAppKitApplication/ActionUIAppKitApplication-Swift.h>
+#include <ActionUICAdapter/ActionUIC.h>
+#include <ActionUIAppKitApplication/ActionUIApp.h>
 
 // MARK: - Module State
 

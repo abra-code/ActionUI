@@ -53,29 +53,21 @@ same schema as ActionUI's SwiftUI commands.
 
 Function declarations are emitted into `ActionUIAppKitApplication-Swift.h`.
 
-### Layer 2: ObjC Extension (`_actionui.so`)
+### Layer 2: C Extension (`_actionui.so`)
 
-**actionui_native.m** is compiled as Objective-C and wraps every C function
-with a `py_*` counterpart.  It imports both generated Swift headers:
+**actionui_native.c** is plain C and wraps every C function with a `py_*`
+counterpart.  It includes the frameworks' plain C headers:
 
-```objc
+```c
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-#import <ActionUICAdapter/ActionUICAdapter-Swift.h>
-#import <ActionUIAppKitApplication/ActionUIAppKitApplication-Swift.h>
+#include <ActionUICAdapter/ActionUIC.h>
+#include <ActionUIAppKitApplication/ActionUIApp.h>
 // … plain C code follows …
 ```
 
-#### Why `.m` instead of `.c`?
-
-For a reason that no longer holds. The C functions used to be declared with
-`@_cdecl`, which the Swift compiler puts only inside `#if defined(__OBJC__)` in
-the generated headers, so the file had to be compiled as Objective-C. With `@c`
-the generated headers declare the functions for plain C as well. The code itself
-is entirely plain C.
-
-This module includes the generated headers. A client that includes only `ActionUIC.h` and
-`ActionUIApp.h`, which declare every function too, compiles as plain C or C++.
+The Swift-generated headers declare the same functions; the framework build checks that
+the two declarations of each function agree.
 
 ### Layer 3: Python API (`actionui.py`)
 
@@ -227,7 +219,7 @@ clang -shared -fPIC \
   -framework AVKit \
   -framework Charts \
   -o _actionui.so \
-  actionui_native.m
+  actionui_native.c
 ```
 
 ---
@@ -251,7 +243,7 @@ ActionUI/
 │       ├── ActionUIAppKitApplication.h    Umbrella header
 │       └── ActionUIApp.h                  C callback typedefs and function prototypes
 └── ActionUIPython/                        ← this directory
-    ├── actionui_native.m                  Python C extension (compiled as ObjC)
+    ├── actionui_native.c                  Python C extension
     ├── actionui.py                        Pythonic wrapper
     ├── setup.py                           Build script (extension definition)
     ├── pyproject.toml                     Modern build system declaration
@@ -308,7 +300,7 @@ then immediately frees it with `actionUIFreeString` (which calls `free(3)`).
 All callbacks (logger, action handlers, app lifecycle, window close) are
 invoked from Swift's `@MainActor` context while the Python main thread is
 blocked inside `app.run()` with the GIL released (`Py_BEGIN_ALLOW_THREADS`).
-`actionui_native.m` uses `PyGILState_Ensure` / `PyGILState_Release` around
+`actionui_native.c` uses `PyGILState_Ensure` / `PyGILState_Release` around
 every Python call made from a C bridge callback.
 
 ---
@@ -342,11 +334,6 @@ python3 test_file_panels.py
 All three frameworks must be present.  Set `ACTIONUI_FRAMEWORKS_DIR` or
 populate `./frameworks/` with `ActionUI.framework`, `ActionUICAdapter.framework`,
 and `ActionUIAppKitApplication.framework`.
-
-### `ActionUICAdapter-Swift.h` or `ActionUIAppKitApplication-Swift.h: No such file`
-
-Both frameworks must be built with `BUILD_LIBRARY_FOR_DISTRIBUTION=YES` so
-that Xcode generates their Swift interface headers.
 
 ---
 

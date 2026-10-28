@@ -5,7 +5,7 @@
 ```
 Node.js (index.js)
     ↓  JSON / type dispatch
-N-API Addon (actionui_node.m → actionui.node)   ← self-contained; no runtime framework deps
+N-API Addon (actionui_node.c → actionui.node)   ← self-contained; no runtime framework deps
     ↓  C function calls (statically linked)
 ActionUI + ActionUICAdapter + ActionUIAppKitApplication   ← baked into .node at link time
     ↓  Swift API calls

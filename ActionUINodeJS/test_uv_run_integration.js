@@ -2,7 +2,7 @@
 /**
  * test_uv_run_integration.js
  *
- * Proves that actionui_node.m's CFRunLoop / uv_run integration keeps the
+ * Proves that actionui_node.c's CFRunLoop / uv_run integration keeps the
  * Node.js main event loop alive while [NSApp run] blocks the main thread.
  *
  * Why a REAL external fetch target (and not a local http.createServer):

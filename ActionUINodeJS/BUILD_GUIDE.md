@@ -5,7 +5,7 @@
 ```
 Node.js (index.js)
     ↓  JSON / type dispatch
-N-API Addon (actionui_node.m → actionui.node)   ← self-contained; no runtime framework deps
+N-API Addon (actionui_node.c → actionui.node)   ← self-contained; no runtime framework deps
     ↓  C function calls (statically linked)
 ActionUI + ActionUICAdapter + ActionUIAppKitApplication   ← baked into .node at link time
     ↓  Swift API calls
@@ -26,24 +26,15 @@ Same as ActionUIPython — see that module's BUILD_GUIDE.md for framework detail
 
 ### Layer 2: N-API Addon (`actionui.node`)
 
-**`src/actionui_node.m`** is compiled as Objective-C and wraps every C function with
-a `node_*` counterpart using raw N-API (`node_api.h`).
-
-#### Why `.m` instead of `.cc`?
-
-For a reason that no longer holds. The C functions used to be declared with `@_cdecl`,
-which the Swift compiler puts only inside `#if defined(__OBJC__)` in the generated headers,
-so the file had to be compiled as Objective-C. With `@c` the generated headers declare the
-functions for plain C and C++ as well. The code itself is entirely plain C.
-
-This module includes the generated headers. `ActionUIC.h` and `ActionUIApp.h` declare every
-function too; a client may include those alone, or with the generated ones. The generated
-headers alone do not give the C types (callback typedefs) to a client compiled with modules on.
+**`src/actionui_node.c`** is plain C and wraps every C function with a `node_*` counterpart
+using raw N-API (`node_api.h`). It includes the frameworks' plain C headers, `ActionUIC.h` and
+`ActionUIApp.h`; the Swift-generated headers declare the same functions, and the framework
+build checks that the two declarations of each function agree.
 
 #### Why raw N-API instead of node-addon-api?
 
-`node-addon-api` is a C++ header-only wrapper.  Since our source is `.m` (ObjC, not
-ObjC++), using raw N-API keeps the translation unit simple and avoids `.mm` complexity.
+`node-addon-api` is a C++ header-only wrapper.  Since our source is plain C, using raw
+N-API keeps the translation unit simple and avoids C++.
 Raw N-API is ABI-stable across Node.js major versions, which is the primary N-API benefit.
 
 #### Threading model
@@ -160,7 +151,7 @@ app.run();  // blocks until app terminates
 ```
 ActionUINodeJS/
 ├── src/
-│   └── actionui_node.m        # N-API addon source (ObjC)
+│   └── actionui_node.c        # N-API addon source (C)
 ├── binding.gyp                # node-gyp build configuration
 ├── package.json               # npm package definition
 ├── index.js                   # high-level JS API
@@ -227,11 +218,6 @@ Set `ACTIONUI_FRAMEWORKS_DIR` to the directory containing all three `.framework`
 ```bash
 ACTIONUI_FRAMEWORKS_DIR=/path/to/frameworks npm install
 ```
-
-### `ActionUICAdapter-Swift.h` not found
-
-Build the frameworks with `BUILD_LIBRARY_FOR_DISTRIBUTION=YES` — this causes Xcode
-to generate the Swift interface headers required by `actionui_node.m`.
 
 ### Linker error: framework not found
 

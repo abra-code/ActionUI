@@ -1,7 +1,7 @@
 {
   "targets": [{
     "target_name": "actionui",
-    "sources": ["src/actionui_node.m"],
+    "sources": ["src/actionui_node.c"],
     "conditions": [
       ["OS=='mac'", {
         "variables": {

@@ -138,9 +138,9 @@ print(f"  ActionUIRemote.framework             OK")
 # ---------------------------------------------------------------------------
 #
 # Compile flags
-#   -F{fw_dir}      exposes <ActionUICAdapter/ActionUICAdapter-Swift.h> and
-#                   <ActionUICAdapter/ActionUIC.h> via the -F framework search
-#                   path so #include <ActionUICAdapter/…> resolves correctly.
+#   -F{fw_dir}      exposes <ActionUICAdapter/ActionUIC.h> and
+#                   <ActionUIAppKitApplication/ActionUIApp.h> via the -F framework
+#                   search path so #include <ActionUICAdapter/…> resolves correctly.
 #
 # Link flags
 #   -F{fw_dir}      lets the linker locate the .framework bundles.
@@ -154,11 +154,8 @@ print(f"  ActionUIRemote.framework             OK")
 #
 actionui_extension = Extension(
     '_actionui',
-    # actionui_native.m is plain C compiled as Objective-C, for a reason that
-    # no longer holds: the Swift-generated headers once declared the C
-    # functions only inside #if defined(__OBJC__). With the @c attribute
-    # they declare them for plain C as well.
-    sources=['actionui_native.m'],
+    # Plain C, over the frameworks' plain C headers (ActionUIC.h, ActionUIApp.h).
+    sources=['actionui_native.c'],
     extra_compile_args=[
         f'-F{fw_dir}',
         f"-mmacosx-version-min={MIN_MACOS_VERSION}",
@@ -169,8 +166,6 @@ actionui_extension = Extension(
         '-framework', 'ActionUICAdapter',
         '-framework', 'ActionUIAppKitApplication',
         '-framework', 'ActionUIRemote',
-        # ObjC runtime (required when linking any .m translation unit).
-        # '-lobjc',
         # System frameworks used by ActionUI's Swift code.
         # clang resolves these from the SDK sysroot on any standard macOS
         # setup, but listing them explicitly avoids surprises in CI or

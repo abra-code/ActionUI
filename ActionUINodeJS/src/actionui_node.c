@@ -1,14 +1,10 @@
 /*
- * actionui_node.m
+ * actionui_node.c
  * Node.js N-API addon for ActionUI
  *
  * Wraps the C interface of ActionUICAdapter.framework and
- * ActionUIAppKitApplication.framework using raw N-API (node_api.h).
- *
- * The code is plain C. The file is a .m because the Swift-generated headers
- * (ActionUICAdapter-Swift.h, ActionUIAppKitApplication-Swift.h) once declared
- * the C functions only inside #if defined(__OBJC__); with the @c attribute
- * they declare them for plain C as well.
+ * ActionUIAppKitApplication.framework, declared in their plain C headers,
+ * using raw N-API (node_api.h).
  *
  * Threading model:
  *   appRun() installs a CFRunLoopObserver, a CFRunLoopTimer, on the main CFRunLoop,
@@ -30,10 +26,10 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#import <CoreFoundation/CoreFoundation.h>
-#import <ApplicationServices/ApplicationServices.h>
-#import <ActionUICAdapter/ActionUICAdapter-Swift.h>
-#import <ActionUIAppKitApplication/ActionUIAppKitApplication-Swift.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <ApplicationServices/ApplicationServices.h>
+#include <ActionUICAdapter/ActionUIC.h>
+#include <ActionUIAppKitApplication/ActionUIApp.h>
 
 
 #define ACTIONUI_DIAGNOSTIC 0

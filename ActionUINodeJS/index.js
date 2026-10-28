@@ -4,7 +4,7 @@
  *
  * Mirrors the structure of actionui.py (Python adapter).
  * All heavy lifting (type conversion, JSON serialisation) is done in the
- * native layer (actionui_node.m).  This file provides a JS-idiomatic wrapper.
+ * native layer (actionui_node.c).  This file provides a JS-idiomatic wrapper.
  */
 
 const _actionui = require('node-gyp-build')(__dirname);

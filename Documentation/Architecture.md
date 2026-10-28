@@ -142,7 +142,7 @@ app.run()
 ### Building
 The Python module is built from `ActionUIPython/` using `build_and_install.sh`, which:
 1. Builds ActionUI static frameworks via xcodebuild (universal arm64 + x86_64)
-2. Compiles the C bridge (`actionui_native.m`) against the frameworks
+2. Compiles the C bridge (`actionui_native.c`) against the frameworks
 3. Installs the `actionui` Python package via pip
 
 ## Rust Bridge
