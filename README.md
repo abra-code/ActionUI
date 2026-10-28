@@ -1,6 +1,6 @@
 # ActionUI
 
-**Build native interfaces from JSON, across Apple, Android, and the Web — designed for AI-assisted development and rapid prototyping**
+**Build native interfaces from JSON, across Apple, Android, Linux, and the Web — designed for AI-assisted development and rapid prototyping**
 
 ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **three native renderers** from a shared schema: SwiftUI on Apple platforms, Jetpack Compose on Android, and DOM/CSS in the browser. A fourth, for **Linux** (GTK 4 and libadwaita, in Swift), renders nearly all core elements. It replaces Interface Builder, Storyboards, or hand-coded UI with a simple, declarative format that's both human-readable and AI-friendly.
 
