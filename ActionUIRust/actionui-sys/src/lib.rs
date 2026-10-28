@@ -7,9 +7,9 @@
 //! Raw declarations of the ActionUI C functions, and the link setup for the static
 //! frameworks that implement them. No logic lives here; use the `actionui` crate.
 //!
-//! The declarations are written by hand, because the frameworks' generated headers
-//! declare these functions only for Objective-C. `tests/declarations.rs` compares this
-//! file with those headers and fails on any difference.
+//! The declarations are written by hand, so a build needs no C header parser (bindgen
+//! and libclang). `tests/declarations.rs` compares this file with the frameworks'
+//! generated headers and fails on any difference.
 //!
 //! Rules that hold for every function, unless its comment says otherwise:
 //! - Strings are null-terminated UTF-8.

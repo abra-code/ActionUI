@@ -4,7 +4,7 @@
 // describes. Every host that spawns children wants exactly this - a singleton, a default socket
 // path, and ACTIONUI_REMOTE_ENDPOINT in the environment - and this is where it lives so that the
 // hosts do not each write their own and drift. OMC links this target and nothing else; the
-// AppKit application adapter wraps these in @_cdecl entry points for its Python and Node
+// AppKit application adapter wraps these in @c entry points for its Python and Node
 // bindings. Neither owns the lifecycle.
 //
 // A host with different needs (two servers, no environment export, a path of its own) builds an

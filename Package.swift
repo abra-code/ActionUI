@@ -327,6 +327,7 @@ Package(
             dependencies: ["ActionUI"],
             path: "ActionUIRemote",
             exclude: [
+                "Node",
                 "PROTOCOL.md",
                 "Python",
                 "README.md",

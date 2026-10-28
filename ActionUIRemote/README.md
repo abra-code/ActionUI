@@ -58,10 +58,10 @@ it. Nothing above is required.
 
 `ActionUIRemoteServer` is a plain Swift class, so none of it reaches Objective-C through a
 generated header. The same lifecycle is available as C entry points, declared in
-`ActionUIRemote-Swift.h`:
+`ActionUIRemote-Swift.h` for plain C, C++ and Objective-C alike:
 
 ```objc
-@import ActionUIRemote;      // or #import <ActionUIRemote/ActionUIRemote-Swift.h>
+@import ActionUIRemote;      // or #include <ActionUIRemote/ActionUIRemote-Swift.h> (plain C too)
 
 if (actionUIRemoteStartServer(socketPath, "MyHost", "1.0")) {   // any argument may be NULL
     const char *endpoint = actionUIRemoteServerEndpoint();      // owned by the framework

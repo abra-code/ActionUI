@@ -2,14 +2,16 @@
 //
 // The C face of the process-wide server, for hosts that are not Swift. OMC is Objective-C++ and
 // links this target directly; `ActionUIRemoteServer` is a plain Swift class, so none of its API
-// is visible through a generated ObjC header. These @_cdecl functions are, and their
-// declarations appear in ActionUIRemote-Swift.h, the same arrangement ActionUICAdapter and
-// ActionUIAppKitApplication use (their own headers carry types only).
+// is visible through a generated ObjC header. These @c functions are: their declarations
+// appear in ActionUIRemote-Swift.h, for plain C, C++ and Objective-C alike. That generated
+// header is their only C declaration (they use no C types of their own, so there is no
+// hand-written header); Scripts/check-c-prototypes.sh --generated-headers checks that plain C
+// sees every one.
 //
 // Swift hosts should call ActionUIRemoteServer.startShared and friends instead; this is a
 // wrapper over exactly that, with C strings and a bool in place of throws.
 //
-// Bool: all @_cdecl functions use Swift's CBool (= stdbool.h bool).
+// Bool: all @c functions use Swift's CBool (= stdbool.h bool).
 
 #if os(macOS)
 
@@ -18,7 +20,7 @@ import ActionUI
 
 // MARK: - The endpoint as a C string
 
-/// A stable copy of the running server's path, because a `@_cdecl` function cannot hand back a
+/// A stable copy of the running server's path, because a `@c` function cannot hand back a
 /// Swift String. Guarded by its own lock, and nothing is called out to while holding it.
 private nonisolated(unsafe) var endpointCString: UnsafeMutablePointer<CChar>?
 private let endpointLock = NSLock()
@@ -87,7 +89,7 @@ private func logToEngine(_ message: String, _ level: LoggerLevel) {
 /// Safe to call from any thread, with or without a run loop: nothing here waits on the main
 /// queue. A caller holding a language runtime's global lock must release it first, because
 /// starting logs and the log goes back through that runtime's callback.
-@_cdecl("actionUIRemoteStartServer")
+@c
 public func actionUIRemoteStartServer(_ socketPath: UnsafePointer<CChar>?,
                                       _ hostName: UnsafePointer<CChar>?,
                                       _ hostVersion: UnsafePointer<CChar>?) -> CBool {
@@ -120,7 +122,7 @@ public func actionUIRemoteStartServer(_ socketPath: UnsafePointer<CChar>?,
 /// `ACTIONUI_REMOTE_ENDPOINT`. Does nothing when none is running, and never unsets a variable
 /// this process did not set. Safe to call from any thread, with the same caveat about a
 /// runtime's global lock as `actionUIRemoteStartServer`.
-@_cdecl("actionUIRemoteStopServer")
+@c
 public func actionUIRemoteStopServer() {
     ActionUIRemoteServer.stopShared()
     setEndpointCString(nil)
@@ -131,7 +133,7 @@ public func actionUIRemoteStopServer() {
 ///
 /// The returned string is owned by this target and stays valid until the next
 /// `actionUIRemoteStartServer` or `actionUIRemoteStopServer`; copy it if you keep it.
-@_cdecl("actionUIRemoteServerEndpoint")
+@c
 public func actionUIRemoteServerEndpoint() -> UnsafePointer<CChar>? {
     endpointLock.lock()
     defer { endpointLock.unlock() }
@@ -151,7 +153,7 @@ public func actionUIRemoteServerEndpoint() -> UnsafePointer<CChar>? {
 ///
 /// Same lifetime rule as `actionUIRemoteServerEndpoint`: owned by this target, valid until the
 /// next start or stop, copy it if you keep it.
-@_cdecl("actionUIRemoteServerToken")
+@c
 public func actionUIRemoteServerToken() -> UnsafePointer<CChar>? {
     tokenLock.lock()
     defer { tokenLock.unlock() }
@@ -173,7 +175,7 @@ public func actionUIRemoteServerToken() -> UnsafePointer<CChar>? {
 ///   - outTokenSize: the buffer's size in bytes. 128 is always enough; the token is 65 bytes
 ///     today, and a buffer smaller than the token is a failure, never a truncation.
 /// - Returns: false when no token is held, or the buffer is missing or too small.
-@_cdecl("actionUIRemoteCopyServerToken")
+@c
 public func actionUIRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?,
                                           _ outTokenSize: Int) -> CBool {
     guard let outToken, outTokenSize > 0 else { return false }
@@ -210,7 +212,7 @@ private let mintedTokenBufferSize = 128
 ///
 /// The token is deliberately not returned as a pointer this target owns: many are live at once,
 /// so a process-wide cached string would be the wrong shape.
-@_cdecl("actionUIRemoteMintToken")
+@c
 public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
                                     _ outToken: UnsafeMutablePointer<CChar>?,
                                     _ outTokenSize: Int) -> CBool {
@@ -238,7 +240,7 @@ public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
 /// host that must generate the value itself. Empty tokens and empty labels are rejected.
 ///
 /// - Returns: false when no server is running, or either argument is missing or empty.
-@_cdecl("actionUIRemoteAddToken")
+@c
 public func actionUIRemoteAddToken(_ token: UnsafePointer<CChar>?,
                                    _ label: UnsafePointer<CChar>?) -> CBool {
     guard let token, strlen(token) > 0 else { return false }
@@ -253,7 +255,7 @@ public func actionUIRemoteAddToken(_ token: UnsafePointer<CChar>?,
 ///
 /// Revocation stops new connections; it does not tear down authenticated ones (PROTOCOL.md
 /// section 10). A host that needs the stronger property stops the server.
-@_cdecl("actionUIRemoteRevokeTokensWithLabel")
+@c
 public func actionUIRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
     guard let label, strlen(label) > 0 else { return }
     ActionUIRemoteServer.shared?.revokeTokens(label: String(cString: label))
@@ -266,7 +268,7 @@ public func actionUIRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) 
 /// harness, say - or that wants to turn it on after registering its own tokens.
 ///
 /// - Returns: false when no server is running, in which case nothing was changed.
-@_cdecl("actionUIRemoteSetRequiresToken")
+@c
 public func actionUIRemoteSetRequiresToken(_ required: CBool) -> CBool {
     guard let server = ActionUIRemoteServer.shared else { return false }
     server.requiresToken = required
@@ -289,7 +291,7 @@ public func actionUIRemoteSetRequiresToken(_ required: CBool) -> CBool {
 ///
 /// - Returns: true when the variable was set and has been removed, false when there was nothing
 ///   to remove.
-@_cdecl("actionUIRemoteUnexportToken")
+@c
 public func actionUIRemoteUnexportToken() -> CBool {
     guard getenv(ActionUIRemoteEnvironment.token) != nil else { return false }
     unsetenv(ActionUIRemoteEnvironment.token)
@@ -298,7 +300,7 @@ public func actionUIRemoteUnexportToken() -> CBool {
 
 /// True while the process-wide server is serving. Convenience for a host that only wants to
 /// know whether to start one.
-@_cdecl("actionUIRemoteServerIsRunning")
+@c
 public func actionUIRemoteServerIsRunning() -> CBool {
     return ActionUIRemoteServer.shared != nil
 }
