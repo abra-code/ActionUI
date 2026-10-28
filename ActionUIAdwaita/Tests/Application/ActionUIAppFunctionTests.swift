@@ -4,8 +4,8 @@
  pointers as handlers: a window presented before actionUIAppRun opens at the start, its handlers
  fire in order, and closing it ends the run; a run off the main thread, and a setter from another
  thread before the run, are refused and return; a refused nested run leaves other threads able to
- call; a host sets the resource folder (NULL: none); the functions not on Linux yet answer as
- failures.
+ call; a host sets the resource folder (NULL: none); the remote server, not on Linux yet, answers
+ as a failure. The alert and the file panels: AppPanelsTests.
 */
 
 import XCTest
@@ -100,9 +100,6 @@ final class ActionUIAppFunctionTests: XCTestCase {
     }
 
     func testTheFunctionsNotOnLinuxYetAnswerAsFailures() {
-        XCTAssertNil(actionUIAppRunAlert(nil))
-        XCTAssertNil(actionUIAppRunOpenPanel(nil))
-        XCTAssertNil(actionUIAppRunSavePanel(nil))
         XCTAssertFalse(actionUIAppStartRemoteServer(nil))
         XCTAssertNil(actionUIAppRemoteServerToken())
         XCTAssertNil(actionUIAppRemoteServerEndpoint())

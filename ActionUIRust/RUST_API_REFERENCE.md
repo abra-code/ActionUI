@@ -441,6 +441,8 @@ Both have these options:
 
 `None` means the user canceled.
 
+On Linux the panels are GTK's file dialog and the alert libadwaita's, modal to the active window. `message`, `shows_hidden_files`, `treats_file_packages_as_directories` and `can_create_directories` and the alert's style have no effect there, and a panel that allows both files and folders chooses files. Called before `App::run` they return `None` (the alert too).
+
 ## `actionui::main_thread`
 
 | Function | Description |

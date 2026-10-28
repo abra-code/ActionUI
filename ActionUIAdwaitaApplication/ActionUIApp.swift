@@ -12,15 +12,19 @@
  - actionUIAppTerminate before the run does nothing; from another thread it waits for the run.
  - actionUIAppRun runs the application on the calling thread, which must be the main thread, and
    returns when it ends. Windows presented before it wait for the start.
- - Not on Linux yet, logged at each call: the menu bar (actionUIAppLoadMenuBar does nothing), the
-   alert and the file panels (they return NULL, as on an error), the remote server (it does not
-   start; the token and endpoint are NULL).
+ - The alert and the file panels block until the user answers, with the main loop running
+   (AppPanels); before the run they log why and return NULL.
+ - Not on Linux yet, logged at each call: the remote server (it does not start; the token and
+   endpoint are NULL).
 */
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #else
 import Foundation
+#endif
+#if canImport(Glibc)
+import Glibc
 #endif
 import Dispatch
 import Synchronization
@@ -235,24 +239,36 @@ public func actionUIAppCloseWindow(_ windowUUID: UnsafePointer<CChar>) {
     runOnMainActorAsync { AdwaitaApplication.shared.closeWindow(swiftUUID) }
 }
 
-// MARK: - Alerts and file panels (not on Linux yet)
+// MARK: - Alerts and file panels
 
+/// The title of the button chosen in a standalone alert, configured by the macOS JSON (title,
+/// message, style, buttons); nil when there is no answer. Blocks until the user answers, with the
+/// main loop running (AppPanels).
 @c
 public func actionUIAppRunAlert(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
-    logNotOnLinux("actionUIAppRunAlert")
-    return nil
+    let json = configJSON.map { String(cString: $0) }
+    var chosen: String?
+    runOnMainActorSync { chosen = AppPanels.runAlert(json: json) }
+    return chosen.map { strdup($0) }
 }
 
+/// A JSON array of the chosen paths, or nil when the panel was canceled.
 @c
 public func actionUIAppRunOpenPanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
-    logNotOnLinux("actionUIAppRunOpenPanel")
-    return nil
+    let json = configJSON.map { String(cString: $0) }
+    var chosen: [String]?
+    runOnMainActorSync { chosen = AppPanels.runOpenPanel(json: json) }
+    guard let chosen, let paths = try? ActionUIJSON.string(from: chosen) else { return nil }
+    return strdup(paths)
 }
 
+/// The chosen path, or nil when the panel was canceled.
 @c
 public func actionUIAppRunSavePanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
-    logNotOnLinux("actionUIAppRunSavePanel")
-    return nil
+    let json = configJSON.map { String(cString: $0) }
+    var chosen: String?
+    runOnMainActorSync { chosen = AppPanels.runSavePanel(json: json) }
+    return chosen.map { strdup($0) }
 }
 
 // MARK: - The remote server (not on Linux yet)

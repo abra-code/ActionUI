@@ -253,6 +253,12 @@ public final class AdwaitaApplication {
         AppCommands.shared.load(json: json)
     }
 
+    /// The window a panel is modal to: the active one, nil when there is none.
+    func activeWindow() -> UnsafeMutablePointer<GtkWindow>? {
+        guard let application else { return nil }
+        return gtk_application_get_active_window(typed(OpaquePointer(application)))
+    }
+
     /// The UUID of the active window ("" when none of the application's windows is active), the
     /// window a menu command acts on.
     func activeWindowUUID() -> String {
@@ -264,6 +270,9 @@ public final class AdwaitaApplication {
     public func terminate() {
         guard let application else { return }
         if let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() { return }
+        // An alert or file panel up runs a nested main loop, which quitting would not end: each
+        // call returns nil, and the run ends after them.
+        AppPanels.cancelAll()
         g_application_quit(typed(application))
     }
 

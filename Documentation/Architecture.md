@@ -224,7 +224,7 @@ The Linux renderer targets **GNOME 48 and later** (GTK 4.18, libadwaita 1.7) and
 **What is the same:**
 - The same JSON schema, element names and property names. A document written for Apple renders on Linux with no changes; an element the Linux renderer does not have yet shows a placeholder that names its type.
 - The same portable core, compiled once for both platforms: the element specs and their typed properties, `ActionUIModel`, the JSON layer and the document loader (`ActionUI/Core`). It uses `FoundationEssentials` only, not full Foundation, so the library carries no ICU data.
-- The same C interface: the functions of `ActionUIC.h` and `ActionUIApp.h`, with the same names and signatures. A Python, C, Rust or Node.js host written for macOS runs on Linux with the same calls. The functions Linux does not have yet (the menu bar, alerts, file panels, the remote server) answer as failures and log why.
+- The same C interface: the functions of `ActionUIC.h` and `ActionUIApp.h`, with the same names and signatures. A Python, C, Rust or Node.js host written for macOS runs on Linux with the same calls. The functions Linux does not have yet (the remote server) answer as failures and log why.
 
 **What differs:**
 - **Retained widgets.** Each element gets one GTK widget for its lifetime. A node per element watches what it read from the model (Observation) and updates its widget when that changes. SwiftUI instead rebuilds views and diffs them.
