@@ -123,6 +123,50 @@ otool -L build/Release/actionui.node | grep -v '/usr\|/System\|node\|libc'
 
 ---
 
+## Building on Linux
+
+The same `src/actionui_node.c` and `binding.gyp` build the addon on Linux, against the ActionUI
+library package instead of the static frameworks. No Swift installation is needed.
+
+Prerequisites: Node.js 18+ with npm, a C compiler and make (node-gyp's usual tools), `pkg-config`
+and the GLib development files (`libglib2.0-dev` on Debian and Ubuntu), and at run time GTK 4,
+libadwaita and libsoup 3.
+
+1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
+
+   ```bash
+   swift build -c release --static-swift-stdlib --product ActionUI
+   Scripts/make-linux-library-package.sh .build/release <output folder>
+   ```
+
+   and unpack `actionui-<version>-linux-<arch>.tar.gz` where the build can read it.
+
+2. Build the addon, pointing `ACTIONUI_LIBRARY_DIR` at the unpacked folder (or put its `lib/` and
+   `include/` folders in `./library/` beside `binding.gyp`):
+
+   ```bash
+   ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 npm install
+   ```
+
+The build copies `libActionUI.so` into `build/Release/` beside `actionui.node`, which finds it
+through its `$ORIGIN` rpath. While `appRun()` blocks in the GTK main loop, a GLib source keeps
+Node's event loop running: it watches libuv's backend file descriptor and wakes for libuv's timers,
+as the CFRunLoop observer and timer do on macOS.
+
+Differences from macOS:
+
+- Load `actionui` on the main thread before any worker thread loads it (require it at the start of
+  the main script). The libdispatch inside `libActionUI.so` takes the thread that loads the library
+  for the main thread; loaded first by a worker, the addon refuses to load at all, on the worker and
+  on the main thread after it, with an error saying so.
+- `loadHostingController` and `getContentSizeLimits` do not exist: they hand out and measure a
+  native view for embedding. `Window.fromFile` and `Window.fromURL`, which call the first, load
+  nothing (the window they return has no view), and `contentSizeLimits()` returns null. Present
+  windows with `app.loadAndPresentWindow` instead.
+- There is no remote server: `startRemoteServer()` throws.
+
+---
+
 ## Usage
 
 ```js

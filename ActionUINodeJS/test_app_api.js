@@ -61,8 +61,8 @@ function testNativeAPISurface() {
         'presentModal', 'dismissModal',
         'presentAlert', 'presentConfirmationDialog', 'dismissDialog',
         'presentToast', 'dismissToast',
-        // UI loading
-        'loadHostingController',
+        // UI loading (macOS only: it hands out a native view)
+        ...(process.platform === 'darwin' ? ['loadHostingController'] : []),
         // Window model
         'removeWindow',
         // App lifecycle setters
@@ -316,6 +316,15 @@ function remoteProbe(env) {
 // ---------------------------------------------------------------------------
 // Singleton enforcement
 // ---------------------------------------------------------------------------
+/* The Linux library has no remote server: starting one throws, and no endpoint exists. */
+function testRemoteBridgeNotOnLinux(app) {
+    console.log('\n=== Remote bridge (not on Linux) ===');
+    let threw = false;
+    try { app.startRemoteServer(); } catch (e) { threw = true; }
+    check('startRemoteServer throws', threw);
+    check('remoteServerEndpoint is null', app.remoteServerEndpoint === null);
+}
+
 function testRemoteBridge(app) {
     // The whole chain (JS wrapper, N-API binding, Swift entry point, ActionUIRemoteServer)
     // without a run loop, which is fine because only request handling needs the main queue
@@ -487,7 +496,11 @@ testURLConversion();
 testConstants();
 testActionContext();
 testLoggerAPI();
-testRemoteBridge(app);
+if (process.platform === 'darwin') {
+    testRemoteBridge(app);
+} else {
+    testRemoteBridgeNotOnLinux(app);
+}
 testSingletonEnforcement();  // must be last — checks second Application() throws
 
 console.log('\n' + '='.repeat(55));

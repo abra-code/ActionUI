@@ -11,12 +11,20 @@
  *   then calls actionUIAppRun() which blocks in [NSApp run].
  *   The observer pumps libuv (uv_run NOWAIT) before every source pass and
  *   before every sleep, arming the timer when libuv has a future deadline.
+ *   On Linux, appRun() adds a GLib source to the main context instead, then
+ *   calls actionUIAppRun(), which blocks in the GTK main loop: the source
+ *   watches libuv's backend (epoll) file descriptor, lets GLib sleep only as
+ *   long as libuv's next timer allows, and pumps libuv the same way.
  *   AppKit/Swift callbacks are dispatched on the main thread (@MainActor),
  *   which is still V8's owning thread, so no napi_threadsafe_function is
  *   needed.  JS lifecycle callbacks are invoked with napi_make_callback
  *   (≡ node::MakeCallback) with a proper napi_async_context so that
  *   process.nextTick and Promise microtask queues are drained on close.
  */
+
+#if !defined(__APPLE__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE   /* gettid, before the first system header */
+#endif
 
 #include <node_api.h>
 #include <uv.h>
@@ -25,11 +33,42 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 
+#if defined(__APPLE__)
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
+#else
+#include <glib.h>
+#endif
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
+
+/* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
+ * only; on Linux the main thread's ID is the process ID). */
+static bool is_main_thread(void) {
+#if defined(__APPLE__)
+    return pthread_main_np() != 0;
+#else
+    return gettid() == getpid();
+#endif
+}
+
+#if !defined(__APPLE__)
+/* Linux: the libdispatch inside libActionUI.so binds its main queue to the thread that loads the
+ * library, not to the process's main thread (Apple's libdispatch knows the main thread). Loaded
+ * first by a worker, ActionUI would take that worker for its main thread: the real main thread's
+ * calls would wait for a main queue that only the running application drains (measured: its
+ * logger was not called), and one such run crashed. This constructor runs on the loading thread,
+ * after libActionUI.so's own; Init refuses the module in every environment when that was not the
+ * main thread, so the failure is a clear error instead. */
+static bool s_loaded_on_main_thread = false;
+
+__attribute__((constructor))
+static void note_loading_thread(void) {
+    s_loaded_on_main_thread = is_main_thread();
+}
+#endif
 
 
 #define ACTIONUI_DIAGNOSTIC 0
@@ -139,7 +178,7 @@ static void call_void_callback(napi_ref ref) {
     if (napi_get_reference_value(env, ref, &fn) == napi_ok) {
         napi_value global, result;
         napi_get_global(env, &global);
-        __unused napi_status s = napi_make_callback(env, g_state->async_ctx, global, fn, 0, NULL, &result);
+        __attribute__((unused)) napi_status s = napi_make_callback(env, g_state->async_ctx, global, fn, 0, NULL, &result);
         DIAGNOSTIC_LOG("[actionui:diag] call_void_callback: make_callback status=%d async_ctx=%p\n",
                 (int)s, (void*)g_state->async_ctx);
     }
@@ -1196,6 +1235,9 @@ static napi_value node_dismiss_toast(napi_env env, napi_callback_info info) {
 
 // MARK: - N-API: UI Loading
 
+// Apple only: these hand out and measure a native view; the Linux library has no such functions.
+#if defined(__APPLE__)
+
 static napi_value node_load_hosting_controller(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -1249,6 +1291,8 @@ static napi_value node_get_content_size_limits(napi_env env, napi_callback_info 
     return result;
 }
 
+#endif // defined(__APPLE__)
+
 // MARK: - N-API: Window Model
 
 /*
@@ -1265,7 +1309,7 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
-// MARK: - CFRunLoop / libuv Integration
+// MARK: - CFRunLoop / libuv Integration (GLib on Linux, below)
 //
 // [NSApp run] blocks the main thread inside CFRunLoop.  We install:
 //   1. A CFRunLoopObserver — pumps libuv before every source pass and before
@@ -1290,14 +1334,16 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
 //   N>0 → next timer in N ms → arm CFRunLoopTimer to that deadline
 //   -1  → active I/O handles, no timer → uv_backend_fd kqueue source wakes us
 
+static bool                 s_app_running = false;   /* appRun is on the stack */
+#if defined(__APPLE__)
 static CFRunLoopObserverRef s_cf_observer = NULL;
 static CFRunLoopTimerRef    s_cf_timer    = NULL;
-static bool                 s_app_running = false;   /* appRun is on the stack */
 /* Note: kqueue code disabled */
 #if KQUEUE_ENABLED
 static CFFileDescriptorRef  s_kq_fdref    = NULL;
 static CFRunLoopSourceRef   s_kq_src      = NULL;
 #endif // KQUEUE_ENABLED
+#endif // defined(__APPLE__)
 
 /* Queued via process.nextTick from inside noop_callback.
  * If this fires before napi_make_callback returns to C, the drain works. */
@@ -1329,7 +1375,7 @@ static napi_value noop_callback(napi_env env, napi_callback_info info) {
 #endif // ACTIONUI_DIAGNOSTIC
 
 /* Pump one libuv iteration then drain nextTick + microtask queues. */
-static void uv_cf_pump(void) {
+static void uv_pump(void) {
     if (g_state == NULL || g_state->uv_loop == NULL) return;
 
     int alive   = uv_loop_alive(g_state->uv_loop);
@@ -1381,8 +1427,10 @@ static void uv_cf_pump(void) {
     napi_close_handle_scope(env, hs);
 }
 
+#if defined(__APPLE__)
+
 static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
-    uv_cf_pump();
+    uv_pump();
     /* Disarm: the kCFRunLoopBeforeWaiting observer will re-arm as needed. */
     if (timer != NULL) {
         CFRunLoopTimerSetNextFireDate(timer, CFAbsoluteTimeGetCurrent() + 1e10);
@@ -1394,7 +1442,7 @@ static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
 static void uv_kq_callback(CFFileDescriptorRef fdref,
                            CFOptionFlags       callbackTypes,
                            void*               info) {
-   uv_cf_pump();
+   uv_pump();
    /* Re-arm so CFRunLoop keeps watching for the next I/O readiness event.
     * CFFileDescriptor callbacks are one-shot and must be re-enabled. */
    CFFileDescriptorEnableCallBacks(fdref, kCFFileDescriptorReadCallBack);
@@ -1404,7 +1452,7 @@ static void uv_kq_callback(CFFileDescriptorRef fdref,
 static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
                                CFRunLoopActivity   activity,
                                void*               info) {
-    uv_cf_pump();
+    uv_pump();
     if (g_state == NULL || g_state->uv_loop == NULL) return;
     if (activity != kCFRunLoopBeforeWaiting) return;
 
@@ -1422,7 +1470,7 @@ static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
      * The observer fires on BeforeSources/AfterWaiting which is sufficient. */
 }
 
-static void uv_cf_setup(uv_loop_t* loop) {
+static void uv_pump_setup(uv_loop_t* loop) {
     /* CFRunLoopObserver: pumps libuv before sources, before waiting, and after waiting.
      * This is sufficient to keep Node.js async work running interleaved with AppKit. */
     CFRunLoopObserverContext obs_ctx = { 0, NULL, NULL, NULL, NULL };
@@ -1451,14 +1499,14 @@ static void uv_cf_setup(uv_loop_t* loop) {
      * CFFileDescriptor source was supposed to wake CFRunLoop immediately
      * when any I/O is ready, replacing the ~50ms polling interval.
      *
-     * HOWEVER, this causes spurious re-entrant uv_cf_pump() calls that
+     * HOWEVER, this causes spurious re-entrant uv_pump() calls that
      * interfere with AppKit's normal event delivery, specifically:
      *   - TextField: pressing Return clears the text field
      *   - Other text controls may exhibit similar glitches
      *
      * The problem is the kqueue callback fires on ANY kqueue activity,
      * including internal libuv state changes, not just real I/O readiness.
-     * This causes uv_cf_pump() to run mid-delivery of AppKit events,
+     * This causes uv_pump() to run mid-delivery of AppKit events,
      * corrupting the responder chain.
      *
      * The observer + timer combination is sufficient:
@@ -1486,7 +1534,7 @@ static void uv_cf_setup(uv_loop_t* loop) {
 #endif // KQUEUE_ENABLED
 }
 
-static void uv_cf_teardown(void) {
+static void uv_pump_teardown(void) {
 
 #if KQUEUE_ENABLED
     if (s_kq_src != NULL) {
@@ -1514,6 +1562,97 @@ static void uv_cf_teardown(void) {
 
     if (g_state != NULL) g_state->uv_loop = NULL;
 }
+
+#else // GLib: actionUIAppRun blocks in the GTK main loop, which runs the default main context
+
+/* A GLib source over libuv's loop, the usual way to run libuv inside GLib. GLib polls libuv's
+ * backend file descriptor (an epoll descriptor, readable when libuv has I/O to handle) with its
+ * own, sleeps no longer than libuv's next timer (prepare), and dispatches the source when
+ * either is due: one libuv iteration and the nextTick/microtask drain (uv_pump). Prepare runs
+ * before every sleep, so work a JS callback queued meanwhile is seen at once. The source is
+ * dispatched by the main loop between GTK's own sources, never inside one, so it cannot run in
+ * the middle of an event's delivery (what made the kqueue source above misbehave on macOS).
+ * libuv reads its cached loop time in uv_backend_timeout, and only uv_run refreshes it, so
+ * prepare and check refresh it first: otherwise a timer started from a GTK callback stays N ms
+ * away forever and never fires (measured). A referenced uv_async_t keeps the loop alive while
+ * appRun runs: with no referenced handle, uv_backend_timeout returns 0 (the source spun at 100%
+ * of a CPU, measured), and uv_run(NOWAIT) does nothing at all, so a readable backend descriptor
+ * would never be drained. */
+typedef struct {
+    GSource  source;
+    gpointer backend_tag;   /* libuv's backend descriptor, as added to the source */
+} UvSource;
+
+static GSource*    s_uv_source    = NULL;
+static uv_async_t* s_uv_keepalive = NULL;   /* never sent; referenced while appRun runs */
+
+static void free_uv_handle(uv_handle_t* handle) {
+    free(handle);
+}
+
+static gboolean uv_source_prepare(GSource* source, gint* timeout) {
+    (void)source;
+    if (g_state == NULL || g_state->uv_loop == NULL) {
+        *timeout = -1;
+        return FALSE;
+    }
+    /* 0: work ready now; N > 0: the next timer in N ms; -1: only I/O, which the descriptor wakes. */
+    uv_update_time(g_state->uv_loop);
+    int next = uv_backend_timeout(g_state->uv_loop);
+    *timeout = next;
+    return next == 0;
+}
+
+static gboolean uv_source_check(GSource* source) {
+    if (g_state == NULL || g_state->uv_loop == NULL) return FALSE;
+    UvSource* uv_source = (UvSource*)source;
+    if ((g_source_query_unix_fd(source, uv_source->backend_tag) & G_IO_IN) != 0) return TRUE;
+    uv_update_time(g_state->uv_loop);
+    return uv_backend_timeout(g_state->uv_loop) == 0;   /* a timer came due */
+}
+
+static gboolean uv_source_dispatch(GSource* source, GSourceFunc callback, gpointer user_data) {
+    (void)source;
+    (void)callback;
+    (void)user_data;
+    uv_pump();
+    return G_SOURCE_CONTINUE;
+}
+
+static GSourceFuncs s_uv_source_funcs = {
+    .prepare  = uv_source_prepare,
+    .check    = uv_source_check,
+    .dispatch = uv_source_dispatch,
+};
+
+static void uv_pump_setup(uv_loop_t* loop) {
+    if (loop == NULL) return;
+    s_uv_keepalive = (uv_async_t*)calloc(1, sizeof(uv_async_t));
+    if (s_uv_keepalive != NULL && uv_async_init(loop, s_uv_keepalive, NULL) != 0) {
+        free(s_uv_keepalive);
+        s_uv_keepalive = NULL;
+    }
+    GSource* source = g_source_new(&s_uv_source_funcs, sizeof(UvSource));
+    ((UvSource*)source)->backend_tag = g_source_add_unix_fd(source, uv_backend_fd(loop), G_IO_IN);
+    g_source_attach(source, NULL);   /* the default main context, which GTK's main loop runs */
+    s_uv_source = source;
+}
+
+static void uv_pump_teardown(void) {
+    if (s_uv_source != NULL) {
+        g_source_destroy(s_uv_source);
+        g_source_unref(s_uv_source);
+        s_uv_source = NULL;
+    }
+    if (s_uv_keepalive != NULL) {
+        /* Freed by its close callback, on Node's next loop iteration after appRun returns. */
+        uv_close((uv_handle_t*)s_uv_keepalive, free_uv_handle);
+        s_uv_keepalive = NULL;
+    }
+    if (g_state != NULL) g_state->uv_loop = NULL;
+}
+
+#endif // defined(__APPLE__)
 
 // MARK: - N-API: App Control
 
@@ -1565,9 +1704,9 @@ static napi_value node_app_run(napi_env env, napi_callback_info info) {
     uv_loop_t* loop = NULL;
     napi_get_uv_event_loop(env, &loop);
     g_state->uv_loop = loop;
-    uv_cf_setup(loop);
+    uv_pump_setup(loop);
     actionUIAppRun();   /* blocks until NSApp terminates */
-    uv_cf_teardown();
+    uv_pump_teardown();
     s_app_running = false;
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1590,8 +1729,12 @@ static napi_value node_app_start_remote_server(napi_env env, napi_callback_info 
         }
     }
     if (actionUIAppStartRemoteServer(path_ptr) == false) {
+#if defined(__APPLE__)
         napi_throw_error(env, NULL, "could not start the ActionUI remote server (already "
                                     "running, or the socket could not be created); see the log");
+#else
+        napi_throw_error(env, NULL, "the ActionUI remote server is macOS only");
+#endif
         return NULL;
     }
     const char* endpoint = actionUIAppRemoteServerEndpoint();
@@ -1757,6 +1900,14 @@ static napi_value node_app_run_alert(napi_env env, napi_callback_info info) {
 } while (0)
 
 static napi_value Init(napi_env env, napi_value exports) {
+#if !defined(__APPLE__)
+    if (!s_loaded_on_main_thread) {
+        napi_throw_error(env, NULL,
+            "actionui was first loaded by a worker thread; on Linux it must be loaded on the main "
+            "thread before any worker loads it (require it at the start of the main script)");
+        return NULL;
+    }
+#endif
     ActionUIAddonState* state = (ActionUIAddonState*)calloc(1, sizeof(ActionUIAddonState));
     state->env = env;
 
@@ -1768,7 +1919,7 @@ static napi_value Init(napi_env env, napi_value exports) {
     napi_set_instance_data(env, state, addon_state_finalizer, NULL);
     /* Only the main thread's environment can receive ActionUI's callbacks, so only its state is
      * g_state, even when a worker loads the addon first. */
-    if (g_state == NULL && pthread_main_np()) g_state = state;
+    if (g_state == NULL && is_main_thread()) g_state = state;
 
     /* Async context for napi_make_callback — a proper context (not NULL)
      * ensures Node.js creates a real InternalCallbackScope that drains
@@ -1776,7 +1927,7 @@ static napi_value Init(napi_env env, napi_value exports) {
     napi_value async_resource, async_resource_name;
     napi_create_object(env, &async_resource);
     napi_create_string_utf8(env, "actionui:pump", NAPI_AUTO_LENGTH, &async_resource_name);
-    __unused napi_status ainit_status = napi_async_init(env, async_resource, async_resource_name, &state->async_ctx);
+    __attribute__((unused)) napi_status ainit_status = napi_async_init(env, async_resource, async_resource_name, &state->async_ctx);
     DIAGNOSTIC_LOG("[actionui:diag] napi_async_init status=%d async_ctx=%p\n",
             (int)ainit_status, (void*)state->async_ctx);
 
@@ -1894,9 +2045,11 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "presentToast",             node_present_toast);
     EXPORT_FN(exports, "dismissToast",             node_dismiss_toast);
 
-    /* UI loading */
+    /* UI loading (Apple only) */
+#if defined(__APPLE__)
     EXPORT_FN(exports, "loadHostingController",    node_load_hosting_controller);
     EXPORT_FN(exports, "getContentSizeLimits",     node_get_content_size_limits);
+#endif
 
     /* Window model */
     EXPORT_FN(exports, "removeWindow",             node_remove_window);

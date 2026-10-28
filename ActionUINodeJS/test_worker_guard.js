@@ -38,6 +38,17 @@ const GUARDED = [
 // Worker thread - tries every guarded call, then waits for the main thread
 // ---------------------------------------------------------------------------
 
+if (!isMainThread && workerData.probe) {
+    // Linux probe: this worker is the first to load the addon, which must be refused.
+    try {
+        require('node-gyp-build')(workerData.addonDir);
+        parentPort.postMessage({ refused: null });
+    } catch (e) {
+        parentPort.postMessage({ refused: e.message });
+    }
+    return;
+}
+
 if (!isMainThread) {
     const native = require('node-gyp-build')(workerData.addonDir);
     const results = GUARDED.map(([name, args]) => {
@@ -126,11 +137,56 @@ function finish() {
     }
 }
 
+/* Linux, in a process of its own (the refusal lasts for the process): a worker loads the addon
+ * first; it and then the main thread are refused with an error naming the main thread. */
+function workerFirstProbe() {
+    const worker = new Worker(__filename, { workerData: { addonDir: __dirname, probe: true } });
+    worker.on('message', (msg) => {
+        let mainRefused = null;
+        try {
+            require('./index.js');
+        } catch (e) {
+            mainRefused = e.message;
+        }
+        // Written at once: what goes wrong in this process must not take the answer with it.
+        require('fs').writeSync(1, JSON.stringify({ worker: msg.refused, main: mainRefused }) + '\n');
+    });
+}
+
+function checkWorkerFirstLoadIsRefused() {
+    console.log('\n=== Linux: a worker that loads the addon before the main thread ===');
+    const { spawnSync } = require('child_process');
+    const probe = spawnSync(process.execPath, [__filename, '--worker-first-probe'], { encoding: 'utf8', timeout: 15000 });
+    const line = (probe.stdout || '').split('\n').find((l) => l.startsWith('{'));
+    const result = line ? JSON.parse(line) : {};
+    check('the worker is refused, naming the main thread', /loaded on the main thread/.test(result.worker || ''));
+    check('the main thread is refused after it', /loaded on the main thread/.test(result.main || ''));
+}
+
 function main() {
     const safety = setTimeout(() => {
         console.error('  [FAIL] the workers did not finish within 20 s');
         process.exit(1);
     }, 20000);
+
+    if (process.platform === 'linux') {
+        // On Linux the addon must be loaded on the main thread first (src/actionui_node.c,
+        // note_loading_thread): the first scenario below is refused, and checked as such.
+        checkWorkerFirstLoadIsRefused();
+        console.log('\n=== On the main thread, before any worker ===');
+        native = require('./index.js')._native;
+        checkMainThreadCalls('before any worker');
+        runWorker('In a worker started after the main thread loaded the addon', () => {
+            console.log('\n=== On the main thread, the worker still running ===');
+            checkMainThreadCalls('while the worker runs');
+        }, () => {
+            clearTimeout(safety);
+            console.log('\n=== On the main thread, after the worker exited ===');
+            checkMainThreadCalls('after the worker exited');
+            finish();
+        });
+        return;
+    }
 
     runWorker('In a worker that loaded the addon before the main thread', () => {
         console.log('\n=== On the main thread, the first worker still running ===');
@@ -157,4 +213,8 @@ function main() {
     });
 }
 
-main();
+if (process.argv.includes("--worker-first-probe")) {
+    workerFirstProbe();
+} else {
+    main();
+}

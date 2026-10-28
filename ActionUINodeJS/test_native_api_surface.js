@@ -389,7 +389,8 @@ function main() {
     testRemoveWindow(testUuid);
     testNoopCalls(testUuid);
     testModalNoop(testUuid);
-    testLoadHostingController(testUuid);
+    // macOS only: the Linux library hands out no native view.
+    if (process.platform === 'darwin') testLoadHostingController(testUuid);
     testMenuBarNoop();
     testAppControl();
     testFilePanels();

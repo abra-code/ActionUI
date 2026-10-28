@@ -28,12 +28,29 @@
           ]
         }
       }],
-      ["OS!='mac'", {
+      ["OS=='linux'", {
+        "variables": {
+          "lib_dir": "<!(node -p \"require('path').resolve(process.env.ACTIONUI_LIBRARY_DIR || 'library')\")"
+        },
+        "include_dirs": ["<(lib_dir)/include"],
+        "cflags": ["<!@(pkg-config --cflags glib-2.0)"],
+        "libraries": [
+          "-L<(lib_dir)/lib",
+          "-lActionUI",
+          "<!@(pkg-config --libs glib-2.0)"
+        ],
+        "ldflags": ["-Wl,-rpath,'$$ORIGIN'", "-Wl,-z,nodelete"],
+        "copies": [{
+          "destination": "<(PRODUCT_DIR)",
+          "files": ["<(lib_dir)/lib/libActionUI.so"]
+        }]
+      }],
+      ["OS!='mac' and OS!='linux'", {
         "actions": [{
           "action_name": "abort",
           "inputs": [],
           "outputs": [],
-          "action": ["sh", "-c", "echo 'ERROR: ActionUINodeJS only supports macOS' >&2; exit 1"]
+          "action": ["sh", "-c", "echo 'ERROR: ActionUINodeJS supports macOS and Linux' >&2; exit 1"]
         }]
       }]
     ]

@@ -1,9 +1,9 @@
 {
   "name": "actionui",
   "version": "0.9.0",
-  "description": "Native Node.js addon for ActionUI — SwiftUI GUIs from JSON on macOS",
+  "description": "Native Node.js addon for ActionUI: native GUIs from JSON, SwiftUI on macOS and GTK 4 with libadwaita on Linux",
   "main": "index.js",
-  "os": ["darwin"],
+  "os": ["darwin", "linux"],
   "cpu": ["x64", "arm64"],
   "engines": {
     "node": ">=18.0.0"
