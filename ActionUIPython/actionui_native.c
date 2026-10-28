@@ -11,9 +11,21 @@
 #include <Python.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
+
+/* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
+ * only; on Linux the main thread's ID is the process ID, and Python.h defines _GNU_SOURCE,
+ * which declares gettid). */
+static bool is_main_thread(void) {
+#if defined(__APPLE__)
+    return pthread_main_np() != 0;
+#else
+    return gettid() == getpid();
+#endif
+}
 
 // MARK: - Module State
 
@@ -305,8 +317,8 @@ static PyObject* py_app_set_resource_folder(PyObject* self, PyObject* args) {
 static bool s_app_running = false;
 
 static PyObject* py_app_run(PyObject* self, PyObject* args) {
-    /* AppKit runs only on the main thread; from another thread the run would stop the process. */
-    if (pthread_main_np() == 0) {
+    /* AppKit and GTK run only on the main thread; from another thread the run would stop the process. */
+    if (!is_main_thread()) {
         PyErr_SetString(PyExc_RuntimeError, "app_run must be called on the main thread");
         return NULL;
     }
@@ -339,9 +351,13 @@ static PyObject* py_app_start_remote_server(PyObject* self, PyObject* args) {
     started = actionUIAppStartRemoteServer(socketPath);
     Py_END_ALLOW_THREADS
     if (started == false) {
+#if defined(__APPLE__)
         PyErr_SetString(PyExc_RuntimeError,
                         "could not start the ActionUI remote server (already running, or the "
                         "socket could not be created); see the log for the reason");
+#else
+        PyErr_SetString(PyExc_RuntimeError, "the ActionUI remote server is macOS only");
+#endif
         return NULL;
     }
     const char* endpoint = actionUIAppRemoteServerEndpoint();
@@ -1090,6 +1106,9 @@ static PyObject* py_dismiss_toast(PyObject* self, PyObject* args) {
 
 // MARK: - Python API: UI Loading
 
+// Apple only: these hand out and measure a native view; the Linux library has no such functions.
+#if defined(__APPLE__)
+
 /*
  * actionUILoadHostingControllerFromURL handles both file:// and http(s)://
  * URLs, returning an opaque pointer to the platform hosting controller/view.
@@ -1142,6 +1161,8 @@ static PyObject* py_get_content_size_limits(PyObject* self, PyObject* args) {
     }
     return NULL;
 }
+
+#endif // defined(__APPLE__)
 
 // MARK: - Python API: Window Model
 
@@ -1254,7 +1275,8 @@ static PyMethodDef ActionUIMethods[] = {
     {"dismiss_toast",               py_dismiss_toast,               METH_VARARGS,
      "dismiss_toast(windowUUID) — dismiss the current toast, showing the next queued one if any."},
 
-    /* UI loading */
+    /* UI loading (Apple only) */
+#if defined(__APPLE__)
     {"load_hosting_controller",     py_load_hosting_controller,     METH_VARARGS,
      "load_hosting_controller(urlString, windowUUID, isContentView) -> int\n"
      "Accepts file:// or http(s):// URLs.  Returns opaque pointer as int."},
@@ -1262,6 +1284,7 @@ static PyMethodDef ActionUIMethods[] = {
      "get_content_size_limits(windowUUID) -> (min_w, min_h, max_w, max_h)\n"
      "Size limits of the loaded root element content; min == max means fixed size.\n"
      "Raises RuntimeError for an unknown window."},
+#endif
     {"remove_window",               py_remove_window,               METH_VARARGS,
      "remove_window(windowUUID)\n"
      "Forgets the window's model once the host is done with it; an unknown window is ignored."},

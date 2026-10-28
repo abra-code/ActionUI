@@ -62,7 +62,7 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 
   The script makes `actionui-<version>-linux-<arch>/` and its `.tar.gz`: the stripped library in `lib/`, a `pkg-config` file (`lib/pkgconfig/actionui.pc`, valid wherever the folder is unpacked), and the two headers at the include paths the Apple frameworks use (`<ActionUICAdapter/ActionUIC.h>`, `<ActionUIAppKitApplication/ActionUIApp.h>`). It is a build input, not an installation: each program ships its own copy of `libActionUI.so` beside its binary (for Python and Node.js, beside the compiled extension) and links with `-Wl,-rpath,'$ORIGIN'`, so it stays self-contained, as an app bundle is on macOS. A host that loads the library by path, as `ctypes` does, needs no link flags.
 
-  `Tests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python, Node.js and Rust packages themselves are macOS-only so far.
+  `Tests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python package builds on Linux against the library package (`ActionUIPython/BUILD_GUIDE.md`, "Building on Linux"); the Node.js and Rust packages are macOS-only so far.
 
 ## What is there and what is not yet
 

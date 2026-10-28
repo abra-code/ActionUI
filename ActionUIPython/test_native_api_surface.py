@@ -10,6 +10,7 @@ Run with: python3 test_native_api.py
 
 import _actionui
 import json
+import sys
 import threading
 import uuid
 
@@ -299,7 +300,9 @@ def main():
     test_remove_window(test_uuid)
     test_noop_calls(test_uuid)
     test_modal_noop(test_uuid)
-    test_load_hosting_controller(test_uuid)
+    # Apple only: the Linux library hands out no native view.
+    if sys.platform == "darwin":
+        test_load_hosting_controller(test_uuid)
 
     print()
     print("All API surface tests passed.")

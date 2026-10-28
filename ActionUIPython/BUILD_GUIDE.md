@@ -201,6 +201,47 @@ pip3 install -e --no-cache-dir --verbose  .
 
 ---
 
+## Building on Linux
+
+The same `actionui_native.c` and `setup.py` build the extension on Linux, against the
+ActionUI library package instead of the static frameworks. No Swift installation is needed.
+
+Prerequisites: Python 3 with its development headers (`Python.h`) and setuptools, a C
+compiler (gcc or clang), and at run time GTK 4, libadwaita and libsoup 3.
+
+1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
+
+   ```bash
+   swift build -c release --static-swift-stdlib --product ActionUI
+   Scripts/make-linux-library-package.sh .build/release <output folder>
+   ```
+
+   and unpack `actionui-<version>-linux-<arch>.tar.gz` where the Python build can read it.
+
+2. Build or install the extension, pointing `ACTIONUI_LIBRARY_DIR` at the unpacked folder
+   (or put its `lib/` and `include/` folders in `./library/` beside `setup.py`):
+
+   ```bash
+   ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 pip3 install .
+   # or, for development:
+   ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 python3 setup.py build_ext --inplace
+   ```
+
+The build copies `libActionUI.so` beside `_actionui.*.so`, which finds it through its `$ORIGIN`
+rpath, so the installed module carries its own copy of the library.
+
+Differences from macOS:
+
+- `_actionui.load_hosting_controller` and `_actionui.get_content_size_limits` do not exist:
+  they hand out and measure a native view for embedding. `Window.from_file`, `Window.from_url`
+  and `Window.content_size_limits()`, which call them, raise `AttributeError`. Present
+  windows with `Application.load_and_present_window` instead.
+- There is no remote server: `start_remote_server()` raises `RuntimeError`.
+- Ctrl+C does not stop `app.run()`: Python handles the signal only when the interpreter runs,
+  and the GTK main loop holds the main thread.
+
+---
+
 ## Manual build (for debugging)
 
 ```bash
