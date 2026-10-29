@@ -13,9 +13,19 @@
 //
 // Bool: all @c functions use Swift's CBool (= stdbool.h bool).
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+import Dispatch
 import ActionUI
 
 // MARK: - The endpoint as a C string

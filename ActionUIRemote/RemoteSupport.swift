@@ -4,7 +4,7 @@
 // C library so the same code serves every platform: a lock (Foundation's NSLock is not in
 // FoundationEssentials) and the main-thread test (nor is Foundation's Thread).
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
 #if canImport(Darwin)
 import Darwin

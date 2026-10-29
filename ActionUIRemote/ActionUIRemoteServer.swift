@@ -21,9 +21,14 @@
 //   queue); different connections interleave at request granularity on the main queue. A batch
 //   is one main-queue block, so its members apply within one frame.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+import Dispatch
 import ActionUI
 
 public final class ActionUIRemoteServer: @unchecked Sendable {

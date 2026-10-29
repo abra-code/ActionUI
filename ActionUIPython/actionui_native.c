@@ -358,13 +358,9 @@ static PyObject* py_app_start_remote_server(PyObject* self, PyObject* args) {
     started = actionUIAppStartRemoteServer(socketPath);
     Py_END_ALLOW_THREADS
     if (started == false) {
-#if defined(__APPLE__)
         PyErr_SetString(PyExc_RuntimeError,
                         "could not start the ActionUI remote server (already running, or the "
                         "socket could not be created); see the log for the reason");
-#else
-        PyErr_SetString(PyExc_RuntimeError, "the ActionUI remote server is macOS only");
-#endif
         return NULL;
     }
     const char* endpoint = actionUIAppRemoteServerEndpoint();

@@ -91,6 +91,10 @@ def check_discovery(win, uuid, expected_host):
 
     # A loaded root always has limits; null is for an unknown window or a window with no root.
     limits = win.content_size_limits()
+    if sys.platform.startswith("linux"):
+        # The host runs here too; the GTK renderer has no content measurement yet, so null.
+        check_equal(limits, None, "content_size_limits is None on Linux")
+        return
     check(isinstance(limits, tuple) and len(limits) == 4
           and all(isinstance(number, (int, float)) for number in limits),
           "content_size_limits must be a 4-tuple of numbers, got %r" % (limits,))

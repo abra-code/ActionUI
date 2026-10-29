@@ -197,7 +197,7 @@ Lets other processes of the same user read and drive this application's windows,
 
 | Method | Description |
 |---|---|
-| `start_remote_server(&self, socket_path: Option<&Path>) -> Result<String>` | Starts the server and returns the path of its socket. Without a path it picks one in the temporary directory. macOS only: on Linux it returns an error. |
+| `start_remote_server(&self, socket_path: Option<&Path>) -> Result<String>` | Starts the server and returns the path of its socket. Without a path it picks one in the temporary directory (on Linux `$XDG_RUNTIME_DIR`, else `$TMPDIR`, else `/tmp`). |
 | `stop_remote_server(&self)` | Stops the server and removes the socket. |
 | `remote_server_endpoint(&self) -> Option<String>` | The socket path while the server runs. |
 | `remote_server_token(&self) -> Option<String>` | The token a client must present, if any. |

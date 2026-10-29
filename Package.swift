@@ -13,7 +13,7 @@
 //   • ActionUIObjCAdapter            – Objective-C adapter
 //   • ActionUIJavaScriptCoreAdapter  – JavaScriptCore adapter
 //   • ActionUIWebKitJSAdapter        – WebKit / WKWebView JS bridge adapter
-//   • ActionUIRemote                 – Out-of-process binding: Unix socket + JSON-RPC 2.0 server (macOS)
+//   • ActionUIRemote                 – Out-of-process binding: Unix socket + JSON-RPC 2.0 server (macOS; on Linux in libActionUI.so)
 //   • ActionUIDocumentation          – Resource-only bundle (schemas, templates, index)
 //   • ActionUIVerifier               – Document verifier against the element schemas, Foundation only
 //
@@ -130,7 +130,8 @@ Package(
         // Out-of-process access to ActionUI windows: a Unix domain socket server speaking
         // newline-delimited JSON-RPC 2.0, mirroring the C adapter's verb set. Hosts that
         // embed ActionUI start it so that child processes (Python scripts, tools, tests)
-        // can read and mutate window state. macOS only. See ActionUIRemote/PROTOCOL.md.
+        // can read and mutate window state. macOS here; on Linux it is part of libActionUI.so
+        // (linuxPackage). See ActionUIRemote/PROTOCOL.md.
         .library(
             name: "ActionUIRemote",
             targets: ["ActionUIRemote"]
@@ -318,8 +319,9 @@ Package(
 
         // MARK: - ActionUIRemote
         // Remote binding: JSON-RPC 2.0 codec, Unix domain socket server, and the method table
-        // over ActionUIModel. Pure Swift over Foundation and Darwin; the socket parts are
-        // guarded with #if os(macOS) in source rather than through platform conditions here.
+        // over ActionUIModel. Swift over FoundationEssentials (Foundation on Apple), Dispatch and
+        // the C library, shared with the Linux build; the sources are guarded with
+        // #if os(macOS) || os(Linux) rather than through platform conditions here.
         // Non-Swift files under ActionUIRemote/ (Python client, protocol docs) are listed in
         // `exclude` as they are added, so SPM does not warn about unhandled files.
         .target(
@@ -405,7 +407,7 @@ Package(
     name: "ActionUI",
     products: [
         // A shared library, so programs in other languages load it and call its C functions.
-        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter", "ActionUIAdwaitaApplication"]),
+        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
     ],
     targets: [
         // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
@@ -455,9 +457,24 @@ Package(
             name: "ActionUIAppHeaders",
             path: "ActionUIAdwaita/AppHeaders"
         ),
+        // The remote server (ActionUIRemote/PROTOCOL.md): JSON-RPC over a Unix socket, so other
+        // processes of the user read and change the application's windows. The same sources as on
+        // macOS; the clients and the protocol text are not compiled.
+        .target(
+            name: "ActionUIRemote",
+            dependencies: ["ActionUI"],
+            path: "ActionUIRemote",
+            exclude: [
+                "Node",
+                "PROTOCOL.md",
+                "Python",
+                "README.md",
+                "Shell",
+            ]
+        ),
         .target(
             name: "ActionUIAdwaitaApplication",
-            dependencies: ["ActionUI", "ActionUIAppHeaders"],
+            dependencies: ["ActionUI", "ActionUIAppHeaders", "ActionUIRemote"],
             path: "ActionUIAdwaitaApplication"
         ),
         // Opens an ActionUI document in a window, and saves screenshots of it.
@@ -499,6 +516,13 @@ Package(
             // Programs in other languages that the tests run (the Python host), and the video
             // VideoPlayer plays.
             exclude: ["Hosts", "Media"]
+        ),
+        // The remote server's tests: the codec, the socket server, the shared server and the Python
+        // client against it.
+        .testTarget(
+            name: "ActionUIRemoteTests",
+            dependencies: ["ActionUIRemote", "ActionUI"],
+            path: "ActionUIRemoteTests"
         ),
     ]
 )

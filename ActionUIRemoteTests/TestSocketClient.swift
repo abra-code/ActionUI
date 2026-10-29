@@ -4,22 +4,48 @@
 // Deliberately primitive: raw BSD calls, one byte at a time on read, so the tests depend on
 // nothing but the wire format.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
 import Foundation
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import ActionUIRemote
+
+// The system calls by names of their own: inside TestSocketClient, `write` is also a method.
+// Writes raise no SIGPIPE when the server has closed: SO_NOSIGPIPE on macOS, MSG_NOSIGNAL here.
+private func systemWrite(_ fd: Int32, _ buffer: UnsafeRawPointer?, _ count: Int) -> Int {
+    #if canImport(Glibc)
+    return send(fd, buffer, count, Int32(MSG_NOSIGNAL))
+    #else
+    return write(fd, buffer, count)
+    #endif
+}
+
+private func systemRead(_ fd: Int32, _ buffer: UnsafeMutableRawPointer?, _ count: Int) -> Int {
+    return read(fd, buffer, count)
+}
+
+#if canImport(Glibc)
+private let streamSocketType = Int32(SOCK_STREAM.rawValue)
+#else
+private let streamSocketType = SOCK_STREAM
+#endif
 
 final class TestSocketClient: @unchecked Sendable {
     let fd: Int32
 
     init(path: String, timeoutSeconds: Int = 5) throws {
-        fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        fd = socket(AF_UNIX, streamSocketType, 0)
         guard fd >= 0 else { throw UnixSocketServerError.systemCall("socket", errno: errno) }
         var timeout = timeval(tv_sec: timeoutSeconds, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        #if canImport(Darwin)
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+        #endif
 
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
@@ -51,7 +77,7 @@ final class TestSocketClient: @unchecked Sendable {
         var offset = 0
         while offset < data.count {
             let n = data.withUnsafeMutableBytes { buffer -> Int in
-                Darwin.write(fd, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
+                systemWrite(fd, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
             }
             if n <= 0 { return }
             offset += n
@@ -60,7 +86,7 @@ final class TestSocketClient: @unchecked Sendable {
 
     /// Shut the write side down, as `nc` does when its stdin ends. The read side stays open.
     func halfClose() {
-        shutdown(fd, SHUT_WR)
+        shutdown(fd, Int32(SHUT_WR))
     }
 
     /// Read until a newline (returned without it) or EOF (returns nil).
@@ -68,7 +94,7 @@ final class TestSocketClient: @unchecked Sendable {
         var bytes: [UInt8] = []
         var byte: UInt8 = 0
         while true {
-            let n = Darwin.read(fd, &byte, 1)
+            let n = systemRead(fd, &byte, 1)
             if n <= 0 { return bytes.isEmpty ? nil : String(decoding: bytes, as: UTF8.self) }
             if byte == UInt8(ascii: "\n") { return String(decoding: bytes, as: UTF8.self) }
             bytes.append(byte)
@@ -79,7 +105,7 @@ final class TestSocketClient: @unchecked Sendable {
     func waitForEOF() -> Bool {
         var byte: UInt8 = 0
         while true {
-            let n = Darwin.read(fd, &byte, 1)
+            let n = systemRead(fd, &byte, 1)
             if n == 0 { return true }
             if n < 0 { return false }
         }

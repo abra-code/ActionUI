@@ -3,7 +3,9 @@
 Out-of-process access to ActionUI windows. A host that embeds ActionUI starts a small server
 on a Unix domain socket; any process running as the same user can then read and mutate the
 host's windows over newline-delimited JSON-RPC 2.0, with the same verbs and the same value
-encoding as the in-process adapters. macOS only.
+encoding as the in-process adapters. On macOS, and on Linux as part of `libActionUI.so`
+(`actionUIApp*RemoteServer*`; `actionui.contentSizeLimits` answers null there, since the GTK
+renderer has no content measurement yet).
 
 The wire contract is in [PROTOCOL.md](PROTOCOL.md). The Python client lives in `Python/`.
 
@@ -189,12 +191,13 @@ environment, so that its exec-time snapshot never contains it - which is the onl
 helps, `ps` reading a snapshot frozen at exec. A host does that with `ACTIONUI_REMOTE_TOKEN_FD`
 plus `actionUIRemoteUnexportToken()`, and a shell handler does it for its own children with
 `actionui_handoff`. Failing that, a handler can be written against the shell clients in `Shell/`
-instead: every Apple shell and every Apple tool they run carries `CS_RESTRICT`, so the token
-stays inside processes that hide it. `Shell/README.md` says exactly what that does and does not
+instead: on macOS every Apple shell and every Apple tool they run carries `CS_RESTRICT`, so the
+token stays inside processes that hide it. Linux has no such exception: there only the descriptor
+keeps a child's token out of reach (PROTOCOL.md section 10). `Shell/README.md` says exactly what that does and does not
 guarantee.
 
 Treat it as raising the cost of casual and accidental access, not as a boundary. Same-uid has
-never been one on macOS. A handler that logs its environment gives the token away, and the CLI's
+never been one, on macOS or on Linux. A handler that logs its environment gives the token away, and the CLI's
 `--token` puts it in argv where anything can read it. Anything that records requests must redact
 it - the bundled fake host does.
 

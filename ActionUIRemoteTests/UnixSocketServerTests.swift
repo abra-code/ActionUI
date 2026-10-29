@@ -4,10 +4,14 @@
 // concurrent connections, the line-length limit, stale socket files, path limits, and stop().
 // The server never needs the main thread, so the client here may block on it.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
 import XCTest
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import ActionUIRemote
 
 private typealias RawClient = TestSocketClient
@@ -222,7 +226,11 @@ final class UnixSocketServerTests: XCTestCase {
                 return XCTFail("expected pathTooLong, got \(error)")
             }
             XCTAssertEqual(limit, UnixSocketServer.maxPathLength)
+            #if os(Linux)
+            XCTAssertEqual(limit, 107)
+            #else
             XCTAssertEqual(limit, 103)
+            #endif
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: longPath))
         XCTAssertFalse(s.isRunning)

@@ -4,13 +4,15 @@
  pointers as handlers: a window presented before actionUIAppRun opens at the start, its handlers
  fire in order, and closing it ends the run; a run off the main thread, and a setter from another
  thread before the run, are refused and return; a refused nested run leaves other threads able to
- call; a host sets the resource folder (NULL: none); the remote server, not on Linux yet, answers
- as a failure. The alert and the file panels: AppPanelsTests.
+ call; a host sets the resource folder (NULL: none); the remote server starts and stops, answers a
+ client during the run with the application's name, and stops when the run ends. The alert and the
+ file panels: AppPanelsTests.
 */
 
 import XCTest
 import CAdwaita
 import Dispatch
+import Glibc
 @testable import ActionUI
 import ActionUIAdwaitaApplication
 
@@ -99,11 +101,99 @@ final class ActionUIAppFunctionTests: XCTestCase {
         XCTAssertEqual(AdwaitaApplication.shared.resourceFolder, AppBundle.defaultFolder(), "NULL: back to the program's folder")
     }
 
-    func testTheFunctionsNotOnLinuxYetAnswerAsFailures() {
-        XCTAssertFalse(actionUIAppStartRemoteServer(nil))
-        XCTAssertNil(actionUIAppRemoteServerToken())
-        XCTAssertNil(actionUIAppRemoteServerEndpoint())
-        var token = [CChar](repeating: 0, count: 64)
-        XCTAssertFalse(actionUIAppRemoteCopyServerToken(&token, token.count))
+    /// A socket path of its own in the temporary folder.
+    private func remoteSocketPath() -> String {
+        "/tmp/aui-app-\(getpid())-\(UInt32.random(in: 0...UInt32.max)).sock"
     }
+
+    func testTheRemoteServerStartsAndStops() {
+        let path = remoteSocketPath()
+        defer { actionUIAppStopRemoteServer() }
+        XCTAssertTrue(actionUIAppStartRemoteServer(path))
+        XCTAssertEqual(actionUIAppRemoteServerEndpoint().map { String(cString: $0) }, path)
+        XCTAssertEqual(getenv("ACTIONUI_REMOTE_ENDPOINT").map { String(cString: $0) }, path, "exported for child processes")
+        let token = actionUIAppRemoteServerToken().map { String(cString: $0) }
+        XCTAssertEqual(token?.count, 64)
+        var copied = [CChar](repeating: 0, count: 128)
+        XCTAssertTrue(actionUIAppRemoteCopyServerToken(&copied, copied.count))
+        XCTAssertEqual(String(cString: copied), token)
+        var tooSmall = [CChar](repeating: 0, count: 16)
+        XCTAssertFalse(actionUIAppRemoteCopyServerToken(&tooSmall, tooSmall.count), "a buffer smaller than the token")
+        XCTAssertFalse(actionUIAppStartRemoteServer(path), "a second start is refused")
+
+        actionUIAppStopRemoteServer()
+        XCTAssertNil(actionUIAppRemoteServerEndpoint())
+        XCTAssertNil(actionUIAppRemoteServerToken())
+        XCTAssertNil(getenv("ACTIONUI_REMOTE_ENDPOINT"))
+        XCTAssertNotEqual(access(path, F_OK), 0, "the socket file is gone")
+    }
+
+    func testTheRemoteServerAnswersDuringTheRunAndStopsWhenItEnds() throws {
+        let path = remoteSocketPath()
+        actionUIAppSetName("Remote Host Test")
+        XCTAssertTrue(actionUIAppStartRemoteServer(path))
+        let token = try XCTUnwrap(actionUIAppRemoteServerToken().map { String(cString: $0) })
+        remoteRequest = (path, #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(token)"}}"#)
+        actionUIAppSetDidFinishLaunchingHandler {
+            // A client on another thread: its request is served on the main thread, which runs
+            // the GTK loop, so this proves the loop runs the main queue.
+            DispatchQueue.global().async {
+                remoteReply = remoteRequest.map { request(path: $0.path, line: $0.line) } ?? nil
+                actionUIAppCloseWindow("c-app-w1")
+                actionUIAppTerminate()
+            }
+        }
+        actionUIAppLoadAndPresentWindowFromJSON(#"{"type": "Text", "id": 1, "properties": {"text": "Remote"}}"#, "c-app-w1", nil)
+        actionUIAppRun()
+        let reply = remoteReply
+        remoteRequest = nil
+        remoteReply = nil
+
+        let text = try XCTUnwrap(reply, "the client got a reply")
+        XCTAssertTrue(text.contains(#""protocolVersion":1"#), text)
+        XCTAssertTrue(text.contains(#""name":"Remote Host Test""#), "hello answers with actionUIAppSetName's name: \(text)")
+        XCTAssertNil(actionUIAppRemoteServerEndpoint(), "the server stopped when the run ended")
+        XCTAssertNotEqual(access(path, F_OK), 0, "and its socket file is gone")
+    }
+}
+
+// MARK: - A remote client
+
+/// The request the run test's client sends, and its reply: the C handler cannot capture.
+nonisolated(unsafe) private var remoteRequest: (path: String, line: String)?
+nonisolated(unsafe) private var remoteReply: String?
+
+/// Sends one line to the Unix socket at `path` and returns the line that comes back (nil after 10
+/// seconds, or on any failure).
+private func request(path: String, line: String) -> String? {
+    let fd = socket(AF_UNIX, Int32(SOCK_STREAM.rawValue), 0)
+    guard fd >= 0 else { return nil }
+    defer { close(fd) }
+    var timeout = timeval(tv_sec: 10, tv_usec: 0)
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+    var address = sockaddr_un()
+    address.sun_family = sa_family_t(AF_UNIX)
+    let capacity = MemoryLayout.size(ofValue: address.sun_path)
+    withUnsafeMutablePointer(to: &address.sun_path) { sunPath in
+        sunPath.withMemoryRebound(to: CChar.self, capacity: capacity) { buffer in
+            _ = path.withCString { strncpy(buffer, $0, capacity - 1) }
+        }
+    }
+    let connected = withUnsafePointer(to: &address) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+        }
+    }
+    guard connected == 0 else { return nil }
+    let bytes = Array((line + "\n").utf8)
+    guard send(fd, bytes, bytes.count, Int32(MSG_NOSIGNAL)) == bytes.count else { return nil }
+    var received: [UInt8] = []
+    var byte: UInt8 = 0
+    while recv(fd, &byte, 1, 0) == 1 {
+        if byte == UInt8(ascii: "\n") {
+            return String(decoding: received, as: UTF8.self)
+        }
+        received.append(byte)
+    }
+    return nil
 }

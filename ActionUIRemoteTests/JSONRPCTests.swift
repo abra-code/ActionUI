@@ -241,7 +241,7 @@ final class JSONRPCTests: XCTestCase {
     // MARK: - Encoding
 
     func testEncodeResultShapeAndIDPreservation() throws {
-        let intReply = try object(JSONRPC.encodeResult(id: NSNumber(value: 7), result: ["a", "b"]))
+        let intReply = try object(JSONRPC.encodeResult(id: 7, result: ["a", "b"]))
         XCTAssertEqual(intReply["jsonrpc"] as? String, "2.0")
         XCTAssertEqual(intReply["id"] as? Int, 7)
         XCTAssertEqual(intReply["result"] as? [String], ["a", "b"])
@@ -253,22 +253,22 @@ final class JSONRPCTests: XCTestCase {
     }
 
     func testEncodeResultNilBecomesNull() throws {
-        let reply = try object(JSONRPC.encodeResult(id: NSNumber(value: 1), result: nil))
+        let reply = try object(JSONRPC.encodeResult(id: 1, result: nil))
         XCTAssertTrue(reply["result"] is NSNull)
-        let text = String(decoding: JSONRPC.encodeResult(id: NSNumber(value: 1), result: nil), as: UTF8.self)
+        let text = String(decoding: JSONRPC.encodeResult(id: 1, result: nil), as: UTF8.self)
         XCTAssertTrue(text.contains("\"result\":null"), text)
     }
 
     func testEncodeResultStaysOnOneLine() throws {
         // The reply is one line of JSON with no embedded raw newlines, even for multi-line strings.
-        let data = JSONRPC.encodeResult(id: NSNumber(value: 1), result: "line one\nline two")
+        let data = JSONRPC.encodeResult(id: 1, result: "line one\nline two")
         XCTAssertFalse(data.contains(UInt8(ascii: "\n")))
         let reply = try object(data)
         XCTAssertEqual(reply["result"] as? String, "line one\nline two")
     }
 
     func testEncodeResultWithUnencodableValueBecomesInternalError() throws {
-        let reply = try object(JSONRPC.encodeResult(id: NSNumber(value: 3), result: Date()))
+        let reply = try object(JSONRPC.encodeResult(id: 3, result: Date()))
         XCTAssertEqual(reply["id"] as? Int, 3)
         let error = try XCTUnwrap(reply["error"] as? [String: Any])
         XCTAssertEqual(error["code"] as? Int, ActionUIRemoteError.internalError)
@@ -312,8 +312,8 @@ final class JSONRPCTests: XCTestCase {
 
     func testEncodeBatch() throws {
         let replies = [
-            JSONRPC.encodeResult(id: NSNumber(value: 1), result: true),
-            JSONRPC.encodeError(id: NSNumber(value: 2), error: ActionUIRemoteError(code: -32601, message: "Method not found")),
+            JSONRPC.encodeResult(id: 1, result: true),
+            JSONRPC.encodeError(id: 2, error: ActionUIRemoteError(code: -32601, message: "Method not found")),
         ]
         let batch = try XCTUnwrap(JSONRPC.encodeBatch(replies))
         let array = try XCTUnwrap(try JSONSerialization.jsonObject(with: batch) as? [[String: Any]])

@@ -11,10 +11,13 @@ change is a protocol change.
 - A Unix domain stream socket. The host creates it at a path of its choosing, mode 0600, in a
   directory private to the user. The path is handed to clients through the environment
   (section 9).
-- The host accepts connections only from processes running as its own uid (`getpeereid`); any
-  other peer is closed immediately. Nothing else authenticates: the socket's permissions and
-  its directory are the security boundary, the same boundary a same-user CFMessagePort has.
-- The socket path is limited by `sun_path` to 103 bytes on macOS.
+- The host accepts connections only from processes running as its own uid (`getpeereid` on
+  macOS, `SO_PEERCRED` on Linux); any other peer is closed immediately. Nothing else
+  authenticates: the socket's permissions and its directory are the security boundary, the same
+  boundary a same-user CFMessagePort has.
+- The socket path is limited by `sun_path` to 103 bytes on macOS, 107 on Linux. The reference
+  server's default path is in the user's temporary directory on macOS, and on Linux in
+  `$XDG_RUNTIME_DIR` (`/run/user/<uid>`, private to the user), else `$TMPDIR`, else `/tmp`.
 - The server holds no per-client state. A client may open one connection per process and keep
   it, or open one per request; both are equally correct. Every request names its window.
 - A client may half-close its write side as soon as it has finished sending, which is what `nc`
@@ -267,6 +270,13 @@ same-uid attacker.** It is worth having because it is nearly free and because it
 script that simply connects to a socket it found; it is not a boundary, and nothing should be
 designed as though it were. Same-uid has never been a security boundary on macOS, and a host with
 something genuinely sensitive on screen should not rely on this.
+
+**On Linux** the same holds with no exception for shells: a process of the same user reads another
+process's exec-time environment from `/proc/<pid>/environ` (unless the target has made itself
+non-dumpable), whatever program it runs, so a child's token is readable while the child lives.
+The `CS_RESTRICT` argument of `Shell/README.md` is macOS only; on Linux the descriptor form below
+is the only way to keep the token out of reach. As on macOS, a `setenv` after exec does not change
+what `/proc/<pid>/environ` shows, so the host's own token is readable only through its children.
 
 Two consequences worth stating: a handler that logs its own environment gives the token away, and
 `python3 -m actionui_remote --token` puts it in argv, which every process can read. Hosts and test

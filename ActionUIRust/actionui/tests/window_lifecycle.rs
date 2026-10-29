@@ -191,15 +191,6 @@ fn check_from_a_worker(window: Window) {
     });
 }
 
-#[cfg(not(target_os = "macos"))]
-fn check_remote_server(app: App) {
-    let endpoint = app.start_remote_server(None);
-    check(&format!("the remote server does not start off macOS (got {endpoint:?})"), matches!(&endpoint, Err(Error::ActionUI(message)) if message.contains("macOS only")));
-    check("it reports no socket path", app.remote_server_endpoint().is_none());
-    check("and no token", app.remote_server_token().is_none());
-}
-
-#[cfg(target_os = "macos")]
 fn check_remote_server(app: App) {
     let endpoint = app.start_remote_server(None);
     check(&format!("the remote server starts (got {endpoint:?})"), matches!(&endpoint, Ok(path) if !path.is_empty()));

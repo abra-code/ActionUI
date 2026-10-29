@@ -396,17 +396,6 @@ def _remote_probe(env):
     return completed.stdout.strip()
 
 
-def test_remote_server_not_on_linux(app: actionui.Application):
-    """The Linux library has no remote server: starting one raises, and no endpoint exists."""
-    print("\n=== Remote bridge (not on Linux) ===")
-    try:
-        app.start_remote_server()
-        check("start_remote_server raises", False)
-    except RuntimeError:
-        check("start_remote_server raises", True)
-    check("remote_server_endpoint is None", app.remote_server_endpoint is None)
-
-
 def test_remote_server(app: actionui.Application):
     """Start and stop the remote bridge for real: the socket is created, exported and removed.
 
@@ -522,10 +511,7 @@ def main():
     test_file_panel_api(app)
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
-    if sys.platform == "darwin":
-        test_remote_server(app)
-    else:
-        test_remote_server_not_on_linux(app)
+    test_remote_server(app)
 
     print()
     print("=" * 50)

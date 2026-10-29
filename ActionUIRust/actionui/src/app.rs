@@ -382,20 +382,16 @@ impl App {
     /// and drive this application's windows (see `ActionUIRemote/PROTOCOL.md`). Returns
     /// the path of the server's socket.
     ///
-    /// Without a path the server uses one of its own in the temporary directory. Anything
+    /// Without a path the server uses one of its own in the temporary directory (on Linux
+    /// `$XDG_RUNTIME_DIR`, else `$TMPDIR`, else `/tmp`). Anything
     /// already at a given path is removed first. The socket path, and the token a client
     /// must present, are exported in this process's environment
     /// (`ACTIONUI_REMOTE_ENDPOINT`, `ACTIONUI_REMOTE_TOKEN`), so processes started
     /// afterwards inherit them. The server stops when the application terminates.
-    ///
-    /// The remote server is macOS only: on Linux this is always an error.
     pub fn start_remote_server(&self, socket_path: Option<&Path>) -> Result<String> {
         let socket_path = socket_path.map(|path| path.to_string_lossy().into_owned());
         let socket_path = ffi::optional_cstring("socket path", socket_path.as_deref())?;
         let started = unsafe { sys::actionUIAppStartRemoteServer(ffi::optional_ptr(&socket_path)) };
-        if !started && cfg!(not(target_os = "macos")) {
-            return Err(Error::ActionUI("the ActionUI remote server is macOS only".to_string()));
-        }
         if !started {
             // The reason is in ActionUI's log; this function records no last error.
             return Err(Error::ActionUI("the remote server could not be started (already running, or the socket could not be created)".to_string()));

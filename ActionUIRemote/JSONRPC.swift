@@ -12,7 +12,11 @@
 // String, arrays, string-keyed dictionaries, ActionUIJSONNull for null): FoundationEssentials, which
 // ActionUI builds against on Linux, has no JSONSerialization. The socket server is elsewhere.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import ActionUI
 
 /// Error type for everything that crosses the remote boundary: codec failures, engine failures,

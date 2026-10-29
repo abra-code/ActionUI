@@ -7,6 +7,12 @@ understanding before choosing them over the Python client.
 
 ## Why a shell client
 
+On Linux none of the following applies: any same-user process reads a shell's environment from
+`/proc/<pid>/environ` like any other process's, so a shell handler's token is exposed as a Python
+one is, and the token descriptor (PROTOCOL.md section 10) is the only protection. The shell clients
+themselves are not tested on Linux yet; the `nc` transport needs a netcat with `-U` (OpenBSD
+netcat, Debian's and Ubuntu's `netcat-openbsd`), the zsh transport needs no `nc`.
+
 On macOS, whether another process of the same user can read a process's environment with `ps`
 depends on one thing: the `CS_RESTRICT` code-signing flag. The kernel withholds the environment
 from `KERN_PROCARGS2` (what `ps eww` and `ps -E` read) only for processes that carry it. Every

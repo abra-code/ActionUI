@@ -6,10 +6,14 @@
 // both, and the end-to-end case pumps the main run loop for the same reason as
 // ActionUIRemoteServerTests: the server hops every request to the main queue.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
 import XCTest
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import ActionUI
 @testable import ActionUIRemote
 
@@ -25,7 +29,8 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
     private let clientQueue = DispatchQueue(label: "test.shared.client")
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         ActionUIModel.resetForRemoteTests()
         let logger = QuietLogger(maxLevel: .warning)
         ActionUIModel.shared.logger = logger
@@ -47,7 +52,7 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
             unsetenv(ActionUIRemoteEnvironment.token)
         }
         ActionUIModel.resetForRemoteTests()
-        try await super.tearDown()
+        // No super.tearDown(), for the reason in setUp.
     }
 
     /// getenv, not ProcessInfo.environment, which is a snapshot taken at first use.

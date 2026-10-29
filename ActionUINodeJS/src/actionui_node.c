@@ -1856,12 +1856,8 @@ static napi_value node_app_start_remote_server(napi_env env, napi_callback_info 
         }
     }
     if (actionUIAppStartRemoteServer(path_ptr) == false) {
-#if defined(__APPLE__)
         napi_throw_error(env, NULL, "could not start the ActionUI remote server (already "
                                     "running, or the socket could not be created); see the log");
-#else
-        napi_throw_error(env, NULL, "the ActionUI remote server is macOS only");
-#endif
         return NULL;
     }
     const char* endpoint = actionUIAppRemoteServerEndpoint();

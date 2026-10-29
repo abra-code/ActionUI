@@ -12,13 +12,24 @@
 // in order and a slow client cannot pile up work.
 //
 // Security: the socket file is created 0600, and each accepted connection's peer uid is checked
-// with getpeereid(2) against the server's own uid; a mismatch is closed immediately. All file
-// descriptors are FD_CLOEXEC so child processes spawned by the host never inherit them.
+// against the server's own uid (getpeereid(2) on macOS, SO_PEERCRED on Linux); a mismatch is
+// closed immediately. All file descriptors are FD_CLOEXEC so child processes spawned by the host
+// never inherit them. A write to a peer that has gone raises no SIGPIPE: SO_NOSIGPIPE on macOS,
+// MSG_NOSIGNAL on each send on Linux.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+import Dispatch
 
 /// Errors from starting a UnixSocketServer.
 public enum UnixSocketServerError: Error, CustomStringConvertible {
@@ -36,6 +47,59 @@ public enum UnixSocketServerError: Error, CustomStringConvertible {
             return "\(call) failed: \(String(cString: strerror(code))) (errno \(code))"
         }
     }
+}
+
+// MARK: - Platform
+
+#if canImport(Glibc)
+private let streamSocketType = Int32(SOCK_STREAM.rawValue)
+
+/// `struct ucred` of <sys/socket.h>, which Swift's Glibc module does not import (glibc declares
+/// it only for _GNU_SOURCE). The layout is the kernel's: pid, uid, gid.
+private struct PeerCredentials {
+    var pid: pid_t = 0
+    var uid: uid_t = 0
+    var gid: gid_t = 0
+}
+#else
+private let streamSocketType = SOCK_STREAM
+#endif
+
+/// The uid of the process at the other end of the connected socket `fd`, or nil when the system
+/// does not say.
+private func peerUID(of fd: Int32) -> uid_t? {
+    #if canImport(Glibc)
+    var credentials = PeerCredentials()
+    var length = socklen_t(MemoryLayout<PeerCredentials>.size)
+    guard getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &credentials, &length) == 0,
+          length == socklen_t(MemoryLayout<PeerCredentials>.size) else {
+        return nil
+    }
+    return credentials.uid
+    #else
+    var uid: uid_t = 0
+    var gid: gid_t = 0
+    return getpeereid(fd, &uid, &gid) == 0 ? uid : nil
+    #endif
+}
+
+// The system calls by names of their own: inside the types below, `read` and `close` are also
+// local names (a dispatch source, a method).
+private func systemClose(_ fd: Int32) {
+    _ = close(fd)
+}
+
+private func systemRead(_ fd: Int32, _ buffer: UnsafeMutableRawPointer?, _ count: Int) -> Int {
+    return read(fd, buffer, count)
+}
+
+/// A write to the socket that raises no SIGPIPE when the peer has gone (it fails with EPIPE).
+private func socketWrite(_ fd: Int32, _ buffer: UnsafeRawPointer?, _ count: Int) -> Int {
+    #if canImport(Glibc)
+    return send(fd, buffer, count, Int32(MSG_NOSIGNAL))
+    #else
+    return write(fd, buffer, count)   // SO_NOSIGPIPE is set on the socket (configure)
+    #endif
 }
 
 final class UnixSocketServer: @unchecked Sendable {
@@ -121,7 +185,7 @@ final class UnixSocketServer: @unchecked Sendable {
             throw UnixSocketServerError.pathTooLong(path: path, limit: limit)
         }
 
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        let fd = socket(AF_UNIX, streamSocketType, 0)
         guard fd >= 0 else {
             throw UnixSocketServerError.systemCall("socket", errno: errno)
         }
@@ -154,7 +218,7 @@ final class UnixSocketServer: @unchecked Sendable {
 
             // Private to this user. Not umask: that is process-global and the host has other
             // threads creating files. The parent directory is the primary protection anyway.
-            guard chmod(path, S_IRUSR | S_IWUSR) == 0 else {
+            guard chmod(path, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
                 let code = errno
                 unlink(path)
                 throw UnixSocketServerError.systemCall("chmod", errno: code)
@@ -166,7 +230,7 @@ final class UnixSocketServer: @unchecked Sendable {
                 throw UnixSocketServerError.systemCall("listen", errno: code)
             }
         } catch {
-            Darwin.close(fd)
+            systemClose(fd)
             throw error
         }
 
@@ -175,7 +239,7 @@ final class UnixSocketServer: @unchecked Sendable {
             self?.acceptPending()
         }
         source.setCancelHandler {
-            Darwin.close(fd)
+            systemClose(fd)
         }
         listenFD = fd
         acceptSource = source
@@ -266,22 +330,21 @@ final class UnixSocketServer: @unchecked Sendable {
                 try UnixSocketServer.configure(fd: fd)
             } catch {
                 log("dropping connection: \(error)")
-                Darwin.close(fd)
+                systemClose(fd)
                 continue
             }
 
-            var peerUID: uid_t = 0
-            var peerGID: gid_t = 0
-            if getpeereid(fd, &peerUID, &peerGID) != 0 || peerUID != getuid() {
-                log("dropping connection from uid \(peerUID): not the server's uid \(getuid())")
-                Darwin.close(fd)
+            let peer = peerUID(of: fd)
+            guard let peer, peer == getuid() else {
+                log("dropping connection from uid \(peer.map { String($0) } ?? "unknown"): not the server's uid \(getuid())")
+                systemClose(fd)
                 continue
             }
 
             lock.lock()
             guard started else {
                 lock.unlock()
-                Darwin.close(fd)
+                systemClose(fd)
                 return
             }
             let id = nextConnectionID
@@ -299,7 +362,7 @@ final class UnixSocketServer: @unchecked Sendable {
         return listenFD
     }
 
-    /// Non-blocking, close-on-exec, and no SIGPIPE on a broken peer.
+    /// Non-blocking, close-on-exec, and (on macOS) no SIGPIPE on a broken peer.
     private static func configure(fd: Int32) throws {
         let flags = fcntl(fd, F_GETFL)
         guard flags >= 0, fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else {
@@ -308,10 +371,12 @@ final class UnixSocketServer: @unchecked Sendable {
         guard fcntl(fd, F_SETFD, FD_CLOEXEC) == 0 else {
             throw UnixSocketServerError.systemCall("fcntl(F_SETFD)", errno: errno)
         }
+        #if canImport(Darwin)
         var one: Int32 = 1
         guard setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
             throw UnixSocketServerError.systemCall("setsockopt(SO_NOSIGPIPE)", errno: errno)
         }
+        #endif
     }
 
     // MARK: - Connection bookkeeping (called from Connection on its queue)
@@ -399,7 +464,7 @@ final class UnixSocketServer: @unchecked Sendable {
                 // every source on it has run its cancellation, so the last cancel closes it.
                 let fd = self.fd
                 let pendingCancellations = CancellationCounter(count: 2) {
-                    Darwin.close(fd)
+                    systemClose(fd)
                 }
 
                 let read = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
@@ -432,7 +497,7 @@ final class UnixSocketServer: @unchecked Sendable {
             var chunk = [UInt8](repeating: 0, count: 64 * 1024)
             while true {
                 let n = chunk.withUnsafeMutableBytes { buffer -> Int in
-                    Darwin.read(fd, buffer.baseAddress, buffer.count)
+                    systemRead(fd, buffer.baseAddress, buffer.count)
                 }
                 if n > 0 {
                     inbox.append(contentsOf: chunk[0..<n])
@@ -527,7 +592,7 @@ final class UnixSocketServer: @unchecked Sendable {
             guard !closed else { return }
             while !outbox.isEmpty {
                 let written = outbox.withUnsafeBytes { buffer -> Int in
-                    Darwin.write(fd, buffer.baseAddress, buffer.count)
+                    socketWrite(fd, buffer.baseAddress, buffer.count)
                 }
                 if written > 0 {
                     outbox.removeSubrange(outbox.startIndex..<outbox.startIndex.advanced(by: written))
@@ -587,7 +652,7 @@ final class UnixSocketServer: @unchecked Sendable {
                 readSource = nil
             } else {
                 // Sources were never created (closed before startOnQueue ran).
-                Darwin.close(fd)
+                systemClose(fd)
             }
             inbox.removeAll()
             outbox.removeAll()

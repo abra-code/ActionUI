@@ -8,9 +8,13 @@
 // come back as null, and getValueString is the supported path for those, exactly as with the C
 // adapter.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import ActionUI
 
 enum ActionUIRemoteMethods {
@@ -276,11 +280,18 @@ enum ActionUIRemoteMethods {
         }
         table["actionui.contentSizeLimits"] = { raw in
             let p = Params(raw)
+            #if os(macOS)
             guard let limits = model.contentSizeLimits(windowUUID: try p.window()) else { return nil }
             return [
                 "minWidth": limits.minSize.width, "minHeight": limits.minSize.height,
                 "maxWidth": limits.maxSize.width, "maxHeight": limits.maxSize.height,
             ]
+            #else
+            // The measurement is SwiftUI's (ActionUI/Common/ContentSizeLimits.swift); the GTK
+            // renderer has none yet, so the answer is null, as for an unknown root.
+            _ = try p.window()
+            return nil
+            #endif
         }
 
         registry.handlers.merge(table) { _, builtin in builtin }
@@ -343,7 +354,12 @@ enum ActionUIRemoteMethods {
             do {
                 data = try Data(contentsOf: url)
             } catch {
-                throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure, message: "Cannot read modal resource \(url.path): \(error.localizedDescription)")
+                #if os(macOS)
+                let reason = error.localizedDescription
+                #else
+                let reason = "\(error)"   // FoundationEssentials has no localizedDescription
+                #endif
+                throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure, message: "Cannot read modal resource \(url.path): \(reason)")
             }
             // An explicit format wins; otherwise the extension decides.
             let format = try p.optionalString("format") ?? (url.pathExtension.lowercased() == "plist" ? "plist" : "json")

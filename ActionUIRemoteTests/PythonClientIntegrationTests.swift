@@ -11,10 +11,14 @@
 // the server hops every request to the main queue, so blocking the main thread here would
 // starve the script's very first call and every request would come back 1005.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
 import XCTest
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import ActionUI
 @testable import ActionUIRemote
 
@@ -62,7 +66,8 @@ final class PythonClientIntegrationTests: XCTestCase {
     private var server: ActionUIRemoteServer!
 
     override func setUp() async throws {
-        try await super.setUp()
+        // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
+        // sends the non-Sendable test case across actors, which Swift 6 refuses.
         ActionUIModel.resetForRemoteTests()
         let logger = QuietLogger(maxLevel: .warning)
         ActionUIModel.shared.logger = logger
@@ -82,7 +87,7 @@ final class PythonClientIntegrationTests: XCTestCase {
         server = nil
         unlink(socketPath)
         ActionUIModel.resetForRemoteTests()
-        try await super.tearDown()
+        // No super.tearDown(), for the reason in setUp.
     }
 
     // MARK: - Fixture

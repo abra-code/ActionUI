@@ -194,7 +194,6 @@ unsafe extern "C" {
 
     pub fn actionUIAppLoadMenuBar(jsonString: *const c_char);
 
-    /// On Linux there is no remote server: it returns false, and the others report none.
     pub fn actionUIAppStartRemoteServer(socketPath: *const c_char) -> bool;
     pub fn actionUIAppStopRemoteServer();
     pub fn actionUIAppRemoteServerToken() -> *const c_char;
@@ -203,6 +202,8 @@ unsafe extern "C" {
 }
 
 // MARK: - ActionUIRemote, macOS only
+// libActionUI.so on Linux has these functions too, but the library package ships no C header for
+// them yet; the actionUIApp*RemoteServer* functions above serve the server on both.
 
 #[cfg(target_os = "macos")]
 #[rustfmt::skip] // tests/declarations.rs reads one declaration per line

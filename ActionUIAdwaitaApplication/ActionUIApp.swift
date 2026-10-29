@@ -14,8 +14,8 @@
    returns when it ends. Windows presented before it wait for the start.
  - The alert and the file panels block until the user answers, with the main loop running
    (AppPanels); before the run they log why and return NULL.
- - Not on Linux yet, logged at each call: the remote server (it does not start; the token and
-   endpoint are NULL).
+ - The remote server (ActionUIRemote) starts from any thread, before the run or during it, and
+   stops when the run ends, after the willTerminate handler, as on macOS.
 */
 
 #if canImport(FoundationEssentials)
@@ -30,6 +30,7 @@ import Dispatch
 import Synchronization
 import ActionUI
 import ActionUIAppHeaders
+import ActionUIRemote
 
 // MARK: - Main thread
 
@@ -72,11 +73,9 @@ private func runOnMainActorSync(_ function: String = #function, _ operation: @Ma
     }
 }
 
-private func logNotOnLinux(_ what: String) {
-    runOnMainActorAsync {
-        ActionUIModel.shared.logger.log("\(what) is not available on Linux yet", .warning)
-    }
-}
+/// The name actionUIAppSetName set, readable from any thread: the remote server answers
+/// `actionui.hello` with it, and it may be started from a worker before the run.
+private let appName = Mutex<String?>(nil)
 
 // MARK: - Lifecycle handlers
 
@@ -140,7 +139,11 @@ public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowH
 @c
 public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
     let swiftName = String(cString: name)
-    runOnMainActorSync { AdwaitaApplication.shared.name = swiftName }
+    runOnMainActorSync {
+        // In here, so a refused call (from a worker before the run) leaves the name unchanged.
+        appName.withLock { $0 = swiftName }
+        AdwaitaApplication.shared.name = swiftName
+    }
 }
 
 /// The reverse-DNS application ID ("org.example.App"); without one it is made from the name.
@@ -184,6 +187,11 @@ public func actionUIAppRun() {
     }
     if !alreadyRunning {
         applicationRuns.store(false, ordering: .releasing)
+        // After the willTerminate handler (in the run), so it could still use the bridge; the
+        // socket file would otherwise outlive a host that exits without stopping the server. The
+        // C function, not ActionUIRemoteServer.stopShared(): it also forgets the endpoint and
+        // token it hands out, which a host that goes on after the run would otherwise still read.
+        actionUIRemoteStopServer()
     }
 }
 
@@ -271,29 +279,44 @@ public func actionUIAppRunSavePanel(_ configJSON: UnsafePointer<CChar>?) -> Unsa
     return chosen.map { strdup($0) }
 }
 
-// MARK: - The remote server (not on Linux yet)
+// MARK: - The remote server
 
+/// Starts the remote server on `socketPath`, or on a per-process default when it is NULL
+/// (in `$XDG_RUNTIME_DIR`, else `$TMPDIR`, else `/tmp`), and exports `ACTIONUI_REMOTE_ENDPOINT`
+/// and `ACTIONUI_REMOTE_TOKEN` for the processes started afterwards. `actionui.hello` answers with
+/// the name set with actionUIAppSetName. Safe from any thread; false when a server is already
+/// running or the socket could not be made (logged).
 @c
 public func actionUIAppStartRemoteServer(_ socketPath: UnsafePointer<CChar>?) -> CBool {
-    logNotOnLinux("The remote server")
-    return false
+    guard let name = appName.withLock({ $0 }) else {
+        return actionUIRemoteStartServer(socketPath, nil, nil)
+    }
+    return name.withCString { actionUIRemoteStartServer(socketPath, $0, nil) }
 }
 
+/// Stops the server, removes its socket and unsets `ACTIONUI_REMOTE_ENDPOINT`.
 @c
 public func actionUIAppStopRemoteServer() {
+    actionUIRemoteStopServer()
 }
 
+/// The token the running server requires, or NULL when it requires none; owned by the library
+/// and valid until the next start or stop.
 @c
 public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
-    nil
+    return actionUIRemoteServerToken()
 }
 
+/// The same token, copied into the caller's buffer under the library's lock: what a host with
+/// more than one thread should use (a concurrent stop frees the buffer the pointer form returns).
 @c
 public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?, _ outTokenSize: Int) -> CBool {
-    false
+    return actionUIRemoteCopyServerToken(outToken, outTokenSize)
 }
 
+/// The socket path of the running server, or NULL when none is running; owned by the library and
+/// valid until the next start or stop.
 @c
 public func actionUIAppRemoteServerEndpoint() -> UnsafePointer<CChar>? {
-    nil
+    return actionUIRemoteServerEndpoint()
 }

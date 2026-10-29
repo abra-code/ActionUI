@@ -10,9 +10,18 @@
 // A host with different needs (two servers, no environment export, a path of its own) builds an
 // ActionUIRemoteServer directly. Nothing here is required to use the target.
 
-#if os(macOS)
+#if os(macOS) || os(Linux)
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import ActionUI
 
 /// Process-wide state. A final class with its own lock rather than globals, so Swift 6 sees one
@@ -44,24 +53,58 @@ public extension ActionUIRemoteServer {
     // MARK: - Host identity
 
     /// How the running process names itself when the host has nothing better: the bundle's
-    /// name, or the process name, with the bundle's version when there is one.
+    /// name, or the process name, with the bundle's version when there is one. Linux has no such
+    /// bundle: the process name and "0" (the application layer passes the application's name).
     static func currentProcessHost() -> HostInfo {
+        #if os(macOS)
         let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
             ?? ProcessInfo.processInfo.processName
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
             ?? "0"
         return HostInfo(name: name, version: version)
+        #else
+        return HostInfo(name: ProcessInfo.processInfo.processName, version: "0")
+        #endif
     }
 
     // MARK: - The process-wide server
 
     /// The socket path `startShared` binds when the caller does not choose one: one per process,
     /// in the user's private temporary directory. Short on purpose, because `sun_path` holds
-    /// 103 bytes and a long `TMPDIR` leaves little room.
+    /// 103 bytes on macOS (107 on Linux) and a long `TMPDIR` leaves little room.
+    ///
+    /// On Linux the private directory is `$XDG_RUNTIME_DIR` (`/run/user/<uid>`: mode 0700, the
+    /// user's own, emptied at logout), which a desktop session sets; without it `$TMPDIR`, then
+    /// `/tmp`, which every user shares: the socket is still 0600 and checks each peer's uid, but
+    /// another user could take the name first, and the start would fail. A variable is passed
+    /// over unless it names a directory this process can use: `XDG_RUNTIME_DIR` one the user owns,
+    /// as the XDG specification requires (after `su` it may still name the first user's), and
+    /// `TMPDIR` one it may create files in. A session not yet up leaves the first missing.
     static func defaultSocketPath() -> String {
-        return (NSTemporaryDirectory() as NSString)
-            .appendingPathComponent("actionui-\(getpid()).sock")
+        let name = "actionui-\(getpid()).sock"
+        #if os(macOS)
+        return (NSTemporaryDirectory() as NSString).appendingPathComponent(name)
+        #else
+        for variable in ["XDG_RUNTIME_DIR", "TMPDIR"] {
+            guard let raw = getenv(variable) else { continue }
+            var folder = String(cString: raw)
+            while folder.count > 1, folder.hasSuffix("/") {
+                folder.removeLast()
+            }
+            var status = stat()
+            guard folder.hasPrefix("/"), stat(folder, &status) == 0, status.st_mode & S_IFMT == S_IFDIR else {
+                continue
+            }
+            let usable = variable == "XDG_RUNTIME_DIR"
+                ? status.st_uid == getuid()
+                : access(folder, W_OK | X_OK) == 0
+            if usable {
+                return folder == "/" ? "/" + name : folder + "/" + name
+            }
+        }
+        return "/tmp/" + name
+        #endif
     }
 
     /// The process-wide server, or nil when none is running. This is where a host registers its
