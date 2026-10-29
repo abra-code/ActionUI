@@ -1109,7 +1109,7 @@ static PyObject* py_dismiss_toast(PyObject* self, PyObject* args) {
 
 // MARK: - Python API: UI Loading
 
-// Apple only: these hand out and measure a native view; the Linux library has no such functions.
+// Apple only: this hands out a native view; the Linux library has no such function.
 #if defined(__APPLE__)
 
 /*
@@ -1138,13 +1138,16 @@ static PyObject* py_load_hosting_controller(PyObject* self, PyObject* args) {
     return NULL;
 }
 
+#endif // defined(__APPLE__)
+
 // MARK: - Python API: Content Size Limits
 
 /*
- * Returns the size limits of a loaded window's root element content as a
+ * Returns the size limits of a window's root element content as a
  * (min_width, min_height, max_width, max_height) tuple. Flexible axes report
  * a very large maximum; a fixed root frame reports min == max. Raises
- * RuntimeError when the window is unknown (call after load_hosting_controller).
+ * RuntimeError when the window is unknown, or on Linux not on screen (GTK
+ * measures a window it shows).
  */
 static PyObject* py_get_content_size_limits(PyObject* self, PyObject* args) {
     const char* windowUUID;
@@ -1164,8 +1167,6 @@ static PyObject* py_get_content_size_limits(PyObject* self, PyObject* args) {
     }
     return NULL;
 }
-
-#endif // defined(__APPLE__)
 
 // MARK: - Python API: Window Model
 
@@ -1283,11 +1284,11 @@ static PyMethodDef ActionUIMethods[] = {
     {"load_hosting_controller",     py_load_hosting_controller,     METH_VARARGS,
      "load_hosting_controller(urlString, windowUUID, isContentView) -> int\n"
      "Accepts file:// or http(s):// URLs.  Returns opaque pointer as int."},
+#endif
     {"get_content_size_limits",     py_get_content_size_limits,     METH_VARARGS,
      "get_content_size_limits(windowUUID) -> (min_w, min_h, max_w, max_h)\n"
-     "Size limits of the loaded root element content; min == max means fixed size.\n"
-     "Raises RuntimeError for an unknown window."},
-#endif
+     "Size limits of the root element content; min == max means fixed size.\n"
+     "Raises RuntimeError for an unknown window (on Linux, one not on screen)."},
     {"remove_window",               py_remove_window,               METH_VARARGS,
      "remove_window(windowUUID)\n"
      "Forgets the window's model once the host is done with it; an unknown window is ignored."},

@@ -266,6 +266,16 @@ def test_modal_noop(uuid_str):
     print("  modal_noop: OK")
 
 
+def test_content_size_limits_unknown_window():
+    # On every platform; an unknown window has no limits, which the C function reports as an error.
+    try:
+        _actionui.get_content_size_limits(str(uuid.uuid4()))
+        raise AssertionError("get_content_size_limits must raise for an unknown window")
+    except RuntimeError as error:
+        assert "Unknown windowUUID" in str(error), str(error)
+    print("  get_content_size_limits: OK")
+
+
 def test_load_hosting_controller(uuid_str):
     ptr = _actionui.load_hosting_controller("file:///nonexistent/path.json", uuid_str, True)
     assert ptr is not None
@@ -300,6 +310,7 @@ def main():
     test_remove_window(test_uuid)
     test_noop_calls(test_uuid)
     test_modal_noop(test_uuid)
+    test_content_size_limits_unknown_window()
     # Apple only: the Linux library hands out no native view.
     if sys.platform == "darwin":
         test_load_hosting_controller(test_uuid)

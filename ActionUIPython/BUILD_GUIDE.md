@@ -232,11 +232,13 @@ rpath, so the installed module carries its own copy of the library.
 
 Differences from macOS:
 
-- `_actionui.load_hosting_controller` and `_actionui.get_content_size_limits` do not exist:
-  they hand out and measure a native view for embedding. `Window.from_file`, `Window.from_url`
-  and `Window.content_size_limits()`, which call them, raise `AttributeError`. Present
+- `_actionui.load_hosting_controller` does not exist: it hands out a native view for embedding.
+  `Window.from_file` and `Window.from_url`, which call it, raise `AttributeError`. Present
   windows with `Application.load_and_present_window` instead.
-- There is no remote server: `start_remote_server()` raises `RuntimeError`.
+- `Window.content_size_limits()` measures a window on screen, where GTK sizes the widgets, and
+  returns None for one that is not; its minimum is GTK's, not SwiftUI's for a zero proposal.
+- `start_remote_server()` puts the socket in `$XDG_RUNTIME_DIR` by default (else `$TMPDIR`, else
+  `/tmp`).
 - Ctrl+C does not stop `app.run()`: Python handles the signal only when the interpreter runs,
   and the GTK main loop holds the main thread.
 

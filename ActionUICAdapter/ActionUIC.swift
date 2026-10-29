@@ -877,6 +877,51 @@ public func actionUIRemoveWindow(_ windowUUID: UnsafePointer<CChar>) {
     }
 }
 
+/// The size limits of a window's root element content, macOS and Linux: the maximum is the
+/// content's size for an infinite proposal, a very large number on an axis nothing bounds; the
+/// minimum is its size for a zero proposal on macOS and GTK's minimum on Linux. Content with a
+/// fixed root frame reports min == max, which lets a client make its window non-user-resizable.
+/// Measures the bare root element, without the window-level modal and toast wrapper, which
+/// always expands to fill. macOS measures a loaded window (after
+/// actionUILoadHostingControllerFromURL or a presented window); Linux measures a window on screen,
+/// where GTK sizes the widgets (ActionUIAdwaita/Sources/Runtime/ContentSizeLimits+Adwaita.swift).
+/// Out parameters may be NULL to skip a component. Returns false (with an error set) when the
+/// window is unknown, not on screen on Linux, or on other platforms.
+@c
+public func actionUIGetContentSizeLimits(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ outMinWidth: UnsafeMutablePointer<Double>?,
+    _ outMinHeight: UnsafeMutablePointer<Double>?,
+    _ outMaxWidth: UnsafeMutablePointer<Double>?,
+    _ outMaxHeight: UnsafeMutablePointer<Double>?
+) -> CBool {
+    clearError()
+
+    #if canImport(AppKit) || os(Linux)
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    let limits = runOnMainActorSync {
+        ActionUIModel.shared.contentSizeLimits(windowUUID: swiftWindowUUID)
+    }
+    guard let limits else {
+        #if os(Linux)
+        setError("Unknown windowUUID, or the window is not on screen: \(swiftWindowUUID)")
+        #else
+        setError("Unknown windowUUID or no root element loaded: \(swiftWindowUUID)")
+        #endif
+        return false
+    }
+    outMinWidth?.pointee = Double(limits.minSize.width)
+    outMinHeight?.pointee = Double(limits.minSize.height)
+    outMaxWidth?.pointee = Double(limits.maxSize.width)
+    outMaxHeight?.pointee = Double(limits.maxSize.height)
+    return true
+    #else
+    setError("Content size limits are only available on macOS and Linux")
+    return false
+    #endif
+}
+
 // MARK: - Type-specific Setters
 
 @c

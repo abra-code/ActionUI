@@ -102,11 +102,8 @@ fn check_values(window: &Window) {
     check("the generic setter accepts a string", window.set_value(OUTPUT, "from Rust").is_ok());
 
     let limits = window.content_size_limits();
-    if cfg!(target_os = "macos") {
-        check("the content reports its minimum size", matches!(limits, Ok(Some(limits)) if limits.min_width >= 320.0));
-    } else {
-        check("the content reports no size limits off macOS", matches!(limits, Ok(None)));
-    }
+    check(&format!("the content reports its minimum size (read {limits:?})"),
+          matches!(limits, Ok(Some(limits)) if limits.min_width >= 320.0 && limits.min_height >= 320.0));
 }
 
 fn check_structure(window: &Window) {

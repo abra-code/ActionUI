@@ -133,6 +133,7 @@ unsafe extern "C" {
 
     /// Forgets a window's model once the host is done with it. An unknown window is ignored.
     pub fn actionUIRemoveWindow(windowUUID: *const c_char);
+    pub fn actionUIGetContentSizeLimits(windowUUID: *const c_char, outMinWidth: *mut f64, outMinHeight: *mut f64, outMaxWidth: *mut f64, outMaxHeight: *mut f64) -> bool;
 
     pub fn actionUIInsertElement(windowUUID: *const c_char, parentID: i64, json: *const c_char, container: *const c_char, position: ActionUIInsertPosition, positionParam: i64) -> i64;
     pub fn actionUIInsertRow(windowUUID: *const c_char, parentID: i64, json: *const c_char, container: *const c_char, position: ActionUIInsertPosition, positionParam: i64) -> *mut c_char;
@@ -155,7 +156,6 @@ unsafe extern "C" {
     /// Returns a retained `NSHostingController`; the caller owns it. For hosts that
     /// create their own windows. Main thread only.
     pub fn actionUILoadHostingControllerFromURL(urlString: *const c_char, windowUUID: *const c_char, isContentView: bool) -> *mut c_void;
-    pub fn actionUIGetContentSizeLimits(windowUUID: *const c_char, outMinWidth: *mut f64, outMinHeight: *mut f64, outMaxWidth: *mut f64, outMaxHeight: *mut f64) -> bool;
 }
 
 // MARK: - ActionUIAppKitApplication

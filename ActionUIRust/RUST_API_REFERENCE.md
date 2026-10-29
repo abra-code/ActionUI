@@ -232,7 +232,7 @@ A handle to one open window. Cloning is cheap; clones name the same window. A `W
 | `uuid(&self) -> &str` | The identifier ActionUI knows the window by. |
 | `close(&self) -> Result<()>` | Closes the window. The will-close handler runs first. |
 | `remove_window(&self) -> Result<()>` | Forgets the window's model (loaded description, element values and states). Call it once you are done with the window, after it has closed, so a long-running host does not keep every window it ever showed. Afterwards the window is unknown, as one never loaded; loading a description for the same identifier starts a new model. Windows that `App` (ActionUI's own application: ActionUIAppKitApplication on macOS, AdwaitaApplication on Linux) presents have their model removed by it after they close; a program with an application of its own calls this for each window it is done with. |
-| `content_size_limits(&self) -> Result<Option<ContentSizeLimits>>` | The smallest and largest size the content allows (`min_width`, `min_height`, `max_width`, `max_height`). `None` until the content has loaded, and always on Linux, where ActionUI does not measure the content. |
+| `content_size_limits(&self) -> Result<Option<ContentSizeLimits>>` | The smallest and largest size the content allows (`min_width`, `min_height`, `max_width`, `max_height`). `None` until the content has loaded, and on Linux until the window is on screen, where GTK measures it. |
 
 In every method below, `view_id` is the element's `"id"` from the JSON.
 

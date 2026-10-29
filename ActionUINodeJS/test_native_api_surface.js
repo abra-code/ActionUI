@@ -278,6 +278,18 @@ function testModalNoop(uuid) {
     check('Modal calls do not crash', true);
 }
 
+function testContentSizeLimitsUnknownWindow() {
+    console.log('\n=== Content size limits ===');
+    // On every platform; an unknown window has no limits, which the C function reports as an error.
+    let message = '';
+    try {
+        native.getContentSizeLimits(require('crypto').randomUUID());
+    } catch (e) {
+        message = String(e.message);
+    }
+    check('getContentSizeLimits throws for an unknown window', message.includes('Unknown windowUUID'));
+}
+
 function testLoadHostingController(uuid) {
     console.log('\n=== Load hosting controller ===');
     let threw = false;
@@ -394,6 +406,7 @@ function main() {
     testRemoveWindow(testUuid);
     testNoopCalls(testUuid);
     testModalNoop(testUuid);
+    testContentSizeLimitsUnknownWindow();
     // macOS only: the Linux library hands out no native view.
     if (process.platform === 'darwin') testLoadHostingController(testUuid);
     testMenuBarNoop();

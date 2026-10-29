@@ -1241,7 +1241,7 @@ static napi_value node_dismiss_toast(napi_env env, napi_callback_info info) {
 
 // MARK: - N-API: UI Loading
 
-// Apple only: these hand out and measure a native view; the Linux library has no such functions.
+// Apple only: this hands out a native view; the Linux library has no such function.
 #if defined(__APPLE__)
 
 static napi_value node_load_hosting_controller(napi_env env, napi_callback_info info) {
@@ -1266,13 +1266,15 @@ static napi_value node_load_hosting_controller(napi_env env, napi_callback_info 
     return result;
 }
 
+#endif // defined(__APPLE__)
+
 // MARK: - N-API: Content Size Limits
 
 /*
- * Returns the size limits of a loaded window's root element content as
+ * Returns the size limits of a window's root element content as
  * { minWidth, minHeight, maxWidth, maxHeight }. Flexible axes report a very
  * large maximum; a fixed root frame reports min == max. Throws when the
- * window is unknown (call after loadHostingController).
+ * window is unknown, or on Linux not on screen (GTK measures a window it shows).
  */
 static napi_value node_get_content_size_limits(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
@@ -1296,8 +1298,6 @@ static napi_value node_get_content_size_limits(napi_env env, napi_callback_info 
     napi_create_double(env, maxH, &v); napi_set_named_property(env, result, "maxHeight", v);
     return result;
 }
-
-#endif // defined(__APPLE__)
 
 // MARK: - N-API: Window Model
 
@@ -2171,8 +2171,8 @@ static napi_value Init(napi_env env, napi_value exports) {
     /* UI loading (Apple only) */
 #if defined(__APPLE__)
     EXPORT_FN(exports, "loadHostingController",    node_load_hosting_controller);
-    EXPORT_FN(exports, "getContentSizeLimits",     node_get_content_size_limits);
 #endif
+    EXPORT_FN(exports, "getContentSizeLimits",     node_get_content_size_limits);
 
     /* Window model */
     EXPORT_FN(exports, "removeWindow",             node_remove_window);

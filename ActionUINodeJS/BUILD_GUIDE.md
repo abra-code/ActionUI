@@ -159,11 +159,13 @@ Differences from macOS:
   the main script). The libdispatch inside `libActionUI.so` takes the thread that loads the library
   for the main thread; loaded first by a worker, the addon refuses to load at all, on the worker and
   on the main thread after it, with an error saying so.
-- `loadHostingController` and `getContentSizeLimits` do not exist: they hand out and measure a
-  native view for embedding. `Window.fromFile` and `Window.fromURL`, which call the first, load
-  nothing (the window they return has no view), and `contentSizeLimits()` returns null. Present
-  windows with `app.loadAndPresentWindow` instead.
-- There is no remote server: `startRemoteServer()` throws.
+- `loadHostingController` does not exist: it hands out a native view for embedding.
+  `Window.fromFile` and `Window.fromURL`, which call it, load nothing (the window they return has
+  no view). Present windows with `app.loadAndPresentWindow` instead.
+- `contentSizeLimits()` measures a window on screen, where GTK sizes the widgets, and returns null
+  for one that is not; its minimum is GTK's, not SwiftUI's for a zero proposal.
+- `startRemoteServer()` puts the socket in `$XDG_RUNTIME_DIR` by default (else `$TMPDIR`, else
+  `/tmp`).
 
 ---
 

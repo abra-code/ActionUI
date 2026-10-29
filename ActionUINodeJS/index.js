@@ -101,8 +101,10 @@ class Window {
     // infinite one; flexible axes report a very large maximum, and a fixed
     // root frame reports min == max (make the hosting window
     // non-user-resizable in that case). Measured on the bare root element,
-    // bypassing the window-level modal/toast wrapper.
-    // Returns null if the window has no loaded description.
+    // bypassing the window-level modal/toast wrapper. On Linux, GTK measures a
+    // window on screen and gives its own minimum.
+    // Returns null if the window has no loaded description, or on Linux is not
+    // on screen.
     contentSizeLimits() {
         try {
             return _actionui.getContentSizeLimits(this.uuid);

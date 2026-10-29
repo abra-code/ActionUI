@@ -272,7 +272,8 @@ win.uuid      // string — the window's UUID
 win.viewPtr   // pointer returned by loadHostingController, or null
 
 // Content size limits of the loaded root element (min == max means fixed size;
-// make the hosting window non-user-resizable in that case). null if nothing loaded.
+// make the hosting window non-user-resizable in that case). null if nothing loaded,
+// or on Linux if the window is not on screen (GTK measures a window it shows).
 win.contentSizeLimits()  // -> { minWidth, minHeight, maxWidth, maxHeight } or null
 ```
 
@@ -497,6 +498,7 @@ native.dismissToast(uuid)
 // UI loading (returns viewPtr or null)
 native.loadHostingController(url, uuid, isContentView)
 // Size limits of the loaded root element content; throws for an unknown window
+// (on Linux, also for one not on screen)
 native.getContentSizeLimits(uuid) // -> { minWidth, minHeight, maxWidth, maxHeight }
 
 // Window model: forget the window's model once the host is done with it (unknown uuid ignored);

@@ -141,6 +141,7 @@ char *actionUIGetElementInfoJSON(const char *windowUUID) ACTIONUI_NOEXCEPT;
 
 // Windows
 void actionUIRemoveWindow(const char *windowUUID) ACTIONUI_NOEXCEPT;  // forgets a closed window's model
+bool actionUIGetContentSizeLimits(const char *windowUUID, double *outMinWidth, double *outMinHeight, double *outMaxWidth, double *outMaxHeight) ACTIONUI_NOEXCEPT;  // macOS and Linux; any out pointer may be NULL
 
 // Rows and selection (Table, List)
 bool actionUISetElementRowsJSON(const char *windowUUID, int64_t viewID, const char *rowsJSON) ACTIONUI_NOEXCEPT;
@@ -169,7 +170,6 @@ void actionUIDismissToast(const char *windowUUID) ACTIONUI_NOEXCEPT;
 // Apple only (ActionUIC+Apple.swift): a build for another platform has no such functions.
 #if defined(__APPLE__)
 void *actionUILoadHostingControllerFromURL(const char *urlString, const char *windowUUID, bool isContentView) ACTIONUI_NOEXCEPT;  // NSHostingController on macOS, UIView on iOS; retained
-bool actionUIGetContentSizeLimits(const char *windowUUID, double *outMinWidth, double *outMinHeight, double *outMaxWidth, double *outMaxHeight) ACTIONUI_NOEXCEPT;  // macOS; any out pointer may be NULL
 #endif
 
 #ifdef __cplusplus

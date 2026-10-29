@@ -174,12 +174,13 @@ void* actionUILoadHostingControllerFromURL(const char* urlString,
 bool actionUIGetContentSizeLimits(const char* windowUUID,
                                   double* outMinWidth,  double* outMinHeight,
                                   double* outMaxWidth,  double* outMaxHeight);
-// Size limits of the loaded root element content (macOS only): minimum for a
-// zero size proposal, maximum for an infinite one. Flexible axes report a very
-// large maximum; a fixed root frame reports min == max (make the hosting
-// window non-user-resizable). Out params may be NULL. Returns false with an
-// error set when the window is unknown. Call after
-// actionUILoadHostingControllerFromURL.
+// Size limits of the loaded root element content (macOS, and on Linux a window
+// on screen): minimum for a zero size proposal (GTK's minimum on Linux),
+// maximum for an infinite one. Flexible axes report a very large maximum; a
+// fixed root frame reports min == max (make the hosting window
+// non-user-resizable). Out params may be NULL. Returns false with an error
+// set when the window is unknown, or on Linux not on screen. On macOS, call
+// after actionUILoadHostingControllerFromURL.
 ```
 
 ---

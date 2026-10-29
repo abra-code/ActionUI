@@ -80,17 +80,8 @@ impl Window {
         Ok(())
     }
 
-    /// `None` until the window's content has been loaded. Always `None` on Linux, where
-    /// ActionUI does not measure the content.
-    #[cfg(target_os = "linux")]
-    pub fn content_size_limits(&self) -> Result<Option<ContentSizeLimits>> {
-        self.uuid_c()?;
-        Ok(None)
-    }
-
-    /// `None` until the window's content has been loaded. Always `None` on Linux, where
-    /// ActionUI does not measure the content.
-    #[cfg(target_os = "macos")]
+    /// `None` until the window's content has been loaded; on Linux, until the window is on screen,
+    /// where GTK measures it.
     pub fn content_size_limits(&self) -> Result<Option<ContentSizeLimits>> {
         let uuid = self.uuid_c()?;
         let mut limits = ContentSizeLimits { min_width: 0.0, min_height: 0.0, max_width: 0.0, max_height: 0.0 };
