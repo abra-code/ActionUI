@@ -1,8 +1,8 @@
 // Core/Helpers/JSONValue.swift
 /*
- A JSON value, parsed by JSONParser (Core/Helpers/JSONParser.swift) and written with JSONEncoder:
- FoundationEssentials, which Core builds against on Linux, has no JSONSerialization. The Codable
- conformance serves PropertyListDecoder and JSONValue members of other Codable types.
+ A JSON value, parsed by JSONParser and written by JSONWriter (Core/Helpers): FoundationEssentials,
+ which Core builds against on Linux, has no JSONSerialization. The Codable conformance serves
+ PropertyListDecoder and PropertyListEncoder, and JSONValue members of other Codable types.
 
  Internal, like the verifier's own JSONValue (ActionUIVerifier/JSONValue.swift): a public type of
  this common name would collide with a host app's own JSONValue. The two are in separate modules,
@@ -90,21 +90,11 @@ enum JSONValue: Codable, Sendable, Equatable {
         self = try JSONParser.parse(data)
     }
 
-    /// The value as JSON text. Keys are in no fixed order unless `sortedKeys`; "/" is written as
-    /// "\/" unless `escapingSlashes` is false. Throws for a non-finite double, which JSON cannot
-    /// hold.
+    /// The value as JSON text, as JSONEncoder wrote it (Core/Helpers/JSONWriter.swift). Keys are
+    /// in no fixed order unless `sortedKeys`; "/" is written as "\/" unless `escapingSlashes` is
+    /// false. Throws a JSONWriteError for a non-finite double, which JSON cannot hold.
     func text(sortedKeys: Bool = false, escapingSlashes: Bool = true) throws -> String {
-        let encoder = JSONEncoder()
-        var formatting: JSONEncoder.OutputFormatting = []
-        if sortedKeys {
-            formatting.insert(.sortedKeys)
-        }
-        if !escapingSlashes {
-            formatting.insert(.withoutEscapingSlashes)
-        }
-        encoder.outputFormatting = formatting
-        let data = try encoder.encode(self)
-        return String(decoding: data, as: UTF8.self)
+        return try JSONWriter.text(of: self, sortedKeys: sortedKeys, escapingSlashes: escapingSlashes)
     }
 
     /// The Swift-native form: Bool, Int, Double, String, [Any], [String: Any], or ActionUIJSONNull.
@@ -135,8 +125,26 @@ enum JSONValue: Codable, Sendable, Equatable {
     /// refused rather than bridged;
     /// FoundationBridge.native converts one first.
     init?(any value: Any) {
-        // The common kinds first: the Optional test at the end builds a Mirror.
-        if type(of: value) == Bool.self, let flag = value as? Bool {
+        // The exact types parsed values and most callers hold, by their type alone: far cheaper
+        // than the casts below, which a dictionary or a string would otherwise fail one by one
+        // (an `as? any BinaryInteger` that fails is a protocol conformance lookup). Then the
+        // common kinds: the Optional test at the end builds a Mirror.
+        let kind = type(of: value)
+        if kind == String.self, let text = value as? String {
+            self = .string(text)
+        } else if kind == Int.self, let number = value as? Int {
+            self = .int(number)
+        } else if kind == Double.self, let number = value as? Double {
+            self = .double(number)
+        } else if kind == ActionUIJSONNull.self {
+            self = .null
+        } else if kind == [String: Any].self, let object = value as? [String: Any] {
+            guard let converted = Self.object(object) else { return nil }
+            self = converted
+        } else if kind == [Any].self, let items = value as? [Any] {
+            guard let converted = Self.array(items) else { return nil }
+            self = converted
+        } else if kind == Bool.self, let flag = value as? Bool {
             self = .bool(flag)
         } else if let text = value as? String {
             self = .string(text)
@@ -151,21 +159,11 @@ enum JSONValue: Codable, Sendable, Equatable {
         } else if value is ActionUIJSONNull {
             self = .null
         } else if let items = value as? [Any] {
-            var converted: [JSONValue] = []
-            converted.reserveCapacity(items.count)
-            for item in items {
-                guard let element = JSONValue(any: item) else { return nil }
-                converted.append(element)
-            }
-            self = .array(converted)
+            guard let converted = Self.array(items) else { return nil }
+            self = converted
         } else if let object = value as? [String: Any] {
-            var converted: [String: JSONValue] = [:]
-            converted.reserveCapacity(object.count)
-            for (key, item) in object {
-                guard let element = JSONValue(any: item) else { return nil }
-                converted[key] = element
-            }
-            self = .object(converted)
+            guard let converted = Self.object(object) else { return nil }
+            self = converted
         } else if let unwrapped = Self.unwrappedOptional(value) {
             guard let inner = unwrapped else {
                 self = .null
@@ -176,6 +174,26 @@ enum JSONValue: Codable, Sendable, Equatable {
         } else {
             return nil
         }
+    }
+
+    private static func array(_ items: [Any]) -> JSONValue? {
+        var converted: [JSONValue] = []
+        converted.reserveCapacity(items.count)
+        for item in items {
+            guard let element = JSONValue(any: item) else { return nil }
+            converted.append(element)
+        }
+        return .array(converted)
+    }
+
+    private static func object(_ object: [String: Any]) -> JSONValue? {
+        var converted: [String: JSONValue] = [:]
+        converted.reserveCapacity(object.count)
+        for (key, item) in object {
+            guard let element = JSONValue(any: item) else { return nil }
+            converted[key] = element
+        }
+        return .object(converted)
     }
 
     // The wrapped value of an Optional held in an Any: .some(inner), or .some(nil) for nil.

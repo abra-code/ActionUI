@@ -172,8 +172,22 @@ final class JSONValueTests: XCTestCase {
             let decoded = try JSONDecoder().decode(JSONValue.self, from: data)
             let parsed = try JSONValue(parsing: data)
             XCTAssertEqual(parsed, decoded)
-            XCTAssertEqual(try parsed.text(sortedKeys: true), try decoded.text(sortedKeys: true))
+            XCTAssertEqual(try parsed.text(sortedKeys: true), try encoded(decoded, sortedKeys: true))
         }
+    }
+
+    // JSONEncoder's text for a value, which JSONWriter replaced.
+    private func encoded(_ value: JSONValue, sortedKeys: Bool = false, escapingSlashes: Bool = true) throws -> String {
+        let encoder = JSONEncoder()
+        var formatting: JSONEncoder.OutputFormatting = []
+        if sortedKeys {
+            formatting.insert(.sortedKeys)
+        }
+        if !escapingSlashes {
+            formatting.insert(.withoutEscapingSlashes)
+        }
+        encoder.outputFormatting = formatting
+        return String(decoding: try encoder.encode(value), as: UTF8.self)
     }
 
     // MARK: - Writing
@@ -208,6 +222,31 @@ final class JSONValueTests: XCTestCase {
         for text in ["true", "42", "0.1", "1e-07", #""a\/b""#, "null", #"[1,[2.5,"x"],null]"#, #"{"a":{"b":false}}"#] {
             XCTAssertEqual(try parse(text).text(sortedKeys: true), text)
         }
+    }
+
+    // The writer against JSONEncoder, which it replaced: numbers, every escape, key order.
+    func testWritesWhatJSONEncoderWrote() throws {
+        let doubles: [Double] = [
+            0, -0.0, 1, 2, 1.5, -2.5, 0.1, 0.30000000000000004, 1e-7, 1e-5, 1e-4, 0.001, 4.35e-5, 5e-324,
+            1e15, 1e16, 1e21, 1e300, 1.7976931348623157e308, 9007199254740992, 123456789012345680, Double(Int.max),
+        ]
+        for number in doubles {
+            XCTAssertEqual(try JSONValue.double(number).text(), try encoded(.double(number)), "\(number)")
+        }
+        var every = ""
+        for code in 0..<0x80 {
+            every.unicodeScalars.append(Unicode.Scalar(UInt8(code)))
+        }
+        every += "\u{80}\u{9F}\u{A0}\u{2028}\u{2029}\u{FEFF}\u{E9}e\u{301}\u{1F600}"
+        for escapingSlashes in [true, false] {
+            XCTAssertEqual(try JSONValue.string(every).text(escapingSlashes: escapingSlashes),
+                           try encoded(.string(every), escapingSlashes: escapingSlashes))
+        }
+        let keys = ["a10", "a2", "B", "b", "\u{E9}", "e", "_", "A", "\u{1F600}", "\u{FF21}", "Z", "a b", "10", "9", "\u{E8}", "", "k/\n",
+                    "a\u{30A}", "\u{212B}"]
+        let object = JSONValue.object(Dictionary(uniqueKeysWithValues: keys.map { ($0, JSONValue.array([.int(1), .null, .bool(false), .object([:])])) }))
+        XCTAssertEqual(try object.text(sortedKeys: true), try encoded(object, sortedKeys: true))
+        XCTAssertEqual(try parse(object.text()), object, "Unsorted, the keys come in any order")
     }
 
     // MARK: - Swift-native form
