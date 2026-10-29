@@ -38,22 +38,10 @@ register("Image", {
             }
         }
 
-        // contentMode is preferred; scaleMode is a deprecated alias.
         if (validated.contentMode !== undefined) {
             if (typeof validated.contentMode !== "string" || !CONTENT_MODES.includes(validated.contentMode)) {
                 logger.log(`Image contentMode '${JSON.stringify(validated.contentMode)}' invalid; ignoring`, "warning");
                 delete validated.contentMode;
-            }
-        }
-        if (validated.scaleMode !== undefined) {
-            if (typeof validated.scaleMode !== "string" || !CONTENT_MODES.includes(validated.scaleMode)) {
-                logger.log(`Image scaleMode '${JSON.stringify(validated.scaleMode)}' invalid; ignoring`, "warning");
-                delete validated.scaleMode;
-            } else if (validated.contentMode !== undefined) {
-                logger.log(`Image: both contentMode and scaleMode set; using contentMode, cleared scaleMode`, "info");
-                delete validated.scaleMode;
-            } else {
-                logger.log(`Image scaleMode is deprecated; use contentMode instead`, "info");
             }
         }
 
@@ -122,7 +110,7 @@ function render(node, source, props, ctx) {
         const img = document.createElement("img");
         img.src = source[rasterKey];
         img.alt = props.accessibilityLabel ?? "";
-        const mode = props.contentMode ?? props.scaleMode;
+        const mode = props.contentMode;
         if (mode) {
             img.style.objectFit = mode === "fill" ? "cover" : "contain";
             img.style.width = "100%";

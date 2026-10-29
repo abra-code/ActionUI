@@ -51,7 +51,6 @@ final class ImagePropsTests: XCTestCase {
 
     func testContentModeImpliesResizable() {
         XCTAssertTrue(Image.Props(["contentMode": "fit"]).resizable)
-        XCTAssertTrue(Image.Props(["scaleMode": "fill"]).resizable)
         XCTAssertFalse(Image.Props(["contentMode": "fit", "resizable": false]).resizable)
         XCTAssertTrue(Image.Props(["resizable": true]).resizable)
     }
@@ -63,13 +62,12 @@ final class ImagePropsTests: XCTestCase {
         XCTAssertNil(Image.Props(["contentMode": 5]).contentMode)
     }
 
-    func testScaleModeIsADeprecatedAlias() {
-        XCTAssertEqual(Image.Props(["scaleMode": "fill"]).contentMode, .fill)
-        // contentMode wins when both are valid; an invalid contentMode leaves the alias.
+    func testScaleModeIsNoLongerRead() {
+        // The old name of contentMode, removed: it sets no content mode and no resizing.
+        let props = Image.Props(["scaleMode": "fill"])
+        XCTAssertNil(props.contentMode)
+        XCTAssertFalse(props.resizable)
         XCTAssertEqual(Image.Props(["contentMode": "fit", "scaleMode": "fill"]).contentMode, .fit)
-        XCTAssertEqual(Image.Props(["contentMode": "stretch", "scaleMode": "fill"]).contentMode, .fill)
-        XCTAssertEqual(Image.Props(["contentMode": 5, "scaleMode": "fit"]).contentMode, .fit)
-        XCTAssertNil(Image.Props(["scaleMode": "stretch"]).contentMode)
     }
 
     func testResizableMustBeABool() {

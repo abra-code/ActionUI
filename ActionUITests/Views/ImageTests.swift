@@ -170,22 +170,11 @@ final class ImageTests: XCTestCase {
         XCTAssertNil(props.contentMode, "Invalid contentMode should be ignored")
     }
 
-    func testImageContentModeTakesPrecedenceOverScaleMode() {
-        // When both are present, contentMode wins
-        let properties: [String: Any] = [
-            "systemName": "star",
-            "contentMode": "fit",
-            "scaleMode": "fill"
-        ]
-        let props = Image.Props(properties)
-        XCTAssertEqual(props.contentMode, .fit, "contentMode should be kept")
-    }
-
-    func testImageScaleModeBackwardCompat() {
-        // scaleMode still works when contentMode is absent (deprecated but functional)
+    func testImageScaleModeIsNoLongerRead() {
+        // scaleMode, the old name of contentMode, was removed
         let properties: [String: Any] = ["systemName": "star", "scaleMode": "fill"]
         let props = Image.Props(properties)
-        XCTAssertEqual(props.contentMode, .fill, "scaleMode should be read when contentMode is absent")
+        XCTAssertNil(props.contentMode, "scaleMode should be ignored")
     }
     
     func testImageJSONDecodingWithImageScale() throws {

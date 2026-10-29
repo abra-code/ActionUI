@@ -56,7 +56,7 @@ extension Image {
         /// systemName. The renderer uses the first one it can show (a filePath that is not an
         /// image or PDF is skipped there).
         var sources: [Source] = []
-        /// "contentMode", else the deprecated alias "scaleMode"; nil when neither is "fit" or "fill".
+        /// "contentMode"; nil when it is not "fit" or "fill".
         var contentMode: ContentMode?
         /// "resizable" when it is a Bool, else true exactly when a content mode is set.
         var resizable = false
@@ -68,7 +68,6 @@ extension Image {
             if let assetName = properties["assetName"] as? String { sources.append(.assetName(assetName)) }
             if let systemName = properties["systemName"] as? String { sources.append(.systemName(systemName)) }
             contentMode = (properties["contentMode"] as? String).flatMap(ContentMode.init(rawValue:))
-                ?? (properties["scaleMode"] as? String).flatMap(ContentMode.init(rawValue:))
             resizable = properties["resizable"] as? Bool ?? (contentMode != nil)
             imageScale = (properties["imageScale"] as? String).flatMap(ImageScale.init(rawValue:))
         }
