@@ -267,6 +267,21 @@ final class UnixSocketServerTests: XCTestCase {
         wait(for: [closed], timeout: 5)
     }
 
+    // The listening socket and an accepted connection: close-on-exec, so a child process never
+    // inherits them, and non-blocking, which the accept loop and the connections' reads rely on.
+    func testDescriptorsAreCloseOnExecAndNonBlocking() throws {
+        let echo = try startEchoServer()
+        let client = try RawClient(path: socketPath)
+        client.write("ping\n")
+        XCTAssertEqual(client.readLine(), "ping")
+        let descriptors = echo.descriptorsForTesting
+        XCTAssertEqual(descriptors.count, 2, "the listening socket and one connection")
+        for fd in descriptors {
+            XCTAssertNotEqual(fcntl(fd, F_GETFD) & FD_CLOEXEC, 0, "fd \(fd) is close-on-exec")
+            XCTAssertNotEqual(fcntl(fd, F_GETFL) & O_NONBLOCK, 0, "fd \(fd) is non-blocking")
+        }
+    }
+
     func testListeningDescriptorIsCloseOnExec() throws {
         // Child processes spawned by the host must not inherit the socket. Verify through the
         // flag on a fresh connection's fd from the server side is not observable here, so check

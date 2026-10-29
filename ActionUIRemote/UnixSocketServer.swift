@@ -14,8 +14,9 @@
 // Security: the socket file is created 0600, and each accepted connection's peer uid is checked
 // against the server's own uid (getpeereid(2) on macOS, SO_PEERCRED on Linux); a mismatch is
 // closed immediately. All file descriptors are FD_CLOEXEC so child processes spawned by the host
-// never inherit them. A write to a peer that has gone raises no SIGPIPE: SO_NOSIGPIPE on macOS,
-// MSG_NOSIGNAL on each send on Linux.
+// never inherit them; on Linux they are created so (SOCK_CLOEXEC, accept4), leaving no moment in
+// which a process forked on another thread could inherit one. A write to a peer that has gone
+// raises no SIGPIPE: SO_NOSIGPIPE on macOS, MSG_NOSIGNAL on each send on Linux.
 
 #if os(macOS) || os(Linux)
 
@@ -28,6 +29,7 @@ import Foundation
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+import CLinuxSocket
 #endif
 import Dispatch
 
@@ -52,7 +54,14 @@ public enum UnixSocketServerError: Error, CustomStringConvertible {
 // MARK: - Platform
 
 #if canImport(Glibc)
-private let streamSocketType = Int32(SOCK_STREAM.rawValue)
+// Close-on-exec and non-blocking from the start, for the listening socket and, with accept4, for
+// each connection.
+private let descriptorFlags = Int32(SOCK_CLOEXEC.rawValue | SOCK_NONBLOCK.rawValue)
+private let streamSocketType = Int32(SOCK_STREAM.rawValue) | descriptorFlags
+
+private func acceptConnection(_ fd: Int32) -> Int32 {
+    return accept4(fd, nil, nil, descriptorFlags)
+}
 
 /// `struct ucred` of <sys/socket.h>, which Swift's Glibc module does not import (glibc declares
 /// it only for _GNU_SOURCE). The layout is the kernel's: pid, uid, gid.
@@ -63,6 +72,10 @@ private struct PeerCredentials {
 }
 #else
 private let streamSocketType = SOCK_STREAM
+
+private func acceptConnection(_ fd: Int32) -> Int32 {
+    return accept(fd, nil, nil)
+}
 #endif
 
 /// The uid of the process at the other end of the connected socket `fd`, or nil when the system
@@ -312,7 +325,7 @@ final class UnixSocketServer: @unchecked Sendable {
 
     private func acceptPending() {
         while true {
-            let fd = accept(listenFDSnapshot(), nil, nil)
+            let fd = acceptConnection(listenFDSnapshot())
             if fd < 0 {
                 if errno == EINTR {
                     continue
@@ -356,14 +369,24 @@ final class UnixSocketServer: @unchecked Sendable {
         }
     }
 
+    /// The listening descriptor and each open connection's, for tests to check their flags.
+    var descriptorsForTesting: [Int32] {
+        lock.lock()
+        defer { lock.unlock() }
+        return [listenFD] + connections.values.map(\.fd)
+    }
+
     private func listenFDSnapshot() -> Int32 {
         lock.lock()
         defer { lock.unlock() }
         return listenFD
     }
 
-    /// Non-blocking, close-on-exec, and (on macOS) no SIGPIPE on a broken peer.
+    /// Non-blocking, close-on-exec, and no SIGPIPE on a broken peer. On Linux there is nothing to
+    /// set: the descriptors are created non-blocking and close-on-exec, and every write passes
+    /// MSG_NOSIGNAL.
     private static func configure(fd: Int32) throws {
+        #if canImport(Darwin)
         let flags = fcntl(fd, F_GETFL)
         guard flags >= 0, fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else {
             throw UnixSocketServerError.systemCall("fcntl(F_SETFL)", errno: errno)
@@ -371,7 +394,6 @@ final class UnixSocketServer: @unchecked Sendable {
         guard fcntl(fd, F_SETFD, FD_CLOEXEC) == 0 else {
             throw UnixSocketServerError.systemCall("fcntl(F_SETFD)", errno: errno)
         }
-        #if canImport(Darwin)
         var one: Int32 = 1
         guard setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
             throw UnixSocketServerError.systemCall("setsockopt(SO_NOSIGPIPE)", errno: errno)

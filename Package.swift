@@ -457,12 +457,17 @@ Package(
             name: "ActionUIAppHeaders",
             path: "ActionUIAdwaita/AppHeaders"
         ),
+        // accept4, which the remote server uses and Swift's Glibc module does not import.
+        .systemLibrary(
+            name: "CLinuxSocket",
+            path: "ActionUIAdwaita/CLinuxSocket"
+        ),
         // The remote server (ActionUIRemote/PROTOCOL.md): JSON-RPC over a Unix socket, so other
         // processes of the user read and change the application's windows. The same sources as on
         // macOS; the clients and the protocol text are not compiled.
         .target(
             name: "ActionUIRemote",
-            dependencies: ["ActionUI"],
+            dependencies: ["ActionUI", "CLinuxSocket"],
             path: "ActionUIRemote",
             exclude: [
                 "Node",

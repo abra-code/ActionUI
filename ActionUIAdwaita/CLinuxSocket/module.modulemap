@@ -1,0 +1,5 @@
+// Socket calls the Linux ActionUIRemote target needs that Swift's Glibc module leaves out.
+module CLinuxSocket [system] {
+    header "CLinuxSocket.h"
+    export *
+}
