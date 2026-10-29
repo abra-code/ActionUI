@@ -9,9 +9,9 @@ understanding before choosing them over the Python client.
 
 On Linux none of the following applies: any same-user process reads a shell's environment from
 `/proc/<pid>/environ` like any other process's, so a shell handler's token is exposed as a Python
-one is, and the token descriptor (PROTOCOL.md section 10) is the only protection. The shell clients
-themselves are not tested on Linux yet; the `nc` transport needs a netcat with `-U` (OpenBSD
-netcat, Debian's and Ubuntu's `netcat-openbsd`), the zsh transport needs no `nc`.
+one is, and the token descriptor (PROTOCOL.md section 10) is the only protection. There the shell
+client is a convenience, the same API for a handler written in bash: `actionui_remote_linux.bash`
+(see Which file).
 
 On macOS, whether another process of the same user can read a process's environment with `ps`
 depends on one thing: the `CS_RESTRICT` code-signing flag. The kernel withholds the environment
@@ -60,19 +60,30 @@ remove is the easiest route, the one a Python or Node handler leaves open.
   (`zsh/net/socket`, shipped with `/bin/zsh`). No helper process at all, and one connection kept
   open for the whole script, the way the Python client does. Faster, and simpler underneath.
   It sources the `.sh`, so the two never drift.
+- **`actionui_remote_linux.bash`** is the client on Linux: the same API and command line, for bash
+  5 or later (bash 5.2 on Debian 13, 5.3 on Ubuntu 26.04). It sources the `.sh` and replaces what
+  is macOS's there: the transport is OpenBSD netcat's `nc -N -U`, one per request, bounded by
+  coreutils `timeout` (a fractional timeout is honored), and strings are read back with
+  `actionui_remote_unquote.awk` instead of `plutil`. Linux only: it refuses macOS's bash 3.2, any
+  bash on macOS and other shells, and on Linux the `.sh` refuses to load without it. Debian's and
+  Ubuntu's `/bin/sh` is dash, which cannot run the `.sh`, so this file's first line names bash.
+  Needs `netcat-openbsd`, their default `nc`.
 - **`actionui_remote_escape.awk`** and **`actionui_remote_walk.awk`** are the two awk programs the
   `.sh` runs: the control-character pass of its JSON escaping, and the walker that reads the top
-  level of a reply. Files of their own rather than long strings inside a shell script, which is
-  the only form in which either of them is readable.
+  level of a reply. **`actionui_remote_unquote.awk`** is the Linux file's, turning a JSON string
+  back into its text. Files of their own rather than long strings inside a shell script, which is
+  the only form in which any of them is readable.
 
-Prefer the `.zsh` when the handler is zsh anyway. Use the `.sh` when it has to be `/bin/sh`.
+On macOS, prefer the `.zsh` when the handler is zsh anyway, and use the `.sh` when it has to be
+`/bin/sh`. On Linux, use `actionui_remote_linux.bash` (zsh, where installed, has no Linux client).
 
 **The files go together.** Whatever you copy, copy the set: the `.sh` finds the two `.awk`
 programs beside itself when it is sourced, and a copy that took only the `.sh` says which files
 are missing and refuses to load, rather than working until the first control character or the
 first reply. The directory is resolved once, when the file is sourced, so a handler that `cd`s
 afterwards is fine, and a symlink to the `.sh` is followed to where the file really is, so
-`/usr/local/bin/actionui_remote.sh` pointing into a checkout works.
+`/usr/local/bin/actionui_remote.sh` pointing into a checkout works. On Linux the set is five files:
+the `.bash`, the `.sh` and the three `.awk` programs.
 
 ## Use
 
@@ -217,15 +228,16 @@ member is an error (the first one on stderr).
 Token: `actionui_hold_token`, `actionui_handoff COMMAND [ARGS...]`. Connection (zsh only):
 `actionui_disconnect`.
 
-## What the two transports do, and what they use
+## What the transports do, and what they use
 
 **`nc` (the `.sh`).** Each request starts `/usr/bin/nc -U` with its stdin and stdout on two FIFOs
 in a fresh temporary directory. The request goes down the stdin FIFO; the reply is read from the
-stdout FIFO with a timeout; only then is `nc`'s stdin closed. The order matters: macOS `nc`
-half-closes the socket the moment its stdin ends, and the host closes a connection on EOF even
-with a reply still pending on its main thread, so a request piped straight into `nc` can lose its
-own answer. Descriptors 8 and 9 are used during a call; a script that has its own 8 or 9 open
-will find them closed afterwards. `actionui_handoff` uses descriptor 5 within the call and 3 in
+stdout FIFO with a timeout; only then is `nc`'s stdin closed. The order dates from hosts that
+closed a connection on EOF even with a reply still pending on the main thread: macOS `nc`
+half-closes the socket the moment its stdin ends, so a request piped straight into `nc` could lose
+its own answer. Hosts now answer a half-closed connection (the Linux client relies on it); the
+FIFOs stay, so this client works with hosts built before that too. Descriptors 8 and 9 are used
+during a call; a script that has its own 8 or 9 open will find them closed afterwards. `actionui_handoff` uses descriptor 5 within the call and 3 in
 the child.
 
 **`zsh/net/socket` (the `.zsh`).** One connection, opened on first use and kept. A request that
@@ -235,10 +247,19 @@ waiting for the reply is reported, not retried, since the request may already ha
 that a host that went away is a failed send rather than a dead script; the disposition is then
 reset to the default, which drops a PIPE trap of the script's own if it had one.
 
-Both parse replies with `awk` (`actionui_remote_walk.awk`, a top-level JSON walker: result,
+**`nc -N` (the Linux `.bash`).** Each request is one pipeline: `printf` (a builtin, so the token is
+in no argv) writes the request line into `/usr/bin/timeout T /usr/bin/nc -N -U ENDPOINT`. `-N`
+shuts the socket's sending side once the request is written; the host answers the half-closed
+connection and then closes it, and `nc` exits with the reply printed. No FIFOs, no temporary
+files, no descriptors of the script's touched. A host that never answers is ended by `timeout`
+(exit 3, "no reply"); a missing socket file and a refused connection are told apart by whether the
+file exists, as the `.zsh` does.
+
+All parse replies with `awk` (`actionui_remote_walk.awk`, a top-level JSON walker: result,
 error, id, batch members) and `plutil` (string unescaping, including `\uXXXX` and surrogate
-pairs), both restricted Apple binaries. What they receive on stdin is replies, which never carry
-the token, plus in `actionui_call` the caller's own params before the token is added. Request
+pairs), both restricted Apple binaries; on Linux `actionui_remote_unquote.awk` unescapes instead
+of `plutil`, run with `LC_ALL=C` so that gawk and mawk alike write bytes. What they receive on
+stdin is replies, which never carry the token, plus in `actionui_call` the caller's own params before the token is added. Request
 text is escaped in the shell itself; text with control characters takes one `awk` pass
 (`actionui_remote_escape.awk`), on stdin - the token included, should a host ever mint one
 containing such a character, which is still stdin of a restricted binary and never argv.
@@ -261,11 +282,15 @@ script, as POSIX requires of a special builtin, so a process out of descriptors,
 
 ```sh
 cd ActionUIRemote/Shell && ./test_actionui_remote.sh          # the whole matrix
-/bin/sh  test_actionui_remote.sh nc                            # one cell
-/bin/zsh test_actionui_remote.sh zsocket
+/bin/sh   test_actionui_remote.sh nc                           # one cell
+/bin/zsh  test_actionui_remote.sh zsocket
+/bin/bash test_actionui_remote.sh linux                        # Linux
 ```
 
-The matrix runs the `.sh` under `/bin/sh` and under zsh, and the `.zsh`, against the fake host in
+On macOS the matrix runs the `.sh` under `/bin/sh` and under zsh, and the `.zsh`; on Linux it runs
+the `.bash` under bash, without the `ps` checks below (Linux has no `CS_RESTRICT`, and its `ps` no
+`-E`) except that no process has the token in its argv while a request is in flight, and with the fake host's `--no-reply` as the host that never answers, since a bare `nc -l`
+hangs up as soon as the client half-closes. All against the fake host in
 `../Python/actionui_remote_testing.py` (needs a `python3`). The fake host requires a token, so
 every request exercises the token path, and its log is checked at the end for the token in the
 clear. The descriptor delivery is checked both ways: the token arrives, and afterwards the

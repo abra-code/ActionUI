@@ -1,14 +1,16 @@
 #!/bin/sh
-# test_actionui_remote.sh - tests for actionui_remote.sh and actionui_remote.zsh.
+# test_actionui_remote.sh - tests for actionui_remote.sh, actionui_remote.zsh and
+# actionui_remote_linux.bash.
 #
-# Run with no arguments and it runs the whole matrix - the sh library under /bin/sh, the sh
-# library under /bin/zsh (nc transport), and the zsh wrapper under /bin/zsh (native transport) -
-# against the fake host in ../Python/actionui_remote_testing.py, which needs a python3. Or run one
-# cell directly:
+# Run with no arguments and it runs the whole matrix against the fake host in
+# ../Python/actionui_remote_testing.py, which needs a python3. On macOS: the sh library under
+# /bin/sh, the sh library under /bin/zsh (nc transport), and the zsh wrapper under /bin/zsh
+# (native transport). On Linux: the Linux wrapper under /bin/bash. Or run one cell directly:
 #
-#     /bin/sh  test_actionui_remote.sh nc
-#     /bin/zsh test_actionui_remote.sh nc
-#     /bin/zsh test_actionui_remote.sh zsocket
+#     /bin/sh   test_actionui_remote.sh nc
+#     /bin/zsh  test_actionui_remote.sh nc
+#     /bin/zsh  test_actionui_remote.sh zsocket
+#     /bin/bash test_actionui_remote.sh linux       (Linux)
 #
 # Output is one line per check, "ok" or "not ok", then a summary; the exit status is the number
 # of failures (0 when everything passed). The fake host requires a token, so every request also
@@ -18,7 +20,9 @@
 # The last group of checks is the reason this client exists: with a token in the environment, no
 # process the library runs - the shell itself, or nc mid-request - shows that token to `ps -E`,
 # while a python3 child spawned without actionui_hold_token does. Those checks need the host to
-# hold a connection open without replying, which a bare `nc -l` provides.
+# hold a connection open without replying, which a bare `nc -l` provides. They are macOS's: Linux
+# has no CS_RESTRICT, and its ps has no -E, so the linux cell skips them, all but the one that
+# holds on Linux too: with a request in flight, no process has the token in its argv.
 
 _t_here=$(CDPATH= cd "$(/usr/bin/dirname "$0")" && pwd)
 _t_python_dir="$_t_here/../Python"
@@ -32,9 +36,14 @@ if [ "$#" -eq 0 ]; then
         "$1" "$_t_here/test_actionui_remote.sh" "$2"
         _t_total=$((_t_total + $?))
     }
-    t_cell /bin/sh nc
-    t_cell /bin/zsh nc
-    t_cell /bin/zsh zsocket
+    _t_system=$(/usr/bin/uname -s)
+    if [ "$_t_system" = "Linux" ]; then
+        t_cell /bin/bash linux
+    else
+        t_cell /bin/sh nc
+        t_cell /bin/zsh nc
+        t_cell /bin/zsh zsocket
+    fi
     printf '\n=== matrix: %s failure(s) ===\n' "$_t_total"
     exit "$_t_total"
 fi
@@ -45,11 +54,15 @@ if [ -n "${ZSH_VERSION:-}" ]; then
     eval 'setopt no_bg_nice'
 fi
 case $_t_transport in
-    nc|zsocket) ;;
-    *) printf '%s\n' "usage: test_actionui_remote.sh [nc|zsocket]" >&2; exit 2 ;;
+    nc|zsocket|linux) ;;
+    *) printf '%s\n' "usage: test_actionui_remote.sh [nc|zsocket|linux]" >&2; exit 2 ;;
 esac
 if [ "$_t_transport" = "zsocket" ] && [ -z "${ZSH_VERSION:-}" ]; then
     printf '%s\n' "the zsocket transport needs zsh: /bin/zsh test_actionui_remote.sh zsocket" >&2
+    exit 2
+fi
+if [ "$_t_transport" = "linux" ] && [ -z "${BASH_VERSION:-}" ]; then
+    printf '%s\n' "the linux cell needs bash: /bin/bash test_actionui_remote.sh linux" >&2
     exit 2
 fi
 
@@ -139,6 +152,19 @@ t_start_host() {
     fi
 }
 
+# A listener at $1 that accepts and never answers, its pid into _t_hang_pid. On macOS a bare
+# `nc -l` fed nothing for $2 seconds; on Linux the fake host's --no-reply, since OpenBSD netcat's
+# listener hangs up as soon as the client shuts its sending side, which the Linux client's nc -N
+# does, and the request would read as the host closing instead of as the timeout under test.
+t_silent_host() {
+    if [ "$_t_transport" = "linux" ]; then
+        (cd "$_t_python_dir" && exec "$_t_python" -m actionui_remote_testing --socket "$1" --no-reply) >/dev/null 2>&1 &
+    else
+        /bin/sleep "$2" | /usr/bin/nc -l -U "$1" >/dev/null 2>&1 &
+    fi
+    _t_hang_pid=$!
+}
+
 t_stop_host() {
     if [ -n "$_t_host" ]; then
         kill "$_t_host" 2>/dev/null
@@ -161,14 +187,24 @@ export ACTIONUI_REMOTE_ENDPOINT="$_t_sock"
 export ACTIONUI_WINDOW_UUID="W-1"
 export ACTIONUI_REMOTE_TOKEN="$_t_token"
 
+# _t_lib is the file a script loads, and the file set copied by the checks near the end that move
+# the client somewhere else: the .sh and its two awk programs, plus on Linux the wrapper and its
+# own awk program.
 if [ "$_t_transport" = "zsocket" ]; then
     . "$_t_here/actionui_remote.zsh"
     _t_cli="$_t_here/actionui_remote.zsh"
     _t_shell=/bin/zsh
+    _t_lib=actionui_remote.sh
+elif [ "$_t_transport" = "linux" ]; then
+    . "$_t_here/actionui_remote_linux.bash"
+    _t_cli="$_t_here/actionui_remote_linux.bash"
+    _t_shell=/bin/bash
+    _t_lib=actionui_remote_linux.bash
 else
     . "$_t_here/actionui_remote.sh"
     _t_cli="$_t_here/actionui_remote.sh"
     if [ -n "${ZSH_VERSION:-}" ]; then _t_shell=/bin/zsh; else _t_shell=/bin/sh; fi
+    _t_lib=actionui_remote.sh
 fi
 # The command line, run under the cell's shell rather than the file's shebang, so the zsh cells
 # exercise the .sh's CLI under zsh too.
@@ -651,20 +687,22 @@ t_contains "requests carried a token (the log redacts it)" '"token": "<redacted>
 
 unset ACTIONUI_REMOTE_TOKEN
 
-ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '/bin/sleep 1.5; exit 0  # aui-shell-probe' &
-_t_shpid=$!
-/bin/sleep 0.4
-_t_sh_ps=$(/bin/ps -E -p "$_t_shpid" -o command= 2>/dev/null)
-t_contains "ps can see a child shell's argv" "aui-shell-probe" "$_t_sh_ps"
-t_lacks "a child shell with the token in its exec-time environment does not show it to ps" \
-    "$_t_token" "$_t_sh_ps"
-wait "$_t_shpid" 2>/dev/null
+if [ "$_t_transport" != "linux" ]; then
+    ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '/bin/sleep 1.5; exit 0  # aui-shell-probe' &
+    _t_shpid=$!
+    /bin/sleep 0.4
+    _t_sh_ps=$(/bin/ps -E -p "$_t_shpid" -o command= 2>/dev/null)
+    t_contains "ps can see a child shell's argv" "aui-shell-probe" "$_t_sh_ps"
+    t_lacks "a child shell with the token in its exec-time environment does not show it to ps" \
+        "$_t_token" "$_t_sh_ps"
+    wait "$_t_shpid" 2>/dev/null
+fi
 
-# A listener that accepts and never answers, so a request stays in flight while we look. Its
-# stdin ends after three seconds, which makes it half-close and lets everything exit on its own.
+# A listener that accepts and never answers, so a request stays in flight while we look. On
+# macOS its stdin ends after three seconds, which makes it half-close and lets everything exit on
+# its own; on Linux it is the fake host's --no-reply, stopped below once ps has looked.
 _t_hang="$_t_tmp/hang.sock"
-/bin/sleep 3 | /usr/bin/nc -l -U "$_t_hang" >/dev/null 2>&1 &
-_t_hang_pid=$!
+t_silent_host "$_t_hang" 3
 _t_wait=0
 while [ ! -S "$_t_hang" ] && [ "$_t_wait" -lt 50 ]; do /bin/sleep 0.1; _t_wait=$((_t_wait + 1)); done
 if [ -S "$_t_hang" ]; then
@@ -672,7 +710,14 @@ if [ -S "$_t_hang" ]; then
         t_cli get-value 2 >/dev/null 2>&1 &
     _t_inflight=$!
     /bin/sleep 1
-    _t_all_ps=$(/bin/ps -A -E -o pid= -o command= 2>/dev/null | /usr/bin/grep -v "^ *$_t_host " | /usr/bin/grep -v ' /bin/ps -A -E ')
+    # Linux: argv only (procps ps has no -E, and environments are not what is checked there).
+    if [ "$_t_transport" = "linux" ]; then
+        _t_all_ps=$(/bin/ps -A -o pid= -o args= 2>/dev/null | /usr/bin/grep -v "^ *$_t_host ")
+        _t_nc_pattern="nc -N -U $_t_hang"
+    else
+        _t_all_ps=$(/bin/ps -A -E -o pid= -o command= 2>/dev/null | /usr/bin/grep -v "^ *$_t_host " | /usr/bin/grep -v ' /bin/ps -A -E ')
+        _t_nc_pattern="nc -w [0-9]+ -U $_t_hang"
+    fi
     _t_client_ps=$(printf '%s\n' "$_t_all_ps" | /usr/bin/grep -F "$_t_cli" | /usr/bin/grep -F "get-value 2" | /usr/bin/grep -v grep)
     if [ -n "$_t_client_ps" ]; then
         t_ok "ps can see the in-flight client's argv"
@@ -681,13 +726,17 @@ if [ -S "$_t_hang" ]; then
     fi
     _t_seen=$(printf '%s\n' "$_t_all_ps" | /usr/bin/grep -F "$_t_token" | /usr/bin/grep -v grep)
     t_eq "with a request in flight, no process shows the token to ps" "" "$_t_seen"
-    if [ "$_t_transport" = "nc" ]; then
-        _t_ncpids=$(/usr/bin/pgrep -f "nc -w [0-9]+ -U $_t_hang")
+    if [ "$_t_transport" != "zsocket" ]; then
+        _t_ncpids=$(/usr/bin/pgrep -f "$_t_nc_pattern")
         if [ -n "$_t_ncpids" ]; then
             t_ok "the in-flight request has an nc helper to inspect"
         else
             t_not_ok "the in-flight request has an nc helper to inspect" "no nc found"
         fi
+    fi
+    if [ "$_t_transport" = "linux" ]; then
+        # Stopping the no-reply host closes the held connection, as the 3 s nc -l does on macOS.
+        kill "$_t_hang_pid" 2>/dev/null
     fi
     wait "$_t_inflight" 2>/dev/null
     _t_rc=$?
@@ -700,8 +749,7 @@ wait "$_t_hang_pid" 2>/dev/null
 # A timeout is bounded, reported as one, and leaves nothing behind for the next call to mistake
 # for its own reply. This is the library sourced in this shell, after successful calls above.
 _t_hang="$_t_tmp/hang2.sock"
-/bin/sleep 12 | /usr/bin/nc -l -U "$_t_hang" >/dev/null 2>&1 &
-_t_hang_pid=$!
+t_silent_host "$_t_hang" 12
 _t_wait=0
 while [ ! -S "$_t_hang" ] && [ "$_t_wait" -lt 50 ]; do /bin/sleep 0.1; _t_wait=$((_t_wait + 1)); done
 if [ -S "$_t_hang" ]; then
@@ -726,8 +774,7 @@ if [ -S "$_t_hang" ]; then
     wait "$_t_hang_pid" 2>/dev/null
     # A fresh listener for the batch: nc -l serves one connection and exits.
     _t_hang="$_t_tmp/hang3.sock"
-    /bin/sleep 12 | /usr/bin/nc -l -U "$_t_hang" >/dev/null 2>&1 &
-    _t_hang_pid=$!
+    t_silent_host "$_t_hang" 12
     _t_wait=0
     while [ ! -S "$_t_hang" ] && [ "$_t_wait" -lt 50 ]; do /bin/sleep 0.1; _t_wait=$((_t_wait + 1)); done
     ACTIONUI_REMOTE_ENDPOINT=$_t_hang
@@ -748,25 +795,27 @@ fi
 wait "$_t_hang_pid" 2>/dev/null
 /bin/rm -f "$_t_hang"
 
-# The contrast: a python3 child spawned with the token in the environment exposes it...
-ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_python" -c 'import time; time.sleep(1.5)' &
-_t_py=$!
-/bin/sleep 0.5
-t_contains "a python3 child with the token in its environment shows it to ps (the leak)" \
-    "$_t_token" "$(/bin/ps -E -p "$_t_py" -o command= 2>/dev/null)"
-wait "$_t_py" 2>/dev/null
-# ...and the same child through the handoff does not. The marker in its argv is how it is found.
-actionui_handoff "$_t_python" -c 'import os, time; os.read(3, 4096); time.sleep(2)  # aui-handoff-probe' &
-_t_ho=$!
-/bin/sleep 0.7
-_t_probe_ps=$(/bin/ps -A -E -o command= 2>/dev/null | /usr/bin/grep -F 'aui-handoff-probe' | /usr/bin/grep -F 'os.read(3' | /usr/bin/grep -v grep)
-if [ -n "$_t_probe_ps" ]; then
-    t_ok "the handed-off python3 child is running and visible to ps"
-else
-    t_not_ok "the handed-off python3 child is running and visible to ps" "not found"
+if [ "$_t_transport" != "linux" ]; then
+    # The contrast: a python3 child spawned with the token in the environment exposes it...
+    ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_python" -c 'import time; time.sleep(1.5)' &
+    _t_py=$!
+    /bin/sleep 0.5
+    t_contains "a python3 child with the token in its environment shows it to ps (the leak)" \
+        "$_t_token" "$(/bin/ps -E -p "$_t_py" -o command= 2>/dev/null)"
+    wait "$_t_py" 2>/dev/null
+    # ...and the same child through the handoff does not. The marker in its argv is how it is found.
+    actionui_handoff "$_t_python" -c 'import os, time; os.read(3, 4096); time.sleep(2)  # aui-handoff-probe' &
+    _t_ho=$!
+    /bin/sleep 0.7
+    _t_probe_ps=$(/bin/ps -A -E -o command= 2>/dev/null | /usr/bin/grep -F 'aui-handoff-probe' | /usr/bin/grep -F 'os.read(3' | /usr/bin/grep -v grep)
+    if [ -n "$_t_probe_ps" ]; then
+        t_ok "the handed-off python3 child is running and visible to ps"
+    else
+        t_not_ok "the handed-off python3 child is running and visible to ps" "not found"
+    fi
+    t_lacks "a python3 child through actionui_handoff does not show the token to ps" "$_t_token" "$_t_probe_ps"
+    wait "$_t_ho" 2>/dev/null
 fi
-t_lacks "a python3 child through actionui_handoff does not show the token to ps" "$_t_token" "$_t_probe_ps"
-wait "$_t_ho" 2>/dev/null
 
 # --- the awk programs are files, and the three go together ----------------------------------------
 
@@ -776,8 +825,12 @@ wait "$_t_ho" 2>/dev/null
 _t_awkcopy="$_t_tmp/awkcopy"
 /bin/mkdir -p "$_t_awkcopy"
 /bin/cp "$_t_here/actionui_remote.sh" "$_t_awkcopy/"
+if [ "$_t_transport" = "linux" ]; then
+    # The wrapper and its own program, so that what is missing is the .sh's two.
+    /bin/cp "$_t_here/actionui_remote_linux.bash" "$_t_here/actionui_remote_unquote.awk" "$_t_awkcopy/"
+fi
 
-_t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" 2>&1)
+_t_out=$("$_t_shell" -c '. "$1/$2"' _ "$_t_awkcopy" "$_t_lib" 2>&1)
 _t_rc=$?
 t_eq "the .sh without its programs refuses to load" 2 "$_t_rc"
 t_contains "and names both of them" "actionui_remote_escape.awk and actionui_remote_walk.awk" "$_t_out"
@@ -790,34 +843,46 @@ if [ -n "$_t_awkcopy_real" ]; then
 else
     t_not_ok "and says where it looked" "could not resolve $_t_awkcopy"
 fi
-_t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh" >/dev/null 2>&1; command -v actionui_get_value' _ "$_t_awkcopy" 2>/dev/null)
+_t_out=$("$_t_shell" -c '. "$1/$2" >/dev/null 2>&1; command -v actionui_get_value' _ "$_t_awkcopy" "$_t_lib" 2>/dev/null)
 t_eq "and leaves no half-loaded API behind" "" "$_t_out"
-_t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh" >/dev/null 2>&1; printf "%s" "${ACTIONUI_EXIT_USAGE:-}${ACTIONUI_PROTOCOL_VERSION:-}"' _ "$_t_awkcopy" 2>/dev/null)
+_t_out=$("$_t_shell" -c '. "$1/$2" >/dev/null 2>&1; printf "%s" "${ACTIONUI_EXIT_USAGE:-}${ACTIONUI_PROTOCOL_VERSION:-}"' _ "$_t_awkcopy" "$_t_lib" 2>/dev/null)
 t_eq "and not even the constants: it refuses before it defines anything" "" "$_t_out"
-"$_t_shell" "$_t_awkcopy/actionui_remote.sh" hello >/dev/null 2>&1
+"$_t_shell" "$_t_awkcopy/$_t_lib" hello >/dev/null 2>&1
 _t_rc=$?
 t_eq "and run as a command rather than sourced, it exits 2 the same way" 2 "$_t_rc"
 
 /bin/cp "$_t_here/actionui_remote_escape.awk" "$_t_awkcopy/"
-"$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" >/dev/null 2>&1
+"$_t_shell" -c '. "$1/$2"' _ "$_t_awkcopy" "$_t_lib" >/dev/null 2>&1
 _t_rc=$?
 t_eq "one of the two programs is not enough either" 2 "$_t_rc"
 
 /bin/chmod 000 "$_t_awkcopy/actionui_remote_escape.awk"
 /bin/cp "$_t_here/actionui_remote_walk.awk" "$_t_awkcopy/"
-"$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" >/dev/null 2>&1
+"$_t_shell" -c '. "$1/$2"' _ "$_t_awkcopy" "$_t_lib" >/dev/null 2>&1
 _t_rc=$?
 t_eq "a program that is there but unreadable is caught at load too" 2 "$_t_rc"
 /bin/chmod 644 "$_t_awkcopy/actionui_remote_escape.awk"
+
+# On Linux the wrapper's own program goes with the set too, and is checked before the .sh loads.
+if [ "$_t_transport" = "linux" ]; then
+    /bin/mv "$_t_awkcopy/actionui_remote_unquote.awk" "$_t_tmp/unquote.awk"
+    _t_out=$("$_t_shell" -c '. "$1/$2"' _ "$_t_awkcopy" "$_t_lib" 2>&1)
+    _t_rc=$?
+    t_eq "the Linux wrapper without its own program refuses to load" 2 "$_t_rc"
+    t_contains "and names it" "actionui_remote_unquote.awk" "$_t_out"
+    _t_out=$("$_t_shell" -c '. "$1/$2" >/dev/null 2>&1; command -v actionui_get_value' _ "$_t_awkcopy" "$_t_lib" 2>/dev/null)
+    t_eq "and leaves no API behind" "" "$_t_out"
+    /bin/mv "$_t_tmp/unquote.awk" "$_t_awkcopy/actionui_remote_unquote.awk"
+fi
 
 # The complete set, somewhere else entirely, sourced through a relative path and then cd'd away
 # from: the directory is resolved once when the file is sourced, so a handler is free to move.
 # A tab in the text is the escaper's file, and the reply it comes back in is the walker's.
 _t_tabtext="a${_AUI_TAB}b"
-_t_out=$(cd "$_t_awkcopy" && ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '. ./actionui_remote.sh || exit 9
+_t_out=$(cd "$_t_awkcopy" && ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '. "./$2" || exit 9
 cd / || exit 9
 actionui_set_string 2 "$1" >/dev/null || exit 9
-actionui_get_string 2' _ "$_t_tabtext" 2>/dev/null)
+actionui_get_string 2' _ "$_t_tabtext" "$_t_lib" 2>/dev/null)
 t_eq "the three files copied together work from anywhere, cd included" "$_t_tabtext" "$_t_out"
 
 if [ -n "${ZSH_VERSION:-}" ]; then
@@ -866,12 +931,12 @@ fi
 # link is. zsh resolves that with :A; the .sh follows the link by hand for bash.
 _t_linkdir="$_t_tmp/link"
 /bin/mkdir -p "$_t_linkdir"
-/bin/ln -s "$_t_here/actionui_remote.sh" "$_t_linkdir/actionui_remote.sh"
-_t_out=$(ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '. "$1/actionui_remote.sh" || exit 9
+/bin/ln -s "$_t_here/$_t_lib" "$_t_linkdir/$_t_lib"
+_t_out=$(ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '. "$1/$2" || exit 9
 actionui_get_value 2 >/dev/null || exit 9
-printf loaded' _ "$_t_linkdir" 2>/dev/null)
+printf loaded' _ "$_t_linkdir" "$_t_lib" 2>/dev/null)
 t_eq "a client reached through a symlink still finds its programs" "loaded" "$_t_out"
-/bin/ln -s "$_t_linkdir/actionui_remote.sh" "$_t_linkdir/second.sh"
+/bin/ln -s "$_t_linkdir/$_t_lib" "$_t_linkdir/second.sh"
 _t_out=$("$_t_shell" -c '. "$1/second.sh" >/dev/null 2>&1 || exit 9
 printf loaded' _ "$_t_linkdir" 2>/dev/null)
 t_eq "and through a symlink to a symlink" "loaded" "$_t_out"
@@ -883,7 +948,7 @@ t_eq "and through a symlink to a symlink" "loaded" "$_t_out"
 # has to end on a real file, or the next readlink hides the mistake by replacing the path.
 /bin/mkdir -p "$_t_linkdir/real" "$_t_linkdir/deep"
 /bin/ln -s "$_t_here" "$_t_linkdir/full"
-/bin/ln -s "../full/actionui_remote.sh" "$_t_linkdir/real/relative.sh"
+/bin/ln -s "../full/$_t_lib" "$_t_linkdir/real/relative.sh"
 /bin/ln -s "$_t_linkdir/real" "$_t_linkdir/deep/mount"
 _t_out=$("$_t_shell" -c '. "$1/deep/mount/relative.sh" >/dev/null 2>&1 || exit 9
 printf loaded' _ "$_t_linkdir" 2>/dev/null)
@@ -904,7 +969,23 @@ for _t_othersh in /bin/dash /bin/ksh; do
     # matches with a case glob. Case matters here - dash also exits 2 on a parse error, so this
     # and the status check would both pass through the very failure the eval wrapper prevents.
     t_lacks "and got there without a parse error" "yntax error" "$_t_out"
+    if [ "$_t_transport" = "linux" ]; then
+        _t_out=$(cd / && "$_t_othersh" -c '. "$1/actionui_remote_linux.bash"' _ "$_t_here" 2>&1)
+        _t_rc=$?
+        t_eq "$_t_othersh sourcing the Linux wrapper is turned away with 2" 2 "$_t_rc"
+        t_contains "and told it needs bash 5" "needs bash 5 or later" "$_t_out"
+        t_lacks "and got there without a parse error" "yntax error" "$_t_out"
+    fi
 done
+
+# On Linux the .sh is the API behind the wrapper, not a client of its own: plutil, which it reads
+# strings back with, is macOS's.
+if [ "$_t_transport" = "linux" ]; then
+    _t_out=$(cd / && /bin/bash -c '. "$1/actionui_remote.sh"' _ "$_t_here" 2>&1)
+    _t_rc=$?
+    t_eq "on Linux the .sh sourced by bash on its own is turned away with 2" 2 "$_t_rc"
+    t_contains "and pointed at the wrapper" "on Linux use actionui_remote_linux.bash" "$_t_out"
+fi
 
 # --- summary ------------------------------------------------------------------------------------
 

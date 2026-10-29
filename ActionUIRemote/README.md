@@ -143,10 +143,13 @@ handler written in `/bin/sh` or zsh, with no Python involved; `Shell/actionui_re
 zsh variant with a persistent connection and no helper process. They exist for a security reason
 rather than convenience: a `python3` or `node` process shows its environment, and so the token,
 to any same-user `ps`, and a shell does not. `Shell/README.md` has the measurements and the three
-rules that keep that true.
+rules that keep that true. That reason is macOS's; on Linux, where any same-user process reads a
+shell's environment from `/proc` too, `Shell/actionui_remote_linux.bash` gives a bash handler the
+same API and command line (bash 5, OpenBSD netcat).
 
 The `.sh` does not travel alone: it runs `actionui_remote_escape.awk` and `actionui_remote_walk.awk`
-from its own directory and refuses to load without them, so copy the set.
+from its own directory and refuses to load without them, so copy the set (on Linux, with the
+`.bash` and `actionui_remote_unquote.awk`).
 
 ```sh
 . /path/to/actionui_remote.sh                       # library
@@ -212,7 +215,7 @@ it - the bundled fake host does.
 - `ActionUIRemoteMethods.swift`: the `actionui.*` table over the engine.
 - `Python/`: the stdlib-only Python client (importable, and runnable with `-m`) and a fake
   server for host test suites.
-- `Shell/`: `actionui_remote.sh` and `actionui_remote.zsh`, the shell clients, the two awk
-  programs the `.sh` runs, their tests and README.
+- `Shell/`: `actionui_remote.sh` and `actionui_remote.zsh`, the shell clients, and
+  `actionui_remote_linux.bash`, the Linux one; the awk programs they run, their tests and README.
 - `Node/`: the Node client, its tests and README.
 - Tests in `ActionUIRemoteTests/`.
