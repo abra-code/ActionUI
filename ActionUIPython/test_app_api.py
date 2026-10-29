@@ -50,6 +50,7 @@ def test_module_api_surface():
         "app_remote_server_endpoint",
         "app_remote_server_token",
         "app_set_name",
+        "app_set_application_id",
         "app_set_icon",
         "app_set_resource_folder",
         "app_run",
@@ -175,6 +176,15 @@ def test_type_checking(app: actionui.Application):
         except Exception as e:
             pass  # also acceptable — at least it didn't crash
         check(f"{func_name}(42) raises TypeError", raised)
+
+    _actionui.app_set_application_id("com.example.TestApp")
+    check("app_set_application_id accepts a string", True)
+    raised = False
+    try:
+        _actionui.app_set_application_id(42)
+    except TypeError:
+        raised = True
+    check("app_set_application_id(42) raises TypeError", raised)
 
 
 def test_url_conversion():

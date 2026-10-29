@@ -229,6 +229,18 @@ void actionUIAppSetName(const char* name);
 // Must be called before actionUIAppRun().
 ```
 
+### App application ID
+
+```c
+void actionUIAppSetApplicationID(const char* applicationID);
+// The reverse-DNS application ID ("org.example.App"), which Linux needs: the
+// desktop matches the app's windows to its <applicationID>.desktop entry by it.
+// Unset, one is made from the name. Does nothing on macOS, where the bundle
+// identifier serves.
+// Python: _actionui.app_set_application_id(id); Application(application_id=...).
+// Must be called before actionUIAppRun().
+```
+
 ### App icon
 
 ```c
@@ -420,6 +432,10 @@ app = actionui.Application(resource_folder="ui")  # where the app's resources ar
 # resources are looked up before the main bundle (Python's). If omitted, the folder
 # of the main script, so an app's documents can be named without a path. A
 # relative resource_folder is taken from the current directory, not the script's.
+app = actionui.Application(name="My App", application_id="org.example.MyApp")
+# application_id: the reverse-DNS ID Linux matches the app's windows to its
+# org.example.MyApp.desktop entry by. If omitted, one is made from the name.
+# Nothing on macOS, where the bundle identifier serves.
 ```
 
 #### Lifecycle decorators

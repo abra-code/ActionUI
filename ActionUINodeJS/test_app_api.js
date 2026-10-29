@@ -72,7 +72,7 @@ function testNativeAPISurface() {
         'appSetWillTerminate',       'appSetShouldTerminate',
         'appSetWindowWillClose',     'appSetWindowWillPresent',
         // App control
-        'appSetName', 'appSetIcon', 'appSetResourceFolder',
+        'appSetName', 'appSetApplicationID', 'appSetIcon', 'appSetResourceFolder',
         'appRun', 'appTerminate',
         'appLoadAndPresentWindow', 'appCloseWindow',
         'appLoadMenuBar',
@@ -480,7 +480,12 @@ console.log('ActionUI App API Smoke Tests');
 console.log('='.repeat(55));
 console.log('(No NSApplication run loop — tests the N-API binding layer only)');
 
-const app = new actionui.Application({ name: 'TestApp' });
+let badIDThrew = false;
+try { new actionui.Application({ applicationID: 42 }); } catch (e) { badIDThrew = e instanceof TypeError; }
+check('Application({ applicationID: 42 }) throws TypeError', badIDThrew);
+
+// After a refused applicationID the instance is still free.
+const app = new actionui.Application({ name: 'TestApp', applicationID: 'com.example.TestApp' });
 const win = new actionui.Window();
 
 testNativeAPISurface();

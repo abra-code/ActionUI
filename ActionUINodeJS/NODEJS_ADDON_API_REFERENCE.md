@@ -68,6 +68,11 @@ const app = new actionui.Application({ name: 'My App', icon: 'icon.icns' });
 // of the main script, so an app's documents can be named without a path.
 const app = new actionui.Application({ resourceFolder: path.join(__dirname, 'ui') });
 
+// applicationID: the reverse-DNS ID Linux matches the app's windows to its
+// org.example.MyApp.desktop entry by. If omitted, one is made from the name.
+// Nothing on macOS, where the bundle identifier serves.
+const app = new actionui.Application({ name: 'My App', applicationID: 'org.example.MyApp' });
+
 // Retrieve the existing instance from anywhere:
 const app = actionui.Application.instance();
 ```
@@ -509,6 +514,7 @@ native.appSetWindowWillPresent(fn) // fn(windowUuid: string)
 
 // App control
 native.appSetName(name)
+native.appSetApplicationID(id)  // reverse DNS; needed on Linux, nothing on macOS
 native.appSetIcon(absolutePath)
 native.appSetResourceFolder(absolutePath)  // or null: the main bundle only
 native.appRun()

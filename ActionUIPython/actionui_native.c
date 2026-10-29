@@ -299,6 +299,13 @@ static PyObject* py_app_set_name(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_app_set_application_id(PyObject* self, PyObject* args) {
+    const char* application_id;
+    if (PyArg_ParseTuple(args, "s", &application_id) == 0) return NULL;
+    actionUIAppSetApplicationID(application_id);
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_app_set_icon(PyObject* self, PyObject* args) {
     const char* path;
     if (PyArg_ParseTuple(args, "s", &path) == 0) return NULL;
@@ -1314,6 +1321,8 @@ static PyMethodDef ActionUIMethods[] = {
     /* App name and control */
     {"app_set_name",                  py_app_set_name,                  METH_VARARGS,
      "app_set_name(name) — set the application name for the menu bar."},
+    {"app_set_application_id",        py_app_set_application_id,        METH_VARARGS,
+     "app_set_application_id(id) - set the reverse-DNS application ID, which Linux needs (nothing on macOS, where the bundle identifier serves)."},
     {"app_set_icon",                  py_app_set_icon,                  METH_VARARGS,
      "app_set_icon(path) — set the application icon (Dock + About panel)."},
     {"app_set_resource_folder",       py_app_set_resource_folder,       METH_VARARGS,

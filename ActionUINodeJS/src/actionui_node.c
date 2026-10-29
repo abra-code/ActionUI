@@ -1780,6 +1780,18 @@ static napi_value node_app_set_name(napi_env env, napi_callback_info info) {
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
+static napi_value node_app_set_application_id(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char applicationID[512]; size_t len;
+    if (argc < 1 || napi_get_value_string_utf8(env, argv[0], applicationID, sizeof(applicationID), &len) != napi_ok) {
+        napi_throw_type_error(env, NULL, "appSetApplicationID: expected a string");
+        return NULL;
+    }
+    actionUIAppSetApplicationID(applicationID);
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
 static napi_value node_app_set_icon(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -2183,6 +2195,7 @@ static napi_value Init(napi_env env, napi_value exports) {
 
     /* App control */
     EXPORT_FN(exports, "appSetName",               node_app_set_name);
+    EXPORT_FN(exports, "appSetApplicationID",      node_app_set_application_id);
     EXPORT_FN(exports, "appSetIcon",               node_app_set_icon);
     EXPORT_FN(exports, "appSetResourceFolder",     node_app_set_resource_folder);
     EXPORT_FN(exports, "appRun",                   node_app_run);

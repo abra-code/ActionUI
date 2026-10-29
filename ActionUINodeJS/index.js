@@ -314,8 +314,12 @@ function _buttonToDict(btn) {
 let _appInstance = null;
 
 class Application {
-    constructor({ name, icon, resourceFolder } = {}) {
+    constructor({ name, icon, resourceFolder, applicationID } = {}) {
         if (_appInstance != null) throw new Error('Only one Application instance can exist');
+        // Checked before the instance is taken, so a bad call can be retried.
+        if (applicationID != null && typeof applicationID !== 'string') {
+            throw new TypeError('Application: applicationID must be a string');
+        }
         _appInstance = this;
 
         this._actionHandlers = new Map();
@@ -326,7 +330,10 @@ class Application {
         if (name != null) {
         	_actionui.appSetName(name);
 		}
-		
+        // The reverse-DNS ID Linux matches the app's windows to its <applicationID>.desktop entry
+        // by; unset, one is made from the name. Nothing on macOS, where the bundle identifier serves.
+        if (applicationID != null) _actionui.appSetApplicationID(applicationID);
+
         if (icon != null) {
             _actionui.appSetIcon(path.resolve(icon));
         } else {

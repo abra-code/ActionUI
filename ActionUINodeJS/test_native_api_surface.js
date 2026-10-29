@@ -309,6 +309,11 @@ function testAppControl() {
         try { fn(); } catch {}
     }
     check('appSetName/appSetIcon do not throw', true);
+    native.appSetApplicationID('com.example.TestApp');
+    check('appSetApplicationID accepts a string', true);
+    let threw = false;
+    try { native.appSetApplicationID(42); } catch (e) { threw = e instanceof TypeError; }
+    check('appSetApplicationID rejects a non-string with a TypeError', threw);
 }
 
 function testFilePanels() {

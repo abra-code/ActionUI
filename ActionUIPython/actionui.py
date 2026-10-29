@@ -130,7 +130,8 @@ class Application:
     _instance: Optional['Application'] = None
 
     def __init__(self, name: Optional[str] = None, icon: Optional[str] = None,
-                 resource_folder: Optional[str] = None):
+                 resource_folder: Optional[str] = None,
+                 application_id: Optional[str] = None):
         """Create the application singleton.
 
         Args:
@@ -144,6 +145,11 @@ class Application:
                   names, Image resourceName and WebView script resources are
                   looked up there before the main bundle (which is Python's).
                   If ``None``, the folder of the main script, when there is one.
+            application_id: The reverse-DNS application ID ("org.example.App"),
+                  which Linux needs: the desktop matches the app's windows to
+                  its ``<application_id>.desktop`` entry by it. If ``None``,
+                  one is made from the name. Nothing on macOS, where the
+                  bundle identifier serves.
         """
         if Application._instance is not None:
             raise RuntimeError("Only one Application instance can exist")
@@ -163,6 +169,8 @@ class Application:
 
         if name is not None:
             _actionui.app_set_name(name)
+        if application_id is not None:
+            _actionui.app_set_application_id(application_id)
 
         import os
         if icon is not None:
