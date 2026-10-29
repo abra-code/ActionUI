@@ -24,7 +24,6 @@
 #if os(macOS)
 
 import Foundation
-import Security   // SecRandomCopyBytes, for makeToken()
 import ActionUI
 
 public final class ActionUIRemoteServer: @unchecked Sendable {
@@ -40,10 +39,12 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
     }
 
-    /// A method implementation. Receives the request's named params (already JSON-decoded) and
-    /// returns a JSON-ready result (`nil` encodes as null). Throw `ActionUIRemoteError` to answer
-    /// with a specific code; any other error is reported as `hostRefused` (1004) with its
-    /// description as the message.
+    /// A method implementation. Receives the request's named params, already JSON-decoded into
+    /// Swift-native values: Bool, Int (a number that fits one without loss), Double, String,
+    /// arrays, string-keyed dictionaries, and ActionUIJSONNull for null. Returns a JSON-ready
+    /// result of the same kinds (`nil` encodes as null; Foundation values are converted). Throw
+    /// `ActionUIRemoteError` to answer with a specific code; any other error is reported as
+    /// `hostRefused` (1004) with its description as the message.
     public typealias Handler = @MainActor (_ params: [String: Any]) throws -> Any?
 
     /// Resolves the `path` form of `actionui.presentModal` (a resource name or a relative path)
@@ -55,7 +56,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
     public let host: HostInfo
 
-    private let lock = NSLock()
+    private let lock = Lock()
     // Guarded by `lock`.
     private var _mainThreadTimeout: TimeInterval = 10
     private var _logger: (any ActionUILogger)?
@@ -128,14 +129,20 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         return _tokens.values.sorted()
     }
 
-    /// A token good enough to hand a child: 32 bytes of `SecRandomCopyBytes`, hex encoded.
-    /// Falls back to `arc4random_buf`, which is also a CSPRNG, if the Security call ever fails.
+    /// A token good enough to hand a child: 32 random bytes, hex encoded (64 characters).
+    /// `SystemRandomNumberGenerator` is the system's cryptographically secure generator:
+    /// arc4random_buf on Apple platforms, getrandom on Linux.
     public static func makeToken() -> String {
-        var bytes = [UInt8](repeating: 0, count: 32)
-        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
-            arc4random_buf(&bytes, bytes.count)
+        var generator = SystemRandomNumberGenerator()
+        let digits = Array("0123456789abcdef")
+        var token = ""
+        token.reserveCapacity(64)
+        for _ in 0..<32 {
+            let byte = UInt8.random(in: .min ... .max, using: &generator)
+            token.append(digits[Int(byte >> 4)])
+            token.append(digits[Int(byte & 0x0f)])
         }
-        return bytes.map { String(format: "%02x", $0) }.joined()
+        return token
     }
 
     /// How long a request waits for the main thread before answering `mainThreadUnavailable`
@@ -428,7 +435,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// Run on the main actor: synchronously when already on the main thread (so a host that
     /// registers from its main thread sees the method immediately), otherwise via the main queue.
     private func onMain(_ operation: @escaping @MainActor @Sendable () -> Void) {
-        if Thread.isMainThread {
+        if isMainThread {
             MainActor.assumeIsolated {
                 operation()
             }
@@ -495,7 +502,7 @@ final class RequestBox: @unchecked Sendable {
     let entries: [Result<JSONRPCRequest, JSONRPCRejection>]
     let semaphore = DispatchSemaphore(value: 0)
 
-    private let lock = NSLock()
+    private let lock = Lock()
     private var results: [Int: Result<Any?, ActionUIRemoteError>] = [:]
     private var abandoned = false
 

@@ -137,8 +137,8 @@ def check_properties_and_state(win):
     check_equal(win.set_state_from_string(2, "count", "5"), True, "set_state_from_string")
     check_equal(win.get_state(2, "count"), 5, "set_state_from_string parses toward the stored type")
 
-    # The engine seeds states with Swift-native values while the wire carries NSNumber; a whole
-    # JSON number must land in a Double state rather than report a spurious mismatch.
+    # A whole JSON number decodes as an integer; it must land in a Double state rather than
+    # report a spurious mismatch.
     check_equal(win.set_state(2, "ratio", 0.5), True, "set_state creates a Double state")
     check_equal(win.set_state(2, "ratio", 2), True, "a whole number is accepted by a Double state")
     check_equal(win.get_state(2, "ratio"), 2.0, "the Double state took the new value")

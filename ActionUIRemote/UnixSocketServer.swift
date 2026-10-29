@@ -57,7 +57,7 @@ final class UnixSocketServer: @unchecked Sendable {
     static let lingerAfterPeerClose: TimeInterval = 5
 
     private let acceptQueue = DispatchQueue(label: "com.abracode.actionui.remote.accept")
-    private let lock = NSLock()
+    private let lock = Lock()
     // Guarded by `lock`.
     private var started = false
     private var listenFD: Int32 = -1
@@ -338,7 +338,7 @@ final class UnixSocketServer: @unchecked Sendable {
     /// Runs `onLast` when `count` parties have each reported done. Used to close an fd only
     /// after every DispatchSource on it has run its cancel handler.
     fileprivate final class CancellationCounter: @unchecked Sendable {
-        private let lock = NSLock()
+        private let lock = Lock()
         private var remaining: Int
         private let onLast: () -> Void
 

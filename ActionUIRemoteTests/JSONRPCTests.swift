@@ -63,7 +63,7 @@ final class JSONRPCTests: XCTestCase {
         XCTAssertEqual(reply["id"] as? Double, 1.5)
 
         let large = try single(#"{"jsonrpc":"2.0","id":9007199254740993,"method":"m"}"#)
-        XCTAssertEqual(large.id as? Int64, 9007199254740993)
+        XCTAssertEqual(large.id as? Int, 9007199254740993, "an Int: it fits one without loss")
         let largeReply = String(decoding: JSONRPC.encodeResult(id: large.id, result: nil), as: UTF8.self)
         XCTAssertTrue(largeReply.contains("\"id\":9007199254740993"), largeReply)
     }
@@ -114,6 +114,57 @@ final class JSONRPCTests: XCTestCase {
         XCTAssertThrowsError(try decode("42")) { XCTAssertEqual(self.code(of: $0), ActionUIRemoteError.invalidRequest) }
         XCTAssertThrowsError(try decode("\"text\"")) { XCTAssertEqual(self.code(of: $0), ActionUIRemoteError.invalidRequest) }
         XCTAssertThrowsError(try decode("[]")) { XCTAssertEqual(self.code(of: $0), ActionUIRemoteError.invalidRequest) }
+    }
+
+    /// The codec parses and writes recursively, on a connection queue whose thread has a 512 KB
+    /// stack. A line or a result nested past `maxNestingDepth` is refused before anything walks
+    /// it, so neither can overflow that stack and crash the host. Run on such a queue, as the
+    /// server does: the test runner's main thread has a far larger stack.
+    func testDeepNestingIsRefusedWithoutOverflowingAConnectionQueue() throws {
+        final class Outcome: @unchecked Sendable {
+            var deepLineCode: Int?
+            var limitLineDecoded = false
+            var deepReply = Data()
+            var limitReply = Data()
+        }
+        let outcome = Outcome()
+        let finished = expectation(description: "codec on a connection queue")
+        DispatchQueue(label: "test.connection").async {
+            func line(arrays: Int) -> String {
+                // The request object and "params" are two levels; "v" holds the rest.
+                let value = String(repeating: "[", count: arrays) + String(repeating: "]", count: arrays)
+                return #"{"jsonrpc":"2.0","id":1,"method":"m","params":{"v":"# + value + "}}"
+            }
+            do {
+                _ = try JSONRPC.decode(line: Data(line(arrays: 400).utf8))
+            } catch {
+                outcome.deepLineCode = (error as? ActionUIRemoteError)?.code
+            }
+            outcome.limitLineDecoded = (try? JSONRPC.decode(line: Data(line(arrays: JSONRPC.maxNestingDepth - 2).utf8))) != nil
+
+            func nested(_ depth: Int) -> Any {
+                var value: Any = 1
+                for _ in 0..<depth { value = [value] }
+                return value
+            }
+            outcome.deepReply = JSONRPC.encodeResult(id: 1, result: nested(400))
+            // The reply object is one level, so a result may nest one fewer.
+            outcome.limitReply = JSONRPC.encodeResult(id: 2, result: nested(JSONRPC.maxNestingDepth - 1))
+            finished.fulfill()
+        }
+        wait(for: [finished], timeout: 60)
+
+        XCTAssertEqual(outcome.deepLineCode, ActionUIRemoteError.invalidRequest)
+        XCTAssertTrue(outcome.limitLineDecoded, "a line nested exactly maxNestingDepth levels is accepted")
+        let deep = try object(outcome.deepReply)
+        XCTAssertEqual(deep["id"] as? Int, 1)
+        XCTAssertEqual((deep["error"] as? [String: Any])?["code"] as? Int, ActionUIRemoteError.internalError)
+        let limit = try object(outcome.limitReply)
+        XCTAssertNotNil(limit["result"], "a result at the limit is encoded")
+        XCTAssertNil(limit["error"])
+        // Brackets inside a string are text, not nesting.
+        let bracketText = String(repeating: "[{", count: 400)
+        XCTAssertNoThrow(try decode(#"{"jsonrpc":"2.0","id":1,"method":"m","params":{"t":""# + bracketText + #"\"]"}}"#))
     }
 
     func testOversizedBatchIsRejectedBeforeAnyEntryIsLookedAt() {

@@ -18,7 +18,7 @@ import ActionUI
 /// Process-wide state. A final class with its own lock rather than globals, so Swift 6 sees one
 /// Sendable box instead of mutable global state.
 private final class SharedServerStorage: @unchecked Sendable {
-    let lock = NSLock()
+    let lock = Lock()
     var server: ActionUIRemoteServer?       // guarded by lock
     var starting = false                    // guarded by lock
 }

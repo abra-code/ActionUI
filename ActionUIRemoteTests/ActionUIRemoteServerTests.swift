@@ -229,8 +229,8 @@ final class ActionUIRemoteServerTests: XCTestCase {
     }
 
     func testStateCoercesJSONScalarsTowardTheStoredType() throws {
-        // Engine-seeded states are Swift-native; JSON-decoded values are NSNumber/NSString.
-        // A remote write must land, not report a spurious mismatch.
+        // A whole JSON number decodes as an Int; a Double state must take it, not report a
+        // spurious mismatch.
         let model = ActionUIModel.shared
         model.setElementState(windowUUID: windowUUID, viewID: 2, key: "flag", value: false)
         model.setElementState(windowUUID: windowUUID, viewID: 2, key: "ratio", value: 0.5)

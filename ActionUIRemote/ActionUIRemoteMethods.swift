@@ -2,9 +2,11 @@
 //
 // The built-in `actionui.*` method table, one handler per row of PROTOCOL.md section 6.4, each a
 // thin adapter from named JSON params to ActionUIModel.shared. Everything here runs on the main
-// actor (MethodRegistry.execute). Values returned to the codec are JSON-ready: engine values
-// that have no JSON form (Date, Color, coordinates) come back as null, and getValueString is
-// the supported path for those, exactly as with the C adapter.
+// actor (MethodRegistry.execute). Params are Swift-native, as the codec decodes them (Bool, Int,
+// Double, String, containers, ActionUIJSONNull), which is what the engine takes. Values returned
+// to the codec are JSON-ready: engine values that have no JSON form (Date, Color, coordinates)
+// come back as null, and getValueString is the supported path for those, exactly as with the C
+// adapter.
 
 #if os(macOS)
 
@@ -60,7 +62,7 @@ enum ActionUIRemoteMethods {
         table["actionui.setValue"] = { raw in
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
-            let value = FoundationBridge.native(try p.required("value"))
+            let value = try p.required("value")
             model.setElementValue(windowUUID: window, viewID: viewID, viewPartID: try p.viewPartID(), value: value)
             return true
         }
@@ -89,7 +91,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
             model.setElementProperty(windowUUID: window, viewID: viewID, propertyName: try p.string("name"),
-                                     value: FoundationBridge.native(try p.required("value")))
+                                     value: try p.required("value"))
             return true
         }
 
@@ -109,11 +111,10 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
             let key = try p.string("key")
-            // JSON-decoded values are Foundation objects; the engine works with Swift-native ones,
-            // and brings a number to the type of the state already stored (a Double state accepts
-            // JSON 3). It refuses a remaining type change; report that to the client (1003)
+            // The engine brings a number to the type of the state already stored (a Double state
+            // accepts JSON 3). It refuses a remaining type change; report that to the client (1003)
             // instead of letting it read the old value later.
-            let value = FoundationBridge.native(try p.required("value"))
+            let value = try p.required("value")
             guard model.setElementState(windowUUID: window, viewID: viewID, key: key, value: value) else {
                 let existing = model.getElementState(windowUUID: window, viewID: viewID, key: key)
                 throw ActionUIRemoteError(
@@ -183,7 +184,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let window = try p.window()
             let parentID = try p.int("parentID")
-            let element = FoundationBridge.native(try p.object("element")) as? [String: Any] ?? [:]
+            let element = try p.object("element")
             let container = try p.optionalString("container")
             let position = try p.insertPosition()
             return try engine {
@@ -194,7 +195,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let window = try p.window()
             let parentID = try p.int("parentID")
-            let cells = try p.objects("cells").map { FoundationBridge.native($0) as? [String: Any] ?? [:] }
+            let cells = try p.objects("cells")
             let container = try p.optionalString("container")
             let position = try p.insertPosition()
             return try engine {
@@ -299,27 +300,29 @@ enum ActionUIRemoteMethods {
         }
     }
 
-    /// An engine value as the codec can encode it (a JSON null the engine stores, ActionUIJSONNull,
-    /// as NSNull), or nil (null on the wire) when it has no JSON form. `isValidJSONObject` needs a
-    /// container, hence the wrapping.
+    /// An engine value as the codec can encode it, or nil (null on the wire) for a JSON null the
+    /// engine stores (ActionUIJSONNull) and for a value with no JSON form. On macOS a value an
+    /// Objective-C host stored may be a Foundation object, made Swift-native first.
     static func jsonReady(_ value: Any?) -> Any? {
-        guard let value = value.map(FoundationBridge.foundation), !(value is NSNull) else { return nil }
-        if JSONSerialization.isValidJSONObject(["v": value]) {
-            return value
+        guard var value else { return nil }
+        #if os(macOS)
+        value = FoundationBridge.native(value)
+        #endif
+        if value is ActionUIJSONNull {
+            return nil
         }
-        return nil
+        return (try? ActionUIJSON.string(from: value)) != nil ? value : nil
     }
 
     /// Where the modal's description comes from: an inline element object, a JSON/plist string,
     /// or a resource name or path resolved by the host.
     @MainActor
     private static func modalSource(_ p: Params, resolver: ActionUIRemoteServer.ModalResourceResolver?) throws -> (Data, String) {
-        if let element = p.raw["element"], !(element is NSNull) {
-            guard let object = element as? [String: Any], JSONSerialization.isValidJSONObject(object),
-                  let data = try? JSONSerialization.data(withJSONObject: object, options: []) else {
+        if let element = p.raw["element"], !(element is ActionUIJSONNull) {
+            guard let object = element as? [String: Any], let text = try? ActionUIJSON.string(from: object) else {
                 throw ActionUIRemoteError.invalidParams("\"element\" must be a JSON object describing the modal's root element")
             }
-            return (data, "json")
+            return (Data(text.utf8), "json")
         }
         if let json = try p.optionalString("json") {
             return (Data(json.utf8), try p.optionalString("format") ?? "json")
@@ -353,8 +356,8 @@ enum ActionUIRemoteMethods {
 // MARK: - Params
 
 /// Typed access to a request's named params with `-32602` errors that name the offending key.
-/// Numbers decoded from JSON are NSNumber; a JSON bool is an NSNumber too (CFBoolean) and is
-/// never accepted where an integer or a double is expected.
+/// A JSON number is an Int when it fits one without loss, else a Double; a JSON bool is never
+/// accepted where an integer or a double is expected.
 struct Params {
     let raw: [String: Any]
 
@@ -390,7 +393,7 @@ struct Params {
     // MARK: Scalars
 
     func required(_ key: String) throws -> Any {
-        guard let value = raw[key], !(value is NSNull) else {
+        guard let value = raw[key], !(value is ActionUIJSONNull) else {
             throw ActionUIRemoteError.invalidParams("Missing required param \"\(key)\"")
         }
         return value
@@ -404,7 +407,7 @@ struct Params {
     }
 
     func optionalString(_ key: String) throws -> String? {
-        guard let value = raw[key], !(value is NSNull) else { return nil }
+        guard let value = raw[key], !(value is ActionUIJSONNull) else { return nil }
         guard let text = value as? String else {
             throw ActionUIRemoteError.invalidParams("Param \"\(key)\" must be a string")
         }
@@ -419,17 +422,25 @@ struct Params {
     }
 
     func optionalInt(_ key: String) throws -> Int? {
-        guard let value = raw[key], !(value is NSNull) else { return nil }
-        if let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), let exact = Int(exactly: number) {
+        guard let value = raw[key], !(value is ActionUIJSONNull) else { return nil }
+        let kind = type(of: value)
+        if kind == Int.self, let number = value as? Int {
+            return number
+        }
+        if kind == Double.self, let number = value as? Double, let exact = Int(exactly: number) {
             return exact
         }
         throw ActionUIRemoteError.invalidParams("Param \"\(key)\" must be an integer")
     }
 
     func optionalDouble(_ key: String) throws -> Double? {
-        guard let value = raw[key], !(value is NSNull) else { return nil }
-        if let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
-            return number.doubleValue
+        guard let value = raw[key], !(value is ActionUIJSONNull) else { return nil }
+        let kind = type(of: value)
+        if kind == Int.self, let number = value as? Int {
+            return Double(number)
+        }
+        if kind == Double.self, let number = value as? Double {
+            return number
         }
         throw ActionUIRemoteError.invalidParams("Param \"\(key)\" must be a number")
     }
@@ -475,7 +486,7 @@ struct Params {
 
     func insertPosition() throws -> InsertPosition {
         do {
-            return try ActionUIJSON.insertPosition(from: raw["position"].map(FoundationBridge.native))
+            return try ActionUIJSON.insertPosition(from: raw["position"])
         } catch let error as ActionUIJSONError {
             throw ActionUIRemoteError.invalidParams(error.message)
         }
@@ -483,8 +494,8 @@ struct Params {
 
     /// Dialog buttons, or nil when the param is absent. A present but unusable value is an error.
     func dialogButtons(_ key: String) throws -> [DialogButton]? {
-        guard let value = raw[key], !(value is NSNull) else { return nil }
-        guard let buttons = ActionUIJSON.dialogButtons(from: FoundationBridge.native(value)), !buttons.isEmpty else {
+        guard let value = raw[key], !(value is ActionUIJSONNull) else { return nil }
+        guard let buttons = ActionUIJSON.dialogButtons(from: value), !buttons.isEmpty else {
             throw ActionUIRemoteError.invalidParams("Param \"\(key)\" must be a non-empty array of {title, role?, actionID?}")
         }
         return buttons

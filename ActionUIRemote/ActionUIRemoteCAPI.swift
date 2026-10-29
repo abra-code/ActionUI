@@ -23,10 +23,10 @@ import ActionUI
 /// A stable copy of the running server's path, because a `@c` function cannot hand back a
 /// Swift String. Guarded by its own lock, and nothing is called out to while holding it.
 private nonisolated(unsafe) var endpointCString: UnsafeMutablePointer<CChar>?
-private let endpointLock = NSLock()
+private let endpointLock = Lock()
 
 private nonisolated(unsafe) var tokenCString: UnsafeMutablePointer<CChar>?
-private let tokenLock = NSLock()
+private let tokenLock = Lock()
 
 private func setTokenCString(_ token: String?) {
     tokenLock.lock()
@@ -48,7 +48,7 @@ private func setEndpointCString(_ path: String?) {
 /// and a synchronous hop to fetch it would hang whenever the main queue is not being serviced -
 /// a worker thread starting the server before the app runs is exactly that case.
 private func engineLoggerIfFree() -> (any ActionUILogger)? {
-    guard Thread.isMainThread else { return nil }
+    guard isMainThread else { return nil }
     return MainActor.assumeIsolated { ActionUIModel.shared.logger }
 }
 
@@ -63,7 +63,7 @@ private func attachEngineLoggerAsync() {
 
 /// Report through the engine's logger from any thread, without blocking.
 private func logToEngine(_ message: String, _ level: LoggerLevel) {
-    if Thread.isMainThread {
+    if isMainThread {
         MainActor.assumeIsolated { ActionUIModel.shared.logger.log(message, level) }
     } else {
         DispatchQueue.main.async {

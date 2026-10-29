@@ -58,9 +58,11 @@ Error reply:
 Rules:
 
 - `jsonrpc` must be the string `"2.0"`.
-- `id` is a number or a string and is returned verbatim. A request without `id`, or with
-  `"id": null`, is a **notification**: it is executed and never answered (this protocol treats
-  a null id as absent; do not send null ids).
+- `id` is a number or a string and is returned verbatim: a string as sent, an integer that fits
+  a signed 64-bit integer, or a double (written in its shortest form, `0.1`). A larger integer
+  comes back as the nearest double, so a client that needs one uses a string. A request without
+  `id`, or with `"id": null`, is a **notification**: it is executed and never answered (this
+  protocol treats a null id as absent; do not send null ids).
 - `params` is always an object with named keys. A missing or null `params` is an empty object.
   Positional params (an array) are rejected with `-32602`.
 - A JSON array is a **batch**. Its members run inside one main-thread turn, in order, so a
@@ -83,7 +85,7 @@ Rules:
 | Code | Meaning |
 |---|---|
 | -32700 | Parse error: the line is not JSON. Reply carries a null id. |
-| -32600 | Invalid request: not an object or array, empty or oversized batch, wrong `jsonrpc`, bad `method`, bad `id` type. |
+| -32600 | Invalid request: not an object or array, empty or oversized batch, nested deeper than 100 levels of arrays and objects (counting the request itself), wrong `jsonrpc`, bad `method`, bad `id` type. |
 | -32601 | Method not found. |
 | -32602 | Invalid params: positional params, a missing or mistyped param (the message names it). |
 | -32603 | Internal error: the host could not produce a well-formed result. |

@@ -8,9 +8,12 @@
 // Params are always an object with named keys; positional params are rejected with -32602.
 // See PROTOCOL.md for the normative description.
 //
-// This file is pure Foundation and platform independent; the socket server is elsewhere.
+// Values are Swift-native, as Core's ActionUIJSON parses and writes them (Bool, Int, Double,
+// String, arrays, string-keyed dictionaries, ActionUIJSONNull for null): FoundationEssentials, which
+// ActionUI builds against on Linux, has no JSONSerialization. The socket server is elsewhere.
 
 import Foundation
+import ActionUI
 
 /// Error type for everything that crosses the remote boundary: codec failures, engine failures,
 /// and errors thrown by host-registered handlers. `code` follows JSON-RPC 2.0 for the reserved
@@ -54,8 +57,9 @@ public struct ActionUIRemoteError: Error, @unchecked Sendable, CustomStringConve
     }
 }
 
-/// One decoded request. `id` is nil for a notification; otherwise it is the NSNumber or String
-/// the client sent, preserved verbatim so the reply carries it back unchanged.
+/// One decoded request. `id` is nil for a notification; otherwise it is the number (Int or
+/// Double) or String the client sent, preserved so the reply carries it back unchanged. `params`
+/// holds Swift-native values (see the file comment).
 public struct JSONRPCRequest {
     public let id: Any?
     public let method: String
@@ -78,7 +82,7 @@ public struct JSONRPCRequest {
 /// is logged and not answered.
 ///
 /// `@unchecked Sendable` for the same reason as `ActionUIRemoteError`: `Error` refines `Sendable`
-/// and `id` is the client's NSNumber or String held as `Any?`, only ever read to be encoded.
+/// and `id` is the client's number or String held as `Any?`, only ever read to be encoded.
 public struct JSONRPCRejection: Error, @unchecked Sendable {
     public let id: Any?
     public let isNotification: Bool
@@ -111,21 +115,37 @@ public enum JSONRPC {
     /// larger is rejected with -32600 before any of it runs.
     public static let maxBatchEntries = 4096
 
+    /// Deepest nesting of arrays and objects the codec reads or writes, counting the request or
+    /// reply object itself. ActionUIJSON parses and writes recursively, here on a connection
+    /// queue whose thread has a 512 KB stack: measured on macOS 27, about 140 levels of objects
+    /// overflowed it in a debug build (about 170 in release) and crashed the host. A deeper line
+    /// is rejected with -32600 before it is parsed; a deeper result becomes -32603.
+    public static let maxNestingDepth = 100
+
     // MARK: - Decoding
 
     /// Decode one line (without its trailing newline) into a request or a batch.
     ///
     /// Throws `ActionUIRemoteError` only when nothing can be recovered from the line and the
     /// server must answer with a null id: `parseError` for malformed JSON, `invalidRequest` for a
-    /// well-formed value that is neither an object nor a non-empty array within `maxBatchEntries`.
+    /// well-formed value that is neither an object nor a non-empty array within `maxBatchEntries`,
+    /// and for a line nested deeper than `maxNestingDepth`.
     /// A well-formed object that fails validation comes back as a `JSONRPCRejection` carrying the
     /// id and notification flag, so the reply (or the decision not to reply) can be made per object.
     public static func decode(line: Data) throws -> JSONRPCIncoming {
+        guard !nestsTooDeep(line) else {
+            throw ActionUIRemoteError(code: ActionUIRemoteError.invalidRequest,
+                                      message: "Invalid request: nested deeper than \(maxNestingDepth) levels")
+        }
         let value: Any
         do {
-            value = try JSONSerialization.jsonObject(with: line, options: [.allowFragments])
+            // Invalid UTF-8 is a parse error, not text with replacement characters.
+            guard let text = String(data: line, encoding: .utf8) else {
+                throw ActionUIJSONError("the line is not UTF-8 text")
+            }
+            value = try ActionUIJSON.value(from: text)
         } catch {
-            throw ActionUIRemoteError(code: ActionUIRemoteError.parseError, message: "Parse error: \(error.localizedDescription)")
+            throw ActionUIRemoteError(code: ActionUIRemoteError.parseError, message: "Parse error: \(error)")
         }
 
         if let object = value as? [String: Any] {
@@ -158,10 +178,11 @@ public enum JSONRPC {
         // id: absent or null means notification; otherwise a string or a number (not a bool).
         var id: Any? = nil
         var isNotification = true
-        if let rawID = object["id"], !(rawID is NSNull) {
+        if let rawID = object["id"], !(rawID is ActionUIJSONNull) {
             isNotification = false
-            if let n = rawID as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() {
-                id = n
+            let kind = type(of: rawID)
+            if kind == Int.self || kind == Double.self {
+                id = rawID
             } else if let s = rawID as? String {
                 id = s
             } else {
@@ -185,7 +206,7 @@ public enum JSONRPC {
         }
 
         var params: [String: Any] = [:]
-        if let rawParams = object["params"], !(rawParams is NSNull) {
+        if let rawParams = object["params"], !(rawParams is ActionUIJSONNull) {
             guard let named = rawParams as? [String: Any] else {
                 return reject(ActionUIRemoteError.invalidParams, "Invalid params: \"params\" must be an object with named keys")
             }
@@ -197,18 +218,26 @@ public enum JSONRPC {
 
     // MARK: - Encoding
 
-    /// Encode a success reply. `result` must be JSON-ready (Foundation containers and scalars,
-    /// as produced by ActionUIJSON); nil encodes as null. A result that JSONSerialization cannot
-    /// encode is turned into an internal-error reply so the client always gets a well-formed answer.
+    /// Encode a success reply. `result` must be JSON-ready (Swift-native scalars and containers,
+    /// as ActionUIJSON writes them; on macOS Foundation values a host handler returns are
+    /// converted first); nil encodes as null. A result that cannot be encoded is turned into an
+    /// internal-error reply so the client always gets a well-formed answer.
     public static func encodeResult(id: Any?, result: Any?) -> Data {
-        let envelope: [String: Any] = [
-            "jsonrpc": "2.0",
-            "id": id ?? NSNull(),
-            "result": result ?? NSNull(),
-        ]
-        if JSONSerialization.isValidJSONObject(envelope),
-           let data = try? JSONSerialization.data(withJSONObject: envelope, options: []) {
-            return data
+        // Checked before anything walks the values recursively (see maxNestingDepth); the reply
+        // object is the first level.
+        guard nests(result, within: maxNestingDepth - 1) else {
+            return encodeError(id: id, error: ActionUIRemoteError(code: ActionUIRemoteError.internalError,
+                                                                  message: "Internal error: result nested deeper than \(maxNestingDepth - 1) levels"))
+        }
+        if nests(id, within: maxNestingDepth - 1) {
+            let envelope: [String: Any] = [
+                "jsonrpc": "2.0",
+                "id": native(id) ?? ActionUIJSONNull(),
+                "result": native(result) ?? ActionUIJSONNull(),
+            ]
+            if let text = try? ActionUIJSON.string(from: envelope) {
+                return Data(text.utf8)
+            }
         }
         let typeName = result.map { String(describing: type(of: $0)) } ?? "nil"
         return encodeError(id: id, error: ActionUIRemoteError(code: ActionUIRemoteError.internalError,
@@ -216,18 +245,18 @@ public enum JSONRPC {
     }
 
     /// Encode an error reply. `error.data` is included only when it is JSON-ready, and an id that
-    /// is not JSON-ready is replaced by null, so this can never raise the ObjC exception that
-    /// JSONSerialization throws for an invalid object (which Swift cannot catch).
+    /// is not JSON-ready is replaced by null, so an error reply is always well-formed.
     public static func encodeError(id: Any?, error: ActionUIRemoteError) -> Data {
         var errorObject: [String: Any] = [
             "code": error.code,
             "message": error.message,
         ]
-        if let data = error.data, JSONSerialization.isValidJSONObject(["d": data]) {
+        // The reply and error objects are the first two levels.
+        if nests(error.data, within: maxNestingDepth - 2), let data = native(error.data), isEncodable(data) {
             errorObject["data"] = data
         }
-        var safeID: Any = NSNull()
-        if let id, JSONSerialization.isValidJSONObject(["i": id]) {
+        var safeID: Any = ActionUIJSONNull()
+        if nests(id, within: maxNestingDepth - 1), let id = native(id), isEncodable(id) {
             safeID = id
         }
         let envelope: [String: Any] = [
@@ -235,13 +264,77 @@ public enum JSONRPC {
             "id": safeID,
             "error": errorObject,
         ]
-        if JSONSerialization.isValidJSONObject(envelope),
-           let data = try? JSONSerialization.data(withJSONObject: envelope, options: []) {
-            return data
+        if let text = try? ActionUIJSON.string(from: envelope) {
+            return Data(text.utf8)
         }
         // Reached only if `message` itself is not encodable (it is a String, so it never is).
         let fallback = "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32603,\"message\":\"Internal error\"}}"
         return Data(fallback.utf8)
+    }
+
+    private static func isEncodable(_ value: Any) -> Bool {
+        return (try? ActionUIJSON.string(from: value)) != nil
+    }
+
+    /// Whether `value`'s arrays and objects (Swift or Foundation) nest no deeper than `limit`
+    /// levels; a scalar or nil is 0. It stops descending past the limit, so its own recursion
+    /// stays within it.
+    private static func nests(_ value: Any?, within limit: Int) -> Bool {
+        guard let value, !(value is String) else { return true }
+        if let items = value as? [Any] {
+            return limit > 0 && items.allSatisfy { nests($0, within: limit - 1) }
+        }
+        if let object = value as? [String: Any] {
+            return limit > 0 && object.values.allSatisfy { nests($0, within: limit - 1) }
+        }
+        return true
+    }
+
+    /// Whether `line` nests arrays and objects deeper than `maxNestingDepth`, by a scan of its
+    /// bytes in which brackets inside strings do not count. Malformed text is left to the parser.
+    private static func nestsTooDeep(_ line: Data) -> Bool {
+        return line.withUnsafeBytes { bytes in
+            var depth = 0
+            var inString = false
+            var escaped = false
+            for byte in bytes {
+                if inString {
+                    if escaped {
+                        escaped = false
+                    } else if byte == UInt8(ascii: "\\") {
+                        escaped = true
+                    } else if byte == UInt8(ascii: "\"") {
+                        inString = false
+                    }
+                    continue
+                }
+                switch byte {
+                case UInt8(ascii: "\""):
+                    inString = true
+                case UInt8(ascii: "["), UInt8(ascii: "{"):
+                    depth += 1
+                    if depth > maxNestingDepth {
+                        return true
+                    }
+                case UInt8(ascii: "]"), UInt8(ascii: "}"):
+                    depth -= 1
+                default:
+                    break
+                }
+            }
+            return false
+        }
+    }
+
+    /// A value to encode, Swift-native: on macOS a host handler's result, or an id or error data a
+    /// caller of these public functions passes, may be a Foundation object (NSNumber, NSString,
+    /// NSNull), which ActionUIJSON does not write.
+    private static func native(_ value: Any?) -> Any? {
+        #if os(macOS)
+        return value.map(FoundationBridge.native)
+        #else
+        return value
+        #endif
     }
 
     /// Join already-encoded reply objects into one batch reply array. Callers omit replies for
