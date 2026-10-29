@@ -42,6 +42,24 @@ Scripts/make-linux-demo-bundle.sh .build/release /tmp     # makes /tmp/ActionUID
 
 `ActionUIDemo.app` is a plain folder: the program, stripped (about 15 MB), beside its documents and images. The program finds its documents in the folder it runs from.
 
+## Info.json
+
+An app's folder (the program's folder, or for Python and Node.js the main script's, the resource folder) can hold an `Info.json` that names the app, as `Info.plist` does on Apple:
+
+```json
+{
+  "applicationID": "org.example.MyApp",
+  "name": "My App",
+  "icon": "MyApp.svg"
+}
+```
+
+- `applicationID`: the reverse-DNS application ID. The desktop matches the app's windows to its desktop entry, `<applicationID>.desktop`, by it, so the dock shows the entry's name and icon; with no matching entry it shows the raw ID and a generic icon.
+- `name`: the application's name, in the About item and dialog of the windows' primary menu, and the title of a window that has none of its own (a document file's window takes the file's name).
+- `icon`: the windows' icon, a PNG or SVG file (GTK reads no other formats) by its path relative to the app's folder (`MyApp.svg`, `icons/MyApp.svg`) or an absolute path, else an icon theme name.
+
+All keys are optional; an empty string counts as left out. A value the program sets in code (`actionUIAppSetApplicationID`, `actionUIAppSetName`, `actionUIAppSetIcon` and their Python, Node.js, Rust and Swift counterparts) wins over the file; with neither, the ID is made from the name (`com.abracode.actionui.<name>`). Other keys are left for the tools that install the app. On Apple the file is not read.
+
 ## Tests
 
 ```sh

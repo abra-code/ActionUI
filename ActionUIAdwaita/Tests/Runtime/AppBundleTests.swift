@@ -3,7 +3,7 @@
  Tests for resource lookup on Linux (AppBundle): the running program's folder as the bundle,
  whatever its name; a LoadableView name found beside the window's document, beside the file an
  enclosing LoadableView loaded, and in the bundle; Image resourceName and assetName found in the
- bundle.
+ bundle; the bundle's Info.json read, with its icon found in the bundle.
 */
 
 import XCTest
@@ -106,5 +106,45 @@ final class AppBundleTests: XCTestCase {
         XCTAssertEqual(typeName(resource.widget), "GtkPicture")
         let asset = try XCTUnwrap(node.childNodes[3])
         XCTAssertEqual(swiftString(gtk_image_get_icon_name(opaque(asset.widget))), "BundleOrb", "the bundle's image, not the missing-image icon")
+    }
+
+    func testInfoJSONIsReadFromTheFolder() throws {
+        let bundle = try folder()
+        try write(#"{"applicationID": "org.example.Info", "name": "Info App", "icon": "Info.svg", "summary": "for installers", "categories": ["Utility"]}"#, "Info.json", in: bundle)
+        let info = try XCTUnwrap(AppBundle.info(in: bundle))
+        XCTAssertEqual(info, AppInfo(applicationID: "org.example.Info", name: "Info App", icon: "Info.svg"), "other keys are ignored")
+    }
+
+    func testInfoJSONKeysAreOptional() throws {
+        let bundle = try folder()
+        try write(#"{"name": "Only a Name"}"#, "Info.json", in: bundle)
+        XCTAssertEqual(AppBundle.info(in: bundle), AppInfo(applicationID: nil, name: "Only a Name", icon: nil))
+    }
+
+    func testAnEmptyInfoJSONValueCountsAsLeftOut() throws {
+        let bundle = try folder()
+        try write(#"{"applicationID": "", "name": "Named", "icon": ""}"#, "Info.json", in: bundle)
+        XCTAssertEqual(AppBundle.info(in: bundle), AppInfo(applicationID: nil, name: "Named", icon: nil))
+    }
+
+    func testAMissingOrMalformedInfoJSONGivesNothing() throws {
+        let bundle = try folder()
+        XCTAssertNil(AppBundle.info(in: bundle), "no file")
+        try write(#"["not", "an", "object"]"#, "Info.json", in: bundle)
+        XCTAssertNil(AppBundle.info(in: bundle), "not an object")
+        try write(#"{"name": 5}"#, "Info.json", in: bundle)
+        XCTAssertNil(AppBundle.info(in: bundle), "a key of the wrong type")
+    }
+
+    func testTheInfoIconIsTheBundlesFileElseTheValue() throws {
+        let bundle = try folder()
+        try write("<svg xmlns=\"http://www.w3.org/2000/svg\"/>", "Info.svg", in: bundle)
+        XCTAssertEqual(AppInfo(icon: "Info.svg").iconValue(in: bundle), bundle + "/Info.svg", "a file in the bundle, as a path")
+        try FileManager.default.createDirectory(atPath: bundle + "/icons", withIntermediateDirectories: true)
+        try write("<svg xmlns=\"http://www.w3.org/2000/svg\"/>", "App.svg", in: bundle + "/icons")
+        XCTAssertEqual(AppInfo(icon: "icons/App.svg").iconValue(in: bundle), bundle + "/icons/App.svg", "a file in a folder of the bundle")
+        XCTAssertEqual(AppInfo(icon: "document-edit").iconValue(in: bundle), "document-edit", "a theme name")
+        XCTAssertEqual(AppInfo(icon: "/usr/share/pixmaps/x.png").iconValue(in: bundle), "/usr/share/pixmaps/x.png", "a path")
+        XCTAssertNil(AppInfo().iconValue(in: bundle))
     }
 }

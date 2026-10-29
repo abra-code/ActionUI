@@ -61,7 +61,8 @@ const app = new actionui.Application();
 const app = new actionui.Application({ name: 'My App' });
 const app = new actionui.Application({ name: 'My App', icon: 'icon.icns' });
 
-// If icon is omitted, the default ActionUI icon (shipped with the addon) is used.
+// If icon is omitted, the default ActionUI icon (shipped with the addon) is used on
+// macOS; on Linux, the icon the resource folder's Info.json names, if any.
 
 // resourceFolder: where LoadableView names, Image resourceName and WebView script
 // resources are looked up before the main bundle (node's). If omitted, the folder
@@ -69,8 +70,10 @@ const app = new actionui.Application({ name: 'My App', icon: 'icon.icns' });
 const app = new actionui.Application({ resourceFolder: path.join(__dirname, 'ui') });
 
 // applicationID: the reverse-DNS ID Linux matches the app's windows to its
-// org.example.MyApp.desktop entry by. If omitted, one is made from the name.
-// Nothing on macOS, where the bundle identifier serves.
+// org.example.MyApp.desktop entry by. If omitted, the one in the resource folder's
+// Info.json, else one made from the name (com.abracode.actionui.<name>, or
+// com.abracode.actionui.app with no name). Nothing on macOS, where the bundle
+// identifier serves.
 const app = new actionui.Application({ name: 'My App', applicationID: 'org.example.MyApp' });
 
 // Retrieve the existing instance from anywhere:

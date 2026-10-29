@@ -105,7 +105,8 @@ public final class AdwaitaApplication {
         }
     }
     private static var glibNameSet = false
-    /// The reverse-DNS application ID; nil makes one from the name.
+    /// The reverse-DNS application ID; nil: the bundle's Info.json gives it at run, else one is made
+    /// from the name. The name and icon also come from Info.json when unset.
     public var applicationID: String?
     /// The folder of the app's resources (AppBundle): the running program's folder unless set (a
     /// host whose program is not in its bundle, such as python3, sets its own; nil: back to the
@@ -220,6 +221,7 @@ public final class AdwaitaApplication {
             return 1
         }
         MainLoopBridge.install()
+        applyBundleInfo()
         // Released when run returns, after the windows are gone.
         let app = OwnedObject(adopting: adw_application_new(resolvedApplicationID(), G_APPLICATION_NON_UNIQUE)!)
         application = app.typed()
@@ -295,6 +297,16 @@ public final class AdwaitaApplication {
             holdWhileWindowless()
         }
         handlers.didFinishLaunching?()
+    }
+
+    /// Takes the name, application ID and icon the host did not set from the bundle's Info.json
+    /// (AppBundle), as the bundle's Info.plist gives them on Apple.
+    private func applyBundleInfo() {
+        let folder = AppBundle.folder
+        guard let info = AppBundle.info(in: folder) else { return }
+        if name == nil, let infoName = info.name { name = infoName }
+        if applicationID == nil { applicationID = info.applicationID }
+        if icon == nil, let infoIcon = info.iconValue(in: folder) { icon = infoIcon }
     }
 
     /// The ID set, else "com.abracode.actionui." and the name made valid, else a fixed one.

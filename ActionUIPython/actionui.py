@@ -140,7 +140,8 @@ class Application:
             icon: Path to an image file (PNG, ICNS, etc.) used as the
                   application icon in the Dock and About panel.  If ``None``,
                   the default ActionUI icon shipped alongside this module is
-                  used automatically.
+                  used automatically on macOS. On Linux, a PNG or SVG file
+                  for the windows' icon; if ``None``, the one Info.json names.
             resource_folder: The folder of the app's resources: LoadableView
                   names, Image resourceName and WebView script resources are
                   looked up there before the main bundle (which is Python's).
@@ -148,8 +149,9 @@ class Application:
             application_id: The reverse-DNS application ID ("org.example.App"),
                   which Linux needs: the desktop matches the app's windows to
                   its ``<application_id>.desktop`` entry by it. If ``None``,
-                  one is made from the name. Nothing on macOS, where the
-                  bundle identifier serves.
+                  the one in the resource folder's Info.json, else one made
+                  from the name. Nothing on macOS, where the bundle
+                  identifier serves.
         """
         if Application._instance is not None:
             raise RuntimeError("Only one Application instance can exist")
@@ -173,9 +175,11 @@ class Application:
             _actionui.app_set_application_id(application_id)
 
         import os
+        import sys
         if icon is not None:
             _actionui.app_set_icon(os.path.abspath(icon))
-        else:
+        elif sys.platform == "darwin":
+            # GTK cannot show an .icns; on Linux the bundle's Info.json can name the icon.
             default_icon = os.path.join(os.path.dirname(__file__), "actionui-app-icon.icns")
             if os.path.isfile(default_icon):
                 _actionui.app_set_icon(default_icon)

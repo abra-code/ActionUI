@@ -331,12 +331,14 @@ class Application {
         	_actionui.appSetName(name);
 		}
         // The reverse-DNS ID Linux matches the app's windows to its <applicationID>.desktop entry
-        // by; unset, one is made from the name. Nothing on macOS, where the bundle identifier serves.
+        // by; unset, the resource folder's Info.json gives it, else one is made from the name.
+        // Nothing on macOS, where the bundle identifier serves.
         if (applicationID != null) _actionui.appSetApplicationID(applicationID);
 
         if (icon != null) {
             _actionui.appSetIcon(path.resolve(icon));
-        } else {
+        } else if (process.platform === 'darwin') {
+            // GTK cannot show an .icns; on Linux the bundle's Info.json can name the icon.
             const defaultIcon = path.join(__dirname, 'actionui-app-icon.icns');
             if (fs.existsSync(defaultIcon)) _actionui.appSetIcon(defaultIcon);
         }
