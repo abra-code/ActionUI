@@ -149,7 +149,9 @@ extension LoadableView: ActionUIAdwaitaRenderer {
                 return "The file \"\(name)\" couldn't be opened."
             }
         }
-        if error is DecodingError {
+        // A description that does not parse: JSONParser's error for JSON text, JSONDecoder's or
+        // PropertyListDecoder's for the rest, as Apple words both (Common/JSONParseError+Foundation.swift).
+        if error is JSONParseError || error is DecodingError {
             return "The data couldn't be read because it isn't in the correct format."
         }
         return "\(error)"
