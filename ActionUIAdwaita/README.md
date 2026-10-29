@@ -38,9 +38,10 @@ A self-contained demo, which runs where Swift is not installed:
 swift build -c release --static-swift-stdlib --product ActionUIAdwaitaDemo
 Scripts/make-linux-demo-bundle.sh .build/release /tmp     # makes /tmp/ActionUIDemo.app
 /tmp/ActionUIDemo.app/ActionUIDemo
+Scripts/linux-app-entry.py install /tmp/ActionUIDemo.app  # optional: the demo in the desktop's app list
 ```
 
-`ActionUIDemo.app` is a plain folder: the program, stripped (about 15 MB), beside its documents and images. The program finds its documents in the folder it runs from.
+`ActionUIDemo.app` is a plain folder: the program, stripped (about 15 MB), beside its documents and images, its `Info.json` and its icon (both from `ActionUIAdwaita/DemoBundle`). The program finds its documents in the folder it runs from.
 
 ## Info.json
 
@@ -82,7 +83,7 @@ It writes `~/.local/share/applications/<applicationID>.desktop` and copies the i
 }
 ```
 
-The desktop picks the entry up within seconds. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the folder's program (the executable named after the folder, else its only executable). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG.
+The desktop picks the entry up within seconds. A changed icon is another matter in GNOME: its Apps grid can keep showing the icon it first drew until the next login, even after the entry is uninstalled and installed again, while the dock shows the new icon at once. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the folder's program (the executable named after the folder, else its only executable). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG.
 
 ## Tests
 

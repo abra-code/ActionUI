@@ -1,0 +1,7 @@
+{
+  "applicationID": "com.abracode.actionui.demo",
+  "name": "ActionUI Demo",
+  "icon": "ActionUIDemo.svg",
+  "summary": "ActionUI elements on GTK and libadwaita",
+  "categories": ["Development", "GTK"]
+}

@@ -7,6 +7,8 @@
 #     ActionUIDemo        the ActionUIAdwaitaDemo program
 #     *.json, *.png ...   ActionUISwiftTestApp/Resources, copied
 #     Orb.png ...         the test app's asset images, named after their assets (Image assetName)
+#     Info.json           the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
+#     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
 #
 # The program finds its documents in the folder it runs from. The bundle is self-contained: the
 # program must be built with the Swift runtime linked in, and then needs only the system's GTK 4,
@@ -29,6 +31,7 @@ fi
 repo="$(/usr/bin/dirname "$script_dir")"
 resources="$repo/ActionUISwiftTestApp/Resources"
 assets="$repo/ActionUISwiftTestApp/Assets.xcassets"
+demo_bundle_files="$repo/ActionUIAdwaita/DemoBundle"
 
 if [ "$#" -ne 2 ]; then
     printf 'usage: %s <products folder> <output folder>\n' "$0" >&2
@@ -141,4 +144,14 @@ for imageset in "$assets"/*.imageset; do
     done
 done
 
-printf 'make-linux-demo-bundle: made %s\n' "$bundle"
+# The app's Info.json (application ID, name, icon) and its icon, for the runtime and for
+# Scripts/linux-app-entry.py, which adds the bundle to the desktop's app list.
+/bin/cp "$demo_bundle_files"/* "$bundle/"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-demo-bundle: could not copy %s\n' "$demo_bundle_files" >&2
+    discard_bundle
+    exit 1
+fi
+
+printf 'make-linux-demo-bundle: made %s; add it to the app list with Scripts/linux-app-entry.py install %s\n' "$bundle" "$bundle"
