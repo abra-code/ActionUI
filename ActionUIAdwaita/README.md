@@ -60,6 +60,30 @@ An app's folder (the program's folder, or for Python and Node.js the main script
 
 All keys are optional; an empty string counts as left out. A value the program sets in code (`actionUIAppSetApplicationID`, `actionUIAppSetName`, `actionUIAppSetIcon` and their Python, Node.js, Rust and Swift counterparts) wins over the file; with neither, the ID is made from the name (`com.abracode.actionui.<name>`). Other keys are left for the tools that install the app. On Apple the file is not read.
 
+### In the desktop's app list
+
+`Scripts/linux-app-entry.py` adds an app folder to the app list of the desktop (GNOME's Apps, KDE Plasma's launcher, Xfce's menu and others that follow the freedesktop.org standards), for the current user, from its `Info.json`:
+
+```sh
+Scripts/linux-app-entry.py install /path/to/MyApp.app                                # runs MyApp.app/MyApp
+Scripts/linux-app-entry.py install /path/to/MyApp --exec 'python3 MyApp.py'          # a Python or Node.js app
+Scripts/linux-app-entry.py uninstall /path/to/MyApp.app                              # or: uninstall org.example.MyApp
+```
+
+It writes `~/.local/share/applications/<applicationID>.desktop` and copies the icon into the user's icon theme as `<applicationID>.svg` or `.png` (a square PNG of a standard size: 48, 64, 128, 256, 512 and others; an SVG serves every size). `Info.json` needs `applicationID` for it; two more keys go into the entry:
+
+```json
+{
+  "applicationID": "org.example.MyApp",
+  "name": "My App",
+  "icon": "MyApp.svg",
+  "summary": "Edits my things",
+  "categories": ["Utility"]
+}
+```
+
+The desktop picks the entry up within seconds. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the folder's program (the executable named after the folder, else its only executable). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG.
+
 ## Tests
 
 ```sh
