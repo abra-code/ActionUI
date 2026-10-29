@@ -4,8 +4,8 @@ Out-of-process access to ActionUI windows. A host that embeds ActionUI starts a 
 on a Unix domain socket; any process running as the same user can then read and mutate the
 host's windows over newline-delimited JSON-RPC 2.0, with the same verbs and the same value
 encoding as the in-process adapters. On macOS, and on Linux as part of `libActionUI.so`
-(`actionUIApp*RemoteServer*`; `actionui.contentSizeLimits` answers null there, since the GTK
-renderer has no content measurement yet).
+(`actionUIApp*RemoteServer*`; `actionui.contentSizeLimits` measures a window on screen there, see
+PROTOCOL.md).
 
 The wire contract is in [PROTOCOL.md](PROTOCOL.md). The Python client lives in `Python/`.
 

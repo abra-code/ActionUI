@@ -5,7 +5,8 @@
  fire in order, and closing it ends the run; a run off the main thread, and a setter from another
  thread before the run, are refused and return; a refused nested run leaves other threads able to
  call; a host sets the resource folder (NULL: none); the remote server starts and stops, answers a
- client during the run with the application's name, and stops when the run ends. The alert and the
+ client during the run with the application's name and the window's content size limits, and stops
+ when the run ends. The alert and the
  file panels: AppPanelsTests.
 */
 
@@ -134,11 +135,15 @@ final class ActionUIAppFunctionTests: XCTestCase {
         XCTAssertTrue(actionUIAppStartRemoteServer(path))
         let token = try XCTUnwrap(actionUIAppRemoteServerToken().map { String(cString: $0) })
         remoteRequest = (path, #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(token)"}}"#)
+        remoteLimitsRequest = #"{"jsonrpc":"2.0","id":2,"method":"actionui.contentSizeLimits","params":{"token":"\#(token)","window":"c-app-w1"}}"#
         actionUIAppSetDidFinishLaunchingHandler {
             // A client on another thread: its request is served on the main thread, which runs
             // the GTK loop, so this proves the loop runs the main queue.
             DispatchQueue.global().async {
                 remoteReply = remoteRequest.map { request(path: $0.path, line: $0.line) } ?? nil
+                if let path = remoteRequest?.path, let line = remoteLimitsRequest {
+                    remoteLimitsReply = request(path: path, line: line)
+                }
                 actionUIAppCloseWindow("c-app-w1")
                 actionUIAppTerminate()
             }
@@ -146,12 +151,22 @@ final class ActionUIAppFunctionTests: XCTestCase {
         actionUIAppLoadAndPresentWindowFromJSON(#"{"type": "Text", "id": 1, "properties": {"text": "Remote"}}"#, "c-app-w1", nil)
         actionUIAppRun()
         let reply = remoteReply
+        let limitsReply = remoteLimitsReply
         remoteRequest = nil
         remoteReply = nil
+        remoteLimitsRequest = nil
+        remoteLimitsReply = nil
 
         let text = try XCTUnwrap(reply, "the client got a reply")
         XCTAssertTrue(text.contains(#""protocolVersion":1"#), text)
         XCTAssertTrue(text.contains(#""name":"Remote Host Test""#), "hello answers with actionUIAppSetName's name: \(text)")
+        // The window is on screen, so the GTK renderer measures its Text: bounded both ways.
+        let limitsText = try XCTUnwrap(limitsReply, "the client got the limits")
+        let limits = try XCTUnwrap((try ActionUIJSON.value(from: limitsText) as? [String: Any])?["result"] as? [String: Any], limitsText)
+        XCTAssertEqual(Set(limits.keys), ["minWidth", "minHeight", "maxWidth", "maxHeight"])
+        let maxWidth = try XCTUnwrap(JSONNumber.double(limits["maxWidth"]), limitsText)
+        XCTAssertGreaterThan(maxWidth, 0, limitsText)
+        XCTAssertLessThan(maxWidth, 1000, "a Text's largest width is its text's: \(limitsText)")
         XCTAssertNil(actionUIAppRemoteServerEndpoint(), "the server stopped when the run ended")
         XCTAssertNotEqual(access(path, F_OK), 0, "and its socket file is gone")
     }
@@ -162,6 +177,8 @@ final class ActionUIAppFunctionTests: XCTestCase {
 /// The request the run test's client sends, and its reply: the C handler cannot capture.
 nonisolated(unsafe) private var remoteRequest: (path: String, line: String)?
 nonisolated(unsafe) private var remoteReply: String?
+nonisolated(unsafe) private var remoteLimitsRequest: String?
+nonisolated(unsafe) private var remoteLimitsReply: String?
 
 /// Sends one line to the Unix socket at `path` and returns the line that comes back (nil after 10
 /// seconds, or on any failure).

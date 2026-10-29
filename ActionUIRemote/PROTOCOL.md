@@ -188,6 +188,13 @@ Notes:
 - `removeWindow` is the one window method that does not check for an unknown window: the host
   forgets the window's model (its loaded description and every element's value and state), and a
   window it does not know is ignored. Afterwards the window is unknown, as one never loaded.
+- `contentSizeLimits` is the content's smallest and largest size, for a host that sizes the
+  window: an axis nothing bounds is `1.7976931348623157e+308`, and min equal to max in both axes
+  means a fixed-size window. On macOS they are SwiftUI's sizes for a zero and an infinite
+  proposal, for any loaded window. On Linux the GTK renderer measures a window on screen (null for
+  one that is only loaded): the maximum as SwiftUI's layout gives it, the minimum GTK's, which never
+  compresses a text to nothing as SwiftUI's zero proposal does; both heights are at one width, so
+  the minimum is not above the maximum, though text that wraps is taller when narrower.
 
 ## 8. Host extension methods
 

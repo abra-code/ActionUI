@@ -176,6 +176,12 @@ public final class AdwaitaApplication {
         windows[windowUUID]?.window
     }
 
+    /// The document's content in the window showing `windowUUID`, if it is on screen with its
+    /// document: the root element's widget, without the window's header bar and toast overlay.
+    func contentWidget(_ windowUUID: String) -> WidgetPointer? {
+        windows[windowUUID]?.renderTree?.contentWidget
+    }
+
     /// The modals, dialogs and toasts of the window showing `windowUUID`, if it is on screen with
     /// its document.
     func presenter(_ windowUUID: String) -> WindowPresenter? {

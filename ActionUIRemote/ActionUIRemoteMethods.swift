@@ -280,18 +280,14 @@ enum ActionUIRemoteMethods {
         }
         table["actionui.contentSizeLimits"] = { raw in
             let p = Params(raw)
-            #if os(macOS)
+            // SwiftUI's measurement on macOS (ActionUI/Common/ContentSizeLimits.swift), the GTK
+            // renderer's on Linux (ActionUIAdwaita/Sources/Runtime/ContentSizeLimits+Adwaita.swift),
+            // which measures a window on screen and is null for one that is not.
             guard let limits = model.contentSizeLimits(windowUUID: try p.window()) else { return nil }
             return [
                 "minWidth": limits.minSize.width, "minHeight": limits.minSize.height,
                 "maxWidth": limits.maxSize.width, "maxHeight": limits.maxSize.height,
             ]
-            #else
-            // The measurement is SwiftUI's (ActionUI/Common/ContentSizeLimits.swift); the GTK
-            // renderer has none yet, so the answer is null, as for an unknown root.
-            _ = try p.window()
-            return nil
-            #endif
         }
 
         registry.handlers.merge(table) { _, builtin in builtin }

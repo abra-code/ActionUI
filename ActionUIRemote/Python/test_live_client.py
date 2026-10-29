@@ -89,11 +89,13 @@ def check_discovery(win, uuid, expected_host):
                                   (6, "DatePicker"), (7, "Grid"), (10, "VStack"), (11, "Text")):
         check_equal(elements.get(view_id), element_type, "element %d type" % view_id)
 
-    # A loaded root always has limits; null is for an unknown window or a window with no root.
+    # A loaded root always has limits on macOS; null is for an unknown window or a window with
+    # no root.
     limits = win.content_size_limits()
     if sys.platform.startswith("linux"):
-        # The host runs here too; the GTK renderer has no content measurement yet, so null.
-        check_equal(limits, None, "content_size_limits is None on Linux")
+        # The GTK renderer measures a window on screen, and this host's window is loaded into the
+        # model only, so null (ActionUIAdwaita's tests measure windows on screen).
+        check_equal(limits, None, "content_size_limits is None on Linux for a window not on screen")
         return
     check(isinstance(limits, tuple) and len(limits) == 4
           and all(isinstance(number, (int, float)) for number in limits),
