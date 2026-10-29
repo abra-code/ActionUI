@@ -1,7 +1,8 @@
 // Core/Helpers/JSONValue.swift
 /*
- A JSON value, decoded and encoded with JSONDecoder and JSONEncoder: FoundationEssentials, which
- Core builds against on Linux, has no JSONSerialization.
+ A JSON value, parsed by JSONParser (Core/Helpers/JSONParser.swift) and written with JSONEncoder:
+ FoundationEssentials, which Core builds against on Linux, has no JSONSerialization. The Codable
+ conformance serves PropertyListDecoder and JSONValue members of other Codable types.
 
  Internal, like the verifier's own JSONValue (ActionUIVerifier/JSONValue.swift): a public type of
  this common name would collide with a host app's own JSONValue. The two are in separate modules,
@@ -84,9 +85,9 @@ enum JSONValue: Codable, Sendable, Equatable {
     }
 
     /// Parses JSON text; a bare string, number, bool or null is accepted as well as an array or
-    /// object.
+    /// object. Throws a JSONParseError, or for UTF-16 and UTF-32 text a DecodingError.
     init(parsing data: Data) throws {
-        self = try JSONDecoder().decode(JSONValue.self, from: data)
+        self = try JSONParser.parse(data)
     }
 
     /// The value as JSON text. Keys are in no fixed order unless `sortedKeys`; "/" is written as

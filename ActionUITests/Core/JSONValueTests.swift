@@ -4,6 +4,7 @@
  numbers as Int), writing it back, the Swift-native form, and which Swift values it accepts.
 */
 
+import Foundation
 import XCTest
 @testable import ActionUI
 
@@ -41,15 +42,137 @@ final class JSONValueTests: XCTestCase {
     func testNegativeZeroKeepsItsSign() throws {
         guard case .double(let zero) = try parse("-0.0") else { return XCTFail("-0.0 is not a double") }
         XCTAssertEqual(zero.sign, .minus)
-        // The decoder does not show the text, so "-0" is negative zero too (JSONSerialization gives 0).
-        guard case .double(let alsoZero) = try parse("-0") else { return XCTFail("-0 is not a double") }
-        XCTAssertEqual(alsoZero.sign, .minus)
+        // "-0" is negative zero too, as JSONDecoder gave it (JSONSerialization gives 0).
+        for text in ["-0", "-0e0", "-0.0e5", "-1e-400"] {
+            guard case .double(let alsoZero) = try parse(text) else { return XCTFail("\(text) is not a double") }
+            XCTAssertEqual(alsoZero.sign, .minus, text)
+        }
         XCTAssertEqual(try parse("0.0"), .int(0))
+        XCTAssertEqual(try parse("0e0"), .int(0))
     }
 
     func testRefusesTextThatIsNotJSON() {
         for text in ["", "{", "tru", "01", "1.", "[1]x", "{'k':1}", "NaN", "\"open"] {
             XCTAssertThrowsError(try parse(text), text)
+        }
+    }
+
+    // What JSONDecoder accepted, which documents and adapters may rely on.
+    func testAcceptsWhatJSONDecoderAccepts() throws {
+        let cases: [(String, JSONValue)] = [
+            ("1E2", .int(100)), ("1e+2", .int(100)), ("1.0e0", .int(1)), ("100e-2", .int(1)), ("5e-1", .double(0.5)),
+            ("9007199254740993.0", .int(9_007_199_254_740_993)), ("-9223372036854775808", .int(Int.min)),
+            ("12345678901234567890", .double(1.2345678901234567e19)), ("-9223372036854775809", .double(-9.223372036854775808e18)),
+            ("9007199254740993e0", .int(9_007_199_254_740_993)), ("90071992547409930e-1", .int(9_007_199_254_740_993)),
+            ("9007199254740993.00000000001", .double(9.007199254740994e15)), ("-9223372036854775809e0", .double(-9.223372036854775808e18)),
+            ("\"\u{FEFF}x\"", .string("\u{FEFF}x")), ("\"\u{FEFF}\u{E9}\"", .string("\u{FEFF}\u{E9}")), (#""﻿éé""#, .string("\u{FEFF}\u{E9}\u{E9}")),
+            (#""\"\\\/\b\f\n\r\t""#, .string("\"\\/\u{8}\u{C}\n\r\t")),
+            (#""Aé中\u0000""#, .string("A\u{E9}\u{4E2D}\u{0}")),
+            (#""😀 😀""#, .string("\u{1F600} \u{1F600}")),
+            ("\"\u{E9}\u{1F600}\u{7F}\u{2028}\"", .string("\u{E9}\u{1F600}\u{7F}\u{2028}")),
+            (#"["éé"]"#, .array([.string("\u{E9}\u{E9}")])),
+            (" \n\t\r[1]\n", .array([.int(1)])),
+            (#"{ "a" : 1 , "b" : [ ] , "" : { } }"#, .object(["a": .int(1), "b": .array([]), "": .object([:])])),
+            (#"{"a":[1,],}"#, .object(["a": .array([.int(1)])])),
+            (#"{"a":null,"a":1}"#, .object(["a": .null])),
+        ]
+        for (text, expected) in cases {
+            XCTAssertEqual(try parse(text), expected, text)
+        }
+        // A UTF-8 byte order mark, and UTF-16 text (JSONDecoder reads it; it refuses UTF-32 with a mark).
+        XCTAssertEqual(try JSONValue(parsing: Data([0xEF, 0xBB, 0xBF] + Array("[1]".utf8))), .array([.int(1)]))
+        for encoding in [String.Encoding.utf16, .utf16BigEndian, .utf16LittleEndian] {
+            let data = try XCTUnwrap(#"[1,"é"]"#.data(using: encoding))
+            XCTAssertEqual(try JSONValue(parsing: data), .array([.int(1), .string("\u{E9}")]), "\(encoding)")
+        }
+    }
+
+    func testRefusesWhatJSONDecoderRefuses() {
+        let texts = [
+            "[,]", "[1,,2]", "{,}", #"{"a":1,,}"#, "[1 2]", #"{"a" 1}"#, "{1:2}", "[1,]]", "[]]", "{}}",
+            "+1", ".5", "-", "-01", "1.5e", "1e+", "[1.e5]", "1e400", "-1e400",
+            "True", "nul", "nullx", "[tru]", "  ", "\u{A0}1", "[1]\u{0}",
+            #""\x""#, #""\u12""#, #""\uZZZZ""#, #""\uD83D""#, #""\uD83Dx""#, #""\uD83DA""#, #""\uDE00""#,
+            "\"a\u{1}b\"", "\"a\tb\"", "\"a\nb\"", "\"\u{0}\"",
+        ]
+        for text in texts {
+            XCTAssertThrowsError(try parse(text), text.debugDescription)
+        }
+        // Bytes that are not UTF-8: a lone byte, a truncated sequence, an encoded surrogate.
+        for bytes in [[0x22, 0xFF, 0x22], [0x22, 0xC3, 0x22], [0x22, 0xF0, 0x9F, 0x98, 0x22], [0x22, 0xED, 0xA0, 0x80, 0x22]] as [[UInt8]] {
+            XCTAssertThrowsError(try JSONValue(parsing: Data(bytes)), "\(bytes)")
+        }
+    }
+
+    func testRefusalNamesTheOffset() {
+        XCTAssertThrowsError(try parse("[1,x]")) { error in
+            XCTAssertEqual("\(error)", "Unexpected character at byte 3")
+        }
+        XCTAssertThrowsError(try parse("[\"open")) { error in
+            XCTAssertEqual("\(error)", "Unterminated string at byte 1")
+        }
+    }
+
+    // JSONDecoder's limit: 512 levels, empty innermost container included.
+    func testNestingLimit() throws {
+        func nested(_ depth: Int) -> String {
+            String(repeating: "[", count: depth) + String(repeating: "]", count: depth)
+        }
+        var value = try parse(nested(512))
+        var depth = 0
+        while case .array(let items) = value {
+            depth += 1
+            value = items.first ?? .null
+        }
+        XCTAssertEqual(depth, 512)
+        XCTAssertThrowsError(try parse(nested(513))) { error in
+            XCTAssertEqual("\(error)", "Nested deeper than 512 levels at byte 512")
+        }
+        XCTAssertThrowsError(try parse(String(repeating: #"{"k":"#, count: 513) + "1" + String(repeating: "}", count: 513)))
+    }
+
+    // The parser does not recurse: the deepest text it accepts parses on a dispatch queue
+    // thread's 512 KB stack, which JSONDecoder's recursion overflowed. (Releasing the tree still
+    // recurses, needing about 256 KB at this depth in a debug build.)
+    func testParsesTheDeepestTextOnASmallStack() {
+        let text = String(repeating: #"{"k":["#, count: 256) + String(repeating: "]}", count: 256)
+        let done = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var parsed = false
+        let thread = Thread {
+            parsed = (try? JSONValue(parsing: Data(text.utf8))) != nil
+            done.signal()
+        }
+        thread.stackSize = 512 * 1024
+        thread.start()
+        done.wait()
+        XCTAssertTrue(parsed)
+    }
+
+    // The parser against JSONDecoder, which it replaced, on generated documents: the same value
+    // for each, numbers included (compared as written, so a Double's every bit counts).
+    func testMatchesJSONDecoderOnGeneratedDocuments() throws {
+        var state: UInt64 = 0x9E37_79B9_7F4A_7C15
+        func random(_ range: ClosedRange<Int>) -> Int {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return range.lowerBound + Int((state >> 33) % UInt64(range.count))
+        }
+        func document(_ depth: Int) -> String {
+            switch random(0...(depth > 4 ? 4 : 7)) {
+            case 0: return "\(random(-1000...1000))"
+            case 1: return "\(Double(random(-1_000_000...1_000_000)) / Double(random(1...977)))"
+            case 2: return #""s\n\#(random(0...9))éé\/""#
+            case 3: return ["true", "false", "null"][random(0...2)]
+            case 4: return "\(random(-3...3))e\(random(-3...20))"
+            case 5, 6: return "[" + (0..<random(0...4)).map { _ in document(depth + 1) }.joined(separator: ",") + "]"
+            default: return "{" + (0..<random(0...4)).map { _ in "\"k\(random(0...3))\" : " + document(depth + 1) }.joined(separator: ",") + "}"
+            }
+        }
+        for _ in 0..<2000 {
+            let data = Data(document(0).utf8)
+            let decoded = try JSONDecoder().decode(JSONValue.self, from: data)
+            let parsed = try JSONValue(parsing: data)
+            XCTAssertEqual(parsed, decoded)
+            XCTAssertEqual(try parsed.text(sortedKeys: true), try decoded.text(sortedKeys: true))
         }
     }
 
