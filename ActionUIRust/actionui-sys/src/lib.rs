@@ -201,11 +201,8 @@ unsafe extern "C" {
     pub fn actionUIAppRemoteServerEndpoint() -> *const c_char;
 }
 
-// MARK: - ActionUIRemote, macOS only
-// libActionUI.so on Linux has these functions too, but the library package ships no C header for
-// them yet; the actionUIApp*RemoteServer* functions above serve the server on both.
+// MARK: - ActionUIRemote (ActionUIRemote-Swift.h)
 
-#[cfg(target_os = "macos")]
 #[rustfmt::skip] // tests/declarations.rs reads one declaration per line
 unsafe extern "C" {
     pub fn actionUIRemoteStartServer(socketPath: *const c_char, hostName: *const c_char, hostVersion: *const c_char) -> bool;

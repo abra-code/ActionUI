@@ -6,10 +6,10 @@
 // but do not define them; those are compared with the hand-written C headers the
 // frameworks ship beside them.
 //
-// Linux: the library package has no generated headers (the framework build checks them
-// against the hand-written ones), so both comparisons use its hand-written C headers,
-// leaving out their Apple-only part, and src/lib.rs's blocks marked macOS only are left
-// out too.
+// Linux: the library package's hand-written C headers, leaving out their Apple-only part,
+// for both comparisons (the box build checks them against the generated ones), and the
+// generated header of ActionUIRemote, which has no hand-written one; src/lib.rs's blocks
+// marked macOS only are left out.
 
 #![cfg(any(target_os = "macos", target_os = "linux"))]
 
@@ -34,10 +34,14 @@ const TYPE_HEADERS: [&str; 2] = [
 const LINKED_DIR: &str = env!("ACTIONUI_SYS_FRAMEWORKS_DIR");
 
 #[cfg(target_os = "linux")]
-const HEADERS: [&str; 2] = ["include/ActionUICAdapter/ActionUIC.h", "include/ActionUIAppKitApplication/ActionUIApp.h"];
+const HEADERS: [&str; 3] = [
+    "include/ActionUICAdapter/ActionUIC.h",
+    "include/ActionUIAppKitApplication/ActionUIApp.h",
+    "include/ActionUIRemote/ActionUIRemote-Swift.h",
+];
 
 #[cfg(target_os = "linux")]
-const TYPE_HEADERS: [&str; 2] = HEADERS;
+const TYPE_HEADERS: [&str; 2] = ["include/ActionUICAdapter/ActionUIC.h", "include/ActionUIAppKitApplication/ActionUIApp.h"];
 
 #[cfg(target_os = "linux")]
 const LINKED_DIR: &str = env!("ACTIONUI_SYS_LIBRARY_DIR");
@@ -103,13 +107,17 @@ fn declarations(text: &str) -> Vec<&str> {
     text.lines().filter_map(|line| line.strip_prefix("SWIFT_EXTERN ")).collect()
 }
 
-/// The function declarations of a hand-written header outside its Apple-only part, each as
-/// `type name(parameters)`.
+/// The function declarations of a hand-written header outside its Apple-only part, or of a
+/// generated one, each as `type name(parameters)`.
 #[cfg(target_os = "linux")]
 fn declarations(text: &str) -> Vec<&str> {
     let mut found = Vec::new();
     let mut apple_only = false;
     for line in text.lines() {
+        if let Some(declaration) = line.strip_prefix("SWIFT_EXTERN ") {
+            found.push(declaration);
+            continue;
+        }
         let code = line.split("//").next().unwrap_or("").trim();
         if code == "#if defined(__APPLE__)" {
             apple_only = true;

@@ -103,7 +103,7 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
   Scripts/make-linux-library-package.sh .build/release <output folder>
   ```
 
-  The script makes `actionui-<version>-linux-<arch>/` and its `.tar.gz`: the stripped library in `lib/`, a `pkg-config` file (`lib/pkgconfig/actionui.pc`, valid wherever the folder is unpacked), and the two headers at the include paths the Apple frameworks use (`<ActionUICAdapter/ActionUIC.h>`, `<ActionUIAppKitApplication/ActionUIApp.h>`). It is a build input, not an installation: each program ships its own copy of `libActionUI.so` beside its binary (for Python and Node.js, beside the compiled extension) and links with `-Wl,-rpath,'$ORIGIN'`, so it stays self-contained, as an app bundle is on macOS. A host that loads the library by path, as `ctypes` does, needs no link flags.
+  The script makes `actionui-<version>-linux-<arch>/` and its `.tar.gz`: the stripped library in `lib/`, a `pkg-config` file (`lib/pkgconfig/actionui.pc`, valid wherever the folder is unpacked), and the headers at the include paths the Apple frameworks use (`<ActionUICAdapter/ActionUIC.h>`, `<ActionUIAppKitApplication/ActionUIApp.h>`, and the remote server's `<ActionUIRemote/ActionUIRemote-Swift.h>`, the one Swift generates). It is a build input, not an installation: each program ships its own copy of `libActionUI.so` beside its binary (for Python and Node.js, beside the compiled extension) and links with `-Wl,-rpath,'$ORIGIN'`, so it stays self-contained, as an app bundle is on macOS. A host that loads the library by path, as `ctypes` does, needs no link flags.
 
   `Tests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python and Node.js packages and the Rust crates build on Linux against the library package (`ActionUIPython/BUILD_GUIDE.md`, `ActionUINodeJS/BUILD_GUIDE.md` and `ActionUIRust/BUILD_GUIDE.md`, "Building on Linux").
 
@@ -126,5 +126,6 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 | `Sources/Styling`, `Formatting`, `Markdown`, `Drawing` | CSS for colors and fonts, number and date formats, markdown text, shapes |
 | `Sources/Interop` | the Swift side of the GTK, GLib and WebKitGTK C APIs |
 | `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |
+| `CLinuxSocket` | `accept4`, which Swift's Glibc module leaves out (for the remote server) |
 | `Viewer`, `Demo` | ActionUIAdwaitaViewer and ActionUIAdwaitaDemo |
 | `Tests` | the renderer, layout and application tests |

@@ -116,10 +116,10 @@ actionui = { path = "/path/to/ActionUI/ActionUIRust/actionui" }
 Differences from macOS:
 
 - `Window::content_size_limits` returns `Ok(None)`: ActionUI does not measure the content on Linux.
-- There is no remote server: `App::start_remote_server` returns an error.
+- `App::start_remote_server` puts the socket in `$XDG_RUNTIME_DIR` by default (else `$TMPDIR`, else `/tmp`).
 - `actionui::running_from_bundle` returns false, and `make_app_bundle.sh` is for macOS.
 - The menu bar's commands appear in a menu at the end of each window's header bar, as GNOME applications do.
-- `actionui-sys` leaves out `actionUILoadHostingControllerFromURL`, `actionUIGetContentSizeLimits` and the `actionUIRemote*` functions, which Linux does not have.
+- `actionui-sys` leaves out `actionUILoadHostingControllerFromURL` and `actionUIGetContentSizeLimits`, which Linux does not have.
 - `main_thread::dispatch` hands the closure to GLib's main loop, which GTK runs; the program links `libglib-2.0.so.0`, which `libActionUI.so` needs anyway.
 
 ## Where the interface JSON lives

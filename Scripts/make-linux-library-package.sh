@@ -8,11 +8,14 @@
 #     lib/pkgconfig/actionui.pc                  pkg-config file; finds the folder from its own place
 #     include/ActionUICAdapter/ActionUIC.h       the C interface
 #     include/ActionUIAppKitApplication/ActionUIApp.h   the application functions
+#     include/ActionUIRemote/ActionUIRemote-Swift.h      the remote server's functions (generated)
 #     LICENSE.txt
 #   actionui-<version>-linux-<arch>.tar.gz       the folder, packed
 #
 # The headers sit at the include paths the Apple frameworks give them (<ActionUICAdapter/ActionUIC.h>,
-# <ActionUIAppKitApplication/ActionUIApp.h>), so one #include line serves both platforms. The
+# <ActionUIAppKitApplication/ActionUIApp.h>, <ActionUIRemote/ActionUIRemote-Swift.h>), so one
+# #include line serves both platforms. ActionUIRemote has no hand-written header, as on Apple: its
+# header is the one Swift generates, taken from the build that made the library. The
 # library is self-contained: it must be built with the Swift runtime linked in, and then needs only
 # the system's GTK 4, libadwaita and libsoup 3 (and WebKitGTK 6.0 for WebView, loaded when shown).
 # Build it with
@@ -72,6 +75,17 @@ name="actionui-$version-linux-$arch"
 package="$output/$name"
 tarball="$output/$name.tar.gz"
 
+# The generated remote header, beside the build's other generated headers: the products folder is
+# <scratch>/out/Products/<configuration>-linux-<arch>, the headers are in
+# <scratch>/out/Intermediates.noindex/GeneratedModuleMaps-linux-<arch>.
+products="$(/usr/bin/readlink -f "$1")"
+intermediates="$(/usr/bin/dirname "$(/usr/bin/dirname "$products")")/Intermediates.noindex"
+remote_header="$intermediates/GeneratedModuleMaps-linux-$arch/ActionUIRemote-Swift.h"
+if [ ! -f "$remote_header" ]; then
+    printf 'make-linux-library-package: no %s; the products folder must be <scratch>/out/Products/<configuration>-linux-%s, from swift build\n' "$remote_header" "$arch" >&2
+    exit 1
+fi
+
 # Self-contained: no Swift runtime, libdispatch or Foundation library from a toolchain.
 linked="$(/usr/bin/ldd "$library" 2>&1)"
 status=$?
@@ -105,7 +119,7 @@ discard_package() {
     fi
 }
 
-/bin/mkdir -p "$package/lib/pkgconfig" "$package/include/ActionUICAdapter" "$package/include/ActionUIAppKitApplication"
+/bin/mkdir -p "$package/lib/pkgconfig" "$package/include/ActionUICAdapter" "$package/include/ActionUIAppKitApplication" "$package/include/ActionUIRemote"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-library-package: could not make the folders of %s\n' "$package" >&2
@@ -128,6 +142,7 @@ copy_into_package() {
 copy_into_package "$library" "$package/lib/libActionUI.so" || exit 1
 copy_into_package "$repo/ActionUICAdapter/include/ActionUIC.h" "$package/include/ActionUICAdapter/ActionUIC.h" || exit 1
 copy_into_package "$repo/ActionUIAppKitApplication/include/ActionUIApp.h" "$package/include/ActionUIAppKitApplication/ActionUIApp.h" || exit 1
+copy_into_package "$remote_header" "$package/include/ActionUIRemote/ActionUIRemote-Swift.h" || exit 1
 copy_into_package "$repo/LICENSE.txt" "$package/LICENSE.txt" || exit 1
 
 # Stripped of symbols: the Swift toolchain's llvm-objcopy (beside swift), else the system's tools.
