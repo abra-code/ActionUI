@@ -39,11 +39,24 @@ The Material *name* is intentionally discarded: Material renders one name across
 the whole FILL axis, so the name carries no extra information once we have the
 codepoint + fill flag.
 
+Old SF names (aliases):
+  Apple renames symbols and keeps accepting the old names ("doc" now draws
+  "document", "mic" draws "microphone"). The mapping covers the names of one SF
+  Symbols release, so with --aliases each old name gets a copy of its current
+  name's row, and a name newer than that release gets its old name's row.
+  The aliases come from macOS's own table, a binary property list of old -> new
+  names:
+      /System/Library/CoreServices/CoreGlyphs.bundle/Contents/Resources/name_aliases.strings
+  An old name the mapping lists itself keeps its own row. Keys with capital
+  letters are skipped: they are placeholders for unannounced products, never
+  names a document can use.
+
 Usage:
   build_sf_material_map.py \
       --mapping     /path/to/sf-symbols-material-map/out/sf_to_material.json \
       --codepoints  ActionUIAndroid/.../symbols/MaterialSymbolsRounded.codepoints \
       --out         ActionUIAndroid/.../symbols/sf_to_material.map \
+      [--aliases PATH]   add rows for old SF names (name_aliases.strings, above)
       [--min-score N]    drop matches scored below N (0-100); default 60
                          (pass 0 to keep the full lower-confidence tail)
 
@@ -57,7 +70,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import plistlib
 import sys
+import xml.parsers.expat
 from dataclasses import dataclass
 from typing import Optional
 
@@ -181,6 +196,69 @@ def build_entries(
     return entries, stats, unresolved_samples
 
 
+def parse_aliases(data: bytes) -> dict[str, str]:
+    """Parse macOS's name_aliases.strings (a property list of old SF name -> new
+    SF name) into a dict. Non-string pairs and keys with capital letters (placeholder
+    names for unannounced products) are skipped. Raises ValueError when the data is
+    not a property list holding a dictionary. Pure."""
+    try:
+        plist = plistlib.loads(data)
+    except (plistlib.InvalidFileException, xml.parsers.expat.ExpatError) as e:
+        raise ValueError(f"not a property list: {e}") from e
+    if not isinstance(plist, dict):
+        raise ValueError("the property list is not a dictionary")
+    return {
+        old: new
+        for old, new in plist.items()
+        if isinstance(old, str) and isinstance(new, str) and old == old.lower()
+    }
+
+
+def add_alias_entries(entries: list[Entry], aliases: dict[str, str]) -> tuple[list[Entry], int]:
+    """Add rows across renames, in both directions, with the same codepoint and axes:
+      * an old SF name gets its current name's row (the mapping lists current
+        names, documents may use old ones);
+      * a current name without a row gets its old name's row (macOS can be newer
+        than the SF Symbols release the mapping was made from), unless its old
+        names have rows that differ.
+    A name with its own row keeps it. An alias may name another alias (followed
+    until a name with a row, a name without one, or a loop). Returns the sorted
+    entries and the number added. Pure."""
+    by_name = {e.sf_name: e for e in entries}
+    current_of: dict[str, str] = {}
+    olds_by_current: dict[str, list[str]] = {}
+    for old, new in aliases.items():
+        seen = {old}
+        while new not in by_name and new in aliases and new not in seen:
+            seen.add(new)
+            new = aliases[new]
+        current_of[old] = new
+        olds_by_current.setdefault(new, []).append(old)
+
+    added: list[Entry] = []
+    # Current names first, so that an old name without a row can then take a row
+    # its current name has only through a sibling old name.
+    for current, olds in olds_by_current.items():
+        if current in by_name:
+            continue
+        rows = {(by_name[o].codepoint, by_name[o].fill, by_name[o].weight) for o in olds if o in by_name}
+        if len(rows) != 1:
+            continue
+        codepoint, fill, weight = rows.pop()
+        added.append(Entry(current, codepoint, fill, weight))
+    by_name.update((e.sf_name, e) for e in added)
+    for old, current in current_of.items():
+        target = by_name.get(current)
+        if old in by_name or target is None:
+            continue
+        entry = Entry(old, target.codepoint, target.fill, target.weight)
+        added.append(entry)
+        by_name[old] = entry
+    result = entries + added
+    result.sort(key=lambda e: e.sf_name)
+    return result, len(added)
+
+
 def format_lines(entries: list[Entry]) -> list[str]:
     """Render [Entry] rows to the embedded table's text lines (no trailing newline).
 
@@ -221,6 +299,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--mapping", required=True, help="sf-symbols-material-map sf_to_material.json (out/sf_to_material.json)")
     ap.add_argument("--codepoints", required=True, help="MaterialSymbolsRounded.codepoints")
     ap.add_argument("--out", required=True, help="output sf_to_material.map")
+    ap.add_argument("--aliases", help="macOS name_aliases.strings: add rows for old SF names")
     ap.add_argument("--min-score", type=int, default=DEFAULT_MIN_SCORE,
                     help=f"drop matches scored below this (0-100); default "
                          f"{DEFAULT_MIN_SCORE} (pass 0 to keep all)")
@@ -244,13 +323,30 @@ def main(argv: list[str]) -> int:
         print(f"error: no codepoints parsed from '{args.codepoints}'", file=sys.stderr)
         return 2
 
+    aliases: dict[str, str] = {}
+    if args.aliases is not None:
+        try:
+            with open(args.aliases, "rb") as f:
+                aliases = parse_aliases(f.read())
+        except (OSError, ValueError) as e:
+            print(f"error: cannot read aliases '{args.aliases}': {e}", file=sys.stderr)
+            return 2
+        if not aliases:
+            print(f"error: no aliases parsed from '{args.aliases}'", file=sys.stderr)
+            return 2
+
     entries, stats, unresolved = build_entries(mapping, codepoints, args.min_score)
+    entries, alias_rows = add_alias_entries(entries, aliases)
 
     header = (
         "# SF Symbols -> Material Symbols, compiled by Tools/material_symbols/"
         "build_sf_material_map.py\n"
         "# Format: <sf_name> <codepoint_hex> [<fill>] [<weight>] - trailing integers\n"
         "# are axis overrides by range: 1 => FILL 1, 100..700 => wght.\n"
+    )
+    if args.aliases is not None:
+        header += "# Renamed SF Symbols (macOS name_aliases.strings) have rows for old and new names.\n"
+    header += (
         "# Generated artifact - do not edit by hand; regenerate from the sf-symbols-material-map "
         "mapping.\n"
     )
@@ -265,6 +361,8 @@ def main(argv: list[str]) -> int:
         return 2
 
     print(_report(stats, unresolved, args.min_score))
+    if args.aliases is not None:
+        print(f"  renamed-name rows   : {alias_rows} (from {len(aliases)} aliases)")
     print(f"  wrote               : {args.out}")
     return 0
 

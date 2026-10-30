@@ -3,7 +3,8 @@
 Unit tests for build_sf_material_map.py - the SF->Material embedded-map compiler.
 
 Covers the pure transform (codepoint resolution, fill flag, weight handling,
-score threshold, unresolved/rejected skips) and the line formatter.
+score threshold, unresolved/rejected skips), the old-name aliases and the line
+formatter.
 
 Run:
     python3 test_build_sf_material_map.py
@@ -11,6 +12,7 @@ Run:
 """
 from __future__ import annotations
 
+import plistlib
 import sys
 import unittest
 from pathlib import Path
@@ -21,6 +23,8 @@ sys.path.insert(0, str(_HERE))
 from build_sf_material_map import (  # noqa: E402
     parse_codepoints,
     build_entries,
+    parse_aliases,
+    add_alias_entries,
     format_lines,
     Entry,
     DEFAULT_MIN_SCORE,
@@ -135,6 +139,79 @@ class BuildEntriesTest(unittest.TestCase):
     def test_accepts_bare_map_without_wrapper(self):
         entries, _, _ = build_entries({"a": {"material": "search"}}, _CODEPOINTS)
         self.assertEqual(["a"], [e.sf_name for e in entries])
+
+
+class ParseAliasesTest(unittest.TestCase):
+    def test_reads_a_binary_property_list(self):
+        data = plistlib.dumps({"doc": "document", "mic": "microphone"}, fmt=plistlib.FMT_BINARY)
+        self.assertEqual({"doc": "document", "mic": "microphone"}, parse_aliases(data))
+
+    def test_skips_capitalized_placeholder_keys_and_non_strings(self):
+        data = plistlib.dumps({
+            "7F6042B6443143CB932E328C947DD2BE": "macmini.gen3",
+            "7F6042B6443143CB932E328C947DD2BE.fill": "macmini.gen3.fill",
+            "count": 3,
+            "doc": "document",
+        })
+        self.assertEqual({"doc": "document"}, parse_aliases(data))
+
+    def test_rejects_non_plist_and_non_dictionary(self):
+        with self.assertRaises(ValueError):
+            parse_aliases(b"not a plist")
+        with self.assertRaises(ValueError):
+            parse_aliases(b"<?xml version=\"1.0\"?><plist><dict><key>doc")
+        with self.assertRaises(ValueError):
+            parse_aliases(plistlib.dumps(["doc", "document"]))
+
+
+class AddAliasEntriesTest(unittest.TestCase):
+    _ENTRIES = [
+        Entry("document", 0xE66D, False, 300),
+        Entry("document.fill", 0xE66D, True, None),
+        Entry("microphone", 0xE029, False, None),
+    ]
+
+    def test_old_name_copies_the_current_rows_axes(self):
+        entries, added = add_alias_entries(self._ENTRIES, {"doc": "document", "doc.fill": "document.fill"})
+        by_name = {e.sf_name: e for e in entries}
+        self.assertEqual(Entry("doc", 0xE66D, False, 300), by_name["doc"])
+        self.assertEqual(Entry("doc.fill", 0xE66D, True, None), by_name["doc.fill"])
+        self.assertEqual(2, added)
+
+    def test_old_name_with_its_own_row_keeps_it(self):
+        entries, added = add_alias_entries(self._ENTRIES, {"microphone": "document"})
+        self.assertEqual(self._ENTRIES, entries)
+        self.assertEqual(0, added)
+
+    def test_current_name_without_a_row_adds_nothing(self):
+        entries, added = add_alias_entries(self._ENTRIES, {"star.slash.old": "star.slash"})
+        self.assertEqual(self._ENTRIES, entries)
+        self.assertEqual(0, added)
+
+    def test_newer_current_name_copies_its_old_names_row(self):
+        entries, added = add_alias_entries(self._ENTRIES, {"microphone": "microphone.new", "mic": "microphone.new"})
+        by_name = {e.sf_name: e for e in entries}
+        self.assertEqual(Entry("microphone.new", 0xE029, False, None), by_name["microphone.new"])
+        self.assertEqual(Entry("mic", 0xE029, False, None), by_name["mic"])
+        self.assertEqual(2, added)
+
+    def test_newer_current_name_with_differing_old_rows_gets_none(self):
+        entries, added = add_alias_entries(self._ENTRIES, {"microphone": "merged", "document": "merged"})
+        self.assertEqual(self._ENTRIES, entries)
+        self.assertEqual(0, added)
+
+    def test_follows_an_alias_of_an_alias_and_stops_at_a_loop(self):
+        aliases = {"mic.old": "mic", "mic": "microphone", "a": "b", "b": "a"}
+        entries, added = add_alias_entries(self._ENTRIES, aliases)
+        names = [e.sf_name for e in entries]
+        self.assertIn("mic.old", names)
+        self.assertIn("mic", names)
+        self.assertNotIn("a", names)
+        self.assertEqual(2, added)
+
+    def test_result_is_sorted(self):
+        entries, _ = add_alias_entries(self._ENTRIES, {"aaa": "microphone"})
+        self.assertEqual(sorted(e.sf_name for e in entries), [e.sf_name for e in entries])
 
 
 class FormatLinesTest(unittest.TestCase):

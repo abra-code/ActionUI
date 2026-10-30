@@ -1,6 +1,7 @@
 # SF Symbols -> Material Symbols, compiled by Tools/material_symbols/build_sf_material_map.py
 # Format: <sf_name> <codepoint_hex> [<fill>] [<weight>] - trailing integers
 # are axis overrides by range: 1 => FILL 1, 100..700 => wght.
+# Renamed SF Symbols (macOS name_aliases.strings) have rows for old and new names.
 # Generated artifact - do not edit by hand; regenerate from the sf-symbols-material-map mapping.
 0.circle f785 300
 0.circle.fill f785 1
@@ -11,6 +12,8 @@
 10.calendar e935
 11.calendar e935
 12.calendar e935
+123.rectangle eb8d 300
+123.rectangle.fill eb8d 1
 13.calendar e935
 14.calendar e935
 15.calendar e935
@@ -57,6 +60,12 @@
 9.circle f77c 300
 9.circle.fill f77c 1
 90.arrow.trianglehead.clockwise eaab 300
+_gp e3f4 300
+_gp.fill e3f4 1
+a e167 300
+abc f488 300
+ac eb3b 300
+ac.slash f167 300
 accessibility e92c 300
 accessibility.fill e92c 1
 air.car.side eff7 300
@@ -76,6 +85,8 @@ airplane.landed e904 300
 airplane.path.dotted e539 300
 airplane.ticket efd9 300
 airplane.ticket.fill efd9 1
+airplane.ticket.perforated efd9 300
+airplane.ticket.perforated.fill efd9 1
 airplane.up.forward e539 300
 airplane.up.forward.app e905 300
 airplane.up.forward.app.fill e905 1
@@ -91,6 +102,14 @@ airplay.video e055 300
 airplay.video.badge.exclamationmark f5ef 300
 airplay.video.circle e055 300
 airplay.video.circle.fill e055 1
+airplayaudio e055 300
+airplayaudio.badge.exclamationmark f5ef 300
+airplayaudio.circle e055 300
+airplayaudio.circle.fill e055 1
+airplayvideo e055 300
+airplayvideo.badge.exclamationmark f5ef 300
+airplayvideo.circle e055 300
+airplayvideo.circle.fill e055 1
 airpod.left f326
 airpod.right f325
 airpods f324
@@ -108,6 +127,9 @@ airpods.gen4.left f326
 airpods.max f01f 300
 airpods.pro.chargingcase.wireless f327 300
 airpods.pro.chargingcase.wireless.fill f327 1
+airpodsmax f01f 300
+airpodspro.chargingcase.wireless f327 300
+airpodspro.chargingcase.wireless.fill f327 1
 airport.express e328 300
 airport.extreme e328 300
 alarm e855
@@ -144,6 +166,8 @@ app.fill eb36 1
 app.gift e8f6 300
 app.grid e9b0 300
 app.shadow e9df 300
+apple.book.pages e02f 300
+apple.book.pages.fill e02f 1
 apple.books.pages e02f 300
 apple.books.pages.fill e02f 1
 apple.haptics.and.exclamationmark.triangle f083
@@ -182,6 +206,7 @@ applewatch e334
 applewatch.and.arrow.forward f2ca
 applewatch.badge.checkmark f468
 applewatch.badge.exclamationmark fffd1
+applewatch.case.inset.filled e334
 applewatch.case.sizes e334 300
 applewatch.side.right e334 300
 applewatch.slash eae3
@@ -200,6 +225,9 @@ archivebox e149 300
 archivebox.circle e149 300
 archivebox.circle.fill e149 1
 archivebox.fill e149 1
+arrow.2.circlepath e863 300
+arrow.2.circlepath.circle e627 300
+arrow.2.circlepath.circle.fill e627 1
 arrow.2.squarepath e040 300
 arrow.3.trianglepath e760 300
 arrow.backward e5c4 300
@@ -214,14 +242,19 @@ arrow.backward.to.line.circle.fill f818 1
 arrow.backward.to.line.compact e5dc 300
 arrow.backward.to.line.square f818
 arrow.backward.to.line.square.fill f818 1
+arrow.circlepath e418 300
 arrow.clockwise e5d5 300
 arrow.clockwise.circle e5d5 300
 arrow.clockwise.circle.fill e5d5 1
+arrow.clockwise.icloud eb5a 300
+arrow.clockwise.icloud.fill eb5a 1
 arrow.clockwise.square e5d5 300
 arrow.clockwise.square.fill e5d5 1
 arrow.counterclockwise e042 300
 arrow.counterclockwise.circle e042 300
 arrow.counterclockwise.circle.fill e042 1
+arrow.counterclockwise.icloud eb5a 300
+arrow.counterclockwise.icloud.fill eb5a 1
 arrow.counterclockwise.square e042
 arrow.counterclockwise.square.fill e042 1
 arrow.down e5db 300
@@ -242,6 +275,8 @@ arrow.down.backward.square.fill f1e5 1
 arrow.down.circle f181 300
 arrow.down.circle.dotted f181 300
 arrow.down.circle.fill f181 1
+arrow.down.doc f090 300
+arrow.down.doc.fill f090 1
 arrow.down.document f090 300
 arrow.down.document.fill f090 1
 arrow.down.forward f1e4 300
@@ -294,6 +329,7 @@ arrow.down.right.square.fill f1e4 1
 arrow.down.square e5db 300
 arrow.down.square.fill e5db 1
 arrow.down.to.line e258 300
+arrow.down.to.line.alt e258
 arrow.down.to.line.circle f000 300
 arrow.down.to.line.circle.fill f000 1
 arrow.down.to.line.compact e258
@@ -321,23 +357,42 @@ arrow.left.circle.fill eaa7 1
 arrow.left.square f1e6
 arrow.left.square.fill f1e6 1
 arrow.left.to.line f818
+arrow.left.to.line.alt f818
 arrow.left.to.line.circle f818 300
 arrow.left.to.line.circle.fill f818 1
 arrow.left.to.line.compact f818
 arrow.left.to.line.square f818
 arrow.left.to.line.square.fill f818 1
+arrow.merge eb98 300
+arrow.rectanglepath e040 300
 arrow.right e5c8 300
+arrow.right.arrow.left e8d4 300
+arrow.right.arrow.left.circle eee4 300
+arrow.right.arrow.left.circle.fill eee4 1
+arrow.right.arrow.left.square e8d4
+arrow.right.arrow.left.square.fill e8d4 1
 arrow.right.circle eaaa 300
 arrow.right.circle.dotted eaaa 300
 arrow.right.circle.fill eaaa 1
+arrow.right.doc.on.clipboard ea8e
 arrow.right.filled.filter.arrow.right f3d1 300
 arrow.right.page.on.clipboard ea8e
 arrow.right.square f1df
 arrow.right.square.fill f1df 1
 arrow.right.to.line f81d
+arrow.right.to.line.alt f81d
 arrow.right.to.line.compact f81d
 arrow.right.to.line.square f81d
 arrow.right.to.line.square.fill f81d 1
+arrow.triangle.2.circlepath e863 300
+arrow.triangle.2.circlepath.camera efeb
+arrow.triangle.2.circlepath.camera.fill efeb 1
+arrow.triangle.2.circlepath.circle e627 300
+arrow.triangle.2.circlepath.circle.fill e627 1
+arrow.triangle.2.circlepath.icloud eb5a 300
+arrow.triangle.2.circlepath.icloud.fill eb5a 1
+arrow.triangle.capsulepath e5d5 300
+arrow.triangle.merge eb98 300
 arrow.trianglehead.2.clockwise e863 300
 arrow.trianglehead.2.clockwise.rotate.90 e863 300
 arrow.trianglehead.2.clockwise.rotate.90.camera efeb
@@ -395,6 +450,8 @@ arrow.up.circle f182 300
 arrow.up.circle.badge.clock f381
 arrow.up.circle.dotted f182 300
 arrow.up.circle.fill f182 1
+arrow.up.doc e9fc 300
+arrow.up.doc.fill e9fc 1
 arrow.up.document e9fc 300
 arrow.up.document.fill e9fc 1
 arrow.up.folder e9a3 300
@@ -449,6 +506,7 @@ arrow.up.right.square.fill e89e 1
 arrow.up.square e5d8 300
 arrow.up.square.fill e5d8 1
 arrow.up.to.line e25a 300
+arrow.up.to.line.alt e25a
 arrow.up.to.line.circle e25a 300
 arrow.up.to.line.circle.fill e25a 1
 arrow.up.to.line.compact e25a
@@ -456,6 +514,7 @@ arrow.up.to.line.square e25a 300
 arrow.up.to.line.square.fill e25a 1
 arrow.up.trash e938 300
 arrow.up.trash.fill e938 1
+arrow.upright.circle f1e1 300
 arrow.uturn.backward e166 300
 arrow.uturn.backward.circle e166 300
 arrow.uturn.backward.circle.badge.ellipsis e166 300
@@ -562,8 +621,12 @@ australian.football.circle.fill ea29 1
 australian.football.fill ea29 1
 australiandollarsign.bank.building e84f 300
 australiandollarsign.bank.building.fill e84f 1
+australiandollarsign.building.classical e84f 300
+australiandollarsign.building.classical.fill e84f 1
 australsign.bank.building e84f 300
 australsign.bank.building.fill e84f 1
+australsign.building.classical e84f 300
+australsign.building.classical.fill e84f 1
 av.remote f5d9 300
 av.remote.fill f5d9 1
 b.circle eee2 300
@@ -587,6 +650,8 @@ backward.fill e020 1
 backward.frame e045 300
 backward.frame.fill e045 1
 bag f1cc 300
+bag.badge.minus.fill f1cc
+bag.badge.plus.fill f1cc
 bag.badge.questionmark eb10 300
 bag.circle f1cc
 bag.circle.fill f1cc 1
@@ -596,6 +661,8 @@ bag.fill.badge.plus f1cc
 bag.fill.badge.questionmark eb10
 bahtsign.bank.building e84f 300
 bahtsign.bank.building.fill e84f 1
+bahtsign.building.classical e84f 300
+bahtsign.building.classical.fill e84f 1
 bandage e3f3 300
 bandage.fill e3f3 1
 banknote e57d 300
@@ -614,6 +681,8 @@ basketball.circle.fill ea26 1
 basketball.fill ea26 1
 bathtub ea41 300
 bathtub.fill ea41 1
+battery.100 e1a5 300
+battery.100.bolt e1a3 300
 battery.100percent e1a5 300
 battery.100percent.bolt e1a3 300
 batteryblock.stack.trianglebadge.exclamationmark e19c 300
@@ -630,6 +699,8 @@ bed.double.circle ea45
 bed.double.circle.fill ea45 1
 bed.double.fill efdf 1
 bell e7f5 300
+bell.and.waveform e7f7 300
+bell.and.waveform.fill e7f7 1
 bell.and.waves.left.and.right e7f7 300
 bell.and.waves.left.and.right.fill e7f7 1
 bell.badge e7f7
@@ -656,6 +727,8 @@ bicycle.circle e52f 300
 bicycle.circle.fill e52f 1
 bicycle.sensor.tag.radiowaves.left.and.right e52f 300
 bicycle.sensor.tag.radiowaves.left.and.right.fill e52f 1
+bin.xmark e92e 300
+bin.xmark.fill e92e 1
 bird f555 300
 bird.circle f555
 bird.fill f555 1
@@ -664,6 +737,8 @@ birthday.cake.fill e7e9 1
 bitcoinsign ebc5 300
 bitcoinsign.bank.building e84f 300
 bitcoinsign.bank.building.fill e84f 1
+bitcoinsign.building.classical e84f 300
+bitcoinsign.building.classical.fill e84f 1
 blinds.horizontal.closed ec1f
 blinds.horizontal.open e286 300
 blinds.vertical.closed ec0d
@@ -674,6 +749,8 @@ blood.pressure.cuff.badge.gauge.with.needle.fill e097 1
 blood.pressure.cuff.fill e097 1
 bold e238
 bolt ea0b 300
+bolt.badge.a e3e5
+bolt.badge.a.fill e3e5 1
 bolt.badge.automatic e3e5
 bolt.badge.automatic.fill e3e5 1
 bolt.batteryblock e1a3
@@ -685,6 +762,8 @@ bolt.car.fill eb1c 1
 bolt.circle ea0b
 bolt.circle.fill ea0b 1
 bolt.fill e3e7 1
+bolt.fill.batteryblock e1a3
+bolt.fill.batteryblock.fill e1a3 1
 bolt.horizontal ea0b 300
 bolt.horizontal.circle e932
 bolt.horizontal.circle.fill e932 1
@@ -720,6 +799,10 @@ books.vertical e02f 300
 books.vertical.circle e02f 300
 books.vertical.circle.fill e02f 1
 books.vertical.fill e02f 1
+box.truck e558 300
+box.truck.badge.clock e558 300
+box.truck.badge.clock.fill e558 1
+box.truck.fill e558 1
 brain ea4a 300
 brain.fill ea4a 1
 brain.filled.head.profile ea4a 300
@@ -727,6 +810,8 @@ brain.head.profile ea4a 300
 brain.head.profile.fill ea4a 1
 brazilianrealsign.bank.building e84f 300
 brazilianrealsign.bank.building.fill e84f 1
+brazilianrealsign.building.classical e84f 300
+brazilianrealsign.building.classical.fill e84f 1
 briefcase eb3f 300
 briefcase.circle eb3f
 briefcase.circle.fill eb3f 1
@@ -758,6 +843,9 @@ building.2 e7f1 300
 building.2.crop.circle e7f1 300
 building.2.crop.circle.fill e7f1 1
 building.2.fill e7f1 1
+building.classical.columns e84f 300
+building.classical.columns.circle e84f 300
+building.classical.columns.fill e84f 1
 building.columns e84f 300
 building.columns.circle e84f 300
 building.columns.circle.fill e84f 1
@@ -777,6 +865,7 @@ cable.connector.video efe6 300
 cablecar f479 200
 cablecar.fill f479 1 200
 calendar ebcc
+calendar.and.lock f242
 calendar.and.person e8a3
 calendar.badge e878 300
 calendar.badge.checkmark e614
@@ -799,6 +888,7 @@ camera.badge.ellipsis.fill e412 1
 camera.circle e412
 camera.circle.fill e412 1
 camera.fill e412 1
+camera.fill.badge.ellipsis e412 1
 camera.filters e412 300
 camera.macro e412
 camera.macro.circle e412
@@ -813,6 +903,8 @@ camera.metering.partial e412 300
 camera.metering.spot e412 300
 camera.metering.unknown e412 300
 camera.on.rectangle e412 300
+camera.rotate efeb
+camera.rotate.fill efeb 1
 camera.viewfinder e3b5 300
 camera.viewfinder.badge.automatic e3b5 300
 capslock e318 300
@@ -846,7 +938,9 @@ cart e8cc 300
 cart.badge.clock e8cc 300
 cart.badge.clock.fill e8cc 1
 cart.badge.minus e928 300
+cart.badge.minus.fill e928
 cart.badge.plus e854 300
+cart.badge.plus.fill e854
 cart.circle e8cc
 cart.circle.fill e8cc 1
 cart.fill e8cc 1
@@ -855,9 +949,13 @@ cart.fill.badge.plus e854
 cart.fill.badge.questionmark e8cc
 cedisign.bank.building e84f 300
 cedisign.bank.building.fill e84f 1
+cedisign.building.classical e84f 300
+cedisign.building.classical.fill e84f 1
 cellularbars ef06
 centsign.bank.building e84f 300
 centsign.bank.building.fill e84f 1
+centsign.building.classical e84f 300
+centsign.building.classical.fill e84f 1
 chair efee 300
 chair.fill efee 1 300
 chair.lounge efed
@@ -886,6 +984,7 @@ chart.line.uptrend.xyaxis.circle.fill e8e5 1
 chart.pie f0da 300
 chart.pie.fill f0da 1
 chart.xyaxis.line e6e1 300
+checkerboard.rectangle f043 300
 checklist e6b1 300
 checklist.checked e6b1
 checklist.unchecked e6b1 300
@@ -908,6 +1007,7 @@ checkmark.circle.dotted f0be 300
 checkmark.circle.fill f0be 1
 checkmark.circle.trianglebadge.exclamationmark f0be 300
 checkmark.circle.trianglebadge.exclamationmark.fill f0be 1
+checkmark.gobackward f232 300
 checkmark.icloud e2bf 300
 checkmark.icloud.fill e2bf 1
 checkmark.message f18b 300
@@ -942,6 +1042,7 @@ chevron.left e5cb 300
 chevron.left.2 eac3 300
 chevron.left.chevron.right e86f 300
 chevron.left.forwardslash.chevron.right e86f 300
+chevron.left.slash.chevron.right e86f 300
 chevron.left.to.line e5dc 300
 chevron.right e5cc 300
 chevron.right.2 eac9 300
@@ -956,6 +1057,8 @@ chevron.up.circle.fill f5d2 1
 chineseyuanrenminbisign eaf9 300
 chineseyuanrenminbisign.bank.building e84f 300
 chineseyuanrenminbisign.bank.building.fill e84f 1
+chineseyuanrenminbisign.building.classical e84f 300
+chineseyuanrenminbisign.building.classical.fill e84f 1
 circle ef4a
 circle.badge.minus f08f
 circle.badge.minus.fill f08f 1
@@ -965,18 +1068,23 @@ circle.badge.questionmark e8fd
 circle.badge.questionmark.fill e8fd 1
 circle.badge.xmark e888 300
 circle.badge.xmark.fill e888 1
+circle.bottomhalf.fill eb37 300
 circle.bottomhalf.filled eb37 300
 circle.bottomhalf.filled.inverse eb37 300
+circle.bottomthird.split e213 300
 circle.circle eee1 300
 circle.fill ef4a 1
 circle.grid.3x3 e5c3 300
 circle.grid.3x3.fill e5c3 1
+circle.lefthalf.fill eb37 300
 circle.lefthalf.filled eb37 300
 circle.lefthalf.filled.inverse eb37 300
 circle.on.square e602 300
 circle.on.square.merge eb98 300
+circle.righthalf.fill eb37 300
 circle.righthalf.filled eb37 300
 circle.righthalf.filled.inverse eb37 300
+circle.tophalf.fill eb37 300
 circle.tophalf.filled eb37 300
 circle.tophalf.filled.inverse eb37 300
 circlebadge ef4a 500
@@ -986,6 +1094,8 @@ clear.fill e5cd 1
 clipboard e85d 300
 clipboard.fill e85d 1
 clock efd6 300
+clock.arrow.2.circlepath e8b3 300
+clock.arrow.circlepath e8b3 300
 clock.arrow.trianglehead.2.counterclockwise.rotate.90 e8b3 300
 clock.arrow.trianglehead.clockwise.rotate.90.path.dotted e923 300
 clock.arrow.trianglehead.counterclockwise.rotate.90 e8b3 300
@@ -1030,6 +1140,8 @@ cloud.sun f172 300
 cloud.sun.fill f172 1
 coloncurrencysign.bank.building e84f 300
 coloncurrencysign.bank.building.fill e84f 1
+coloncurrencysign.building.classical e84f 300
+coloncurrencysign.building.classical.fill e84f 1
 command eae7 300
 command.circle eae7 300
 command.circle.fill eae7 1
@@ -1045,6 +1157,7 @@ cooktop.fill f544 1
 cpu e322 300
 cpu.fill e322 1
 creditcard e8a1 300
+creditcard.and.123 e8a1 300
 creditcard.and.numbers e8a1 300
 creditcard.circle e8a1 300
 creditcard.circle.fill e8a1 1
@@ -1072,17 +1185,28 @@ crown ecb3 300
 crown.fill ecb3 1
 cruzeirosign.bank.building e84f 300
 cruzeirosign.bank.building.fill e84f 1
+cruzeirosign.building.classical e84f 300
+cruzeirosign.building.classical.fill e84f 1
 cube f720 300
+cube.box e1a1 300
+cube.box.fill e1a1 1
 cube.fill f720 1
 cup.and.heat.waves eb44 300
 cup.and.heat.waves.fill eb44 1
 cup.and.saucer efef 300
 cup.and.saucer.fill efef 1
 curlybraces ead3 300
+cursorarrow f82f
+cursorarrow.click e762 300
+cursorarrow.click.2 e762 300
+cursorarrow.motionlines.click e762 300
+cursorarrow.resize.north.east.south.east f82f
 curtains.closed ec1d
 curtains.open ec1e
 danishkronesign.bank.building e84f 300
 danishkronesign.bank.building.fill e84f 1
+danishkronesign.building.classical e84f 300
+danishkronesign.building.classical.fill e84f 1
 decrease.indent e23d 300
 decrease.quotelevel e23d 300
 delete.backward e14a 300
@@ -1098,6 +1222,7 @@ diamond e697 200
 diamond.circle ead5
 diamond.circle.fill e697 1 200
 diamond.fill e697 1
+diamond.inset.filled ead5
 dice eb40 300
 dice.fill eb40 1
 die.face.1 eb40
@@ -1133,13 +1258,34 @@ distribute.horizontal.right e010 300
 distribute.horizontal.right.fill e010 1
 distribute.vertical e076 300
 distribute.vertical.fill e076 1
+doc e66d 300
+doc.badge.arrow.up e9fc 300
+doc.badge.arrow.up.fill e9fc 1
+doc.badge.plus e89c 300
+doc.fill e66d 1
+doc.fill.badge.plus e89c 1
+doc.on.clipboard e14f
+doc.on.clipboard.fill e14f 1
+doc.on.doc e14d 300
+doc.on.doc.fill e14d 1
+doc.plaintext ef42 300
+doc.plaintext.fill ef42 1
+doc.richtext ef42 300
+doc.richtext.fill ef42 1
+doc.text e873 300
+doc.text.fill e873 1
+doc.text.fill.viewfinder e5fa 1
+doc.text.magnifyingglass e880 300
+doc.text.viewfinder e5fa
+doc.viewfinder e5fa
+doc.viewfinder.fill e5fa 1
 dock.rectangle e06c 300
-document e674 300
+document e66d 300
 document.badge.arrow.up e9fc 300
 document.badge.arrow.up.fill e9fc 1
 document.badge.plus e89c 300
 document.badge.plus.fill e89c 1
-document.fill e674 1
+document.fill e66d 1
 document.on.clipboard e14f
 document.on.clipboard.fill e14f 1
 document.on.document e14d 300
@@ -1149,15 +1295,20 @@ document.viewfinder.fill e5fa 1
 dog f149 300
 dog.circle f149 300
 dollarsign e227 300
+dollarsign.arrow.circlepath eb70 300
 dollarsign.arrow.trianglehead.counterclockwise.rotate.90 eb70 300
 dollarsign.bank.building e84f 300
 dollarsign.bank.building.fill e84f 1
+dollarsign.building.classical e84f 300
+dollarsign.building.classical.fill e84f 1
 dollarsign.circle e263 300
 dollarsign.circle.fill e263 1
 dollarsign.square e227
 dollarsign.square.fill e227 1
 dongsign.bank.building e84f 300
 dongsign.bank.building.fill e84f 1
+dongsign.building.classical e84f 300
+dongsign.building.classical.fill e84f 1
 door.french.open e77c 300
 door.garage.closed e714
 door.garage.double.bay.closed e714
@@ -1168,6 +1319,8 @@ door.sliding.left.hand.closed effe
 door.sliding.left.hand.open effe
 door.sliding.right.hand.closed effe
 door.sliding.right.hand.open effe
+dot.circle e57b 300
+dot.circle.fill e57b 1
 dot.circle.viewfinder e3b4 300
 dot.crosshair e55c
 dot.radiowaves.forward e51e 300
@@ -1180,7 +1333,9 @@ dot.square.fill f3b3 1
 dot.viewfinder e3b4
 dpad e30f 300
 dpad.fill e30f 1
+dpad.left.fill eecb 300
 dpad.left.filled eecb 300
+dpad.right.fill eeca 300
 dpad.right.filled eeca 300
 drone f25a 300
 drone.fill f25a 1
@@ -1194,6 +1349,7 @@ dryer.fill e54a 1
 dumbbell eb43 300
 dumbbell.fill eb43 1
 ear e023 300
+ear.and.waveform e023 300
 ear.badge.waveform e023 300
 ear.fill e023 1
 earbud.left f326
@@ -1215,6 +1371,8 @@ eject.circle.fill e8fb 1
 eject.fill e8fb 1
 electronic.toll.collection.rectangle e8e0 300
 electronic.toll.collection.rectangle.fill e8e0 1
+ellipses.bubble e0c9 300
+ellipses.bubble.fill e0c9 1
 ellipsis e5d3 300
 ellipsis.bubble e0c9 300
 ellipsis.bubble.fill e0c9 1
@@ -1235,7 +1393,9 @@ envelope.badge.person.crop e0d0 300
 envelope.badge.person.crop.fill e0d0 1
 envelope.badge.shield.half.filled f249 300
 envelope.badge.shield.half.filled.fill f249 1
+envelope.badge.shield.leadinghalf.fill f249 300
 envelope.fill e159 1
+envelope.fill.badge.shield.trailinghalf.fill f249 1
 envelope.front e159 300
 envelope.front.fill e159 1
 envelope.open e151 300
@@ -1257,6 +1417,8 @@ eraser.slash.fill e7e3 1
 eurosign ea15 300
 eurosign.bank.building e84f 300
 eurosign.bank.building.fill e84f 1
+eurosign.building.classical e84f 300
+eurosign.building.classical.fill e84f 1
 eurosign.circle ea15 300
 eurosign.circle.fill ea15 1
 eurosign.ring ea15
@@ -1264,6 +1426,8 @@ eurosign.square ea15
 eurosign.square.fill ea15 1
 eurozonesign.bank.building e84f 300
 eurozonesign.bank.building.fill e84f 1
+eurozonesign.building.classical e84f 300
+eurozonesign.building.classical.fill e84f 1
 ev.charger e56d 300
 ev.charger.arrowtriangle.left e56d 300
 ev.charger.arrowtriangle.left.fill e56d 1
@@ -1276,6 +1440,8 @@ exclamationmark e645 300
 exclamationmark.2 e645 300
 exclamationmark.3 e645 300
 exclamationmark.applewatch fffd1
+exclamationmark.arrow.circlepath e629 300
+exclamationmark.arrow.triangle.2.circlepath e629 300
 exclamationmark.arrow.trianglehead.2.clockwise.rotate.90 e629 300
 exclamationmark.arrow.trianglehead.counterclockwise.rotate.90 e629 300
 exclamationmark.bubble e87f 300
@@ -1343,6 +1509,7 @@ f.cursive f74c
 face.dashed f008 300
 face.dashed.fill f008 1
 face.smiling e813 300
+face.smiling.fill e813
 face.smiling.inverse e813
 faceid f008 300
 facemask f218 300
@@ -1365,6 +1532,10 @@ fan.oscillation f168 300
 fan.oscillation.fill f168 1
 fan.slash ec17 300
 fan.slash.fill ec17 1
+fanblades f168 300
+fanblades.fill f168 1
+fanblades.slash ec17 300
+fanblades.slash.fill ec17 1
 faxmachine ead8 300
 faxmachine.fill ead8 1
 ferry eff5 300
@@ -1440,6 +1611,7 @@ figure.racquetball ea32
 figure.racquetball.circle ea32 300
 figure.roll e914 300
 figure.roll.circle e914 300
+figure.rower e921 300
 figure.rugby.circle.fill ea2e 1
 figure.run e566
 figure.run.circle ef6f 300
@@ -1470,9 +1642,18 @@ figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper 
 figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper.and.lower f328
 figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper.and.middle f328
 figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper.and.middle.and.lower f328
+figure.seated.side.windshield.front.and.heat.waves f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.lower f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.middle f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.middle.and.lower f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.upper f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.upper.and.lower f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.upper.and.middle f328
+figure.seated.side.windshield.front.and.heat.waves.air.distribution.upper.and.middle.and.lower f328
 figure.skateboarding e511
 figure.skateboarding.circle e511
 figure.skateboarding.circle.fill e511 1
+figure.skating e511
 figure.skiing.crosscountry e509 300
 figure.skiing.crosscountry.circle e509 300
 figure.skiing.crosscountry.circle.fill e509 1
@@ -1529,7 +1710,13 @@ fire.extinguisher.fill f1d8 1
 fireplace ea43 300
 fireplace.fill ea43 1
 fireworks ea65 300
+fitness.timer fff38
+fitness.timer.fill e9e4 1
 flag f0c6 300
+flag.checkered f06e
+flag.checkered.2.crossed f06e 300
+flag.checkered.circle f06e
+flag.checkered.circle.fill f06e 1
 flag.circle eaf8
 flag.circle.fill eaf8 1
 flag.fill f0c6 1
@@ -1555,6 +1742,8 @@ flask ea4b 300
 flask.fill ea4b 1
 florinsign.bank.building e84f 300
 florinsign.bank.building.fill e84f 1
+florinsign.building.classical e84f 300
+florinsign.building.classical.fill e84f 1
 flowchart f38d 300
 flowchart.fill f38d 1
 fluid.batteryblock e483
@@ -1562,18 +1751,27 @@ fluid.brakesignal e483
 fluid.coolant e483
 fluid.transmission e483
 folder e2c7 300
+folder.badge.gear f775 300
 folder.badge.gearshape f775 300
 folder.badge.minus eb34 300
+folder.badge.minus.fill eb34 1
 folder.badge.person.crop e2c9 300
+folder.badge.person.crop.fill e2c9
 folder.badge.plus e2cc 300
+folder.badge.plus.fill e2cc
 folder.circle e2c7
 folder.circle.fill e2c7 1
 folder.fill e2c7 1
+folder.fill.badge.gear f775
 folder.fill.badge.gearshape f775
 folder.fill.badge.minus eb34 1
 folder.fill.badge.person.crop e2c9
 folder.fill.badge.plus e2cc
 folder.fill.badge.questionmark f395
+football ea29 300
+football.circle ea29 300
+football.circle.fill ea29 1
+football.fill ea29 1
 fork.knife e56c 300
 fork.knife.circle e56c 300
 fork.knife.circle.fill e56c 1
@@ -1594,6 +1792,8 @@ forward.frame.fill e01f 1
 francsign eafa
 francsign.bank.building e84f 300
 francsign.bank.building.fill e84f 1
+francsign.building.classical e84f 300
+francsign.building.classical.fill e84f 1
 frying.pan f543 300
 frying.pan.fill f543 1
 fuelpump e546 300
@@ -1608,13 +1808,22 @@ gamecontroller ea28 300
 gamecontroller.circle ea28
 gamecontroller.circle.fill ea28 1
 gamecontroller.fill ea28 1
+gauge e9e4 300
+gauge.badge.minus f57d
+gauge.badge.plus f57e 300
 gauge.chart.lefthalf.righthalf e9e4
 gauge.chart.leftthird.topthird.rightthird e9e4
+gauge.high e9e4 300
+gauge.low e9e4 300
+gauge.medium e9e4 300
+gauge.medium.badge.minus f57d
+gauge.medium.badge.plus f57e 300
 gauge.open e9e4 300
 gauge.open.righthalf.dotted.with.needle.and.arrow.trianglehead.backward e9e4 300
 gauge.open.with.lines.needle.33percent e9e4 300
 gauge.open.with.lines.needle.33percent.and.arrow.trianglehead.from.0percent.to.50percent e9e4 300
 gauge.open.with.lines.needle.33percent.and.arrowtriangle e9e4 300
+gauge.open.with.lines.needle.33percent.and.arrowtriangle.from.0percent.to.50percent e9e4 300
 gauge.open.with.lines.needle.67percent.and.arrowtriangle e9e4 300
 gauge.open.with.lines.needle.67percent.and.arrowtriangle.and.car e9e4 300
 gauge.open.with.lines.needle.84percent.exclamation e9e4 300
@@ -1637,6 +1846,7 @@ gear.circle.fill e8b8 1
 gearshape e8b8 300
 gearshape.2 e8b8 300
 gearshape.2.fill e8b8 1
+gearshape.arrow.triangle.2.circlepath f47f 300
 gearshape.arrow.trianglehead.2.clockwise.rotate.90 f47f 300
 gearshape.circle e8b8
 gearshape.circle.fill e8b8 1
@@ -1660,6 +1870,9 @@ globe.desk.fill e80b 1
 globe.europe.africa e80b 300
 globe.europe.africa.fill e80b 1
 globe.fill e80b 1
+gobackward e042 300
+goforward e5d5 300
+goforward.90 eaab 300
 graduationcap e80c 300
 graduationcap.circle e80c
 graduationcap.circle.fill e80c 1
@@ -1671,10 +1884,14 @@ grid.circle e3ec 300
 grid.circle.fill e3ec 1
 guaranisign.bank.building e84f 300
 guaranisign.bank.building.fill e84f 1
+guaranisign.building.classical e84f 300
+guaranisign.building.classical.fill e84f 1
 hammer ea59 300
 hammer.circle ea59 300
 hammer.circle.fill ea59 1
 hammer.fill ea59 1
+hand.app e769
+hand.app.fill e769 1
 hand.draw e746 300
 hand.draw.fill e746 1
 hand.palm.facing e769
@@ -1724,6 +1941,8 @@ handbag.circle.fill e54c 1
 handbag.fill e54c 1
 hands.and.sparkles e65f 300
 hands.and.sparkles.fill e65f 1
+hands.sparkles e65f 300
+hands.sparkles.fill e65f 1
 hanger f19e 300
 headphones f01f
 headphones.circle f01f 300
@@ -1734,6 +1953,7 @@ headphones.slash f01f 300
 headset f01f 300
 headset.circle f01f 300
 headset.circle.fill f01f 1
+hearingaid.ear e023 300
 hearingdevice.ear e023 300
 hearingdevice.ear.fill e023 1
 heart e87e 300
@@ -1768,6 +1988,8 @@ hifispeaker.and.homepod e32d 300
 hifispeaker.and.homepod.fill e32d 1
 hifispeaker.and.homepod.mini e32d 300
 hifispeaker.and.homepod.mini.fill e32d 1
+hifispeaker.and.homepodmini e32d 300
+hifispeaker.and.homepodmini.fill e32d 1
 hifispeaker.fill e32d 1
 highlighter e6d1 300
 homepod f11c 300
@@ -1775,15 +1997,25 @@ homepod.2 e32d 300
 homepod.2.fill e32d 1
 homepod.and.homepod.mini e32d 300
 homepod.and.homepod.mini.fill e32d 1
+homepod.and.homepodmini e32d 300
+homepod.and.homepodmini.fill e32d 1
 homepod.fill e32d 1
 homepod.mini e32d 300
 homepod.mini.2 e32d 300
 homepod.mini.2.fill e32d 1
 homepod.mini.fill e32d 1
+homepodmini e32d 300
+homepodmini.2 e32d 300
+homepodmini.2.fill e32d 1
+homepodmini.fill e32d 1
 hourglass ebff
+hourglass.bottomhalf.fill ea5c
 hourglass.bottomhalf.filled ea5c
 hourglass.circle ebff 300
 hourglass.circle.fill ebff 1
+hourglass.end ea5b
+hourglass.start ea5c
+hourglass.tophalf.fill ea5b
 hourglass.tophalf.filled ea5b
 house ea44
 house.and.flag e9b2 300
@@ -1803,6 +2035,8 @@ house.lodge.circle.fill e587 1
 house.lodge.fill e587 1
 hryvniasign.bank.building e84f 300
 hryvniasign.bank.building.fill e84f 1
+hryvniasign.building.classical e84f 300
+hryvniasign.building.classical.fill e84f 1
 humidity f87e 300
 humidity.fill f87e 1
 hurricane ebd5
@@ -1823,6 +2057,8 @@ increase.quotelevel e23e 300
 indianrupeesign eaf7 300
 indianrupeesign.bank.building e84f 300
 indianrupeesign.bank.building.fill e84f 1
+indianrupeesign.building.classical e84f 300
+indianrupeesign.building.classical.fill e84f 1
 indianrupeesign.circle f460 300
 indianrupeesign.circle.fill f460 1
 infinity eb3d
@@ -1839,8 +2075,10 @@ info.square e88e
 info.square.fill e88e 1
 inset.filled.applewatch.case e334
 inset.filled.diamond ead5
+inset.filled.rectangle.and.person e851 300
 inset.filled.rectangle.and.person.filled e851 300
 inset.filled.tv e63b
+interface.window.badge.plus e72a 300
 internaldrive f80e 300
 internaldrive.fill e1db 1
 ipad e331 300
@@ -1848,6 +2086,7 @@ ipad.gen1 e331
 ipad.gen1.sizes e331
 ipad.gen2 e331 300
 ipad.gen2.sizes e331 300
+ipad.homebutton e331
 ipad.landscape ed3e 300
 ipad.sizes e331 300
 iphone e7ba 300
@@ -1874,6 +2113,10 @@ iphone.gen3.circle e7ba 300
 iphone.gen3.circle.fill e7ba 1
 iphone.gen3.radiowaves.left.and.right f2cb 300
 iphone.gen3.sizes e7ba 300
+iphone.homebutton e7ba
+iphone.homebutton.circle e7ba 300
+iphone.homebutton.circle.fill e7ba 1
+iphone.homebutton.radiowaves.left.and.right f2cb 300
 iphone.landscape ed3e 300
 iphone.radiowaves.left.and.right f2cb 300
 iphone.rear.camera f2c8 300
@@ -1903,12 +2146,17 @@ keyboard.badge.eye.fill e312 1
 keyboard.chevron.compact.down e31a 300
 keyboard.chevron.compact.down.fill e31a 1
 keyboard.fill e312 1
+keyboard.interface.window e312 300
 keyboard.macwindow e312 300
 kipsign.bank.building e84f 300
 kipsign.bank.building.fill e84f 1
+kipsign.building.classical e84f 300
+kipsign.building.classical.fill e84f 1
 l.button.roundedbottom.horizontal eee0 300
 l.button.roundedbottom.horizontal.fill eee0 1
 l.joystick f5ee 300
+l.joystick.down f5ee 300
+l.joystick.down.fill f5ee 1
 l.joystick.fill f5ee 1
 l.joystick.press.down f5ee 300
 l.joystick.press.down.fill f5ee 1
@@ -1920,16 +2168,22 @@ l.joystick.tilt.right f5ee 300
 l.joystick.tilt.right.fill f5ee 1
 l.joystick.tilt.up f5ee 300
 l.joystick.tilt.up.fill f5ee 1
+l.rectangle.roundedbottom eee0 300
+l.rectangle.roundedbottom.fill eee0 1
 l1.button.roundedbottom.horizontal eedd 300
 l1.button.roundedbottom.horizontal.fill eedd 1
 l1.circle eedd
 l1.circle.fill eedd 1
+l1.rectangle.roundedbottom eedd 300
+l1.rectangle.roundedbottom.fill eedd 1
 l2.button.angledtop.vertical.left eedc 300
 l2.button.angledtop.vertical.left.fill eedc 1
 l2.button.roundedtop.horizontal eedc 300
 l2.button.roundedtop.horizontal.fill eedc 1
 l2.circle eedc 300
 l2.circle.fill eedc 1
+l2.rectangle.roundedtop eedc 300
+l2.rectangle.roundedtop.fill eedc 1
 ladybug e868 300
 ladybug.circle ea1c 300
 ladybug.circle.fill ea1c 1
@@ -1950,14 +2204,21 @@ lanyardcard e85e 300
 lanyardcard.fill e85e 1
 laptopcomputer e31e 300
 laptopcomputer.and.arrow.down e31e 300
+laptopcomputer.and.ipad e326 300
 laptopcomputer.slash e31e 300
 larisign.bank.building e84f 300
 larisign.bank.building.fill e84f 1
+larisign.building.classical e84f 300
+larisign.building.classical.fill e84f 1
 lasso eb03
 laurel.leading.laurel.trailing e7af 300
 lb.button.roundedbottom.horizontal eee0 300
 lb.button.roundedbottom.horizontal.fill eee0 1
+lb.rectangle.roundedbottom eee0 300
+lb.rectangle.roundedbottom.fill eee0 1
 leaf ea35 300
+leaf.arrow.circlepath e761
+leaf.arrow.triangle.circlepath e761
 leaf.arrow.trianglehead.clockwise e761
 leaf.circle ea35
 leaf.circle.fill ea35 1
@@ -2001,7 +2262,14 @@ line.3.horizontal.decrease e152 300
 line.3.horizontal.decrease.circle e152 300
 line.3.horizontal.decrease.circle.fill e152 1
 line.diagonal f41e 300
+line.diagonal.arrow f1e1 300
 line.diagonal.trianglehead.up.right f1e1 300
+line.horizontal.2.decrease.circle ef4f 300
+line.horizontal.2.decrease.circle.fill ef4f 1
+line.horizontal.3 e5d2 300
+line.horizontal.3.decrease e152 300
+line.horizontal.3.decrease.circle e152 300
+line.horizontal.3.decrease.circle.fill e152 1
 lines.measurement.horizontal e41c 300
 lines.measurement.vertical ea16 300
 lineweight e91a
@@ -2011,6 +2279,8 @@ link.circle e250 300
 link.circle.fill e250 1
 lirasign.bank.building e84f 300
 lirasign.bank.building.fill e84f 1
+lirasign.building.classical e84f 300
+lirasign.building.classical.fill e84f 1
 list.bullet e241 300
 list.bullet.badge.ellipsis e241 300
 list.bullet.below.rectangle e241 300
@@ -2019,6 +2289,8 @@ list.bullet.circle.fill e241 1
 list.bullet.clipboard e241 300
 list.bullet.clipboard.fill e241 1
 list.bullet.indent e241 300
+list.bullet.page e241 300
+list.bullet.page.fill e241 1
 list.bullet.rectangle e241 300
 list.bullet.rectangle.fill e241 1
 list.bullet.rectangle.portrait e241 300
@@ -2028,6 +2300,7 @@ list.clipboard.fill e896 1
 list.dash e896 300
 list.number e242 300
 list.number.badge.ellipsis e242 300
+livephoto.badge.a f03a 300
 livephoto.badge.automatic f03a 300
 livephoto.play e9c1 300
 location e569 300
@@ -2066,6 +2339,7 @@ lock.open.rotation f2d6
 lock.rectangle e899
 lock.rectangle.fill e899 1
 lock.rotation eade 300
+lock.rotation.open f2d6
 lock.shield f686
 lock.shield.fill e593 1
 lock.slash f03f 300
@@ -2095,8 +2369,12 @@ mail.fill e159 1
 mail.stack e6c7 300
 malaysianringgitsign.bank.building e84f 300
 malaysianringgitsign.bank.building.fill e84f 1
+malaysianringgitsign.building.classical e84f 300
+malaysianringgitsign.building.classical.fill e84f 1
 manatsign.bank.building e84f 300
 manatsign.bank.building.fill e84f 1
+manatsign.building.classical e84f 300
+manatsign.building.classical.fill e84f 1
 map e55b 300
 map.circle e55b 300
 map.circle.fill e55b 1
@@ -2133,6 +2411,18 @@ message.badge.filled.fill e0c9 1
 message.circle e0c9
 message.circle.fill e0c9 1
 message.fill e0cb 1
+mic e31d 300
+mic.and.signal.meter e31d 300
+mic.and.signal.meter.fill e31d 1
+mic.circle e31d 300
+mic.circle.fill e31d 1
+mic.fill e31d 1
+mic.slash e02b 300
+mic.slash.circle e02b 300
+mic.slash.circle.fill e02b 1
+mic.slash.fill e02b 1
+mic.square e31d
+mic.square.fill e31d 1
 microbe f221 300
 microbe.circle f221 300
 microbe.circle.fill f221 1
@@ -2155,11 +2445,14 @@ microwave f204 300
 microwave.fill f204 1
 millsign.bank.building e84f 300
 millsign.bank.building.fill e84f 1
+millsign.building.classical e84f 300
+millsign.building.classical.fill e84f 1
 minus e15b 300
 minus.circle f08f
 minus.circle.fill f08f 1
 minus.forwardslash.plus e3f6 300
 minus.magnifyingglass e900 300
+minus.slash.plus e3f6 300
 minus.square e909 300
 minus.square.fill e909 1
 moon e51c 300
@@ -2209,6 +2502,8 @@ multiply.circle e888 300
 multiply.circle.fill e888 1
 multiply.square f230 300
 multiply.square.fill f230 1
+music.house e030 300
+music.house.fill e030 1 300
 music.note e405 300
 music.note.house e030 300
 music.note.house.fill e030 1 300
@@ -2220,6 +2515,8 @@ music.note.tv e063 300
 music.note.tv.fill e063 1
 nairasign.bank.building e84f 300
 nairasign.bank.building.fill e84f 1
+nairasign.building.classical e84f 300
+nairasign.building.classical.fill e84f 1
 network e9f4
 newspaper eb81 300
 newspaper.circle eb81 300
@@ -2227,12 +2524,19 @@ newspaper.circle.fill eb81 1
 newspaper.fill eb81 1
 norwegiankronesign.bank.building e84f 300
 norwegiankronesign.bank.building.fill e84f 1
+norwegiankronesign.building.classical e84f 300
+norwegiankronesign.building.classical.fill e84f 1
 nosign f08d 300
 nosign.app f08d
 nosign.app.fill f08d 1
 number e9ef 300
 number.circle e9ef 300
 number.circle.fill e9ef 1
+number.sign e9ef 300
+number.sign.circle e9ef 300
+number.sign.circle.fill e9ef 1
+number.sign.square e9ef
+number.sign.square.fill e9ef 1
 number.square e9ef
 number.square.fill e9ef 1
 numbers.rectangle eb8d 300
@@ -2262,6 +2566,7 @@ paperplane e163 300
 paperplane.circle e163 300
 paperplane.circle.fill e163 1
 paperplane.fill e163 1
+paragraph f865 300
 paragraphsign f865 300
 parkingsign e54f 300
 parkingsign.brakesignal e54f 300
@@ -2320,10 +2625,14 @@ person.3 f233 300
 person.3.fill f233 1
 person.and.background.dotted f0d3 300
 person.and.background.striped.horizontal f0d3 300
+person.and.person ea21 300
+person.and.person.fill ea21 1
 person.badge.key f8f3 300
 person.badge.key.fill f8f3 1
 person.badge.minus ef66
+person.badge.minus.fill ef66
 person.badge.plus ea4d
+person.badge.plus.fill ea4d
 person.badge.shield.checkmark e384 300
 person.badge.shield.checkmark.fill e384 1
 person.badge.shield.exclamationmark e384 300
@@ -2340,16 +2649,26 @@ person.crop.badge.magnifyingglass.fill f106 1
 person.crop.circle f20b
 person.crop.circle.badge f20b
 person.crop.circle.badge.checkmark e174
+person.crop.circle.badge.checkmark.fill e174
 person.crop.circle.badge.ellipsis f20b
 person.crop.circle.badge.ellipsis.fill f20b 1
+person.crop.circle.badge.exclam f567
+person.crop.circle.badge.exclam.fill f567 1
 person.crop.circle.badge.exclamationmark f567
 person.crop.circle.badge.exclamationmark.fill f567 1
 person.crop.circle.badge.fill e3be 1
+person.crop.circle.badge.magnifyingglass f106
+person.crop.circle.badge.magnifyingglass.fill f106 1
 person.crop.circle.badge.minus ef66
+person.crop.circle.badge.minus.fill ef66
 person.crop.circle.badge.plus ea4d
+person.crop.circle.badge.plus.fill ea4d
 person.crop.circle.badge.xmark f566
+person.crop.circle.badge.xmark.fill f566
 person.crop.circle.fill f20b 1
 person.crop.circle.fill.badge.checkmark e174
+person.crop.circle.fill.badge.exclam f567 1
+person.crop.circle.fill.badge.exclamationmark f567 1
 person.crop.circle.fill.badge.minus ef66
 person.crop.circle.fill.badge.plus ea4d
 person.crop.circle.fill.badge.xmark f566
@@ -2357,6 +2676,7 @@ person.crop.rectangle e851 300
 person.crop.rectangle.fill e851 1
 person.crop.square e851
 person.crop.square.fill e851 1
+person.crop.square.fill.and.at.rectangle e0d0 300
 person.crop.square.filled.and.at.rectangle e0d0 300
 person.crop.square.filled.and.at.rectangle.fill e0d0 1
 person.fill f0d3 1
@@ -2380,11 +2700,19 @@ personalhotspot.circle.fill e1e2 1
 personalhotspot.slash f087 300
 peruviansolessign.bank.building e84f 300
 peruviansolessign.bank.building.fill e84f 1
+peruviansolessign.building.classical e84f 300
+peruviansolessign.building.classical.fill e84f 1
 pesetasign.bank.building e84f 300
 pesetasign.bank.building.fill e84f 1
+pesetasign.building.classical e84f 300
+pesetasign.building.classical.fill e84f 1
 pesosign.bank.building e84f 300
 pesosign.bank.building.fill e84f 1
+pesosign.building.classical e84f 300
+pesosign.building.classical.fill e84f 1
 phone f0d4 300
+phone.and.waveform e61d 300
+phone.and.waveform.fill e61d 1
 phone.arrow.down.left e0b5 300
 phone.arrow.down.left.fill e0b5 1
 phone.arrow.right e61c 300
@@ -2394,10 +2722,13 @@ phone.arrow.up.right.circle e0b2 300
 phone.arrow.up.right.circle.fill e0b2 1
 phone.arrow.up.right.fill e0b2 1
 phone.badge.plus f0b7 300
+phone.badge.plus.fill f0b7
 phone.badge.waveform e61d 300
 phone.badge.waveform.fill e61d 1
 phone.bubble e8a8 300
 phone.bubble.fill e8a8 1
+phone.bubble.left e8a8 300
+phone.bubble.left.fill e8a8 1
 phone.circle f0d4 300
 phone.circle.fill f0d4 1
 phone.down f0bc 300
@@ -2406,6 +2737,9 @@ phone.down.circle.fill f0bc 1
 phone.down.fill f0bc 1
 phone.down.waves.left.and.right f0bc 300
 phone.fill f0d4 1
+phone.fill.arrow.down.left e0b5 1
+phone.fill.arrow.right e61c 1
+phone.fill.arrow.up.right e0b2 1
 phone.fill.badge.plus f0b7
 phone.pause e620 300
 phone.pause.circle e1a2
@@ -2426,6 +2760,7 @@ photo.fill.on.rectangle.fill e413 1
 photo.on.rectangle e413 300
 photo.on.rectangle.angled e413 300
 photo.on.rectangle.angled.fill e413 1
+photo.on.rectangle.fill e413 1
 photo.stack e3d3
 photo.stack.fill e3d3 1
 pianokeys e521 300
@@ -2487,14 +2822,17 @@ plus.message e266 300
 plus.message.fill e266 1
 plus.rectangle e05c 300
 plus.rectangle.fill e05c 1
+plus.rectangle.fill.on.folder.fill e2cc 1
 plus.rectangle.on.folder e2cc 300
 plus.rectangle.on.folder.fill e2cc 1
 plus.rectangle.on.rectangle e03c 300
+plus.slash.minus e3f6 300
 plus.square e146 300
 plus.square.dashed e146 300
 plus.square.fill e146 1
 plus.square.fill.on.square.fill e03c 1
 plus.square.on.square e03c 300
+plus.square.on.square.fill e03c 1
 pointer.arrow f82f
 pointer.arrow.click e762 300
 pointer.arrow.click.2 e762 300
@@ -2502,6 +2840,8 @@ pointer.arrow.ipad f82f
 pointer.arrow.motionlines.click e762 300
 polishzlotysign.bank.building e84f 300
 polishzlotysign.bank.building.fill e84f 1
+polishzlotysign.building.classical e84f 300
+polishzlotysign.building.classical.fill e84f 1
 power f8c7 300
 power.circle f8c7 300
 power.circle.fill f8c7 1
@@ -2576,10 +2916,12 @@ powerplug.portrait.fill e63c 1
 printer e8ad 300
 printer.dotmatrix e8ad 300
 printer.dotmatrix.fill e8ad 1
+printer.dotmatrix.fill.and.paper.fill e8ad
 printer.dotmatrix.filled.and.paper e8ad
 printer.dotmatrix.filled.and.paper.inverse e8ad
 printer.dotmatrix.inverse e8ad
 printer.fill e8ad 1
+printer.fill.and.paper.fill e8ad
 printer.filled.and.paper e8ad
 printer.filled.and.paper.inverse e8ad
 printer.inverse e8ad
@@ -2608,6 +2950,8 @@ quote.opening e244
 r.button.roundedbottom.horizontal eedf 300
 r.button.roundedbottom.horizontal.fill eedf 1
 r.joystick f5ee 300
+r.joystick.down f5ee 300
+r.joystick.down.fill f5ee 1
 r.joystick.fill f5ee 1
 r.joystick.press.down f5ee 300
 r.joystick.press.down.fill f5ee 1
@@ -2619,21 +2963,29 @@ r.joystick.tilt.right f5ee 300
 r.joystick.tilt.right.fill f5ee 1
 r.joystick.tilt.up f5ee 300
 r.joystick.tilt.up.fill f5ee 1
+r.rectangle.roundedbottom eedf 300
+r.rectangle.roundedbottom.fill eedf 1
 r1.button.roundedbottom.horizontal eeda 300
 r1.button.roundedbottom.horizontal.fill eeda 1
 r1.circle eeda 300
 r1.circle.fill eeda 1
+r1.rectangle.roundedbottom eeda 300
+r1.rectangle.roundedbottom.fill eeda 1
 r2.button.angledtop.vertical.right eed9 300
 r2.button.angledtop.vertical.right.fill eed9 1
 r2.button.roundedtop.horizontal eed9 300
 r2.button.roundedtop.horizontal.fill eed9 1
 r2.circle eed9
 r2.circle.fill eed9 1
+r2.rectangle.roundedtop eed9 300
+r2.rectangle.roundedtop.fill eed9 1
 radio e03e 300
 radio.fill e03e 1
 rainbow e3fc 300
 rb.button.roundedbottom.horizontal eedf 300
 rb.button.roundedbottom.horizontal.fill eedf 1
+rb.rectangle.roundedbottom eedf 300
+rb.rectangle.roundedbottom.fill eedf 1
 receipt e8b0 300
 receipt.fill e8b0 1
 record.circle e837 300
@@ -2642,6 +2994,8 @@ rectangle eb54 300
 rectangle.2.swap e8d4 300
 rectangle.3.group e871 300
 rectangle.3.group.fill e871 1
+rectangle.3.offgrid e871 300
+rectangle.3.offgrid.fill e871 1
 rectangle.and.arrow.up.right.and.arrow.down.left e5d0 300
 rectangle.and.hand.point.up.left f4c7 300
 rectangle.and.hand.point.up.left.fill f4c7 1 300
@@ -2651,11 +3005,14 @@ rectangle.and.text.magnifyingglass ea9b 300
 rectangle.arrowtriangle.2.inward f1cf 300
 rectangle.arrowtriangle.2.outward f1ce 300
 rectangle.badge.checkmark f1fe 300
+rectangle.badge.checkmark.fill f1fe
 rectangle.badge.person.crop e851 300
 rectangle.badge.plus e05c 300
 rectangle.badge.sparkles e65f 300
+rectangle.checkered f043 300
 rectangle.compress.vertical e94d 300
 rectangle.dashed.and.paperclip e2bc 300
+rectangle.dock e06c 300
 rectangle.expand.diagonal e94f 300
 rectangle.expand.vertical e94f 300
 rectangle.fill eb54 1 300
@@ -2672,8 +3029,10 @@ rectangle.grid.3x2 e9b0 300
 rectangle.grid.3x2.fill e9b0 1
 rectangle.grid.3x3 f015 300
 rectangle.grid.3x3.fill f015 1
+rectangle.inset.filled.and.person.filled e851 300
 rectangle.on.rectangle f4c8 300
 rectangle.on.rectangle.angled e3e0 300
+rectangle.on.rectangle.angled.fill e3e0 1
 rectangle.on.rectangle.badge.gearshape eb97 300
 rectangle.pattern.checkered f043 300
 rectangle.portrait e851 300
@@ -2707,6 +3066,7 @@ rectangle.stack f609 300
 rectangle.stack.badge.play e04a 300
 rectangle.stack.badge.play.fill e04a 1
 rectangle.stack.badge.plus e03c 300
+rectangle.stack.badge.plus.fill e03c
 rectangle.stack.fill f609 1
 rectangle.stack.fill.badge.plus e03c
 rectangle.stack.slash f608 300
@@ -2727,11 +3087,12 @@ return.left f1e6
 return.right e5da 300
 rhombus e697 200
 rhombus.fill e697 1 200
-richtext.page ef87 300
-richtext.page.fill ef87 1
+richtext.page ef42 300
+richtext.page.fill ef42 1
 right f04d 200
 right.circle eaaa 300
 right.circle.fill eaaa 1
+ring.circle eee1 300
 road.lane.arrowtriangle.2.inward f472 300
 road.lane.arrowtriangle.2.outward f472 300
 road.lanes f472 300
@@ -2754,14 +3115,20 @@ rotate.right e41a 300
 rotate.right.fill e41a 1
 rt.button.roundedtop.horizontal eed1 300
 rt.button.roundedtop.horizontal.fill eed1 1
+rt.rectangle.roundedtop eed1 300
+rt.rectangle.roundedtop.fill eed1 1
 rublesign.bank.building e84f 300
 rublesign.bank.building.fill e84f 1
+rublesign.building.classical e84f 300
+rublesign.building.classical.fill e84f 1
 rugbyball ea2e 300
 rugbyball.fill ea2e 1 300
 ruler e41c 300
 ruler.fill e41c 1
 rupeesign.bank.building e84f 300
 rupeesign.bank.building.fill e84f 1
+rupeesign.building.classical e84f 300
+rupeesign.building.classical.fill e84f 1
 safari e87a
 safari.fill e87a 1
 sailboat e502 300
@@ -2794,8 +3161,11 @@ server.rack e1db 300
 shadow e9df 300
 shekelsign.bank.building e84f 300
 shekelsign.bank.building.fill e84f 1
+shekelsign.building.classical e84f 300
+shekelsign.building.classical.fill e84f 1
 shield e9e0 300
 shield.fill e9e0 1
+shield.lefthalf.fill e9e0
 shield.lefthalf.filled e9e0
 shield.lefthalf.filled.badge.checkmark f013
 shield.lefthalf.filled.trianglebadge.exclamationmark f014
@@ -2847,6 +3217,8 @@ simcard.2.fill e32b 1
 simcard.fill e32b 1
 singaporedollarsign.bank.building e84f 300
 singaporedollarsign.bank.building.fill e84f 1
+singaporedollarsign.building.classical e84f 300
+singaporedollarsign.building.classical.fill e84f 1
 sink e278 300
 skateboard e511
 skateboard.fill e511 1
@@ -2857,10 +3229,15 @@ slider.horizontal.2.square e429
 slider.horizontal.3 e429 300
 slider.vertical.3 e429 300
 smallcircle.circle eee1 300
+smallcircle.fill.circle e57b 300
+smallcircle.fill.circle.fill e57b 1
 smallcircle.filled.circle e57b 300
 smallcircle.filled.circle.fill e57b 1
 smartphone e7ba
+smiley e813 300
+smiley.fill e813
 smoke f15c 300
+snow ed5b 300
 snowflake ed5b 300
 snowflake.circle eb3b 300
 snowflake.circle.fill eb3b 1
@@ -2877,9 +3254,16 @@ sparkles e65f 300
 sparkles.2 e65f
 sparkles.rectangle.stack e65f 300
 sparkles.rectangle.stack.fill e661 1
+sparkles.square.fill.on.square e661
 sparkles.square.filled.on.square e661
 spatial.capture f727
 speaker e04e 200
+speaker.1 e04d 200
+speaker.1.fill e04d 1
+speaker.2 e050 300
+speaker.2.fill e050 1
+speaker.3 e050 300
+speaker.3.fill e050 1
 speaker.circle e32d
 speaker.circle.fill e32d 1
 speaker.fill e04e 1
@@ -2898,11 +3282,13 @@ speaker.wave.1.arrowtriangles.up.right.down.left e049
 speaker.wave.1.fill e04d 1
 speaker.wave.2 e050 300
 speaker.wave.2.bubble e62e
+speaker.wave.2.bubble.left e62e
 speaker.wave.2.circle e32d 300
 speaker.wave.2.circle.fill e32d 1
 speaker.wave.2.fill e050 1
 speaker.wave.3 e050 300
 speaker.wave.3.fill e050 1
+speedometer e9e4 300
 spigot e278 300
 spigot.fill e278 1
 sprinkler e29a
@@ -2914,12 +3300,25 @@ square.2.layers.3d e53b 300
 square.2.layers.3d.bottom.filled e53b
 square.2.layers.3d.fill e53b 1
 square.2.layers.3d.top.filled e53b
+square.2.stack.3d e53b 300
+square.2.stack.3d.bottom.fill e53b
+square.2.stack.3d.bottom.filled e53b
+square.2.stack.3d.top.fill e53b
+square.2.stack.3d.top.filled e53b
 square.3.layers.3d e53b 300
 square.3.layers.3d.bottom.filled e53b
 square.3.layers.3d.down.forward e53b 300
 square.3.layers.3d.middle.filled e53b
 square.3.layers.3d.slash e53c 300
 square.3.layers.3d.top.filled e53b
+square.3.stack.3d e53b 300
+square.3.stack.3d.bottom.fill e53b
+square.3.stack.3d.bottom.filled e53b
+square.3.stack.3d.middle.fill e53b
+square.3.stack.3d.middle.filled e53b
+square.3.stack.3d.slash e53c 300
+square.3.stack.3d.top.fill e53b
+square.3.stack.3d.top.filled e53b
 square.and.arrow.down f090 300
 square.and.arrow.down.badge.checkmark f090 300
 square.and.arrow.down.badge.checkmark.fill f090 1
@@ -2948,6 +3347,7 @@ square.badge.plus e146 300
 square.badge.plus.fill e146 1
 square.circle eec7 300
 square.fill eb36 1
+square.fill.on.square e3e0
 square.filled.on.square e3e0
 square.grid.2x2 e9b0 300
 square.grid.2x2.fill e9b0 1
@@ -2956,17 +3356,27 @@ square.grid.3x1.folder.fill.badge.plus e2cc
 square.grid.3x2 e9b0 300
 square.grid.3x2.fill e9b0 1
 square.grid.3x3 e3ec 300
+square.grid.3x3.bottomleft.fill f015 300
 square.grid.3x3.bottomleft.filled f015 300
+square.grid.3x3.bottommiddle.fill f015 300
 square.grid.3x3.bottommiddle.filled f015 300
+square.grid.3x3.bottomright.fill f015 300
 square.grid.3x3.bottomright.filled f015 300
 square.grid.3x3.fill f015 1
+square.grid.3x3.fill.square f015 300
+square.grid.3x3.middle.fill f015 300
 square.grid.3x3.middle.filled f015 300
+square.grid.3x3.middleleft.fill f015 300
 square.grid.3x3.middleleft.filled f015 300
+square.grid.3x3.middleright.fill f015 300
 square.grid.3x3.middleright.filled f015 300
 square.grid.3x3.square f015 300
 square.grid.3x3.square.badge.ellipsis f015 300
+square.grid.3x3.topleft.fill f015 300
 square.grid.3x3.topleft.filled f015 300
+square.grid.3x3.topmiddle.fill f015 300
 square.grid.3x3.topmiddle.filled f015 300
+square.grid.3x3.topright.fill f015 300
 square.grid.3x3.topright.filled f015 300
 square.grid.4x3.fill f016 1
 square.on.square.intersection.dashed eaf4 300
@@ -2978,6 +3388,7 @@ square.split.2x1.fill e949 1
 square.split.2x2 e9b0
 square.split.2x2.fill e9b0 1
 square.stack f609 300
+square.stack.3d.down.dottedline f609 300
 square.stack.3d.down.forward f609 300
 square.stack.3d.down.forward.fill f609 1
 square.stack.3d.forward.dottedline f609 300
@@ -2997,13 +3408,18 @@ star.bubble.fill f07c 1
 star.circle e8d0
 star.circle.fill e8d0 1
 star.fill f09a 1
+star.fill.left e839 300
+star.leadinghalf.fill e839 300
 star.leadinghalf.filled e839 300
+star.lefthalf.fill e839 300
 staroflife e1eb 300
 staroflife.fill e1eb 1
 staroflife.shield e1d5 300
 staroflife.shield.fill e1d5 1
 sterlingsign.bank.building e84f 300
 sterlingsign.bank.building.fill e84f 1
+sterlingsign.building.classical e84f 300
+sterlingsign.building.classical.fill e84f 1
 stethoscope f805 300
 stethoscope.circle f805 300
 stethoscope.circle.fill f805 1
@@ -3037,6 +3453,8 @@ suitcase.rolling.and.suitcase f235 300
 suitcase.rolling.and.suitcase.fill f235 1
 suitcase.rolling.fill f235 1
 sum e24a 300
+sun.and.horizon e1c6 300
+sun.and.horizon.fill e1c6 1
 sun.horizon e1c6 300
 sun.horizon.fill e1c6 1
 sun.max e518
@@ -3065,6 +3483,8 @@ suv.side.air.fresh f338 300
 suv.side.air.fresh.fill f338 1
 swedishkronasign.bank.building e84f 300
 swedishkronasign.bank.building.fill e84f 1
+swedishkronasign.building.classical e84f 300
+swedishkronasign.building.classical.fill e84f 1
 switch.2 e1f4
 switch.programmable e1f4
 switch.programmable.fill e1f4 1
@@ -3072,6 +3492,7 @@ switch.programmable.square e1f4
 switch.programmable.square.fill e1f4 1
 syringe e133 300
 syringe.fill e138 1
+table f191 300
 table.furniture eac6 300
 table.furniture.fill eac6 1
 tablecells f191 300
@@ -3092,6 +3513,8 @@ teletype.circle f1aa
 teletype.circle.fill f1aa 1
 tengesign.bank.building e84f 300
 tengesign.bank.building.fill e84f 1
+tengesign.building.classical e84f 300
+tengesign.building.classical.fill e84f 1
 tennis.racket ea32 300
 tennis.racket.circle ea32 300
 tennis.racket.circle.fill ea32 1
@@ -3103,10 +3526,13 @@ tent.2.fill f8a2 1
 tent.circle f8a2 300
 tent.circle.fill f8a2 1
 tent.fill f8a2 1
+terminal eb8e 300
+terminal.fill eb8e 1
 testtube.2 e105
 text.aligncenter e234 300
 text.alignleft e236 300
 text.alignright e237 300
+text.and.command.interface.window eb8e 300
 text.and.command.macwindow eb8e 300
 text.badge.checkmark f0c5
 text.badge.plus ea20 300
@@ -3116,6 +3542,9 @@ text.bubble e0c9 300
 text.bubble.badge.clock e0c9 300
 text.bubble.badge.clock.fill e0c9 1
 text.bubble.fill e0c9 1
+text.chevron.left e23d 300
+text.chevron.right e23e 300
+text.cursor e262 300
 text.document e873 300
 text.document.fill e873 1
 text.insert f827 300
@@ -3124,16 +3553,21 @@ text.justify.leading e235 300
 text.justify.left e236 300
 text.justify.right e237 300
 text.justify.trailing e235 300
+text.justifyleft e236 300
+text.justifyright e237 300
 text.line.2.summary f071 300
 text.line.3.summary f071 300
 text.magnifyingglass f02f
-text.page ef87 300
+text.page ef42 300
 text.page.badge.magnifyingglass e880 300
-text.page.fill ef87 1
+text.page.fill ef42 1
 text.quote e244 300
 text.viewfinder e5fa
 text.word.spacing f616 300
+textbox e262 300
 textformat e165 300
+textformat.12 eb8d 300
+textformat.abc e165 300
 textformat.alt e165 300
 textformat.characters e165 300
 textformat.numbers eb8d 300
@@ -3144,6 +3578,7 @@ textformat.subscript f111 300
 textformat.superscript f112 300
 theatermasks ea66 300
 theatermasks.fill ea66 1 300
+thermometer e846 300
 thermometer.and.ellipsis e846 300
 thermometer.and.liquid.waves e846 300
 thermometer.and.liquid.waves.trianglebadge.exclamationmark ffffb 300
@@ -3153,6 +3588,7 @@ thermometer.high e1ff 300
 thermometer.low e1ff 300
 thermometer.medium e846 300
 thermometer.snowflake e1ff 300
+thermometer.snowlake e1ff 300
 thermometer.variable e1ff 300
 thermometer.variable.badge.play f076 300
 ticket e638 300
@@ -3187,6 +3623,7 @@ tram.circle e571 300
 tram.circle.fill e571 1
 tram.fill e571 1
 tram.fill.tunnel e571 300
+tram.tunnel.fill e571 300
 translate e8e2
 transmission f53f 300
 trash e92e 300
@@ -3236,8 +3673,12 @@ tshirt ef7b 300
 tshirt.fill ef7b 1 300
 tugriksign.bank.building e84f 300
 tugriksign.bank.building.fill e84f 1
+tugriksign.building.classical e84f 300
+tugriksign.building.classical.fill e84f 1
 turkishlirasign.bank.building e84f 300
 turkishlirasign.bank.building.fill e84f 1
+turkishlirasign.building.classical e84f 300
+turkishlirasign.building.classical.fill e84f 1
 tv e63b 300
 tv.and.hifispeaker.fill e715 1
 tv.and.mediabox e63b 300
@@ -3247,6 +3688,9 @@ tv.badge.wifi.fill e998 1
 tv.circle e63b 300
 tv.circle.fill e63b 1
 tv.fill e63b 1
+tv.inset.filled e63b
+tv.music.note e063 300
+tv.music.note.fill e063 1
 tv.slash e647 300
 tv.slash.fill e647 1
 uiwindow.split.2x1 f191 300
@@ -3259,12 +3703,17 @@ umbrella.sensor.tag.radiowaves.left.and.right.fill eb3e 1
 underline e249 300
 underline.double e249 300
 video e04b 300
+video.and.waveform e04b 300
+video.and.waveform.fill e04b 1
 video.badge.ellipsis e04b 300
 video.badge.plus e070 300
+video.badge.plus.fill e070
 video.badge.waveform e04b 300
 video.badge.waveform.fill e04b 1
 video.bubble f8a0 300
 video.bubble.fill f8a0 1
+video.bubble.left f8a0 300
+video.bubble.left.fill f8a0 1
 video.circle e04b
 video.circle.fill e04b 1
 video.doorbell e82c 300
@@ -3289,6 +3738,16 @@ volleyball ea31 300
 volleyball.circle ea31 300
 volleyball.circle.fill ea31 1
 volleyball.fill ea31 1
+volume e04e 200
+volume.1 e04d 200
+volume.1.fill e04d 1
+volume.2 e050 300
+volume.2.fill e050 1
+volume.3 e050 300
+volume.3.fill e050 1
+volume.fill e04e 1
+volume.slash e04f 300
+volume.slash.fill e04f 1
 wallet.bifold f8ff 300
 wallet.bifold.fill f8ff 1
 wallet.pass f2e4 300
@@ -3301,6 +3760,8 @@ wand.and.rays e663 300
 wand.and.rays.inverse e663 300
 wand.and.sparkles e65f 300
 wand.and.sparkles.inverse e65f 300
+wand.and.stars e65f 300
+wand.and.stars.inverse e65f 300
 washer e54a 300
 washer.circle e54a 300
 washer.circle.fill e54a 1
@@ -3313,7 +3774,10 @@ waterbottle.fill f69d 1 300
 wave.3.down.car.side f344 300
 wave.3.down.car.side.fill f344 1
 waveform e1b8 300
+waveform.and.mic e31d 300
+waveform.and.person e91f 300
 waveform.and.person.filled e91f 300
+waveform.badge.mic e31d 300
 waveform.badge.microphone e31d 300
 waveform.circle e1b8
 waveform.circle.fill e1b8 1
@@ -3366,10 +3830,14 @@ wineglass f1e8 300
 wineglass.fill f1e8 1
 wonsign.bank.building e84f 300
 wonsign.bank.building.fill e84f 1
+wonsign.building.classical e84f 300
+wonsign.building.classical.fill e84f 1
+wrench f8cd 300
 wrench.adjustable f8cd 300
 wrench.adjustable.fill f8cd 1
 wrench.and.screwdriver f10b 300
 wrench.and.screwdriver.fill f10b 1
+wrench.fill f8cd 1
 x.circle e349 300
 x.circle.fill e349 1
 xmark e5cd 300
@@ -3399,8 +3867,14 @@ y.circle.fill eec5 1
 yensign eafb 300
 yensign.bank.building e84f 300
 yensign.bank.building.fill e84f 1
+yensign.building.classical e84f 300
+yensign.building.classical.fill e84f 1
 zl.button.roundedtop.horizontal eed8 300
 zl.button.roundedtop.horizontal.fill eed8 1
+zl.rectangle.roundedtop eed8 300
+zl.rectangle.roundedtop.fill eed8 1
 zr.button.roundedtop.horizontal eed7 300
 zr.button.roundedtop.horizontal.fill eed7 1
+zr.rectangle.roundedtop eed7 300
+zr.rectangle.roundedtop.fill eed7 1
 zzz e046 300

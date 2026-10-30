@@ -5,7 +5,8 @@
 # scripts/sync-symbol-map.sh is the downstream half. The full pipeline:
 #
 #   sf-symbols-material-map/out/sf_to_material.json   (origin: Material names + scores)
-#         |  build_sf_material_map.py  (resolve name->codepoint, drop score<min)
+#         |  build_sf_material_map.py  (resolve name->codepoint, drop score<min,
+#         |                             add rows for old SF names from macOS's aliases)
 #         v
 #   ActionUIAndroid/.../symbols/sf_to_material.map    (committed: codepoints)
 #         |  ActionUIWeb/scripts/sync-symbol-map.sh   (copy + validate)
@@ -27,6 +28,10 @@
 #   sh regen-symbol-map.sh --min-score 0           # keep the full lower-confidence tail
 #   sh regen-symbol-map.sh --no-web-sync           # regenerate the Android map only
 #
+# The old-name rows need macOS's alias table (CoreGlyphs.bundle's
+# name_aliases.strings), so a regeneration elsewhere stops unless given --aliases
+# PATH (a copy of that file) or --no-aliases (a map without the old names).
+#
 # Exit codes: 0 success; 2 bad/unreadable input (mirrors the generator).
 
 set -eu
@@ -46,6 +51,9 @@ Options:
   --min-score N      Drop mappings scoring below N (default: the generator's floor, 60).
                      Use 0 to keep the full lower-confidence tail.
   --no-web-sync      Regenerate the Android map only; skip the ActionUIWeb copy.
+  --aliases PATH     macOS's name_aliases.strings (old SF name -> current name).
+                     Default: the one in /System/Library/CoreServices/CoreGlyphs.bundle.
+  --no-aliases       Leave out the rows for old SF names.
   -h, --help         Show this help.
 
 Environment:
@@ -70,6 +78,8 @@ web_sync="$repo_root/ActionUIWeb/scripts/sync-symbol-map.sh"
 min_score=""        # empty => let the generator apply its default floor (60)
 do_web_sync=1
 origin=""
+aliases="/System/Library/CoreServices/CoreGlyphs.bundle/Contents/Resources/name_aliases.strings"
+use_aliases=1
 
 while [ "$#" -ge 1 ]; do
     case "$1" in
@@ -80,6 +90,13 @@ while [ "$#" -ge 1 ]; do
             min_score=${1#*=}; shift ;;
         --no-web-sync)
             do_web_sync=0; shift ;;
+        --aliases)
+            [ "$#" -ge 2 ] || { echo "error: --aliases needs a path" >&2; exit 2; }
+            aliases=$2; shift 2 ;;
+        --aliases=*)
+            aliases=${1#*=}; shift ;;
+        --no-aliases)
+            use_aliases=0; shift ;;
         -h|--help)
             usage; exit 0 ;;
         --)
@@ -116,14 +133,26 @@ if [ ! -r "$codepoints" ]; then
     echo "  Set ACTIONUI_ANDROID to your ActionUIAndroid checkout." >&2
     exit 2
 fi
+if [ "$use_aliases" -eq 1 ] && [ ! -r "$aliases" ]; then
+    echo "error: cannot read SF name aliases '$aliases'" >&2
+    echo "  Regenerate on macOS, pass --aliases with a copy of name_aliases.strings," >&2
+    echo "  or --no-aliases to leave out the old SF names." >&2
+    exit 2
+fi
 
 echo "Regenerating SF->Material map:"
 echo "  origin     : $origin"
 echo "  codepoints : $codepoints"
+if [ "$use_aliases" -eq 1 ]; then
+    echo "  aliases    : $aliases"
+fi
 echo "  out        : $out"
 echo
 
 set -- --mapping "$origin" --codepoints "$codepoints" --out "$out"
+if [ "$use_aliases" -eq 1 ]; then
+    set -- "$@" --aliases "$aliases"
+fi
 if [ -n "$min_score" ]; then
     set -- "$@" --min-score "$min_score"
 fi
