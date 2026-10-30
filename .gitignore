@@ -41,3 +41,4 @@ Scripts/make-release.sh
 ActionUIRust/frameworks/
 ActionUIRust/library/
 ActionUIRust/target/
+Tools/material_symbols/font/

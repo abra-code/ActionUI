@@ -1,0 +1,5 @@
+// HarfBuzz's C API, for the symbol icon generator (SymbolIcons), found through pkg-config.
+module CHarfBuzz [system] {
+    header "CHarfBuzz.h"
+    export *
+}

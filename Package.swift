@@ -482,6 +482,21 @@ Package(
             dependencies: ["ActionUI", "ActionUIAppHeaders", "ActionUIRemote"],
             path: "ActionUIAdwaitaApplication"
         ),
+        // HarfBuzz's C API (libharfbuzz-dev, which GTK's development files pull in), for the symbol
+        // icon generator.
+        .systemLibrary(
+            name: "CHarfBuzz",
+            path: "ActionUIAdwaita/CHarfBuzz",
+            pkgConfig: "harfbuzz"
+        ),
+        // Writes the SVG icons that stand in for SF Symbols, from sf_to_material.map and the
+        // Material Symbols font (Tools/material_symbols/fetch-material-symbols-font.sh), and their
+        // glib-compile-resources manifest. A build tool, not part of the library.
+        .executableTarget(
+            name: "ActionUISymbolIcons",
+            dependencies: ["CHarfBuzz"],
+            path: "ActionUIAdwaita/SymbolIcons"
+        ),
         // Opens an ActionUI document in a window, and saves screenshots of it.
         .executableTarget(
             name: "ActionUIAdwaitaViewer",
