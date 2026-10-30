@@ -212,6 +212,7 @@ compiler (gcc or clang), and at run time GTK 4, libadwaita and libsoup 3.
 1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
 
    ```bash
+   Scripts/prepare-linux-symbols.sh
    swift build -c release --static-swift-stdlib --product ActionUI
    Scripts/make-linux-library-package.sh .build/release <output folder>
    ```
@@ -219,7 +220,8 @@ compiler (gcc or clang), and at run time GTK 4, libadwaita and libsoup 3.
    and unpack `actionui-<version>-linux-<arch>.tar.gz` where the Python build can read it.
 
 2. Build or install the extension, pointing `ACTIONUI_LIBRARY_DIR` at the unpacked folder
-   (or put its `lib/` and `include/` folders in `./library/` beside `setup.py`):
+   (or put its contents, `lib/`, `include/` and the license files, in `./library/` beside
+   `setup.py`):
 
    ```bash
    ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 pip3 install .
@@ -228,7 +230,10 @@ compiler (gcc or clang), and at run time GTK 4, libadwaita and libsoup 3.
    ```
 
 The build copies `libActionUI.so` beside `_actionui.*.so`, which finds it through its `$ORIGIN`
-rpath, so the installed module carries its own copy of the library.
+rpath, so the installed module carries its own copy of the library. The library's licenses go
+with it, as `libActionUI-LICENSE.txt` and `libActionUI-LICENSE-MaterialSymbols.txt` (the
+Material Symbols icons compiled into the library, Apache 2.0); a wheel or a copy of the module
+for others to use should keep them.
 
 Differences from macOS:
 

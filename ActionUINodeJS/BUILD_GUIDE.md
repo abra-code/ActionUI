@@ -135,23 +135,28 @@ libadwaita and libsoup 3.
 1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
 
    ```bash
+   Scripts/prepare-linux-symbols.sh
    swift build -c release --static-swift-stdlib --product ActionUI
    Scripts/make-linux-library-package.sh .build/release <output folder>
    ```
 
    and unpack `actionui-<version>-linux-<arch>.tar.gz` where the build can read it.
 
-2. Build the addon, pointing `ACTIONUI_LIBRARY_DIR` at the unpacked folder (or put its `lib/` and
-   `include/` folders in `./library/` beside `binding.gyp`):
+2. Build the addon, pointing `ACTIONUI_LIBRARY_DIR` at the unpacked folder (or put its contents,
+   `lib/`, `include/` and the license files, in `./library/` beside `binding.gyp`):
 
    ```bash
    ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 npm install
    ```
 
 The build copies `libActionUI.so` into `build/Release/` beside `actionui.node`, which finds it
-through its `$ORIGIN` rpath. While `appRun()` blocks in the GTK main loop, a GLib source keeps
-Node's event loop running: it watches libuv's backend file descriptor and wakes for libuv's timers,
-as the CFRunLoop observer, timer and I/O watcher thread do on macOS.
+through its `$ORIGIN` rpath, with the library's licenses, `LICENSE.txt` and
+`LICENSE-MaterialSymbols.txt` (the Material Symbols icons compiled into the library, Apache 2.0);
+a copy of the addon for others to use should keep them.
+
+While `appRun()` blocks in the GTK main loop, a GLib source keeps Node's event loop running: it
+watches libuv's backend file descriptor and wakes for libuv's timers, as the CFRunLoop observer,
+timer and I/O watcher thread do on macOS.
 
 Differences from macOS:
 

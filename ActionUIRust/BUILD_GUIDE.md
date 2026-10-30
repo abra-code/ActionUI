@@ -83,6 +83,7 @@ Requirements: Rust 1.85 or later, a C linker (`cc`, as for any Rust program), an
 1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
 
    ```sh
+   Scripts/prepare-linux-symbols.sh
    swift build -c release --static-swift-stdlib --product ActionUI
    Scripts/make-linux-library-package.sh .build/release <output folder>
    ```
@@ -97,7 +98,7 @@ Requirements: Rust 1.85 or later, a C linker (`cc`, as for any Rust program), an
    ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 cargo run --example temperature_converter
    ```
 
-The program links `libActionUI.so` dynamically. `cargo run` and `cargo test` find the build's copy of it by themselves. To run the program anywhere else, put a copy of `libActionUI.so` in the same folder as the executable: `.cargo/config.toml` gives Linux programs an `$ORIGIN` rpath, so they look for it there. A program of your own needs the same setting in its `.cargo/config.toml` (cargo reads that file from the folder it is started in and the folders above it, not from the dependency's):
+The program links `libActionUI.so` dynamically. `cargo run` and `cargo test` find the build's copy of it by themselves. To run the program anywhere else, put a copy of `libActionUI.so` in the same folder as the executable (and, when you give the program to others, the package's `LICENSE.txt` and `LICENSE-MaterialSymbols.txt`, the licenses of the library and of the Material Symbols icons compiled into it): `.cargo/config.toml` gives Linux programs an `$ORIGIN` rpath, so they look for it there. A program of your own needs the same setting in its `.cargo/config.toml` (cargo reads that file from the folder it is started in and the folders above it, not from the dependency's):
 
 ```toml
 [target.'cfg(target_os = "linux")']

@@ -54,11 +54,13 @@ folder), found in priority order:
          ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 pip install .
 
   2. Local  ./library/  subdirectory next to this script, holding the package's
-     lib/ and include/ folders
+     contents (lib/, include/ and its license files)
 
 The build copies libActionUI.so beside the extension (_actionui.*.so), and the
 extension finds it there through its $ORIGIN rpath: the installed module is
-self-contained, needing only the system's GTK 4, libadwaita and libsoup 3.
+self-contained, needing only the system's GTK 4, libadwaita and libsoup 3. The
+library's licenses go beside it, as libActionUI-LICENSE.txt and
+libActionUI-LICENSE-MaterialSymbols.txt (the Material Symbols icons in the library).
 
 Building
 --------
@@ -216,18 +218,29 @@ def macos_setup_arguments():
 class build_ext_with_library(build_ext):
     """Builds the extension, then copies libActionUI.so beside it (Linux), where its
     $ORIGIN rpath finds it: in the build folder, which a wheel or an install copies
-    whole, and in this folder for an in-place build."""
+    whole, and in this folder for an in-place build. The library's licenses go with it:
+    ActionUI's, and that of the Material Symbols icons compiled into the library."""
 
-    library_path = None
+    library_dir = None
+
+    # The package's license files, and their names beside the library: modules install
+    # into the shared site-packages folder, where a plain LICENSE.txt would clash.
+    license_files = [
+        ('LICENSE.txt', 'libActionUI-LICENSE.txt'),
+        ('LICENSE-MaterialSymbols.txt', 'libActionUI-LICENSE-MaterialSymbols.txt'),
+    ]
 
     def run(self):
         super().run()
-        destination = os.path.join(os.path.dirname(self.get_ext_fullpath('_actionui')), 'libActionUI.so')
+        folder = os.path.dirname(self.get_ext_fullpath('_actionui'))
+        destination = os.path.join(folder, 'libActionUI.so')
         # A new file, not the old one overwritten: a program still running from an in-place
         # build keeps the library it mapped.
         if os.path.exists(destination):
             os.remove(destination)
-        shutil.copy2(self.library_path, destination)
+        shutil.copy2(os.path.join(self.library_dir, 'lib', 'libActionUI.so'), destination)
+        for source, name in self.license_files:
+            shutil.copy2(os.path.join(self.library_dir, source), os.path.join(folder, name))
 
 
 def linux_setup_arguments():
@@ -245,6 +258,15 @@ def linux_setup_arguments():
         has_library = os.path.isfile(os.path.join(d, 'lib', 'libActionUI.so'))
         has_headers = (os.path.isfile(os.path.join(d, 'include', 'ActionUICAdapter', 'ActionUIC.h'))
                        and os.path.isfile(os.path.join(d, 'include', 'ActionUIAppKitApplication', 'ActionUIApp.h')))
+        has_licenses = all(os.path.isfile(os.path.join(d, source))
+                           for source, _ in build_ext_with_library.license_files)
+        if has_library and has_headers and not has_licenses:
+            # A package made before it carried the icons' license: name it rather than
+            # quietly trying the next folder.
+            print(f"Error: {d} has no LICENSE.txt or LICENSE-MaterialSymbols.txt; make the\n"
+                  "library package again with Scripts/make-linux-library-package.sh.",
+                  file=sys.stderr)
+            sys.exit(1)
         if has_library and has_headers:
             library_dir = d
             break
@@ -254,12 +276,12 @@ def linux_setup_arguments():
             "Error: could not locate the ActionUI library package.\n"
             "\n"
             "Provide the path to the unpacked actionui-<version>-linux-<arch> folder\n"
-            "(lib/libActionUI.so, include/...) using the ACTIONUI_LIBRARY_DIR\n"
-            "environment variable:\n"
+            "(lib/libActionUI.so, include/..., LICENSE.txt, LICENSE-MaterialSymbols.txt)\n"
+            "using the ACTIONUI_LIBRARY_DIR environment variable:\n"
             "\n"
             "  ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 pip install .\n"
             "\n"
-            "Or place its lib/ and include/ folders in ./library/ next to this script.\n"
+            "Or place its contents in ./library/ next to this script.\n"
             "\n"
             "Make the package with Scripts/make-linux-library-package.sh.",
             file=sys.stderr,
@@ -267,7 +289,7 @@ def linux_setup_arguments():
         sys.exit(1)
 
     print(f"ActionUI library package : {library_dir}")
-    build_ext_with_library.library_path = os.path.join(library_dir, 'lib', 'libActionUI.so')
+    build_ext_with_library.library_dir = library_dir
 
     # The headers at the paths the Apple frameworks give them (<ActionUICAdapter/ActionUIC.h>),
     # so actionui_native.c includes them the same way on both platforms.

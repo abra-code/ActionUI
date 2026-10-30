@@ -13,6 +13,7 @@ ActionUIPython/library/
 ActionUIPython/build/
 ActionUIPython/dist/
 ActionUIPython/*.so
+ActionUIPython/libActionUI-LICENSE*.txt
 build
 .claude
 .remember

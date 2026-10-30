@@ -42,7 +42,11 @@
         "ldflags": ["-Wl,-rpath,'$$ORIGIN'", "-Wl,-z,nodelete"],
         "copies": [{
           "destination": "<(PRODUCT_DIR)",
-          "files": ["<(lib_dir)/lib/libActionUI.so"]
+          "files": [
+            "<(lib_dir)/lib/libActionUI.so",
+            "<(lib_dir)/LICENSE.txt",
+            "<(lib_dir)/LICENSE-MaterialSymbols.txt"
+          ]
         }]
       }],
       ["OS!='mac' and OS!='linux'", {
