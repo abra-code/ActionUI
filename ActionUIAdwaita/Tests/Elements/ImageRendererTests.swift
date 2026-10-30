@@ -1,11 +1,11 @@
 // Tests/Elements/ImageRendererTests.swift
 /*
- Tests for the Image renderer on GTK: a symbol is an Adwaita icon sized from the font and the image
- scale; a resizable symbol scales to its frame in the text color; a file is a picture at its own
- size, or scaled keeping its aspect ratio, and shown again when rewritten under the same path; a
- missing file shows the photo symbol; the first source that can be shown wins; an assetName is an
- icon of the theme; a runtime value that needs another kind of widget replaces the widget in the
- same box, keeping the base modifiers.
+ Tests for the Image renderer on GTK: a symbol is a Material Symbols icon sized from the font and
+ the image scale, and drawn by GTK in the text color; a resizable symbol scales to its frame in the
+ text color; a file is a picture at its own size, or scaled keeping its aspect ratio, and shown
+ again when rewritten under the same path; a missing file shows the photo symbol; the first source
+ that can be shown wins; an assetName is an icon of the theme; a runtime value that needs another
+ kind of widget replaces the widget in the same box, keeping the base modifiers.
 */
 
 import XCTest
@@ -80,7 +80,7 @@ final class ImageRendererTests: XCTestCase {
         return (minimum, natural)
     }
 
-    func testASymbolIsAnAdwaitaIconSizedFromTheFontAndScale() throws {
+    func testASymbolIsAMaterialIconSizedFromTheFontAndScale() throws {
         let root = try render(#"""
             {"type": "VStack", "id": 1, "children": [
               {"type": "Image", "id": 2, "properties": {"systemName": "star.fill"}},
@@ -90,7 +90,7 @@ final class ImageRendererTests: XCTestCase {
             """#)
         let medium = try XCTUnwrap(root.childNodes[2])
         XCTAssertEqual(typeName(medium.widget), "GtkImage")
-        XCTAssertEqual(iconName(medium), "starred-symbolic")
+        XCTAssertEqual(iconName(medium), SymbolNames.iconName("star.fill"))
         let mediumWidth = measure(medium.widget, GTK_ORIENTATION_HORIZONTAL).1
         XCTAssertEqual(Double(mediumWidth), 16, accuracy: 1, "GNOME's icon size at the default font")
         let small = measure(try XCTUnwrap(root.childNodes[3]).widget, GTK_ORIENTATION_HORIZONTAL).1
@@ -100,6 +100,36 @@ final class ImageRendererTests: XCTestCase {
         XCTAssertGreaterThan(large, mediumWidth)
         XCTAssertGreaterThan(titled, mediumWidth, "a larger font makes a larger symbol, as in SwiftUI")
         XCTAssertEqual(gtk_widget_get_hexpand(medium.widget), 0)
+    }
+
+    func testASymbolIsDrawnByGTKInTheTextColorAtItsRowsFill() throws {
+        let root = try render(##"""
+            {"type": "HStack", "id": 1, "children": [
+              {"type": "Image", "id": 2, "properties": {"systemName": "star.fill", "foregroundStyle": "#FF0000", "font": "largeTitle"}},
+              {"type": "Image", "id": 3, "properties": {"systemName": "star", "foregroundStyle": "#FF0000", "font": "largeTitle"}}]}
+            """##)
+        // The pixels each symbol paints, all in the text color.
+        func painted(_ id: Int) throws -> Int {
+            let node = try XCTUnwrap(root.childNodes[id])
+            XCTAssertEqual(typeName(node.widget), "GtkImage")
+            let drawing = try XCTUnwrap(AdwaitaTestHost.drawing(of: node.widget, shownIn: root.outerWidget), "symbol \(id) drew nothing")
+            defer { gsk_render_node_unref(drawing.node) }
+            let pixels = try XCTUnwrap(AdwaitaTestHost.pixels(of: drawing.node, width: drawing.width, height: drawing.height))
+            var count = 0
+            var otherColor = 0
+            for pixel in stride(from: 0, to: pixels.count, by: 4) where pixels[pixel + 3] > 128 {
+                count += 1
+                if pixels[pixel] <= 200 || pixels[pixel + 1] >= 80 {
+                    otherColor += 1
+                }
+            }
+            XCTAssertEqual(otherColor, 0, "symbol \(id): pixels not in the text color")
+            return count
+        }
+        let filled = try painted(2)
+        let outline = try painted(3)
+        XCTAssertGreaterThan(outline, 20, "the Material icon was drawn")
+        XCTAssertGreaterThan(filled, outline * 3 / 2, "star.fill is the star at fill 1, star its outline")
     }
 
     func testAResizableSymbolScalesToItsFrameInTheTextColor() throws {
@@ -206,18 +236,18 @@ final class ImageRendererTests: XCTestCase {
     func testAMissingFileShowsThePhotoSymbol() throws {
         let node = try render(#"{"type": "Image", "id": 1, "properties": {"filePath": "/no/such/picture.png"}}"#)
         XCTAssertEqual(typeName(node.widget), "GtkImage")
-        XCTAssertEqual(iconName(node), "image-x-generic-symbolic")
+        XCTAssertEqual(iconName(node), SymbolNames.iconName("photo"))
     }
 
     func testTheFirstSourceThatCanBeShownWins() throws {
         // A PDF is not an image on Linux, so the symbol after it is shown.
         let node = try render(#"{"type": "Image", "id": 1, "properties": {"filePath": "/tmp/document.pdf", "systemName": "trash"}}"#)
-        XCTAssertEqual(iconName(node), "user-trash-symbolic")
+        XCTAssertEqual(iconName(node), SymbolNames.iconName("trash"))
 
         // A path without an extension is kept, and shows the photo symbol, as on Apple.
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "filePath", value: "/tmp/picture")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(iconName(node), "image-x-generic-symbolic")
+        XCTAssertEqual(iconName(node), SymbolNames.iconName("photo"))
     }
 
     func testAValueThatIsASymbolNameStaysASymbol() throws {
@@ -225,7 +255,7 @@ final class ImageRendererTests: XCTestCase {
         let node = try render(#"{"type": "Image", "id": 1, "properties": {"systemName": "star"}}"#)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: "folder")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(iconName(node), "folder-symbolic")
+        XCTAssertEqual(iconName(node), SymbolNames.iconName("folder"))
     }
 
     func testAnAssetNameIsAnIconOfTheTheme() throws {
@@ -240,7 +270,7 @@ final class ImageRendererTests: XCTestCase {
         let node = try XCTUnwrap(root.childNodes[2])
         let box: WidgetPointer = node.outerWidget
         XCTAssertEqual(typeName(node.widget), "GtkImage")
-        XCTAssertEqual(iconName(node), "non-starred-symbolic")
+        XCTAssertEqual(iconName(node), SymbolNames.iconName("star"))
 
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 2, value: path)
         AdwaitaTestHost.drainMainLoop()
@@ -256,6 +286,6 @@ final class ImageRendererTests: XCTestCase {
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 2, value: "")
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(typeName(node.widget), "GtkImage", "an empty value: the properties again")
-        XCTAssertEqual(iconName(node), "non-starred-symbolic")
+        XCTAssertEqual(iconName(node), SymbolNames.iconName("star"))
     }
 }

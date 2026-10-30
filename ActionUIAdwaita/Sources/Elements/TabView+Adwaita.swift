@@ -96,7 +96,7 @@ extension TabView: ActionUIAdwaitaRenderer {
             }
             // Without a symbol, a question mark, as Apple's placeholder (libadwaita would show its
             // full-color broken-image icon); assetImage has no Linux image.
-            let icon = (properties["systemImage"] as? String).map { SymbolNames.iconName($0) } ?? "dialog-question-symbolic"
+            let icon = SymbolNames.iconName(properties["systemImage"] as? String ?? "questionmark")
             if swiftString(adw_view_stack_page_get_icon_name(page)) != icon {
                 adw_view_stack_page_set_icon_name(page, icon)
             }

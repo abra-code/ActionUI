@@ -9,6 +9,7 @@
 #     Orb.png ...         the test app's asset images, named after their assets (Image assetName)
 #     Info.json           the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
 #     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
+#     LICENSE.txt, LICENSE-MaterialSymbols.txt   ActionUI's license, and its symbol icons'
 #
 # The program finds its documents in the folder it runs from. The bundle is self-contained: the
 # program must be built with the Swift runtime linked in, and then needs only the system's GTK 4,
@@ -150,6 +151,19 @@ done
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-demo-bundle: could not copy %s\n' "$demo_bundle_files" >&2
+    discard_bundle
+    exit 1
+fi
+
+# The program carries ActionUI and its Material Symbols icons (Apache 2.0): both licenses go with it.
+/bin/cp "$repo/LICENSE.txt" "$bundle/LICENSE.txt"
+status=$?
+if [ "$status" -eq 0 ]; then
+    /bin/bash "$repo/Tools/material_symbols/write-material-symbols-license.sh" "$bundle/LICENSE-MaterialSymbols.txt"
+    status=$?
+fi
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-demo-bundle: could not add the license files\n' >&2
     discard_bundle
     exit 1
 fi

@@ -1,8 +1,8 @@
 // Tests/Styling/SymbolNamesTests.swift
 /*
- Tests for SymbolNames: every icon the table names is in the icon theme GTK uses (Adwaita and
- libadwaita's own); filled and enclosed variants fall back to the plain name; an icon theme name
- passes through; an unknown name shows image-missing.
+ Tests for SymbolNames: an SF Symbol name is the Material Symbols icon of its map row, which the icon
+ theme has; the lookup is the exact name, as on Android and Web, with no fallback to a shorter name;
+ an icon theme name passes through; an unknown name shows image-missing.
 */
 
 import XCTest
@@ -17,27 +17,27 @@ final class SymbolNamesTests: XCTestCase {
         try AdwaitaTestHost.initialize()
     }
 
-    func testEveryIconOfTheTableIsInTheTheme() {
-        let missing = SymbolNames.table.filter { !Image.hasThemeIcon($0.value + "-symbolic") }
-        XCTAssertEqual(missing.map { "\($0.key) -> \($0.value)" }.sorted(), [])
+    func testCommonSymbolsAreMaterialIconsOfTheTheme() {
+        let common = ["star", "star.fill", "plus", "trash", "folder", "gear", "magnifyingglass", "xmark",
+                      "chevron.right", "square.and.arrow.up", "doc.on.doc", "person.crop.circle", "photo"]
+        for symbol in common {
+            let icon = SymbolNames.lookup(symbol)
+            XCTAssertEqual(icon, MaterialSymbols.iconName(symbol), symbol)
+            XCTAssertTrue(icon?.hasPrefix("actionui-material-") ?? false, "\(symbol) -> \(icon ?? "nil")")
+            XCTAssertTrue(icon.map { Image.hasThemeIcon($0) } ?? false, "\(symbol): not in the icon theme")
+        }
+        // A filled variant is its own row: the same glyph at fill 1.
+        XCTAssertNotEqual(SymbolNames.lookup("star"), SymbolNames.lookup("star.fill"))
     }
 
-    func testFilledAndEnclosedVariantsFallBackToThePlainName() {
-        XCTAssertEqual(SymbolNames.lookup("plus.circle.fill"), "list-add-symbolic")
-        XCTAssertEqual(SymbolNames.lookup("envelope.fill"), "mail-unread-symbolic")
-        XCTAssertEqual(SymbolNames.lookup("trash.square"), "user-trash-symbolic")
-        // Adwaita's filled star is its own icon.
-        XCTAssertEqual(SymbolNames.lookup("star"), "non-starred-symbolic")
-        XCTAssertEqual(SymbolNames.lookup("star.fill"), "starred-symbolic")
-        XCTAssertEqual(SymbolNames.lookup("star.circle.fill"), "starred-symbolic")
-        // Adwaita has no tray: an empty container (owner choice), also for the full tray.
-        XCTAssertEqual(SymbolNames.lookup("tray"), "folder-symbolic")
-        XCTAssertEqual(SymbolNames.lookup("tray.fill"), "folder-symbolic")
+    func testTheLookupIsTheExactName() {
+        // The map has star.fill and star, but not star.square.fill: no shorter name is tried.
+        XCTAssertNil(SymbolNames.lookup("star.square.fill"))
+        XCTAssertNil(SymbolNames.lookup("a.circle"))
     }
 
     func testThemeNamesPassAndUnknownNamesShowImageMissing() {
         XCTAssertEqual(SymbolNames.lookup("document-save-symbolic"), "document-save-symbolic")
-        XCTAssertNil(SymbolNames.lookup("a.circle"))
         XCTAssertEqual(SymbolNames.iconName("example.unmapped.symbol"), SymbolNames.missing)
     }
 }

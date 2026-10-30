@@ -5,11 +5,11 @@
  (filePath, resourceName, assetName, systemName; a filePath whose extension is not an image's is
  skipped, one without an extension shows the photo symbol).
 
- - A symbol (an SF Symbol name) is the Adwaita icon SymbolNames gives, drawn in the text color, in a
-   GtkImage sized from the font: 1.1em at medium scale, 16 px at GNOME's default 11 pt. (SwiftUI's
-   symbols are 1.25 times the font, measured on macOS, which would give 18 px here, larger than
-   GNOME's own icons.) Small is 0.9em and large 1.4em: SwiftUI's small and large are 0.82 and 1.3
-   times its medium.
+ - A symbol (an SF Symbol name) is the Material Symbols icon SymbolNames gives, drawn in the text
+   color, in a GtkImage sized from the font: 1.1em at medium scale, 16 px at GNOME's default 11
+   pt. (SwiftUI's symbols are 1.25 times the font, measured on macOS, which would give 18 px here,
+   larger than GNOME's own icons.) Small is 0.9em and large 1.4em: SwiftUI's small and large are
+   0.82 and 1.3 times its medium.
  - A resizable symbol (resizable with a contentMode, as on Apple) scales to its frame: a widget that
    looks the icon up at the size it draws it, fitted or filled, in the text color. Its natural size
    is the symbol's; given a width, it is as tall as wide (height for width), as SwiftUI's fitted

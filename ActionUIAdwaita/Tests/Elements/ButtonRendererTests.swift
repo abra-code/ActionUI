@@ -140,12 +140,12 @@ final class ButtonRendererTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         let content = try XCTUnwrap(gtk_button_get_child(button(node)))
         XCTAssertEqual(swiftString(G_OBJECT_TYPE_NAME_of(content)), "AdwButtonContent")
-        XCTAssertEqual(swiftString(adw_button_content_get_icon_name(OpaquePointer(content))), "list-add-symbolic")
+        XCTAssertEqual(swiftString(adw_button_content_get_icon_name(OpaquePointer(content))), SymbolNames.iconName("plus.circle"))
         XCTAssertEqual(swiftString(adw_button_content_get_label(OpaquePointer(content))), "Save")
 
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "title", value: "")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(swiftString(gtk_button_get_icon_name(button(node))), "list-add-symbolic", "an image alone is an icon")
+        XCTAssertEqual(swiftString(gtk_button_get_icon_name(button(node))), SymbolNames.iconName("plus.circle"), "an image alone is an icon")
 
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "systemImage", value: "")
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "title", value: "Done")

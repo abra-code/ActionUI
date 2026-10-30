@@ -66,7 +66,7 @@ final class TabViewRendererTests: XCTestCase {
         XCTAssertEqual(adw_view_stack_page_get_badge_number(try XCTUnwrap(parts.pages[30])), 3)
         let news = try XCTUnwrap(parts.pages[40])
         XCTAssertNotEqual(adw_view_stack_page_get_needs_attention(news), 0, "a text badge needs attention")
-        XCTAssertEqual(swiftString(adw_view_stack_page_get_icon_name(news)), "dialog-question-symbolic", "no symbol: a question mark")
+        XCTAssertEqual(swiftString(adw_view_stack_page_get_icon_name(news)), SymbolNames.iconName("questionmark"), "no symbol: a question mark")
     }
 
     func testTheSelectionPicksThePageAndAHostsWriteSwitchesIt() throws {

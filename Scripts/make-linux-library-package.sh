@@ -10,6 +10,7 @@
 #     include/ActionUIAppKitApplication/ActionUIApp.h   the application functions
 #     include/ActionUIRemote/ActionUIRemote-Swift.h      the remote server's functions (generated)
 #     LICENSE.txt
+#     LICENSE-MaterialSymbols.txt                the license of the symbol icons in the library
 #   actionui-<version>-linux-<arch>.tar.gz       the folder, packed
 #
 # The headers sit at the include paths the Apple frameworks give them (<ActionUICAdapter/ActionUIC.h>,
@@ -144,6 +145,15 @@ copy_into_package "$repo/ActionUICAdapter/include/ActionUIC.h" "$package/include
 copy_into_package "$repo/ActionUIAppKitApplication/include/ActionUIApp.h" "$package/include/ActionUIAppKitApplication/ActionUIApp.h" || exit 1
 copy_into_package "$remote_header" "$package/include/ActionUIRemote/ActionUIRemote-Swift.h" || exit 1
 copy_into_package "$repo/LICENSE.txt" "$package/LICENSE.txt" || exit 1
+
+# The library carries the Material Symbols icons (Apache 2.0), whose license goes with it.
+/bin/bash "$repo/Tools/material_symbols/write-material-symbols-license.sh" "$package/LICENSE-MaterialSymbols.txt"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-library-package: could not write the Material Symbols license notice\n' >&2
+    discard_package
+    exit 1
+fi
 
 # Stripped of symbols: the Swift toolchain's llvm-objcopy (beside swift), else the system's tools.
 stripper=""
