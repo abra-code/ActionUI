@@ -423,12 +423,14 @@ Package(
             pkgConfig: "libsoup-3.0"
         ),
         // The portable code and the GTK renderer: one module, as ActionUI is on Apple platforms.
+        // The symbol icons are compiled in by ActionUISymbolIconsPlugin.
         .target(
             name: "ActionUI",
             dependencies: ["CAdwaita", "CSoup"],
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
-            sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"]
+            sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"],
+            plugins: ["ActionUISymbolIconsPlugin"]
         ),
         // The C interface: its C header as a module (only ActionUIC.h: the folder's umbrella
         // header declares version symbols that only the Xcode framework build defines), and the
@@ -496,6 +498,15 @@ Package(
             name: "ActionUISymbolIcons",
             dependencies: ["CHarfBuzz"],
             path: "ActionUIAdwaita/SymbolIcons"
+        ),
+        // Runs ActionUISymbolIcons and glib-compile-resources at build time and compiles the
+        // resulting icon resource into the ActionUI target (MaterialSymbols.swift reads it). Needs
+        // the font: Tools/material_symbols/fetch-material-symbols-font.sh.
+        .plugin(
+            name: "ActionUISymbolIconsPlugin",
+            capability: .buildTool(),
+            dependencies: ["ActionUISymbolIcons"],
+            path: "ActionUIAdwaita/Plugins/SymbolIcons"
         ),
         // Opens an ActionUI document in a window, and saves screenshots of it.
         .executableTarget(
