@@ -56,13 +56,23 @@ enum Gtk {
             gtk_widget_compute_expand(pointer, orientation) != 0
         }
 
-        /// The widget's size in `orientation`, for `forSize` in the other (-1: none).
+        /// The widget's size in `orientation`, for `forSize` in the other (-1: none). A `forSize`
+        /// below the widget's minimum in the other orientation is measured at that minimum, as
+        /// gtk_widget_measure does itself, but without the warning it logs for every such call
+        /// (since GTK 4.18.0).
         func measure(_ orientation: GtkOrientation, forSize: Int = -1) -> Measurement {
             var minimum: Int32 = 0
             var natural: Int32 = 0
             var minimumBaseline: Int32 = -1
             var naturalBaseline: Int32 = -1
-            gtk_widget_measure(pointer, orientation, Int32(clamping: forSize), &minimum, &natural, &minimumBaseline, &naturalBaseline)
+            var size = Int32(clamping: forSize)
+            if size >= 0 {
+                let opposite = orientation == GTK_ORIENTATION_HORIZONTAL ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
+                var oppositeMinimum: Int32 = 0
+                gtk_widget_measure(pointer, opposite, -1, &oppositeMinimum, nil, nil, nil)
+                size = max(size, oppositeMinimum)
+            }
+            gtk_widget_measure(pointer, orientation, size, &minimum, &natural, &minimumBaseline, &naturalBaseline)
             return Measurement(minimum: Int(minimum), natural: Int(natural),
                                minimumBaseline: minimumBaseline >= 0 ? Int(minimumBaseline) : nil,
                                naturalBaseline: naturalBaseline >= 0 ? Int(naturalBaseline) : nil)
