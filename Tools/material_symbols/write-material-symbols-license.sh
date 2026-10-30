@@ -1,7 +1,7 @@
 #!/bin/bash
 # write-material-symbols-license.sh - write the license notice for the Material Symbols icons that
-# a Linux build of ActionUI carries (the ActionUISymbolIcons build plugin compiles them into the
-# library, and so into every program that links ActionUI): a paragraph saying what the icons are,
+# a Linux build of ActionUI carries (Scripts/prepare-linux-symbols.sh generates them into ActionUI,
+# and so into every program that links ActionUI): a paragraph saying what the icons are,
 # from which release, and that they were converted, then the Apache License 2.0 text of that
 # release, which fetch-material-symbols-font.sh downloads with the font.
 #

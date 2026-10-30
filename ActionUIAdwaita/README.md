@@ -24,12 +24,13 @@ For how the renderer works (retained widgets, SwiftUI's layout reproduced, what 
 From the repository root, on Linux:
 
 ```sh
-# once, and again for a newer compatible release: the font the symbol icons are drawn from
-bash Tools/material_symbols/fetch-material-symbols-font.sh
+Scripts/prepare-linux-symbols.sh              # the symbol icons; again when the map or font changes
 swift build                                   # the library, the viewer and the demo
 swift run ActionUIAdwaitaViewer ActionUISwiftTestApp/Resources/Form.json
 swift run ActionUIAdwaitaDemo --resources ActionUISwiftTestApp/Resources
 ```
+
+SF Symbols are shown as Material Symbols icons, which `Scripts/prepare-linux-symbols.sh` generates from the Material Symbols font (downloaded on its first run) and compiles into ActionUI, as a GResource in a section of its own: `libActionUI.so` and every Swift program that links ActionUI statically carry it (`gresource list` shows it). Run the script before the first build, and again when `sf_to_material.map` or the font changes; `bash Tools/material_symbols/fetch-material-symbols-font.sh` moves to a newer font release. A build without the icons succeeds but warns at its top on every build, and its SF Symbols show the missing-icon picture. A Swift package that depends on ActionUI runs the script in its ActionUI checkout first (`.build/checkouts/ActionUI`, or the folder of a path dependency).
 
 - **ActionUIAdwaitaViewer** opens one document in a window: a path, a file URL or an http(s) URL. `--dark` uses the dark style; `--screenshot out.png` saves the window as an image once it has drawn and quits (drawn by the window itself, so no screen capture is needed); `--rows <id> <rows.json>` fills a List, Table or Chart for a screenshot.
 - **ActionUIAdwaitaDemo** is the Linux counterpart of ActionUISwiftTestApp: a launcher of all the test app's documents, with the test app's own action handlers. `--open <Name>` also opens one document at launch, `--screenshot` saves it.
@@ -129,6 +130,6 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 | `Sources/Interop` | the Swift side of the GTK, GLib and WebKitGTK C APIs |
 | `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |
 | `CLinuxSocket` | `accept4`, which Swift's Glibc module leaves out (for the remote server) |
-| `SymbolIcons`, `CHarfBuzz`, `Plugins/SymbolIcons` | the build-time generator of the symbol icons (Material Symbols Rounded glyphs drawn with HarfBuzz as symbolic SVGs, from `ActionUIAndroid`'s `sf_to_material.map`), and the build plugin that compiles them into the library as a GResource; the SVGs stay under `.build/plugins/outputs/` for inspection |
+| `CSymbolResource`, `Plugins/SymbolResourceCheck` | the symbol icons as a GResource section (the C source `Scripts/prepare-linux-symbols.sh` generates, in `generated/`), and the build plugin that warns when they are missing or out of date. The generator, `Tools/material_symbols/generate-symbol-icons.c`, draws Material Symbols Rounded glyphs with HarfBuzz as symbolic SVGs from `ActionUIAndroid`'s `sf_to_material.map`; the SVGs stay in `Tools/material_symbols/build/icons` for inspection |
 | `Viewer`, `Demo` | ActionUIAdwaitaViewer and ActionUIAdwaitaDemo |
 | `Tests` | the renderer, layout and application tests |

@@ -423,14 +423,28 @@ Package(
             pkgConfig: "libsoup-3.0"
         ),
         // The portable code and the GTK renderer: one module, as ActionUI is on Apple platforms.
-        // The symbol icons are compiled in by ActionUISymbolIconsPlugin.
+        // The symbol icons come from CSymbolResource; ActionUISymbolResourceCheck warns when they
+        // were not generated (Scripts/prepare-linux-symbols.sh).
         .target(
             name: "ActionUI",
-            dependencies: ["CAdwaita", "CSoup"],
+            dependencies: ["CAdwaita", "CSoup", "CSymbolResource"],
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
             sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"],
-            plugins: ["ActionUISymbolIconsPlugin"]
+            plugins: ["ActionUISymbolResourceCheck"]
+        ),
+        // The Material Symbols icons that stand in for SF Symbols, a GResource in a section of its
+        // own, generated before the build by Scripts/prepare-linux-symbols.sh (empty without it).
+        .target(
+            name: "CSymbolResource",
+            dependencies: ["CAdwaita"],
+            path: "ActionUIAdwaita/CSymbolResource"
+        ),
+        // Warns on every build while the icons are missing or older than their map or font.
+        .plugin(
+            name: "ActionUISymbolResourceCheck",
+            capability: .buildTool(),
+            path: "ActionUIAdwaita/Plugins/SymbolResourceCheck"
         ),
         // The C interface: its C header as a module (only ActionUIC.h: the folder's umbrella
         // header declares version symbols that only the Xcode framework build defines), and the
@@ -483,30 +497,6 @@ Package(
             name: "ActionUIAdwaitaApplication",
             dependencies: ["ActionUI", "ActionUIAppHeaders", "ActionUIRemote"],
             path: "ActionUIAdwaitaApplication"
-        ),
-        // HarfBuzz's C API (libharfbuzz-dev, which GTK's development files pull in), for the symbol
-        // icon generator.
-        .systemLibrary(
-            name: "CHarfBuzz",
-            path: "ActionUIAdwaita/CHarfBuzz",
-            pkgConfig: "harfbuzz"
-        ),
-        // Writes the SVG icons that stand in for SF Symbols, from sf_to_material.map and the
-        // Material Symbols font (Tools/material_symbols/fetch-material-symbols-font.sh), and their
-        // glib-compile-resources manifest. A build tool, not part of the library.
-        .executableTarget(
-            name: "ActionUISymbolIcons",
-            dependencies: ["CHarfBuzz"],
-            path: "ActionUIAdwaita/SymbolIcons"
-        ),
-        // Runs ActionUISymbolIcons and glib-compile-resources at build time and compiles the
-        // resulting icon resource into the ActionUI target (MaterialSymbols.swift reads it). Needs
-        // the font: Tools/material_symbols/fetch-material-symbols-font.sh.
-        .plugin(
-            name: "ActionUISymbolIconsPlugin",
-            capability: .buildTool(),
-            dependencies: ["ActionUISymbolIcons"],
-            path: "ActionUIAdwaita/Plugins/SymbolIcons"
         ),
         // Opens an ActionUI document in a window, and saves screenshots of it.
         .executableTarget(

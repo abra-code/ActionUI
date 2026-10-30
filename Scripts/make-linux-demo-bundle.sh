@@ -64,6 +64,20 @@ case "$linked" in
         ;;
 esac
 
+# With its symbol icons: a build without Scripts/prepare-linux-symbols.sh shows none.
+if [ ! -x /usr/bin/gresource ]; then
+    printf 'make-linux-demo-bundle: no /usr/bin/gresource to check the symbol icons with (install libglib2.0-bin)\n' >&2
+    exit 1
+fi
+sections="$(/usr/bin/gresource sections "$program" 2>&1)"
+case "$sections" in
+    *actionui_symbols*) ;;
+    *)
+        printf 'make-linux-demo-bundle: %s has no symbol icons; run Scripts/prepare-linux-symbols.sh, then build it again (gresource: %s)\n' "$program" "$sections" >&2
+        exit 1
+        ;;
+esac
+
 if [ -e "$bundle" ]; then
     /bin/rm -rf "$bundle"
     status=$?

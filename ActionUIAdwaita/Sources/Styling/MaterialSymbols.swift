@@ -1,19 +1,21 @@
 // Sources/Styling/MaterialSymbols.swift
 /*
  The icons that stand in for SF Symbols, which may not be shipped off Apple platforms: Material
- Symbols Rounded glyphs drawn as symbolic SVG icons at build time (the SymbolIcons build plugin),
- one per distinct glyph, fill and weight among the rows of ActionUIAndroid's sf_to_material.map,
- the SF -> Material map Android and Web use too. Each row's fill and weight are kept: the map's weights match each glyph's strokes to
- SF Symbols at regular weight.
+ Symbols Rounded glyphs drawn as symbolic SVG icons before the build
+ (Scripts/prepare-linux-symbols.sh), one per distinct glyph, fill and weight among the rows of
+ ActionUIAndroid's sf_to_material.map, the SF -> Material map Android and Web use too. Each row's
+ fill and weight are kept: the map's weights match each glyph's strokes to SF Symbols at regular
+ weight.
 
- The icons and the map are one GResource compiled into the library (materialSymbolsResourceBase64,
- the plugin's output). It is registered once per process and added to the default display's icon
- theme, where GTK finds the icons by name and recolors them with the text color like any symbolic
- icon. An icon's name comes from its map row, as the generator (ActionUIAdwaita/SymbolIcons) names
- it: actionui-material-<hex codepoint>-f<0|1>-w<weight>-symbolic.
+ The icons and the map are one GResource in a section of whatever links ActionUI (CSymbolResource),
+ read in place. It is registered once per process and added to the default display's icon theme,
+ where GTK finds the icons by name and recolors them with the text color like any symbolic icon. An
+ icon's name comes from its map row, as the generator (Tools/material_symbols/generate-symbol-icons.c)
+ names it: actionui-material-<hex codepoint>-f<0|1>-w<weight>-symbolic.
 */
 
 import CAdwaita
+import CSymbolResource
 
 @MainActor
 enum MaterialSymbols {
@@ -50,31 +52,18 @@ enum MaterialSymbols {
         gtk_icon_theme_add_resource_path(gtk_icon_theme_get_for_display(display), resourcePath)
     }
 
-    /// Registers the compiled-in resource with GLib, once; false (logged once) when it cannot be.
+    /// Registers the compiled-in resource with GLib, once; false (logged once) when ActionUI was
+    /// built without it.
     @discardableResult
     static func register() -> Bool {
         if registered || registrationFailed {
             return registered
         }
-        var length: gsize = 0
-        guard let data = g_base64_decode(materialSymbolsResourceBase64, &length), length > 0 else {
-            ActionUIModel.shared.logger.log("The symbol icons compiled into the library cannot be read; SF Symbols show image-missing", .error)
+        guard actionui_symbol_resource_register() else {
+            ActionUIModel.shared.logger.log("ActionUI was built without its symbol icons (run Scripts/prepare-linux-symbols.sh before swift build); SF Symbols show image-missing", .error)
             registrationFailed = true
             return false
         }
-        // The decoded block (from g_malloc, so aligned as GResource needs) belongs to the bytes,
-        // and the resource is kept for the life of the process.
-        let bytes = g_bytes_new_take(data, length)
-        defer { g_bytes_unref(bytes) }
-        var error: UnsafeMutablePointer<GError>?
-        guard let resource = g_resource_new_from_data(bytes, &error) else {
-            let message = error.flatMap { swiftString($0.pointee.message) } ?? "unknown error"
-            if let error { g_error_free(error) }
-            ActionUIModel.shared.logger.log("The symbol icons compiled into the library are not a resource (\(message)); SF Symbols show image-missing", .error)
-            registrationFailed = true
-            return false
-        }
-        g_resources_register(resource)
         registered = true
         return true
     }

@@ -1,24 +1,17 @@
 /*
- ActionUISymbolIcons - writes the symbolic SVG icons that stand in for SF Symbols on Linux: one per
- distinct (codepoint, fill, weight) of sf_to_material.map, drawn from the Material Symbols Rounded
- variable font (Tools/material_symbols/fetch-material-symbols-font.sh), and a glib-compile-resources
- manifest of the icons and the map.
+ generate-symbol-icons - writes the symbolic SVG icons that stand in for SF Symbols on Linux: one
+ per distinct (codepoint, fill, weight) of sf_to_material.map, drawn from the Material Symbols
+ Rounded variable font (Tools/material_symbols/fetch-material-symbols-font.sh), and a
+ glib-compile-resources manifest of the icons and the map. Scripts/prepare-linux-symbols.sh builds
+ it (C and HarfBuzz only), runs it, and compiles the folder into the C source ActionUI includes.
 
-   ActionUISymbolIcons <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder>
-   ActionUISymbolIcons --swift <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder> <output.swift>
+   generate-symbol-icons <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder>
 
  In the output folder:
    scalable/actions/actionui-material-<hex codepoint>-f<0|1>-w<weight>-symbolic.svg
    sf_to_material.map       a copy of the map, which the library reads at run time
    symbols.gresource.xml    the manifest, prefix /com/abracode/actionui/symbols; written last, so
                             it is there only when every icon was written
-
- The second form, the build plugin's, goes on: it compiles the folder with
- /usr/bin/glib-compile-resources into symbols.gresource there, and writes that file into a Swift
- source as the base64 text of a global constant, materialSymbolsResourceBase64. One command with
- the Swift file as its only output: SwiftPM compiles a plugin's Swift output but takes its other
- outputs as resources of the target (a resource bundle, and a Bundle.module accessor that needs
- Foundation), and a string literal compiles quickly where an array literal of a megabyte would not.
 
  Map rows: <sf_name> <hex codepoint> [1: fill] [100..700: weight]; no fill means 0, no weight 400
  (the map's weights are a per-symbol calibration against SF Symbols at regular weight). Every icon
@@ -40,13 +33,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <spawn.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-extern char **environ;
 
 #if !HB_VERSION_ATLEAST(7, 0, 0)
 #error "HarfBuzz 7.0 or newer is needed (hb_font_draw_glyph)"
@@ -381,78 +369,6 @@ static void set_axes(hb_font_t *font, const Icon *icon)
     hb_font_set_variations(font, variations, sizeof variations / sizeof variations[0]);
 }
 
-/* ---------- --swift ---------- */
-
-/* Runs glib-compile-resources on the folder's manifest, giving <folder>/symbols.gresource. */
-static bool compile_resource(const char *folder, const char *resource_path)
-{
-    Buffer manifest = { 0 };
-    buffer_append(&manifest, "%s/symbols.gresource.xml", folder);
-    char *arguments[] = {
-        "glib-compile-resources", "--sourcedir", (char *)folder, "--target", (char *)resource_path,
-        manifest.text, NULL,
-    };
-    pid_t child;
-    int error = posix_spawn(&child, "/usr/bin/glib-compile-resources", NULL, NULL, arguments, environ);
-    if (error != 0) {
-        fprintf(stderr, "error: cannot run /usr/bin/glib-compile-resources: %s (it comes with GLib's development files)\n",
-                strerror(error));
-        free(manifest.text);
-        return false;
-    }
-    int status = 0;
-    pid_t waited;
-    do {
-        waited = waitpid(child, &status, 0);
-    } while (waited < 0 && errno == EINTR);
-    free(manifest.text);
-    if (waited < 0 || WIFEXITED(status) == 0 || WEXITSTATUS(status) != 0) {
-        fprintf(stderr, "error: glib-compile-resources failed\n");
-        return false;
-    }
-    return true;
-}
-
-static bool embed(const char *resource_path, const char *swift_path)
-{
-    static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    size_t length = 0;
-    char *data = read_file(resource_path, &length);
-    if (data == NULL) return false;
-    if (length == 0) {
-        fprintf(stderr, "error: %s is empty\n", resource_path);
-        return false;
-    }
-    const unsigned char *bytes = (const unsigned char *)data;
-    size_t encoded_length = (length + 2) / 3 * 4;
-    char *encoded = malloc(encoded_length + 1);
-    if (encoded == NULL) {
-        fprintf(stderr, "error: out of memory\n");
-        return false;
-    }
-    size_t out = 0;
-    for (size_t i = 0; i < length; i += 3) {
-        unsigned long group = (unsigned long)bytes[i] << 16;
-        if (i + 1 < length) group |= (unsigned long)bytes[i + 1] << 8;
-        if (i + 2 < length) group |= bytes[i + 2];
-        encoded[out++] = alphabet[(group >> 18) & 63];
-        encoded[out++] = alphabet[(group >> 12) & 63];
-        encoded[out++] = i + 1 < length ? alphabet[(group >> 6) & 63] : '=';
-        encoded[out++] = i + 2 < length ? alphabet[group & 63] : '=';
-    }
-    encoded[out] = '\0';
-    Buffer swift = { 0 };
-    buffer_append(&swift,
-                  "// Generated by ActionUISymbolIcons --swift from symbols.gresource (%zu bytes); do not edit.\n"
-                  "let materialSymbolsResourceBase64 = \"%s\"\n",
-                  length, encoded);
-    bool ok = write_file(swift_path, swift.text, swift.length);
-    free(swift.text);
-    free(encoded);
-    free(data);
-    return ok;
-}
-
 /* ---------- the icons ---------- */
 
 /* Writes the icons, the map copy and the manifest into `output`. */
@@ -559,21 +475,10 @@ static bool generate(const char *map_path, const char *font_path, const char *ou
 
 int main(int argc, char **argv)
 {
-    if (argc == 4) {
-        bool ok = generate(argv[1], argv[2], argv[3]);
-        return ok ? 0 : 1;
+    if (argc != 4) {
+        fprintf(stderr, "usage: %s <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder>\n", argv[0]);
+        return 1;
     }
-    if (argc == 6 && strcmp(argv[1], "--swift") == 0) {
-        const char *folder = argv[4];
-        if (!generate(argv[2], argv[3], folder)) return 1;
-        Buffer resource = { 0 };
-        buffer_append(&resource, "%s/symbols.gresource", folder);
-        bool ok = compile_resource(folder, resource.text) && embed(resource.text, argv[5]);
-        free(resource.text);
-        return ok ? 0 : 1;
-    }
-    fprintf(stderr, "usage: %s <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder>\n"
-                    "       %s --swift <sf_to_material.map> <MaterialSymbolsRounded.ttf> <output folder> <output.swift>\n",
-            argv[0], argv[0]);
-    return 1;
+    bool ok = generate(argv[1], argv[2], argv[3]);
+    return ok ? 0 : 1;
 }
