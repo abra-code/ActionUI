@@ -101,8 +101,10 @@ final class ViewShortcutTests: XCTestCase {
         defer { g_object_unref(shortcut) }
         let action = try XCTUnwrap(gtk_shortcut_get_action(OpaquePointer(shortcut)))
         XCTAssertNotEqual(gtk_shortcut_action_activate(action, GtkShortcutActionFlags(0), control, nil), 0)
-        AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[1]?.value as? Bool, true)
+        // With animations on, an activated GtkSwitch changes state only when its 100 ms toggle
+        // animation ends, on the frame clock: wait for the value rather than drain the loop once.
+        let value = { ActionUIModel.shared.windowModels[self.windowUUID]?.viewModels[1]?.value as? Bool }
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { value() == true }), "value: \(String(describing: value()))")
     }
 
     func testAReturnButtonIsTheWindowsDefaultSoReturnInATextFieldPressesIt() throws {
