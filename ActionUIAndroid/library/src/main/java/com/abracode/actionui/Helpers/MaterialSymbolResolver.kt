@@ -11,8 +11,9 @@ import java.io.IOException
  * name lookup the system does for SF Symbols. [MaterialSymbolGlyph] then renders
  * the codepoint.
  *
- * The table ships under `assets/symbols/` (downloaded by the `fetchMaterialSymbols`
- * Gradle task), next to the SF->Material map - both are name-lookup tables, while
+ * The table ships under `assets/symbols/` (committed; the `fetchMaterialSymbols`
+ * Gradle task downloads a font that keeps every line of it), next to the
+ * SF->Material map - both are name-lookup tables, while
  * the font binary itself lives under `assets/fonts/`. Its format is one entry per
  * line, `"<name> <hexcodepoint>"`, with lowercase hex and no `0x` prefix:
  *
@@ -85,7 +86,7 @@ private fun loadCodepoints(assets: AssetManager, logger: ActionUILogger?): Map<S
     } catch (e: IOException) {
         logger?.log(
             "Material Symbols codepoints table '$MATERIAL_SYMBOLS_CODEPOINTS_ASSET' not found " +
-                "in assets/. Run the fetchMaterialSymbols Gradle task (it runs on build); " +
+                "in assets/ (it is committed with the library); " +
                 "materialName glyphs cannot render without it.",
             LoggerLevel.warning
         )

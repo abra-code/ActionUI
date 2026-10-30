@@ -24,7 +24,7 @@ For how the renderer works (retained widgets, SwiftUI's layout reproduced, what 
 From the repository root, on Linux:
 
 ```sh
-# once: the font the symbol icons are drawn from
+# once, and again for a newer compatible release: the font the symbol icons are drawn from
 bash Tools/material_symbols/fetch-material-symbols-font.sh
 swift build                                   # the library, the viewer and the demo
 swift run ActionUIAdwaitaViewer ActionUISwiftTestApp/Resources/Form.json

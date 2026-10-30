@@ -13,7 +13,8 @@
  have.
 
  The font is not in the repository: Tools/material_symbols/fetch-material-symbols-font.sh downloads
- the pinned release, and the build stops with that advice when it is missing.
+ the latest release whose codepoints keep every line of the committed table the map was made from
+ (else the last accepted release), and the build stops with that advice when it is missing.
 */
 
 import Foundation
