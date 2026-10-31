@@ -12,6 +12,7 @@ extension ActionUIRegistry {
         "Button": Button.self,
         "Canvas": Canvas.self,
         "Capsule": Capsule.self,
+        "Chart": Chart.self,
         "Circle": Circle.self,
         "Color": Color.self,
         "ColorPicker": ColorPicker.self,
