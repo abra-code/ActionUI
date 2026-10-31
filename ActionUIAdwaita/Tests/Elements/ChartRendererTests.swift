@@ -327,6 +327,40 @@ final class ChartRendererTests: XCTestCase {
         }
     }
 
+    private func accessibleName(_ node: RenderNode) -> String? {
+        attached(on: node.widget, key: accessibilityStateKey)?.label
+    }
+
+    private func spokenChart(_ extra: String = "") -> String {
+        ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "accessibilityLabel": "$day", "accessibilityValue": "$n"}]}]}"## + extra
+    }
+
+    func testAChartIsNamedByItsMarks() throws {
+        let node = try render(spokenChart())
+        XCTAssertEqual(accessibleName(node), "Mon, 4")
+        XCTAssertNotEqual(gtk_test_accessible_has_property(OpaquePointer(node.widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0)
+    }
+
+    func testANameFollowsTheRows() throws {
+        let node = try render(spokenChart())
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Tue", "5"], ["Wed", "6"]])
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(accessibleName(node), "Tue, 5; Wed, 6")
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [])
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNil(accessibleName(node))
+        XCTAssertEqual(gtk_test_accessible_has_property(OpaquePointer(node.widget), GTK_ACCESSIBLE_PROPERTY_LABEL), 0, "no name left for GTK to read")
+    }
+
+    func testAChartsOwnLabelWinsOverItsMarks() throws {
+        let node = try render(spokenChart(##", "accessibilityLabel": "Users by day""##))
+        XCTAssertEqual(accessibleName(node), "Users by day")
+    }
+
+    func testAChartWithSilentMarksHasNoName() throws {
+        XCTAssertNil(accessibleName(try render(bars)))
+    }
+
     func testALegendDrawsItsDotsInTheSeriesColors() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
         let image = try pixels(try render(chart))

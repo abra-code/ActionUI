@@ -22,6 +22,8 @@ struct ChartMarkInstance {
     let symbolKey: String?
     let lineStyleKey: String?
     let sizeKey: String?
+    /// Its accessibility label and value for this row, unless hidden or past what a name holds.
+    let accessibleText: String?
     /// What a position scale groups it by, one key for a date bin however the dates in it differ,
     /// and the room the group shares. A number or date also has where it falls, a bin from start to end.
     let positionKey: String?
@@ -44,10 +46,20 @@ struct ChartMarkInstance {
 }
 
 struct ChartResolvedMarks {
+    fileprivate static let namedMarks = 100
+
     var instances: [ChartMarkInstance] = []
     /// Rows with a cell that did not parse, and the first such cell.
     var skippedRows = 0
     var firstSkip: (row: Int, column: Int, type: ChartColumnType, inlineData: Bool)?
+    /// The text of the first marks with any, which a name is made of; no more is worked out.
+    fileprivate(set) var said: [String] = []
+
+    /// What the marks say, as one name for the chart: GTK has no accessible object for a mark. Nil
+    /// if none says anything, and a name stops at some marks, as a name is read out whole.
+    var accessibleName: String? {
+        said.isEmpty ? nil : said.joined(separator: "; ")
+    }
 }
 
 struct ChartMarkResolver {
@@ -70,7 +82,7 @@ struct ChartMarkResolver {
             switch entry {
             case .mark(let mark):
                 if let instance = instance(mark, row: nil) {
-                    result.instances.append(instance)
+                    keep(instance)
                 }
             case .plot(let children):
                 append(children)
@@ -92,10 +104,17 @@ struct ChartMarkResolver {
         for row in 0..<columns.rowCount {
             rowInstances.removeAll(keepingCapacity: true)
             if appendRow(entries, row: row, into: &rowInstances) {
-                result.instances.append(contentsOf: rowInstances)
+                rowInstances.forEach { keep($0) }
             } else {
                 result.skippedRows += 1
             }
+        }
+    }
+
+    private mutating func keep(_ instance: ChartMarkInstance) {
+        result.instances.append(instance)
+        if let text = instance.accessibleText, result.said.count < ChartResolvedMarks.namedMarks {
+            result.said.append(text)
         }
     }
 
@@ -192,9 +211,36 @@ struct ChartMarkResolver {
             }
         }
         return ChartMarkInstance(mark: mark, values: values, styleKey: styleKey, symbolKey: symbolKey, lineStyleKey: lineStyleKey, sizeKey: sizeKey,
+                                 accessibleText: result.said.count < ChartResolvedMarks.namedMarks ? accessibleText(mark, row: row) : nil,
                                  positionKey: positionKey, positionValue: positionValue, positionSpan: positionSpan, positionAxis: positionAxis,
                                  colorValue: colorValue, lineStyleValue: lineStyleValue, sizeValue: sizeValue,
                                  seriesKey: seriesParts.joined(separator: "\u{1F}"))
+    }
+
+    private func text(_ text: ChartText, row: Int?) -> String {
+        switch text {
+        case .literal(let string):
+            return string
+        case .perRow(let template):
+            guard let row else { return template }
+            return TemplateHelper.substituteString(template, row: columns.rows[row])
+        }
+    }
+
+    // Backward, so the modifier nearest the mark is the one that stays.
+    private func accessibleText(_ mark: ChartMarkSpec, row: Int?) -> String? {
+        var label: ChartText?, value: ChartText?, hidden = false
+        for modifier in mark.modifiers.reversed() {
+            switch modifier {
+            case .accessibilityLabel(let given): label = given
+            case .accessibilityValue(let given): value = given
+            case .accessibilityHidden(let given): hidden = given
+            default: break
+            }
+        }
+        guard !hidden, label != nil || value != nil else { return nil }
+        let said = [label, value].compactMap { $0.map { text($0, row: row) } }.filter { !$0.isEmpty }
+        return said.isEmpty ? nil : said.joined(separator: ", ")
     }
 
     // The one axis a position can spread a mark over, a start counting as its axis: x with bands or

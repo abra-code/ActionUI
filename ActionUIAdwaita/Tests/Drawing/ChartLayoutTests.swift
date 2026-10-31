@@ -3145,6 +3145,89 @@ final class ChartLayoutTests: XCTestCase {
         }
     }
 
+    // MARK: - Accessibility
+
+    private func spoken(_ mark: [String: Any], rows: [[String]]) -> String? {
+        let spec = ChartDescription.parse(chart([mark]), logger: nil).spec
+        return ChartMarkResolver.resolve(spec, rows: rows).accessibleName
+    }
+
+    func testAChartWhoseMarksSayNothingHasNoName() {
+        XCTAssertNil(spoken(bar, rows: [["Mon", "1"]]))
+    }
+
+    func testEachMarkSaysItsLabelAndValueWithItsRow() {
+        var mark = bar
+        mark["accessibilityLabel"] = "$day"
+        mark["accessibilityValue"] = "$high users"
+        XCTAssertEqual(spoken(mark, rows: [["Mon", "1"], ["Tue", "2"]]), "Mon, 1 users; Tue, 2 users")
+    }
+
+    func testALabelOrAValueAloneIsSaid() {
+        var label = bar
+        label["accessibilityLabel"] = "Total"
+        XCTAssertEqual(spoken(label, rows: [["Mon", "1"]]), "Total")
+        var value = bar
+        value["accessibilityValue"] = "$high"
+        XCTAssertEqual(spoken(value, rows: [["Mon", "1"]]), "1")
+    }
+
+    func testAHiddenMarkSaysNothing() {
+        var mark = bar
+        mark["accessibilityLabel"] = "Total"
+        mark["accessibilityHidden"] = true
+        XCTAssertNil(spoken(mark, rows: [["Mon", "1"]]))
+    }
+
+    func testTheModifierNearestAMarkIsSaid() {
+        var mark = bar
+        mark["accessibilityLabel"] = "Own"
+        let plot: [String: Any] = ["type": "Plot", "accessibilityLabel": "Plot", "content": [["type": "ForEach", "content": [mark]]]]
+        let spec = ChartDescription.parse(["columns": columns, "content": [plot]], logger: nil).spec
+        XCTAssertEqual(ChartMarkResolver.resolve(spec, rows: [["Mon", "1"]]).accessibleName, "Own")
+    }
+
+    func testAnEmptyTextSaysNothing() {
+        var mark = bar
+        mark["accessibilityLabel"] = ""
+        XCTAssertNil(spoken(mark, rows: [["Mon", "1"]]))
+    }
+
+    func testAMarkOutsideAForEachSaysItsText() {
+        var rule: [String: Any] = ["type": "RuleMark", "y": value("Goal", 5)]
+        rule["accessibilityLabel"] = "Goal"
+        let spec = ChartDescription.parse(["columns": columns, "content": [rule]], logger: nil).spec
+        XCTAssertEqual(ChartMarkResolver.resolve(spec, rows: []).accessibleName, "Goal")
+    }
+
+    func testANameStopsAtAHundredMarks() {
+        var mark = bar
+        mark["accessibilityLabel"] = "$day"
+        let name = spoken(mark, rows: (0..<500).map { ["D\($0)", "1"] })
+        XCTAssertEqual(name?.components(separatedBy: "; ").count, 100)
+    }
+
+    func testMarksPastAFullNameReadNoText() {
+        var mark = bar
+        mark["accessibilityLabel"] = "$day"
+        let spec = ChartDescription.parse(chart([mark, mark, mark]), logger: nil).spec
+        let marks = ChartMarkResolver.resolve(spec, rows: [["Skipped", "x"]] + (0..<500).map { ["D\($0)", "1"] })
+        XCTAssertNil(marks.instances.last?.accessibleText)
+        let said = marks.accessibleName?.components(separatedBy: "; ")
+        XCTAssertEqual(said?.count, 100, "three to a row run past 100, and the name still stops there")
+        XCTAssertEqual(said?.first, "D0", "a skipped row says nothing")
+    }
+
+    func testAForEachWithItsOwnColumnsSaysItsOwnRows() {
+        var chartMark = bar
+        chartMark["accessibilityLabel"] = "$day"
+        let own: [String: Any] = ["type": "ForEach", "columns": ["who", ["name": "goal", "type": "number"], "day"], "data": [["Ann", 1, "Sun"]],
+                                  "content": [["type": "RuleMark", "y": value("Goal", "$goal"), "accessibilityLabel": "$who $day"]]]
+        let chartRows: [String: Any] = ["type": "ForEach", "content": [chartMark]]
+        let spec = ChartDescription.parse(["columns": columns, "content": [own, chartRows]], logger: nil).spec
+        XCTAssertEqual(ChartMarkResolver.resolve(spec, rows: [["Mon", "1"]]).accessibleName, "Ann Sun; Mon")
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {

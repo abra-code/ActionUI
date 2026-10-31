@@ -55,6 +55,11 @@ extension Chart: ActionUIAdwaitaRenderer {
 
     static var defaultExpansion: Expansion { .both }
 
+    /// Named by what its marks say; a label on the chart itself comes first (ModifierBox).
+    static func defaultAccessibleLabel(_ node: RenderNode) -> String? {
+        attached(on: node.widget, key: chartStateKey)?.marks.accessibleName
+    }
+
     private static func report(_ state: ChartState, viewID: Int) {
         let logger = ActionUIModel.shared.logger
         if state.marks.skippedRows > 0, let first = state.marks.firstSkip {

@@ -91,7 +91,7 @@ struct TemplateHelper {
     /// all columns with ", "; an out-of-range `$N` is left as literal text. This
     /// matches the Android and Web hosts (both regex-based); the previous ordered
     /// `replacingOccurrences` loop corrupted `$10`+ because `$1` matched inside `$10`.
-    static func substituteString(_ str: String, row: [String]) -> String {
+    nonisolated static func substituteString(_ str: String, row: [String]) -> String {
         str.replacing(columnRefRegex) { match -> String in
             guard let n = Int(match.output.1) else {
                 return String(match.output.0)
