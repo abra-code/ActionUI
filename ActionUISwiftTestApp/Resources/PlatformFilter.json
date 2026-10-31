@@ -5,6 +5,7 @@
     "padding": "default",
     "frame": {
       "maxWidth:macos": 600,
+      "maxWidth:linux": 600,
       "maxWidth:ios": 400,
       "maxHeight": 500
     }
@@ -26,16 +27,23 @@
         "text:tvos": "Running on tvOS — no element rendered below",
         "text:watchos": "Running on watchOS — no element rendered below",
         "text:visionos": "Running on visionOS — no element rendered below",
+        "text:linux": "Running on Linux - showing a GTK Table below",
         "font": "caption",
         "foregroundStyle": "secondary"
       }
     },
     {
       "type:macos": "Table",
+      "type:linux": "Table",
       "type:ios": "List",
       "id": 1,
       "properties:macos": {
         "columns": ["Name", "Role"],
+        "widths": [200, 200],
+        "padding": "default"
+      },
+      "properties:linux": {
+        "columns": ["Name", "Desktop"],
         "widths": [200, 200],
         "padding": "default"
       },
@@ -47,7 +55,7 @@
     {
       "type": "Text",
       "properties": {
-        "text": "PlatformFilter resolves :<platform> suffixes before decode. On Mac, the element above is a Table; on iOS, a List; on other Apple platforms it has no `type` after filtering and the renderer skips it.",
+        "text": "PlatformFilter resolves :<platform> suffixes before decode. On Mac and Linux, the element above is a Table (with other columns on each); on iOS, a List; on other platforms it has no `type` after filtering and the renderer skips it.",
         "font": "footnote",
         "foregroundStyle": "secondary",
         "padding": "default"
