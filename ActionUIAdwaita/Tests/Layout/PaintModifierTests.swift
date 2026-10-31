@@ -132,7 +132,26 @@ final class PaintModifierTests: XCTestCase {
     }
 
     func testAShadowIsDrawnAroundTheContent() throws {
-        let node = try render(#""background": "white", "shadow": {"radius": 4, "x": 2, "y": 3}"#)
+        let shadow = try XCTUnwrap(try drawnShadow(#""background": "white", "shadow": {"radius": 4, "x": 2, "y": 3}"#),
+                                   "no shadow node in what the box drew")
+        XCTAssertEqual(shadow.dx, 2)
+        XCTAssertEqual(shadow.dy, 3)
+    }
+
+    // SwiftUI's radius is the deviation and GSK's is twice it (measured on macOS 27: a view's shadow
+    // of radius 8 fades at 7.6, and GSK's at radius 8 at 3.9).
+    func testAShadowsRadiusIsTwiceTheOneGiven() throws {
+        XCTAssertEqual(try drawnShadow(#""background": "white", "shadow": {"radius": 8}"#)?.radius, 16)
+    }
+
+    // The stop applies to the doubled radius: 600 is under it and twice 600 is over.
+    func testAShadowsRadiusStopsAtWhatGSKCanTake() throws {
+        XCTAssertEqual(try drawnShadow(#""background": "white", "shadow": {"radius": 600}"#)?.radius, CanvasFilter.maximumRadius)
+    }
+
+    /// The shadow the box hands GSK for these properties.
+    private func drawnShadow(_ properties: String) throws -> GskShadow? {
+        let node = try render(properties)
         let window = gtk_window_new()!
         defer { gtk_window_destroy(typed(window)) }
         gtk_window_set_child(typed(window), node.outerWidget)
@@ -146,6 +165,6 @@ final class PaintModifierTests: XCTestCase {
         gdk_paintable_snapshot(paintable, snapshot, 40, 20)
         let rendered = try XCTUnwrap(gtk_snapshot_free_to_node(snapshot), "the box drew nothing")
         defer { gsk_render_node_unref(rendered) }
-        XCTAssertTrue(AdwaitaTestHost.contains(rendered, GSK_SHADOW_NODE), "no shadow node in what the box drew")
+        return AdwaitaTestHost.first(GSK_SHADOW_NODE, in: rendered).flatMap { gsk_shadow_node_get_shadow($0, 0)?.pointee }
     }
 }

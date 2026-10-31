@@ -111,23 +111,23 @@ enum AdwaitaTestHost {
         return bytes
     }
 
-    /// Whether `node` or a node inside it is of `type`.
-    static func contains(_ node: OpaquePointer, _ type: GskRenderNodeType) -> Bool {
+    /// The first node of `type`, `node` itself or one inside it.
+    static func first(_ type: GskRenderNodeType, in node: OpaquePointer) -> OpaquePointer? {
         let own = gsk_render_node_get_node_type(node)
-        if own == type { return true }
+        if own == type { return node }
         switch own {
         case GSK_CONTAINER_NODE:
             for index in 0..<gsk_container_node_get_n_children(node) {
-                if let child = gsk_container_node_get_child(node, index), contains(child, type) { return true }
+                if let child = gsk_container_node_get_child(node, index), let found = first(type, in: child) { return found }
             }
-            return false
-        case GSK_TRANSFORM_NODE: return gsk_transform_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_OPACITY_NODE: return gsk_opacity_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_CLIP_NODE: return gsk_clip_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_ROUNDED_CLIP_NODE: return gsk_rounded_clip_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_DEBUG_NODE: return gsk_debug_node_get_child(node).map { contains($0, type) } ?? false
-        case GSK_COLOR_MATRIX_NODE: return gsk_color_matrix_node_get_child(node).map { contains($0, type) } ?? false
-        default: return false
+            return nil
+        case GSK_TRANSFORM_NODE: return gsk_transform_node_get_child(node).flatMap { first(type, in: $0) }
+        case GSK_OPACITY_NODE: return gsk_opacity_node_get_child(node).flatMap { first(type, in: $0) }
+        case GSK_CLIP_NODE: return gsk_clip_node_get_child(node).flatMap { first(type, in: $0) }
+        case GSK_ROUNDED_CLIP_NODE: return gsk_rounded_clip_node_get_child(node).flatMap { first(type, in: $0) }
+        case GSK_DEBUG_NODE: return gsk_debug_node_get_child(node).flatMap { first(type, in: $0) }
+        case GSK_COLOR_MATRIX_NODE: return gsk_color_matrix_node_get_child(node).flatMap { first(type, in: $0) }
+        default: return nil
         }
     }
 }

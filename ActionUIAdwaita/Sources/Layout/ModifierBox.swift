@@ -403,8 +403,10 @@ enum ModifierBox {
                 let value = ColorCSS.components(spec)
                 return GdkRGBA(red: Float(value.red), green: Float(value.green), blue: Float(value.blue), alpha: Float(value.alpha))
             } ?? defaultShadowColor
+            // GSK's blur radius is twice the deviation, and a view's is the deviation (measured on
+            // macOS 27: 8 fades at 7.6). A Canvas's shadow is not: its radius is GSK's as it is.
             next = GskShadow(color: color, dx: Float(shadow.x), dy: Float(shadow.y),
-                             radius: Float(min(max(shadow.radius, 0), 1000)))
+                             radius: CanvasFilter.radius(shadow.radius * 2))
         }
         let same: Bool
         switch (state.shadow, next) {
