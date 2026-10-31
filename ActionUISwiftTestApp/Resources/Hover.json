@@ -32,7 +32,7 @@
             {
               "type": "Image",
               "properties": {
-                "systemName": "cursorarrow.rays",
+                "systemName": "cursorarrow.click",
                 "foregroundStyle": "secondary"
               }
             },

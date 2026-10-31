@@ -111,7 +111,7 @@
           "type": "Image",
           "id": 6,
           "properties": {
-            "resourceName": "ActionUI.icns",
+            "resourceName": "ActionUI.png",
             "resizable": true,
             "contentMode": "fit",
             "frame": {

@@ -27,7 +27,7 @@
             "id": 100,
             "properties": {
               "title": "Selectable Label A",
-              "systemImage": "a.circle"
+              "systemImage": "star"
             }
           },
           {
@@ -35,7 +35,7 @@
             "id": 101,
             "properties": {
               "title": "Selectable Label B",
-              "systemImage": "b.circle"
+              "systemImage": "heart"
             }
           },
           {
@@ -43,7 +43,7 @@
             "id": 102,
             "properties": {
               "title": "Selectable Label C",
-              "systemImage": "c.circle"
+              "systemImage": "bolt"
             }
           }
         ]

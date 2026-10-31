@@ -256,7 +256,7 @@
                     "frame": [0.15, 0.15, 0.12, 0.12],
                     "operations": [
                       { "type": "rotate", "angle": -20 },
-                      { "type": "image", "systemName": "swift", "frame": [0,0,1,1] }
+                      { "type": "image", "systemName": "bird.fill", "frame": [0,0,1,1] }
                     ]
                   },
                   {
@@ -264,7 +264,7 @@
                     "frame": [0.70, 0.20, 0.11, 0.11],
                     "operations": [
                       { "type": "rotate", "angle": 35 },
-                      { "type": "image", "systemName": "swift", "frame": [0,0,1,1] }
+                      { "type": "image", "systemName": "bird.fill", "frame": [0,0,1,1] }
                     ]
                   },
                   {
@@ -272,7 +272,7 @@
                     "frame": [0.25, 0.70, 0.13, 0.13],
                     "operations": [
                       { "type": "rotate", "angle": 50 },
-                      { "type": "image", "systemName": "swift", "frame": [0,0,1,1] }
+                      { "type": "image", "systemName": "bird.fill", "frame": [0,0,1,1] }
                     ]
                   },
                   {
@@ -280,7 +280,7 @@
                     "frame": [0.70, 0.70, 0.12, 0.12],
                     "operations": [
                       { "type": "rotate", "angle": -30 },
-                      { "type": "image", "systemName": "swift", "frame": [0.0, 0.0, 1.0, 1.0] }
+                      { "type": "image", "systemName": "bird.fill", "frame": [0.0, 0.0, 1.0, 1.0] }
                     ]
                   }
 

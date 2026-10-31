@@ -16,9 +16,9 @@
         "type": "ContentUnavailableView",
         "id": 1,
         "properties": {
-          "title": "No Favorites",
-          "systemImage": "star.slash",
-          "description": "Items you mark as favorite will appear here."
+          "title": "No Bookmarks",
+          "systemImage": "bookmark",
+          "description": "Pages you bookmark will appear here."
         }
       }
     ],

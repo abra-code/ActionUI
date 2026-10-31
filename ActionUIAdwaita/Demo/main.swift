@@ -76,13 +76,14 @@ let launcherDocument = """
     """
 
 /// The documents in `folder`, by name without ".json", sorted as the Mac app sorts them; as on the
-/// Mac, DefaultWindow (the app's own window group) is left out, and so are hidden files.
+/// Mac, DefaultWindow (the app's own window group) is left out, and so are hidden files and the
+/// bundle's Info.json (the app's name, ID and icon, not a document).
 func documentNames(in folder: String) -> [String] {
     let files = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
     return files.filter { name in
         var isFolder = false
         let path = URL(fileURLWithPath: folder).appendingPathComponent(name).path
-        return name.hasSuffix(".json") && !name.hasPrefix(".") && name != "DefaultWindow.json"
+        return name.hasSuffix(".json") && !name.hasPrefix(".") && name != "DefaultWindow.json" && name != "Info.json"
             && FileManager.default.fileExists(atPath: path, isDirectory: &isFolder) && !isFolder
     }
         .map { String($0.dropLast(".json".count)) }

@@ -38,7 +38,7 @@
           "type": "Label",
           "properties": {
             "title": "Item A (id: 10)",
-            "systemImage": "a.circle"
+            "systemImage": "star"
           }
         },
         {
@@ -46,7 +46,7 @@
           "type": "Label",
           "properties": {
             "title": "Item B (id: 11)",
-            "systemImage": "b.circle"
+            "systemImage": "heart"
           }
         }
       ]
