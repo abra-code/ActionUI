@@ -134,25 +134,49 @@
         }
       }
     },
-    { "type": "Text", "properties": { "text": "Languages (a donut of sector marks)", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Languages (a pie and a donut of sector marks)", "font": "headline" } },
     {
-      "type": "Chart",
-      "id": 15,
-      "properties": {
-        "frame": { "width": 220, "height": 220 },
-        "chart": {
-          "columns": ["language", { "name": "count", "type": "integer" }],
-          "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27], ["Rust", 12]],
-          "content": [
-            { "type": "ForEach", "content": [
-              { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" }, "innerRadius": { "ratio": 0.6 },
-                "angularInset": 1.5, "cornerRadius": 4,
-                "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
-                "accessibilityLabel": "$language", "accessibilityValue": "$count projects" }
-            ] }
-          ]
+      "type": "HStack",
+      "properties": { "spacing": 24 },
+      "children": [
+        {
+          "type": "Chart",
+          "id": 16,
+          "properties": {
+            "frame": { "width": 220, "height": 220 },
+            "chart": {
+              "columns": ["language", { "name": "count", "type": "integer" }],
+              "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27], ["Rust", 12]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" },
+                    "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
+                    "accessibilityLabel": "$language", "accessibilityValue": "$count projects" }
+                ] }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Chart",
+          "id": 15,
+          "properties": {
+            "frame": { "width": 220, "height": 220 },
+            "chart": {
+              "columns": ["language", { "name": "count", "type": "integer" }],
+              "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27], ["Rust", 12]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" }, "innerRadius": { "ratio": 0.6 },
+                    "angularInset": 1.5, "cornerRadius": 4,
+                    "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
+                    "accessibilityLabel": "$language", "accessibilityValue": "$count projects" }
+                ] }
+              ]
+            }
+          }
         }
-      }
+      ]
     }
   ]
   }
