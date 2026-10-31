@@ -58,8 +58,8 @@
        "chartYAxis": [
          { "type": "AxisMarks", "preset": "automatic", "position": "leading",
            "values": [0, 500, 1000, 1500],    // "automatic", {"automatic": {"desiredCount" (1 to 100), "roundLowerBound",
-                                              //   "roundUpperBound"}}, {"stride": {"by": "month", "count": 1}} (a calendar unit, dates),
-                                              //   {"stride": {"by": 10}} (numbers), or a list of values typed by the axis. A stride
+                                              //   "roundUpperBound"}}, {"stride": {"by": "month", "count": 1}} (a calendar unit but quarter or weekOfMonth, dates),
+                                              //   {"stride": {"by": 10}} (numbers), or a list of numbers or dates (a list of names on a category axis changes nothing). A stride
                                               //   that would draw more than 1000 marks over the axis falls back to "automatic"
            "format": "decimal", "fractionLength": 0, // Without "content" only: labels' format (below); "stroke" likewise
            "content": [                       // Optional: up to 4 marks; absent = Swift's default marks, [] = none

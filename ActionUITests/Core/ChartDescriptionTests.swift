@@ -230,6 +230,30 @@ final class ChartDescriptionTests: XCTestCase {
         XCTAssertEqual(logger.warnings.count, 1)
     }
 
+    // Swift Charts stops the app on these two strides, so a description never reaches it with one.
+    func testACalendarStrideSwiftChartsStopsTheAppForIsRefused() throws {
+        let dates: [Any] = [["name": "when", "type": "date"], ["name": "high", "type": "number"]]
+        func description(_ unit: String) -> [String: Any] {
+            ["columns": dates, "chartXAxis": [["type": "AxisMarks", "values": ["stride": ["by": unit]]]],
+             "content": [["type": "ForEach", "content": [["type": "PointMark", "x": value("When", "$when"), "y": value("High", "$high")]]]]]
+        }
+        func parsed(_ unit: String) -> ChartAxisValues? {
+            ChartDescription.parse(description(unit), logger: logger).spec.x.marks?.first?.values
+        }
+        for unit in ["quarter", "weekOfMonth"] {
+            guard case .automatic? = parsed(unit) else { return XCTFail("\(unit) must fall back to automatic values") }
+            // The cleaned description has dropped the stride, so a second parse has nothing to say.
+            let quiet = RecordingLogger()
+            _ = ChartDescription.parse(ChartDescription.parse(description(unit), logger: nil).cleaned, logger: quiet)
+            XCTAssertEqual(quiet.warnings, [])
+        }
+        XCTAssertEqual(logger.warnings.count, 2, "\(logger.warnings)")
+        for unit in ["year", "month", "weekOfYear", "day", "hour", "minute", "second"] {
+            guard case .calendarStride? = parsed(unit) else { return XCTFail("\(unit) stays a stride") }
+        }
+        XCTAssertEqual(logger.warnings.count, 2, "\(logger.warnings)")
+    }
+
     func testAScrollLengthThatWouldLayOutTooManyMarksIsLengthened() {
         let point: [String: Any] = ["type": "PointMark", "x": value("High", "$high"), "y": value("Low", "$low")]
         let spec = ChartDescription.parse(chart([point], ["chartScrollableAxes": "horizontal", "chartXVisibleDomain": ["length": 1]]), logger: logger).spec

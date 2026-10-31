@@ -108,7 +108,7 @@ extension ChartDescription {
                 spec.values = values
                 cleaned["values"] = raw
             } else {
-                invalid("values", "\"automatic\", {\"automatic\": {\"desiredCount\" (1 to 100), \"roundLowerBound\", \"roundUpperBound\"}}, {\"stride\": {\"by\": a calendar unit (dates) or a step above 0 (numbers), \"count\"}}, or a list of values typed by the axis")
+                invalid("values", "\"automatic\", {\"automatic\": {\"desiredCount\" (1 to 100), \"roundLowerBound\", \"roundUpperBound\"}}, {\"stride\": {\"by\": a calendar unit but quarter or weekOfMonth (dates) or a step above 0 (numbers), \"count\"}}, or a list of values typed by the axis")
             }
         }
 
@@ -387,6 +387,8 @@ extension ChartDescription {
             if let stride = object["stride"] as? [String: Any], let by = stride["by"] {
                 if let unit = (by as? String).flatMap(calendarComponent) {
                     guard axisType == .date, Set(stride.keys).isSubset(of: ["by", "count"]) else { return nil }
+                    // Swift Charts stops the app for these two: "Component is not supported" (macOS 27).
+                    guard unit != .quarter, unit != .weekOfMonth else { return nil }
                     let count = stride["count"]
                     if count != nil, wholeNumber(count).map({ $0 > 0 }) != true { return nil }
                     return .calendarStride(unit, count: wholeNumber(count) ?? 1)
