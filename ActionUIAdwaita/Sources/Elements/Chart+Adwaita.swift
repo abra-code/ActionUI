@@ -75,7 +75,7 @@ extension Chart: ActionUIAdwaitaRenderer {
         let text = ChartAxisText(widget: widget)
         let metrics = ChartTextMetrics(
             size: { text.size($0) },
-            number: { NumberFormatting.string($0, format: .decimal(minFraction: nil, maxFraction: nil)) },
+            number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
             date: { DateFormatting.string($0, skeleton: $1) })
         let primitives = ChartLayout.primitives(state.spec, marks: state.marks, width: width, height: height, metrics: metrics)
         var foreground = GdkRGBA()

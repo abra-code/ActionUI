@@ -914,7 +914,7 @@ enum ChartDescription {
     // Swift Charts stops the app (a fatal error) for some scale types on a number or date axis:
     // "date" and "category" always, and log, squareRoot or power whenever a plotted value, a
     // bar's zero baseline included, is outside the type's domain (measured on macOS 27). An
-    // explicit domain clamps the values, so those three need one that is inside their domain.
+    // explicit domain inside the type's own avoids that, so those three need one.
     // A string axis, or an axis that plots no values, takes any type unharmed.
     private static func scaleTypeProblem(_ raw: Any, axisType: ChartColumnType?, domain: ChartDomain) -> String? {
         guard let axisType, family(axisType) != .string else { return nil }

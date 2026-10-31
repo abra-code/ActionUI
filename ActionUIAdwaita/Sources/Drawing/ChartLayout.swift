@@ -9,13 +9,17 @@
  - The y axis is on the trailing side, with solid gridlines at its ticks.
  - Categories are bands of equal width, in order of first use, with dashed lines at the band edges.
  - Number and date ticks on the x axis have a dashed line, and their label starts at the tick.
- - An automatic number domain includes 0 and is widened to whole steps, at most 4 of them on any
-   axis at any size (measured from 60 to 700 points tall), and a date axis covers each value's
-   whole bin.
+ - An automatic number domain includes 0 and is widened to whole steps (ChartTicks), and a date
+   axis covers each value's whole bin. An explicit domain is exact; marks past it still draw, and a
+   category it does not name does not. Labels of one axis share their decimals. A domain of one
+   value has no ticks and puts every mark in the middle.
+ - A value the scale's math has no answer for is not drawn, and a bar stands on 0, so a log scale
+   draws no bars at all, not even the upper bar of a stack. Stacked areas draw the layers that have
+   both edges. A value past a domain goes where the math puts it, on every scale type.
  - A bar takes 0.7 of its band or date bin, and 8 points where a value has neither. Bars at one
-   position stack in row order, those below 0 downward. A normalized stack is that divided by the
-   longer side, on an axis labeled 0, 25, ... 100 without a percent sign; a centered one is that
-   moved so its two ends are as far from 0.
+   position stack in row order, those below 0 downward. A normalized stack is that as a percentage
+   of the longer side, on an axis of plain numbers (a rule at 40 sits at 40 of 100); a centered one
+   is that moved so its two ends are as far from 0.
  - A start and end on an axis of categories run from the edge of one band to the far edge of the other;
    dates with a unit go in the middle of their bins, as a single value does.
  - Points given to a mark count from the plot's top leading corner.
@@ -100,7 +104,8 @@ enum ChartPrimitive: Equatable {
 /// Text as the renderer measures and formats it.
 struct ChartTextMetrics {
     var size: (String) -> ChartSize
-    var number: (Double) -> String
+    /// A number with this many decimals.
+    var number: (Double, Int) -> String
     var date: (Date, _ skeleton: String) -> String
 }
 
@@ -108,12 +113,10 @@ struct ChartLayout {
     // Swift Charts' order for series, in ActionUI's named colors.
     static let seriesColors: [ColorSpec] = [.named(.blue), .named(.green), .named(.orange), .named(.purple), .named(.red), .named(.cyan), .named(.yellow)]
     static let gridInk = ChartInk.text(opacity: 0.14)
-    static let axisInk = ChartInk.text(opacity: 0.3)
     static let labelInk = ChartInk.text(opacity: 0.6)
     private static let tickDash = ChartStroke(lineWidth: 1, dash: [2, 2])
     private static let barRatio = 0.7
     private static let unbinnedBarThickness = 8.0
-    private static let numberIntervals = 4
     private static let pointsPerDateTick = 80.0
     private static let defaultSymbolArea = 50.0
     private static let defaultRuleWidth = 2.0
@@ -121,7 +124,7 @@ struct ChartLayout {
     // Below the plot: from its edge to the labels, and how far a tick line runs into that room.
     private static let labelGap = 4.0
     private static let tickLength = 6.0
-    private static let normalizedStep = 0.25
+    private static let percent = 100.0
 
     private let spec: ChartSpec
     private let marks: ChartResolvedMarks
@@ -143,7 +146,6 @@ struct ChartLayout {
         var hi = -Double.infinity
         var dateLo: Date?
         var dateHi: Date?
-        var normalized = false
 
         mutating func add(_ value: ChartScalar, unit: Calendar.Component?) {
             switch value {
@@ -269,8 +271,8 @@ struct ChartLayout {
             let total = totals[entry.key] ?? (0, 0)
             if stacking == .normalized {
                 let longest = max(total.positive, -total.negative)
-                low = longest == 0 ? 0 : low / longest
-                high = longest == 0 ? 0 : high / longest
+                low = longest == 0 ? 0 : low / longest * Self.percent
+                high = longest == 0 ? 0 : high / longest * Self.percent
             } else if stacking == .center {
                 let shift = (total.positive + total.negative) / 2
                 low -= shift
@@ -295,15 +297,12 @@ struct ChartLayout {
                 }
             }
             guard let stack else { continue }
-            let normalized = instance.mark.stacking == .normalized
             if stack.vertical {
                 y.add(stack.low)
                 y.add(stack.high)
-                y.normalized = y.normalized || normalized
             } else {
                 x.add(stack.low)
                 x.add(stack.high)
-                x.normalized = x.normalized || normalized
             }
         }
         return (x, y)
@@ -315,27 +314,86 @@ struct ChartLayout {
     private struct Axis {
         var scale = ChartAxisScale()
         var ticks: [(value: ChartScalar, label: String)] = []
+        var reversed = false
+
+        var isEmpty: Bool {
+            if case .none = scale.kind { return true }
+            return false
+        }
     }
 
-    private func axis(_ extent: Extent, length: Double) -> Axis {
+    private func axis(_ extent: Extent, _ spec: ChartAxisSpec, length: Double) -> Axis {
         var axis = Axis()
-        if !extent.categories.isEmpty {
-            axis.scale.kind = .bands(Dictionary(uniqueKeysWithValues: extent.categories.enumerated().map { ($1, $0) }))
-            axis.ticks = extent.categories.map { (.string($0), $0) }
-        } else if let lo = extent.dateLo, let hi = extent.dateHi {
-            axis.scale.kind = .dates(lo: lo, hi: hi)
-            axis.ticks = dateTicks(lo, hi, count: max(2, min(Int(length / Self.pointsPerDateTick), 8)))
+        var includesZero = true
+        if case .automatic(let zero, let reversed) = spec.domain {
+            includesZero = zero ?? true
+            axis.reversed = reversed ?? false
+        }
+        var dates: (lo: Date, hi: Date)?
+        if let lo = extent.dateLo, let hi = extent.dateHi { dates = (lo, hi) }
+        var categories = extent.categories
+        switch spec.domain {
+        case .strings(let names):
+            // A name given twice is one band here. Swift Charts keeps a band for each, the first empty.
+            var seen: Set<String> = []
+            categories = names.filter { seen.insert($0).inserted }
+        case .dates(let range):
+            dates = (range.lowerBound, range.upperBound)
+        case .numbers(let range):
+            numberAxis(&axis, spec, lo: range.lowerBound, hi: range.upperBound, exact: true)
+            return axis
+        case .automatic:
+            break
+        }
+        if !categories.isEmpty {
+            axis.scale.kind = .bands(Dictionary(uniqueKeysWithValues: categories.enumerated().map { ($1, $0) }))
+            axis.ticks = categories.map { (.string($0), $0) }
+        } else if let dates {
+            axis.scale.kind = .dates(lo: dates.lo, hi: dates.hi)
+            axis.ticks = dateTicks(dates.lo, dates.hi, count: max(2, min(Int(length / Self.pointsPerDateTick), 8)))
         } else if extent.hasNumbers {
-            // An automatic domain holds 0.
-            let lo = min(extent.lo, 0), hi = max(extent.hi, 0)
-            // A normalized stack reaches 1 at most, each way. A value on another mark can stretch
-            // the axis past what quarter steps can cover.
-            let quarters = extent.normalized && hi - lo <= 2
-            let domain = quarters ? ChartTicks.domain(lo, hi, step: Self.normalizedStep) : ChartTicks.domain(lo, hi, intervals: Self.numberIntervals)
-            axis.scale.kind = .numbers(lo: domain.lo, hi: domain.hi)
-            axis.ticks = domain.ticks.map { (.number($0), metrics.number(quarters ? $0 * 100 : $0)) }
+            let lo = includesZero ? min(extent.lo, 0) : extent.lo
+            let hi = includesZero ? max(extent.hi, 0) : extent.hi
+            numberAxis(&axis, spec, lo: lo, hi: hi, exact: false)
         }
         return axis
+    }
+
+    private func numberAxis(_ axis: inout Axis, _ spec: ChartAxisSpec, lo: Double, hi: Double, exact: Bool) {
+        let transform = ChartScaleTransform(spec.scaleType)
+        axis.scale.transform = transform
+        // One value, explicit or the only one plotted (measured on macOS 27).
+        guard hi > lo else {
+            axis.scale.kind = .numbers(lo: lo, hi: hi)
+            return
+        }
+        var low = lo, high = hi
+        var ticks: [Double]
+        var digits = 0
+        switch transform {
+        case .log:
+            ticks = ChartTicks.powersOfTen(lo, hi)
+            digits = smallestDigits(ticks)
+        case .symmetricLog:
+            let scale = ChartTicks.symmetricLog(lo, hi, widening: !exact)
+            (low, high, ticks) = (scale.lo, scale.hi, scale.ticks)
+            digits = smallestDigits(ticks)
+        case .linear, .squareRoot, .power:
+            if exact {
+                let inside = ChartTicks.inside(lo, hi)
+                (ticks, digits) = (inside.ticks, ChartTicks.fractionDigits(inside.step))
+            } else {
+                let widened = ChartTicks.widened(lo, hi)
+                (low, high, ticks, digits) = (widened.lo, widened.hi, widened.ticks, ChartTicks.fractionDigits(widened.step))
+            }
+        }
+        axis.scale.kind = .numbers(lo: low, hi: high)
+        axis.ticks = ticks.map { (.number($0), metrics.number($0, $0 == 0 ? 0 : digits)) }
+    }
+
+    // Powers of ten have no step: their labels take the decimals of the smallest, as 0.01 and 100.00.
+    private func smallestDigits(_ ticks: [Double]) -> Int {
+        ticks.map(abs).filter { $0 > 0 }.min().map(ChartTicks.fractionDigits) ?? 0
     }
 
     // A tick shows what changed since the one before: the year only at the first and when it turns.
@@ -368,26 +426,24 @@ struct ChartLayout {
         let yShown = spec.y.visibility != .hidden
 
         // The y labels' width sets the plot's width, which sets the x ticks; the height is known first.
-        let hasX = !extents.x.categories.isEmpty || extents.x.dateLo != nil || extents.x.hasNumbers
-        let hasY = !extents.y.categories.isEmpty || extents.y.dateLo != nil || extents.y.hasNumbers
+        // The x axis's kind decides the room under the plot; its ticks wait for the plot's width.
+        let hasX = !axis(extents.x, spec.x, length: 0).isEmpty
+        let hasY = !axis(extents.y, spec.y, length: 0).isEmpty
         let top = yShown && hasY ? lineHeight / 2 : 0
         let bottom = xShown && hasX ? lineHeight + Self.labelGap * 2 : 0
         let plotHeight = max(height - top - bottom, 1)
-        var yAxis = axis(extents.y, length: plotHeight)
+        var yAxis = axis(extents.y, spec.y, length: plotHeight)
         let yLabelWidth = yShown ? yAxis.ticks.map { metrics.size($0.label).width }.max() ?? 0 : 0
         let plotWidth = max(width - (yLabelWidth > 0 ? yLabelWidth + Self.labelGap * 2 : 0), 1)
-        var xAxis = axis(extents.x, length: plotWidth)
+        var xAxis = axis(extents.x, spec.x, length: plotWidth)
 
         let plot = ChartRect(x: 0, y: top, width: plotWidth, height: plotHeight)
-        xAxis.scale.start = plot.x
-        xAxis.scale.end = plot.x + plot.width
+        place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
         // Numbers and dates rise up the axis; bands read from the top.
         if case .bands = yAxis.scale.kind {
-            yAxis.scale.start = plot.y
-            yAxis.scale.end = plot.y + plot.height
+            place(&yAxis, spec.y, from: plot.y, to: plot.y + plot.height)
         } else {
-            yAxis.scale.start = plot.y + plot.height
-            yAxis.scale.end = plot.y
+            place(&yAxis, spec.y, from: plot.y + plot.height, to: plot.y)
         }
 
         var primitives: [ChartPrimitive] = []
@@ -397,11 +453,33 @@ struct ChartLayout {
         return primitives.filter(\.isDrawable)
     }
 
+    // Puts an axis on the plot, between `from` and `to` in the direction it reads, with its padding
+    // or its range in points, which count from the plot's corner.
+    private func place(_ axis: inout Axis, _ spec: ChartAxisSpec, from: Double, to: Double) {
+        var start = from, end = to
+        switch spec.range {
+        case .defaultPlotDimension:
+            break
+        case .plotDimension(let startPadding, let endPadding):
+            let direction: Double = to >= from ? 1 : -1
+            start += direction * startPadding
+            end -= direction * endPadding
+        case .points(let range):
+            let corner = min(from, to)
+            start = corner + range.lowerBound
+            end = corner + range.upperBound
+        }
+        axis.scale.start = axis.reversed ? end : start
+        axis.scale.end = axis.reversed ? start : end
+    }
+
     // How many bands a label takes that needs `room` points, so labels never overlap, and their
     // lines, which would otherwise fill a tight axis.
     private func bandStride(_ scale: ChartAxisScale, room: Double) -> Int {
+        guard case .bands(let names) = scale.kind else { return 1 }
         let band = abs(scale.bandWidth)
-        return band > 0 ? max(1, Int((room / band).rounded(.up))) : 1
+        // A range in points can make bands far narrower than an Int counts: past the last is enough.
+        return band > 0 ? max(1, Int(min((room / band).rounded(.up), Double(names.count + 1)))) : 1
     }
 
     private func appendYAxis(_ axis: Axis, _ plot: ChartRect, lineHeight: Double, into primitives: inout [ChartPrimitive]) {
@@ -427,7 +505,6 @@ struct ChartLayout {
         let bottom = plot.y + plot.height
         if case .none = axis.scale.kind { return }
         let labelY = bottom + Self.labelGap
-        primitives.append(.line(from: ChartPoint(x: plot.x, y: bottom), to: ChartPoint(x: plot.x + plot.width, y: bottom), ink: Self.axisInk, stroke: ChartStroke()))
         func tickLine(_ x: Double) -> ChartPrimitive {
             .line(from: ChartPoint(x: x, y: plot.y), to: ChartPoint(x: x, y: bottom + Self.tickLength), ink: Self.gridInk, stroke: Self.tickDash)
         }
@@ -445,17 +522,20 @@ struct ChartLayout {
             return
         }
         let right = plot.x + plot.width
-        var nextFree = -Double.infinity
+        // On an axis that runs right to left a label ends at its tick (measured on macOS 27).
+        let backward = axis.scale.end < axis.scale.start
+        var nextFree = backward ? Double.infinity : -Double.infinity
         for tick in axis.ticks {
             guard let x = axis.scale.position(tick.value, unit: nil) else { continue }
             primitives.append(tickLine(x))
             // A label starts at its tick; one that would pass the plot's end or the label before
             // it is left out.
-            let start = x + Self.labelGap
             let labelWidth = metrics.size(tick.label).width
-            guard start >= nextFree, start + labelWidth <= right else { continue }
+            let start = backward ? x - Self.labelGap - labelWidth : x + Self.labelGap
+            let fits = backward ? start + labelWidth <= nextFree && start >= plot.x : start >= nextFree && start + labelWidth <= right
+            guard fits else { continue }
             primitives.append(.text(tick.label, position: ChartPoint(x: start, y: labelY), alignment: ChartPoint(x: 0, y: 0)))
-            nextFree = start + labelWidth + Self.labelGap
+            nextFree = backward ? start - Self.labelGap : start + labelWidth + Self.labelGap
         }
     }
 
@@ -669,6 +749,8 @@ struct ChartLayout {
         var xs: (Double, Double)?
         var ys: (Double, Double)?
         if let stack {
+            // A stacked bar stands on 0 even above another: no place for 0, no bars (measured on macOS 27).
+            guard (stack.vertical ? y : x).position(0).isFinite else { return nil }
             if stack.vertical {
                 ys = (y.position(stack.low), y.position(stack.high))
                 xs = mark.form == .yPoints ? pointsSpan(instance, "xStart", "xEnd", whole: wholeX)
