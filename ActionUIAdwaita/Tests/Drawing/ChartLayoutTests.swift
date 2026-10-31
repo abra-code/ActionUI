@@ -35,13 +35,19 @@ final class ChartLayoutTests: XCTestCase {
 
     private func rects(_ primitives: [ChartPrimitive]) -> [ChartRect] {
         primitives.compactMap { primitive in
-            if case .rect(let rect, _) = primitive { return rect } else { return nil }
+            switch primitive {
+            case .rect(let rect, _), .bar(let rect, _, _, _): return rect
+            default: return nil
+            }
         }
     }
 
     private func inks(_ primitives: [ChartPrimitive]) -> [ChartInk] {
         primitives.compactMap { primitive in
-            if case .rect(_, let ink) = primitive { return ink } else { return nil }
+            switch primitive {
+            case .rect(_, let ink), .bar(_, _, _, let ink): return ink
+            default: return nil
+            }
         }
     }
 
@@ -1708,7 +1714,7 @@ final class ChartLayoutTests: XCTestCase {
 
     func testALegendDrawsOverTheMarks() throws {
         let primitives = legend(["chartLegend": ["position": "overlay"]])
-        let lastBar = try XCTUnwrap(primitives.lastIndex { if case .rect = $0 { return true } else { return false } })
+        let lastBar = try XCTUnwrap(primitives.lastIndex { if case .bar = $0 { return true } else { return false } })
         let firstDot = try XCTUnwrap(primitives.firstIndex { if case .symbol = $0 { return true } else { return false } })
         XCTAssertLessThan(lastBar, firstDot)
     }
@@ -2421,6 +2427,203 @@ final class ChartLayoutTests: XCTestCase {
         }
     }
 
+    // MARK: - Rectangles and corners
+
+    private var rectangle: [String: Any] { ["type": "RectangleMark", "x": value("Day", "$day"), "y": value("High", "$high")] }
+
+    private func cornered(_ primitives: [ChartPrimitive]) -> [ChartCorners] {
+        primitives.compactMap { primitive in
+            if case .bar(_, _, let corners, _) = primitive { return corners } else { return nil }
+        }
+    }
+
+    private func spanned(_ extra: [String: Any]) -> [String: Any] {
+        var mark: [String: Any] = ["type": "RectangleMark"]
+        mark.merge(extra) { $1 }
+        return mark
+    }
+
+    private var tenByTen: [String: Any] { ["chartXScale": ["domain": [0.0, 10.0]], "chartYScale": ["domain": [0.0, 10.0]]] }
+
+    func testARectangleOnABandTakesPartOfItAndIsEightHighAtANumber() throws {
+        let found = try XCTUnwrap(rects(layout(chart([rectangle]), rows: [["Mon", "1"], ["Tue", "2"]])).first)
+        XCTAssertEqual(found.height, 8, accuracy: 0.001)
+        let band = rects(layout(chart([bar]), rows: [["Mon", "1"], ["Tue", "2"]]))[0].width
+        XCTAssertEqual(found.width, band, accuracy: 0.001, "as wide as a bar")
+    }
+
+    func testARectangleAtTwoNumbersIsEightSquare() throws {
+        let mark = spanned(["x": value("X", "$x"), "y": value("Y", "$y")])
+        let found = try XCTUnwrap(rects(layout(styled([mark]), rows: [["1", "1"]])).first)
+        XCTAssertEqual(found.width, 8, accuracy: 0.001)
+        XCTAssertEqual(found.height, 8, accuracy: 0.001)
+    }
+
+    func testARectangleTakesItsGivenSize() throws {
+        var mark = spanned(["x": value("X", "$x"), "y": value("Y", "$y")])
+        mark["width"] = 30
+        mark["height"] = 12
+        let found = try XCTUnwrap(rects(layout(styled([mark]), rows: [["1", "1"]])).first)
+        XCTAssertEqual(found.width, 30)
+        XCTAssertEqual(found.height, 12)
+    }
+
+    func testARectangleRunsFromStartToEndOnBothAxes() throws {
+        let mark = spanned(["xStart": value("S", 1), "xEnd": value("E", 3), "yStart": value("S", 2), "yEnd": value("E", 6)])
+        let primitives = layout(styled([mark], tenByTen), rows: [["1", "1"]])
+        let found = try XCTUnwrap(rects(primitives).first)
+        let plot = plotEnd(primitives)
+        XCTAssertEqual(found.width, plot * 0.2, accuracy: 0.001)
+        XCTAssertEqual(found.x, plot * 0.1, accuracy: 0.001)
+    }
+
+    func testARectangleInPointsCountsFromThePlotsCorner() throws {
+        let mark = spanned(["xStart": 20, "xEnd": 70, "yStart": 10, "yEnd": 40])
+        let found = try XCTUnwrap(rects(layout(styled([mark], tenByTen), rows: [["1", "1"]])).first)
+        XCTAssertEqual(found.x, 20, accuracy: 0.001)
+        XCTAssertEqual(found.width, 50, accuracy: 0.001)
+        XCTAssertEqual(found.height, 30, accuracy: 0.001)
+    }
+
+    func testARectangleOnYBandsSitsBelowItsLabelsRow() {
+        let mark: [String: Any] = ["type": "RectangleMark", "x": value("High", "$high"), "y": value("Day", "$day")]
+        let horizontal: [String: Any] = ["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day")]
+        let rows = [["Mon", "1"], ["Tue", "2"]]
+        XCTAssertEqual(rects(layout(chart([mark]), rows: rows)).map(\.height), rects(layout(chart([horizontal]), rows: rows)).map(\.height))
+    }
+
+    func testARectangleHasNoCornerUnlessGiven() {
+        XCTAssertEqual(cornered(layout(chart([rectangle]), rows: [["Mon", "1"]])).count, 0)
+        var rounded = rectangle
+        rounded["cornerRadius"] = 2
+        XCTAssertEqual(cornered(layout(chart([rounded]), rows: [["Mon", "1"]])), [ChartCorners(topLeading: 2, topTrailing: 2, bottomTrailing: 2, bottomLeading: 2)], "all four")
+    }
+
+    func testABarsDefaultCornerIsItsTipAlone() {
+        XCTAssertEqual(cornered(layout(chart([bar]), rows: [["Mon", "1"]])), [ChartCorners(topLeading: 2, topTrailing: 2, bottomTrailing: 0, bottomLeading: 0)])
+    }
+
+    func testACornerOfNothingIsSquare() {
+        var square = bar
+        square["cornerRadius"] = 0
+        let primitives = layout(chart([square]), rows: [["Mon", "1"]])
+        XCTAssertEqual(cornered(primitives).count, 0)
+        XCTAssertEqual(rects(primitives).count, 1)
+    }
+
+    func testATipFacesItsBarsOwnDirection() {
+        var rounded = bar
+        rounded["cornerRadius"] = 4
+        XCTAssertEqual(cornered(layout(chart([rounded]), rows: [["Mon", "-1"]])), [ChartCorners(topLeading: 0, topTrailing: 0, bottomTrailing: 4, bottomLeading: 4)], "down")
+        var sideways: [String: Any] = ["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day"), "cornerRadius": 4]
+        XCTAssertEqual(cornered(layout(chart([sideways]), rows: [["Mon", "1"]])), [ChartCorners(topLeading: 0, topTrailing: 4, bottomTrailing: 4, bottomLeading: 0)], "right")
+        sideways["cornerRadius"] = 3
+        XCTAssertEqual(cornered(layout(chart([sideways]), rows: [["Mon", "-1"]])), [ChartCorners(topLeading: 3, topTrailing: 0, bottomTrailing: 0, bottomLeading: 3)], "left")
+    }
+
+    func testAStackRoundsOnlyItsOutermostEndOnEachSideOfZero() {
+        var rounded = bar
+        rounded["cornerRadius"] = 4
+        let primitives = layout(chart([rounded]), rows: [["Mon", "1"], ["Mon", "2"], ["Mon", "-1"], ["Mon", "-2"]])
+        XCTAssertEqual(rects(primitives).count, 4)
+        XCTAssertEqual(cornered(primitives), [ChartCorners(topLeading: 4, topTrailing: 4, bottomTrailing: 0, bottomLeading: 0), ChartCorners(topLeading: 0, topTrailing: 0, bottomTrailing: 4, bottomLeading: 4)])
+    }
+
+    func testAZeroLastInAStackLeavesTheTipOnThePartBelow() {
+        var rounded = bar
+        rounded["cornerRadius"] = 4
+        XCTAssertEqual(cornered(layout(chart([rounded]), rows: [["Mon", "3"], ["Mon", "0"]])).first, ChartCorners(topLeading: 4, topTrailing: 4, bottomTrailing: 0, bottomLeading: 0))
+    }
+
+    func testAnUnstackedBarDoesNotTakeAStacksTip() {
+        var stacked = bar
+        stacked["cornerRadius"] = 4
+        var alone = stacked
+        alone["stacking"] = "unstacked"
+        let primitives = layout(chart([stacked, alone]), rows: [["Mon", "2"], ["Mon", "3"]])
+        let tip = ChartCorners(topLeading: 4, topTrailing: 4, bottomTrailing: 0, bottomLeading: 0)
+        XCTAssertEqual(cornered(primitives), [tip, tip, tip], "the stack's top part and each unstacked bar")
+    }
+
+    func testACenteredStackRoundsBothEndsOfItsWhole() {
+        var rounded = bar
+        rounded["cornerRadius"] = 4
+        rounded["stacking"] = "center"
+        let primitives = layout(chart([rounded]), rows: [["Mon", "2"], ["Mon", "3"], ["Mon", "2"]])
+        XCTAssertEqual(cornered(primitives), [ChartCorners(topLeading: 0, topTrailing: 0, bottomTrailing: 4, bottomLeading: 4), ChartCorners(topLeading: 4, topTrailing: 4, bottomTrailing: 0, bottomLeading: 0)])
+        XCTAssertEqual(cornered(layout(chart([rounded]), rows: [["Mon", "2"]])), [ChartCorners(topLeading: 4, topTrailing: 4, bottomTrailing: 4, bottomLeading: 4)], "one part has all four")
+    }
+
+    func testAStacksCornerCutsThePartsUnderIt() throws {
+        var rounded = bar
+        rounded["cornerRadius"] = 20
+        let primitives = layout(chart([rounded]), rows: [["Mon", "5"], ["Mon", "0.2"]])
+        XCTAssertEqual(cornered(primitives).count, 2, "the short tip and the part below it")
+        XCTAssertEqual(cornered(primitives).first?.topLeading, 20)
+        let shapes = primitives.compactMap { primitive -> ChartRect? in
+            if case .bar(_, let shape, _, _) = primitive { return shape } else { return nil }
+        }
+        XCTAssertEqual(shapes[0], shapes[1], "one shape")
+        let parts = rects(primitives)
+        XCTAssertEqual(shapes[0].height, parts[0].height + parts[1].height, accuracy: 0.001)
+    }
+
+    func testTwoRoundedEndsShareTheLength() {
+        var rounded = bar
+        rounded["cornerRadius"] = 40
+        let primitives = layout(chart([rounded]), rows: [["Mon", "0.1"], ["Mon", "-0.1"], ["Tue", "10"]])
+        let parts = rects(primitives)
+        XCTAssertEqual(cornered(primitives).first?.topLeading ?? 0, parts[0].height, accuracy: 0.001, "half of the two parts")
+    }
+
+    func testAnUnstackedBarRoundsItsOwnTip() {
+        var rounded = bar
+        rounded["cornerRadius"] = 4
+        rounded["stacking"] = "unstacked"
+        XCTAssertEqual(cornered(layout(chart([rounded]), rows: [["Mon", "1"], ["Mon", "2"]])).count, 2)
+    }
+
+    func testARangeBarRoundsAllFourCorners() {
+        let range: [String: Any] = ["type": "BarMark", "x": value("Day", "$day"), "yStart": value("S", 1), "yEnd": value("E", 3)]
+        XCTAssertEqual(cornered(layout(chart([range]), rows: [["Mon"]])), [ChartCorners(topLeading: 2, topTrailing: 2, bottomTrailing: 2, bottomLeading: 2)])
+    }
+
+    func testARadiusStopsAtHalfTheShortSideOrATipsWholeLength() {
+        var round = spanned(["x": value("X", "$x"), "y": value("Y", "$y")])
+        round["width"] = 24
+        round["height"] = 24
+        round["cornerRadius"] = 40
+        XCTAssertEqual(cornered(layout(styled([round]), rows: [["1", "1"]])).first?.topLeading, 12, "a circle")
+        var pill = bar
+        pill["width"] = 20
+        pill["cornerRadius"] = 16
+        XCTAssertEqual(cornered(layout(chart([pill]), rows: [["Mon", "1"]])).first?.topLeading, 10, "half across")
+        var short = bar
+        short["cornerRadius"] = 20
+        let found = layout(chart([short]), rows: [["Mon", "0.1"], ["Tue", "10"]])
+        let first = rects(found)[0]
+        XCTAssertEqual(cornered(found).first?.topLeading ?? 0, first.height, accuracy: 0.001, "a tip has the whole of a short bar to round over")
+    }
+
+    func testABarThinnerThanAPointHasNoCorner() {
+        var thin = bar
+        thin["width"] = 0.8
+        thin["cornerRadius"] = 10
+        let primitives = layout(chart([thin]), rows: [["Mon", "1"]])
+        XCTAssertEqual(cornered(primitives).count, 0)
+        XCTAssertEqual(rects(primitives).count, 1)
+        thin["width"] = 1
+        XCTAssertEqual(cornered(layout(chart([thin]), rows: [["Mon", "1"]])).count, 1)
+    }
+
+    func testValuesPastGSKNeverReachARoundedBar() {
+        for radius in [1e300, -5, "inf"] as [Any] {
+            var extreme = bar
+            extreme["cornerRadius"] = radius
+            XCTAssertTrue(layout(chart([extreme]), rows: [["Mon", "1"], ["Tue", "1e308"]]).allSatisfy(\.isDrawable), "\(radius)")
+        }
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {
@@ -2441,7 +2644,7 @@ final class ChartLayoutTests: XCTestCase {
         let primitives = styled(["background": "red"])
         let begin = try XCTUnwrap(primitives.firstIndex { if case .beginPlot = $0 { return true } else { return false } })
         let fill = try XCTUnwrap(primitives.firstIndex { if case .roundedFill = $0 { return true } else { return false } })
-        let firstBar = try XCTUnwrap(primitives.firstIndex { if case .rect = $0 { return true } else { return false } })
+        let firstBar = try XCTUnwrap(primitives.firstIndex { if case .bar = $0 { return true } else { return false } })
         let lastLine = try XCTUnwrap(primitives.lastIndex { if case .line = $0 { return true } else { return false } })
         XCTAssertLessThan(lastLine, begin, "every gridline is under it")
         XCTAssertLessThan(begin, fill)

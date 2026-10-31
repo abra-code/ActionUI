@@ -25,6 +25,12 @@
    position stack in row order, those below 0 downward. A normalized stack is that as a percentage
    of the longer side, on an axis of plain numbers (a rule at 40 sits at 40 of 100); a centered one
    is that moved so its two ends are as far from 0.
+ - A bar has a corner of 2 unless given. A stack, or a bar on its own on 0, rounds as one shape that
+   cuts its parts: an end at 0 stays square, so one that stands on 0 rounds only its tip, facing its
+   own way, and a centered stack both ends; a bar from a start to an end rounds all four. A corner
+   stops at half across, and at half the length, or the whole of it with one end to round. A
+   RectangleMark takes a bar's forms and sizes, 8 at a number on either axis, with no corner unless
+   given, and then all four.
  - A start and end on an axis of categories run from the edge of one band to the far edge of the other;
    dates with a unit go in the middle of their bins, as a single value does.
  - Points given to a mark count from the plot's top leading corner.
@@ -77,7 +83,7 @@
    opaque, and stacked areas stack as bars do, each kind on its own. A start and end on an axis of
    categories run from edge to edge, as a bar's do.
 
- Bars, points, rules, lines and areas draw here; other marks still count on the axes.
+ Bars, rectangles, points, rules, lines and areas draw here; other marks still count on the axes.
 */
 
 #if canImport(FoundationEssentials)
@@ -109,6 +115,8 @@ enum ChartInk: Equatable {
 enum ChartPrimitive: Equatable {
     case line(from: ChartPoint, to: ChartPoint, ink: ChartInk, stroke: ChartStroke)
     case rect(ChartRect, ink: ChartInk)
+    /// A bar or a rectangle seen through `shape` with rounded corners; a stack's parts share one.
+    case bar(ChartRect, shape: ChartRect, corners: ChartCorners, ink: ChartInk)
     /// `side` is the box of ChartSymbols.
     case symbol(ChartSymbol, center: ChartPoint, side: Double, ink: ChartInk)
     case path([ChartPathElement], ink: ChartInk, stroke: ChartStroke)
@@ -137,6 +145,9 @@ enum ChartPrimitive: Equatable {
                 && stroke.dash.allSatisfy { finite($0) }
         case let .rect(rect, _):
             return finite(rect.x, rect.y, rect.width, rect.height)
+        case let .bar(rect, shape, corners, _):
+            return finite(rect.x, rect.y, rect.width, rect.height, shape.x, shape.y, shape.width, shape.height,
+                          corners.topLeading, corners.topTrailing, corners.bottomTrailing, corners.bottomLeading)
         case let .symbol(_, center, side, _):
             return finite(center.x, center.y, side)
         case let .path(elements, _, stroke):
@@ -173,6 +184,13 @@ enum ChartPrimitive: Equatable {
             }
         }
     }
+}
+
+struct ChartCorners: Equatable {
+    var topLeading: Double
+    var topTrailing: Double
+    var bottomTrailing: Double
+    var bottomLeading: Double
 }
 
 struct ChartLineSymbol: Equatable {
@@ -220,6 +238,10 @@ struct ChartLayout {
     private static let pointsPerDateTick = 80.0
     private static let legendDateTicks = 4
     private static let defaultSymbolArea = 50.0
+    private static let defaultBarCorner = 2.0
+    // Thinner bars stay plain rectangles: no corner would show, and side by side under GSK's rounded
+    // clip they ink too much, twice over at 5,000 in a plot 364 wide.
+    private static let thinnestRoundedBar = 1.0
     static let defaultLine = ChartStroke(lineWidth: 2, lineCap: .round, lineJoin: .round)
     // Below the plot: from its edge to the labels, and how far a tick line runs into that room.
     private static let labelGap = 4.0
@@ -279,6 +301,8 @@ struct ChartLayout {
         var vertical: Bool
         var low: Double
         var high: Double
+        /// The reach of its whole stack, which rounds as one shape.
+        var whole: (low: Double, high: Double)
     }
 
     private func isNumber(_ value: ChartScalar?) -> Bool {
@@ -357,6 +381,7 @@ struct ChartLayout {
         }
         var reached: [StackKey: (positive: Double, negative: Double)] = [:]
         var spans: [Int: Stacked] = [:]
+        var wholes: [StackKey: (low: Double, high: Double)] = [:]
         for entry in entries {
             let stacking = marks.instances[entry.index].mark.stacking
             var low = 0.0, high = entry.value
@@ -381,7 +406,14 @@ struct ChartLayout {
                 low -= shift
                 high -= shift
             }
-            spans[entry.index] = Stacked(vertical: entry.key.vertical, low: low, high: high)
+            if stacking != .unstacked {
+                let known = wholes[entry.key] ?? (low, high)
+                wholes[entry.key] = (min(known.low, low, high), max(known.high, low, high))
+            }
+            spans[entry.index] = Stacked(vertical: entry.key.vertical, low: low, high: high, whole: (min(low, high), max(low, high)))
+        }
+        for entry in entries where marks.instances[entry.index].mark.stacking != .unstacked {
+            spans[entry.index]?.whole = wholes[entry.key] ?? (0, 0)
         }
         return spans
     }
@@ -1312,9 +1344,9 @@ struct ChartLayout {
         for (index, instance) in marks.instances.enumerated() {
             let ink = styles.ink(instance)
             switch instance.mark.kind {
-            case .BarMark:
+            case .BarMark, .RectangleMark:
                 if let rect = bar(instance, stack: stacks[index], x, y, plot, bandLabelRow: bandLabelRow) {
-                    primitives.append(.rect(rect, ink: ink))
+                    primitives.append(rounded(rect, instance, stack: stacks[index], x, y, ink: ink))
                 }
             case .PointMark:
                 if let primitive = point(instance, x, y, plot, ink: ink) {
@@ -1334,7 +1366,7 @@ struct ChartLayout {
                    let primitive = area(indices, stacks, x, y, ink: ink) {
                     primitives.append(primitive)
                 }
-            case .RectangleMark, .SectorMark:
+            case .SectorMark:
                 break
             }
         }
@@ -1568,12 +1600,56 @@ struct ChartLayout {
             case .pairPoints:
                 xs = span(instance, "xStart", "xEnd", x)
                 ys = pointsSpan(instance, "yStart", "yEnd", whole: wholeY)
+            case .pairPair:
+                xs = span(instance, "xStart", "xEnd", x)
+                ys = span(instance, "yStart", "yEnd", y)
+            case .pointsOnly:
+                xs = pointsSpan(instance, "xStart", "xEnd", whole: wholeX)
+                ys = pointsSpan(instance, "yStart", "yEnd", whole: wholeY)
             default:
                 break
             }
         }
         guard let xs, let ys else { return nil }
         return ChartRect(x: min(xs.0, xs.1), y: min(ys.0, ys.1), width: abs(xs.1 - xs.0), height: abs(ys.1 - ys.0))
+    }
+
+    // A stack rounds as one shape, measured on macOS 27: a part under its corner is cut by it, an end
+    // at 0 stays square, and with one end to round a corner has the whole length. Others have four.
+    private func rounded(_ rect: ChartRect, _ instance: ChartMarkInstance, stack: Stacked?, _ x: ChartAxisScale, _ y: ChartAxisScale, ink: ChartInk) -> ChartPrimitive {
+        var radius = instance.mark.kind == .BarMark ? Self.defaultBarCorner : 0
+        for modifier in instance.mark.modifiers.reversed() {
+            if case .cornerRadius(let given, _) = modifier {
+                radius = given
+            }
+        }
+        guard radius > 0 else { return .rect(rect, ink: ink) }
+        guard let stack else {
+            let side = min(rect.width, rect.height)
+            guard side >= Self.thinnestRoundedBar else { return .rect(rect, ink: ink) }
+            let corner = min(radius, side / 2)
+            return .bar(rect, shape: rect, corners: ChartCorners(topLeading: corner, topTrailing: corner, bottomTrailing: corner, bottomLeading: corner), ink: ink)
+        }
+        let scale = stack.vertical ? y : x
+        let lowEnd = scale.position(stack.whole.low), highEnd = scale.position(stack.whole.high)
+        let start = min(lowEnd, highEnd), end = max(lowEnd, highEnd), length = end - start
+        let startValue = lowEnd < highEnd ? stack.whole.low : stack.whole.high
+        let endValue = lowEnd < highEnd ? stack.whole.high : stack.whole.low
+        let across = stack.vertical ? rect.width : rect.height
+        guard across >= Self.thinnestRoundedBar else { return .rect(rect, ink: ink) }
+        let corner = min(radius, across / 2, startValue != 0 && endValue != 0 ? length / 2 : length)
+        let partStart = stack.vertical ? rect.y : rect.x
+        let partEnd = partStart + (stack.vertical ? rect.height : rect.width)
+        let cutAtStart = startValue != 0 && partStart < start + corner
+        let cutAtEnd = endValue != 0 && partEnd > end - corner
+        guard cutAtStart || cutAtEnd else { return .rect(rect, ink: ink) }
+        let atStart = cutAtStart ? corner : 0, atEnd = cutAtEnd ? corner : 0
+        if stack.vertical {
+            return .bar(rect, shape: ChartRect(x: rect.x, y: start, width: rect.width, height: length),
+                        corners: ChartCorners(topLeading: atStart, topTrailing: atStart, bottomTrailing: atEnd, bottomLeading: atEnd), ink: ink)
+        }
+        return .bar(rect, shape: ChartRect(x: start, y: rect.y, width: length, height: rect.height),
+                    corners: ChartCorners(topLeading: atStart, topTrailing: atEnd, bottomTrailing: atEnd, bottomLeading: atStart), ink: ink)
     }
 
     // Where a mark's value goes on an axis. A coordinate in points counts from the plot's corner; a

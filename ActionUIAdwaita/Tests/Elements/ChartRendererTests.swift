@@ -248,6 +248,24 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertGreaterThan(between.map(\.y).min() ?? 0, 140, "along the bar below the plot")
     }
 
+    func testABarsTipIsRoundAndItsFootIsSquare() throws {
+        let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": "#FF0000", "cornerRadius": 16}]}]}"##
+        let image = try pixels(try render(chart))
+        let solid = (0..<image.height).flatMap { y in (0..<image.width).filter { image[$0, y][3] > 240 && isRed(image[$0, y]) }.map { (x: $0, y: y) } }
+        let top = try XCTUnwrap(solid.map(\.y).min()), bottom = try XCTUnwrap(solid.map(\.y).max())
+        let left = try XCTUnwrap(solid.map(\.x).min()), right = try XCTUnwrap(solid.map(\.x).max())
+        XCTAssertFalse(isRed(image[left, top]), "the tip's corner is cut")
+        XCTAssertFalse(isRed(image[right, top]))
+        XCTAssertTrue(isRed(image[left, bottom]), "the foot's is not")
+        XCTAssertTrue(isRed(image[right, bottom]))
+    }
+
+    func testARectangleDraws() throws {
+        let chart = ##""chart": {"columns": ["u"], "data": [["a"]], "chartXScale": {"domain": [0, 10]}, "chartYScale": {"domain": [0, 10]}, "content": [{"type": "RectangleMark", "xStart": {"label": "S", "value": 2}, "xEnd": {"label": "E", "value": 8}, "yStart": {"label": "S", "value": 2}, "yEnd": {"label": "E", "value": 8}, "foregroundStyle": "#FF0000"}]}"##
+        let image = try pixels(try render(chart))
+        XCTAssertGreaterThan(image.redRun(y: 90), 80)
+    }
+
     func testALegendDrawsItsDotsInTheSeriesColors() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
         let image = try pixels(try render(chart))

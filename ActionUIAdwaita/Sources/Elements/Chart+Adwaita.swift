@@ -30,7 +30,7 @@ private let chartStateKey = AttachKey<ChartState>("actionui-chart")
 }
 
 extension Chart: ActionUIAdwaitaRenderer {
-    private static let drawnKinds: Set<ChartMarkKind> = [.BarMark, .PointMark, .RuleMark, .LineMark, .AreaMark]
+    private static let drawnKinds: Set<ChartMarkKind> = [.BarMark, .RectangleMark, .PointMark, .RuleMark, .LineMark, .AreaMark]
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let widget: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(widgetType(), 0, nil, nil)!))
@@ -183,6 +183,8 @@ extension Chart: ActionUIAdwaitaRenderer {
             var bounds = graphene_rect_t(origin: graphene_point_t(x: Float(rect.x), y: Float(rect.y)),
                                          size: graphene_size_t(width: Float(rect.width), height: Float(rect.height)))
             gtk_snapshot_append_color(snapshot, &color, &bounds)
+        case let .bar(rect, shape, corners, ink):
+            bar(rect, shape, corners, ink)
         case let .symbol(shape, center, side, ink):
             fill(ChartSymbols.outline(shape, center: center, side: side), ink)
         case let .path(elements, ink, style):
@@ -223,6 +225,22 @@ extension Chart: ActionUIAdwaitaRenderer {
             let colors = stops.map { GskColorStop(offset: Float($0.offset), color: ColorRGBA.resolve($0.color, for: widget)) }
             gtk_snapshot_append_linear_gradient(snapshot, &bounds, &start, &end, colors, gsize(colors.count))
         }
+    }
+
+    private func bar(_ rect: ChartRect, _ shape: ChartRect, _ corners: ChartCorners, _ ink: ChartInk) {
+        var bounds = graphene_rect_t(origin: graphene_point_t(x: Float(rect.x), y: Float(rect.y)),
+                                     size: graphene_size_t(width: Float(rect.width), height: Float(rect.height)))
+        var shapeBounds = graphene_rect_t(origin: graphene_point_t(x: Float(shape.x), y: Float(shape.y)),
+                                          size: graphene_size_t(width: Float(shape.width), height: Float(shape.height)))
+        func corner(_ radius: Double) -> graphene_size_t { graphene_size_t(width: Float(radius), height: Float(radius)) }
+        var topLeading = corner(corners.topLeading), topTrailing = corner(corners.topTrailing)
+        var bottomTrailing = corner(corners.bottomTrailing), bottomLeading = corner(corners.bottomLeading)
+        var rounded = GskRoundedRect()
+        gsk_rounded_rect_init(&rounded, &shapeBounds, &topLeading, &topTrailing, &bottomTrailing, &bottomLeading)
+        var color = rgba(ink)
+        gtk_snapshot_push_rounded_clip(snapshot, &rounded)
+        gtk_snapshot_append_color(snapshot, &color, &bounds)
+        gtk_snapshot_pop(snapshot)
     }
 
     private func roundedRect(_ rect: ChartRect, _ radius: Double) -> GskRoundedRect {
