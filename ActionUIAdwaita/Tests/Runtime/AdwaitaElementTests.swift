@@ -175,6 +175,16 @@ final class AdwaitaElementTests: XCTestCase {
         XCTAssertNil(FixtureBadge.kept, "nothing keeps it once its node is gone")
     }
 
+    func testABaseModifierTheElementHandlesIsLeftToIt() throws {
+        let node = try render("""
+            {"type": "FixtureBadge", "id": 1, "properties": {"text": "seed", "opacity": 0.5}}
+            """)
+        AdwaitaTestHost.drainMainLoop()
+        // GTK keeps opacity in 8 bits (0.5 reads back as 0.502).
+        XCTAssertEqual(gtk_widget_get_opacity(node.widget), 0.5, accuracy: 0.01, "the element reads it in its properties")
+        XCTAssertEqual(gtk_widget_get_opacity(node.outerWidget), 1, accuracy: 0.01, "the box leaves it alone")
+    }
+
     func testBaseModifiersApplyAroundTheElementsWidget() throws {
         let node = try render("""
             {"type": "FixtureBadge", "id": 1, "properties": {"text": "seed", "hidden": true}}

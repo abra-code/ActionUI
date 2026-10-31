@@ -18,9 +18,48 @@
 //     so the host links AsyncImageCache too - no special handling needed here.
 //
 // The host links this product (+ ActionUI) and calls ActionUICachedImage.register() at launch.
+//
+// On Linux the add-on is the GTK element (CachedImage+Adwaita.swift) over the same AsyncImageCache package, and
+// it links ActionUI's ActionUIStatic product: one process has one Swift runtime. It has no Documentation target
+// there: Bundle.module needs full Foundation, and with it ICU's data, which the Linux build leaves out.
 
 import PackageDescription
 
+#if os(Linux)
+let package = Package(
+    name: "ActionUICachedImage",
+    products: [
+        .library(name: "ActionUICachedImage", targets: ["ActionUICachedImage"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+        // 0.2.0 is its first version with the Linux port; 0.2.1 keeps local images out of the disk cache.
+        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.1"),
+    ],
+    targets: [
+        .target(
+            name: "ActionUICachedImage",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "AsyncImageCache", package: "AsyncImageCache"),
+            ],
+            path: "Sources",
+            // The SwiftUI element.
+            exclude: ["CachedImage.swift"]
+        ),
+        .testTarget(
+            name: "CachedImageTests",
+            dependencies: [
+                "ActionUICachedImage",
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "AsyncImageCache", package: "AsyncImageCache"),
+            ],
+            path: "Tests"
+        ),
+    ]
+)
+#else
 let package = Package(
     name: "ActionUICachedImage",
     platforms: [
@@ -62,3 +101,4 @@ let package = Package(
         ),
     ]
 )
+#endif

@@ -17,6 +17,9 @@ A `CachedImage` element, usable from JSON like any built-in:
 ```
 
 - macOS / iOS / visionOS: `AsyncImageCache.CachedImage` (a SwiftUI view).
+- Linux: a widget of this add-on over AsyncImageCache's `ImageStore`, with the same properties and value. A
+  Swift program links `ActionUICachedImage` and calls `ActionUICachedImage.register()`, as on Apple. It shows
+  the first frame of an animated image.
 
 Why not the core `AsyncImage` element? Core `AsyncImage` wraps SwiftUI's `AsyncImage`: it decodes on
 whatever thread SwiftUI picks, keeps no cross-launch cache, and reflows layout when the picture

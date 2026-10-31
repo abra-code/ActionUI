@@ -34,8 +34,9 @@ value and states) with Apple and adds two calls:
   (an image that arrived).
 
 Widgets are `OpaquePointer`s, as they are in RichText and AsyncImageCache. ModifierBox applies the
-base View modifiers around the widget, as it does for a built-in element. The contract covers elements
-that display: firing an action from a user's input is not part of it yet.
+base View modifiers around the widget, as it does for a built-in element, less those the element lists
+in `handledBaseModifiers`, which it reads in its `properties` and applies itself. The contract covers
+elements that display: firing an action from a user's input is not part of it yet.
 
 An add-on's Linux target depends on the `ActionUIStatic` product, not on `ActionUI`, which is the
 shared library for programs in other languages: one process has one Swift runtime, so everything
@@ -49,7 +50,7 @@ needs full Foundation, and with it ICU's data, which the Linux build leaves out.
   Quick Look pane; `QLPreviewView` on macOS, `QLPreviewController` on iOS/visionOS). Shipped as a
   Swift package (`Package.swift`) and, optionally, a standalone static-library xcodegen project. Owns
   `Schemas/QuickLook.json`.
-- **`ActionUICachedImage/`** - a `CachedImage` element: a cached, off-main image view backed by the
+- **`ActionUICachedImage/`** - a `CachedImage` element, on Linux too: a cached, off-main image view backed by the
   [AsyncImageCache](https://github.com/abra-code/AsyncImageCache) github package (fetch/decode/
   downscale off the main thread, a two-tier memory + on-disk cache, and size-known-upfront layout
   with no reflow on hydration). Owns `Schemas/CachedImage.json`.

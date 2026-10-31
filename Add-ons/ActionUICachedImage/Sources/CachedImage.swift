@@ -26,6 +26,7 @@
  A cached, off-main image view backed by AsyncImageCache's ImageStore, implemented as an ActionUI
  add-on (registered via ActionUICachedImage.register()):
    macOS / iOS / visionOS - AsyncImageCache.CachedImage (a SwiftUI View; AsyncImageCache's platforms).
+   Linux - a widget of this add-on over ImageStore (CachedImage+Adwaita.swift).
  Bytes are fetched / decoded / downscaled OFF the main thread and served from a two-tier (memory +
  on-disk) cache; the natural pixel size is known up front (persisted as a file extended attribute) so
  layout reserves the exact box with no reflow on hydration, even across relaunch.

@@ -37,9 +37,9 @@ public protocol ActionUIElementSpec {
     // Default nil.
     static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? { get }
     // Base View property keys (for example "cornerRadius") that the element applies itself, in its
-    // renderer. ActionUIRegistry.applyViewModifiers leaves them out of the base View modifiers, so
-    // they are not applied twice; the element still receives them in its own properties. Only that
-    // registry path honors it: a direct call to View.applyModifiers does not.
+    // renderer. The registry leaves them out of the base View modifiers (applyViewModifiers on Apple,
+    // RenderNode on GTK), so they are not applied twice; the element still receives them in its own
+    // properties. Only those paths honor it: a direct call to View.applyModifiers does not.
     // Default: none.
     static var handledBaseModifiers: Set<String> { get }
 }

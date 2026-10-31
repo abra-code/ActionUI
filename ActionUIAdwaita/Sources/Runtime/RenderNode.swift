@@ -123,6 +123,12 @@ public final class RenderNode {
         ActionUIRegistry.shared.applyDynamicSubviews(to: element, model: model)
     }
 
+    /// The base modifiers the box applies: all of them, less those the element applies itself
+    /// (ActionUIElementSpec.handledBaseModifiers). It still reads those in its own properties.
+    private func baseModifiers(_ properties: [String: Any]) -> BaseModifiers {
+        BaseModifiers(ActionUIRegistry.shared.baseModifierProperties(properties, forElementType: element.type))
+    }
+
     /// The elements in one of the effective element's subview lists ("children", "rows"). A
     /// tracked read.
     func subviews(_ key: String) -> [any ActionUIElementBase] {
@@ -144,7 +150,7 @@ public final class RenderNode {
         // child is made during its parent's sync, whose observation would take these reads as the
         // parent's.
         UntrackedReads.perform {
-            let modifiers = BaseModifiers(ActionUIRegistry.shared.currentProperties(element: element, model: model))
+            let modifiers = baseModifiers(ActionUIRegistry.shared.currentProperties(element: element, model: model))
             self.lastInheritedEnvironment = inheritedEnvironment
             self.environment = renderer.environment(lastInheritedEnvironment.applying(modifiers))
             self.widgetKind = renderer.widgetKind(self)
@@ -196,7 +202,7 @@ public final class RenderNode {
         UpdateGuard.applying {
             withObservationTracking {
                 requestedPresentations = presentations?.requested() ?? []
-                let modifiers = BaseModifiers(properties)
+                let modifiers = baseModifiers(properties)
                 lastInheritedEnvironment = inheritedEnvironment
                 environment = renderer.environment(lastInheritedEnvironment.applying(modifiers))
                 let kind = renderer.widgetKind(self)

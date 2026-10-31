@@ -51,6 +51,8 @@ public struct FixtureBadge: ActionUIAdwaitaElement {
     public static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? { nil }
     public static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? { nil }
     public static var insertableContainers: [String: ContainerShape]? { nil }
+    /// The badge applies "opacity" itself, in `update`.
+    public static var handledBaseModifiers: Set<String> { ["opacity"] }
 
     public static func makeWidget(_ node: RenderNode) -> OpaquePointer {
         self.node = node
@@ -68,6 +70,7 @@ public struct FixtureBadge: ActionUIAdwaitaElement {
         let text = value ?? (node.properties["text"] as? String) ?? ""
         let prefix = node.model.states["prefix"] as? String ?? ""
         gtk_label_set_text(widget, prefix + text + suffix)
+        gtk_widget_set_opacity(UnsafeMutablePointer(widget), node.properties["opacity"] as? Double ?? 1)
     }
 
     /// A second element under the same token, to show that a later registration replaces the first.
