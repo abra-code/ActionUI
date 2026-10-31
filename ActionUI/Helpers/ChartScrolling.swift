@@ -16,7 +16,7 @@ enum ChartVisibleLength: Equatable {
 }
 
 struct ChartScrollSpec: Equatable {
-    var axes: Axis.Set = []
+    var axes: ChartAxes = []
     var xLength: ChartVisibleLength?
     var yLength: ChartVisibleLength?
     var initialX: ChartScalar?
@@ -83,7 +83,7 @@ struct ChartScroller: ViewModifier {
             content
         } else {
             content
-                .chartScrollableAxes(spec.axes)
+                .chartScrollableAxes(spec.axes.axisSet)
                 .modifier(ChartVisibleDomainSetter(axis: .horizontal, length: spec.xLength))
                 .modifier(ChartVisibleDomainSetter(axis: .vertical, length: spec.yLength))
                 .modifier(ChartScrollPositioner(axis: .horizontal, initial: spec.initialX))
@@ -93,7 +93,7 @@ struct ChartScroller: ViewModifier {
 }
 
 struct ChartVisibleDomainSetter: ViewModifier {
-    let axis: Axis
+    let axis: ChartAxis
     let length: ChartVisibleLength?
 
     func body(content: Content) -> some SwiftUI.View {
@@ -108,7 +108,7 @@ struct ChartVisibleDomainSetter: ViewModifier {
 }
 
 struct ChartScrollPositioner: ViewModifier {
-    let axis: Axis
+    let axis: ChartAxis
     let initial: ChartScalar?
 
     func body(content: Content) -> some SwiftUI.View {

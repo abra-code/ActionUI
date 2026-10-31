@@ -113,7 +113,7 @@ private struct MarkArguments {
 
     func scalar(_ key: String) -> ChartScalar { scalars[key]! }
     func plottable(_ key: String) -> ChartPlottable { spec.values[key]! }
-    func point(_ key: String) -> CGFloat? { spec.points[key] }
+    func point(_ key: String) -> CGFloat? { spec.points[key].map { CGFloat($0) } }
 }
 
 // x + y (BarMark, LineMark, PointMark, AreaMark, RectangleMark) and x + y + series (LineMark, AreaMark).
@@ -136,15 +136,15 @@ private struct XYOpener2<X: Plottable>: PlottableOpener {
         }
         switch spec.kind {
         case .BarMark:
-            return AnyChartContent(erasing: Charts.BarMark(x: x, y: y, width: spec.width, height: spec.height, stacking: spec.stacking))
+            return AnyChartContent(erasing: Charts.BarMark(x: x, y: y, width: spec.width.markDimension, height: spec.height.markDimension, stacking: spec.stacking.stackingMethod))
         case .LineMark:
             return AnyChartContent(erasing: Charts.LineMark(x: x, y: y))
         case .PointMark:
             return AnyChartContent(erasing: Charts.PointMark(x: x, y: y))
         case .AreaMark:
-            return AnyChartContent(erasing: Charts.AreaMark(x: x, y: y, stacking: spec.stacking))
+            return AnyChartContent(erasing: Charts.AreaMark(x: x, y: y, stacking: spec.stacking.stackingMethod))
         case .RectangleMark:
-            return AnyChartContent(erasing: Charts.RectangleMark(x: x, y: y, width: spec.width, height: spec.height))
+            return AnyChartContent(erasing: Charts.RectangleMark(x: x, y: y, width: spec.width.markDimension, height: spec.height.markDimension))
         case .RuleMark, .SectorMark:
             return nil
         }
@@ -161,7 +161,7 @@ private struct SeriesOpener<X: Plottable, Y: Plottable>: PlottableOpener {
         case .LineMark:
             return AnyChartContent(erasing: Charts.LineMark(x: x, y: y, series: series))
         case .AreaMark:
-            return AnyChartContent(erasing: Charts.AreaMark(x: x, y: y, series: series, stacking: spec.stacking))
+            return AnyChartContent(erasing: Charts.AreaMark(x: x, y: y, series: series, stacking: spec.stacking.stackingMethod))
         default:
             return nil
         }
@@ -174,7 +174,7 @@ private struct SectorOpener: PlottableOpener {
     let args: MarkArguments
     func open<A: Plottable>(_ angle: PlottableValue<A>) -> AnyChartContent? {
         let spec = args.spec
-        return AnyChartContent(erasing: Charts.SectorMark(angle: angle, innerRadius: spec.innerRadius, outerRadius: spec.outerRadius,
+        return AnyChartContent(erasing: Charts.SectorMark(angle: angle, innerRadius: spec.innerRadius.markDimension, outerRadius: spec.outerRadius.markDimension,
                                                           angularInset: args.point("angularInset")))
     }
 }
@@ -188,20 +188,20 @@ private struct SingleOpener: PlottableOpener {
         switch (spec.form, spec.kind) {
         case (.xPoints, .BarMark):
             return AnyChartContent(erasing: Charts.BarMark(x: value, yStart: args.point("yStart"), yEnd: args.point("yEnd"),
-                                                           width: spec.width, stacking: spec.stacking))
+                                                           width: spec.width.markDimension, stacking: spec.stacking.stackingMethod))
         case (.xPoints, .RuleMark):
             return AnyChartContent(erasing: Charts.RuleMark(x: value, yStart: args.point("yStart"), yEnd: args.point("yEnd")))
         case (.xPoints, .PointMark):
             return AnyChartContent(erasing: Charts.PointMark(x: value, y: args.point("y")))
         case (.xPoints, .RectangleMark):
             return AnyChartContent(erasing: Charts.RectangleMark(x: value, yStart: args.point("yStart"), yEnd: args.point("yEnd"),
-                                                                 width: spec.width))
+                                                                 width: spec.width.markDimension))
         case (.yPoints, .RectangleMark):
             return AnyChartContent(erasing: Charts.RectangleMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"), y: value,
-                                                                 height: spec.height))
+                                                                 height: spec.height.markDimension))
         case (.yPoints, .BarMark):
             return AnyChartContent(erasing: Charts.BarMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"), y: value,
-                                                           height: spec.height, stacking: spec.stacking))
+                                                           height: spec.height.markDimension, stacking: spec.stacking.stackingMethod))
         case (.yPoints, .RuleMark):
             return AnyChartContent(erasing: Charts.RuleMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"), y: value))
         case (.yPoints, .PointMark):
@@ -232,13 +232,13 @@ private struct XPairOpener2<X: Plottable>: PairOpener {
         }
         switch args.spec.kind {
         case .BarMark:
-            return AnyChartContent(erasing: Charts.BarMark(x: x, yStart: yStart, yEnd: yEnd, width: args.spec.width))
+            return AnyChartContent(erasing: Charts.BarMark(x: x, yStart: yStart, yEnd: yEnd, width: args.spec.width.markDimension))
         case .RuleMark:
             return AnyChartContent(erasing: Charts.RuleMark(x: x, yStart: yStart, yEnd: yEnd))
         case .AreaMark:
             return AnyChartContent(erasing: Charts.AreaMark(x: x, yStart: yStart, yEnd: yEnd))
         case .RectangleMark:
-            return AnyChartContent(erasing: Charts.RectangleMark(x: x, yStart: yStart, yEnd: yEnd, width: args.spec.width))
+            return AnyChartContent(erasing: Charts.RectangleMark(x: x, yStart: yStart, yEnd: yEnd, width: args.spec.width.markDimension))
         default:
             return nil
         }
@@ -276,13 +276,13 @@ private struct PairYOpener2<X: Plottable>: PlottableOpener {
         }
         switch args.spec.kind {
         case .BarMark:
-            return AnyChartContent(erasing: Charts.BarMark(xStart: xStart, xEnd: xEnd, y: y, height: args.spec.height))
+            return AnyChartContent(erasing: Charts.BarMark(xStart: xStart, xEnd: xEnd, y: y, height: args.spec.height.markDimension))
         case .RuleMark:
             return AnyChartContent(erasing: Charts.RuleMark(xStart: xStart, xEnd: xEnd, y: y))
         case .AreaMark:
             return AnyChartContent(erasing: Charts.AreaMark(xStart: xStart, xEnd: xEnd, y: y))
         case .RectangleMark:
-            return AnyChartContent(erasing: Charts.RectangleMark(xStart: xStart, xEnd: xEnd, y: y, height: args.spec.height))
+            return AnyChartContent(erasing: Charts.RectangleMark(xStart: xStart, xEnd: xEnd, y: y, height: args.spec.height.markDimension))
         default:
             return nil
         }
@@ -359,7 +359,7 @@ private struct ByModifierOpener: PlottableOpener {
         case .lineStyleBy:
             return AnyChartContent(erasing: content.lineStyle(by: value))
         case .position(_, let axis, let span):
-            return AnyChartContent(erasing: content.position(by: value, axis: axis, span: span))
+            return AnyChartContent(erasing: content.position(by: value, axis: axis?.axis, span: span.markDimension))
         default:
             return content
         }
@@ -509,7 +509,7 @@ struct ChartContentBuilder {
         }
         // A normalized stack spans 0...1 on its stacked axis whatever the values: the numeric x
         // axis when y is not numeric (or the x-only bar form), else the y axis.
-        var normalizedAxis: Axis?
+        var normalizedAxis: ChartAxis?
         if spec.stacking == .normalized, spec.kind == .BarMark || spec.kind == .AreaMark {
             let numeric: (String) -> Bool = { key in
                 switch scalars[key] {
@@ -588,19 +588,19 @@ struct ChartContentBuilder {
         }
         switch modifier {
         case .foregroundStyle(let color):
-            return AnyChartContent(erasing: content.foregroundStyle(color))
+            return AnyChartContent(erasing: content.foregroundStyle(ColorHelper.color(for: color)))
         case .symbol(let shape):
-            return AnyChartContent(erasing: content.symbol(shape))
+            return AnyChartContent(erasing: content.symbol(shape.symbolShape))
         case .symbolArea(let area):
-            return AnyChartContent(erasing: content.symbolSize(area))
+            return AnyChartContent(erasing: content.symbolSize(CGFloat(area)))
         case .symbolSize(let size):
-            return AnyChartContent(erasing: content.symbolSize(size))
+            return AnyChartContent(erasing: content.symbolSize(size.cgSize))
         case .lineStyle(let style):
-            return AnyChartContent(erasing: content.lineStyle(style))
+            return AnyChartContent(erasing: content.lineStyle(style.strokeStyle))
         case .interpolationMethod(let method):
-            return AnyChartContent(erasing: content.interpolationMethod(method))
+            return AnyChartContent(erasing: content.interpolationMethod(method.interpolationMethod))
         case .cornerRadius(let radius, let style):
-            return AnyChartContent(erasing: content.cornerRadius(radius, style: style))
+            return AnyChartContent(erasing: content.cornerRadius(CGFloat(radius), style: style.cornerStyle))
         case .opacity(let value):
             return AnyChartContent(erasing: content.opacity(value))
         case .zIndex(let value):
@@ -608,21 +608,21 @@ struct ChartContentBuilder {
         case .offset(let offset):
             switch offset {
             case .xy(let x, let y):
-                return AnyChartContent(erasing: content.offset(x: x, y: y))
+                return AnyChartContent(erasing: content.offset(x: CGFloat(x), y: CGFloat(y)))
             case .xYRange(let x, let yStart, let yEnd):
-                return AnyChartContent(erasing: content.offset(x: x, yStart: yStart, yEnd: yEnd))
+                return AnyChartContent(erasing: content.offset(x: CGFloat(x), yStart: CGFloat(yStart), yEnd: CGFloat(yEnd)))
             case .xRangeY(let xStart, let xEnd, let y):
-                return AnyChartContent(erasing: content.offset(xStart: xStart, xEnd: xEnd, y: y))
+                return AnyChartContent(erasing: content.offset(xStart: CGFloat(xStart), xEnd: CGFloat(xEnd), y: CGFloat(y)))
             case .ranges(let xStart, let xEnd, let yStart, let yEnd):
-                return AnyChartContent(erasing: content.offset(xStart: xStart, xEnd: xEnd, yStart: yStart, yEnd: yEnd))
+                return AnyChartContent(erasing: content.offset(xStart: CGFloat(xStart), xEnd: CGFloat(xEnd), yStart: CGFloat(yStart), yEnd: CGFloat(yEnd)))
             }
         case .blur(let radius):
-            return AnyChartContent(erasing: content.blur(radius: radius))
+            return AnyChartContent(erasing: content.blur(radius: CGFloat(radius)))
         case .shadow(let color, let radius, let x, let y):
             if let color {
-                return AnyChartContent(erasing: content.shadow(color: color, radius: radius, x: x, y: y))
+                return AnyChartContent(erasing: content.shadow(color: ColorHelper.color(for: color), radius: CGFloat(radius), x: CGFloat(x), y: CGFloat(y)))
             }
-            return AnyChartContent(erasing: content.shadow(radius: radius, x: x, y: y))
+            return AnyChartContent(erasing: content.shadow(radius: CGFloat(radius), x: CGFloat(x), y: CGFloat(y)))
         case .alignsMarkStylesWithPlotArea(let aligns):
             return AnyChartContent(erasing: content.alignsMarkStylesWithPlotArea(aligns))
         case .accessibilityLabel(let text):
@@ -641,9 +641,9 @@ struct ChartContentBuilder {
             let view = TemplateHelper.buildTemplateView(template: annotation.content, row: read.map { columns.rows[$0] } ?? [],
                                                         rowIndex: read ?? -1, parentID: viewID, windowUUID: windowUUID,
                                                         logger: logger)
-            return AnyChartContent(erasing: content.annotation(position: annotation.position, alignment: annotation.alignment,
-                                                               spacing: annotation.spacing,
-                                                               overflowResolution: annotation.overflow) { view })
+            return AnyChartContent(erasing: content.annotation(position: annotation.position.annotationPosition, alignment: annotation.alignment.alignment,
+                                                               spacing: annotation.spacing.map { CGFloat($0) },
+                                                               overflowResolution: annotation.overflow?.resolution ?? .automatic) { view })
         case .foregroundStyleBy, .symbolBy, .symbolSizeBy, .lineStyleBy, .position:
             return content // handled above
         }

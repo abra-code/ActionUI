@@ -279,7 +279,7 @@ final class ChartTests: XCTestCase {
         chart["chartYScale"] = ["domain": [0, 2000]]
         let spec = ChartDescription.parse(chart, logger: logger).spec
         XCTAssertEqual(logger.warnings, [])
-        guard case .dates = spec.x.domain.kind, case .numbers(let range) = spec.y.domain.kind else {
+        guard case .dates = spec.x.domain, case .numbers(let range) = spec.y.domain else {
             return XCTFail("expected a date x domain and a number y domain")
         }
         XCTAssertEqual(range, 0...2000)

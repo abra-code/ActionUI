@@ -6,8 +6,6 @@
 // without a logger. Cleaning is idempotent: parsing the cleaned JSON again drops nothing.
 
 import Foundation
-import SwiftUI
-import Charts
 
 enum ChartColumnType: String {
     case string, number, integer, date
@@ -27,7 +25,7 @@ struct ChartPlottable {
         case column(Int)
         case literal(ChartScalar)
         // "$selection" outside a ForEach: the chart's selection on this axis (ChartSelection).
-        case selection(Axis)
+        case selection(ChartAxis)
     }
 
     var isSelection: Bool {
@@ -58,27 +56,27 @@ indirect enum ChartEntry {
 // The style scales (chartForegroundStyleScale and the others). Each domain is typed by the
 // values its channel's {"by"} modifiers plot.
 struct ChartStyleScales {
-    var foregroundDomain: ForwardingDomain = .automatic
-    var foregroundRange: ForwardingColorRange?
-    var symbolDomain: ForwardingDomain = .automatic
-    var symbolRange: [BasicChartSymbolShape] = []
-    var lineStyleDomain: ForwardingDomain = .automatic
-    var lineStyleRange: [StrokeStyle] = []
-    var symbolSizeDomain: ForwardingDomain = .automatic
-    var symbolSizeRange: ClosedRange<CGFloat>?
+    var foregroundDomain = ChartDomain.automatic()
+    var foregroundRange: ChartColorRange?
+    var symbolDomain = ChartDomain.automatic()
+    var symbolRange: [ChartSymbol] = []
+    var lineStyleDomain = ChartDomain.automatic()
+    var lineStyleRange: [ChartStroke] = []
+    var symbolSizeDomain = ChartDomain.automatic()
+    var symbolSizeRange: ClosedRange<Double>?
 }
 
 struct ChartAxisSpec {
-    var domain: ForwardingDomain = .automatic
-    var range: ForwardingPositionRange = .automatic
-    var scaleType: ScaleType?
-    var visibility: Visibility = .automatic
+    var domain = ChartDomain.automatic()
+    var range = ChartPositionRange.defaultPlotDimension
+    var scaleType: ChartScaleType?
+    var visibility = ChartVisibility.automatic
     // AxisMarks content; nil draws Swift's default axis.
     var marks: [ChartAxisMarksSpec]?
     var label: String?
-    var labelPosition: AnnotationPosition = .automatic
-    var labelAlignment: Alignment?
-    var labelSpacing: CGFloat?
+    var labelPosition = ChartPosition.automatic
+    var labelAlignment: ChartAlignment?
+    var labelSpacing: Double?
 }
 
 struct ChartSpec {
@@ -87,8 +85,8 @@ struct ChartSpec {
     var x = ChartAxisSpec()
     var y = ChartAxisSpec()
     var styles = ChartStyleScales()
-    var legendVisibility: Visibility = .automatic
-    var legendPosition: AnnotationPosition = .automatic
+    var legendVisibility = ChartVisibility.automatic
+    var legendPosition = ChartPosition.automatic
     // View modifier properties for the plot area: baseline View properties, as given.
     var plotStyle: [String: Any] = [:]
     var selection = ChartSelectionSpec()
@@ -213,11 +211,11 @@ enum ChartDescription {
         spec.scroll = parseScroll(xType: xType, yType: yType, description: description, cleaned: &cleaned, logger: logger)
 
         if let legend = description["chartLegend"] {
-            if let visibility = legend as? String, let parsed = parseVisibility(visibility) {
+            if let visibility = legend as? String, let parsed = ChartVisibility(rawValue: visibility) {
                 spec.legendVisibility = parsed
                 cleaned["chartLegend"] = visibility
             } else if let options = legend as? [String: Any],
-                      let position = options["position"] as? String, let parsed = parsePosition(position) {
+                      let position = options["position"] as? String, let parsed = ChartPosition(rawValue: position) {
                 spec.legendPosition = parsed
                 cleaned["chartLegend"] = ["position": position]
             } else {
@@ -340,7 +338,7 @@ enum ChartDescription {
     ///   horizontal; y, yStart, yEnd: vertical), where "$selection" may read the selection; nil
     ///   elsewhere.
     static func parsePlottable(_ object: [String: Any], role: String, insideForEach: Bool, columns: [Column],
-                                       selectionAxis: Axis? = nil,
+                                       selectionAxis: ChartAxis? = nil,
                                        logger: (any ActionUILogger)?) -> (value: ChartPlottable, cleaned: [String: Any])? {
         guard let label = object["label"] as? String else {
             logger?.log("Chart: \(role) requires a 'label' string; ignoring the mark", .warning)
@@ -563,7 +561,7 @@ enum ChartDescription {
         if let raw = description["chartScrollableAxes"] {
             let names = (raw as? String).map { [$0] } ?? (raw as? [Any])?.compactMap { $0 as? String }
             let count = (raw as? [Any])?.count ?? 1
-            let axes = names?.compactMap { ["horizontal": Axis.Set.horizontal, "vertical": .vertical][$0] } ?? []
+            let axes = names?.compactMap { ["horizontal": ChartAxes.horizontal, "vertical": .vertical][$0] } ?? []
             // A repeated axis merges into one, as the verifier accepts it.
             if let names, !axes.isEmpty, axes.count == count {
                 axes.forEach { spec.axes.formUnion($0) }
@@ -619,7 +617,7 @@ enum ChartDescription {
             for key in object.keys where key != "initialX" && key != "initialY" {
                 logger?.log("Chart: chartScrollPosition.\(key) is not supported; ignoring it", .warning)
             }
-            for (key, axis, type) in [("initialX", Axis.Set.horizontal, xType), ("initialY", Axis.Set.vertical, yType)] {
+            for (key, axis, type) in [("initialX", ChartAxes.horizontal, xType), ("initialY", ChartAxes.vertical, yType)] {
                 guard let value = object[key] else { continue }
                 guard spec.axes.contains(axis) else {
                     logger?.log("Chart: chartScrollPosition.\(key) needs chartScrollableAxes with \"\(axis == .horizontal ? "horizontal" : "vertical")\"; ignoring it", .warning)
@@ -730,7 +728,7 @@ enum ChartDescription {
         }
         let axisKey = "chart\(axis)Axis"
         if let visibility = description[axisKey] {
-            if let name = visibility as? String, let parsed = parseVisibility(name) {
+            if let name = visibility as? String, let parsed = ChartVisibility(rawValue: name) {
                 spec.visibility = parsed
                 cleaned[axisKey] = name
             } else if let items = visibility as? [Any] {
@@ -749,16 +747,16 @@ enum ChartDescription {
             } else if let object = label as? [String: Any], let text = object["text"] as? String {
                 spec.label = text
                 var cleanedLabel: [String: Any] = ["text": text]
-                if let position = object["position"] as? String, let parsed = parsePosition(position) {
+                if let position = object["position"] as? String, let parsed = ChartPosition(rawValue: position) {
                     spec.labelPosition = parsed
                     cleanedLabel["position"] = position
                 }
-                if let alignment = object["alignment"] as? String, let parsed = parseAlignment(alignment) {
+                if let alignment = object["alignment"] as? String, let parsed = ChartAlignment(rawValue: alignment) {
                     spec.labelAlignment = parsed
                     cleanedLabel["alignment"] = alignment
                 }
                 if let spacing = object["spacing"] as? NSNumber, CFGetTypeID(spacing) != CFBooleanGetTypeID() {
-                    spec.labelSpacing = CGFloat(spacing.doubleValue)
+                    spec.labelSpacing = spacing.doubleValue
                     cleanedLabel["spacing"] = spacing
                 }
                 for key in object.keys where cleanedLabel[key] == nil {
@@ -781,14 +779,14 @@ enum ChartDescription {
         // Each scale is {"domain", "range"}; the domain is typed by its channel's by-values.
         // `parseRange` returns nil for an invalid range, which is reported here.
         func scale<Range>(_ key: String, byType: ChartColumnType?, rangeForms: String,
-                          parseRange: (Any) -> Range?) -> (domain: ForwardingDomain?, range: Range?) {
+                          parseRange: (Any) -> Range?) -> (domain: ChartDomain?, range: Range?) {
             guard let raw = description[key] else { return (nil, nil) }
             guard let object = raw as? [String: Any] else {
                 logger?.log("Chart: \(key) must be an object with 'domain' and/or 'range'; ignoring it", .warning)
                 return (nil, nil)
             }
             var cleanedScale: [String: Any] = [:]
-            var domain: ForwardingDomain?
+            var domain: ChartDomain?
             var range: Range?
             if let rawDomain = object["domain"] {
                 if let parsed = parseDomain(rawDomain, axisType: byType) {
@@ -818,25 +816,25 @@ enum ChartDescription {
             let parsed = items.compactMap(item)
             return parsed.count == items.count ? parsed : nil
         }
-        func color(_ raw: Any) -> SwiftUI.Color? { (raw as? String).flatMap(ColorHelper.resolveColor) }
+        func color(_ raw: Any) -> ColorSpec? { ColorSpec.parse(raw as? String) }
 
         let foreground = scale("chartForegroundStyleScale", byType: styleType(content) { modifier in
             if case .foregroundStyleBy(let value) = modifier { return value } else { return nil }
-        }, rangeForms: "a list of colors or {\"gradient\": [colors]}") { raw -> ForwardingColorRange? in
+        }, rangeForms: "a list of colors or {\"gradient\": [colors]}") { raw -> ChartColorRange? in
             if let object = raw as? [String: Any], object.count == 1, let stops = object["gradient"] {
-                return list(stops, color).map { ForwardingColorRange(.gradient(Gradient(colors: $0))) }
+                return list(stops, color).map { .gradient($0) }
             }
-            return list(raw, color).map { ForwardingColorRange(.colors($0)) }
+            return list(raw, color).map { .colors($0) }
         }
-        styles.foregroundDomain = foreground.domain ?? .automatic
+        styles.foregroundDomain = foreground.domain ?? .automatic()
         styles.foregroundRange = foreground.range
 
         let symbol = scale("chartSymbolScale", byType: styleType(content) { modifier in
             if case .symbolBy(let value) = modifier { return value } else { return nil }
         }, rangeForms: "a list of circle, square, triangle, diamond, pentagon, plus, cross or asterisk") { raw in
-            list(raw) { ($0 as? String).flatMap(parseSymbol) }
+            list(raw) { ($0 as? String).flatMap(ChartSymbol.init(rawValue:)) }
         }
-        styles.symbolDomain = symbol.domain ?? .automatic
+        styles.symbolDomain = symbol.domain ?? .automatic()
         styles.symbolRange = symbol.range ?? []
 
         let lineStyle = scale("chartLineStyleScale", byType: styleType(content) { modifier in
@@ -844,44 +842,44 @@ enum ChartDescription {
         }, rangeForms: "a list of stroke styles {\"lineWidth\", \"lineCap\", \"lineJoin\", \"miterLimit\", \"dash\", \"dashPhase\"}") { raw in
             list(raw) { ($0 as? [String: Any]).flatMap(parseStrokeStyle) }
         }
-        styles.lineStyleDomain = lineStyle.domain ?? .automatic
+        styles.lineStyleDomain = lineStyle.domain ?? .automatic()
         styles.lineStyleRange = lineStyle.range ?? []
 
         // Two numbers, smallest and largest symbol area. (An empty list of sizes stops the app
         // inside Swift Charts, so sizes are a range, not a list.)
         let symbolSize = scale("chartSymbolSizeScale", byType: styleType(content) { modifier in
             if case .symbolSizeBy(let value) = modifier { return value } else { return nil }
-        }, rangeForms: "two numbers 0 or more, the smallest and largest symbol area") { raw -> ClosedRange<CGFloat>? in
+        }, rangeForms: "two numbers 0 or more, the smallest and largest symbol area") { raw -> ClosedRange<Double>? in
             guard let items = raw as? [Any], items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
                   CFGetTypeID(low) != CFBooleanGetTypeID(), CFGetTypeID(high) != CFBooleanGetTypeID(),
                   low.doubleValue >= 0, low.doubleValue <= high.doubleValue else { return nil }
-            return CGFloat(low.doubleValue)...CGFloat(high.doubleValue)
+            return low.doubleValue...high.doubleValue
         }
-        styles.symbolSizeDomain = symbolSize.domain ?? .automatic
+        styles.symbolSizeDomain = symbolSize.domain ?? .automatic()
         styles.symbolSizeRange = symbolSize.range
         return styles
     }
 
-    private static func parseRange(_ value: Any) -> ForwardingPositionRange? {
+    private static func parseRange(_ value: Any) -> ChartPositionRange? {
         if let object = value as? [String: Any] {
             if object.count == 1, let padding = object["padding"] as? NSNumber {
-                return ForwardingPositionRange(.plotDimension(startPadding: CGFloat(padding.doubleValue), endPadding: CGFloat(padding.doubleValue)))
+                return .plotDimension(startPadding: padding.doubleValue, endPadding: padding.doubleValue)
             }
             let keys = Set(object.keys)
             guard !keys.isEmpty, keys.isSubset(of: ["startPadding", "endPadding"]) else { return nil }
             let start = (object["startPadding"] as? NSNumber)?.doubleValue
             let end = (object["endPadding"] as? NSNumber)?.doubleValue
             if (object["startPadding"] != nil && start == nil) || (object["endPadding"] != nil && end == nil) { return nil }
-            return ForwardingPositionRange(.plotDimension(startPadding: CGFloat(start ?? 0), endPadding: CGFloat(end ?? 0)))
+            return .plotDimension(startPadding: start ?? 0, endPadding: end ?? 0)
         }
         if let items = value as? [Any], items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
            low.doubleValue <= high.doubleValue {
-            return ForwardingPositionRange(.points(CGFloat(low.doubleValue)...CGFloat(high.doubleValue)))
+            return .points(low.doubleValue...high.doubleValue)
         }
         return nil
     }
 
-    private static func parseScaleType(_ value: Any) -> ScaleType? {
+    private static func parseScaleType(_ value: Any) -> ChartScaleType? {
         if let name = value as? String {
             switch name {
             case "linear": return .linear
@@ -889,7 +887,7 @@ enum ChartDescription {
             case "date": return .date
             case "category": return .category
             case "squareRoot": return .squareRoot
-            case "symmetricLog": return .symmetricLog
+            case "symmetricLog": return .symmetricLog(slopeAtZero: nil)
             default: return nil
             }
         }
@@ -909,7 +907,7 @@ enum ChartDescription {
     // bar's zero baseline included, is outside the type's domain (measured on macOS 27). An
     // explicit domain clamps the values, so those three need one that is inside their domain.
     // A string axis, or an axis that plots no values, takes any type unharmed.
-    private static func scaleTypeProblem(_ raw: Any, axisType: ChartColumnType?, domain: ForwardingDomain) -> String? {
+    private static func scaleTypeProblem(_ raw: Any, axisType: ChartColumnType?, domain: ChartDomain) -> String? {
         guard let axisType, family(axisType) != .string else { return nil }
         let name = (raw as? String) ?? (raw as? [String: Any])?.keys.first ?? ""
         switch name {
@@ -926,7 +924,7 @@ enum ChartDescription {
             }
             let aboveZero = name == "log" || exponent < 0
             let inside: (Double) -> Bool = aboveZero ? { $0 > 0 } : { $0 >= 0 }
-            guard case .numbers(let range) = domain.kind, inside(range.lowerBound) else {
+            guard case .numbers(let range) = domain, inside(range.lowerBound) else {
                 return "\(name) needs a 'domain' of two numbers whose low end is \(aboveZero ? "above 0" : "0 or more")"
             }
             return nil
@@ -935,25 +933,9 @@ enum ChartDescription {
         }
     }
 
-    static func parseAlignment(_ name: String) -> Alignment? {
-        switch name {
-        case "center": return .center
-        case "leading": return .leading
-        case "trailing": return .trailing
-        case "top": return .top
-        case "bottom": return .bottom
-        case "topLeading": return .topLeading
-        case "topTrailing": return .topTrailing
-        case "bottomLeading": return .bottomLeading
-        case "bottomTrailing": return .bottomTrailing
-        default: return nil
-        }
-    }
-
-    private static func parseDomain(_ value: Any, axisType: ChartColumnType?) -> ForwardingDomain? {
+    private static func parseDomain(_ value: Any, axisType: ChartColumnType?) -> ChartDomain? {
         if let object = value as? [String: Any], let automatic = object["automatic"] as? [String: Any], object.count == 1 {
-            return ForwardingDomain(.automatic(includesZero: automatic["includesZero"] as? Bool,
-                                               reversed: automatic["reversed"] as? Bool))
+            return .automatic(includesZero: automatic["includesZero"] as? Bool, reversed: automatic["reversed"] as? Bool)
         }
         guard let items = value as? [Any] else { return nil }
         let family = axisType.map(family)
@@ -961,46 +943,21 @@ enum ChartDescription {
            items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
            CFGetTypeID(low) != CFBooleanGetTypeID(), CFGetTypeID(high) != CFBooleanGetTypeID(),
            low.doubleValue <= high.doubleValue {
-            return ForwardingDomain(.numbers(low.doubleValue...high.doubleValue))
+            return .numbers(low.doubleValue...high.doubleValue)
         }
         guard let strings = items as? [String] else { return nil }
         if family == .date {
             guard strings.count == 2, let low = DateHelper.parseDate(from: strings[0]),
                   let high = DateHelper.parseDate(from: strings[1]), low <= high else { return nil }
-            return ForwardingDomain(.dates(low...high))
+            return .dates(low...high)
         }
         if family == nil || family == .string {
-            return ForwardingDomain(.strings(strings))
+            return .strings(strings)
         }
         return nil
     }
 
     // MARK: - Small parsers
-
-    private static func parseVisibility(_ name: String) -> Visibility? {
-        switch name {
-        case "automatic": return .automatic
-        case "visible": return .visible
-        case "hidden": return .hidden
-        default: return nil
-        }
-    }
-
-    static func parsePosition(_ name: String) -> AnnotationPosition? {
-        switch name {
-        case "automatic": return .automatic
-        case "overlay": return .overlay
-        case "top": return .top
-        case "bottom": return .bottom
-        case "leading": return .leading
-        case "trailing": return .trailing
-        case "topLeading": return .topLeading
-        case "topTrailing": return .topTrailing
-        case "bottomLeading": return .bottomLeading
-        case "bottomTrailing": return .bottomTrailing
-        default: return nil
-        }
-    }
 
     static func calendarComponent(_ name: String) -> Calendar.Component? {
         switch name {

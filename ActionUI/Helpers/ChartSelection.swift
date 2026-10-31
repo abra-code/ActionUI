@@ -208,7 +208,7 @@ struct ChartSelectionBinder {
         ChartSelection.decode(model.value as? String, spec: spec)
     }
 
-    func value<P: ChartSelectable>(_ axis: Axis, as type: P.Type) -> Binding<P?> {
+    func value<P: ChartSelectable>(_ axis: ChartAxis, as type: P.Type) -> Binding<P?> {
         mainActorBinding(
             get: {
                 guard case .value(let scalar)? = axis == .horizontal ? current.x : current.y else { return nil }
@@ -220,7 +220,7 @@ struct ChartSelectionBinder {
             })
     }
 
-    func range<P: ChartSelectable & Comparable>(_ axis: Axis, as type: P.Type) -> Binding<ClosedRange<P>?> {
+    func range<P: ChartSelectable & Comparable>(_ axis: ChartAxis, as type: P.Type) -> Binding<ClosedRange<P>?> {
         mainActorBinding(
             get: {
                 guard case .range(let start, let end)? = axis == .horizontal ? current.x : current.y,
@@ -278,7 +278,7 @@ struct ChartSelectionBinder {
 // One modifier per selection kind. Each keeps its own type whatever the description says;
 // declaring or removing a selection, or changing its axis type, recreates the chart.
 struct ChartXYSelector: ViewModifier {
-    let axis: Axis
+    let axis: ChartAxis
     let mode: ChartSelectionMode?
     let type: ChartColumnType?
     let binder: ChartSelectionBinder

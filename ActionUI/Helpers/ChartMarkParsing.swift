@@ -5,8 +5,6 @@
 // object or a number in points, and the set of keys must match exactly one initializer.
 
 import Foundation
-import SwiftUI
-import Charts
 
 enum ChartMarkKind: String {
     case BarMark, LineMark, PointMark, RuleMark, AreaMark, RectangleMark, SectorMark
@@ -37,19 +35,19 @@ enum ChartText {
 }
 
 enum ChartOffset {
-    case xy(x: CGFloat, y: CGFloat)
-    case xYRange(x: CGFloat, yStart: CGFloat, yEnd: CGFloat)
-    case xRangeY(xStart: CGFloat, xEnd: CGFloat, y: CGFloat)
-    case ranges(xStart: CGFloat, xEnd: CGFloat, yStart: CGFloat, yEnd: CGFloat)
+    case xy(x: Double, y: Double)
+    case xYRange(x: Double, yStart: Double, yEnd: Double)
+    case xRangeY(xStart: Double, xEnd: Double, y: Double)
+    case ranges(xStart: Double, xEnd: Double, yStart: Double, yEnd: Double)
 }
 
 // A view drawn next to a mark: an ActionUI element, built for each row as a template row is
 // (TemplateHelper.buildTemplateView), with its "$name" references already turned into "$N".
 struct ChartAnnotationSpec {
-    var position: AnnotationPosition = .automatic
-    var alignment: Alignment = .center
-    var spacing: CGFloat?
-    var overflow = AnnotationOverflowResolution.automatic
+    var position = ChartPosition.automatic
+    var alignment = ChartAlignment.center
+    var spacing: Double?
+    var overflow: ChartOverflowResolution?
     let content: ActionUIElement
     // Written inside a ForEach. A Plot outside one that holds a ForEach appends its annotation
     // to marks drawn per row, but its text reads no row, as its other modifiers' does.
@@ -58,23 +56,23 @@ struct ChartAnnotationSpec {
 
 // Mark and Plot modifiers, applied in this declaration order.
 enum ChartMarkModifier {
-    case foregroundStyle(SwiftUI.Color)
+    case foregroundStyle(ColorSpec)
     case foregroundStyleBy(ChartPlottable)
-    case symbol(BasicChartSymbolShape)
+    case symbol(ChartSymbol)
     case symbolBy(ChartPlottable)
-    case symbolArea(CGFloat)
-    case symbolSize(CGSize)
+    case symbolArea(Double)
+    case symbolSize(ChartSize)
     case symbolSizeBy(ChartPlottable)
-    case lineStyle(StrokeStyle)
+    case lineStyle(ChartStroke)
     case lineStyleBy(ChartPlottable)
-    case interpolationMethod(InterpolationMethod)
-    case position(ChartPlottable, axis: Axis?, span: MarkDimension)
-    case cornerRadius(CGFloat, RoundedCornerStyle)
+    case interpolationMethod(ChartInterpolation)
+    case position(ChartPlottable, axis: ChartAxis?, span: ChartDimension)
+    case cornerRadius(Double, ChartCornerStyle)
     case opacity(Double)
     case zIndex(Double)
     case offset(ChartOffset)
-    case blur(CGFloat)
-    case shadow(color: SwiftUI.Color?, radius: CGFloat, x: CGFloat, y: CGFloat)
+    case blur(Double)
+    case shadow(color: ColorSpec?, radius: Double, x: Double, y: Double)
     case alignsMarkStylesWithPlotArea(Bool)
     case accessibilityLabel(ChartText)
     case accessibilityValue(ChartText)
@@ -100,12 +98,12 @@ struct ChartMarkSpec {
     // Plottable arguments by initializer label (x, y, xStart, xEnd, yStart, yEnd, series, angle).
     var values: [String: ChartPlottable]
     // Point arguments by initializer label.
-    let points: [String: CGFloat]
-    var width: MarkDimension = .automatic
-    var height: MarkDimension = .automatic
-    var stacking: MarkStackingMethod = .standard
-    var innerRadius: MarkDimension = .automatic
-    var outerRadius: MarkDimension = .automatic
+    let points: [String: Double]
+    var width = ChartDimension.automatic
+    var height = ChartDimension.automatic
+    var stacking = ChartStacking.standard
+    var innerRadius = ChartDimension.automatic
+    var outerRadius = ChartDimension.automatic
     var modifiers: [ChartMarkModifier] = []
 
     var xValues: [ChartPlottable] { ["x", "xStart", "xEnd"].compactMap { values[$0] } }
@@ -307,14 +305,14 @@ extension ChartDescription {
         }
 
         var values: [String: ChartPlottable] = [:]
-        var points: [String: CGFloat] = [:]
+        var points: [String: Double] = [:]
         for key in argumentKeys {
             guard let raw = entry[key] else { continue }
             if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
-                points[key] = CGFloat(number.doubleValue)
+                points[key] = number.doubleValue
                 cleaned[key] = number
             } else if let object = raw as? [String: Any] {
-                let selectionAxis: Axis? = ["x", "xStart", "xEnd"].contains(key) ? .horizontal
+                let selectionAxis: ChartAxis? = ["x", "xStart", "xEnd"].contains(key) ? .horizontal
                     : ["y", "yStart", "yEnd"].contains(key) ? .vertical : nil
                 guard let parsed = parsePlottable(object, role: "\(name).\(key)", insideForEach: insideForEach, columns: columns,
                                                   selectionAxis: selectionAxis, logger: logger) else {
@@ -356,7 +354,7 @@ extension ChartDescription {
                 continue
             }
             if key == "stacking" {
-                if let method = (raw as? String).flatMap(parseStacking) {
+                if let method = (raw as? String).flatMap(ChartStacking.init(rawValue:)) {
                     spec.stacking = method
                     cleaned[key] = raw
                 } else {
@@ -398,9 +396,9 @@ extension ChartDescription {
         func invalid(_ key: String, _ expected: String) {
             logger?.log("Chart: \(role).\(key) must be \(expected); ignoring it", .warning)
         }
-        func number(_ raw: Any?) -> CGFloat? {
+        func number(_ raw: Any?) -> Double? {
             guard let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() else { return nil }
-            return CGFloat(value.doubleValue)
+            return value.doubleValue
         }
 
         for key in modifierKeys {
@@ -420,14 +418,14 @@ extension ChartDescription {
                 }
                 switch key {
                 case "foregroundStyle":
-                    if let name = raw as? String, let color = ColorHelper.resolveColor(name) {
+                    if let name = raw as? String, let color = ColorSpec.parse(name) {
                         modifiers.append(.foregroundStyle(color))
                         cleaned[key] = name
                     } else {
                         invalid(key, "a color or {\"by\": {\"label\", \"value\"}}")
                     }
                 case "symbol":
-                    if let name = raw as? String, let shape = parseSymbol(name) {
+                    if let name = raw as? String, let shape = ChartSymbol(rawValue: name) {
                         modifiers.append(.symbol(shape))
                         cleaned[key] = name
                     } else {
@@ -439,7 +437,7 @@ extension ChartDescription {
                         cleaned[key] = raw
                     } else if let object = raw as? [String: Any], object.count == 2,
                               let width = number(object["width"]), let height = number(object["height"]) {
-                        modifiers.append(.symbolSize(CGSize(width: width, height: height)))
+                        modifiers.append(.symbolSize(ChartSize(width: width, height: height)))
                         cleaned[key] = raw
                     } else {
                         invalid(key, "an area number, {\"width\", \"height\"} or {\"by\": ...}")
@@ -466,7 +464,7 @@ extension ChartDescription {
                     continue
                 }
                 guard let parsed = parsePlottable(byObject, role: "\(role).position.by", insideForEach: insideForEach, columns: columns, logger: logger) else { continue }
-                var axis: Axis?
+                var axis: ChartAxis?
                 var cleanedPosition: [String: Any] = ["by": parsed.cleaned]
                 if let axisName = object["axis"] {
                     switch axisName as? String {
@@ -476,7 +474,7 @@ extension ChartDescription {
                     }
                     if axis != nil { cleanedPosition["axis"] = axisName }
                 }
-                var span: MarkDimension = .automatic
+                var span = ChartDimension.automatic
                 if let spanValue = object["span"] {
                     if let parsedSpan = parseDimension(spanValue) {
                         span = parsedSpan
@@ -493,7 +491,7 @@ extension ChartDescription {
                     cleaned[key] = raw
                 } else if let object = raw as? [String: Any], let radius = number(object["radius"]),
                           Set(object.keys).isSubset(of: ["radius", "style"]) {
-                    let style: RoundedCornerStyle? = switch object["style"] as? String {
+                    let style: ChartCornerStyle? = switch object["style"] as? String {
                     case nil: object["style"] == nil ? .continuous : nil
                     case "continuous": .continuous
                     case "circular": .circular
@@ -514,8 +512,8 @@ extension ChartDescription {
                     continue
                 }
                 switch key {
-                case "opacity": modifiers.append(.opacity(Double(value)))
-                case "zIndex": modifiers.append(.zIndex(Double(value)))
+                case "opacity": modifiers.append(.opacity(value))
+                case "zIndex": modifiers.append(.zIndex(value))
                 default: modifiers.append(.blur(value))
                 }
                 cleaned[key] = raw
@@ -532,9 +530,9 @@ extension ChartDescription {
                     invalid(key, "{\"radius\", \"color\", \"x\", \"y\"} with a numeric radius")
                     continue
                 }
-                var color: SwiftUI.Color?
+                var color: ColorSpec?
                 if let name = object["color"] {
-                    guard let resolved = (name as? String).flatMap(ColorHelper.resolveColor) else {
+                    guard let resolved = ColorSpec.parse(name as? String) else {
                         invalid("shadow.color", "a color")
                         continue
                     }
@@ -609,7 +607,7 @@ extension ChartDescription {
         var spec = ChartAnnotationSpec(content: ActionUIElement.normalizeTemplateIDs(element), readsRows: insideForEach)
         var cleaned: [String: Any] = ["content": content]
         if let raw = object["position"] {
-            if let name = raw as? String, let position = parsePosition(name) {
+            if let name = raw as? String, let position = ChartPosition(rawValue: name) {
                 spec.position = position
                 cleaned["position"] = name
             } else {
@@ -617,7 +615,7 @@ extension ChartDescription {
             }
         }
         if let raw = object["alignment"] {
-            if let name = raw as? String, let alignment = parseAlignment(name) {
+            if let name = raw as? String, let alignment = ChartAlignment(rawValue: name) {
                 spec.alignment = alignment
                 cleaned["alignment"] = name
             } else {
@@ -626,7 +624,7 @@ extension ChartDescription {
         }
         if let raw = object["spacing"] {
             if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
-                spec.spacing = CGFloat(number.doubleValue)
+                spec.spacing = number.doubleValue
                 cleaned["spacing"] = number
             } else {
                 logger?.log("Chart: \(role).spacing must be a number; ignoring it", .warning)
@@ -678,17 +676,17 @@ extension ChartDescription {
         return value
     }
 
-    private static func parseOverflowResolution(_ raw: Any) -> AnnotationOverflowResolution? {
+    private static func parseOverflowResolution(_ raw: Any) -> ChartOverflowResolution? {
         guard let object = raw as? [String: Any], Set(object.keys).isSubset(of: ["x", "y"]) else { return nil }
-        var strategies: [String: AnnotationOverflowResolution.Strategy] = [:]
+        var strategies: [String: ChartOverflowResolution.Strategy] = [:]
         for (axis, value) in object {
             guard let strategy = parseOverflowStrategy(value) else { return nil }
             strategies[axis] = strategy
         }
-        return AnnotationOverflowResolution(x: strategies["x"] ?? .automatic, y: strategies["y"] ?? .automatic)
+        return ChartOverflowResolution(x: strategies["x"] ?? .automatic, y: strategies["y"] ?? .automatic)
     }
 
-    private static func parseOverflowStrategy(_ raw: Any) -> AnnotationOverflowResolution.Strategy? {
+    private static func parseOverflowStrategy(_ raw: Any) -> ChartOverflowResolution.Strategy? {
         if let name = raw as? String {
             switch name {
             case "automatic": return .automatic
@@ -699,19 +697,14 @@ extension ChartDescription {
             }
         }
         guard let object = raw as? [String: Any], object.count == 1, let boundary = object["fit"] as? String else { return nil }
-        switch boundary {
-        case "plot": return .fit(to: .plot)
-        case "chart": return .fit(to: .chart)
-        case "automatic": return .fit(to: .automatic)
-        default: return nil
-        }
+        return ChartOverflowResolution.Boundary(rawValue: boundary).map { .fitTo($0) }
     }
 
     // MARK: - Small parsers
 
-    private static func parseDimension(_ raw: Any) -> MarkDimension? {
+    private static func parseDimension(_ raw: Any) -> ChartDimension? {
         if let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() {
-            return .fixed(CGFloat(value.doubleValue))
+            return .fixed(value.doubleValue)
         }
         if let name = raw as? String {
             return name == "automatic" ? .automatic : nil
@@ -719,43 +712,19 @@ extension ChartDescription {
         guard let object = raw as? [String: Any], object.count == 1, let key = object.keys.first,
               let value = object[key] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() else { return nil }
         switch key {
-        case "ratio": return .ratio(CGFloat(value.doubleValue))
-        case "inset": return .inset(CGFloat(value.doubleValue))
-        case "fixed": return .fixed(CGFloat(value.doubleValue))
+        case "ratio": return .ratio(value.doubleValue)
+        case "inset": return .inset(value.doubleValue)
+        case "fixed": return .fixed(value.doubleValue)
         default: return nil
         }
     }
 
-    private static func parseStacking(_ name: String) -> MarkStackingMethod? {
-        switch name {
-        case "standard": return .standard
-        case "normalized": return .normalized
-        case "center": return .center
-        case "unstacked": return .unstacked
-        default: return nil
-        }
-    }
-
-    static func parseSymbol(_ name: String) -> BasicChartSymbolShape? {
-        switch name {
-        case "circle": return .circle
-        case "square": return .square
-        case "triangle": return .triangle
-        case "diamond": return .diamond
-        case "pentagon": return .pentagon
-        case "plus": return .plus
-        case "cross": return .cross
-        case "asterisk": return .asterisk
-        default: return nil
-        }
-    }
-
-    private static func parseInterpolation(_ raw: Any) -> InterpolationMethod? {
+    private static func parseInterpolation(_ raw: Any) -> ChartInterpolation? {
         if let name = raw as? String {
             switch name {
             case "linear": return .linear
-            case "cardinal": return .cardinal
-            case "catmullRom": return .catmullRom
+            case "cardinal": return .cardinal(tension: nil)
+            case "catmullRom": return .catmullRom(alpha: nil)
             case "monotone": return .monotone
             case "stepStart": return .stepStart
             case "stepCenter": return .stepCenter
@@ -765,42 +734,42 @@ extension ChartDescription {
         }
         guard let object = raw as? [String: Any], object.count == 1 else { return nil }
         if let cardinal = object["cardinal"] as? [String: Any], let tension = cardinal["tension"] as? NSNumber {
-            return .cardinal(tension: CGFloat(tension.doubleValue))
+            return .cardinal(tension: tension.doubleValue)
         }
         if let catmullRom = object["catmullRom"] as? [String: Any], let alpha = catmullRom["alpha"] as? NSNumber {
-            return .catmullRom(alpha: CGFloat(alpha.doubleValue))
+            return .catmullRom(alpha: alpha.doubleValue)
         }
         return nil
     }
 
     // Canvas's stroke keys. Every present key must be valid.
-    static func parseStrokeStyle(_ object: [String: Any]) -> StrokeStyle? {
+    static func parseStrokeStyle(_ object: [String: Any]) -> ChartStroke? {
         let keys: Set<String> = ["lineWidth", "lineCap", "lineJoin", "miterLimit", "dash", "dashPhase"]
         guard Set(object.keys).isSubset(of: keys) else { return nil }
-        if object["lineWidth"] != nil, object.cgFloat(forKey: "lineWidth") == nil { return nil }
-        if object["miterLimit"] != nil, object.cgFloat(forKey: "miterLimit") == nil { return nil }
-        if object["dashPhase"] != nil, object.cgFloat(forKey: "dashPhase") == nil { return nil }
-        if object["dash"] != nil, object.cgFloatArray(forKey: "dash") == nil { return nil }
+        if object["lineWidth"] != nil, object.double(forKey: "lineWidth") == nil { return nil }
+        if object["miterLimit"] != nil, object.double(forKey: "miterLimit") == nil { return nil }
+        if object["dashPhase"] != nil, object.double(forKey: "dashPhase") == nil { return nil }
+        if object["dash"] != nil, !(object["dash"] is [Any]) { return nil }
         if let cap = object["lineCap"], !["butt", "round", "square"].contains(cap as? String ?? "") { return nil }
         if let join = object["lineJoin"], !["miter", "round", "bevel"].contains(join as? String ?? "") { return nil }
-        return StrokeStyle(
-            lineWidth: object.cgFloat(forKey: "lineWidth") ?? 1,
-            lineCap: CGLineCap.fromString(object["lineCap"] as? String ?? "butt"),
-            lineJoin: CGLineJoin.fromString(object["lineJoin"] as? String ?? "miter"),
-            miterLimit: object.cgFloat(forKey: "miterLimit") ?? 10,
-            dash: object.cgFloatArray(forKey: "dash") ?? [],
-            dashPhase: object.cgFloat(forKey: "dashPhase") ?? 0
+        return ChartStroke(
+            lineWidth: object.double(forKey: "lineWidth") ?? 1,
+            lineCap: (object["lineCap"] as? String).flatMap(ChartLineCap.init(rawValue:)) ?? .butt,
+            lineJoin: (object["lineJoin"] as? String).flatMap(ChartLineJoin.init(rawValue:)) ?? .miter,
+            miterLimit: object.double(forKey: "miterLimit") ?? 10,
+            dash: (object["dash"] as? [Any])?.map { ($0 as? NSNumber)?.doubleValue ?? 0 } ?? [],
+            dashPhase: object.double(forKey: "dashPhase") ?? 0
         )
     }
 
-    private static func parseOffset(_ object: [String: Any], number: (Any?) -> CGFloat?) -> ChartOffset? {
+    private static func parseOffset(_ object: [String: Any], number: (Any?) -> Double?) -> ChartOffset? {
         let keys = Set(object.keys)
         guard !keys.isEmpty, keys.isSubset(of: ["x", "y", "xStart", "xEnd", "yStart", "yEnd"]),
               keys.allSatisfy({ number(object[$0]) != nil }) else { return nil }
         let xRange = keys.contains("xStart") || keys.contains("xEnd")
         let yRange = keys.contains("yStart") || keys.contains("yEnd")
         if (xRange && keys.contains("x")) || (yRange && keys.contains("y")) { return nil }
-        func v(_ key: String) -> CGFloat { number(object[key]) ?? 0 }
+        func v(_ key: String) -> Double { number(object[key]) ?? 0 }
         switch (xRange, yRange) {
         case (false, false): return .xy(x: v("x"), y: v("y"))
         case (false, true): return .xYRange(x: v("x"), yStart: v("yStart"), yEnd: v("yEnd"))

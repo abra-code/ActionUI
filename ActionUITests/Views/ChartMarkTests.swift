@@ -316,7 +316,7 @@ final class ChartMarkTests: XCTestCase {
         XCTAssertEqual(parsed.spec.x.labelSpacing, 6)
         XCTAssertNotNil(parsed.spec.y.scaleType)
         XCTAssertEqual(parsed.spec.plotStyle["background"] as? String, "gray")
-        guard case .plotDimension(let start, let end) = parsed.spec.x.range.kind else { return XCTFail("expected padding") }
+        guard case .plotDimension(let start, let end) = parsed.spec.x.range else { return XCTFail("expected padding") }
         XCTAssertEqual([start, end], [12, 4])
         let again = ChartDescription.parse(parsed.cleaned, logger: logger)
         XCTAssertEqual(logger.warnings, [])

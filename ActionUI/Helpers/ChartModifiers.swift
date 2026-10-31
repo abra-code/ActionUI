@@ -16,22 +16,14 @@ import Charts
 /// over its domain type, so `.automatic`, `0...100` and `["A", "B"]` would each give the chain a
 /// different type. ScaleDomain's single requirement is forwarded to Apple's own conforming types.
 struct ForwardingDomain: ScaleDomain {
-    enum Kind {
-        case automatic(includesZero: Bool?, reversed: Bool?)
-        case numbers(ClosedRange<Double>)
-        case dates(ClosedRange<Date>)
-        case strings([String])
-    }
-    let kind: Kind
+    let domain: ChartDomain
 
-    init(_ kind: Kind) {
-        self.kind = kind
+    init(_ domain: ChartDomain) {
+        self.domain = domain
     }
-
-    static let automatic = ForwardingDomain(.automatic(includesZero: nil, reversed: nil))
 
     func _makeScaleDomain() -> _ScaleDomainOutputs {
-        switch kind {
+        switch domain {
         case .automatic(let includesZero, let reversed):
             return AutomaticScaleDomain.automatic(includesZero: includesZero, reversed: reversed)._makeScaleDomain()
         case .numbers(let range):
@@ -48,27 +40,20 @@ struct ForwardingDomain: ScaleDomain {
 /// same reason as ForwardingDomain. `.plotDimension` with no padding draws exactly like no range.
 struct ForwardingPositionRange: PositionScaleRange {
     typealias VisualValue = CGFloat
-    enum Kind {
-        case defaultPlotDimension
-        case plotDimension(startPadding: CGFloat, endPadding: CGFloat)
-        case points(ClosedRange<CGFloat>)
-    }
-    let kind: Kind
+    let range: ChartPositionRange
 
-    init(_ kind: Kind) {
-        self.kind = kind
+    init(_ range: ChartPositionRange) {
+        self.range = range
     }
-
-    static let automatic = ForwardingPositionRange(.defaultPlotDimension)
 
     func _makeScaleRange() -> _ScaleRangeOutputs<CGFloat> {
-        switch kind {
+        switch range {
         case .defaultPlotDimension:
             return PlotDimensionScaleRange.plotDimension._makeScaleRange()
         case .plotDimension(let start, let end):
-            return PlotDimensionScaleRange.plotDimension(startPadding: start, endPadding: end)._makeScaleRange()
+            return PlotDimensionScaleRange.plotDimension(startPadding: CGFloat(start), endPadding: CGFloat(end))._makeScaleRange()
         case .points(let range):
-            return range._makeScaleRange()
+            return (CGFloat(range.lowerBound)...CGFloat(range.upperBound))._makeScaleRange()
         }
     }
 }
@@ -77,22 +62,18 @@ struct ForwardingPositionRange: PositionScaleRange {
 /// ForwardingDomain. Both of Apple's types map values to Color.
 struct ForwardingColorRange: ScaleRange {
     typealias VisualValue = SwiftUI.Color
-    enum Kind {
-        case colors([SwiftUI.Color])
-        case gradient(Gradient)
-    }
-    let kind: Kind
+    let range: ChartColorRange
 
-    init(_ kind: Kind) {
-        self.kind = kind
+    init(_ range: ChartColorRange) {
+        self.range = range
     }
 
     func _makeScaleRange() -> _ScaleRangeOutputs<SwiftUI.Color> {
-        switch kind {
+        switch range {
         case .colors(let colors):
-            return colors._makeScaleRange()
-        case .gradient(let gradient):
-            return gradient._makeScaleRange()
+            return colors.map(ColorHelper.color(for:))._makeScaleRange()
+        case .gradient(let colors):
+            return Gradient(colors: colors.map(ColorHelper.color(for:)))._makeScaleRange()
         }
     }
 }
@@ -119,17 +100,19 @@ struct ChartForegroundStyleScaler: ViewModifier {
 // a label the modifier is left out; its own type stays the same either way (adding or removing a
 // label recreates the chart, as a branch).
 struct ChartAxisLabeler: ViewModifier {
-    let axis: Axis
+    let axis: ChartAxis
     let spec: ChartAxisSpec
 
     func body(content: Content) -> some SwiftUI.View {
         if let label = spec.label {
+            let position = spec.labelPosition.annotationPosition, alignment = spec.labelAlignment?.alignment
+            let spacing = spec.labelSpacing.map { CGFloat($0) }
             if axis == .horizontal {
-                content.chartXAxisLabel(position: spec.labelPosition, alignment: spec.labelAlignment, spacing: spec.labelSpacing) {
+                content.chartXAxisLabel(position: position, alignment: alignment, spacing: spacing) {
                     SwiftUI.Text(label)
                 }
             } else {
-                content.chartYAxisLabel(position: spec.labelPosition, alignment: spec.labelAlignment, spacing: spec.labelSpacing) {
+                content.chartYAxisLabel(position: position, alignment: alignment, spacing: spacing) {
                     SwiftUI.Text(label)
                 }
             }
@@ -158,22 +141,23 @@ extension SwiftUI.View {
     @MainActor
     func chartModifiers(_ spec: ChartSpec, plotStyle: ((any SwiftUI.View) -> AnyView)?) -> some SwiftUI.View {
         self
-            .chartXScale(domain: spec.x.domain, range: spec.x.range, type: spec.x.scaleType)
-            .chartYScale(domain: spec.y.domain, range: spec.y.range, type: spec.y.scaleType)
-            .modifier(ChartForegroundStyleScaler(domain: spec.styles.foregroundDomain, range: spec.styles.foregroundRange))
+            .chartXScale(domain: ForwardingDomain(spec.x.domain), range: ForwardingPositionRange(spec.x.range), type: spec.x.scaleType?.scaleType)
+            .chartYScale(domain: ForwardingDomain(spec.y.domain), range: ForwardingPositionRange(spec.y.range), type: spec.y.scaleType?.scaleType)
+            .modifier(ChartForegroundStyleScaler(domain: ForwardingDomain(spec.styles.foregroundDomain), range: spec.styles.foregroundRange.map(ForwardingColorRange.init)))
             // An empty symbol or line style list draws exactly like no scale.
-            .chartSymbolScale(domain: spec.styles.symbolDomain, range: spec.styles.symbolRange)
-            .chartLineStyleScale(domain: spec.styles.lineStyleDomain, range: spec.styles.lineStyleRange)
-            .modifier(ChartSymbolSizeScaler(domain: spec.styles.symbolSizeDomain, range: spec.styles.symbolSizeRange))
+            .chartSymbolScale(domain: ForwardingDomain(spec.styles.symbolDomain), range: spec.styles.symbolRange.map(\.symbolShape))
+            .chartLineStyleScale(domain: ForwardingDomain(spec.styles.lineStyleDomain), range: spec.styles.lineStyleRange.map(\.strokeStyle))
+            .modifier(ChartSymbolSizeScaler(domain: ForwardingDomain(spec.styles.symbolSizeDomain),
+                                            range: spec.styles.symbolSizeRange.map { CGFloat($0.lowerBound)...CGFloat($0.upperBound) }))
             // Axis content is always given (a plain AxisMarks() draws like none), then visibility.
             .chartXAxis { ChartAxisContentBuilder.content(spec.x.marks) }
-            .chartXAxis(spec.x.visibility)
+            .chartXAxis(spec.x.visibility.visibility)
             .chartYAxis { ChartAxisContentBuilder.content(spec.y.marks) }
-            .chartYAxis(spec.y.visibility)
+            .chartYAxis(spec.y.visibility.visibility)
             .modifier(ChartAxisLabeler(axis: .horizontal, spec: spec.x))
             .modifier(ChartAxisLabeler(axis: .vertical, spec: spec.y))
-            .chartLegend(position: spec.legendPosition, alignment: nil, spacing: nil)
-            .chartLegend(spec.legendVisibility)
+            .chartLegend(position: spec.legendPosition.annotationPosition, alignment: nil, spacing: nil)
+            .chartLegend(spec.legendVisibility.visibility)
             .chartPlotStyle { plot in plot.modifier(ChartPlotStyler(style: plotStyle)) }
     }
 }

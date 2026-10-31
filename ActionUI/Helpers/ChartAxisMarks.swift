@@ -13,7 +13,7 @@ import Charts
 // "currency" with "fractionLength" and "currencyCode"); dates mirror Date.FormatStyle.
 enum ChartAxisFormat {
     case number(NumberFormatSpec)
-    case date(Date.FormatStyle)
+    case date(ChartDateFormat)
 }
 
 enum ChartAxisValues {
@@ -29,28 +29,28 @@ enum ChartAxisValues {
 
 struct ChartAxisMarkItem {
     enum TickLength {
-        case automatic, fixed(CGFloat), label(CGFloat), longestLabel(CGFloat)
+        case automatic, fixed(Double), label(Double), longestLabel(Double)
     }
     enum Kind {
-        case gridLine(centered: Bool?, stroke: StrokeStyle?)
-        case tick(centered: Bool?, length: TickLength, stroke: StrokeStyle?)
-        case valueLabel(format: ChartAxisFormat?, centered: Bool?, anchor: UnitPoint?, multiLabelAlignment: Alignment?,
-                        collisionResolution: AxisValueLabelCollisionResolution, offsetsMarks: Bool?,
-                        orientation: AxisValueLabelOrientation, horizontalSpacing: CGFloat?, verticalSpacing: CGFloat?)
+        case gridLine(centered: Bool?, stroke: ChartStroke?)
+        case tick(centered: Bool?, length: TickLength, stroke: ChartStroke?)
+        case valueLabel(format: ChartAxisFormat?, centered: Bool?, anchor: ChartAlignment?, multiLabelAlignment: ChartAlignment?,
+                        collisionResolution: ChartCollisionResolution, offsetsMarks: Bool?,
+                        orientation: ChartLabelOrientation, horizontalSpacing: Double?, verticalSpacing: Double?)
     }
     let kind: Kind
-    var foregroundStyle: SwiftUI.Color?
-    var font: Font?
-    var offset: CGSize?
+    var foregroundStyle: ColorSpec?
+    var font: FontSpec?
+    var offset: ChartSize?
 }
 
 struct ChartAxisMarksSpec {
-    var preset: AxisMarkPreset = .automatic
-    var position: AxisMarkPosition = .automatic
+    var preset = ChartAxisPreset.automatic
+    var position = ChartAxisMarkPosition.automatic
     var values: ChartAxisValues = .automatic(desiredCount: nil, roundLowerBound: nil, roundUpperBound: nil)
     // Only without `items` (AxisMarks(format:stroke:) keeps Swift's default marks).
     var format: ChartAxisFormat?
-    var stroke: StrokeStyle?
+    var stroke: ChartStroke?
     // nil: Swift's default marks. Empty: no marks at all.
     var items: [ChartAxisMarkItem]?
 }
@@ -98,25 +98,10 @@ extension ChartDescription {
         }
 
         if let raw = object["preset"] {
-            let preset: AxisMarkPreset? = switch raw as? String {
-            case "automatic": .automatic
-            case "extended": .extended
-            case "aligned": .aligned
-            case "inset": .inset
-            default: nil
-            }
-            if let preset { spec.preset = preset; cleaned["preset"] = raw } else { invalid("preset", "automatic, extended, aligned or inset") }
+            if let preset = (raw as? String).flatMap(ChartAxisPreset.init(rawValue:)) { spec.preset = preset; cleaned["preset"] = raw } else { invalid("preset", "automatic, extended, aligned or inset") }
         }
         if let raw = object["position"] {
-            let position: AxisMarkPosition? = switch raw as? String {
-            case "automatic": .automatic
-            case "leading": .leading
-            case "trailing": .trailing
-            case "top": .top
-            case "bottom": .bottom
-            default: nil
-            }
-            if let position { spec.position = position; cleaned["position"] = raw } else { invalid("position", "automatic, leading, trailing, top or bottom") }
+            if let position = (raw as? String).flatMap(ChartAxisMarkPosition.init(rawValue:)) { spec.position = position; cleaned["position"] = raw } else { invalid("position", "automatic, leading, trailing, top or bottom") }
         }
         if let raw = object["values"] {
             if let values = parseAxisValues(raw, axisType: axisType) {
@@ -186,14 +171,14 @@ extension ChartDescription {
         func invalid(_ key: String, _ expected: String) {
             logger?.log("Chart: \(role).\(key) must be \(expected); ignoring it", .warning)
         }
-        func number(_ key: String) -> CGFloat? {
+        func number(_ key: String) -> Double? {
             guard let raw = object[key] else { return nil }
             guard let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() else {
                 invalid(key, "a number")
                 return nil
             }
             cleaned[key] = raw
-            return CGFloat(value.doubleValue)
+            return value.doubleValue
         }
         func flag(_ key: String) -> Bool? {
             guard let raw = object[key] else { return nil }
@@ -204,7 +189,7 @@ extension ChartDescription {
             cleaned[key] = value
             return value
         }
-        func stroke() -> StrokeStyle? {
+        func stroke() -> ChartStroke? {
             guard let raw = object["stroke"] else { return nil }
             guard let style = (raw as? [String: Any]).flatMap(parseStrokeStyle) else {
                 invalid("stroke", "a stroke style {\"lineWidth\", \"lineCap\", \"lineJoin\", \"miterLimit\", \"dash\", \"dashPhase\"}")
@@ -247,18 +232,18 @@ extension ChartDescription {
                     logger?.log("Chart: \(role).\(key) applies only with a number 'format'; ignoring it", .warning)
                 }
             }
-            var anchor: UnitPoint?
+            var anchor: ChartAlignment?
             if let raw = object["anchor"] {
                 // Swift Charts supports only the named points here.
-                anchor = (raw as? String).flatMap(unitPoint)
+                anchor = (raw as? String).flatMap(ChartAlignment.init(rawValue:))
                 if anchor != nil { cleaned["anchor"] = raw } else { invalid("anchor", "center, leading, trailing, top, bottom, topLeading, topTrailing, bottomLeading or bottomTrailing") }
             }
-            var alignment: Alignment?
+            var alignment: ChartAlignment?
             if let raw = object["multiLabelAlignment"] {
-                alignment = (raw as? String).flatMap(parseAlignment)
+                alignment = (raw as? String).flatMap(ChartAlignment.init(rawValue:))
                 if alignment != nil { cleaned["multiLabelAlignment"] = raw } else { invalid("multiLabelAlignment", "an alignment such as leading or center") }
             }
-            var collision = AxisValueLabelCollisionResolution.automatic
+            var collision = ChartCollisionResolution.automatic
             if let raw = object["collisionResolution"] {
                 if let parsed = parseCollisionResolution(raw) {
                     collision = parsed
@@ -267,16 +252,9 @@ extension ChartDescription {
                     invalid("collisionResolution", "automatic, greedy, truncate, disabled or {\"greedy\": {\"priority\", \"minimumSpacing\"}}")
                 }
             }
-            var orientation = AxisValueLabelOrientation.automatic
+            var orientation = ChartLabelOrientation.automatic
             if let raw = object["orientation"] {
-                let parsed: AxisValueLabelOrientation? = switch raw as? String {
-                case "automatic": .automatic
-                case "horizontal": .horizontal
-                case "vertical": .vertical
-                case "verticalReversed": .verticalReversed
-                default: nil
-                }
-                if let parsed { orientation = parsed; cleaned["orientation"] = raw } else { invalid("orientation", "automatic, horizontal, vertical or verticalReversed") }
+                if let parsed = (raw as? String).flatMap(ChartLabelOrientation.init(rawValue:)) { orientation = parsed; cleaned["orientation"] = raw } else { invalid("orientation", "automatic, horizontal, vertical or verticalReversed") }
             }
             kind = .valueLabel(format: format, centered: flag("centered"), anchor: anchor, multiLabelAlignment: alignment,
                                collisionResolution: collision, offsetsMarks: flag("offsetsMarks"), orientation: orientation,
@@ -288,7 +266,7 @@ extension ChartDescription {
 
         var item = ChartAxisMarkItem(kind: kind)
         if let raw = object["foregroundStyle"] {
-            if let color = (raw as? String).flatMap(ColorHelper.resolveColor) {
+            if let color = ColorSpec.parse(raw as? String) {
                 item.foregroundStyle = color
                 cleaned["foregroundStyle"] = raw
             } else {
@@ -296,10 +274,10 @@ extension ChartDescription {
             }
         }
         if let raw = object["font"] {
-            // A font FontHelper complains about is dropped whole, so the cleaned dict re-parses
+            // A font FontSpec complains about is dropped whole, so the cleaned dict re-parses
             // without a warning.
             let fontProblems = ChartFontProblemLogger()
-            let font = raw is String || raw is [String: Any] ? FontHelper.resolveFont(raw, fontProblems) : nil
+            let font = raw is String || raw is [String: Any] ? FontSpec.parse(raw, logger: fontProblems) : nil
             if let font, fontProblems.messages.isEmpty {
                 item.font = font
                 cleaned["font"] = raw
@@ -313,7 +291,7 @@ extension ChartDescription {
             let keys = Set(offset?.keys.map { $0 } ?? [])
             let x = plainNumber(offset?["x"]), y = plainNumber(offset?["y"])
             if let offset, !keys.isEmpty, keys.isSubset(of: ["x", "y"]), offset["x"] == nil || x != nil, offset["y"] == nil || y != nil {
-                item.offset = CGSize(width: CGFloat(x?.doubleValue ?? 0), height: CGFloat(y?.doubleValue ?? 0))
+                item.offset = ChartSize(width: x?.doubleValue ?? 0, height: y?.doubleValue ?? 0)
                 cleaned["offset"] = raw
             } else {
                 invalid("offset", "{\"x\", \"y\"} (numbers)")
@@ -352,7 +330,7 @@ extension ChartDescription {
             // Re-resolve from the accepted keys only, so an ignored key changes nothing.
             return NumberFormatSpec.resolve(from: cleaned).map { (.number($0), cleaned) }
         }
-        guard let dateFormat = raw as? [String: Any], let style = parseDateFormat(dateFormat) else {
+        guard let dateFormat = raw as? [String: Any], let format = parseDateFormat(dateFormat) else {
             logger?.log("Chart: \(role).format must be integer, decimal, percent or currency, {\"dateTime\": {...}} or {\"date\", \"time\"}; ignoring it", .warning)
             return nil
         }
@@ -364,69 +342,33 @@ extension ChartDescription {
         for key in ["fractionLength", "currencyCode"] where object[key] != nil {
             logger?.log("Chart: \(role).\(key) applies only with a number format; ignoring it", .warning)
         }
-        return (.date(style), ["format": dateFormat])
+        return (.date(format), ["format": dateFormat])
     }
 
     // {"dateTime": {"year": ..., "month": ...}} or {"date": style, "time": style}; every key must be valid.
-    static func parseDateFormat(_ object: [String: Any]) -> Date.FormatStyle? {
+    static func parseDateFormat(_ object: [String: Any]) -> ChartDateFormat? {
         if object.count == 1, let fields = object["dateTime"] as? [String: Any], !fields.isEmpty {
-            var style = Date.FormatStyle()
+            var parsed: [ChartDateField] = []
             for (field, raw) in fields {
-                guard let name = raw as? String else { return nil }
-                switch (field, name) {
-                case ("year", "defaultDigits"): style = style.year(.defaultDigits)
-                case ("year", "twoDigits"): style = style.year(.twoDigits)
-                case ("quarter", "oneDigit"): style = style.quarter(.oneDigit)
-                case ("quarter", "twoDigits"): style = style.quarter(.twoDigits)
-                case ("quarter", "abbreviated"): style = style.quarter(.abbreviated)
-                case ("quarter", "wide"): style = style.quarter(.wide)
-                case ("quarter", "narrow"): style = style.quarter(.narrow)
-                case ("month", "defaultDigits"): style = style.month(.defaultDigits)
-                case ("month", "twoDigits"): style = style.month(.twoDigits)
-                case ("month", "abbreviated"): style = style.month(.abbreviated)
-                case ("month", "wide"): style = style.month(.wide)
-                case ("month", "narrow"): style = style.month(.narrow)
-                case ("day", "defaultDigits"): style = style.day(.defaultDigits)
-                case ("day", "twoDigits"): style = style.day(.twoDigits)
-                case ("weekday", "abbreviated"): style = style.weekday(.abbreviated)
-                case ("weekday", "wide"): style = style.weekday(.wide)
-                case ("weekday", "narrow"): style = style.weekday(.narrow)
-                case ("weekday", "short"): style = style.weekday(.short)
-                case ("hour", "defaultDigits"): style = style.hour(.defaultDigits(amPM: .abbreviated))
-                case ("hour", "twoDigits"): style = style.hour(.twoDigits(amPM: .abbreviated))
-                case ("minute", "defaultDigits"): style = style.minute(.defaultDigits)
-                case ("minute", "twoDigits"): style = style.minute(.twoDigits)
-                case ("second", "defaultDigits"): style = style.second(.defaultDigits)
-                case ("second", "twoDigits"): style = style.second(.twoDigits)
-                default: return nil
-                }
+                guard let name = raw as? String, let dateField = ChartDateField(rawValue: "\(field).\(name)") else { return nil }
+                parsed.append(dateField)
             }
-            return style
+            // Sorted: a dictionary's order must not make two equal descriptions differ.
+            return .fields(parsed.sorted { $0.rawValue < $1.rawValue })
         }
         let keys = Set(object.keys)
         guard !keys.isEmpty, keys.isSubset(of: ["date", "time"]) else { return nil }
-        var date: Date.FormatStyle.DateStyle = .omitted
-        var time: Date.FormatStyle.TimeStyle = .omitted
+        var date = ChartDateStyle.omitted
+        var time = ChartTimeStyle.omitted
         if let raw = object["date"] {
-            switch raw as? String {
-            case "omitted": date = .omitted
-            case "numeric": date = .numeric
-            case "abbreviated": date = .abbreviated
-            case "long": date = .long
-            case "complete": date = .complete
-            default: return nil
-            }
+            guard let style = (raw as? String).flatMap(ChartDateStyle.init(rawValue:)) else { return nil }
+            date = style
         }
         if let raw = object["time"] {
-            switch raw as? String {
-            case "omitted": time = .omitted
-            case "shortened": time = .shortened
-            case "standard": time = .standard
-            case "complete": time = .complete
-            default: return nil
-            }
+            guard let style = (raw as? String).flatMap(ChartTimeStyle.init(rawValue:)) else { return nil }
+            time = style
         }
-        return Date.FormatStyle(date: date, time: time)
+        return .styles(date: date, time: time)
     }
 
     private static func parseAxisValues(_ raw: Any, axisType: ChartColumnType?) -> ChartAxisValues? {
@@ -477,7 +419,7 @@ extension ChartDescription {
 
     private static func parseTickLength(_ raw: Any) -> ChartAxisMarkItem.TickLength? {
         if let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue >= 0 {
-            return .fixed(CGFloat(value.doubleValue))
+            return .fixed(value.doubleValue)
         }
         switch raw as? String {
         case "automatic": return .automatic
@@ -488,14 +430,14 @@ extension ChartDescription {
         guard let object = raw as? [String: Any], object.count == 1, let key = object.keys.first,
               key == "label" || key == "longestLabel", let options = object[key] as? [String: Any], options.count == 1,
               let extend = options["extendPastBy"] as? NSNumber, CFGetTypeID(extend) != CFBooleanGetTypeID() else { return nil }
-        let points = CGFloat(extend.doubleValue)
+        let points = extend.doubleValue
         return key == "label" ? .label(points) : .longestLabel(points)
     }
 
-    private static func parseCollisionResolution(_ raw: Any) -> AxisValueLabelCollisionResolution? {
+    private static func parseCollisionResolution(_ raw: Any) -> ChartCollisionResolution? {
         switch raw as? String {
         case "automatic": return .automatic
-        case "greedy": return .greedy
+        case "greedy": return .greedy(priority: nil, minimumSpacing: nil)
         case "truncate": return .truncate
         case "disabled": return .disabled
         default: break
@@ -504,7 +446,7 @@ extension ChartDescription {
               Set(options.keys).isSubset(of: ["priority", "minimumSpacing"]) else { return nil }
         let priority = plainNumber(options["priority"]), spacing = plainNumber(options["minimumSpacing"])
         if (options["priority"] != nil && priority == nil) || (options["minimumSpacing"] != nil && spacing == nil) { return nil }
-        return .greedy(priority: priority?.doubleValue ?? 0, minimumSpacing: spacing.map { CGFloat($0.doubleValue) })
+        return .greedy(priority: priority?.doubleValue ?? 0, minimumSpacing: spacing?.doubleValue)
     }
 
     // A JSON number that is not a boolean: JSON true and false arrive as NSNumber and convert to
@@ -517,24 +459,9 @@ extension ChartDescription {
     private static func wholeNumber(_ raw: Any?) -> Int? {
         plainNumber(raw) == nil ? nil : raw as? Int
     }
-
-    private static func unitPoint(_ name: String) -> UnitPoint? {
-        switch name {
-        case "center": return .center
-        case "leading": return .leading
-        case "trailing": return .trailing
-        case "top": return .top
-        case "bottom": return .bottom
-        case "topLeading": return .topLeading
-        case "topTrailing": return .topTrailing
-        case "bottomLeading": return .bottomLeading
-        case "bottomTrailing": return .bottomTrailing
-        default: return nil
-        }
-    }
 }
 
-// Collects FontHelper's warnings about one font value.
+// Collects FontSpec's warnings about one font value.
 private final class ChartFontProblemLogger: ActionUILogger, @unchecked Sendable {
     private let lock = NSLock()
     private var recorded: [String] = []
@@ -556,7 +483,7 @@ enum ChartAxisStrideLimit {
     static let maxStrideMarks = 1000
 
     /// `extent` is what the marks plot on the axis (dates as seconds since the reference date).
-    static func limited(_ specs: [ChartAxisMarksSpec]?, domain: ForwardingDomain, extent: ClosedRange<Double>?,
+    static func limited(_ specs: [ChartAxisMarksSpec]?, domain: ChartDomain, extent: ClosedRange<Double>?,
                         key: String, viewID: Int, logger: any ActionUILogger) -> [ChartAxisMarksSpec]? {
         guard var specs else { return nil }
         for index in specs.indices {
@@ -581,14 +508,14 @@ enum ChartAxisStrideLimit {
 
     /// The axis span in the axis's unit (dates in seconds), as described above; also bounds a
     /// scrolling axis's visible length (ChartVisibleLengthLimit).
-    static func span(_ domain: ForwardingDomain, extent: ClosedRange<Double>?, dates: Bool) -> Double? {
+    static func span(_ domain: ChartDomain, extent: ClosedRange<Double>?, dates: Bool) -> Double? {
         if dates {
-            if case .dates(let range) = domain.kind {
+            if case .dates(let range) = domain {
                 return range.upperBound.timeIntervalSince(range.lowerBound)
             }
             return extent.map { $0.upperBound - $0.lowerBound }
         }
-        switch domain.kind {
+        switch domain {
         case .numbers(let range):
             return range.upperBound - range.lowerBound
         case .automatic(let includesZero, _) where includesZero == false:
@@ -658,7 +585,7 @@ enum ChartAxisContentBuilder {
             return defaultMarks(spec)
         }
         let m = items.prefix(ChartDescription.maxAxisMarks).map(mark)
-        let preset = spec.preset, position = spec.position
+        let preset = spec.preset.axisMarkPreset, position = spec.position.axisMarkPosition
         // One builder per item count; explicit values take AxisMarks' generic `values:` initializer.
         func marks(_ values: AxisMarkValues) -> AnyAxisContent {
             switch m.count {
@@ -689,7 +616,7 @@ enum ChartAxisContentBuilder {
 
     // Swift's default marks, with the AxisMarks-level format and stroke.
     private static func defaultMarks(_ spec: ChartAxisMarksSpec) -> AnyAxisContent {
-        let preset = spec.preset, position = spec.position, stroke = spec.stroke
+        let preset = spec.preset.axisMarkPreset, position = spec.position.axisMarkPosition, stroke = spec.stroke?.strokeStyle
         func formatted<F: FormatStyle>(_ format: F) -> AnyAxisContent where F.FormatInput: Plottable, F.FormatOutput == String {
             switch spec.values {
             case .numbers(let values):
@@ -717,8 +644,8 @@ enum ChartAxisContentBuilder {
             case .percent(let low, let high): return formatted(percent(low, high))
             case .currency(let code, let low, let high): return formatted(currency(code, low, high))
             }
-        case .date(let style):
-            return formatted(style)
+        case .date(let format):
+            return formatted(format.formatStyle)
         case nil:
             switch spec.values {
             case .numbers(let values): return AnyAxisContent(erasing: AxisMarks(preset: preset, position: position, values: values, stroke: stroke))
@@ -747,36 +674,40 @@ enum ChartAxisContentBuilder {
         var mark: AnyAxisMark
         switch item.kind {
         case .gridLine(let centered, let stroke):
-            mark = AnyAxisMark(erasing: AxisGridLine(centered: centered, stroke: stroke))
+            mark = AnyAxisMark(erasing: AxisGridLine(centered: centered, stroke: stroke?.strokeStyle))
         case .tick(let centered, let length, let stroke):
+            let style = stroke?.strokeStyle
             switch length {
-            case .automatic: mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: .automatic, stroke: stroke))
-            case .fixed(let points): mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: points, stroke: stroke))
-            case .label(let extend): mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: .label(extendPastBy: extend), stroke: stroke))
-            case .longestLabel(let extend): mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: .longestLabel(extendPastBy: extend), stroke: stroke))
+            case .automatic: mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: .automatic, stroke: style))
+            case .fixed(let points): mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: CGFloat(points), stroke: style))
+            case .label(let extend): mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: .label(extendPastBy: CGFloat(extend)), stroke: style))
+            case .longestLabel(let extend): mark = AnyAxisMark(erasing: AxisTick(centered: centered, length: .longestLabel(extendPastBy: CGFloat(extend)), stroke: style))
             }
         case .valueLabel(let format, let centered, let anchor, let alignment, let collision, let offsetsMarks, let orientation,
                          let horizontalSpacing, let verticalSpacing):
+            let unitPoint = anchor?.unitPoint, multiLabelAlignment = alignment?.alignment
+            let collisionResolution = collision.collisionResolution, labelOrientation = orientation.labelOrientation
+            let hSpacing = horizontalSpacing.map { CGFloat($0) }, vSpacing = verticalSpacing.map { CGFloat($0) }
             func label<F: FormatStyle>(_ format: F) -> AnyAxisMark where F.FormatInput: Plottable, F.FormatOutput == String {
-                AnyAxisMark(erasing: AxisValueLabel(format: format, centered: centered, anchor: anchor, multiLabelAlignment: alignment,
-                                                    collisionResolution: collision, offsetsMarks: offsetsMarks, orientation: orientation,
-                                                    horizontalSpacing: horizontalSpacing, verticalSpacing: verticalSpacing))
+                AnyAxisMark(erasing: AxisValueLabel(format: format, centered: centered, anchor: unitPoint, multiLabelAlignment: multiLabelAlignment,
+                                                    collisionResolution: collisionResolution, offsetsMarks: offsetsMarks, orientation: labelOrientation,
+                                                    horizontalSpacing: hSpacing, verticalSpacing: vSpacing))
             }
             switch format {
             case .number(.integer): mark = label(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0)))
             case .number(.decimal(let low, let high)): mark = label(decimal(low, high))
             case .number(.percent(let low, let high)): mark = label(percent(low, high))
             case .number(.currency(let code, let low, let high)): mark = label(currency(code, low, high))
-            case .date(let style): mark = label(style)
+            case .date(let dateFormat): mark = label(dateFormat.formatStyle)
             case nil:
-                mark = AnyAxisMark(erasing: AxisValueLabel(centered: centered, anchor: anchor, multiLabelAlignment: alignment,
-                                                           collisionResolution: collision, offsetsMarks: offsetsMarks, orientation: orientation,
-                                                           horizontalSpacing: horizontalSpacing, verticalSpacing: verticalSpacing))
+                mark = AnyAxisMark(erasing: AxisValueLabel(centered: centered, anchor: unitPoint, multiLabelAlignment: multiLabelAlignment,
+                                                           collisionResolution: collisionResolution, offsetsMarks: offsetsMarks, orientation: labelOrientation,
+                                                           horizontalSpacing: hSpacing, verticalSpacing: vSpacing))
             }
         }
-        if let color = item.foregroundStyle { mark = AnyAxisMark(erasing: mark.foregroundStyle(color)) }
-        if let font = item.font { mark = AnyAxisMark(erasing: mark.font(font)) }
-        if let offset = item.offset { mark = AnyAxisMark(erasing: mark.offset(offset)) }
+        if let color = item.foregroundStyle { mark = AnyAxisMark(erasing: mark.foregroundStyle(ColorHelper.color(for: color))) }
+        if let font = item.font { mark = AnyAxisMark(erasing: mark.font(FontHelper.font(for: font))) }
+        if let offset = item.offset { mark = AnyAxisMark(erasing: mark.offset(offset.cgSize)) }
         return mark
     }
 
