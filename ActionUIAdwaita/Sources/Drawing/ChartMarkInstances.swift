@@ -18,9 +18,14 @@ struct ChartMarkInstance {
     let values: [String: ChartScalar]
     /// The series a {"by"} foreground style puts it in, unless a style nearer the mark sets its color.
     let styleKey: String?
-    /// The same for a {"by"} symbol and line style.
+    /// The same for a {"by"} symbol, line style and symbol size.
     let symbolKey: String?
     let lineStyleKey: String?
+    let sizeKey: String?
+    /// A {"by"} over numbers or dates has no series to name: where it falls on its scale instead.
+    let colorValue: ChartScalar?
+    let lineStyleValue: ChartScalar?
+    let sizeValue: ChartScalar?
     /// What joins it to other lines or areas: its series and the {"by"} styles it wears: of color,
     /// line and symbol on a line, of color alone on an area. Marks that share this are one line, in
     /// the style of the first. A {"by"} that a style nearer the mark replaces, a symbol's size and a
@@ -125,36 +130,45 @@ struct ChartMarkResolver {
         var styleKey: String?
         var symbolKey: String?
         var lineStyleKey: String?
+        var sizeKey: String?
+        var colorValue: ChartScalar?
+        var lineStyleValue: ChartScalar?
+        var sizeValue: ChartScalar?
         var seriesParts = values["series"].map { [Self.key($0)] } ?? [""]
         // The mark's own modifiers come first, a Plot's after them, and the first of each kind wins.
-        var styled = false, lined = false, marked = false
+        var styled = false, lined = false, marked = false, sized = false
         for modifier in mark.modifiers {
             switch modifier {
             case .foregroundStyle: styled = true
             case .lineStyle: lined = true
             case .symbol: marked = true
+            case .symbolArea, .symbolSize: sized = true
             default: break
             }
             guard let plottable = modifier.plottable else { continue }
             guard let scalar = read(plottable, row: row) else { return nil }
             switch modifier {
             case .foregroundStyleBy where !styled:
-                styleKey = Self.key(scalar)
+                if case .string(let name) = scalar { styleKey = name } else { colorValue = scalar }
                 seriesParts.append(Self.key(scalar))
                 styled = true
             case .lineStyleBy where !lined:
-                lineStyleKey = Self.key(scalar)
+                if case .string(let name) = scalar { lineStyleKey = name } else { lineStyleValue = scalar }
                 if mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
                 lined = true
             case .symbolBy where !marked:
-                symbolKey = Self.key(scalar)
+                if case .string(let name) = scalar { symbolKey = name }
                 if mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
                 marked = true
+            case .symbolSizeBy where !sized:
+                if case .string(let name) = scalar { sizeKey = name } else { sizeValue = scalar }
+                sized = true
             default:
                 break
             }
         }
-        return ChartMarkInstance(mark: mark, values: values, styleKey: styleKey, symbolKey: symbolKey, lineStyleKey: lineStyleKey,
+        return ChartMarkInstance(mark: mark, values: values, styleKey: styleKey, symbolKey: symbolKey, lineStyleKey: lineStyleKey, sizeKey: sizeKey,
+                                 colorValue: colorValue, lineStyleValue: lineStyleValue, sizeValue: sizeValue,
                                  seriesKey: seriesParts.joined(separator: "\u{1F}"))
     }
 

@@ -2015,6 +2015,341 @@ final class ChartLayoutTests: XCTestCase {
         XCTAssertEqual(symbols(layout(styled([negative]), rows: [["1", "1"]])).first?.side, 0)
     }
 
+    // MARK: - Number scales
+
+    private var byNumber: [String: Any] { ["by": value("Z", "$z")] }
+    private let firstColor = ChartLayout.seriesColors[0]
+    private var defaultGradient: [ColorSpec] { [.withOpacity(firstColor, 0.2), firstColor] }
+
+    private func numbered(_ values: [Any]) -> [[String]] {
+        values.enumerated().map { [String($0), "1", "A", "\($1)"] }
+    }
+
+    private func bars(_ primitives: [ChartPrimitive]) -> [(rect: ChartRect, stops: [ChartGradientStop], vertical: Bool)] {
+        primitives.compactMap { primitive in
+            if case .gradientBar(let rect, let stops, let vertical) = primitive { return (rect, stops, vertical) } else { return nil }
+        }
+    }
+
+    private func sides(_ mark: [String: Any], _ data: [[String]], _ extra: [String: Any] = ["chartLegend": "hidden"]) -> [Double] {
+        symbols(layout(styled([mark], extra), rows: data)).map(\.side)
+    }
+
+    private func side(ofArea area: Double) -> Double { 2 * (area / Double.pi).squareRoot() }
+
+    func testANumberColorRunsAlongAGradientOverTheDatasOwnEnds() {
+        let found = symbols(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], hidden), rows: numbered([10, 28, 46])))
+        XCTAssertEqual(found.map(\.ink), [.blend(defaultGradient, at: 0), .blend(defaultGradient, at: 0.5), .blend(defaultGradient, at: 1)])
+    }
+
+    func testAColorDomainSetsTheGradientsEndsAndValuesStopAtThem() {
+        let scale: [String: Any] = ["chartForegroundStyleScale": ["domain": [0, 100]], "chartLegend": "hidden"]
+        let found = symbols(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([25, 200, -5])))
+        XCTAssertEqual(found.map(\.ink), [.blend(defaultGradient, at: 0.25), .blend(defaultGradient, at: 1), .blend(defaultGradient, at: 0)])
+    }
+
+    func testAGradientRangeReplacesTheColors() {
+        let scale: [String: Any] = ["chartForegroundStyleScale": ["range": ["gradient": ["red", "yellow", "green"]]], "chartLegend": "hidden"]
+        let found = symbols(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([0, 10])))
+        XCTAssertEqual(found.first?.ink, .blend([.named(.red), .named(.yellow), .named(.green)], at: 0))
+    }
+
+    func testAListOfColorsOnNumbersMakesBinsOfOneWidthAndNoLegend() {
+        let scale: [String: Any] = ["chartForegroundStyleScale": ["range": ["red", "green", "blue"]]]
+        let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([0, 8, 30, 12, 20]))
+        XCTAssertEqual(symbols(primitives).map(\.ink), [.named(.red), .named(.red), .named(.blue), .named(.green), .named(.blue)].map { ChartInk.color($0) },
+                       "bins of 10, not of equal counts, and the top in the last")
+        XCTAssertTrue(bars(primitives).isEmpty)
+    }
+
+    func testASingleColorValueIsHalfwayWithNoBar() {
+        let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)]), rows: numbered([7, 7]))
+        XCTAssertEqual(symbols(primitives).map(\.ink), [.blend(defaultGradient, at: 0.5), .blend(defaultGradient, at: 0.5)])
+        XCTAssertTrue(bars(primitives).isEmpty)
+    }
+
+    func testANumberColorSplitsALineSoItDrawsNothing() {
+        let primitives = layout(styled([wearing(line, "foregroundStyle", byNumber)]), rows: numbered([1, 2, 3]))
+        XCTAssertEqual(paths(primitives).count, 0)
+        XCTAssertEqual(bars(primitives).count, 1, "and the legend stays")
+    }
+
+    func testTheBarRunsOverTheAxisAndTheGradientStopsShortOfIt() throws {
+        let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)]), rows: numbered([10, 46]))
+        let bar = try XCTUnwrap(bars(primitives).first)
+        XCTAssertEqual(bar.rect, ChartRect(x: 3, y: 220 - 28, width: 120, height: 12), "half the first label in, at the bottom of 12, ticks of 4, a gap of 2 and a line")
+        XCTAssertFalse(bar.vertical)
+        XCTAssertEqual(bar.stops.map(\.offset)[0], 10.0 / 60, accuracy: 0.0001)
+        XCTAssertEqual(bar.stops.map(\.offset)[1], 46.0 / 60, accuracy: 0.0001)
+        XCTAssertEqual(bar.stops.map(\.color), defaultGradient)
+        let labels = barLabels(primitives)
+        XCTAssertEqual(labels.map(\.0), ["0", "20", "40", "60"])
+        XCTAssertEqual(labels.map(\.1), [3, 43, 83, 123])
+    }
+
+    func testAColorDomainIsWidenedToWholeStepsOnTheBar() throws {
+        let scale: [String: Any] = ["chartForegroundStyleScale": ["domain": [10, 50]]]
+        let bar = try XCTUnwrap(bars(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([20]))).first)
+        XCTAssertEqual(bar.stops[0].offset, 10.0 / 60, accuracy: 0.0001, "whole steps past the domain's ends, 0...60 as measured")
+        XCTAssertEqual(bar.stops[1].offset, 50.0 / 60, accuracy: 0.0001)
+    }
+
+    func testTheBarAddsNoZeroToTheDatasOwnSpan() throws {
+        // Measured on macOS 27, each span with its labels.
+        for (values, ticks) in [([30, 46], ["30", "35", "40", "45", "50"]), ([100, 110], ["100", "105", "110"]), ([-30, -10], ["-30", "-25", "-20", "-15", "-10"]),
+                                ([-46, -30], ["-50", "-45", "-40", "-35", "-30"]), ([5, 9], ["4", "6", "8", "10"])] as [([Int], [String])] {
+            let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)]), rows: numbered(values))
+            XCTAssertEqual(barLabels(primitives).map(\.0), ticks)
+            XCTAssertEqual(barLabels(primitives).first?.1, 3 * Double(ticks[0].count), "half the first label in, \(values)")
+        }
+    }
+
+    // A bar's labels below the plot, in order along it.
+    private func barLabels(_ primitives: [ChartPrimitive]) -> [(String, Double)] {
+        primitives.compactMap { primitive -> (String, Double)? in
+            if case .text(let text, let position, let alignment, _) = primitive, alignment == ChartPoint(x: 0.5, y: 0), position.y > 200 { return (text, position.x) } else { return nil }
+        }
+    }
+
+    func testTheBarGoesDownASideFromItsLowestValue() throws {
+        let scale: [String: Any] = ["chartLegend": ["position": "trailing"]]
+        let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([0, 20]))
+        let bar = try XCTUnwrap(bars(primitives).first)
+        XCTAssertTrue(bar.vertical)
+        XCTAssertEqual(bar.rect, ChartRect(x: 306 - 12 - 18, y: 5, width: 12, height: 120), "past it ticks, a gap and labels of 12, half a line down")
+        XCTAssertEqual(starts(primitives)["0"]?.y ?? 0, 5, accuracy: 0.001, "the lowest at the top")
+    }
+
+    func testTheBarSitsOverThePlotAtAnOverlay() throws {
+        let scale: [String: Any] = ["chartLegend": ["position": "overlay"]]
+        let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([0, 20]))
+        let bar = try XCTUnwrap(bars(primitives).first)
+        XCTAssertEqual(bar.rect.y, 5 + 8, accuracy: 0.001, "8 inside a plot that starts half a label down")
+        XCTAssertEqual(bar.rect.x + 120 + 6 + 8, plotEnd(primitives), accuracy: 0.001, "8 in, past half its last label of 12")
+    }
+
+    func testADateColorHasABarOverItsOwnSpan() throws {
+        let description: [String: Any] = dated([["type": "PointMark", "x": value("High", "$high"), "y": value("High", "$high"), "foregroundStyle": ["by": value("When", "$when")]]])
+        let primitives = layout(description, rows: [["2026-01-01", "1", "A"], ["2026-07-01", "2", "A"]])
+        let bar = try XCTUnwrap(bars(primitives).first)
+        XCTAssertEqual(bar.stops.map(\.offset), [0, 1], "no 0 and no widening")
+        let ends = primitives.filter { primitive in
+            if case .line(let from, let to, _, _) = primitive { return from.x == to.x && from.y >= bar.rect.y + 12 } else { return false }
+        }
+        XCTAssertEqual(ends.count, 2, "a tick at each end")
+    }
+
+    func testTheBarComesAfterEveryOtherEntry() throws {
+        let columns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "team", ["name": "z", "type": "number"]]
+        let mark = wearing(wearing(plotted, "foregroundStyle", byNumber), "symbol")
+        let primitives = layout(["columns": columns, "content": [["type": "ForEach", "content": [mark]]]],
+                                rows: [["1", "1", "A", "0"], ["2", "2", "B", "20"]], width: 306, height: 220)
+        let bar = try XCTUnwrap(bars(primitives).first)
+        let names = starts(primitives)
+        XCTAssertEqual(names["A"]?.x ?? 0, 13, accuracy: 0.001, "the names first")
+        XCTAssertGreaterThan(bar.rect.x, names["B"]?.x ?? .infinity, "then the bar, in the row it fits")
+        XCTAssertEqual(names["A"]?.y ?? 0, bar.rect.y + 14, accuracy: 0.001, "and they share the middle of a row of 28")
+    }
+
+    func testASizeIsAnAreaInLineWithTheValueOverZeroAndTheHighest() {
+        let found = sides(wearing(plotted, "symbolSize", byNumber), numbered([10, 46, 0]))
+        XCTAssertEqual(found[0], side(ofArea: 1200.0 * 10 / 46), accuracy: 0.001)
+        XCTAssertEqual(found[1], side(ofArea: 1200), accuracy: 0.001)
+        XCTAssertEqual(found[2], 0)
+    }
+
+    func testASizeStartsAtTheLowestWhenThatIsBelowZero() {
+        let found = sides(wearing(plotted, "symbolSize", byNumber), numbered([-12, 0, 24]))
+        XCTAssertEqual(found[0], 0)
+        XCTAssertEqual(found[1], side(ofArea: 400), accuracy: 0.001)
+        XCTAssertEqual(found[2], side(ofArea: 1200), accuracy: 0.001)
+    }
+
+    func testASizeScalesDomainAndRangeAreExactAndNoEndStopsThem() {
+        let scale: [String: Any] = ["chartSymbolSizeScale": ["domain": [10, 50], "range": [20, 200]], "chartLegend": "hidden"]
+        let found = sides(wearing(plotted, "symbolSize", byNumber), numbered([10, 30, 60]), scale)
+        XCTAssertEqual(found[0], side(ofArea: 20), accuracy: 0.001)
+        XCTAssertEqual(found[1], side(ofArea: 110), accuracy: 0.001)
+        XCTAssertEqual(found[2], side(ofArea: 245), accuracy: 0.001)
+    }
+
+    func testACategorySizeTakesItsPlaceAmongTheNames() {
+        let found = sides(wearing(plotted, "symbolSize"), rows(letters(3)))
+        XCTAssertEqual(found[0], 0)
+        XCTAssertEqual(found[1], side(ofArea: 600), accuracy: 0.001)
+        XCTAssertEqual(found[2], side(ofArea: 1200), accuracy: 0.001)
+        XCTAssertEqual(sides(wearing(plotted, "symbolSize"), rows(["A"]))[0], side(ofArea: 600), accuracy: 0.001, "one name is halfway")
+    }
+
+    func testACategoryOutsideASizeDomainIsTheDefaultSize() {
+        let scale: [String: Any] = ["chartSymbolSizeScale": ["domain": ["B", "C"]], "chartLegend": "hidden"]
+        XCTAssertEqual(sides(wearing(plotted, "symbolSize"), rows(letters(3)), scale)[0], side(ofArea: 50), accuracy: 0.001)
+    }
+
+    func testASizeLegendDrawsTheAxissTicksThatHaveAnArea() {
+        let plain = layout(styled([wearing(plotted, "symbolSize", byNumber)]), rows: numbered([10, 46]))
+        XCTAssertEqual(listedNumbers(plain), ["20", "40", "60"], "0 has no area, and a tick past the highest is just larger")
+        XCTAssertEqual(symbols(plain).suffix(1).first?.side ?? 0, side(ofArea: 1200.0 * 60 / 46), accuracy: 0.001)
+        let ranged: [String: Any] = ["chartSymbolSizeScale": ["range": [10, 400]]]
+        let withZero = layout(styled([wearing(plotted, "symbolSize", byNumber)], ranged), rows: numbered([0, 18]))
+        XCTAssertEqual(listedNumbers(withZero), ["0", "5", "10", "15", "20"], "a range that starts above 0 shows it")
+    }
+
+    // Names in a size legend are numbers too: those that sit right of a bubble, below the plot.
+    private func listedNumbers(_ primitives: [ChartPrimitive]) -> [String] {
+        primitives.compactMap { primitive -> (String, Double)? in
+            if case .text(let text, let position, let alignment, _) = primitive, alignment == ChartPoint(x: 0, y: 0.5), position.x < 250 { return (text, position.x) } else { return nil }
+        }.sorted { $0.1 < $1.1 }.map(\.0)
+    }
+
+    func testAnEntryTakesItsCirclesWidthAndItsRowItsHeight() throws {
+        let primitives = layout(styled([wearing(plotted, "symbolSize")]), rows: rows(letters(3)))
+        let found = starts(primitives)
+        XCTAssertEqual(found["A"]?.x ?? 0, 5, accuracy: 0.001, "a name of no area has no circle, but still its gap")
+        let biggest = side(ofArea: 1200)
+        XCTAssertEqual(found["C"]?.y ?? 0, 220 - biggest / 2, accuracy: 0.001, "the row is as high as the largest, and text is in its middle")
+    }
+
+    func testASizeChangesNothingOnALineButALineListsIt() {
+        let data = [["1", "1", "A", "10"], ["2", "2", "A", "20"]]
+        var sized = wearing(line, "symbol", "circle")
+        sized["symbolSize"] = byNumber
+        let primitives = layout(styled([sized]), rows: data)
+        XCTAssertEqual(markedLines(primitives).first?.side ?? 0, 7.98, accuracy: 0.01)
+        XCTAssertGreaterThan(symbols(primitives).count, 0, "the legend's circles")
+    }
+
+    func testABarTakesNoSizeScale() {
+        let bar: [String: Any] = ["type": "BarMark", "x": value("X", "$team"), "y": value("Y", "$y"), "symbolSize": ["by": value("Z", "$z")]]
+        XCTAssertEqual(symbols(layout(styled([bar]), rows: numbered([1, 2]))).count, 0)
+    }
+
+    func testAColorSymbolAndSizeOverOneListShareTheirEntries() {
+        let mark = wearing(wearing(wearing(plotted, "symbolSize"), "symbol"), "foregroundStyle")
+        let found = symbols(layout(styled([mark]), rows: rows(letters(3))))
+        let entries = Array(found.suffix(2))
+        XCTAssertEqual(entries.map(\.shape), [.cross, .triangle], "A has no area, so no symbol")
+        XCTAssertEqual(entries[1].side, side(ofArea: 1200), accuracy: 0.001)
+        XCTAssertEqual(entries[1].ink, .color(ChartLayout.seriesColors[2]))
+    }
+
+    func testASizeOverALinesOwnStyleNamesWidensItsSample() throws {
+        var mark = wearing(line, "lineStyle")
+        mark["symbolSize"] = ["by": value("Team", "$team")]
+        let primitives = layout(styled([mark]), rows: rows(letters(3), perName: 2))
+        let found = starts(primitives)
+        XCTAssertEqual(found["A"]?.x ?? 0, 10 + 5, accuracy: 0.001, "no symbol, and a short sample")
+        XCTAssertEqual(found["B"]?.x ?? 0, 21 + 8 + side(ofArea: 600) + 10 + 5, accuracy: 0.001, "the next column, past a sample of the circle and 10")
+        let circle = try XCTUnwrap(symbols(primitives).last)
+        XCTAssertEqual(circle.shape, .circle)
+        XCTAssertEqual(circle.side, side(ofArea: 1200), accuracy: 0.001)
+    }
+
+    func testASizeFollowsALineStyleInTheLegend() {
+        let columns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "a", "b"]
+        var mark = line
+        mark["lineStyle"] = ["by": value("A", "$a")]
+        mark["symbolSize"] = ["by": value("B", "$b")]
+        let found = starts(layout(["columns": columns, "content": [["type": "ForEach", "content": [mark]]]], rows: [["1", "1", "P", "Q"], ["2", "2", "P", "R"]]))
+        XCTAssertLessThan(found["P"]?.x ?? .infinity, found["Q"]?.x ?? 0)
+    }
+
+    func testASymbolByANumberIsACirclePointAndNoLineSymbolAndNoLegend() {
+        let points = layout(styled([wearing(plotted, "symbol", byNumber)]), rows: numbered([1, 2, 3]))
+        XCTAssertEqual(symbols(points).map(\.shape), [.circle, .circle, .circle])
+        XCTAssertEqual(listed(points), [])
+        let lines = layout(styled([wearing(line, "symbol", byNumber)]), rows: [["1", "1", "A", "1"], ["2", "2", "A", "1"], ["1", "3", "A", "2"], ["2", "4", "A", "2"]])
+        XCTAssertEqual(markedLines(lines).count, 0)
+        XCTAssertEqual(paths(lines).count, 2, "it still splits the line")
+    }
+
+    func testALineStyleByANumberIsAWidthFromNothingToFive() {
+        // Over the data's own ends, so numbers far from 0 and below it draw the same.
+        for (low, middle, high) in [(0, 4, 8), (30, 38, 46), (-30, -20, -10)] {
+            let data = [[low, 1], [low, 2], [middle, 3], [middle, 4], [high, 5], [high, 6]].enumerated().map { [String($0.offset % 2 + 1), String($0.element[1]), "A", String($0.element[0])] }
+            let primitives = layout(styled([wearing(line, "lineStyle", byNumber)]), rows: data)
+            XCTAssertEqual(paths(primitives).map(\.stroke.lineWidth), [2.5, 5], "the lowest is 0 wide and draws nothing")
+            XCTAssertEqual(listed(primitives), [])
+        }
+    }
+
+    func testASingleLineWidthIsHalfway() {
+        let primitives = layout(styled([wearing(line, "lineStyle", byNumber)]), rows: [["1", "1", "A", "7"], ["2", "2", "A", "7"]])
+        XCTAssertEqual(paths(primitives).map(\.stroke.lineWidth), [2.5])
+    }
+
+    func testASingleSizeValueHasNoLegend() {
+        let plain = layout(styled([wearing(plotted, "symbolSize", byNumber)]), rows: numbered([0, 0]))
+        XCTAssertEqual(symbols(plain).map(\.side), [side(ofArea: 600), side(ofArea: 600)], "halfway, and no circles below")
+        let scale: [String: Any] = ["chartSymbolSizeScale": ["domain": [7, 7]]]
+        XCTAssertEqual(symbols(layout(styled([wearing(plotted, "symbolSize", byNumber)], scale), rows: numbered([7]))).count, 1)
+    }
+
+    func testValuesPastAnyScaleStayDrawable() {
+        for values in [[1e308, -1e308], ["nan", 1], ["inf", 1], [0, 0], [1e-320, 2e-320], [0, "5e-324"], ["-5e-324", "5e-324"], ["1.5e-323", "2e-323"]] as [[Any]] {
+            for key in ["foregroundStyle", "symbolSize", "lineStyle"] {
+                for mark in [plotted, line] {
+                    let primitives = layout(styled([wearing(mark, key, byNumber)]), rows: numbered(values))
+                    XCTAssertTrue(primitives.allSatisfy(\.isDrawable), "\(key) \(values)")
+                }
+            }
+        }
+    }
+
+    func testValuesAtTheEndsOfDoublesKeepTheBarAndSafeInks() throws {
+        let primitives = layout(styled([wearing(plotted, "foregroundStyle", byNumber)]), rows: numbered([1e308, -1e308]))
+        XCTAssertEqual(try XCTUnwrap(bars(primitives).first).stops.map(\.offset), [0, 1], "a primitive it cannot draw would be gone")
+        for range in [["red", "green"] as Any, ["gradient": ["red", "green"]]] {
+            for values in [[0, "5e-324"], ["-5e-324", "5e-324"]] as [[Any]] {
+                let scale: [String: Any] = ["chartForegroundStyleScale": ["range": range], "chartLegend": "hidden"]
+                for found in symbols(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered(values))) {
+                    if case .blend(_, let share) = found.ink { XCTAssertEqual(share, 0.5) }
+                }
+            }
+        }
+    }
+
+    func testRoundingCannotPushTheBarsStopsPastItsAxis() throws {
+        // The domain's upper end, worked out again, comes to a hair past the axis's own.
+        let scale: [String: Any] = ["chartForegroundStyleScale": ["domain": [-4.2, -3.9]]]
+        let bar = try XCTUnwrap(bars(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], scale), rows: numbered([-4, -4.1]))).first)
+        XCTAssertEqual(bar.stops.last?.offset, 1)
+        let many: [String: Any] = ["chartForegroundStyleScale": ["domain": [1e15, 1e15 + 1], "range": ["gradient": ["red", "yellow", "green", "blue", "cyan", "orange", "purple"]]]]
+        let stops = try XCTUnwrap(bars(layout(styled([wearing(plotted, "foregroundStyle", byNumber)], many), rows: numbered([1e15]))).first).stops.map(\.offset)
+        XCTAssertEqual(stops, stops.sorted(), "GSK takes them only in order")
+    }
+
+    func testASideLegendTakesTheRowsEveryColumnHolds() {
+        // Measured on macOS 27 at 100 and 110 tall: at 100 three rows fit the first column and not
+        // the second, of 150 and 200.
+        func positions(_ height: Double) -> [String: ChartPoint] {
+            let scale: [String: Any] = ["chartSymbolSizeScale": ["range": [10, 2000]], "chartLegend": ["position": "trailing"]]
+            return starts(layout(styled([wearing(plotted, "symbolSize", byNumber)], scale), rows: numbered([0, 50, 100, 150, 200]), height: height))
+        }
+        let two = positions(100)
+        XCTAssertEqual(two["50"]?.y, two["150"]?.y, "two rows: 50 and 150 are second in their columns")
+        let three = positions(110)
+        XCTAssertEqual(three["50"]?.y, three["200"]?.y, "three rows: 50 and 200 are")
+    }
+
+    func testABarTooTallForAColumnPutsALegendInOneRow() {
+        let scale: [String: Any] = ["chartLegend": ["position": "trailing"]]
+        let columns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "team", ["name": "z", "type": "number"]]
+        let mark = wearing(wearing(plotted, "foregroundStyle", byNumber), "symbol")
+        var description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]]]
+        description.merge(scale) { $1 }
+        let found = starts(layout(description, rows: [["1", "1", "A", "0"], ["2", "2", "B", "20"]], height: 100))
+        XCTAssertEqual(found["A"]?.y, found["B"]?.y, "measured on macOS 27: names side by side, and the bar past them")
+        XCTAssertLessThan(found["A"]?.x ?? .infinity, found["B"]?.x ?? 0)
+    }
+
+    func testASideLegendFillsItsColumnByHeight() {
+        let scale: [String: Any] = ["chartLegend": ["position": "trailing"]]
+        let primitives = layout(styled([wearing(plotted, "symbolSize")], scale), rows: rows(letters(6)), height: 120)
+        let columns = Set(starts(primitives).filter { Double($0.key) == nil }.values.map { ($0.x * 100).rounded() })
+        XCTAssertGreaterThan(columns.count, 1, "circles too tall for one column of 120")
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {

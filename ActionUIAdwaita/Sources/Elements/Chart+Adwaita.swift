@@ -155,7 +155,23 @@ extension Chart: ActionUIAdwaitaRenderer {
             var color = foreground
             color.alpha *= Float(opacity)
             return color
+        case let .blend(colors, share):
+            return blend(colors.map { ColorRGBA.resolve($0, for: widget) }, at: Float(share))
         }
+    }
+
+    // Over premultiplied colors, as GSK's gradients are.
+    private func blend(_ colors: [GdkRGBA], at share: Float) -> GdkRGBA {
+        guard colors.count > 1 else { return colors.first ?? GdkRGBA() }
+        let place = share * Float(colors.count - 1)
+        let index = min(Int(place), colors.count - 2)
+        let part = place - Float(index), from = colors[index], to = colors[index + 1]
+        let alpha = from.alpha + (to.alpha - from.alpha) * part
+        guard alpha > 0 else { return GdkRGBA() }
+        func mixed(_ a: Float, _ b: Float) -> Float {
+            (a * from.alpha + (b * to.alpha - a * from.alpha) * part) / alpha
+        }
+        return GdkRGBA(red: mixed(from.red, to.red), green: mixed(from.green, to.green), blue: mixed(from.blue, to.blue), alpha: alpha)
     }
 
     func draw(_ primitive: ChartPrimitive) {
@@ -199,6 +215,13 @@ extension Chart: ActionUIAdwaitaRenderer {
             let color = rgba(ink)
             var colors = [color, color, color, color]
             gtk_snapshot_append_border(snapshot, &rounded, &widths, &colors)
+        case let .gradientBar(rect, stops, vertical):
+            var bounds = graphene_rect_t(origin: graphene_point_t(x: Float(rect.x), y: Float(rect.y)),
+                                         size: graphene_size_t(width: Float(rect.width), height: Float(rect.height)))
+            var start = bounds.origin
+            var end = vertical ? graphene_point_t(x: start.x, y: start.y + bounds.size.height) : graphene_point_t(x: start.x + bounds.size.width, y: start.y)
+            let colors = stops.map { GskColorStop(offset: Float($0.offset), color: ColorRGBA.resolve($0.color, for: widget)) }
+            gtk_snapshot_append_linear_gradient(snapshot, &bounds, &start, &end, colors, gsize(colors.count))
         }
     }
 

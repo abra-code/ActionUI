@@ -197,6 +197,19 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertGreaterThan(dashed, 10, "the second is not")
     }
 
+    func testANumberColorDrawsAlongItsGradientAndTheBarShowsIt() throws {
+        let chart = ##""chart": {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}, {"name": "z", "type": "number"}], "data": [[1, 5, 0], [9, 5, 20]], "chartForegroundStyleScale": {"range": {"gradient": ["#FF0000", "#0000FF"]}}, "content": [{"type": "ForEach", "content": [{"type": "PointMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "symbolSize": 900, "foregroundStyle": {"by": {"label": "Z", "value": "$z"}}}]}]}"##
+        let image = try pixels(try render(chart))
+        func solid(_ test: ([Int]) -> Bool) -> [(x: Int, y: Int)] {
+            (0..<image.height).flatMap { y in (0..<image.width).filter { image[$0, y][3] > 240 && test(image[$0, y]) }.map { (x: $0, y: y) } }
+        }
+        XCTAssertGreaterThan(solid { $0[0] > 240 && $0[2] < 15 }.count, 400, "the lowest is the first color")
+        XCTAssertGreaterThan(solid { $0[2] > 240 && $0[0] < 15 }.count, 400, "the highest the last")
+        let between = solid { abs($0[0] - $0[2]) < 40 && $0[0] > 90 && $0[1] < 30 }
+        XCTAssertGreaterThan(between.count, 12, "the bar blends them")
+        XCTAssertGreaterThan(between.map(\.y).min() ?? 0, 140, "along the bar below the plot")
+    }
+
     func testALegendDrawsItsDotsInTheSeriesColors() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
         let image = try pixels(try render(chart))
