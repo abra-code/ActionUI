@@ -17,6 +17,31 @@ needs that element.
 - The add-on ships its own verifier schema; documents that use the add-on's element are validated by
   pointing the verifier at the add-on's `Schemas/` directory with `--schema-dir`.
 
+## On Linux
+
+The registration is the same call, `ActionUIRegistry.shared.register(_:as:)`, for a different
+contract: SwiftUI views do not exist there, so an element type conforms to `ActionUIAdwaitaElement`
+instead of `ActionUIViewConstruction`. It shares its spec (`ActionUIElementSpec`: value type, initial
+value and states) with Apple and adds two calls:
+
+- `makeWidget(_:)` creates the element's widget, once per instance, and reads nothing from the model.
+  The element sets its own expansion on the widget (`gtk_widget_set_hexpand`,
+  `gtk_widget_set_vexpand`). Closures it hands to GTK capture the node weakly.
+- `update(_:_:)` makes the widget show the model, through the `RenderNode` it receives: its
+  `properties`, view `model`, `element` and `windowUUID`. It runs again when a value, state or
+  property it read changes, and after `node.setNeedsUpdate()`, for a change the model cannot report
+  (an image that arrived).
+
+Widgets are `OpaquePointer`s, as they are in RichText and AsyncImageCache. ModifierBox applies the
+base View modifiers around the widget, as it does for a built-in element. The contract covers elements
+that display: firing an action from a user's input is not part of it yet.
+
+An add-on's Linux target depends on the `ActionUIStatic` product, not on `ActionUI`, which is the
+shared library for programs in other languages: one process has one Swift runtime, so everything
+written in Swift links into one binary. The `CAdwaita` product gives it GTK's and libadwaita's C API
+at the versions ActionUI supports. Do not depend on a Documentation target there: `Bundle.module`
+needs full Foundation, and with it ICU's data, which the Linux build leaves out.
+
 ## Layout
 
 - **`ActionUIQuickLook/`** - the first add-on: a `QuickLook` element (an embedded in-process

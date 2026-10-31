@@ -98,7 +98,7 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 
 ## Using it from a program
 
-- **Swift:** depend on the ActionUI package. On Linux its `ActionUI` module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents, and the Swift adapter (`ActionUISwiftAdapter`) offers the same calls as on Apple. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`, which carries a second, private Swift runtime and libdispatch (its main queue would not be the program's).
+- **Swift:** depend on the ActionUI package's `ActionUIStatic` product, which links the same `ActionUI` module into the program. That module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents. The Swift adapter (`ActionUISwiftAdapter`), which offers the same calls as on Apple, is a target of the package, for the programs inside it such as the demo; it is not a product on Linux yet. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`, which carries a second, private Swift runtime and libdispatch (its main queue would not be the program's).
 - **C, Python, Node.js, Rust and other languages:** load `libActionUI.so`, which holds the renderer, the C adapter (`ActionUIC.h`) and the application functions (`ActionUIApp.h`), with the same names and signatures as on macOS. Built with the Swift runtime inside it, it needs no Swift installation:
 
   ```sh

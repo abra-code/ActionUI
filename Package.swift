@@ -408,6 +408,11 @@ Package(
     products: [
         // A shared library, so programs in other languages load it and call its C functions.
         .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
+        // The same module linked into what uses it, for add-ons and Swift programs: one process has
+        // one Swift runtime, and an add-on links no ActionUI of its own.
+        .library(name: "ActionUIStatic", targets: ["ActionUI"]),
+        // libadwaita's and GTK's C API, so an add-on sees GtkWidget as ActionUI's module does.
+        .library(name: "CAdwaita", targets: ["CAdwaita"]),
     ],
     targets: [
         // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
@@ -529,14 +534,21 @@ Package(
             exclude: excludingAllBut(["Core"], in: "ActionUITests"),
             sources: ["Core"]
         ),
+        // An element written as an add-on writes one, for the renderer tests: a module of its own,
+        // so what it uses is ActionUI's public contract.
+        .target(
+            name: "ActionUIAdwaitaAddOnFixture",
+            dependencies: ["ActionUI", "CAdwaita"],
+            path: "ActionUIAdwaita/Tests/AddOnFixture"
+        ),
         // The renderer tests. They need a display and skip themselves without one.
         .testTarget(
             name: "ActionUIAdwaitaTests",
-            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer", "ActionUIAdwaitaDemo"],
+            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer", "ActionUIAdwaitaDemo", "ActionUIAdwaitaAddOnFixture"],
             path: "ActionUIAdwaita/Tests",
-            // Programs in other languages that the tests run (the Python host), and the video
-            // VideoPlayer plays.
-            exclude: ["Hosts", "Media"]
+            // Programs in other languages that the tests run (the Python host), the video
+            // VideoPlayer plays, and the add-on fixture, a target of its own.
+            exclude: ["AddOnFixture", "Hosts", "Media"]
         ),
         // The remote server's tests: the codec, the socket server, the shared server and the Python
         // client against it.

@@ -21,9 +21,9 @@ import CAdwaita
 import Observation
 
 @MainActor
-final class RenderNode {
-    let element: any ActionUIElementBase
-    let model: ViewModel
+public final class RenderNode {
+    public let element: any ActionUIElementBase
+    public let model: ViewModel
     let windowModel: WindowModel
     private(set) weak var parent: RenderNode?
     /// Set for a background or overlay view's node (NodeDecorations), whose parent is the element it
@@ -99,7 +99,7 @@ final class RenderNode {
         }
     }
 
-    var windowUUID: String { windowModel.windowUUID }
+    public var windowUUID: String { windowModel.windowUUID }
 
     /// The environment this node inherits: its parent's; a background or overlay view's from its
     /// element (NodeDecorations.environment).
@@ -110,7 +110,7 @@ final class RenderNode {
     }
 
     /// The element's current properties: its view model's store once seeded. A tracked read.
-    var properties: [String: Any] {
+    public var properties: [String: Any] {
         ActionUIRegistry.shared.currentProperties(element: element, model: model)
     }
 
@@ -167,9 +167,25 @@ final class RenderNode {
 
     // MARK: Syncing
 
+    /// Syncs the node again soon, for a change the model cannot report: an image an add-on's element
+    /// asked for has arrived. Does nothing once the node has left the tree, so what holds the node
+    /// may call it after the window closed.
+    public func setNeedsUpdate() {
+        SyncScheduler.shared.markDirty(self)
+    }
+
+    /// Whether this node and every node above it are attached. detach does not reach a template
+    /// row: its container keeps it, not childNodes, and its box's unmap still reports its
+    /// disappearance (NodeAppearance), so it goes out of the tree with the container here.
+    private var isInTree: Bool {
+        guard isAttached else { return false }
+        guard depth > 0 else { return true }
+        return parent?.isInTree ?? false
+    }
+
     /// Makes the widget show the model, and watches what that read.
     func sync() {
-        guard isAttached else { return }
+        guard isInTree else { return }
         let previousEnvironment = environment
         let previousInherited = lastInheritedEnvironment
         var requestedPresentations: Set<NodePresentations.Kind> = []
