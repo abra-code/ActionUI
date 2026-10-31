@@ -1,10 +1,14 @@
-// Helpers/ChartMarkParsing.swift
+// Core/Helpers/Chart/ChartMarkParsing.swift
 //
-// Chart content entries: ForEach, Plot, the marks and their modifiers (see Views/Chart.swift). Each
+// Chart content entries: ForEach, Plot, the marks and their modifiers (see Core/Elements/Chart.swift). Each
 // mark entry holds its Swift initializer's arguments as keys; an argument is a plottable value
 // object or a number in points, and the set of keys must match exactly one initializer.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum ChartMarkKind: String {
     case BarMark, LineMark, PointMark, RuleMark, AreaMark, RectangleMark, SectorMark
@@ -308,9 +312,9 @@ extension ChartDescription {
         var points: [String: Double] = [:]
         for key in argumentKeys {
             guard let raw = entry[key] else { continue }
-            if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
-                points[key] = number.doubleValue
-                cleaned[key] = number
+            if let number = JSONNumber.plain(raw) {
+                points[key] = number
+                cleaned[key] = raw
             } else if let object = raw as? [String: Any] {
                 let selectionAxis: ChartAxis? = ["x", "xStart", "xEnd"].contains(key) ? .horizontal
                     : ["y", "yStart", "yEnd"].contains(key) ? .vertical : nil
@@ -396,10 +400,7 @@ extension ChartDescription {
         func invalid(_ key: String, _ expected: String) {
             logger?.log("Chart: \(role).\(key) must be \(expected); ignoring it", .warning)
         }
-        func number(_ raw: Any?) -> Double? {
-            guard let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() else { return nil }
-            return value.doubleValue
-        }
+        func number(_ raw: Any?) -> Double? { JSONNumber.plain(raw) }
 
         for key in modifierKeys {
             guard let raw = entry[key] else { continue }
@@ -623,9 +624,9 @@ extension ChartDescription {
             }
         }
         if let raw = object["spacing"] {
-            if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
-                spec.spacing = number.doubleValue
-                cleaned["spacing"] = number
+            if let number = JSONNumber.plain(raw) {
+                spec.spacing = number
+                cleaned["spacing"] = raw
             } else {
                 logger?.log("Chart: \(role).spacing must be a number; ignoring it", .warning)
             }
@@ -653,12 +654,10 @@ extension ChartDescription {
 
     // Through the document decoder, which reads every subview key an element may have.
     private static func decodeElement(_ object: [String: Any], logger: (any ActionUILogger)?) -> ActionUIElement? {
-        // A JSON null parsed by ActionUIJSON is ActionUIJSONNull, which JSONSerialization needs as NSNull.
-        let object = FoundationBridge.foundation(object) as? [String: Any] ?? object
-        guard JSONSerialization.isValidJSONObject(object), let data = try? JSONSerialization.data(withJSONObject: object) else {
+        guard let json = JSONValue(any: ActionUIRendererHooks.nativeValue(object)), let text = try? json.text() else {
             return nil
         }
-        return try? JSONDecoder(logger: logger ?? SilentChartLogger.shared).decode(ActionUIElement.self, from: data)
+        return try? JSONDecoder(logger: logger ?? SilentChartLogger.shared).decode(ActionUIElement.self, from: Data(text.utf8))
     }
 
     // Every string in an annotation's element, its children's included, with "$name" turned
@@ -703,18 +702,18 @@ extension ChartDescription {
     // MARK: - Small parsers
 
     private static func parseDimension(_ raw: Any) -> ChartDimension? {
-        if let value = raw as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() {
-            return .fixed(value.doubleValue)
+        if let value = JSONNumber.plain(raw) {
+            return .fixed(value)
         }
         if let name = raw as? String {
             return name == "automatic" ? .automatic : nil
         }
         guard let object = raw as? [String: Any], object.count == 1, let key = object.keys.first,
-              let value = object[key] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() else { return nil }
+              let value = JSONNumber.plain(object[key]) else { return nil }
         switch key {
-        case "ratio": return .ratio(value.doubleValue)
-        case "inset": return .inset(value.doubleValue)
-        case "fixed": return .fixed(value.doubleValue)
+        case "ratio": return .ratio(value)
+        case "inset": return .inset(value)
+        case "fixed": return .fixed(value)
         default: return nil
         }
     }
@@ -733,11 +732,11 @@ extension ChartDescription {
             }
         }
         guard let object = raw as? [String: Any], object.count == 1 else { return nil }
-        if let cardinal = object["cardinal"] as? [String: Any], let tension = cardinal["tension"] as? NSNumber {
-            return .cardinal(tension: tension.doubleValue)
+        if let cardinal = object["cardinal"] as? [String: Any], let tension = JSONNumber.numberOrBoolean(cardinal["tension"]) {
+            return .cardinal(tension: tension)
         }
-        if let catmullRom = object["catmullRom"] as? [String: Any], let alpha = catmullRom["alpha"] as? NSNumber {
-            return .catmullRom(alpha: alpha.doubleValue)
+        if let catmullRom = object["catmullRom"] as? [String: Any], let alpha = JSONNumber.numberOrBoolean(catmullRom["alpha"]) {
+            return .catmullRom(alpha: alpha)
         }
         return nil
     }
@@ -757,7 +756,7 @@ extension ChartDescription {
             lineCap: (object["lineCap"] as? String).flatMap(ChartLineCap.init(rawValue:)) ?? .butt,
             lineJoin: (object["lineJoin"] as? String).flatMap(ChartLineJoin.init(rawValue:)) ?? .miter,
             miterLimit: object.double(forKey: "miterLimit") ?? 10,
-            dash: (object["dash"] as? [Any])?.map { ($0 as? NSNumber)?.doubleValue ?? 0 } ?? [],
+            dash: (object["dash"] as? [Any])?.map { JSONNumber.numberOrBoolean($0) ?? 0 } ?? [],
             dashPhase: object.double(forKey: "dashPhase") ?? 0
         )
     }
@@ -785,27 +784,18 @@ extension ChartDescription {
         return resolved.found ? .perRow(resolved.text) : .literal(text)
     }
 
-    private nonisolated static let referencePattern = try! NSRegularExpression(pattern: #"\$([A-Za-z_][A-Za-z0-9_]*|[0-9]+)"#)
+    private nonisolated(unsafe) static let referencePattern = /\$([A-Za-z_][A-Za-z0-9_]*|[0-9]+)/.matchingSemantics(.unicodeScalar)
 
     // `text` with its "$name" references as "$N"; `found` when it refers to any column.
     private static func resolvingNames(_ text: String, columns: [Column]) -> (text: String, found: Bool) {
         guard text.contains("$") else { return (text, false) }
-        let ns = text as NSString
-        var result = ""
-        var cursor = 0
         var found = false
-        for match in referencePattern.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
-            let token = ns.substring(with: match.range)
-            result += ns.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
-            if let index = columnIndex(token, columns: columns) {
-                result += "$\(index + 1)"
-                found = true
-            } else {
-                result += token
-            }
-            cursor = match.range.location + match.range.length
+        let result = text.replacing(referencePattern) { match -> String in
+            let token = String(match.output.0)
+            guard let index = columnIndex(token, columns: columns) else { return token }
+            found = true
+            return "$\(index + 1)"
         }
-        result += ns.substring(from: cursor)
         return (result, found)
     }
 }

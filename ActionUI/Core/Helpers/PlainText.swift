@@ -9,11 +9,22 @@ enum PlainText {
     /// `.whitespacesAndNewlines` drops (isWhite). Compared as Unicode scalars, so a carriage return
     /// is removed even where it forms one Character with a following line feed.
     static func trimmed<Text: StringProtocol>(_ text: Text) -> String {
+        trimming(text, isWhite)
+    }
+
+    /// `text` without spaces at its start and its end, the same characters Foundation's
+    /// `.whitespaces` drops: the Unicode space separators, a tab and U+200B ZERO WIDTH SPACE. Line
+    /// breaks stay.
+    static func trimmedSpaces<Text: StringProtocol>(_ text: Text) -> String {
+        trimming(text) { $0.properties.generalCategory == .spaceSeparator || $0 == "\t" || $0 == "\u{200B}" }
+    }
+
+    private static func trimming<Text: StringProtocol>(_ text: Text, _ isDropped: (Unicode.Scalar) -> Bool) -> String {
         var scalars = text.unicodeScalars[...]
-        while let first = scalars.first, isWhite(first) {
+        while let first = scalars.first, isDropped(first) {
             scalars = scalars.dropFirst()
         }
-        while let last = scalars.last, isWhite(last) {
+        while let last = scalars.last, isDropped(last) {
             scalars = scalars.dropLast()
         }
         return String(String.UnicodeScalarView(scalars))

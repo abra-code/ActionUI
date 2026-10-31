@@ -145,6 +145,18 @@ final class ChartAnnotationTests: XCTestCase {
         XCTAssertEqual((cleanedContent?["properties"] as? [String: Any])?["text"] as? String, "$high")
     }
 
+    // From JSONSerialization, as an Objective-C host's description arrives: the element's numbers
+    // are NSNumber, which JSONValue reads only through ActionUIRendererHooks.nativeValue.
+    func testAnAnnotationMadeOfFoundationObjectsDecodes() throws {
+        let json = #"{"type": "Text", "properties": {"text": "Goal", "opacity": 0.5, "hidden": false}}"#
+        let content = try JSONSerialization.jsonObject(with: Data(json.utf8))
+        let parsed = ChartDescription.parse(bars(annotation: ["content": content]), logger: logger)
+        XCTAssertEqual(logger.warnings, [])
+        let spec = try XCTUnwrap(annotations(of: marks(of: parsed.spec).first).first)
+        XCTAssertEqual(spec.content.properties["opacity"] as? Double, 0.5)
+        XCTAssertEqual(spec.content.properties["hidden"] as? Bool, false)
+    }
+
     func testNamesResolveToPositionsInsideAForEachOnly() throws {
         let stack: [String: Any] = ["type": "VStack", "properties": ["spacing": 2],
                                     "children": [text("$day: $high units"), text("$nothing and $2")]]

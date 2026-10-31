@@ -1,9 +1,7 @@
 // Common/ActionUIRegistry+SwiftUI.swift
 /*
  The SwiftUI renderers of the built-in element types, keyed like ActionUIRegistry.builtInSpecs
- (Core/Elements/BuiltInElements.swift), and the built-in elements that are still Apple-only: their
- spec needs SwiftUI types or helpers, so one type is both their spec and their renderer. Also the
- SwiftUI side of ActionUIRendererHooks.
+ (Core/Elements/BuiltInElements.swift), and the SwiftUI side of ActionUIRendererHooks.
 */
 
 import SwiftUI
@@ -77,10 +75,6 @@ extension ActionUIRegistry {
         "ZStack": ZStack.self,
     ]
 
-    static let appleOnlySpecs: [(name: String, type: any ActionUIElementSpec.Type)] = [
-        ("Chart", Chart.self),
-    ]
-
     // ActionUIRendererHooks.structuralMutation for SwiftUI: an animated insert or removal runs
     // inside withAnimation, so the element's .transition() plays.
     static func swiftUIStructuralMutation(animated: Bool, body: () -> Void) {
@@ -104,12 +98,9 @@ extension ActionUIRegistry {
         set { Self.swiftUIRenderers = newValue }
     }
 
-    // The SwiftUI built-ins, after loadBuiltIns has filled `specs` with the portable ones: the
-    // Apple-only specs, the renderer table, and the SwiftUI hooks.
+    // The SwiftUI built-ins, after loadBuiltIns has filled `specs`: the renderer table and the
+    // SwiftUI hooks.
     internal func loadRendererBuiltIns() {
-        specs.merge(Self.appleOnlySpecs.map { ($0.name, $0.type) }) { _, _ in
-            preconditionFailure("An Apple-only element type is also a portable built-in")
-        }
         renderers = Self.builtInSwiftUIRenderers
         ActionUIRendererHooks.structuralMutation = Self.swiftUIStructuralMutation
         ActionUIRendererHooks.markdown = { (try? AttributedString(markdown: $0)) ?? AttributedString($0) }
@@ -117,6 +108,7 @@ extension ActionUIRegistry {
         ActionUIRendererHooks.hostValue = { value in
             (value as? SwiftUI.Color).flatMap(ColorHelper.hostSpec(for:)) ?? value
         }
+        ActionUIRendererHooks.nativeValue = { FoundationBridge.native($0) }
         Text.parseStringValue = Text.swiftUIParseStringValue
         Text.serializeValueToString = Text.swiftUISerializeValueToString
         TextEditor.parseStringValue = TextEditor.swiftUIParseStringValue

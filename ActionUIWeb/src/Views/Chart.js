@@ -1,5 +1,5 @@
 // Chart.js — Chart element on the web: a "Chart Unavailable" placeholder.
-// Apple draws the element with Swift Charts (ActionUI/Views/Chart.swift); the web
+// Apple draws the element with Swift Charts (ActionUI/Views/Chart+SwiftUI.swift); the web
 // has no chart renderer, so it draws the ContentUnavailableView look in the chart's
 // place, sized by the element's own frame and padding, and logs one warning per page.
 // Android does the same (ActionUIAndroid Views/Chart.kt).

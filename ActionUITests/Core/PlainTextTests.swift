@@ -37,6 +37,26 @@ final class PlainTextTests: XCTestCase {
         XCTAssertEqual(PlainText.trimmed("  ab  ".dropFirst()), "ab", "A Substring works too")
     }
 
+    // MARK: - trimmedSpaces
+
+    func testTrimmedSpacesMatchesFoundationForEveryBasicPlaneScalar() {
+        var mismatches: [String] = []
+        for code in UInt32(0)...0xFFFF {
+            guard let scalar = Unicode.Scalar(code) else { continue }
+            let s = String(scalar)
+            let text = s + s + "a" + s + "b" + s
+            if PlainText.trimmedSpaces(text) != text.trimmingCharacters(in: .whitespaces) {
+                mismatches.append(String(code, radix: 16))
+            }
+        }
+        XCTAssertEqual(mismatches, [], "Scalars PlainText.trimmedSpaces treats differently from .whitespaces")
+    }
+
+    func testTrimmedSpacesKeepsLineBreaks() {
+        XCTAssertEqual(PlainText.trimmedSpaces(" \t12\u{A0} "), "12")
+        XCTAssertEqual(PlainText.trimmedSpaces("12\n"), "12\n")
+    }
+
     // MARK: - zeroPadded
 
     func testZeroPaddedMatchesStringFormat() {

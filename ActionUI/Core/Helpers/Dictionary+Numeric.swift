@@ -72,6 +72,50 @@ enum JSONNumber {
             return nil
         }
     }
+
+    /// The value as a Double when it is a number and not a boolean. On Apple, JSON true and false
+    /// can arrive as an NSNumber, which casts to Int and Double, so only its CF type tells them apart.
+    static func plain(_ value: Any?) -> Double? {
+#if canImport(FoundationEssentials)
+        // Every integer and floating-point type, as an NSNumber takes them on Apple.
+        if let number = value as? any BinaryInteger {
+            return Double(number)
+        }
+        if let number = value as? any BinaryFloatingPoint {
+            return Double(number)
+        }
+        return nil
+#else
+        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else {
+            return nil
+        }
+        return number.doubleValue
+#endif
+    }
+
+    /// The value as a Double when it is a number or a boolean (0 or 1), as an NSNumber reads either.
+    static func numberOrBoolean(_ value: Any?) -> Double? {
+#if canImport(FoundationEssentials)
+        if let flag = value as? Bool {
+            return flag ? 1 : 0
+        }
+        return plain(value)
+#else
+        return (value as? NSNumber)?.doubleValue
+#endif
+    }
+
+    /// Whether the value is a boolean: a Bool, or on Apple a boolean NSNumber.
+    static func isBoolean(_ value: Any?) -> Bool {
+#if canImport(FoundationEssentials)
+        return value is Bool
+#else
+        guard let number = value as? NSNumber else {
+            return false
+        }
+        return CFGetTypeID(number) == CFBooleanGetTypeID()
+#endif
+    }
 }
 
 extension [String: Any] {

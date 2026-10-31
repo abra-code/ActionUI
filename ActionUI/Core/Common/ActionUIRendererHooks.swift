@@ -29,4 +29,8 @@ enum ActionUIRendererHooks {
     /// A value a host passes to setElementValue, made into one the model stores: a renderer's own
     /// color type into a ColorSpec, say. The default keeps the value.
     static var hostValue: (Any) -> Any = { $0 }
+
+    /// A value from a host with every container inside it made of Core's Swift-native values, as
+    /// JSONValue reads them. The default keeps the value: only Apple has Foundation objects to convert.
+    static var nativeValue: (Any) -> Any = { $0 }
 }

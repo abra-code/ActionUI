@@ -44,7 +44,7 @@ final class ActionUIRegistryTablesTests: XCTestCase {
     }
 
     func testEachBuiltInNameIsListedOnceAndNamesItsType() {
-        let listed = ActionUIRegistry.builtInSpecs + ActionUIRegistry.appleOnlySpecs
+        let listed = ActionUIRegistry.builtInSpecs
         XCTAssertEqual(listed.count, Set(listed.map(\.name)).count, "a name is listed twice")
         for (name, type) in listed {
             XCTAssertEqual(String(describing: type), name)

@@ -1,11 +1,15 @@
-// Helpers/ChartDescription.swift
+// Core/Helpers/Chart/ChartDescription.swift
 //
-// Parses a Chart element's `chart` description (see Views/Chart.swift) into a typed ChartSpec.
+// Parses a Chart element's `chart` description (see Core/Elements/Chart.swift) into a typed ChartSpec.
 // The same parse serves the Chart element's store, which keeps the cleaned JSON and logs what it
 // dropped (on load, and when "chart" is set), and the renderer, which re-parses the stored JSON
 // without a logger. Cleaning is idempotent: parsing the cleaned JSON again drops nothing.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum ChartColumnType: String {
     case string, number, integer, date
@@ -297,9 +301,17 @@ enum ChartDescription {
 
     static func isDataRow(_ row: Any) -> Bool {
         guard let cells = row as? [Any] else { return false }
-        // JSON null is ActionUIJSONNull when the description was parsed by ActionUIJSON
-        // (insertElement(json:), the adapters), NSNull from JSONSerialization.
-        return cells.allSatisfy { $0 is String || $0 is NSNumber || $0 is NSNull || $0 is ActionUIJSONNull }
+        return cells.allSatisfy { $0 is String || JSONNumber.plain($0) != nil || JSONNumber.isBoolean($0) || isNull($0) }
+    }
+
+    // JSON null is ActionUIJSONNull when the description was parsed by ActionUIJSON
+    // (insertElement(json:), the adapters), NSNull from JSONSerialization on Apple.
+    private static func isNull(_ cell: Any) -> Bool {
+#if canImport(FoundationEssentials)
+        return cell is ActionUIJSONNull
+#else
+        return cell is ActionUIJSONNull || cell is NSNull
+#endif
     }
 
     /// Turns inline `data` rows into row strings, by one rule on every platform: integers
@@ -312,24 +324,22 @@ enum ChartDescription {
     }
 
     static func cellString(_ cell: Any) -> String {
-        switch cell {
-        case let string as String:
+        if let string = cell as? String {
             return string
-        case let number as NSNumber:
-            if CFGetTypeID(number) == CFBooleanGetTypeID() {
-                return number.boolValue ? "true" : "false"
-            }
-            let value = number.doubleValue
-            if value == 0 {
-                return "0"
-            }
-            if value.rounded() == value, abs(value) < 9_007_199_254_740_992 {
-                return String(Int64(value))
-            }
-            return String(value)
-        default:
+        }
+        if JSONNumber.isBoolean(cell) {
+            return cell as? Bool == true ? "true" : "false"
+        }
+        guard let value = JSONNumber.plain(cell) else {
             return ""
         }
+        if value == 0 {
+            return "0"
+        }
+        if value.rounded() == value, abs(value) < 9_007_199_254_740_992 {
+            return String(Int64(value))
+        }
+        return String(value)
     }
 
     // MARK: - Plottable values (marks and their modifiers are in ChartMarkParsing.swift)
@@ -399,16 +409,16 @@ enum ChartDescription {
         }
 
         // A literal.
-        if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
-            cleaned["value"] = number
+        if let number = JSONNumber.plain(raw) {
+            cleaned["value"] = raw
             if declaredType == .integer {
-                guard let whole = Int(exactly: number.doubleValue) else {
+                guard let whole = Int(exactly: number) else {
                     logger?.log("Chart: \(role) value \(number) is not a whole number in Int's range but the type is integer; ignoring the mark", .warning)
                     return nil
                 }
                 return (ChartPlottable(label: label, source: .literal(.integer(whole)), type: .integer, unit: nil), cleaned)
             }
-            return (ChartPlottable(label: label, source: .literal(.number(number.doubleValue)), type: .number, unit: nil), cleaned)
+            return (ChartPlottable(label: label, source: .literal(.number(number)), type: .number, unit: nil), cleaned)
         }
         if let string = raw as? String {
             cleaned["value"] = string
@@ -587,7 +597,7 @@ enum ChartDescription {
             for name in object.keys where name != "length" {
                 logger?.log("Chart: \(key).\(name) is not supported; ignoring it", .warning)
             }
-            let number = (object["length"] as? NSNumber).flatMap { CFGetTypeID($0) == CFBooleanGetTypeID() ? nil : $0.doubleValue }
+            let number = JSONNumber.plain(object["length"])
             let length: ChartVisibleLength?
             switch (type, number) {
             case (.string, let value?) where value >= 1 && value == value.rounded() && value <= Double(Int32.max):
@@ -755,9 +765,9 @@ enum ChartDescription {
                     spec.labelAlignment = parsed
                     cleanedLabel["alignment"] = alignment
                 }
-                if let spacing = object["spacing"] as? NSNumber, CFGetTypeID(spacing) != CFBooleanGetTypeID() {
-                    spec.labelSpacing = spacing.doubleValue
-                    cleanedLabel["spacing"] = spacing
+                if let spacing = JSONNumber.plain(object["spacing"]) {
+                    spec.labelSpacing = spacing
+                    cleanedLabel["spacing"] = object["spacing"]
                 }
                 for key in object.keys where cleanedLabel[key] == nil {
                     logger?.log("Chart: '\(key)' in \(labelKey) is not supported or not valid; ignoring it", .warning)
@@ -850,10 +860,9 @@ enum ChartDescription {
         let symbolSize = scale("chartSymbolSizeScale", byType: styleType(content) { modifier in
             if case .symbolSizeBy(let value) = modifier { return value } else { return nil }
         }, rangeForms: "two numbers 0 or more, the smallest and largest symbol area") { raw -> ClosedRange<Double>? in
-            guard let items = raw as? [Any], items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
-                  CFGetTypeID(low) != CFBooleanGetTypeID(), CFGetTypeID(high) != CFBooleanGetTypeID(),
-                  low.doubleValue >= 0, low.doubleValue <= high.doubleValue else { return nil }
-            return low.doubleValue...high.doubleValue
+            guard let items = raw as? [Any], items.count == 2, let low = JSONNumber.plain(items[0]), let high = JSONNumber.plain(items[1]),
+                  low >= 0, low <= high else { return nil }
+            return low...high
         }
         styles.symbolSizeDomain = symbolSize.domain ?? .automatic()
         styles.symbolSizeRange = symbolSize.range
@@ -862,19 +871,19 @@ enum ChartDescription {
 
     private static func parseRange(_ value: Any) -> ChartPositionRange? {
         if let object = value as? [String: Any] {
-            if object.count == 1, let padding = object["padding"] as? NSNumber {
-                return .plotDimension(startPadding: padding.doubleValue, endPadding: padding.doubleValue)
+            if object.count == 1, let padding = JSONNumber.numberOrBoolean(object["padding"]) {
+                return .plotDimension(startPadding: padding, endPadding: padding)
             }
             let keys = Set(object.keys)
             guard !keys.isEmpty, keys.isSubset(of: ["startPadding", "endPadding"]) else { return nil }
-            let start = (object["startPadding"] as? NSNumber)?.doubleValue
-            let end = (object["endPadding"] as? NSNumber)?.doubleValue
+            let start = JSONNumber.numberOrBoolean(object["startPadding"])
+            let end = JSONNumber.numberOrBoolean(object["endPadding"])
             if (object["startPadding"] != nil && start == nil) || (object["endPadding"] != nil && end == nil) { return nil }
             return .plotDimension(startPadding: start ?? 0, endPadding: end ?? 0)
         }
-        if let items = value as? [Any], items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
-           low.doubleValue <= high.doubleValue {
-            return .points(low.doubleValue...high.doubleValue)
+        if let items = value as? [Any], items.count == 2, let low = JSONNumber.numberOrBoolean(items[0]),
+           let high = JSONNumber.numberOrBoolean(items[1]), low <= high {
+            return .points(low...high)
         }
         return nil
     }
@@ -892,11 +901,11 @@ enum ChartDescription {
             }
         }
         if let object = value as? [String: Any], object.count == 1 {
-            if let power = object["power"] as? [String: Any], let exponent = power["exponent"] as? NSNumber {
-                return .power(exponent: exponent.doubleValue)
+            if let power = object["power"] as? [String: Any], let exponent = JSONNumber.numberOrBoolean(power["exponent"]) {
+                return .power(exponent: exponent)
             }
-            if let log = object["symmetricLog"] as? [String: Any], let slope = log["slopeAtZero"] as? NSNumber {
-                return .symmetricLog(slopeAtZero: slope.doubleValue)
+            if let log = object["symmetricLog"] as? [String: Any], let slope = JSONNumber.numberOrBoolean(log["slopeAtZero"]) {
+                return .symmetricLog(slopeAtZero: slope)
             }
         }
         return nil
@@ -918,7 +927,7 @@ enum ChartDescription {
                 return "\(name) does not apply to an axis of dates"
             }
             // A power of 0 always fails; a negative power, like log, fails at 0.
-            let exponent = (((raw as? [String: Any])?["power"] as? [String: Any])?["exponent"] as? NSNumber)?.doubleValue ?? 1
+            let exponent = JSONNumber.numberOrBoolean(((raw as? [String: Any])?["power"] as? [String: Any])?["exponent"]) ?? 1
             if exponent == 0 {
                 return "power needs a nonzero exponent"
             }
@@ -940,10 +949,8 @@ enum ChartDescription {
         guard let items = value as? [Any] else { return nil }
         let family = axisType.map(family)
         if family == nil || family == .numeric,
-           items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
-           CFGetTypeID(low) != CFBooleanGetTypeID(), CFGetTypeID(high) != CFBooleanGetTypeID(),
-           low.doubleValue <= high.doubleValue {
-            return .numbers(low.doubleValue...high.doubleValue)
+           items.count == 2, let low = JSONNumber.plain(items[0]), let high = JSONNumber.plain(items[1]), low <= high {
+            return .numbers(low...high)
         }
         guard let strings = items as? [String] else { return nil }
         if family == .date {
@@ -975,8 +982,9 @@ enum ChartDescription {
     }
 
     static func isIdentifier(_ name: String) -> Bool {
-        guard let first = name.unicodeScalars.first, first == "_" || (first.isASCII && CharacterSet.letters.contains(first)) else { return false }
-        return name.unicodeScalars.allSatisfy { $0 == "_" || ($0.isASCII && CharacterSet.alphanumerics.contains($0)) }
+        func isLetter(_ scalar: Unicode.Scalar) -> Bool { ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar) }
+        guard let first = name.unicodeScalars.first, first == "_" || isLetter(first) else { return false }
+        return name.unicodeScalars.allSatisfy { $0 == "_" || isLetter($0) || ("0"..."9").contains($0) }
     }
 
     // "$N" (1-based) or "$name"; nil when it is neither or names no column.

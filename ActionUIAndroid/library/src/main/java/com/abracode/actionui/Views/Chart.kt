@@ -14,7 +14,7 @@ import kotlinx.serialization.json.put
 
 /**
  * `Chart` on Android: a "Chart Unavailable" placeholder. Apple draws the element
- * with Swift Charts (`ActionUI/Views/Chart.swift`); Android has no chart renderer,
+ * with Swift Charts (`ActionUI/Views/Chart+SwiftUI.swift`); Android has no chart renderer,
  * so it draws the [ContentUnavailableView] look in the chart's place, sized by the
  * element's own frame and padding, and logs one warning per process.
  *

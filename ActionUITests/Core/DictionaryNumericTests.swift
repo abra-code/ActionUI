@@ -220,4 +220,46 @@ final class DictionaryNumericTests: XCTestCase {
         XCTAssertNil(JSONNumber.int(4.5))
         XCTAssertNil(JSONNumber.int(nil))
     }
+
+    func testPlainIsANumberThatIsNeitherABooleanNorText() {
+        XCTAssertEqual(JSONNumber.plain(3), 3)
+        XCTAssertEqual(JSONNumber.plain(2.5), 2.5)
+        XCTAssertEqual(JSONNumber.plain(Float(0.5)), 0.5)
+        XCTAssertEqual(JSONNumber.plain(Int64(7)), 7)
+        XCTAssertEqual(JSONNumber.plain(UInt(8)), 8)
+        XCTAssertNil(JSONNumber.plain(true))
+        XCTAssertNil(JSONNumber.plain("inf"), "unlike JSONNumber.double")
+        XCTAssertNil(JSONNumber.plain("1"))
+        XCTAssertNil(JSONNumber.plain(nil))
+        XCTAssertNil(JSONNumber.plain([1]))
+    }
+
+    // Each of these bridges to NSNumber on Apple, so a Swift host on any platform can pass one.
+    func testPlainReadsEveryIntegerWidth() {
+        XCTAssertEqual(JSONNumber.plain(Int8(-3)), -3)
+        XCTAssertEqual(JSONNumber.plain(Int16(-3)), -3)
+        XCTAssertEqual(JSONNumber.plain(Int32(-3)), -3)
+        XCTAssertEqual(JSONNumber.plain(UInt8(3)), 3)
+        XCTAssertEqual(JSONNumber.plain(UInt16(3)), 3)
+        XCTAssertEqual(JSONNumber.plain(UInt32(3)), 3)
+        XCTAssertEqual(JSONNumber.plain(UInt64(3)), 3)
+        XCTAssertEqual(JSONNumber.numberOrBoolean(UInt8(3)), 3)
+    }
+
+    func testNumberOrBooleanReadsABooleanAsOneOrZero() {
+        XCTAssertEqual(JSONNumber.numberOrBoolean(true), 1)
+        XCTAssertEqual(JSONNumber.numberOrBoolean(false), 0)
+        XCTAssertEqual(JSONNumber.numberOrBoolean(2.5), 2.5)
+        XCTAssertNil(JSONNumber.numberOrBoolean("inf"))
+        XCTAssertNil(JSONNumber.numberOrBoolean(nil))
+    }
+
+    func testIsBoolean() {
+        XCTAssertTrue(JSONNumber.isBoolean(true))
+        XCTAssertTrue(JSONNumber.isBoolean(false))
+        XCTAssertFalse(JSONNumber.isBoolean(1))
+        XCTAssertFalse(JSONNumber.isBoolean(0.0))
+        XCTAssertFalse(JSONNumber.isBoolean("true"))
+        XCTAssertFalse(JSONNumber.isBoolean(nil))
+    }
 }
