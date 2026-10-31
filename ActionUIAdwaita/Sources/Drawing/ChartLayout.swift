@@ -99,7 +99,11 @@
    opaque, and stacked areas stack as bars do, each kind on its own. A start and end on an axis of
    categories run from edge to edge, as a bar's do.
 
- Bars, rectangles, points, rules, lines and areas draw here; other marks still count on the axes.
+ - Sectors share one circle in the middle of the plot, as wide as its short side, each the share of
+   the sum its size makes, in order from the top, negatives first with the last of them leading.
+   Outer radii count from that circle and stop at it,
+   and inner ones count from the outer. A chart with sectors has no axes, even when asked, and a zero
+   draws nothing but keeps its color and its legend entry (the shape is ChartSectors').
 */
 
 #if canImport(FoundationEssentials)
@@ -623,12 +627,13 @@ struct ChartLayout {
         let stacks = stacks()
         let extents = extents(stacks)
         let lineHeight = metrics.size("0").height
+        let hasSectors = marks.instances.contains { $0.mark.kind == .SectorMark }
 
         // The y labels' width sets the plot's width, which sets the x ticks; the height is known
         // first. An x axis's kind and edges decide the room around the plot.
-        let hasX = !axis(extents.x, spec.x, length: 0).isEmpty
+        let hasX = !hasSectors && !axis(extents.x, spec.x, length: 0).isEmpty
         let unplacedY = axis(extents.y, spec.y, length: 0)
-        let hasY = !unplacedY.isEmpty
+        let hasY = !hasSectors && !unplacedY.isEmpty
         var yBands = false
         if case .bands = unplacedY.scale.kind { yBands = true }
         let xRows = hasX ? labelEdges(spec.x, isX: true) : []
@@ -650,7 +655,7 @@ struct ChartLayout {
         let bottom = xLabelsBottom + titleRoom(.bottom) + (legend?.room(.bottom) ?? 0)
         let plotHeight = max(height - top - bottom, 1)
         var yAxis = axis(extents.y, spec.y, length: plotHeight, pointsPerTick: Self.pointsPerYDateTick)
-        let yGroups = groups(spec.y, yAxis, isX: false)
+        let yGroups = hasSectors ? [] : groups(spec.y, yAxis, isX: false)
         func room(_ edge: ChartAxisMarkPosition) -> Double {
             // Labels of bands sit in the plot and take none.
             let labeled = yBands ? [] : yGroups.filter { $0.edge == edge && $0.label != nil }
@@ -662,7 +667,7 @@ struct ChartLayout {
         let trailing = yLabelsTrailing + titleRoom(.trailing) + legendTrailing
         let plotWidth = max(width - leading - trailing, 1)
         var xAxis = axis(extents.x, spec.x, length: plotWidth)
-        let xGroups = groups(spec.x, xAxis, isX: true)
+        let xGroups = hasSectors ? [] : groups(spec.x, xAxis, isX: true)
 
         let style = PlotStyle(spec.plotStyle)
         let frame = style.framed(ChartRect(x: leading, y: top, width: plotWidth, height: plotHeight))
@@ -1378,6 +1383,7 @@ struct ChartLayout {
 
     private func appendMarks(_ stacks: [Int: Stacked], _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect,
                              bandLabelRow: Double, into primitives: inout [ChartPrimitive]) {
+        let angles = sectorAngles()
         var joined: [JoinedMarks: [Int]] = [:]
         for (index, instance) in marks.instances.enumerated() where instance.mark.kind == .LineMark || instance.mark.kind == .AreaMark {
             joined[JoinedMarks(kind: instance.mark.kind, series: instance.seriesKey), default: []].append(index)
@@ -1426,7 +1432,12 @@ struct ChartLayout {
                     primitives.append(primitive)
                 }
             case .SectorMark:
-                break
+                if let angle = angles[index] {
+                    let outline = ChartSectors.outline(sector(instance, angle, plot))
+                    if !outline.isEmpty {
+                        primitives.append(.fill(outline, ink: ink))
+                    }
+                }
             }
         }
     }
@@ -1504,6 +1515,58 @@ struct ChartLayout {
     private func moved(_ rect: ChartRect, by edges: MarkEdges) -> ChartRect {
         let width = rect.width + edges.xEnd - edges.xStart, height = rect.height + edges.yEnd - edges.yStart
         return ChartRect(x: rect.x + edges.xStart + min(width, 0), y: rect.y + edges.yStart + min(height, 0), width: abs(width), height: abs(height))
+    }
+
+    // Each sector's start and end, clockwise from the top. Values stack as bars do, out from 0 on
+    // each side, and the whole span runs from the top, so negatives come first, the last of them
+    // first (measured on macOS 27). Each is first measured against the largest, so a sum of large
+    // values stays finite.
+    private func sectorAngles() -> [Int: (start: Double, end: Double)] {
+        var values: [(index: Int, value: Double)] = []
+        for (index, instance) in marks.instances.enumerated() where instance.mark.kind == .SectorMark {
+            if let value = number(instance.values["angle"]), value.isFinite, value != 0 {
+                values.append((index, value))
+            }
+        }
+        guard let largest = values.map({ abs($0.value) }).max() else { return [:] }
+        let negative = values.reduce(0) { $0 + ($1.value < 0 ? -$1.value / largest : 0) }
+        let sum = values.reduce(0) { $0 + abs($1.value) / largest }
+        var angles: [Int: (start: Double, end: Double)] = [:]
+        var above = negative, below = negative
+        for (index, value) in values {
+            let share = abs(value) / largest
+            if value > 0 {
+                angles[index] = (above / sum * 2 * .pi, min((above + share) / sum, 1) * 2 * .pi)
+                above += share
+            } else {
+                angles[index] = (max(below - share, 0) / sum * 2 * .pi, below / sum * 2 * .pi)
+                below -= share
+            }
+        }
+        return angles
+    }
+
+    private func sector(_ instance: ChartMarkInstance, _ angle: (start: Double, end: Double), _ plot: ChartRect) -> ChartSector {
+        func radius(_ dimension: ChartDimension, of whole: Double, automatic: Double) -> Double {
+            switch dimension {
+            case .automatic: return automatic
+            case .fixed(let points): return points
+            case .ratio(let ratio): return whole * ratio
+            case .inset(let points): return whole - points
+            }
+        }
+        let mark = instance.mark
+        let whole = min(plot.width, plot.height) / 2
+        let outer = max(min(radius(mark.outerRadius, of: whole, automatic: whole), whole), 0)
+        let inner = min(max(radius(mark.innerRadius, of: outer, automatic: 0), 0), outer)
+        var corner = 0.0
+        for modifier in mark.modifiers.reversed() {
+            if case .cornerRadius(let given, _) = modifier {
+                corner = given
+            }
+        }
+        return ChartSector(center: ChartPoint(x: plot.x + plot.width / 2, y: plot.y + plot.height / 2), inner: inner, outer: outer,
+                           start: angle.start, end: angle.end, inset: mark.points["angularInset"] ?? 0, corner: corner)
     }
 
     /// The marks that draw as one line or one area.

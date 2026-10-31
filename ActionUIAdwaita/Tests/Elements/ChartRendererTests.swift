@@ -361,6 +361,21 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertNil(accessibleName(try render(bars)))
     }
 
+    func testAPieDrawsItsSectorsAroundTheMiddle() throws {
+        let chart = ##""chart": {"columns": ["k", {"name": "n", "type": "number"}], "data": [["A", 1], ["B", 1]], "chartLegend": "hidden", "chartForegroundStyleScale": {"domain": ["A", "B"], "range": ["#FF0000", "#0000FF"]}, "content": [{"type": "ForEach", "content": [{"type": "SectorMark", "angle": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "K", "value": "$k"}}}]}]}"##
+        let image = try pixels(try render(chart))
+        XCTAssertTrue(isRed(image[150, 100]), "the first half is on the right")
+        XCTAssertGreaterThan(image[50, 100][2], 200, "the second on the left")
+        XCTAssertEqual(image[2, 2][3], 0, "a circle leaves the corners empty")
+    }
+
+    func testADonutHasAHole() throws {
+        let chart = ##""chart": {"columns": ["k", {"name": "n", "type": "number"}], "data": [["A", 1]], "chartLegend": "hidden", "content": [{"type": "ForEach", "content": [{"type": "SectorMark", "angle": {"label": "N", "value": "$n"}, "innerRadius": {"ratio": 0.6}, "foregroundStyle": "#FF0000"}]}]}"##
+        let image = try pixels(try render(chart))
+        XCTAssertTrue(isRed(image[100, 20]), "the ring")
+        XCTAssertEqual(image[100, 100][3], 0, "the hole")
+    }
+
     func testALegendDrawsItsDotsInTheSeriesColors() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
         let image = try pixels(try render(chart))

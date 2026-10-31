@@ -3228,6 +3228,192 @@ final class ChartLayoutTests: XCTestCase {
         XCTAssertEqual(ChartMarkResolver.resolve(spec, rows: [["Mon", "1"]]).accessibleName, "Ann Sun; Mon")
     }
 
+    // MARK: - Sectors
+
+    private let sectorColumns: [Any] = ["kind", ["name": "n", "type": "number"]]
+    private var slice: [String: Any] { ["type": "SectorMark", "angle": value("N", "$n"), "foregroundStyle": ["by": value("Kind", "$kind")]] }
+
+    private func pie(_ mark: [String: Any], rows: [[String]], _ extra: [String: Any] = ["chartLegend": "hidden"], width: Double = 300, height: Double = 200) -> [ChartPrimitive] {
+        var description: [String: Any] = ["columns": sectorColumns, "content": [["type": "ForEach", "content": [mark]]]]
+        description.merge(extra) { $1 }
+        return layout(description, rows: rows, width: width, height: height)
+    }
+
+    private func reach(_ elements: [ChartPathElement]) -> (x: ClosedRange<Double>, y: ClosedRange<Double>) {
+        let found = points(elements)
+        let xs = found.map(\.x), ys = found.map(\.y)
+        return (xs.min()!...xs.max()!, ys.min()!...ys.max()!)
+    }
+
+    private let shares = [["A", "40"], ["B", "30"], ["C", "20"], ["D", "10"]]
+
+    func testASectorPerRowInItsColor() {
+        let primitives = pie(slice, rows: shares)
+        XCTAssertEqual(fills(primitives).count, 4)
+        let found = primitives.compactMap { primitive -> ChartInk? in
+            if case .fill(_, let ink) = primitive { return ink } else { return nil }
+        }
+        XCTAssertEqual(found, ChartLayout.seriesColors.prefix(4).map { .color($0) })
+    }
+
+    func testAPieIsCenteredAndAsWideAsTheShortSide() {
+        let primitives = pie(slice, rows: [["A", "1"]])
+        let found = reach(fills(primitives)[0])
+        XCTAssertEqual(found.y.upperBound - found.y.lowerBound, 200, accuracy: 0.05)
+        XCTAssertEqual((found.x.upperBound + found.x.lowerBound) / 2, 150, accuracy: 0.05)
+    }
+
+    func testASectorIsItsShareOfTheCircle() {
+        // Two equal sectors: the first ends at the bottom, on the middle line.
+        let primitives = pie(slice, rows: [["A", "5"], ["B", "5"]])
+        let first = reach(fills(primitives)[0])
+        XCTAssertEqual(first.x.lowerBound, 150, accuracy: 0.05, "the right half")
+    }
+
+    func testAPieHasNoAxesAskedOrNot() {
+        for extra in [["chartLegend": "hidden"], ["chartLegend": "hidden", "chartXAxis": "visible", "chartYAxis": "visible"]] as [[String: Any]] {
+            let primitives = pie(slice, rows: shares, extra)
+            XCTAssertEqual(lines(primitives, ink: ChartLayout.gridInk).count, 0)
+            XCTAssertEqual(texts(primitives), [])
+        }
+    }
+
+    func testAMarkBesideASectorHasNoAxesEither() {
+        let point: [String: Any] = ["type": "PointMark", "x": value("X", 5), "y": value("Y", 5)]
+        let primitives = pie(point, rows: [["A", "1"]], ["chartLegend": "hidden", "content": [["type": "ForEach", "content": [slice, point]]]])
+        XCTAssertEqual(fills(primitives).count, 1)
+        XCTAssertEqual(symbols(primitives).count, 1)
+        XCTAssertEqual(texts(primitives), [])
+    }
+
+    func testAZeroKeepsItsColorPlaceAndLegendEntryAndDrawsNothing() {
+        let primitives = pie(slice, rows: [["A", "5"], ["B", "0"], ["C", "5"]], [:])
+        let found = primitives.compactMap { primitive -> ChartInk? in
+            if case .fill(_, let ink) = primitive { return ink } else { return nil }
+        }
+        XCTAssertEqual(found, [.color(ChartLayout.seriesColors[0]), .color(ChartLayout.seriesColors[2])])
+        XCTAssertEqual(listed(primitives), ["A", "B", "C"])
+    }
+
+    func testRadiiCountFromThePlotAndInnerFromOuter() {
+        var ratio = slice
+        ratio["outerRadius"] = ["ratio": 0.5]
+        ratio["innerRadius"] = ["ratio": 0.5]
+        let halved = reach(fills(pie(ratio, rows: [["A", "1"]]))[0])
+        XCTAssertEqual(halved.y.upperBound - halved.y.lowerBound, 100, accuracy: 0.05, "half of the 100 radius")
+        var hole = fills(pie(ratio, rows: [["A", "1"]]))[0]
+        hole.removeFirst(hole.firstIndex(of: .close) ?? 0)
+        hole.removeFirst()
+        let inner = reach(hole)
+        XCTAssertEqual(inner.y.upperBound - inner.y.lowerBound, 50, accuracy: 0.05, "half of that outer radius")
+    }
+
+    func testRadiiInPointsAndInsets() {
+        var fixed = slice
+        fixed["outerRadius"] = 50
+        let small = reach(fills(pie(fixed, rows: [["A", "1"]]))[0])
+        XCTAssertEqual(small.y.upperBound - small.y.lowerBound, 100, accuracy: 0.05)
+        var inset = slice
+        inset["outerRadius"] = ["inset": 10]
+        let less = reach(fills(pie(inset, rows: [["A", "1"]]))[0])
+        XCTAssertEqual(less.y.upperBound - less.y.lowerBound, 180, accuracy: 0.05)
+    }
+
+    func testAnOuterRadiusStopsAtThePlotsAndInnerRadiiCountFromThere() {
+        var plain = slice
+        plain["innerRadius"] = ["ratio": 0.5]
+        let expected = fills(pie(plain, rows: shares))
+        for radius in [300, ["ratio": 2], ["inset": -50]] as [Any] {
+            var big = plain
+            big["outerRadius"] = radius
+            XCTAssertEqual(fills(pie(big, rows: shares)), expected, "\(radius)")
+        }
+    }
+
+    func testAnAngularInsetReachesTheOutline() {
+        var inset = slice
+        inset["angularInset"] = 3
+        XCTAssertNotEqual(fills(pie(inset, rows: shares))[0], fills(pie(slice, rows: shares))[0])
+    }
+
+    func testACornerRadiusReachesTheOutlineAndHasNoDefault() {
+        var rounded = slice
+        rounded["cornerRadius"] = 6
+        XCTAssertNotEqual(fills(pie(rounded, rows: shares))[0], fills(pie(slice, rows: shares))[0])
+        XCTAssertEqual(reach(fills(pie(slice, rows: shares))[3]).x.upperBound, 150, accuracy: 0.05, "plain, a slice has its point at the center")
+    }
+
+    func testAPlotStylesPaddingShrinksThePie() {
+        let found = reach(fills(pie(slice, rows: [["A", "1"]], ["chartLegend": "hidden", "chartPlotStyle": ["padding": 20]]))[0])
+        XCTAssertEqual(found.y.upperBound - found.y.lowerBound, 160, accuracy: 0.05)
+    }
+
+    func testALegendTakesItsRoomFromThePie() {
+        let found = reach(fills(pie(slice, rows: [["A", "1"]], [:]))[0])
+        XCTAssertEqual(found.y.upperBound - found.y.lowerBound, 200 - 14, accuracy: 0.05, "a row of 10 and 4 off")
+    }
+
+    func testANumberColorDrawsAGradientPie() {
+        let mark: [String: Any] = ["type": "SectorMark", "angle": value("N", "$n"), "foregroundStyle": ["by": value("N", "$n")]]
+        let primitives = pie(mark, rows: shares, [:])
+        XCTAssertEqual(bars(primitives).count, 1)
+    }
+
+    func testEffectsTakeEachSector() {
+        var faded = slice
+        faded["opacity"] = 0.5
+        XCTAssertEqual(effects(pie(faded, rows: shares)).count, 4)
+    }
+
+    func testNegativesComeFirstTheLastOfThemFirst() {
+        let primitives = pie(slice, rows: [["A", "40"], ["B", "-20"], ["C", "30"], ["D", "-10"]])
+        let starts = fills(primitives).map { points($0)[0] }
+        func angle(_ point: ChartPoint) -> Double {
+            let turn = atan2(point.x - 150, 100 - point.y) / (2 * .pi)
+            return turn < -1e-9 ? turn + 1 : turn
+        }
+        XCTAssertEqual(angle(starts[3]), 0, accuracy: 1e-6, "D, the last negative, at the top")
+        XCTAssertEqual(angle(starts[1]), 0.1, accuracy: 1e-6, "then B")
+        XCTAssertEqual(angle(starts[0]), 0.3, accuracy: 1e-6, "then the positives, in order")
+        XCTAssertEqual(angle(starts[2]), 0.7, accuracy: 1e-6)
+    }
+
+    func testAllNegativesMakeAWholeCircle() {
+        let primitives = pie(slice, rows: [["A", "-1"]])
+        let found = reach(fills(primitives)[0])
+        XCTAssertEqual(found.y.upperBound - found.y.lowerBound, 200, accuracy: 0.05)
+    }
+
+    func testAnUnreadableValueDrawsNothingAndCountsForNothing() {
+        let primitives = pie(slice, rows: [["B", "nan"], ["C", "5"]])
+        XCTAssertEqual(fills(primitives).count, 1)
+        let found = reach(fills(primitives)[0])
+        XCTAssertEqual(found.y.upperBound - found.y.lowerBound, 200, accuracy: 0.05, "the whole circle")
+    }
+
+    func testValuesPastAnySumStayDrawable() {
+        let primitives = pie(slice, rows: [["A", "1e308"], ["B", "1e308"], ["C", "1e308"]])
+        XCTAssertEqual(fills(primitives).count, 3)
+        XCTAssertTrue(primitives.allSatisfy(\.isDrawable))
+    }
+
+    func testATinyChartStaysDrawable() {
+        var mark = slice
+        mark["cornerRadius"] = 4
+        mark["angularInset"] = 2
+        mark["innerRadius"] = ["ratio": 0.5]
+        XCTAssertTrue(pie(mark, rows: shares, width: 1, height: 1).allSatisfy(\.isDrawable))
+    }
+
+    func testAnExtremeRadiusStaysDrawable() {
+        for radius in [1e300, -5, 0] {
+            var mark = slice
+            mark["innerRadius"] = radius
+            mark["outerRadius"] = radius
+            XCTAssertTrue(pie(mark, rows: shares).allSatisfy(\.isDrawable), "\(radius)")
+        }
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {

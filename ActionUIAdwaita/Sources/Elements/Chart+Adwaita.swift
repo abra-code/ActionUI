@@ -25,13 +25,9 @@ private let chartStateKey = AttachKey<ChartState>("actionui-chart")
 @MainActor private final class ChartState {
     var spec = ChartSpec()
     var marks = ChartResolvedMarks()
-    /// The mark kinds already reported as not drawn.
-    var reported: Set<ChartMarkKind> = []
 }
 
 extension Chart: ActionUIAdwaitaRenderer {
-    private static let drawnKinds: Set<ChartMarkKind> = [.BarMark, .RectangleMark, .PointMark, .RuleMark, .LineMark, .AreaMark]
-
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let widget: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(widgetType(), 0, nil, nil)!))
         gtk_widget_set_hexpand(widget, 1)
@@ -65,11 +61,6 @@ extension Chart: ActionUIAdwaitaRenderer {
         if state.marks.skippedRows > 0, let first = state.marks.firstSkip {
             let place = first.inlineData ? "row \(first.row + 1) of a ForEach's data" : "row \(first.row + 1)"
             logger.log("Chart \(viewID): skipped \(state.marks.skippedRows) row(s) with a cell that does not parse; first: \(place), column \(first.column + 1) is not a \(first.type.rawValue)", .warning)
-        }
-        for instance in state.marks.instances where !drawnKinds.contains(instance.mark.kind) {
-            if state.reported.insert(instance.mark.kind).inserted {
-                logger.log("Chart \(viewID): \(instance.mark.kind.rawValue) is not drawn on Linux yet", .warning)
-            }
         }
     }
 
