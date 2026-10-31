@@ -22,6 +22,13 @@ struct ChartMarkInstance {
     let symbolKey: String?
     let lineStyleKey: String?
     let sizeKey: String?
+    /// What a position scale groups it by, one key for a date bin however the dates in it differ,
+    /// and the room the group shares. A number or date also has where it falls, a bin from start to end.
+    let positionKey: String?
+    let positionValue: (start: Double, end: Double)?
+    let positionSpan: ChartDimension
+    /// The key of the one axis a position can spread it over, with or without a position.
+    let positionAxis: String?
     /// A {"by"} over numbers or dates has no series to name: where it falls on its scale instead.
     let colorValue: ChartScalar?
     let lineStyleValue: ChartScalar?
@@ -31,6 +38,9 @@ struct ChartMarkInstance {
     /// are one line, in the style of the first. A {"by"} that a style nearer the mark replaces, a
     /// symbol's size and a position do not split a line (measured on macOS 27).
     let seriesKey: String
+
+    /// A name that takes a slot: a number or date falls along the room instead.
+    var positionName: String? { positionValue == nil ? positionKey : nil }
 }
 
 struct ChartResolvedMarks {
@@ -131,6 +141,10 @@ struct ChartMarkResolver {
         var symbolKey: String?
         var lineStyleKey: String?
         var sizeKey: String?
+        var positionKey: String?
+        var positionValue: (start: Double, end: Double)?
+        var positionSpan = ChartDimension.automatic
+        let positionAxis = Self.positionAxis(values)
         var colorValue: ChartScalar?
         var lineStyleValue: ChartScalar?
         var sizeValue: ChartScalar?
@@ -164,13 +178,66 @@ struct ChartMarkResolver {
             case .symbolSizeBy where !sized:
                 if case .string(let name) = scalar { sizeKey = name } else { sizeValue = scalar }
                 sized = true
+            case .position(_, let axis, let span) where positionKey == nil && Self.spreads(axis, over: positionAxis):
+                if case .string(let name) = scalar {
+                    positionKey = name
+                } else if let place = Self.positionPlace(scalar, unit: plottable.unit) {
+                    (positionKey, positionValue) = (place.key, (place.start, place.end))
+                } else {
+                    continue
+                }
+                positionSpan = span
             default:
                 break
             }
         }
         return ChartMarkInstance(mark: mark, values: values, styleKey: styleKey, symbolKey: symbolKey, lineStyleKey: lineStyleKey, sizeKey: sizeKey,
+                                 positionKey: positionKey, positionValue: positionValue, positionSpan: positionSpan, positionAxis: positionAxis,
                                  colorValue: colorValue, lineStyleValue: lineStyleValue, sizeValue: sizeValue,
                                  seriesKey: seriesParts.joined(separator: "\u{1F}"))
+    }
+
+    // The one axis a position can spread a mark over, a start counting as its axis: x with bands or
+    // dates, or y with them beside something on x, or x between two numbers. A mark on one axis
+    // alone has none, unless that is x with bands or dates (measured on macOS 27).
+    private static func positionAxis(_ values: [String: ChartScalar]) -> String? {
+        func hasBands(_ scalar: ChartScalar?) -> Bool {
+            switch scalar {
+            case .string?, .date?: return true
+            default: return false
+            }
+        }
+        let x = values["x"] ?? values["xStart"], y = values["y"] ?? values["yStart"]
+        if hasBands(x) { return "x" }
+        if x == nil { return nil }
+        if hasBands(y) { return "y" }
+        return y == nil ? nil : "x"
+    }
+
+    // An axis named against the one a mark has changes nothing, and leaves a Plot's position to
+    // apply (measured on macOS 27).
+    private static func spreads(_ axis: ChartAxis?, over key: String?) -> Bool {
+        switch axis {
+        case .horizontal?: return key == "x"
+        case .vertical?: return key == "y"
+        case nil: return key != nil
+        }
+    }
+
+    // A number, or a date at its bin, which ends where the bin does. Nil for one that is no number.
+    private static func positionPlace(_ scalar: ChartScalar, unit: Calendar.Component?) -> (key: String, start: Double, end: Double)? {
+        switch scalar {
+        case .string:
+            return nil
+        case .number(let number):
+            return number.isFinite ? (String(number), number, number) : nil
+        case .integer(let number):
+            return (String(Double(number)), Double(number), Double(number))
+        case .date(let date):
+            let bin = ChartDates.bin(date, unit)
+            let start = bin.start.timeIntervalSinceReferenceDate
+            return (String(start), start, bin.end.timeIntervalSinceReferenceDate)
+        }
     }
 
     private static func key(_ scalar: ChartScalar) -> String {

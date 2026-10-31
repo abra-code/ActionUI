@@ -2813,6 +2813,239 @@ final class ChartLayoutTests: XCTestCase {
         }
     }
 
+    // MARK: - Grouped marks
+
+    private var byTeam: [String: Any] { ["by": value("Team", "$team")] }
+    private var grouped: [String: Any] { wearing(wearing(bar, "position", byTeam), "foregroundStyle", byTeam) }
+    private let groupRows = [["Mon", "3", "A"], ["Mon", "2", "B"], ["Mon", "4", "C"], ["Tue", "5", "A"], ["Tue", "1", "B"]]
+
+    // One of the two bands of the grouped chart: the labels of another axis would change its plot.
+    private func band() -> Double {
+        plotEnd(layout(chart([grouped], ["chartLegend": "hidden"]), rows: groupRows)) / 2
+    }
+
+    func testEachNameHasASlotAcrossSevenTenthsOfTheBand() {
+        let found = rects(layout(chart([grouped], ["chartLegend": "hidden"]), rows: groupRows))
+        let room = band() * 0.7, slot = room / 3
+        XCTAssertEqual(found[0].width, slot * 0.7, accuracy: 0.001, "a bar takes 0.7 of its slot")
+        XCTAssertEqual(found[1].x - found[0].x, slot, accuracy: 0.001)
+        XCTAssertEqual((found[0].x + found[2].x + found[2].width) / 2, band() / 2, accuracy: 0.001, "centered on the band")
+    }
+
+    func testABandWithoutANameLeavesItsSlotEmpty() {
+        let found = rects(layout(chart([grouped], ["chartLegend": "hidden"]), rows: groupRows))
+        XCTAssertEqual(found.count, 5)
+        XCTAssertEqual(found[4].x - found[3].x, found[1].x - found[0].x, accuracy: 0.001, "B next to A, and no room closed up for C")
+        XCTAssertEqual(found[3].x, found[0].x + band(), accuracy: 0.001)
+    }
+
+    func testStacksArePerSlot() {
+        let rows = groupRows + [["Mon", "2", "A"]]
+        let found = rects(layout(chart([grouped], ["chartLegend": "hidden"]), rows: rows))
+        XCTAssertEqual(found[5].x, found[0].x, accuracy: 0.001, "A again stacks on A")
+        XCTAssertEqual(found[5].y + found[5].height, found[0].y, accuracy: 0.001)
+        XCTAssertNotEqual(found[1].y + found[1].height, found[0].y, "B does not stack on it")
+    }
+
+    func testAnAxisFollowsTheTallestSlotNotTheBand() {
+        XCTAssertFalse(texts(layout(chart([grouped], ["chartLegend": "hidden"]), rows: groupRows)).contains("8"), "9 is the band's sum, and 5 its tallest slot")
+    }
+
+    func testASpanIsTheRoomTheSlotsShare() {
+        func width(_ span: Any) -> Double {
+            var mark = grouped
+            mark["position"] = ["by": value("Team", "$team"), "span": span]
+            return rects(layout(chart([mark], ["chartLegend": "hidden"]), rows: groupRows))[0].width
+        }
+        let whole = band()
+        XCTAssertEqual(width(["ratio": 0.5]), whole * 0.5 / 3 * 0.7, accuracy: 0.001)
+        XCTAssertEqual(width(12), 12.0 / 3 * 0.7, accuracy: 0.001)
+        XCTAssertEqual(width(["inset": 4]), (whole - 8) / 3 * 0.7, accuracy: 0.001)
+    }
+
+    func testABarsOwnWidthIsOfItsSlot() {
+        var mark = grouped
+        mark["width"] = ["ratio": 1]
+        let found = rects(layout(chart([mark], ["chartLegend": "hidden"]), rows: groupRows))
+        XCTAssertEqual(found[0].x + found[0].width, found[1].x, accuracy: 0.001, "they touch")
+    }
+
+    func testAPointSitsAtItsSlotsCenter() {
+        let point: [String: Any] = wearing(["type": "PointMark", "x": value("Day", "$day"), "y": value("High", "$high")], "position", byTeam)
+        let found = dots(layout(chart([point], ["chartLegend": "hidden"]), rows: groupRows))
+        let bars = rects(layout(chart([grouped], ["chartLegend": "hidden"]), rows: groupRows))
+        XCTAssertEqual(found[0].center.x, bars[0].x + bars[0].width / 2, accuracy: 0.001)
+        XCTAssertEqual(found[1].center.x, bars[1].x + bars[1].width / 2, accuracy: 0.001)
+    }
+
+    func testAPositionDoesNotSplitALineAndItJoinsThroughSlots() throws {
+        let mark: [String: Any] = wearing(["type": "LineMark", "x": value("Day", "$day"), "y": value("High", "$high"), "series": value("S", "same")], "position", byTeam)
+        let found = try XCTUnwrap(paths(layout(chart([mark], ["chartLegend": "hidden"]), rows: groupRows)).first)
+        let placed = points(found.elements)
+        XCTAssertEqual(placed.count, 5)
+        XCTAssertLessThan(placed[0].x, placed[1].x, "A and B on one band are apart")
+    }
+
+    func testOnANumberAxisTheSlotsShareEightPoints() {
+        let mark = wearing(wearing(["type": "BarMark", "x": value("X", "$x"), "y": value("Y", "$y")], "position", byTeam), "foregroundStyle", byTeam)
+        let found = rects(layout(styled([mark], hidden), rows: [["1", "3", "A"], ["1", "2", "B"]]))
+        XCTAssertEqual(found[0].width, 4 * 0.7, accuracy: 0.001)
+        XCTAssertEqual(found[1].x - found[0].x, 4, accuracy: 0.001)
+    }
+
+    func testOnYBandsBarsShareWhatTheLabelLeavesAndPointsTheWholeBand() {
+        let horizontal: [String: Any] = wearing(["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day")], "position", byTeam)
+        let plain: [String: Any] = ["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day")]
+        let rows = [["Mon", "3", "A"], ["Mon", "2", "B"]]
+        let bars = rects(layout(chart([horizontal], hidden), rows: rows))
+        let single = rects(layout(chart([plain], hidden), rows: [["Mon", "3", "A"]]))
+        XCTAssertEqual(bars[0].height, single[0].height / 2 * 0.7, accuracy: 0.001, "0.7 of half of the 0.7 a plain bar takes")
+        XCTAssertEqual((bars[0].y + bars[1].y + bars[1].height) / 2, single[0].y + single[0].height / 2, accuracy: 0.001, "centered where a plain bar is")
+    }
+
+    func testAnAxisCanBeNamed() {
+        var mark = bar
+        mark["position"] = ["by": value("Team", "$team"), "axis": "vertical"]
+        let found = rects(layout(chart([mark], hidden), rows: [["Mon", "1", "A"], ["Mon", "1", "B"]]))
+        XCTAssertEqual(found[0].x, found[1].x, accuracy: 0.001, "not across x")
+    }
+
+    func testGroupsOfExtremeSizesStayDrawable() {
+        for span in [1e300, -5, 0] as [Any] {
+            var mark = grouped
+            mark["position"] = ["by": value("Team", "$team"), "span": span]
+            XCTAssertTrue(layout(chart([mark]), rows: groupRows).allSatisfy(\.isDrawable), "\(span)")
+        }
+    }
+
+    func testOnlyBarsAndRectanglesHaveEightPointsWithNoBand() {
+        func xs(_ kind: String, _ span: Any? = nil) -> [Double] {
+            var position = byTeam
+            if let span { position["span"] = span }
+            let mark: [String: Any] = ["type": kind, "x": value("X", "$x"), "y": value("Y", "$y"), "position": position]
+            let drawn = layout(styled([mark], hidden), rows: [["1", "3", "A"], ["1", "2", "B"]])
+            return kind == "PointMark" ? dots(drawn).map(\.center.x) : rects(drawn).map { $0.x + $0.width / 2 }
+        }
+        XCTAssertEqual(xs("RectangleMark")[1] - xs("RectangleMark")[0], 4, accuracy: 0.001)
+        XCTAssertEqual(xs("PointMark")[1], xs("PointMark")[0], "automatic gives a point no room")
+        XCTAssertEqual(xs("PointMark", 20)[1] - xs("PointMark", 20)[0], 10, accuracy: 0.001)
+        XCTAssertEqual(xs("PointMark", ["inset": 3])[0] - xs("PointMark", ["inset": 3])[1], 3, accuracy: 0.001, "twice the inset, reversed")
+    }
+
+    func testADateBinIsRoomForBarsAlone() {
+        func place(_ kind: String) -> [ChartPrimitive] {
+            let mark: [String: Any] = ["type": kind, "x": ["label": "When", "value": "$when", "unit": "month"], "y": value("High", "$high"), "position": byTeam]
+            return layout(dated([mark], hidden), rows: [["2026-01-15", "3", "A"], ["2026-01-15", "2", "B"], ["2026-02-15", "1", "A"]])
+        }
+        XCTAssertEqual(dots(place("PointMark"))[0].center.x, dots(place("PointMark"))[1].center.x)
+        XCTAssertLessThan(rects(place("BarMark"))[0].x, rects(place("BarMark"))[1].x)
+    }
+
+    func testANamedAxisAgainstTheMarksOwnChangesNothing() {
+        var mark = bar
+        mark["position"] = ["by": value("Team", "$team"), "axis": "vertical", "span": 30]
+        let found = rects(layout(chart([mark], hidden), rows: [["Mon", "1", "A"], ["Mon", "2", "B"]]))
+        let plain = rects(layout(chart([bar], hidden), rows: [["Mon", "1", "A"], ["Mon", "2", "B"]]))
+        for (rect, same) in zip(found, plain) {
+            assertRect(rect, x: same.x, y: same.y, width: same.width, height: same.height)
+        }
+        let bandsOnBoth: [String: Any] = ["type": "PointMark", "x": value("Day", "$day"), "y": value("Team", "$team"),
+                                          "position": ["by": value("Team", "$team"), "axis": "vertical", "span": 30]]
+        var unmoved = bandsOnBoth
+        unmoved["position"] = nil
+        let rows = [["Mon", "1", "A"], ["Mon", "1", "B"]]
+        XCTAssertEqual(dots(layout(chart([bandsOnBoth], hidden), rows: rows)).map(\.center.y), dots(layout(chart([unmoved], hidden), rows: rows)).map(\.center.y))
+    }
+
+    func testANearerPositionThatDoesNotApplyLeavesAPlots() {
+        var mark = bar
+        mark["position"] = ["by": value("Team", "$team"), "axis": "vertical"]
+        let plot: [String: Any] = ["type": "Plot", "position": ["by": value("Day", "$team")], "content": [mark]]
+        let found = rects(layout(chart([plot], hidden), rows: [["Mon", "1", "A"], ["Mon", "2", "B"]]))
+        XCTAssertNotEqual(found[0].x, found[1].x)
+    }
+
+    func testAMarkOnOneAxisHasASlotOnlyOnXBands() {
+        let onY: [String: Any] = ["type": "PointMark", "y": value("Day", "$day"), "position": ["by": value("Team", "$team"), "span": 30]]
+        let drawn = dots(layout(chart([onY], hidden), rows: [["Mon", "1", "A"], ["Mon", "1", "B"]]))
+        XCTAssertEqual(drawn[0].center.y, drawn[1].center.y, "a point on y alone stays")
+        let onX: [String: Any] = ["type": "PointMark", "x": value("X", "$x"), "position": ["by": value("Team", "$team"), "span": 30]]
+        let alongX = dots(layout(styled([onX], hidden), rows: [["1", "3", "A"], ["1", "2", "B"]]))
+        XCTAssertEqual(alongX[0].center.x, alongX[1].center.x, "so does one on a number alone")
+        let rule: [String: Any] = ["type": "RuleMark", "x": value("Day", "$day"), "position": byTeam]
+        let lined = lines(layout(chart([rule], hidden), rows: [["Mon", "1", "A"], ["Mon", "1", "B"]]), ink: .color(ChartLayout.seriesColors[0]))
+        XCTAssertEqual(lined.map(\.from.x).count, 2)
+        XCTAssertNotEqual(lined[0].from.x, lined[1].from.x, "on x bands it moves")
+    }
+
+    func testAStartAndEndOfNumbersOrDatesFindTheAxisAndCategoriesMove() {
+        let dayPair: [String: Any] = ["type": "BarMark", "xStart": value("A", "$day"), "xEnd": value("B", "Wed"), "y": value("High", "$high"), "position": byTeam]
+        let rows = [["Mon", "1", "A"], ["Mon", "2", "B"], ["Wed", "3", "C"]]
+        let plainPair = rects(layout(chart([wearing(dayPair, "position", ["by": value("N", "one")])], hidden), rows: rows))
+        let moved = rects(layout(chart([dayPair], hidden), rows: rows))
+        XCTAssertEqual(moved[1].x - moved[0].x, plainPair[0].width / 2 * 0.7 / 3, accuracy: 0.001, "a slot apart")
+        XCTAssertEqual(moved[0].width, plainPair[0].width, accuracy: 0.001, "as long as it was")
+
+        let yPair: [String: Any] = ["type": "BarMark", "x": value("High", "$high"), "yStart": value("A", "$day"), "yEnd": value("B", "Wed"), "position": byTeam]
+        let upright = rects(layout(chart([yPair], hidden), rows: rows))
+        XCTAssertEqual(upright[0].width, 8, accuracy: 0.001, "the axis is y, where the categories are")
+        XCTAssertNotEqual(upright[0].y, upright[1].y)
+    }
+
+    func testAnInsetPastTheRoomReversesTheSlots() {
+        var mark = grouped
+        mark["position"] = ["by": value("Team", "$team"), "span": ["inset": 1000]]
+        let found = rects(layout(chart([mark], hidden), rows: groupRows))
+        XCTAssertGreaterThan(found[0].x, found[2].x)
+        XCTAssertEqual(found[0].width, (2000 - band()) / 3 * 0.7, accuracy: 0.001)
+    }
+
+    func testABarsOwnInsetCountsByItsSize() {
+        var mark = grouped
+        mark["position"] = ["by": value("Team", "$team"), "span": 30]
+        mark["width"] = ["inset": 8]
+        XCTAssertEqual(rects(layout(chart([mark], hidden), rows: groupRows))[0].width, 6, accuracy: 0.001)
+    }
+
+    func testABarWithoutAPositionTakesTheFirstSlotAndARectangleTheRoom() {
+        let plain = wearing(bar, "foregroundStyle", "gray")
+        let found = rects(layout(chart([grouped, plain], hidden), rows: groupRows))
+        XCTAssertEqual(found[3].x, found[0].x, accuracy: 0.001, "the second row's plain bar, at the first name's place")
+        XCTAssertEqual(found[3].width, found[0].width, accuracy: 0.001)
+        XCTAssertEqual(found[3].y + found[3].height, found[1].y, accuracy: 0.001, "they stack among themselves")
+
+        var spanned = grouped
+        spanned["position"] = ["by": value("Team", "$team"), "span": 30]
+        let rectangle: [String: Any] = ["type": "RectangleMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        let drawn = layout(chart([spanned, rectangle], hidden), rows: groupRows)
+        XCTAssertEqual(rects(drawn)[1].width, 21, accuracy: 0.001, "0.7 of the first position's span")
+        XCTAssertEqual(rects(drawn)[1].x + rects(drawn)[1].width / 2, plotEnd(drawn) / 4, accuracy: 0.001, "at the band's middle")
+    }
+
+    func testANumberFallsAlongTheRoomAndABarTakesAllOfIt() {
+        let columns: [Any] = ["day", ["name": "high", "type": "number"], ["name": "level", "type": "number"]]
+        let mark: [String: Any] = wearing(bar, "position", ["by": value("Level", "$level")])
+        let description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]], "chartLegend": "hidden"]
+        let found = rects(layout(description, rows: [["Mon", "1", "10"], ["Mon", "1", "15"], ["Mon", "1", "20"]]))
+        let whole = plotEnd(layout(description, rows: [["Mon", "1", "10"]])) * 0.7
+        XCTAssertEqual(found[0].width, whole * 0.7, accuracy: 0.001)
+        XCTAssertEqual(found[0].x + found[0].width / 2, whole / 0.7 / 2, accuracy: 0.001, "the lowest at the band's middle")
+        XCTAssertEqual(found[1].x - found[0].x, whole / 2, accuracy: 0.001, "halfway")
+        XCTAssertEqual(found[2].x - found[0].x, whole, accuracy: 0.001)
+        let one = rects(layout(description, rows: [["Mon", "1", "10"]]))
+        XCTAssertEqual(one[0].x + one[0].width / 2, whole / 0.7 / 2 + whole / 2, accuracy: 0.001, "one value is halfway")
+    }
+
+    func testDatesInOneBinStackAndFallAtItsStart() {
+        let columns: [Any] = ["day", ["name": "high", "type": "number"], ["name": "when", "type": "date"]]
+        let mark: [String: Any] = wearing(bar, "position", ["by": ["label": "When", "value": "$when", "unit": "month"]])
+        let description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]], "chartLegend": "hidden"]
+        let found = rects(layout(description, rows: [["Mon", "1", "2026-01-15"], ["Mon", "2", "2026-02-15"], ["Mon", "4", "2026-02-20"]]))
+        XCTAssertEqual(found[1].x, found[2].x, accuracy: 0.001)
+        XCTAssertEqual(found[2].y + found[2].height, found[1].y, accuracy: 0.001, "the same bin stacks")
+        XCTAssertEqual((found[1].x - found[0].x) / found[0].width * 0.7, 31.0 / 59, accuracy: 0.001, "January's 31 days of the 59 to March")
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {

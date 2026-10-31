@@ -31,6 +31,16 @@
    stops at half across, and at half the length, or the whole of it with one end to round. A
    RectangleMark takes a bar's forms and sizes, 8 at a number on either axis, with no corner unless
    given, and then all four.
+ - A position scale gives each of its names a slot in every band or bin, in order of first use, so
+   a band without a name leaves that slot empty. The slots share what a bar would take, unless a
+   span says otherwise, and on y a bar's room is what the label's row leaves, while other marks have
+   the whole band. A bar takes its usual part of its slot, and others sit at its center. Stacks are
+   per slot, and a position does not split a line. A date's bin is room for bars and rectangles
+   alone. A position acts on one axis, the mark's own: a start and end of categories move by a slot
+   as a value does, dates and numbers do not, and an inset past the room reverses the slots. A
+   number or date falls along the room from the middle of the band, all of it a bar's slot. A bar
+   that stacks and has no position takes the first slot, and one that does not, or a rectangle, the
+   whole room, each in the first position's span.
  - A start and end on an axis of categories run from the edge of one band to the far edge of the other;
    dates with a unit go in the middle of their bins, as a single value does.
  - Points given to a mark count from the plot's top leading corner.
@@ -359,6 +369,8 @@ struct ChartLayout {
         var kind: ChartMarkKind
         var vertical: Bool
         var position: Position
+        /// A position scale's name: only marks in one slot stack.
+        var slot: String?
     }
 
     private func stackPosition(_ value: ChartScalar?, unit: Calendar.Component?) -> StackKey.Position {
@@ -380,11 +392,11 @@ struct ChartLayout {
         case .xy, .xySeries:
             let vertical = !(isNumber(x) && !isNumber(y))
             let position = vertical ? stackPosition(x, unit: instance.mark.values["x"]?.unit) : stackPosition(y, unit: instance.mark.values["y"]?.unit)
-            return number(vertical ? y : x).map { ($0, StackKey(kind: instance.mark.kind, vertical: vertical, position: position)) }
+            return number(vertical ? y : x).map { ($0, StackKey(kind: instance.mark.kind, vertical: vertical, position: position, slot: instance.positionKey)) }
         case .xPoints:
-            return number(x).map { ($0, StackKey(kind: instance.mark.kind, vertical: false, position: .none)) }
+            return number(x).map { ($0, StackKey(kind: instance.mark.kind, vertical: false, position: .none, slot: instance.positionKey)) }
         case .yPoints:
-            return number(y).map { ($0, StackKey(kind: instance.mark.kind, vertical: true, position: .none)) }
+            return number(y).map { ($0, StackKey(kind: instance.mark.kind, vertical: true, position: .none, slot: instance.positionKey)) }
         default:
             return nil
         }
@@ -1508,7 +1520,49 @@ struct ChartLayout {
     }
 
     private func position(_ instance: ChartMarkInstance, _ key: String, _ scale: ChartAxisScale) -> Double? {
-        instance.values[key].flatMap { scale.position($0, unit: instance.mark.values[key]?.unit) }
+        instance.values[key].flatMap { scale.position($0, unit: instance.mark.values[key]?.unit) }.map { $0 + (slot(instance, key, scale)?.shift ?? 0) }
+    }
+
+    // Where a position scale puts a mark on `key`'s axis, from the middle of its band or bin, and
+    // its slot's width, negative when an inset passes the room. `room` is that of a bar on y bands,
+    // and a bar without a position takes the first slot if it stacks. Nil without one (all measured
+    // on macOS 27).
+    private func slot(_ instance: ChartMarkInstance, _ key: String, _ scale: ChartAxisScale, room given: Double? = nil, stacked: Bool = false) -> (shift: Double, width: Double)? {
+        guard instance.positionAxis == key else { return nil }
+        let sized = instance.mark.kind == .BarMark || instance.mark.kind == .RectangleMark
+        let span: ChartDimension
+        if instance.positionKey != nil {
+            span = instance.positionSpan
+        } else if sized, let first = styles.firstPosition, first.axis == key {
+            span = first.span
+        } else {
+            return nil
+        }
+        let bin = instance.values[key].map { scale.binWidth($0, unit: instance.mark.values[key]?.unit) } ?? 0
+        let room = given ?? (sized ? bin : abs(scale.bandWidth))
+        let whole: Double
+        switch span {
+        case .automatic where room <= 0 && !sized: whole = 0
+        case .inset(let points): whole = room - 2 * points
+        default: whole = thickness(span, room: room)
+        }
+        if let value = instance.positionValue {
+            return (styles.positionShare(value.start) * whole, whole)
+        }
+        guard let name = instance.positionName else {
+            guard stacked else { return (0, whole) }
+            let width = whole / Double(max(styles.positionSlots, 1))
+            return (width / 2 - whole / 2, width)
+        }
+        guard let place = styles.positionSlot(named: name) else { return nil }
+        let width = whole / Double(place.count)
+        return ((Double(place.index) + 0.5) * width - whole / 2, width)
+    }
+
+    // How thick a bar is in a slot, which an inset measures by its size.
+    private func thickness(_ dimension: ChartDimension, slot width: Double) -> Double {
+        if case .inset(let points) = dimension { return abs(abs(width) - 2 * points) }
+        return thickness(dimension, room: abs(width))
     }
 
     // A mark's symbol, if it names one, and its box.
@@ -1653,7 +1707,11 @@ struct ChartLayout {
         let unit = instance.mark.values[startKey]?.unit ?? instance.mark.values[endKey]?.unit
         guard let start = instance.values[startKey], let end = instance.values[endKey],
               let low = scale.position(start, unit: unit), let high = scale.position(end, unit: unit) else { return nil }
-        return (low - scale.bandWidth / 2, high + scale.bandWidth / 2)
+        var shift = 0.0
+        if case .bands = scale.kind {
+            shift = slot(instance, startKey == "xStart" ? "x" : "y", scale, room: abs(scale.bandWidth))?.shift ?? 0
+        }
+        return (low - scale.bandWidth / 2 + shift, high + scale.bandWidth / 2 + shift)
     }
 
     // A span in points from the plot's corner, or the plot's whole run where a mark gives none.
@@ -1672,13 +1730,17 @@ struct ChartLayout {
             // nothing still counts, by its size (measured on macOS 27: 4.2 high on bands of 12, no minimum).
             if key == "y", bandLabelRow > 0 {
                 let band = abs(scale.bandWidth), room = band - bandLabelRow
+                let slot = slot(instance, key, scale, room: abs(room), stacked: stack != nil)
                 var across = thickness(dimension, room: abs(room))
                 if case .inset(let points) = dimension { across = abs(room - 2 * points) }
-                let middle = center - band / 2 + bandLabelRow + room / 2
+                if let slot { across = thickness(dimension, slot: slot.width) }
+                let middle = center - band / 2 + bandLabelRow + room / 2 + (slot?.shift ?? 0)
                 return (middle - across / 2, middle + across / 2)
             }
-            let across = thickness(dimension, room: scale.binWidth(value, unit: mark.values[key]?.unit))
-            return (center - across / 2, center + across / 2)
+            let slot = slot(instance, key, scale, stacked: stack != nil)
+            let across = slot.map { thickness(dimension, slot: $0.width) } ?? thickness(dimension, room: scale.binWidth(value, unit: mark.values[key]?.unit))
+            let middle = center + (slot?.shift ?? 0)
+            return (middle - across / 2, middle + across / 2)
         }
 
         var xs: (Double, Double)?
@@ -1774,8 +1836,8 @@ struct ChartLayout {
     // Where a mark's value goes on an axis. A coordinate in points counts from the plot's corner; a
     // missing one is its middle.
     private func coordinate(_ instance: ChartMarkInstance, _ key: String, _ scale: ChartAxisScale, origin: Double, length: Double) -> Double? {
-        if let value = instance.values[key] {
-            return scale.position(value, unit: instance.mark.values[key]?.unit)
+        if instance.values[key] != nil {
+            return position(instance, key, scale)
         }
         return instance.mark.points[key].map { origin + $0 } ?? origin + length / 2
     }

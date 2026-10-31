@@ -113,6 +113,11 @@ struct ChartStyleMap {
     private let colorIndex: [String: Int]
     private let symbolIndex: [String: Int]
     private let lineStyleIndex: [String: Int]
+    private let positionNames: [String]
+    private let positionIndex: [String: Int]
+    private let positionSpan: ChartNumberSpan?
+    /// The first position's axis and span, which bars and rectangles without one go by.
+    let firstPosition: (axis: String?, span: ChartDimension)?
     private let sizeNames: [String]
     private let sizeIndex: [String: Int]
     private let sizes: ClosedRange<Double>
@@ -173,6 +178,10 @@ struct ChartStyleMap {
 
         let scaled = marks.instances.filter { $0.mark.kind == .PointMark || $0.mark.kind == .LineMark }
         let lined = marks.instances.filter { $0.mark.kind == .LineMark || $0.mark.kind == .RuleMark }
+        positionNames = Self.names(marks, \.positionName)
+        positionIndex = Self.index(positionNames)
+        positionSpan = ChartNumberSpan(marks.instances.compactMap(\.positionValue).flatMap { [$0.start, $0.end] })
+        firstPosition = marks.instances.first { $0.positionKey != nil }.map { ($0.positionAxis, $0.positionSpan) }
         sizeNames = Self.names(marks, \.sizeKey, of: [.PointMark, .LineMark], domain: styles.symbolSizeDomain)
         sizeIndex = Self.index(sizeNames)
         sizes = styles.symbolSizeRange ?? Self.automaticSizes
@@ -239,6 +248,19 @@ struct ChartStyleMap {
             }
         }
         return .color(ChartLayout.seriesColors[0])
+    }
+
+    /// Where a position scale puts a name: every name has a place in every band.
+    func positionSlot(named name: String) -> (index: Int, count: Int)? {
+        positionIndex[name].map { ($0, positionNames.count) }
+    }
+
+    /// How many slots a band has.
+    var positionSlots: Int { positionNames.count }
+
+    /// How far along a position's numbers or dates a value falls, halfway if they are all one.
+    func positionShare(_ value: Double) -> Double {
+        positionSpan?.share(value) ?? 0.5
     }
 
     func symbol(named name: String) -> ChartSymbol {
