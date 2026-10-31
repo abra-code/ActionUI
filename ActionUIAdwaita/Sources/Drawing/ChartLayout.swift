@@ -46,6 +46,10 @@
    its labels there. On the leading or trailing side either is turned to run along the plot,
    centered unless aligned top or bottom. Two titles on one side do not stack, each is its own
    spacing off.
+ - A plot style is a layer of its own, over the axes: its background hides the
+   gridlines and any category labels on y, the marks draw on it, and its opacity, corner radius and
+   clip shape take all of that together. Its border draws square around the layer, padding moves
+   the plot and its axes in from the border, and a frame sets the plot's size, centered in its room.
  - Marks draw in the order of the content, over the grid.
  - A line or an area joins its points in data order, not by x. Marks with one series and the same
    {"by"} styles are one line, in the style of the first, drawn where that one is. A value that is
@@ -90,6 +94,11 @@ enum ChartPrimitive: Equatable {
     case text(String, position: ChartPoint, alignment: ChartPoint, ink: ChartInk)
     /// Text turned clockwise by `degrees` around its center.
     case turnedText(String, center: ChartPoint, degrees: Double, ink: ChartInk)
+    /// What follows up to `endPlot` draws as one layer.
+    case beginPlot(ChartPlotLayer)
+    case endPlot(ChartPlotLayer)
+    case roundedFill(ChartRect, radius: Double, ink: ChartInk)
+    case border(ChartRect, width: Double, ink: ChartInk)
 
     /// Whether GSK can take it: values from a document or rows can pass what its floats hold (they
     /// would reach it as infinities), and a line needs a width.
@@ -112,6 +121,12 @@ enum ChartPrimitive: Equatable {
             return finite(position.x, position.y)
         case let .turnedText(_, center, _, _):
             return finite(center.x, center.y)
+        case let .beginPlot(layer), let .endPlot(layer):
+            return finite(layer.rect.x, layer.rect.y, layer.rect.width, layer.rect.height, layer.radius, layer.opacity)
+        case let .roundedFill(rect, radius, _):
+            return finite(rect.x, rect.y, rect.width, rect.height, radius)
+        case let .border(rect, width, _):
+            return width > 0 && finite(rect.x, rect.y, rect.width, rect.height, width)
         }
     }
 
@@ -124,6 +139,14 @@ enum ChartPrimitive: Equatable {
             }
         }
     }
+}
+
+/// The layer a plot style draws the marks on.
+struct ChartPlotLayer: Equatable {
+    var rect: ChartRect
+    var radius: Double
+    var opacity: Double
+    var clips: Bool
 }
 
 /// Text as the renderer measures and formats it.
@@ -522,7 +545,9 @@ struct ChartLayout {
         var xAxis = axis(extents.x, spec.x, length: plotWidth)
         let xGroups = groups(spec.x, xAxis, isX: true)
 
-        let plot = ChartRect(x: leading, y: top, width: plotWidth, height: plotHeight)
+        let style = PlotStyle(spec.plotStyle)
+        let frame = style.framed(ChartRect(x: leading, y: top, width: plotWidth, height: plotHeight))
+        let plot = style.padded(frame)
         place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
         // Numbers and dates rise up the axis; bands read from the top.
         if case .bands = yAxis.scale.kind {
@@ -537,8 +562,10 @@ struct ChartLayout {
         let outerTop = plot.y - xLabelsTop, outerBottom = plot.y + plot.height + xLabelsBottom
         let outerLeading = plot.x - yLabelsLeading, outerTrailing = plot.x + plot.width + yLabelsTrailing
         for title in titles {
-            // An x title runs along the plot and a y title along the whole chart.
-            let start = title.isX ? plot.x : 0, end = title.isX ? plot.x + plot.width : width
+            // An x title runs along the plot and a y title along the whole chart, its ends moved
+            // as far as a plot style moved the plot's (measured on macOS 27).
+            let start = title.isX ? plot.x : plot.x - leading
+            let end = title.isX ? plot.x + plot.width : width + ((plot.x + plot.width) - (leading + plotWidth))
             let across = start + (end - start) * title.along
             // A turned title is placed by its center: its ends line up with the plot's.
             let along = plot.y + plot.height * title.along + metrics.size(title.text).width * (0.5 - title.along)
@@ -557,8 +584,87 @@ struct ChartLayout {
         }
         // A label's row is the room under the band's top line (measured on macOS 27: it follows the font).
         let bandLabelRow = yBands && !labelEdges(spec.y, isX: false).isEmpty ? lineHeight + Self.labelGap : 0
+        let layer = style.layer(frame)
+        if let layer {
+            primitives.append(.beginPlot(layer))
+            if let background = style.background {
+                primitives.append(.roundedFill(frame, radius: layer.radius, ink: .color(background)))
+            }
+        }
         appendMarks(stacks, xAxis.scale, yAxis.scale, plot, bandLabelRow: bandLabelRow, into: &primitives)
+        if let layer { primitives.append(.endPlot(layer)) }
+        if let border = style.border {
+            primitives.append(.border(frame, width: border.width, ink: border.ink))
+        }
         return primitives.filter(\.isDrawable)
+    }
+
+    /// What a chartPlotStyle asks of the plot, read as any view's properties are. Shadow, offset and
+    /// foregroundStyle are not drawn.
+    private struct PlotStyle {
+        private static let systemPadding = 16.0
+        private let modifiers: BaseModifiers
+        let background: ColorSpec?
+        let border: (width: Double, ink: ChartInk)?
+        private let radius: Double
+
+        init(_ properties: [String: Any]) {
+            modifiers = BaseModifiers(properties)
+            background = ColorSpec.parse(modifiers.background)
+            border = modifiers.border.map { border in
+                (border.width, .color(ColorSpec.parse(border.color) ?? .named(.black)))
+            }
+            // A corner radius and a rounded clip shape both clip, so the larger shows.
+            var radius = modifiers.cornerRadius ?? 0
+            if case .roundedRectangle(let x, let y)? = modifiers.clipShape {
+                radius = max(radius, min(x, y))
+            }
+            self.radius = max(radius, 0)
+        }
+
+        // The size a frame sets, centered in the plot's room even when larger than it. A minimum
+        // or a maximum limits the room, and an ideal size changes nothing (measured on macOS 27).
+        func framed(_ area: ChartRect) -> ChartRect {
+            guard let frame = modifiers.frame else { return area }
+            let width = Self.size(area.width, fixed: frame.width, lowest: frame.minWidth, highest: frame.maxWidth)
+            let height = Self.size(area.height, fixed: frame.height, lowest: frame.minHeight, highest: frame.maxHeight)
+            return ChartRect(x: area.x + (area.width - width) / 2, y: area.y + (area.height - height) / 2, width: width, height: height)
+        }
+
+        private static func size(_ room: Double, fixed: Double?, lowest: Double?, highest: Double?) -> Double {
+            var size = fixed ?? room
+            if let highest { size = min(size, highest) }
+            if let lowest { size = max(size, lowest) }
+            return size.isFinite && size >= 0 ? size : room
+        }
+
+        func padded(_ frame: ChartRect) -> ChartRect {
+            var top = 0.0, leading = 0.0, bottom = 0.0, trailing = 0.0
+            switch modifiers.padding {
+            case nil:
+                return frame
+            case .system?:
+                (top, leading, bottom, trailing) = (Self.systemPadding, Self.systemPadding, Self.systemPadding, Self.systemPadding)
+            case .uniform(let all)?:
+                (top, leading, bottom, trailing) = (all, all, all, all)
+            case .edges(let edgeTop, let edgeLeading, let edgeBottom, let edgeTrailing)?:
+                (top, leading, bottom, trailing) = (edgeTop, edgeLeading, edgeBottom, edgeTrailing)
+            }
+            // Padding past the frame leaves a point of plot, in the middle (measured on macOS 27).
+            let width = max(frame.width - leading - trailing, 1), height = max(frame.height - top - bottom, 1)
+            return ChartRect(x: frame.x + (frame.width - width + leading - trailing) / 2,
+                             y: frame.y + (frame.height - height + top - bottom) / 2, width: width, height: height)
+        }
+
+        // nil when the marks need no layer, so a chart without a style draws as it always did.
+        func layer(_ frame: ChartRect) -> ChartPlotLayer? {
+            let opacity = min(max(modifiers.opacity ?? 1, 0), 1)
+            // A corner radius of 0 clips too (measured on macOS 27).
+            let clips = modifiers.clipShape != nil || modifiers.cornerRadius != nil
+            guard background != nil || opacity < 1 || clips else { return nil }
+            // The largest is half the short side, however large the radius.
+            return ChartPlotLayer(rect: frame, radius: min(radius, min(frame.width, frame.height) / 2), opacity: opacity, clips: clips)
+        }
     }
 
     /// An axis title, resolved: `along` is how far along its side it sits, 0 at the start.

@@ -182,6 +182,42 @@ extension Chart: ActionUIAdwaitaRenderer {
             label(string, position, alignment, ink)
         case let .turnedText(string, center, degrees, ink):
             turnedLabel(string, center, degrees, ink)
+        case let .beginPlot(layer):
+            beginPlot(layer)
+        case let .endPlot(layer):
+            if layer.clips { gtk_snapshot_pop(snapshot) }
+            if layer.opacity < 1 { gtk_snapshot_pop(snapshot) }
+        case let .roundedFill(rect, radius, ink):
+            var rounded = roundedRect(rect, radius)
+            var color = rgba(ink)
+            gtk_snapshot_push_rounded_clip(snapshot, &rounded)
+            var bounds = rounded.bounds
+            gtk_snapshot_append_color(snapshot, &color, &bounds)
+            gtk_snapshot_pop(snapshot)
+        case let .border(rect, width, ink):
+            var rounded = roundedRect(rect, 0)
+            var widths = [Float](repeating: Float(width), count: 4)
+            let color = rgba(ink)
+            var colors = [color, color, color, color]
+            gtk_snapshot_append_border(snapshot, &rounded, &widths, &colors)
+        }
+    }
+
+    private func roundedRect(_ rect: ChartRect, _ radius: Double) -> GskRoundedRect {
+        var bounds = graphene_rect_t(origin: graphene_point_t(x: Float(rect.x), y: Float(rect.y)),
+                                     size: graphene_size_t(width: Float(rect.width), height: Float(rect.height)))
+        var rounded = GskRoundedRect()
+        gsk_rounded_rect_init_from_rect(&rounded, &bounds, Float(radius))
+        return rounded
+    }
+
+    private func beginPlot(_ layer: ChartPlotLayer) {
+        if layer.opacity < 1 {
+            gtk_snapshot_push_opacity(snapshot, layer.opacity)
+        }
+        if layer.clips {
+            var rounded = roundedRect(layer.rect, layer.radius)
+            gtk_snapshot_push_rounded_clip(snapshot, &rounded)
         }
     }
 

@@ -114,6 +114,22 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertGreaterThan((0..<filled.height).filter { filled.redRun(y: $0) > 100 }.count, 100, "an area fills down to the axis")
     }
 
+    func testAPlotBackgroundDrawsUnderTheMarksAndOverTheGrid() throws {
+        let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartPlotStyle": {"background": "#0000FF", "cornerRadius": 12, "border": {"color": "#00FF00", "width": 2}}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": "#FF0000"}]}]}"##
+        let image = try pixels(try render(chart))
+        XCTAssertGreaterThan(image.redRun(y: 100), 50, "the bar is over the background")
+        XCTAssertEqual(image[6, 100][2], 255, accuracy: 8, "the background fills beside it")
+        XCTAssertTrue((0..<image.width).contains { image[$0, 8][1] > 200 && image[$0, 8][0] < 60 }, "the border runs along the top")
+        XCTAssertGreaterThan(image[1, 8][1], 200, "and stays square at the corner, whatever the radius")
+    }
+
+    func testPlotOpacityFadesTheLayer() throws {
+        let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartPlotStyle": {"opacity": 0.5}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": "#FF0000"}]}]}"##
+        let image = try pixels(try render(chart))
+        let bar = try XCTUnwrap((0..<image.width).first { image[$0, 100][0] > 200 })
+        XCTAssertEqual(image[bar + 20, 100][3], 127, accuracy: 3, "the pixels keep their color and go half see-through")
+    }
+
     func testNewRowsDrawAtOnce() throws {
         let node = try render(bars)
         let before = try pixels(node).redRun(y: 60)

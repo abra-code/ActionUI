@@ -1538,6 +1538,125 @@ final class ChartLayoutTests: XCTestCase {
         XCTAssertLessThan(found.count, 200, "bands under a point apart")
     }
 
+    // MARK: - Plot style
+
+    private func styled(_ style: [String: Any]) -> [ChartPrimitive] {
+        layout(chart([bar], ["chartPlotStyle": style]), rows: [["Mon", "2"], ["Tue", "4"]])
+    }
+
+    private func layers(_ primitives: [ChartPrimitive]) -> [ChartPlotLayer] {
+        primitives.compactMap { primitive in
+            if case .beginPlot(let layer) = primitive { return layer } else { return nil }
+        }
+    }
+
+    func testAChartWithoutAStyleHasNoLayer() {
+        XCTAssertEqual(layers(layout(chart([bar]), rows: [["Mon", "2"]])), [])
+    }
+
+    func testABackgroundIsOverTheGridAndUnderTheMarks() throws {
+        let primitives = styled(["background": "red"])
+        let begin = try XCTUnwrap(primitives.firstIndex { if case .beginPlot = $0 { return true } else { return false } })
+        let fill = try XCTUnwrap(primitives.firstIndex { if case .roundedFill = $0 { return true } else { return false } })
+        let firstBar = try XCTUnwrap(primitives.firstIndex { if case .rect = $0 { return true } else { return false } })
+        let lastLine = try XCTUnwrap(primitives.lastIndex { if case .line = $0 { return true } else { return false } })
+        XCTAssertLessThan(lastLine, begin, "every gridline is under it")
+        XCTAssertLessThan(begin, fill)
+        XCTAssertLessThan(fill, firstBar)
+    }
+
+    func testOpacityRadiusAndClipAreTheLayers() throws {
+        XCTAssertEqual(try XCTUnwrap(layers(styled(["opacity": 0.4])).first).opacity, 0.4)
+        let rounded = try XCTUnwrap(layers(styled(["cornerRadius": 8])).first)
+        XCTAssertEqual(rounded.radius, 8)
+        XCTAssertTrue(rounded.clips)
+        XCTAssertTrue(try XCTUnwrap(layers(styled(["clipShape": "rectangle"])).first).clips)
+        XCTAssertFalse(try XCTUnwrap(layers(styled(["background": "red"])).first).clips, "a background alone cuts nothing")
+    }
+
+    func testACornerRadiusOf0Clips() throws {
+        XCTAssertTrue(try XCTUnwrap(layers(styled(["cornerRadius": 0])).first).clips, "measured on macOS 27")
+    }
+
+    func testTheLargerOfACornerRadiusAndARoundedClipShapeShows() throws {
+        for (corner, clip) in [(30.0, 4.0), (4.0, 30.0)] {
+            let style: [String: Any] = ["cornerRadius": corner, "clipShape": ["type": "roundedRectangle", "cornerRadius": clip]]
+            XCTAssertEqual(try XCTUnwrap(layers(styled(style)).first).radius, 30)
+        }
+    }
+
+    func testARadiusStopsAtHalfTheShortSide() throws {
+        let primitives = styled(["cornerRadius": "inf", "background": "red"])
+        let layer = try XCTUnwrap(layers(primitives).first)
+        XCTAssertEqual(layer.radius, layer.rect.height / 2, accuracy: 0.001)
+        XCTAssertTrue(primitives.contains { if case .roundedFill = $0 { return true } else { return false } }, "the background stays")
+    }
+
+    func testABeginHasItsEnd() {
+        func ends(_ primitives: [ChartPrimitive]) -> Int {
+            primitives.filter { if case .endPlot = $0 { return true } else { return false } }.count
+        }
+        XCTAssertEqual(ends(styled(["background": "red", "opacity": 0.5])), 1)
+        let tooLarge = styled(["background": "red", "opacity": 0.5, "frame": ["height": 1e45]])
+        XCTAssertEqual(layers(tooLarge).count, 0, "past what GSK holds")
+        XCTAssertEqual(ends(tooLarge), 0, "gone with its begin")
+    }
+
+    func testABorderDrawsAroundTheFrameAfterTheLayer() throws {
+        let primitives = styled(["border": ["color": "red", "width": 2]])
+        guard case .border(_, let width, let ink)? = primitives.last else { return XCTFail("expected a border last") }
+        XCTAssertEqual(width, 2)
+        XCTAssertEqual(ink, .color(.named(.red)))
+        XCTAssertEqual(layers(primitives), [], "a border alone needs no layer")
+    }
+
+    func testPaddingMovesThePlotAndItsAxesIn() {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "2"]]))[0]
+        let padded = rects(layout(chart([bar], ["chartPlotStyle": ["padding": 10]]), rows: [["Mon", "2"]]))[0]
+        XCTAssertEqual(padded.x + padded.width / 2, plain.x + plain.width / 2, accuracy: 0.001, "centered in the same room")
+        XCTAssertEqual(padded.width, plain.width - 20 * 0.7, accuracy: 0.001)
+        XCTAssertEqual(padded.height, plain.height - 20, accuracy: 0.001)
+        func top(_ primitives: [ChartPrimitive]) throws -> Double { try XCTUnwrap(lines(primitives, ink: ChartLayout.gridInk).map(\.from.y).min()) }
+        XCTAssertEqual(try top(layout(chart([bar], ["chartPlotStyle": ["padding": 10]]), rows: [["Mon", "2"]])),
+                       try top(layout(chart([bar]), rows: [["Mon", "2"]])) + 10, accuracy: 0.001, "the gridlines go with it")
+    }
+
+    func testPaddingPastTheFrameLeavesAPointInTheMiddle() {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "2"]]))[0]
+        let style: [String: Any] = ["frame": ["height": 40], "padding": ["top": 30, "bottom": 20]]
+        let squeezed = rects(layout(chart([bar], ["chartPlotStyle": style]), rows: [["Mon", "2"]]))[0]
+        XCTAssertEqual(squeezed.height, 1, accuracy: 0.001)
+        XCTAssertEqual(squeezed.y + squeezed.height / 2, plain.y + plain.height / 2 + 5, accuracy: 0.001, "centered, with what top adds over bottom")
+    }
+
+    func testAFrameFixesThePlotsSizeCenteredInItsRoom() {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "2"]]))[0]
+        let framed = rects(layout(chart([bar], ["chartPlotStyle": ["frame": ["height": 50]]]), rows: [["Mon", "2"]]))[0]
+        XCTAssertEqual(framed.height, 50, accuracy: 0.001)
+        XCTAssertEqual(framed.y + framed.height / 2, plain.y + plain.height / 2, accuracy: 0.001)
+    }
+
+    func testAMinimumAndAMaximumLimitThePlotsRoom() {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "2"]]))[0]
+        func framed(_ frame: [String: Any]) -> ChartRect {
+            rects(layout(chart([bar], ["chartPlotStyle": ["frame": frame]]), rows: [["Mon", "2"]]))[0]
+        }
+        XCTAssertEqual(framed(["maxHeight": 50]).height, 50, accuracy: 0.001)
+        XCTAssertEqual(framed(["maxWidth": 100]).width, 70, accuracy: 0.001)
+        let tall = framed(["minHeight": 400])
+        XCTAssertEqual(tall.height, 400, accuracy: 0.001)
+        XCTAssertEqual(tall.y + 200, plain.y + plain.height / 2, accuracy: 0.001, "centered, past its room too")
+        XCTAssertEqual(framed(["maxHeight": "inf", "minHeight": 30]), plain, "the room is between them")
+        XCTAssertEqual(framed(["idealHeight": 40]), plain, "an ideal size changes nothing")
+    }
+
+    func testAFrameThatIsNoSizeLeavesThePlotAlone() {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "2"]]))[0]
+        for frame: [String: Any] in [["height": "inf"], ["width": -10], ["minWidth": "inf"], ["maxHeight": -1]] {
+            XCTAssertEqual(rects(layout(chart([bar], ["chartPlotStyle": ["frame": frame]]), rows: [["Mon", "2"]]))[0], plain, "\(frame)")
+        }
+    }
+
     // MARK: - Axis titles
 
     private func turned(_ primitives: [ChartPrimitive]) -> (text: String, center: ChartPoint, degrees: Double)? {
@@ -1559,6 +1678,15 @@ final class ChartLayoutTests: XCTestCase {
         let primitives = layout(chart([bar], ["chartYAxisLabel": "Sales"]), rows: [["Mon", "1"]])
         XCTAssertEqual(try XCTUnwrap(textPosition("Sales", in: primitives)).x, 306, accuracy: 0.001)
         XCTAssertGreaterThan(rects(primitives)[0].y, plain.y, "the plot makes room")
+    }
+
+    func testAYTitleStaysByAFramedPlot() throws {
+        let rows = [["Mon", "1"]]
+        let plain = layout(chart([bar], ["chartYAxisLabel": "Sales"]), rows: rows)
+        let framed = layout(chart([bar], ["chartYAxisLabel": "Sales", "chartPlotStyle": ["frame": ["width": 100]]]), rows: rows)
+        let room = try XCTUnwrap(textPosition("Sales", in: plain)).x - (rects(plain)[0].x + rects(plain)[0].width / 2 + rects(plain)[0].width / 0.7 / 2)
+        let center = rects(framed)[0].x + rects(framed)[0].width / 2
+        XCTAssertEqual(try XCTUnwrap(textPosition("Sales", in: framed)).x, center + 50 + room, accuracy: 0.001, "its room off the plot, as without a frame")
     }
 
     func testAYTitleOnASideIsTurnedAndCentered() throws {
