@@ -88,31 +88,40 @@ final class ChartLayoutTests: XCTestCase {
     // MARK: - Ticks
 
     func testTicksAreWholeStepsOfOneTwoOrFive() {
-        XCTAssertEqual(ChartTicks.domain(0, 1250, count: 3).ticks, [0, 500, 1000, 1500])
-        XCTAssertEqual(ChartTicks.domain(0, 5, count: 3).ticks, [0, 2, 4, 6])
-        XCTAssertEqual(ChartTicks.domain(0, 0.7, count: 4).hi, 0.8, accuracy: 1e-9)
-        XCTAssertEqual(ChartTicks.domain(-30, 70, count: 2).ticks, [-50, 0, 50, 100])
+        XCTAssertEqual(ChartTicks.domain(0, 1250, intervals: 4).ticks, [0, 500, 1000, 1500])
+        XCTAssertEqual(ChartTicks.domain(0, 5, intervals: 4).ticks, [0, 2, 4, 6])
+        XCTAssertEqual(ChartTicks.domain(0, 0.7, intervals: 4).hi, 0.8, accuracy: 1e-9)
+        XCTAssertEqual(ChartTicks.domain(-30, 70, intervals: 4).ticks, [-50, 0, 50, 100])
     }
 
     func testADomainWithoutARangeStillHasOne() {
-        let domain = ChartTicks.domain(0, 0, count: 3)
+        let domain = ChartTicks.domain(0, 0, intervals: 4)
         XCTAssertLessThan(domain.lo, domain.hi)
     }
 
     func testADomainAtTheEndsOfDoubleStaysFinite() {
         for (lo, hi) in [(0, 1.7e308), (-1.7e308, 1.7e308), (0, 1e-323)] {
-            let domain = ChartTicks.domain(lo, hi, count: 3)
+            let domain = ChartTicks.domain(lo, hi, intervals: 4)
             XCTAssertLessThan(domain.lo, domain.hi)
             XCTAssertTrue(domain.hi.isFinite)
             XCTAssertGreaterThanOrEqual(domain.ticks.count, 2)
         }
     }
 
-    func testTheNumberOfTicksFollowsTheHeight() {
+    func testNumberTicksDoNotDependOnTheSize() {
         let rows = [["Mon", "1250"]]
-        // 220 high: 200 of plot after the labels, three ticks' worth.
-        XCTAssertEqual(texts(layout(chart([bar]), rows: rows)).filter { $0 != "Mon" }, ["0", "500", "1000", "1500"])
-        XCTAssertEqual(texts(layout(chart([bar]), rows: rows, height: 420)).filter { $0 != "Mon" }.first(where: { $0 != "0" }), "200")
+        // Swift Charts' ticks are the same from 60 to 700 points tall.
+        for height in [60.0, 220, 700] {
+            XCTAssertEqual(texts(layout(chart([bar]), rows: rows, height: height)).filter { $0 != "Mon" }, ["0", "500", "1000", "1500"], "\(height)")
+        }
+    }
+
+    func testTicksAreAsSwiftChartsDrawsThem() {
+        // Measured on macOS 27, each maximum with the step it gets.
+        for (maximum, expected) in [("4", "1"), ("5", "2"), ("6", "2"), ("8", "2"), ("9", "5"), ("10", "5"), ("30", "10"), ("40", "10"), ("60", "20"), ("1250", "500")] {
+            let labels = texts(layout(chart([bar]), rows: [["Mon", maximum]])).filter { $0 != "Mon" }
+            XCTAssertEqual(labels[1], expected, "up to \(maximum)")
+        }
     }
 
     // MARK: - Reading marks
@@ -449,6 +458,237 @@ final class ChartLayoutTests: XCTestCase {
         }.first
         let found = try XCTUnwrap(line)
         XCTAssertEqual(found.1.y - found.0.y, 20, accuracy: 0.001)
+    }
+
+    // MARK: - Lines and areas
+
+    private func paths(_ primitives: [ChartPrimitive]) -> [(elements: [ChartPathElement], ink: ChartInk, stroke: ChartStroke)] {
+        primitives.compactMap { primitive in
+            if case .path(let elements, let ink, let stroke) = primitive { return (elements, ink, stroke) } else { return nil }
+        }
+    }
+
+    private func fills(_ primitives: [ChartPrimitive]) -> [[ChartPathElement]] {
+        primitives.compactMap { primitive in
+            if case .fill(let elements, _) = primitive { return elements } else { return nil }
+        }
+    }
+
+    private func points(_ elements: [ChartPathElement]) -> [ChartPoint] {
+        elements.compactMap { element in
+            switch element {
+            case .move(let point), .line(let point): return point
+            case .curve(_, _, let end): return end
+            }
+        }
+    }
+
+    private let numberColumns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "team", ["name": "z", "type": "number"]]
+    private var line: [String: Any] { ["type": "LineMark", "x": value("X", "$x"), "y": value("Y", "$y")] }
+
+    private func numbers(_ marks: [[String: Any]]) -> [String: Any] {
+        ["columns": numberColumns, "content": [["type": "ForEach", "content": marks]]]
+    }
+
+    func testALineJoinsItsPointsInDataOrderTwoWide() throws {
+        let found = paths(layout(numbers([line]), rows: [["30", "5"], ["10", "2"], ["20", "8"]]))
+        XCTAssertEqual(found.count, 1)
+        let joined = points(try XCTUnwrap(found.first).elements)
+        XCTAssertGreaterThan(joined[0].x, joined[2].x)
+        XCTAssertGreaterThan(joined[2].x, joined[1].x, "30, then 10, then 20")
+        XCTAssertEqual(found.first?.stroke.lineWidth, 2)
+        XCTAssertEqual(found.first?.ink, .color(.named(.blue)))
+    }
+
+    func testASeriesOrAByStyleMakesALinePerValue() {
+        var bySeries = line
+        bySeries["series"] = value("Team", "$team")
+        var byStyle = line
+        byStyle["foregroundStyle"] = ["by": value("Team", "$team")]
+        let rows = [["1", "1", "A"], ["1", "2", "B"], ["2", "3", "A"], ["2", "4", "B"]]
+        XCTAssertEqual(paths(layout(numbers([bySeries]), rows: rows)).count, 2)
+        let styled = paths(layout(numbers([byStyle]), rows: rows))
+        XCTAssertEqual(styled.map(\.ink), [.color(.named(.blue)), .color(.named(.green))])
+    }
+
+    func testTwoLinesWithoutASeriesAreOneInTheStyleOfTheFirst() throws {
+        var first = line
+        first["foregroundStyle"] = "red"
+        var second: [String: Any] = ["type": "LineMark", "x": value("X", "$x"), "y": value("Z", "$z")]
+        second["foregroundStyle"] = "blue"
+        let found = paths(layout(numbers([first, second]), rows: [["1", "2", "A", "6"], ["2", "8", "A", "1"]]))
+        XCTAssertEqual(found.count, 1, "joined across marks, as Swift Charts joins them")
+        XCTAssertEqual(found.first?.ink, .color(.named(.red)))
+        XCTAssertEqual(points(try XCTUnwrap(found.first).elements).count, 4)
+    }
+
+    func testALineOfOnePointDrawsNothing() {
+        XCTAssertEqual(paths(layout(numbers([line]), rows: [["1", "1"]])).count, 0)
+    }
+
+    private func moves(_ elements: [ChartPathElement]) -> Int {
+        elements.filter { if case .move = $0 { return true } else { return false } }.count
+    }
+
+    func testAPointThatIsNotFiniteBreaksTheLine() throws {
+        let rows = [["1", "1"], ["2", "4"], ["3", "nan"], ["4", "2"], ["5", "5"]]
+        let found = try XCTUnwrap(paths(layout(numbers([line]), rows: rows)).first)
+        XCTAssertEqual(moves(found.elements), 2, "two pieces")
+        XCTAssertEqual(points(found.elements).count, 4)
+        let onX = try XCTUnwrap(paths(layout(numbers([line]), rows: [["1", "1"], ["2", "4"], ["nan", "3"], ["4", "2"], ["5", "5"]])).first)
+        XCTAssertEqual(moves(onX.elements), 2, "on either axis")
+    }
+
+    func testAPieceOfOnePointDrawsNothing() throws {
+        let rows = [["1", "1"], ["2", "nan"], ["3", "3"], ["4", "nan"], ["5", "5"], ["6", "2"]]
+        let found = try XCTUnwrap(paths(layout(numbers([line]), rows: rows)).first)
+        XCTAssertEqual(moves(found.elements), 1)
+        XCTAssertEqual(points(found.elements).count, 2)
+    }
+
+    func testAPointThatIsNotFiniteBreaksAnArea() throws {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y")]
+        let found = try XCTUnwrap(fills(layout(numbers([area]), rows: [["1", "1"], ["2", "4"], ["3", "nan"], ["4", "2"], ["5", "5"]])).first)
+        XCTAssertEqual(moves(found), 2)
+        XCTAssertEqual(points(found).count, 8, "each piece along its top and back")
+    }
+
+    func testAByStyleASmallerOneReplacesDoesNotSplitALine() {
+        let rows = [["1", "1", "A"], ["1", "2", "B"], ["2", "3", "A"], ["2", "4", "B"]]
+        let by = ["by": value("Team", "$team")]
+        func plot(_ key: String, over mark: [String: Any]) -> [String: Any] {
+            ["columns": numberColumns, "content": [["type": "ForEach", "content": [["type": "Plot", key: by, "content": [mark]]]]]]
+        }
+        var colored = line
+        colored["foregroundStyle"] = "red"
+        XCTAssertEqual(paths(layout(plot("foregroundStyle", over: colored), rows: rows)).count, 1)
+        var styled = line
+        styled["lineStyle"] = ["lineWidth": 2]
+        XCTAssertEqual(paths(layout(plot("lineStyle", over: styled), rows: rows)).count, 1)
+        var shaped = line
+        shaped["symbol"] = "square"
+        XCTAssertEqual(paths(layout(plot("symbol", over: shaped), rows: rows)).count, 1)
+    }
+
+    func testOnlyColorLineStyleAndSymbolSplitALine() {
+        let rows = [["1", "1", "A"], ["1", "2", "B"], ["2", "3", "A"], ["2", "4", "B"]]
+        let by = ["by": value("Team", "$team")]
+        for (key, count) in [("lineStyle", 2), ("symbol", 2), ("symbolSize", 1)] {
+            var mark = line
+            mark[key] = by
+            XCTAssertEqual(paths(layout(numbers([mark]), rows: rows)).count, count, key)
+        }
+        var placed = line
+        placed["position"] = by
+        XCTAssertEqual(paths(layout(numbers([placed]), rows: rows)).count, 1, "position")
+    }
+
+    func testALineTakesItsStyleAndInterpolation() throws {
+        var mark = line
+        mark["lineStyle"] = ["lineWidth": 3]
+        mark["interpolationMethod"] = "stepEnd"
+        let found = try XCTUnwrap(paths(layout(numbers([mark]), rows: [["1", "1"], ["2", "4"]])).first)
+        XCTAssertEqual(found.stroke, ChartStroke(lineWidth: 3))
+        XCTAssertEqual(found.elements.count, 3, "move, across, up")
+    }
+
+    func testALineOnBandsGoesThroughTheirCenters() throws {
+        let mark: [String: Any] = ["type": "LineMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        let found = try XCTUnwrap(paths(layout(chart([mark]), rows: [["Mon", "1"], ["Tue", "2"]])).first)
+        let joined = points(found.elements)
+        XCTAssertEqual(joined[1].x, joined[0].x * 3, accuracy: 0.001, "centers of two equal bands")
+    }
+
+    func testAnAreaRunsDownToZeroAndClosesAlongIt() throws {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y")]
+        let found = points(try XCTUnwrap(fills(layout(numbers([area]), rows: [["10", "4"], ["20", "8"]])).first))
+        XCTAssertEqual(found.count, 4)
+        XCTAssertEqual(found[2].x, found[1].x, "down at the last point")
+        XCTAssertEqual(found[3].x, found[0].x, "back to the first")
+        XCTAssertEqual(found[2].y, found[3].y, "along the baseline")
+        XCTAssertGreaterThan(found[2].y, found[0].y)
+    }
+
+    func testAreasStackInRowOrderOfTheirSeries() throws {
+        var area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y")]
+        area["foregroundStyle"] = ["by": value("Team", "$team")]
+        let rows = [["1", "2", "A"], ["2", "4", "A"], ["1", "1", "B"], ["2", "2", "B"]]
+        let found = fills(layout(numbers([area]), rows: rows)).map(points)
+        XCTAssertEqual(found.count, 2)
+        XCTAssertEqual(found[1][3].y, found[0][0].y, accuracy: 0.001, "B starts where A ends")
+        XCTAssertLessThan(found[1][0].y, found[0][0].y, "B is above A")
+    }
+
+    func testSteppedAreasShareTheirEdge() throws {
+        for method in ["stepStart", "stepEnd", "stepCenter", "monotone"] {
+            var area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y")]
+            area["foregroundStyle"] = ["by": value("Team", "$team")]
+            area["interpolationMethod"] = method
+            let rows = [["1", "1", "A"], ["2", "3", "A"], ["3", "2", "A"], ["1", "2", "B"], ["2", "1", "B"], ["3", "3", "B"]]
+            let found = fills(layout(numbers([area]), rows: rows))
+            XCTAssertEqual(found.count, 2)
+            // A's top is the first half of its path; B's bottom is the second half of its own, backward.
+            let top = points(Array(found[0].prefix(found[0].count / 2)))
+            let bottom = points(Array(found[1].suffix(found[1].count / 2)))
+            XCTAssertEqual(top.count, bottom.count, method)
+            for (a, b) in zip(top, bottom.reversed()) {
+                XCTAssertEqual(a.x, b.x, accuracy: 0.001, method)
+                XCTAssertEqual(a.y, b.y, accuracy: 0.001, method)
+            }
+        }
+    }
+
+    func testABarAndAnAreaAtOnePlaceDoNotStack() throws {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        let primitives = layout(chart([bar, area]), rows: [["Mon", "2"], ["Tue", "4"]])
+        XCTAssertTrue(texts(primitives).contains("4"))
+        XCTAssertFalse(texts(primitives).contains("8"), "the axis is not a stack of the two")
+        let found = points(try XCTUnwrap(fills(primitives).first))
+        XCTAssertEqual(found[2].y, found[3].y, accuracy: 0.001, "down to the baseline at both ends")
+    }
+
+    func testARangeOfCategoriesRunsFromEdgeToEdge() throws {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("High", "$high"), "yStart": value("A", "$day"), "yEnd": value("B", "$team")]
+        let found = points(try XCTUnwrap(fills(layout(chart([area]), rows: [["Mon", "1", "Tue"], ["Mon", "2", "Tue"]])).first))
+        // The plot runs from 5, half a line down, to 202, above the 18 of x labels.
+        XCTAssertEqual(found[3].y, 5, accuracy: 0.001, "the top of the first band")
+        XCTAssertEqual(found[0].y, 202, accuracy: 0.001, "the bottom of the last band")
+    }
+
+    func testARangeAreaFillsBetweenItsTwoValues() throws {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "yStart": value("L", 2), "yEnd": value("H", "$y")]
+        let found = points(try XCTUnwrap(fills(layout(numbers([area]), rows: [["1", "6"], ["2", "8"]])).first))
+        XCTAssertLessThan(found[0].y, found[3].y, "the top is the end value")
+        XCTAssertEqual(found[2].y, found[3].y, accuracy: 0.001, "the bottom is level at 2")
+    }
+
+    func testANormalizedAxisStretchedByAnotherMarkKeepsFewTicks() {
+        var stack = bar
+        stack["stacking"] = "normalized"
+        for far in [10_000_000.0, 1e19, 1e300] {
+            let rule: [String: Any] = ["type": "RuleMark", "y": value("Far", far)]
+            let description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [stack]], rule]]
+            XCTAssertLessThan(texts(layout(description, rows: [["Mon", "2"], ["Mon", "3"]])).count, 10, "\(far)")
+        }
+    }
+
+    func testAStrokeNarrowerThanAFloatHoldsIsNotDrawn() {
+        let hairline = ChartStroke(lineWidth: 1e-50)
+        let points = [ChartPathElement.move(ChartPoint(x: 0, y: 0)), .line(ChartPoint(x: 1, y: 1))]
+        XCTAssertFalse(ChartPrimitive.path(points, ink: .text(opacity: 1), stroke: hairline).isDrawable)
+        XCTAssertFalse(ChartPrimitive.line(from: ChartPoint(x: 0, y: 0), to: ChartPoint(x: 1, y: 1), ink: .text(opacity: 1), stroke: hairline).isDrawable)
+    }
+
+    // MARK: - Weeks
+
+    func testAWeekStartsOnTheCalendarsFirstDay() throws {
+        let saved = ChartDates.calendar
+        defer { ChartDates.calendar = saved }
+        let wednesday = try XCTUnwrap(saved.date(from: DateComponents(year: 2026, month: 8, day: 5, hour: 12)))
+        ChartDates.calendar.firstWeekday = 1
+        XCTAssertEqual(saved.component(.day, from: ChartDates.bin(wednesday, .weekOfYear).start), 2, "Sunday, August 2")
+        ChartDates.calendar.firstWeekday = 2
+        XCTAssertEqual(saved.component(.day, from: ChartDates.bin(wednesday, .weekOfYear).start), 3, "Monday, August 3")
     }
 
     // MARK: - Axes

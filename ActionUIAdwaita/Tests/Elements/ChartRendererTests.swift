@@ -102,6 +102,18 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertFalse(isRed(image[2, 150]), "the room at the leading edge of the band is the background")
     }
 
+    func testLinesAndAreasDrawInTheirColors() throws {
+        let columns = #""columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}], "data": [[0, 8], [10, 8]]"#
+        let line = ##""chart": {"## + columns + ##", "content": [{"type": "ForEach", "content": [{"type": "LineMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "foregroundStyle": "#FF0000"}]}]}"##
+        let area = ##""chart": {"## + columns + ##", "content": [{"type": "ForEach", "content": [{"type": "AreaMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "foregroundStyle": "#FF0000"}]}]}"##
+        let thin = try pixels(try render(line))
+        XCTAssertGreaterThan((0..<thin.height).filter { thin.redRun(y: $0) > 100 }.count, 0, "a level line crosses the plot")
+        XCTAssertLessThanOrEqual((0..<thin.height).filter { thin.redRun(y: $0) > 100 }.count, 4, "and is thin")
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        let filled = try pixels(try render(area))
+        XCTAssertGreaterThan((0..<filled.height).filter { filled.redRun(y: $0) > 100 }.count, 100, "an area fills down to the axis")
+    }
+
     func testNewRowsDrawAtOnce() throws {
         let node = try render(bars)
         let before = try pixels(node).redRun(y: 60)

@@ -15,20 +15,28 @@ import Foundation
 import Glibc
 
 enum ChartTicks {
-    /// The step that gives about `count` ticks over `lo...hi`.
-    static func step(_ lo: Double, _ hi: Double, count: Int) -> Double {
-        let raw = (hi - lo) / Double(max(count, 1))
-        guard raw > 0, raw.isFinite else { return 1 }
-        let power = pow(10, floor(log10(raw)))
-        let error = raw / power
-        let factor: Double = error >= 7.07 ? 10 : error >= 3.16 ? 5 : error >= 1.41 ? 2 : 1
-        return factor * power
+    /// The smallest step of 1, 2 or 5 times a power of ten that covers `lo...hi` in at most
+    /// `intervals` whole steps. This fits every axis measured on macOS 27 (maximum and step: 4 and 1,
+    /// 5 and 2, 8 and 2, 9 and 5, 30 and 10, 60 and 20, 1,250 and 500).
+    static func step(_ lo: Double, _ hi: Double, intervals: Int) -> Double {
+        let span = hi - lo
+        guard span > 0, span.isFinite else { return 1 }
+        var power = pow(10, floor(log10(span / Double(max(intervals, 1)))))
+        // Four decades always hold one, unless the values are at the ends of Double's range.
+        for _ in 0..<4 {
+            for factor in [1.0, 2.0, 5.0] {
+                let step = factor * power
+                if ceil(hi / step) - floor(lo / step) <= Double(intervals) { return step }
+            }
+            power *= 10
+        }
+        return span
     }
 
-    /// `lo...hi` widened to whole steps, and the ticks over it.
-    static func domain(_ lo: Double, _ hi: Double, count: Int) -> (lo: Double, hi: Double, ticks: [Double]) {
+    /// `lo...hi` widened to whole steps, in at most `intervals` of them, and the ticks over it.
+    static func domain(_ lo: Double, _ hi: Double, intervals: Int) -> (lo: Double, hi: Double, ticks: [Double]) {
         let top = hi > lo ? hi : lo + 1
-        return domain(lo, top, step: step(lo, top, count: count))
+        return domain(lo, top, step: step(lo, top, intervals: intervals))
     }
 
     /// `lo...top` widened to whole steps of `step`, and the ticks over it.
@@ -72,9 +80,13 @@ struct ChartDateStride: Equatable {
 }
 
 enum ChartDates {
+    /// The calendar bins and ticks use. Chart+Adwaita.swift gives it the first day of the user's
+    /// week, which ICU knows and FoundationEssentials does not. Main thread only.
+    nonisolated(unsafe) static var calendar = Calendar.current
+
     /// The bin a date falls in: the interval of `unit` holding it, or the date itself without a unit.
     static func bin(_ date: Date, _ unit: Calendar.Component?) -> (start: Date, end: Date) {
-        guard let unit, let interval = Calendar.current.dateInterval(of: unit, for: date) else { return (date, date) }
+        guard let unit, let interval = calendar.dateInterval(of: unit, for: date) else { return (date, date) }
         return (interval.start, interval.end)
     }
 
@@ -86,7 +98,6 @@ enum ChartDates {
 
     /// The whole strides inside `lo...hi`.
     static func ticks(_ lo: Date, _ hi: Date, stride: ChartDateStride) -> [Date] {
-        let calendar = Calendar.current
         var tick = bin(lo, stride.unit).start
         var ticks: [Date] = []
         // The bound only guards a stride the calendar cannot step: `stride` draws far fewer.

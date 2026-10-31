@@ -30,7 +30,7 @@ private let chartStateKey = AttachKey<ChartState>("actionui-chart")
 }
 
 extension Chart: ActionUIAdwaitaRenderer {
-    private static let drawnKinds: Set<ChartMarkKind> = [.BarMark, .PointMark, .RuleMark]
+    private static let drawnKinds: Set<ChartMarkKind> = [.BarMark, .PointMark, .RuleMark, .LineMark, .AreaMark]
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let widget: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(widgetType(), 0, nil, nil)!))
@@ -44,6 +44,9 @@ extension Chart: ActionUIAdwaitaRenderer {
         guard let state = attached(on: widget, key: chartStateKey) else { return }
         let description = node.properties["chart"] as? [String: Any] ?? [:]
         let rows = node.model.states["content"] as? [[String]] ?? []
+        if let firstWeekday = DateFormatting.firstWeekday() {
+            ChartDates.calendar.firstWeekday = firstWeekday
+        }
         state.spec = ChartDescription.parse(description, logger: nil).spec
         state.marks = ChartMarkResolver.resolve(state.spec, rows: rows)
         report(state, viewID: node.element.id)
@@ -165,9 +168,33 @@ extension Chart: ActionUIAdwaitaRenderer {
             gtk_snapshot_append_color(snapshot, &color, &bounds)
         case let .symbol(shape, center, size, ink):
             symbol(shape, center, size, ink)
+        case let .path(elements, ink, style):
+            guard let path = path(elements) else { return }
+            stroke(path, ink, style)
+            gsk_path_unref(path)
+        case let .fill(elements, ink):
+            guard let path = path(elements) else { return }
+            var color = rgba(ink)
+            gtk_snapshot_append_fill(snapshot, path, GSK_FILL_RULE_WINDING, &color)
+            gsk_path_unref(path)
         case let .text(string, position, alignment):
             label(string, position, alignment)
         }
+    }
+
+    private func path(_ elements: [ChartPathElement]) -> OpaquePointer? {
+        guard let builder = gsk_path_builder_new() else { return nil }
+        for element in elements {
+            switch element {
+            case .move(let point):
+                gsk_path_builder_move_to(builder, Float(point.x), Float(point.y))
+            case .line(let point):
+                gsk_path_builder_line_to(builder, Float(point.x), Float(point.y))
+            case let .curve(first, second, end):
+                gsk_path_builder_cubic_to(builder, Float(first.x), Float(first.y), Float(second.x), Float(second.y), Float(end.x), Float(end.y))
+            }
+        }
+        return gsk_path_builder_free_to_path(builder)
     }
 
     private func stroke(_ path: OpaquePointer, _ ink: ChartInk, _ style: ChartStroke) {

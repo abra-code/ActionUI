@@ -22,6 +22,13 @@ final class DateFormattingTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(icu.version, 50)
     }
 
+    func testAWeekStartsWhereItsLocaleStartsIt() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
+        XCTAssertEqual(DateFormatting.firstWeekday(locale: "en_US"), 1, "Sunday")
+        XCTAssertEqual(DateFormatting.firstWeekday(locale: "de_DE"), 2, "Monday")
+        XCTAssertEqual(DateFormatting.firstWeekday(locale: "ar_EG"), 7, "Saturday")
+    }
+
     func testADateIsWrittenAsItsLocaleWritesIt() {
         XCTAssertEqual(DateFormatting.string(noon, skeleton: "yMMMd", locale: "en_US", timeZone: "UTC"), "Jul 16, 2024")
         XCTAssertEqual(DateFormatting.string(noon, skeleton: "yMMMd", locale: "de_DE", timeZone: "UTC"), "16. Juli 2024")

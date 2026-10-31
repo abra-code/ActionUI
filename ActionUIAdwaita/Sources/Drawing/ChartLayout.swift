@@ -6,12 +6,12 @@
 
  The goal is a chart comparable to Swift Charts, not a copy (Documentation/Schemas/Chart.md lists the
  differences). Swift Charts' look, as drawn on macOS 27:
- - The y axis is on the trailing side; solid gridlines at its ticks, and the plot's height gives
-   about one tick per 60 points.
+ - The y axis is on the trailing side, with solid gridlines at its ticks.
  - Categories are bands of equal width, in order of first use, with dashed lines at the band edges.
  - Number and date ticks on the x axis have a dashed line, and their label starts at the tick.
- - An automatic number domain includes 0 and is widened to whole steps, and a date axis covers each
-   value's whole bin.
+ - An automatic number domain includes 0 and is widened to whole steps, at most 4 of them on any
+   axis at any size (measured from 60 to 700 points tall), and a date axis covers each value's
+   whole bin.
  - A bar takes 0.7 of its band or date bin, and 8 points where a value has neither. Bars at one
    position stack in row order, those below 0 downward. A normalized stack is that divided by the
    longer side, on an axis labeled 0, 25, ... 100 without a percent sign; a centered one is that
@@ -22,8 +22,13 @@
  - A point's size is the area of its symbol, 50 unless given, and a rule is 2 wide unless given.
  - The modifier nearest a mark wins: its own over its Plot's.
  - Marks draw in the order of the content, over the grid.
+ - A line or an area joins its points in data order, not by x. Marks with one series and the same
+   {"by"} styles are one line, in the style of the first, drawn where that one is. A value that is
+   not finite breaks it in two, and one point alone draws nothing. A line is 2 wide, an area is
+   opaque, and stacked areas stack as bars do, each kind on its own. A start and end on an axis of
+   categories run from edge to edge, as a bar's do.
 
- Bars, points and rules draw here; other marks still count on the axes.
+ Bars, points, rules, lines and areas draw here; other marks still count on the axes.
 */
 
 #if canImport(FoundationEssentials)
@@ -54,6 +59,8 @@ enum ChartPrimitive: Equatable {
     case line(from: ChartPoint, to: ChartPoint, ink: ChartInk, stroke: ChartStroke)
     case rect(ChartRect, ink: ChartInk)
     case symbol(ChartSymbol, center: ChartPoint, size: ChartSize, ink: ChartInk)
+    case path([ChartPathElement], ink: ChartInk, stroke: ChartStroke)
+    case fill([ChartPathElement], ink: ChartInk)
     /// `alignment` is the point of the text placed at `position`, as fractions of its size.
     case text(String, position: ChartPoint, alignment: ChartPoint)
 
@@ -63,14 +70,29 @@ enum ChartPrimitive: Equatable {
         func finite(_ values: Double...) -> Bool { values.allSatisfy { Float($0).isFinite } }
         switch self {
         case let .line(from, to, _, stroke):
-            return stroke.lineWidth > 0 && finite(from.x, from.y, to.x, to.y, stroke.lineWidth, stroke.miterLimit, stroke.dashPhase)
+            return Float(stroke.lineWidth) > 0 && finite(from.x, from.y, to.x, to.y, stroke.lineWidth, stroke.miterLimit, stroke.dashPhase)
                 && stroke.dash.allSatisfy { finite($0) }
         case let .rect(rect, _):
             return finite(rect.x, rect.y, rect.width, rect.height)
         case let .symbol(_, center, size, _):
             return finite(center.x, center.y, size.width, size.height)
+        case let .path(elements, _, stroke):
+            return Float(stroke.lineWidth) > 0 && finite(stroke.lineWidth, stroke.miterLimit, stroke.dashPhase)
+                && stroke.dash.allSatisfy { finite($0) } && Self.finite(elements)
+        case let .fill(elements, _):
+            return Self.finite(elements)
         case let .text(_, position, _):
             return finite(position.x, position.y)
+        }
+    }
+
+    private static func finite(_ elements: [ChartPathElement]) -> Bool {
+        func finite(_ point: ChartPoint) -> Bool { Float(point.x).isFinite && Float(point.y).isFinite }
+        return elements.allSatisfy { element in
+            switch element {
+            case .move(let point), .line(let point): return finite(point)
+            case let .curve(first, second, end): return finite(first) && finite(second) && finite(end)
+            }
         }
     }
 }
@@ -91,10 +113,11 @@ struct ChartLayout {
     private static let tickDash = ChartStroke(lineWidth: 1, dash: [2, 2])
     private static let barRatio = 0.7
     private static let unbinnedBarThickness = 8.0
-    private static let pointsPerTick = 60.0
-    private static let pointsPerXTick = 80.0
+    private static let numberIntervals = 4
+    private static let pointsPerDateTick = 80.0
     private static let defaultSymbolArea = 50.0
     private static let defaultRuleWidth = 2.0
+    private static let defaultLine = ChartStroke(lineWidth: 2, lineCap: .round, lineJoin: .round)
     // Below the plot: from its edge to the labels, and how far a tick line runs into that room.
     private static let labelGap = 4.0
     private static let tickLength = 6.0
@@ -168,8 +191,9 @@ struct ChartLayout {
         }
     }
 
-    /// What bars stack by: their direction and position, one for a date bin however the dates in
-    /// it differ, and one for a number written as an integer or not.
+    /// What marks stack by: their kind (a bar and an area at one place do not stack, measured on
+    /// macOS 27), direction and position, one for a date bin however the dates in it differ, and one
+    /// for a number written as an integer or not.
     private struct StackKey: Hashable {
         enum Position: Hashable {
             case none
@@ -177,6 +201,7 @@ struct ChartLayout {
             case number(Double)
             case date(Date)
         }
+        var kind: ChartMarkKind
         var vertical: Bool
         var position: Position
     }
@@ -200,11 +225,11 @@ struct ChartLayout {
         case .xy, .xySeries:
             let vertical = !(isNumber(x) && !isNumber(y))
             let position = vertical ? stackPosition(x, unit: instance.mark.values["x"]?.unit) : stackPosition(y, unit: instance.mark.values["y"]?.unit)
-            return number(vertical ? y : x).map { ($0, StackKey(vertical: vertical, position: position)) }
+            return number(vertical ? y : x).map { ($0, StackKey(kind: instance.mark.kind, vertical: vertical, position: position)) }
         case .xPoints:
-            return number(x).map { ($0, StackKey(vertical: false, position: .none)) }
+            return number(x).map { ($0, StackKey(kind: instance.mark.kind, vertical: false, position: .none)) }
         case .yPoints:
-            return number(y).map { ($0, StackKey(vertical: true, position: .none)) }
+            return number(y).map { ($0, StackKey(kind: instance.mark.kind, vertical: true, position: .none)) }
         default:
             return nil
         }
@@ -292,20 +317,23 @@ struct ChartLayout {
         var ticks: [(value: ChartScalar, label: String)] = []
     }
 
-    private func axis(_ extent: Extent, ticks count: Int) -> Axis {
+    private func axis(_ extent: Extent, length: Double) -> Axis {
         var axis = Axis()
         if !extent.categories.isEmpty {
             axis.scale.kind = .bands(Dictionary(uniqueKeysWithValues: extent.categories.enumerated().map { ($1, $0) }))
             axis.ticks = extent.categories.map { (.string($0), $0) }
         } else if let lo = extent.dateLo, let hi = extent.dateHi {
             axis.scale.kind = .dates(lo: lo, hi: hi)
-            axis.ticks = dateTicks(lo, hi, count: count)
+            axis.ticks = dateTicks(lo, hi, count: max(2, min(Int(length / Self.pointsPerDateTick), 8)))
         } else if extent.hasNumbers {
             // An automatic domain holds 0.
             let lo = min(extent.lo, 0), hi = max(extent.hi, 0)
-            let domain = extent.normalized ? ChartTicks.domain(lo, hi, step: Self.normalizedStep) : ChartTicks.domain(lo, hi, count: count)
+            // A normalized stack reaches 1 at most, each way. A value on another mark can stretch
+            // the axis past what quarter steps can cover.
+            let quarters = extent.normalized && hi - lo <= 2
+            let domain = quarters ? ChartTicks.domain(lo, hi, step: Self.normalizedStep) : ChartTicks.domain(lo, hi, intervals: Self.numberIntervals)
             axis.scale.kind = .numbers(lo: domain.lo, hi: domain.hi)
-            axis.ticks = domain.ticks.map { (.number($0), metrics.number(extent.normalized ? $0 * 100 : $0)) }
+            axis.ticks = domain.ticks.map { (.number($0), metrics.number(quarters ? $0 * 100 : $0)) }
         }
         return axis
     }
@@ -315,7 +343,7 @@ struct ChartLayout {
         let stride = ChartDates.stride(lo, hi, count: count)
         var lastYear: Int?
         return ChartDates.ticks(lo, hi, stride: stride).map { tick in
-            let year = Calendar.current.component(.year, from: tick)
+            let year = ChartDates.calendar.component(.year, from: tick)
             defer { lastYear = year }
             let skeleton: String
             switch stride.unit {
@@ -345,10 +373,10 @@ struct ChartLayout {
         let top = yShown && hasY ? lineHeight / 2 : 0
         let bottom = xShown && hasX ? lineHeight + Self.labelGap * 2 : 0
         let plotHeight = max(height - top - bottom, 1)
-        var yAxis = axis(extents.y, ticks: max(2, min(Int(plotHeight / Self.pointsPerTick), 6)))
+        var yAxis = axis(extents.y, length: plotHeight)
         let yLabelWidth = yShown ? yAxis.ticks.map { metrics.size($0.label).width }.max() ?? 0 : 0
         let plotWidth = max(width - (yLabelWidth > 0 ? yLabelWidth + Self.labelGap * 2 : 0), 1)
-        var xAxis = axis(extents.x, ticks: max(2, min(Int(plotWidth / Self.pointsPerXTick), 8)))
+        var xAxis = axis(extents.x, length: plotWidth)
 
         let plot = ChartRect(x: 0, y: top, width: plotWidth, height: plotHeight)
         xAxis.scale.start = plot.x
@@ -469,6 +497,10 @@ struct ChartLayout {
         for (index, name) in seriesNames().enumerated() {
             series[name] = index
         }
+        var joined: [JoinedMarks: [Int]] = [:]
+        for (index, instance) in marks.instances.enumerated() where instance.mark.kind == .LineMark || instance.mark.kind == .AreaMark {
+            joined[JoinedMarks(kind: instance.mark.kind, series: instance.seriesKey), default: []].append(index)
+        }
         for (index, instance) in marks.instances.enumerated() {
             let ink = ink(instance, series: series)
             switch instance.mark.kind {
@@ -484,10 +516,119 @@ struct ChartLayout {
                 if let primitive = rule(instance, x, y, plot, ink: ink) {
                     primitives.append(primitive)
                 }
-            case .LineMark, .AreaMark, .RectangleMark, .SectorMark:
+            case .LineMark:
+                if let indices = joined.removeValue(forKey: JoinedMarks(kind: .LineMark, series: instance.seriesKey)),
+                   let primitive = line(indices, x, y, ink: ink) {
+                    primitives.append(primitive)
+                }
+            case .AreaMark:
+                if let indices = joined.removeValue(forKey: JoinedMarks(kind: .AreaMark, series: instance.seriesKey)),
+                   let primitive = area(indices, stacks, x, y, ink: ink) {
+                    primitives.append(primitive)
+                }
+            case .RectangleMark, .SectorMark:
                 break
             }
         }
+    }
+
+    /// The marks that draw as one line or one area.
+    private struct JoinedMarks: Hashable {
+        var kind: ChartMarkKind
+        var series: String
+    }
+
+    // The interpolation of the first mark, nearest modifier first.
+    private func interpolation(_ mark: ChartMarkSpec) -> ChartInterpolation {
+        for modifier in mark.modifiers {
+            if case .interpolationMethod(let method) = modifier {
+                return method
+            }
+        }
+        return .linear
+    }
+
+    private func position(_ instance: ChartMarkInstance, _ key: String, _ scale: ChartAxisScale) -> Double? {
+        instance.values[key].flatMap { scale.position($0, unit: instance.mark.values[key]?.unit) }
+    }
+
+    // A value that has no place on its axis breaks the line (measured on macOS 27, not a number on
+    // either axis), and a piece of one point draws nothing.
+    private func line(_ indices: [Int], _ x: ChartAxisScale, _ y: ChartAxisScale, ink: ChartInk) -> ChartPrimitive? {
+        let mark = marks.instances[indices[0]].mark
+        let method = interpolation(mark)
+        var elements: [ChartPathElement] = []
+        var piece: [ChartPoint] = []
+        func endPiece() {
+            if piece.count > 1 { elements += ChartCurves.elements(piece, method) }
+            piece = []
+        }
+        for index in indices {
+            let instance = marks.instances[index]
+            if let px = position(instance, "x", x), let py = position(instance, "y", y) {
+                piece.append(ChartPoint(x: px, y: py))
+            } else {
+                endPiece()
+            }
+        }
+        endPiece()
+        guard !elements.isEmpty else { return nil }
+        var stroke = Self.defaultLine
+        for modifier in mark.modifiers.reversed() {
+            if case .lineStyle(let style) = modifier {
+                stroke = style
+            }
+        }
+        return .path(elements, ink: ink, stroke: stroke)
+    }
+
+    // Where an area's two edges are at one mark: nil where it has no place on an axis.
+    private func areaEdges(_ instance: ChartMarkInstance, stack: Stacked?, _ x: ChartAxisScale, _ y: ChartAxisScale) -> (upper: ChartPoint, lower: ChartPoint)? {
+        if let stack {
+            if stack.vertical {
+                return position(instance, "x", x).map { (ChartPoint(x: $0, y: y.position(stack.high)), ChartPoint(x: $0, y: y.position(stack.low))) }
+            }
+            return position(instance, "y", y).map { (ChartPoint(x: x.position(stack.high), y: $0), ChartPoint(x: x.position(stack.low), y: $0)) }
+        }
+        if let px = position(instance, "x", x), let ys = span(instance, "yStart", "yEnd", y) {
+            return (ChartPoint(x: px, y: ys.1), ChartPoint(x: px, y: ys.0))
+        }
+        if let py = position(instance, "y", y), let xs = span(instance, "xStart", "xEnd", x) {
+            return (ChartPoint(x: xs.1, y: py), ChartPoint(x: xs.0, y: py))
+        }
+        return nil
+    }
+
+    private func area(_ indices: [Int], _ stacks: [Int: Stacked], _ x: ChartAxisScale, _ y: ChartAxisScale, ink: ChartInk) -> ChartPrimitive? {
+        let method = interpolation(marks.instances[indices[0]].mark)
+        var elements: [ChartPathElement] = []
+        var upper: [ChartPoint] = [], lower: [ChartPoint] = []
+        // Along the top in data order, and back along the bottom, joined by straight ends. Both
+        // edges take the method going forward (measured on macOS 27), so stacked areas share theirs.
+        func endPiece() {
+            if upper.count > 1 {
+                elements += ChartCurves.elements(upper, method)
+                for element in ChartCurves.elements(lower.reversed(), ChartCurves.backward(method)) {
+                    if case .move(let point) = element {
+                        elements.append(.line(point))
+                    } else {
+                        elements.append(element)
+                    }
+                }
+            }
+            upper = []
+            lower = []
+        }
+        for index in indices {
+            if let edges = areaEdges(marks.instances[index], stack: stacks[index], x, y) {
+                upper.append(edges.upper)
+                lower.append(edges.lower)
+            } else {
+                endPiece()
+            }
+        }
+        endPiece()
+        return elements.isEmpty ? nil : .fill(elements, ink: ink)
     }
 
     // How thick a bar is in `room`, the width of its band or bin. A value that has neither gives

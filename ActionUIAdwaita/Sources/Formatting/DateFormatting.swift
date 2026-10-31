@@ -33,6 +33,26 @@ enum DateFormatting {
         return fallbackString(date, skeleton: skeleton, timeZone: timeZone)
     }
 
+    /// The day a week starts on in `locale`, 1 for Sunday as Calendar counts; nil for the locale
+    /// the system's settings give dates (SystemLocale: LC_TIME). nil without ICU.
+    static func firstWeekday(locale: String? = nil) -> Int? {
+        let name = locale ?? SystemLocale.icuLocale(for: LC_TIME)
+        if let known = firstWeekdays[name] { return known }
+        guard let icu = ICULibrary.shared else { return nil }
+        var status = ICULibrary.noError
+        let calendar = withOptionalCString(name) { icu.openCalendar(nil, 0, $0, ICULibrary.gregorianCalendar, &status) }
+        defer { icu.closeCalendar(calendar) }
+        guard calendar != nil, status <= ICULibrary.noError else {
+            report("ucal_open", status, consequence: "weeks start on the calendar's default day")
+            return nil
+        }
+        let day = Int(icu.calendarAttribute(calendar, ICULibrary.firstDayOfWeek))
+        firstWeekdays[name] = day
+        return day
+    }
+
+    private static var firstWeekdays: [String?: Int] = [:]
+
     private struct Key: Hashable {
         var locale: String?
         var timeZone: String?
@@ -101,10 +121,10 @@ enum DateFormatting {
     }
 
     /// Logs an ICU failure once (the call falls back to GLib).
-    private static func report(_ function: String, _ status: ICULibrary.ErrorCode) {
+    private static func report(_ function: String, _ status: ICULibrary.ErrorCode, consequence: String = "dates follow the C library's locale") {
         guard !reportedFailure else { return }
         reportedFailure = true
-        ActionUIModel.shared.logger.log("ICU \(function) failed (status \(status)); dates follow the C library's locale", .warning)
+        ActionUIModel.shared.logger.log("ICU \(function) failed (status \(status)); \(consequence)", .warning)
     }
 
     /// GLib's %x and %R in the C library's locale, for the skeleton's date and time fields.

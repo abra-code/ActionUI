@@ -31,6 +31,9 @@ final class ICULibrary {
                                                UnsafePointer<UInt16>?, Int32, UnsafeMutablePointer<ErrorCode>?) -> OpaquePointer?
     typealias FormatDate = @convention(c) (OpaquePointer?, Double, UnsafeMutablePointer<UInt16>?, Int32, OpaquePointer?,
                                            UnsafeMutablePointer<ErrorCode>?) -> Int32
+    typealias OpenCalendar = @convention(c) (UnsafePointer<UInt16>?, Int32, UnsafePointer<CChar>?, Int32, UnsafeMutablePointer<ErrorCode>?) -> OpaquePointer?
+    typealias CalendarAttribute = @convention(c) (OpaquePointer?, Int32) -> Int32
+    typealias CloseCalendar = @convention(c) (OpaquePointer?) -> Void
     typealias OpenNumberFormat = @convention(c) (Int32, UnsafePointer<UInt16>?, Int32, UnsafePointer<CChar>?, OpaquePointer?,
                                                  UnsafeMutablePointer<ErrorCode>?) -> OpaquePointer?
     typealias SetNumberAttribute = @convention(c) (OpaquePointer?, Int32, Int32) -> Void
@@ -45,6 +48,9 @@ final class ICULibrary {
     static let noError: ErrorCode = 0
     /// UDAT_PATTERN, the style that tells udat_open to use the pattern it is given.
     static let patternStyle: Int32 = -2
+    /// UCAL_GREGORIAN, the calendar type for ucal_open, and UCAL_FIRST_DAY_OF_WEEK, the
+    /// UCalendarAttribute giving the day a week starts on, 1 for Sunday as Calendar counts.
+    static let gregorianCalendar: Int32 = 1, firstDayOfWeek: Int32 = 1
     /// UNumberFormatStyle values for unum_open.
     static let decimalStyle: Int32 = 1, currencyStyle: Int32 = 2, percentStyle: Int32 = 3
     /// UNumberFormatAttribute values for unum_setAttribute.
@@ -77,6 +83,10 @@ final class ICULibrary {
     /// udat_open (with patternStyle and a pattern), udat_format.
     let openDateFormat: OpenDateFormat
     let formatDate: FormatDate
+    /// ucal_open, ucal_getAttribute, ucal_close: a locale's calendar.
+    let openCalendar: OpenCalendar
+    let calendarAttribute: CalendarAttribute
+    let closeCalendar: CloseCalendar
     /// unum_open, unum_setAttribute, unum_setTextAttribute, unum_formatDouble,
     /// unum_parseDouble: a locale's number formats.
     let openNumberFormat: OpenNumberFormat
@@ -95,6 +105,9 @@ final class ICULibrary {
               let closePatternGenerator = function(i18n, "udatpg_close", as: ClosePatternGenerator.self),
               let openDateFormat = function(i18n, "udat_open", as: OpenDateFormat.self),
               let formatDate = function(i18n, "udat_format", as: FormatDate.self),
+              let openCalendar = function(i18n, "ucal_open", as: OpenCalendar.self),
+              let calendarAttribute = function(i18n, "ucal_getAttribute", as: CalendarAttribute.self),
+              let closeCalendar = function(i18n, "ucal_close", as: CloseCalendar.self),
               let openNumberFormat = function(i18n, "unum_open", as: OpenNumberFormat.self),
               let setNumberAttribute = function(i18n, "unum_setAttribute", as: SetNumberAttribute.self),
               let setNumberTextAttribute = function(i18n, "unum_setTextAttribute", as: SetNumberTextAttribute.self),
@@ -106,6 +119,9 @@ final class ICULibrary {
         self.closePatternGenerator = closePatternGenerator
         self.openDateFormat = openDateFormat
         self.formatDate = formatDate
+        self.openCalendar = openCalendar
+        self.calendarAttribute = calendarAttribute
+        self.closeCalendar = closeCalendar
         self.openNumberFormat = openNumberFormat
         self.setNumberAttribute = setNumberAttribute
         self.setNumberTextAttribute = setNumberTextAttribute
