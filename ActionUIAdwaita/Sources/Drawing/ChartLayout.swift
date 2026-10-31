@@ -75,7 +75,12 @@
    shortened, and one too long for a side leaves the plot a point wide. The overlay position sits
    on the plot at its top trailing corner and the corner positions at its top leading corner,
    taking no room and wrapping inside the plot.
- - Marks draw in the order of the content, over the grid.
+ - Marks draw in the order of the content, over the grid, lowest zIndex first.
+ - A mark's opacity, offset, shadow and blur take the mark alone, not its legend entry, and the
+   nearest opacity and shadow win: a Plot's opacity does not multiply a mark's. Offsets add, and
+   blurs nest. An offset moves a whole mark, past its axis too. One with a start or an end moves
+   those edges of a rule along it, or of a range bar or a rectangle, start being the one nearer the
+   top or leading side. A bar on 0 moves only across its axis, so it narrows.
  - A line or an area joins its points in data order, not by x. Marks with one series are one
    line, whatever {"by"} styles they wear, and without a series so are marks with the same ones,
    in the style of the first, drawn where that one is. A value that is
@@ -127,6 +132,9 @@ enum ChartPrimitive: Equatable {
     case text(String, position: ChartPoint, alignment: ChartPoint, ink: ChartInk)
     /// Text turned clockwise by `degrees` around its center.
     case turnedText(String, center: ChartPoint, degrees: Double, ink: ChartInk)
+    /// What follows up to `endEffect` is one mark, under these effects.
+    case beginEffect(ChartMarkEffect)
+    case endEffect(ChartMarkEffect)
     /// What follows up to `endPlot` draws as one layer.
     case beginPlot(ChartPlotLayer)
     case endPlot(ChartPlotLayer)
@@ -163,6 +171,9 @@ enum ChartPrimitive: Equatable {
             return finite(position.x, position.y)
         case let .turnedText(_, center, _, _):
             return finite(center.x, center.y)
+        case let .beginEffect(effect), let .endEffect(effect):
+            return finite(effect.offset.x, effect.offset.y, effect.opacity, effect.blur)
+                && (effect.shadow.map { finite($0.radius, $0.x, $0.y) } ?? true)
         case let .beginPlot(layer), let .endPlot(layer):
             return finite(layer.rect.x, layer.rect.y, layer.rect.width, layer.rect.height, layer.radius, layer.opacity)
         case let .roundedFill(rect, radius, _):
@@ -184,6 +195,21 @@ enum ChartPrimitive: Equatable {
             }
         }
     }
+}
+
+struct ChartMarkShadow: Equatable {
+    /// SwiftUI's default when nil.
+    var color: ColorSpec?
+    var radius: Double
+    var x: Double
+    var y: Double
+}
+
+struct ChartMarkEffect: Equatable {
+    var opacity = 1.0
+    var offset = ChartPoint(x: 0, y: 0)
+    var blur = 0.0
+    var shadow: ChartMarkShadow?
 }
 
 struct ChartCorners: Equatable {
@@ -1341,11 +1367,28 @@ struct ChartLayout {
         for (index, instance) in marks.instances.enumerated() where instance.mark.kind == .LineMark || instance.mark.kind == .AreaMark {
             joined[JoinedMarks(kind: instance.mark.kind, series: instance.seriesKey), default: []].append(index)
         }
-        for (index, instance) in marks.instances.enumerated() {
+        for index in drawingOrder() {
+            let instance = marks.instances[index]
             let ink = styles.ink(instance)
+            let start = primitives.count
+            defer {
+                if primitives.count > start, let effect = effect(instance) {
+                    primitives.insert(.beginEffect(effect), at: start)
+                    primitives.append(.endEffect(effect))
+                }
+            }
             switch instance.mark.kind {
             case .BarMark, .RectangleMark:
-                if let rect = bar(instance, stack: stacks[index], x, y, plot, bandLabelRow: bandLabelRow) {
+                if var rect = bar(instance, stack: stacks[index], x, y, plot, bandLabelRow: bandLabelRow) {
+                    var moving = edges(instance)
+                    if stacks[index]?.vertical == true {
+                        moving.yStart = 0
+                        moving.yEnd = 0
+                    } else if stacks[index] != nil {
+                        moving.xStart = 0
+                        moving.xEnd = 0
+                    }
+                    rect = moved(rect, by: moving)
                     primitives.append(rounded(rect, instance, stack: stacks[index], x, y, ink: ink))
                 }
             case .PointMark:
@@ -1357,12 +1400,13 @@ struct ChartLayout {
                     primitives.append(primitive)
                 }
             case .LineMark:
-                if let indices = joined.removeValue(forKey: JoinedMarks(kind: .LineMark, series: instance.seriesKey)),
+                // Joined marks draw at the first one's place, zIndex included, whichever comes up first.
+                if let indices = joined[JoinedMarks(kind: .LineMark, series: instance.seriesKey)], indices[0] == index,
                    let primitive = line(indices, x, y, ink: ink) {
                     primitives.append(primitive)
                 }
             case .AreaMark:
-                if let indices = joined.removeValue(forKey: JoinedMarks(kind: .AreaMark, series: instance.seriesKey)),
+                if let indices = joined[JoinedMarks(kind: .AreaMark, series: instance.seriesKey)], indices[0] == index,
                    let primitive = area(indices, stacks, x, y, ink: ink) {
                     primitives.append(primitive)
                 }
@@ -1370,6 +1414,81 @@ struct ChartLayout {
                 break
             }
         }
+    }
+
+    // Lowest zIndex first, each level in the order of the content.
+    private func drawingOrder() -> [Int] {
+        func zIndex(_ instance: ChartMarkInstance) -> Double {
+            for modifier in instance.mark.modifiers {
+                if case .zIndex(let value) = modifier { return value }
+            }
+            return 0
+        }
+        let levels = marks.instances.map(zIndex)
+        guard levels.contains(where: { $0 != 0 }) else { return Array(levels.indices) }
+        return levels.indices.sorted { levels[$0] == levels[$1] ? $0 < $1 : levels[$0] < levels[$1] }
+    }
+
+    // What a mark asks of its drawing, nearest modifier first; nil for nothing.
+    private func effect(_ instance: ChartMarkInstance) -> ChartMarkEffect? {
+        var effect = ChartMarkEffect()
+        for modifier in instance.mark.modifiers.reversed() {
+            switch modifier {
+            case .opacity(let opacity):
+                effect.opacity = min(max(opacity, 0), 1)
+            case .blur(let radius):
+                let added = max(radius, 0)
+                effect.blur = (effect.blur * effect.blur + added * added).squareRoot()
+            case .shadow(let color, let radius, let x, let y):
+                effect.shadow = ChartMarkShadow(color: color, radius: radius, x: x, y: y)
+            case .offset(.xy(let x, let y)):
+                effect.offset.x += x
+                effect.offset.y += y
+            case .offset(.xYRange(let x, _, _)):
+                effect.offset.x += x
+            case .offset(.xRangeY(_, _, let y)):
+                effect.offset.y += y
+            default:
+                break
+            }
+        }
+        return effect == ChartMarkEffect() ? nil : effect
+    }
+
+    /// How far an offset moves a mark's edges: start nearer the top or leading side.
+    private struct MarkEdges {
+        var xStart = 0.0
+        var xEnd = 0.0
+        var yStart = 0.0
+        var yEnd = 0.0
+    }
+
+    private func edges(_ instance: ChartMarkInstance) -> MarkEdges {
+        var edges = MarkEdges()
+        for modifier in instance.mark.modifiers.reversed() {
+            guard case .offset(let offset) = modifier else { continue }
+            switch offset {
+            case .xy:
+                break
+            case .xYRange(_, let yStart, let yEnd):
+                edges.yStart += yStart
+                edges.yEnd += yEnd
+            case .xRangeY(let xStart, let xEnd, _):
+                edges.xStart += xStart
+                edges.xEnd += xEnd
+            case .ranges(let xStart, let xEnd, let yStart, let yEnd):
+                edges.xStart += xStart
+                edges.xEnd += xEnd
+                edges.yStart += yStart
+                edges.yEnd += yEnd
+            }
+        }
+        return edges
+    }
+
+    private func moved(_ rect: ChartRect, by edges: MarkEdges) -> ChartRect {
+        let width = rect.width + edges.xEnd - edges.xStart, height = rect.height + edges.yEnd - edges.yStart
+        return ChartRect(x: rect.x + edges.xStart + min(width, 0), y: rect.y + edges.yStart + min(height, 0), width: abs(width), height: abs(height))
     }
 
     /// The marks that draw as one line or one area.
@@ -1699,6 +1818,13 @@ struct ChartLayout {
             return nil
         }
         guard let xs, let ys else { return nil }
-        return .line(from: ChartPoint(x: xs.0, y: ys.0), to: ChartPoint(x: xs.1, y: ys.1), ink: ink, stroke: stroke)
+        // Its ends are its only edges: an offset across a rule moves nothing (measured on macOS 27).
+        func ends(_ span: (Double, Double), _ start: Double, _ end: Double) -> (Double, Double) {
+            span.0 <= span.1 ? (span.0 + start, span.1 + end) : (span.0 + end, span.1 + start)
+        }
+        let edges = edges(instance)
+        let isVertical = mark.form == .xPoints || mark.form == .xPair || mark.form == .pointsPair
+        let along = isVertical ? (xs, ends(ys, edges.yStart, edges.yEnd)) : (ends(xs, edges.xStart, edges.xEnd), ys)
+        return .line(from: ChartPoint(x: along.0.0, y: along.1.0), to: ChartPoint(x: along.0.1, y: along.1.1), ink: ink, stroke: stroke)
     }
 }

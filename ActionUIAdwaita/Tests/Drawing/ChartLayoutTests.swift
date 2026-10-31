@@ -2624,6 +2624,195 @@ final class ChartLayoutTests: XCTestCase {
         }
     }
 
+    // MARK: - Mark effects
+
+    private func effects(_ primitives: [ChartPrimitive]) -> [ChartMarkEffect] {
+        primitives.compactMap { primitive in
+            if case .beginEffect(let effect) = primitive { return effect } else { return nil }
+        }
+    }
+
+    func testAMarkWithoutEffectsDrawsNone() {
+        XCTAssertEqual(effects(layout(chart([bar]), rows: [["Mon", "1"]])).count, 0)
+    }
+
+    func testOpacityWrapsItsMarkAlone() throws {
+        var faded = bar
+        faded["opacity"] = 0.4
+        let primitives = layout(chart([faded]), rows: [["Mon", "1"]])
+        XCTAssertEqual(effects(primitives).map(\.opacity), [0.4])
+        let begin = try XCTUnwrap(primitives.firstIndex { if case .beginEffect = $0 { return true } else { return false } })
+        let end = try XCTUnwrap(primitives.firstIndex { if case .endEffect = $0 { return true } else { return false } })
+        XCTAssertEqual(end, begin + 2, "just the bar")
+    }
+
+    func testAMarksOpacityWinsOverItsPlotsAndDoesNotMultiply() {
+        var faded = bar
+        faded["opacity"] = 0.5
+        let plot: [String: Any] = ["type": "Plot", "opacity": 0.2, "content": [["type": "ForEach", "content": [faded]]]]
+        XCTAssertEqual(effects(layout(["columns": columns, "content": [plot]], rows: [["Mon", "1"]])).map(\.opacity), [0.5])
+    }
+
+    func testOpacityStaysBetweenNothingAndWhole() {
+        var over = bar
+        over["opacity"] = 3
+        XCTAssertEqual(effects(layout(chart([over]), rows: [["Mon", "1"]])).count, 0, "1 or more is no fade")
+        over["opacity"] = -1
+        XCTAssertEqual(effects(layout(chart([over]), rows: [["Mon", "1"]])).map(\.opacity), [0])
+    }
+
+    func testAnOffsetMovesAWholeMark() {
+        var moved = bar
+        moved["offset"] = ["x": 8, "y": -4]
+        XCTAssertEqual(effects(layout(chart([moved]), rows: [["Mon", "1"]])).map(\.offset), [ChartPoint(x: 8, y: -4)])
+    }
+
+    func testARangeOffsetMovesTheEdgesOfARuleRangeBarAndRectangle() throws {
+        let rule: [String: Any] = ["type": "RuleMark", "x": value("X", 5), "offset": ["x": 20, "yStart": 10, "yEnd": -30], "foregroundStyle": "red"]
+        let plain: [String: Any] = ["type": "RuleMark", "x": value("X", 5), "foregroundStyle": "red"]
+        let moved = try XCTUnwrap(lines(layout(styled([rule], tenByTen), rows: [["1", "1"]]), ink: .color(.named(.red))).first)
+        let whole = try XCTUnwrap(lines(layout(styled([plain], tenByTen), rows: [["1", "1"]]), ink: .color(.named(.red))).first)
+        XCTAssertEqual(moved.from.y, min(whole.from.y, whole.to.y) + 10, accuracy: 0.001, "Start is the edge nearer the top")
+        XCTAssertEqual(moved.to.y, max(whole.from.y, whole.to.y) - 30, accuracy: 0.001)
+
+        let rectangle = spanned(["xStart": value("S", 1), "xEnd": value("E", 3), "yStart": value("S", 2), "yEnd": value("E", 6), "offset": ["xStart": 4, "xEnd": -6, "yStart": 2, "yEnd": -3]])
+        let untouched = spanned(["xStart": value("S", 1), "xEnd": value("E", 3), "yStart": value("S", 2), "yEnd": value("E", 6)])
+        let trimmed = try XCTUnwrap(rects(layout(styled([rectangle], tenByTen), rows: [["1", "1"]])).first)
+        let full = try XCTUnwrap(rects(layout(styled([untouched], tenByTen), rows: [["1", "1"]])).first)
+        XCTAssertEqual(trimmed, ChartRect(x: full.x + 4, y: full.y + 2, width: full.width - 10, height: full.height - 5))
+    }
+
+    func testARangeOffsetAcrossARuleMovesNothing() throws {
+        let plain: [String: Any] = ["type": "RuleMark", "x": value("X", 5), "foregroundStyle": "red"]
+        var across = plain
+        across["offset"] = ["xStart": 10, "xEnd": 30]
+        let whole = try XCTUnwrap(lines(layout(styled([plain], tenByTen), rows: [["1", "1"]]), ink: .color(.named(.red))).first)
+        let moved = try XCTUnwrap(lines(layout(styled([across], tenByTen), rows: [["1", "1"]]), ink: .color(.named(.red))).first)
+        XCTAssertEqual(moved.from, whole.from)
+        XCTAssertEqual(moved.to, whole.to)
+    }
+
+    func testARangeOffsetKeepsTheEndARuleStartsFrom() throws {
+        let plain: [String: Any] = ["type": "RuleMark", "x": value("X", 5), "yStart": value("S", 2), "yEnd": value("E", 8), "foregroundStyle": "red"]
+        var trimmed = plain
+        trimmed["offset"] = ["yStart": 10, "yEnd": -30]
+        let whole = try XCTUnwrap(lines(layout(styled([plain], tenByTen), rows: [["1", "1"]]), ink: .color(.named(.red))).first)
+        let moved = try XCTUnwrap(lines(layout(styled([trimmed], tenByTen), rows: [["1", "1"]]), ink: .color(.named(.red))).first)
+        XCTAssertGreaterThan(whole.from.y, whole.to.y, "yStart is the lower end of a rising axis")
+        XCTAssertEqual(moved.from.y, whole.from.y - 30, accuracy: 0.001)
+        XCTAssertEqual(moved.to.y, whole.to.y + 10, accuracy: 0.001)
+    }
+
+    func testARangeOffsetLeavesABarOnZeroAlone() {
+        var ranged = bar
+        ranged["offset"] = ["yStart": 10, "yEnd": -10]
+        XCTAssertEqual(rects(layout(chart([ranged]), rows: [["Mon", "1"]])), rects(layout(chart([bar]), rows: [["Mon", "1"]])))
+    }
+
+    func testARangeOffsetNarrowsAStackedBarAcrossIt() throws {
+        var narrowed = bar
+        narrowed["offset"] = ["xStart": 6, "xEnd": -6]
+        let found = try XCTUnwrap(rects(layout(chart([narrowed]), rows: [["Mon", "1"]])).first)
+        let plain = try XCTUnwrap(rects(layout(chart([bar]), rows: [["Mon", "1"]])).first)
+        XCTAssertEqual(found.x, plain.x + 6, accuracy: 0.001)
+        XCTAssertEqual(found.width, plain.width - 12, accuracy: 0.001)
+        XCTAssertEqual(found.height, plain.height, accuracy: 0.001)
+    }
+
+    func testAPlotsOffsetAddsToAMarksAndItsBlurNests() throws {
+        var mark = bar
+        mark["offset"] = ["x": 10]
+        mark["blur"] = 4
+        let plot: [String: Any] = ["type": "Plot", "offset": ["x": 20, "yStart": 0, "yEnd": 0], "blur": 3, "content": [["type": "ForEach", "content": [mark]]]]
+        let found = try XCTUnwrap(effects(layout(["columns": columns, "content": [plot]], rows: [["Mon", "1"]])).first)
+        XCTAssertEqual(found.offset.x, 30, accuracy: 0.001)
+        XCTAssertEqual(found.blur, 5, accuracy: 0.001, "two blurs make the square root of their squares")
+    }
+
+    func testABarsRoundedShapeFollowsAnOffsetsEdges() {
+        var ranged: [String: Any] = ["type": "BarMark", "x": value("Day", "$day"), "yStart": value("S", 1), "yEnd": value("E", 3)]
+        ranged["offset"] = ["yStart": 10, "yEnd": -10]
+        let primitives = layout(chart([ranged]), rows: [["Mon"]])
+        for primitive in primitives {
+            if case .bar(let rect, let shape, _, _) = primitive { XCTAssertEqual(rect, shape) }
+        }
+    }
+
+    func testZIndexOrdersMarksAndKeepsTheirOrderOtherwise() throws {
+        var under: [String: Any] = ["type": "RuleMark", "y": value("Y", 1), "foregroundStyle": "red", "zIndex": -1]
+        var over: [String: Any] = ["type": "RuleMark", "y": value("Y", 2), "foregroundStyle": "green", "zIndex": 1]
+        let primitives = layout(chart([over, bar, under]), rows: [["Mon", "3"]])
+        func place(_ wanted: ColorName) -> Int? {
+            primitives.firstIndex { primitive in
+                if case .line(_, _, .color(.named(wanted)), _) = primitive { return true } else { return false }
+            }
+        }
+        let barPlace = try XCTUnwrap(primitives.firstIndex { if case .bar = $0 { return true } else { return false } })
+        XCTAssertLessThan(try XCTUnwrap(place(.red)), barPlace)
+        XCTAssertGreaterThan(try XCTUnwrap(place(.green)), barPlace)
+        under["zIndex"] = 0
+        over["zIndex"] = 0
+        let plain = layout(chart([over, bar, under]), rows: [["Mon", "3"]])
+        XCTAssertEqual(effects(plain).count, 0, "a zIndex is no effect")
+    }
+
+    func testAJoinedLineTakesItsFirstMarksEffect() {
+        var faded = line
+        faded["opacity"] = 0.4
+        XCTAssertEqual(effects(layout(styled([faded]), rows: [["1", "1"], ["2", "2"]])).map(\.opacity), [0.4])
+    }
+
+    func testJoinedMarksDrawAtTheirFirstMarksZIndexInItsStyle() throws {
+        var first = line
+        first["series"] = value("S", "s")
+        first["foregroundStyle"] = "red"
+        first["zIndex"] = 1
+        first["opacity"] = 0.4
+        var second = line
+        second["series"] = value("S", "s")
+        second["foregroundStyle"] = "green"
+        second["zIndex"] = -1
+        let rule: [String: Any] = ["type": "RuleMark", "y": value("Y", 1), "foregroundStyle": "blue"]
+        let primitives = layout(styled([first, rule, second]), rows: [["1", "1"], ["2", "2"]])
+        XCTAssertEqual(primitives.filter { if case .path = $0 { return true } else { return false } }.count, 1)
+        let drawn = try XCTUnwrap(primitives.firstIndex { if case .path = $0 { return true } else { return false } })
+        let under = try XCTUnwrap(primitives.firstIndex { if case .line(_, _, .color(.named(.blue)), _) = $0 { return true } else { return false } })
+        XCTAssertGreaterThan(drawn, under, "over the rule, at the first mark's level")
+        XCTAssertEqual(effects(primitives).map(\.opacity), [0.4])
+        guard case .path(_, let ink, _) = primitives[drawn] else { return XCTFail("a line") }
+        XCTAssertEqual(ink, .color(.named(.red)))
+    }
+
+    func testAShadowAndABlurAreCarried() throws {
+        var soft = bar
+        soft["shadow"] = ["radius": 4, "x": 6, "y": -6, "color": "red"]
+        soft["blur"] = 2
+        let found = try XCTUnwrap(effects(layout(chart([soft]), rows: [["Mon", "1"]])).first)
+        XCTAssertEqual(found.shadow, ChartMarkShadow(color: .named(.red), radius: 4, x: 6, y: -6))
+        XCTAssertEqual(found.blur, 2)
+    }
+
+    func testALegendEntryKeepsItsColorUnderAFade() {
+        var faded = bar
+        faded["opacity"] = 0.4
+        faded["foregroundStyle"] = ["by": value("Team", "$team")]
+        let primitives = layout(chart([faded]), rows: [["Mon", "1", "A"]])
+        XCTAssertEqual(effects(primitives).count, 1, "the bar, and no entry")
+    }
+
+    func testEffectValuesPastGSKStayDrawable() {
+        for huge in [1e300, -1e300] {
+            var extreme = bar
+            extreme["offset"] = ["x": huge, "y": huge]
+            extreme["blur"] = abs(huge)
+            extreme["shadow"] = ["radius": abs(huge), "x": huge, "y": huge]
+            let primitives = layout(chart([extreme]), rows: [["Mon", "1"]])
+            XCTAssertTrue(primitives.allSatisfy(\.isDrawable))
+            XCTAssertEqual(primitives.filter { if case .beginEffect = $0 { return true } else { return false } }.count,
+                           primitives.filter { if case .endEffect = $0 { return true } else { return false } }.count)
+        }
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {

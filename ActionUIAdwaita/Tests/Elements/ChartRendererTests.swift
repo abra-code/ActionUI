@@ -266,6 +266,67 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertGreaterThan(image.redRun(y: 90), 80)
     }
 
+    private let effectData = #""columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]]"#
+
+    private func effectChart(_ modifiers: String) -> String {
+        ##""chart": {"## + effectData + ##", "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": "#FF0000", "cornerRadius": 0, "## + modifiers + ##"}]}]}"##
+    }
+
+    func testOpacityFadesAMarkOverTheGrid() throws {
+        let image = try pixels(try render(effectChart(#""opacity": 0.5"#)))
+        let y = 120
+        let reds = (0..<image.width).filter { isRed(image[$0, y]) }
+        let middle = reds[reds.count / 2]
+        XCTAssertEqual(image[middle, y][3], 128, accuracy: 4)
+    }
+
+    func testAnOffsetMovesTheMarkOnScreen() throws {
+        func left(_ modifiers: String) throws -> Int {
+            let image = try pixels(try render(effectChart(modifiers)))
+            ActionUIModel.shared.windowModels[windowUUID] = nil
+            return try XCTUnwrap((0..<image.width).first { image[$0, 120][3] > 240 && isRed(image[$0, 120]) })
+        }
+        XCTAssertEqual(try left(#""offset": {"x": 17}"#) - left(#""opacity": 1"#), 17)
+    }
+
+    func testAShadowDrawsBesideItsMark() throws {
+        let image = try pixels(try render(effectChart(##""shadow": {"radius": 0, "x": 12, "y": 0, "color": "#0000FF"}"##)))
+        let row = (0..<image.width).map { image[$0, 120] }
+        let right = try XCTUnwrap(row.lastIndex { $0[3] > 240 && isRed($0) })
+        XCTAssertGreaterThan(row[right + 6][2], 200, "the shadow, past the bar")
+    }
+
+    func testABlurSoftensAnEdge() throws {
+        let sharp = try pixels(try render(effectChart(#""opacity": 1"#)))
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        let soft = try pixels(try render(effectChart(#""blur": 4"#)))
+        func partial(_ image: Pixels) -> Int {
+            (0..<image.width).filter { image[$0, 120][3] > 30 && image[$0, 120][3] < 220 && isRed(image[$0, 120]) }.count
+        }
+        XCTAssertGreaterThan(partial(soft), partial(sharp) + 4)
+    }
+
+    func testEveryMixOfEffectsLeavesTheNextMarkAlone() throws {
+        func greens(_ modifiers: String) throws -> [Int] {
+            let rule = ##"{"type": "RuleMark", "y": {"label": "G", "value": 2}, "foregroundStyle": "#00FF00", "lineStyle": {"lineWidth": 6}}"##
+            let chart = effectChart(modifiers).replacingOccurrences(of: "}]}]}", with: "}, " + rule + "]}]}")
+            let image = try pixels(try render(chart))
+            ActionUIModel.shared.windowModels[windowUUID] = nil
+            return (0..<image.height).flatMap { y in
+                (0..<image.width).filter { x in image[x, y][1] > 240 && image[x, y][0] < 30 && image[x, y][3] > 240 }.map { $0 + y * image.width }
+            }
+        }
+        let plain = try greens(#""opacity": 1"#)
+        XCTAssertFalse(plain.isEmpty)
+        for opacity in ["", #""opacity": 0.5, "#] {
+            for blur in ["", #""blur": 2, "#] {
+                for shadow in ["", ##""shadow": {"radius": 2, "x": 3, "y": 3, "color": "#0000FF"}, "##] {
+                    XCTAssertEqual(try greens(opacity + blur + shadow + ##""offset": {"x": 7, "y": -3}"##), plain, opacity + blur + shadow)
+                }
+            }
+        }
+    }
+
     func testALegendDrawsItsDotsInTheSeriesColors() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
         let image = try pixels(try render(chart))

@@ -199,6 +199,13 @@ extension Chart: ActionUIAdwaitaRenderer {
             label(string, position, alignment, ink)
         case let .turnedText(string, center, degrees, ink):
             turnedLabel(string, center, degrees, ink)
+        case let .beginEffect(effect):
+            beginEffect(effect)
+        case let .endEffect(effect):
+            if effect.shadow != nil { gtk_snapshot_pop(snapshot) }
+            if effect.blur > 0 { gtk_snapshot_pop(snapshot) }
+            if effect.opacity < 1 { gtk_snapshot_pop(snapshot) }
+            gtk_snapshot_restore(snapshot)
         case let .beginPlot(layer):
             beginPlot(layer)
         case let .endPlot(layer):
@@ -249,6 +256,24 @@ extension Chart: ActionUIAdwaitaRenderer {
         var rounded = GskRoundedRect()
         gsk_rounded_rect_init_from_rect(&rounded, &bounds, Float(radius))
         return rounded
+    }
+
+    private func beginEffect(_ effect: ChartMarkEffect) {
+        gtk_snapshot_save(snapshot)
+        var offset = graphene_point_t(x: Float(effect.offset.x), y: Float(effect.offset.y))
+        gtk_snapshot_translate(snapshot, &offset)
+        if effect.opacity < 1 {
+            gtk_snapshot_push_opacity(snapshot, effect.opacity)
+        }
+        if effect.blur > 0 {
+            // GSK's blur radius is twice the deviation, SwiftUI's is the deviation.
+            gtk_snapshot_push_blur(snapshot, Double(CanvasFilter.radius(effect.blur * 2)))
+        }
+        if let shadow = effect.shadow {
+            var node = GskShadow(color: shadow.color.map { ColorRGBA.resolve($0, for: widget) } ?? ModifierBox.defaultShadowColor,
+                                 dx: Float(shadow.x), dy: Float(shadow.y), radius: CanvasFilter.radius(shadow.radius * 2))
+            gtk_snapshot_push_shadow(snapshot, &node, 1)
+        }
     }
 
     private func beginPlot(_ layer: ChartPlotLayer) {
