@@ -7,7 +7,12 @@
  The goal is a chart comparable to Swift Charts, not a copy (Documentation/Schemas/Chart.md lists the
  differences). Swift Charts' look, as drawn on macOS 27:
  - The y axis is on the trailing side, with solid gridlines at its ticks.
- - Categories are bands of equal width, in order of first use, with dashed lines at the band edges.
+ - Categories are bands of equal width, in order of first use, with dashed lines at the band edges
+   on x and solid ones on y. On y their labels take no room: each sits on the top line of its band,
+   inside the plot at the leading edge or just past it at the trailing edge, and nothing thins or
+   clips them. A bar there has only what a label's row leaves of its band; on a tight axis that is
+   less than nothing, it draws at that size and runs past its band. Other marks stay at the band's
+   center. Automatic marks sit at the leading edge, and a tick there runs into the plot.
  - Number and date ticks on the x axis have a dashed line, and their label starts at the tick.
  - An automatic number domain includes 0 and is widened to whole steps (ChartTicks), and a date
    axis covers each value's whole bin. An explicit domain is exact; marks past it still draw, and a
@@ -36,6 +41,11 @@
    plot; on a y axis of numbers top and bottom put it under or over its tick, and the side that
    faces the plot puts it inside. A centered label on x numbers and dates sits between its tick and
    the next.
+ - An axis title sits outside the labels, 8 points off: an x title at the bottom and leading along
+   the plot, a y title at the top and trailing along the whole chart, or leading on an axis with
+   its labels there. On the leading or trailing side either is turned to run along the plot,
+   centered unless aligned top or bottom. Two titles on one side do not stack, each is its own
+   spacing off.
  - Marks draw in the order of the content, over the grid.
  - A line or an area joins its points in data order, not by x. Marks with one series and the same
    {"by"} styles are one line, in the style of the first, drawn where that one is. A value that is
@@ -78,6 +88,8 @@ enum ChartPrimitive: Equatable {
     case fill([ChartPathElement], ink: ChartInk)
     /// `alignment` is the point of the text placed at `position`, as fractions of its size.
     case text(String, position: ChartPoint, alignment: ChartPoint, ink: ChartInk)
+    /// Text turned clockwise by `degrees` around its center.
+    case turnedText(String, center: ChartPoint, degrees: Double, ink: ChartInk)
 
     /// Whether GSK can take it: values from a document or rows can pass what its floats hold (they
     /// would reach it as infinities), and a line needs a width.
@@ -98,6 +110,8 @@ enum ChartPrimitive: Equatable {
             return Self.finite(elements)
         case let .text(_, position, _, _):
             return finite(position.x, position.y)
+        case let .turnedText(_, center, _, _):
+            return finite(center.x, center.y)
         }
     }
 
@@ -143,6 +157,7 @@ struct ChartLayout {
     private static let defaultLine = ChartStroke(lineWidth: 2, lineCap: .round, lineJoin: .round)
     // Below the plot: from its edge to the labels, and how far a tick line runs into that room.
     private static let labelGap = 4.0
+    private static let titleGap = 8.0
     private static let tickLength = 6.0
     private static let yTickLength = 4.0
     private static let percent = 100.0
@@ -473,21 +488,36 @@ struct ChartLayout {
         // The y labels' width sets the plot's width, which sets the x ticks; the height is known
         // first. An x axis's kind and edges decide the room around the plot.
         let hasX = !axis(extents.x, spec.x, length: 0).isEmpty
-        let hasY = !axis(extents.y, spec.y, length: 0).isEmpty
+        let unplacedY = axis(extents.y, spec.y, length: 0)
+        let hasY = !unplacedY.isEmpty
+        var yBands = false
+        if case .bands = unplacedY.scale.kind { yBands = true }
         let xRows = hasX ? labelEdges(spec.x, isX: true) : []
         let rowHeight = lineHeight + Self.labelGap * 2
+        // Labels of bands take no room, so they do not count as labels on the leading edge.
+        let leadingLabels = !yBands && labelEdges(spec.y, isX: false) == [.leading]
+        let titles = [title(spec.x, isX: true, leadingLabels: false), title(spec.y, isX: false, leadingLabels: leadingLabels)].compactMap { $0 }
+        // Two titles on an edge share it, and a spacing past the title's size takes no room back.
+        func titleRoom(_ edge: ChartAxisMarkPosition) -> Double {
+            titles.filter { $0.edge == edge }.map { max(0, lineHeight + $0.spacing) }.max() ?? 0
+        }
         let yShown = hasY && !labelEdges(spec.y, isX: false).isEmpty
         let topTicks = hasX ? tickRoom(spec.x, isX: true, .top) : 0, bottomTicks = hasX ? tickRoom(spec.x, isX: true, .bottom) : 0
-        let top = (xRows.contains(.top) ? rowHeight : yShown ? lineHeight / 2 : 0) + topTicks
-        let bottom = (xRows.contains(.bottom) ? rowHeight : 0) + bottomTicks
+        let xLabelsTop = (xRows.contains(.top) ? rowHeight : 0) + topTicks
+        let xLabelsBottom = (xRows.contains(.bottom) ? rowHeight : 0) + bottomTicks
+        let top = max(xLabelsTop + titleRoom(.top), yShown ? lineHeight / 2 : 0)
+        let bottom = xLabelsBottom + titleRoom(.bottom)
         let plotHeight = max(height - top - bottom, 1)
         var yAxis = axis(extents.y, spec.y, length: plotHeight)
         let yGroups = groups(spec.y, yAxis, isX: false)
         func room(_ edge: ChartAxisMarkPosition) -> Double {
-            let widest = yGroups.filter { $0.edge == edge && $0.label != nil }.flatMap(\.ticks).map { metrics.size($0.label).width }.max() ?? 0
-            return (widest > 0 ? widest + Self.labelGap * 2 : 0) + (hasY ? tickRoom(spec.y, isX: false, edge) : 0)
+            // Labels of bands sit in the plot and take none.
+            let labeled = yBands ? [] : yGroups.filter { $0.edge == edge && $0.label != nil }
+            let widest = labeled.flatMap(\.ticks).map { metrics.size($0.label).width }.max() ?? 0
+            return (widest > 0 ? widest + Self.labelGap * 2 : 0) + (hasY ? tickRoom(spec.y, isX: false, edge, bands: yBands) : 0)
         }
-        let leading = room(.leading), trailing = room(.trailing)
+        let yLabelsLeading = room(.leading), yLabelsTrailing = room(.trailing)
+        let leading = yLabelsLeading + titleRoom(.leading), trailing = yLabelsTrailing + titleRoom(.trailing)
         let plotWidth = max(width - leading - trailing, 1)
         var xAxis = axis(extents.x, spec.x, length: plotWidth)
         let xGroups = groups(spec.x, xAxis, isX: true)
@@ -504,8 +534,64 @@ struct ChartLayout {
         var primitives: [ChartPrimitive] = []
         for group in yGroups { appendYGroup(group, yAxis.scale, plot, lineHeight: lineHeight, into: &primitives) }
         for group in xGroups { appendXGroup(group, xAxis.scale, plot, into: &primitives) }
-        appendMarks(stacks, xAxis.scale, yAxis.scale, plot, into: &primitives)
+        let outerTop = plot.y - xLabelsTop, outerBottom = plot.y + plot.height + xLabelsBottom
+        let outerLeading = plot.x - yLabelsLeading, outerTrailing = plot.x + plot.width + yLabelsTrailing
+        for title in titles {
+            // An x title runs along the plot and a y title along the whole chart.
+            let start = title.isX ? plot.x : 0, end = title.isX ? plot.x + plot.width : width
+            let across = start + (end - start) * title.along
+            // A turned title is placed by its center: its ends line up with the plot's.
+            let along = plot.y + plot.height * title.along + metrics.size(title.text).width * (0.5 - title.along)
+            switch title.edge {
+            case .top:
+                primitives.append(.text(title.text, position: ChartPoint(x: across, y: outerTop - title.spacing), alignment: ChartPoint(x: title.along, y: 1), ink: Self.labelInk))
+            case .bottom:
+                primitives.append(.text(title.text, position: ChartPoint(x: across, y: outerBottom + title.spacing), alignment: ChartPoint(x: title.along, y: 0), ink: Self.labelInk))
+            case .leading:
+                primitives.append(.turnedText(title.text, center: ChartPoint(x: outerLeading - title.spacing - lineHeight / 2, y: along), degrees: 90, ink: Self.labelInk))
+            case .trailing:
+                primitives.append(.turnedText(title.text, center: ChartPoint(x: outerTrailing + title.spacing + lineHeight / 2, y: along), degrees: 90, ink: Self.labelInk))
+            case .automatic:
+                break
+            }
+        }
+        // A label's row is the room under the band's top line (measured on macOS 27: it follows the font).
+        let bandLabelRow = yBands && !labelEdges(spec.y, isX: false).isEmpty ? lineHeight + Self.labelGap : 0
+        appendMarks(stacks, xAxis.scale, yAxis.scale, plot, bandLabelRow: bandLabelRow, into: &primitives)
         return primitives.filter(\.isDrawable)
+    }
+
+    /// An axis title, resolved: `along` is how far along its side it sits, 0 at the start.
+    private struct AxisTitle {
+        var text: String
+        var isX: Bool
+        var edge: ChartAxisMarkPosition
+        var along: Double
+        var spacing: Double
+    }
+
+    // On the leading or trailing side only the vertical part of an alignment counts, and on the top
+    // or bottom only the horizontal part (measured on macOS 27, for both axes).
+    private func title(_ spec: ChartAxisSpec, isX: Bool, leadingLabels: Bool) -> AxisTitle? {
+        guard let text = spec.label else { return nil }
+        let edge: ChartAxisMarkPosition
+        switch spec.labelPosition {
+        case .top: edge = .top
+        case .bottom: edge = .bottom
+        case .leading: edge = .leading
+        case .trailing: edge = .trailing
+        default: edge = isX ? .bottom : .top
+        }
+        let alignment = spec.labelAlignment
+        let along: Double
+        if edge == .leading || edge == .trailing {
+            along = alignment?.isTop == true ? 0 : alignment?.isBottom == true ? 1 : 0.5
+        } else if let alignment {
+            along = alignment.isLeading ? 0 : alignment.isTrailing ? 1 : 0.5
+        } else {
+            along = isX || leadingLabels ? 0 : 1
+        }
+        return AxisTitle(text: text, isX: isX, edge: edge, along: along, spacing: spec.labelSpacing ?? Self.titleGap)
     }
 
     // Puts an axis on the plot, between `from` and `to` in the direction it reads, with its padding
@@ -569,10 +655,11 @@ struct ChartLayout {
         return spec.marks.flatMap { $0.isEmpty ? nil : $0 } ?? [ChartAxisMarksSpec()]
     }
 
-    private func edge(_ marks: ChartAxisMarksSpec, isX: Bool) -> ChartAxisMarkPosition {
+    private func edge(_ marks: ChartAxisMarksSpec, isX: Bool, bands: Bool = false) -> ChartAxisMarkPosition {
         switch (marks.position, isX) {
         case (.top, true), (.bottom, true), (.leading, false), (.trailing, false): return marks.position
         case (_, true): return .bottom
+        case (.automatic, false) where bands: return .leading
         case (_, false): return .trailing
         }
     }
@@ -589,9 +676,9 @@ struct ChartLayout {
 
     // What ticks add to the room on an edge: a given length, and an automatic one on a y axis,
     // however long the labels there; they run on under the labels (measured on macOS 27).
-    private func tickRoom(_ spec: ChartAxisSpec, isX: Bool, _ edge: ChartAxisMarkPosition) -> Double {
+    private func tickRoom(_ spec: ChartAxisSpec, isX: Bool, _ edge: ChartAxisMarkPosition, bands: Bool = false) -> Double {
         var room = 0.0
-        for marks in marks(spec) where self.edge(marks, isX: isX) == edge {
+        for marks in marks(spec) where self.edge(marks, isX: isX, bands: bands) == edge {
             for item in marks.items ?? [] {
                 guard case .tick(_, let length, _) = item.kind else { continue }
                 switch length {
@@ -605,15 +692,16 @@ struct ChartLayout {
     }
 
     private func groups(_ spec: ChartAxisSpec, _ axis: Axis, isX: Bool) -> [AxisGroup] {
-        // Lines on x and on bands are dashed, and on a y axis of numbers plain (measured on macOS 27).
-        var dashed = isX
-        if case .bands = axis.scale.kind { dashed = true }
+        // Lines are dashed on x and plain on y (measured on macOS 27).
+        let dashed = isX
         let lineStroke = dashed ? Self.tickDash : ChartStroke()
+        var bands = false
+        if case .bands = axis.scale.kind { bands = true }
         return marks(spec).flatMap { marks -> [AxisGroup] in
             let ticks = ticks(marks, axis)
-            let edge = edge(marks, isX: isX)
+            let edge = edge(marks, isX: isX, bands: bands)
             guard let items = marks.items else {
-                // Swift Charts' default: on x and on bands a line that runs on past the plot.
+                // Swift Charts' default: on x a line that runs on past the plot.
                 let length = dashed ? Self.tickLength : 0
                 return [AxisGroup(ticks: marks.format.map { labeled(ticks, $0) } ?? ticks, edge: edge,
                                   grid: AxisLine(stroke: marks.stroke ?? lineStroke, length: length), label: AxisLabel())]
@@ -709,7 +797,10 @@ struct ChartLayout {
     private func appendYGroup(_ group: AxisGroup, _ scale: ChartAxisScale, _ plot: ChartRect, lineHeight: Double, into primitives: inout [ChartPrimitive]) {
         let left = plot.x, right = plot.x + plot.width
         let trailing = group.edge == .trailing
-        let every = bandStride(scale, room: lineHeight)
+        var bands = false
+        if case .bands = scale.kind { bands = true }
+        // Bands keep every line and label however tight; only lines under a point apart thin.
+        let every = bandStride(scale, room: 1)
         if let grid = group.grid {
             for y in linePositions(group, scale, every: every) {
                 let from = ChartPoint(x: trailing ? left : left - grid.length, y: y)
@@ -719,20 +810,23 @@ struct ChartLayout {
         }
         if let tick = group.tick {
             for y in linePositions(group, scale, every: every) {
+                // Out from the plot, and on bands into it (measured on macOS 27).
                 let start = trailing ? right : left
-                let end = trailing ? right + tick.length : left - tick.length
+                let end = start + (trailing != bands ? tick.length : -tick.length)
                 primitives.append(.line(from: ChartPoint(x: start, y: y), to: ChartPoint(x: end, y: y), ink: tick.ink, stroke: tick.stroke))
             }
         }
         guard let label = group.label else { return }
-        var anchor = label.anchor
-        if case .bands = scale.kind { anchor = nil }
-        // The anchor's side that faces the plot puts a label inside it, on either edge.
+        let anchor = label.anchor
+        // The anchor's side that faces the plot puts a label inside it, on either edge. On bands a
+        // label starts past its edge, unless a trailing anchor ends it there (measured on macOS 27).
         let inward = trailing ? anchor?.isTrailing == true : anchor?.isLeading == true
-        let rightward = trailing != inward
+        let rightward = bands ? anchor?.isTrailing != true : trailing != inward
         let x = (trailing ? right : left) + (rightward ? Self.labelGap : -Self.labelGap)
         for (index, tick) in group.ticks.enumerated() where index % every == 0 {
             guard var y = scale.position(tick.value, unit: nil) else { continue }
+            // A band's tick is its top line.
+            if bands { y -= abs(scale.bandWidth) / 2 }
             var alignment = 0.5
             // Under or over its tick, one that would then pass the plot's end is left out.
             if anchor?.isTop == true {
@@ -842,7 +936,7 @@ struct ChartLayout {
     }
 
     private func appendMarks(_ stacks: [Int: Stacked], _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect,
-                             into primitives: inout [ChartPrimitive]) {
+                             bandLabelRow: Double, into primitives: inout [ChartPrimitive]) {
         var series: [String: Int] = [:]
         for (index, name) in seriesNames().enumerated() {
             series[name] = index
@@ -855,7 +949,7 @@ struct ChartLayout {
             let ink = ink(instance, series: series)
             switch instance.mark.kind {
             case .BarMark:
-                if let rect = bar(instance, stack: stacks[index], x, y, plot) {
+                if let rect = bar(instance, stack: stacks[index], x, y, plot, bandLabelRow: bandLabelRow) {
                     primitives.append(.rect(rect, ink: ink))
                 }
             case .PointMark:
@@ -1006,12 +1100,22 @@ struct ChartLayout {
         (instance.mark.points[startKey].map { whole.0 + $0 } ?? whole.0, instance.mark.points[endKey].map { whole.0 + $0 } ?? whole.1)
     }
 
-    private func bar(_ instance: ChartMarkInstance, stack: Stacked?, _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect) -> ChartRect? {
+    private func bar(_ instance: ChartMarkInstance, stack: Stacked?, _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect,
+                     bandLabelRow: Double) -> ChartRect? {
         let mark = instance.mark
         let wholeX = (plot.x, plot.x + plot.width), wholeY = (plot.y, plot.y + plot.height)
 
         func crossSpan(_ key: String, _ scale: ChartAxisScale, _ dimension: ChartDimension) -> (Double, Double)? {
             guard let value = instance.values[key], let center = scale.position(value, unit: mark.values[key]?.unit) else { return nil }
+            // On y a bar has what its band's label leaves of the band, in any form. Room below
+            // nothing still counts, by its size (measured on macOS 27: 4.2 high on bands of 12, no minimum).
+            if key == "y", bandLabelRow > 0 {
+                let band = abs(scale.bandWidth), room = band - bandLabelRow
+                var across = thickness(dimension, room: abs(room))
+                if case .inset(let points) = dimension { across = abs(room - 2 * points) }
+                let middle = center - band / 2 + bandLabelRow + room / 2
+                return (middle - across / 2, middle + across / 2)
+            }
             let across = thickness(dimension, room: scale.binWidth(value, unit: mark.values[key]?.unit))
             return (center - across / 2, center + across / 2)
         }

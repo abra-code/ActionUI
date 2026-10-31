@@ -1380,17 +1380,308 @@ final class ChartLayoutTests: XCTestCase {
         XCTAssertLessThan(shown.count, 20)
     }
 
-    func testCategoryLabelsTooTallForTheirBandShowEveryFew() throws {
-        let mark: [String: Any] = ["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day")]
-        let primitives = layout(chart([mark]), rows: (0..<200).map { ["C\($0)", "1"] }, height: 200)
-        let positions = primitives.compactMap { primitive -> Double? in
-            if case .text(let label, let position, _, _) = primitive, label.hasPrefix("C") { return position.y } else { return nil }
+    // MARK: - Categories on y
+
+    private var sideways: [String: Any] { ["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day")] }
+
+    private func textPosition(_ label: String, in primitives: [ChartPrimitive]) -> ChartPoint? {
+        primitives.compactMap { primitive -> ChartPoint? in
+            if case .text(label, let position, _, _) = primitive { return position } else { return nil }
+        }.first
+    }
+
+    func testCategoryLabelsOnYTakeNoRoomAndSitOnTheirBandsTopLine() throws {
+        let primitives = layout(chart([sideways]), rows: [["Mon", "1"], ["Tue", "2"]], height: 118)
+        let found = rects(primitives)
+        XCTAssertEqual(found[1].x + found[1].width, 306, accuracy: 0.001, "the plot takes the whole width: 2 is the top of 0...2")
+        let mon = try XCTUnwrap(textPosition("Mon", in: primitives)), tue = try XCTUnwrap(textPosition("Tue", in: primitives))
+        XCTAssertEqual(mon.x, 4, accuracy: 0.001, "inside the plot")
+        let band = tue.y - mon.y
+        XCTAssertEqual(band, 47.5, accuracy: 0.001, "95 of plot in two bands: half a line above it and 18 below")
+        XCTAssertEqual(mon.y, 5, accuracy: 0.001, "on the top line")
+    }
+
+    func testAPositionOnYMovesCategoryLabelsAndTakesNoRoom() throws {
+        let axis: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "position": "trailing"]]]
+        let primitives = layout(chart([sideways], axis), rows: [["Mon", "1"], ["Tue", "2"]])
+        XCTAssertEqual(try XCTUnwrap(textPosition("Mon", in: primitives)).x, 310, accuracy: 0.001, "past the plot, clipped by the chart")
+        let leading: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "position": "leading"]]]
+        XCTAssertEqual(layout(chart([sideways], leading), rows: [["Mon", "1"]]), layout(chart([sideways]), rows: [["Mon", "1"]]), "leading is the default")
+    }
+
+    func testABarOnYSitsBelowItsLabelsRow() throws {
+        // Measured with labels of 14: bands of 37.3 give a bar of 13.5, 27.6 down its band. The row
+        // is a label and its gap, here 14.
+        let found = rects(layout(chart([sideways]), rows: [["Mon", "1"], ["Tue", "2"], ["Wed", "3"]], height: 130))
+        let band = (130 - 23.0) / 3
+        XCTAssertEqual(found[0].height, (band - 14) * 0.7, accuracy: 0.001)
+        XCTAssertEqual(found[0].y + found[0].height / 2, 5 + 14 + (band - 14) / 2, accuracy: 0.001)
+    }
+
+    func testABarOnATightYAxisHasTheSizeOfTheMissingRoomAndRunsPastItsBand() {
+        // Measured with a row of 18: bands of 12 give a bar of 4, 15 down; of 16 a bar of 1, 17 down.
+        let rows = ["A", "B", "C", "D", "E", "F"].map { [$0, "1"] }
+        let found = rects(layout(chart([sideways]), rows: rows, height: 90))
+        let band = (90 - 23.0) / 6
+        XCTAssertEqual(found[0].height, (14 - band) * 0.7, accuracy: 0.001)
+        XCTAssertEqual(found[0].y + found[0].height / 2, 5 + 14 + (band - 14) / 2, accuracy: 0.001)
+    }
+
+    func testABarWithNoRoomAtAllHasTheSizeOfOneWithNoBand() {
+        // Measured: a band as wide as the row gives the 8 of a bar on a plain axis.
+        let found = rects(layout(chart([sideways], ["chartYScale": ["range": [0, 28]]]), rows: [["Mon", "1"], ["Tue", "2"]]))
+        XCTAssertEqual(found[0].height, 8, accuracy: 0.001)
+    }
+
+    func testAnotherMarkStaysAtTheBandsCenter() {
+        let mark: [String: Any] = ["type": "PointMark", "x": value("High", "$high"), "y": value("Day", "$day")]
+        let found = centers(layout(chart([mark]), rows: [["Mon", "1"], ["Tue", "2"]], height: 118))
+        XCTAssertEqual(found[0].y, 5 + 47.5 / 2, accuracy: 0.001)
+    }
+
+    func testABarOfAnyHeightTakesWhatTheRowLeaves() {
+        func first(_ height: Any) -> ChartRect {
+            var mark = sideways
+            mark["height"] = height
+            return rects(layout(chart([mark]), rows: [["Mon", "1"], ["Tue", "2"]], height: 118))[0]
         }
-        XCTAssertGreaterThan(positions.count, 1)
-        for (first, second) in zip(positions, positions.dropFirst()) {
-            XCTAssertGreaterThanOrEqual(second - first, 10 - 0.001, "the fake text is 10 high")
+        let room = 47.5 - 14, middle = 5 + 14 + room / 2
+        let fixed = first(10), ratio = first(["ratio": 0.5]), inset = first(["inset": 2])
+        XCTAssertEqual(fixed.height, 10)
+        XCTAssertEqual(ratio.height, room / 2, accuracy: 0.001)
+        XCTAssertEqual(inset.height, room - 4, accuracy: 0.001)
+        for rect in [fixed, ratio, inset] {
+            XCTAssertEqual(rect.y + rect.height / 2, middle, accuracy: 0.001, "centered in what is left, whatever its size")
         }
-        XCTAssertLessThan(lines(primitives, ink: ChartLayout.gridInk).count, 50, "their lines thin out too")
+    }
+
+    func testAnInsetPastATightBandsRoomCountsByItsSize() {
+        // Measured with a row of 18: an inset of 2 on bands of 12 gives a bar of 10, and on bands of 20 one of 2.
+        var mark = sideways
+        mark["height"] = ["inset": 2]
+        let found = rects(layout(chart([mark], ["chartYScale": ["range": [0, 16]]]), rows: [["Mon", "1"], ["Tue", "2"]]))
+        XCTAssertEqual(found[0].height, 10, accuracy: 0.001, "6 less than the row of 14, and 4 of inset")
+    }
+
+    func testNoLabelsOnYBandsMeansNoRow() {
+        let rows = [["Mon", "1"], ["Tue", "2"]]
+        let hidden = rects(layout(chart([sideways], ["chartYAxis": "hidden"]), rows: rows, height: 118))
+        XCTAssertEqual(hidden[0].height, 50 * 0.7, accuracy: 0.001)
+        XCTAssertEqual(hidden[0].y + hidden[0].height / 2, 25, accuracy: 0.001)
+        let lines: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "content": [["type": "AxisGridLine"]]]]]
+        let plain = rects(layout(chart([sideways], lines), rows: rows, height: 118))
+        XCTAssertEqual(plain[0].height, 50 * 0.7, accuracy: 0.001, "no labels, so no half line above either")
+        let onlyLabels: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "content": [["type": "AxisValueLabel"]]]]]
+        let labeled = rects(layout(chart([sideways], onlyLabels), rows: rows, height: 118))
+        XCTAssertEqual(labeled[0].height, 33.5 * 0.7, accuracy: 0.001)
+    }
+
+    func testAnAnchorMovesACategoryLabelOnY() throws {
+        func place(_ anchor: String, position: String = "automatic") throws -> ChartPoint {
+            let label: [String: Any] = ["type": "AxisValueLabel", "anchor": anchor]
+            let axis: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "position": position, "content": [label]]]]
+            return try XCTUnwrap(textPosition("Tue", in: layout(chart([sideways], axis), rows: [["Mon", "1"], ["Tue", "2"]], height: 118)))
+        }
+        let line = 5 + 47.5
+        XCTAssertEqual(try place("top").x, 4, accuracy: 0.001)
+        XCTAssertEqual(try place("top").y, line + 4, accuracy: 0.001, "under the line")
+        XCTAssertEqual(try place("bottom").y, line - 4, accuracy: 0.001, "over the line")
+        XCTAssertEqual(try place("leading").x, 4, accuracy: 0.001)
+        XCTAssertEqual(try place("trailing").x, -4, accuracy: 0.001, "ending before the plot")
+        XCTAssertEqual(try place("leading", position: "trailing").x, 310, accuracy: 0.001)
+        XCTAssertEqual(try place("trailing", position: "trailing").x, 302, accuracy: 0.001, "ending inside the plot")
+    }
+
+    func testAnAnchorOnYBandsLeavesOutALabelPastThePlot() {
+        let label: [String: Any] = ["type": "AxisValueLabel", "anchor": "bottom"]
+        let axis: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "content": [label]]]]
+        let found = texts(layout(chart([sideways], axis), rows: [["Mon", "1"], ["Tue", "2"]], height: 118))
+        XCTAssertFalse(found.contains("Mon"), "over the plot's top line, as on macOS 27")
+        XCTAssertTrue(found.contains("Tue"))
+    }
+
+    func testTopAndBottomOnYBandsArePastTheTrailingEdge() throws {
+        for position in ["top", "bottom"] {
+            let axis: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "position": position]]]
+            XCTAssertEqual(try XCTUnwrap(textPosition("Mon", in: layout(chart([sideways], axis), rows: [["Mon", "1"]]))).x, 310, accuracy: 0.001)
+        }
+    }
+
+    func testATickOnYBandsTakesRoomAtTheLeadingEdgeAndRunsIntoThePlot() {
+        let axis: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "content": [["type": "AxisTick"]]]]]
+        let primitives = layout(chart([sideways], axis), rows: [["Mon", "1"], ["Tue", "2"]])
+        let ticks = lines(primitives).filter { $0.from.y == $0.to.y }
+        XCTAssertEqual(ticks.count, 3)
+        XCTAssertTrue(ticks.allSatisfy { $0.from.x == 4 && $0.to.x == 8 && $0.stroke == ChartStroke() })
+        XCTAssertEqual(rects(primitives)[0].x, 4, accuracy: 0.001)
+        let trailing: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "position": "trailing", "content": [["type": "AxisTick", "length": 10]]]]]
+        let far = lines(layout(chart([sideways], trailing), rows: [["Mon", "1"], ["Tue", "2"]])).filter { $0.from.y == $0.to.y }
+        XCTAssertTrue(far.allSatisfy { $0.from.x == 296 && $0.to.x == 286 }, "the plot ends 10 early and the tick runs back in")
+    }
+
+    func testAllCategoryLabelsOnYDrawHoweverTight() {
+        let rows = (0..<20).map { ["Category \($0)", "1"] }
+        XCTAssertEqual(texts(layout(chart([sideways]), rows: rows, height: 118)).filter { $0.hasPrefix("Category") }.count, 20, "Swift Charts lets them overlap")
+    }
+
+    func testGridlinesOnYBandsArePlainAndStopAtThePlot() {
+        let primitives = layout(chart([sideways]), rows: [["Mon", "1"], ["Tue", "2"]])
+        let across = lines(primitives).filter { $0.from.y == $0.to.y && $0.ink == ChartLayout.gridInk }
+        XCTAssertEqual(across.count, 3)
+        XCTAssertTrue(across.allSatisfy { $0.stroke == ChartStroke() })
+        XCTAssertTrue(across.allSatisfy { $0.to.x == 306 })
+    }
+
+    func testThousandsOfBandsOnYThin() {
+        let rows = (0..<5000).map { ["c\($0)", "1"] }
+        let found = lines(layout(chart([sideways]), rows: rows, height: 120)).filter { $0.from.y == $0.to.y }
+        XCTAssertLessThan(found.count, 200, "bands under a point apart")
+    }
+
+    // MARK: - Axis titles
+
+    private func turned(_ primitives: [ChartPrimitive]) -> (text: String, center: ChartPoint, degrees: Double)? {
+        primitives.compactMap { primitive -> (String, ChartPoint, Double)? in
+            if case .turnedText(let text, let center, let degrees, _) = primitive { return (text, center, degrees) } else { return nil }
+        }.first
+    }
+
+    func testAnXTitleSitsUnderTheLabelsAtTheLeadingEnd() throws {
+        let primitives = layout(chart([bar], ["chartXAxisLabel": "Days"]), rows: [["Mon", "1"]])
+        let title = try XCTUnwrap(textPosition("Days", in: primitives)), label = try XCTUnwrap(textPosition("Mon", in: primitives))
+        XCTAssertEqual(title.x, 0, accuracy: 0.001)
+        XCTAssertEqual(title.y, label.y + 10 + 4 + 8, accuracy: 0.001, "past the label and its gap, 8 off")
+        XCTAssertLessThanOrEqual(title.y + 10, 220, "inside the chart")
+    }
+
+    func testAYTitleSitsAboveThePlotAtTheChartsTrailingEdge() throws {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "1"]]))[0]
+        let primitives = layout(chart([bar], ["chartYAxisLabel": "Sales"]), rows: [["Mon", "1"]])
+        XCTAssertEqual(try XCTUnwrap(textPosition("Sales", in: primitives)).x, 306, accuracy: 0.001)
+        XCTAssertGreaterThan(rects(primitives)[0].y, plain.y, "the plot makes room")
+    }
+
+    func testAYTitleOnASideIsTurnedAndCentered() throws {
+        let leading = layout(chart([bar], ["chartYAxisLabel": ["text": "Sales", "position": "leading"]]), rows: [["Mon", "1"]])
+        let left = try XCTUnwrap(turned(leading))
+        XCTAssertEqual(left.degrees, 90, "both sides read top to bottom, as measured")
+        XCTAssertEqual(left.center.x, 5, accuracy: 0.001, "in the room of 18: the title of 10, then 8 to the plot")
+        XCTAssertEqual(rects(leading)[0].x, 18 + (306 - 18 - 26) * 0.15, accuracy: 0.001, "the plot moves over: the bar is 0.7 of it, centered")
+        XCTAssertEqual(left.center.y, (5 + 202) / 2, accuracy: 0.001, "the middle of the plot")
+        let trailing = layout(chart([bar], ["chartYAxisLabel": ["text": "Sales", "position": "trailing"]]), rows: [["Mon", "1"]])
+        let right = try XCTUnwrap(turned(trailing))
+        XCTAssertEqual(right.degrees, 90)
+        XCTAssertEqual(right.center.x, 306 - 5, accuracy: 0.001, "past the labels")
+    }
+
+    func testASideTitleTakesOnlyTheVerticalPartOfAnAlignment() throws {
+        func centerY(_ alignment: String) throws -> Double {
+            try XCTUnwrap(turned(layout(chart([bar], ["chartYAxisLabel": ["text": "Sales", "position": "leading", "alignment": alignment]]), rows: [["Mon", "1"]]))).center.y
+        }
+        let top = 5.0, bottom = 202.0, half = 15.0
+        for alignment in ["top", "topLeading", "topTrailing"] {
+            XCTAssertEqual(try centerY(alignment), top + half, accuracy: 0.001, "\(alignment): its start at the plot's top")
+        }
+        for alignment in ["bottom", "bottomLeading", "bottomTrailing"] {
+            XCTAssertEqual(try centerY(alignment), bottom - half, accuracy: 0.001, "\(alignment): its end at the plot's bottom")
+        }
+        for alignment in ["center", "leading", "trailing"] {
+            XCTAssertEqual(try centerY(alignment), (top + bottom) / 2, accuracy: 0.001, alignment)
+        }
+    }
+
+    func testATitleBelowOrAboveTakesOnlyTheHorizontalPartOfAnAlignment() throws {
+        func x(_ alignment: String) throws -> Double {
+            try XCTUnwrap(textPosition("Days", in: layout(chart([bar], ["chartXAxisLabel": ["text": "Days", "alignment": alignment]]), rows: [["Mon", "1"]]))).x
+        }
+        for alignment in ["leading", "topLeading", "bottomLeading"] {
+            XCTAssertEqual(try x(alignment), 0, accuracy: 0.001, alignment)
+        }
+        for alignment in ["trailing", "topTrailing", "bottomTrailing"] {
+            XCTAssertEqual(try x(alignment), 280, accuracy: 0.001, alignment)
+        }
+        for alignment in ["center", "top", "bottom"] {
+            XCTAssertEqual(try x(alignment), 140, accuracy: 0.001, alignment)
+        }
+    }
+
+    func testAYTitleAlignsAlongTheWholeChartPastLeadingLabels() throws {
+        let leadingAxis: [String: Any] = ["chartYAxis": [["type": "AxisMarks", "position": "leading"]]]
+        func x(_ alignment: String?) throws -> Double {
+            var label: [String: Any] = ["text": "Sales"]
+            label["alignment"] = alignment
+            var extra = leadingAxis
+            extra["chartYAxisLabel"] = label
+            return try XCTUnwrap(textPosition("Sales", in: layout(chart([bar], extra), rows: [["Mon", "1"]]))).x
+        }
+        XCTAssertEqual(try x("leading"), 0, accuracy: 0.001)
+        XCTAssertEqual(try x("center"), 153, accuracy: 0.001)
+        XCTAssertEqual(try x("trailing"), 306, accuracy: 0.001)
+        XCTAssertEqual(try x(nil), 0, accuracy: 0.001, "with its labels on the leading edge, a title starts there")
+    }
+
+    func testAYTitleStaysTrailingUnlessTheLabelsTakeRoomOnlyOnTheLeadingEdge() throws {
+        func x(_ axis: Any, rows: [[String]], _ mark: [String: Any]) throws -> Double {
+            try XCTUnwrap(textPosition("Sales", in: layout(chart([mark], ["chartYAxis": axis, "chartYAxisLabel": "Sales"]), rows: rows))).x
+        }
+        let both = [["type": "AxisMarks", "position": "leading"], ["type": "AxisMarks", "position": "trailing"]]
+        XCTAssertEqual(try x(both, rows: [["Mon", "1"]], bar), 306, accuracy: 0.001)
+        let noLabels: [[String: Any]] = [["type": "AxisMarks", "position": "leading", "content": [["type": "AxisGridLine"]]]]
+        XCTAssertEqual(try x(noLabels, rows: [["Mon", "1"]], bar), 306, accuracy: 0.001)
+        XCTAssertEqual(try x("hidden", rows: [["Mon", "1"]], bar), 306, accuracy: 0.001)
+        let bands = [["type": "AxisMarks", "position": "leading"]]
+        XCTAssertEqual(try x(bands, rows: [["Mon", "1"]], sideways), 306, accuracy: 0.001, "labels of bands take no room")
+    }
+
+    func testAnXTitleTurnsOnASideAsAYTitleDoes() throws {
+        let leading = layout(chart([bar], ["chartXAxisLabel": ["text": "Days", "position": "leading"]]), rows: [["Mon", "1"]])
+        XCTAssertEqual(try XCTUnwrap(turned(leading)).text, "Days")
+        XCTAssertEqual(leading, layout(chart([bar], ["chartYAxisLabel": ["text": "Days", "position": "leading"]]), rows: [["Mon", "1"]]))
+    }
+
+    func testTwoTitlesShareAnEdgeEachItsOwnSpacingOff() throws {
+        let labels: [String: Any] = ["chartXAxisLabel": ["text": "Days", "position": "top", "spacing": 4], "chartYAxisLabel": ["text": "Sales", "spacing": 20]]
+        let primitives = layout(chart([bar], labels), rows: [["Mon", "1"]])
+        let plotTop = rects(primitives)[0].y
+        XCTAssertEqual(plotTop, 30, accuracy: 0.001, "the larger of the two rooms, 10 + 20")
+        XCTAssertEqual(try XCTUnwrap(textPosition("Days", in: primitives)).y, plotTop - 4, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(textPosition("Sales", in: primitives)).y, plotTop - 20, accuracy: 0.001)
+    }
+
+    func testASpacingPastTheTitleTakesNoRoomBack() {
+        let plain = rects(layout(chart([bar]), rows: [["Mon", "1"]]))[0]
+        let bottom = rects(layout(chart([bar], ["chartXAxisLabel": ["text": "Days", "spacing": -60]]), rows: [["Mon", "1"]]))[0]
+        XCTAssertEqual(bottom.y + bottom.height, plain.y + plain.height, accuracy: 0.001)
+        let side = rects(layout(chart([bar], ["chartYAxisLabel": ["text": "Sales", "position": "leading", "spacing": -60]]), rows: [["Mon", "1"]]))[0]
+        XCTAssertEqual(side.x, plain.x, accuracy: 0.001)
+    }
+
+    func testATitleDrawsWithNoMarksAtAll() throws {
+        let primitives = layout(chart([], ["chartXAxisLabel": "Days", "chartYAxisLabel": "Sales"]))
+        XCTAssertEqual(try XCTUnwrap(textPosition("Days", in: primitives)).x, 0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(textPosition("Sales", in: primitives)).x, 306, accuracy: 0.001)
+    }
+
+    func testATopTitleStandsOutsideTopLabels() throws {
+        let axis: [String: Any] = ["chartXAxis": [["type": "AxisMarks", "position": "top"]], "chartXAxisLabel": ["text": "Days", "position": "top"]]
+        let primitives = layout(chart([bar], axis), rows: [["Mon", "1"]])
+        let plotTop = rects(primitives)[0].y
+        XCTAssertEqual(plotTop, 36, accuracy: 0.001, "a row of 18, 8 and the title of 10")
+        XCTAssertEqual(try XCTUnwrap(textPosition("Days", in: primitives)).y, 10, accuracy: 0.001, "its bottom")
+    }
+
+    func testATitlesAlignmentAndSpacing() throws {
+        let center = layout(chart([bar], ["chartXAxisLabel": ["text": "Days", "alignment": "center"]]), rows: [["Mon", "1"]])
+        XCTAssertEqual(try XCTUnwrap(textPosition("Days", in: center)).x, (306 - 26) / 2, accuracy: 0.001, "the middle of the plot, less labels of 18 and their gaps")
+        let far = layout(chart([bar], ["chartXAxisLabel": ["text": "Days", "spacing": 20]]), rows: [["Mon", "1"]])
+        let near = layout(chart([bar], ["chartXAxisLabel": "Days"]), rows: [["Mon", "1"]])
+        XCTAssertLessThan(try XCTUnwrap(textPosition("Mon", in: far)).y, try XCTUnwrap(textPosition("Mon", in: near)).y, "more room under the plot")
+    }
+
+    func testAnXTitleOnTopStandsAboveThePlot() throws {
+        let primitives = layout(chart([bar], ["chartXAxisLabel": ["text": "Days", "position": "top"]]), rows: [["Mon", "1"]])
+        let title = try XCTUnwrap(textPosition("Days", in: primitives))
+        XCTAssertLessThan(title.y, rects(primitives)[0].y)
     }
 
     func testAValueWithAUnitGoesInTheMiddleOfItsBin() {

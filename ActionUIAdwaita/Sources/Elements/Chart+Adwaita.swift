@@ -180,6 +180,8 @@ extension Chart: ActionUIAdwaitaRenderer {
             gsk_path_unref(path)
         case let .text(string, position, alignment, ink):
             label(string, position, alignment, ink)
+        case let .turnedText(string, center, degrees, ink):
+            turnedLabel(string, center, degrees, ink)
         }
     }
 
@@ -297,6 +299,19 @@ extension Chart: ActionUIAdwaitaRenderer {
             gtk_snapshot_append_fill(snapshot, path, GSK_FILL_RULE_WINDING, &color)
         }
         gsk_path_unref(path)
+    }
+
+    private func turnedLabel(_ string: String, _ center: ChartPoint, _ degrees: Double, _ ink: ChartInk) {
+        let size = text.size(string)
+        var middle = graphene_point_t(x: Float(center.x), y: Float(center.y))
+        var corner = graphene_point_t(x: Float(-size.width / 2), y: Float(-size.height / 2))
+        var color = rgba(ink)
+        gtk_snapshot_save(snapshot)
+        gtk_snapshot_translate(snapshot, &middle)
+        gtk_snapshot_rotate(snapshot, Float(degrees))
+        gtk_snapshot_translate(snapshot, &corner)
+        gtk_snapshot_append_layout(snapshot, text.layout, &color)
+        gtk_snapshot_restore(snapshot)
     }
 
     private func label(_ string: String, _ position: ChartPoint, _ alignment: ChartPoint, _ ink: ChartInk) {
