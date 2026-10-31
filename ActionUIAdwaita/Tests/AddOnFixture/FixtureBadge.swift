@@ -11,10 +11,16 @@
 import ActionUI
 import CAdwaita
 
+public final class FixtureKept {
+    public init() {}
+}
+
 public struct FixtureBadge: ActionUIAdwaitaElement {
     /// The node of the badge last made, and how often update ran, for the tests.
     public static var node: RenderNode?
     public static var updates = 0
+    /// What the badge last made keeps, seen weakly: it goes with its node.
+    public private(set) static weak var kept: FixtureKept?
     /// What update last read from the node's element and window.
     public static var seenType = ""
     public static var seenWindow = ""
@@ -48,6 +54,9 @@ public struct FixtureBadge: ActionUIAdwaitaElement {
 
     public static func makeWidget(_ node: RenderNode) -> OpaquePointer {
         self.node = node
+        let kept = FixtureKept()
+        node.state = kept
+        self.kept = kept
         return OpaquePointer(gtk_label_new(nil)!)
     }
 

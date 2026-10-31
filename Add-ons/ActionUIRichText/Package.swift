@@ -17,9 +17,48 @@
 //     that links this add-on, so the host links them too - no special handling needed here.
 //
 // The host links this product (+ ActionUI) and calls ActionUIRichText.register() at launch.
+//
+// On Linux the add-on is the GTK element (RichText+Adwaita.swift) over the same RichText package, and it links
+// ActionUI's ActionUIStatic product: one process has one Swift runtime. It has no Documentation target there:
+// Bundle.module needs full Foundation, and with it ICU's data, which the Linux build leaves out.
 
 import PackageDescription
 
+#if os(Linux)
+let package = Package(
+    name: "ActionUIRichText",
+    products: [
+        .library(name: "ActionUIRichText", targets: ["ActionUIRichText"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+        // 0.4.0 is its first version with the Linux port.
+        .package(url: "https://github.com/abra-code/RichText", from: "0.4.0"),
+    ],
+    targets: [
+        .target(
+            name: "ActionUIRichText",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "RichText", package: "RichText"),
+            ],
+            path: "Sources",
+            // The SwiftUI element.
+            exclude: ["RichText.swift", "RichTextElementView.swift"]
+        ),
+        .testTarget(
+            name: "RichTextTests",
+            dependencies: [
+                "ActionUIRichText",
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "RichText", package: "RichText"),
+            ],
+            path: "Tests"
+        ),
+    ]
+)
+#else
 let package = Package(
     name: "ActionUIRichText",
     platforms: [
@@ -76,3 +115,4 @@ let package = Package(
         ),
     ]
 )
+#endif

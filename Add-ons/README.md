@@ -28,7 +28,8 @@ value and states) with Apple and adds two calls:
   The element sets its own expansion on the widget (`gtk_widget_set_hexpand`,
   `gtk_widget_set_vexpand`). Closures it hands to GTK capture the node weakly.
 - `update(_:_:)` makes the widget show the model, through the `RenderNode` it receives: its
-  `properties`, view `model`, `element` and `windowUUID`. It runs again when a value, state or
+  `properties`, view `model`, `element` and `windowUUID`. The node's `state` holds what the element keeps
+  for this instance, set in `makeWidget` and released with the node. It runs again when a value, state or
   property it read changes, and after `node.setNeedsUpdate()`, for a change the model cannot report
   (an image that arrived).
 
@@ -52,7 +53,7 @@ needs full Foundation, and with it ICU's data, which the Linux build leaves out.
   [AsyncImageCache](https://github.com/abra-code/AsyncImageCache) github package (fetch/decode/
   downscale off the main thread, a two-tier memory + on-disk cache, and size-known-upfront layout
   with no reflow on hydration). Owns `Schemas/CachedImage.json`.
-- **`ActionUIRichText/`** - a `RichText` element: a rich-text display view backed by the
+- **`ActionUIRichText/`** - a `RichText` element, on Linux too: a rich-text display view backed by the
   [RichText](https://github.com/abra-code/RichText) github package. It renders a whole Markdown
   document (headings, code blocks, quotes, lists, GFM tables, inline styling, links) into one native
   text view, selectable and copyable as a single unit (table-aware copy). RichText pulls AsyncImageCache

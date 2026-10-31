@@ -15,6 +15,11 @@ A `RichText` element, usable from JSON like any built-in:
 ```
 
 - macOS / iOS / visionOS: `RichText.RichText` (a SwiftUI view).
+- Linux: `RichTextGtkView` (a GtkTextView), with the same properties, value and `search` state. Ctrl+F, Ctrl+G
+  and Shift+Ctrl+G work while the focus is inside the element, not in the whole window; copy gives HTML and
+  Markdown, not RTF; a table's cells stay single lines but for its last column; and in a ScrollView a new
+  width shows its height one layout later. A Swift program links `ActionUIRichText` and calls
+  `ActionUIRichText.register()`, as on Apple.
 
 The RichText package renders a whole Markdown document - headings, paragraphs, code blocks, block
 quotes, lists, GFM tables, inline styling, links - into **one native text view**, so the entire

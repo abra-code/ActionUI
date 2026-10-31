@@ -158,6 +158,23 @@ final class AdwaitaElementTests: XCTestCase {
         assertTheHeldNodeStopsUpdatingWhenTheWindowCloses()
     }
 
+    func testTheElementsStateGoesWithItsNode() throws {
+        let node = try render(document)
+        XCTAssertNotNil(node.state)
+        XCTAssertTrue(FixtureBadge.kept === node.state, "the node keeps what makeWidget gave it")
+        FixtureBadge.node = nil
+    }
+
+    func testTheElementsStateIsReleasedWithTheWindow() throws {
+        _ = try render(document)
+        XCTAssertNotNil(FixtureBadge.kept)
+        FixtureBadge.node = nil
+        window = nil
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNil(FixtureBadge.kept, "nothing keeps it once its node is gone")
+    }
+
     func testBaseModifiersApplyAroundTheElementsWidget() throws {
         let node = try render("""
             {"type": "FixtureBadge", "id": 1, "properties": {"text": "seed", "hidden": true}}

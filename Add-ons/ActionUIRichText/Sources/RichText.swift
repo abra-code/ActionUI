@@ -36,6 +36,7 @@
  A rich-text DISPLAY element backed by the RichText package, implemented as an ActionUI add-on
  (registered via ActionUIRichText.register()):
    macOS / iOS / visionOS - RichText.RichText (a SwiftUI View; RichText's platforms).
+   Linux - RichTextGtkView (RichText+Adwaita.swift).
  A whole Markdown document (headings, code blocks, quotes, lists, GFM tables, inline styling, links) is
  laid out into ONE native text view, so the entire document is selectable and copyable as a single unit
  (copy is table-aware: RTF / HTML / Markdown).
@@ -111,27 +112,6 @@ struct RichTextView: ActionUIViewConstruction {
         return RichTextElementView(model: model, markdown: markdown, theme: theme, behavior: behavior,
                                    remoteImages: remoteImages,
                                    showsFindBar: (properties["showFindBar"] as? Bool) ?? false, logger: logger)
-    }
-
-    // The policy a "remoteImages" property value gives. Fails closed: absent is "automatic", but a value
-    // that is present and not one of the three names is "on-click" - whoever set the key meant to
-    // restrict fetching, so a misspelling must not turn into fetching at once.
-    static func effectiveRemoteImagesPolicy(_ value: Any?) -> RichTextRemoteImages {
-        if let policy = remoteImagesPolicy(value) {
-            return policy
-        }
-        return value == nil ? .automatic : .onClick
-    }
-
-    // The document spelling of RichTextRemoteImages, the same as the Chat element's "remoteImages";
-    // nil for anything else.
-    static func remoteImagesPolicy(_ value: Any?) -> RichTextRemoteImages? {
-        switch value as? String {
-        case "automatic": return .automatic
-        case "on-click": return .onClick
-        case "never": return .never
-        default: return nil
-        }
     }
 
     // Baseline View modifiers (frame, padding, background, cornerRadius, opacity, ...) are applied by the registry.

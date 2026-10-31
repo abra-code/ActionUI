@@ -101,6 +101,10 @@ public final class RenderNode {
 
     public var windowUUID: String { windowModel.windowUUID }
 
+    /// What an add-on's element keeps for this instance (ActionUIAdwaitaElement), set in makeWidget and
+    /// released with the node. Built-in renderers attach theirs to the widget.
+    public var state: AnyObject?
+
     /// The environment this node inherits: its parent's; a background or overlay view's from its
     /// element (NodeDecorations.environment).
     private var inheritedEnvironment: Environment {
