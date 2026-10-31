@@ -14,6 +14,7 @@
    less than nothing, it draws at that size and runs past its band. Other marks stay at the band's
    center. Automatic marks sit at the leading edge, and a tick there runs into the plot.
  - Number and date ticks on the x axis have a dashed line, and their label starts at the tick.
+   Numbers rise up a y axis, and dates read down it, the earliest at the top.
  - An automatic number domain includes 0 and is widened to whole steps (ChartTicks), and a date
    axis covers each value's whole bin. An explicit domain is exact; marks past it still draw, and a
    category it does not name does not. Labels of one axis share their decimals. A domain of one
@@ -271,7 +272,8 @@ struct ChartLayout {
     private static let tickDash = ChartStroke(lineWidth: 1, dash: [2, 2])
     private static let barRatio = 0.7
     private static let unbinnedBarThickness = 8.0
-    private static let pointsPerDateTick = 80.0
+    // A date label on x is wide; on y it needs only its height and some air.
+    private static let pointsPerDateTick = 80.0, pointsPerYDateTick = 20.0
     private static let legendDateTicks = 4
     private static let defaultSymbolArea = 50.0
     private static let defaultBarCorner = 2.0
@@ -499,7 +501,7 @@ struct ChartLayout {
         }
     }
 
-    private func axis(_ extent: Extent, _ spec: ChartAxisSpec, length: Double) -> Axis {
+    private func axis(_ extent: Extent, _ spec: ChartAxisSpec, length: Double, pointsPerTick: Double = Self.pointsPerDateTick) -> Axis {
         var axis = Axis()
         var includesZero = true
         if case .automatic(let zero, let reversed) = spec.domain {
@@ -527,7 +529,7 @@ struct ChartLayout {
             axis.ticks = categories.map { (.string($0), $0) }
         } else if let dates {
             axis.scale.kind = .dates(lo: dates.lo, hi: dates.hi)
-            axis.ticks = dateTicks(dates.lo, dates.hi, count: max(2, min(Int(length / Self.pointsPerDateTick), 8)))
+            axis.ticks = dateTicks(dates.lo, dates.hi, count: max(2, min(Int(length / pointsPerTick), 8)))
         } else if extent.hasNumbers {
             let lo = includesZero ? min(extent.lo, 0) : extent.lo
             let hi = includesZero ? max(extent.hi, 0) : extent.hi
@@ -647,7 +649,7 @@ struct ChartLayout {
         let top = max(xLabelsTop + titleRoom(.top) + (legend?.room(.top) ?? 0), yShown ? lineHeight / 2 : 0)
         let bottom = xLabelsBottom + titleRoom(.bottom) + (legend?.room(.bottom) ?? 0)
         let plotHeight = max(height - top - bottom, 1)
-        var yAxis = axis(extents.y, spec.y, length: plotHeight)
+        var yAxis = axis(extents.y, spec.y, length: plotHeight, pointsPerTick: Self.pointsPerYDateTick)
         let yGroups = groups(spec.y, yAxis, isX: false)
         func room(_ edge: ChartAxisMarkPosition) -> Double {
             // Labels of bands sit in the plot and take none.
@@ -667,10 +669,11 @@ struct ChartLayout {
         let plot = style.padded(frame)
         legend?.fit(overPlot: frame)
         place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
-        // Numbers and dates rise up the axis; bands read from the top.
-        if case .bands = yAxis.scale.kind {
+        // Numbers rise up the axis; bands and dates read from the top (measured on macOS 27).
+        switch yAxis.scale.kind {
+        case .bands, .dates:
             place(&yAxis, spec.y, from: plot.y, to: plot.y + plot.height)
-        } else {
+        default:
             place(&yAxis, spec.y, from: plot.y + plot.height, to: plot.y)
         }
 
@@ -1546,17 +1549,24 @@ struct ChartLayout {
         case .inset(let points): whole = room - 2 * points
         default: whole = thickness(span, room: room)
         }
+        // A bar's or a rectangle's slots run with a date bin on an axis that runs backward. Other
+        // marks and dates without a unit, which have no bin, keep their order (measured on macOS 27).
+        var backward = false
+        if case .dates = scale.kind {
+            backward = sized && instance.mark.values[key]?.unit != nil && scale.end < scale.start
+        }
+        let along = backward ? -1.0 : 1.0
         if let value = instance.positionValue {
-            return (styles.positionShare(value.start) * whole, whole)
+            return (along * styles.positionShare(value.start) * whole, whole)
         }
         guard let name = instance.positionName else {
             guard stacked else { return (0, whole) }
             let width = whole / Double(max(styles.positionSlots, 1))
-            return (width / 2 - whole / 2, width)
+            return (along * (width / 2 - whole / 2), width)
         }
         guard let place = styles.positionSlot(named: name) else { return nil }
         let width = whole / Double(place.count)
-        return ((Double(place.index) + 0.5) * width - whole / 2, width)
+        return (along * ((Double(place.index) + 0.5) * width - whole / 2), width)
     }
 
     // How thick a bar is in a slot, which an inset measures by its size.

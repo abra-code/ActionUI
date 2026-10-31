@@ -3046,6 +3046,105 @@ final class ChartLayoutTests: XCTestCase {
         XCTAssertEqual((found[1].x - found[0].x) / found[0].width * 0.7, 31.0 / 59, accuracy: 0.001, "January's 31 days of the 59 to March")
     }
 
+    // MARK: - Dates on y
+
+    private let yDateColumns: [Any] = [["name": "x", "type": "number"], ["name": "when", "type": "date"]]
+    private let yDateRows = [["1", "2026-01-15"], ["2", "2026-04-15"]]
+
+    private func yDates(_ mark: [String: Any], _ extra: [String: Any] = [:]) -> [ChartPrimitive] {
+        var description: [String: Any] = ["columns": yDateColumns, "content": [["type": "ForEach", "content": [mark]]]]
+        description.merge(extra) { $1 }
+        return layout(description, rows: yDateRows)
+    }
+
+    private var yDatePoint: [String: Any] { ["type": "PointMark", "x": value("X", "$x"), "y": value("When", "$when")] }
+
+    func testDatesReadDownTheYAxis() {
+        let found = dots(yDates(yDatePoint))
+        XCTAssertLessThan(found[0].center.y, found[1].center.y, "the earlier is higher")
+    }
+
+    func testAReversedDateAxisReadsUp() {
+        let found = dots(yDates(yDatePoint, ["chartYScale": ["domain": ["automatic": ["reversed": true]]]]))
+        XCTAssertGreaterThan(found[0].center.y, found[1].center.y)
+    }
+
+    func testAnExplicitDateDomainReadsDownToo() {
+        let found = dots(yDates(yDatePoint, ["chartYScale": ["domain": ["2026-01-01", "2026-06-01"]]]))
+        XCTAssertLessThan(found[0].center.y, found[1].center.y)
+    }
+
+    func testDatesOnYHaveTicksCloserThanOnX() {
+        let tall = yDates(yDatePoint)
+        let rules = lines(tall, ink: ChartLayout.gridInk).filter { $0.from.y == $0.to.y }
+        XCTAssertGreaterThanOrEqual(rules.count, 3, "3 months in 220 points, where 80 points a tick would give 2")
+    }
+
+    private let binRows = [["1", "2026-01-15", "A"], ["2", "2026-01-15", "B"]]
+
+    private func inABin(_ marks: [[String: Any]], reversed: Bool) -> [ChartPrimitive] {
+        var description: [String: Any] = ["columns": [["name": "x", "type": "number"], ["name": "when", "type": "date"], "team"],
+                                          "content": [["type": "ForEach", "content": marks]]]
+        if reversed { description["chartYScale"] = ["domain": ["automatic": ["reversed": true]]] }
+        return layout(description, rows: binRows)
+    }
+
+    private func placed(_ kind: String, unit: String?, by: [String: Any]? = nil) -> [String: Any] {
+        var when = value("When", "$when")
+        when["unit"] = unit
+        return ["type": kind, "x": value("X", "$x"), "y": when, "position": by ?? ["by": value("Team", "$team"), "span": 30]]
+    }
+
+    func testABarsSlotsRunWithABinThatRunsBackward() {
+        for kind in ["BarMark", "RectangleMark"] {
+            let down = rects(inABin([placed(kind, unit: "month")], reversed: false))
+            XCTAssertLessThan(down[0].y, down[1].y, kind)
+            let up = rects(inABin([placed(kind, unit: "month")], reversed: true))
+            XCTAssertGreaterThan(up[0].y, up[1].y, kind)
+        }
+    }
+
+    func testANumberPositionRunsWithABinThatRunsBackward() {
+        let mark = placed("BarMark", unit: "month", by: ["by": value("X", "$x"), "span": 30])
+        let down = rects(inABin([mark], reversed: false)), up = rects(inABin([mark], reversed: true))
+        XCTAssertLessThan(down[0].y, down[1].y)
+        XCTAssertGreaterThan(up[0].y, up[1].y)
+    }
+
+    func testThePlainBarsFirstSlotRunsWithABinThatRunsBackward() {
+        let plain: [String: Any] = ["type": "BarMark", "x": value("X", 3), "y": ["label": "When", "value": "$when", "unit": "month"]]
+        let down = rects(inABin([placed("BarMark", unit: "month"), plain], reversed: false))
+        let up = rects(inABin([placed("BarMark", unit: "month"), plain], reversed: true))
+        XCTAssertEqual(down.count, 4)
+        XCTAssertEqual(up.count, 4)
+        XCTAssertLessThan(down[1].y, down[2].y, "the plain bar over B")
+        XCTAssertGreaterThan(up[1].y, up[2].y, "the plain bar under B")
+    }
+
+    func testBinsRunBackwardOnXToo() {
+        var when = value("When", "$when")
+        when["unit"] = "month"
+        let mark: [String: Any] = ["type": "BarMark", "x": when, "y": value("X", "$x"), "position": ["by": value("Team", "$team"), "span": 30]]
+        func chart(_ extra: [String: Any]) -> [ChartRect] {
+            var description: [String: Any] = ["columns": [["name": "x", "type": "number"], ["name": "when", "type": "date"], "team"],
+                                              "content": [["type": "ForEach", "content": [mark]]]]
+            description.merge(extra) { $1 }
+            return rects(layout(description, rows: binRows))
+        }
+        let forward = chart([:]), backward = chart(["chartXScale": ["domain": ["automatic": ["reversed": true]]]])
+        XCTAssertLessThan(forward[0].x, forward[1].x)
+        XCTAssertGreaterThan(backward[0].x, backward[1].x)
+    }
+
+    func testOtherMarksAndDatesWithoutAUnitKeepTheirSlotsOnAnAxisThatRunsBackward() {
+        let points = dots(inABin([placed("PointMark", unit: "month")], reversed: true))
+        XCTAssertLessThan(points[0].center.y, points[1].center.y, "a point has no bin to run with")
+        for kind in ["BarMark", "RectangleMark"] {
+            let found = rects(inABin([placed(kind, unit: nil)], reversed: true))
+            XCTAssertLessThan(found[0].y, found[1].y, kind)
+        }
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {
