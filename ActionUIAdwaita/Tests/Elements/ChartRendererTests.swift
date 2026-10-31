@@ -123,6 +123,14 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertGreaterThan(image[1, 8][1], 200, "and stays square at the corner, whatever the radius")
     }
 
+    func testALegendDrawsItsDotsInTheSeriesColors() throws {
+        let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
+        let image = try pixels(try render(chart))
+        let row = (0..<10).first { image.redRun(y: $0) > 3 }
+        XCTAssertNotNil(row, "a red dot sits in the top row")
+        XCTAssertLessThan(image.redRun(y: try XCTUnwrap(row)), 12, "and it is a dot, not a bar")
+    }
+
     func testPlotOpacityFadesTheLayer() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartPlotStyle": {"opacity": 0.5}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": "#FF0000"}]}]}"##
         let image = try pixels(try render(chart))

@@ -50,6 +50,16 @@
    gridlines and any category labels on y, the marks draw on it, and its opacity, corner radius and
    clip shape take all of that together. Its border draws square around the layer, padding moves
    the plot and its axes in from the border, and a frame sets the plot's size, centered in its room.
+ - A legend shows the names of the color scale's domain, or without one those of the series a
+   {"by"} color makes, a dot and a name each, in that order. A series outside a domain is not
+   listed. A domain alone is enough, even over marks of a fixed color, and with no names there is
+   no legend, however visible it is asked to be. It takes room outside everything else, at the
+   bottom unless told otherwise, starting at the chart's own edge and in columns that line up. A
+   plot style's frame centers the plot and all around it, and the legend stays with them. Across,
+   it fills rows; at a side it fills columns as high as the chart. A name that does not fit is not
+   shortened, and one too long for a side leaves the plot a point wide. The overlay position sits
+   on the plot at its top trailing corner and the corner positions at its top leading corner,
+   taking no room and wrapping inside the plot.
  - Marks draw in the order of the content, over the grid.
  - A line or an area joins its points in data order, not by x. Marks with one series and the same
    {"by"} styles are one line, in the style of the first, drawn where that one is. A value that is
@@ -519,6 +529,8 @@ struct ChartLayout {
         let rowHeight = lineHeight + Self.labelGap * 2
         // Labels of bands take no room, so they do not count as labels on the leading edge.
         let leadingLabels = !yBands && labelEdges(spec.y, isX: false) == [.leading]
+        var legend = legend(lineHeight: lineHeight)
+        let legendLeading = legend?.room(.leading) ?? 0, legendTrailing = legend?.room(.trailing) ?? 0
         let titles = [title(spec.x, isX: true, leadingLabels: false), title(spec.y, isX: false, leadingLabels: leadingLabels)].compactMap { $0 }
         // Two titles on an edge share it, and a spacing past the title's size takes no room back.
         func titleRoom(_ edge: ChartAxisMarkPosition) -> Double {
@@ -528,8 +540,8 @@ struct ChartLayout {
         let topTicks = hasX ? tickRoom(spec.x, isX: true, .top) : 0, bottomTicks = hasX ? tickRoom(spec.x, isX: true, .bottom) : 0
         let xLabelsTop = (xRows.contains(.top) ? rowHeight : 0) + topTicks
         let xLabelsBottom = (xRows.contains(.bottom) ? rowHeight : 0) + bottomTicks
-        let top = max(xLabelsTop + titleRoom(.top), yShown ? lineHeight / 2 : 0)
-        let bottom = xLabelsBottom + titleRoom(.bottom)
+        let top = max(xLabelsTop + titleRoom(.top) + (legend?.room(.top) ?? 0), yShown ? lineHeight / 2 : 0)
+        let bottom = xLabelsBottom + titleRoom(.bottom) + (legend?.room(.bottom) ?? 0)
         let plotHeight = max(height - top - bottom, 1)
         var yAxis = axis(extents.y, spec.y, length: plotHeight)
         let yGroups = groups(spec.y, yAxis, isX: false)
@@ -540,7 +552,8 @@ struct ChartLayout {
             return (widest > 0 ? widest + Self.labelGap * 2 : 0) + (hasY ? tickRoom(spec.y, isX: false, edge, bands: yBands) : 0)
         }
         let yLabelsLeading = room(.leading), yLabelsTrailing = room(.trailing)
-        let leading = yLabelsLeading + titleRoom(.leading), trailing = yLabelsTrailing + titleRoom(.trailing)
+        let leading = yLabelsLeading + titleRoom(.leading) + legendLeading
+        let trailing = yLabelsTrailing + titleRoom(.trailing) + legendTrailing
         let plotWidth = max(width - leading - trailing, 1)
         var xAxis = axis(extents.x, spec.x, length: plotWidth)
         let xGroups = groups(spec.x, xAxis, isX: true)
@@ -548,6 +561,7 @@ struct ChartLayout {
         let style = PlotStyle(spec.plotStyle)
         let frame = style.framed(ChartRect(x: leading, y: top, width: plotWidth, height: plotHeight))
         let plot = style.padded(frame)
+        legend?.fit(overPlot: frame)
         place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
         // Numbers and dates rise up the axis; bands read from the top.
         if case .bands = yAxis.scale.kind {
@@ -562,10 +576,10 @@ struct ChartLayout {
         let outerTop = plot.y - xLabelsTop, outerBottom = plot.y + plot.height + xLabelsBottom
         let outerLeading = plot.x - yLabelsLeading, outerTrailing = plot.x + plot.width + yLabelsTrailing
         for title in titles {
-            // An x title runs along the plot and a y title along the whole chart, its ends moved
-            // as far as a plot style moved the plot's (measured on macOS 27).
-            let start = title.isX ? plot.x : plot.x - leading
-            let end = title.isX ? plot.x + plot.width : width + ((plot.x + plot.width) - (leading + plotWidth))
+            // An x title runs along the plot and a y title along the chart inside any legend, its
+            // ends moved as far as a plot style moved the plot's (measured on macOS 27).
+            let start = title.isX ? plot.x : plot.x - leading + legendLeading
+            let end = title.isX ? plot.x + plot.width : width - legendTrailing + ((plot.x + plot.width) - (leading + plotWidth))
             let across = start + (end - start) * title.along
             // A turned title is placed by its center: its ends line up with the plot's.
             let along = plot.y + plot.height * title.along + metrics.size(title.text).width * (0.5 - title.along)
@@ -596,7 +610,156 @@ struct ChartLayout {
         if let border = style.border {
             primitives.append(.border(frame, width: border.width, ink: border.ink))
         }
+        let area = ChartRect(x: frame.x - leading, y: frame.y - top, width: leading + frame.width + trailing, height: top + frame.height + bottom)
+        legend?.append(to: &primitives, area: area, plot: frame)
         return primitives.filter(\.isDrawable)
+    }
+
+    private func legend(lineHeight: Double) -> Legend? {
+        let names = seriesNames()
+        guard spec.legendVisibility != .hidden, !names.isEmpty else { return nil }
+        let entries = names.enumerated().map { index, name in
+            Legend.Entry(name: name, ink: seriesInk(index), textWidth: metrics.size(name).width)
+        }
+        return Legend(Legend.Place(spec.legendPosition), entries, lineHeight: lineHeight, width: width, height: height)
+    }
+
+    /// A chart's legend, sized and laid out in a grid (measured on macOS 27).
+    private struct Legend {
+        enum Place {
+            case top, bottom, leading, trailing, overPlotLeading, overPlotTrailing
+
+            init(_ position: ChartPosition) {
+                switch position {
+                case .automatic, .bottom: self = .bottom
+                case .top: self = .top
+                case .leading: self = .leading
+                case .trailing: self = .trailing
+                case .overlay: self = .overPlotTrailing
+                case .topLeading, .topTrailing, .bottomLeading, .bottomTrailing: self = .overPlotLeading
+                }
+            }
+        }
+
+        struct Entry {
+            var name: String
+            var ink: ChartInk
+            var textWidth: Double
+            var width: Double { dot + dotGap + textWidth }
+        }
+
+        private static let dot = 8.0, dotGap = 5.0, columnGap = 8.0, rowGap = 8.0
+        /// From a legend across the chart to what it shares an edge with, and from one at a side.
+        private static let acrossGap = 4.0, sideGap = 8.0
+        private static let plotInset = 8.0
+
+        private let place: Place
+        private let entries: [Entry]
+        private let lineHeight: Double
+        /// Rows fill first across the chart, columns first at a side.
+        private let down: Bool
+        private let rows: Int
+        private let columnWidths: [Double]
+
+        init(_ place: Place, _ entries: [Entry], lineHeight: Double, width: Double, height: Double) {
+            self.place = place
+            self.entries = entries
+            self.lineHeight = lineHeight
+            switch place {
+            case .leading, .trailing:
+                down = true
+                rows = Self.rowsFitting(height, lineHeight: lineHeight)
+                let columns = (entries.count + rows - 1) / rows
+                columnWidths = Self.widths(entries, columns: columns, down: true, rows: rows)
+            default:
+                down = false
+                let columns = Self.columnsFitting(entries, width)
+                rows = (entries.count + columns - 1) / columns
+                columnWidths = Self.widths(entries, columns: columns, down: false, rows: rows)
+            }
+        }
+
+        private static func rowsFitting(_ height: Double, lineHeight: Double) -> Int {
+            max(Int(min((height + rowGap) / (lineHeight + rowGap), 1_000_000)), 1)
+        }
+
+        // Apple takes as many as fit the row as they come, then lines them up, which can push the
+        // last past the edge. Here the columns stop where the lined up grid still fits.
+        private static func columnsFitting(_ entries: [Entry], _ width: Double) -> Int {
+            var columns = 0, used = 0.0
+            for entry in entries {
+                let next = used + (columns > 0 ? columnGap : 0) + entry.width
+                if columns > 0, next > width { break }
+                used = next
+                columns += 1
+            }
+            while columns > 1, total(widths(entries, columns: columns, down: false, rows: 0)) > width {
+                columns -= 1
+            }
+            return max(columns, 1)
+        }
+
+        private static func widths(_ entries: [Entry], columns: Int, down: Bool, rows: Int) -> [Double] {
+            var widths = [Double](repeating: 0, count: columns)
+            for (index, entry) in entries.enumerated() {
+                let column = down ? index / rows : index % columns
+                widths[column] = max(widths[column], entry.width)
+            }
+            return widths
+        }
+
+        private static func total(_ widths: [Double]) -> Double {
+            widths.reduce(0, +) + columnGap * Double(max(widths.count - 1, 0))
+        }
+
+        private var size: ChartSize {
+            ChartSize(width: Self.total(columnWidths), height: lineHeight * Double(rows) + Self.rowGap * Double(rows - 1))
+        }
+
+        /// What it takes from the plot on the edge it sits at, and nothing on any other.
+        func room(_ edge: Place) -> Double {
+            guard edge == place else { return 0 }
+            switch place {
+            case .top, .bottom: return size.height + Self.acrossGap
+            case .leading, .trailing: return size.width + Self.sideGap
+            case .overPlotLeading, .overPlotTrailing: return 0
+            }
+        }
+
+        /// Over the plot it wraps inside it, which takes the plot's size, and that takes no room.
+        mutating func fit(overPlot plot: ChartRect) {
+            guard place == .overPlotLeading || place == .overPlotTrailing else { return }
+            self = Legend(place, entries, lineHeight: lineHeight, width: plot.width - Self.plotInset * 2, height: plot.height)
+        }
+
+        /// `area` holds the plot and all around it: the chart, unless a frame sized the plot or
+        /// what it holds does not fit. `plot` is the plot's frame, before any padding.
+        func append(to primitives: inout [ChartPrimitive], area: ChartRect, plot: ChartRect) {
+            var origin = ChartPoint(x: area.x, y: area.y)
+            switch place {
+            case .top, .leading: break
+            case .bottom: origin.y = area.y + area.height - size.height
+            case .trailing: origin.x = area.x + area.width - size.width
+            case .overPlotLeading: origin = ChartPoint(x: plot.x + Self.plotInset, y: plot.y + Self.plotInset)
+            case .overPlotTrailing: origin = ChartPoint(x: plot.x + plot.width - Self.plotInset - size.width, y: plot.y + Self.plotInset)
+            }
+            var columnStarts: [Double] = []
+            var start = origin.x
+            for width in columnWidths {
+                columnStarts.append(start)
+                start += width + Self.columnGap
+            }
+            for (index, entry) in entries.enumerated() {
+                let column = down ? index / rows : index % columnWidths.count
+                let row = down ? index % rows : index / columnWidths.count
+                let middle = origin.y + Double(row) * (lineHeight + Self.rowGap) + lineHeight / 2
+                let x = columnStarts[column]
+                primitives.append(.symbol(.circle, center: ChartPoint(x: x + Self.dot / 2, y: middle),
+                                          size: ChartSize(width: Self.dot, height: Self.dot), ink: entry.ink))
+                primitives.append(.text(entry.name, position: ChartPoint(x: x + Self.dot + Self.dotGap, y: middle),
+                                        alignment: ChartPoint(x: 0, y: 0.5), ink: ChartLayout.labelInk))
+            }
+        }
     }
 
     /// What a chartPlotStyle asks of the plot, read as any view's properties are. Shadow, offset and
@@ -1011,13 +1174,11 @@ struct ChartLayout {
 
     // MARK: - Marks
 
+    // A domain is the whole list, and a series outside it has no color of its own (measured on macOS 27).
     private func seriesNames() -> [String] {
+        if case .strings(let domain) = spec.styles.foregroundDomain { return domain }
         var names: [String] = []
         var seen: Set<String> = []
-        if case .strings(let domain) = spec.styles.foregroundDomain {
-            names = domain
-            seen = Set(domain)
-        }
         for instance in marks.instances {
             if let key = instance.styleKey, seen.insert(key).inserted {
                 names.append(key)
@@ -1026,12 +1187,16 @@ struct ChartLayout {
         return names
     }
 
+    private func seriesInk(_ index: Int) -> ChartInk {
+        if case .colors(let colors)? = spec.styles.foregroundRange, !colors.isEmpty {
+            return .color(colors[index % colors.count])
+        }
+        return .color(Self.seriesColors[index % Self.seriesColors.count])
+    }
+
     private func ink(_ instance: ChartMarkInstance, series: [String: Int]) -> ChartInk {
         if let key = instance.styleKey, let index = series[key] {
-            if case .colors(let colors)? = spec.styles.foregroundRange, !colors.isEmpty {
-                return .color(colors[index % colors.count])
-            }
-            return .color(Self.seriesColors[index % Self.seriesColors.count])
+            return seriesInk(index)
         }
         for modifier in instance.mark.modifiers {
             if case .foregroundStyle(let color) = modifier {

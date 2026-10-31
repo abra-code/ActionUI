@@ -1538,6 +1538,247 @@ final class ChartLayoutTests: XCTestCase {
         XCTAssertLessThan(found.count, 200, "bands under a point apart")
     }
 
+    // MARK: - Legend
+
+    private var seriesBar: [String: Any] {
+        ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high"), "foregroundStyle": ["by": value("Day", "$day")]]
+    }
+
+    private func legend(_ extra: [String: Any] = [:], names: [String] = ["Mon", "Tue"], width: Double = 306, height: Double = 220) -> [ChartPrimitive] {
+        layout(chart([seriesBar], extra), rows: names.map { [$0, "2"] }, width: width, height: height)
+    }
+
+    private func dots(_ primitives: [ChartPrimitive]) -> [(center: ChartPoint, ink: ChartInk)] {
+        primitives.compactMap { primitive in
+            if case .symbol(_, let center, _, let ink) = primitive { return (center, ink) } else { return nil }
+        }
+    }
+
+    /// The right end of the horizontal gridlines.
+    private func plotEnd(_ primitives: [ChartPrimitive]) -> Double {
+        primitives.compactMap { primitive -> Double? in
+            if case .line(let from, let to, _, _) = primitive, from.y == to.y { return max(from.x, to.x) } else { return nil }
+        }.max() ?? 0
+    }
+
+    /// Where each legend name starts: it is the text right of a dot.
+    private func starts(_ primitives: [ChartPrimitive]) -> [String: ChartPoint] {
+        var result: [String: ChartPoint] = [:]
+        for primitive in primitives {
+            if case .text(let text, let position, let alignment, _) = primitive, alignment == ChartPoint(x: 0, y: 0.5) {
+                result[text] = position
+            }
+        }
+        return result
+    }
+
+    func testASeriesGetsADotAndANameBelowTheChartInItsColor() {
+        let primitives = legend()
+        let dots = dots(primitives)
+        XCTAssertEqual(dots.map(\.ink), [.color(ChartLayout.seriesColors[0]), .color(ChartLayout.seriesColors[1])])
+        XCTAssertEqual(dots[0].center.x, 4, accuracy: 0.001, "it starts at the chart's edge")
+        XCTAssertEqual(dots[0].center.y, 215, accuracy: 0.001, "and ends at the bottom")
+        XCTAssertEqual(dots[1].center.x, 4 + 13 + 18 + 8, accuracy: 0.001, "a dot, its gap, a name of 18, a gap, a dot")
+        XCTAssertEqual(starts(primitives)["Mon"]?.x ?? 0, 13, accuracy: 0.001)
+    }
+
+    func testALegendTakesItsRowAndGapFromThePlot() {
+        func plotBottom(_ primitives: [ChartPrimitive]) -> Double {
+            rects(primitives).map { $0.y + $0.height }.max() ?? 0
+        }
+        let hidden = legend(["chartLegend": "hidden"])
+        XCTAssertEqual(plotBottom(hidden) - plotBottom(legend()), 14, accuracy: 0.001, "a row of 10 and 4 off")
+    }
+
+    func testAHiddenLegendAndOneWithNoSeriesDrawNothing() {
+        XCTAssertTrue(dots(legend(["chartLegend": "hidden"])).isEmpty)
+        let plain = layout(chart([bar], ["chartLegend": "visible"]), rows: [["Mon", "2"]])
+        XCTAssertTrue(dots(plain).isEmpty, "marks without a series or a domain have no names to show")
+        XCTAssertEqual(plain, layout(chart([bar]), rows: [["Mon", "2"]]))
+    }
+
+    func testADomainAloneGetsALegendOverMarksOfAFixedColor() {
+        let fixed = ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high"), "foregroundStyle": "green"] as [String: Any]
+        let scale: [String: Any] = ["domain": ["Up", "Down"], "range": ["red", "blue"]]
+        let primitives = layout(chart([fixed], ["chartForegroundStyleScale": scale]), rows: [["Mon", "2"]])
+        XCTAssertEqual(dots(primitives).map(\.ink), [.color(.named(.red)), .color(.named(.blue))])
+        XCTAssertEqual(inks(primitives).first, .color(.named(.green)), "the marks keep theirs")
+        XCTAssertNotNil(starts(primitives)["Up"])
+        let named = layout(chart([fixed], ["chartForegroundStyleScale": ["domain": ["Up"]]]), rows: [["Mon", "2"]])
+        XCTAssertEqual(dots(named).map(\.ink), [.color(ChartLayout.seriesColors[0])], "without a range the series colors")
+        let hidden = layout(chart([fixed], ["chartForegroundStyleScale": scale, "chartLegend": "hidden"]), rows: [["Mon", "2"]])
+        XCTAssertTrue(dots(hidden).isEmpty)
+    }
+
+    func testARangeAloneHasNoNamesToShow() {
+        let fixed = ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high"), "foregroundStyle": "green"] as [String: Any]
+        XCTAssertTrue(dots(layout(chart([fixed], ["chartForegroundStyleScale": ["range": ["red", "blue"]]]), rows: [["Mon", "2"]])).isEmpty)
+    }
+
+    func testOneSeriesStillGetsALegend() {
+        XCTAssertEqual(dots(legend(names: ["Mon"])).count, 1)
+    }
+
+    func testTheScaleSetsTheOrderTheColorsAndNamesNotInTheRows() {
+        let scale: [String: Any] = ["chartForegroundStyleScale": ["domain": ["Tue", "Wed", "Mon"], "range": ["red", "green", "blue"]]]
+        let primitives = legend(scale)
+        XCTAssertEqual(dots(primitives).map(\.ink), [.color(.named(.red)), .color(.named(.green)), .color(.named(.blue))])
+        let starts = starts(primitives)
+        XCTAssertLessThan(starts["Tue"]?.x ?? 0, starts["Wed"]?.x ?? 0)
+        XCTAssertLessThan(starts["Wed"]?.x ?? 0, starts["Mon"]?.x ?? 0)
+    }
+
+    func testATopLegendSitsOutsideATitle() {
+        let primitives = legend(["chartLegend": ["position": "top"], "chartXAxisLabel": ["text": "Title", "position": "top"]])
+        XCTAssertEqual(dots(primitives)[0].center.y, 5, accuracy: 0.001)
+        XCTAssertEqual(rects(primitives).map(\.y).min() ?? 0, 14 + 10 + 8, accuracy: 0.001, "the legend, the title and its spacing are above the plot")
+    }
+
+    func testABottomLegendSitsOutsideATitle() {
+        let primitives = legend(["chartXAxisLabel": "Title"])
+        XCTAssertLessThan(labelY("Title", in: primitives) ?? .infinity, dots(primitives)[0].center.y)
+    }
+
+    func testASideLegendTakesItsWidthAndStartsAtTheTop() {
+        let hidden = legend(["chartLegend": "hidden"])
+        let plain = rects(hidden)
+        let trailing = legend(["chartLegend": ["position": "trailing"]])
+        XCTAssertEqual(dots(trailing)[0].center.x, 306 - 31 + 4, accuracy: 0.001, "as wide as an entry, at the edge")
+        XCTAssertEqual(dots(trailing)[0].center.y, 5, accuracy: 0.001)
+        XCTAssertEqual(dots(trailing)[1].center.y, 5 + 18, accuracy: 0.001, "a row and its gap on")
+        XCTAssertEqual(plotEnd(hidden) - plotEnd(trailing), 31 + 8, accuracy: 0.001, "an entry's width and a gap")
+        let leading = legend(["chartLegend": ["position": "leading"]])
+        XCTAssertEqual(dots(leading)[0].center.x, 4, accuracy: 0.001)
+        XCTAssertGreaterThan(rects(leading)[0].x, plain[0].x, "the plot moved over")
+    }
+
+    func testASideLegendWiderThanTheChartStartsPastThePlotAndKeepsItsDots() {
+        let name = "A name far longer than this chart is wide, or anything like it"
+        let primitives = legend(["chartLegend": ["position": "trailing"]], names: [name], width: 120)
+        let dot = dots(primitives)[0].center.x
+        XCTAssertGreaterThan(dot, 0)
+        XCTAssertGreaterThan(dot, plotEnd(primitives), "it runs off the far side, as on Apple")
+    }
+
+    func testAcrossTheEntriesWrapInColumnsThatLineUp() {
+        // Entries are 13 + 6 per letter: 49, 31, 25, 67 with a gap of 8.
+        let primitives = legend(names: ["Longer", "Sun", "ab", "Longest..."], width: 130)
+        let starts = starts(primitives)
+        XCTAssertEqual(starts["Longer"]?.y, starts["Sun"]?.y, "two fit a row")
+        XCTAssertEqual(starts["Longer"]?.x, starts["ab"]?.x, "the columns line up")
+        XCTAssertEqual(starts["Sun"]?.x, starts["Longest..."]?.x)
+    }
+
+    func testAColumnsWidthKeepsTheGridInsideTheChart() {
+        // On their own, A and B fit one row, but a long name under A would push B past the edge.
+        let primitives = legend(names: ["A", "B", "A long name here"], width: 60)
+        XCTAssertEqual(starts(primitives)["A"]?.x, starts(primitives)["B"]?.x, "one column")
+    }
+
+    func testANameLongerThanTheChartKeepsItsRow() {
+        XCTAssertEqual(dots(legend(names: ["A name longer than this chart is wide"], width: 60)).count, 1)
+    }
+
+    func testAtASideTheEntriesWrapByTheChartsHeight() {
+        // Rows of 10 with 8 between: 3 fit 50, and a fourth needs 64.
+        let primitives = legend(["chartLegend": ["position": "trailing"]], names: ["A", "B", "C", "D"], height: 50)
+        let starts = starts(primitives)
+        XCTAssertEqual(starts["A"]?.x, starts["C"]?.x)
+        XCTAssertEqual(starts["D"]?.y, starts["A"]?.y, "the next column starts at the top")
+        XCTAssertGreaterThan(starts["D"]?.x ?? 0, starts["A"]?.x ?? 0)
+    }
+
+    func testTheOverlayPositionsSitOnThePlotAndTakeNoRoom() throws {
+        let plain = legend(["chartLegend": "hidden"])
+        let hidden = try XCTUnwrap(rects(plain).first)
+        let overlay = legend(["chartLegend": ["position": "overlay"]])
+        XCTAssertEqual(rects(overlay).first, hidden, "no room")
+        XCTAssertEqual(starts(overlay)["Tue"]?.x ?? 0, plotEnd(plain) - 8 - 18, accuracy: 0.001, "its last name ends 8 inside the plot")
+        for corner in ["topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] {
+            let primitives = legend(["chartLegend": ["position": corner]])
+            XCTAssertEqual(dots(primitives)[0].center.x, 12, accuracy: 0.001, corner)
+            XCTAssertEqual(rects(primitives).first, hidden, corner)
+        }
+    }
+
+    func testALegendDrawsOverTheMarks() throws {
+        let primitives = legend(["chartLegend": ["position": "overlay"]])
+        let lastBar = try XCTUnwrap(primitives.lastIndex { if case .rect = $0 { return true } else { return false } })
+        let firstDot = try XCTUnwrap(primitives.firstIndex { if case .symbol = $0 { return true } else { return false } })
+        XCTAssertLessThan(lastBar, firstDot)
+    }
+
+    func testASeriesOutsideADomainIsNotListed() {
+        let primitives = legend(["chartForegroundStyleScale": ["domain": ["Tue"]]])
+        XCTAssertEqual(dots(primitives).count, 1)
+        XCTAssertNotNil(starts(primitives)["Tue"])
+        XCTAssertNil(starts(primitives)["Mon"])
+        XCTAssertEqual(rects(primitives).count, 2, "its marks still draw")
+        let ranged = legend(["chartForegroundStyleScale": ["domain": ["Tue"], "range": ["red", "green"]]])
+        XCTAssertEqual(inks(ranged), [.color(ChartLayout.seriesColors[0]), .color(.named(.red))], "Mon in the default color, not the range's next")
+    }
+
+    func testALegendTooHighForTheChartRunsPastTheBottomNotOverTheAxes() {
+        let primitives = legend(names: ["Mon", "Tue", "Wed", "Thu"], width: 40, height: 60)
+        let plotBottom = rects(primitives).map { $0.y + $0.height }.max() ?? 0
+        let rows = dots(primitives).map(\.center.y)
+        XCTAssertEqual(rows.min() ?? 0, plotBottom + 18 + 4 + 5, accuracy: 0.001, "the x labels' row and the gap come first")
+        XCTAssertGreaterThan(rows.max() ?? 0, 60)
+    }
+
+    func testAPlotFrameTakesTheLegendAlong() {
+        func plotStart(_ primitives: [ChartPrimitive]) -> Double {
+            primitives.compactMap { primitive -> Double? in
+                if case .line(let from, let to, _, _) = primitive, from.y == to.y { return min(from.x, to.x) } else { return nil }
+            }.min() ?? 0
+        }
+        func plotTop(_ primitives: [ChartPrimitive]) -> Double {
+            rects(primitives).map(\.y).min() ?? 0
+        }
+        func plotBottom(_ primitives: [ChartPrimitive]) -> Double {
+            rects(primitives).map { $0.y + $0.height }.max() ?? 0
+        }
+        func styled(_ frame: [String: Any], _ position: String) -> [ChartPrimitive] {
+            legend(["chartPlotStyle": ["frame": frame], "chartLegend": ["position": position]])
+        }
+        let narrow = styled(["width": 100], "bottom")
+        XCTAssertGreaterThan(plotStart(narrow), 0)
+        XCTAssertEqual(dots(narrow)[0].center.x - 4, plotStart(narrow), accuracy: 0.001, "it starts with the plot")
+        let trailing = legend(["chartLegend": ["position": "trailing"]]), narrowTrailing = styled(["width": 100], "trailing")
+        XCTAssertEqual(dots(narrowTrailing)[0].center.x - plotEnd(narrowTrailing), dots(trailing)[0].center.x - plotEnd(trailing), accuracy: 0.001, "and stays beside it")
+        let low = styled(["height": 40], "bottom"), plain = legend()
+        XCTAssertEqual(dots(low)[0].center.y - plotBottom(low), dots(plain)[0].center.y - plotBottom(plain), accuracy: 0.001, "or under it")
+        let lowTop = styled(["height": 40], "top"), top = legend(["chartLegend": ["position": "top"]])
+        XCTAssertEqual(plotTop(lowTop) - dots(lowTop)[0].center.y, plotTop(top) - dots(top)[0].center.y, accuracy: 0.001, "or over it")
+        let lowSide = styled(["height": 40], "trailing")
+        XCTAssertEqual(plotTop(lowSide) - dots(lowSide)[0].center.y, plotTop(trailing) - dots(trailing)[0].center.y, accuracy: 0.001, "and at a side level with it")
+    }
+
+    func testAnOverlayWrapsInsideThePlot() {
+        // Two entries of 31 with a gap of 8 need 70, and 8 stay free at each end.
+        func overlay(_ width: Double) -> [String: ChartPoint] {
+            starts(legend(["chartLegend": ["position": "overlay"], "chartPlotStyle": ["frame": ["width": width]]]))
+        }
+        XCTAssertEqual(overlay(86)["Mon"]?.y, overlay(86)["Tue"]?.y, "they fit")
+        XCTAssertEqual(overlay(85)["Mon"]?.x, overlay(85)["Tue"]?.x, "one more point and they do not")
+    }
+
+    func testAnOverlayCountsFromThePlotsFrameNotItsPadding() {
+        for position in ["overlay", "topLeading"] {
+            let plain = legend(["chartLegend": ["position": position]])
+            let padded = legend(["chartLegend": ["position": position], "chartPlotStyle": ["padding": 20]])
+            XCTAssertEqual(dots(padded).map(\.center), dots(plain).map(\.center), position)
+        }
+    }
+
+    func testAYTitleStaysInsideASideLegend() {
+        let primitives = legend(["chartLegend": ["position": "trailing"], "chartYAxisLabel": "Title"])
+        guard let title = primitives.lazy.compactMap({ primitive -> ChartPoint? in
+            if case .text("Title", let position, _, _) = primitive { return position } else { return nil }
+        }).first else { return XCTFail("no title") }
+        XCTAssertEqual(title.x, 306 - 31 - 8, accuracy: 0.001, "it ends where the legend's room starts")
+    }
+
     // MARK: - Plot style
 
     private func styled(_ style: [String: Any]) -> [ChartPrimitive] {
