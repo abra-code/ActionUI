@@ -183,6 +183,44 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertTrue(isRed(image[middle.x, middle.y]))
     }
 
+    private func solidReds(_ image: Pixels, columns: Range<Int>) -> Int {
+        columns.reduce(0) { count, x in
+            count + (0..<image.height).filter { image[x, $0][3] > 200 && isRed(image[x, $0]) }.count
+        }
+    }
+
+    func testASolidSymbolOutlivesALineOfNoWidthAndAHollowOneDoesNot() throws {
+        let none = ringedLine.replacingOccurrences(of: #""lineWidth": 4"#, with: #""lineWidth": 0"#)
+        let hollow = try pixels(try render(markedLine(none)))
+        XCTAssertEqual(solidReds(hollow, columns: 0..<hollow.width), 0, "a ring has no outline left")
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        let solid = try pixels(try render(markedLine(none.replacingOccurrences(of: #""symbol": "circle""#, with: #""symbol": "plus""#))))
+        XCTAssertGreaterThan(solidReds(solid, columns: 0..<solid.width), 100, "a plus has no use for one")
+    }
+
+    func testASymbolsOutlineIsItsOwnRowsWidth() throws {
+        let chart = ##""chart": {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}, {"name": "w", "type": "number"}], "data": [[2, 5, 0], [5, 5, 5], [8, 5, 10]], "chartXScale": {"domain": [0, 10]}, "chartYScale": {"domain": [0, 10]}, "chartLegend": "hidden", "content": [{"type": "ForEach", "content": [{"type": "LineMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "series": {"label": "S", "value": "One"}, "foregroundStyle": "#FF0000", "lineStyle": {"by": {"label": "W", "value": "$w"}}, "symbol": "circle", "symbolSize": 500}]}]}"##
+        let image = try pixels(try render(chart))
+        let third = image.width / 3
+        XCTAssertEqual(solidReds(image, columns: 0..<third), 0, "the first row's line is 0 wide, and so is its symbol's outline")
+        let thin = solidReds(image, columns: third..<(2 * third)), thick = solidReds(image, columns: (2 * third)..<image.width)
+        XCTAssertGreaterThan(thin, 50, "the next outline is 2.5 wide though the line is not there")
+        XCTAssertGreaterThan(Double(thick), 1.5 * Double(thin), "and the last is 5 wide")
+    }
+
+    func testAThickLineLeavesASmallSymbolSolidAndALargeOneHollow() throws {
+        let chart = ##""chart": {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}, "t", {"name": "z", "type": "number"}], "data": [[2, 5, "P", 1], [8, 5, "P", 10]], "chartXScale": {"domain": [0, 10]}, "chartYScale": {"domain": [0, 10]}, "chartLegend": "hidden", "content": [{"type": "ForEach", "content": [{"type": "LineMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "foregroundStyle": "#FF0000", "lineStyle": {"lineWidth": 8}, "symbol": {"by": {"label": "T", "value": "$t"}}, "symbolSize": {"by": {"label": "Z", "value": "$z"}}}]}]}"##
+        let image = try pixels(try render(chart))
+        let middleX = image.width / 2
+        let column = (0..<image.height).filter { image[middleX, $0][3] > 200 && isRed(image[middleX, $0]) }
+        let y = try (XCTUnwrap(column.first) + XCTUnwrap(column.last)) / 2
+        let reds = (0..<image.width).filter { image[$0, y][3] > 200 && isRed(image[$0, y]) }
+        let first = try XCTUnwrap(reds.first), last = try XCTUnwrap(reds.last)
+        // Boxes of 12.4, too small for a hole in a line of 8, and of 39.
+        XCTAssertGreaterThan(image[first + 6, y][3], 200, "the small one is solid")
+        XCTAssertLessThan(image[last - 19, y][3], 40, "the large one a hole in the same line")
+    }
+
     func testAutomaticLineStylesDrawTheirDashes() throws {
         func gaps(_ data: String) throws -> Int {
             let chart = ##""chart": {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}, "s"], "data": "## + data + ##", "chartLegend": "hidden", "content": [{"type": "ForEach", "content": [{"type": "LineMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "foregroundStyle": "#FF0000", "lineStyle": {"by": {"label": "S", "value": "$s"}}}]}]}"##

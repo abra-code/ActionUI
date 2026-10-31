@@ -30,10 +30,12 @@
  - Points given to a mark count from the plot's top leading corner.
  - A point's size is the area of a circle in its box, 50 unless given, or the shorter side of a
    width and a height, and no symbol stretches. A rule is 2 wide unless given.
- - On a line a symbol shows only where one is asked for, with the line's width as its outline, its
-   size unchanged. Its inside is a hole in that line alone, so the plot shows through and a later
-   line crosses it; plus, cross and asterisk are solid. A symbol's size {"by"} changes nothing
-   there, a point on its own still has its symbol, and a line takes its dash but its symbols do not.
+ - On a line a symbol shows only where one is asked for, with its own mark's line width as its
+   outline, its size unchanged, and it still shows on a line 0 wide. Its inside is a hole in that
+   line alone, so the plot shows through and a later line crosses it; plus, cross and asterisk are
+   solid. Each point has its own symbol, in the line's color, and a size {"by"} reaches it only
+   where the symbol is a {"by"} too. A point on its own still has its symbol, and a line takes its
+   dash but its symbols do not.
  - The modifier nearest a mark wins: its own over its Plot's.
  - An AxisMarks chooses its ticks and draws in its own way: desiredCount is the count of ticks an
    automatic axis aims for, and explicit values or a stride change the ticks, not the domain, which
@@ -68,8 +70,9 @@
    on the plot at its top trailing corner and the corner positions at its top leading corner,
    taking no room and wrapping inside the plot.
  - Marks draw in the order of the content, over the grid.
- - A line or an area joins its points in data order, not by x. Marks with one series and the same
-   {"by"} styles are one line, in the style of the first, drawn where that one is. A value that is
+ - A line or an area joins its points in data order, not by x. Marks with one series are one
+   line, whatever {"by"} styles they wear, and without a series so are marks with the same ones,
+   in the style of the first, drawn where that one is. A value that is
    not finite breaks it in two, and one point alone draws nothing. A line is 2 wide, an area is
    opaque, and stacked areas stack as bars do, each kind on its own. A start and end on an axis of
    categories run from edge to edge, as a bar's do.
@@ -109,8 +112,8 @@ enum ChartPrimitive: Equatable {
     /// `side` is the box of ChartSymbols.
     case symbol(ChartSymbol, center: ChartPoint, side: Double, ink: ChartInk)
     case path([ChartPathElement], ink: ChartInk, stroke: ChartStroke)
-    /// A line with a symbol at each point of `at`, which it may be too short to reach.
-    case markedLine([ChartPathElement], ink: ChartInk, stroke: ChartStroke, symbol: ChartSymbol, side: Double, at: [ChartPoint])
+    /// A line with symbols on its points, which it may be too short to join.
+    case markedLine([ChartPathElement], ink: ChartInk, stroke: ChartStroke, symbols: [ChartLineSymbol])
     case fill([ChartPathElement], ink: ChartInk)
     /// `alignment` is the point of the text placed at `position`, as fractions of its size.
     case text(String, position: ChartPoint, alignment: ChartPoint, ink: ChartInk)
@@ -139,10 +142,10 @@ enum ChartPrimitive: Equatable {
         case let .path(elements, _, stroke):
             return Float(stroke.lineWidth) > 0 && finite(stroke.lineWidth, stroke.miterLimit, stroke.dashPhase)
                 && stroke.dash.allSatisfy { finite($0) } && Self.finite(elements)
-        case let .markedLine(elements, _, stroke, _, side, points):
-            return Float(stroke.lineWidth) > 0 && finite(stroke.lineWidth, stroke.miterLimit, stroke.dashPhase, side)
+        case let .markedLine(elements, _, stroke, symbols):
+            return finite(stroke.lineWidth, stroke.miterLimit, stroke.dashPhase)
                 && stroke.dash.allSatisfy { finite($0) } && Self.finite(elements)
-                && points.allSatisfy { finite($0.x, $0.y) }
+                && symbols.allSatisfy { finite($0.center.x, $0.center.y, $0.side) }
         case let .fill(elements, _):
             return Self.finite(elements)
         case let .text(_, position, _, _):
@@ -170,6 +173,15 @@ enum ChartPrimitive: Equatable {
             }
         }
     }
+}
+
+struct ChartLineSymbol: Equatable {
+    var symbol: ChartSymbol
+    var center: ChartPoint
+    /// The box of ChartSymbols.
+    var side: Double
+    /// Its outline: the width its own mark's line style gives, not the line's.
+    var lineWidth: Double
 }
 
 /// The layer a plot style draws the marks on.
@@ -1396,7 +1408,7 @@ struct ChartLayout {
         let method = interpolation(first.mark)
         var elements: [ChartPathElement] = []
         var piece: [ChartPoint] = []
-        var placed: [ChartPoint] = []
+        var symbols: [ChartLineSymbol] = []
         func endPiece() {
             if piece.count > 1 { elements += ChartCurves.elements(piece, method) }
             piece = []
@@ -1404,17 +1416,22 @@ struct ChartLayout {
         for index in indices {
             let instance = marks.instances[index]
             if let px = position(instance, "x", x), let py = position(instance, "y", y) {
-                piece.append(ChartPoint(x: px, y: py))
-                placed.append(ChartPoint(x: px, y: py))
+                let center = ChartPoint(x: px, y: py)
+                piece.append(center)
+                let (shape, side) = symbol(instance)
+                // A size GSK cannot take costs this symbol, not the line.
+                if let shape, Float(side).isFinite {
+                    let lineWidth = max(self.stroke(instance, default: Self.defaultLine).lineWidth, 0)
+                    symbols.append(ChartLineSymbol(symbol: shape, center: center, side: side, lineWidth: lineWidth))
+                }
             } else {
                 endPiece()
             }
         }
         endPiece()
         let stroke = stroke(first, default: Self.defaultLine)
-        let (shape, side) = symbol(first)
-        if let shape, !placed.isEmpty {
-            return .markedLine(elements, ink: ink, stroke: stroke, symbol: shape, side: side, at: placed)
+        if !symbols.isEmpty {
+            return .markedLine(elements, ink: ink, stroke: stroke, symbols: symbols)
         }
         return elements.isEmpty ? nil : .path(elements, ink: ink, stroke: stroke)
     }

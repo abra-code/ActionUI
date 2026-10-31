@@ -26,10 +26,10 @@ struct ChartMarkInstance {
     let colorValue: ChartScalar?
     let lineStyleValue: ChartScalar?
     let sizeValue: ChartScalar?
-    /// What joins it to other lines or areas: its series and the {"by"} styles it wears: of color,
-    /// line and symbol on a line, of color alone on an area. Marks that share this are one line, in
-    /// the style of the first. A {"by"} that a style nearer the mark replaces, a symbol's size and a
-    /// position do not split a line (measured on macOS 27).
+    /// What joins it to other lines or areas: its series, or without one the {"by"} styles it
+    /// wears: of color, line and symbol on a line, of color alone on an area. Marks that share this
+    /// are one line, in the style of the first. A {"by"} that a style nearer the mark replaces, a
+    /// symbol's size and a position do not split a line (measured on macOS 27).
     let seriesKey: String
 }
 
@@ -134,7 +134,8 @@ struct ChartMarkResolver {
         var colorValue: ChartScalar?
         var lineStyleValue: ChartScalar?
         var sizeValue: ChartScalar?
-        var seriesParts = values["series"].map { [Self.key($0)] } ?? [""]
+        let series = values["series"]
+        var seriesParts = series.map { [Self.key($0)] } ?? [""]
         // The mark's own modifiers come first, a Plot's after them, and the first of each kind wins.
         var styled = false, lined = false, marked = false, sized = false
         for modifier in mark.modifiers {
@@ -150,15 +151,15 @@ struct ChartMarkResolver {
             switch modifier {
             case .foregroundStyleBy where !styled:
                 if case .string(let name) = scalar { styleKey = name } else { colorValue = scalar }
-                seriesParts.append(Self.key(scalar))
+                if series == nil { seriesParts.append(Self.key(scalar)) }
                 styled = true
             case .lineStyleBy where !lined:
                 if case .string(let name) = scalar { lineStyleKey = name } else { lineStyleValue = scalar }
-                if mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
+                if series == nil, mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
                 lined = true
             case .symbolBy where !marked:
                 if case .string(let name) = scalar { symbolKey = name }
-                if mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
+                if series == nil, mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
                 marked = true
             case .symbolSizeBy where !sized:
                 if case .string(let name) = scalar { sizeKey = name } else { sizeValue = scalar }

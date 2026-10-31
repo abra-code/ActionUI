@@ -516,7 +516,7 @@ final class ChartLayoutTests: XCTestCase {
     private func paths(_ primitives: [ChartPrimitive]) -> [(elements: [ChartPathElement], ink: ChartInk, stroke: ChartStroke)] {
         primitives.compactMap { primitive in
             switch primitive {
-            case .path(let elements, let ink, let stroke), .markedLine(let elements, let ink, let stroke, _, _, _): return (elements, ink, stroke)
+            case .path(let elements, let ink, let stroke), .markedLine(let elements, let ink, let stroke, _): return (elements, ink, stroke)
             default: return nil
             }
         }
@@ -1818,7 +1818,7 @@ final class ChartLayoutTests: XCTestCase {
 
     private func markedLines(_ primitives: [ChartPrimitive]) -> [(shape: ChartSymbol, side: Double, at: [ChartPoint])] {
         primitives.compactMap { primitive in
-            if case .markedLine(_, _, _, let shape, let side, let at) = primitive { return (shape, side, at) } else { return nil }
+            if case .markedLine(_, _, _, let symbols) = primitive, let first = symbols.first { return (first.symbol, first.side, symbols.map(\.center)) } else { return nil }
         }
     }
 
@@ -2348,6 +2348,77 @@ final class ChartLayoutTests: XCTestCase {
         let primitives = layout(styled([wearing(plotted, "symbolSize")], scale), rows: rows(letters(6)), height: 120)
         let columns = Set(starts(primitives).filter { Double($0.key) == nil }.values.map { ($0.x * 100).rounded() })
         XCTAssertGreaterThan(columns.count, 1, "circles too tall for one column of 120")
+    }
+
+    // MARK: - Series and symbols per point
+
+    private func withSeries(_ mark: [String: Any], _ column: String) -> [String: Any] {
+        wearing(mark, "series", value("Series", column))
+    }
+
+    private let seriesColumns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "s", "t", ["name": "z", "type": "number"]]
+    private let seriesRows = [["0", "1", "A", "P", "1"], ["1", "2", "A", "Q", "3"], ["0", "4", "B", "P", "5"], ["1", "5", "B", "Q", "7"]]
+
+    private func seriesChart(_ mark: [String: Any]) -> [ChartPrimitive] {
+        layout(["columns": seriesColumns, "chartLegend": "hidden", "content": [["type": "ForEach", "content": [mark]]]], rows: seriesRows)
+    }
+
+    private var byT: [String: Any] { ["by": value("T", "$t")] }
+
+    func testASeriesAloneDecidesWhatIsOneLine() {
+        let mark = withSeries(line, "$s")
+        for key in ["foregroundStyle", "symbol", "lineStyle"] {
+            XCTAssertEqual(paths(seriesChart(wearing(mark, key, byT))).count, 2, key)
+        }
+        XCTAssertEqual(paths(seriesChart(wearing(line, "foregroundStyle", byT))).count, 2, "without one a by splits, here into P and Q")
+    }
+
+    func testALineWithASeriesTakesItsFirstRowsStyle() {
+        let found = paths(seriesChart(wearing(withSeries(line, "$s"), "foregroundStyle", byT)))
+        XCTAssertEqual(found.map(\.ink), [.color(ChartLayout.seriesColors[0]), .color(ChartLayout.seriesColors[0])], "both start at P")
+        XCTAssertEqual(found[0].elements.count, 2, "and each joins its two points")
+    }
+
+    func testAnAreaWithASeriesIsNotSplitByColorEither() {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y"), "stacking": "unstacked"]
+        XCTAssertEqual(fills(seriesChart(wearing(withSeries(area, "$s"), "foregroundStyle", byT))).count, 2)
+    }
+
+    func testALinesSymbolsArePerPoint() throws {
+        let found = try XCTUnwrap(seriesLines(wearing(withSeries(line, "$s"), "symbol", byT)).first)
+        XCTAssertEqual(found.map(\.symbol), [.circle, .square])
+    }
+
+    func testASizeChangesALinesSymbolsWhereTheyAreABy() throws {
+        var mark = wearing(withSeries(line, "$s"), "symbol", byT)
+        mark["symbolSize"] = byNumber
+        let found = try XCTUnwrap(seriesLines(mark).first)
+        XCTAssertEqual(found[0].side, side(ofArea: 1200.0 / 7), accuracy: 0.001)
+        XCTAssertEqual(found[1].side, side(ofArea: 3600.0 / 7), accuracy: 0.001)
+    }
+
+    func testASymbolsOutlineIsItsOwnMarksWidthEvenOnALineOfNone() throws {
+        let mark = wearing(wearing(withSeries(line, "$s"), "symbol", "circle"), "lineStyle", byNumber)
+        let found = seriesLines(mark)
+        XCTAssertEqual(found.count, 2, "a first row at the lowest width leaves a line 0 wide, with its symbols")
+        for (width, expected) in zip(found[0].map(\.lineWidth), [0, 5.0 / 3]) {
+            XCTAssertEqual(width, expected, accuracy: 0.001)
+        }
+    }
+
+    func testASymbolGSKRefusesCostsOnlyItself() throws {
+        var mark = wearing(withSeries(line, "$s"), "symbol", byT)
+        mark["symbolSize"] = byNumber
+        let huge = layout(["columns": seriesColumns, "chartLegend": "hidden", "chartSymbolSizeScale": ["domain": [0, 1]], "content": [["type": "ForEach", "content": [mark]]]],
+                          rows: [["0", "1", "A", "P", "1"], ["1", "2", "A", "Q", "1e300"]])
+        XCTAssertEqual(try XCTUnwrap(paths(huge).first).elements.count, 2, "the line stays")
+        XCTAssertEqual(markedLines(huge).first?.at.count, 1, "and so does the other symbol")
+    }
+
+    private func seriesLines(_ mark: [String: Any]) -> [[ChartLineSymbol]] {
+        seriesChart(mark).compactMap { primitive in
+            if case .markedLine(_, _, _, let symbols) = primitive { return symbols } else { return nil }
+        }
     }
 
     // MARK: - Plot style

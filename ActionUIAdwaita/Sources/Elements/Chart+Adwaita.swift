@@ -189,8 +189,8 @@ extension Chart: ActionUIAdwaitaRenderer {
             guard let path = path(elements) else { return }
             stroke(path, ink, style)
             gsk_path_unref(path)
-        case let .markedLine(elements, ink, style, shape, side, points):
-            markedLine(elements, ink, style, shape, side, points)
+        case let .markedLine(elements, ink, style, symbols):
+            markedLine(elements, ink, style, symbols)
         case let .fill(elements, ink):
             fill(elements, ink)
         case let .text(string, position, alignment, ink):
@@ -268,30 +268,40 @@ extension Chart: ActionUIAdwaitaRenderer {
     }
 
     // The holes go in a mask over this line alone, so another line still crosses them. An outline
-    // is the line's width inside the symbol's box; one of half the box leaves no inside, and the
-    // symbol is then solid, in its box however wide the line (measured on macOS 27).
-    private func markedLine(_ elements: [ChartPathElement], _ ink: ChartInk, _ style: ChartStroke, _ shape: ChartSymbol, _ side: Double, _ points: [ChartPoint]) {
-        guard ChartSymbols.isHollowOnALine(shape), style.lineWidth * 2 < side else {
-            if let line = path(elements) {
-                stroke(line, ink, style)
-                gsk_path_unref(line)
-            }
-            fill(points.flatMap { ChartSymbols.outline(shape, center: $0, side: side) }, ink)
-            return
+    // is its own mark's line width inside the symbol's box, so a width of 0 leaves just the hole;
+    // one of half the box leaves no inside, and the symbol is then solid, in its box however wide
+    // the line (measured on macOS 27).
+    private func markedLine(_ elements: [ChartPathElement], _ ink: ChartInk, _ style: ChartStroke, _ symbols: [ChartLineSymbol]) {
+        func isHollow(_ mark: ChartLineSymbol) -> Bool {
+            ChartSymbols.isHollowOnALine(mark.symbol) && mark.lineWidth * 2 < mark.side
         }
-        let inner = side - style.lineWidth
-        guard let outlines = path(points.flatMap { ChartSymbols.outline(shape, center: $0, side: inner) }) else { return }
-        if let line = path(elements) {
-            var opaque = GdkRGBA(red: 0, green: 0, blue: 0, alpha: 1)
-            gtk_snapshot_push_mask(snapshot, GSK_MASK_MODE_INVERTED_ALPHA)
-            gtk_snapshot_append_fill(snapshot, outlines, GSK_FILL_RULE_WINDING, &opaque)
-            gtk_snapshot_pop(snapshot)
-            stroke(line, ink, style)
-            gtk_snapshot_pop(snapshot)
+        func inner(_ mark: ChartLineSymbol) -> [ChartPathElement] {
+            ChartSymbols.outline(mark.symbol, center: mark.center, side: mark.side - mark.lineWidth)
+        }
+        let hollow = symbols.filter(isHollow)
+        let solid = symbols.filter { !isHollow($0) }
+        if Float(style.lineWidth) > 0, let line = path(elements) {
+            if !hollow.isEmpty, let holes = path(hollow.flatMap(inner)) {
+                var opaque = GdkRGBA(red: 0, green: 0, blue: 0, alpha: 1)
+                gtk_snapshot_push_mask(snapshot, GSK_MASK_MODE_INVERTED_ALPHA)
+                gtk_snapshot_append_fill(snapshot, holes, GSK_FILL_RULE_WINDING, &opaque)
+                gtk_snapshot_pop(snapshot)
+                stroke(line, ink, style)
+                gtk_snapshot_pop(snapshot)
+                gsk_path_unref(holes)
+            } else {
+                stroke(line, ink, style)
+            }
             gsk_path_unref(line)
         }
-        stroke(outlines, ink, ChartStroke(lineWidth: style.lineWidth, lineCap: .round, lineJoin: .round))
-        gsk_path_unref(outlines)
+        for (width, marks) in Dictionary(grouping: hollow, by: \.lineWidth).sorted(by: { $0.key < $1.key }) where Float(width) > 0 {
+            guard let outlines = path(marks.flatMap(inner)) else { continue }
+            stroke(outlines, ink, ChartStroke(lineWidth: width, lineCap: .round, lineJoin: .round))
+            gsk_path_unref(outlines)
+        }
+        if !solid.isEmpty {
+            fill(solid.flatMap { ChartSymbols.outline($0.symbol, center: $0.center, side: $0.side) }, ink)
+        }
     }
 
     private func stroke(_ path: OpaquePointer, _ ink: ChartInk, _ style: ChartStroke) {

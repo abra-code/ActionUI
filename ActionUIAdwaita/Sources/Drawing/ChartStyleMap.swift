@@ -23,7 +23,7 @@
    1200 or a range, and no end stops it. A category takes its place among the names, the first
    drawing nothing, and one outside a domain is the default size. Its legend is a circle at each
    tick of the same automatic axis that has an area, and a single value has none. A size changes
-   only points, but a line lists it.
+   points, and a line's symbols where they are a {"by"} too; a line lists it either way.
  - A line style is a width, 0 to 5 over the data's lowest and highest, so the lowest does not show,
    with no legend. A single value is halfway.
  - A symbol has no such scale: a point is a circle and a line has none, with no legend.
@@ -265,9 +265,9 @@ struct ChartStyleMap {
         sizeIndex[name].map { area(sizeNames.count > 1 ? Double($0) / Double(sizeNames.count - 1) : 0.5) }
     }
 
-    /// The area a size scale gives a point; nil where it gives none.
+    /// The area a size scale gives a mark's symbol; nil where it gives none.
     func area(_ instance: ChartMarkInstance) -> Double? {
-        guard instance.mark.kind == .PointMark else { return nil }
+        guard instance.mark.kind == .PointMark || (instance.mark.kind == .LineMark && instance.symbolKey != nil) else { return nil }
         if let key = instance.sizeKey { return area(named: key) }
         guard let span = sizeSpan, let value = instance.sizeValue.flatMap(Self.number) else { return nil }
         return area(span.share(value))
