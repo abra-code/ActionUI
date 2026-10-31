@@ -15,27 +15,36 @@ import Foundation
 import Glibc
 
 enum ChartTicks {
-    /// How many number ticks an axis aims for.
-    static let idealTicks = 4.0
+    /// How many number ticks an axis aims for, unless an AxisMarks gives a desiredCount.
+    static let idealTicks = 4
 
     /// The step of 1, 2, 2.5 or 5 times a power of ten that gives the count of ticks closest to
-    /// `idealTicks`, the smaller step of two as close, counted to whole steps past the ends when
+    /// `ideal`, the smaller step of two as close, counted to whole steps past the ends when
     /// `widening` (an automatic domain) and inside them otherwise (an explicit one). 2.5 only when
     /// the step is a whole number. This fits all 71 axes measured on macOS 27 (automatic, maximum and
     /// step: 1 and 0.5, 4 and 1, 5 and 2, 9 and 5, 16 and 5, 50 and 20, 75 and 25, 80 and 20, 100
     /// and 25, 1,250 and 500; explicit: 0...9 and 2, 0...100 and 25, 3...47 and 10, 15...37 and 5,
     /// 10...90 and 20, 20...100 and 25). The size of the chart plays no part.
-    static func step(_ lo: Double, _ hi: Double, widening: Bool) -> Double {
+    static func step(_ lo: Double, _ hi: Double, widening: Bool, ideal: Int = idealTicks) -> Double {
+        step(lo, hi, roundLower: widening, roundUpper: widening, ideal: ideal)
+    }
+
+    /// The same with each end counted on its own: to the whole step past it when it is rounded, and
+    /// to the last one inside when not (measured on macOS 27: 125...178 without a rounded lower end
+    /// steps by 25, and without a rounded upper end by 20).
+    static func step(_ lo: Double, _ hi: Double, roundLower: Bool, roundUpper: Bool, ideal: Int) -> Double {
         let span = hi - lo
         guard span > 0, span.isFinite else { return 1 }
-        var power = pow(10, floor(log10(span / idealTicks)) - 1)
+        let target = Double(max(ideal, 1))
+        var power = pow(10, floor(log10(span / target)) - 1)
         var best = span, bestMiss = Double.infinity
         // Five decades always hold one, unless the values are at the ends of Double's range.
         for _ in 0..<5 {
             for factor in [1.0, 2.0, 2.5, 5.0] where factor != 2.5 || power >= 10 {
                 let step = factor * power
-                let intervals = widening ? ceil(hi / step) - floor(lo / step) : floor(hi / step) - ceil(lo / step)
-                let miss = abs(intervals + 1 - idealTicks)
+                let first = roundLower ? floor(lo / step) : ceil(lo / step)
+                let last = roundUpper ? ceil(hi / step) : floor(hi / step)
+                let miss = abs(last - first + 1 - target)
                 if miss < bestMiss {
                     best = step
                     bestMiss = miss
@@ -46,25 +55,50 @@ enum ChartTicks {
         return best
     }
 
-    /// `lo...hi` widened to whole steps, and the ticks over it.
-    static func widened(_ lo: Double, _ hi: Double) -> (lo: Double, hi: Double, step: Double, ticks: [Double]) {
+    /// `lo...hi` widened to whole steps, and the ticks over it. An end that is not rounded stays
+    /// where it is, without the ticks past it.
+    static func widened(_ lo: Double, _ hi: Double, ideal: Int = idealTicks, roundLower: Bool = true, roundUpper: Bool = true)
+        -> (lo: Double, hi: Double, step: Double, ticks: [Double]) {
         let top = hi > lo ? hi : lo + 1
-        let step = step(lo, top, widening: true)
+        let step = step(lo, top, roundLower: roundLower, roundUpper: roundUpper, ideal: ideal)
         let start = floor(lo / step) * step
         let end = ceil(top / step) * step
         let intervals = ((end - start) / step).rounded()
         // At the ends of Double's range whole steps do not exist: the values as they are.
         guard intervals.isFinite, intervals >= 1 else { return (lo, top, step, [lo, top]) }
-        return (start, end, step, (0...Int(intervals)).map { start + Double($0) * step })
+        let ticks = (0...Int(intervals)).map { start + Double($0) * step }
+        return (roundLower ? start : lo, roundUpper ? end : top, step,
+                ticks.filter { (roundLower || $0 >= lo) && (roundUpper || $0 <= top) })
     }
 
     /// The ticks of whole steps inside `lo...hi`, which stays as it is.
-    static func inside(_ lo: Double, _ hi: Double) -> (step: Double, ticks: [Double]) {
-        let step = step(lo, hi, widening: false)
+    static func inside(_ lo: Double, _ hi: Double, ideal: Int = idealTicks) -> (step: Double, ticks: [Double]) {
+        let step = step(lo, hi, widening: false, ideal: ideal)
+        let ticks = multiples(of: step, lo, hi)
+        return (step, ticks.isEmpty ? [lo, hi] : ticks)
+    }
+
+    /// The multiples of `step` inside `lo...hi`; none where there are none, or more than an axis
+    /// draws (ChartAxisStrideLimit), which a stride from a document can ask for.
+    static func multiples(of step: Double, _ lo: Double, _ hi: Double) -> [Double] {
         let first = ceil(lo / step), last = floor(hi / step)
         let intervals = last - first
-        guard intervals.isFinite, intervals >= 0 else { return (step, [lo, hi]) }
-        return (step, (0...Int(intervals)).map { (first + Double($0)) * step })
+        guard intervals.isFinite, intervals >= 0, intervals <= Double(ChartAxisStrideLimit.maxStrideMarks) else { return [] }
+        return (0...Int(intervals)).map { (first + Double($0)) * step }
+    }
+
+    /// How many decimals write all of `values`, so ticks a document chose share theirs (measured on
+    /// macOS 27: 0.5 and 1.25 show 0.50 and 1.25, 1 and 2 show none, whatever the axis's own step).
+    static func fractionDigits(of values: [Double]) -> Int {
+        var digits = 0
+        for value in values where value.isFinite {
+            while digits < 15 {
+                let scaled = abs(value) * pow(10, Double(digits))
+                if abs(scaled - scaled.rounded()) <= scaled * 1e-9 { break }
+                digits += 1
+            }
+        }
+        return digits
     }
 
     /// How many decimals a step's labels take, so all of an axis's show the same: 1.0, 0.5, 0.
@@ -127,6 +161,75 @@ enum ChartScaleTransform: Equatable {
         case .symmetricLog(let slope):
             let distance = log1p(abs(number) * slope)
             return number < 0 ? -distance : distance
+        }
+    }
+}
+
+extension ChartDateFormat {
+    /// The CLDR skeleton that asks ICU for this format, as Date.FormatStyle's fields and styles ask.
+    var skeleton: String {
+        switch self {
+        case .fields(let fields):
+            return fields.map(\.skeleton).joined()
+        case .styles(let date, let time):
+            // With both omitted a style writes a numeric date and a short time (measured on
+            // macOS 27), and ICU has no pattern for an empty skeleton.
+            let skeleton = date.skeleton + time.skeleton
+            return skeleton.isEmpty ? "yMdjm" : skeleton
+        }
+    }
+}
+
+private extension ChartDateField {
+    var skeleton: String {
+        switch self {
+        case .yearDefaultDigits: return "y"
+        case .yearTwoDigits: return "yy"
+        case .quarterOneDigit: return "Q"
+        case .quarterTwoDigits: return "QQ"
+        case .quarterAbbreviated: return "QQQ"
+        case .quarterWide: return "QQQQ"
+        case .quarterNarrow: return "QQQQQ"
+        case .monthDefaultDigits: return "M"
+        case .monthTwoDigits: return "MM"
+        case .monthAbbreviated: return "MMM"
+        case .monthWide: return "MMMM"
+        case .monthNarrow: return "MMMMM"
+        case .dayDefaultDigits: return "d"
+        case .dayTwoDigits: return "dd"
+        case .weekdayAbbreviated: return "E"
+        case .weekdayWide: return "EEEE"
+        case .weekdayNarrow: return "EEEEE"
+        case .weekdayShort: return "EEEEEE"
+        case .hourDefaultDigits: return "j"
+        case .hourTwoDigits: return "jj"
+        case .minuteDefaultDigits: return "m"
+        case .minuteTwoDigits: return "mm"
+        case .secondDefaultDigits: return "s"
+        case .secondTwoDigits: return "ss"
+        }
+    }
+}
+
+private extension ChartDateStyle {
+    var skeleton: String {
+        switch self {
+        case .omitted: return ""
+        case .numeric: return "yMd"
+        case .abbreviated: return "yMMMd"
+        case .long: return "yMMMMd"
+        case .complete: return "yMMMMEEEEd"
+        }
+    }
+}
+
+private extension ChartTimeStyle {
+    var skeleton: String {
+        switch self {
+        case .omitted: return ""
+        case .shortened: return "jm"
+        case .standard: return "jms"
+        case .complete: return "jmsz"
         }
     }
 }

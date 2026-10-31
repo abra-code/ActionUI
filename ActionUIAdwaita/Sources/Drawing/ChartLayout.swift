@@ -25,6 +25,17 @@
  - Points given to a mark count from the plot's top leading corner.
  - A point's size is the area of its symbol, 50 unless given, and a rule is 2 wide unless given.
  - The modifier nearest a mark wins: its own over its Plot's.
+ - An AxisMarks chooses its ticks and draws in its own way: desiredCount is the count of ticks an
+   automatic axis aims for, and explicit values or a stride change the ticks, not the domain, which
+   holds what each automatic AxisMarks widens it to. A list of names on bands changes nothing.
+   Marks with content draw only that content, each entry its own way. Lines on x and on bands are
+   dashed, and on bands they sit at the band edges, centered or not. A tick's given length adds to
+   the room around the plot and moves no label.
+ - A label's anchor counts only in these (measured on macOS 27): on x topTrailing and bottomTrailing
+   end it before its tick or its band's end, and bottomLeading and bottomTrailing put it inside the
+   plot; on a y axis of numbers top and bottom put it under or over its tick, and the side that
+   faces the plot puts it inside. A centered label on x numbers and dates sits between its tick and
+   the next.
  - Marks draw in the order of the content, over the grid.
  - A line or an area joins its points in data order, not by x. Marks with one series and the same
    {"by"} styles are one line, in the style of the first, drawn where that one is. A value that is
@@ -66,7 +77,7 @@ enum ChartPrimitive: Equatable {
     case path([ChartPathElement], ink: ChartInk, stroke: ChartStroke)
     case fill([ChartPathElement], ink: ChartInk)
     /// `alignment` is the point of the text placed at `position`, as fractions of its size.
-    case text(String, position: ChartPoint, alignment: ChartPoint)
+    case text(String, position: ChartPoint, alignment: ChartPoint, ink: ChartInk)
 
     /// Whether GSK can take it: values from a document or rows can pass what its floats hold (they
     /// would reach it as infinities), and a line needs a width.
@@ -85,7 +96,7 @@ enum ChartPrimitive: Equatable {
                 && stroke.dash.allSatisfy { finite($0) } && Self.finite(elements)
         case let .fill(elements, _):
             return Self.finite(elements)
-        case let .text(_, position, _):
+        case let .text(_, position, _, _):
             return finite(position.x, position.y)
         }
     }
@@ -106,7 +117,16 @@ struct ChartTextMetrics {
     var size: (String) -> ChartSize
     /// A number with this many decimals.
     var number: (Double, Int) -> String
+    /// A number in an axis's own format.
+    var formatted: (Double, NumberFormatSpec) -> String
     var date: (Date, _ skeleton: String) -> String
+}
+
+private extension ChartAlignment {
+    var isLeading: Bool { self == .leading || self == .topLeading || self == .bottomLeading }
+    var isTrailing: Bool { self == .trailing || self == .topTrailing || self == .bottomTrailing }
+    var isTop: Bool { self == .top || self == .topLeading || self == .topTrailing }
+    var isBottom: Bool { self == .bottom || self == .bottomLeading || self == .bottomTrailing }
 }
 
 struct ChartLayout {
@@ -124,6 +144,7 @@ struct ChartLayout {
     // Below the plot: from its edge to the labels, and how far a tick line runs into that room.
     private static let labelGap = 4.0
     private static let tickLength = 6.0
+    private static let yTickLength = 4.0
     private static let percent = 100.0
 
     private let spec: ChartSpec
@@ -313,7 +334,11 @@ struct ChartLayout {
     /// An axis's scale, without its points, and its ticks: where each goes and its label.
     private struct Axis {
         var scale = ChartAxisScale()
+        /// As a plain axis ticks. An AxisMarks that says how makes its own.
         var ticks: [(value: ChartScalar, label: String)] = []
+        /// What an automatic AxisMarks steps over, and whether that is an explicit domain. nil where
+        /// a count of ticks means nothing: on a log scale, or over one value (measured on macOS 27).
+        var steps: (lo: Double, hi: Double, exact: Bool)?
         var reversed = false
 
         var isEmpty: Bool {
@@ -379,16 +404,34 @@ struct ChartLayout {
             (low, high, ticks) = (scale.lo, scale.hi, scale.ticks)
             digits = smallestDigits(ticks)
         case .linear, .squareRoot, .power:
+            axis.steps = (lo, hi, exact)
             if exact {
                 let inside = ChartTicks.inside(lo, hi)
                 (ticks, digits) = (inside.ticks, ChartTicks.fractionDigits(inside.step))
             } else {
-                let widened = ChartTicks.widened(lo, hi)
-                (low, high, ticks, digits) = (widened.lo, widened.hi, widened.ticks, ChartTicks.fractionDigits(widened.step))
+                let plain = ChartTicks.widened(lo, hi)
+                (low, high, ticks, digits) = (plain.lo, plain.hi, plain.ticks, ChartTicks.fractionDigits(plain.step))
+                // The domain holds what each automatic AxisMarks widens it to (measured on
+                // macOS 27: 4 and 8 ticks over values up to 90 are 0...100, in either order).
+                let domains = automaticMarks(spec).map {
+                    ChartTicks.widened(lo, hi, ideal: $0.ideal, roundLower: $0.roundLower, roundUpper: $0.roundUpper)
+                }
+                low = domains.map(\.lo).min() ?? low
+                high = domains.map(\.hi).max() ?? high
             }
         }
         axis.scale.kind = .numbers(lo: low, hi: high)
         axis.ticks = ticks.map { (.number($0), metrics.number($0, $0 == 0 ? 0 : digits)) }
+    }
+
+    // The AxisMarks with automatic values, which set an automatic domain; a plain axis has one, and
+    // so has an axis whose AxisMarks all give their own values.
+    private func automaticMarks(_ spec: ChartAxisSpec) -> [(ideal: Int, roundLower: Bool, roundUpper: Bool)] {
+        let automatic = marks(spec).compactMap { marks -> (ideal: Int, roundLower: Bool, roundUpper: Bool)? in
+            guard case .automatic(let count, let lower, let upper) = marks.values else { return nil }
+            return (count ?? ChartTicks.idealTicks, lower ?? true, upper ?? true)
+        }
+        return automatic.isEmpty ? [(ChartTicks.idealTicks, true, true)] : automatic
     }
 
     // Powers of ten have no step: their labels take the decimals of the smallest, as 0.01 and 100.00.
@@ -399,15 +442,19 @@ struct ChartLayout {
     // A tick shows what changed since the one before: the year only at the first and when it turns.
     private func dateTicks(_ lo: Date, _ hi: Date, count: Int) -> [(value: ChartScalar, label: String)] {
         let stride = ChartDates.stride(lo, hi, count: count)
+        return dateLabels(ChartDates.ticks(lo, hi, stride: stride), unit: stride.unit)
+    }
+
+    private func dateLabels(_ dates: [Date], unit: Calendar.Component) -> [(value: ChartScalar, label: String)] {
         var lastYear: Int?
-        return ChartDates.ticks(lo, hi, stride: stride).map { tick in
+        return dates.map { tick in
             let year = ChartDates.calendar.component(.year, from: tick)
             defer { lastYear = year }
             let skeleton: String
-            switch stride.unit {
+            switch unit {
             case .year: skeleton = "y"
             case .month: skeleton = lastYear == year ? "MMM" : "yMMM"
-            case .weekOfYear, .day: skeleton = "MMMd"
+            case .weekOfYear, .weekOfMonth, .day: skeleton = "MMMd"
             case .hour: skeleton = "j"
             case .minute: skeleton = "jm"
             default: skeleton = "jms"
@@ -422,22 +469,30 @@ struct ChartLayout {
         let stacks = stacks()
         let extents = extents(stacks)
         let lineHeight = metrics.size("0").height
-        let xShown = spec.x.visibility != .hidden
-        let yShown = spec.y.visibility != .hidden
 
-        // The y labels' width sets the plot's width, which sets the x ticks; the height is known first.
-        // The x axis's kind decides the room under the plot; its ticks wait for the plot's width.
+        // The y labels' width sets the plot's width, which sets the x ticks; the height is known
+        // first. An x axis's kind and edges decide the room around the plot.
         let hasX = !axis(extents.x, spec.x, length: 0).isEmpty
         let hasY = !axis(extents.y, spec.y, length: 0).isEmpty
-        let top = yShown && hasY ? lineHeight / 2 : 0
-        let bottom = xShown && hasX ? lineHeight + Self.labelGap * 2 : 0
+        let xRows = hasX ? labelEdges(spec.x, isX: true) : []
+        let rowHeight = lineHeight + Self.labelGap * 2
+        let yShown = hasY && !labelEdges(spec.y, isX: false).isEmpty
+        let topTicks = hasX ? tickRoom(spec.x, isX: true, .top) : 0, bottomTicks = hasX ? tickRoom(spec.x, isX: true, .bottom) : 0
+        let top = (xRows.contains(.top) ? rowHeight : yShown ? lineHeight / 2 : 0) + topTicks
+        let bottom = (xRows.contains(.bottom) ? rowHeight : 0) + bottomTicks
         let plotHeight = max(height - top - bottom, 1)
         var yAxis = axis(extents.y, spec.y, length: plotHeight)
-        let yLabelWidth = yShown ? yAxis.ticks.map { metrics.size($0.label).width }.max() ?? 0 : 0
-        let plotWidth = max(width - (yLabelWidth > 0 ? yLabelWidth + Self.labelGap * 2 : 0), 1)
+        let yGroups = groups(spec.y, yAxis, isX: false)
+        func room(_ edge: ChartAxisMarkPosition) -> Double {
+            let widest = yGroups.filter { $0.edge == edge && $0.label != nil }.flatMap(\.ticks).map { metrics.size($0.label).width }.max() ?? 0
+            return (widest > 0 ? widest + Self.labelGap * 2 : 0) + (hasY ? tickRoom(spec.y, isX: false, edge) : 0)
+        }
+        let leading = room(.leading), trailing = room(.trailing)
+        let plotWidth = max(width - leading - trailing, 1)
         var xAxis = axis(extents.x, spec.x, length: plotWidth)
+        let xGroups = groups(spec.x, xAxis, isX: true)
 
-        let plot = ChartRect(x: 0, y: top, width: plotWidth, height: plotHeight)
+        let plot = ChartRect(x: leading, y: top, width: plotWidth, height: plotHeight)
         place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
         // Numbers and dates rise up the axis; bands read from the top.
         if case .bands = yAxis.scale.kind {
@@ -447,8 +502,8 @@ struct ChartLayout {
         }
 
         var primitives: [ChartPrimitive] = []
-        if yShown { appendYAxis(yAxis, plot, lineHeight: lineHeight, into: &primitives) }
-        if xShown { appendXAxis(xAxis, plot, lineHeight: lineHeight, into: &primitives) }
+        for group in yGroups { appendYGroup(group, yAxis.scale, plot, lineHeight: lineHeight, into: &primitives) }
+        for group in xGroups { appendXGroup(group, xAxis.scale, plot, into: &primitives) }
         appendMarks(stacks, xAxis.scale, yAxis.scale, plot, into: &primitives)
         return primitives.filter(\.isDrawable)
     }
@@ -482,59 +537,274 @@ struct ChartLayout {
         return band > 0 ? max(1, Int(min((room / band).rounded(.up), Double(names.count + 1)))) : 1
     }
 
-    private func appendYAxis(_ axis: Axis, _ plot: ChartRect, lineHeight: Double, into primitives: inout [ChartPrimitive]) {
-        let right = plot.x + plot.width
-        var every = 1
-        if case .bands(let names) = axis.scale.kind {
-            every = bandStride(axis.scale, room: lineHeight)
-            for index in stride(from: 0, through: names.count, by: every) {
-                let y = axis.scale.start + Double(index) * axis.scale.bandWidth
-                primitives.append(.line(from: ChartPoint(x: plot.x, y: y), to: ChartPoint(x: right + Self.tickLength, y: y), ink: Self.gridInk, stroke: Self.tickDash))
-            }
-        }
-        for (index, tick) in axis.ticks.enumerated() where index % every == 0 {
-            guard let y = axis.scale.position(tick.value, unit: nil) else { continue }
-            if case .bands = axis.scale.kind {} else {
-                primitives.append(.line(from: ChartPoint(x: plot.x, y: y), to: ChartPoint(x: right, y: y), ink: Self.gridInk, stroke: ChartStroke()))
-            }
-            primitives.append(.text(tick.label, position: ChartPoint(x: right + Self.labelGap, y: y), alignment: ChartPoint(x: 0, y: 0.5)))
+    // MARK: - Axis marks
+
+    /// A line of an axis: a gridline across the plot, running `length` past it, or a tick that is
+    /// only that part outside it.
+    private struct AxisLine {
+        var ink = ChartLayout.gridInk
+        var stroke: ChartStroke
+        var length = 0.0
+    }
+
+    private struct AxisLabel {
+        var ink = ChartLayout.labelInk
+        var anchor: ChartAlignment?
+        var centered = false
+        var offset = ChartSize(width: 0, height: 0)
+    }
+
+    /// One thing an AxisMarks draws, or Swift Charts' default marks: the ticks, the edge its labels
+    /// and ticks are on, and what it draws at them.
+    private struct AxisGroup {
+        var ticks: [(value: ChartScalar, label: String)]
+        var edge: ChartAxisMarkPosition
+        var grid: AxisLine?
+        var tick: AxisLine?
+        var label: AxisLabel?
+    }
+
+    private func marks(_ spec: ChartAxisSpec) -> [ChartAxisMarksSpec] {
+        guard spec.visibility != .hidden else { return [] }
+        return spec.marks.flatMap { $0.isEmpty ? nil : $0 } ?? [ChartAxisMarksSpec()]
+    }
+
+    private func edge(_ marks: ChartAxisMarksSpec, isX: Bool) -> ChartAxisMarkPosition {
+        switch (marks.position, isX) {
+        case (.top, true), (.bottom, true), (.leading, false), (.trailing, false): return marks.position
+        case (_, true): return .bottom
+        case (_, false): return .trailing
         }
     }
 
-    private func appendXAxis(_ axis: Axis, _ plot: ChartRect, lineHeight: Double, into primitives: inout [ChartPrimitive]) {
-        let bottom = plot.y + plot.height
-        if case .none = axis.scale.kind { return }
-        let labelY = bottom + Self.labelGap
-        func tickLine(_ x: Double) -> ChartPrimitive {
-            .line(from: ChartPoint(x: x, y: plot.y), to: ChartPoint(x: x, y: bottom + Self.tickLength), ink: Self.gridInk, stroke: Self.tickDash)
-        }
-        if case .bands(let names) = axis.scale.kind {
-            // Labels wider than their band show every few bands.
-            let widest = axis.ticks.map { metrics.size($0.label).width }.max() ?? 0
-            let every = bandStride(axis.scale, room: widest + Self.labelGap)
-            for index in stride(from: 0, through: names.count, by: every) {
-                primitives.append(tickLine(axis.scale.start + Double(index) * axis.scale.bandWidth))
+    // The edges that hold labels, known before any tick is.
+    private func labelEdges(_ spec: ChartAxisSpec, isX: Bool) -> Set<ChartAxisMarkPosition> {
+        Set(marks(spec).filter { marks in
+            guard let items = marks.items else { return true }
+            return items.contains { item in
+                if case .valueLabel = item.kind { return true } else { return false }
             }
-            for (index, tick) in axis.ticks.enumerated() where index % every == 0 {
-                guard let x = axis.scale.position(tick.value, unit: nil) else { continue }
-                primitives.append(.text(tick.label, position: ChartPoint(x: x, y: labelY), alignment: ChartPoint(x: 0.5, y: 0)))
+        }.map { edge($0, isX: isX) })
+    }
+
+    // What ticks add to the room on an edge: a given length, and an automatic one on a y axis,
+    // however long the labels there; they run on under the labels (measured on macOS 27).
+    private func tickRoom(_ spec: ChartAxisSpec, isX: Bool, _ edge: ChartAxisMarkPosition) -> Double {
+        var room = 0.0
+        for marks in marks(spec) where self.edge(marks, isX: isX) == edge {
+            for item in marks.items ?? [] {
+                guard case .tick(_, let length, _) = item.kind else { continue }
+                switch length {
+                case .fixed(let points): room = max(room, points)
+                case .automatic where !isX: room = max(room, Self.yTickLength)
+                default: break
+                }
+            }
+        }
+        return room
+    }
+
+    private func groups(_ spec: ChartAxisSpec, _ axis: Axis, isX: Bool) -> [AxisGroup] {
+        // Lines on x and on bands are dashed, and on a y axis of numbers plain (measured on macOS 27).
+        var dashed = isX
+        if case .bands = axis.scale.kind { dashed = true }
+        let lineStroke = dashed ? Self.tickDash : ChartStroke()
+        return marks(spec).flatMap { marks -> [AxisGroup] in
+            let ticks = ticks(marks, axis)
+            let edge = edge(marks, isX: isX)
+            guard let items = marks.items else {
+                // Swift Charts' default: on x and on bands a line that runs on past the plot.
+                let length = dashed ? Self.tickLength : 0
+                return [AxisGroup(ticks: marks.format.map { labeled(ticks, $0) } ?? ticks, edge: edge,
+                                  grid: AxisLine(stroke: marks.stroke ?? lineStroke, length: length), label: AxisLabel())]
+            }
+            // Every entry draws, two labels or gridlines of one AxisMarks too (measured on macOS 27).
+            return items.map { item in
+                var group = AxisGroup(ticks: ticks, edge: edge)
+                let ink = item.foregroundStyle.map { ChartInk.color($0) }
+                switch item.kind {
+                case let .gridLine(_, stroke):
+                    group.grid = AxisLine(ink: ink ?? Self.gridInk, stroke: stroke ?? lineStroke)
+                case let .tick(_, length, stroke):
+                    group.tick = AxisLine(ink: ink ?? Self.gridInk, stroke: stroke ?? lineStroke, length: tickLength(length, ticks, isX: isX))
+                case let .valueLabel(format, centered, anchor, _, _, _, _, _, _):
+                    if let format { group.ticks = labeled(ticks, format) }
+                    group.label = AxisLabel(ink: ink ?? Self.labelInk, anchor: anchor, centered: centered == true,
+                                            offset: item.offset ?? ChartSize(width: 0, height: 0))
+                }
+                return group
+            }
+        }
+    }
+
+    // How far a tick runs: to the far side of a label, across an axis's labels (measured on macOS 27).
+    private func tickLength(_ length: ChartAxisMarkItem.TickLength, _ ticks: [(value: ChartScalar, label: String)], isX: Bool) -> Double {
+        switch length {
+        case .automatic: return isX ? Self.tickLength : Self.yTickLength
+        case .fixed(let points): return points
+        case .label(let past), .longestLabel(let past):
+            let sizes = ticks.map { metrics.size($0.label) }
+            return (sizes.map { isX ? $0.height : $0.width }.max() ?? 0) + Self.labelGap + past
+        }
+    }
+
+    private func labeled(_ ticks: [(value: ChartScalar, label: String)], _ format: ChartAxisFormat) -> [(value: ChartScalar, label: String)] {
+        ticks.map { tick in
+            switch (format, tick.value) {
+            case (.number(let spec), .number(let number)): return (tick.value, metrics.formatted(number, spec))
+            case (.number(let spec), .integer(let number)): return (tick.value, metrics.formatted(Double(number), spec))
+            case (.date(let format), .date(let date)): return (tick.value, metrics.date(date, format.skeleton))
+            default: return tick
+            }
+        }
+    }
+
+    // The ticks an AxisMarks asks for. Values outside the domain have no tick; they do not move it.
+    // A stride or a list past ChartAxisStrideLimit is automatic values: a draw of 100,000 lines runs
+    // the box out of memory. A list is in the axis's order, and a list of names on bands changes
+    // nothing (measured on macOS 27).
+    private func ticks(_ marks: ChartAxisMarksSpec, _ axis: Axis) -> [(value: ChartScalar, label: String)] {
+        func numbers(_ values: [Double], digits: Int) -> [(value: ChartScalar, label: String)] {
+            values.map { (.number($0), metrics.number($0, $0 == 0 ? 0 : digits)) }
+        }
+        func chosen(_ values: [Double]) -> [(value: ChartScalar, label: String)] {
+            numbers(values, digits: ChartTicks.fractionDigits(of: values))
+        }
+        switch (marks.values, axis.scale.kind) {
+        case let (.automatic(count, lower, upper), .numbers) where count != nil || lower != nil || upper != nil:
+            guard let steps = axis.steps else { return axis.ticks }
+            let ideal = count ?? ChartTicks.idealTicks
+            if steps.exact {
+                let inside = ChartTicks.inside(steps.lo, steps.hi, ideal: ideal)
+                return numbers(inside.ticks, digits: ChartTicks.fractionDigits(inside.step))
+            }
+            let widened = ChartTicks.widened(steps.lo, steps.hi, ideal: ideal, roundLower: lower ?? true, roundUpper: upper ?? true)
+            return numbers(widened.ticks, digits: ChartTicks.fractionDigits(widened.step))
+        case let (.automatic(count?, _, _), .dates(lo, hi)):
+            return dateTicks(lo, hi, count: count)
+        case let (.numberStride(step), .numbers(lo, hi)) where hi > lo && (hi - lo) / step <= Double(ChartAxisStrideLimit.maxStrideMarks):
+            return chosen(ChartTicks.multiples(of: step, lo, hi))
+        case let (.calendarStride(unit, count), .dates(lo, hi)):
+            let dates = ChartDates.ticks(lo, hi, stride: ChartDateStride(unit: unit, count: count))
+            return dates.count < ChartAxisStrideLimit.maxStrideMarks ? dateLabels(dates, unit: unit) : axis.ticks
+        case let (.numbers(values), .numbers(lo, hi)):
+            let shown = values.filter { $0 >= lo && $0 <= hi }
+            return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? chosen(shown.sorted()) : axis.ticks
+        case let (.dates(values), .dates(lo, hi)):
+            let shown = values.filter { $0 >= lo && $0 <= hi }
+            return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? dateLabels(shown.sorted(), unit: .day) : axis.ticks
+        default:
+            return axis.ticks
+        }
+    }
+
+    // A band's lines are at its edges, centered or not (measured on macOS 27).
+    private func linePositions(_ group: AxisGroup, _ scale: ChartAxisScale, every: Int) -> [Double] {
+        if case .bands(let names) = scale.kind {
+            return stride(from: 0, through: names.count, by: every).map { scale.start + Double($0) * scale.bandWidth }
+        }
+        return group.ticks.compactMap { scale.position($0.value, unit: nil) }
+    }
+
+    private func appendYGroup(_ group: AxisGroup, _ scale: ChartAxisScale, _ plot: ChartRect, lineHeight: Double, into primitives: inout [ChartPrimitive]) {
+        let left = plot.x, right = plot.x + plot.width
+        let trailing = group.edge == .trailing
+        let every = bandStride(scale, room: lineHeight)
+        if let grid = group.grid {
+            for y in linePositions(group, scale, every: every) {
+                let from = ChartPoint(x: trailing ? left : left - grid.length, y: y)
+                let to = ChartPoint(x: trailing ? right + grid.length : right, y: y)
+                primitives.append(.line(from: from, to: to, ink: grid.ink, stroke: grid.stroke))
+            }
+        }
+        if let tick = group.tick {
+            for y in linePositions(group, scale, every: every) {
+                let start = trailing ? right : left
+                let end = trailing ? right + tick.length : left - tick.length
+                primitives.append(.line(from: ChartPoint(x: start, y: y), to: ChartPoint(x: end, y: y), ink: tick.ink, stroke: tick.stroke))
+            }
+        }
+        guard let label = group.label else { return }
+        var anchor = label.anchor
+        if case .bands = scale.kind { anchor = nil }
+        // The anchor's side that faces the plot puts a label inside it, on either edge.
+        let inward = trailing ? anchor?.isTrailing == true : anchor?.isLeading == true
+        let rightward = trailing != inward
+        let x = (trailing ? right : left) + (rightward ? Self.labelGap : -Self.labelGap)
+        for (index, tick) in group.ticks.enumerated() where index % every == 0 {
+            guard var y = scale.position(tick.value, unit: nil) else { continue }
+            var alignment = 0.5
+            // Under or over its tick, one that would then pass the plot's end is left out.
+            if anchor?.isTop == true {
+                y += Self.labelGap
+                alignment = 0
+                guard y + lineHeight <= plot.y + plot.height else { continue }
+            } else if anchor?.isBottom == true {
+                y -= Self.labelGap
+                alignment = 1
+                guard y - lineHeight >= plot.y else { continue }
+            }
+            primitives.append(.text(tick.label, position: ChartPoint(x: x + label.offset.width, y: y + label.offset.height),
+                                    alignment: ChartPoint(x: rightward ? 0 : 1, y: alignment), ink: label.ink))
+        }
+    }
+
+    private func appendXGroup(_ group: AxisGroup, _ scale: ChartAxisScale, _ plot: ChartRect, into primitives: inout [ChartPrimitive]) {
+        if case .none = scale.kind { return }
+        let top = plot.y, bottom = plot.y + plot.height
+        let below = group.edge == .bottom
+        let edgeY = below ? bottom : top
+        let outward = below ? 1.0 : -1.0
+        var every = 1
+        if case .bands = scale.kind {
+            // Labels wider than their band show every few bands.
+            let widest = group.ticks.map { metrics.size($0.label).width }.max() ?? 0
+            every = bandStride(scale, room: widest + Self.labelGap)
+        }
+        if let grid = group.grid {
+            for x in linePositions(group, scale, every: every) {
+                let far = below ? top : bottom
+                primitives.append(.line(from: ChartPoint(x: x, y: far), to: ChartPoint(x: x, y: edgeY + outward * grid.length), ink: grid.ink, stroke: grid.stroke))
+            }
+        }
+        if let tick = group.tick {
+            for x in linePositions(group, scale, every: every) {
+                primitives.append(.line(from: ChartPoint(x: x, y: edgeY), to: ChartPoint(x: x, y: edgeY + outward * tick.length), ink: tick.ink, stroke: tick.stroke))
+            }
+        }
+        guard let label = group.label else { return }
+        let inside = label.anchor == .bottomLeading || label.anchor == .bottomTrailing
+        let ending = label.anchor == .topTrailing || label.anchor == .bottomTrailing
+        let labelY = edgeY + (inside ? -outward : outward) * Self.labelGap
+        let textY = below != inside ? 0.0 : 1.0
+        if case .bands = scale.kind {
+            for (index, tick) in group.ticks.enumerated() where index % every == 0 {
+                guard let center = scale.position(tick.value, unit: nil) else { continue }
+                let x = ending ? center + abs(scale.bandWidth) / 2 - Self.labelGap : center
+                primitives.append(.text(tick.label, position: ChartPoint(x: x + label.offset.width, y: labelY + label.offset.height),
+                                        alignment: ChartPoint(x: ending ? 1 : 0.5, y: textY), ink: label.ink))
             }
             return
         }
         let right = plot.x + plot.width
         // On an axis that runs right to left a label ends at its tick (measured on macOS 27).
-        let backward = axis.scale.end < axis.scale.start
+        let backward = scale.end < scale.start
         var nextFree = backward ? Double.infinity : -Double.infinity
-        for tick in axis.ticks {
-            guard let x = axis.scale.position(tick.value, unit: nil) else { continue }
-            primitives.append(tickLine(x))
+        let places = group.ticks.compactMap { tick in scale.position(tick.value, unit: nil).map { (label: tick.label, x: $0) } }
+        for (index, place) in places.enumerated() {
             // A label starts at its tick; one that would pass the plot's end or the label before
-            // it is left out.
-            let labelWidth = metrics.size(tick.label).width
-            let start = backward ? x - Self.labelGap - labelWidth : x + Self.labelGap
-            let fits = backward ? start + labelWidth <= nextFree && start >= plot.x : start >= nextFree && start + labelWidth <= right
+            // it is left out. A centered one sits between its tick and the next, and the last,
+            // which has none, stays at its tick (measured on macOS 27).
+            let labelWidth = metrics.size(place.label).width
+            var start = backward || ending ? place.x - Self.labelGap - labelWidth : place.x + Self.labelGap
+            if label.centered, index + 1 < places.count {
+                start = (place.x + places[index + 1].x - labelWidth) / 2
+            }
+            let fits = backward ? start + labelWidth <= nextFree && start >= plot.x
+                : start >= nextFree && start + labelWidth <= right && (!ending || start >= plot.x)
             guard fits else { continue }
-            primitives.append(.text(tick.label, position: ChartPoint(x: start, y: labelY), alignment: ChartPoint(x: 0, y: 0)))
+            primitives.append(.text(place.label, position: ChartPoint(x: start + label.offset.width, y: labelY + label.offset.height),
+                                    alignment: ChartPoint(x: 0, y: textY), ink: label.ink))
             nextFree = backward ? start - Self.labelGap : start + labelWidth + Self.labelGap
         }
     }

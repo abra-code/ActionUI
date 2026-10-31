@@ -13,6 +13,7 @@ final class ChartLayoutTests: XCTestCase {
     private let metrics = ChartTextMetrics(
         size: { ChartSize(width: Double($0.count) * 6, height: 10) },
         number: { value, _ in abs(value) < 1e15 && value == value.rounded() ? String(Int(value)) : String(value) },
+        formatted: { value, format in "\(format): \(value)" },
         date: { _, skeleton in skeleton })
 
     private let columns: [Any] = ["day", ["name": "high", "type": "number"], "team"]
@@ -46,13 +47,13 @@ final class ChartLayoutTests: XCTestCase {
 
     private func texts(_ primitives: [ChartPrimitive]) -> [String] {
         primitives.compactMap { primitive in
-            if case .text(let text, _, _) = primitive { return text } else { return nil }
+            if case .text(let text, _, _, _) = primitive { return text } else { return nil }
         }
     }
 
     private func labelY(_ label: String, in primitives: [ChartPrimitive]) -> Double? {
         primitives.lazy.compactMap { primitive -> Double? in
-            if case .text(label, let position, _) = primitive { return position.y } else { return nil }
+            if case .text(label, let position, _, _) = primitive { return position.y } else { return nil }
         }.first
     }
 
@@ -864,7 +865,7 @@ final class ChartLayoutTests: XCTestCase {
         let rows = values.enumerated().map { ["d\($0)", $1] }
         let found = layout(chart([mark], ["chartYScale": scale]), rows: rows)
         return found.compactMap { primitive in
-            if case .text(let text, _, let alignment) = primitive, alignment.y == 0.5 { return text } else { return nil }
+            if case .text(let text, _, let alignment, _) = primitive, alignment.y == 0.5 { return text } else { return nil }
         }
     }
 
@@ -963,7 +964,7 @@ final class ChartLayoutTests: XCTestCase {
     func testAReversedXAxisEndsEachLabelAtItsTick() throws {
         let primitives = scaled(["chartXScale": ["domain": ["automatic": ["reversed": true]]]], rows: [["0", "1"], ["10", "1"]])
         let labels = primitives.compactMap { primitive -> (text: String, x: Double)? in
-            if case .text(let text, let position, let alignment) = primitive, alignment.y == 0 { return (text, position.x) } else { return nil }
+            if case .text(let text, let position, let alignment, _) = primitive, alignment.y == 0 { return (text, position.x) } else { return nil }
         }
         XCTAssertEqual(labels.map(\.text), ["0", "5"], "10 would pass the plot's edge")
         let found = centers(primitives)
@@ -986,7 +987,7 @@ final class ChartLayoutTests: XCTestCase {
         let mark: [String: Any] = ["type": "PointMark", "x": value("When", "$when"), "y": value("High", "$high")]
         let description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]]]
         let found = layout(description, rows: [["2026-02-10", "1"]]).compactMap { primitive -> String? in
-            if case .text(let text, _, let alignment) = primitive, alignment.y == 0 { return text } else { return nil }
+            if case .text(let text, _, let alignment, _) = primitive, alignment.y == 0 { return text } else { return nil }
         }
         XCTAssertEqual(found, [])
     }
@@ -998,6 +999,358 @@ final class ChartLayoutTests: XCTestCase {
             let across: [String: Any] = ["type": "BarMark", "y": value("Day", "$day"), "x": value("High", "$high")]
             _ = layout(chart([across], ["chartYScale": scale]), rows: [["Mon", "3"], ["Tue", "4"]])
         }
+    }
+
+    // MARK: - Axis marks
+
+    private func axisMarks(_ y: [String: Any]? = nil, x: [String: Any]? = nil, rows: [[String]] = [["10", "120"], ["90", "180"]]) -> [ChartPrimitive] {
+        var extra: [String: Any] = [:]
+        if let y { extra["chartYAxis"] = [y.merging(["type": "AxisMarks"]) { $1 }] }
+        if let x { extra["chartXAxis"] = [x.merging(["type": "AxisMarks"]) { $1 }] }
+        var description = numbers([point])
+        description.merge(extra) { $1 }
+        return layout(description, rows: rows)
+    }
+
+    private func lines(_ primitives: [ChartPrimitive]) -> [(from: ChartPoint, to: ChartPoint, ink: ChartInk, stroke: ChartStroke)] {
+        primitives.compactMap { primitive in
+            if case .line(let from, let to, let ink, let stroke) = primitive { return (from, to, ink, stroke) } else { return nil }
+        }
+    }
+
+    func testDefaultMarksDrawAsAnAxisWithoutAnyAxisMarks() {
+        XCTAssertEqual(axisMarks(), axisMarks(["preset": "automatic"]), "an AxisMarks that says nothing changes nothing")
+    }
+
+    func testExplicitValuesChooseTheTicksAndLeaveTheDomain() throws {
+        let plain = axisMarks()
+        let chosen = axisMarks(["values": [0, 50, 200, 5000]])
+        XCTAssertEqual(Array(texts(chosen).prefix(3)), ["0", "50", "200"], "and 5000 is past the domain")
+        XCTAssertEqual(centers(chosen), centers(plain).map { ChartPoint(x: $0.x, y: $0.y) }, "the marks stay where they were")
+    }
+
+    func testAStrideTakesTheMultiplesInTheDomain() {
+        XCTAssertEqual(Array(texts(axisMarks(x: ["values": ["stride": ["by": 25]]])).suffix(4)), ["0", "25", "50", "75"], "and 100 passes the plot's end")
+    }
+
+    func testADesiredCountIsTheTicksAnAxisAimsFor() {
+        // Measured: up to 180, eight ticks aimed for is every 25.
+        XCTAssertEqual(ChartTicks.step(0, 180, widening: true, ideal: 8), 25)
+        XCTAssertEqual(ChartTicks.step(0, 90, widening: true, ideal: 2), 100)
+        let found = texts(axisMarks(["values": ["automatic": ["desiredCount": 8]]]))
+        XCTAssertEqual(Array(found.prefix(3)), ["0", "25", "50"])
+    }
+
+    func testAPositionMovesLabelsAndTheirRoom() throws {
+        let plain = axisMarks()
+        let leading = axisMarks(["position": "leading"])
+        XCTAssertLessThan(centers(plain)[0].x, centers(leading)[0].x, "labels on the leading side push the plot in")
+        let top = axisMarks(x: ["position": "top"])
+        XCTAssertGreaterThan(centers(top)[0].y, centers(plain)[0].y, "and on top push it down")
+    }
+
+    func testAFormatWritesTheLabels() {
+        let found = texts(axisMarks(["format": "percent"]))
+        XCTAssertTrue(found.contains { $0.hasPrefix("percent") }, "\(found)")
+    }
+
+    func testAStrokeAppliesToGridlines() {
+        let dashed = ["lineWidth": 1, "dash": [4, 2]] as [String: Any]
+        let found = lines(axisMarks(["stroke": dashed]))
+        XCTAssertTrue(found.contains { $0.stroke == ChartStroke(dash: [4, 2]) })
+    }
+
+    func testMarksWithContentDrawOnlyThat() {
+        let labelsOnly = axisMarks(["content": [["type": "AxisValueLabel"]]])
+        XCTAssertFalse(lines(labelsOnly).contains { $0.from.y == $0.to.y }, "no gridlines")
+        XCTAssertTrue(texts(labelsOnly).contains("200"))
+        let linesOnly = axisMarks(["content": [["type": "AxisGridLine"]]])
+        XCTAssertFalse(texts(linesOnly).contains("200"), "no labels")
+    }
+
+    func testEmptyContentDrawsNothingAndTakesNoRoom() {
+        let plain = axisMarks()
+        let none = axisMarks(["content": [Any]()])
+        XCTAssertFalse(texts(none).contains("200"))
+        XCTAssertGreaterThan(centers(none)[0].x, centers(plain)[0].x, "the plot takes the labels' room")
+    }
+
+    func testAnItemsStyleIsItsOwn() {
+        let mark: [String: Any] = ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        let axis: [String: Any] = ["type": "AxisMarks", "content": [
+            ["type": "AxisGridLine", "stroke": ["lineWidth": 2], "foregroundStyle": "orange"],
+            ["type": "AxisTick", "length": 12, "foregroundStyle": "green"],
+            ["type": "AxisValueLabel", "foregroundStyle": "red"],
+        ]]
+        let primitives = layout(chart([mark], ["chartXAxis": [axis]]), rows: [["Mon", "1"], ["Tue", "2"]])
+        let found = lines(primitives)
+        XCTAssertEqual(found.filter { $0.ink == .color(.named(.orange)) }.count, 3, "at the edges of two bands")
+        let ticks = found.filter { $0.ink == .color(.named(.green)) }
+        XCTAssertEqual(ticks.count, 3)
+        XCTAssertEqual(ticks.first.map { $0.to.y - $0.from.y }, 12)
+        let inks = primitives.compactMap { primitive -> ChartInk? in
+            if case .text("Mon", _, _, let ink) = primitive { return ink } else { return nil }
+        }
+        XCTAssertEqual(inks, [.color(.named(.red))])
+    }
+
+    func testAnAnchorPlacesALabelInItsBand() throws {
+        let mark: [String: Any] = ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        func labelX(_ anchor: String?) -> Double? {
+            var label: [String: Any] = ["type": "AxisValueLabel"]
+            label["anchor"] = anchor
+            let primitives = layout(chart([mark], ["chartXAxis": [["type": "AxisMarks", "content": [label]]]]), rows: [["Mon", "1"], ["Tue", "2"]])
+            return primitives.compactMap { primitive -> Double? in
+                if case .text("Mon", let position, let alignment, _) = primitive { return position.x - alignment.x * 18 } else { return nil }
+            }.first
+        }
+        let center = try XCTUnwrap(labelX(nil)), trailing = try XCTUnwrap(labelX("topTrailing")), leading = try XCTUnwrap(labelX("topLeading"))
+        XCTAssertEqual(leading, center, "measured on macOS 27: only the trailing corners move it")
+        XCTAssertLessThan(center, trailing)
+    }
+
+    func testDateFormatsBecomeSkeletons() {
+        XCTAssertEqual(ChartDateFormat.fields([.monthAbbreviated, .dayDefaultDigits]).skeleton, "MMMd")
+        XCTAssertEqual(ChartDateFormat.styles(date: .long, time: .shortened).skeleton, "yMMMMdjm")
+        XCTAssertEqual(ChartDateFormat.styles(date: .omitted, time: .standard).skeleton, "jms")
+    }
+
+    func testChosenValuesShareTheDecimalsTheyNeed() {
+        XCTAssertEqual(ChartTicks.fractionDigits(of: [0.5, 1.25]), 2, "they show 0.50 and 1.25")
+        XCTAssertEqual(ChartTicks.fractionDigits(of: [1, 2]), 0)
+        XCTAssertEqual(ChartTicks.fractionDigits(of: [0, 0.25, 0.5]), 2)
+        XCTAssertEqual(ChartTicks.fractionDigits(of: [0.1 + 0.2]), 1, "a step's sum is not 17 decimals long")
+        XCTAssertEqual(ChartTicks.fractionDigits(of: [1e-30]), 15)
+        var digits: [Double: Int] = [:]
+        var recording = metrics
+        recording.number = { value, places in
+            digits[value] = places
+            return String(value)
+        }
+        var description = numbers([point])
+        description["chartYScale"] = ["domain": [0, 1]]
+        description["chartYAxis"] = [["type": "AxisMarks", "values": ["stride": ["by": 0.25]]]]
+        let spec = ChartDescription.parse(description, logger: nil).spec
+        _ = ChartLayout.primitives(spec, marks: ChartMarkResolver.resolve(spec, rows: [["1", "0.5"]]), width: 306, height: 220, metrics: recording)
+        XCTAssertEqual(digits[0.75], 2, "0.75, where the step's own decimals would write 0.8")
+    }
+
+    func testAStrideWithNoMultiplesInTheDomainHasNoTicks() {
+        XCTAssertEqual(ChartTicks.multiples(of: 1000, 120, 180), [])
+        let found = scaled(["chartYScale": ["domain": [120, 180]], "chartYAxis": [["type": "AxisMarks", "values": ["stride": ["by": 1000]]]]],
+                           rows: [["10", "120"], ["90", "180"]])
+        XCTAssertEqual(found.compactMap { primitive -> String? in
+            if case .text(let text, _, let alignment, _) = primitive, alignment.y == 0.5 { return text } else { return nil }
+        }, [], "not the ends of the domain")
+    }
+
+    func testAStridePastTheLimitIsAutomatic() {
+        // Int(intervals) would stop the app here.
+        XCTAssertEqual(ChartTicks.multiples(of: 1e-300, 0, 180), [])
+        XCTAssertEqual(ChartTicks.multiples(of: 1e-7, 0, 900), [])
+        XCTAssertEqual(ChartTicks.multiples(of: 1, 0, 1000).count, 1001)
+        XCTAssertEqual(ChartTicks.multiples(of: 1, 0, 1001), [], "the limit, as Swift Charts' own")
+        let tiny = texts(axisMarks(["values": ["stride": ["by": 1e-300]]]))
+        XCTAssertEqual(tiny, texts(axisMarks()))
+        XCTAssertEqual(texts(axisMarks(["values": ["stride": ["by": 0.01]]])), texts(axisMarks()), "18,000 marks")
+        XCTAssertEqual(texts(axisMarks(["values": (0...2000).map { Double($0) * 0.1 }])), texts(axisMarks()), "a list of 2,000 in the domain")
+        XCTAssertEqual(Array(texts(axisMarks(["values": (0...1000).map { Double($0) * 100 }])).prefix(3)), ["0", "100", "200"], "2,000 past it are not ticks")
+    }
+
+    func testAOneValueDomainHasNoTicksForACountOrAStride() {
+        let domain: [String: Any] = ["chartYScale": ["domain": [5, 5]]]
+        func yLabels(_ axis: [String: Any]) -> [String] {
+            let description = numbers([point]).merging(domain) { $1 }.merging(["chartYAxis": [axis]]) { $1 }
+            return layout(description, rows: [["1", "5"]]).compactMap { primitive -> String? in
+                if case .text(let text, _, let alignment, _) = primitive, alignment.y == 0.5 { return text } else { return nil }
+            }
+        }
+        XCTAssertEqual(yLabels(["type": "AxisMarks", "values": ["automatic": ["desiredCount": 8]]]), [])
+        XCTAssertEqual(yLabels(["type": "AxisMarks", "values": ["stride": ["by": 1]]]), [])
+    }
+
+    func testACountOfTicksMeansNothingOnALogScale() {
+        let logScale: [String: Any] = ["chartYScale": ["type": "log", "domain": [1, 1000]]]
+        func labels(_ extra: [String: Any]) -> [String] {
+            texts(layout(numbers([point]).merging(logScale) { $1 }.merging(extra) { $1 }, rows: [["1", "2"], ["2", "900"]]))
+        }
+        XCTAssertEqual(labels(["chartYAxis": [["type": "AxisMarks", "values": ["automatic": ["desiredCount": 3]]]]]), labels([:]))
+    }
+
+    func testAListIsInTheAxissOrder() {
+        // Written out of order, 0 would be left out as passing the label before it.
+        XCTAssertEqual(Array(texts(axisMarks(x: ["values": [50, 0, 75]])).suffix(3)), ["0", "50", "75"])
+    }
+
+    func testTheDomainHoldsEveryAutomaticAxisMarks() throws {
+        // Measured: over values to 90, four ticks reach 100 and eight stop at 90, in either order.
+        func axis(_ marks: [[String: Any]]) -> [ChartPrimitive] {
+            var description = numbers([point])
+            description["chartYAxis"] = marks
+            return layout(description, rows: [["10", "20"], ["50", "90"]])
+        }
+        let plain: [String: Any] = ["type": "AxisMarks"]
+        let eight: [String: Any] = ["type": "AxisMarks", "values": ["automatic": ["desiredCount": 8]], "position": "leading"]
+        let found = texts(axis([plain, eight]))
+        XCTAssertEqual(Array(found.prefix(5)), ["0", "25", "50", "75", "100"], "as a plain axis ticks")
+        XCTAssertEqual(Array(found.dropFirst(5).prefix(10)), ["0", "10", "20", "30", "40", "50", "60", "70", "80", "90"], "on its own steps")
+        XCTAssertEqual(centers(axis([plain, eight]))[1].y, centers(axis([eight, plain]))[1].y, accuracy: 0.001)
+        let alone = texts(axis([eight]))
+        XCTAssertTrue(alone.contains("90"))
+        XCTAssertFalse(alone.contains("100"))
+        XCTAssertLessThan(centers(axis([eight]))[1].y, centers(axis([plain]))[1].y, "alone it stops at 90, so that point is higher")
+    }
+
+    func testAnEndThatIsNotRoundedStays() {
+        // Measured: 125...178 steps by 25 and 20, and by 20 with both ends rounded.
+        XCTAssertEqual(ChartTicks.widened(125, 178).ticks, [120, 140, 160, 180])
+        let lower = ChartTicks.widened(125, 178, roundLower: false)
+        XCTAssertEqual(lower.ticks, [125, 150, 175, 200])
+        XCTAssertEqual(lower.lo, 125)
+        XCTAssertEqual(lower.hi, 200)
+        let upper = ChartTicks.widened(125, 178, roundUpper: false)
+        XCTAssertEqual(upper.ticks, [120, 140, 160])
+        XCTAssertEqual(upper.lo, 120)
+        XCTAssertEqual(upper.hi, 178)
+        XCTAssertEqual(ChartTicks.widened(0, 180, roundLower: false, roundUpper: false).ticks, [0, 50, 100, 150])
+    }
+
+    func testAnEndThatIsNotRoundedReachesThePlot() throws {
+        let found = centers(axisMarks(["values": ["automatic": ["roundUpperBound": false]]]))
+        let plain = centers(axisMarks())
+        XCTAssertLessThan(try XCTUnwrap(found.map(\.y).min()), try XCTUnwrap(plain.map(\.y).min()), "180 is the top now, not 200")
+    }
+
+    func testANameListOnBandsChangesNothing() {
+        let mark: [String: Any] = ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        let rows = [["Mon", "1"], ["Tue", "2"], ["Wed", "3"]]
+        let named = layout(chart([mark], ["chartXAxis": [["type": "AxisMarks", "values": ["Tue"]]]]), rows: rows)
+        XCTAssertEqual(named, layout(chart([mark]), rows: rows), "measured on macOS 27")
+    }
+
+    func testLinesOnBandsStayAtTheEdgesWhenCentered() {
+        let mark: [String: Any] = ["type": "BarMark", "x": value("Day", "$day"), "y": value("High", "$high")]
+        func positions(_ centered: Bool?) -> [Double] {
+            var line: [String: Any] = ["type": "AxisGridLine", "foregroundStyle": "orange"]
+            line["centered"] = centered
+            let primitives = layout(chart([mark], ["chartXAxis": [["type": "AxisMarks", "content": [line]]]]), rows: [["Mon", "1"], ["Tue", "2"]])
+            return lines(primitives).filter { $0.ink == .color(.named(.orange)) }.map(\.from.x)
+        }
+        XCTAssertEqual(positions(true), positions(nil))
+        XCTAssertEqual(positions(false), positions(nil))
+    }
+
+    func testCustomLinesAreDashedOnXAndOnBandsAndPlainOnANumberY() {
+        let dash = ChartStroke(lineWidth: 1, dash: [2, 2])
+        let x = axisMarks(x: ["content": [["type": "AxisGridLine", "foregroundStyle": "orange"], ["type": "AxisTick", "foregroundStyle": "orange"]]])
+        XCTAssertTrue(lines(x).filter { $0.ink == .color(.named(.orange)) }.allSatisfy { $0.stroke == dash })
+        let y = axisMarks(["content": [["type": "AxisGridLine", "foregroundStyle": "orange"], ["type": "AxisTick", "foregroundStyle": "orange"]]])
+        XCTAssertTrue(lines(y).filter { $0.ink == .color(.named(.orange)) }.allSatisfy { $0.stroke == ChartStroke() })
+    }
+
+    func testEveryEntryOfAnAxisMarksDraws() {
+        let found = texts(axisMarks(["content": [["type": "AxisValueLabel", "format": "percent"], ["type": "AxisValueLabel", "format": "integer"]]]))
+        XCTAssertTrue(found.contains { $0.hasPrefix("percent") }, "\(found)")
+        XCTAssertTrue(found.contains { $0.hasPrefix("integer") }, "\(found)")
+    }
+
+    func testATicksGivenLengthAddsToTheRoomAndMovesNoLabel() throws {
+        func marks(_ x: [Any]) -> [ChartPrimitive] { axisMarks(x: ["content": x]) }
+        let label: [String: Any] = ["type": "AxisValueLabel"], tick: [String: Any] = ["type": "AxisTick", "length": 12]
+        let plain = marks([label]), ticked = marks([tick, label])
+        let plainY = try XCTUnwrap(labelY("25", in: plain)), tickedY = try XCTUnwrap(labelY("25", in: ticked))
+        XCTAssertEqual(plainY - tickedY, 12, accuracy: 0.001, "the plot ends 12 sooner and the label keeps its place under it")
+        XCTAssertLessThanOrEqual(try XCTUnwrap(lines(marks([tick])).map(\.to.y).max()), 220, "a tick alone stays on the chart")
+        let onY = axisMarks(["content": [tick]])
+        XCTAssertLessThanOrEqual(try XCTUnwrap(lines(onY).map { max($0.from.x, $0.to.x) }.max()), 306)
+    }
+
+    func testAnAutomaticTickOnYTakesRoom() throws {
+        let tick: [String: Any] = ["type": "AxisTick"], label: [String: Any] = ["type": "AxisValueLabel"]
+        let plain = axisMarks(["content": [label]]), ticked = axisMarks(["content": [tick, label]])
+        XCTAssertEqual(try XCTUnwrap(centers(plain).first?.x) - (try XCTUnwrap(centers(ticked).first?.x)), 4 * 0.1, accuracy: 0.001, "the marks move as the plot narrows by 4")
+    }
+
+    func testATicksLabelLengthCrossesTheLabels() throws {
+        let tick: [String: Any] = ["type": "AxisTick", "length": "longestLabel", "foregroundStyle": "orange"]
+        let found = lines(axisMarks(["content": [tick, ["type": "AxisValueLabel"]]])).filter { $0.ink == .color(.named(.orange)) }
+        let first = try XCTUnwrap(found.first)
+        XCTAssertEqual(first.to.x - first.from.x, 18 + 4, accuracy: 0.001, "the width of 200 and the gap, on a y axis")
+    }
+
+    func testAnAnchorPlacesANumbersLabel() throws {
+        func place(_ axis: [String: Any], _ text: String) -> (position: ChartPoint, alignment: ChartPoint)? {
+            let description: [String: Any] = ["chartXAxis": "hidden", "chartYAxis": [axis.merging(["type": "AxisMarks"]) { $1 }]]
+            return scaled(description, rows: [["10", "120"], ["90", "180"]]).lazy.compactMap { primitive -> (position: ChartPoint, alignment: ChartPoint)? in
+                if case .text(text, let position, let alignment, _) = primitive { return (position, alignment) } else { return nil }
+            }.first
+        }
+        func anchored(_ anchor: String, position: String? = nil) -> [String: Any] {
+            var axis: [String: Any] = ["content": [["type": "AxisValueLabel", "anchor": anchor]]]
+            axis["position"] = position
+            return axis
+        }
+        let plain = try XCTUnwrap(place(["content": [["type": "AxisValueLabel"]]], "100"))
+        let top = try XCTUnwrap(place(anchored("top"), "100"))
+        XCTAssertEqual(top.position.y, plain.position.y + 4, accuracy: 0.001)
+        XCTAssertEqual(top.alignment.y, 0)
+        XCTAssertNil(place(anchored("top"), "0"), "it would pass the plot's bottom")
+        XCTAssertNil(place(anchored("bottom"), "200"), "and this its top")
+        let inside = try XCTUnwrap(place(anchored("trailing"), "100"))
+        XCTAssertEqual(inside.position.x, plain.position.x - 8, accuracy: 0.001, "the other side of the plot's edge")
+        XCTAssertEqual(inside.alignment.x, 1)
+        XCTAssertEqual(try XCTUnwrap(place(anchored("leading"), "100")).position.x, plain.position.x, "the side away from the plot does nothing")
+        let leading = try XCTUnwrap(place(anchored("leading", position: "leading"), "100"))
+        XCTAssertEqual(leading.alignment.x, 0, "on the leading edge it is this side that goes in")
+    }
+
+    func testAnAnchorOnXMovesOnlyTheCorners() throws {
+        func place(_ anchor: String?, _ text: String) -> (position: ChartPoint, alignment: ChartPoint)? {
+            var label: [String: Any] = ["type": "AxisValueLabel"]
+            label["anchor"] = anchor
+            return axisMarks(x: ["content": [label]]).lazy.compactMap { primitive -> (position: ChartPoint, alignment: ChartPoint)? in
+                if case .text(text, let position, let alignment, _) = primitive { return (position, alignment) } else { return nil }
+            }.first
+        }
+        let plain = try XCTUnwrap(place(nil, "25"))
+        for anchor in ["leading", "top", "center", "trailing", "bottom", "topLeading"] {
+            XCTAssertEqual(try XCTUnwrap(place(anchor, "25")).position, plain.position, anchor)
+        }
+        let trailing = try XCTUnwrap(place("topTrailing", "25"))
+        XCTAssertEqual(trailing.position.x, plain.position.x - 8 - 12, accuracy: 0.001, "it ends before its tick")
+        let inside = try XCTUnwrap(place("bottomLeading", "25"))
+        XCTAssertEqual(inside.position.x, plain.position.x, accuracy: 0.001)
+        XCTAssertEqual(inside.position.y, plain.position.y - 8, accuracy: 0.001, "inside the plot")
+        XCTAssertEqual(inside.alignment.y, 1)
+    }
+
+    func testACenteredLabelSitsBetweenItsTicks() throws {
+        func starts(_ centered: Bool) -> [String: Double] {
+            let label: [String: Any] = ["type": "AxisValueLabel", "centered": centered]
+            let primitives = axisMarks(x: ["values": [0, 10, 60], "content": [label]])
+            return Dictionary(primitives.compactMap { primitive -> (String, Double)? in
+                if case .text(let text, let position, let alignment, _) = primitive, alignment.y == 0 { return (text, position.x) } else { return nil }
+            }, uniquingKeysWith: { first, _ in first })
+        }
+        let plain = starts(false), centered = starts(true)
+        let zero = try XCTUnwrap(plain["0"]), ten = try XCTUnwrap(plain["10"])
+        let sixty = try XCTUnwrap(plain["60"])
+        XCTAssertEqual(try XCTUnwrap(centered["0"]) + 3, (zero - 4 + ten - 4) / 2, accuracy: 0.001, "the middle of 0 and 10")
+        XCTAssertEqual(try XCTUnwrap(centered["10"]) + 6, (ten - 4 + sixty - 4) / 2, accuracy: 0.001, "the middle of 10 and 60")
+        XCTAssertEqual(centered["60"], plain["60"], "the last has no next tick")
+    }
+
+    func testBothDateStylesOmittedIsANumericDateAndAShortTime() {
+        XCTAssertEqual(ChartDateFormat.styles(date: .omitted, time: .omitted).skeleton, "yMdjm")
+    }
+
+    func testACalendarStrideTicksOnItsUnit() {
+        let dates: [String: Any] = ["columns": [["name": "d", "type": "date"], ["name": "y", "type": "number"]],
+                                    "chartXAxis": [["type": "AxisMarks", "values": ["stride": ["by": "weekOfYear", "count": 2]],
+                                                    "format": ["dateTime": ["month": "abbreviated", "day": "defaultDigits"]]]],
+                                    "content": [["type": "ForEach", "content": [["type": "PointMark", "x": value("D", "$d"), "y": value("Y", "$y")]]]]]
+        let found = texts(layout(dates, rows: [["2026-08-03", "3"], ["2026-09-14", "5"]]))
+        XCTAssertGreaterThanOrEqual(found.filter { $0 == "dMMM" }.count, 2, "\(found)")
     }
 
     // MARK: - Weeks
@@ -1031,7 +1384,7 @@ final class ChartLayoutTests: XCTestCase {
         let mark: [String: Any] = ["type": "BarMark", "x": value("High", "$high"), "y": value("Day", "$day")]
         let primitives = layout(chart([mark]), rows: (0..<200).map { ["C\($0)", "1"] }, height: 200)
         let positions = primitives.compactMap { primitive -> Double? in
-            if case .text(let label, let position, _) = primitive, label.hasPrefix("C") { return position.y } else { return nil }
+            if case .text(let label, let position, _, _) = primitive, label.hasPrefix("C") { return position.y } else { return nil }
         }
         XCTAssertGreaterThan(positions.count, 1)
         for (first, second) in zip(positions, positions.dropFirst()) {

@@ -76,6 +76,7 @@ extension Chart: ActionUIAdwaitaRenderer {
         let metrics = ChartTextMetrics(
             size: { text.size($0) },
             number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
+            formatted: { NumberFormatting.string($0, format: $1) },
             date: { DateFormatting.string($0, skeleton: $1) })
         let primitives = ChartLayout.primitives(state.spec, marks: state.marks, width: width, height: height, metrics: metrics)
         var foreground = GdkRGBA()
@@ -177,8 +178,8 @@ extension Chart: ActionUIAdwaitaRenderer {
             var color = rgba(ink)
             gtk_snapshot_append_fill(snapshot, path, GSK_FILL_RULE_WINDING, &color)
             gsk_path_unref(path)
-        case let .text(string, position, alignment):
-            label(string, position, alignment)
+        case let .text(string, position, alignment, ink):
+            label(string, position, alignment, ink)
         }
     }
 
@@ -298,11 +299,11 @@ extension Chart: ActionUIAdwaitaRenderer {
         gsk_path_unref(path)
     }
 
-    private func label(_ string: String, _ position: ChartPoint, _ alignment: ChartPoint) {
+    private func label(_ string: String, _ position: ChartPoint, _ alignment: ChartPoint, _ ink: ChartInk) {
         let size = text.size(string)
         var origin = graphene_point_t(x: Float((position.x - size.width * alignment.x).rounded()),
                                       y: Float((position.y - size.height * alignment.y).rounded()))
-        var color = rgba(ChartLayout.labelInk)
+        var color = rgba(ink)
         gtk_snapshot_save(snapshot)
         gtk_snapshot_translate(snapshot, &origin)
         gtk_snapshot_append_layout(snapshot, text.layout, &color)
