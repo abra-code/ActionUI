@@ -28,7 +28,12 @@
  - A start and end on an axis of categories run from the edge of one band to the far edge of the other;
    dates with a unit go in the middle of their bins, as a single value does.
  - Points given to a mark count from the plot's top leading corner.
- - A point's size is the area of its symbol, 50 unless given, and a rule is 2 wide unless given.
+ - A point's size is the area of a circle in its box, 50 unless given, or the shorter side of a
+   width and a height, and no symbol stretches. A rule is 2 wide unless given.
+ - On a line a symbol shows only where one is asked for, with the line's width as its outline, its
+   size unchanged. Its inside is a hole in that line alone, so the plot shows through and a later
+   line crosses it; plus, cross and asterisk are solid. A symbol's size {"by"} changes nothing
+   there, a point on its own still has its symbol, and a line takes its dash but its symbols do not.
  - The modifier nearest a mark wins: its own over its Plot's.
  - An AxisMarks chooses its ticks and draws in its own way: desiredCount is the count of ticks an
    automatic axis aims for, and explicit values or a stride change the ticks, not the domain, which
@@ -51,9 +56,10 @@
    clip shape take all of that together. Its border draws square around the layer, padding moves
    the plot and its axes in from the border, and a frame sets the plot's size, centered in its room.
  - A legend shows the names of the color scale's domain, or without one those of the series a
-   {"by"} color makes, a dot and a name each, in that order. A series outside a domain is not
-   listed. A domain alone is enough, even over marks of a fixed color, and with no names there is
-   no legend, however visible it is asked to be. It takes room outside everything else, at the
+   {"by"} color makes, a dot and a name each, in that order, and then those of a symbol or line
+   style scale (ChartStyleMap). A series outside a domain is not listed. A color domain alone is
+   enough, even over marks of a fixed color, and with no names there is no legend, however
+   visible it is asked to be. It takes room outside everything else, at the
    bottom unless told otherwise, starting at the chart's own edge and in columns that line up. A
    plot style's frame centers the plot and all around it, and the legend stays with them. Across,
    it fills rows; at a side it fills columns as high as the chart. A name that does not fit is not
@@ -97,8 +103,11 @@ enum ChartInk: Equatable {
 enum ChartPrimitive: Equatable {
     case line(from: ChartPoint, to: ChartPoint, ink: ChartInk, stroke: ChartStroke)
     case rect(ChartRect, ink: ChartInk)
-    case symbol(ChartSymbol, center: ChartPoint, size: ChartSize, ink: ChartInk)
+    /// `side` is the box of ChartSymbols.
+    case symbol(ChartSymbol, center: ChartPoint, side: Double, ink: ChartInk)
     case path([ChartPathElement], ink: ChartInk, stroke: ChartStroke)
+    /// A line with a symbol at each point of `at`, which it may be too short to reach.
+    case markedLine([ChartPathElement], ink: ChartInk, stroke: ChartStroke, symbol: ChartSymbol, side: Double, at: [ChartPoint])
     case fill([ChartPathElement], ink: ChartInk)
     /// `alignment` is the point of the text placed at `position`, as fractions of its size.
     case text(String, position: ChartPoint, alignment: ChartPoint, ink: ChartInk)
@@ -120,11 +129,15 @@ enum ChartPrimitive: Equatable {
                 && stroke.dash.allSatisfy { finite($0) }
         case let .rect(rect, _):
             return finite(rect.x, rect.y, rect.width, rect.height)
-        case let .symbol(_, center, size, _):
-            return finite(center.x, center.y, size.width, size.height)
+        case let .symbol(_, center, side, _):
+            return finite(center.x, center.y, side)
         case let .path(elements, _, stroke):
             return Float(stroke.lineWidth) > 0 && finite(stroke.lineWidth, stroke.miterLimit, stroke.dashPhase)
                 && stroke.dash.allSatisfy { finite($0) } && Self.finite(elements)
+        case let .markedLine(elements, _, stroke, _, side, points):
+            return Float(stroke.lineWidth) > 0 && finite(stroke.lineWidth, stroke.miterLimit, stroke.dashPhase, side)
+                && stroke.dash.allSatisfy { finite($0) } && Self.finite(elements)
+                && points.allSatisfy { finite($0.x, $0.y) }
         case let .fill(elements, _):
             return Self.finite(elements)
         case let .text(_, position, _, _):
@@ -146,6 +159,7 @@ enum ChartPrimitive: Equatable {
             switch element {
             case .move(let point), .line(let point): return finite(point)
             case let .curve(first, second, end): return finite(first) && finite(second) && finite(end)
+            case .close: return true
             }
         }
     }
@@ -186,8 +200,7 @@ struct ChartLayout {
     private static let unbinnedBarThickness = 8.0
     private static let pointsPerDateTick = 80.0
     private static let defaultSymbolArea = 50.0
-    private static let defaultRuleWidth = 2.0
-    private static let defaultLine = ChartStroke(lineWidth: 2, lineCap: .round, lineJoin: .round)
+    static let defaultLine = ChartStroke(lineWidth: 2, lineCap: .round, lineJoin: .round)
     // Below the plot: from its edge to the labels, and how far a tick line runs into that room.
     private static let labelGap = 4.0
     private static let titleGap = 8.0
@@ -197,12 +210,13 @@ struct ChartLayout {
 
     private let spec: ChartSpec
     private let marks: ChartResolvedMarks
+    private let styles: ChartStyleMap
     private let metrics: ChartTextMetrics
     private let width: Double
     private let height: Double
 
     static func primitives(_ spec: ChartSpec, marks: ChartResolvedMarks, width: Double, height: Double, metrics: ChartTextMetrics) -> [ChartPrimitive] {
-        ChartLayout(spec: spec, marks: marks, metrics: metrics, width: width, height: height).layout()
+        ChartLayout(spec: spec, marks: marks, styles: ChartStyleMap(spec, marks), metrics: metrics, width: width, height: height).layout()
     }
 
     // MARK: - Extents
@@ -616,11 +630,9 @@ struct ChartLayout {
     }
 
     private func legend(lineHeight: Double) -> Legend? {
-        let names = seriesNames()
-        guard spec.legendVisibility != .hidden, !names.isEmpty else { return nil }
-        let entries = names.enumerated().map { index, name in
-            Legend.Entry(name: name, ink: seriesInk(index), textWidth: metrics.size(name).width)
-        }
+        guard spec.legendVisibility != .hidden else { return nil }
+        let entries = styles.legendEntries.map { Legend.Entry(style: $0, textWidth: metrics.size($0.name).width) }
+        guard !entries.isEmpty else { return nil }
         return Legend(Legend.Place(spec.legendPosition), entries, lineHeight: lineHeight, width: width, height: height)
     }
 
@@ -642,13 +654,15 @@ struct ChartLayout {
         }
 
         struct Entry {
-            var name: String
-            var ink: ChartInk
+            var style: ChartLegendEntry
             var textWidth: Double
-            var width: Double { dot + dotGap + textWidth }
+            var textStart: Double { style.stroke == nil ? dot + dotGap : sample + sampleGap }
+            var width: Double { textStart + textWidth }
         }
 
         private static let dot = 8.0, dotGap = 5.0, columnGap = 8.0, rowGap = 8.0
+        /// A line's sample runs the whole of its room, and its caps past that (measured on macOS 27).
+        private static let sample = 16.0, sampleGap = 5.0
         /// From a legend across the chart to what it shares an edge with, and from one at a side.
         private static let acrossGap = 4.0, sideGap = 8.0
         private static let plotInset = 8.0
@@ -754,9 +768,15 @@ struct ChartLayout {
                 let row = down ? index % rows : index / columnWidths.count
                 let middle = origin.y + Double(row) * (lineHeight + Self.rowGap) + lineHeight / 2
                 let x = columnStarts[column]
-                primitives.append(.symbol(.circle, center: ChartPoint(x: x + Self.dot / 2, y: middle),
-                                          size: ChartSize(width: Self.dot, height: Self.dot), ink: entry.ink))
-                primitives.append(.text(entry.name, position: ChartPoint(x: x + Self.dot + Self.dotGap, y: middle),
+                if let stroke = entry.style.stroke {
+                    primitives.append(.line(from: ChartPoint(x: x, y: middle), to: ChartPoint(x: x + Self.sample, y: middle),
+                                            ink: entry.style.ink, stroke: stroke))
+                }
+                if let symbol = entry.style.symbol {
+                    let center = x + (entry.style.stroke == nil ? Self.dot : Self.sample) / 2
+                    primitives.append(.symbol(symbol, center: ChartPoint(x: center, y: middle), side: Self.dot, ink: entry.style.ink))
+                }
+                primitives.append(.text(entry.style.name, position: ChartPoint(x: x + entry.textStart, y: middle),
                                         alignment: ChartPoint(x: 0, y: 0.5), ink: ChartLayout.labelInk))
             }
         }
@@ -1174,50 +1194,14 @@ struct ChartLayout {
 
     // MARK: - Marks
 
-    // A domain is the whole list, and a series outside it has no color of its own (measured on macOS 27).
-    private func seriesNames() -> [String] {
-        if case .strings(let domain) = spec.styles.foregroundDomain { return domain }
-        var names: [String] = []
-        var seen: Set<String> = []
-        for instance in marks.instances {
-            if let key = instance.styleKey, seen.insert(key).inserted {
-                names.append(key)
-            }
-        }
-        return names
-    }
-
-    private func seriesInk(_ index: Int) -> ChartInk {
-        if case .colors(let colors)? = spec.styles.foregroundRange, !colors.isEmpty {
-            return .color(colors[index % colors.count])
-        }
-        return .color(Self.seriesColors[index % Self.seriesColors.count])
-    }
-
-    private func ink(_ instance: ChartMarkInstance, series: [String: Int]) -> ChartInk {
-        if let key = instance.styleKey, let index = series[key] {
-            return seriesInk(index)
-        }
-        for modifier in instance.mark.modifiers {
-            if case .foregroundStyle(let color) = modifier {
-                return .color(color)
-            }
-        }
-        return .color(Self.seriesColors[0])
-    }
-
     private func appendMarks(_ stacks: [Int: Stacked], _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect,
                              bandLabelRow: Double, into primitives: inout [ChartPrimitive]) {
-        var series: [String: Int] = [:]
-        for (index, name) in seriesNames().enumerated() {
-            series[name] = index
-        }
         var joined: [JoinedMarks: [Int]] = [:]
         for (index, instance) in marks.instances.enumerated() where instance.mark.kind == .LineMark || instance.mark.kind == .AreaMark {
             joined[JoinedMarks(kind: instance.mark.kind, series: instance.seriesKey), default: []].append(index)
         }
         for (index, instance) in marks.instances.enumerated() {
-            let ink = ink(instance, series: series)
+            let ink = styles.ink(instance)
             switch instance.mark.kind {
             case .BarMark:
                 if let rect = bar(instance, stack: stacks[index], x, y, plot, bandLabelRow: bandLabelRow) {
@@ -1267,13 +1251,47 @@ struct ChartLayout {
         instance.values[key].flatMap { scale.position($0, unit: instance.mark.values[key]?.unit) }
     }
 
+    // A mark's symbol, if it names one, and its box.
+    private func symbol(_ instance: ChartMarkInstance) -> (shape: ChartSymbol?, side: Double) {
+        var shape = instance.symbolKey.map(styles.symbol(named:))
+        var area = Self.defaultSymbolArea
+        var size: ChartSize?
+        // Backward, so the modifier nearest the mark is the one that stays.
+        for modifier in instance.mark.modifiers.reversed() {
+            switch modifier {
+            case .symbol(let symbol) where instance.symbolKey == nil:
+                shape = symbol
+            case .symbolArea(let given):
+                area = max(given, 0)
+                size = nil
+            case .symbolSize(let given):
+                size = given
+            default:
+                break
+            }
+        }
+        return (shape, size.map { max(min($0.width, $0.height), 0) } ?? 2 * (area / .pi).squareRoot())
+    }
+
+    private func stroke(_ instance: ChartMarkInstance, default fallback: ChartStroke) -> ChartStroke {
+        if let key = instance.lineStyleKey { return styles.stroke(named: key) }
+        var stroke = fallback
+        for modifier in instance.mark.modifiers.reversed() {
+            if case .lineStyle(let style) = modifier {
+                stroke = style
+            }
+        }
+        return stroke
+    }
+
     // A value that has no place on its axis breaks the line (measured on macOS 27, not a number on
-    // either axis), and a piece of one point draws nothing.
+    // either axis), and a piece of one point draws only its symbol.
     private func line(_ indices: [Int], _ x: ChartAxisScale, _ y: ChartAxisScale, ink: ChartInk) -> ChartPrimitive? {
-        let mark = marks.instances[indices[0]].mark
-        let method = interpolation(mark)
+        let first = marks.instances[indices[0]]
+        let method = interpolation(first.mark)
         var elements: [ChartPathElement] = []
         var piece: [ChartPoint] = []
+        var placed: [ChartPoint] = []
         func endPiece() {
             if piece.count > 1 { elements += ChartCurves.elements(piece, method) }
             piece = []
@@ -1282,19 +1300,18 @@ struct ChartLayout {
             let instance = marks.instances[index]
             if let px = position(instance, "x", x), let py = position(instance, "y", y) {
                 piece.append(ChartPoint(x: px, y: py))
+                placed.append(ChartPoint(x: px, y: py))
             } else {
                 endPiece()
             }
         }
         endPiece()
-        guard !elements.isEmpty else { return nil }
-        var stroke = Self.defaultLine
-        for modifier in mark.modifiers.reversed() {
-            if case .lineStyle(let style) = modifier {
-                stroke = style
-            }
+        let stroke = stroke(first, default: Self.defaultLine)
+        let (shape, side) = symbol(first)
+        if let shape, !placed.isEmpty {
+            return .markedLine(elements, ink: ink, stroke: stroke, symbol: shape, side: side, at: placed)
         }
-        return .path(elements, ink: ink, stroke: stroke)
+        return elements.isEmpty ? nil : .path(elements, ink: ink, stroke: stroke)
     }
 
     // Where an area's two edges are at one mark: nil where it has no place on an axis.
@@ -1447,40 +1464,16 @@ struct ChartLayout {
     }
 
     private func point(_ instance: ChartMarkInstance, _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect, ink: ChartInk) -> ChartPrimitive? {
-        let mark = instance.mark
         guard let centerX = coordinate(instance, "x", x, origin: plot.x, length: plot.width),
               let centerY = coordinate(instance, "y", y, origin: plot.y, length: plot.height) else { return nil }
-        var shape = ChartSymbol.circle
-        var area = Self.defaultSymbolArea
-        var size: ChartSize?
-        // Backward, so the modifier nearest the mark is the one that stays.
-        for modifier in mark.modifiers.reversed() {
-            switch modifier {
-            case .symbol(let symbol):
-                shape = symbol
-            case .symbolArea(let given):
-                area = max(given, 0)
-                size = nil
-            case .symbolSize(let given):
-                size = given
-            default:
-                break
-            }
-        }
-        // The area is the shape's own: a circle of 100 is 11.3 across, a square 10 (measured).
-        let side = shape == .circle ? 2 * (area / .pi).squareRoot() : area.squareRoot()
-        return .symbol(shape, center: ChartPoint(x: centerX, y: centerY), size: size ?? ChartSize(width: side, height: side), ink: ink)
+        let (shape, side) = symbol(instance)
+        return .symbol(shape ?? .circle, center: ChartPoint(x: centerX, y: centerY), side: side, ink: ink)
     }
 
     private func rule(_ instance: ChartMarkInstance, _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect, ink: ChartInk) -> ChartPrimitive? {
         let mark = instance.mark
         let wholeX = (plot.x, plot.x + plot.width), wholeY = (plot.y, plot.y + plot.height)
-        var stroke = ChartStroke(lineWidth: Self.defaultRuleWidth)
-        for modifier in mark.modifiers.reversed() {
-            if case .lineStyle(let style) = modifier {
-                stroke = style
-            }
-        }
+        let stroke = stroke(instance, default: Self.defaultLine)
         let atX = coordinate(instance, "x", x, origin: plot.x, length: plot.width).map { ($0, $0) }
         let atY = coordinate(instance, "y", y, origin: plot.y, length: plot.height).map { ($0, $0) }
         let xs: (Double, Double)?

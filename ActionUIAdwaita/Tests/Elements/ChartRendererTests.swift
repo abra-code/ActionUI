@@ -123,6 +123,80 @@ final class ChartRendererTests: XCTestCase {
         XCTAssertGreaterThan(image[1, 8][1], 200, "and stays square at the corner, whatever the radius")
     }
 
+    private func markedLine(_ extra: String) -> String {
+        let columns = #""columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}], "data": [[2, 5], [5, 5], [8, 5]], "chartYScale": {"domain": [0, 10]}, "chartXScale": {"domain": [0, 10]}"#
+        return ##""chart": {"## + columns + ##", "content": ["## + extra + ##"]}"##
+    }
+
+    private let ringedLine = ##"{"type": "ForEach", "content": [{"type": "LineMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "foregroundStyle": "#FF0000", "lineStyle": {"lineWidth": 4}, "symbol": "circle", "symbolSize": 900}]}"##
+    private let blueRule = ##"{"type": "RuleMark", "x": {"label": "X", "value": 5}, "foregroundStyle": "#0000FF", "lineStyle": {"lineWidth": 4}}"##
+
+    // The middle of the row with the most solid red: an edge's pixels are red too, but faint.
+    private func middleOfTheLine(_ image: Pixels) throws -> (x: Int, y: Int) {
+        func solid(_ y: Int) -> [Int] {
+            (0..<image.width).filter { image[$0, y][3] > 200 && isRed(image[$0, y]) }
+        }
+        let y = try XCTUnwrap((0..<image.height).max { solid($0).count < solid($1).count })
+        let reds = solid(y)
+        return ((reds[0] + reds[reds.count - 1]) / 2, y)
+    }
+
+    func testASymbolOnALineIsAHoleInIt() throws {
+        let image = try pixels(try render(markedLine(ringedLine)))
+        let middle = try middleOfTheLine(image)
+        XCTAssertFalse(isRed(image[middle.x, middle.y]), "the line stops at the symbol")
+        XCTAssertLessThan(image[middle.x, middle.y][3], 40, "and only the gridlines behind it show there")
+        XCTAssertTrue(isRed(image[middle.x + 15, middle.y]), "the outline is 4 inside a box of 34")
+        XCTAssertTrue(isRed(image[middle.x, middle.y - 15]), "all around")
+        XCTAssertFalse(isRed(image[middle.x, middle.y - 20]), "and ends with the box")
+        XCTAssertTrue(isRed(image[middle.x + 30, middle.y]), "the line goes on outside it")
+    }
+
+    func testAHoleCutsOnlyItsOwnLine() throws {
+        let later = try pixels(try render(markedLine(ringedLine + "," + blueRule)))
+        var middle = try middleOfTheLine(later)
+        XCTAssertGreaterThan(later[middle.x, middle.y][2], 200, "a later rule crosses the hole")
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        let earlier = try pixels(try render(markedLine(blueRule + "," + ringedLine)))
+        middle = try middleOfTheLine(earlier)
+        XCTAssertGreaterThan(earlier[middle.x, middle.y][2], 200, "and so does an earlier one, which the mask leaves alone")
+    }
+
+    func testAnOutlineOfHalfTheBoxLeavesASolidSymbol() throws {
+        // A stroke this wide around a smaller shape turns inside out and leaves a spot in the middle.
+        let thick = ringedLine.replacingOccurrences(of: #""lineWidth": 4"#, with: #""lineWidth": 18"#)
+            .replacingOccurrences(of: #""symbolSize": 900"#, with: #""symbolSize": 400"#)
+        let image = try pixels(try render(markedLine(thick)))
+        let x = try middleOfTheLine(image).x
+        // Many rows tie for the most red in a line this wide, so the symbol's middle comes from a column.
+        let column = (0..<image.height).filter { image[x, $0][3] > 200 && isRed(image[x, $0]) }
+        let y = try (XCTUnwrap(column.first) + XCTUnwrap(column.last)) / 2
+        for (across, down) in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)] {
+            XCTAssertGreaterThan(image[x + across, y + down][3], 200, "no spot at the symbol's middle")
+        }
+    }
+
+    func testAPlusOnALineIsSolid() throws {
+        let solid = ringedLine.replacingOccurrences(of: #""symbol": "circle""#, with: #""symbol": "plus""#)
+        let image = try pixels(try render(markedLine(solid)))
+        let middle = try middleOfTheLine(image)
+        XCTAssertTrue(isRed(image[middle.x, middle.y]))
+    }
+
+    func testAutomaticLineStylesDrawTheirDashes() throws {
+        func gaps(_ data: String) throws -> Int {
+            let chart = ##""chart": {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}, "s"], "data": "## + data + ##", "chartLegend": "hidden", "content": [{"type": "ForEach", "content": [{"type": "LineMark", "x": {"label": "X", "value": "$x"}, "y": {"label": "Y", "value": "$y"}, "foregroundStyle": "#FF0000", "lineStyle": {"by": {"label": "S", "value": "$s"}}}]}]}"##
+            let image = try pixels(try render(chart))
+            let y = try XCTUnwrap((0..<image.height).max { image.redRun(y: $0) < image.redRun(y: $1) })
+            let reds = (0..<image.width).map { isRed(image[$0, y]) }
+            ActionUIModel.shared.windowModels[windowUUID] = nil
+            return zip(reds, reds.dropFirst()).filter { $0 && !$1 }.count
+        }
+        XCTAssertLessThanOrEqual(try gaps(#"[[0, 5, "A"], [10, 5, "A"]]"#), 1, "the first is solid")
+        let dashed = try gaps(#"[[0, 1, "A"], [0, 5, "B"], [10, 5, "B"]]"#)
+        XCTAssertGreaterThan(dashed, 10, "the second is not")
+    }
+
     func testALegendDrawsItsDotsInTheSeriesColors() throws {
         let chart = ##""chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 4]], "chartLegend": {"position": "top"}, "chartForegroundStyleScale": {"domain": ["Mon"], "range": ["#FF0000"]}, "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}, "foregroundStyle": {"by": {"label": "Day", "value": "$day"}}}]}]}"##
         let image = try pixels(try render(chart))

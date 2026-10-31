@@ -167,17 +167,16 @@ extension Chart: ActionUIAdwaitaRenderer {
             var bounds = graphene_rect_t(origin: graphene_point_t(x: Float(rect.x), y: Float(rect.y)),
                                          size: graphene_size_t(width: Float(rect.width), height: Float(rect.height)))
             gtk_snapshot_append_color(snapshot, &color, &bounds)
-        case let .symbol(shape, center, size, ink):
-            symbol(shape, center, size, ink)
+        case let .symbol(shape, center, side, ink):
+            fill(ChartSymbols.outline(shape, center: center, side: side), ink)
         case let .path(elements, ink, style):
             guard let path = path(elements) else { return }
             stroke(path, ink, style)
             gsk_path_unref(path)
+        case let .markedLine(elements, ink, style, shape, side, points):
+            markedLine(elements, ink, style, shape, side, points)
         case let .fill(elements, ink):
-            guard let path = path(elements) else { return }
-            var color = rgba(ink)
-            gtk_snapshot_append_fill(snapshot, path, GSK_FILL_RULE_WINDING, &color)
-            gsk_path_unref(path)
+            fill(elements, ink)
         case let .text(string, position, alignment, ink):
             label(string, position, alignment, ink)
         case let .turnedText(string, center, degrees, ink):
@@ -231,9 +230,45 @@ extension Chart: ActionUIAdwaitaRenderer {
                 gsk_path_builder_line_to(builder, Float(point.x), Float(point.y))
             case let .curve(first, second, end):
                 gsk_path_builder_cubic_to(builder, Float(first.x), Float(first.y), Float(second.x), Float(second.y), Float(end.x), Float(end.y))
+            case .close:
+                gsk_path_builder_close(builder)
             }
         }
         return gsk_path_builder_free_to_path(builder)
+    }
+
+    private func fill(_ elements: [ChartPathElement], _ ink: ChartInk) {
+        guard let path = path(elements) else { return }
+        var color = rgba(ink)
+        gtk_snapshot_append_fill(snapshot, path, GSK_FILL_RULE_WINDING, &color)
+        gsk_path_unref(path)
+    }
+
+    // The holes go in a mask over this line alone, so another line still crosses them. An outline
+    // is the line's width inside the symbol's box; one of half the box leaves no inside, and the
+    // symbol is then solid, in its box however wide the line (measured on macOS 27).
+    private func markedLine(_ elements: [ChartPathElement], _ ink: ChartInk, _ style: ChartStroke, _ shape: ChartSymbol, _ side: Double, _ points: [ChartPoint]) {
+        guard ChartSymbols.isHollowOnALine(shape), style.lineWidth * 2 < side else {
+            if let line = path(elements) {
+                stroke(line, ink, style)
+                gsk_path_unref(line)
+            }
+            fill(points.flatMap { ChartSymbols.outline(shape, center: $0, side: side) }, ink)
+            return
+        }
+        let inner = side - style.lineWidth
+        guard let outlines = path(points.flatMap { ChartSymbols.outline(shape, center: $0, side: inner) }) else { return }
+        if let line = path(elements) {
+            var opaque = GdkRGBA(red: 0, green: 0, blue: 0, alpha: 1)
+            gtk_snapshot_push_mask(snapshot, GSK_MASK_MODE_INVERTED_ALPHA)
+            gtk_snapshot_append_fill(snapshot, outlines, GSK_FILL_RULE_WINDING, &opaque)
+            gtk_snapshot_pop(snapshot)
+            stroke(line, ink, style)
+            gtk_snapshot_pop(snapshot)
+            gsk_path_unref(line)
+        }
+        stroke(outlines, ink, ChartStroke(lineWidth: style.lineWidth, lineCap: .round, lineJoin: .round))
+        gsk_path_unref(outlines)
     }
 
     private func stroke(_ path: OpaquePointer, _ ink: ChartInk, _ style: ChartStroke) {
@@ -279,61 +314,6 @@ extension Chart: ActionUIAdwaitaRenderer {
         gsk_path_builder_line_to(builder, Float(x1), Float(y1))
         guard let path = gsk_path_builder_free_to_path(builder) else { return }
         stroke(path, ink, style)
-        gsk_path_unref(path)
-    }
-
-    private func symbol(_ shape: ChartSymbol, _ center: ChartPoint, _ size: ChartSize, _ ink: ChartInk) {
-        guard let builder = gsk_path_builder_new() else { return }
-        let rx = Float(size.width / 2), ry = Float(size.height / 2)
-        let x = Float(center.x), y = Float(center.y)
-        func polygon(_ points: [(Float, Float)]) {
-            for (index, point) in points.enumerated() {
-                if index == 0 {
-                    gsk_path_builder_move_to(builder, x + point.0 * rx, y + point.1 * ry)
-                } else {
-                    gsk_path_builder_line_to(builder, x + point.0 * rx, y + point.1 * ry)
-                }
-            }
-            gsk_path_builder_close(builder)
-        }
-        func spokes(_ points: [(Float, Float)]) {
-            for point in points {
-                gsk_path_builder_move_to(builder, x - point.0 * rx, y - point.1 * ry)
-                gsk_path_builder_line_to(builder, x + point.0 * rx, y + point.1 * ry)
-            }
-        }
-        var strokes = false
-        switch shape {
-        case .circle:
-            var bounds = graphene_rect_t(origin: graphene_point_t(x: x - rx, y: y - ry), size: graphene_size_t(width: rx * 2, height: ry * 2))
-            var corners = GskRoundedRect()
-            gsk_rounded_rect_init_from_rect(&corners, &bounds, min(rx, ry))
-            gsk_path_builder_add_rounded_rect(builder, &corners)
-        case .square:
-            polygon([(-1, -1), (1, -1), (1, 1), (-1, 1)])
-        case .triangle:
-            polygon([(0, -1), (1, 1), (-1, 1)])
-        case .diamond:
-            polygon([(0, -1.3), (1.3, 0), (0, 1.3), (-1.3, 0)])
-        case .pentagon:
-            polygon([(0, -1), (0.95, -0.31), (0.59, 0.81), (-0.59, 0.81), (-0.95, -0.31)])
-        case .plus:
-            strokes = true
-            spokes([(1, 0), (0, 1)])
-        case .cross:
-            strokes = true
-            spokes([(0.75, 0.75), (0.75, -0.75)])
-        case .asterisk:
-            strokes = true
-            spokes([(0, 1), (0.87, 0.5), (0.87, -0.5)])
-        }
-        guard let path = gsk_path_builder_free_to_path(builder) else { return }
-        if strokes {
-            stroke(path, ink, ChartStroke(lineWidth: 1.5))
-        } else {
-            var color = rgba(ink)
-            gtk_snapshot_append_fill(snapshot, path, GSK_FILL_RULE_WINDING, &color)
-        }
         gsk_path_unref(path)
     }
 

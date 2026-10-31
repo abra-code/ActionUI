@@ -64,9 +64,9 @@ final class ChartLayoutTests: XCTestCase {
         }
     }
 
-    private func symbols(_ primitives: [ChartPrimitive]) -> [(shape: ChartSymbol, size: ChartSize, ink: ChartInk)] {
+    private func symbols(_ primitives: [ChartPrimitive]) -> [(shape: ChartSymbol, side: Double, ink: ChartInk)] {
         primitives.compactMap { primitive in
-            if case .symbol(let shape, _, let size, let ink) = primitive { return (shape, size, ink) } else { return nil }
+            if case .symbol(let shape, _, let side, let ink) = primitive { return (shape, side, ink) } else { return nil }
         }
     }
 
@@ -440,7 +440,7 @@ final class ChartLayoutTests: XCTestCase {
         let points: [String: Any] = ["type": "Plot", "symbol": "square", "symbolSize": 400, "content": [["type": "ForEach", "content": [point]]]]
         let found = symbols(layout(["columns": columns, "content": [points]], rows: [["Mon", "1"]]))
         XCTAssertEqual(found.first?.shape, .diamond)
-        XCTAssertEqual(found.first?.size, ChartSize(width: 10, height: 10))
+        XCTAssertEqual(found.first?.side ?? 0, 11.28, accuracy: 0.01)
 
         let rule: [String: Any] = ["type": "RuleMark", "y": value("Y", 1), "lineStyle": ["lineWidth": 1], "foregroundStyle": "red"]
         let rules: [String: Any] = ["type": "Plot", "lineStyle": ["lineWidth": 6], "content": [rule]]
@@ -450,20 +450,23 @@ final class ChartLayoutTests: XCTestCase {
     // MARK: - Points and rules
 
     func testASymbolsSizeIsItsArea() throws {
-        // As measured on Swift Charts: a default circle is 8 across, one of 100 is 11.3, a square of 100 is 10.
-        func sized(_ extra: [String: Any]) throws -> ChartSize {
+        // As measured on Swift Charts: a default circle is 8 across, and one of 100 is 11.3.
+        func sized(_ extra: [String: Any]) throws -> Double {
             var mark: [String: Any] = ["type": "PointMark", "x": value("Day", "$day"), "y": value("High", "$high")]
             mark.merge(extra) { $1 }
-            return try XCTUnwrap(symbols(layout(chart([mark]), rows: [["Mon", "1"]])).first?.size)
+            return try XCTUnwrap(symbols(layout(chart([mark]), rows: [["Mon", "1"]])).first?.side)
         }
-        XCTAssertEqual(try sized([:]).width, 7.98, accuracy: 0.01)
-        XCTAssertEqual(try sized(["symbolSize": 100]).width, 11.28, accuracy: 0.01)
-        XCTAssertEqual(try sized(["symbolSize": 100, "symbol": "square"]).width, 10, accuracy: 0.01)
+        XCTAssertEqual(try sized([:]), 7.98, accuracy: 0.01)
+        XCTAssertEqual(try sized(["symbolSize": 100]), 11.28, accuracy: 0.01)
+        XCTAssertEqual(try sized(["symbolSize": 100, "symbol": "square"]), 11.28, accuracy: 0.01, "every shape shares the box")
+        XCTAssertEqual(try sized(["symbolSize": ["width": 36, "height": 12]]), 12, "a symbol does not stretch")
     }
 
     func testARuleWithoutAStyleIsTwoWide() {
         let rule: [String: Any] = ["type": "RuleMark", "y": value("Y", 1), "foregroundStyle": "red"]
-        XCTAssertEqual(lines(layout(["columns": columns, "content": [rule]]), ink: .color(.named(.red))).first?.stroke.lineWidth, 2)
+        let stroke = lines(layout(["columns": columns, "content": [rule]]), ink: .color(.named(.red))).first?.stroke
+        XCTAssertEqual(stroke?.lineWidth, 2)
+        XCTAssertEqual(stroke?.lineCap, .round, "as a line's")
     }
 
     func testAPointGoesAtItsValuesWithItsSymbolAndArea() throws {
@@ -471,11 +474,9 @@ final class ChartLayoutTests: XCTestCase {
         mark["symbol"] = "diamond"
         mark["symbolSize"] = 100
         let primitives = layout(chart([mark]), rows: [["Mon", "1"]])
-        let symbol = primitives.compactMap { primitive -> (ChartSymbol, ChartSize)? in
-            if case .symbol(let shape, _, let size, _) = primitive { return (shape, size) } else { return nil }
-        }.first
-        XCTAssertEqual(symbol?.0, .diamond)
-        XCTAssertEqual(symbol?.1, ChartSize(width: 10, height: 10))
+        let symbol = symbols(primitives).first
+        XCTAssertEqual(symbol?.shape, .diamond)
+        XCTAssertEqual(symbol?.side ?? 0, 11.28, accuracy: 0.01)
     }
 
     func testAPointWithoutOneCoordinateIsInTheMiddleOfThePlot() {
@@ -514,7 +515,10 @@ final class ChartLayoutTests: XCTestCase {
 
     private func paths(_ primitives: [ChartPrimitive]) -> [(elements: [ChartPathElement], ink: ChartInk, stroke: ChartStroke)] {
         primitives.compactMap { primitive in
-            if case .path(let elements, let ink, let stroke) = primitive { return (elements, ink, stroke) } else { return nil }
+            switch primitive {
+            case .path(let elements, let ink, let stroke), .markedLine(let elements, let ink, let stroke, _, _, _): return (elements, ink, stroke)
+            default: return nil
+            }
         }
     }
 
@@ -529,6 +533,7 @@ final class ChartLayoutTests: XCTestCase {
             switch element {
             case .move(let point), .line(let point): return point
             case .curve(_, _, let end): return end
+            case .close: return nil
             }
         }
     }
@@ -1777,6 +1782,237 @@ final class ChartLayoutTests: XCTestCase {
             if case .text("Title", let position, _, _) = primitive { return position } else { return nil }
         }).first else { return XCTFail("no title") }
         XCTAssertEqual(title.x, 306 - 31 - 8, accuracy: 0.001, "it ends where the legend's room starts")
+    }
+
+    // MARK: - Style scales
+
+    private func styled(_ marks: [[String: Any]], _ extra: [String: Any] = [:]) -> [String: Any] {
+        var description = numbers(marks)
+        description.merge(extra) { $1 }
+        return description
+    }
+
+    private var plotted: [String: Any] { ["type": "PointMark", "x": value("X", "$x"), "y": value("Y", "$y")] }
+    private var team: [String: Any] { ["by": value("Team", "$team")] }
+    private var hidden: [String: Any] { ["chartLegend": "hidden"] }
+
+    private func wearing(_ mark: [String: Any], _ key: String, _ style: Any = ["by": ["label": "Team", "value": "$team"]]) -> [String: Any] {
+        var worn = mark
+        worn[key] = style
+        return worn
+    }
+
+    // One row per name, or two for a line.
+    private func rows(_ names: [String], perName: Int = 1) -> [[String]] {
+        names.enumerated().flatMap { index, name in (0..<perName).map { [String($0), String(index + 1), name] } }
+    }
+
+    private func letters(_ count: Int) -> [String] {
+        (0..<count).map { String(UnicodeScalar(UInt8(65 + $0))) }
+    }
+
+    /// The legend's names: axis labels start the same way, but are numbers here.
+    private func listed(_ primitives: [ChartPrimitive]) -> [String] {
+        starts(primitives).keys.filter { Double($0) == nil }.sorted()
+    }
+
+    private func markedLines(_ primitives: [ChartPrimitive]) -> [(shape: ChartSymbol, side: Double, at: [ChartPoint])] {
+        primitives.compactMap { primitive in
+            if case .markedLine(_, _, _, let shape, let side, let at) = primitive { return (shape, side, at) } else { return nil }
+        }
+    }
+
+    private func samples(_ primitives: [ChartPrimitive]) -> [(from: ChartPoint, to: ChartPoint, stroke: ChartStroke)] {
+        lines(primitives, ink: .color(ChartLayout.seriesColors[0]))
+    }
+
+    func testPointsTakeSymbolsInSwiftChartsOrderAndStartAgain() {
+        let found = symbols(layout(styled([wearing(plotted, "symbol")], hidden), rows: rows(letters(8))))
+        XCTAssertEqual(found.map(\.shape), [.circle, .cross, .triangle, .plus, .square, .asterisk, .diamond, .circle])
+    }
+
+    func testALineWearingASymbolChangesTheOrderForEveryMark() {
+        let names = letters(6)
+        XCTAssertEqual(markedLines(layout(styled([wearing(line, "symbol")], hidden), rows: rows(names, perName: 2))).map(\.shape),
+                       [.circle, .square, .triangle, .diamond, .pentagon, .circle])
+
+        let both = layout(styled([wearing(line, "symbol"), wearing(plotted, "symbol")], hidden), rows: rows(names))
+        XCTAssertEqual(Array(symbols(both).map(\.shape).prefix(6)), [.circle, .square, .triangle, .diamond, .pentagon, .circle],
+                       "a point takes a line's order too")
+
+        let fixed: [[String: Any]] = [wearing(line, "symbol", "circle"), wearing(plotted, "symbol")]
+        XCTAssertEqual(symbols(layout(styled(fixed, hidden), rows: rows(letters(2)))).map(\.shape)[1], .square, "a fixed symbol is enough")
+
+        var bare = line
+        bare["series"] = value("Team", "$team")
+        let plain = symbols(layout(styled([bare, wearing(plotted, "symbol")], hidden), rows: rows(letters(2))))
+        XCTAssertEqual(plain.map(\.shape), [.circle, .cross], "a line without a symbol changes nothing")
+    }
+
+    func testASymbolDomainIsTheWholeListAndOutsideItIsACircle() {
+        let scale: [String: Any] = ["chartSymbolScale": ["domain": ["A", "B"], "range": ["square", "diamond"]], "chartLegend": "hidden"]
+        XCTAssertEqual(symbols(layout(styled([wearing(plotted, "symbol")], scale), rows: rows(letters(3)))).map(\.shape), [.square, .diamond, .circle])
+        let listed = layout(styled([wearing(plotted, "symbol")], ["chartSymbolScale": ["domain": ["A", "B"]]]), rows: rows(letters(3)))
+        XCTAssertEqual(self.listed(listed), ["A", "B"])
+    }
+
+    func testASymbolRangeRepeats() {
+        let scale: [String: Any] = ["chartSymbolScale": ["range": ["square", "plus"]], "chartLegend": "hidden"]
+        XCTAssertEqual(symbols(layout(styled([wearing(plotted, "symbol")], scale), rows: rows(letters(3)))).map(\.shape), [.square, .plus, .square])
+    }
+
+    func testLineStylesComeInOrderAndStartAgain() {
+        let found = paths(layout(styled([wearing(line, "lineStyle")], hidden), rows: rows(letters(6), perName: 2)))
+        XCTAssertEqual(found.map(\.stroke.dash), [[], [4, 4], [8, 4], [8, 4, 2, 4], [0, 3], []])
+        XCTAssertTrue(found.allSatisfy { $0.stroke.lineWidth == 2 && $0.stroke.lineCap == .round })
+    }
+
+    func testALineStyleDomainIsTheWholeListAndOutsideItIsSolid() {
+        let scale: [String: Any] = ["chartLineStyleScale": ["domain": ["A", "B"], "range": [["lineWidth": 4], ["lineWidth": 1, "dash": [6, 2]]]], "chartLegend": "hidden"]
+        let found = paths(layout(styled([wearing(line, "lineStyle")], scale), rows: rows(letters(3), perName: 2)))
+        XCTAssertEqual(found.map(\.stroke), [ChartStroke(lineWidth: 4), ChartStroke(lineWidth: 1, dash: [6, 2]), ChartLayout.defaultLine])
+    }
+
+    func testARuleTakesALineStylesScale() {
+        let rule: [String: Any] = ["type": "RuleMark", "x": value("X", "$x"), "lineStyle": team]
+        let primitives = layout(styled([rule]), rows: rows(letters(2)))
+        XCTAssertEqual(listed(primitives), ["A", "B"])
+        XCTAssertEqual(lines(primitives, ink: .color(ChartLayout.seriesColors[0])).first { $0.from.x == $0.to.x }?.stroke.lineWidth, 2)
+    }
+
+    func testAMarkThatCannotWearAStyleLeavesItsScaleOut() {
+        let rule: [String: Any] = ["type": "RuleMark", "x": value("X", "$x")]
+        let area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y")]
+        let bar: [String: Any] = ["type": "BarMark", "x": value("X", "$team"), "y": value("Y", "$y")]
+        for mark in [bar, area, rule] {
+            XCTAssertEqual(listed(layout(styled([wearing(mark, "symbol")]), rows: rows(letters(2)))), [])
+        }
+        for mark in [bar, area, plotted] {
+            XCTAssertEqual(listed(layout(styled([wearing(mark, "lineStyle")]), rows: rows(letters(2)))), [])
+        }
+    }
+
+    func testAnAreaIsSplitByColorAloneOfItsStyles() {
+        let area: [String: Any] = ["type": "AreaMark", "x": value("X", "$x"), "y": value("Y", "$y"), "stacking": "unstacked"]
+        let data = rows(letters(2), perName: 2)
+        XCTAssertEqual(fills(layout(styled([wearing(area, "foregroundStyle")], hidden), rows: data)).count, 2)
+        XCTAssertEqual(fills(layout(styled([wearing(area, "lineStyle")]), rows: data)).count, 1)
+        XCTAssertEqual(fills(layout(styled([wearing(area, "symbol")]), rows: data)).count, 1)
+    }
+
+    func testOnlyAColorDomainDrawsALegendWithoutItsBy() {
+        let data = rows(letters(2))
+        XCTAssertEqual(listed(layout(styled([plotted], ["chartForegroundStyleScale": ["domain": ["P", "Q"]]]), rows: data)), ["P", "Q"])
+        XCTAssertEqual(listed(layout(styled([plotted], ["chartSymbolScale": ["domain": ["P", "Q"]]]), rows: data)), [])
+        XCTAssertEqual(listed(layout(styled([line], ["chartLineStyleScale": ["domain": ["P", "Q"]]]), rows: data)), [])
+    }
+
+    func testARangeWithoutItsByChangesNothing() {
+        var bare = line
+        bare["series"] = value("Team", "$team")
+        let data = rows(letters(2), perName: 2)
+        let extra: [String: Any] = ["chartSymbolScale": ["range": ["square"]], "chartLineStyleScale": ["range": [["lineWidth": 3]]]]
+        XCTAssertEqual(layout(styled([bare], extra), rows: data), layout(styled([bare]), rows: data))
+    }
+
+    func testALegendShowsSymbolsInTheFirstColorOverAFixedOne() {
+        let primitives = layout(styled([wearing(wearing(plotted, "symbol"), "foregroundStyle", "red")]), rows: rows(letters(2)))
+        let found = symbols(primitives)
+        XCTAssertEqual(found.map(\.shape), [.circle, .cross, .circle, .cross], "the points, then their entries")
+        XCTAssertEqual(found.map(\.ink), [.color(.named(.red)), .color(.named(.red)), .color(ChartLayout.seriesColors[0]), .color(ChartLayout.seriesColors[0])])
+        XCTAssertEqual(found[2].side, 8)
+    }
+
+    func testAColorAndASymbolOverOneListShareTheirEntries() {
+        let mark = wearing(wearing(plotted, "symbol"), "foregroundStyle")
+        let entries = symbols(layout(styled([mark]), rows: rows(letters(2)))).suffix(2)
+        XCTAssertEqual(entries.map(\.shape), [.circle, .cross])
+        XCTAssertEqual(entries.map(\.ink), [.color(ChartLayout.seriesColors[0]), .color(ChartLayout.seriesColors[1])])
+    }
+
+    func testScalesOverTheSameNamesFromTwoColumnsShareTheirEntries() {
+        let columns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "a", "b"]
+        var mark = plotted
+        mark["foregroundStyle"] = ["by": value("A", "$a")]
+        mark["symbol"] = ["by": value("B", "$b")]
+        let primitives = layout(["columns": columns, "content": [["type": "ForEach", "content": [mark]]]],
+                                rows: [["1", "1", "P", "Q"], ["2", "2", "Q", "P"]])
+        let entries = symbols(primitives).suffix(2)
+        XCTAssertEqual(listed(primitives), ["P", "Q"], "not four")
+        XCTAssertEqual(entries.map(\.shape), [.cross, .circle], "P is the second symbol's name, in the colors' order")
+        XCTAssertEqual(entries.map(\.ink), [.color(ChartLayout.seriesColors[0]), .color(ChartLayout.seriesColors[1])])
+    }
+
+    func testDifferentListsFollowInTheOrderColorSymbolLineStyle() {
+        let columns: [Any] = [["name": "x", "type": "number"], ["name": "y", "type": "number"], "a", "b", "c"]
+        var mark = line
+        mark["lineStyle"] = ["by": value("C", "$c")]
+        mark["symbol"] = ["by": value("B", "$b")]
+        mark["foregroundStyle"] = ["by": value("A", "$a")]
+        let primitives = layout(["columns": columns, "content": [["type": "ForEach", "content": [mark]]]], rows: [["1", "1", "P", "Q", "R"]])
+        let found = starts(primitives)
+        XCTAssertEqual(listed(primitives), ["P", "Q", "R"])
+        XCTAssertLessThan(found["P"]?.x ?? .infinity, found["Q"]?.x ?? 0)
+        XCTAssertLessThan(found["Q"]?.x ?? .infinity, found["R"]?.x ?? 0)
+    }
+
+    func testALineStyleEntryIsASampleOfTheLine() throws {
+        let scale: [String: Any] = ["chartLineStyleScale": ["range": [["lineWidth": 4, "dash": [6, 2]]]]]
+        let primitives = layout(styled([wearing(line, "lineStyle")], scale), rows: rows(letters(1), perName: 2))
+        let sample = try XCTUnwrap(samples(primitives).first)
+        XCTAssertEqual(sample.stroke, ChartStroke(lineWidth: 4, dash: [6, 2]))
+        XCTAssertEqual(sample.from.x, 0, accuracy: 0.001, "the whole of its room of 16, whatever its caps add")
+        XCTAssertEqual(sample.to.x, 16, accuracy: 0.001)
+        XCTAssertEqual(starts(primitives)["A"]?.x ?? 0, 21, accuracy: 0.001, "its room and a gap of 5")
+        XCTAssertEqual(symbols(primitives).count, 0, "and no dot")
+    }
+
+    func testALineStyleAndASymbolOverOneListShowBothInOneEntry() throws {
+        let mark = wearing(wearing(line, "lineStyle"), "symbol")
+        let primitives = layout(styled([mark]), rows: rows(letters(1), perName: 2))
+        XCTAssertEqual(samples(primitives).count, 1)
+        XCTAssertEqual(symbols(primitives).map(\.side), [8], "solid, not an outline")
+        let center = try XCTUnwrap(dots(primitives).first?.center)
+        XCTAssertEqual(center.x, 8, accuracy: 0.001, "in the middle of the sample")
+    }
+
+    func testAnEntryColumnFitsItsSample() {
+        let primitives = layout(styled([wearing(line, "lineStyle")]), rows: rows(letters(2), perName: 2))
+        let found = starts(primitives)
+        XCTAssertEqual((found["B"]?.x ?? 0) - (found["A"]?.x ?? 0), 16 + 5 + 6 + 8, accuracy: 0.001, "a sample, its gap, a name of 6, and the column gap")
+    }
+
+    func testAMarkedLinePutsASymbolOnEveryPlacedPoint() throws {
+        let primitives = layout(styled([wearing(line, "symbol", "square")]), rows: [["1", "1"], ["2", "2"], ["nan", "3"], ["4", "4"]])
+        let found = try XCTUnwrap(markedLines(primitives).first)
+        XCTAssertEqual(found.at.count, 3)
+        XCTAssertEqual(found.shape, .square)
+        XCTAssertEqual(found.side, 2 * (50 / Double.pi).squareRoot(), accuracy: 0.001)
+    }
+
+    func testAPointAloneOnALineKeepsItsSymbol() throws {
+        let found = try XCTUnwrap(markedLines(layout(styled([wearing(line, "symbol", "circle")]), rows: [["1", "1"]])).first)
+        XCTAssertEqual(found.at.count, 1)
+        XCTAssertEqual(paths(layout(styled([wearing(line, "symbol", "circle")]), rows: [["1", "1"]])).first?.elements, [])
+    }
+
+    func testASizeAloneDrawsNoSymbolOnALineAndADataSizeChangesNone() {
+        let data = [["1", "1", "A", "10"], ["2", "2", "A", "20"]]
+        XCTAssertEqual(markedLines(layout(styled([wearing(line, "symbolSize", 100)]), rows: data)).count, 0)
+        var sized = wearing(line, "symbol", "circle")
+        sized["symbolSize"] = 900
+        XCTAssertEqual(markedLines(layout(styled([sized]), rows: data)).first?.side ?? 0, 33.85, accuracy: 0.01)
+        sized["symbolSize"] = ["by": value("Z", "$z")]
+        XCTAssertEqual(markedLines(layout(styled([sized], hidden), rows: data)).first?.side ?? 0, 7.98, accuracy: 0.01)
+    }
+
+    func testASizeThatGSKRefusesDrawsNoSymbol() {
+        var huge = plotted
+        huge["symbolSize"] = 1e300
+        XCTAssertTrue(symbols(layout(styled([huge]), rows: [["1", "1"]])).isEmpty)
+        var negative = plotted
+        negative["symbolSize"] = ["width": -5, "height": 5]
+        XCTAssertEqual(symbols(layout(styled([negative]), rows: [["1", "1"]])).first?.side, 0)
     }
 
     // MARK: - Plot style

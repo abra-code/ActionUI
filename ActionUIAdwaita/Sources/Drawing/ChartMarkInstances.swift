@@ -18,10 +18,13 @@ struct ChartMarkInstance {
     let values: [String: ChartScalar]
     /// The series a {"by"} foreground style puts it in, unless a style nearer the mark sets its color.
     let styleKey: String?
-    /// What joins it to other lines or areas: its series and the {"by"} styles it wears, of color,
-    /// line and symbol. Marks that share this are one line, in the style of the first. A {"by"}
-    /// that a style nearer the mark replaces, a symbol's size and a position do not split a line
-    /// (measured on macOS 27).
+    /// The same for a {"by"} symbol and line style.
+    let symbolKey: String?
+    let lineStyleKey: String?
+    /// What joins it to other lines or areas: its series and the {"by"} styles it wears: of color,
+    /// line and symbol on a line, of color alone on an area. Marks that share this are one line, in
+    /// the style of the first. A {"by"} that a style nearer the mark replaces, a symbol's size and a
+    /// position do not split a line (measured on macOS 27).
     let seriesKey: String
 }
 
@@ -120,6 +123,8 @@ struct ChartMarkResolver {
             values[key] = scalar
         }
         var styleKey: String?
+        var symbolKey: String?
+        var lineStyleKey: String?
         var seriesParts = values["series"].map { [Self.key($0)] } ?? [""]
         // The mark's own modifiers come first, a Plot's after them, and the first of each kind wins.
         var styled = false, lined = false, marked = false
@@ -138,16 +143,19 @@ struct ChartMarkResolver {
                 seriesParts.append(Self.key(scalar))
                 styled = true
             case .lineStyleBy where !lined:
-                seriesParts.append(Self.key(scalar))
+                lineStyleKey = Self.key(scalar)
+                if mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
                 lined = true
             case .symbolBy where !marked:
-                seriesParts.append(Self.key(scalar))
+                symbolKey = Self.key(scalar)
+                if mark.kind != .AreaMark { seriesParts.append(Self.key(scalar)) }
                 marked = true
             default:
                 break
             }
         }
-        return ChartMarkInstance(mark: mark, values: values, styleKey: styleKey, seriesKey: seriesParts.joined(separator: "\u{1F}"))
+        return ChartMarkInstance(mark: mark, values: values, styleKey: styleKey, symbolKey: symbolKey, lineStyleKey: lineStyleKey,
+                                 seriesKey: seriesParts.joined(separator: "\u{1F}"))
     }
 
     private static func key(_ scalar: ChartScalar) -> String {

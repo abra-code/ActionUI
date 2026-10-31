@@ -11,10 +11,11 @@ final class ChartCurvesTests: XCTestCase {
     private let zigzag = [ChartPoint(x: 0, y: 1), ChartPoint(x: 10, y: 9), ChartPoint(x: 20, y: 2), ChartPoint(x: 30, y: 8), ChartPoint(x: 40, y: 3)]
 
     private func ends(_ elements: [ChartPathElement]) -> [ChartPoint] {
-        elements.map { element in
+        elements.compactMap { element in
             switch element {
             case .move(let point), .line(let point): return point
             case .curve(_, _, let end): return end
+            case .close: return nil
             }
         }
     }

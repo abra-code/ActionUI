@@ -16,6 +16,7 @@ enum ChartPathElement: Equatable {
     case move(ChartPoint)
     case line(ChartPoint)
     case curve(ChartPoint, ChartPoint, ChartPoint)
+    case close
 }
 
 enum ChartCurves {
