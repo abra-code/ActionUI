@@ -59,8 +59,10 @@ folder), found in priority order:
 The build copies libActionUI.so beside the extension (_actionui.*.so), and the
 extension finds it there through its $ORIGIN rpath: the installed module is
 self-contained, needing only the system's GTK 4, libadwaita and libsoup 3. The
-library's licenses go beside it, as libActionUI-LICENSE.txt and
-libActionUI-LICENSE-MaterialSymbols.txt (the Material Symbols icons in the library).
+library's licenses go beside it, as libActionUI-LICENSE.txt,
+libActionUI-LICENSE-MaterialSymbols.txt (the Material Symbols icons in the library),
+libActionUI-LICENSE-RichText.txt and libActionUI-LICENSE-AsyncImageCache.txt (the
+packages linked into it).
 
 Building
 --------
@@ -219,7 +221,7 @@ class build_ext_with_library(build_ext):
     """Builds the extension, then copies libActionUI.so beside it (Linux), where its
     $ORIGIN rpath finds it: in the build folder, which a wheel or an install copies
     whole, and in this folder for an in-place build. The library's licenses go with it:
-    ActionUI's, and that of the Material Symbols icons compiled into the library."""
+    ActionUI's, and those of what is compiled into the library."""
 
     library_dir = None
 
@@ -228,6 +230,8 @@ class build_ext_with_library(build_ext):
     license_files = [
         ('LICENSE.txt', 'libActionUI-LICENSE.txt'),
         ('LICENSE-MaterialSymbols.txt', 'libActionUI-LICENSE-MaterialSymbols.txt'),
+        ('LICENSE-RichText.txt', 'libActionUI-LICENSE-RichText.txt'),
+        ('LICENSE-AsyncImageCache.txt', 'libActionUI-LICENSE-AsyncImageCache.txt'),
     ]
 
     def run(self):
@@ -261,9 +265,10 @@ def linux_setup_arguments():
         has_licenses = all(os.path.isfile(os.path.join(d, source))
                            for source, _ in build_ext_with_library.license_files)
         if has_library and has_headers and not has_licenses:
-            # A package made before it carried the icons' license: name it rather than
-            # quietly trying the next folder.
-            print(f"Error: {d} has no LICENSE.txt or LICENSE-MaterialSymbols.txt; make the\n"
+            # A package made before it carried all the licenses: name it rather than quietly
+            # trying the next folder.
+            names = ', '.join(source for source, _ in build_ext_with_library.license_files)
+            print(f"Error: {d} does not have all of {names}; make the\n"
                   "library package again with Scripts/make-linux-library-package.sh.",
                   file=sys.stderr)
             sys.exit(1)
@@ -276,7 +281,7 @@ def linux_setup_arguments():
             "Error: could not locate the ActionUI library package.\n"
             "\n"
             "Provide the path to the unpacked actionui-<version>-linux-<arch> folder\n"
-            "(lib/libActionUI.so, include/..., LICENSE.txt, LICENSE-MaterialSymbols.txt)\n"
+            "(lib/libActionUI.so, include/... and its LICENSE files)\n"
             "using the ACTIONUI_LIBRARY_DIR environment variable:\n"
             "\n"
             "  ACTIONUI_LIBRARY_DIR=/path/to/actionui-0.9.0-linux-aarch64 pip install .\n"

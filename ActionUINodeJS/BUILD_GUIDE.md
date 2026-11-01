@@ -150,9 +150,10 @@ libadwaita and libsoup 3.
    ```
 
 The build copies `libActionUI.so` into `build/Release/` beside `actionui.node`, which finds it
-through its `$ORIGIN` rpath, with the library's licenses, `LICENSE.txt` and
-`LICENSE-MaterialSymbols.txt` (the Material Symbols icons compiled into the library, Apache 2.0);
-a copy of the addon for others to use should keep them.
+through its `$ORIGIN` rpath, with the library's licenses: `LICENSE.txt`,
+`LICENSE-MaterialSymbols.txt` (the Material Symbols icons compiled into the library, Apache 2.0),
+`LICENSE-RichText.txt` and `LICENSE-AsyncImageCache.txt` (the packages linked into it, Apache 2.0).
+A copy of the addon for others to use should keep them.
 
 While `appRun()` blocks in the GTK main loop, a GLib source keeps Node's event loop running: it
 watches libuv's backend file descriptor and wakes for libuv's timers, as the CFRunLoop observer,
