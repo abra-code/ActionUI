@@ -43,8 +43,8 @@ add-on's element type validate. The built-in schemas take precedence on a name
 collision. The option is repeatable.
 
 Add-on schemas are also found without --schema-dir in:
-  - Schemas/add-ons/<AddOn>/ in the verifier's resource bundle (placed there by a
-    packaging step), and
+  - add-ons/<AddOn>/ beside the built-in schemas (placed there by a packaging
+    step), and
   - Add-ons/<AddOn>/Schemas/ of the ActionUI checkout this tool was built from.
 Explicit --schema-dir directories take precedence over those.
 

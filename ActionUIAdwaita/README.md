@@ -88,6 +88,23 @@ It writes `~/.local/share/applications/<applicationID>.desktop` and copies the i
 
 The desktop picks the entry up within seconds. A changed icon is another matter in GNOME: its Apps grid can keep showing the icon it first drew until the next login, even after the entry is uninstalled and installed again, while the dock shows the new icon at once. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the folder's program (the executable named after the folder, else its only executable). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG.
 
+## Checking documents
+
+`actionui-verify` checks ActionUI JSON documents against the element schemas, with the same options, output and exit codes as on macOS and as the Python verifier in `Tools/verifier`. It needs no GTK, so it also runs on a machine with no desktop:
+
+```sh
+swift run --package-path Apps/ActionUIVerifier actionui-verify -r ActionUISwiftTestApp/Resources
+```
+
+A self-contained copy, which runs where Swift is not installed:
+
+```sh
+swift build -c release --static-swift-stdlib --package-path Apps/ActionUIVerifier
+Scripts/make-linux-verifier-package.sh Apps/ActionUIVerifier/.build/release <output folder>
+```
+
+The script makes `actionui-verify-<version>-linux-<arch>/` and its `.tar.gz`: the stripped tool in `bin/`, the element schemas and the add-ons' in `share/actionui/schemas/`. Unpack it anywhere; it needs only the C and C++ libraries, no older than those of the machine that built it (a build on Debian 13 needs glibc 2.38).
+
 ## Tests
 
 ```sh
