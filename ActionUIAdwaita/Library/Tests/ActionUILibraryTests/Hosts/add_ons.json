@@ -1,0 +1,5 @@
+{"type": "VStack", "children": [
+    {"type": "RichText", "id": 2, "properties": {"markdown": "# Hello"}},
+    {"type": "CachedImage", "id": 3, "properties": {"frame": {"width": 100, "height": 100}}},
+    {"type": "Diff", "id": 4}
+]}

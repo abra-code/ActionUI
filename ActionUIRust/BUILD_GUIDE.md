@@ -84,8 +84,8 @@ Requirements: Rust 1.85 or later, a C linker (`cc`, as for any Rust program), an
 
    ```sh
    Scripts/prepare-linux-symbols.sh
-   swift build -c release --static-swift-stdlib --product ActionUI
-   Scripts/make-linux-library-package.sh .build/release <output folder>
+   swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Library --product ActionUI
+   Scripts/make-linux-library-package.sh ActionUIAdwaita/Library/.build/release <output folder>
    ```
 
    and unpack `actionui-<version>-linux-<arch>.tar.gz`.

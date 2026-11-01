@@ -20,7 +20,7 @@
 # library is self-contained: it must be built with the Swift runtime linked in, and then needs only
 # the system's GTK 4, libadwaita and libsoup 3 (and WebKitGTK 6.0 for WebView, loaded when shown).
 # Build it with
-#   swift build -c release --static-swift-stdlib --product ActionUI
+#   swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Library --product ActionUI
 # A library linked to a toolchain's Swift runtime is refused. The copy is stripped of its symbols
 # (llvm-objcopy from the Swift toolchain, else the system's objcopy or strip; left as it is, with a
 # note, when none is found).
@@ -38,7 +38,7 @@
 # private Swift runtime and libdispatch, so the program's main queue and ActionUI's would differ.
 #
 # Usage: Scripts/make-linux-library-package.sh <products folder> <output folder>
-#   products folder: where swift build put libActionUI.so (Linux), such as .build/release
+#   products folder: where swift build put libActionUI.so (Linux), such as ActionUIAdwaita/Library/.build/release
 #   output folder:   where the folder and the tarball are made; ones already there are replaced
 # Exit status: 0 made, 1 a step failed, 64 bad arguments.
 

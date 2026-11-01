@@ -96,19 +96,26 @@ swift test
 
 The renderer tests open real windows, so they need a graphical session (Wayland or X11); without one they skip themselves. The layout tests compare frames with recordings taken from SwiftUI (`LayoutParity/`).
 
+`libActionUI.so` has tests of its own, Python programs run against the built library, in the package that builds it:
+
+```sh
+swift build --package-path ActionUIAdwaita/Library
+swift test --package-path ActionUIAdwaita/Library
+```
+
 ## Using it from a program
 
 - **Swift:** depend on the ActionUI package's `ActionUIStatic` product, which links the same `ActionUI` module into the program. That module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents. The Swift adapter (`ActionUISwiftAdapter`), which offers the same calls as on Apple, is a target of the package, for the programs inside it such as the demo; it is not a product on Linux yet. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`, which carries a second, private Swift runtime and libdispatch (its main queue would not be the program's).
-- **C, Python, Node.js, Rust and other languages:** load `libActionUI.so`, which holds the renderer, the C adapter (`ActionUIC.h`) and the application functions (`ActionUIApp.h`), with the same names and signatures as on macOS. Built with the Swift runtime inside it, it needs no Swift installation:
+- **C, Python, Node.js, Rust and other languages:** load `libActionUI.so`, which holds the renderer, the add-ons (RichText and CachedImage, registered on first use, so a document just uses them), the C adapter (`ActionUIC.h`) and the application functions (`ActionUIApp.h`), with the same names and signatures as on macOS. Built with the Swift runtime inside it, it needs no Swift installation:
 
   ```sh
-  swift build -c release --static-swift-stdlib --product ActionUI   # .build/release/libActionUI.so
-  Scripts/make-linux-library-package.sh .build/release <output folder>
+  swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Library --product ActionUI
+  Scripts/make-linux-library-package.sh ActionUIAdwaita/Library/.build/release <output folder>
   ```
 
   The script makes `actionui-<version>-linux-<arch>/` and its `.tar.gz`: the stripped library in `lib/`, the licenses (`LICENSE.txt`, and `LICENSE-MaterialSymbols.txt` for the symbol icons), a `pkg-config` file (`lib/pkgconfig/actionui.pc`, valid wherever the folder is unpacked), and the headers at the include paths the Apple frameworks use (`<ActionUICAdapter/ActionUIC.h>`, `<ActionUIAppKitApplication/ActionUIApp.h>`, and the remote server's `<ActionUIRemote/ActionUIRemote-Swift.h>`, the one Swift generates). It is a build input, not an installation: each program ships its own copy of `libActionUI.so` beside its binary (for Python and Node.js, beside the compiled extension) and links with `-Wl,-rpath,'$ORIGIN'`, so it stays self-contained, as an app bundle is on macOS. A host that loads the library by path, as `ctypes` does, needs no link flags.
 
-  `Tests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python and Node.js packages and the Rust crates build on Linux against the library package (`ActionUIPython/BUILD_GUIDE.md`, `ActionUINodeJS/BUILD_GUIDE.md` and `ActionUIRust/BUILD_GUIDE.md`, "Building on Linux").
+  `Library/Tests/ActionUILibraryTests/Hosts/temperature_converter.py` is a complete Python host using only `ctypes`. The Python and Node.js packages and the Rust crates build on Linux against the library package (`ActionUIPython/BUILD_GUIDE.md`, `ActionUINodeJS/BUILD_GUIDE.md` and `ActionUIRust/BUILD_GUIDE.md`, "Building on Linux").
 
 ## What is there and what is not yet
 
@@ -116,7 +123,7 @@ The renderer tests open real windows, so they need a graphical session (Wayland 
 - **Chart:** draws every mark with axes, legends and series colors, comparable to Swift Charts. Selection, scrolling and annotations are not available yet; `Documentation/Schemas/Chart.md` lists what differs.
 - **ShareLink:** Linux desktops have no share sheet, so its button opens a menu of the ways GNOME shares a link: **Copy Link**, and **Send by Email...**, which opens the user's mail program with the subject, the message and the URL (through the desktop's Email portal, else a `mailto:` link). When no email app can be opened, an alert says so.
 - **Application functions** (`actionUIApp*`): windows, the lifecycle handlers, the resource folder and the menu bar's commands (in each window's primary menu) work. The standalone alert and the open and save panels are libadwaita's alert dialog and GTK's file dialog, modal to the active window; each call blocks until the user answers while the main loop keeps running, and takes the macOS configuration keys, ignoring those GTK has no counterpart for (an alert's `style`, a panel's `message`, `showsHiddenFiles`, `treatsFilePackagesAsDirectories`, `canCreateDirectories`; a panel allowing files and folders chooses files). Called before the application runs, they log why and return NULL. **The remote server** (`ActionUIRemote/PROTOCOL.md`) runs as on macOS, its socket by default in `$XDG_RUNTIME_DIR` (else `$TMPDIR`, else `/tmp`); `actionui.contentSizeLimits` measures a window on screen (`ActionUIModel.contentSizeLimits`, null for a window that is only loaded), as do the C function `actionUIGetContentSizeLimits` and the Python, Node.js and Rust `content_size_limits` over it.
-- **Add-ons:** RichText and CachedImage work in a Swift program that links them and registers them (`Add-ons/README.md`). They are not in the viewer, the demo or `libActionUI.so` yet. Chat, Diff and QuickLook are not on Linux yet. An element without a renderer shows the placeholder.
+- **Add-ons:** RichText and CachedImage are in `libActionUI.so`, and work in a Swift program that links them and registers them (`Add-ons/README.md`). They are not in the viewer or the demo yet. Chat, Diff and QuickLook are not on Linux yet. An element without a renderer shows the placeholder.
 - **Look:** libadwaita's controls, header bar and dark style. SF Symbols may not be shipped off Apple platforms, so SF Symbol names show the Material Symbols Rounded icons Android and Web show, from the same map (`sf_to_material.map`), at each symbol's fill and weight, in the text color; a name the map lacks shows the missing-icon picture. The icons are compiled into the library; their license (Apache 2.0) is `LICENSE-MaterialSymbols.txt` in the library package and the demo bundle. The controls' own icons (menus, the sidebar button, steppers) stay Adwaita's, as in other GNOME apps.
 - **Closing the last window:** the user's close ends the application (after asking the shouldTerminate handler), as GNOME applications do: with no window, a Linux application has no Dock icon or menu bar to quit it from. The host's close (`closeWindow`) leaves it running, as on macOS, until the host presents another window or calls `terminate`, so a host can close one window before it opens the next.
 

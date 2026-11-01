@@ -5,6 +5,8 @@
  and the placeholder for element types that have no GTK renderer yet.
 */
 
+import CLinkedAddOns
+
 extension ActionUIRegistry {
     // The GTK renderers of the built-in element types; the others render as the placeholder.
     static let builtInAdwaitaRenderers: [String: any ActionUIAdwaitaRenderer.Type] = [
@@ -87,6 +89,7 @@ extension ActionUIRegistry {
         renderers = Self.builtInAdwaitaRenderers
         Self.typesReportedMissing = []
         ActionUIRendererHooks.markdown = MarkdownText.attributedString(markdown:)
+        ActionUIRendererHooks.registerLinkedAddOns = actionUIRegisterLinkedAddOns
         let parseMarkdown: (String, String?, any ActionUILogger) -> Any? = { value, contentType, _ in
             contentType == "markdown" ? MarkdownText.attributedString(markdown: value) : nil
         }

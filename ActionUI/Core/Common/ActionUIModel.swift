@@ -167,9 +167,31 @@ public class ActionUIModel {
         }
     }
 
+    // The model of a window about to load a document: every document starts here, so the first one is the first use.
+    private func windowModelForLoading(_ windowUUID: String) -> WindowModel {
+        registerLinkedAddOnsOnce()
+        return windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+    }
+
+    #if os(Linux)
+    private var linkedAddOnsRegistered = false
+    #endif
+
+    // The add-ons linked into libActionUI.so, whose host cannot call their register(). Here and not in init, which
+    // runs inside `shared`'s one-time initializer: a register() using ActionUIModel.shared there would hang, with
+    // no message. The registry goes first: it installs the hook as it starts.
+    private func registerLinkedAddOnsOnce() {
+        #if os(Linux)
+        guard !linkedAddOnsRegistered else { return }
+        linkedAddOnsRegistered = true
+        _ = ActionUIRegistry.shared
+        ActionUIRendererHooks.registerLinkedAddOns()
+        #endif
+    }
+
     // Load a view description from JSON or plist data for a specific windowUUID
     internal func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
-        let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+        let windowModel = windowModelForLoading(windowUUID)
         let element = try windowModel.loadDescription(from: data, format: format)
         windowModels[windowUUID] = windowModel
         return element
@@ -177,7 +199,7 @@ public class ActionUIModel {
     
     // Load a view description from a dictionary for a specific windowUUID
     internal func loadDescription(from dict: [String: Any], windowUUID: String) throws -> ActionUIElement {
-        let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+        let windowModel = windowModelForLoading(windowUUID)
         let element = try windowModel.loadDescription(from: dict)
         windowModels[windowUUID] = windowModel
         return element
@@ -195,7 +217,7 @@ public class ActionUIModel {
 
     // Cache a view description as a binary plist to a specified URL
     internal func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
-        let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+        let windowModel = windowModelForLoading(windowUUID)
         let element = try windowModel.loadDescription(from: data, format: format)
         let plistData = try PropertyListEncoder().encode(element)
         try plistData.write(to: url)

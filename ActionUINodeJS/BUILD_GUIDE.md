@@ -136,8 +136,8 @@ libadwaita and libsoup 3.
 
    ```bash
    Scripts/prepare-linux-symbols.sh
-   swift build -c release --static-swift-stdlib --product ActionUI
-   Scripts/make-linux-library-package.sh .build/release <output folder>
+   swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Library --product ActionUI
+   Scripts/make-linux-library-package.sh ActionUIAdwaita/Library/.build/release <output folder>
    ```
 
    and unpack `actionui-<version>-linux-<arch>.tar.gz` where the build can read it.

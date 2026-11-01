@@ -406,11 +406,12 @@ func linuxPackage() -> Package {
 Package(
     name: "ActionUI",
     products: [
-        // A shared library, so programs in other languages load it and call its C functions.
-        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUI", "ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
-        // The same module linked into what uses it, for add-ons and Swift programs: one process has
-        // one Swift runtime, and an add-on links no ActionUI of its own.
+        // The ActionUI module linked into what uses it, for add-ons and Swift programs: one process has
+        // one Swift runtime, and an add-on links no ActionUI of its own. libActionUI.so, for programs
+        // in other languages, is a package of its own: ActionUIAdwaita/Library.
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
+        // What that library adds: the C adapter, the application functions and the remote server.
+        .library(name: "ActionUIStaticHosts", targets: ["ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
         // libadwaita's and GTK's C API, so an add-on sees GtkWidget as ActionUI's module does.
         .library(name: "CAdwaita", targets: ["CAdwaita"]),
     ],
@@ -432,11 +433,16 @@ Package(
         // were not generated (Scripts/prepare-linux-symbols.sh).
         .target(
             name: "ActionUI",
-            dependencies: ["CAdwaita", "CSoup", "CSymbolResource"],
+            dependencies: ["CAdwaita", "CSoup", "CSymbolResource", "CLinkedAddOns"],
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
             sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"],
             plugins: ["ActionUISymbolResourceCheck"]
+        ),
+        // Reaches the add-ons linked into libActionUI.so, in a package ActionUI cannot depend on.
+        .target(
+            name: "CLinkedAddOns",
+            path: "ActionUIAdwaita/CLinkedAddOns"
         ),
         // The Material Symbols icons that stand in for SF Symbols, a GResource in a section of its
         // own, generated before the build by Scripts/prepare-linux-symbols.sh (empty without it).
@@ -546,9 +552,8 @@ Package(
             name: "ActionUIAdwaitaTests",
             dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer", "ActionUIAdwaitaDemo", "ActionUIAdwaitaAddOnFixture"],
             path: "ActionUIAdwaita/Tests",
-            // Programs in other languages that the tests run (the Python host), the video
-            // VideoPlayer plays, and the add-on fixture, a target of its own.
-            exclude: ["AddOnFixture", "Hosts", "Media"]
+            // The video VideoPlayer plays, and the add-on fixture, a target of its own.
+            exclude: ["AddOnFixture", "Media"]
         ),
         // The remote server's tests: the codec, the socket server, the shared server and the Python
         // client against it.

@@ -38,9 +38,12 @@ base View modifiers around the widget, as it does for a built-in element, less t
 in `handledBaseModifiers`, which it reads in its `properties` and applies itself. The contract covers
 elements that display: firing an action from a user's input is not part of it yet.
 
-An add-on's Linux target depends on the `ActionUIStatic` product, not on `ActionUI`, which is the
-shared library for programs in other languages: one process has one Swift runtime, so everything
-written in Swift links into one binary. The `CAdwaita` product gives it GTK's and libadwaita's C API
+An add-on's Linux target depends on the `ActionUIStatic` product: one process has one Swift runtime,
+so everything written in Swift links into one binary. Programs in other languages cannot call
+`register()`, so `libActionUI.so`, built by the package in `ActionUIAdwaita/Library`, links the add-ons
+and registers them before the first document loads. To add one there: a dependency in its
+`Package.swift` and a line in `Sources/ActionUILibrary/LinkedAddOns.swift`.
+The `CAdwaita` product gives it GTK's and libadwaita's C API
 at the versions ActionUI supports. Do not depend on a Documentation target there: `Bundle.module`
 needs full Foundation, and with it ICU's data, which the Linux build leaves out.
 
