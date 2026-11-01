@@ -340,7 +340,7 @@
 			repositoryURL = "https://github.com/abra-code/AsyncImageCache";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.0;
+				minimumVersion = 0.2.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

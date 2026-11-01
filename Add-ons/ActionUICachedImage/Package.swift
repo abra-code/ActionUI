@@ -33,8 +33,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
-        // 0.2.0 is its first version with the Linux port; 0.2.1 keeps local images out of the disk cache.
-        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.1"),
+        // 0.2.0 is its first version with the Linux port; 0.2.1 keeps local images out of the disk cache;
+        // 0.2.3 refuses an image that declares too large a size.
+        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.3"),
     ],
     targets: [
         .target(
@@ -76,7 +77,8 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
         // AsyncImageCache is consumed as a versioned release.
-        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.1.0"),
+        // 0.2.3 refuses an image that declares too large a size.
+        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.2.3"),
     ],
     targets: [
         .target(
