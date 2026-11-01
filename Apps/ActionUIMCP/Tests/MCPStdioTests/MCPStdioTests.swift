@@ -4,18 +4,35 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if os(Linux)
+import ActionUI
+import Glibc
+#endif
 import Testing
 @testable import MCPStdio
 
+/// What a host passes the server to parse JSON text, on each platform.
+private let parseJSON: @Sendable (String) -> JSONValue? = { text in
+    #if os(Linux)
+    return (try? ActionUIJSON.value(from: text)).map { JSONValue(any: $0) }
+    #else
+    return JSONValue.parsedByFoundation(text)
+    #endif
+}
+
 /// Collects the server's output lines.
 private final class Sink: @unchecked Sendable {
-    private let lock = NSLock()
+    private let lock = MCPLock()
     private var lines: [JSONValue] = []
 
     func append(_ data: Data) {
-        let object = try? JSONSerialization.jsonObject(with: data)
-        lock.withLock { lines.append(JSONValue(any: object)) }
+        let value = parseJSON(String(decoding: data, as: UTF8.self)) ?? .null
+        lock.withLock { lines.append(value) }
     }
 
     var messages: [JSONValue] { lock.withLock { lines } }
@@ -44,7 +61,7 @@ private actor Gate {
 
 private func makeServer(tools: [MCPTool]) -> (MCPServer, Sink) {
     let sink = Sink()
-    let server = MCPServer(name: "test", version: "1", tools: tools, output: { sink.append($0) })
+    let server = MCPServer(name: "test", version: "1", tools: tools, parse: parseJSON, output: { sink.append($0) })
     return (server, sink)
 }
 
@@ -162,13 +179,109 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
 
 @Test func jsonValueRoundTripsNumbersAndBooleans() throws {
     let text = #"{"i":3,"d":2.5,"b":true,"n":null,"s":"x","a":[1,false]}"#
-    let value = JSONValue(any: try JSONSerialization.jsonObject(with: Data(text.utf8)))
+    let value = try #require(parseJSON(text))
     #expect(value["i"] == .int(3))
     #expect(value["d"] == .double(2.5))
     #expect(value["b"] == .bool(true))
     #expect(value["n"] == .null)
     #expect(value["a"] == [1, false])
+    // Through the native form and back, null included.
+    #expect(JSONValue(any: value.any) == value)
 }
+
+@Test func otherNumberTypesKeepTheirValue() {
+    #expect(JSONValue(any: Float(0.5)) == .double(0.5))
+    #expect(JSONValue(any: Int64(7)) == .int(7))
+    #expect(JSONValue(any: UInt8(3)) == .int(3))
+}
+
+@Test func readerHandsOverLinesHoweverTheyArrive() async throws {
+    var ends: [Int32] = [0, 0]
+    #expect(pipe(&ends) == 0)
+    let (reader, writer) = (ends[0], ends[1])
+    let (server, sink) = makeServer(tools: [echoTool])
+    let finished = Gate()
+    server.startReading(from: reader) { Task { await finished.open() } }
+    func send(_ text: String) {
+        var bytes = Array(text.utf8)[...]
+        while !bytes.isEmpty {
+            let written = bytes.withUnsafeBytes { write(writer, $0.baseAddress, $0.count) }
+            #expect(written > 0)
+            guard written > 0 else { return }
+            bytes = bytes.dropFirst(written)
+        }
+    }
+    let ping = { (id: Int) in line(["jsonrpc": "2.0", "id": .int(id), "method": "ping"]) }
+    // Two lines at once, and a blank one, which is no message.
+    send(ping(1) + "\n\n" + ping(2) + "\n")
+    // One line in two pieces, ended with CR and LF.
+    let third = ping(3)
+    send(String(third.prefix(10)))
+    try await Task.sleep(nanoseconds: 20_000_000)
+    send(String(third.dropFirst(10)) + "\r\n")
+    // A line longer than one read.
+    let long = String(repeating: "x", count: 200_000)
+    send(line(["jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": ["name": "echo", "arguments": ["text": .string(long)]]]) + "\n")
+    // A last line with no newline.
+    send(ping(5))
+    close(writer)
+    await finished.wait()
+    close(reader)
+    await server.waitUntilIdle()
+    server.flush()
+    #expect(sink.messages.count == 5)
+    for id in [1, 2, 3, 5] {
+        #expect(sink.response(id: .int(id))?["result"] == [:])
+    }
+    #expect(sink.response(id: 4)?["result"]?["structuredContent"]?["arguments"]?["text"] == .string(long))
+}
+
+@Test func serializedWritesCompactJSONWithSortedKeys() {
+    let value: JSONValue = ["b": [1, 2.5, -0.25, 1e-07, 3.0, true, nil], "a": "x/y", "c": [:], "d": []]
+    #expect(value.serialized() == #"{"a":"x/y","b":[1,2.5,-0.25,1e-07,3,true,null],"c":{},"d":[]}"#)
+}
+
+@Test func serializedEscapesStrings() {
+    let text = "quote \" back \\ tab \t line \n return \r feed \u{0C} bell \u{08} low \u{01} high \u{1F} del \u{7F} e\u{301} \u{1F600}"
+    let written = JSONValue.string(text).serialized()
+    #expect(written == #""quote \" back \\ tab \t line \n return \r feed \f bell \b low \u0001 high \u001f del "# + "\u{7F} e\u{301} \u{1F600}\"")
+    #expect(parseJSON("[" + written + "]")?.array?.first == .string(text))
+}
+
+@Test func serializedWritesNoNumberJSONCannotHold() {
+    #expect(JSONValue.array([.double(.nan), .double(.infinity), .double(-.infinity), 1]).serialized() == "[null,null,null,1]")
+}
+
+@Test func serializedFragments() {
+    #expect(JSONValue.null.serialized() == "null")
+    #expect(JSONValue.int(-7).serialized() == "-7")
+    #expect(JSONValue.string("").serialized() == "\"\"")
+}
+
+#if !os(Linux)
+/// The text JSONSerialization wrote before JSONValue wrote its own.
+@Test func serializedMatchesJSONSerialization() throws {
+    let values: [JSONValue] = [
+        ["jsonrpc": "2.0", "id": 1, "result": ["content": [["type": "text", "text": "a/b \"c\"\n\u{1F600}\u{7F}\u{01}"]], "isError": false]],
+        [2.5, 3.0, -1.5, 100, 1234567.25, 0, -0.5, -0.0, 1e21],
+        ["empty": [:], "list": [], "null": nil, "yes": true, "no": false],
+    ]
+    for value in values {
+        let data = try JSONSerialization.data(withJSONObject: value.any, options: [.sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed])
+        #expect(value.serialized() == String(decoding: data, as: UTF8.self))
+    }
+}
+
+/// JSONSerialization writes 17 digits (0.1 as 0.10000000000000001), JSONValue the shortest text
+/// that reads back as the same number.
+@Test func serializedDoublesReadBackExactly() throws {
+    let numbers = [0.1, 0.30000000000000004, 1e-07, 1e16, 1.5e300, 5e-324, 1.2345678901234568e+17]
+    let text = JSONValue.array(numbers.map(JSONValue.double)).serialized()
+    #expect(text.hasPrefix("[0.1,0.30000000000000004,1e-07,"))
+    let parsed = try #require(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [Double])
+    #expect(parsed == numbers)
+}
+#endif
 
 // MARK: - Modern era (2026-07-28)
 
@@ -260,7 +373,7 @@ private let docs = MCPResources(
 
 @Test func resourcesAreListedAndRead() {
     let sink = Sink()
-    let server = MCPServer(name: "test", version: "1", tools: [], resources: docs, output: { sink.append($0) })
+    let server = MCPServer(name: "test", version: "1", tools: [], resources: docs, parse: parseJSON, output: { sink.append($0) })
     server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": ["protocolVersion": "2025-11-25"]]))
     server.handle(line: line(["jsonrpc": "2.0", "id": 2, "method": "resources/list"]))
     server.handle(line: line(["jsonrpc": "2.0", "id": 3, "method": "resources/templates/list"]))

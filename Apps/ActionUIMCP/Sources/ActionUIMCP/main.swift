@@ -147,6 +147,7 @@ let server = MCPServer(
         """,
     tools: makeTools(host: host, label: environment["ACTIONUI_MCP_LABEL"]),
     resources: DocsResources.make(),
+    parse: JSONValue.parsedByFoundation,
     output: writeMessage)
 
 /// Ends the session once: answers every running call with a cancellation, hands kept windows to a

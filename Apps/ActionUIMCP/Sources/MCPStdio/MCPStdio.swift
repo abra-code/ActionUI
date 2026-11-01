@@ -5,11 +5,13 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // MCPStdio.swift - a small MCP (Model Context Protocol) server core: JSON-RPC 2.0 over
-// newline-delimited stdio, tools only. Foundation only and no host-specific code, so the file can
-// be copied into another server as is.
+// newline-delimited stdio, tools only. Foundation only (FoundationEssentials on Linux) and no
+// host-specific code, so the file can be copied into another server as is. Linux has no
+// JSONSerialization, so the host passes the function that parses JSON text; JSONValue writes its
+// own text.
 //
 // Shape (after replay's concurrent dispatcher, in Swift concurrency):
-// - one background thread reads stdin a line at a time;
+// - one background queue reads stdin a line at a time;
 // - each tools/call runs as its own Task, so a tool that waits for a person does not stop the
 //   server from answering ping, tools/list or other calls; responses may complete out of order,
 //   which JSON-RPC allows;
@@ -28,13 +30,59 @@
 // A request without `_meta` is served under the revision `initialize` negotiated. structuredContent
 // and outputSchema are sent only to revisions that have them.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+import Dispatch
+
+// MARK: - Lock
+
+/// A mutual-exclusion lock over a pthread mutex, not reentrant: FoundationEssentials has no NSLock,
+/// and Synchronization's Mutex needs macOS 15. The mutex lives in allocated memory because a pthread
+/// mutex must not move, and Swift may move a stored value.
+public final class MCPLock: @unchecked Sendable {
+    private let mutex: UnsafeMutablePointer<pthread_mutex_t>
+
+    public init() {
+        mutex = UnsafeMutablePointer<pthread_mutex_t>.allocate(capacity: 1)
+        mutex.initialize(to: pthread_mutex_t())
+        pthread_mutex_init(mutex, nil)
+    }
+
+    deinit {
+        pthread_mutex_destroy(mutex)
+        mutex.deinitialize(count: 1)
+        mutex.deallocate()
+    }
+
+    public func lock() {
+        pthread_mutex_lock(mutex)
+    }
+
+    public func unlock() {
+        pthread_mutex_unlock(mutex)
+    }
+
+    public func withLock<Value>(_ body: () throws -> Value) rethrows -> Value {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
+}
 
 // MARK: - JSONValue
 
-/// A JSON value that can cross concurrency domains. Built from and turned back into the
-/// Foundation objects JSONSerialization uses; integers and doubles stay distinct, so an id or a
-/// count echoes back exactly as it came in.
+/// A JSON value that can cross concurrency domains. Built from and turned back into the native
+/// objects a JSON parser gives: on Apple the Foundation objects of JSONSerialization, on Linux
+/// Bool, Int, Double, String, [Any] and [String: Any]. Integers and doubles stay distinct, so an id
+/// or a count echoes back exactly as it came in.
 public enum JSONValue: Sendable, Equatable {
     case null
     case bool(Bool)
@@ -44,9 +92,25 @@ public enum JSONValue: Sendable, Equatable {
     case array([JSONValue])
     case object([String: JSONValue])
 
-    /// Converts a JSONSerialization result. Anything that is not JSON becomes null.
+    /// Converts a parser's result. Anything that is not JSON becomes null, as does a parser's own
+    /// null value on Linux, which this file does not know.
     public init(any value: Any?) {
         switch value {
+        #if os(Linux)
+        case nil:
+            self = .null
+        case let flag as Bool:
+            self = .bool(flag)
+        case let number as Int:
+            self = .int(number)
+        case let number as Double:
+            self = .double(number)
+        // Other number types, which an NSNumber on Apple holds too: an element's value may be one.
+        case let number as any BinaryInteger:
+            self = Int(exactly: number).map { .int($0) } ?? .double(Double(number))
+        case let number as any BinaryFloatingPoint:
+            self = .double(Double(number))
+        #else
         case nil, is NSNull:
             self = .null
         case let number as NSNumber:
@@ -57,6 +121,7 @@ public enum JSONValue: Sendable, Equatable {
             } else {
                 self = .int(number.intValue)
             }
+        #endif
         case let string as String:
             self = .string(string)
         case let array as [Any]:
@@ -68,10 +133,17 @@ public enum JSONValue: Sendable, Equatable {
         }
     }
 
-    /// The Foundation form, for JSONSerialization.
+    /// The native form, as `init(any:)` reads it. JSON null is NSNull on Apple and a nil Any? on
+    /// Linux, which has no NSNull.
     public var any: Any {
         switch self {
-        case .null: return NSNull()
+        case .null:
+            #if os(Linux)
+            let none: Any? = nil
+            return none as Any
+            #else
+            return NSNull()
+            #endif
         case .bool(let value): return value
         case .int(let value): return value
         case .double(let value): return value
@@ -114,17 +186,95 @@ public enum JSONValue: Sendable, Equatable {
         object?[key]
     }
 
-    /// Compact serialization with sorted keys, so output is deterministic.
+    /// Compact serialization with sorted keys, so output is deterministic. A number JSON cannot
+    /// hold (NaN or an infinity) is written as null.
     public func serialized() -> String {
-        // Top-level fragments (a bare string or number) need .fragmentsAllowed.
-        guard let data = try? JSONSerialization.data(withJSONObject: any,
-                                                     options: [.sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed]),
-              let text = String(data: data, encoding: .utf8) else {
-            return "null"
+        var output: [UInt8] = []
+        write(to: &output)
+        return String(decoding: output, as: UTF8.self)
+    }
+
+    private func write(to output: inout [UInt8]) {
+        switch self {
+        case .null:
+            output.append(contentsOf: "null".utf8)
+        case .bool(let value):
+            output.append(contentsOf: (value ? "true" : "false").utf8)
+        case .int(let value):
+            output.append(contentsOf: String(value).utf8)
+        case .double(let value):
+            guard value.isFinite else {
+                output.append(contentsOf: "null".utf8)
+                return
+            }
+            // A whole number without its ".0", as JSONSerialization writes it.
+            let text = value.description
+            output.append(contentsOf: text.hasSuffix(".0") ? text.utf8.dropLast(2) : text.utf8[...])
+        case .string(let value):
+            Self.write(value, to: &output)
+        case .array(let items):
+            output.append(UInt8(ascii: "["))
+            for (position, item) in items.enumerated() {
+                if position > 0 { output.append(UInt8(ascii: ",")) }
+                item.write(to: &output)
+            }
+            output.append(UInt8(ascii: "]"))
+        case .object(let members):
+            output.append(UInt8(ascii: "{"))
+            var first = true
+            for (key, member) in members.sorted(by: { $0.key.utf8.lexicographicallyPrecedes($1.key.utf8) }) {
+                if !first { output.append(UInt8(ascii: ",")) }
+                first = false
+                Self.write(key, to: &output)
+                output.append(UInt8(ascii: ":"))
+                member.write(to: &output)
+            }
+            output.append(UInt8(ascii: "}"))
         }
-        return text
+    }
+
+    private static let hexDigits = Array("0123456789abcdef".utf8)
+
+    /// A string with its quote, backslash and control characters escaped; "/" stays as it is.
+    private static func write(_ text: String, to output: inout [UInt8]) {
+        output.append(UInt8(ascii: "\""))
+        for byte in text.utf8 {
+            switch byte {
+            case UInt8(ascii: "\""), UInt8(ascii: "\\"):
+                output.append(UInt8(ascii: "\\"))
+                output.append(byte)
+            case 0x08:
+                output.append(contentsOf: #"\b"#.utf8)
+            case 0x09:
+                output.append(contentsOf: #"\t"#.utf8)
+            case 0x0A:
+                output.append(contentsOf: #"\n"#.utf8)
+            case 0x0C:
+                output.append(contentsOf: #"\f"#.utf8)
+            case 0x0D:
+                output.append(contentsOf: #"\r"#.utf8)
+            case 0..<0x20:
+                output.append(contentsOf: #"\u00"#.utf8)
+                output.append(hexDigits[Int(byte >> 4)])
+                output.append(hexDigits[Int(byte & 0xF)])
+            default:
+                output.append(byte)
+            }
+        }
+        output.append(UInt8(ascii: "\""))
     }
 }
+
+#if !os(Linux)
+extension JSONValue {
+    /// Parses JSON text with JSONSerialization, for `MCPServer`'s `parse`; nil for text that is not
+    /// an object or array in JSON. Linux has no JSONSerialization: a host there passes its own.
+    public static func parsedByFoundation(_ text: String) -> JSONValue? {
+        guard let parsed = try? JSONSerialization.jsonObject(with: Data(text.utf8)) else { return nil }
+        return JSONValue(any: parsed)
+    }
+}
+#endif
 
 extension JSONValue: ExpressibleByNilLiteral, ExpressibleByBooleanLiteral, ExpressibleByIntegerLiteral,
                      ExpressibleByFloatLiteral, ExpressibleByStringLiteral, ExpressibleByArrayLiteral,
@@ -308,26 +458,32 @@ public final class MCPServer: @unchecked Sendable {
     private let tools: [MCPTool]
     private let toolsByName: [String: MCPTool]
     private let resources: MCPResources?
+    private let parse: @Sendable (String) -> JSONValue?
     private let output: @Sendable (Data) -> Void
     private let writeQueue = DispatchQueue(label: "MCPServer.output")
 
     // Guarded by `lock`.
-    private let lock = NSLock()
+    private let lock = MCPLock()
     private var negotiatedVersion = MCPServer.legacyProtocolVersions[0]
     private var clientName: String?
     private var running: [String: Task<Void, Never>] = [:]
     private var cancelled: Set<String> = []
 
-    /// - Parameter output: receives each complete message (JSON plus newline), always on one serial
-    ///   queue. Use `reserveStandardOutput()` for the real stdout.
+    /// - Parameters:
+    ///   - parse: turns one line of JSON text into a value, nil for text that is not JSON.
+    ///     `JSONValue.parsedByFoundation` on Apple.
+    ///   - output: receives each complete message (JSON plus newline), always on one serial queue.
+    ///     Use `reserveStandardOutput()` for the real stdout.
     public init(name: String, version: String, instructions: String? = nil, tools: [MCPTool],
-                resources: MCPResources? = nil, output: @escaping @Sendable (Data) -> Void) {
+                resources: MCPResources? = nil, parse: @escaping @Sendable (String) -> JSONValue?,
+                output: @escaping @Sendable (Data) -> Void) {
         self.name = name
         self.version = version
         self.instructions = instructions
         self.tools = tools
         self.resources = resources
         self.toolsByName = Dictionary(tools.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        self.parse = parse
         self.output = output
     }
 
@@ -338,16 +494,16 @@ public final class MCPServer: @unchecked Sendable {
     /// Also ignores SIGPIPE, so a client that has gone away cannot kill the process mid-write.
     public static func reserveStandardOutput() -> @Sendable (Data) -> Void {
         signal(SIGPIPE, SIG_IGN)
-        fflush(stdout)
+        fflush(nil)
         let protocolFD = dup(STDOUT_FILENO)
         guard protocolFD >= 0 else {
-            FileHandle.standardError.write(Data("MCPServer: dup(stdout) failed (errno \(errno)); writing to stdout directly\n".utf8))
+            writeAll(Data("MCPServer: dup(stdout) failed (errno \(errno)); writing to stdout directly\n".utf8), to: STDERR_FILENO)
             return { data in writeAll(data, to: STDOUT_FILENO) }
         }
         // A child process (such as a future re-hosted viewer) must not inherit the protocol channel.
         _ = fcntl(protocolFD, F_SETFD, FD_CLOEXEC)
         if dup2(STDERR_FILENO, STDOUT_FILENO) < 0 {
-            FileHandle.standardError.write(Data("MCPServer: dup2(stderr, stdout) failed (errno \(errno)); stray output may corrupt the protocol\n".utf8))
+            writeAll(Data("MCPServer: dup2(stderr, stdout) failed (errno \(errno)); stray output may corrupt the protocol\n".utf8), to: STDERR_FILENO)
         }
         return { data in writeAll(data, to: protocolFD) }
     }
@@ -368,17 +524,48 @@ public final class MCPServer: @unchecked Sendable {
         }
     }
 
-    /// Starts the stdin reader on a background thread. `onEndOfInput` runs on that thread after
-    /// stdin closes, which is how a stdio client ends the session.
-    public func startReading(onEndOfInput: @escaping @Sendable () -> Void) {
-        let thread = Thread { [self] in
-            while let line = readLine(strippingNewline: true) {
-                handle(line: line)
-            }
+    /// Starts reading `descriptor` (stdin unless a test passes another) on a background queue of
+    /// its own. `onEndOfInput` runs on that queue after it closes, which is how a stdio client ends
+    /// the session. The descriptor stays open.
+    public func startReading(from descriptor: Int32 = STDIN_FILENO, onEndOfInput: @escaping @Sendable () -> Void) {
+        DispatchQueue(label: "MCPServer.reader").async { [self] in
+            readLines(from: descriptor)
             onEndOfInput()
         }
-        thread.name = "MCPServer.reader"
-        thread.start()
+    }
+
+    /// Handles `descriptor`'s lines until it closes. read(2), not readLine: readLine waits holding
+    /// the C library's lock on stdin, which exit() takes on Linux, so a process told to end while
+    /// its client keeps stdin open would hang.
+    private func readLines(from descriptor: Int32) {
+        var chunk = [UInt8](repeating: 0, count: 65_536)
+        var line: [UInt8] = []
+        while true {
+            let count = read(descriptor, &chunk, chunk.count)
+            if count < 0 && errno == EINTR { continue }
+            if count <= 0 { break }
+            var start = 0
+            while let newline = chunk[start..<count].firstIndex(of: UInt8(ascii: "\n")) {
+                line.append(contentsOf: chunk[start..<newline])
+                handle(bytes: line)
+                line.removeAll(keepingCapacity: true)
+                start = newline + 1
+            }
+            line.append(contentsOf: chunk[start..<count])
+        }
+        // A last line with no newline; a CR before a newline is whitespace to the parser.
+        if !line.isEmpty { handle(bytes: line) }
+    }
+
+    private func handle(bytes: [UInt8]) {
+        let text = String(decoding: bytes, as: UTF8.self)
+        #if os(Linux)
+        handle(line: text)
+        #else
+        // The reader's block does not return while the session lasts, so its queue's pool never
+        // drains: without this, what JSONSerialization autoreleases outlives every line.
+        autoreleasepool { handle(line: text) }
+        #endif
     }
 
     /// Cancels every running tool call; their responses are not sent.
@@ -407,12 +594,11 @@ public final class MCPServer: @unchecked Sendable {
     /// Handles one line of input. Public so tests can drive the server without a pipe.
     public func handle(line: String) {
         if line.allSatisfy({ $0.isWhitespace }) { return }
-        guard let data = line.data(using: .utf8),
-              let parsed = try? JSONSerialization.jsonObject(with: data) else {
+        guard let parsed = parse(line) else {
             send(errorResponse(id: .null, code: -32700, message: "parse error"))
             return
         }
-        guard case .object(let message) = JSONValue(any: parsed) else {
+        guard case .object(let message) = parsed else {
             send(errorResponse(id: .null, code: -32600, message: "invalid request"))
             return
         }
@@ -611,7 +797,11 @@ public final class MCPServer: @unchecked Sendable {
             } catch is CancellationError {
                 result = .error("cancelled")
             } catch {
+                #if os(Linux)
+                result = .error(String(describing: error))
+                #else
                 result = .error(error.localizedDescription)
+                #endif
             }
             // Cancel and then wait for the heartbeat, so a beat that is already past its
             // cancellation check cannot go out after the response.

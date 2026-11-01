@@ -5,6 +5,9 @@
 // non-blocking viewer windows. Proof of concept; see Private/2026-09-22-actionui-mcp-server-findings-
 // and-design.md for the design.
 //
+// One package for both platforms. On Linux it has only the protocol layer and its tests so far (see
+// linuxPackage below).
+//
 // Two targets:
 // - MCPStdio: the protocol layer (JSON-RPC 2.0 over newline-delimited stdio, tools only). One file,
 //   Foundation only, no ActionUI imports, so it can be lifted into another server unchanged.
@@ -58,7 +61,8 @@ let sdkStampLinkerSettings: [LinkerSetting] = macOSSDKVersion.map { sdkVersion i
                   .when(platforms: [.macOS]))]
 } ?? []
 
-let package = Package(
+func applePackage() -> Package {
+Package(
     name: "ActionUIMCP",
     platforms: [
         .macOS(macOSDeploymentTarget),
@@ -107,3 +111,36 @@ let package = Package(
         ),
     ]
 )
+}
+
+// Linux has no JSONSerialization, so the tests parse with ActionUI, as a host there does. Packages
+// that Linux does not use stay in the tracked Package.resolved only if a Linux build leaves that
+// file alone: build with --only-use-versions-from-resolved-file, and with --manifest-cache none for
+// the root package's exclude list.
+func linuxPackage() -> Package {
+Package(
+    name: "ActionUIMCP",
+    dependencies: [
+        .package(path: "../.."),
+    ],
+    targets: [
+        .target(
+            name: "MCPStdio",
+            path: "Sources/MCPStdio"
+        ),
+        .testTarget(
+            name: "MCPStdioTests",
+            dependencies: ["MCPStdio", .product(name: "ActionUIStatic", package: "ActionUI")],
+            path: "Tests/MCPStdioTests"
+        ),
+    ]
+)
+}
+
+// Only the chosen package may be constructed: PackageDescription takes the last Package created as
+// the manifest.
+#if os(Linux)
+let package = linuxPackage()
+#else
+let package = applePackage()
+#endif
