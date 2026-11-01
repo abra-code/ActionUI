@@ -1,15 +1,14 @@
-// Tests/Application/DemoTests.swift
+// ActionUIAdwaita/Apps/Tests/ActionUIAdwaitaAppsTests/DemoTests.swift
 /*
  Tests for ActionUIDemo (the ActionUIAdwaitaDemo program), run as the program it is, with the test
  app's documents: the launcher and a document opened at launch are saved as screenshots; an action
- fired at launch runs the test app's handler; a document that cannot be loaded fails the run; an unknown document, no documents, and bad arguments stop it
- with an error.
+ fired at launch runs the test app's handler; a document that cannot be loaded fails the run; an unknown
+ document, no documents, and bad arguments stop it with an error; the add-ons are there.
 */
 
 import XCTest
 import CAdwaita
 import Foundation
-@testable import ActionUI
 
 @MainActor
 final class DemoTests: XCTestCase {
@@ -18,7 +17,7 @@ final class DemoTests: XCTestCase {
     override func setUp() async throws {
         // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
         // sends the non-Sendable test case across actors, which Swift 6 refuses.
-        try AdwaitaTestHost.initialize()
+        try ProgramTestSupport.requireDisplay()
     }
 
     override func tearDown() async throws {
@@ -27,34 +26,16 @@ final class DemoTests: XCTestCase {
         }
     }
 
-    /// The demo program, built next to the test program (outside its bundle, so it needs
-    /// --resources).
-    private var demo: URL {
-        URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().appendingPathComponent("ActionUIAdwaitaDemo")
-    }
+    /// The demo program (outside its bundle, so it needs --resources).
+    private var demo: URL { ProgramTestSupport.program("ActionUIAdwaitaDemo") }
 
-    /// The test app's documents, found from this file.
+    /// The test app's documents.
     private var resources: String {
-        URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("ActionUISwiftTestApp/Resources").path
+        ProgramTestSupport.repository.appendingPathComponent("ActionUISwiftTestApp/Resources").path
     }
 
-    /// Runs the demo with `arguments` for at most 30 s; its exit status, or nil when it had to be
-    /// stopped.
     private func runDemo(_ arguments: [String]) throws -> Int32? {
-        let process = Process()
-        process.executableURL = demo
-        process.arguments = arguments
-        try process.run()
-        let deadline = Date().addingTimeInterval(30)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        guard !process.isRunning else {
-            process.terminate()
-            return nil
-        }
-        return process.terminationStatus
+        try ProgramTestSupport.run(demo, arguments)
     }
 
     private func screenshotPath(_ name: String) -> String {
@@ -86,6 +67,23 @@ final class DemoTests: XCTestCase {
         files.append(folder)
         try Data("not json".utf8).write(to: URL(fileURLWithPath: folder).appendingPathComponent("Bad.json"))
         XCTAssertEqual(try runDemo(["--resources", folder, "--open", "Bad", "--screenshot", screenshotPath("bad")]), 65)
+    }
+
+    /// Without the add-on, both documents show the same placeholder.
+    func testRichTextIsThere() throws {
+        let empty = screenshotPath("richtext-empty")
+        let text = screenshotPath("richtext-text")
+        // One file name in two folders: the name is the window's title, so only the document differs.
+        for (markdown, screenshot) in [("", empty), ("# A heading", text)] {
+            let folder = NSTemporaryDirectory() + "actionui-demo-addon-\(ProcessInfo.processInfo.processIdentifier)-\(markdown.count)"
+            try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+            files.append(folder)
+            let document = #"{"type": "RichText", "id": 1, "properties": {"markdown": ""# + markdown + #"", "frame": {"width": 320, "height": 200}}}"#
+            try Data(document.utf8).write(to: URL(fileURLWithPath: folder).appendingPathComponent("Document.json"))
+            XCTAssertEqual(try runDemo(["--resources", folder, "--open", "Document", "--screenshot", screenshot]), 0)
+        }
+        XCTAssertNotNil(FileManager.default.contents(atPath: text))
+        XCTAssertNotEqual(FileManager.default.contents(atPath: text), FileManager.default.contents(atPath: empty), "the document made no difference: the add-on is not registered")
     }
 
     func testAnUnknownDocumentNoDocumentsAndBadArgumentsStopIt() throws {

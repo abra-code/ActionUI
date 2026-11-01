@@ -414,6 +414,10 @@ Package(
         .library(name: "ActionUIStaticHosts", targets: ["ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
         // libadwaita's and GTK's C API, so an add-on sees GtkWidget as ActionUI's module does.
         .library(name: "CAdwaita", targets: ["CAdwaita"]),
+        // The Swift adapter, for Swift programs.
+        .library(name: "ActionUISwiftAdapter", targets: ["ActionUISwiftAdapter"]),
+        // The test app's action handlers, for the Linux demo in ActionUIAdwaita/Apps.
+        .library(name: "ActionUIDemoHandlers", targets: ["ActionUIDemoHandlers"]),
     ],
     targets: [
         // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
@@ -509,12 +513,6 @@ Package(
             dependencies: ["ActionUI", "ActionUIAppHeaders", "ActionUIRemote"],
             path: "ActionUIAdwaitaApplication"
         ),
-        // Opens an ActionUI document in a window, and saves screenshots of it.
-        .executableTarget(
-            name: "ActionUIAdwaitaViewer",
-            dependencies: ["ActionUI", "CAdwaita"],
-            path: "ActionUIAdwaita/Viewer"
-        ),
         // The Swift adapter without its SwiftUI views (ActionUISwift+SwiftUI.swift), for Swift programs.
         .target(
             name: "ActionUISwiftAdapter",
@@ -522,15 +520,13 @@ Package(
             path: "ActionUISwiftAdapter",
             exclude: ["ActionUISwift+SwiftUI.swift", "ActionUISwiftAdapter.docc"]
         ),
-        // The Linux counterpart of ActionUISwiftTestApp: a launcher of the test app's documents, with the
-        // test app's own action handlers (ActionUISwiftTestApp/DemoHandlers.swift), shipped as
-        // ActionUIDemo.app (Scripts/make-linux-demo-bundle.sh).
-        .executableTarget(
-            name: "ActionUIAdwaitaDemo",
-            dependencies: ["ActionUI", "CAdwaita", "ActionUISwiftAdapter"],
+        // The test app's action handlers, which the Mac and iOS app compiles itself.
+        .target(
+            name: "ActionUIDemoHandlers",
+            dependencies: ["ActionUI", "ActionUISwiftAdapter"],
             path: ".",
-            exclude: excludingAllBut(["ActionUIAdwaita/Demo", "ActionUISwiftTestApp/DemoHandlers.swift"]),
-            sources: ["ActionUIAdwaita/Demo", "ActionUISwiftTestApp/DemoHandlers.swift"]
+            exclude: excludingAllBut(["ActionUISwiftTestApp/DemoHandlers.swift"]),
+            sources: ["ActionUISwiftTestApp/DemoHandlers.swift"]
         ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(
@@ -550,7 +546,7 @@ Package(
         // The renderer tests. They need a display and skip themselves without one.
         .testTarget(
             name: "ActionUIAdwaitaTests",
-            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaViewer", "ActionUIAdwaitaDemo", "ActionUIAdwaitaAddOnFixture"],
+            dependencies: ["ActionUI", "CAdwaita", "CSoup", "ActionUIAdwaitaApplication", "ActionUIAdwaitaAddOnFixture"],
             path: "ActionUIAdwaita/Tests",
             // The video VideoPlayer plays, and the add-on fixture, a target of its own.
             exclude: ["AddOnFixture", "Media"]

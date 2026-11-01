@@ -1,4 +1,4 @@
-// ActionUIAdwaita/Demo/main.swift
+// ActionUIAdwaita/Apps/Sources/ActionUIAdwaitaDemo/main.swift
 /*
  ActionUIDemo: the Linux counterpart of ActionUISwiftTestApp. A launcher window lists the app's
  documents (every .json file in its resources); choosing one opens it in a window of its own, as
@@ -18,9 +18,9 @@
  - Exit status: 64 for bad arguments, 66 when there are no documents or no document Name, 65 when
    the document opened with --open cannot be loaded (its window shows the error).
  The documents' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
+ The add-ons that work on Linux (RichText, CachedImage) are linked and registered.
  The Mac app's menu commands (DefaultWindow.json's) are in each window's primary menu.
- The element types the Linux renderer does not have yet (Chart, Map) show a placeholder in those
- documents.
+ The element type the Linux renderer does not have yet (Map) shows a placeholder in those documents.
 */
 
 import CAdwaita
@@ -28,6 +28,9 @@ import Dispatch
 import FoundationEssentials
 import Glibc
 import ActionUI
+import ActionUICachedImage
+import ActionUIDemoHandlers
+import ActionUIRichText
 import ActionUISwiftAdapter
 
 let usage = "usage: ActionUIDemo [--resources <folder>] [--open <Name> [--action <actionID>]] [--dark] [--screenshot <file.png>]"
@@ -94,6 +97,8 @@ func documentNames(in folder: String) -> [String] {
 var status: Int32 = 0
 var screenshotTried = false
 MainActor.assumeIsolated {
+    ActionUIRichText.register()
+    ActionUICachedImage.register()
     let app = AdwaitaApplication.shared
     app.name = "ActionUI Demo"
     app.applicationID = "com.abracode.actionui.demo"

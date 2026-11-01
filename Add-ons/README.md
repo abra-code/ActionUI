@@ -42,7 +42,9 @@ An add-on's Linux target depends on the `ActionUIStatic` product: one process ha
 so everything written in Swift links into one binary. Programs in other languages cannot call
 `register()`, so `libActionUI.so`, built by the package in `ActionUIAdwaita/Library`, links the add-ons
 and registers them before the first document loads. To add one there: a dependency in its
-`Package.swift` and a line in `Sources/ActionUILibrary/LinkedAddOns.swift`.
+`Package.swift` and a line in `Sources/ActionUILibrary/LinkedAddOns.swift`. The Linux viewer and demo, in
+`ActionUIAdwaita/Apps`, link and register the add-ons themselves: add it to that `Package.swift` and to both
+programs' `main.swift`.
 The `CAdwaita` product gives it GTK's and libadwaita's C API
 at the versions ActionUI supports. Do not depend on a Documentation target there: `Bundle.module`
 needs full Foundation, and with it ICU's data, which the Linux build leaves out.

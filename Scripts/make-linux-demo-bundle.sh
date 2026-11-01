@@ -10,17 +10,19 @@
 #     Info.json           the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
 #     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
 #     LICENSE.txt, LICENSE-MaterialSymbols.txt   ActionUI's license, and its symbol icons'
+#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt   the packages the add-ons link
 #
 # The program finds its documents in the folder it runs from. The bundle is self-contained: the
 # program must be built with the Swift runtime linked in, and then needs only the system's GTK 4,
 # libadwaita and libsoup 3 (and WebKitGTK 6.0 for its WebView page, loaded when shown). Build it with
-#   swift build -c release --static-swift-stdlib --product ActionUIAdwaitaDemo
+#   swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Apps --product ActionUIAdwaitaDemo
 # A program linked to a toolchain's Swift runtime is refused. The bundle's copy is stripped of its
 # symbols (llvm-objcopy from the Swift toolchain, else the system's objcopy or strip; left as it is,
 # with a note, when none is found).
 #
 # Usage: Scripts/make-linux-demo-bundle.sh <products folder> <output folder>
-#   products folder: where swift build put ActionUIAdwaitaDemo (Linux), such as .build/release
+#   products folder: where swift build put ActionUIAdwaitaDemo (Linux), such as
+#                    ActionUIAdwaita/Apps/.build/release
 #   output folder:   where ActionUIDemo.app is made; an ActionUIDemo.app already there is replaced
 # Exit status: 0 made, 1 a step failed, 64 bad arguments.
 
@@ -63,6 +65,22 @@ case "$linked" in
         exit 1
         ;;
 esac
+
+# The packages linked into the program, as checked out for this build: <scratch>/checkouts. The products folder is
+# <scratch>/out/Products/<configuration>-linux-<arch>, or <scratch>/<triple>/<configuration> with SwiftPM's native
+# build system.
+products="$(/usr/bin/readlink -f "$1")"
+scratch="$(/usr/bin/dirname "$(/usr/bin/dirname "$products")")"
+if [ ! -d "$scratch/checkouts" ]; then
+    scratch="$(/usr/bin/dirname "$scratch")"
+fi
+checkouts="$scratch/checkouts"
+for dependency in RichText AsyncImageCache; do
+    if [ ! -f "$checkouts/$dependency/LICENSE" ]; then
+        printf 'make-linux-demo-bundle: no license of %s in %s; give the products folder swift build made, so that the packages it checked out are found\n' "$dependency" "$checkouts" >&2
+        exit 1
+    fi
+done
 
 # With its symbol icons: a build without Scripts/prepare-linux-symbols.sh shows none.
 if [ ! -x /usr/bin/gresource ]; then
@@ -181,5 +199,16 @@ if [ "$status" -ne 0 ]; then
     discard_bundle
     exit 1
 fi
+
+# The add-ons link RichText and AsyncImageCache: their licenses go with the program too.
+for dependency in RichText AsyncImageCache; do
+    /bin/cp "$checkouts/$dependency/LICENSE" "$bundle/LICENSE-$dependency.txt"
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        printf 'make-linux-demo-bundle: could not copy the license of %s from %s\n' "$dependency" "$checkouts" >&2
+        discard_bundle
+        exit 1
+    fi
+done
 
 printf 'make-linux-demo-bundle: made %s; add it to the app list with Scripts/linux-app-entry.py install %s\n' "$bundle" "$bundle"

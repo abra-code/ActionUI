@@ -3,8 +3,8 @@
 //  ActionUISwiftTestApp
 //
 //  The test app's action handlers, shared by the Mac and iOS app (ActionUISwiftTestApp.swift) and
-//  the Linux demo (ActionUIAdwaita/Demo, which builds this file too): they call only ActionUISwift,
-//  the portable part of the Swift adapter.
+//  the Linux demo in ActionUIAdwaita/Apps (through the ActionUIDemoHandlers library, which builds
+//  this file): they call only ActionUISwift, the portable part of the Swift adapter.
 //
 
 #if canImport(FoundationEssentials)
@@ -19,10 +19,10 @@ import ActionUI
 import ActionUISwiftAdapter
 
 @MainActor
-enum DemoHandlers {
+public enum DemoHandlers {
     /// Registers every handler. `resourceURL(name, extension)` finds one of the app's documents (the
     /// modal sheet's), as Bundle.main does on Apple.
-    static func register(resourceURL: @escaping (String, String) -> URL?) {
+    public static func register(resourceURL: @escaping (String, String) -> URL?) {
         // receiving actionID, windowUUID, viewID, viewPartID, and optional context
         ActionUISwift.setDefaultActionHandler({actionID, windowUUID, viewID, viewPartID, context in
             print("Default action callback for actionID:\(actionID), windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), context: \(String(describing: context))")

@@ -1,6 +1,7 @@
-// ActionUIAdwaita/Viewer/main.swift
+// ActionUIAdwaita/Apps/Sources/ActionUIAdwaitaViewer/main.swift
 /*
- ActionUIAdwaitaViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication.
+ ActionUIAdwaitaViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication,
+ with the add-ons that work on Linux (RichText, CachedImage).
 
  Usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]...
 
@@ -22,6 +23,8 @@ import Dispatch
 import FoundationEssentials
 import Glibc
 import ActionUI
+import ActionUICachedImage
+import ActionUIRichText
 
 let usage = "usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]..."
 let windowUUID = "viewer"
@@ -71,6 +74,8 @@ var status: Int32 = 0
 /// Set when the screenshot was tried; the window can close before then, ending the application.
 var screenshotTried = false
 MainActor.assumeIsolated {
+    ActionUIRichText.register()
+    ActionUICachedImage.register()
     let app = AdwaitaApplication.shared
     app.name = "ActionUI Viewer"
     app.applicationID = "com.abracode.actionui.viewer"

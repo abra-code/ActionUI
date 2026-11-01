@@ -25,9 +25,9 @@ From the repository root, on Linux:
 
 ```sh
 Scripts/prepare-linux-symbols.sh              # the symbol icons; again when the map or font changes
-swift build                                   # the library, the viewer and the demo
-swift run ActionUIAdwaitaViewer ActionUISwiftTestApp/Resources/Form.json
-swift run ActionUIAdwaitaDemo --resources ActionUISwiftTestApp/Resources
+swift build                                   # ActionUI
+swift run --package-path ActionUIAdwaita/Apps ActionUIAdwaitaViewer ActionUISwiftTestApp/Resources/Form.json
+swift run --package-path ActionUIAdwaita/Apps ActionUIAdwaitaDemo --resources ActionUISwiftTestApp/Resources
 ```
 
 SF Symbols are shown as Material Symbols icons, which `Scripts/prepare-linux-symbols.sh` generates from the Material Symbols font (downloaded on its first run) and compiles into ActionUI, as a GResource in a section of its own: `libActionUI.so` and every Swift program that links ActionUI statically carry it (`gresource list` shows it). Run the script before the first build, and again when `sf_to_material.map` or the font changes; `bash Tools/material_symbols/fetch-material-symbols-font.sh` moves to a newer font release. A build without the icons succeeds but warns at its top on every build, and its SF Symbols show the missing-icon picture. A Swift package that depends on ActionUI runs the script in its ActionUI checkout first (`.build/checkouts/ActionUI`, or the folder of a path dependency).
@@ -38,13 +38,13 @@ SF Symbols are shown as Material Symbols icons, which `Scripts/prepare-linux-sym
 A self-contained demo, which runs where Swift is not installed:
 
 ```sh
-swift build -c release --static-swift-stdlib --product ActionUIAdwaitaDemo
-Scripts/make-linux-demo-bundle.sh .build/release /tmp     # makes /tmp/ActionUIDemo.app
+swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Apps --product ActionUIAdwaitaDemo
+Scripts/make-linux-demo-bundle.sh ActionUIAdwaita/Apps/.build/release /tmp     # makes /tmp/ActionUIDemo.app
 /tmp/ActionUIDemo.app/ActionUIDemo
 Scripts/linux-app-entry.py install /tmp/ActionUIDemo.app  # optional: the demo in the desktop's app list
 ```
 
-`ActionUIDemo.app` is a plain folder: the program, stripped (about 15 MB), beside its documents and images, its `Info.json` and its icon (both from `ActionUIAdwaita/DemoBundle`). The program finds its documents in the folder it runs from.
+`ActionUIDemo.app` is a plain folder: the program, stripped (about 17 MB), beside its documents and images, its `Info.json` and its icon (both from `ActionUIAdwaita/DemoBundle`). The program finds its documents in the folder it runs from.
 
 ## Info.json
 
@@ -96,6 +96,12 @@ swift test
 
 The renderer tests open real windows, so they need a graphical session (Wayland or X11); without one they skip themselves. The layout tests compare frames with recordings taken from SwiftUI (`LayoutParity/`).
 
+The viewer and the demo have tests of their own in their package, which run the programs themselves:
+
+```sh
+swift test --package-path ActionUIAdwaita/Apps
+```
+
 `libActionUI.so` has tests of its own, Python programs run against the built library, in the package that builds it:
 
 ```sh
@@ -123,7 +129,7 @@ swift test --package-path ActionUIAdwaita/Library
 - **Chart:** draws every mark with axes, legends and series colors, comparable to Swift Charts. Selection, scrolling and annotations are not available yet; `Documentation/Schemas/Chart.md` lists what differs.
 - **ShareLink:** Linux desktops have no share sheet, so its button opens a menu of the ways GNOME shares a link: **Copy Link**, and **Send by Email...**, which opens the user's mail program with the subject, the message and the URL (through the desktop's Email portal, else a `mailto:` link). When no email app can be opened, an alert says so.
 - **Application functions** (`actionUIApp*`): windows, the lifecycle handlers, the resource folder and the menu bar's commands (in each window's primary menu) work. The standalone alert and the open and save panels are libadwaita's alert dialog and GTK's file dialog, modal to the active window; each call blocks until the user answers while the main loop keeps running, and takes the macOS configuration keys, ignoring those GTK has no counterpart for (an alert's `style`, a panel's `message`, `showsHiddenFiles`, `treatsFilePackagesAsDirectories`, `canCreateDirectories`; a panel allowing files and folders chooses files). Called before the application runs, they log why and return NULL. **The remote server** (`ActionUIRemote/PROTOCOL.md`) runs as on macOS, its socket by default in `$XDG_RUNTIME_DIR` (else `$TMPDIR`, else `/tmp`); `actionui.contentSizeLimits` measures a window on screen (`ActionUIModel.contentSizeLimits`, null for a window that is only loaded), as do the C function `actionUIGetContentSizeLimits` and the Python, Node.js and Rust `content_size_limits` over it.
-- **Add-ons:** RichText and CachedImage are in `libActionUI.so`, and work in a Swift program that links them and registers them (`Add-ons/README.md`). They are not in the viewer or the demo yet. Chat, Diff and QuickLook are not on Linux yet. An element without a renderer shows the placeholder.
+- **Add-ons:** RichText and CachedImage are in `libActionUI.so`, and work in a Swift program that links them and registers them (`Add-ons/README.md`), as the viewer and the demo do. Chat, Diff and QuickLook are not on Linux yet. An element without a renderer shows the placeholder.
 - **Look:** libadwaita's controls, header bar and dark style. SF Symbols may not be shipped off Apple platforms, so SF Symbol names show the Material Symbols Rounded icons Android and Web show, from the same map (`sf_to_material.map`), at each symbol's fill and weight, in the text color; a name the map lacks shows the missing-icon picture. The icons are compiled into the library; their license (Apache 2.0) is `LICENSE-MaterialSymbols.txt` in the library package and the demo bundle. The controls' own icons (menus, the sidebar button, steppers) stay Adwaita's, as in other GNOME apps.
 - **Closing the last window:** the user's close ends the application (after asking the shouldTerminate handler), as GNOME applications do: with no window, a Linux application has no Dock icon or menu bar to quit it from. The host's close (`closeWindow`) leaves it running, as on macOS, until the host presents another window or calls `terminate`, so a host can close one window before it opens the next.
 
@@ -139,5 +145,5 @@ swift test --package-path ActionUIAdwaita/Library
 | `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |
 | `CLinuxSocket` | `accept4`, which Swift's Glibc module leaves out (for the remote server) |
 | `CSymbolResource`, `Plugins/SymbolResourceCheck` | the symbol icons as a GResource section (the C source `Scripts/prepare-linux-symbols.sh` generates, in `generated/`), and the build plugin that warns when they are missing or out of date. The generator, `Tools/material_symbols/generate-symbol-icons.c`, draws Material Symbols Rounded glyphs with HarfBuzz as symbolic SVGs from `ActionUIAndroid`'s `sf_to_material.map`; the SVGs stay in `Tools/material_symbols/build/icons` for inspection |
-| `Viewer`, `Demo` | ActionUIAdwaitaViewer and ActionUIAdwaitaDemo |
+| `Apps` | ActionUIAdwaitaViewer and ActionUIAdwaitaDemo, a package of their own that links the add-ons, with their tests |
 | `Tests` | the renderer, layout and application tests |
