@@ -15,10 +15,14 @@
 // so ActionUIVerifierTests/Parity/validator_parity.py can compare the two implementations line by
 // line. Keep them in step: a rule changed in one belongs in both.
 //
-// JSONSerialization does not keep the order of keys in the file, so keys are walked sorted, and
+// A parsed object does not keep the order of keys in the file, so keys are walked sorted, and
 // no rule may depend on key order.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public struct ValidationIssue: Sendable, Equatable, CustomStringConvertible {
     public enum Severity: String, Sendable {
@@ -180,20 +184,26 @@ func pyStringRepr(_ text: String) -> String {
             result += "\\r"
         default:
             if scalar.value < 0x20 || scalar.value == 0x7f {
-                result += String(format: "\\x%02x", scalar.value)
+                result += "\\x" + hex(scalar.value, width: 2)
             } else if scalar.value < 0x7f || isPrintable(scalar) {
                 result.unicodeScalars.append(scalar)
             } else if scalar.value <= 0xff {
-                result += String(format: "\\x%02x", scalar.value)
+                result += "\\x" + hex(scalar.value, width: 2)
             } else if scalar.value <= 0xffff {
-                result += String(format: "\\u%04x", scalar.value)
+                result += "\\u" + hex(scalar.value, width: 4)
             } else {
-                result += String(format: "\\U%08x", scalar.value)
+                result += "\\U" + hex(scalar.value, width: 8)
             }
         }
     }
     result.unicodeScalars.append(quote)
     return result
+}
+
+/// `value` in lower-case hexadecimal, padded with zeros to `width` digits.
+private func hex(_ value: UInt32, width: Int) -> String {
+    let digits = String(value, radix: 16)
+    return String(repeating: "0", count: max(0, width - digits.count)) + digits
 }
 
 /// Python's str.isprintable for one non-ASCII character: not a control, format, surrogate,
@@ -218,7 +228,11 @@ func pyRepr(_ value: JSONValue) -> String {
     case .int(let number):
         return String(number)
     case .double(let number):
-        return number == number.rounded() && abs(number) < 1e16 ? String(format: "%.1f", number) : String(number)
+        guard number == number.rounded(), abs(number) < 1e16 else {
+            return String(number)
+        }
+        // A whole number with one decimal; below 1e16 it fits an Int, which keeps every digit.
+        return (number.sign == .minus && number == 0 ? "-" : "") + String(Int(number)) + ".0"
     case .string(let text):
         return pyStringRepr(text)
     case .array(let items):
@@ -276,16 +290,18 @@ public struct DocumentValidator: Sendable {
         self.targetPlatform = targetPlatform
     }
 
-    /// Parses `data` as ActionUI's loader does (JSONSerialization: trailing commas are accepted,
-    /// comments are not) and validates it. Throws the parse error for invalid JSON.
+    /// Parses `data` as ActionUI's loader does (trailing commas are accepted, comments are not) and
+    /// validates it. Throws the parse error for invalid JSON.
     public func validate(data: Data, rootPath: String) throws -> [ValidationIssue] {
-        let object = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
-        return validate(jsonObject: object, rootPath: rootPath)
+        validate(document: try JSONValue(parsing: data), rootPath: rootPath)
     }
 
     /// Validates a view document (object root) or a menu-bar document (array root), given as
-    /// JSONSerialization output. `rootPath` prefixes every issue path, as the file name does in
-    /// the Python verifier. Issues are sorted by path, then severity.
+    /// parsed objects: JSONSerialization output on Apple; on Linux Bool, Int, Double, String, [Any]
+    /// and [String: Any], so not the output of the full Foundation's JSONSerialization, whose
+    /// numbers would read as booleans there (pass that text to `validate(data:rootPath:)`).
+    /// `rootPath` prefixes every issue path, as the file name does in the Python verifier. Issues
+    /// are sorted by path, then severity.
     public func validate(jsonObject: Any, rootPath: String) -> [ValidationIssue] {
         validate(document: JSONValue(any: jsonObject), rootPath: rootPath)
     }

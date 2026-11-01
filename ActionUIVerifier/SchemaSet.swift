@@ -5,11 +5,24 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // SchemaSet.swift - the element schemas the validator checks against. The built-in schemas are
-// ActionUIVerifier/Schemas, bundled into this library as a resource (the Python verifier in
-// Tools/verifier reads the same files). Add-on schemas come from extra directories: this
+// ActionUIVerifier/Schemas, bundled into this library as a resource on Apple (the Python verifier
+// in Tools/verifier reads the same files). Add-on schemas come from extra directories: this
 // library cannot depend on the add-on packages, which depend on ActionUI core.
+//
+// On Linux the target has no resources: the code SwiftPM generates for them imports Foundation,
+// and with it ICU's data, which ActionUI's Linux builds leave out. The schemas are found by path
+// instead (bundledSchemasDirectory).
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Element schemas loaded from a primary directory (the built-in elements) and extra directories
 /// (add-ons). On a name collision the primary directory wins, so an add-on cannot shadow a
@@ -23,7 +36,8 @@ public struct SchemaSet: Sendable {
     public init(primary: URL, extra: [URL] = []) throws {
         var loaded: [String: JSONValue] = [:]
         for directory in [primary] + extra {
-            let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+            let files = names.map { directory.appendingPathComponent($0) }
             // Hidden files are skipped (the Python verifier's glob lists them, but it only opens a
             // schema when an element names its type; this loader parses every file, and an
             // AppleDouble "._Text.json" would fail the whole set).
@@ -33,12 +47,17 @@ public struct SchemaSet: Sendable {
                 guard loaded[name] == nil else {
                     continue
                 }
-                let data = try Data(contentsOf: file)
-                loaded[name] = try Self.expandReferences(JSONValue(any: try JSONSerialization.jsonObject(with: data)), schema: name)
+                let schema = try JSONValue(parsing: Data(contentsOf: file))
+                switch schema {
+                case .object, .array:
+                    loaded[name] = try Self.expandReferences(schema, schema: name)
+                default:
+                    throw SchemaFileError(path: file.path)
+                }
             }
         }
         guard loaded["View"] != nil else {
-            throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: primary.appendingPathComponent("View.json").path])
+            throw SchemaFileError(path: primary.appendingPathComponent("View.json").path)
         }
         schemas = loaded
         knownTypes = Set(loaded.keys).subtracting(["View"])
@@ -85,11 +104,29 @@ public struct SchemaSet: Sendable {
     /// The built-in schemas bundled with this library, plus `extra` add-on directories.
     public static func bundled(extra: [URL] = []) throws -> SchemaSet {
         guard let directory = bundledSchemasDirectory else {
-            throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: "Schemas"])
+            throw SchemaFileError(path: "Schemas")
         }
         return try SchemaSet(primary: directory, extra: extra)
     }
 
+    #if os(Linux)
+    /// The schemas shipped with this binary, `<prefix>/share/actionui/schemas` for a program in
+    /// `<prefix>/bin`, else those of the ActionUI checkout this library was built from when that
+    /// still exists; nil when there are neither.
+    public static var bundledSchemasDirectory: URL? {
+        var buffer = [CChar](repeating: 0, count: 4096)
+        let count = readlink("/proc/self/exe", &buffer, buffer.count)
+        var candidates: [URL] = []
+        if count > 0, count < buffer.count {
+            let program = String(decoding: buffer[..<count].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            candidates.append(URL(fileURLWithPath: program).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("share/actionui/schemas"))
+        }
+        // This file is <repo>/ActionUIVerifier/SchemaSet.swift.
+        candidates.append(URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Schemas"))
+        return candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("View.json").path) }
+    }
+    #else
     /// The `Schemas` directory in this library's resource bundle, or nil when the bundle is not
     /// where this binary can find it (a copy of a tool shipped without its bundle, say).
     public static var bundledSchemasDirectory: URL? {
@@ -115,6 +152,7 @@ public struct SchemaSet: Sendable {
             candidate.flatMap { Bundle(url: $0.appendingPathComponent("ActionUI_ActionUIVerifier.bundle")) } != nil
         }
     }
+    #endif
 
     /// Add-on schema directories found without being named, as the Python verifier's
     /// discover_addon_schema_dirs finds them:
@@ -144,22 +182,33 @@ public struct SchemaSet: Sendable {
     func schema(_ name: String) -> [String: JSONValue]? { schemas[name]?.object }
 
     private static func isDirectory(_ url: URL) -> Bool {
-        var directory: ObjCBool = false
-        return FileManager.default.fileExists(atPath: url.path, isDirectory: &directory) && directory.boolValue
+        var information = stat()
+        return stat(url.path, &information) == 0 && information.st_mode & S_IFMT == S_IFDIR
     }
 
     private static func subdirectories(_ url: URL) -> [URL] {
-        ((try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? [])
+        ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? [])
+            .map { url.appendingPathComponent($0) }
             .filter(isDirectory)
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 }
 
+#if !os(Linux)
 /// Anchors Bundle(for:) to the binary this library is linked into.
 private final class BundleFinder {}
+#endif
+
+/// A schema file or folder that should be there and is not, or a file that holds no schema.
+public struct SchemaFileError: LocalizedError, CustomStringConvertible {
+    public let path: String
+    public var description: String { "no schema at \(path)" }
+    public var errorDescription: String? { description }
+}
 
 /// A schema's `$ref` names nothing, or refers back to itself.
-public struct SchemaReferenceError: Error, CustomStringConvertible {
+public struct SchemaReferenceError: LocalizedError, CustomStringConvertible {
     public let message: String
     public var description: String { message }
+    public var errorDescription: String? { message }
 }

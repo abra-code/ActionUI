@@ -7,7 +7,11 @@
 // Spot checks of the Swift verifier against the bundled schemas and the add-on schemas of this
 // checkout. The full comparison with the Python verifier is Parity/validator_parity.py.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import Testing
 @testable import ActionUIVerifier
 
@@ -108,7 +112,7 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
 
 @Test func dataIsParsedAsTheLoaderParsesIt() throws {
     let validator = try makeValidator(platform: nil)
-    // Trailing commas are accepted, as Foundation's parser accepts them.
+    // Trailing commas are accepted, as ActionUI's loader accepts them.
     let found = try validator.validate(data: Data(#"{"type": "Text", "properties": {"text": "a",},}"#.utf8), rootPath: "doc")
     #expect(found == [])
     #expect(throws: (any Error).self) {

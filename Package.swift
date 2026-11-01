@@ -15,7 +15,7 @@
 //   • ActionUIWebKitJSAdapter        – WebKit / WKWebView JS bridge adapter
 //   • ActionUIRemote                 – Out-of-process binding: Unix socket + JSON-RPC 2.0 server (macOS; on Linux in libActionUI.so)
 //   • ActionUIDocumentation          – Resource-only bundle (schemas, templates, index)
-//   • ActionUIVerifier               – Document verifier against the element schemas, Foundation only
+//   • ActionUIVerifier               – Document verifier against the element schemas, Foundation only (FoundationEssentials on Linux, no GTK)
 //
 // The ActionUIViewer preview tool moved to its own aggregator package at Apps/ActionUIViewer so it
 // can link the optional add-ons and register their element types (a core target cannot depend on the
@@ -418,6 +418,8 @@ Package(
         .library(name: "ActionUISwiftAdapter", targets: ["ActionUISwiftAdapter"]),
         // The test app's action handlers, for the Linux demo in ActionUIAdwaita/Apps.
         .library(name: "ActionUIDemoHandlers", targets: ["ActionUIDemoHandlers"]),
+        // The document verifier, which needs no GTK. The command-line tool is in Apps/ActionUIVerifier.
+        .library(name: "ActionUIVerifier", targets: ["ActionUIVerifier"]),
     ],
     targets: [
         // libadwaita's C API (and GTK's, which it includes), found through pkg-config.
@@ -527,6 +529,18 @@ Package(
             path: ".",
             exclude: excludingAllBut(["ActionUISwiftTestApp/DemoHandlers.swift"]),
             sources: ["ActionUISwiftTestApp/DemoHandlers.swift"]
+        ),
+        // The same sources as on Apple, without the schemas as a resource (SchemaSet.swift says why).
+        .target(
+            name: "ActionUIVerifier",
+            path: "ActionUIVerifier",
+            exclude: ["Schemas"]
+        ),
+        .testTarget(
+            name: "ActionUIVerifierTests",
+            dependencies: ["ActionUIVerifier"],
+            path: "ActionUIVerifierTests",
+            exclude: ["Parity"]
         ),
         // The Core tests, as in coreCheckPackage.
         .testTarget(

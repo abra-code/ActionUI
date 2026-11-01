@@ -8,7 +8,16 @@
 // output and exit codes as Tools/verifier/validate_actionui.py: errors go to stderr, warnings,
 // notes and [OK] lines to stdout, then a summary line.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import ActionUIVerifier
 
 let usage = """
@@ -57,11 +66,36 @@ Exit codes:
 // Each line is written whole and unbuffered, so stdout and stderr lines never split each other
 // when both go to one file or pipe.
 func printOutput(_ text: String) {
-    FileHandle.standardOutput.write(Data((text + "\n").utf8))
+    writeLine(text, to: STDOUT_FILENO)
 }
 
 func printError(_ text: String) {
-    FileHandle.standardError.write(Data((text + "\n").utf8))
+    writeLine(text, to: STDERR_FILENO)
+}
+
+func writeLine(_ text: String, to descriptor: Int32) {
+    let bytes = Array((text + "\n").utf8)
+    var offset = 0
+    while offset < bytes.count {
+        let written = bytes[offset...].withUnsafeBytes { write(descriptor, $0.baseAddress, $0.count) }
+        if written < 0 && errno == EINTR { continue }
+        if written <= 0 { return }
+        offset += written
+    }
+}
+
+/// An error as a person reads it. Foundation's Error.localizedDescription is not in
+/// FoundationEssentials.
+func describe(_ error: Error) -> String {
+    #if os(Linux)
+    // A read failure is a CocoaError around the system's error.
+    if let cause = (error as? CocoaError)?.userInfo["NSUnderlyingError"] as? POSIXError {
+        return String(cString: strerror(cause.code.rawValue))
+    }
+    return String(describing: error)
+    #else
+    error.localizedDescription
+    #endif
 }
 
 /// A path as Python's pathlib prints it: no empty or "." components, no trailing slash.
@@ -75,21 +109,29 @@ func normalizedPath(_ path: String) -> String {
 }
 
 func isDirectory(_ path: String) -> Bool {
-    var directory: ObjCBool = false
-    return FileManager.default.fileExists(atPath: path, isDirectory: &directory) && directory.boolValue
+    var info = stat()
+    return stat(path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFDIR
+}
+
+/// Everything under `directory`, as paths relative to it. As with pathlib's rglob, a folder that
+/// cannot be read is skipped and a link to a folder is not followed. (FileManager's
+/// subpathsOfDirectory throws away the whole tree at the first folder it cannot read.)
+func subpaths(of directory: String) -> [String] {
+    var found: [String] = []
+    for name in (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? [] {
+        found.append(name)
+        var info = stat()
+        if lstat(directory + "/" + name, &info) == 0 && (info.st_mode & S_IFMT) == S_IFDIR {
+            found += subpaths(of: directory + "/" + name).map { name + "/" + $0 }
+        }
+    }
+    return found
 }
 
 /// `*.json` files in `directory`, sorted as pathlib sorts paths (component by component).
 func jsonFiles(in directory: String, recursive: Bool) -> [String] {
-    var relativePaths: [String] = []
-    if recursive {
-        let enumerator = FileManager.default.enumerator(atPath: directory)
-        while let relative = enumerator?.nextObject() as? String {
-            relativePaths.append(relative)
-        }
-    } else {
-        relativePaths = (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? []
-    }
+    let relativePaths = recursive ? subpaths(of: directory)
+                                  : (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? []
     let files = relativePaths.filter { $0.hasSuffix(".json") && !isDirectory(directory + "/" + $0) }
     let sorted = files.map { $0.split(separator: "/").map(String.init) }.sorted { $0.lexicographicallyPrecedes($1) }
     // pathlib joins "." and "a.json" as "a.json", and "/" and "a.json" as "/a.json".
@@ -131,14 +173,18 @@ func validateFile(_ path: String, validator: DocumentValidator) -> (Int, Int) {
     do {
         data = try Data(contentsOf: URL(fileURLWithPath: path))
     } catch {
-        printError("[ERROR] \(path): cannot read file — \(error.localizedDescription)")
+        printError("[ERROR] \(path): cannot read file — \(describe(error))")
         return (1, 0)
     }
     let issues: [ValidationIssue]
     do {
         issues = try validator.validate(data: data, rootPath: path)
     } catch {
-        let reason = (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String ?? error.localizedDescription
+        #if os(Linux)
+        let reason = describe(error)
+        #else
+        let reason = (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String ?? describe(error)
+        #endif
         printError("[ERROR] \(path): invalid JSON — \(reason)")
         return (1, 0)
     }
@@ -230,8 +276,8 @@ if let targetPlatform, !DocumentValidator.knownPlatforms.contains(targetPlatform
 
 // MARK: - Schemas
 
-// With --schemas the resource bundle is never touched, so a copy of this tool that ships its
-// schemas elsewhere does not need the bundle beside it.
+// With --schemas the built-in schemas are never looked for, so a copy of this tool that ships its
+// schemas elsewhere does not need them beside it.
 let schemasDirectory: URL
 if let coreSchemasDirectory {
     guard isDirectory(coreSchemasDirectory) else {
@@ -242,7 +288,11 @@ if let coreSchemasDirectory {
 } else if let bundled = SchemaSet.bundledSchemasDirectory {
     schemasDirectory = bundled
 } else {
+    #if os(Linux)
+    printError("[ERROR] Schemas directory not found.\nEnsure share/actionui/schemas is next to the bin folder of this tool, or pass --schemas <dir>.")
+    #else
     printError("[ERROR] Schemas directory not found in the verifier's resource bundle.\nEnsure ActionUI_ActionUIVerifier.bundle is next to this tool, or pass --schemas <dir>.")
+    #endif
     exit(1)
 }
 
@@ -266,7 +316,7 @@ let schemas: SchemaSet
 do {
     schemas = try SchemaSet(primary: schemasDirectory, extra: extraDirectories)
 } catch {
-    printError("[ERROR] could not load the schemas: \(error.localizedDescription)")
+    printError("[ERROR] could not load the schemas: \(describe(error))")
     exit(1)
 }
 let validator = DocumentValidator(schemas: schemas, targetPlatform: targetPlatform)

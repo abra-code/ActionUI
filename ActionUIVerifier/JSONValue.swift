@@ -4,14 +4,19 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// JSONValue.swift - the verifier's own JSON value, built from JSONSerialization output. Internal:
-// the public API takes Data or JSONSerialization objects, so a client with its own JSON type does
-// not get two types of the same name.
+// JSONValue.swift - the verifier's own JSON value, built from JSONSerialization output, or from
+// JSONText.swift's parser on Linux, which has no JSONSerialization. Internal: the public API takes
+// Data or parsed objects, so a client with its own JSON type does not get two types of the same name.
 //
 // Integers and non-integers stay apart ("integer" vs "number" in the schemas, int vs float in the
-// Python verifier's messages), and NSNumber booleans are told apart from numbers by their CF type.
+// Python verifier's messages), and on Apple NSNumber booleans are told apart from numbers by their
+// CF type.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 enum JSONValue: Sendable, Equatable {
     case null
@@ -22,9 +27,32 @@ enum JSONValue: Sendable, Equatable {
     case array([JSONValue])
     case object([String: JSONValue])
 
-    /// Converts a JSONSerialization result. Anything that is not a JSON value becomes null.
+    /// Parses JSON text as ActionUI's loader does: a trailing comma is accepted, a comment is not.
+    /// Throws for invalid JSON.
+    init(parsing data: Data) throws {
+        #if os(Linux)
+        self = try JSONTextParser.parse(data)
+        #else
+        self = JSONValue(any: try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]))
+        #endif
+    }
+
+    /// Converts a parsed object: on Apple JSONSerialization's, on Linux Bool, the number types,
+    /// String, [Any] and [String: Any]. Anything that is not a JSON value becomes null.
     init(any value: Any) {
         switch value {
+        #if os(Linux)
+        case let flag as Bool:
+            self = .bool(flag)
+        case let number as Int:
+            self = .int(number)
+        case let number as Double:
+            self = .double(number)
+        case let number as any BinaryInteger:
+            self = Int(exactly: number).map { .int($0) } ?? .double(Double(number))
+        case let number as any BinaryFloatingPoint:
+            self = .double(Double(number))
+        #else
         case let number as NSNumber:
             if CFGetTypeID(number) == CFBooleanGetTypeID() {
                 self = .bool(number.boolValue)
@@ -36,6 +64,7 @@ enum JSONValue: Sendable, Equatable {
                     self = .int(number.intValue)
                 }
             }
+        #endif
         case let text as String:
             self = .string(text)
         case let items as [Any]:
