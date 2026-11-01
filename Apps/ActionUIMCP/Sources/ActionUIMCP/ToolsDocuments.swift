@@ -7,7 +7,11 @@
 // ToolsDocuments.swift - tools for agent-authored documents and live windows: show_document,
 // validate_document, wait, update_window, get_values, plus pick_path.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import MCPStdio
 
 private let documentProperty: JSONValue = [

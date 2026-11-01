@@ -8,7 +8,11 @@
 // close_window (non-blocking). Definitions and handlers side by side; handlers parse arguments off
 // the main actor and hop to it for anything that touches a window.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import MCPStdio
 
 /// Seconds a dialog waits by default before answering "timeout", and the most a call may ask for.
@@ -209,7 +213,7 @@ private func notifyTool(host: WindowHost, label: String?) -> MCPTool {
         annotations: ["readOnlyHint": true, "openWorldHint": false]
     ) { arguments, context in
         guard let message = arguments["message"]?.string,
-              !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+              !message.trimmed.isEmpty else {
             throw MCPToolError("'message' is required and must be a non-empty string")
         }
         guard message.count <= WindowHost.maxNoticeLength else {

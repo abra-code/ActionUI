@@ -8,26 +8,30 @@
 // deployed to macOS, with the built-in schemas from the library's resource bundle and add-on
 // schemas found the way the library's own tool finds them.
 //
-// The bundle (ActionUI_ActionUIVerifier.bundle, built next to the executable) is found by name in
+// The resource bundle (ActionUI_ActionUIVerifier, built next to the executable) is found by name in
 // the executable's resolved folder, so a launch through a symlink on PATH still finds it.
 // ACTIONUI_MCP_SCHEMA_DIR names another schemas directory instead.
 // Without schemas the server still runs; only these checks are skipped.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import ActionUIVerifier
 
 enum Verifier {
     /// Set up once, on first use. nil when no schemas were found or they failed to load.
     static let validator: DocumentValidator? = {
         guard let schemas = schemasDirectory() else {
-            FileHandle.standardError.write(Data("[actionui-mcp] verifier schemas not found; property checks are skipped\n".utf8))
+            HostSupport.logLine("[actionui-mcp] verifier schemas not found; property checks are skipped")
             return nil
         }
         do {
             let set = try SchemaSet(primary: schemas, extra: SchemaSet.discoverAddOnDirectories(schemasDirectory: schemas))
             return DocumentValidator(schemas: set, targetPlatform: "macos")
         } catch {
-            FileHandle.standardError.write(Data("[actionui-mcp] could not load verifier schemas from \(schemas.path): \(error.localizedDescription)\n".utf8))
+            HostSupport.logLine("[actionui-mcp] could not load verifier schemas from \(schemas.path): \(error.displayText)")
             return nil
         }
     }()
@@ -41,17 +45,15 @@ enum Verifier {
         if let path = ProcessInfo.processInfo.environment["ACTIONUI_MCP_SCHEMA_DIR"], !path.isEmpty {
             let url = URL(fileURLWithPath: path)
             if hasSchemas(url) { return url }
-            FileHandle.standardError.write(Data("[actionui-mcp] ACTIONUI_MCP_SCHEMA_DIR=\(path) holds no View.json; looking elsewhere\n".utf8))
+            HostSupport.logLine("[actionui-mcp] ACTIONUI_MCP_SCHEMA_DIR=\(path) holds no View.json; looking elsewhere")
         }
-        // Not CommandLine.arguments[0], which is only the bare name when launched through PATH.
-        let folders = [Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent(),
-                       Bundle.main.resourceURL].compactMap { $0 }
-        for folder in folders {
-            if let resources = Bundle(url: folder.appendingPathComponent("ActionUI_ActionUIVerifier.bundle"))?.resourceURL {
-                let schemas = resources.appendingPathComponent("Schemas")
-                if hasSchemas(schemas) { return schemas }
-            }
-        }
-        return nil
+        #if os(Linux)
+        // The library has no resource bundle on Linux; it finds its schemas by path.
+        return SchemaSet.bundledSchemasDirectory
+        #else
+        guard let resources = HostSupport.resourceFolder(ofBundle: "ActionUI_ActionUIVerifier") else { return nil }
+        let schemas = resources.appendingPathComponent("Schemas")
+        return hasSchemas(schemas) ? schemas : nil
+        #endif
     }
 }

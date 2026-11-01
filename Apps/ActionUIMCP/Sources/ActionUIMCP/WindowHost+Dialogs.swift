@@ -192,10 +192,9 @@ extension WindowHost {
             case .text, .multiline:
                 let text = raw as? String ?? field.defaultValue.map(DialogSpec.text(of:)) ?? ""
                 value = .string(text)
-                if field.required && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { missing.append(field.label) }
+                if field.required && text.trimmed.isEmpty { missing.append(field.label) }
             case .number, .integer:
-                let text = (raw as? String ?? field.defaultValue.map(DialogSpec.text(of:)) ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let text = (raw as? String ?? field.defaultValue.map(DialogSpec.text(of:)) ?? "").trimmed
                 if text.isEmpty {
                     value = .null
                     if field.required { missing.append(field.label) }
@@ -224,7 +223,7 @@ extension WindowHost {
                 value = .double(raw as? Double ?? field.defaultValue?.double ?? field.min ?? 0)
             case .date:
                 if let date = raw as? Date {
-                    value = .string(Self.dayFormatter.string(from: date))
+                    value = .string(HostSupport.localDay(date))
                 } else if let text = field.defaultValue?.string {
                     value = .string(text)
                 } else {
@@ -239,23 +238,11 @@ extension WindowHost {
 
     /// Accepts what a person types: "1234", "1,234.5" in the user's locale, or "1234.5".
     private static func parseNumber(_ text: String, integer: Bool) -> JSONValue? {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let number = formatter.number(from: text)?.doubleValue ?? Double(text)
-        guard let number, number.isFinite else { return nil }
+        guard let number = HostSupport.number(from: text), number.isFinite else { return nil }
         if integer {
             guard number == number.rounded(), abs(number) < 9e15 else { return nil }
             return .int(Int(number))
         }
         return .double(number)
     }
-
-    /// Dates come back as the calendar day the user picked, in their time zone.
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
 }

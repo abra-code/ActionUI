@@ -16,7 +16,11 @@
 // rather than through each package's Bundle.module accessor, which stops the process when its
 // bundle is missing: a binary copied without its bundles then serves fewer pages, not a crash.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import MCPStdio
 
 enum DocsResources {
@@ -34,7 +38,7 @@ enum DocsResources {
     static func make() -> MCPResources? {
         let folders = resourceFolders()
         guard !folders.isEmpty else {
-            FileHandle.standardError.write(Data("[actionui-mcp] documentation bundles not found; no docs resources\n".utf8))
+            HostSupport.logLine("[actionui-mcp] documentation bundles not found; no docs resources")
             return nil
         }
         // URI -> file, built once. Element pages and templates come from every bundle.
@@ -82,36 +86,22 @@ enum DocsResources {
     /// nothing under actionui://. Point them at the resources instead, so a client that follows a
     /// link reaches a page this server serves.
     private static func rewriteLinks(_ text: String) -> String {
-        var result = text
-        for (pattern, template) in [(#"\]\(Schemas/([A-Za-z0-9_]+)\.md\)"#, "](\(prefix)elements/$1)"),
-                                    (#"\]\(Elements/([A-Za-z0-9_]+)\.json\)"#, "](\(prefix)templates/$1)"),
-                                    (#"\]\(ActionUI-Elements\.md\)"#, "](\(prefix)elements)"),
-                                    (#"\]\(ActionUI-JSON-Guide\.md\)"#, "](\(prefix)guide)")] {
-            result = result.replacingOccurrences(of: pattern, with: template, options: .regularExpression)
-        }
-        return result
+        text.replacing(#/\]\(Schemas\/([A-Za-z0-9_]+)\.md\)/#) { "](\(prefix)elements/\($0.1))" }
+            .replacing(#/\]\(Elements\/([A-Za-z0-9_]+)\.json\)/#) { "](\(prefix)templates/\($0.1))" }
+            .replacing("](ActionUI-Elements.md)", with: "](\(prefix)elements)")
+            .replacing("](ActionUI-JSON-Guide.md)", with: "](\(prefix)guide)")
     }
 
-    /// The Resources folder of each documentation bundle found next to the executable or in the
-    /// app bundle's Resources, in `bundleNames` order.
+    /// The Resources folder of each documentation bundle found, in `bundleNames` order.
     private static func resourceFolders() -> [URL] {
-        // Not CommandLine.arguments[0]: a client launching the bare name through PATH passes just
-        // "actionui-mcp", which would resolve against the working directory.
-        let executableFolder = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
-        let searchFolders = [executableFolder, Bundle.main.resourceURL].compactMap { $0 }
-        return bundleNames.compactMap { name in
-            for folder in searchFolders {
-                if let bundle = Bundle(url: folder.appendingPathComponent(name + ".bundle")), let resources = bundle.resourceURL {
-                    return resources
-                }
-            }
-            return nil
-        }
+        bundleNames.compactMap(HostSupport.resourceFolder(ofBundle:))
     }
 
     private static func contents(of folder: URL, extension fileExtension: String) -> [(name: String, url: URL)] {
-        let urls = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
-        return urls.filter { $0.pathExtension == fileExtension && !$0.lastPathComponent.hasPrefix(".") }
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        return names.filter { !$0.hasPrefix(".") }
+            .map { folder.appendingPathComponent($0) }
+            .filter { $0.pathExtension == fileExtension }
             .map { ($0.deletingPathExtension().lastPathComponent, $0) }
     }
 }

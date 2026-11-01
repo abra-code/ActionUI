@@ -182,17 +182,16 @@ final class WindowHost: NSObject, NSWindowDelegate {
         let fileURL = documentDirectory.appendingPathComponent(windowID + ".json")
         do {
             try FileManager.default.createDirectory(at: documentDirectory, withIntermediateDirectories: true)
-            let data = try JSONSerialization.data(withJSONObject: document)
-            try data.write(to: fileURL, options: .atomic)
+            try Data(JSONValue(any: document).serialized().utf8).write(to: fileURL, options: .atomic)
         } catch {
-            throw MCPToolError("could not stage the window document: \(error.localizedDescription)")
+            throw MCPToolError("could not stage the window document: \(error.displayText)")
         }
         defer {
             // ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves the staged files in place, to inspect or render
             // them with ActionUIViewer. A kept window's file stays for the keeper process and is
             // removed when the window closes.
             if ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] == "1" {
-                FileHandle.standardError.write(Data("[actionui-mcp] kept document \(fileURL.path)\n".utf8))
+                HostSupport.logLine("[actionui-mcp] kept document \(fileURL.path)")
             } else if !retainFile {
                 try? FileManager.default.removeItem(at: fileURL)
             }
@@ -334,11 +333,9 @@ final class WindowHost: NSObject, NSWindowDelegate {
             }
         }
         events.sort { $0.sequence < $1.sequence }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let list: [JSONValue] = events.map { event in
             var object: [String: JSONValue] = ["window": .string(event.window), "action": .string(event.action),
-                                               "at": .string(formatter.string(from: event.time))]
+                                               "at": .string(HostSupport.preciseTimestamp(event.time))]
             if event.viewID > 0 { object["id"] = .int(event.viewID) }
             if event.part != 0 { object["part"] = .int(event.part) }
             if let value = event.value { object["value"] = value }
@@ -437,7 +434,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
         case let value as Double: return value.isFinite ? .double(value) : nil
         case let value as String: return .string(value)
         case let value as Date:
-            return .string(ISO8601DateFormatter().string(from: value))
+            return .string(HostSupport.timestamp(value))
         case let value as [String]: return .array(value.map(JSONValue.string))
         case let value as [[String]]: return .array(value.map { .array($0.map(JSONValue.string)) })
         case let value as AttributedString: return .string(String(value.characters))

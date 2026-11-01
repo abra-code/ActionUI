@@ -8,8 +8,13 @@
 // window: while a document loads, errors and warnings are also collected so they can be returned
 // to the agent that wrote the document.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import ActionUI
+import MCPStdio
 
 final class HostLogger: ActionUILogger, @unchecked Sendable {
     struct Entry {
@@ -18,7 +23,7 @@ final class HostLogger: ActionUILogger, @unchecked Sendable {
     }
 
     private let maxLevel: LoggerLevel
-    private let lock = NSLock()
+    private let lock = MCPLock()
     /// Non-nil while a capture is running; guarded by `lock`. ActionUI may log from any thread.
     private var captured: [Entry]?
 
@@ -33,7 +38,7 @@ final class HostLogger: ActionUILogger, @unchecked Sendable {
             }
         }
         guard level.rawValue <= maxLevel.rawValue else { return }
-        FileHandle.standardError.write(Data("[actionui-mcp][\(level)] \(message)\n".utf8))
+        HostSupport.logLine("[actionui-mcp][\(level)] \(message)")
     }
 
     /// Collects errors and warnings logged while `body` runs. Not reentrant; callers are on the

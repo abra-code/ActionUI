@@ -11,7 +11,11 @@
 // design: no SecureField (every answer reaches the model), no LoadableView (the document it loads
 // would skip these checks), no WebView user scripts.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import ActionUI
 import MCPStdio
 
@@ -184,10 +188,9 @@ struct AgentDocument {
         guard let size else { throw MCPToolError("no such file: \(path)") }
         guard size <= maxBytes else { throw MCPToolError("\(path) is larger than \(maxBytes / 1024 / 1024) MB") }
         do {
-            let data = try Data(contentsOf: url)
-            return JSONValue(any: try JSONSerialization.jsonObject(with: data))
+            return try HostSupport.parseJSON(try Data(contentsOf: url))
         } catch {
-            throw MCPToolError("\(path) is not valid JSON: \(error.localizedDescription)")
+            throw MCPToolError("\(path) is not valid JSON: \(error.displayText)")
         }
     }
 

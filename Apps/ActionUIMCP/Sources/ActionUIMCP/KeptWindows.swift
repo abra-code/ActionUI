@@ -88,11 +88,11 @@ extension WindowHost {
             let manifest = KeptWindowManifest(version: KeptWindowManifest.currentVersion, windows: records)
             try JSONEncoder().encode(manifest).write(to: spool.appendingPathComponent(KeptWindowManifest.fileName))
         } catch {
-            logger.log("could not hand kept windows to a new process: \(error.localizedDescription)", .error)
+            logger.log("could not hand kept windows to a new process: \(error.displayText)", .error)
             try? FileManager.default.removeItem(at: spool)
             return
         }
-        guard let executable = Bundle.main.executableURL?.path else {
+        guard let executable = HostSupport.executablePath else {
             logger.log("could not hand kept windows to a new process: the executable path is unknown", .error)
             try? FileManager.default.removeItem(at: spool)
             return

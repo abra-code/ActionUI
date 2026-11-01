@@ -8,7 +8,11 @@
 // parameters; the server assembles the document here, so the agent never writes ActionUI syntax
 // for a simple dialog or viewer.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import MCPStdio
 
 // MARK: - ask_user
@@ -166,7 +170,7 @@ struct DialogSpec {
         }
         let defaultIndex = titles.count - 1
         return titles.enumerated().map { index, title in
-            let isCancel = title.caseInsensitiveCompare("Cancel") == .orderedSame
+            let isCancel = title.lowercased() == "cancel"
             return DialogButton(title: title, isDefault: index == defaultIndex && !isCancel, isCancel: isCancel,
                                 actionID: buttonActionPrefix + String(index))
         }
@@ -290,7 +294,7 @@ struct DialogSpec {
         } else {
             decimals = (field.max ?? 1) - (field.min ?? 0) >= 10 ? 0 : 2
         }
-        return String(format: "%.\(decimals)f", value)
+        return HostSupport.fixed(value, decimals: decimals)
     }
 
     /// Rough row heights of the macOS Form, used only to decide when the fields must scroll.
@@ -459,9 +463,9 @@ struct ViewerSpec {
             } catch let error as MCPToolError {
                 // The agent passed a description, not a document: name it and its paths so.
                 throw MCPToolError(error.message
-                    .replacingOccurrences(of: "the document has errors:", with: "the chart description has errors:")
-                    .replacingOccurrences(of: "root: properties.chart", with: "chart")
-                    .replacingOccurrences(of: "root.properties.chart", with: "chart"))
+                    .replacing("the document has errors:", with: "the chart description has errors:")
+                    .replacing("root: properties.chart", with: "chart")
+                    .replacing("root.properties.chart", with: "chart"))
             }
             root = document.foundation
             checkWarnings = document.warnings
@@ -473,10 +477,7 @@ struct ViewerSpec {
     /// Paths must be absolute: the server does not share the client's working directory.
     private static func existingFile(_ path: String, key: String = "path") throws -> String {
         guard path.hasPrefix("/") else { throw MCPToolError("'\(key)' must be absolute: \(path)") }
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else {
-            throw MCPToolError("no such file: \(path)")
-        }
+        guard HostSupport.isFolder(atPath: path) == false else { throw MCPToolError("no such file: \(path)") }
         return path
     }
 }

@@ -109,6 +109,11 @@ Package(
             dependencies: ["MCPStdio"],
             path: "Tests/MCPStdioTests"
         ),
+        .testTarget(
+            name: "ActionUIMCPTests",
+            dependencies: ["ActionUIMCP"],
+            path: "Tests/ActionUIMCPTests"
+        ),
     ]
 )
 }
