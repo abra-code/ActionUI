@@ -6,6 +6,7 @@
 #   ActionUIDemo.app/
 #     ActionUIDemo        the ActionUIAdwaitaDemo program
 #     *.json, *.png ...   ActionUISwiftTestApp/Resources, copied
+#     RichText.json ...   the documents of the add-ons the program links, from the add-ons' test app
 #     Orb.png ...         the test app's asset images, named after their assets (Image assetName)
 #     Info.json           the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
 #     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
@@ -33,6 +34,7 @@ if [ -z "$script_dir" ]; then
 fi
 repo="$(/usr/bin/dirname "$script_dir")"
 resources="$repo/ActionUISwiftTestApp/Resources"
+add_on_resources="$repo/Add-ons/ActionUIAddOnTestApp/Resources"
 assets="$repo/ActionUISwiftTestApp/Assets.xcassets"
 demo_bundle_files="$repo/ActionUIAdwaita/DemoBundle"
 
@@ -157,6 +159,17 @@ if [ "$status" -ne 0 ]; then
     discard_bundle
     exit 1
 fi
+
+# The documents of the add-ons that work on Linux: the others show only a placeholder here.
+for document in RichText RichText.remoteImages CachedImage; do
+    /bin/cp "$add_on_resources/$document.json" "$bundle/"
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        printf 'make-linux-demo-bundle: could not copy %s.json from %s\n' "$document" "$add_on_resources" >&2
+        discard_bundle
+        exit 1
+    fi
+done
 
 # Each asset image as a file named after its asset (Orb.imageset/orb.png -> Orb.png).
 for imageset in "$assets"/*.imageset; do

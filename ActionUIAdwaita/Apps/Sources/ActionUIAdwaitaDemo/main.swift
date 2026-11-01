@@ -3,8 +3,9 @@
  ActionUIDemo: the Linux counterpart of ActionUISwiftTestApp. A launcher window lists the app's
  documents (every .json file in its resources); choosing one opens it in a window of its own, as
  the Mac app's JSON Selector does. The documents are the test app's own
- (ActionUISwiftTestApp/Resources), shipped in a simplified iOS-style bundle with the program
- (Scripts/make-linux-demo-bundle.sh builds ActionUIDemo.app).
+ (ActionUISwiftTestApp/Resources) and those of the add-ons that work on Linux, shipped in a
+ simplified iOS-style bundle with the program (Scripts/make-linux-demo-bundle.sh builds
+ ActionUIDemo.app).
 
  Usage: ActionUIDemo [--resources <folder>] [--open <Name> [--action <actionID>]] [--dark] [--screenshot <file.png>]
 
