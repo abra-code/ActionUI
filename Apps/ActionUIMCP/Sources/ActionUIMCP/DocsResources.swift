@@ -11,10 +11,15 @@
 //   actionui://docs/elements/<Type>    one element's properties (core and add-ons)
 //   actionui://docs/templates/<Type>   a ready-to-edit JSON template for one element
 //
-// The pages come from the documentation resource bundles that SwiftPM builds next to the
+// On macOS the pages come from the documentation resource bundles that SwiftPM builds next to the
 // executable (ActionUI_ActionUIDocumentation.bundle and one per add-on). They are found by name
 // rather than through each package's Bundle.module accessor, which stops the process when its
 // bundle is missing: a binary copied without its bundles then serves fewer pages, not a crash.
+//
+// Linux builds no resource bundles (Bundle.module needs full Foundation), so the pages are plain
+// folders: <prefix>/share/actionui/docs/<name> for a server in <prefix>/bin, as the Linux package
+// lays them out (Scripts/make-linux-mcp-package.sh), else the Documentation folders of the ActionUI
+// checkout the server was built from. Only the add-ons Linux has are served.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -92,10 +97,37 @@ enum DocsResources {
             .replacing("](ActionUI-JSON-Guide.md)", with: "](\(prefix)guide)")
     }
 
+    #if os(Linux)
+    /// The documentation folders on Linux, core first: the name in an installed package, and the
+    /// folder in the checkout.
+    private static let linuxFolders = [
+        ("ActionUI", "Documentation"),
+        ("ActionUICachedImage", "Add-ons/ActionUICachedImage/Documentation"),
+        ("ActionUIRichText", "Add-ons/ActionUIRichText/Documentation"),
+    ]
+
+    /// Each documentation folder found, in `linuxFolders` order: the installed package's, else the
+    /// checkout's.
+    private static func resourceFolders() -> [URL] {
+        let installed = HostSupport.executablePath.map {
+            URL(fileURLWithPath: $0).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("share/actionui/docs")
+        }
+        // This file is <repo>/Apps/ActionUIMCP/Sources/ActionUIMCP/DocsResources.swift.
+        var repo = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { repo = repo.deletingLastPathComponent() }
+        return linuxFolders.compactMap { name, checkoutPath in
+            [installed?.appendingPathComponent(name), repo.appendingPathComponent(checkoutPath)]
+                .compactMap { $0 }
+                .first { HostSupport.isFolder(atPath: $0.appendingPathComponent("Schemas").path) == true }
+        }
+    }
+    #else
     /// The Resources folder of each documentation bundle found, in `bundleNames` order.
     private static func resourceFolders() -> [URL] {
         bundleNames.compactMap(HostSupport.resourceFolder(ofBundle:))
     }
+    #endif
 
     private static func contents(of folder: URL, extension fileExtension: String) -> [(name: String, url: URL)] {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []

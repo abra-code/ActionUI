@@ -20,9 +20,9 @@ import time
 LINUX = sys.platform.startswith("linux")
 # The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
 SUFFIX = ":linux" if LINUX else ":macos"
-# Not on Linux: the Diff add-on and the documentation resources. A kept window's frame is its
-# content's size there, as Wayland does not tell where a window is.
-NOT_ON_LINUX = ("show diff", "resources/")
+# Not on Linux: the Diff add-on. A kept window's frame is its content's size there, as Wayland does
+# not tell where a window is.
+NOT_ON_LINUX = ("show diff",)
 
 
 class Session:
@@ -523,11 +523,13 @@ message = s.response(2) or {}
 check("modern ask_user", message.get("result", {}).get("resultType") == "complete"
       and structured(message) == {"action": "accept", "button": "OK", "values": {"n": "x"}}, message)
 
-# Element reference as resources, from the documentation bundles next to the binary.
+# Element reference as resources, from the documentation next to the binary (on Linux, from the
+# checkout for a build that is not installed). Linux serves only the add-ons it has: no QuickLook.
 s.send({"jsonrpc": "2.0", "id": 3, "method": "resources/list", "params": {"_meta": s.meta}})
 listed = [r["uri"] for r in (s.response(3) or {}).get("result", {}).get("resources", [])]
 check("resources/list has the guide and core and add-on elements (%d)" % len(listed),
-      {"actionui://docs/guide", "actionui://docs/elements/Button", "actionui://docs/elements/QuickLook"} <= set(listed))
+      {"actionui://docs/guide", "actionui://docs/elements/Button", "actionui://docs/elements/RichText"} <= set(listed)
+      and ("actionui://docs/elements/QuickLook" in listed) != LINUX)
 s.send({"jsonrpc": "2.0", "id": 4, "method": "resources/read",
         "params": {"uri": "actionui://docs/templates/TextField", "_meta": s.meta}})
 contents = ((s.response(4) or {}).get("result", {}).get("contents") or [{}])[0]

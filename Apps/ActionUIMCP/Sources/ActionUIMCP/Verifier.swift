@@ -28,7 +28,8 @@ enum Verifier {
             return nil
         }
         do {
-            let set = try SchemaSet(primary: schemas, extra: SchemaSet.discoverAddOnDirectories(schemasDirectory: schemas))
+            let extra = SchemaSet.discoverAddOnDirectories(schemasDirectory: schemas, includeCheckout: !isPackaged(schemas))
+            let set = try SchemaSet(primary: schemas, extra: extra)
             return DocumentValidator(schemas: set, targetPlatform: HostPlatform.verifierPlatform)
         } catch {
             HostSupport.logLine("[actionui-mcp] could not load verifier schemas from \(schemas.path): \(error.displayText)")
@@ -37,6 +38,21 @@ enum Verifier {
     }()
 
     static let unavailableWarning = "schema checks (element types, property names and value types, enum values, required properties) were skipped: the ActionUIVerifier schemas were not found next to the server"
+
+    /// Whether `schemas` are the ones a Linux package ships beside the server
+    /// (Scripts/make-linux-mcp-package.sh): then they hold the add-ons this server has, and the
+    /// ActionUI checkout the server was built from, which may still be on the machine, has others
+    /// (QuickLook, Diff) that it cannot show. Elsewhere add-on schemas are found as before.
+    private static func isPackaged(_ schemas: URL) -> Bool {
+        #if os(Linux)
+        guard let executable = HostSupport.executablePath else { return false }
+        let shipped = URL(fileURLWithPath: executable).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("share/actionui/schemas")
+        return schemas.standardizedFileURL.path == shipped.standardizedFileURL.path
+        #else
+        return false
+        #endif
+    }
 
     private static func schemasDirectory() -> URL? {
         func hasSchemas(_ url: URL) -> Bool {
