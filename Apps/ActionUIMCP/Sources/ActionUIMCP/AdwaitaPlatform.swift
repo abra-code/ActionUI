@@ -58,8 +58,14 @@ final class AdwaitaPlatform: WindowPlatform {
     /// is an ordinary application: it ends when the user closes its last window, and Ctrl+Q ends it,
     /// as its Quit does on macOS. The server's Ctrl+Q goes, as the server has no Quit on macOS: it
     /// would end the client's server, and closing the windows is enough.
+    /// The application ID is the desktop entry's (DesktopEntry.swift), which gives the windows their
+    /// icon on GNOME; the icon set here is the windows' own, which some desktops show without one.
     static func prepareApplication(isKeeper: Bool) {
         AdwaitaApplication.shared.name = "ActionUI"
+        AdwaitaApplication.shared.applicationID = DesktopEntry.applicationID
+        if let icon = DesktopEntry.iconPath {
+            AdwaitaApplication.shared.icon = icon
+        }
         AdwaitaApplication.shared.keepsRunningWithoutWindows = !isKeeper
         AdwaitaApplication.shared.runsWithoutDisplay = !isKeeper
         guard !isKeeper else { return }
@@ -158,7 +164,8 @@ final class AdwaitaPlatform: WindowPlatform {
     /// line, so a long message or title cannot push the provenance line out of view.
     func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws {
         let error: String? = await withCheckedContinuation { continuation in
-            DesktopNotifications.show(appName: "ActionUI", summary: subtitle, heading: title, markdown: message,
+            DesktopNotifications.show(appName: "ActionUI", desktopEntry: DesktopEntry.applicationID, summary: subtitle,
+                                      heading: title, markdown: message,
                                       seconds: duration) { error in
                 continuation.resume(returning: error)
             }

@@ -7,6 +7,7 @@
 #     share/actionui/schemas/                   the element schemas the server checks documents with
 #     share/actionui/schemas/add-ons/<AddOn>/   the schemas of the add-ons the Linux server has
 #     share/actionui/docs/<Name>/               the element reference it serves as MCP resources
+#     share/actionui/ActionUIMCP.svg            the windows' icon (actionui-mcp --install-desktop-entry)
 #     LICENSE.txt
 #     LICENSE-MaterialSymbols.txt               the license of the symbol icons in the server
 #     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt   the licenses of the packages the add-ons link
@@ -206,6 +207,7 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 copy_schemas "$repo/ActionUIVerifier/Schemas" share/actionui/schemas || exit 1
+copy_into_package "$repo/Apps/ActionUIMCP/Sources/ActionUIMCP/Resources/ActionUIMCP.svg" share/actionui || exit 1
 copy_docs "$repo/Documentation" ActionUI || exit 1
 for addon in $addons; do
     copy_schemas "$repo/Add-ons/$addon/Schemas" "share/actionui/schemas/add-ons/$addon" || exit 1

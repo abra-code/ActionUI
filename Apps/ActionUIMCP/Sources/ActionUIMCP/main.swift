@@ -12,7 +12,9 @@
 // opened with `keep` are handed to a keeper process, and the app terminates.
 //
 // Modes: no arguments runs the MCP server; `--rehost <dir> [--ready-fd <n>]` is the keeper that
-// shows kept windows after the session (KeptWindows.swift), started by the server itself.
+// shows kept windows after the session (KeptWindows.swift), started by the server itself. On Linux,
+// `--install-desktop-entry` and `--uninstall-desktop-entry` add or remove the desktop entry that
+// gives the windows their icon (DesktopEntry.swift).
 //
 // Environment:
 //   ACTIONUI_MCP_LABEL      shown after the client name in every window's title bar
@@ -40,11 +42,29 @@ if arguments.contains("-h") || arguments.contains("--help") {
         Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_document, validate_document, wait, update_window, get_values, screenshot, close_window.
         Environment: ACTIONUI_MCP_LABEL, ACTIONUI_MCP_LOG_LEVEL (error|warning|info|debug).
         """)
+    #if os(Linux)
+    print("--install-desktop-entry, --uninstall-desktop-entry: add or remove the desktop entry that gives the windows the ActionUI icon, for the current user.")
+    #endif
     exit(0)
 }
 if arguments.contains("--version") {
     print("actionui-mcp \(serverVersion)")
     exit(0)
+}
+// The desktop entry that gives the windows their icon on Linux (DesktopEntry.swift).
+for option in ["--install-desktop-entry", "--uninstall-desktop-entry"] where arguments.contains(option) {
+    #if os(Linux)
+    let outcome = option == "--install-desktop-entry" ? DesktopEntry.install() : DesktopEntry.uninstall()
+    if outcome.ok {
+        print("actionui-mcp: " + outcome.message)
+    } else {
+        HostSupport.logLine("actionui-mcp: " + outcome.message)
+    }
+    exit(outcome.ok ? 0 : 1)
+    #else
+    HostSupport.logLine("actionui-mcp: \(option) is for Linux; on macOS the Dock shows the server's icon without it")
+    exit(2)
+    #endif
 }
 
 /// The value after `flag`, or nil.

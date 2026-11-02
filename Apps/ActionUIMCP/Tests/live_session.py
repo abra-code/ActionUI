@@ -671,5 +671,24 @@ result = wait_for_file(report, 5) or {}
 check("SIGTERM hands off kept windows", [w.get("title") for w in result.get("windows", [])] == ["Kept A"], result)
 check("keeper after SIGTERM exits", process_gone(result.get("pid", -1), 5), result.get("pid"))
 
+# The desktop entry that gives the windows their icon on Linux: written for this binary, hidden from
+# the app list, and removed again. macOS has no such step.
+entry_home = tempfile.mkdtemp(prefix="actionui-mcp-entry-")
+entry_env = dict(os.environ, XDG_DATA_HOME=entry_home)
+installed = subprocess.run([binary, "--install-desktop-entry"], env=entry_env, capture_output=True, text=True)
+entry_file = os.path.join(entry_home, "applications", "com.abracode.actionui.mcp.desktop")
+if LINUX:
+    entry_text = open(entry_file).read() if os.path.exists(entry_file) else ""
+    icon_line = next((line for line in entry_text.splitlines() if line.startswith("Icon=")), "")
+    check("desktop entry installed for this binary", installed.returncode == 0
+          and "Exec=" + os.path.realpath(binary) + "\n" in entry_text and "NoDisplay=true" in entry_text
+          and os.path.exists(icon_line[len("Icon="):]), installed.stdout + entry_text)
+    removed = subprocess.run([binary, "--uninstall-desktop-entry"], env=entry_env, capture_output=True, text=True)
+    again = subprocess.run([binary, "--uninstall-desktop-entry"], env=entry_env, capture_output=True, text=True)
+    check("desktop entry removed", removed.returncode == 0 and again.returncode == 0 and not os.path.exists(entry_file),
+          removed.stdout + again.stdout)
+else:
+    check("desktop entry is Linux only", installed.returncode == 2 and not os.path.exists(entry_file), installed.stdout)
+
 print("%d failure(s)" % len(failures))
 sys.exit(1 if failures else 0)

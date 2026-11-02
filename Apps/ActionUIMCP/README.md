@@ -50,6 +50,7 @@ The same server runs on Linux with ActionUI's GTK 4 and libadwaita renderer. It 
 
 - The "Requested by" line is a line of its own above the header bar, and in every sheet, so neither the document's toolbar nor a sheet can cover it.
 - Every new window takes the keyboard focus: Wayland has no way to open a window and leave the focus where it was. `show` says so in its description.
+- The windows show the ActionUI icon once the server's desktop entry is installed (`--install-desktop-entry`, see Install on Linux); on macOS the Dock shows it without a step.
 - `show` has no `pdf`, `file` or `diff` kinds (Quick Look and the Diff add-on have no Linux renderer), and the tool's schema leaves them out. Of the add-ons, RichText and CachedImage are there.
 - `notify` is a desktop notification (org.freedesktop.Notifications): the desktop places and styles it, may hide it sooner, and holds it back in do-not-disturb mode. Its heading is the "Requested by" line; markdown keeps bold and italic. The server closes it after `duration_s` and when the session ends.
 - `pick_path` uses the desktop's file chooser (through the portal on GNOME).
@@ -76,8 +77,11 @@ The machine needs GNOME 48 or later: GTK 4.18, libadwaita 1.7 and libsoup 3 (on 
 ```sh
 mkdir -p ~/.local/opt
 tar -xzf .build/linux-package/actionui-mcp-<version>-linux-<arch>.tar.gz -C ~/.local/opt
+~/.local/opt/actionui-mcp-<version>-linux-<arch>/bin/actionui-mcp --install-desktop-entry
 claude mcp add --scope user actionui -- ~/.local/opt/actionui-mcp-<version>-linux-<arch>/bin/actionui-mcp
 ```
+
+`--install-desktop-entry` gives the windows the ActionUI icon in the dock, the window switcher and the overview, and on the desktop notifications. GNOME takes a window's icon from the desktop entry named by its application ID (`com.abracode.actionui.mcp`), not from the program, so without one the windows show a generic icon. The option writes `~/.local/share/applications/com.abracode.actionui.mcp.desktop` (under `$XDG_DATA_HOME` when that is set), hidden from the app list, naming this copy of the server and its icon; run it again after moving the folder, and `--uninstall-desktop-entry` removes it. A window that opens before the entry is written keeps the generic icon.
 
 The client setup below is the same on Linux with that path.
 

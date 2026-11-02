@@ -11,6 +11,8 @@
  - An optional heading goes first in the body, in bold, plain text, on a line of its own. A
    collapsed banner (GNOME) shows the summary and the start of the body on one line, so what must
    stay in view belongs in the summary.
+ - A desktop entry's application ID ("desktop-entry" hint) lets the desktop show that entry's icon
+   and name on the notification.
  - It is transient (not kept in the desktop's list of notifications), and is closed after its
    duration, whatever the server does with expire_timeout: GNOME ignores it, and keeps a banner up
    while the user is away, queuing the next ones behind it. `closeAll` closes the ones still open,
@@ -35,10 +37,11 @@ public enum DesktopNotifications {
     private static var openIDs: Set<guint32> = []
 
     /// Shows a notification from `appName`: `summary` first, then `heading` on a line of its own
-    /// and `markdown`. Closes it after `seconds`. `completion` runs once: nil when the desktop took
-    /// the notification, otherwise why not.
-    public static func show(appName: String, summary: String, heading: String?, markdown: String, seconds: Double,
-                            completion: @escaping @MainActor (String?) -> Void) {
+    /// and `markdown`. Closes it after `seconds`. `desktopEntry`, the application ID of the
+    /// program's desktop entry, lets the desktop show that entry's icon and name. `completion` runs
+    /// once: nil when the desktop took the notification, otherwise why not.
+    public static func show(appName: String, desktopEntry: String? = nil, summary: String, heading: String?, markdown: String,
+                            seconds: Double, completion: @escaping @MainActor (String?) -> Void) {
         guard let bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nil, nil) else {
             completion("there is no desktop session bus to send a notification on")
             return
@@ -52,7 +55,7 @@ public enum DesktopNotifications {
             let markup = capabilities(reply).contains("body-markup")
             g_variant_unref(reply)
             let text = body(heading: heading, markdown: markdown, markup: markup)
-            notify(bus, appName: appName, summary: summary, body: text, seconds: seconds) { error in
+            notify(bus, appName: appName, desktopEntry: desktopEntry, summary: summary, body: text, seconds: seconds) { error in
                 g_object_unref(UnsafeMutableRawPointer(bus))
                 completion(error)
             }
@@ -115,12 +118,16 @@ public enum DesktopNotifications {
 
     /// Notify(app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout),
     /// then CloseNotification with the id it returns, after `seconds`.
-    private static func notify(_ bus: OpaquePointer, appName: String, summary: String, body: String, seconds: Double,
-                               completion: @escaping @MainActor (String?) -> Void) {
+    private static func notify(_ bus: OpaquePointer, appName: String, desktopEntry: String?, summary: String, body: String,
+                               seconds: Double, completion: @escaping @MainActor (String?) -> Void) {
         let hintType = g_variant_type_new("{sv}")!
         var hints: [OpaquePointer?] = [
             g_variant_new_dict_entry(g_variant_new_string("transient"), g_variant_new_variant(g_variant_new_boolean(1))),
         ]
+        if let desktopEntry {
+            hints.append(g_variant_new_dict_entry(g_variant_new_string("desktop-entry"),
+                                                  g_variant_new_variant(g_variant_new_string(desktopEntry))))
+        }
         let hintArray = g_variant_new_array(hintType, &hints, gsize(hints.count))
         g_variant_type_free(hintType)
         let stringType = g_variant_type_new("s")!

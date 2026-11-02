@@ -101,6 +101,8 @@ Package(
                 .product(name: "ActionUIRichTextDocumentation", package: "ActionUIRichText"),
             ],
             path: "Sources/ActionUIMCP",
+            // The Linux icon goes into the Linux package (Scripts/make-linux-mcp-package.sh).
+            exclude: ["Resources/ActionUIMCP.svg"],
             // The Dock icon (AppKitPlatform), in ActionUIMCP_ActionUIMCP.bundle next to the
             // executable, found by name as the documentation bundles are.
             resources: [.copy("Resources/ActionUIMCP.icns")],
