@@ -138,27 +138,35 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let shows = "a markdown report, plain text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It does not take keyboard focus."
     #endif
+    var properties: [String: JSONValue] = [
+        "title": ["type": "string", "description": "Window title."],
+        "kind": ["type": "string", "enum": kinds,
+                 "description": .string(kindText)],
+        "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
+        "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
+        "url": ["type": "string", "description": "http(s) URL for image, video, web."],
+        "old_text": ["type": "string", "description": "For diff: the old (left) text."],
+        "new_text": ["type": "string", "description": "For diff: the new (right) text."],
+        "old_path": ["type": "string", "description": "For diff: absolute path of the old file, instead of old_text."],
+        "new_path": ["type": "string", "description": "For diff: absolute path of the new file, instead of new_text."],
+        "columns": ["type": "array", "items": ["type": "string"], "description": "For table: column headers."],
+        "rows": ["type": "array", "description": "For table: rows, each an array of cells (strings or numbers), at most one per column.",
+                 "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
+        "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (resource actionui://docs/elements/Chart). It gets the checks of show_document. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
+        "width": ["type": "number", "description": "Content width in points. Default 800."],
+        "height": ["type": "number", "description": "Content height in points. Default 600."],
+        "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
+    ]
+    #if os(Linux)
+    // No pdf, file or diff kind here (ContentKind.available): their inputs would only mislead.
+    for key in ["old_text", "new_text", "old_path", "new_path"] {
+        properties[key] = nil
+    }
+    properties["path"] = ["type": "string", "description": "Absolute path of a local file for image, video."]
+    #endif
     let input: JSONValue = [
         "type": "object",
-        "properties": [
-            "title": ["type": "string", "description": "Window title."],
-            "kind": ["type": "string", "enum": kinds,
-                     "description": .string(kindText)],
-            "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
-            "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
-            "url": ["type": "string", "description": "http(s) URL for image, video, web."],
-            "old_text": ["type": "string", "description": "For diff: the old (left) text."],
-            "new_text": ["type": "string", "description": "For diff: the new (right) text."],
-            "old_path": ["type": "string", "description": "For diff: absolute path of the old file, instead of old_text."],
-            "new_path": ["type": "string", "description": "For diff: absolute path of the new file, instead of new_text."],
-            "columns": ["type": "array", "items": ["type": "string"], "description": "For table: column headers."],
-            "rows": ["type": "array", "description": "For table: rows, each an array of cells (strings or numbers), at most one per column.",
-                     "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
-            "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (resource actionui://docs/elements/Chart). It gets the checks of show_document. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
-            "width": ["type": "number", "description": "Content width in points. Default 800."],
-            "height": ["type": "number", "description": "Content height in points. Default 600."],
-            "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
-        ],
+        "properties": .object(properties),
         "required": ["title", "kind"],
         "additionalProperties": false,
     ]
