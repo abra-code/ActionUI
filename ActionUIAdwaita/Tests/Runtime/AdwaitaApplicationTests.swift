@@ -16,7 +16,11 @@
  the bars or the sheet; a content size opens the window at that size, capped by the
  monitor; a window that is not resizable keeps its size; the options survive the wait for the start
  and for a remote document; with keepsRunningWithoutWindows the user's close of the last window
- leaves the application running.
+ leaves the application running; a document prepared but not presented is loaded with nothing on
+ screen, fetches nothing, and can be dropped; presented, it shows once, and waits for the start
+ like any window; preparing replaces a window that waits under its UUID, closes one on screen as
+ the host's close does, keeping the application running, and keeps its model from a closed
+ window's removal.
 */
 
 import XCTest
@@ -149,6 +153,260 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(seen, ["app-w1 typed", "app-w2 typed"], "the disappear actions run before the model goes")
         XCTAssertFalse(ActionUIModel.shared.hasWindow("app-w1"))
         XCTAssertFalse(ActionUIModel.shared.hasWindow("app-w2"))
+    }
+
+    func testAPreparedDocumentIsLoadedWithNothingOnScreen() throws {
+        let app = AdwaitaApplication()
+        var shown: WidgetPointer?
+        var title: String?
+        var showsDocument = false
+        var subtitle: WidgetPointer?
+        var presentedBefore: [String] = []
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            XCTAssertNil(prepared.error)
+            XCTAssertTrue(ActionUIModel.shared.hasWindow("app-w1"), "its model is loaded")
+            presentedBefore = app.windowUUIDs
+            app.presentWindow(prepared: prepared, title: "Prepared", options: AdwaitaApplication.WindowOptions(subtitle: "Requested by a test"))
+            shown = app.contentWidget("app-w1")
+            showsDocument = app.showsDocument("app-w1")
+            if let window = app.gtkWindow("app-w1") {
+                title = swiftString(gtk_window_get_title(window))
+                subtitle = self.label(showing: "Requested by a test", in: typed(window))
+            }
+            app.closeWindow("app-w1")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(presentedBefore, [], "preparing shows nothing")
+        XCTAssertNotNil(shown)
+        XCTAssertTrue(showsDocument)
+        XCTAssertEqual(title, "Prepared")
+        XCTAssertNotNil(subtitle, "the options apply")
+    }
+
+    func testPreparingFetchesNothingUntilTheWindowShows() throws {
+        let server = try TestImageServer(png: TestImages.png(width: 20, height: 20))
+        defer { server.stop() }
+        let document = #"{"type": "AsyncImage", "id": 1, "properties": {"url": "\#(server.base)/image.png"}}"#
+        let app = AdwaitaApplication()
+        var afterPreparing: Int?
+        var afterShowing: Int?
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            _ = runAfter(milliseconds: 300) {
+                afterPreparing = server.requests
+                app.presentWindow(prepared: prepared, title: nil)
+                _ = runAfter(milliseconds: 500) {
+                    afterShowing = server.requests
+                    app.closeWindow("app-w1")
+                    app.terminate()
+                }
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(afterPreparing, 0, "a document that is only checked reaches no server")
+        XCTAssertEqual(afterShowing, 1, "the check above could fail: the window does fetch")
+    }
+
+    func testADocumentThatCannotBeLoadedPreparesWithItsErrorAndShowsIt() throws {
+        let app = AdwaitaApplication()
+        var error: String?
+        var shownError: String?
+        var showsDocument: Bool?
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-bad")
+            error = prepared.error
+            app.presentWindow(prepared: prepared, title: "Bad")
+            if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
+                shownError = swiftString(gtk_label_get_text(opaque(label)))
+            }
+            showsDocument = app.showsDocument("app-bad")
+            app.closeWindow("app-bad")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(error?.contains("could not be loaded") ?? false, "\(error ?? "nil")")
+        XCTAssertEqual(shownError, error, "as a document that cannot be loaded does through presentWindow")
+        XCTAssertEqual(showsDocument, false)
+    }
+
+    func testAPreparedWindowShowsOnce() throws {
+        let app = AdwaitaApplication()
+        var presented: [String] = []
+        var first: WidgetPointer?
+        var afterSecond: WidgetPointer?
+        app.handlers.windowWillPresent = { presented.append($0) }
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            app.presentWindow(prepared: prepared, title: nil)
+            first = app.contentWidget("app-w1")
+            app.presentWindow(prepared: prepared, title: nil)
+            afterSecond = app.contentWidget("app-w1")
+            app.closeWindow("app-w1")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(presented, ["app-w1"], "the second is refused")
+        XCTAssertNotNil(first)
+        XCTAssertEqual(afterSecond, first, "and leaves the window alone")
+    }
+
+    func testAPreparedWindowThatIsDroppedLeavesItsModelAndFiresNothing() throws {
+        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "TextField", "id": 2, "properties": {"onAppearActionID": "app.seen", "onDisappearActionID": "app.seen"}}]}"#
+        var fired = 0
+        ActionUIModel.shared.registerActionHandler(for: "app.seen") { _, _, _, _, _ in fired += 1 }
+        defer { ActionUIModel.shared.unregisterActionHandler(for: "app.seen") }
+        let app = AdwaitaApplication()
+        _ = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(fired, 0, "the document never appeared")
+        XCTAssertEqual(app.windowUUIDs, [])
+        XCTAssertTrue(ActionUIModel.shared.hasWindow("app-w1"), "the model is the caller's to remove")
+    }
+
+    func testALoadableViewInADroppedPreparedWindowFiresNothing() throws {
+        let path = NSTemporaryDirectory() + "actionui-app-test-sub-\(ProcessInfo.processInfo.processIdentifier).json"
+        try Self.document.write(toFile: path, atomically: true, encoding: .utf8)
+        files.append(path)
+        let document = #"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)", "viewDidLoadActionID": "app.loaded"}}"#
+        var fired = 0
+        ActionUIModel.shared.registerActionHandler(for: "app.loaded") { _, _, _, _, _ in fired += 1 }
+        defer { ActionUIModel.shared.unregisterActionHandler(for: "app.loaded") }
+        _ = AdwaitaApplication().prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(fired, 0, "the document never showed")
+    }
+
+    func testAPreparedWindowWaitsForTheStart() throws {
+        let app = AdwaitaApplication()
+        var events: [String] = []
+        var shown: WidgetPointer?
+        app.handlers.willFinishLaunching = { events.append("willFinishLaunching") }
+        app.handlers.windowWillPresent = { events.append("present \($0)") }
+        app.handlers.didFinishLaunching = {
+            events.append("didFinishLaunching")
+            shown = app.contentWidget("app-w1")
+            app.closeWindow("app-w1")
+            app.terminate()
+        }
+        let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+        app.presentWindow(prepared: prepared, title: nil)
+        XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(events, ["willFinishLaunching", "present app-w1", "didFinishLaunching"])
+        XCTAssertNotNil(shown)
+    }
+
+    func testPreparingReplacesAWindowThatWaitsForTheStart() throws {
+        let app = AdwaitaApplication()
+        var presented: [String] = []
+        var shown: WidgetPointer?
+        var modelType: String?
+        app.handlers.windowWillPresent = { presented.append($0) }
+        app.handlers.didFinishLaunching = {
+            shown = app.contentWidget("app-w1")
+            modelType = ActionUIModel.shared.windowModels["app-w1"]?.element?.type
+            app.closeWindow("app-w1")
+            app.terminate()
+        }
+        app.presentWindow(json: Data(#"{"type": "Text", "id": 1}"#.utf8), windowUUID: "app-w1", title: nil)
+        let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+        app.presentWindow(prepared: prepared, title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(presented, ["app-w1"], "the waiting window's document never loads over the prepared one")
+        XCTAssertEqual(modelType, "VStack")
+        XCTAssertNotNil(shown)
+    }
+
+    func testPreparingUnderTheUUIDOfTheLastWindowLeavesTheApplicationRunning() throws {
+        let app = AdwaitaApplication()
+        var presented: [String] = []
+        var running = false
+        app.handlers.windowWillPresent = { presented.append($0) }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: an application kept open for good ends here instead of hanging.
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            // The document is refused: no window takes the closed one's place.
+            let refused = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-w1")
+            XCTAssertNotNil(refused.error)
+            // Never runs if the application ended with its last window.
+            _ = runAfter(milliseconds: 300) {
+                running = true
+                let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w2")
+                app.presentWindow(prepared: prepared, title: nil)
+                app.closeWindow("app-w2")
+                app.terminate()
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(running, "the host closed its last window: the application keeps running")
+        XCTAssertEqual(presented, ["app-w1", "app-w2"], "and a later window releases the hold")
+    }
+
+    func testPreparingUnderTheUUIDOfTheLastLoadLeavesTheApplicationRunning() throws {
+        let server = try TestImageServer(png: [], document: Self.document)
+        defer { server.stop() }
+        let app = AdwaitaApplication()
+        var presented: [String] = []
+        var running = false
+        app.handlers.windowWillPresent = { presented.append($0) }
+        app.handlers.didFinishLaunching = {
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil)
+            // The open window goes while the other loads, then the load: nothing is left but the hold.
+            app.closeWindow("app-w1")
+            _ = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-w2")
+            _ = runAfter(milliseconds: 500) {
+                running = true
+                app.terminate()
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(running, "the host dropped its last load: the application keeps running")
+        XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
+    }
+
+    func testAClosedWindowsModelRemovalSparesADocumentPreparedUnderItsUUID() throws {
+        let app = AdwaitaApplication()
+        var hadModel = false
+        var showsDocument = false
+        app.handlers.didFinishLaunching = {
+            app.closeWindow("app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            // After the removal the close queued.
+            _ = runAfter(milliseconds: 50) {
+                hadModel = ActionUIModel.shared.hasWindow("app-w1")
+                app.presentWindow(prepared: prepared, title: nil)
+                showsDocument = app.showsDocument("app-w1")
+                app.closeWindow("app-w1")
+                app.terminate()
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(hadModel, "the host reopened the window: its model stays")
+        XCTAssertTrue(showsDocument)
+    }
+
+    func testPreparingUnderTheUUIDOfAnOpenWindowClosesIt() throws {
+        let app = AdwaitaApplication()
+        var closed: [String] = []
+        var afterPreparing: [String]?
+        app.handlers.windowWillClose = { closed.append($0) }
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            afterPreparing = app.windowUUIDs
+            app.presentWindow(prepared: prepared, title: nil)
+            app.closeWindow("app-w1")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(afterPreparing, [], "its model is the new document's now, as for presentWindow")
+        XCTAssertEqual(closed, ["app-w1"], "no handler for the replaced window, as for presentWindow")
     }
 
     func testAWindowOpensNoWiderThan900UnlessItsMinimumNeedsMore() throws {
@@ -1072,5 +1330,26 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         app.run()
         XCTAssertEqual(icon, "applications-science")
+    }
+}
+
+/// For `swift test` with no display, where the renderer tests skip: a server over SSH still checks
+/// documents.
+@MainActor
+final class AdwaitaApplicationNoDisplayTests: XCTestCase {
+    override func tearDown() async throws {
+        ActionUIModel.shared.windowModels["app-no-display"] = nil
+    }
+
+    func testWithNoDisplayPreparingLoads() throws {
+        try XCTSkipIf(gdk_display_get_default() != nil, "a display is open; this one is for the runs that have none")
+        ActionUIRegistry.shared.loadBuiltIns()
+        let app = AdwaitaApplication()
+        let good = app.prepareWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#.utf8),
+                                     windowUUID: "app-no-display")
+        XCTAssertNil(good.error)
+        XCTAssertTrue(ActionUIModel.shared.hasWindow("app-no-display"), "the document loads")
+        let bad = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-no-display")
+        XCTAssertNotNil(bad.error, "a bad document is still found")
     }
 }

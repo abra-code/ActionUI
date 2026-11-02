@@ -37,11 +37,11 @@
  - Closing: GTK ends an application when its last window goes, AppKit does not (an AppKit
    application with no window keeps running until it is told to terminate). ActionUI follows
    AppKit for the host and GTK for the user:
-   - The host closing its last window (closeWindow, or dropping the load of its last document)
-     leaves the application running, held open with no window until the host presents another
-     or calls terminate(), which asks the shouldTerminate handler, as on Apple. A host may close
-     one window before it presents the next (a wizard's steps, say); with GTK's rule the
-     application would end in between.
+   - The host closing its last window (closeWindow, preparing a document under its UUID, or
+     dropping the load of its last document) leaves the application running, held open with no
+     window until the host presents another or calls terminate(), which asks the shouldTerminate
+     handler, as on Apple. A host may close one window before it presents the next (a wizard's
+     steps, say); with GTK's rule the application would end in between.
    - The user closing the last window by hand ends the application, after asking the
      shouldTerminate handler (false keeps the window open). Here the platforms differ on
      purpose: an application with no window has no Dock icon or menu bar on Linux to quit it
@@ -159,6 +159,9 @@ public final class AdwaitaApplication {
     /// application, as the window it stands for would.
     private var remoteLoads: [String: Int] = [:]
     private var remoteLoadCounter = 0
+    /// The closed windows whose models go after this turn of the main loop (windowWillClose);
+    /// prepareWindow takes a UUID out, as its model is in use again.
+    private var queuedModelRemovals: Set<String> = []
     private var isActive = false
     private var activeCheckQueued = false
     /// Whether the application is held open while it has no window: until its first window, and
@@ -182,6 +185,27 @@ public final class AdwaitaApplication {
         case json(Data)
         /// An http or https URL's document, loaded (nil: it could not be).
         case fetched(String, Data?)
+        /// A document prepareWindow loaded.
+        case prepared(PreparedWindow)
+    }
+
+    /// A document loaded, not on screen (prepareWindow). Dropping it leaves the window's model in
+    /// place: removing that is the caller's, as is a load on Apple.
+    @MainActor
+    public final class PreparedWindow {
+        public let windowUUID: String
+        /// Why the document could not be loaded; nil when it was.
+        public let error: String?
+        fileprivate let defaultTitle: String?
+        fileprivate let commands: (json: String, key: String)?
+        fileprivate var isUsed = false
+
+        fileprivate init(windowUUID: String, error: String?, defaultTitle: String?, commands: (json: String, key: String)?) {
+            self.windowUUID = windowUUID
+            self.error = error
+            self.defaultTitle = defaultTitle
+            self.commands = commands
+        }
     }
 
     /// A window on screen: its GTK window and its render tree.
@@ -407,6 +431,49 @@ public final class AdwaitaApplication {
         present(.json(json), windowUUID: windowUUID, title: title, options: options)
     }
 
+    /// Loads the document in `json` into the model and shows nothing, so a host can read what the
+    /// load logged, and refuse the document, before the user sees a window. It needs no display. No
+    /// widget is built until the window is presented: building starts a WebView's page and an
+    /// AsyncImage's fetch, which a document that is only checked must not do. A window under
+    /// `windowUUID` closes, as for presentWindow, or is dropped if it is still waiting. A UUID has
+    /// one prepared window at a time: the model holds the last document loaded under it, and that
+    /// is what shows. The document's commands join the primary menu when it is presented, not here.
+    public func prepareWindow(json: Data, windowUUID: String) -> PreparedWindow {
+        pendingWindows.removeAll { $0.windowUUID == windowUUID }
+        queuedModelRemovals.remove(windowUUID)
+        let replacesWindow = windows[windowUUID] != nil || remoteLoads[windowUUID] != nil
+        dropRemoteLoad(windowUUID)
+        closeForNewDocument(windowUUID)
+        // No window need follow, unlike in present: the host closed this one (see "Closing" above).
+        if replacesWindow, windows.isEmpty, remoteLoads.isEmpty {
+            holdWhileWindowless()
+        }
+        let loaded = load(.json(json), windowUUID: windowUUID)
+        return PreparedWindow(windowUUID: windowUUID, error: loaded.error, defaultTitle: loaded.defaultTitle, commands: loaded.commands)
+    }
+
+    /// Shows a prepared document in a new window titled `title`, else the application's name, or
+    /// its load error when `prepared.error` is set. Each prepared window shows once. Before the
+    /// application starts, the window waits.
+    public func presentWindow(prepared: PreparedWindow, title: String?, options: WindowOptions = WindowOptions()) {
+        guard !prepared.isUsed else {
+            ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): a prepared window shows once; prepare it again", .error)
+            return
+        }
+        prepared.isUsed = true
+        present(.prepared(prepared), windowUUID: prepared.windowUUID, title: title, options: options)
+    }
+
+    /// Closes the window under `windowUUID`, with no handler asked or told: a new document is
+    /// taking its model.
+    private func closeForNewDocument(_ windowUUID: String) {
+        guard let existing = windows[windowUUID] else { return }
+        ActionUIModel.shared.logger.log("A window \(windowUUID) is already on screen; closing it for the new one", .warning)
+        existing.closingByHost = true
+        existing.renderTree?.detach()
+        gtk_window_destroy(existing.window)
+    }
+
     private func present(_ source: WindowSource, windowUUID: String, title: String?, options: WindowOptions) {
         guard let application, hasStarted else {
             pendingWindows.append(PendingWindow(source: source, windowUUID: windowUUID, title: title, options: options))
@@ -417,13 +484,12 @@ public final class AdwaitaApplication {
             loadRemote(text, windowUUID: windowUUID, title: title, options: options, application: application)
             return
         }
-        if let existing = windows[windowUUID] {
-            ActionUIModel.shared.logger.log("A window \(windowUUID) is already on screen; closing it for the new one", .warning)
-            existing.closingByHost = true
-            existing.renderTree?.detach()
-            gtk_window_destroy(existing.window)
-        }
+        closeForNewDocument(windowUUID)
         let loaded = load(source, windowUUID: windowUUID)
+        // Only now: a document prepared and refused adds nothing to the user's menu.
+        if let commands = loaded.commands {
+            AppCommands.shared.load(json: commands.json, once: commands.key)
+        }
         let renderTree = loaded.error == nil ? ActionUIModel.shared.windowModels[windowUUID].map { AdwaitaWindow(windowModel: $0) } : nil
         let content = renderTree?.contentWidget ?? errorContent(loaded.error ?? "The document has no content")
 
@@ -571,19 +637,22 @@ public final class AdwaitaApplication {
         // rest of this turn of the main loop; an app that opens and closes windows for a long time
         // would otherwise keep every one. Through the main queue, behind the disappear actions the
         // detach above queued there (NodeAppearance), which read the values too. Not when a window
-        // under the same UUID is on screen or loading again by then (the client reopened it): that
-        // window's model is in use.
+        // under the same UUID is on screen, loading or prepared again by then (the client reopened
+        // it): that window's model is in use.
+        queuedModelRemovals.insert(windowUUID)
         DispatchQueue.main.async { [weak self] in
-            guard let self, self.windows[windowUUID] == nil, self.remoteLoads[windowUUID] == nil,
+            guard let self, self.queuedModelRemovals.remove(windowUUID) != nil,
+                  self.windows[windowUUID] == nil, self.remoteLoads[windowUUID] == nil,
                   !self.pendingWindows.contains(where: { $0.windowUUID == windowUUID }) else { return }
             ActionUIModel.shared.removeWindow(windowUUID)
         }
         return true
     }
 
-    /// The document of a window: loaded into the model under `windowUUID`, or why it is not, and
-    /// the title a file gives.
-    private func load(_ source: WindowSource, windowUUID: String) -> (error: String?, defaultTitle: String?) {
+    /// The document of a window: loaded into the model under `windowUUID`, or why it is not, the
+    /// title a file gives, and a WindowGroup's commands for the primary menu: one that fails to load
+    /// brings none, as on Apple, where it has no scene.
+    private func load(_ source: WindowSource, windowUUID: String) -> (error: String?, defaultTitle: String?, commands: (json: String, key: String)?) {
         let logger = ActionUIModel.shared.logger
         // A file's folder is where its LoadableViews find their names; other documents have none.
         AppBundle.setDocumentFolder(nil, window: windowUUID)
@@ -592,26 +661,26 @@ public final class AdwaitaApplication {
             let document = windowGroup(data, format: "json")
             do {
                 try loadDocument(document, format: "json", windowUUID: windowUUID)
-                return (nil, document.title)
+                return (nil, document.title, document.commands)
             } catch {
                 logger.log("Window \(windowUUID): the JSON could not be loaded: \(error)", .error)
-                return ("The document could not be loaded: \(error)", document.title)
+                return ("The document could not be loaded: \(error)", document.title, nil)
             }
         case .fetched(let text, let data):
             let url = URL(string: text)
             let title = url.map { $0.deletingPathExtension().lastPathComponent }.flatMap { $0.isEmpty || $0 == "/" ? nil : $0 }
             guard let url, let data else {
                 logger.log("Window \(windowUUID): \(text) could not be loaded", .error)
-                return ("\(text) could not be loaded", title)
+                return ("\(text) could not be loaded", title, nil)
             }
             let format = ActionUIDocumentLoader.format(of: url)
             let document = windowGroup(data, format: format)
             do {
                 try loadDocument(document, format: format, windowUUID: windowUUID)
-                return (nil, document.title ?? title)
+                return (nil, document.title ?? title, document.commands)
             } catch {
                 logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
-                return ("\(text) could not be loaded: \(error)", document.title ?? title)
+                return ("\(text) could not be loaded: \(error)", document.title ?? title, nil)
             }
         case .url(let text):
             let url: URL
@@ -627,19 +696,22 @@ public final class AdwaitaApplication {
                 title = document.title ?? title
                 AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
                 try loadDocument(document, format: format, windowUUID: windowUUID)
-                return (nil, title)
+                return (nil, title, document.commands)
             } catch {
                 logger.log("Window \(windowUUID): \(url.path) could not be loaded: \(error)", .error)
-                return ("\(url.path) could not be loaded: \(error)", title)
+                return ("\(url.path) could not be loaded: \(error)", title, nil)
             }
+        case .prepared(let prepared):
+            return (prepared.error, prepared.defaultTitle, prepared.commands)
         }
     }
 
     /// A WindowGroup document (on Apple, the window scene of a SwiftUI app) as a window: its content
     /// is the window's document and its title the window's default title, and its commands join the
-    /// primary menu once it has loaded, once per group (by windowGroupID, else title, as Apple names
-    /// the group); one with no content cannot be loaded, as Apple shows "No content provided". Any
-    /// other document comes back as it is. JSON only: a property list has no WindowGroup scene.
+    /// primary menu when its window shows, once per group (by windowGroupID, else title, as Apple
+    /// names the group); one with no content cannot be loaded, as Apple shows "No content
+    /// provided". Any other document comes back as it is. JSON only: a property list has no
+    /// WindowGroup scene.
     func windowGroup(_ data: Data, format: String) -> WindowDocument {
         guard format == "json",
               let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
@@ -665,7 +737,7 @@ public final class AdwaitaApplication {
     }
 
     /// A window's document as windowGroup leaves it: what to load, its default title, the commands
-    /// to add once it has loaded, or why it cannot be.
+    /// to add once it shows, or why it cannot be.
     struct WindowDocument {
         var data: Data
         var title: String? = nil
@@ -677,16 +749,12 @@ public final class AdwaitaApplication {
         let description: String
     }
 
-    /// Loads `document` into the model under `windowUUID`, then adds its commands to the primary
-    /// menu: a WindowGroup that fails to load brings none, as on Apple, where it has no scene.
+    /// Loads `document` into the model under `windowUUID`.
     private func loadDocument(_ document: WindowDocument, format: String, windowUUID: String) throws {
         if let error = document.error {
             throw DocumentError(description: error)
         }
         _ = try ActionUIModel.shared.loadDescription(from: document.data, format: format, windowUUID: windowUUID)
-        if let commands = document.commands {
-            AppCommands.shared.load(json: commands.json, once: commands.key)
-        }
     }
 
     /// Whether `text` is an http or https URL, which loads before its window appears.

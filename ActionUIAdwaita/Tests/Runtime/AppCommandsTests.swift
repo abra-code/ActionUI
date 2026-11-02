@@ -5,7 +5,8 @@
  before, after and replacing (a childless replacing group removing About), Dividers as sections;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
  a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
- title and its commands (its platform overrides applied), loaded once per group.
+ title and its commands (its platform overrides applied), loaded once per group, and not before
+ its window shows; one that cannot be loaded brings none.
 */
 
 import XCTest
@@ -181,6 +182,55 @@ final class AppCommandsTests: XCTestCase {
         let plain = Data(#"{"type": "Text", "id": 1}"#.utf8)
         XCTAssertEqual(AdwaitaApplication.shared.windowGroup(plain, format: "json").data, plain, "any other document as it is")
         XCTAssertNil(AdwaitaApplication.shared.windowGroup(plain, format: "json").title)
+    }
+
+    func testAWindowGroupsCommandsWaitForItsWindow() throws {
+        let document = #"""
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "Prepared Group", "windowGroupID": "test-prepared-group"},
+             "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
+             "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Prepared Tools"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
+            """#
+        let app = AdwaitaApplication()
+        var prepared: [String] = []
+        var shown: [String] = []
+        var title: String?
+        app.handlers.didFinishLaunching = {
+            let window = app.prepareWindow(json: Data(document.utf8), windowUUID: "commands-w1")
+            prepared = self.outline(AppCommands.shared.menu.opaquePointer)
+            app.presentWindow(prepared: window, title: nil)
+            shown = self.outline(AppCommands.shared.menu.opaquePointer)
+            title = app.gtkWindow("commands-w1").flatMap { swiftString(gtk_window_get_title($0)) }
+            app.closeWindow("commands-w1")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertFalse(prepared.joined().contains("Prepared Tools"), "a document that is only checked adds nothing to the menu")
+        XCTAssertTrue(shown.joined().contains("Prepared Tools"), "\(shown)")
+        XCTAssertEqual(title, "Prepared Group", "the group's title comes with the prepared document")
+    }
+
+    func testAWindowGroupThatCannotBeLoadedBringsNoCommands() throws {
+        let document = #"""
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "Failed Group"},
+             "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Failed Tools"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
+            """#
+        let app = AdwaitaApplication()
+        var shown: [String] = []
+        var opened = false
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(document.utf8), windowUUID: "commands-w2", title: nil)
+            opened = app.gtkWindow("commands-w2") != nil
+            shown = self.outline(AppCommands.shared.menu.opaquePointer)
+            app.closeWindow("commands-w2")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertTrue(opened, "its window shows the error")
+        XCTAssertFalse(shown.joined().contains("Failed Tools"), "\(shown)")
     }
 
     func testAWindowGroupWithoutContentCannotBeLoaded() {
