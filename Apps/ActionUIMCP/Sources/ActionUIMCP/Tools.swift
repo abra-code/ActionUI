@@ -211,11 +211,9 @@ private func notifyTool(host: WindowHost, label: String?) -> MCPTool {
     return MCPTool(
         name: "notify",
         title: "Show a short notice",
-        description: """
-            Show a short notice in the top right corner of the user's screen, for example that a long \
-            job finished. Returns {shown} at once. The notice does not take focus and disappears after \
-            duration_s or when clicked; nothing comes back from it. For anything the user must read \
-            carefully use show; for anything that needs an answer use ask_user.
+        description: HostPlatform.noticeDescription + """
+             For anything the user must read carefully use show; for anything that needs an answer \
+            use ask_user.
             """,
         inputSchema: input,
         outputSchema: ["type": "object", "properties": ["shown": ["type": "boolean"]], "required": ["shown"]],
@@ -239,9 +237,7 @@ private func notifyTool(host: WindowHost, label: String?) -> MCPTool {
                            noticeDurationRange.upperBound)
         try await requireGraphicalSession(host)
         let subtitle = provenance(clientName: context.clientName, label: label)
-        try await MainActor.run {
-            try host.showNotice(title: arguments["title"]?.string, message: message, subtitle: subtitle, duration: duration)
-        }
+        try await host.showNotice(title: arguments["title"]?.string, message: message, subtitle: subtitle, duration: duration)
         return .structured(["shown": true])
     }
 }

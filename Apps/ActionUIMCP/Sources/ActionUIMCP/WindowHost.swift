@@ -228,8 +228,8 @@ final class WindowHost {
     // MARK: Notices
 
     /// Shows a notice for `duration` seconds. Not a window: it does not count toward the window cap.
-    func showNotice(title: String?, message: String, subtitle: String, duration: Double) throws {
-        try platform.showNotice(title: title, message: message, subtitle: subtitle, duration: duration)
+    func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws {
+        try await platform.showNotice(title: title, message: message, subtitle: subtitle, duration: duration)
     }
 
     // MARK: Actions

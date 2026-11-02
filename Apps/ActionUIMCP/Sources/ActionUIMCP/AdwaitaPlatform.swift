@@ -22,6 +22,12 @@ final class AdwaitaPlatform: WindowPlatform {
 
     nonisolated static let systemName = "Linux"
     nonisolated static let shownContent = "report, image, video, web page, table, or chart"
+    nonisolated static let noticeDescription = """
+        Show a short desktop notification, for example that a long job finished. Returns {shown} \
+        once the desktop took it. It does not take focus; the desktop places and styles it, may \
+        hide it sooner than duration_s, and holds it back in do-not-disturb mode. Markdown keeps \
+        bold and italic only. It is gone after duration_s; nothing comes back from it.
+        """
     nonisolated static let verifierPlatform = "linux"
     nonisolated static let keepsWindows = false
     /// The runtime removes a closed window's model itself, after the disappear actions that read it.
@@ -57,7 +63,10 @@ final class AdwaitaPlatform: WindowPlatform {
         AdwaitaApplication.shared.run()
     }
 
+    /// Notices end with the session, as on macOS: the desktop would otherwise show the ones still
+    /// queued after the server is gone.
     static func terminateApplication() {
+        DesktopNotifications.closeAll()
         AdwaitaApplication.shared.terminate()
     }
 
@@ -109,8 +118,19 @@ final class AdwaitaPlatform: WindowPlatform {
         throw MCPToolError("rendering a document without showing it is not available on Linux yet; open it with show_document and screenshot that window")
     }
 
-    func showNotice(title: String?, message: String, subtitle: String, duration: Double) throws {
-        throw MCPToolError("notify is not available on Linux yet; use show")
+    /// A desktop notification from "ActionUI" with the provenance line as its summary, then the
+    /// title and the message. GNOME's banner shows the summary first and cuts the body to one
+    /// line, so a long message or title cannot push the provenance line out of view.
+    func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws {
+        let error: String? = await withCheckedContinuation { continuation in
+            DesktopNotifications.show(appName: "ActionUI", summary: subtitle, heading: title, markdown: message,
+                                      seconds: duration) { error in
+                continuation.resume(returning: error)
+            }
+        }
+        if let error {
+            throw MCPToolError("the notice could not be shown: \(error)")
+        }
     }
 
     nonisolated static func fileType(named name: String) -> String? {

@@ -24,6 +24,11 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
 
     nonisolated static let systemName = "macOS"
     nonisolated static let shownContent = "report, image, PDF, video, web page, diff, table, or chart"
+    nonisolated static let noticeDescription = """
+        Show a short notice in the top right corner of the user's screen, for example that a long \
+        job finished. Returns {shown} at once. The notice does not take focus and disappears after \
+        duration_s or when clicked; nothing comes back from it.
+        """
     nonisolated static let verifierPlatform = "macos"
     nonisolated static let keepsWindows = true
     nonisolated static let removesClosedWindowModels = false

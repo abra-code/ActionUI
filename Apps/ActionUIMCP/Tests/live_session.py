@@ -21,9 +21,9 @@ LINUX = sys.platform.startswith("linux")
 # The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
 SUFFIX = ":linux" if LINUX else ":macos"
 # Not on Linux: the Diff add-on, rendering a document that is not shown, the documentation
-# resources, notify, and windows that outlive the session. With no keeper, the keeper's checks over
-# what it left behind would pass whatever the server did.
-NOT_ON_LINUX = ("show diff", "screenshot renders a document", "resources/", "notify returns at once", "show with keep",
+# resources, and windows that outlive the session. With no keeper, the keeper's checks over what it
+# left behind would pass whatever the server did.
+NOT_ON_LINUX = ("show diff", "screenshot renders a document", "resources/", "show with keep",
                 "keeper ", "no keeper", "SIGTERM hands off")
 
 

@@ -58,6 +58,9 @@ protocol WindowPlatform: AnyObject {
     nonisolated static var systemName: String { get }
     /// What `show` presents, in what the server tells an agent.
     nonisolated static var shownContent: String { get }
+    /// How a notice shows, in the notify tool's description: its first sentences, up to "nothing
+    /// comes back from it".
+    nonisolated static var noticeDescription: String { get }
     /// The platform documents are verified for.
     nonisolated static var verifierPlatform: String { get }
     /// Whether windows opened with `keep` can outlive the session.
@@ -103,8 +106,9 @@ protocol WindowPlatform: AnyObject {
     /// the document's own size.
     func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> CapturedImage
 
-    /// Shows a short notice for `duration` seconds, without taking the focus.
-    func showNotice(title: String?, message: String, subtitle: String, duration: Double) throws
+    /// Shows a short notice for `duration` seconds, without taking the focus. Returns once the
+    /// system took it.
+    func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws
 
     /// The file type for `name`, an extension or a type identifier, without a leading dot. nil
     /// when there is no such type.
