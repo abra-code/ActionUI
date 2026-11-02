@@ -114,8 +114,35 @@ final class AdwaitaPlatform: WindowPlatform {
         throw MCPToolError("the window was not drawn in time to be captured")
     }
 
-    func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> CapturedImage {
-        throw MCPToolError("rendering a document without showing it is not available on Linux yet; open it with show_document and screenshot that window")
+    /// In a window that is never presented, so the compositor never hears of it and the focus
+    /// stays with the user (OffscreenWindow). The widgets are built here, so what the renderers log
+    /// is captured here, as `present` does for a shown window. Titled "Preview", as on macOS.
+    func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> (image: CapturedImage, warnings: [String]) {
+        var options = AdwaitaApplication.WindowOptions()
+        if let size {
+            options.contentSize = (Int(size.width), Int(size.height))
+        }
+        let built: (result: AdwaitaApplication.OffscreenWindow?, entries: [HostLogger.Entry])
+        if let logger = host?.logger {
+            built = logger.capture { application.renderOffscreen(prepared: content, title: "Preview", options: options) }
+        } else {
+            built = (application.renderOffscreen(prepared: content, title: "Preview", options: options), [])
+        }
+        var warnings = built.entries.filter { $0.level == .warning || $0.level == .error }.map(\.message)
+        guard let render = built.result else {
+            throw MCPToolError("the document could not be rendered" + (warnings.isEmpty ? "" : ":\n" + warnings.prefix(20).joined(separator: "\n")))
+        }
+        defer { render.close() }
+        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        if render.showsWebView {
+            warnings.append("A WebView's page is not drawn in a document rendered without showing it on Linux; open the document with show_document and screenshot that window to see the page")
+        }
+        let file = HostSupport.sessionFolder.appendingPathComponent("render-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: file) }
+        guard let pixels = render.capturePNG(path: file.path, maxPixels: WindowHost.maxScreenshotPixels) else {
+            throw MCPToolError("the document could not be drawn")
+        }
+        return (CapturedImage(png: try Data(contentsOf: file), pixelWidth: pixels.width, pixelHeight: pixels.height), warnings)
     }
 
     /// A desktop notification from "ActionUI" with the provenance line as its summary, then the

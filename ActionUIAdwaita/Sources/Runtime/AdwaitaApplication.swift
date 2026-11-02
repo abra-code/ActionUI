@@ -20,6 +20,8 @@
    document does (WindowSubtitle).
  - A document that cannot be loaded is logged and shown as its error text in the window, as on
    Apple.
+ - renderOffscreen builds a prepared document's window the same way and draws it without showing
+   it (OffscreenWindow).
  - An http or https URL loads first (URLLoader, without blocking the main loop) and the window
    appears when it has loaded, at the document's size, or with the error when it could not be;
    Apple shows the window at once with a spinner, but a GTK window takes its size from its
@@ -535,6 +537,44 @@ public final class AdwaitaApplication {
         gtk_window_set_title(window, title ?? loaded.defaultTitle ?? name ?? ProcessInfo.processInfo.processName)
         let toolbar = adw_toolbar_view_new()!
         adw_application_window_set_content(typed(window), toolbar)
+        let size = assemble(window, toolbar: toolbar, content: content, renderTree: renderTree, windowUUID: windowUUID,
+                            options: options, presents: true)
+        gtk_window_set_default_size(window, size.width, size.height)
+        gtk_window_set_resizable(window, options.isResizable ? 1 : 0)
+
+        let presented = PresentedWindow(window: window, renderTree: renderTree)
+        windows[windowUUID] = presented
+        connectBooleanSignal(window, "close-request") { [weak self, weak presented] in
+            guard let self, let presented else { return false }
+            return !self.windowWillClose(windowUUID, presented)
+        }
+        connectSignal(window, "destroy", .instanceOnly) { [weak self, weak presented] in
+            guard let self, let presented, self.windows[windowUUID] === presented else { return }
+            presented.renderTree?.detach()
+            self.windows[windowUUID] = nil
+            AppBundle.setDocumentFolder(nil, window: windowUUID)
+        }
+        connectSignal(window, "notify::is-active", .instanceAndArgument) { [weak self] in
+            self?.queueActiveCheck()
+        }
+        handlers.windowWillPresent?(windowUUID)
+        gtk_window_present(window)
+        if holdsWhileWindowless {
+            // The window holds the application now.
+            holdsWhileWindowless = false
+            g_application_release(typed(application))
+        }
+    }
+
+    /// Fills `toolbar`, an AdwToolbarView already the content of `window` (so the bars have their
+    /// style when measured): the subtitle line, the header bar with the document's toolbars and the
+    /// primary menu unless the document brings its own header bars, and `content` below them,
+    /// scrolled when its minimum is larger than the monitor. With `presents`, the document's
+    /// modals, dialogs and toasts start showing. Returns the window's opening size, bars included,
+    /// no larger than the monitor.
+    private func assemble(_ window: UnsafeMutablePointer<GtkWindow>, toolbar: WidgetPointer, content: WidgetPointer,
+                          renderTree: AdwaitaWindow?, windowUUID: String, options: WindowOptions,
+                          presents: Bool) -> (width: Int32, height: Int32) {
         // First of the bars, where a document's toolbar items cannot push it away (WindowSubtitle).
         if let subtitle = options.subtitle, !subtitle.isEmpty {
             WindowSubtitle.set(subtitle, on: window)
@@ -571,7 +611,9 @@ public final class AdwaitaApplication {
         } else {
             adw_toast_overlay_set_child(OpaquePointer(toastOverlay), content)
         }
-        renderTree?.startPresenting(over: toastOverlay, toastOverlay: OpaquePointer(toastOverlay))
+        if presents {
+            renderTree?.startPresenting(over: toastOverlay, toastOverlay: OpaquePointer(toastOverlay))
+        }
 
         let small = natural.width < 10 || natural.height < 10
         var width = small ? Self.fallbackSize.width : natural.width
@@ -582,31 +624,42 @@ public final class AdwaitaApplication {
             if size.height > 0 { height = Int32(clamping: size.height) }
         }
         let windowHeight = min(Int(height) + Int(barsHeight), Int(monitor.height))
-        gtk_window_set_default_size(window, min(width, monitor.width), Int32(windowHeight))
-        gtk_window_set_resizable(window, options.isResizable ? 1 : 0)
+        return (min(width, monitor.width), Int32(windowHeight))
+    }
 
-        let presented = PresentedWindow(window: window, renderTree: renderTree)
-        windows[windowUUID] = presented
-        connectBooleanSignal(window, "close-request") { [weak self, weak presented] in
-            guard let self, let presented else { return false }
-            return !self.windowWillClose(windowUUID, presented)
+    /// Builds a prepared document's window as presentWindow would, titled `title`, and draws it
+    /// without presenting it: the compositor never hears of the window, so nothing shows and the
+    /// focus stays where it is. The document's commands do not join the primary menu, and its
+    /// modals, dialogs and toasts do not show. Nil, and logged, when there is no display, the
+    /// application has not started, or the document could not be loaded. Each prepared window
+    /// shows or renders once.
+    public func renderOffscreen(prepared: PreparedWindow, title: String?, options: WindowOptions = WindowOptions()) -> OffscreenWindow? {
+        guard !prepared.isUsed else {
+            ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): a prepared window shows once; prepare it again", .error)
+            return nil
         }
-        connectSignal(window, "destroy", .instanceOnly) { [weak self, weak presented] in
-            guard let self, let presented, self.windows[windowUUID] === presented else { return }
-            presented.renderTree?.detach()
-            self.windows[windowUUID] = nil
-            AppBundle.setDocumentFolder(nil, window: windowUUID)
+        prepared.isUsed = true
+        guard hasStarted, application != nil else {
+            ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): the application has not started; nothing to render with", .error)
+            return nil
         }
-        connectSignal(window, "notify::is-active", .instanceAndArgument) { [weak self] in
-            self?.queueActiveCheck()
+        guard prepared.error == nil, let windowModel = ActionUIModel.shared.windowModels[prepared.windowUUID] else {
+            ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): the document could not be loaded; nothing to render", .error)
+            return nil
         }
-        handlers.windowWillPresent?(windowUUID)
-        gtk_window_present(window)
-        if holdsWhileWindowless {
-            // The window holds the application now.
-            holdsWhileWindowless = false
-            g_application_release(typed(application))
-        }
+        let renderTree = AdwaitaWindow(windowModel: windowModel)
+        guard let content = renderTree.contentWidget else { return nil }
+        // Not an application window: GTK would count it among the application's windows.
+        let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        gtk_window_set_title(window, title ?? prepared.defaultTitle ?? name ?? ProcessInfo.processInfo.processName)
+        let toolbar = adw_toolbar_view_new()!
+        adw_window_set_content(typed(window), toolbar)
+        let size = assemble(window, toolbar: toolbar, content: content, renderTree: renderTree, windowUUID: prepared.windowUUID,
+                            options: options, presents: false)
+        // The toolbars join the header bar in the scheduler's next flush; now, so the window is
+        // complete when this returns and what its renderers log is logged here.
+        SyncScheduler.shared.flush()
+        return OffscreenWindow(window: window, toolbar: toolbar, renderTree: renderTree, width: size.width, height: size.height)
     }
 
     /// Holds the application open with no window (see "Closing" above), once; presenting a window

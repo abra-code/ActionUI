@@ -20,7 +20,9 @@
  screen, fetches nothing, and can be dropped; presented, it shows once, and waits for the start
  like any window; preparing replaces a window that waits under its UUID, closes one on screen as
  the host's close does, keeping the application running, and keeps its model from a closed
- window's removal.
+ window's removal. A prepared document renders offscreen with nothing on screen and no window of the
+ application's, at its size or a content size, with its toolbar in the header bar, says when it holds
+ a WebView, and renders once, not before the start nor when it could not be loaded.
 */
 
 import XCTest
@@ -439,6 +441,173 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(max(small.width, small.height), 100, "the longest side is at the limit")
         XCTAssertEqual(Double(small.width) / Double(small.height), Double(large.width) / Double(large.height), accuracy: 0.05, "in proportion")
         XCTAssertEqual(Int(fileWidth), small.width, "the size is the file's")
+    }
+
+    /// The color at `x`, `y` of the PNG file at `path`: red, green, blue, alpha.
+    private func pixel(inPNG path: String, x: Int, y: Int) -> [UInt8]? {
+        guard let texture = gdk_texture_new_from_filename(path, nil) else { return nil }
+        defer { g_object_unref(UnsafeMutableRawPointer(texture)) }
+        let width = Int(gdk_texture_get_width(texture))
+        let height = Int(gdk_texture_get_height(texture))
+        guard x < width, y < height else { return nil }
+        let downloader = gdk_texture_downloader_new(texture)!
+        defer { gdk_texture_downloader_free(downloader) }
+        gdk_texture_downloader_set_format(downloader, GDK_MEMORY_R8G8B8A8)
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        gdk_texture_downloader_download_into(downloader, &bytes, gsize(width * 4))
+        let start = (y * width + x) * 4
+        return Array(bytes[start..<start + 4])
+    }
+
+    /// The application's toplevel windows that are mapped (on screen, or asked to be).
+    private func mappedToplevels() -> Int {
+        let list = gtk_window_get_toplevels()!
+        var count = 0
+        for index in 0..<g_list_model_get_n_items(list) {
+            guard let item = g_list_model_get_item(list, index) else { continue }
+            if gtk_widget_get_mapped(item.assumingMemoryBound(to: GtkWidget.self)) != 0 { count += 1 }
+            g_object_unref(item)
+        }
+        return count
+    }
+
+    func testAPreparedDocumentRendersOffscreenWithNothingOnScreen() throws {
+        let app = AdwaitaApplication()
+        let path = NSTemporaryDirectory() + "actionui-app-test-offscreen-\(ProcessInfo.processInfo.processIdentifier).png"
+        files.append(path)
+        let document = #"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"width": 400, "height": 200}}, "toolbar": [{"type": "ToolbarItem", "id": 2, "content": {"type": "Button", "id": 3, "properties": {"title": "Tool"}}}]}"#
+        var size: (width: Int, height: Int)?
+        var limited: (width: Int, height: Int)?
+        var windowSize: (Int, Int) = (0, 0)
+        var mapped = -1
+        var windowsListed: [String] = ["unset"]
+        var center: [UInt8]?
+        var webView = true
+        var afterClose: (width: Int, height: Int)? = (1, 1)
+        var modelKept = false
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            guard let render = app.renderOffscreen(prepared: prepared, title: "Preview") else {
+                app.terminate()
+                return
+            }
+            windowSize = (render.width, render.height)
+            mapped = self.mappedToplevels()
+            windowsListed = app.windowUUIDs
+            _ = runAfter(milliseconds: 200) {
+                size = render.capturePNG(path: path)
+                if let size {
+                    center = self.pixel(inPNG: path, x: size.width / 2, y: size.height - 20)
+                }
+                limited = render.capturePNG(path: path, maxPixels: 100)
+                webView = render.showsWebView
+                render.close()
+                afterClose = render.capturePNG(path: path)
+                modelKept = ActionUIModel.shared.windowModels["app-w1"] != nil
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0, "the window drawn offscreen does not hold the application")
+        XCTAssertEqual(mapped, 0, "nothing on screen")
+        XCTAssertEqual(windowsListed, [], "not one of the application's windows")
+        let full = try XCTUnwrap(size)
+        XCTAssertEqual(full.width, windowSize.0)
+        XCTAssertEqual(full.height, windowSize.1)
+        XCTAssertEqual(full.width, 400, "the document's width")
+        XCTAssertGreaterThan(full.height, 200, "the document's height and the header bar")
+        let color = try XCTUnwrap(center)
+        XCTAssertGreaterThan(color[0], 200, "the document is drawn: red")
+        XCTAssertLessThan(color[1], 80)
+        XCTAssertEqual(max(try XCTUnwrap(limited).width, try XCTUnwrap(limited).height), 100, "scaled to the limit")
+        XCTAssertFalse(webView)
+        XCTAssertNil(afterClose, "closed, nothing to capture")
+        XCTAssertTrue(modelKept, "the model is the host's to remove")
+    }
+
+    func testAnOffscreenRenderTakesAContentSizeAndShowsTheToolbar() throws {
+        let app = AdwaitaApplication()
+        let document = #"{"type": "Text", "id": 1, "properties": {"text": "Body"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "content": {"type": "Button", "id": 3, "properties": {"title": "Tool"}}}]}"#
+        var size: (Int, Int) = (0, 0)
+        var toolInHeader = false
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            if let render = app.renderOffscreen(prepared: prepared, title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (420, 260))) {
+                size = (render.width, render.height)
+                if let tool = self.label(showing: "Tool", in: render.rootWidget) {
+                    toolInHeader = gtk_widget_get_ancestor(tool, adw_header_bar_get_type()) != nil
+                }
+                render.close()
+            }
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(size.0, 420)
+        XCTAssertGreaterThan(size.1, 260, "the content's height and the header bar")
+        XCTAssertTrue(toolInHeader, "the document's toolbar shows in the header bar, as in a shown window")
+    }
+
+    func testAnOffscreenRenderIsAsLargeAsTheShownWindowAtLeast() throws {
+        let app = AdwaitaApplication()
+        let options = AdwaitaApplication.WindowOptions(contentSize: (120, 40))
+        var rendered: (Int, Int) = (0, 0)
+        var shown: (Int32, Int32) = (0, 0)
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            if let render = app.renderOffscreen(prepared: prepared, title: nil, options: options) {
+                rendered = (render.width, render.height)
+                render.close()
+            }
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: options)
+            _ = runAfter(milliseconds: 300) {
+                if let window = app.gtkWindow("app-w2") {
+                    shown = (gtk_widget_get_width(typed(window)), gtk_widget_get_height(typed(window)))
+                }
+                app.closeWindow("app-w2")
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertGreaterThan(shown.0, 120, "libadwaita's minimum widens the shown window")
+        XCTAssertEqual(rendered.0, Int(shown.0), "the render too")
+        XCTAssertEqual(rendered.1, Int(shown.1))
+    }
+
+    func testAnOffscreenRenderSaysWhenItHoldsAWebView() throws {
+        guard WebKitLibrary.shared != nil else {
+            throw XCTSkip("WebKitGTK 6.0 is not installed (package \(WebKitLibrary.packageName))")
+        }
+        let app = AdwaitaApplication()
+        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "WebView", "id": 2, "properties": {"html": "<p>Page</p>", "frame": {"width": 200, "height": 100}}}]}"#
+        var webView = false
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(document.utf8), windowUUID: "app-w1")
+            if let render = app.renderOffscreen(prepared: prepared, title: nil) {
+                webView = render.showsWebView
+                render.close()
+            }
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(webView)
+    }
+
+    func testRenderingOffscreenRefusesAUsedOrBadDocumentAndBeforeTheStart() throws {
+        let app = AdwaitaApplication()
+        let early = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w2")
+        XCTAssertNil(app.renderOffscreen(prepared: early, title: nil), "before the start")
+        var used: Bool?
+        var bad: Bool?
+        app.handlers.didFinishLaunching = {
+            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let first = app.renderOffscreen(prepared: prepared, title: nil)
+            used = app.renderOffscreen(prepared: prepared, title: nil) == nil
+            first?.close()
+            bad = app.renderOffscreen(prepared: app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-bad"), title: nil) == nil
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(used, true, "a prepared window renders once")
+        XCTAssertEqual(bad, true, "a document that could not be loaded")
     }
 
     func testAWindowOpensNoWiderThan900UnlessItsMinimumNeedsMore() throws {

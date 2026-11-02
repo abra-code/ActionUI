@@ -20,10 +20,9 @@ import time
 LINUX = sys.platform.startswith("linux")
 # The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
 SUFFIX = ":linux" if LINUX else ":macos"
-# Not on Linux: the Diff add-on, rendering a document that is not shown, the documentation
-# resources, and windows that outlive the session. With no keeper, the keeper's checks over what it
-# left behind would pass whatever the server did.
-NOT_ON_LINUX = ("show diff", "screenshot renders a document", "resources/", "show with keep",
+# Not on Linux: the Diff add-on, the documentation resources, and windows that outlive the session.
+# With no keeper, the keeper's checks over what it left behind would pass whatever the server did.
+NOT_ON_LINUX = ("show diff", "resources/", "show with keep",
                 "keeper ", "no keeper", "SIGTERM hands off")
 
 
@@ -461,6 +460,17 @@ s.call(58, "screenshot", {"window": "no-such-window"})
 check("screenshot of an unknown window is an error", is_error(s.response(58)))
 s.call(59, "screenshot", {"document": {"type": "VStack", "properties": {"spacing": "16"}}})
 check("screenshot refuses a document with errors", is_error(s.response(59)))
+# A rendered document is drawn at the size asked for, title bar included. On Linux a WebView's page
+# is not drawn there, and the result says so; on macOS it is, and nothing is said.
+s.call(1470, "screenshot", {"document": {"type": "VStack", "children": [
+    {"type": "Text", "properties": {"text": "Above"}},
+    {"type": "WebView", "properties": {"html": "<p>Page</p>", "frame": {"width": 300, "height": 120}}}]},
+    "width": 400, "height": 260, "delay_s": 1})
+info = structured(s.response(1470)) or {}
+web_warned = any("WebView" in warning for warning in info.get("warnings", []))
+check("screenshot renders a WebView document and says what it leaves out",
+      info.get("width", 0) > 0 and info.get("height", 0) > info.get("width", 0) * 260 / 400
+      and web_warned == LINUX, info)
 
 # pick_path: a bad folder is an error; an unanswered panel times out.
 s.call(42, "pick_path", {"directory": "/no/such/folder"})

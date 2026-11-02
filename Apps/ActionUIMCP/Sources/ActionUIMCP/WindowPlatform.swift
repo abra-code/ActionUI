@@ -103,8 +103,9 @@ protocol WindowPlatform: AnyObject {
     func capture(_ windowID: String) async throws -> CapturedImage
 
     /// Draws `content` where the user never sees it, after `delay` seconds. With `size` nil, at
-    /// the document's own size.
-    func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> CapturedImage
+    /// the document's own size. Returns the image, with the warnings and errors of a layer that
+    /// builds the document only here, and what the image leaves out.
+    func renderOffscreen(_ content: Content, size: ContentSize?, delay: Double) async throws -> (image: CapturedImage, warnings: [String])
 
     /// Shows a short notice for `duration` seconds, without taking the focus. Returns once the
     /// system took it.

@@ -52,9 +52,11 @@ extension WindowHost {
         guard errors.isEmpty else {
             throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))
         }
-        let image = try await platform.renderOffscreen(loaded.content, size: size, delay: delay)
-        let warnings = loaded.entries.filter { $0.level == .warning }.map(\.message)
-        return (try save(image, name: "render"), Array(warnings.prefix(20)))
+        let rendered = try await platform.renderOffscreen(loaded.content, size: size, delay: delay)
+        var seen: Set<String> = []
+        let warnings = (loaded.entries.filter { $0.level == .warning }.map(\.message) + rendered.warnings)
+            .filter { seen.insert($0).inserted }
+        return (try save(rendered.image, name: "render"), Array(warnings.prefix(20)))
     }
 
     /// Saves a capture as a PNG in the server's temporary folder.
