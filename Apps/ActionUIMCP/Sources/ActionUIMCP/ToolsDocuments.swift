@@ -72,9 +72,9 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
         guard mode == "window" || mode == "dialog" else { throw MCPToolError("'mode' must be window or dialog") }
         let keep = try keepArgument(arguments)
         if keep && mode == "dialog" { throw MCPToolError("'keep' applies to window mode only; a dialog ends with its answer") }
-        var size: NSSize?
+        var size: ContentSize?
         if let width = arguments["width"]?.double, let height = arguments["height"]?.double {
-            size = NSSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
+            size = ContentSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
         }
         try await requireGraphicalSession(host)
         let subtitle = provenance(clientName: context.clientName, label: label)
@@ -350,9 +350,9 @@ func screenshotTool(host: WindowHost) -> MCPTool {
                 throw MCPToolError("give 'window' (an open window's id), 'document' (an ActionUI element object), or 'path' (an absolute .json path)")
             }
             let document = try AgentDocument(arguments: arguments)
-            var size: NSSize?
+            var size: ContentSize?
             if let width = arguments["width"]?.double, let height = arguments["height"]?.double {
-                size = NSSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
+                size = ContentSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
             }
             let rendered = try await host.renderDocument(document.root, size: size, delay: delay)
             shot = rendered.0

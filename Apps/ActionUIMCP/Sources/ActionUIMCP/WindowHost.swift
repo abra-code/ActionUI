@@ -9,24 +9,30 @@
 // - dialogs (WindowHost+Dialogs.swift): a tool call waits for the first closing event;
 // - event windows (show_document in window mode): every ActionUI action in them is queued
 //   per window, and the `wait` tool hands the queued events to the agent.
-// File panels are in WindowHost+Panels.swift.
+// File panels are in WindowHost+Panels.swift. The windows themselves belong to the platform layer
+// (WindowPlatform.swift).
 
-import AppKit
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+import Dispatch
 import ActionUI
 import ActionUISwiftAdapter
 import MCPStdio
 
 @MainActor
-final class WindowHost: NSObject, NSWindowDelegate {
+final class WindowHost {
     static let maxWindows = 8
     static let maxQueuedEvents = 1000
+    nonisolated static let maxNoticeLength = 1000
 
     enum Sizing {
         /// The content's fitting size, clamped to the screen.
         case fitting(resizable: Bool)
         /// This content size; the window is resizable.
-        case fixed(NSSize)
+        case fixed(ContentSize)
     }
 
     struct Event {
@@ -56,11 +62,11 @@ final class WindowHost: NSObject, NSWindowDelegate {
     }
 
     let logger: HostLogger
-    var windows: [String: NSWindow] = [:]
-    /// The hosting controllers own the SwiftUI trees; kept for the window's lifetime.
-    private var controllers: [String: NSViewController] = [:]
+    let platform = HostPlatform()
+    /// The ids of the open windows.
+    var windows: Set<String> = []
     var dialogs: [String: DialogSession] = [:]
-    /// Open panels count toward the activation policy.
+    /// Open panels count as something on screen.
     var openPanels = 0
     /// Staged document files of windows opened with `keep`, handed to a keeper process at shutdown
     /// (KeptWindows.swift).
@@ -68,9 +74,6 @@ final class WindowHost: NSObject, NSWindowDelegate {
     /// Properties update_window set, per window and element id, so a kept window's keeper sets
     /// them again over its staged document (KeptWindows.swift).
     var agentProperties: [String: [Int: [String: JSONValue]]] = [:]
-    /// Notices on screen, oldest first (WindowHost+Notices.swift). Not windows: they do not count
-    /// toward the window cap or the activation policy.
-    var notices: [Notice] = []
     private let documentDirectory: URL
 
     /// Queued events per event window. A closed window's queue stays until it has been drained.
@@ -84,7 +87,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
         self.logger = logger
         documentDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
-        super.init()
+        platform.host = self
     }
 
     /// Routes every ActionUI action to this host. Call once at launch.
@@ -96,18 +99,17 @@ final class WindowHost: NSObject, NSWindowDelegate {
         }
     }
 
-    /// False without a window server session (SSH, some remote environments); then no window can
-    /// ever appear and a dialog would wait forever.
+    /// False without a graphical session (SSH, some remote environments); then no window can ever
+    /// appear and a dialog would wait forever.
     var hasGraphicalSession: Bool {
-        CGSessionCopyCurrentDictionary() != nil
+        platform.hasGraphicalSession
     }
 
     // MARK: Windows
 
     /// Opens a window showing `document` and returns its id with the warnings ActionUI logged while
     /// loading it. With `rejectLoadErrors`, a document ActionUI logs errors for is not shown and the
-    /// errors are thrown. `activate` brings the app to the front (dialogs need an answer); otherwise
-    /// the window is only ordered front, so it does not take keyboard focus from the user. A `keep`
+    /// errors are thrown. `activate` takes the keyboard focus (dialogs need an answer). A `keep`
     /// window stays open after the session ends, in a keeper process (KeptWindows.swift).
     func openWindow(document: [String: Any], title: String, subtitle: String, sizing: Sizing, activate: Bool,
                     queuesEvents: Bool, rejectLoadErrors: Bool = false, keep: Bool = false) throws -> (id: String, warnings: [String]) {
@@ -122,42 +124,12 @@ final class WindowHost: NSObject, NSWindowDelegate {
             forgetModel(windowID)
             throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))
         }
-        let controller = loaded.controller
 
-        var style: NSWindow.StyleMask = [.titled, .closable]
-        switch sizing {
-        case .fitting(let resizable) where resizable: style.formUnion([.miniaturizable, .resizable])
-        case .fixed: style.formUnion([.miniaturizable, .resizable])
-        default: break
-        }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
-                              styleMask: style, backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        window.contentView = controller.view
-        // After the content view: installing the SwiftUI hosting view resets the window's title
-        // and subtitle, and the subtitle carries the provenance line.
-        window.title = title
-        window.subtitle = subtitle
-        switch sizing {
-        case .fixed(let size):
-            window.setContentSize(size)
-        case .fitting:
-            window.setContentSize(Self.clampedToScreen(loaded.fitting))
-        }
-        window.delegate = self
-        window.center()
-
-        windows[windowID] = window
-        controllers[windowID] = controller
+        windows.insert(windowID)
         keptDocuments[windowID] = loaded.file
         if queuesEvents { eventQueues[windowID] = [] }
-        updateActivationPolicy()
-        if activate {
-            NSApp.activate(ignoringOtherApps: true)
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            window.orderFrontRegardless()
-        }
+        updatePresence()
+        platform.present(loaded.content, windowID: windowID, title: title, subtitle: subtitle, sizing: sizing, activate: activate)
         #if DEBUG
         scheduleTestAction(windowID: windowID)
         #endif
@@ -178,7 +150,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
     /// builds its view, and measures it once so that view construction runs inside the log capture.
     /// With `retainFile` the staged file is left in place and returned, for a kept window.
     func load(document: [String: Any], windowID: String, retainFile: Bool = false) throws
-        -> (controller: NSViewController, fitting: NSSize, entries: [HostLogger.Entry], file: URL?) {
+        -> (content: HostPlatform.Content, entries: [HostLogger.Entry], file: URL?) {
         let fileURL = documentDirectory.appendingPathComponent(windowID + ".json")
         do {
             try FileManager.default.createDirectory(at: documentDirectory, withIntermediateDirectories: true)
@@ -197,34 +169,21 @@ final class WindowHost: NSObject, NSWindowDelegate {
             }
         }
         // Local loading is synchronous, so the file can go as soon as the view is built.
-        let captured = logger.capture {
-            let controller = ActionUISwift.loadHostingController(from: fileURL, windowUUID: windowID, isContentView: true)
-            return (controller, controller.view.fittingSize)
-        }
-        return (captured.result.0, captured.result.1, captured.entries, retainFile ? fileURL : nil)
-    }
-
-    static func clampedToScreen(_ size: NSSize) -> NSSize {
-        let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
-        let width = size.width > 0 ? size.width : 480
-        let height = size.height > 0 ? size.height : 320
-        return NSSize(width: min(max(width, 240), screen.width * 0.9),
-                      height: min(max(height, 80), screen.height * 0.9))
+        let captured = logger.capture { platform.loadContent(file: fileURL, windowID: windowID) }
+        return (captured.result, captured.entries, retainFile ? fileURL : nil)
     }
 
     /// Closes a window. Returns false when there is no such window.
     @discardableResult
     func closeWindow(_ windowID: String) -> Bool {
-        guard let window = windows[windowID] else { return false }
-        window.close()  // windowWillClose does the bookkeeping.
+        guard windows.contains(windowID) else { return false }
+        platform.close(windowID)  // windowClosed does the bookkeeping.
         return true
     }
 
-    func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              let windowID = windows.first(where: { $0.value === window })?.key else { return }
-        windows[windowID] = nil
-        controllers[windowID] = nil
+    /// The platform layer's report that a window is closing, whoever closed it.
+    func windowClosed(_ windowID: String) {
+        windows.remove(windowID)
         agentProperties[windowID] = nil
         if let file = keptDocuments.removeValue(forKey: windowID) {
             try? FileManager.default.removeItem(at: file)
@@ -237,7 +196,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
             enqueue(window: windowID, action: "window.closed", viewID: 0, part: 0, value: nil, context: nil)
         }
         forgetModel(windowID)
-        updateActivationPolicy()
+        updatePresence()
     }
 
     /// Removes a window's ActionUI model once its window is gone, so a long session does not keep
@@ -251,18 +210,22 @@ final class WindowHost: NSObject, NSWindowDelegate {
         }
     }
 
-    /// A Dock icon and menu bar only while there is a window or panel to click.
-    func updateActivationPolicy() {
-        let wanted: NSApplication.ActivationPolicy = windows.isEmpty && openPanels == 0 ? .accessory : .regular
-        if NSApp.activationPolicy() != wanted {
-            NSApp.setActivationPolicy(wanted)
-        }
+    /// Tells the platform layer whether there is a window or panel to click.
+    func updatePresence() {
+        platform.setShowsInterface(!windows.isEmpty || openPanels > 0)
     }
 
     func requireWindow(_ windowID: String) throws {
-        guard windows[windowID] != nil else {
+        guard windows.contains(windowID) else {
             throw MCPToolError("no open window \(windowID); it may have been closed")
         }
+    }
+
+    // MARK: Notices
+
+    /// Shows a notice for `duration` seconds. Not a window: it does not count toward the window cap.
+    func showNotice(title: String?, message: String, subtitle: String, duration: Double) throws {
+        try platform.showNotice(title: title, message: message, subtitle: subtitle, duration: duration)
     }
 
     // MARK: Actions
@@ -270,7 +233,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
     private func handleAction(actionID: String, windowUUID: String, viewID: Int, part: Int, context: Any?) {
         if dialogs[windowUUID] != nil {
             handleDialogAction(actionID: actionID, windowUUID: windowUUID)
-        } else if eventQueues[windowUUID] != nil, windows[windowUUID] != nil {
+        } else if eventQueues[windowUUID] != nil, windows.contains(windowUUID) {
             let value = viewID > 0 ? Self.json(ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: viewID),
                                                windowID: windowUUID, viewID: viewID) : nil
             enqueue(window: windowUUID, action: actionID, viewID: viewID, part: part, value: value,
@@ -326,7 +289,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
             events += eventQueues[key] ?? []
             dropped += droppedEvents[key] ?? 0
             droppedEvents[key] = nil
-            if windows[key] == nil {
+            if !windows.contains(key) {
                 eventQueues[key] = nil  // closed and now drained
             } else if eventQueues[key] != nil {
                 eventQueues[key] = []
@@ -536,7 +499,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
         guard press != nil || action != nil else { return }
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            guard let self, self.windows[windowID] != nil else { return }
+            guard let self, self.windows.contains(windowID) else { return }
             if let press, let button = self.dialogs[windowID]?.buttons.first(where: { $0.title == press }) {
                 self.handleAction(actionID: button.actionID, windowUUID: windowID, viewID: 0, part: 0, context: nil)
             }

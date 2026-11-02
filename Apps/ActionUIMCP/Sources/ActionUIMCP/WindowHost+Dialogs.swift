@@ -10,7 +10,11 @@
 // once. Canned dialogs (ask_user) report typed field values; agent documents (show_document in
 // dialog mode) report the value of every element with an id.
 
-import AppKit
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import ActionUI
 import ActionUISwiftAdapter
 import MCPStdio
@@ -58,7 +62,7 @@ extension WindowHost {
 
     /// Opens an agent document inside dialog chrome and registers its session.
     func beginDocumentDialog(document: AgentDocument, dialog: DocumentDialog, title: String, subtitle: String,
-                             size: NSSize?, timeout: Double) throws -> (id: String, warnings: [String]) {
+                             size: ContentSize?, timeout: Double) throws -> (id: String, warnings: [String]) {
         let opened = try openWindow(document: dialog.wrap(document.foundation, footer: Self.dialogFooter), title: title,
                                     subtitle: subtitle, sizing: size.map { .fixed($0) } ?? .fitting(resizable: true),
                                     activate: true, queuesEvents: false, rejectLoadErrors: true)
@@ -169,7 +173,7 @@ extension WindowHost {
     func openViewer(spec: ViewerSpec, subtitle: String, keep: Bool) throws -> (id: String, warnings: [String]) {
         let isChart = spec.kind == .chart
         let opened = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
-                                    sizing: .fixed(NSSize(width: spec.width, height: spec.height)),
+                                    sizing: .fixed(ContentSize(width: spec.width, height: spec.height)),
                                     activate: false, queuesEvents: false, rejectLoadErrors: isChart, keep: keep)
         if let rows = spec.tableRows, !rows.isEmpty {
             ActionUISwift.setElementRows(windowUUID: opened.id, viewID: ViewerSpec.tableViewID, rows: rows)

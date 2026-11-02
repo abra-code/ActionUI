@@ -4,12 +4,13 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// WindowHost+Notices.swift - notify: a short notice in a small floating panel at the top right of
-// the screen, stacked under earlier ones. It never takes focus, adds no Dock icon, and goes away
+// AppKitPlatform+Notices.swift - notify: a short notice in a small floating panel at the top right
+// of the screen, stacked under earlier ones. It never takes focus, adds no Dock icon, and goes away
 // after its duration or when clicked. Not a system user notification: those need an app bundle
 // and the user's permission, and a toast inside an open window is missed when that window is
 // behind others or when there is none.
 
+#if canImport(AppKit)
 import AppKit
 import MCPStdio
 
@@ -35,16 +36,15 @@ final class Notice {
     }
 }
 
-extension WindowHost {
+extension AppKitPlatform {
     static let maxNotices = 4
     static let noticeWidth = 340.0
-    nonisolated static let maxNoticeLength = 1000
     private static let noticeMargin = 16.0
     private static let noticeGap = 8.0
 
-    /// Shows a notice for `duration` seconds. The oldest notice goes when more than `maxNotices`
-    /// would be on screen.
+    /// The oldest notice goes when more than `maxNotices` would be on screen.
     func showNotice(title: String?, message: String, subtitle: String, duration: Double) throws {
+        guard let host else { return }
         var children: [[String: Any]] = []
         if let title, !title.isEmpty {
             children.append(["type": "Text", "properties": ["text": title, "font": "headline"]])
@@ -58,13 +58,13 @@ extension WindowHost {
             "children": children,
         ]
         let windowID = UUID().uuidString
-        let loaded = try load(document: document, windowID: windowID)
+        let loaded = try host.load(document: document, windowID: windowID)
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
-            forgetModel(windowID)
+            host.forgetModel(windowID)
             throw MCPToolError("the notice could not be shown:\n" + errors.prefix(5).joined(separator: "\n"))
         }
-        let size = NSSize(width: Self.noticeWidth, height: max(loaded.fitting.height, 40))
+        let size = NSSize(width: Self.noticeWidth, height: max(loaded.content.fitting.height, 40))
 
         let panel = NoticePanel(contentRect: NSRect(origin: .zero, size: size),
                                 styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -85,14 +85,14 @@ extension WindowHost {
         background.wantsLayer = true
         background.layer?.cornerRadius = 12
         background.layer?.masksToBounds = true
-        let content = loaded.controller.view
+        let content = loaded.content.controller.view
         content.frame = background.bounds
         content.autoresizingMask = [.width, .height]
         background.addSubview(content)
         background.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(noticeClicked(_:))))
         panel.contentView = background
 
-        let notice = Notice(panel: panel, controller: loaded.controller, windowID: windowID)
+        let notice = Notice(panel: panel, controller: loaded.content.controller, windowID: windowID)
         notices.append(notice)
         // Older notices below the bottom of the screen would never be seen.
         while notices.count > Self.maxNotices || (notices.count > 1 && !noticesFitOnScreen) {
@@ -120,7 +120,7 @@ extension WindowHost {
         notices.remove(at: index)
         notice.dismissTask?.cancel()
         notice.panel.close()
-        forgetModel(notice.windowID)
+        host?.forgetModel(notice.windowID)
         layOutNotices()
     }
 
@@ -145,9 +145,10 @@ extension WindowHost {
     /// layout with no one at the screen.
     private func captureNoticeForTest(_ panel: NSPanel) {
         guard ProcessInfo.processInfo.environment["ACTIONUI_MCP_TEST_NOTICE_CAPTURE"] == "1" else { return }
-        if let shot = try? screenshot(of: panel, name: "notice") {
+        if let shot = try? host?.save(image(of: panel), name: "notice") {
             FileHandle.standardError.write(Data("[actionui-mcp] notice captured \(shot.path)\n".utf8))
         }
     }
     #endif
 }
+#endif
