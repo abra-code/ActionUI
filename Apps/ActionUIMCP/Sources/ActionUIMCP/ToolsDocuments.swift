@@ -57,8 +57,9 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
             and returns {action, button, close_action?, values}, where values maps each element id to \
             its current value. mode "window" returns {window} at once; collect the user's actions with \
             wait, change values with update_window. Not allowed: SecureField (everything the user \
-            enters is sent to you) and LoadableView (the document it loads would skip the checks; put \
-            its content inline). WebView userScripts are removed.
+            enters is sent to you), LoadableView (the document it loads would skip the checks; put \
+            its content inline) and popover (it can cover the window's "Requested by" line; use a \
+            sheet). WebView userScripts are removed.
             """,
         inputSchema: input,
         annotations: ["readOnlyHint": true, "openWorldHint": false],

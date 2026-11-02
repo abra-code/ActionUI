@@ -25,6 +25,9 @@ Everything the user enters in a window goes back to the agent, and the agent, no
 
 - `SecureField` is refused: whatever the user types in it would be sent to the agent. `ACTIONUI_MCP_ALLOW_SECURE_FIELDS=1` allows it.
 - `LoadableView` is refused: the document it loads (from `url`, `filePath`, a bundle `name`, or a new value) would skip every check here. Put its content in the document instead.
+- `WindowGroup` is refused: it is an application's scene, and its commands would stay in the application's menu after its window closes. Give its content as the document.
+- `popover` is refused on any element: a popover is placed by the system, can open over the window's title bar from an element anywhere, whatever its size, and could show a "Requested by" line of its own there. A sheet keeps the line in view.
+- A `ToolbarItem` or `ToolbarItemGroup` with placement `secondaryAction` is refused, in the document and from `update_window`: on Linux its items open in the header bar's "More" popover, which opens over the "Requested by" line when it does not fit below the bar.
 - WebView `userScripts` are removed, with a warning: scripts from an agent are not run.
 - Platform overrides (`"<key>:macos"`, repeated suffixes such as `"type:macos:macos"` included) are resolved before these checks, and the window loads the resolved document, so a suffixed key cannot carry a refused element past them.
 - The rules reach elements nested anywhere, a Chart's annotation views included (the `content` of a mark's `annotation` in its `chart` description).

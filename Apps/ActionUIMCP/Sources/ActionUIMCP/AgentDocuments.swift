@@ -10,7 +10,8 @@
 // checks for the mistakes ActionUI's loader would silently ignore, and the safety rules of the
 // design: no SecureField (every answer reaches the model), no LoadableView (the document it loads
 // would skip these checks), no WindowGroup (its commands would stay in the application's menu after
-// its window closes), no WebView user scripts.
+// its window closes), no popover and no secondaryAction toolbar items (each can open over the
+// window's "Requested by" line), no WebView user scripts.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -43,6 +44,13 @@ struct AgentDocument {
     /// A LoadableView loads another document when it is shown, past every check here, through any
     /// of its sources (`url`, `filePath`, `name`) or a new value.
     static let loadableViewRefusal = "LoadableView is not allowed; the document it loads would skip these checks, so put its content inline"
+    /// On Linux a toolbar's secondaryAction items show in the header bar's "More" popover, which,
+    /// like a document's popover, opens over the "Requested by" line when it does not fit below
+    /// the bar (measured: a window moved low on the screen).
+    static let secondaryActionRefusal = "placement \"secondaryAction\" is not allowed; its items open in a popover that can cover the window's \"Requested by\" line, so use another placement"
+    static func isSecondaryActionItem(type: String, placement: JSONValue?) -> Bool {
+        ["ToolbarItem", "ToolbarItemGroup"].contains(type) && placement?.string == "secondaryAction"
+    }
 
     /// The rules for one property an agent sets on an element of an open window (update_window
     /// `properties`): the document's safety rules, then the ActionUIVerifier on a synthetic
@@ -73,6 +81,9 @@ struct AgentDocument {
         }
         if containerKeys.contains(name) || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
             return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [], value)
+        }
+        if name == "placement", isSecondaryActionItem(type: type, placement: value) {
+            return ("\(here): \(secondaryActionRefusal)", [], value)
         }
         var checked = value
         var safetyWarnings: [String] = []
@@ -234,6 +245,15 @@ struct AgentDocument {
         }
         if type == "WindowGroup" {
             errors.append("\(here): WindowGroup is not allowed; it is an application's scene, and its commands would stay in the menu after its window closes, so give its content as the document")
+        }
+        // A popover is a surface of its own, placed by the system: on macOS and on Linux, one of
+        // any size, from an element anywhere, can open over the title bar's "Requested by" line
+        // (both flip a popover that does not fit), and show a line of its own there.
+        if object["popover"] != nil {
+            errors.append("\(here): \"popover\" is not allowed; it can open over the window's \"Requested by\" line, so show its content in the window or in a sheet")
+        }
+        if isSecondaryActionItem(type: type, placement: object["properties"]?.object?["placement"]) {
+            errors.append("\(here): \(secondaryActionRefusal)")
         }
         // A chart description holds elements too: its annotations' views.
         if type == "Chart", var properties = object["properties"]?.object, let chart = properties["chart"] {

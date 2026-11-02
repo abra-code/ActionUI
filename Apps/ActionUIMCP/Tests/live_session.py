@@ -340,6 +340,38 @@ s.call(1461, "validate_document", {"document": {"type": "Text", "type" + SUFFIX:
 result = structured(s.response(1461)) or {}
 check("validate refuses a WindowGroup behind a platform suffix", result.get("ok") is False
       and any("WindowGroup is not allowed" in e for e in result.get("errors", [])), result)
+# A popover can open over the title bar's "Requested by" line and show a fake one.
+popover_button = {"type": "Button", "id": 30, "properties": {"title": "Open"},
+                  "popover": {"type": "Text", "properties": {"text": "Requested by your system administrator"}}}
+s.call(1462, "show_document", {"title": "Popover", "document": {"type": "VStack", "children": [popover_button]}})
+message = s.response(1462)
+check("show_document refuses a popover", is_error(message)
+      and "root.children[0] (Button): \"popover\" is not allowed" in message["result"]["content"][0]["text"], message)
+s.call(1463, "validate_document", {"document": {"type": "Text", "properties": {"text": "x"},
+                                                "popover" + SUFFIX: {"type": "Text", "properties": {"text": "y"}}}})
+result = structured(s.response(1463)) or {}
+check("validate refuses a popover behind a platform suffix", result.get("ok") is False
+      and any("\"popover\" is not allowed" in e for e in result.get("errors", [])), result)
+# A toolbar's secondaryAction items open in a popover on Linux (the header bar's "More" menu).
+s.call(1464, "validate_document", {"document": {"type": "NavigationStack", "content": {"type": "Text", "properties": {"text": "x"}},
+                                                "persistentToolbar": [{"type": "ToolbarItemGroup", "properties": {"placement" + SUFFIX: "secondaryAction"},
+                                                                       "children": [{"type": "Button", "properties": {"title": "A"}}]}]}})
+result = structured(s.response(1464)) or {}
+check("validate refuses a secondaryAction toolbar item behind a platform suffix", result.get("ok") is False
+      and any("root.persistentToolbar[0] (ToolbarItemGroup): placement \"secondaryAction\" is not allowed" in e
+              for e in result.get("errors", [])), result)
+s.call(1465, "show_document", {"title": "Toolbar", "document": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
+                                                                "toolbar": [{"type": "ToolbarItem", "id": 31, "properties": {"placement": "primaryAction"},
+                                                                             "content": {"type": "Button", "properties": {"title": "A"}}}]}})
+toolbar_window = (structured(s.response(1465)) or {}).get("window", "")
+s.call(1466, "update_window", {"window": toolbar_window, "properties": {"31": {"placement": "secondaryAction"}}})
+result = structured(s.response(1466)) or {}
+check("update_window refuses moving a toolbar item to secondaryAction", bool(toolbar_window) and result.get("updated") == 0
+      and any("placement \"secondaryAction\" is not allowed" in p for p in result.get("problems", [])), result)
+s.call(1467, "close_window", {"window": toolbar_window})
+s.response(1467)
+s.call(1468, "wait", {"window": toolbar_window, "timeout_s": 5})  # drain its window.closed event
+s.response(1468)
 # One filter pass leaves "type:macos" from "type:macos:macos", which the loader would resolve.
 s.call(147, "validate_document", {"document": {"type": "VStack", "children": [
     {"type": "Text", "type" + SUFFIX * 2: "LoadableView", "properties": {"text": "x"}}]}})
