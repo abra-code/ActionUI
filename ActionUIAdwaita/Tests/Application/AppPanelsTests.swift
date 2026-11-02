@@ -5,7 +5,9 @@
  into libadwaita's and GTK's terms. The panels, in a running application, answered through the test
  hook as the user would: a chosen button, Escape (the close response), no Escape without a cancel
  button, a canceled file panel, an alert whose window goes away, termination with an alert up; one
- called from another thread; a call before the run.
+ called from another thread; a call before the run. The panels that do not wait: two up at a time,
+ each answering when it is canceled, whichever came first; with no window open; termination with
+ one up, or the last window closing; a cancel after the answer; a call before the run.
 */
 
 import XCTest
@@ -223,6 +225,105 @@ final class AppPanelTests: XCTestCase {
             }
         }
         XCTAssertEqual(answers, ["Go"])
+    }
+
+    /// Checks each panel that does not wait as it appears. Should one never answer, the test fails
+    /// instead of waiting forever.
+    private static func watchPanelsThatDoNotWait() {
+        AppPanels.presentedForTesting = { dialog, cancellable in
+            XCTAssertEqual(gtk_file_dialog_get_modal(dialog), 0, "modal to no window")
+            g_object_ref(UnsafeMutableRawPointer(cancellable))
+            _ = runAfter(milliseconds: 3000) {
+                if g_cancellable_is_cancelled(cancellable) == 0 {
+                    answers.append("unanswered")
+                    g_cancellable_cancel(cancellable)
+                }
+                g_object_unref(UnsafeMutableRawPointer(cancellable))
+            }
+        }
+    }
+
+    func testTwoPanelsThatDoNotWaitAnswerInEitherOrder() {
+        Self.watchPanelsThatDoNotWait()
+        runApplication {
+            actionUIAppCloseWindow("panel-w1")
+            AppPanelTests.beginTwoPanels()
+        }
+        XCTAssertEqual(answers, ["began", "second nil", "first nil"], "the panel opened first waits for no other")
+    }
+
+    /// Opens two panels, cancels the newer one, then the older, then ends the run.
+    nonisolated private static func beginTwoPanels() {
+        MainActor.assumeIsolated {
+            let first = AppPanels.beginOpenPanel(json: #"{"title": "First"}"#) { paths in
+                answers.append("first \(paths?.first ?? "nil")")
+                actionUIAppTerminate()
+            }
+            let second = AppPanels.beginSavePanel(json: #"{"title": "Second"}"#) { path in
+                answers.append("second \(path ?? "nil")")
+                _ = runAfter(milliseconds: 100) { first.cancel() }
+            }
+            answers.append("began")
+            _ = runAfter(milliseconds: 300) { second.cancel() }
+        }
+    }
+
+    func testAPanelThatDoesNotWaitNeedsNoWindowAndACancelAfterItsAnswerDoesNothing() {
+        Self.watchPanelsThatDoNotWait()
+        runApplication {
+            actionUIAppCloseWindow("panel-w1")
+            MainActor.assumeIsolated {
+                let panel = AppPanels.beginOpenPanel(json: nil) { paths in
+                    answers.append("answer \(paths?.first ?? "nil")")
+                }
+                _ = runAfter(milliseconds: 200) { panel.cancel() }
+                _ = runAfter(milliseconds: 500) {
+                    panel.cancel()
+                    answers.append("canceled again")
+                    actionUIAppTerminate()
+                }
+            }
+        }
+        XCTAssertEqual(answers, ["answer nil", "canceled again"], "one answer")
+    }
+
+    func testTerminatingWithAPanelThatDoesNotWaitEndsTheRun() {
+        Self.watchPanelsThatDoNotWait()
+        runApplication {
+            actionUIAppCloseWindow("panel-w1")
+            MainActor.assumeIsolated {
+                AppPanels.beginSavePanel(json: nil) { path in
+                    answers.append("answer \(path ?? "nil")")
+                }
+                _ = runAfter(milliseconds: 200) { actionUIAppTerminate() }
+            }
+        }
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(answers, ["answer nil"], "the panel is canceled; the answer comes when the loop runs again")
+    }
+
+    func testClosingTheLastWindowWithAPanelThatDoesNotWaitCancelsIt() {
+        Self.watchPanelsThatDoNotWait()
+        runApplication {
+            MainActor.assumeIsolated {
+                AppPanels.beginOpenPanel(json: nil) { paths in
+                    answers.append("answer \(paths?.first ?? "nil")")
+                }
+                _ = runAfter(milliseconds: 200) {
+                    if let window = AdwaitaApplication.shared.gtkWindow("panel-w1") { gtk_window_close(window) }
+                }
+            }
+        }
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(answers, ["answer nil"], "the run ended without terminate; no panel stays up")
+    }
+
+    func testAPanelThatDoesNotWaitBeforeTheRunAnswersNothing() {
+        var answered: [String?] = []
+        let panel = AppPanels.beginOpenPanel(json: nil) { answered.append($0?.first) }
+        AppPanels.beginSavePanel(json: nil) { answered.append($0) }
+        panel.cancel()
+        XCTAssertEqual(answered, [nil, nil])
     }
 
     func testThePanelsBeforeTheRunAnswerNothing() {

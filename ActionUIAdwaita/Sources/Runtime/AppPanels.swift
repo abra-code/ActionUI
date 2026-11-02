@@ -7,6 +7,10 @@
  windows redraw and handlers run. The work of DispatchQueue.main waits when the call itself came
  through it (a call from another thread), as a serial queue does on macOS.
 
+ beginOpenPanel and beginSavePanel do not wait, for a host that serves other work meanwhile, as
+ NSOpenPanel's begin does: they return at once and a closure gets the answer. Nothing nests, so
+ several can be up at a time and each answers when its user does.
+
  The configuration is the macOS JSON, read key by key (a key of the wrong type is ignored):
  - Alert: title, message, style, buttons (the first is the default, shown rightmost; a button
    titled "Cancel" answers Escape, as in AppKit, and so does a single button). libadwaita alerts
@@ -19,8 +23,8 @@
    counterpart in GtkFileDialog (which may be the desktop portal's chooser) and are ignored.
 
  The panels are parented to the active window, modal to it; with no window the alert is a window
- of its own. Called before the application runs (GTK is not set up yet) they log why and return
- nil.
+ of its own. The begin calls stand on their own, modal to no window. Called before the application
+ runs (GTK is not set up yet) they log why and answer nil.
 */
 
 #if canImport(FoundationEssentials)
@@ -196,6 +200,23 @@ private final class NestedAnswer<T> {
     var answered = false
 }
 
+/// A file panel on screen, from AppPanels.beginOpenPanel or beginSavePanel.
+@MainActor
+public final class FilePanel {
+    /// Nil once the panel has answered.
+    fileprivate var cancellable: UnsafeMutablePointer<GCancellable>?
+
+    fileprivate init() {}
+
+    /// Closes the panel unanswered: its closure runs with nil, from the main loop. Nothing happens
+    /// once the panel has answered.
+    public func cancel() {
+        if let cancellable {
+            g_cancellable_cancel(cancellable)
+        }
+    }
+}
+
 @MainActor
 public enum AppPanels {
     /// actionUIAppRunAlert: the chosen button's title.
@@ -211,6 +232,20 @@ public enum AppPanels {
     /// actionUIAppRunSavePanel: the chosen path.
     public static func runSavePanel(json: String?) -> String? {
         runFilePanel(FilePanelRequest(json: json, saving: true))?.first
+    }
+
+    /// Shows an open panel and returns at once. `completion` runs from the main loop with the chosen
+    /// paths, or nil when the panel was canceled. If the application terminates, the panel is
+    /// canceled and `completion` runs only if the main loop runs again.
+    @discardableResult
+    public static func beginOpenPanel(json: String?, completion: @escaping @MainActor ([String]?) -> Void) -> FilePanel {
+        beginFilePanel(FilePanelRequest(json: json, saving: false), completion: completion)
+    }
+
+    /// Shows a save panel and returns at once. `completion` gets the chosen path, as in beginOpenPanel.
+    @discardableResult
+    public static func beginSavePanel(json: String?, completion: @escaping @MainActor (String?) -> Void) -> FilePanel {
+        beginFilePanel(FilePanelRequest(json: json, saving: true)) { completion($0?.first) }
     }
 
     /// The JSON's top-level object; empty for nil or anything else.
@@ -326,10 +361,40 @@ public enum AppPanels {
 
     /// The chosen paths, or nil when the panel was canceled.
     static func runFilePanel(_ request: FilePanelRequest) -> [String]? {
-        let function = request.mode == .save ? "actionUIAppRunSavePanel" : "actionUIAppRunOpenPanel"
-        guard !refusedBeforeRun(function) else { return nil }
+        guard !refusedBeforeRun(functionName(request)) else { return nil }
+        let parent = AdwaitaApplication.shared.activeWindow()
+        return runNested { finish in
+            _ = showFilePanel(request, parent: parent, modal: true, completion: finish)
+        }
+    }
+
+    /// Shows a panel modal to no window; nothing waits for it.
+    private static func beginFilePanel(_ request: FilePanelRequest, completion: @escaping @MainActor ([String]?) -> Void) -> FilePanel {
+        let panel = FilePanel()
+        guard !refusedBeforeRun(functionName(request)) else {
+            completion(nil)
+            return panel
+        }
+        panel.cancellable = showFilePanel(request, parent: nil, modal: false) { paths in
+            panel.cancellable = nil
+            completion(paths)
+        }
+        return panel
+    }
+
+    private static func functionName(_ request: FilePanelRequest) -> String {
+        request.mode == .save ? "actionUIAppRunSavePanel" : "actionUIAppRunOpenPanel"
+    }
+
+    /// Shows the panel; `completion` runs with what `runFilePanel` returns. Returns the call's
+    /// cancellable, which goes away when the panel answers.
+    private static func showFilePanel(_ request: FilePanelRequest, parent: UnsafeMutablePointer<GtkWindow>?, modal: Bool,
+                                      completion: @escaping @MainActor ([String]?) -> Void) -> UnsafeMutablePointer<GCancellable> {
+        // Both go when the panel answers, however long that takes.
         let dialog = gtk_file_dialog_new()!
-        defer { g_object_unref(UnsafeMutableRawPointer(dialog)) }
+        // Where no portal shows the panel, GTK's own dialog, modal even with no parent, would take
+        // the input of every window of the application and of the panels opened before it.
+        gtk_file_dialog_set_modal(dialog, modal ? 1 : 0)
         if let title = request.title {
             gtk_file_dialog_set_title(dialog, title)
         }
@@ -347,25 +412,27 @@ public enum AppPanels {
         if request.restrictsTypes {
             applyFilters(request, to: dialog)
         }
-        let parent = AdwaitaApplication.shared.activeWindow()
         let cancellable = openCancellable()
-        defer { closeCancellable(cancellable) }
-        let paths: [String]? = runNested { finish in
-            let run: ReadyRun = { result in
-                finish(finishFilePanel(dialog, request.mode, result))
+        let run: ReadyRun = { result in
+            let paths = finishFilePanel(dialog, request.mode, result)
+            closeCancellable(cancellable)
+            g_object_unref(UnsafeMutableRawPointer(dialog))
+            guard let paths, !paths.isEmpty else {
+                completion(nil)
+                return
             }
-            let data = Unmanaged.passRetained(CallbackBox(run)).toOpaque()
-            switch request.mode {
-            case .openFile: gtk_file_dialog_open(dialog, parent, cancellable, readyTrampoline, data)
-            case .openFiles: gtk_file_dialog_open_multiple(dialog, parent, cancellable, readyTrampoline, data)
-            case .selectFolder: gtk_file_dialog_select_folder(dialog, parent, cancellable, readyTrampoline, data)
-            case .selectFolders: gtk_file_dialog_select_multiple_folders(dialog, parent, cancellable, readyTrampoline, data)
-            case .save: gtk_file_dialog_save(dialog, parent, cancellable, readyTrampoline, data)
-            }
-            presentedForTesting?(dialog, cancellable)
+            completion(request.mode == .save ? paths.map(request.savedPath) : paths)
         }
-        guard let paths, !paths.isEmpty else { return nil }
-        return request.mode == .save ? paths.map(request.savedPath) : paths
+        let data = Unmanaged.passRetained(CallbackBox(run)).toOpaque()
+        switch request.mode {
+        case .openFile: gtk_file_dialog_open(dialog, parent, cancellable, readyTrampoline, data)
+        case .openFiles: gtk_file_dialog_open_multiple(dialog, parent, cancellable, readyTrampoline, data)
+        case .selectFolder: gtk_file_dialog_select_folder(dialog, parent, cancellable, readyTrampoline, data)
+        case .selectFolders: gtk_file_dialog_select_multiple_folders(dialog, parent, cancellable, readyTrampoline, data)
+        case .save: gtk_file_dialog_save(dialog, parent, cancellable, readyTrampoline, data)
+        }
+        presentedForTesting?(dialog, cancellable)
+        return cancellable
     }
 
     /// One filter with every allowed type, the default; and, for a save panel that allows other

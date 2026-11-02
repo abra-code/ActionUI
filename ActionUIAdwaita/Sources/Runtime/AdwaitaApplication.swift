@@ -263,6 +263,9 @@ public final class AdwaitaApplication {
         connectSignal(app.pointer, "activate", .instanceOnly) { [weak self] in self?.started() }
         connectSignal(app.pointer, "shutdown", .instanceOnly) { [weak self] in self?.handlers.willTerminate?() }
         let status = g_application_run(app.typed(), 0, nil)
+        // A run that ended with its last window closed, not through terminate, leaves the panels
+        // that do not wait on screen.
+        AppPanels.cancelAll()
         // An application that quits (terminate) leaves its windows open, each holding the
         // application; they go here, with no handler asked or told.
         for presented in Array(windows.values) {
