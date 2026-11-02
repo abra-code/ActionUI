@@ -237,11 +237,11 @@ The Linux renderer targets **GNOME 48 and later** (GTK 4.18, libadwaita 1.7) and
   - It holds the add-ons too, registered before the first document loads, since a program in another language cannot call their `register()`. They depend on ActionUI, so the library is a package of its own, `ActionUIAdwaita/Library`.
   - The library meant for distribution carries the Swift runtime inside it, so it runs where Swift is not installed. A process can hold only one Swift runtime, so a second ActionUI library carrying its own copy cannot be loaded beside it, and a host that loads one library is the simplest for Python's ctypes and Node.js.
 
-**Swift programs on Linux** use ActionUI as a Swift package dependency: its code is compiled into the program, which uses the toolchain's Swift runtime. They do not load `libActionUI.so`, which would bring a second Swift runtime into the process. `ActionUIAdwaitaViewer` and `ActionUIAdwaitaDemo` are built this way, in the ActionUIAdwaita/Apps package, which links the add-ons as well. `AdwaitaApplication` is the public Swift API for running an application and presenting documents; there is no public API yet for showing ActionUI content in the windows of an application that has its own `GtkApplication`.
+**Swift programs on Linux** use ActionUI as a Swift package dependency: its code is compiled into the program, which uses the toolchain's Swift runtime. They do not load `libActionUI.so`, which would bring a second Swift runtime into the process. The viewer (`Apps/ActionUIViewer`) and `ActionUIAdwaitaDemo` (`ActionUIAdwaita/Apps`) are built this way, in packages that link the add-ons as well. `AdwaitaApplication` is the public Swift API for running an application and presenting documents; there is no public API yet for showing ActionUI content in the windows of an application that has its own `GtkApplication`.
 
 ## Tools
 
 - **ActionUIViewer** — Preview JSON files, take screenshots for sharing or AI feedback (`--screenshot out.png`; add `--hide-window` to render in-process without showing a window, which also works with the screen locked)
 - **ActionUIVerifier** — Validate JSON files before deployment
 - **ActionUISwiftTestApp** — Test app with examples of all supported view types
-- **ActionUIAdwaitaViewer** (Linux) - Opens a JSON file in a window; `--dark` for the dark style, `--screenshot out.png` to save the window as an image and quit (drawn by the window itself, so no screen capture is needed)
+- **ActionUIViewer** on Linux - Opens a JSON file in a window; `--dark` for the dark style, `--screenshot out.png` to save the window as an image and quit (drawn by the window itself, so no screen capture is needed)

@@ -2,6 +2,10 @@
 //
 // ActionUIViewer - the add-on-aware preview tool (aggregator package).
 //
+// One package for both platforms: linuxPackage below is the viewer on GTK, in its own source folder
+// (Sources/ActionUIViewerLinux) since the two programs share no code, without the add-ons that have
+// no Linux renderer.
+//
 // Lives in the ActionUI repo but is a SEPARATE package from core: it depends on core ActionUI AND
 // the optional add-on packages, links them, and calls each add-on's register() at launch, so it can
 // preview JSON documents that use add-on element types (e.g. the "QuickLook" element). A core-package
@@ -60,7 +64,8 @@ let sdkStampLinkerSettings: [LinkerSetting] = macOSSDKVersion.map { sdkVersion i
                   .when(platforms: [.macOS]))]
 } ?? []
 
-let package = Package(
+func applePackage() -> Package {
+Package(
     name: "ActionUIViewer",
     platforms: [
         .macOS(macOSDeploymentTarget),
@@ -98,3 +103,48 @@ let package = Package(
         ),
     ]
 )
+}
+
+// The program has the same name on Linux, and opens a document in a window through AdwaitaApplication.
+// Its tests run the program, so they need a display and skip themselves without one.
+// Packages that Linux does not use stay in the tracked Package.resolved only if a Linux build leaves
+// that file alone: build with --only-use-versions-from-resolved-file, and with --manifest-cache none
+// for the root package's exclude list.
+func linuxPackage() -> Package {
+Package(
+    name: "ActionUIViewer",
+    dependencies: [
+        .package(path: "../.."),
+        .package(path: "../../Add-ons/ActionUICachedImage"),
+        .package(path: "../../Add-ons/ActionUIRichText"),
+    ],
+    targets: [
+        .executableTarget(
+            name: "ActionUIViewer",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
+                .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+            ],
+            path: "Sources/ActionUIViewerLinux"
+        ),
+        .testTarget(
+            name: "ActionUIViewerTests",
+            dependencies: [
+                "ActionUIViewer",
+                .product(name: "CAdwaita", package: "ActionUI"),
+            ],
+            path: "Tests/ActionUIViewerTests"
+        ),
+    ]
+)
+}
+
+// Only the chosen package may be constructed: PackageDescription takes the last Package created as
+// the manifest.
+#if os(Linux)
+let package = linuxPackage()
+#else
+let package = applePackage()
+#endif

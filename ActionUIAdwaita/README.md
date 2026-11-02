@@ -26,13 +26,14 @@ From the repository root, on Linux:
 ```sh
 Scripts/prepare-linux-symbols.sh              # the symbol icons; again when the map or font changes
 swift build                                   # ActionUI
-swift run --package-path ActionUIAdwaita/Apps ActionUIAdwaitaViewer ActionUISwiftTestApp/Resources/Form.json
+swift run --package-path Apps/ActionUIViewer --only-use-versions-from-resolved-file --manifest-cache none \
+    ActionUIViewer ActionUISwiftTestApp/Resources/Form.json
 swift run --package-path ActionUIAdwaita/Apps ActionUIAdwaitaDemo --resources ActionUISwiftTestApp/Resources
 ```
 
 SF Symbols are shown as Material Symbols icons, which `Scripts/prepare-linux-symbols.sh` generates from the Material Symbols font (downloaded on its first run) and compiles into ActionUI, as a GResource in a section of its own: `libActionUI.so` and every Swift program that links ActionUI statically carry it (`gresource list` shows it). Run the script before the first build, and again when `sf_to_material.map` or the font changes; `bash Tools/material_symbols/fetch-material-symbols-font.sh` moves to a newer font release. A build without the icons succeeds but warns at its top on every build, and its SF Symbols show the missing-icon picture. A Swift package that depends on ActionUI runs the script in its ActionUI checkout first (`.build/checkouts/ActionUI`, or the folder of a path dependency).
 
-- **ActionUIAdwaitaViewer** opens one document in a window: a path, a file URL or an http(s) URL. `--dark` uses the dark style; `--screenshot out.png` saves the window as an image once it has drawn and quits (drawn by the window itself, so no screen capture is needed); `--rows <id> <rows.json>` fills a List, Table or Chart for a screenshot.
+- **ActionUIViewer** (`Apps/ActionUIViewer`, one package for macOS and Linux) opens one document in a window: a path, a file URL or an http(s) URL. `--dark` uses the dark style; `--screenshot out.png` saves the window as an image once it has drawn and quits (drawn by the window itself, so no screen capture is needed); `--rows <id> <rows.json>` fills a List, Table or Chart for a screenshot. Its package's `Package.resolved` also lists packages only macOS uses: `--only-use-versions-from-resolved-file` keeps a Linux build from dropping them, and `--manifest-cache none` keeps the root package's file list current.
 - **ActionUIAdwaitaDemo** is the Linux counterpart of ActionUISwiftTestApp: a launcher of all the test app's documents and the documents of the add-ons that work on Linux, with the test app's own action handlers. `--open <Name>` also opens one document at launch, `--screenshot` saves it.
 
 A self-contained demo, which runs where Swift is not installed:
@@ -113,9 +114,10 @@ swift test
 
 The renderer tests open real windows, so they need a graphical session (Wayland or X11); without one they skip themselves. The layout tests compare frames with recordings taken from SwiftUI (`LayoutParity/`).
 
-The viewer and the demo have tests of their own in their package, which run the programs themselves:
+The viewer and the demo have tests of their own in their packages, which run the programs themselves:
 
 ```sh
+swift test --package-path Apps/ActionUIViewer --only-use-versions-from-resolved-file --manifest-cache none
 swift test --package-path ActionUIAdwaita/Apps
 ```
 
@@ -162,5 +164,5 @@ swift test --package-path ActionUIAdwaita/Library
 | `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |
 | `CLinuxSocket` | `accept4`, which Swift's Glibc module leaves out (for the remote server) |
 | `CSymbolResource`, `Plugins/SymbolResourceCheck` | the symbol icons as a GResource section (the C source `Scripts/prepare-linux-symbols.sh` generates, in `generated/`), and the build plugin that warns when they are missing or out of date. The generator, `Tools/material_symbols/generate-symbol-icons.c`, draws Material Symbols Rounded glyphs with HarfBuzz as symbolic SVGs from `ActionUIAndroid`'s `sf_to_material.map`; the SVGs stay in `Tools/material_symbols/build/icons` for inspection |
-| `Apps` | ActionUIAdwaitaViewer and ActionUIAdwaitaDemo, a package of their own that links the add-ons, with their tests |
+| `Apps` | ActionUIAdwaitaDemo, a package of its own that links the add-ons, with its tests (the viewer is in `Apps/ActionUIViewer`) |
 | `Tests` | the renderer, layout and application tests |

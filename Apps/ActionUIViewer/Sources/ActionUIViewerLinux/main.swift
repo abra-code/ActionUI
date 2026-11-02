@@ -1,9 +1,9 @@
-// ActionUIAdwaita/Apps/Sources/ActionUIAdwaitaViewer/main.swift
+// Apps/ActionUIViewer/Sources/ActionUIViewerLinux/main.swift
 /*
- ActionUIAdwaitaViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication,
+ ActionUIViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication,
  with the add-ons that work on Linux (RichText, CachedImage).
 
- Usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]...
+ Usage: ActionUIViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]...
 
  The document is a path, a file URL, or an http or https URL (the window appears once it loads).
  - --dark: libadwaita's dark style, whatever the desktop's.
@@ -26,7 +26,7 @@ import ActionUI
 import ActionUICachedImage
 import ActionUIRichText
 
-let usage = "usage: ActionUIAdwaitaViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]..."
+let usage = "usage: ActionUIViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]..."
 let windowUUID = "viewer"
 /// How long the window has to draw before a screenshot is taken.
 let screenshotDelay = DispatchTimeInterval.milliseconds(600)
@@ -53,7 +53,7 @@ while let argument = arguments.popFirst() {
         }
         guard let data = FileManager.default.contents(atPath: path),
               let rows = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [[String]] else {
-            print("ActionUIAdwaitaViewer: \(path) is not a JSON array of rows of strings")
+            print("ActionUIViewer: \(path) is not a JSON array of rows of strings")
             exit(66)
         }
         elementRows.append((id, rows))
@@ -88,7 +88,7 @@ MainActor.assumeIsolated {
     app.handlers.windowWillPresent = { _ in
         // A document that could not be loaded shows its error in the window; the run still fails.
         if !app.showsDocument(windowUUID) {
-            print("ActionUIAdwaitaViewer: \(documentPath) could not be loaded")
+            print("ActionUIViewer: \(documentPath) could not be loaded")
             status = 65
         }
         for (id, rows) in elementRows {
@@ -98,9 +98,9 @@ MainActor.assumeIsolated {
             DispatchQueue.main.asyncAfter(deadline: .now() + screenshotDelay) {
                 screenshotTried = true
                 if app.savePNG(windowUUID: windowUUID, path: screenshotPath) {
-                    print("ActionUIAdwaitaViewer: saved \(screenshotPath)")
+                    print("ActionUIViewer: saved \(screenshotPath)")
                 } else {
-                    print("ActionUIAdwaitaViewer: could not save \(screenshotPath)")
+                    print("ActionUIViewer: could not save \(screenshotPath)")
                     status = 1
                 }
                 app.terminate()
@@ -110,7 +110,7 @@ MainActor.assumeIsolated {
     app.presentWindow(url: documentPath, windowUUID: windowUUID, title: nil)
     let runStatus = app.run()
     if let screenshotPath, !screenshotTried {
-        print("ActionUIAdwaitaViewer: the window closed before \(screenshotPath) was saved")
+        print("ActionUIViewer: the window closed before \(screenshotPath) was saved")
         status = 1
     }
     if status == 0 {

@@ -1,6 +1,6 @@
-// ActionUIAdwaita/Apps/Tests/ActionUIAdwaitaAppsTests/ViewerTests.swift
+// Apps/ActionUIViewer/Tests/ActionUIViewerTests/ViewerTests.swift
 /*
- Tests for ActionUIAdwaitaViewer, run as the program it is: it opens the TemperatureConverter
+ Tests for ActionUIViewer on Linux, run as the program it is: it opens the TemperatureConverter
  sample and saves a screenshot, in the light and the dark style; the PNG is as large as the
  window and the dark one is darker. The same sample from an http URL opens once it has loaded; one
  that cannot be loaded fails the run, its error window saved. The add-ons are there: what they show
@@ -27,7 +27,7 @@ final class ViewerTests: XCTestCase {
         }
     }
 
-    private var viewer: URL { ProgramTestSupport.program("ActionUIAdwaitaViewer") }
+    private var viewer: URL { ProgramTestSupport.program("ActionUIViewer") }
 
     /// The TemperatureConverter sample.
     private var sample: String {
