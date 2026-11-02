@@ -131,6 +131,20 @@ import Testing
     }
     #expect(HostSupport.resourceFolder(ofBundle: "HostSupportTests-none") == nil)
 }
+
+/// The temporary folder is open to every user of the machine, and a folder they made first would
+/// be theirs: the session's folder has a name they cannot know.
+@Test func theSessionFolderIsPrivate() {
+    let path = HostSupport.sessionFolder.path
+    defer { rmdir(path) }
+    var information = stat()
+    #expect(lstat(path, &information) == 0)
+    #expect(information.st_mode & S_IFMT == S_IFDIR)
+    #expect(information.st_mode & 0o777 == 0o700)
+    #expect(information.st_uid == getuid())
+    #expect(path != FileManager.default.temporaryDirectory
+        .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)").path)
+}
 #endif
 
 @Test func trimmedRemovesSpacesAndNewlines() {

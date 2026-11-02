@@ -13,10 +13,20 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import ActionUISwiftAdapter
+import ActionUIQuickLook
+import ActionUIDiff
+import ActionUICachedImage
+import ActionUIRichText
 
 @MainActor
 final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     typealias FileType = UTType
+
+    nonisolated static let systemName = "macOS"
+    nonisolated static let shownContent = "report, image, PDF, video, web page, diff, table, or chart"
+    nonisolated static let verifierPlatform = "macos"
+    nonisolated static let keepsWindows = true
+    nonisolated static let removesClosedWindowModels = false
 
     struct Content {
         /// Owns the SwiftUI tree.
@@ -30,6 +40,62 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     private var controllers: [String: NSViewController] = [:]
     /// Notices on screen, oldest first (AppKitPlatform+Notices.swift).
     var notices: [Notice] = []
+
+    static func registerAddOns() {
+        ActionUIQuickLook.register()
+        ActionUIDiff.register()
+        ActionUICachedImage.register()
+        ActionUIRichText.register()
+    }
+
+    static func prepareApplication(isKeeper: Bool) {
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
+        app.mainMenu = makeMainMenu(quitItem: isKeeper)
+    }
+
+    static func runApplication() {
+        NSApplication.shared.run()
+    }
+
+    static func terminateApplication() {
+        NSApp.terminate(nil)
+    }
+
+    /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
+    /// window. No Quit item in the server: quitting would end the client's server; closing windows is
+    /// enough. The keeper serves no one and gets one.
+    private static func makeMainMenu(quitItem: Bool) -> NSMenu {
+        let mainMenu = NSMenu()
+        func submenu(_ title: String, _ items: [NSMenuItem]) {
+            let menu = NSMenu(title: title)
+            items.forEach(menu.addItem)
+            let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            holder.submenu = menu
+            mainMenu.addItem(holder)
+        }
+        func item(_ title: String, _ action: Selector, _ key: String, _ modifiers: NSEvent.ModifierFlags = .command) -> NSMenuItem {
+            let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            menuItem.keyEquivalentModifierMask = modifiers
+            return menuItem
+        }
+        submenu("ActionUI", [item("Hide", #selector(NSApplication.hide(_:)), "h")]
+                            + (quitItem ? [.separator(), item("Quit", #selector(NSApplication.terminate(_:)), "q")] : []))
+        submenu("Edit", [
+            item("Undo", Selector(("undo:")), "z"),
+            item("Redo", Selector(("redo:")), "z", [.command, .shift]),
+            .separator(),
+            item("Cut", #selector(NSText.cut(_:)), "x"),
+            item("Copy", #selector(NSText.copy(_:)), "c"),
+            item("Paste", #selector(NSText.paste(_:)), "v"),
+            item("Select All", #selector(NSText.selectAll(_:)), "a"),
+        ])
+        submenu("Window", [
+            item("Close", #selector(NSWindow.performClose(_:)), "w"),
+            item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
+        ])
+        return mainMenu
+    }
 
     var hasGraphicalSession: Bool {
         CGSessionCopyCurrentDictionary() != nil

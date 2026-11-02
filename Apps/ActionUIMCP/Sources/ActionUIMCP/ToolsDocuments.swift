@@ -272,7 +272,7 @@ func pickPathTool(host: WindowHost) -> MCPTool {
         name: "pick_path",
         title: "Pick a file or folder",
         description: """
-            Show the macOS open or save panel and wait for the user. Returns {action, paths}: action \
+            Show the \(HostPlatform.systemName) open or save panel and wait for the user. Returns {action, paths}: action \
             "accept" with absolute paths, "cancel", or "timeout". A save path is only chosen, not \
             created. Blocks until the user answers; some clients move a long call to the background.
             """,

@@ -323,6 +323,16 @@ struct DialogSpec {
 
 enum ContentKind: String, CaseIterable {
     case markdown, text, image, pdf, file, video, web, diff, table, chart
+
+    /// The kinds this system can show. Quick Look (pdf, file) and the Diff add-on have no renderer
+    /// on Linux.
+    static var available: [ContentKind] {
+        #if os(Linux)
+        allCases.filter { ![.pdf, .file, .diff].contains($0) }
+        #else
+        allCases
+        #endif
+    }
 }
 
 struct ViewerSpec {
@@ -347,8 +357,8 @@ struct ViewerSpec {
         }
         self.title = title
         let kindName = arguments["kind"]?.string ?? ""
-        guard let kind = ContentKind(rawValue: kindName) else {
-            let known = ContentKind.allCases.map(\.rawValue).joined(separator: ", ")
+        guard let kind = ContentKind(rawValue: kindName), ContentKind.available.contains(kind) else {
+            let known = ContentKind.available.map(\.rawValue).joined(separator: ", ")
             throw MCPToolError("'kind' must be one of: \(known)")
         }
         self.kind = kind

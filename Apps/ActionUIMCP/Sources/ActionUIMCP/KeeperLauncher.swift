@@ -6,6 +6,7 @@
 
 // KeeperLauncher.swift - starts the process that keeps windows after the session (KeptWindows.swift).
 
+#if canImport(Darwin)
 import Foundation
 
 /// Starts the keeper with posix_spawn: a new session (POSIX_SPAWN_SETSID), so signals the client
@@ -85,3 +86,17 @@ enum KeeperLauncher {
         return .failed(text.isEmpty ? "the new process (pid \(pid)) exited without showing a window" : text)
     }
 }
+#else
+/// No keeper on this system yet: the tools refuse `keep`, so nothing reaches this.
+enum KeeperLauncher {
+    enum Outcome {
+        case ready(String)
+        case notReady(String)
+        case failed(String)
+    }
+
+    static func launch(executable: String, spool: String, timeout: Double) -> Outcome {
+        .failed("no keeper on this system")
+    }
+}
+#endif

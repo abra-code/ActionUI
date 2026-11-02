@@ -5,7 +5,7 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // Verifier.swift - the ActionUIVerifier library, set up for agent documents: validated as
-// deployed to macOS, with the built-in schemas from the library's resource bundle and add-on
+// deployed to this system, with the built-in schemas from the library's resource bundle and add-on
 // schemas found the way the library's own tool finds them.
 //
 // The resource bundle (ActionUI_ActionUIVerifier, built next to the executable) is found by name in
@@ -29,7 +29,7 @@ enum Verifier {
         }
         do {
             let set = try SchemaSet(primary: schemas, extra: SchemaSet.discoverAddOnDirectories(schemasDirectory: schemas))
-            return DocumentValidator(schemas: set, targetPlatform: "macos")
+            return DocumentValidator(schemas: set, targetPlatform: HostPlatform.verifierPlatform)
         } catch {
             HostSupport.logLine("[actionui-mcp] could not load verifier schemas from \(schemas.path): \(error.displayText)")
             return nil

@@ -59,8 +59,7 @@ extension WindowHost {
 
     /// Saves a capture as a PNG in the server's temporary folder.
     func save(_ image: CapturedImage, name: String) throws -> Screenshot {
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)/screenshots", isDirectory: true)
+        let folder = HostSupport.sessionFolder.appendingPathComponent("screenshots", isDirectory: true)
         let file = folder.appendingPathComponent("\(name)-\(UUID().uuidString.prefix(8)).png")
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

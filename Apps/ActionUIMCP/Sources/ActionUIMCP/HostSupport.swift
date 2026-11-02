@@ -53,7 +53,33 @@ enum HostSupport {
         #endif
     }
 
+    /// Parses a protocol message, for MCPServer; nil for text that is not JSON.
+    @Sendable static func parseMessage(_ text: String) -> JSONValue? {
+        #if os(Linux)
+        (try? ActionUIJSON.value(from: text)).map { JSONValue(any: $0) }
+        #else
+        JSONValue.parsedByFoundation(text)
+        #endif
+    }
+
     // MARK: Paths
+
+    /// The folder for this session's staged documents and screenshots. The temporary folder on macOS
+    /// is the user's own. On Linux it is /tmp, open to every user of the machine, so the folder is
+    /// made private there, under a name nobody can take first: a staged document replaced in a
+    /// folder someone else owns would load past the document checks, and a screenshot shows what
+    /// the user has on screen.
+    static let sessionFolder: URL = {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+        #if os(Linux)
+        var template = Array((folder.path + "-XXXXXX").utf8CString)
+        if mkdtemp(&template) != nil {
+            return URL(fileURLWithPath: String(cString: template), isDirectory: true)
+        }
+        #endif
+        return folder
+    }()
 
     /// The running program's path, symbolic links resolved: a client launching the bare name
     /// through PATH passes just that in argv[0].

@@ -18,6 +18,8 @@ import Foundation
 
 #if canImport(AppKit)
 typealias HostPlatform = AppKitPlatform
+#else
+typealias HostPlatform = AdwaitaPlatform
 #endif
 
 /// A size in points.
@@ -52,6 +54,25 @@ protocol WindowPlatform: AnyObject {
     /// A file type a panel can be limited to.
     associatedtype FileType: Sendable
 
+    /// The system's name, in what the tools tell an agent.
+    nonisolated static var systemName: String { get }
+    /// What `show` presents, in what the server tells an agent.
+    nonisolated static var shownContent: String { get }
+    /// The platform documents are verified for.
+    nonisolated static var verifierPlatform: String { get }
+    /// Whether windows opened with `keep` can outlive the session.
+    nonisolated static var keepsWindows: Bool { get }
+    /// Whether the layer removes a closed window's ActionUI model itself. Otherwise the host does.
+    nonisolated static var removesClosedWindowModels: Bool { get }
+
+    /// Registers the add-ons this system has. Before any document loads.
+    static func registerAddOns()
+    /// Sets up the application, before the first window. A keeper serves no one.
+    static func prepareApplication(isKeeper: Bool)
+    /// Runs the main loop until the application ends.
+    static func runApplication()
+    static func terminateApplication()
+
     /// The layer tells the host when a window closes, whoever closed it, and may use it to load
     /// documents of its own.
     var host: WindowHost? { get set }
@@ -59,8 +80,9 @@ protocol WindowPlatform: AnyObject {
     /// False when no window can appear (no graphical session); a dialog would then wait forever.
     var hasGraphicalSession: Bool { get }
 
-    /// Builds the document in `file`. The host calls this inside its log capture, so anything that
-    /// reports problems in the document has to run here. The file can go once this returns.
+    /// Loads the document in `file`, as far as can be done with no window and no network: the host
+    /// calls this inside its log capture to refuse a bad document, and to check one that never
+    /// shows. The file can go once this returns.
     func loadContent(file: URL, windowID: String) -> Content
 
     /// Opens a window showing `content`. `activate` takes the keyboard focus (a dialog needs an

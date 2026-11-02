@@ -9,7 +9,8 @@
 // absolute path to a .json file, never as a string. Before anything loads it gets structural
 // checks for the mistakes ActionUI's loader would silently ignore, and the safety rules of the
 // design: no SecureField (every answer reaches the model), no LoadableView (the document it loads
-// would skip these checks), no WebView user scripts.
+// would skip these checks), no WindowGroup (its commands would stay in the application's menu after
+// its window closes), no WebView user scripts.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -230,6 +231,9 @@ struct AgentDocument {
         }
         if type == "LoadableView" {
             errors.append("\(here): \(loadableViewRefusal)")
+        }
+        if type == "WindowGroup" {
+            errors.append("\(here): WindowGroup is not allowed; it is an application's scene, and its commands would stay in the menu after its window closes, so give its content as the document")
         }
         // A chart description holds elements too: its annotations' views.
         if type == "Chart", var properties = object["properties"]?.object, let chart = properties["chart"] {

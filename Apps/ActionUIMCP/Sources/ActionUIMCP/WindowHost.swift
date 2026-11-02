@@ -85,8 +85,7 @@ final class WindowHost {
 
     init(logger: HostLogger) {
         self.logger = logger
-        documentDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+        documentDirectory = HostSupport.sessionFolder
         platform.host = self
     }
 
@@ -129,11 +128,16 @@ final class WindowHost {
         keptDocuments[windowID] = loaded.file
         if queuesEvents { eventQueues[windowID] = [] }
         updatePresence()
-        platform.present(loaded.content, windowID: windowID, title: title, subtitle: subtitle, sizing: sizing, activate: activate)
+        // A layer that builds the document as it shows it logs the renderer's warnings here.
+        let shown = logger.capture {
+            platform.present(loaded.content, windowID: windowID, title: title, subtitle: subtitle, sizing: sizing, activate: activate)
+        }
         #if DEBUG
         scheduleTestAction(windowID: windowID)
         #endif
-        let warnings = loaded.entries.filter { $0.level == .warning }.map(\.message)
+        var seen: Set<String> = []
+        let warnings = (loaded.entries + shown.entries).filter { $0.level == .warning || $0.level == .error }
+            .map(\.message).filter { seen.insert($0).inserted }
         return (windowID, Array(warnings.prefix(20)))
     }
 
@@ -146,9 +150,9 @@ final class WindowHost {
                 loaded.entries.filter { $0.level == .warning }.map(\.message))
     }
 
-    /// Stages the document through a private temporary file (the public loading API takes a URL),
-    /// builds its view, and measures it once so that view construction runs inside the log capture.
-    /// With `retainFile` the staged file is left in place and returned, for a kept window.
+    /// Stages the document through a private temporary file (the public loading API takes a URL)
+    /// and loads it through the platform layer inside the log capture. With `retainFile` the staged
+    /// file is left in place and returned, for a kept window.
     func load(document: [String: Any], windowID: String, retainFile: Bool = false) throws
         -> (content: HostPlatform.Content, entries: [HostLogger.Entry], file: URL?) {
         let fileURL = documentDirectory.appendingPathComponent(windowID + ".json")
@@ -195,7 +199,7 @@ final class WindowHost {
         if eventQueues[windowID] != nil {
             enqueue(window: windowID, action: "window.closed", viewID: 0, part: 0, value: nil, context: nil)
         }
-        forgetModel(windowID)
+        if !HostPlatform.removesClosedWindowModels { forgetModel(windowID) }
         updatePresence()
     }
 

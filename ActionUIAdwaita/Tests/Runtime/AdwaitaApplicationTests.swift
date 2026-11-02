@@ -409,6 +409,38 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(closed, ["app-w1"], "no handler for the replaced window, as for presentWindow")
     }
 
+    func testACaptureIsScaledDownToItsLimitAndSaysItsSize() throws {
+        let app = AdwaitaApplication()
+        let path = NSTemporaryDirectory() + "actionui-app-test-capture-\(ProcessInfo.processInfo.processIdentifier).png"
+        files.append(path)
+        var full: (width: Int, height: Int)?
+        var limited: (width: Int, height: Int)?
+        var fileWidth: Int32 = 0
+        var missing: (width: Int, height: Int)?
+        app.handlers.didFinishLaunching = {
+            missing = app.capturePNG(windowUUID: "no-such-window", path: path)
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: "Capture")
+            _ = runAfter(milliseconds: 300) {
+                full = app.capturePNG(windowUUID: "app-w1", path: path)
+                limited = app.capturePNG(windowUUID: "app-w1", path: path, maxPixels: 100)
+                if let texture = gdk_texture_new_from_filename(path, nil) {
+                    fileWidth = gdk_texture_get_width(texture)
+                    g_object_unref(UnsafeMutableRawPointer(texture))
+                }
+                app.closeWindow("app-w1")
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertNil(missing, "no such window")
+        let large = try XCTUnwrap(full)
+        let small = try XCTUnwrap(limited)
+        XCTAssertGreaterThan(max(large.width, large.height), 100)
+        XCTAssertEqual(max(small.width, small.height), 100, "the longest side is at the limit")
+        XCTAssertEqual(Double(small.width) / Double(small.height), Double(large.width) / Double(large.height), accuracy: 0.05, "in proportion")
+        XCTAssertEqual(Int(fileWidth), small.width, "the size is the file's")
+    }
+
     func testAWindowOpensNoWiderThan900UnlessItsMinimumNeedsMore() throws {
         let app = AdwaitaApplication()
         var wide: (Int32, Int32) = (0, 0)
@@ -1351,5 +1383,28 @@ final class AdwaitaApplicationNoDisplayTests: XCTestCase {
         XCTAssertTrue(ActionUIModel.shared.hasWindow("app-no-display"), "the document loads")
         let bad = app.prepareWindow(json: Data("not json".utf8), windowUUID: "app-no-display")
         XCTAssertNotNil(bad.error, "a bad document is still found")
+    }
+
+    func testWithNoDisplayARunServesTheMainQueueUntilTerminate() throws {
+        let app = AdwaitaApplication()
+        try XCTSkipIf(app.hasDisplay, "a display is open; this one is for the runs that have none")
+        app.runsWithoutDisplay = true
+        var served = false
+        var asked = false
+        var secondRun: Int32?
+        app.handlers.shouldTerminate = {
+            asked = true
+            return true
+        }
+        DispatchQueue.main.async {
+            served = true
+            secondRun = app.run()
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0, "terminate ended the run")
+        XCTAssertTrue(served, "work on the main queue ran")
+        XCTAssertEqual(secondRun, 1, "a second run is refused, as with a display")
+        XCTAssertTrue(asked, "shouldTerminate is asked, as with a display")
+        XCTAssertFalse(app.hasDisplay, "and asking twice gives the same answer")
     }
 }

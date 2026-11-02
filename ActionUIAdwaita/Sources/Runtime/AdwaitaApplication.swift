@@ -149,6 +149,19 @@ public final class AdwaitaApplication {
     /// Whether the application keeps running when the user closes its last window: false ends it,
     /// after asking the shouldTerminate handler. See "Closing" above.
     public var keepsRunningWithoutWindows = false
+    /// For a host with work to do when no window can show, such as a server over SSH: with no
+    /// display, run keeps the main loop going until terminate, where GTK would end the process. No
+    /// window can open then, and no handler fires. Check hasDisplay before presenting.
+    public var runsWithoutDisplay = false
+    /// The main loop of a run with no display.
+    private var displaylessLoop: OpaquePointer?
+
+    /// Whether windows can show here: GTK can open a display.
+    public var hasDisplay: Bool {
+        _ = gtk_init_check()
+        // Not gtk_init_check's answer: a second call after a failed one says yes.
+        return gdk_display_get_default() != nil
+    }
 
     private var application: UnsafeMutablePointer<AdwApplication>?
     private(set) var hasStarted = false
@@ -252,21 +265,33 @@ public final class AdwaitaApplication {
     /// and works on a locked screen. False when the window is not on screen and drawn yet, or the
     /// file cannot be written.
     public func savePNG(windowUUID: String, path: String) -> Bool {
-        guard let window = windows[windowUUID]?.window, gtk_widget_get_mapped(typed(window)) != 0 else { return false }
+        capturePNG(windowUUID: windowUUID, path: path) != nil
+    }
+
+    /// As savePNG, with the image scaled down to `maxPixels` on its longest side, redrawn at that
+    /// size rather than resampled. Returns the image's size in pixels; nil where savePNG is false.
+    public func capturePNG(windowUUID: String, path: String, maxPixels: Int? = nil) -> (width: Int, height: Int)? {
+        guard let window = windows[windowUUID]?.window, gtk_widget_get_mapped(typed(window)) != 0 else { return nil }
         let widget: WidgetPointer = typed(window)
         let width = gtk_widget_get_width(widget)
         let height = gtk_widget_get_height(widget)
-        guard width > 0, height > 0, let renderer = gtk_native_get_renderer(OpaquePointer(window)) else { return false }
+        guard width > 0, height > 0, let renderer = gtk_native_get_renderer(OpaquePointer(window)) else { return nil }
+        let scale = maxPixels.map { min(1, Double(max($0, 1)) / Double(max(width, height))) } ?? 1
         let paintable = OwnedObject(adopting: gtk_widget_paintable_new(widget)!)
         let snapshot = gtk_snapshot_new()!
+        if scale < 1 {
+            gtk_snapshot_scale(snapshot, Float(scale), Float(scale))
+        }
         gdk_paintable_snapshot(paintable.opaquePointer, snapshot, Double(width), Double(height))
-        guard let node = gtk_snapshot_free_to_node(snapshot) else { return false }
+        guard let node = gtk_snapshot_free_to_node(snapshot) else { return nil }
         defer { gsk_render_node_unref(node) }
         var viewport = graphene_rect_t(origin: graphene_point_t(x: 0, y: 0),
-                                       size: graphene_size_t(width: Float(width), height: Float(height)))
-        guard let rendered = gsk_renderer_render_texture(renderer, node, &viewport) else { return false }
+                                       size: graphene_size_t(width: Float((Double(width) * scale).rounded()),
+                                                             height: Float((Double(height) * scale).rounded())))
+        guard let rendered = gsk_renderer_render_texture(renderer, node, &viewport) else { return nil }
         let texture = OwnedObject(adopting: rendered)
-        return gdk_texture_save_to_png(texture.opaquePointer, path) != 0
+        guard gdk_texture_save_to_png(texture.opaquePointer, path) != 0 else { return nil }
+        return (Int(gdk_texture_get_width(texture.opaquePointer)), Int(gdk_texture_get_height(texture.opaquePointer)))
     }
 
     // MARK: Running
@@ -275,11 +300,19 @@ public final class AdwaitaApplication {
     /// while it runs is refused (logged, returns 1).
     @discardableResult
     public func run() -> Int32 {
-        guard application == nil else {
+        guard application == nil, displaylessLoop == nil else {
             ActionUIModel.shared.logger.log("The application is already running; a second run is refused", .error)
             return 1
         }
         MainLoopBridge.install()
+        if runsWithoutDisplay, !hasDisplay {
+            let loop = g_main_loop_new(nil, 0)!
+            displaylessLoop = loop
+            g_main_loop_run(loop)
+            displaylessLoop = nil
+            g_main_loop_unref(loop)
+            return 0
+        }
         applyBundleInfo()
         // Released when run returns, after the windows are gone.
         let app = OwnedObject(adopting: adw_application_new(resolvedApplicationID(), G_APPLICATION_NON_UNIQUE)!)
@@ -332,8 +365,13 @@ public final class AdwaitaApplication {
 
     /// Ends the application, unless the shouldTerminate handler says no.
     public func terminate() {
-        guard let application else { return }
+        guard application != nil || displaylessLoop != nil else { return }
         if let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() { return }
+        if let displaylessLoop {
+            g_main_loop_quit(displaylessLoop)
+            return
+        }
+        guard let application else { return }
         // An alert or file panel up runs a nested main loop, which quitting would not end: each
         // call returns nil, and the run ends after them.
         AppPanels.cancelAll()

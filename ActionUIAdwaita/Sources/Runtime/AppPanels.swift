@@ -234,6 +234,12 @@ public enum AppPanels {
         runFilePanel(FilePanelRequest(json: json, saving: true))?.first
     }
 
+    /// Whether `entry`, as in allowedContentTypes, names a type a panel can offer: an extension, a
+    /// MIME type, or a uniform type identifier GTK knows by its MIME types.
+    public nonisolated static func knowsFileType(_ entry: String) -> Bool {
+        !FilePanelRequest.fileTypes(entry).isEmpty
+    }
+
     /// Shows an open panel and returns at once. `completion` runs from the main loop with the chosen
     /// paths, or nil when the panel was canceled. If the application terminates, the panel is
     /// canceled and `completion` runs only if the main loop runs again.

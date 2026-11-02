@@ -20,6 +20,14 @@ import Glibc
 import ActionUIAdwaitaApplication
 
 final class AppPanelRequestTests: XCTestCase {
+    func testAPanelKnowsExtensionsMimeTypesAndTheCommonIdentifiers() {
+        XCTAssertTrue(AppPanels.knowsFileType("json"))
+        XCTAssertTrue(AppPanels.knowsFileType("image/png"))
+        XCTAssertTrue(AppPanels.knowsFileType("public.image"))
+        XCTAssertFalse(AppPanels.knowsFileType("com.example.unknown"), "an identifier GTK has no MIME type for")
+        XCTAssertFalse(AppPanels.knowsFileType(""))
+    }
+
     func testAnAlertShowsItsFirstButtonRightmostAndEscapeAnswersCancel() {
         let request = AlertRequest(json: #"{"title": "Replace Pipeline?", "message": "It will be replaced.", "style": "warning", "buttons": ["Replace", "Cancel"]}"#)
         XCTAssertEqual(request.heading, "Replace Pipeline?")

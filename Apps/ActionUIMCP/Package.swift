@@ -1,18 +1,17 @@
 // swift-tools-version: 6.0
 //
 // ActionUIMCP - a local MCP (Model Context Protocol) server that lets an AI agent open native
-// ActionUI windows on the user's Mac: blocking dialogs that return what the user entered, and
-// non-blocking viewer windows. Proof of concept; see Private/2026-09-22-actionui-mcp-server-findings-
-// and-design.md for the design.
+// ActionUI windows on the user's screen: blocking dialogs that return what the user entered, and
+// non-blocking viewer windows.
 //
-// One package for both platforms. On Linux it has only the protocol layer and its tests so far (see
-// linuxPackage below).
+// One package for both platforms: linuxPackage below is the same server on GTK, without the add-ons
+// that have no Linux renderer.
 //
 // Two targets:
 // - MCPStdio: the protocol layer (JSON-RPC 2.0 over newline-delimited stdio, tools only). One file,
 //   Foundation only, no ActionUI imports, so it can be lifted into another server unchanged.
 // - ActionUIMCP: the `actionui-mcp` executable. Links core ActionUI and the add-ons like
-//   ActionUIViewer does (same aggregator shape, same SDK stamp), runs the AppKit run loop on the main
+//   ActionUIViewer does (same aggregator shape, same SDK stamp), runs the main loop on the main
 //   thread and the MCP reader on a background thread.
 
 import PackageDescription
@@ -125,18 +124,40 @@ Package(
 func linuxPackage() -> Package {
 Package(
     name: "ActionUIMCP",
+    products: [
+        .executable(name: "actionui-mcp", targets: ["ActionUIMCP"]),
+    ],
     dependencies: [
         .package(path: "../.."),
+        .package(path: "../../Add-ons/ActionUICachedImage"),
+        .package(path: "../../Add-ons/ActionUIRichText"),
     ],
     targets: [
         .target(
             name: "MCPStdio",
             path: "Sources/MCPStdio"
         ),
+        .executableTarget(
+            name: "ActionUIMCP",
+            dependencies: [
+                "MCPStdio",
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
+                .product(name: "ActionUIVerifier", package: "ActionUI"),
+                .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
+                .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+            ],
+            path: "Sources/ActionUIMCP"
+        ),
         .testTarget(
             name: "MCPStdioTests",
             dependencies: ["MCPStdio", .product(name: "ActionUIStatic", package: "ActionUI")],
             path: "Tests/MCPStdioTests"
+        ),
+        .testTarget(
+            name: "ActionUIMCPTests",
+            dependencies: ["ActionUIMCP"],
+            path: "Tests/ActionUIMCPTests"
         ),
     ]
 )

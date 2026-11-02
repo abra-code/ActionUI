@@ -37,6 +37,9 @@ func provenance(clientName: String?, label: String?) -> String {
 func keepArgument(_ arguments: [String: JSONValue]) throws -> Bool {
     guard let value = arguments["keep"], value != .null else { return false }
     guard let keep = value.bool else { throw MCPToolError("'keep' must be a boolean") }
+    if keep && !HostPlatform.keepsWindows {
+        throw MCPToolError("'keep' is not available on \(HostPlatform.systemName) yet; a window closes when the session ends")
+    }
     return keep
 }
 
@@ -99,7 +102,7 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
         name: "ask_user",
         title: "Ask the user",
         description: """
-            Show a native macOS dialog with a message, optional input fields, and buttons, and wait \
+            Show a native \(HostPlatform.systemName) dialog with a message, optional input fields, and buttons, and wait \
             until the user answers. Returns {action, button, values}: action "accept" with the pressed \
             button and every field's value; "cancel" when the user pressed Cancel or closed the window; \
             "timeout". Use for questions that need the user's input or approval before you continue. \
@@ -125,13 +128,22 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
 // MARK: - show
 
 private func showTool(host: WindowHost, label: String?) -> MCPTool {
-    let kinds = JSONValue.array(ContentKind.allCases.map { .string($0.rawValue) })
+    let kinds = JSONValue.array(ContentKind.available.map { .string($0.rawValue) })
+    #if os(Linux)
+    let kindText = "markdown (text), text (plain monospaced text), image (path or url), video (path or url), web (url, or HTML in text), table (columns and rows), chart (chart)."
+    let shows = "a markdown report, plain text, an image, a video, a web page, a table, or a chart"
+    let focus = "It takes the keyboard focus, as every new window does on Linux."
+    #else
+    let kindText = "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let shows = "a markdown report, plain text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two texts or files, a table, or a chart"
+    let focus = "It does not take keyboard focus."
+    #endif
     let input: JSONValue = [
         "type": "object",
         "properties": [
             "title": ["type": "string", "description": "Window title."],
             "kind": ["type": "string", "enum": kinds,
-                     "description": "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."],
+                     "description": .string(kindText)],
             "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
             "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
             "url": ["type": "string", "description": "http(s) URL for image, video, web."],
@@ -160,12 +172,9 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         name: "show",
         title: "Show content in a window",
         description: """
-            Open a native macOS window that presents content to the user: a markdown report, plain \
-            text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two \
-            texts or files, a table, or a chart. Returns \
+            Open a native \(HostPlatform.systemName) window that presents content to the user: \(shows). Returns \
             {window, warnings?} at once without waiting; the window stays open until the user closes it, you call \
-            close_window, or this session ends (with keep: true, until the user closes it). It does not \
-            take keyboard focus.
+            close_window, or this session ends (with keep: true, until the user closes it). \(focus)
             """,
         inputSchema: input,
         outputSchema: output,

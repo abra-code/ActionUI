@@ -6,6 +6,8 @@ ACTIONUI_MCP_TEST_PRESS hook presses a dialog button without anyone at the scree
 Run with the sandbox off:
 
     /usr/bin/python3 Tests/live_session.py "$(swift build --show-bin-path)/actionui-mcp"
+
+On Linux it needs a desktop session, and what the server has no way to do there is reported as skip.
 """
 import json
 import os
@@ -14,6 +16,15 @@ import subprocess
 import sys
 import threading
 import time
+
+LINUX = sys.platform.startswith("linux")
+# The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
+SUFFIX = ":linux" if LINUX else ":macos"
+# Not on Linux: the Diff add-on, rendering a document that is not shown, the documentation
+# resources, notify, and windows that outlive the session. With no keeper, the keeper's checks over
+# what it left behind would pass whatever the server did.
+NOT_ON_LINUX = ("show diff", "screenshot renders a document", "resources/", "notify returns at once", "show with keep",
+                "keeper ", "no keeper", "SIGTERM hands off")
 
 
 class Session:
@@ -74,6 +85,9 @@ failures = []
 
 
 def check(label, condition, detail=""):
+    if LINUX and label.startswith(NOT_ON_LINUX):
+        print("skip " + label)
+        return
     print(("ok   " if condition else "FAIL ") + label + ("" if condition else "  " + str(detail)))
     if not condition:
         failures.append(label)
@@ -92,7 +106,8 @@ FIELDS = [
     {"key": "name", "default": "2.3.1"},
     {"key": "target", "kind": "choice", "options": ["staging", "production"], "default": "production"},
     {"key": "count", "kind": "integer", "default": 3},
-    {"key": "ratio", "kind": "number", "default": "1,234.5"},
+    # A Linux session in the C locale has no thousands separator.
+    {"key": "ratio", "kind": "number", "default": "1234.5" if LINUX else "1,234.5"},
     {"key": "notify", "kind": "toggle", "default": True},
     {"key": "share", "kind": "slider", "min": 0, "max": 100, "default": 25},
     {"key": "when", "kind": "date", "default": "2026-09-30"},
@@ -198,15 +213,15 @@ s.call(53, "validate_document", {"document": {"type": "QuickLook", "properties":
 result = structured(s.response(53)) or {}
 check("validate knows add-on elements", result.get("ok") is True and result.get("warnings") == [], result)
 # ActionUI resolves "<key>:<platform>" overrides at load, so the safety rules see resolved keys.
-s.call(142, "validate_document", {"document": {"type": "Text", "type:macos": "SecureField", "id": 1}})
+s.call(142, "validate_document", {"document": {"type": "Text", "type" + SUFFIX: "SecureField", "id": 1}})
 result = structured(s.response(142)) or {}
 check("validate refuses a SecureField behind a platform suffix", result.get("ok") is False
       and any("SecureField is not allowed" in e for e in result.get("errors", [])), result)
-s.call(143, "validate_document", {"document": {"type": "VStack", "children:macos": [{"type": "SecureField", "id": 1}]}})
+s.call(143, "validate_document", {"document": {"type": "VStack", "children" + SUFFIX: [{"type": "SecureField", "id": 1}]}})
 result = structured(s.response(143)) or {}
 check("validate refuses a SecureField in suffixed children", result.get("ok") is False, result)
 s.call(144, "validate_document", {"document": {"type": "WebView", "properties": {
-    "html": "<p>x</p>", "userScripts:macos": [{"source": "1"}]}}})
+    "html": "<p>x</p>", "userScripts" + SUFFIX: [{"source": "1"}]}}})
 result = structured(s.response(144)) or {}
 check("validate removes suffixed userScripts", result.get("ok") is True
       and any("userScripts removed" in w for w in result.get("warnings", [])), result)
@@ -230,7 +245,7 @@ check("get_values reads what update_window wrote",
 s.call(136, "update_window", {"window": live, "properties": {
     "1": {"foregroundStyle": "red", "font": 5, "colour": "blue"},
     "2": {"children": []},
-    "4": {"userScripts": ["x"], "actionID": None, "font:macos": "body"},
+    "4": {"userScripts": ["x"], "actionID": None, "font" + SUFFIX: "body"},
     "99": {"text": "x", "font": "body"}}})
 result = structured(s.response(136)) or {}
 problems = result.get("problems", [])
@@ -285,12 +300,12 @@ def annotated(content, key="annotation"):
 
 
 s.call(161, "update_window", {"window": chart_window, "properties": {"10": {"chart": annotated(
-    {"type": "Text", "type:macos:macos": "SecureField", "id": 1})}}})
+    {"type": "Text", "type" + SUFFIX * 2: "SecureField", "id": 1})}}})
 result = structured(s.response(161)) or {}
 check("update_window refuses a SecureField in a chart annotation, behind a doubled suffix",
       result.get("updated") == 0 and any("SecureField is not allowed" in p for p in result.get("problems", [])), result)
 s.call(162, "update_window", {"window": chart_window, "properties": {"10": {"chart": annotated(
-    {"type": "WebView", "properties": {"html": "<p>x</p>", "userScripts": [{"source": "1"}]}}, key="annotation:macos")}}})
+    {"type": "WebView", "properties": {"html": "<p>x</p>", "userScripts": [{"source": "1"}]}}, key="annotation" + SUFFIX)}}})
 result = structured(s.response(162)) or {}
 check("update_window removes userScripts from a chart annotation",
       result.get("updated") == 1 and any("userScripts removed" in w for w in result.get("warnings", [])), result)
@@ -310,13 +325,24 @@ message = s.response(145)
 check("show_document refuses a LoadableView", is_error(message)
       and "LoadableView is not allowed" in message["result"]["content"][0]["text"], message)
 s.call(146, "validate_document", {"document": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
-                                               "children:macos": [{"type": "LoadableView", "properties": {"filePath": "/tmp/x.json"}}]}})
+                                               "children" + SUFFIX: [{"type": "LoadableView", "properties": {"filePath": "/tmp/x.json"}}]}})
 result = structured(s.response(146)) or {}
 check("validate refuses a LoadableView behind a platform suffix", result.get("ok") is False
       and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
+# A WindowGroup's commands would outlive its window, in a menu every window shares.
+s.call(1460, "validate_document", {"document": {"type": "WindowGroup", "properties": {"title": "x"},
+                                                "content": {"type": "Text", "properties": {"text": "x"}},
+                                                "commands": [{"type": "CommandMenu", "properties": {"name": "Tools"}}]}})
+result = structured(s.response(1460)) or {}
+check("validate refuses a WindowGroup", result.get("ok") is False
+      and any("WindowGroup is not allowed" in e for e in result.get("errors", [])), result)
+s.call(1461, "validate_document", {"document": {"type": "Text", "type" + SUFFIX: "WindowGroup", "properties": {"text": "x"}}})
+result = structured(s.response(1461)) or {}
+check("validate refuses a WindowGroup behind a platform suffix", result.get("ok") is False
+      and any("WindowGroup is not allowed" in e for e in result.get("errors", [])), result)
 # One filter pass leaves "type:macos" from "type:macos:macos", which the loader would resolve.
 s.call(147, "validate_document", {"document": {"type": "VStack", "children": [
-    {"type": "Text", "type:macos:macos": "LoadableView", "properties": {"text": "x"}}]}})
+    {"type": "Text", "type" + SUFFIX * 2: "LoadableView", "properties": {"text": "x"}}]}})
 result = structured(s.response(147)) or {}
 check("validate refuses a LoadableView behind a doubled platform suffix", result.get("ok") is False
       and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
