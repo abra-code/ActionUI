@@ -79,20 +79,13 @@ ActionUISwift.setLogger(logger)
 HostPlatform.registerAddOns()
 HostPlatform.prepareApplication(isKeeper: rehostDirectory != nil)
 
-#if canImport(AppKit)
 if let rehostDirectory {
     let readyFD = argument(after: "--ready-fd").flatMap(Int32.init)
     let keeper = KeptWindowKeeper()
     guard keeper.start(spool: URL(fileURLWithPath: rehostDirectory, isDirectory: true), readyFD: readyFD) else { exit(1) }
-    withExtendedLifetime(keeper) { HostPlatform.runApplication() }  // window delegates are weak
+    withExtendedLifetime(keeper) { HostPlatform.runApplication() }  // window delegates and handlers hold it weakly
     exit(0)
 }
-#else
-if rehostDirectory != nil {
-    HostSupport.logLine("actionui-mcp: --rehost is not available on Linux yet")
-    exit(2)
-}
-#endif
 
 let host = WindowHost(logger: logger)
 host.install()

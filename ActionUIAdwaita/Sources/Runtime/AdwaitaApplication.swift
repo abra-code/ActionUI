@@ -296,6 +296,21 @@ public final class AdwaitaApplication {
         return (Int(gdk_texture_get_width(texture.opaquePointer)), Int(gdk_texture_get_height(texture.opaquePointer)))
     }
 
+    /// The options that open the window showing `windowUUID` again as it is now: its subtitle, the
+    /// size of its content (below the bars, as WindowOptions takes it) and whether it resizes. Nil
+    /// when the window is not on screen and laid out yet. Where the window is, the system does not
+    /// tell (Wayland), so a window opened again goes where the compositor puts it.
+    public func windowOptions(windowUUID: String) -> WindowOptions? {
+        guard let window = windows[windowUUID]?.window, gtk_widget_get_mapped(typed(window)) != 0,
+              let toolbar = adw_application_window_get_content(typed(window)),
+              let content = adw_toolbar_view_get_content(OpaquePointer(toolbar)) else { return nil }
+        let width = Int(gtk_widget_get_width(content))
+        let height = Int(gtk_widget_get_height(content))
+        guard width > 0, height > 0 else { return nil }
+        return WindowOptions(subtitle: WindowSubtitle.subtitle(of: window), contentSize: (width, height),
+                             isResizable: gtk_window_get_resizable(window) != 0)
+    }
+
     // MARK: Running
 
     /// Runs the application until it ends; returns GApplication's exit status. A second call

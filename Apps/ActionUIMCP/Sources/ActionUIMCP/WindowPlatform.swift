@@ -41,7 +41,8 @@ struct KeptWindowState {
     let title: String
     let subtitle: String
     /// x, y, width, height of the window frame, in screen coordinates. A system that does not
-    /// tell applications where their windows are gives 0 for x and y.
+    /// tell applications where their windows are gives 0 for x and y, and may give the content's
+    /// size instead of the frame's: only that system's keeper reads it back.
     let frame: [Double]
     /// The layer's own description of the window's style; only that layer reads it back.
     let styleMask: UInt

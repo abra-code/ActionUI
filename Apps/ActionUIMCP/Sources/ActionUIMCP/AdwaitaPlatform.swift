@@ -29,7 +29,9 @@ final class AdwaitaPlatform: WindowPlatform {
         bold and italic only. It is gone after duration_s; nothing comes back from it.
         """
     nonisolated static let verifierPlatform = "linux"
-    nonisolated static let keepsWindows = false
+    nonisolated static let keepsWindows = true
+    /// A kept window's styleMask (KeptWindowState): it resizes.
+    nonisolated static let resizableStyle: UInt = 1
     /// The runtime removes a closed window's model itself, after the disappear actions that read it.
     nonisolated static let removesClosedWindowModels = true
     /// How long a capture waits for a window that just opened to be drawn, in tries of 50 ms.
@@ -37,9 +39,12 @@ final class AdwaitaPlatform: WindowPlatform {
 
     weak var host: WindowHost?
     private let application = AdwaitaApplication.shared
+    /// The open windows' titles, for a keeper: the runtime does not hand them out.
+    private var titles: [String: String] = [:]
 
     init() {
         application.handlers.windowWillClose = { [weak self] windowID in
+            self?.titles[windowID] = nil
             self?.host?.windowClosed(windowID)
         }
     }
@@ -49,13 +54,15 @@ final class AdwaitaPlatform: WindowPlatform {
         ActionUIRichText.register()
     }
 
-    /// A server runs with no window much of the time, and over SSH with no display at all. Ctrl+Q
-    /// goes, as the server has no Quit on macOS: it would end the client's server, and closing the
-    /// windows is enough.
+    /// A server runs with no window much of the time, and over SSH with no display at all. A keeper
+    /// is an ordinary application: it ends when the user closes its last window, and Ctrl+Q ends it,
+    /// as its Quit does on macOS. The server's Ctrl+Q goes, as the server has no Quit on macOS: it
+    /// would end the client's server, and closing the windows is enough.
     static func prepareApplication(isKeeper: Bool) {
         AdwaitaApplication.shared.name = "ActionUI"
-        AdwaitaApplication.shared.keepsRunningWithoutWindows = true
-        AdwaitaApplication.shared.runsWithoutDisplay = true
+        AdwaitaApplication.shared.keepsRunningWithoutWindows = !isKeeper
+        AdwaitaApplication.shared.runsWithoutDisplay = !isKeeper
+        guard !isKeeper else { return }
         AdwaitaApplication.shared.loadMenuBar(json: #"[{"type": "CommandGroup", "properties": {"placementTarget": "appTermination", "placement": "replacing"}}]"#)
     }
 
@@ -89,6 +96,7 @@ final class AdwaitaPlatform: WindowPlatform {
         case .fixed(let size):
             options.contentSize = (Int(size.width), Int(size.height))
         }
+        titles[windowID] = title
         application.presentWindow(prepared: content, title: title, options: options)
     }
 
@@ -189,8 +197,19 @@ final class AdwaitaPlatform: WindowPlatform {
         return { panel.cancel() }
     }
 
+    /// Wayland tells neither where a window is nor the order of windows, so the frame is 0, 0 and
+    /// the content's size (below the bars, as the runtime's WindowOptions takes it), and the order
+    /// is the given one. A window not laid out yet (it opened a moment ago) gets 0 for its size and
+    /// opens again at its document's.
     func keptWindowStates(_ ids: [String]) -> [KeptWindowState] {
-        []
+        ids.compactMap { id in
+            guard let title = titles[id] else { return nil }
+            let options = application.windowOptions(windowUUID: id)
+            let size = options?.contentSize ?? (0, 0)
+            return KeptWindowState(id: id, title: title, subtitle: options?.subtitle ?? "",
+                                   frame: [0, 0, Double(size.width), Double(size.height)],
+                                   styleMask: options?.isResizable == false ? 0 : Self.resizableStyle)
+        }
     }
 }
 #endif

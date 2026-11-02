@@ -20,10 +20,9 @@ import time
 LINUX = sys.platform.startswith("linux")
 # The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
 SUFFIX = ":linux" if LINUX else ":macos"
-# Not on Linux: the Diff add-on, the documentation resources, and windows that outlive the session.
-# With no keeper, the keeper's checks over what it left behind would pass whatever the server did.
-NOT_ON_LINUX = ("show diff", "resources/", "show with keep",
-                "keeper ", "no keeper", "SIGTERM hands off")
+# Not on Linux: the Diff add-on and the documentation resources. A kept window's frame is its
+# content's size there, as Wayland does not tell where a window is.
+NOT_ON_LINUX = ("show diff", "resources/")
 
 
 class Session:

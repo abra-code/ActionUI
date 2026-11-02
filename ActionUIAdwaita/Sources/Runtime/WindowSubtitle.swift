@@ -35,6 +35,11 @@ enum WindowSubtitle {
         attach(Text(subtitle), to: UnsafeMutableRawPointer(window), key: key)
     }
 
+    /// The subtitle kept on `window`, nil when it has none.
+    static func subtitle(of window: UnsafeMutablePointer<GtkWindow>) -> String? {
+        attached(on: UnsafeMutableRawPointer(window), key: key)?.value
+    }
+
     /// The line to show in a sheet presented from `widget`, nil when its window has no subtitle.
     static func line(overWindowOf widget: WidgetPointer) -> WidgetPointer? {
         guard let root = gtk_widget_get_root(widget),

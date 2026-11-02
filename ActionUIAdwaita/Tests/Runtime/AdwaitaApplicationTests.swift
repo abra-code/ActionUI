@@ -22,7 +22,8 @@
  the host's close does, keeping the application running, and keeps its model from a closed
  window's removal. A prepared document renders offscreen with nothing on screen and no window of the
  application's, at its size or a content size, with its toolbar in the header bar, says when it holds
- a WebView, and renders once, not before the start nor when it could not be loaded.
+ a WebView, and renders once, not before the start nor when it could not be loaded. A window's
+ options open it again as it is: its subtitle, content size and resizability.
 */
 
 import XCTest
@@ -570,6 +571,40 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertGreaterThan(shown.0, 120, "libadwaita's minimum widens the shown window")
         XCTAssertEqual(rendered.0, Int(shown.0), "the render too")
         XCTAssertEqual(rendered.1, Int(shown.1))
+    }
+
+    func testAWindowsOptionsOpenItAgainAsItIs() throws {
+        let app = AdwaitaApplication()
+        let asked = AdwaitaApplication.WindowOptions(subtitle: "Requested by a test", contentSize: (500, 300), isResizable: false)
+        var missing: AdwaitaApplication.WindowOptions? = AdwaitaApplication.WindowOptions()
+        var current: AdwaitaApplication.WindowOptions?
+        var reopened: AdwaitaApplication.WindowOptions?
+        app.handlers.didFinishLaunching = {
+            missing = app.windowOptions(windowUUID: "no-such-window")
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: asked)
+            _ = runAfter(milliseconds: 300) {
+                current = app.windowOptions(windowUUID: "app-w1")
+                app.closeWindow("app-w1")
+                if let current {
+                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: current)
+                }
+                _ = runAfter(milliseconds: 300) {
+                    reopened = app.windowOptions(windowUUID: "app-w2")
+                    app.closeWindow("app-w2")
+                    app.terminate()
+                }
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertNil(missing, "no such window")
+        let options = try XCTUnwrap(current)
+        XCTAssertEqual(options.subtitle, "Requested by a test")
+        XCTAssertEqual(options.contentSize?.width, 500)
+        XCTAssertEqual(options.contentSize?.height, 300, "the content's size, without the bars")
+        XCTAssertFalse(options.isResizable)
+        let again = try XCTUnwrap(reopened)
+        XCTAssertEqual(again.contentSize?.width, 500, "opened again at the same size")
+        XCTAssertEqual(again.contentSize?.height, 300)
     }
 
     func testAnOffscreenRenderSaysWhenItHoldsAWebView() throws {

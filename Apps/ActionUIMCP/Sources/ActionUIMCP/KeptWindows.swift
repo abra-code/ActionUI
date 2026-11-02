@@ -10,8 +10,9 @@
 // a manifest with each window's frame, title and current values, and starts a keeper process:
 // this executable again, as `actionui-mcp --rehost <dir>`, in a session of its own, so a signal
 // the client sends to the server does not reach it. The keeper shows the same windows at the
-// same places, deletes the spool directory, and quits when its last window closes. Its windows
-// are no longer connected to any agent: actions go nowhere, and the title bar says so.
+// same places (on Linux at the same size, where the compositor puts them), deletes the spool
+// directory, and quits when its last window closes. Its windows are no longer connected to any
+// agent: actions go nowhere, and the subtitle says so.
 //
 // SIGKILL sent to the server with no earlier stdin EOF or SIGTERM leaves no chance to hand off.
 // Clients close stdin first (the TypeScript SDK waits 2 s before SIGTERM, 2 s more before
@@ -21,6 +22,9 @@
 import FoundationEssentials
 #else
 import Foundation
+#endif
+#if canImport(Glibc)
+import Glibc
 #endif
 import ActionUI
 import ActionUISwiftAdapter
@@ -53,6 +57,114 @@ struct KeptWindowManifest: Codable {
     let windows: [KeptWindowRecord]
 }
 
+// MARK: - Keeper side, on every system
+
+/// What the keeper does the same everywhere: read the spool directory, set a window's state back,
+/// report to the server. Each system's KeptWindowKeeper shows the windows.
+@MainActor
+enum KeptWindowSupport {
+    static let subtitleSuffix = " (session ended)"
+
+    /// The manifest in `spool`, or why it cannot be used.
+    static func manifest(in spool: URL) -> Result<KeptWindowManifest, MCPToolError> {
+        let manifest: KeptWindowManifest
+        do {
+            let data = try Data(contentsOf: spool.appendingPathComponent(KeptWindowManifest.fileName))
+            manifest = try JSONDecoder().decode(KeptWindowManifest.self, from: data)
+        } catch {
+            return .failure(MCPToolError("the new process could not read the kept windows: \(error.displayText)"))
+        }
+        guard manifest.version == KeptWindowManifest.currentVersion else {
+            return .failure(MCPToolError("kept windows manifest version \(manifest.version) is not supported"))
+        }
+        return .success(manifest)
+    }
+
+    /// Properties the agent set (checked when it set them), then rows, then values, so a replaced
+    /// chart description is in place before its rows and a table's selection finds its row. Only
+    /// rows and values that differ from the freshly loaded document are written, so nothing the
+    /// user did not change is touched.
+    static func restore(_ record: KeptWindowRecord) {
+        let id = record.window
+        for (key, named) in record.properties ?? [:] {
+            guard let viewID = Int(key) else { continue }
+            for (name, json) in named {
+                guard let value = propertyValue(json) else { continue }
+                ActionUISwift.setElementProperty(windowUUID: id, viewID: viewID, propertyName: name, value: value)
+            }
+        }
+        for (key, rows) in record.rows {
+            guard let viewID = Int(key), ActionUISwift.getElementRows(windowUUID: id, viewID: viewID) != rows else { continue }
+            ActionUISwift.setElementRows(windowUUID: id, viewID: viewID, rows: rows)
+        }
+        for (key, value) in record.values {
+            guard let viewID = Int(key),
+                  ActionUISwift.getElementValueAsString(windowUUID: id, viewID: viewID) != value else { continue }
+            ActionUISwift.setElementValueFromString(windowUUID: id, viewID: viewID, value: value)
+        }
+    }
+
+    /// A property value from its JSON text, a bare string or number included.
+    private static func propertyValue(_ json: String) -> Any? {
+        #if canImport(Darwin)
+        try? JSONSerialization.jsonObject(with: Data(json.utf8), options: [.fragmentsAllowed])
+        #else
+        (try? HostSupport.parseJSON(Data(json.utf8)))?.any
+        #endif
+    }
+
+    /// Writes one line to the server on `fd` and closes it. A server that stopped waiting has closed
+    /// the read end: the write then fails with EPIPE, not a fatal SIGPIPE.
+    static func report(_ line: String, to fd: Int32?) {
+        guard let fd else { return }
+        #if canImport(Darwin)
+        _ = fcntl(fd, F_SETNOSIGPIPE, 1)
+        #else
+        // Linux has no per-descriptor setting; the keeper has no other pipe to write to.
+        signal(SIGPIPE, SIG_IGN)
+        #endif
+        let data = Array((line + "\n").utf8)
+        _ = data.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+        close(fd)
+    }
+
+    #if DEBUG
+    /// The live test's view of a shown window (ACTIONUI_MCP_TEST_REHOST_REPORT): the manifest
+    /// frame and the actual one, title, subtitle, values, row counts and restored properties.
+    static func testReportEntry(_ record: KeptWindowRecord, title: String, subtitle: String, frame: [Double]) -> [String: Any] {
+        var values: [String: String] = [:]
+        for key in record.values.keys {
+            if let viewID = Int(key) {
+                values[key] = ActionUISwift.getElementValueAsString(windowUUID: record.window, viewID: viewID)
+            }
+        }
+        var rowCounts: [String: Int] = [:]
+        for key in record.rows.keys {
+            if let viewID = Int(key) {
+                rowCounts[key] = ActionUISwift.getElementRows(windowUUID: record.window, viewID: viewID)?.count ?? -1
+            }
+        }
+        // Each restored property as the element now holds it, re-encoded as JSON text.
+        var properties: [String: [String: String]] = [:]
+        for (key, named) in record.properties ?? [:] {
+            guard let viewID = Int(key) else { continue }
+            for name in named.keys {
+                let value = ActionUISwift.getElementProperty(windowUUID: record.window, viewID: viewID, propertyName: name)
+                properties[key, default: [:]][name] = value.map { JSONValue(any: $0).serialized() } ?? "missing"
+            }
+        }
+        return ["title": title, "subtitle": subtitle, "manifest_frame": record.frame, "frame": frame,
+                "values": values, "row_counts": rowCounts, "properties": properties]
+    }
+
+    /// Writes the test report to `path`.
+    static func writeTestReport(_ windows: [[String: Any]], to path: String) {
+        let report: [String: Any] = ["pid": Int(getpid()), "windows": windows]
+        try? Data(JSONValue(any: report).serialized().utf8).write(to: URL(fileURLWithPath: path), options: .atomic)
+    }
+    #endif
+}
+
 // MARK: - Server side
 
 extension WindowHost {
@@ -68,9 +180,20 @@ extension WindowHost {
 
         let spool = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-rehost-\(UUID().uuidString)", isDirectory: true)
+        #if os(Linux)
+        // /tmp is open to every user there. FileManager makes the folder with the umask's mode and
+        // only then sets 0700, and takes a folder that is already there; mkdir does neither.
+        guard mkdir(spool.path, 0o700) == 0 else {
+            let code = errno
+            logger.log("could not hand kept windows to a new process: could not create \(spool.path) (errno \(code))", .error)
+            return
+        }
+        #endif
         do {
+            #if !os(Linux)
             try FileManager.default.createDirectory(at: spool, withIntermediateDirectories: true,
                                                     attributes: [.posixPermissions: 0o700])
+            #endif
             var records: [KeptWindowRecord] = []
             for entry in kept {
                 guard let file = keptDocuments[entry.id] else { continue }
