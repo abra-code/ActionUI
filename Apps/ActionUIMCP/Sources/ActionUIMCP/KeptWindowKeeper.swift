@@ -39,7 +39,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
             KeptWindowSupport.report("error: the new process could not load any kept window", to: readyFD)
             return false
         }
-        NSApp.setActivationPolicy(.regular)
+        AppKitPlatform.showInDock()
         // Drawn and sent to the window server before reporting: the server's windows disappear as
         // soon as it hears "ready", and the run loop has not had a pass yet.
         windows.values.forEach { $0.displayIfNeeded() }

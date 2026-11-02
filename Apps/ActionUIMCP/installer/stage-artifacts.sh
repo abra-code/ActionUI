@@ -39,10 +39,11 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# The resource bundles the server reads at run time (Verifier.swift, DocsResources.swift). A
-# bundle the build makes that is not listed here is reported below, so a new add-on's
-# documentation is not left out of the package silently.
-BUNDLES="ActionUI_ActionUIVerifier.bundle
+# The resource bundles the server reads at run time (its Dock icon in AppKitPlatform.swift,
+# Verifier.swift, DocsResources.swift). A bundle the build makes that is not listed here is
+# reported below, so a new add-on's documentation is not left out of the package silently.
+BUNDLES="ActionUIMCP_ActionUIMCP.bundle
+ActionUI_ActionUIVerifier.bundle
 ActionUI_ActionUIDocumentation.bundle
 ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle
 ActionUIDiff_ActionUIDiffDocumentation.bundle
@@ -136,11 +137,12 @@ fi
 # from the checkout it was built from (SchemaSet.discoverAddOnDirectories), which an installed copy
 # does not have: without this copy, documents with add-on elements fail validation as unknown
 # types. Same layout as Skill/build_skill.py makes for the Python verifier. Only the add-ons whose
-# documentation bundle is staged, that is the ones the server links.
+# documentation bundle is staged, that is the ones the server links; the core's bundles and the
+# server's own (its Dock icon) are not add-ons.
 addons_dest="$artifacts_dir/ActionUI_ActionUIVerifier.bundle/Contents/Resources/Schemas/add-ons"
 for bundle in $BUNDLES; do
     case "$bundle" in
-        ActionUI_*) continue ;;
+        ActionUI_*|ActionUIMCP_*) continue ;;
     esac
     addon="${bundle%%_*}"
     schema_src="$repo_dir/Add-ons/$addon/Schemas"

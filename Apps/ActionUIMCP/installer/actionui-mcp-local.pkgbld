@@ -31,6 +31,22 @@
             "SECURE_TIMESTAMP" : false,
             "SIGNED_BY" : ""
           },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIMCP_ActionUIMCP.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIMCP_ActionUIMCP.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
           "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUI_ActionUIVerifier.bundle",
           "MODE" : "0755",
           "SOURCE" : "${ARTIFACTS_DIR}\/ActionUI_ActionUIVerifier.bundle",

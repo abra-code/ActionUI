@@ -101,6 +101,9 @@ Package(
                 .product(name: "ActionUIRichTextDocumentation", package: "ActionUIRichText"),
             ],
             path: "Sources/ActionUIMCP",
+            // The Dock icon (AppKitPlatform), in ActionUIMCP_ActionUIMCP.bundle next to the
+            // executable, found by name as the documentation bundles are.
+            resources: [.copy("Resources/ActionUIMCP.icns")],
             linkerSettings: sdkStampLinkerSettings
         ),
         .testTarget(
@@ -147,7 +150,9 @@ Package(
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
             ],
-            path: "Sources/ActionUIMCP"
+            path: "Sources/ActionUIMCP",
+            // No resource bundles on Linux (they need full Foundation).
+            exclude: ["Resources"]
         ),
         .testTarget(
             name: "MCPStdioTests",

@@ -59,6 +59,23 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         app.mainMenu = makeMainMenu(quitItem: isKeeper)
     }
 
+    /// The ActionUI app icon from the server's resource bundle, loaded once; nil when the bundle is
+    /// not next to the executable (the Dock then shows the system's icon for a program).
+    static let dockIcon: NSImage? = {
+        guard let resources = HostSupport.resourceFolder(ofBundle: "ActionUIMCP_ActionUIMCP") else { return nil }
+        return NSImage(contentsOf: resources.appendingPathComponent("ActionUIMCP.icns"))
+    }()
+
+    /// Shows the process in the Dock with the ActionUI icon. A bare executable has no icon of its
+    /// own, and one set before the process shows in the Dock does not carry over (measured on macOS
+    /// 27: the Dock showed the generic program icon), so it is set again each time.
+    static func showInDock() {
+        NSApp.setActivationPolicy(.regular)
+        if let icon = dockIcon {
+            NSApp.applicationIconImage = icon
+        }
+    }
+
     static func runApplication() {
         NSApplication.shared.run()
     }
@@ -171,8 +188,11 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     /// A Dock icon and menu bar only while there is a window or panel to click.
     func setShowsInterface(_ shows: Bool) {
         let wanted: NSApplication.ActivationPolicy = shows ? .regular : .accessory
-        if NSApp.activationPolicy() != wanted {
-            NSApp.setActivationPolicy(wanted)
+        guard NSApp.activationPolicy() != wanted else { return }
+        if shows {
+            Self.showInDock()
+        } else {
+            NSApp.setActivationPolicy(.accessory)
         }
     }
 
