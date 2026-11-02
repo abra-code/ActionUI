@@ -14,6 +14,10 @@
    on Apple), no wider than 900 unless its minimum needs more (SwiftUI's WindowGroup opens 900
    wide), and never larger than the monitor: GTK's renderers fail on windows far larger than the
    screen. A document whose minimum is larger than the monitor scrolls.
+ - WindowOptions change that. A content size opens the window at that size (the content's, without
+   the bars), still no larger than the monitor and no smaller than the document's minimum. A window
+   that is not resizable keeps its size. A subtitle shows in a line of its own, whatever the
+   document does (WindowSubtitle).
  - A document that cannot be loaded is logged and shown as its error text in the window, as on
    Apple.
  - An http or https URL loads first (URLLoader, without blocking the main loop) and the window
@@ -42,6 +46,9 @@
      shouldTerminate handler (false keeps the window open). Here the platforms differ on
      purpose: an application with no window has no Dock icon or menu bar on Linux to quit it
      from, so it would be left running out of reach.
+   A host with no use for a window of its own (a server whose clients ask for windows) sets
+   keepsRunningWithoutWindows: the user's close of the last window then leaves the application
+   running as the host's does, and asks nothing.
    A window that is not the last one just closes. windowWillClose fires for each window that
    closes.
    Presenting a window again under the same UUID replaces it, with no windowWillClose (on Apple
@@ -80,6 +87,24 @@ public final class AdwaitaApplication {
         public var shouldTerminate: (() -> Bool)?
         public var windowWillPresent: ((String) -> Void)?
         public var windowWillClose: ((String) -> Void)?
+    }
+
+    /// How a window opens, besides its document and title.
+    public struct WindowOptions: Sendable {
+        /// A line shown in the window whatever its document does; nil or empty: none.
+        public var subtitle: String?
+        /// The size of the window's content, below the window's bars (a document's own header bars
+        /// count as content); nil opens it at the document's own size. A width or height of zero or
+        /// less keeps the document's for that side.
+        public var contentSize: (width: Int, height: Int)?
+        /// Whether the user can resize the window.
+        public var isResizable: Bool
+
+        public init(subtitle: String? = nil, contentSize: (width: Int, height: Int)? = nil, isResizable: Bool = true) {
+            self.subtitle = subtitle
+            self.contentSize = contentSize
+            self.isResizable = isResizable
+        }
     }
 
     /// Apple's fallback window size when the content reports almost none.
@@ -121,6 +146,9 @@ public final class AdwaitaApplication {
     public var icon: String? {
         didSet { applyIcon() }
     }
+    /// Whether the application keeps running when the user closes its last window: false ends it,
+    /// after asking the shouldTerminate handler. See "Closing" above.
+    public var keepsRunningWithoutWindows = false
 
     private var application: UnsafeMutablePointer<AdwApplication>?
     private(set) var hasStarted = false
@@ -145,6 +173,7 @@ public final class AdwaitaApplication {
         let source: WindowSource
         let windowUUID: String
         let title: String?
+        let options: WindowOptions
     }
 
     /// Where a window's document comes from.
@@ -297,7 +326,7 @@ public final class AdwaitaApplication {
         let pending = pendingWindows
         pendingWindows = []
         for window in pending {
-            present(window.source, windowUUID: window.windowUUID, title: window.title)
+            present(window.source, windowUUID: window.windowUUID, title: window.title, options: window.options)
         }
         if windows.isEmpty {
             holdWhileWindowless()
@@ -365,24 +394,24 @@ public final class AdwaitaApplication {
     /// Loads a document from `urlString` (a file URL or path, or an http or https URL) and shows it
     /// in a new window titled `title`, else the file's name. Before the application starts, the
     /// window waits; an http or https document appears once it has loaded.
-    public func presentWindow(url urlString: String, windowUUID: String, title: String?) {
-        present(.url(urlString), windowUUID: windowUUID, title: title)
+    public func presentWindow(url urlString: String, windowUUID: String, title: String?, options: WindowOptions = WindowOptions()) {
+        present(.url(urlString), windowUUID: windowUUID, title: title, options: options)
     }
 
     /// Loads the document in `json` and shows it in a new window titled `title`, else the
     /// application's name. Before the application starts, the window waits.
-    public func presentWindow(json: Data, windowUUID: String, title: String?) {
-        present(.json(json), windowUUID: windowUUID, title: title)
+    public func presentWindow(json: Data, windowUUID: String, title: String?, options: WindowOptions = WindowOptions()) {
+        present(.json(json), windowUUID: windowUUID, title: title, options: options)
     }
 
-    private func present(_ source: WindowSource, windowUUID: String, title: String?) {
+    private func present(_ source: WindowSource, windowUUID: String, title: String?, options: WindowOptions) {
         guard let application, hasStarted else {
-            pendingWindows.append(PendingWindow(source: source, windowUUID: windowUUID, title: title))
+            pendingWindows.append(PendingWindow(source: source, windowUUID: windowUUID, title: title, options: options))
             return
         }
         dropRemoteLoad(windowUUID)
         if case .url(let text) = source, Self.isRemote(text) {
-            loadRemote(text, windowUUID: windowUUID, title: title, application: application)
+            loadRemote(text, windowUUID: windowUUID, title: title, options: options, application: application)
             return
         }
         if let existing = windows[windowUUID] {
@@ -399,8 +428,13 @@ public final class AdwaitaApplication {
         gtk_window_set_title(window, title ?? loaded.defaultTitle ?? name ?? ProcessInfo.processInfo.processName)
         let toolbar = adw_toolbar_view_new()!
         adw_application_window_set_content(typed(window), toolbar)
+        // First of the bars, where a document's toolbar items cannot push it away (WindowSubtitle).
+        if let subtitle = options.subtitle, !subtitle.isEmpty {
+            WindowSubtitle.set(subtitle, on: window)
+            let line = WindowSubtitle.line(subtitle)
+            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), line)
+        }
         // A document that brings its own header bars (a NavigationStack's pages) gets none here.
-        var headerHeight: Int32 = 0
         if renderTree?.showsOwnHeaderBars != true {
             let header = adw_header_bar_new()!
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)
@@ -408,19 +442,20 @@ public final class AdwaitaApplication {
             adw_header_bar_pack_end(OpaquePointer(header), AppCommands.shared.makeMenuButton())
             // The document's toolbars show in it.
             renderTree?.root?.screenBar = ScreenBar(header: header, toolbarView: toolbar)
-            // Measured in the window, where the header bar has its style.
-            headerHeight = Int32(clamping: Gtk.Widget(header).measure(GTK_ORIENTATION_VERTICAL).natural)
         } else {
             // The document's own header bars carry the primary menu.
             renderTree?.root?.showsPrimaryMenu = true
         }
+        // Measured in the window, where the bars have their style, and together, as stacked bars
+        // share their padding. The view has no content yet: this is the bars alone.
+        let barsHeight = Int32(clamping: Gtk.Widget(toolbar).measure(GTK_ORIENTATION_VERTICAL).natural)
         let monitor = monitorSize()
         let (minimum, natural) = contentSizes(content, widthCap: monitor.width)
-        // The window's minimum is the content's plus the header bar's.
-        // Toasts show over the content, below the header bar.
+        // The window's minimum is the content's plus the bars'.
+        // Toasts show over the content, below the bars.
         let toastOverlay = adw_toast_overlay_new()!
         adw_toolbar_view_set_content(OpaquePointer(toolbar), toastOverlay)
-        if minimum.width > monitor.width || minimum.height + headerHeight > monitor.height {
+        if minimum.width > monitor.width || Int(minimum.height) + Int(barsHeight) > Int(monitor.height) {
             ActionUIModel.shared.logger.log("Window \(windowUUID): the document's minimum size \(minimum.width) x \(minimum.height) is larger than the screen; it scrolls", .warning)
             let scroller = gtk_scrolled_window_new()!
             gtk_scrolled_window_set_child(opaque(scroller), content)
@@ -432,10 +467,16 @@ public final class AdwaitaApplication {
         renderTree?.startPresenting(over: toastOverlay, toastOverlay: OpaquePointer(toastOverlay))
 
         let small = natural.width < 10 || natural.height < 10
-        let width = small ? Self.fallbackSize.width : natural.width
+        var width = small ? Self.fallbackSize.width : natural.width
         let grows = gtk_widget_compute_expand(content, GTK_ORIENTATION_VERTICAL) != 0
-        let height = max(small ? Self.fallbackSize.height : natural.height, grows ? Self.openingHeight : 0)
-        gtk_window_set_default_size(window, min(width, monitor.width), min(height + headerHeight, monitor.height))
+        var height = max(small ? Self.fallbackSize.height : natural.height, grows ? Self.openingHeight : 0)
+        if let size = options.contentSize {
+            if size.width > 0 { width = Int32(clamping: size.width) }
+            if size.height > 0 { height = Int32(clamping: size.height) }
+        }
+        let windowHeight = min(Int(height) + Int(barsHeight), Int(monitor.height))
+        gtk_window_set_default_size(window, min(width, monitor.width), Int32(windowHeight))
+        gtk_window_set_resizable(window, options.isResizable ? 1 : 0)
 
         let presented = PresentedWindow(window: window, renderTree: renderTree)
         windows[windowUUID] = presented
@@ -505,14 +546,15 @@ public final class AdwaitaApplication {
 
     /// "close-request": whether the window closes. The user's close of the last window (no other
     /// window loading either) asks shouldTerminate first, and ends the application; the host's
-    /// close of the last window holds the application open instead (see "Closing" above). A load
-    /// replacing the window is dropped.
+    /// close of the last window, and the user's with keepsRunningWithoutWindows, hold the application
+    /// open instead (see "Closing" above). A load replacing the window is dropped.
     private func windowWillClose(_ windowUUID: String, _ presented: PresentedWindow) -> Bool {
         let isLast = windows.count == 1 && remoteLoads.keys.allSatisfy { $0 == windowUUID }
-        if !presented.closingByHost, isLast, let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() {
+        let keepsRunning = presented.closingByHost || keepsRunningWithoutWindows
+        if !keepsRunning, isLast, let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() {
             return false
         }
-        if presented.closingByHost, isLast {
+        if keepsRunning, isLast {
             holdWhileWindowless()
         }
         if windows[windowUUID] === presented {
@@ -652,7 +694,7 @@ public final class AdwaitaApplication {
 
     /// Loads an http or https document, then presents its window (with the error when it could not
     /// be loaded), unless a newer presentWindow or a closeWindow for the UUID came meanwhile.
-    private func loadRemote(_ text: String, windowUUID: String, title: String?, application: UnsafeMutablePointer<AdwApplication>) {
+    private func loadRemote(_ text: String, windowUUID: String, title: String?, options: WindowOptions, application: UnsafeMutablePointer<AdwApplication>) {
         remoteLoadCounter &+= 1
         let load = remoteLoadCounter
         remoteLoads[windowUUID] = load
@@ -660,7 +702,7 @@ public final class AdwaitaApplication {
         URLLoader.fetch(text) { [weak self] bytes in
             guard let self, self.remoteLoads[windowUUID] == load else { return }
             // present drops the load and its hold, and the window holds the application.
-            self.present(.fetched(text, bytes?.data), windowUUID: windowUUID, title: title)
+            self.present(.fetched(text, bytes?.data), windowUUID: windowUUID, title: title, options: options)
         }
     }
 

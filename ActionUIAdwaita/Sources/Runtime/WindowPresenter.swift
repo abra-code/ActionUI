@@ -4,9 +4,9 @@
  presentConfirmationDialog and presentToast put in the window model, shown the GNOME way.
 
  - A modal (sheet or fullScreenCover): an AdwDialog over the window, a header bar with a close
-   button above the modal's element. Closing it (the close button, Escape) dismisses the modal,
-   which fires its onDismissActionID; a modal the host dismisses closes. fullScreenCover is a
-   dialog too, as it is a sheet on macOS.
+   button above the modal's element, and the window's subtitle (WindowSubtitle). Closing it (the
+   close button, Escape) dismisses the modal, which fires its onDismissActionID; a modal the host
+   dismisses closes. fullScreenCover is a dialog too, as it is a sheet on macOS.
  - An alert or a confirmation dialog: an AdwAlertDialog, one response per button. A destructive
    button looks destructive; an alert's first plain button is the suggested one (the default on
    Return); a cancel button is the close response (Escape). The buttons are in the GNOME order,
@@ -136,6 +136,9 @@ final class WindowPresenter {
         let widget = OwnedObject(retaining: UnsafeMutableRawPointer(adw_dialog_new()!))
         let dialog: UnsafeMutablePointer<AdwDialog> = widget.typed()
         let toolbar = adw_toolbar_view_new()!
+        if let line = WindowSubtitle.line(overWindowOf: parent) {
+            adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), line)
+        }
         if !root.isWindowRoot {
             let header = adw_header_bar_new()!
             adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)

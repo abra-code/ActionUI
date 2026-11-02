@@ -153,6 +153,9 @@ final class NodePresentations {
             widget = OwnedObject(retaining: UnsafeMutableRawPointer(adw_dialog_new()!))
             let dialog: UnsafeMutablePointer<AdwDialog> = widget.typed()
             let toolbar = adw_toolbar_view_new()!
+            if let line = WindowSubtitle.line(overWindowOf: node.outerWidget) {
+                adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), line)
+            }
             if !root.isWindowRoot {
                 let header = adw_header_bar_new()!
                 adw_toolbar_view_add_top_bar(OpaquePointer(toolbar), header)

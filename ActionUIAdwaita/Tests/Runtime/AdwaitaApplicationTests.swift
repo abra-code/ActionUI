@@ -11,7 +11,12 @@
  a second run while running is refused; the host's close of a window showing a modal and an
  alert closes the window; the icon is the windows' default icon; a closed window's model is
  readable in the close handler and its elements' disappear actions and removed after them, unless
- a window is reopened under its UUID.
+ a window is reopened under its UUID; a subtitle shows in every kind of window, whatever its
+ document does with the header bar, and in a sheet that covers the window, in view however large
+ the bars or the sheet; a content size opens the window at that size, capped by the
+ monitor; a window that is not resizable keeps its size; the options survive the wait for the start
+ and for a remote document; with keepsRunningWithoutWindows the user's close of the last window
+ leaves the application running.
 */
 
 import XCTest
@@ -533,6 +538,528 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertEqual(title, "view", "titled by the URL's file name")
         XCTAssertTrue(replacedShowsDocument, "a replaced load does not replace the newer window")
         XCTAssertEqual(errorText, server.base + "/missing.json could not be loaded")
+    }
+
+    /// The label in `widget` showing `text`.
+    private func label(showing text: String, in widget: WidgetPointer) -> WidgetPointer? {
+        if g_type_check_instance_is_a(widget.withMemoryRebound(to: GTypeInstance.self, capacity: 1) { $0 }, gtk_label_get_type()) != 0,
+           swiftString(gtk_label_get_text(opaque(widget))) == text {
+            return widget
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            if let found = label(showing: text, in: current) { return found }
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return nil
+    }
+
+    func testASubtitleShowsInEveryKindOfWindow() throws {
+        let app = AdwaitaApplication()
+        let subtitle = "Requested by a test"
+        let options = AdwaitaApplication.WindowOptions(subtitle: subtitle)
+        let documents: [(String, String)] = [
+            ("app-w1", Self.document),
+            ("app-w2", #"{"type": "NavigationStack", "id": 1, "properties": {"navigationTitle": "Own bars"}, "content": {"type": "Text", "id": 2, "properties": {"text": "Page"}}}"#),
+            ("app-text", #"{"type": "NavigationSplitView", "id": 1, "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Side"}}, "detail": {"type": "Text", "id": 3, "properties": {"text": "Detail"}}}"#),
+            ("app-wide", #"{"type": "Text", "id": 1, "properties": {"text": "Own title"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Text", "id": 3, "properties": {"text": "Principal"}}}]}"#),
+            ("app-bad", "{ not json"),
+        ]
+        var mapped: [String: Bool] = [:]
+        var loaded: [String] = []
+        app.handlers.didFinishLaunching = {
+            for (uuid, document) in documents {
+                app.presentWindow(json: Data(document.utf8), windowUUID: uuid, title: "Title", options: options)
+            }
+            _ = runAfter(milliseconds: 500) {
+                for (uuid, _) in documents {
+                    let line = app.gtkWindow(uuid).flatMap { self.label(showing: subtitle, in: typed($0)) }
+                    mapped[uuid] = line.map { gtk_widget_get_mapped($0) != 0 } ?? false
+                    if app.showsDocument(uuid) { loaded.append(uuid) }
+                    app.closeWindow(uuid)
+                }
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(mapped, ["app-w1": true, "app-w2": true, "app-text": true, "app-wide": true, "app-bad": true])
+        XCTAssertEqual(loaded, ["app-w1", "app-w2", "app-text", "app-wide"], "the documents themselves loaded")
+    }
+
+    /// The labels in `widget` showing `text`: the window's first, then those of what is over it.
+    private func labels(showing text: String, in widget: WidgetPointer) -> [WidgetPointer] {
+        var found: [WidgetPointer] = []
+        if g_type_check_instance_is_a(widget.withMemoryRebound(to: GTypeInstance.self, capacity: 1) { $0 }, gtk_label_get_type()) != 0,
+           swiftString(gtk_label_get_text(opaque(widget))) == text {
+            found.append(widget)
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            found += labels(showing: text, in: current)
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return found
+    }
+
+    /// Whether the start of `line`'s text is on screen in `window`. A label found in the tree says
+    /// nothing about that: it can be below the screen, or in the middle of a sheet wider than its
+    /// window.
+    private func startIsInView(_ line: WidgetPointer, of window: UnsafeMutablePointer<GtkWindow>) -> Bool {
+        var origin = graphene_point_t(x: 0, y: 0)
+        var point = graphene_point_t(x: 0, y: 0)
+        guard gtk_widget_get_mapped(line) != 0, gtk_widget_compute_point(line, typed(window), &origin, &point) != 0 else { return false }
+        var textX: Int32 = 0
+        var textY: Int32 = 0
+        gtk_label_get_layout_offsets(opaque(line), &textX, &textY)
+        var monitor = GdkRectangle()
+        if let display = gdk_display_get_default(), let item = g_list_model_get_item(gdk_display_get_monitors(display), 0) {
+            gdk_monitor_get_geometry(OpaquePointer(item), &monitor)
+            g_object_unref(item)
+        }
+        let visibleWidth = min(gtk_widget_get_width(typed(window)), monitor.width)
+        let visibleHeight = min(gtk_widget_get_height(typed(window)), monitor.height)
+        let left = Int32(point.x) + textX
+        return left >= 0 && left + 100 <= visibleWidth && point.y >= 0 && Int32(point.y) + gtk_widget_get_height(line) <= visibleHeight
+    }
+
+    func testAToolbarItemDoesNotPushTheSubtitleOutOfView() throws {
+        let app = AdwaitaApplication()
+        let subtitle = "Requested by a test"
+        let options = AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400))
+        func document(width: Int, height: Int) -> Data {
+            Data(#"{"type": "Text", "id": 1, "properties": {"text": "Document"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Color", "id": 3, "properties": {"color": "gray", "frame": {"width": \#(width), "height": \#(height)}}}}]}"#.utf8)
+        }
+        var inView: [String: Bool] = [:]
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: document(width: 100, height: 3000), windowUUID: "app-tall", title: nil, options: options)
+            app.presentWindow(json: document(width: 5000, height: 20), windowUUID: "app-wide", title: nil, options: options)
+            _ = runAfter(milliseconds: 500) {
+                for uuid in ["app-tall", "app-wide"] {
+                    guard let window = app.gtkWindow(uuid), let line = self.label(showing: subtitle, in: typed(window)) else { continue }
+                    inView[uuid] = self.startIsInView(line, of: window)
+                    app.closeWindow(uuid)
+                }
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(inView, ["app-tall": true, "app-wide": true])
+    }
+
+    func testASheetThatCoversTheWindowShowsTheSubtitleToo() throws {
+        let app = AdwaitaApplication()
+        let subtitle = String(repeating: "Requested by a test ", count: 20)
+        let options = AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400))
+        let cover = #"{"type": "Color", "id": 20, "properties": {"color": "red", "frame": {"width": 2000, "height": 2000}}}"#
+        let document = #"{"type": "VStack", "id": 1, "children": [{"type": "Button", "id": 2, "properties": {"title": "Sheet"}, "sheet": \#(cover)}, {"type": "Button", "id": 3, "properties": {"title": "Cover"}, "fullScreenCover": {"type": "NavigationStack", "id": 30, "content": {"type": "Color", "id": 31, "properties": {"color": "blue", "frame": {"width": 3000, "height": 3000}}}}}]}"#
+        var counts: [Int] = []
+        var inView: [Bool] = []
+        var windowCount = 0
+        var plain: Int?
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a test that goes wrong ends here instead of hanging.
+            _ = runAfter(milliseconds: 8000) { app.terminate() }
+            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheets", options: options)
+            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w2", title: "Plain")
+            @MainActor func show(_ uuid: String, _ id: Int, _ key: String, then next: @escaping @MainActor () -> Void) {
+                _ = ActionUIModel.shared.setElementState(windowUUID: uuid, viewID: id, key: key, value: true)
+                _ = runAfter(milliseconds: 400) {
+                    let lines = app.gtkWindow(uuid).map { self.labels(showing: subtitle, in: typed($0)) } ?? []
+                    if uuid == "app-w1", let window = app.gtkWindow(uuid), let line = lines.last {
+                        // The window's own line, under the sheet, comes first.
+                        inView.append(self.startIsInView(line, of: window))
+                    }
+                    _ = ActionUIModel.shared.setElementState(windowUUID: uuid, viewID: id, key: key, value: false)
+                    if uuid == "app-w1" { counts.append(lines.count) } else { plain = lines.count }
+                    _ = runAfter(milliseconds: 400) { next() }
+                }
+            }
+            _ = runAfter(milliseconds: 200) {
+                windowCount = app.gtkWindow("app-w1").map { self.labels(showing: subtitle, in: typed($0)).count } ?? 0
+                show("app-w1", 2, "sheetVisible") {
+                    show("app-w1", 3, "fullScreenCoverVisible") {
+                        // No subtitle, no line, in the same document's sheet.
+                        show("app-w2", 2, "sheetVisible") {
+                            app.closeWindow("app-w1")
+                            app.closeWindow("app-w2")
+                            app.terminate()
+                        }
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(windowCount, 1)
+        XCTAssertEqual(counts, [2, 2], "the window's line and the sheet's, with a header bar and with its own")
+        XCTAssertEqual(inView, [true, true], "the sheet's line is in view, however large the sheet")
+        XCTAssertEqual(plain, 0)
+    }
+
+    func testALargeSheetShowsTheSubtitleInViewInARightToLeftLanguage() throws {
+        gtk_widget_set_default_direction(GTK_TEXT_DIR_RTL)
+        defer { gtk_widget_set_default_direction(GTK_TEXT_DIR_LTR) }
+        let app = AdwaitaApplication()
+        let subtitle = "Requested by a test"
+        let document = #"{"type": "Button", "id": 1, "properties": {"title": "Sheet"}, "sheet": {"type": "Color", "id": 2, "properties": {"color": "red", "frame": {"width": 2000, "height": 2000}}}}"#
+        var inView = false
+        app.handlers.didFinishLaunching = {
+            _ = runAfter(milliseconds: 8000) { app.terminate() }
+            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheet",
+                              options: AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400)))
+            _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: true)
+            _ = runAfter(milliseconds: 500) {
+                if let window = app.gtkWindow("app-w1"), let line = self.labels(showing: subtitle, in: typed(window)).last {
+                    inView = self.startIsInView(line, of: window)
+                }
+                _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: false)
+                _ = runAfter(milliseconds: 300) {
+                    app.closeWindow("app-w1")
+                    app.terminate()
+                }
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(inView)
+    }
+
+    func testALongSubtitleDoesNotWidenASheet() throws {
+        let app = AdwaitaApplication()
+        let subtitle = String(repeating: "Requested by a test ", count: 40)
+        let document = #"{"type": "Button", "id": 1, "properties": {"title": "Sheet"}, "sheet": {"type": "Color", "id": 2, "properties": {"color": "red", "frame": {"width": 300, "height": 100}}}}"#
+        var width: Int32 = 0
+        var lineCount = 0
+        app.handlers.didFinishLaunching = {
+            _ = runAfter(milliseconds: 8000) { app.terminate() }
+            app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheets",
+                              options: AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (800, 600)))
+            _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: true)
+            _ = runAfter(milliseconds: 600) {
+                if let window = app.gtkWindow("app-w1") {
+                    let lines = self.labels(showing: subtitle, in: typed(window))
+                    lineCount = lines.count
+                    width = lines.last.map { gtk_widget_get_width($0) } ?? 0
+                }
+                _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: false)
+                _ = runAfter(milliseconds: 300) {
+                    app.closeWindow("app-w1")
+                    app.terminate()
+                }
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(lineCount, 2)
+        XCTAssertGreaterThan(width, 0)
+        XCTAssertLessThan(width, 400, "the sheet stays the width of its content")
+    }
+
+    func testAPrincipalToolbarItemLeavesTheSubtitleWhereItIs() throws {
+        let app = AdwaitaApplication()
+        let subtitle = "Requested by a test"
+        var principal = false
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "Text", "id": 1, "properties": {"text": "Own title"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Text", "id": 3, "properties": {"text": "Principal"}}}]}"#.utf8),
+                              windowUUID: "app-w1", title: "Title", options: AdwaitaApplication.WindowOptions(subtitle: subtitle))
+            _ = runAfter(milliseconds: 300) {
+                if let window = app.gtkWindow("app-w1") {
+                    principal = self.label(showing: "Principal", in: typed(window)) != nil && self.label(showing: subtitle, in: typed(window)) != nil
+                }
+                app.closeWindow("app-w1")
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(principal, "the document's title item and the subtitle both show")
+    }
+
+    func testALongSubtitleDoesNotWidenTheWindow() throws {
+        let app = AdwaitaApplication()
+        let subtitle = String(repeating: "Requested by a test ", count: 40)
+        var plain: (Int32, Int32) = (0, 0)
+        var withLine: (Int32, Int32) = (0, 0)
+        var tooltip: String?
+        var allocated: Int32 = 0
+        var allocatedNotResizable: Int32 = 0
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle))
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle, isResizable: false))
+            if let window = app.gtkWindow("app-w1") { plain = self.defaultSize(window) }
+            if let window = app.gtkWindow("app-w2") {
+                withLine = self.defaultSize(window)
+                tooltip = self.label(showing: subtitle, in: typed(window)).flatMap { swiftString(gtk_widget_get_tooltip_text($0)) }
+            }
+            _ = runAfter(milliseconds: 300) {
+                if let window = app.gtkWindow("app-w2") { allocated = gtk_widget_get_width(typed(window)) }
+                if let window = app.gtkWindow("app-big") { allocatedNotResizable = gtk_widget_get_width(typed(window)) }
+                app.closeWindow("app-w1")
+                app.closeWindow("app-w2")
+                app.closeWindow("app-big")
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(withLine.0, plain.0, "the document sets the width")
+        XCTAssertEqual(allocated, plain.0, "and it opens at that width")
+        XCTAssertEqual(allocatedNotResizable, plain.0, "resizable or not")
+        XCTAssertGreaterThan(withLine.1, plain.1, "the line adds to the height")
+        XCTAssertEqual(tooltip, subtitle, "all of it in the tooltip")
+    }
+
+    func testAContentSizeOpensTheWindowAtThatSizeAndTheMonitorCapsIt() throws {
+        let app = AdwaitaApplication()
+        var plain: (Int32, Int32) = (0, 0)
+        var sized: (Int32, Int32) = (0, 0)
+        var large: (Int32, Int32) = (0, 0)
+        var oneSide: (Int32, Int32) = (0, 0)
+        var resizable: gboolean = 0
+        var monitor = GdkRectangle()
+        if let display = gdk_display_get_default(), let item = g_list_model_get_item(gdk_display_get_monitors(display), 0) {
+            gdk_monitor_get_geometry(OpaquePointer(item), &monitor)
+            g_object_unref(item)
+        }
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400)))
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (50000, 50000)))
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-tall", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (0, 400)))
+            if let window = app.gtkWindow("app-w1") { plain = self.defaultSize(window) }
+            if let window = app.gtkWindow("app-w2") {
+                sized = self.defaultSize(window)
+                resizable = gtk_window_get_resizable(window)
+            }
+            if let window = app.gtkWindow("app-big") { large = self.defaultSize(window) }
+            if let window = app.gtkWindow("app-tall") { oneSide = self.defaultSize(window) }
+            for uuid in ["app-w1", "app-w2", "app-big", "app-tall"] {
+                app.closeWindow(uuid)
+            }
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(sized.0, 500)
+        XCTAssertGreaterThan(sized.1, 400, "the size is the content's: the header bar comes on top")
+        XCTAssertEqual(resizable, 1, "a size given does not fix it")
+        XCTAssertEqual(large.0, monitor.width)
+        XCTAssertEqual(large.1, monitor.height)
+        XCTAssertEqual(oneSide.0, plain.0, "a side not given stays the document's")
+        XCTAssertEqual(oneSide.1, sized.1)
+    }
+
+    func testAContentSizeIsTheContentsWhateverBarsTheWindowHas() throws {
+        let app = AdwaitaApplication()
+        let stack = #"{"type": "NavigationStack", "id": 1, "properties": {"navigationTitle": "Own bars"}, "content": {"type": "Text", "id": 2, "properties": {"text": "Page"}}}"#
+        let plain = AdwaitaApplication.WindowOptions(contentSize: (500, 400))
+        let withLine = AdwaitaApplication.WindowOptions(subtitle: "Requested by a test", contentSize: (500, 400))
+        let windows: [(String, String, AdwaitaApplication.WindowOptions)] = [
+            ("app-w1", Self.document, plain), ("app-w2", Self.document, withLine), ("app-text", stack, plain), ("app-big", stack, withLine),
+        ]
+        var sizes: [String: (Int32, Int32)] = [:]
+        app.handlers.didFinishLaunching = {
+            for (uuid, document, options) in windows {
+                app.presentWindow(json: Data(document.utf8), windowUUID: uuid, title: nil, options: options)
+            }
+            _ = runAfter(milliseconds: 500) {
+                for (uuid, _, _) in windows {
+                    if let content = app.contentWidget(uuid) {
+                        sizes[uuid] = (gtk_widget_get_width(content), gtk_widget_get_height(content))
+                    }
+                    app.closeWindow(uuid)
+                }
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(sizes.count, 4)
+        for (uuid, size) in sizes {
+            XCTAssertEqual(size.0, 500, uuid)
+            XCTAssertEqual(size.1, 400, uuid)
+        }
+    }
+
+    func testASubtitleCountsWhenTheMinimumIsCloseToTheMonitorsHeight() throws {
+        var monitor = GdkRectangle()
+        if let display = gdk_display_get_default(), let item = g_list_model_get_item(gdk_display_get_monitors(display), 0) {
+            gdk_monitor_get_geometry(OpaquePointer(item), &monitor)
+            g_object_unref(item)
+        }
+        let app = AdwaitaApplication()
+        var plainScrolls = true
+        var withLineScrolls = false
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            let headerBar = app.gtkWindow("app-w1").map { self.defaultSize($0).1 - 320 } ?? 0
+            // Fits under the header bar, but not under the header bar and the line.
+            let tall = Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 100, "minHeight": \#(monitor.height - headerBar - 5)}}}"#.utf8)
+            app.presentWindow(json: tall, windowUUID: "app-tall", title: nil)
+            app.presentWindow(json: tall, windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: "Requested by a test"))
+            if let window = app.gtkWindow("app-tall"), let content = self.content(window) {
+                plainScrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
+            }
+            if let window = app.gtkWindow("app-big"), let content = self.content(window) {
+                withLineScrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
+            }
+            for uuid in ["app-w1", "app-tall", "app-big"] {
+                app.closeWindow(uuid)
+            }
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertFalse(plainScrolls)
+        XCTAssertTrue(withLineScrolls)
+    }
+
+    func testAMinimumTooLargeToAddUpScrolls() throws {
+        let app = AdwaitaApplication()
+        var scrolls = false
+        // Each row is as tall as a frame goes: together they are past what a C int holds.
+        let rows = (0..<4).map { #"{"type": "Color", "id": \#($0 + 2), "properties": {"color": "red", "frame": {"minWidth": 100, "minHeight": 1073741823}}}"# }
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(#"{"type": "VStack", "id": 1, "children": [\#(rows.joined(separator: ","))]}"#.utf8), windowUUID: "app-tall", title: nil)
+            if let window = app.gtkWindow("app-tall"), let content = self.content(window) {
+                scrolls = swiftString(G_OBJECT_TYPE_NAME_of(content)) == "GtkScrolledWindow"
+            }
+            app.closeWindow("app-tall")
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(scrolls)
+    }
+
+    func testAWindowThatIsNotResizableOpensAtItsSize() throws {
+        let app = AdwaitaApplication()
+        let rows = (0..<12).map { #"{"type": "Color", "id": \#($0 + 3), "properties": {"color": "red", "frame": {"width": 500, "height": 40}}}"# }
+        let scrolling = #"{"type": "ScrollView", "id": 1, "content": {"type": "VStack", "id": 2, "children": [\#(rows.joined(separator: ","))]}}"#
+        var results: [String: (resizable: gboolean, wanted: (Int32, Int32), got: (Int32, Int32))] = [:]
+        let notResizable = AdwaitaApplication.WindowOptions(isResizable: false)
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: notResizable)
+            app.presentWindow(json: Data(scrolling.utf8), windowUUID: "app-scroll", title: nil, options: notResizable)
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400), isResizable: false))
+            _ = runAfter(milliseconds: 500) {
+                for uuid in ["app-w1", "app-scroll", "app-w2"] {
+                    guard let window = app.gtkWindow(uuid) else { continue }
+                    results[uuid] = (gtk_window_get_resizable(window), self.defaultSize(window),
+                                     (gtk_widget_get_width(typed(window)), gtk_widget_get_height(typed(window))))
+                    app.closeWindow(uuid)
+                }
+                app.terminate()
+            }
+        }
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(results.count, 3)
+        for (uuid, result) in results {
+            XCTAssertEqual(result.resizable, 0, uuid)
+            XCTAssertEqual(result.got.0, result.wanted.0, "\(uuid) opens at the width it was given")
+            XCTAssertEqual(result.got.1, result.wanted.1, "\(uuid) opens at the height it was given")
+        }
+    }
+
+    func testWithKeepsRunningTheUsersCloseOfTheLastWindowLeavesTheApplicationRunning() throws {
+        let app = AdwaitaApplication()
+        app.keepsRunningWithoutWindows = true
+        var asked = 0
+        var events: [String] = []
+        var runningAfterClose = false
+        app.handlers.shouldTerminate = {
+            asked += 1
+            return true
+        }
+        app.handlers.windowWillClose = { events.append("close \($0)") }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a hold left behind fails the count below (it asks a second time).
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
+            _ = runAfter(milliseconds: 200) {
+                runningAfterClose = true
+                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
+                _ = runAfter(milliseconds: 200) {
+                    // Without the flag, the user's close asks and ends the application, as no hold is left.
+                    app.keepsRunningWithoutWindows = false
+                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil)
+                    if let window = app.gtkWindow("app-big") { gtk_window_close(window) }
+                }
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertTrue(runningAfterClose, "the application outlives the user's close")
+        XCTAssertEqual(events, ["close app-w1", "close app-w2", "close app-big"])
+        XCTAssertEqual(asked, 1, "only the close without the flag asks")
+    }
+
+    func testWithKeepsRunningALoadingDocumentHoldsTheApplicationAsAWindowWould() throws {
+        let server = try TestImageServer(png: [], document: Self.document)
+        defer { server.stop() }
+        let app = AdwaitaApplication()
+        app.keepsRunningWithoutWindows = true
+        var asked = 0
+        var events: [String] = []
+        app.handlers.shouldTerminate = {
+            asked += 1
+            return true
+        }
+        app.handlers.windowWillClose = { events.append("close \($0)") }
+        app.handlers.windowWillPresent = { uuid in
+            events.append("present \(uuid)")
+            guard uuid == "app-big" else { return }
+            DispatchQueue.main.async {
+                if let window = app.gtkWindow("app-big") { gtk_window_close(window) }
+                _ = runAfter(milliseconds: 200) {
+                    // Without the flag, the user's close asks and ends the application, as no hold is left.
+                    app.keepsRunningWithoutWindows = false
+                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                    if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
+                }
+            }
+        }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a hold left behind fails the count below (it asks a second time).
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            // The user closes the only window while its replacement loads: the load is dropped.
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w1", title: nil)
+            if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
+            _ = runAfter(milliseconds: 200) {
+                // The user closes the only window while another loads: that one opens.
+                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+                app.presentWindow(url: server.base + "/view.json", windowUUID: "app-big", title: nil)
+                if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
+            }
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(events, ["present app-w1", "close app-w1", "present app-w1", "close app-w1", "present app-big", "close app-big",
+                                "present app-w2", "close app-w2"])
+        XCTAssertEqual(asked, 1, "only the close without the flag asks")
+    }
+
+    func testOptionsSurviveTheWaitForTheStartAndForARemoteDocument() throws {
+        let server = try TestImageServer(png: [], document: Self.document)
+        defer { server.stop() }
+        let app = AdwaitaApplication()
+        let subtitle = "Requested by a test"
+        let options = AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400), isResizable: false)
+        var seen: [String: (width: Int32, resizable: gboolean, showsSubtitle: Bool)] = [:]
+        app.handlers.windowWillPresent = { uuid in
+            guard let window = app.gtkWindow(uuid) else { return }
+            seen[uuid] = (self.defaultSize(window).0, gtk_window_get_resizable(window), self.label(showing: subtitle, in: typed(window)) != nil)
+            if seen.count == 3 {
+                DispatchQueue.main.async { app.terminate() }
+            }
+        }
+        app.handlers.didFinishLaunching = {
+            // A watchdog: a window that never opens fails the count below instead of hanging.
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "app-big", title: nil, options: options)
+        }
+        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: options)
+        app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil, options: options)
+        XCTAssertEqual(app.run(), 0)
+        XCTAssertEqual(Set(seen.keys), ["app-w1", "app-w2", "app-big"])
+        for (uuid, window) in seen {
+            XCTAssertEqual(window.width, 500, uuid)
+            XCTAssertEqual(window.resizable, 0, uuid)
+            XCTAssertTrue(window.showsSubtitle, uuid)
+        }
     }
 
     func testTheIconIsTheWindowsDefaultIcon() throws {
