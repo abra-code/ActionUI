@@ -1,6 +1,6 @@
 // Sources/Runtime/BoxAnimation.swift
 /*
- The `animation` modifier on the GTK renderer.
+ The `animation` and `transition` modifiers on the GTK renderer.
 
  When it runs, as on Apple (View.applyModifiers' .animation(_:value:)): a sync of an element that
  declares an animation animates when its trigger (BaseModifiers.Animation.trigger) differs from
@@ -20,6 +20,18 @@
    that appears or goes, the scale anchor, fonts and tint.
  Not animated: layout. A changed frame, padding or alignment, and what moves in a stack because of
  it, which SwiftUI animates too, take their new places at once.
+
+ The transition's insertion: an element the host inserts (insertElement, insertRow) into a node
+ shown before plays its declared transition's insertion half, as SwiftUI's withAnimation around
+ the insert does (WindowModel): from the transition's state to rest, with .default, the smooth
+ spring. opacity starts transparent, scale from its factor (SwiftUI's 0.00001 when none) around its
+ anchor, move and slide one frame's width or height off toward the edge, offset by its points;
+ combined ones together, an asymmetric one's insertion half. Only the inserted element plays it, not
+ what it holds, and not in a List, whose rows SwiftUI animates its own way (on macOS not at all).
+ The transition's effects lie outside the element's own (BoxLayout), as SwiftUI applies .transition
+ last. A host's change during it that does not animate continues with the transition's curve.
+ Not done: the removal half (the element leaves at once, as on Android and Web), and leading and
+ trailing are not mirrored in a right-to-left layout.
 
  libadwaita ends an animation at once when the box is not on screen or the desktop turns
  animations off (GtkSettings:gtk-enable-animations), and so does a GTK CSS transition.
@@ -53,6 +65,15 @@ struct BoxVisuals: Equatable {
     var scaleX = 1.0
     var scaleY = 1.0
     var shadow: ShadowValue?
+    /// An insertion transition's state (BoxAnimation.enter): an opacity factor, a scale, a move by
+    /// a share of the frame's size and an offset in points; at rest, identity.
+    var enterOpacity = 1.0
+    var enterScaleX = 1.0
+    var enterScaleY = 1.0
+    var enterMoveX = 0.0
+    var enterMoveY = 0.0
+    var enterOffsetX = 0.0
+    var enterOffsetY = 0.0
 
     /// The visuals `progress` of the way from `from` to `to` (0 is `from`, 1 is `to`; a spring
     /// passes 1 and comes back).
@@ -68,6 +89,13 @@ struct BoxVisuals: Equatable {
         result.rotation = mix(from.rotation, to.rotation)
         result.scaleX = mix(from.scaleX, to.scaleX)
         result.scaleY = mix(from.scaleY, to.scaleY)
+        result.enterOpacity = min(max(mix(from.enterOpacity, to.enterOpacity), 0), 1)
+        result.enterScaleX = mix(from.enterScaleX, to.enterScaleX)
+        result.enterScaleY = mix(from.enterScaleY, to.enterScaleY)
+        result.enterMoveX = mix(from.enterMoveX, to.enterMoveX)
+        result.enterMoveY = mix(from.enterMoveY, to.enterMoveY)
+        result.enterOffsetX = mix(from.enterOffsetX, to.enterOffsetX)
+        result.enterOffsetY = mix(from.enterOffsetY, to.enterOffsetY)
         if let start = from.shadow, let end = to.shadow {
             result.shadow = ShadowValue(red: min(max(mix(start.red, end.red), 0), 1),
                                         green: min(max(mix(start.green, end.green), 0), 1),
@@ -100,6 +128,9 @@ final class BoxAnimator {
     private var animation: RunningAnimation?
     private var delaySource: guint = 0
     private var easing: (Double) -> Double = { $0 }
+    /// The timing of an insertion transition while it runs: a change of the model during it that
+    /// does not animate goes on with it rather than cutting it short.
+    private var entrance: AnimationTiming?
 
     init(box: WidgetPointer) {
         self.box = box
@@ -110,18 +141,43 @@ final class BoxAnimator {
     }
 
     /// Shows `visuals`: at once without `timing`, else animated from what the box shows. The same
-    /// visuals as before leave a running animation alone.
+    /// visuals as before leave a running animation alone; during an insertion transition, a change
+    /// without a timing takes the transition's.
     func show(_ visuals: BoxVisuals, timing: AnimationTiming?) {
         guard visuals != target else { return }
+        let timing = timing ?? (isAnimating ? entrance : nil)
         target = visuals
         stop()
         guard let timing, visuals != shown else {
             draw(visuals)
             return
         }
-        from = shown
+        start(from: shown, timing: timing)
+    }
+
+    /// Plays an insertion transition: from the target with the transition's state (`entering`'s
+    /// enter values) to the target, whose enter values are at rest.
+    func enter(_ entering: BoxVisuals, anchor: (x: Double, y: Double), timing: AnimationTiming) {
+        if let layout = attached(on: box, key: boxLayoutKey) {
+            layout.transitionAnchor = anchor
+        }
+        var initial = target
+        initial.enterOpacity = entering.enterOpacity
+        initial.enterScaleX = entering.enterScaleX
+        initial.enterScaleY = entering.enterScaleY
+        initial.enterMoveX = entering.enterMoveX
+        initial.enterMoveY = entering.enterMoveY
+        initial.enterOffsetX = entering.enterOffsetX
+        initial.enterOffsetY = entering.enterOffsetY
+        stop()
+        entrance = timing
+        start(from: initial, timing: timing)
+    }
+
+    private func start(from start: BoxVisuals, timing: AnimationTiming) {
+        from = start
         // What changes at once (hidden, a shadow appearing or going) does so now.
-        draw(BoxVisuals.interpolated(from, visuals, 0))
+        draw(BoxVisuals.interpolated(from, target, 0))
         if timing.delay > 0 {
             delaySource = runAfter(milliseconds: UInt32(min(timing.delay * 1000, Double(UInt32.max)).rounded())) { [weak self] in
                 guard let self else { return }
@@ -157,6 +213,7 @@ final class BoxAnimator {
         }
         connectSignal(made.pointer, "done", .instanceOnly) { [weak self] in
             guard let self else { return }
+            self.entrance = nil
             self.draw(self.target)
         }
         let running = RunningAnimation(made)
@@ -184,7 +241,7 @@ final class BoxAnimator {
     /// and its shadow.
     private func draw(_ visuals: BoxVisuals) {
         shown = visuals
-        let opacity = visuals.hidden ? 0 : min(max(visuals.opacity, 0), 1)
+        let opacity = visuals.hidden ? 0 : min(max(visuals.opacity * visuals.enterOpacity, 0), 1)
         // GTK keeps opacity in 8 bits (0.5 reads back as 0.502).
         if abs(gtk_widget_get_opacity(box) - opacity) > 1.0 / 255 {
             gtk_widget_set_opacity(box, opacity)
@@ -192,10 +249,18 @@ final class BoxAnimator {
         if let layout = attached(on: box, key: boxLayoutKey) {
             let offset = (x: visuals.offsetX, y: visuals.offsetY)
             let scale = (x: visuals.scaleX, y: visuals.scaleY)
-            if layout.offset != offset || layout.rotation != visuals.rotation || layout.scale != scale {
+            let enterScale = (x: visuals.enterScaleX, y: visuals.enterScaleY)
+            let enterMove = (x: visuals.enterMoveX, y: visuals.enterMoveY)
+            let enterOffset = (x: visuals.enterOffsetX, y: visuals.enterOffsetY)
+            if layout.offset != offset || layout.rotation != visuals.rotation || layout.scale != scale
+                || layout.transitionScale != enterScale || layout.transitionMove != enterMove
+                || layout.transitionOffset != enterOffset {
                 layout.offset = offset
                 layout.rotation = visuals.rotation
                 layout.scale = scale
+                layout.transitionScale = enterScale
+                layout.transitionMove = enterMove
+                layout.transitionOffset = enterOffset
                 gtk_widget_queue_allocate(box)
             }
         }
@@ -252,6 +317,62 @@ enum BoxAnimation {
         animator.trigger = animation == nil ? nil : trigger
         guard let animation, let previous, let trigger, previous != trigger else { return nil }
         return AnimationTiming(animation)
+    }
+
+    /// The animation of an insert: SwiftUI's withAnimation around it, .default (the smooth spring).
+    static let insertTiming = AnimationTiming(curve: .spring(response: AnimationTiming.springResponse, dampingRatio: 1))
+
+    /// The smallest scale a scale transition starts from: SwiftUI's .scale starts at 0.00001
+    /// (measured, macOS 27), which keeps the transform invertible.
+    static let smallestScale = 0.00001
+
+    /// Plays `transition`'s insertion on `box`, which already shows the element at rest. Nothing for
+    /// an identity transition.
+    static func enter(_ box: WidgetPointer, _ transition: BaseModifiers.Transition) {
+        var entering = BoxVisuals()
+        var anchor = (x: 0.5, y: 0.5)
+        addInsertion(transition, to: &entering, anchor: &anchor)
+        guard entering != BoxVisuals() else { return }
+        animator(of: box).enter(entering, anchor: anchor, timing: insertTiming)
+    }
+
+    /// Adds what `transition` does on insertion to `entering`'s enter values: combined
+    /// transitions together, the insertion half of an asymmetric one.
+    private static func addInsertion(_ transition: BaseModifiers.Transition, to entering: inout BoxVisuals,
+                                     anchor: inout (x: Double, y: Double)) {
+        switch transition {
+        case .identity:
+            break
+        case .opacity:
+            entering.enterOpacity = 0
+        case .slide:
+            // SwiftUI's slide comes in from the leading edge (and leaves to the trailing one).
+            entering.enterMoveX -= 1
+        case let .scale(factor, name):
+            var scale = factor.flatMap { $0.isFinite ? $0 : nil } ?? smallestScale
+            if abs(scale) < smallestScale {
+                scale = scale < 0 ? -smallestScale : smallestScale
+            }
+            entering.enterScaleX *= scale
+            entering.enterScaleY *= scale
+            anchor = ModifierBox.unitPoint(name)
+        case let .move(edge):
+            switch edge {
+            case .top: entering.enterMoveY -= 1
+            case .bottom: entering.enterMoveY += 1
+            case .leading: entering.enterMoveX -= 1
+            case .trailing: entering.enterMoveX += 1
+            }
+        case let .offset(x, y):
+            if x.isFinite { entering.enterOffsetX += x }
+            if y.isFinite { entering.enterOffsetY += y }
+        case let .asymmetric(insertion, _):
+            addInsertion(insertion, to: &entering, anchor: &anchor)
+        case let .combined(parts):
+            for part in parts {
+                addInsertion(part, to: &entering, anchor: &anchor)
+            }
+        }
     }
 
     /// Shows `visuals` on `box`, animated with `timing` (at once for nil).

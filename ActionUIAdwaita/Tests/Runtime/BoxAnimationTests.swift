@@ -1,9 +1,9 @@
 // Tests/Runtime/BoxAnimationTests.swift
 /*
- Tests for the animation modifier on GTK: SwiftUI's curves (AnimationTiming), when a sync animates
+ Tests for the animation and transition modifiers on GTK: SwiftUI's curves (AnimationTiming), when a sync animates
  (the trigger, as on Apple), the box's own visuals moving through a libadwaita animation
  (BoxAnimator), and colors through a CSS transition, in a window on screen (an animation of a
- widget that is not mapped ends at once).
+ widget that is not mapped ends at once); an inserted element's insertion transition.
 
  The tests turn GTK's animations on for themselves: GNOME turns them off in the agent-vm boxes
  (measured: the desktop portal reports enable-animations false on Debian 13 and Ubuntu 26.04
@@ -327,5 +327,192 @@ final class BoxAnimationTests: XCTestCase {
         for box in boxes {
             XCTAssertEqual(gtk_widget_get_opacity(box), 0.3, accuracy: 1.0 / 255)
         }
+    }
+
+    // MARK: Insertion transitions
+
+    /// A VStack (id 1) holding a 40 x 20 test Rectangle (id 2), on screen.
+    private func showStack(_ firstChild: String = ##"{"type": "Rectangle", "id": 2, "properties": {"w": 40, "h": 20}}"##) throws -> RenderNode {
+        try showDocument(##"{"type": "VStack", "id": 1, "children": ["## + firstChild + "]}")
+    }
+
+    /// Inserts `json` at the end of the VStack and returns its node, synced.
+    private func insert(_ json: String, into stack: RenderNode) throws -> RenderNode {
+        let id = try ActionUIModel.shared.insertElement(windowUUID: windowUUID, parentID: 1, json: json, position: .append)
+        AdwaitaTestHost.drainMainLoop()
+        return try XCTUnwrap(stack.childNodes[id])
+    }
+
+    private func layout(_ node: RenderNode) throws -> BoxLayout {
+        try XCTUnwrap(attached(on: node.outerWidget, key: boxLayoutKey))
+    }
+
+    func testAnInsertedElementFadesIn() throws {
+        let stack = try showStack()
+        let node = try insert(##"{"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20, "transition": "opacity"}}"##, into: stack)
+        XCTAssertTrue(animator(node.outerWidget).isAnimating)
+        XCTAssertLessThan(gtk_widget_get_opacity(node.outerWidget), 0.1, "it starts transparent")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(node.outerWidget).isAnimating }, timeoutMilliseconds: 3000))
+        XCTAssertEqual(gtk_widget_get_opacity(node.outerWidget), 1)
+    }
+
+    func testAnElementShownAtLoadDoesNotPlayItsTransition() throws {
+        let stack = try showStack(##"{"type": "Rectangle", "id": 2, "properties": {"w": 40, "h": 20, "transition": "opacity"}}"##)
+        let node = try XCTUnwrap(stack.childNodes[2])
+        XCTAssertFalse(animator(node.outerWidget).isAnimating)
+        XCTAssertEqual(gtk_widget_get_opacity(node.outerWidget), 1)
+    }
+
+    func testWithoutATransitionAnInsertIsAtOnce() throws {
+        let stack = try showStack()
+        let node = try insert(##"{"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20}}"##, into: stack)
+        XCTAssertFalse(animator(node.outerWidget).isAnimating)
+        XCTAssertEqual(gtk_widget_get_opacity(node.outerWidget), 1)
+    }
+
+    func testMoveStartsAFrameOffTowardItsEdge() throws {
+        let stack = try showStack()
+        let node = try insert(##"{"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20, "transition": {"type": "move", "edge": "bottom"}}}"##, into: stack)
+        XCTAssertEqual(try layout(node).transitionMove.y, 1, accuracy: 0.05, "one frame height down")
+        XCTAssertEqual(try layout(node).transitionMove.x, 0)
+        // The content is drawn there, 20 points below its place in the box, from the next allocation
+        // (a frame later, by when the spring has moved it a little).
+        wait(0.03)
+        let content = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        var rect = graphene_rect_t()
+        _ = gtk_widget_compute_bounds(content, node.outerWidget, &rect)
+        XCTAssertGreaterThan(rect.origin.y, 12)
+        XCTAssertLessThanOrEqual(rect.origin.y, 20.5)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(node.outerWidget).isAnimating }, timeoutMilliseconds: 3000))
+        XCTAssertEqual(try layout(node).transitionMove.y, 0)
+    }
+
+    func testCombinedTransitionsStartTogether() throws {
+        let stack = try showStack()
+        let node = try insert(##"""
+            {"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20,
+             "transition": ["opacity", {"type": "scale", "scale": 0.5, "anchor": "topLeading"}, {"type": "offset", "x": 0, "y": 30}]}}
+            """##, into: stack)
+        let start = try layout(node)
+        XCTAssertLessThan(gtk_widget_get_opacity(node.outerWidget), 0.1)
+        XCTAssertEqual(start.transitionScale.x, 0.5, accuracy: 0.05)
+        XCTAssertEqual(start.transitionAnchor.x, 0)
+        XCTAssertEqual(start.transitionAnchor.y, 0)
+        XCTAssertEqual(start.transitionOffset.y, 30, accuracy: 2)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(node.outerWidget).isAnimating }, timeoutMilliseconds: 3000))
+        XCTAssertEqual(start.transitionScale.x, 1)
+        XCTAssertEqual(start.transitionOffset.y, 0)
+        XCTAssertFalse(start.hasTransition)
+    }
+
+    func testAScaleTransitionWithoutAFactorStartsAtSwiftUIsSmallestScale() throws {
+        let stack = try showStack()
+        let node = try insert(##"{"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20, "transition": "scale"}}"##, into: stack)
+        XCTAssertEqual(try layout(node).transitionScale.x, BoxAnimation.smallestScale, accuracy: 0.02)
+    }
+
+    func testAnAsymmetricTransitionPlaysItsInsertionHalf() throws {
+        let stack = try showStack()
+        let node = try insert(##"{"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20, "transition": {"type": "asymmetric", "insertion": "slide", "removal": "opacity"}}}"##, into: stack)
+        XCTAssertEqual(try layout(node).transitionMove.x, -1, accuracy: 0.05, "slide comes in from the leading edge")
+        XCTAssertEqual(gtk_widget_get_opacity(node.outerWidget), 1, "the removal half's opacity is not used")
+    }
+
+    func testWhatAnInsertedElementHoldsDoesNotPlayItsOwnTransition() throws {
+        let stack = try showStack()
+        let node = try insert(##"""
+            {"type": "VStack", "id": 3, "properties": {"transition": "opacity"}, "children": [
+                {"type": "Rectangle", "id": 4, "properties": {"w": 40, "h": 20, "transition": "scale"}}]}
+            """##, into: stack)
+        XCTAssertTrue(animator(node.outerWidget).isAnimating)
+        let inner = try XCTUnwrap(node.childNodes[4])
+        XCTAssertFalse(animator(inner.outerWidget).isAnimating)
+        XCTAssertEqual(try layout(inner).transitionScale.x, 1)
+    }
+
+    func testAHostChangeDuringTheEntranceContinuesIt() throws {
+        let stack = try showStack()
+        let node = try insert(##"{"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20, "transition": "opacity"}}"##, into: stack)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "offset", value: ["x": 10, "y": 0])
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertTrue(animator(node.outerWidget).isAnimating)
+        XCTAssertLessThan(gtk_widget_get_opacity(node.outerWidget), 0.5, "still fading in")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(node.outerWidget).isAnimating }, timeoutMilliseconds: 3000))
+        XCTAssertEqual(gtk_widget_get_opacity(node.outerWidget), 1)
+        XCTAssertEqual(try layout(node).offset.x, 10)
+    }
+
+    func testAnOverlayViewMovesWithTheTransition() throws {
+        let stack = try showStack()
+        let node = try insert(##"""
+            {"type": "Rectangle", "id": 3, "properties": {"w": 40, "h": 20, "transition": {"type": "move", "edge": "bottom"}},
+             "overlay": {"type": "Rectangle", "id": 5, "properties": {"w": 10, "h": 10}}}
+            """##, into: stack)
+        // SwiftUI applies .transition after .overlay, so the overlay comes in with the element.
+        wait(0.03)
+        let content = try XCTUnwrap(ModifierBox.content(of: node.outerWidget))
+        let overlay = try XCTUnwrap(Gtk.Widget(node.outerWidget).lastChild?.pointer)
+        XCTAssertNotEqual(overlay, content)
+        var contentRect = graphene_rect_t()
+        var overlayRect = graphene_rect_t()
+        _ = gtk_widget_compute_bounds(content, node.outerWidget, &contentRect)
+        _ = gtk_widget_compute_bounds(overlay, node.outerWidget, &overlayRect)
+        XCTAssertGreaterThan(contentRect.origin.y, 12)
+        XCTAssertEqual(overlayRect.origin.y, contentRect.origin.y + 5, accuracy: 0.5, "centered in the moved frame")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(node.outerWidget).isAnimating }, timeoutMilliseconds: 3000))
+        _ = gtk_widget_compute_bounds(overlay, node.outerWidget, &overlayRect)
+        XCTAssertEqual(overlayRect.origin.y, 5)
+    }
+
+    func testAnInsertedGroupPlaysItsTransitionOnEachChild() throws {
+        // A Group's modifiers apply to each child; a stack lays the child boxes out as its own and
+        // does not move the Group's box.
+        let stack = try showStack()
+        let group = try insert(##"""
+            {"type": "Group", "id": 3, "properties": {"transition": {"type": "move", "edge": "bottom"}}, "children": [
+                {"type": "Rectangle", "id": 4, "properties": {"w": 40, "h": 20}}]}
+            """##, into: stack)
+        let inner = try XCTUnwrap(group.childNodes[4])
+        let childBox = try XCTUnwrap(gtk_widget_get_parent(gtk_widget_get_parent(inner.outerWidget)))
+        XCTAssertTrue(animator(childBox).isAnimating)
+        wait(0.03)
+        var rect = graphene_rect_t()
+        _ = gtk_widget_compute_bounds(inner.outerWidget, stack.widget, &rect)
+        XCTAssertGreaterThan(rect.origin.y, 32, "below its place, 20, by most of its height")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(childBox).isAnimating }, timeoutMilliseconds: 3000))
+        _ = gtk_widget_compute_bounds(inner.outerWidget, stack.widget, &rect)
+        XCTAssertEqual(rect.origin.y, 20)
+    }
+
+    func testAPageShownLaterInAnInsertedElementDoesNotPlayItsTransition() throws {
+        let stack = try showStack()
+        let navigation = try insert(##"""
+            {"type": "NavigationStack", "id": 3, "content": {"type": "Text", "id": 4, "properties": {"text": "Root"}},
+             "destinations": [{"type": "Text", "id": 10, "properties": {"text": "Ten", "transition": "opacity"}}]}
+            """##, into: stack)
+        XCTAssertTrue(ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 3, key: "navigationPath", value: [10]))
+        AdwaitaTestHost.drainMainLoop()
+        let ten = try XCTUnwrap(navigation.childNodes[10])
+        XCTAssertFalse(animator(ten.outerWidget).isAnimating)
+        XCTAssertEqual(gtk_widget_get_opacity(ten.outerWidget), 1)
+    }
+
+    func testAnInsertedListPlaysItsTransitionButNotItsRows() throws {
+        let stack = try showStack()
+        let list = try insert(##"""
+            {"type": "List", "id": 3, "properties": {"transition": "opacity", "frame": {"width": 200, "height": 120}}, "children": [
+                {"type": "Section", "id": 4, "properties": {"header": "Rows"}, "children": [
+                    {"type": "Text", "id": 5, "properties": {"text": "one"}}]}]}
+            """##, into: stack)
+        XCTAssertTrue(animator(list.outerWidget).isAnimating, "the List itself was inserted into a VStack")
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { !self.animator(list.outerWidget).isAnimating }, timeoutMilliseconds: 3000))
+        let id = try ActionUIModel.shared.insertElement(windowUUID: windowUUID, parentID: 4,
+                                                        json: ##"{"type": "Text", "id": 6, "properties": {"text": "two", "transition": "opacity"}}"##,
+                                                        position: .append)
+        AdwaitaTestHost.drainMainLoop()
+        let section = try XCTUnwrap(list.childNodes[4])
+        let row = try XCTUnwrap(section.childNodes[id])
+        XCTAssertFalse(animator(row.outerWidget).isAnimating, "a row in a List's Section uses the List's own row animation")
+        XCTAssertEqual(gtk_widget_get_opacity(row.outerWidget), 1)
     }
 }

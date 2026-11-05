@@ -46,6 +46,12 @@ public final class RenderNode {
     private var ownedOuterWidget: OwnedObject?
     /// False once the node has left the tree.
     private(set) var isAttached = true
+    /// True once the node has synced.
+    private(set) var hasSynced = false
+    /// Set for a node made for an element the host inserted at run time into a node shown before
+    /// (not for what the inserted element holds, nor in a List): its first sync plays the
+    /// element's insertion transition, as SwiftUI's withAnimation around the insert does.
+    private var entersWithTransition = false
     /// The inherited base modifiers, with what the renderer adds (a Form's inForm; Environment),
     /// computed at the start of each sync.
     private(set) var environment = Environment()
@@ -244,6 +250,7 @@ public final class RenderNode {
                 SyncScheduler.shared.markDirty(child)
             }
         }
+        hasSynced = true
         for child in created {
             child.sync()
         }
@@ -283,9 +290,22 @@ public final class RenderNode {
             return existing
         }
         let child = RenderNode(element: element, model: childModel(for: element), windowModel: windowModel, parent: self)
+        // SwiftUI's List substitutes its own row animation for its rows (none on macOS), also in a
+        // Section of the List, so they play no transition; an inserted List plays its own.
+        // Inserted into this node: a node made later for what an inserted element holds (a
+        // destination pushed on its NavigationStack) plays none.
+        let isListRow = self.element.type == "List" || (self.element.type == "Section" && parent?.element.type == "List")
+        child.entersWithTransition = hasSynced && !isListRow
+            && windowModel.wasDynamicallyInserted(element.id, into: self.element.id)
         childNodes[element.id] = child
         unsyncedChildren.append(child)
         return child
+    }
+
+    /// Whether this sync plays the insertion transition (once: the first sync after the insert).
+    func takeEntrance() -> Bool {
+        defer { entersWithTransition = false }
+        return entersWithTransition
     }
 
     /// A node for `element`, with a view model as a child's, that is not one of the child nodes: a

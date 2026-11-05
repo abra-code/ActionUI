@@ -61,6 +61,14 @@ final class BoxLayout {
     var rotation = 0.0
     var scale = (x: 1.0, y: 1.0)
     var scaleAnchor = (x: 0.5, y: 0.5)
+    /// An insertion transition's own effects, outside the element's (SwiftUI applies .transition
+    /// after the other modifiers): a scale around `transitionAnchor`, then a move by a share of the
+    /// frame's size (`transitionMove`, -1 to the leading or top edge) and an offset in points. Set
+    /// by the box's BoxAnimator.
+    var transitionScale = (x: 1.0, y: 1.0)
+    var transitionAnchor = (x: 0.5, y: 0.5)
+    var transitionMove = (x: 0.0, y: 0.0)
+    var transitionOffset = (x: 0.0, y: 0.0)
     /// How far past the frame a background or overlay view that ignores the safe area reaches on
     /// each edge (safeAreaReach), set as the box is allocated.
     var safeAreaReach = (top: 0, bottom: 0, leading: 0, trailing: 0)
@@ -79,6 +87,10 @@ final class BoxLayout {
 
     var hasTransform: Bool {
         offset != (0, 0) || rotation != 0 || scale != (1, 1)
+    }
+
+    var hasTransition: Bool {
+        transitionScale != (1, 1) || transitionMove != (0, 0) || transitionOffset != (0, 0)
     }
 }
 
@@ -167,7 +179,8 @@ enum ModifierBox {
     /// trailing edge stays).
     private static func allocateDecoration(_ child: WidgetPointer, _ marker: DecorationMarker,
                                            x: Int, y: Int, width: Int, height: Int,
-                                           reach: (top: Int, bottom: Int, leading: Int, trailing: Int)) {
+                                           reach: (top: Int, bottom: Int, leading: Int, trailing: Int),
+                                           moved transition: OpaquePointer? = nil) {
         let widget = Gtk.Widget(child)
         func size(in width: Int, _ height: Int) -> (width: Int, height: Int) {
             let horizontal = measureChild(child, GTK_ORIENTATION_HORIZONTAL, forSize: -1)
@@ -190,7 +203,8 @@ enum ModifierBox {
             childSize = size(in: childSize.width + leading + trailing, childSize.height + top + bottom)
         }
         var origin = graphene_point_t(x: Float(childX), y: Float(childY))
-        gtk_widget_allocate(child, Int32(clamping: childSize.width), Int32(clamping: childSize.height), -1, gsk_transform_translate(nil, &origin))
+        gtk_widget_allocate(child, Int32(clamping: childSize.width), Int32(clamping: childSize.height), -1,
+                            gsk_transform_translate(gsk_transform_ref(transition), &origin))
     }
 
     /// Applies the node's base modifiers to its box, its content group and its widget.
@@ -198,6 +212,13 @@ enum ModifierBox {
         let widget: WidgetPointer = node.widget
         let timing = BoxAnimation.timing(modifiers.animation, trigger: BoxAnimation.trigger(node, modifiers.animation), box: box)
         applyBoxModifiers(box, modifiers, timing: timing)
+        if node.takeEntrance(), let transition = modifiers.transition {
+            // A Group's modifiers apply to each of its children (Group+Adwaita), its transition
+            // too: the box of a Group a stack lays out is not moved.
+            for target in Group.childBoxes(of: widget) ?? [box] {
+                BoxAnimation.enter(target, transition)
+            }
+        }
         // A tappable container's tap covers its frame, the content group, not the space the box
         // is given beyond it (ContainerTap).
         for area in NodeDecorations.pointerAreas(node) {
@@ -813,7 +834,7 @@ enum ModifierBox {
     }
 
     /// Places a safe area inset view along its edge of a box `width` x `height`.
-    private static func allocateInset(_ box: WidgetPointer, width: Int, height: Int) {
+    private static func allocateInset(_ box: WidgetPointer, width: Int, height: Int, moved transition: OpaquePointer?) {
         guard let (child, marker) = insetView(box) else { return }
         var rect = (x: 0, y: 0, width: 0, height: 0)
         switch marker.edge {
@@ -834,7 +855,8 @@ enum ModifierBox {
             _ = measureChild(child, GTK_ORIENTATION_VERTICAL, forSize: rect.width)
         }
         var origin = graphene_point_t(x: Float(rect.x), y: Float(rect.y))
-        gtk_widget_allocate(child, Int32(clamping: rect.width), Int32(clamping: rect.height), -1, gsk_transform_translate(nil, &origin))
+        gtk_widget_allocate(child, Int32(clamping: rect.width), Int32(clamping: rect.height), -1,
+                            gsk_transform_translate(gsk_transform_ref(transition), &origin))
     }
 
     static func allocateBox(_ box: WidgetPointer, width: Int, height: Int) {
@@ -853,8 +875,12 @@ enum ModifierBox {
             // keep its size and place, when GTK would not allocate it again.
             gtk_widget_queue_allocate(content)
         }
+        // An insertion transition moves the overlay and safe area inset views too, which SwiftUI
+        // applies before .transition: in the box's coordinates, nil when there is none.
+        let transition = transitionTransform(layout, frame: frame)
+        defer { gsk_transform_unref(transition) }
         var origin = graphene_point_t(x: Float(frame.x), y: Float(frame.y))
-        var transform = gsk_transform_translate(nil, &origin)
+        var transform = gsk_transform_translate(gsk_transform_ref(transition), &origin)
         if layout.hasTransform {
             transform = applyEffects(transform, layout, width: Double(frame.width), height: Double(frame.height))
         }
@@ -862,9 +888,35 @@ enum ModifierBox {
         // Overlay views: at the frame's place in the layout, not moved by its transform.
         for (child, marker) in decorations(box) where marker.place == .overlay {
             allocateDecoration(child, marker, x: frame.x, y: frame.y, width: frame.width, height: frame.height,
-                               reach: layout.safeAreaReach)
+                               reach: layout.safeAreaReach, moved: transition)
         }
-        allocateInset(box, width: width, height: height)
+        allocateInset(box, width: width, height: height, moved: transition)
+    }
+
+    /// The insertion transition's transform in a box whose frame is `frame`: a scale around its
+    /// anchor in the frame, then the move by a share of the frame's size and the offset. nil without
+    /// one.
+    private static func transitionTransform(_ layout: BoxLayout, frame: (x: Int, y: Int, width: Int, height: Int)) -> OpaquePointer? {
+        guard layout.hasTransition else { return nil }
+        let width = Double(frame.width)
+        let height = Double(frame.height)
+        var origin = graphene_point_t(x: Float(frame.x), y: Float(frame.y))
+        var back = graphene_point_t(x: -origin.x, y: -origin.y)
+        var transform = gsk_transform_translate(nil, &origin)
+        let move = (x: layout.transitionMove.x * width + layout.transitionOffset.x,
+                    y: layout.transitionMove.y * height + layout.transitionOffset.y)
+        if move != (0, 0) {
+            var point = graphene_point_t(x: Float(move.x), y: Float(move.y))
+            transform = gsk_transform_translate(transform, &point)
+        }
+        if layout.transitionScale != (1, 1) {
+            var anchor = graphene_point_t(x: Float(width * layout.transitionAnchor.x), y: Float(height * layout.transitionAnchor.y))
+            var away = graphene_point_t(x: -anchor.x, y: -anchor.y)
+            transform = gsk_transform_translate(transform, &anchor)
+            transform = gsk_transform_scale(transform, Float(layout.transitionScale.x), Float(layout.transitionScale.y))
+            transform = gsk_transform_translate(transform, &away)
+        }
+        return gsk_transform_translate(transform, &back)
     }
 
     /// Where the content group (the frame) is in a box `width` x `height`, and its size, as

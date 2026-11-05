@@ -156,6 +156,13 @@ extension Group: ActionUIAdwaitaRenderer {
         }
     }
 
+    /// The boxes a Group's or a Section's widget puts around its children (and a Section's header),
+    /// in order; nil for another widget.
+    static func childBoxes(of widget: WidgetPointer) -> [WidgetPointer]? {
+        guard attached(on: widget, key: groupMarkerKey) != nil else { return nil }
+        return Gtk.Widget(widget).children.map(\.pointer).filter { attached(on: $0, key: groupChildBoxMarkerKey) != nil }
+    }
+
     /// The child box around `child`'s box, when it is in `widget`.
     private static func childBox(of child: RenderNode, in widget: WidgetPointer) -> WidgetPointer? {
         guard let content = gtk_widget_get_parent(child.outerWidget),

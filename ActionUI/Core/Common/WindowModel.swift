@@ -265,6 +265,12 @@ final class WindowModel {
         ActionUIRendererHooks.structuralMutation(element.properties["transition"] != nil, body)
     }
 
+    /// Whether the element with `id` was inserted at run time (insertElement, insertRow) into the
+    /// element with `parentID` and is still there, itself or inside an element inserted there.
+    func wasDynamicallyInserted(_ id: Int, into parentID: Int) -> Bool {
+        dynamicallyInsertedIDs[parentID]?.contains(id) == true
+    }
+
     /// Insert an element into a flat container. Returns the inserted element's id.
     func insertElement(_ newElement: ActionUIElement, parentID: Int, container: String, position: InsertPosition) throws -> Int {
         guard let parent = locateElement(byID: parentID) else {
