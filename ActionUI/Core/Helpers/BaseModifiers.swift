@@ -113,6 +113,19 @@ struct BaseModifiers {
         init(curve: Curve) {
             self.curve = curve
         }
+
+        /// What runs the animation when it changes, as SwiftUI's .animation(_:value:) compares it:
+        /// the watched property, else the watched state, else (named "value") the element's value;
+        /// without a watched name, the view model's mutation token, which every host mutation of
+        /// the element changes and the user's own input does not. A watched name that is none of
+        /// these gives a constant, so nothing runs the animation.
+        func trigger(mutationToken: Int, properties: [String: Any], states: [String: Any], value: Any?) -> AnyHashable {
+            guard let watchedValue else { return mutationToken }
+            if let property = properties[watchedValue] as? AnyHashable { return property }
+            if let state = states[watchedValue] as? AnyHashable { return state }
+            if watchedValue == "value", let value = value as? AnyHashable { return value }
+            return AnyHashable(0)
+        }
     }
 
     indirect enum Transition: Equatable, Sendable {

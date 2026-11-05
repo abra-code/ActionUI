@@ -31,7 +31,9 @@ extension Section: ActionUIAdwaitaRenderer {
         let text = Props(node.properties).header ?? ""
         Gtk.Label(header).text = text
         Gtk.Widget(header).isVisible = !text.isEmpty
-        ModifierBox.applyBoxModifiers(box, BaseModifiers(node.properties))
+        let modifiers = BaseModifiers(node.properties)
+        let trigger = BoxAnimation.trigger(node, modifiers.animation)
+        ModifierBox.applyBoxModifiers(box, modifiers, timing: BoxAnimation.timing(modifiers.animation, trigger: trigger, box: box))
         Group.syncChildBoxes(widget, node, after: box)
     }
 

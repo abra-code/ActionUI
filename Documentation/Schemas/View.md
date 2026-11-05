@@ -245,3 +245,7 @@ JSON schema and usage documentation for `View`.
 //  - Modifier is ignored unless view is used inside NavigationSplitView column.
 //  - System tries to respect values, but macOS users can still drag divider beyond min/max in some situations.
 ```
+
+### Host differences
+
+- **Linux** runs `animation` with SwiftUI's curves and when SwiftUI does: on a host's change of the element (setElementProperty, setElementState, setElementValue), or with `value`, a change of that property, state or value; not when the view first appears, and not for the user's own input. What it moves: opacity, offset, rotationEffect, scaleEffect and shadow, a spring with SwiftUI's own spring, and background, border, cornerRadius, clipShape's rounding and foregroundStyle, through a GTK transition in which a spring is the closest cubic curve to it. hidden, a shadow that appears or goes, fonts and tint change at once, and so does the layout: a changed frame or padding, and what moves in a stack because of it, takes its place at once where SwiftUI animates it. While an element declares an animation and its foregroundStyle has changed with one, that animation takes the place of the control's own transitions (a button's hover fade). As every GTK application does, ActionUI follows the desktop's setting: with animations turned off (GNOME Settings, Accessibility, Reduce Animation), every change is at once.

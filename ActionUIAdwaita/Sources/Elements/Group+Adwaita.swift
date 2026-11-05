@@ -53,6 +53,7 @@ extension Group: ActionUIAdwaitaRenderer {
     /// the element's box modifiers to each (Section shares it).
     static func syncChildBoxes(_ widget: WidgetPointer, _ node: RenderNode, after first: WidgetPointer?) {
         let modifiers = BaseModifiers(node.properties)
+        let trigger = BoxAnimation.trigger(node, modifiers.animation)
         var previous = first
         syncContent(node, rowsOwner: widget, insert: { child, _ in
             let box = childBox(of: child, in: widget) ?? makeChildBox(child)
@@ -61,7 +62,9 @@ extension Group: ActionUIAdwaitaRenderer {
                 gtk_widget_insert_after(box, widget, previous)
             }
             previous = box
-            ModifierBox.applyBoxModifiers(box, modifiers)
+            // Each child box keeps the trigger it saw, so a child shown for the first time does not
+            // animate.
+            ModifierBox.applyBoxModifiers(box, modifiers, timing: BoxAnimation.timing(modifiers.animation, trigger: trigger, box: box))
         }, remove: { child in
             let box = childBox(of: child, in: widget)
             gtk_widget_unparent(child.outerWidget)

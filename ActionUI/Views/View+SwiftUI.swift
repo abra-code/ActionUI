@@ -90,20 +90,6 @@ private func resolveAnimation(_ config: BaseModifiers.Animation) -> Animation {
     return animation
 }
 
-private func resolveAnimationWatchedValue(
-    named target: String?,
-    mutationToken: Int,
-    properties: [String: Any],
-    states: [String: Any],
-    viewValue: Any?
-) -> AnyHashable {
-    guard let target else { return mutationToken }
-    if let v = properties[target] as? AnyHashable { return v }
-    if let v = states[target] as? AnyHashable { return v }
-    if target == "value", let v = viewValue as? AnyHashable { return v }
-    return AnyHashable(0)
-}
-
 private func resolveEdge(_ name: BaseModifiers.EdgeName) -> Edge {
     switch name {
     case .top:      return .top
@@ -418,13 +404,8 @@ extension View: ActionUISwiftUIRenderer {
         if let animConfig = mods.animation {
             let anim = resolveAnimation(animConfig)
             let viewModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id]
-            let watched = resolveAnimationWatchedValue(
-                named: animConfig.watchedValue,
-                mutationToken: viewModel?.mutationToken ?? 0,
-                properties: properties,
-                states: viewModel?.states ?? [:],
-                viewValue: viewModel?.value
-            )
+            let watched = animConfig.trigger(mutationToken: viewModel?.mutationToken ?? 0, properties: properties,
+                                             states: viewModel?.states ?? [:], value: viewModel?.value)
             modifiedView = modifiedView.animation(anim, value: watched)
         }
 

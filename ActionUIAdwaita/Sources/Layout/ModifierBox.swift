@@ -36,6 +36,9 @@
  - disabled makes the element's widget insensitive, which GTK passes on to its descendants.
  - offset, rotation and scale move what is drawn, not the layout, as in SwiftUI: offset first,
    then rotation around the center, then scale around its anchor.
+ - The animation modifier moves opacity, offset, rotation, scale and the shadow through the box's
+   BoxAnimator, and colors and rounding through a CSS transition armed on the content group and
+   the element widget (BoxAnimation).
 
  Known differences from the Apple renderer's order (View.applyModifiers):
  - The border is a CSS outline on the content group, so it moves with offset, rotation and scale
@@ -79,10 +82,10 @@ final class BoxLayout {
     }
 }
 
-/// The shadow a box draws, attached to the outer box.
+/// The shadow a box draws, attached to the outer box (set by its BoxAnimator).
 @MainActor
 final class BoxShadow {
-    var shadow: GskShadow?
+    var value: ShadowValue?
 }
 
 /// The accessibility values last given to an element's widget, attached to it.
@@ -193,13 +196,14 @@ enum ModifierBox {
     /// Applies the node's base modifiers to its box, its content group and its widget.
     static func update(_ box: WidgetPointer, _ node: RenderNode, _ modifiers: BaseModifiers) {
         let widget: WidgetPointer = node.widget
-        applyBoxModifiers(box, modifiers)
+        let timing = BoxAnimation.timing(modifiers.animation, trigger: BoxAnimation.trigger(node, modifiers.animation), box: box)
+        applyBoxModifiers(box, modifiers, timing: timing)
         // A tappable container's tap covers its frame, the content group, not the space the box
         // is given beyond it (ContainerTap).
         for area in NodeDecorations.pointerAreas(node) {
             ContainerTap.apply(node, box: area)
         }
-        applyText(widget, modifiers)
+        applyText(widget, modifiers, timing: timing)
         applyAccessibility(widget, node, modifiers)
 
         Gtk.Widget(widget).isSensitive = modifiers.disabled != true
@@ -213,19 +217,16 @@ enum ModifierBox {
     }
 
     /// Applies what the box itself draws and lays out: padding, frame, paint, shadow, effects,
-    /// opacity and hidden. A Group's box around each of its children takes these from the Group
-    /// (Group+Adwaita), as SwiftUI applies a Group's modifiers to each child.
-    static func applyBoxModifiers(_ box: WidgetPointer, _ modifiers: BaseModifiers) {
+    /// opacity and hidden, animated with `timing` (BoxAnimation; nil: at once). A Group's box
+    /// around each of its children takes these from the Group (Group+Adwaita), as SwiftUI applies
+    /// a Group's modifiers to each child.
+    static func applyBoxModifiers(_ box: WidgetPointer, _ modifiers: BaseModifiers, timing: AnimationTiming? = nil) {
         applyLayout(box, modifiers)
         if let content = content(of: box) {
-            applyPaint(content, modifiers)
+            let changed = applyPaint(content, modifiers)
+            applyTransition(content, timing, changed: changed, properties: paintTransitions)
         }
-        applyShadow(box, modifiers.shadow)
-        let opacity = modifiers.hidden ? 0 : min(max(modifiers.opacity ?? 1, 0), 1)
-        // GTK keeps opacity in 8 bits (0.5 reads back as 0.502).
-        if abs(gtk_widget_get_opacity(box) - opacity) > 1.0 / 255 {
-            gtk_widget_set_opacity(box, opacity)
-        }
+        BoxAnimation.show(visuals(modifiers), on: box, timing: timing)
         // Neither the pointer nor keyboard focus reaches a hidden element (can-focus false on the
         // box keeps focus out of its descendants too).
         let targetable: gboolean = modifiers.hidden ? 0 : 1
@@ -239,25 +240,19 @@ enum ModifierBox {
 
     // MARK: Layout settings
 
+    /// Padding, frame and alignment, and the scale anchor. The box's BoxAnimator sets the offset,
+    /// rotation and scale.
     private static func applyLayout(_ box: WidgetPointer, _ modifiers: BaseModifiers) {
         guard let layout = attached(on: box, key: boxLayoutKey) else { return }
         let padding = paddingAxes(modifiers.padding)
         let frame = frameAxes(modifiers.frame)
         let alignment = alignmentAxes(modifiers.frame?.alignment)
-        let offset = (x: finite(modifiers.offset?.x, 0), y: finite(modifiers.offset?.y, 0))
-        let rotation = finite(modifiers.rotationDegrees, 0)
-        let scale = (x: finite(modifiers.scale?.x, 1), y: finite(modifiers.scale?.y, 1))
         let anchor = unitPoint(modifiers.scale?.anchor ?? .center)
         let layoutChanged = layout.padding != padding || layout.frame != frame || layout.alignment != alignment
-        let transformChanged = layout.offset != offset || layout.rotation != rotation || layout.scale != scale
-            || layout.scaleAnchor != anchor
-        guard layoutChanged || transformChanged else { return }
+        guard layoutChanged || layout.scaleAnchor != anchor else { return }
         layout.padding = padding
         layout.frame = frame
         layout.alignment = alignment
-        layout.offset = offset
-        layout.rotation = rotation
-        layout.scale = scale
         layout.scaleAnchor = anchor
         setExpand(box, GTK_ORIENTATION_HORIZONTAL, frame.horizontal.expands)
         setExpand(box, GTK_ORIENTATION_VERTICAL, frame.vertical.expands)
@@ -350,15 +345,43 @@ enum ModifierBox {
 
     // MARK: Painting
 
-    /// The content group's background, rounding and clip, and border.
-    private static func applyPaint(_ content: WidgetPointer, _ modifiers: BaseModifiers) {
+    /// The CSS properties of the content group's paint that the animation modifier animates.
+    static let paintTransitions = ["background-color", "outline-color", "outline-width", "outline-offset",
+                                   "border-top-left-radius", "border-top-right-radius",
+                                   "border-bottom-right-radius", "border-bottom-left-radius"]
+
+    /// What the box draws itself that an animation can move (BoxAnimation).
+    static func visuals(_ modifiers: BaseModifiers) -> BoxVisuals {
+        BoxVisuals(opacity: min(max(finite(modifiers.opacity, 1), 0), 1), hidden: modifiers.hidden,
+                   offsetX: finite(modifiers.offset?.x, 0), offsetY: finite(modifiers.offset?.y, 0),
+                   rotation: finite(modifiers.rotationDegrees, 0),
+                   scaleX: finite(modifiers.scale?.x, 1), scaleY: finite(modifiers.scale?.y, 1),
+                   shadow: shadowValue(modifiers.shadow))
+    }
+
+    /// Arms a CSS transition of `properties` on `widget` for a sync that animates (`timing`), so
+    /// the style changes of this sync move with its curve. A sync that does not animate disarms it
+    /// only when it changes the style (`changed`), so the transition it would cut short, started
+    /// by a sync before, runs to its end.
+    private static func applyTransition(_ widget: WidgetPointer, _ timing: AnimationTiming?, changed: Bool, properties: [String]) {
+        if let timing {
+            StyleSheet.shared.apply(timing.cssDeclarations(properties), to: widget, slot: "transition")
+        } else if changed {
+            StyleSheet.shared.apply([], to: widget, slot: "transition")
+        }
+    }
+
+    /// The content group's background, rounding and clip, and border. Returns whether any of
+    /// their classes changed.
+    @discardableResult
+    private static func applyPaint(_ content: WidgetPointer, _ modifiers: BaseModifiers) -> Bool {
         let background = modifiers.background.flatMap(ShapeStyleSpec.parse).map {
             ["background-color: \(ColorCSS.value($0));"]
         } ?? []
-        StyleSheet.shared.apply(background, to: content, slot: "background")
+        var changed = StyleSheet.shared.apply(background, to: content, slot: "background")
 
         let radius = cornerRadius(modifiers)
-        StyleSheet.shared.apply(radius.map { ["border-radius: \($0);"] } ?? [], to: content, slot: "shape")
+        changed = StyleSheet.shared.apply(radius.map { ["border-radius: \($0);"] } ?? [], to: content, slot: "shape") || changed
         let clips = radius != nil
         let overflow = clips ? GTK_OVERFLOW_HIDDEN : GTK_OVERFLOW_VISIBLE
         if gtk_widget_get_overflow(content) != overflow {
@@ -372,7 +395,7 @@ enum ModifierBox {
             // Inside the frame, as SwiftUI's border, drawn over the content.
             border = ["outline: \(width)px solid \(color);", "outline-offset: -\(width)px;"]
         }
-        StyleSheet.shared.apply(border, to: content, slot: "border")
+        return StyleSheet.shared.apply(border, to: content, slot: "border") || changed
     }
 
     /// The CSS border-radius of cornerRadius and clipShape (clipShape wins, as it clips after),
@@ -395,36 +418,25 @@ enum ModifierBox {
         return "\(FontCSS.pixels(radius))px"
     }
 
-    private static func applyShadow(_ box: WidgetPointer, _ shadow: BaseModifiers.Shadow?) {
-        guard let state = attached(on: box, key: boxShadowKey) else { return }
-        var next: GskShadow?
-        if let shadow, shadow.radius.isFinite, shadow.x.isFinite, shadow.y.isFinite {
-            let color = ColorSpec.parse(shadow.color).map { spec -> GdkRGBA in
-                let value = ColorCSS.components(spec)
-                return GdkRGBA(red: Float(value.red), green: Float(value.green), blue: Float(value.blue), alpha: Float(value.alpha))
-            } ?? defaultShadowColor
-            // GSK's blur radius is twice the deviation, and a view's is the deviation (measured on
-            // macOS 27: 8 fades at 7.6). A Canvas's shadow is not: its radius is GSK's as it is.
-            next = GskShadow(color: color, dx: Float(shadow.x), dy: Float(shadow.y),
-                             radius: CanvasFilter.radius(shadow.radius * 2))
-        }
-        let same: Bool
-        switch (state.shadow, next) {
-        case (nil, nil): same = true
-        case let (old?, new?):
-            same = old.dx == new.dx && old.dy == new.dy && old.radius == new.radius
-                && old.color.red == new.color.red && old.color.green == new.color.green
-                && old.color.blue == new.color.blue && old.color.alpha == new.color.alpha
-        default: same = false
-        }
-        guard !same else { return }
-        state.shadow = next
-        gtk_widget_queue_draw(box)
+    /// The shadow a box draws for `shadow`; nil for none.
+    private static func shadowValue(_ shadow: BaseModifiers.Shadow?) -> ShadowValue? {
+        guard let shadow, shadow.radius.isFinite, shadow.x.isFinite, shadow.y.isFinite else { return nil }
+        let color = ColorSpec.parse(shadow.color).map { spec -> GdkRGBA in
+            let value = ColorCSS.components(spec)
+            return GdkRGBA(red: Float(value.red), green: Float(value.green), blue: Float(value.blue), alpha: Float(value.alpha))
+        } ?? defaultShadowColor
+        // GSK's blur radius is twice the deviation, and a view's is the deviation (measured on
+        // macOS 27: 8 fades at 7.6). A Canvas's shadow is not: its radius is GSK's as it is.
+        return ShadowValue(red: color.red, green: color.green, blue: color.blue, alpha: color.alpha,
+                           dx: Float(shadow.x), dy: Float(shadow.y), radius: CanvasFilter.radius(shadow.radius * 2))
     }
 
     /// The element widget's font, foreground color and tint, which its descendants inherit (not
-    /// its background and overlay views, outside the widget, as on Apple: NodeDecorations).
-    private static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers) {
+    /// its background and overlay views, outside the widget, as on Apple: NodeDecorations). A
+    /// foreground color changed by a sync that animates moves with its curve: the transition is
+    /// armed on the element widget only then, as it takes the place of the widget's own (a
+    /// libadwaita button's hover fade) until a sync changes the color at once.
+    private static func applyText(_ widget: WidgetPointer, _ modifiers: BaseModifiers, timing: AnimationTiming?) {
         if let value = modifiers.font {
             let style = FontCSS.style(FontSpec.parse(value, logger: ActionUIModel.shared.logger))
             StyleSheet.shared.apply(style.declarations, named: style.classes, to: widget, slot: "font")
@@ -432,7 +444,9 @@ enum ModifierBox {
             StyleSheet.shared.apply([], to: widget, slot: "font")
         }
         let foreground = modifiers.foregroundStyle.flatMap(ShapeStyleSpec.parse).map { ["color: \(ColorCSS.value($0));"] } ?? []
-        StyleSheet.shared.apply(foreground, to: widget, slot: "foreground")
+        if StyleSheet.shared.apply(foreground, to: widget, slot: "foreground") {
+            applyTransition(widget, timing, changed: true, properties: ["color"])
+        }
         // libadwaita's accent: controls draw with --accent-bg-color, text and links with
         // --accent-color.
         let tint = modifiers.tint.flatMap(ShapeStyleSpec.parse).map { style -> [String] in
@@ -572,7 +586,7 @@ enum ModifierBox {
 
     private static func snapshot(_ box: WidgetPointer, _ snapshot: OpaquePointer) {
         let drawChildren = { boxParentClass?.pointee.snapshot?(box, snapshot) }
-        guard var shadow = attached(on: box, key: boxShadowKey)?.shadow else {
+        guard var shadow = attached(on: box, key: boxShadowKey)?.value?.gsk else {
             drawChildren()
             return
         }

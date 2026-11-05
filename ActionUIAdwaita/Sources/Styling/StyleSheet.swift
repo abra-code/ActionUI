@@ -95,7 +95,9 @@ final class StyleSheet {
 
     /// Gives `widget` the classes for `declarations` and `named` in `slot`, in place of the
     /// slot's previous ones. The generated class's rule has `selector` (see className(for:)).
-    func apply(_ declarations: [String], named: [String] = [], to widget: WidgetPointer, slot: String, selector: String = "{}") {
+    /// Returns whether the slot's classes changed.
+    @discardableResult
+    func apply(_ declarations: [String], named: [String] = [], to widget: WidgetPointer, slot: String, selector: String = "{}") -> Bool {
         var wanted = named
         if let generated = className(for: declarations, selector: selector) {
             wanted.append(generated)
@@ -108,7 +110,7 @@ final class StyleSheet {
             attach(slots, to: widget, key: styleSlotsKey)
         }
         let previous = slots.classes[slot] ?? []
-        guard previous != wanted else { return }
+        guard previous != wanted else { return false }
         slots.classes[slot] = wanted
         // A class another slot also holds (the same declarations in two slots) stays.
         let kept = Set(slots.classes.values.joined())
@@ -125,6 +127,7 @@ final class StyleSheet {
         for name in previous {
             release(name)
         }
+        return true
     }
 
     /// The CSS rules in use (for tests).
