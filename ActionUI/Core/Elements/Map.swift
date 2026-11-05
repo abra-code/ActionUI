@@ -16,7 +16,7 @@
      ]
    }
    // Note: These properties are specific to Map. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
-   // Design decision: Uses modern Map initializer with MapCameraPosition and MapContentBuilder. Annotations use Annotation for title/subtitle support.
+   // Design decision: Uses modern Map initializer with MapCameraPosition and MapContentBuilder. Each annotation is a red pin standing on its coordinate (an Annotation whose content is the pin), with its title and subtitle drawn under it as MapKit's label.
  }
 */
 

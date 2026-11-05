@@ -37,8 +37,23 @@ extension Map: ActionUISwiftUIRenderer {
     private struct MapAnnotationItem: Identifiable {
         let id = UUID()
         let coordinate: CLLocationCoordinate2D
-        let title: String?
-        let subtitle: String?
+        let label: String
+    }
+
+    /// An annotation's pin: a white map pin in a red circle, the look Android and the Web draw.
+    private struct MapAnnotationPin: SwiftUI.View {
+        var body: some SwiftUI.View {
+            SwiftUI.Image(systemName: "mappin.circle.fill")
+                .font(.title)
+                .foregroundStyle(.white, .red)
+        }
+    }
+
+    /// The text MapKit draws under an annotation's pin: the title and the subtitle on separate
+    /// lines, or "" for neither. One Text, because MapKit uses only the first Text of a label.
+    /// An empty title or subtitle is left out, as on Linux, so it adds no blank line.
+    static func annotationLabel(title: String?, subtitle: String?) -> String {
+        [title, subtitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n")
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
@@ -57,8 +72,7 @@ extension Map: ActionUISwiftUIRenderer {
         let annotations: [MapAnnotationItem] = props.annotations.map { annotation in
             MapAnnotationItem(
                 coordinate: CLLocationCoordinate2D(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude),
-                title: annotation.title,
-                subtitle: annotation.subtitle
+                label: Self.annotationLabel(title: annotation.title, subtitle: annotation.subtitle)
             )
         }
         
@@ -111,12 +125,15 @@ extension Map: ActionUISwiftUIRenderer {
             if showsUserLocation {
                 MapKit.UserAnnotation()
             }
+            // Each annotation is a red pin standing on its coordinate, with the title and subtitle
+            // drawn by MapKit under it in its own label style (a halo, wrapping). The text is the
+            // label, not the content: MapKit draws the label in any case, so text in the content
+            // showed the title twice, and an annotation without text showed nothing.
             ForEach(annotations, id: \.id) { item in
-                Annotation(item.title ?? "", coordinate: item.coordinate) {
-                    SwiftUI.VStack(alignment: .leading, spacing: 2) {
-                        if let title = item.title { SwiftUI.Text(title).font(.caption).bold() }
-                        if let subtitle = item.subtitle { SwiftUI.Text(subtitle).font(.caption2) }
-                    }
+                Annotation(coordinate: item.coordinate, anchor: .bottom) {
+                    MapAnnotationPin()
+                } label: {
+                    SwiftUI.Text(item.label)
                 }
             }
         }

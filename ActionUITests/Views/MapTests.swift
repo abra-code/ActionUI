@@ -188,4 +188,15 @@ final class MapTests: XCTestCase {
             XCTFail("stateCoord must not be nil")
         }
     }
+
+    /// MapKit draws an annotation's label under its pin and uses only the label's first Text, so
+    /// the title and subtitle go into one Text on separate lines.
+    func testAnnotationLabelPutsTitleAndSubtitleOnSeparateLines() {
+        XCTAssertEqual(ActionUI.Map.annotationLabel(title: "Point", subtitle: "Subtitle"), "Point\nSubtitle")
+        XCTAssertEqual(ActionUI.Map.annotationLabel(title: "Only a title", subtitle: nil), "Only a title")
+        XCTAssertEqual(ActionUI.Map.annotationLabel(title: nil, subtitle: "Only a subtitle"), "Only a subtitle")
+        XCTAssertEqual(ActionUI.Map.annotationLabel(title: nil, subtitle: nil), "", "A pin alone has no text")
+        XCTAssertEqual(ActionUI.Map.annotationLabel(title: "", subtitle: "Only a subtitle"), "Only a subtitle", "An empty title adds no blank line")
+        XCTAssertEqual(ActionUI.Map.annotationLabel(title: "Only a title", subtitle: ""), "Only a title")
+    }
 }
