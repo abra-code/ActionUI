@@ -110,6 +110,8 @@ final class ShumateLibrary {
     let setLocation: SetLocation
     let addMarker: Pair
     let removeAllMarkers: Command
+    /// shumate_point_new: libshumate's location dot, a marker drawn in the theme's accent color
+    let newPoint: NewWidget
 
     /// The registry that owns the map source; kept for the life of the process, as the library is.
     private var registry: OpaquePointer?
@@ -141,7 +143,8 @@ final class ShumateLibrary {
               let setMarkerChild = function("shumate_marker_set_child", as: Pair.self),
               let setLocation = function("shumate_location_set_location", as: SetLocation.self),
               let addMarker = function("shumate_marker_layer_add_marker", as: Pair.self),
-              let removeAllMarkers = function("shumate_marker_layer_remove_all", as: Command.self) else { return nil }
+              let removeAllMarkers = function("shumate_marker_layer_remove_all", as: Command.self),
+              let newPoint = function("shumate_point_new", as: NewWidget.self) else { return nil }
         self.setUserAgent = setUserAgent
         self.newRegistry = newRegistry
         self.mapSource = mapSource
@@ -166,6 +169,7 @@ final class ShumateLibrary {
         self.setLocation = setLocation
         self.addMarker = addMarker
         self.removeAllMarkers = removeAllMarkers
+        self.newPoint = newPoint
     }
 
     /// The map source every Map shows (mapSourceID), owned by the library; nil, logged once, when the

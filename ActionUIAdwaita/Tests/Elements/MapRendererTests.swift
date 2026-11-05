@@ -6,18 +6,47 @@
  and fires valueChangeActionID and actionID once it settles, a host's value moves the map and fires
  only actionID, and nothing fires before the first layout; interactionModes turn libshumate's input
  handlers off and on; each annotation is a pin, with its tip on the coordinate, and its title and
- subtitle, replaced when the annotations change. The renderer tests need libshumate (package
- libshumate-1.0-1) and skip without it; none needs the tiles.
+ subtitle, replaced when the annotations change; with showsUserLocation, while the map is on screen,
+ the user's location is a dot that moves nothing and fires nothing. The renderer tests need
+ libshumate (package libshumate-1.0-1) and skip without it; none needs the tiles or the location
+ portal (a stand-in sends the locations).
 */
 
 import XCTest
 import CAdwaita
 @testable import ActionUI
 
+/// Sends the locations a test gives to the maps listening, and counts them.
+@MainActor private final class StandInLocationSource: UserLocationSource {
+    var listeners: [Int: @MainActor (ActionUICoordinate) -> Void] = [:]
+    var starts = 0
+    private var nextToken = 1
+
+    func startUpdates(_ update: @escaping @MainActor (ActionUICoordinate) -> Void) -> Int {
+        starts += 1
+        let token = nextToken
+        nextToken += 1
+        listeners[token] = update
+        return token
+    }
+
+    func stopUpdates(_ token: Int) {
+        listeners[token] = nil
+    }
+
+    func send(_ coordinate: ActionUICoordinate) {
+        for update in listeners.values {
+            update(coordinate)
+        }
+    }
+}
+
 @MainActor
 final class MapRendererTests: XCTestCase {
     private var windowUUID = ""
     private var windows: [AdwaitaWindow] = []
+    private var shownWindows: [UnsafeMutablePointer<GtkWindow>] = []
+    private let location = StandInLocationSource()
     private var fired: [String] = []
     private let actionIDs = ["test.camera", "test.center"]
 
@@ -28,6 +57,7 @@ final class MapRendererTests: XCTestCase {
         ActionUIRegistry.shared.loadBuiltIns()
         windowUUID = "map-\(name)"
         fired = []
+        LocationPortal.shared = location
         for actionID in actionIDs {
             ActionUIModel.shared.registerActionHandler(for: actionID) { [weak self] actionID, _, _, _, _ in
                 MainActor.assumeIsolated { self?.fired.append(actionID) }
@@ -36,7 +66,12 @@ final class MapRendererTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        for window in shownWindows {
+            gtk_window_destroy(window)
+        }
+        shownWindows = []
         windows = []
+        LocationPortal.shared = LocationPortal()
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
         for actionID in actionIDs {
@@ -307,5 +342,123 @@ final class MapRendererTests: XCTestCase {
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "annotations", value: [Any]())
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(try markers(node).count, 0)
+    }
+
+    // MARK: User location
+
+    /// `node`'s window on screen.
+    private func show(_ node: RenderNode) throws {
+        let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        shownWindows.append(window)
+        adw_window_set_content(typed(window), try XCTUnwrap(windows.last).contentWidget)
+        gtk_window_present(window)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+    }
+
+    /// libshumate's location dots on the map.
+    private func userLocationDots(_ node: RenderNode) throws -> [WidgetPointer] {
+        let layers = Gtk.Widget(try maps(node).map).children.map(\.pointer).filter {
+            swiftString(g_type_name_from_instance(typed(OpaquePointer($0)))) == "ShumateMarkerLayer"
+        }
+        return layers.flatMap { Gtk.Widget($0).children.map(\.pointer) }.filter {
+            swiftString(g_type_name_from_instance(typed(OpaquePointer($0)))) == "ShumatePoint"
+        }
+    }
+
+    private let apple = ActionUICoordinate(latitude: 37.3349, longitude: -122.009)
+
+    func testTheUserLocationIsADotThatMovesNothingAndFiresNothing() throws {
+        let library = try requireShumate()
+        let node = try render(#""showsUserLocation": true"#)
+        try show(node)
+        XCTAssertEqual(location.starts, 1)
+        XCTAssertEqual(try userLocationDots(node).count, 0, "no dot before a location")
+        let viewport = try viewport(node, library)
+        location.send(apple)
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: Int(Map.moveSettleMilliseconds) * 2)
+        let dots = try userLocationDots(node)
+        XCTAssertEqual(dots.count, 1)
+        XCTAssertEqual(library.latitude(OpaquePointer(dots[0])), apple.latitude)
+        XCTAssertEqual(library.longitude(OpaquePointer(dots[0])), apple.longitude)
+        XCTAssertNotEqual(gtk_widget_get_visible(dots[0]), 0)
+        XCTAssertEqual(gtk_widget_get_can_target(dots[0]), 0, "a drag that starts on the dot moves the map")
+        // The map stays where it was, with its value, and nothing fires.
+        XCTAssertEqual(library.latitude(viewport), cupertino.latitude, accuracy: 1e-9)
+        XCTAssertEqual(library.longitude(viewport), cupertino.longitude, accuracy: 1e-9)
+        XCTAssertEqual(node.model.value as? ActionUICoordinate, cupertino)
+        XCTAssertEqual(fired, [])
+        // A new location moves the dot.
+        location.send(ActionUICoordinate(latitude: 37.34, longitude: -122.02))
+        XCTAssertEqual(try userLocationDots(node).count, 1)
+        XCTAssertEqual(library.latitude(OpaquePointer(dots[0])), 37.34)
+    }
+
+    func testWithoutShowsUserLocationTheMapDoesNotAskForTheLocation() throws {
+        _ = try requireShumate()
+        let node = try render()
+        try show(node)
+        XCTAssertEqual(location.starts, 0)
+        XCTAssertEqual(try userLocationDots(node).count, 0)
+    }
+
+    func testTheMapAsksForTheLocationOnlyWhileOnScreen() throws {
+        _ = try requireShumate()
+        let node = try render(#""showsUserLocation": true"#)
+        XCTAssertEqual(location.starts, 0, "not on screen yet")
+        try show(node)
+        XCTAssertEqual(location.starts, 1)
+        XCTAssertEqual(location.listeners.count, 1)
+        gtk_widget_set_visible(typed(try XCTUnwrap(shownWindows.last)), 0)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) == 0 }))
+        XCTAssertEqual(location.listeners.count, 0, "stopped when hidden")
+        gtk_window_present(try XCTUnwrap(shownWindows.last))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        XCTAssertEqual(location.starts, 2)
+        XCTAssertEqual(location.listeners.count, 1)
+    }
+
+    func testAMapShownAgainHasNoDotUntilALocationComes() throws {
+        _ = try requireShumate()
+        let node = try render(#""showsUserLocation": true"#)
+        try show(node)
+        location.send(apple)
+        let dot = try XCTUnwrap(try userLocationDots(node).first)
+        let window = try XCTUnwrap(shownWindows.last)
+        gtk_widget_set_visible(typed(window), 0)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) == 0 }))
+        XCTAssertEqual(gtk_widget_get_visible(dot), 0, "hidden when the map stops listening")
+        gtk_window_present(window)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        XCTAssertEqual(gtk_widget_get_visible(dot), 0, "the location service may have been turned off meanwhile")
+        location.send(apple)
+        XCTAssertNotEqual(gtk_widget_get_visible(dot), 0)
+    }
+
+    func testClosingTheWindowStopsTheLocation() throws {
+        _ = try requireShumate()
+        let node = try render(#""showsUserLocation": true"#)
+        try show(node)
+        XCTAssertEqual(location.listeners.count, 1)
+        gtk_window_destroy(try XCTUnwrap(shownWindows.popLast()))
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(location.listeners.count, 0)
+    }
+
+    func testTurningShowsUserLocationOffStopsAndHidesTheDot() throws {
+        _ = try requireShumate()
+        let node = try render(#""showsUserLocation": true"#)
+        try show(node)
+        location.send(apple)
+        let dot = try XCTUnwrap(try userLocationDots(node).first)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "showsUserLocation", value: false)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(location.listeners.count, 0)
+        XCTAssertEqual(gtk_widget_get_visible(dot), 0)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "showsUserLocation", value: true)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(location.starts, 2)
+        location.send(apple)
+        XCTAssertNotEqual(gtk_widget_get_visible(dot), 0)
+        XCTAssertEqual(try userLocationDots(node).count, 1, "the same dot again")
     }
 }

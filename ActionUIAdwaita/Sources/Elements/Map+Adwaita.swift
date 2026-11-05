@@ -19,7 +19,10 @@
    centered under it, as a pin-based map app draws a place. Map tiles are light in dark mode too,
    so the text is dark with a white halo whatever the theme. The pins take no input: dragging over
    one moves the map.
- - Not yet: showsUserLocation is accepted and not drawn.
+ - showsUserLocation: the user's location is libshumate's own dot (in the theme's accent color), over
+   the pins, from the desktop's location portal (Runtime/LocationPortal.swift) while the map is on
+   screen. Like Apple's UserAnnotation it never moves the map, sets the value or fires an action.
+   No location (the desktop's location service off or missing): no dot.
  - Without libshumate: a dimmed label naming the package to install (logged once, by ShumateLibrary).
 */
 
@@ -52,15 +55,26 @@ import CAdwaita
     /// The layer of the annotations' pins, over the map, and the annotations it shows.
     let markerLayer: WidgetPointer?
     var annotations: [Map.Props.Annotation] = []
+    /// The container the map is in; the state is attached to it, so it outlives the state.
+    let container: WidgetPointer
+    /// showsUserLocation as last rendered.
+    var showsUserLocation = false
+    /// The source of the user's location while the map listens to it (shown and showsUserLocation),
+    /// and the token that stops it.
+    var locationSource: (any UserLocationSource)?
+    var locationToken: Int?
+    /// The user's location dot, made at its first location, in a layer of its own over the pins.
+    var userLocationPoint: WidgetPointer?
 
     init(_ node: RenderNode, library: ShumateLibrary, simpleMap: WidgetPointer, map: WidgetPointer, viewport: OpaquePointer,
-         markerLayer: WidgetPointer?) {
+         markerLayer: WidgetPointer?, container: WidgetPointer) {
         self.node = node
         self.library = library
         self.simpleMap = simpleMap
         self.map = map
         self.viewport = viewport
         self.markerLayer = markerLayer
+        self.container = container
     }
 }
 
@@ -95,9 +109,17 @@ extension Map: ActionUIAdwaitaRenderer {
         if let markerLayer {
             shumate.addOverlayLayer(simpleMap, markerLayer)
         }
-        let state = MapState(node, library: shumate, simpleMap: simpleMap, map: map, viewport: viewport, markerLayer: markerLayer)
+        let state = MapState(node, library: shumate, simpleMap: simpleMap, map: map, viewport: viewport, markerLayer: markerLayer,
+                             container: container)
         findInputHandlers(state)
         attach(state, to: UnsafeMutableRawPointer(container), key: mapStateKey)
+        // The location is listened to only while the map is on screen.
+        for signal in ["map", "unmap"] {
+            connectSignal(UnsafeMutableRawPointer(container), signal, .instanceOnly) { [weak state] in
+                guard let state else { return }
+                followUserLocation(state)
+            }
+        }
         for property in ["latitude", "longitude", "zoom-level", "rotation"] {
             connectSignal(UnsafeMutableRawPointer(viewport), "notify::\(property)", .instanceAndArgument) { [weak state] in
                 guard let state else { return }
@@ -114,6 +136,10 @@ extension Map: ActionUIAdwaitaRenderer {
         if props.annotations != state.annotations {
             state.annotations = props.annotations
             showAnnotations(props.annotations, state)
+        }
+        if props.showsUserLocation != state.showsUserLocation {
+            state.showsUserLocation = props.showsUserLocation
+            followUserLocation(state)
         }
         if let center = node.model.value as? ActionUICoordinate, center != state.lastTracked {
             state.lastTracked = center
@@ -366,5 +392,46 @@ extension Map: ActionUIAdwaitaRenderer {
         gtk_widget_size_allocate(pin, &pinBox, -1)
         var textBox = GtkAllocation(x: 0, y: tip + pinTextGap, width: width, height: textHeight)
         gtk_widget_size_allocate(text, &textBox, -1)
+    }
+
+    // MARK: User location
+
+    /// Listens to the user's location while the map is on screen and shows it; otherwise stops and
+    /// hides the dot, so a map shown again has no dot until a location comes (the location service
+    /// may have been turned off meanwhile).
+    private static func followUserLocation(_ state: MapState) {
+        let wanted = state.showsUserLocation && gtk_widget_get_mapped(state.container) != 0
+        if wanted, state.locationToken == nil {
+            let source = LocationPortal.shared
+            state.locationSource = source
+            state.locationToken = source.startUpdates { [weak state] coordinate in
+                guard let state else { return }
+                showUserLocation(coordinate, state)
+            }
+        } else if !wanted, let token = state.locationToken {
+            state.locationSource?.stopUpdates(token)
+            state.locationSource = nil
+            state.locationToken = nil
+            if let point = state.userLocationPoint {
+                gtk_widget_set_visible(point, 0)
+            }
+        }
+    }
+
+    /// Puts the dot at `coordinate`, making it the first time, over the annotations' pins.
+    private static func showUserLocation(_ coordinate: ActionUICoordinate, _ state: MapState) {
+        let library = state.library
+        if state.userLocationPoint == nil {
+            guard let layer = library.newMarkerLayer(state.viewport), let point = library.newPoint() else { return }
+            library.addOverlayLayer(state.simpleMap, layer)
+            // The map, not the dot, takes a drag or a click that starts on it.
+            gtk_widget_set_can_target(point, 0)
+            setAccessibleLabel(point, "Current location")
+            library.addMarker(layer, point)
+            state.userLocationPoint = point
+        }
+        guard let point = state.userLocationPoint else { return }
+        library.setLocation(OpaquePointer(point), coordinate.latitude, coordinate.longitude)
+        gtk_widget_set_visible(point, 1)
     }
 }
