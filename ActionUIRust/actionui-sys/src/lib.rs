@@ -21,11 +21,13 @@
 //!   Setters do so asynchronously, getters wait for the result.
 //! - Callbacks are invoked on the main thread.
 
-#![cfg(any(target_os = "macos", target_os = "linux"))]
+// On Android only the HostSurface declarations are used (libactionui_hostsurface.so); the C
+// adapter's are declared but never called, so nothing links them.
+#![cfg(any(target_os = "macos", target_os = "linux", all(target_os = "android", feature = "host-surface")))]
 #![allow(non_snake_case)]
 
 /// The HostSurface add-on: an element the program draws into with its own renderer.
-#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux")))]
+#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux", target_os = "android")))]
 pub mod host_surface;
 
 use std::ffi::{c_char, c_int};

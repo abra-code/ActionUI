@@ -493,7 +493,7 @@ actionui::log::set_logger(|message, level| {
 
 ## `actionui::host_surface`
 
-With the `host-surface` feature (macOS and Linux): the `HostSurface` element, a part of a window that the program draws with its own renderer while ActionUI draws the rest. `App::new` registers the element on macOS; on Linux `libActionUI.so` registers it itself. A document places it and names it:
+With the `host-surface` feature (macOS, Linux, and Android, where a Rust library is a client of the Kotlin library's element; see BUILD_GUIDE.md): the `HostSurface` element, a part of a window that the program draws with its own renderer while ActionUI draws the rest. `App::new` registers the element on macOS; on Linux `libActionUI.so` registers it itself. A document places it and names it:
 
 ```json
 { "type": "HostSurface", "id": 20, "properties": { "surfaceName": "canvas", "idealWidth": 640, "idealHeight": 480 } }
@@ -501,14 +501,14 @@ With the `host-surface` feature (macOS and Linux): the `HostSurface` element, a 
 
 | `App` method | Description |
 |---|---|
-| `set_surface_delegate(surface_name: &str, delegate: impl SurfaceDelegate) -> Result<()>` | Binds `delegate` to every HostSurface element with that `surfaceName`, in every window, now and later. Live surfaces are announced at once; a delegate it replaces gets `destroyed` first. Called inside a delegate method, the change takes effect when the outermost callback returns. |
+| `set_surface_delegate(surface_name: &str, delegate: impl SurfaceDelegate) -> Result<()>` (also the free function `host_surface::set_delegate`, the only way on Android, and `remove_delegate`) | Binds `delegate` to every HostSurface element with that `surfaceName`, in every window, now and later. Live surfaces are announced at once; a delegate it replaces gets `destroyed` first. Called inside a delegate method, the change takes effect when the outermost callback returns. |
 | `remove_surface_delegate(surface_name: &str) -> Result<()>` | Unbinds it; it gets `destroyed` for its surfaces first. |
 
 `SurfaceDelegate` methods, all on the main thread:
 
 | Method | When | What the delegate does |
 |---|---|---|
-| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, where the program renders anywhere and presents the pixels. |
+| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, where the program renders anywhere and presents the pixels; `SurfaceHandle::NativeWindow` (an `ANativeWindow`) on Android. |
 | `changed(&SurfaceInfo)` | The size or the scale changed. | Resize before the next frame. |
 | `suspended(&SurfaceInfo)`, `resumed(&SurfaceInfo)` | The surface left the screen (hidden, an occluded window, zero size) or came back. | Ask for no drawable while suspended. |
 | `destroyed(&SurfaceInfo)` | The element went away, its window closed, or the delegate was replaced. | Stop all use of the handle before returning: drop the swapchain, join a render thread. |
@@ -523,7 +523,7 @@ With the `wgpu` feature, `host_surface::wgpu_surface` has:
 
 | Function | Description |
 |---|---|
-| `unsafe create(&wgpu::Instance, &SurfaceInfo) -> Result<wgpu::Surface<'static>>` | A wgpu surface on the element's layer. Drop it before `destroyed` returns. |
+| `unsafe create(&wgpu::Instance, &SurfaceInfo) -> Result<wgpu::Surface<'static>>` | A wgpu surface on the element's layer (macOS) or native window (Android). Drop it before `destroyed` returns. |
 | `device_descriptor(&wgpu::Adapter) -> wgpu::DeviceDescriptor` | Requests the adapter's own limits; the defaults ask for more than some devices have. |
 | `next_frame(&wgpu::Surface) -> NextFrame` | `Draw(texture)`, `Skip` (occluded, a timeout), `Reconfigure` (outdated) or `Recreate` (lost). |
 | `FrameSink::new(&SurfaceInfo) -> Result<FrameSink>` | For a frame sink (Linux): an offscreen texture in `FrameSink::FORMAT`. `configure(&Device, width, height)` at `created` and `changed`, draw into `view()`, then `present(&Device, &Queue, encoder) -> bool` submits, reads the texture back and presents it (it waits for the GPU). |

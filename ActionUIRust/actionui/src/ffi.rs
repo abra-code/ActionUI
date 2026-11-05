@@ -1,4 +1,6 @@
 //! Helpers shared by the modules that call into `actionui-sys`.
+// On Android only the HostSurface helpers are used; the rest call the C adapter, which is not there.
+#![cfg_attr(target_os = "android", allow(dead_code))]
 
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::io::Write;
@@ -17,7 +19,7 @@ unsafe extern "C" {
     fn pthread_main_np() -> c_int;
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 unsafe extern "C" {
     fn gettid() -> c_int;
     fn getpid() -> c_int;
@@ -29,8 +31,9 @@ pub(crate) fn is_main_thread() -> bool {
 }
 
 /// The main thread's ID is the process ID. It is also the thread ActionUI takes for the
-/// main one: the program loads libActionUI.so on it, at startup.
-#[cfg(target_os = "linux")]
+/// main one: the program loads libActionUI.so on it, at startup. On Android it is the app's main
+/// (Looper) thread.
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) fn is_main_thread() -> bool {
     unsafe { gettid() == getpid() }
 }
@@ -79,8 +82,15 @@ pub(crate) unsafe fn copy_string(pointer: *const c_char) -> Option<String> {
     Some(unsafe { CStr::from_ptr(pointer) }.to_string_lossy().into_owned())
 }
 
+#[cfg(not(target_os = "android"))]
 pub(crate) fn last_error() -> Option<String> {
     unsafe { take_string(sys::actionUIGetLastError()) }
+}
+
+/// No C adapter on Android, so no recorded error.
+#[cfg(target_os = "android")]
+pub(crate) fn last_error() -> Option<String> {
+    None
 }
 
 /// For a call that reported failure: ActionUI's own message, or `fallback` when it
@@ -133,11 +143,43 @@ pub(crate) fn guard<R>(what: &str, fallback: R, callback: impl FnOnce() -> R) ->
             // pipe), and a panic here is outside catch_unwind.
             let _ = writeln!(std::io::stderr(), "{message}");
             if let Ok(message) = CString::new(message) {
-                unsafe { sys::actionUILog(message.as_ptr(), sys::ACTIONUI_LOG_LEVEL_ERROR) };
+                log_error(&message);
             }
             fallback
         }
     }
+}
+
+/// ActionUI's log; on Android, where it is not linked, logcat.
+#[cfg(not(target_os = "android"))]
+fn log_error(message: &CString) {
+    unsafe { sys::actionUILog(message.as_ptr(), sys::ACTIONUI_LOG_LEVEL_ERROR) };
+}
+
+#[cfg(target_os = "android")]
+fn log_error(message: &CString) {
+    android_log(6, message);
+}
+
+/// A warning in ActionUI's log; on Android, logcat.
+#[cfg(feature = "host-surface")]
+pub(crate) fn log_warning(message: &str) {
+    #[cfg(not(target_os = "android"))]
+    let _ = crate::log::log(crate::LogLevel::Warning, message);
+    #[cfg(target_os = "android")]
+    if let Ok(message) = CString::new(message) {
+        android_log(5, &message);
+    }
+}
+
+/// Writes to logcat under the tag ActionUI; `priority` is ANDROID_LOG_WARN (5) or ANDROID_LOG_ERROR (6).
+#[cfg(target_os = "android")]
+fn android_log(priority: c_int, message: &CString) {
+    #[link(name = "log")]
+    unsafe extern "C" {
+        fn __android_log_write(priority: c_int, tag: *const c_char, text: *const c_char) -> c_int;
+    }
+    unsafe { __android_log_write(priority, c"ActionUI".as_ptr(), message.as_ptr()) };
 }
 
 #[cfg(test)]

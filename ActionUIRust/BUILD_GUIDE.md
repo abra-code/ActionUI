@@ -133,6 +133,28 @@ Differences from macOS:
 - `actionui-sys` leaves out `actionUILoadHostingControllerFromURL`, which Linux does not have.
 - `main_thread::dispatch` hands the closure to GLib's main loop, which GTK runs; the program links `libglib-2.0.so.0`, which `libActionUI.so` needs anyway.
 
+## HostSurface on Android
+
+On Android, ActionUI is the Kotlin library (`ActionUIAndroid`), so a Rust program there is a client of HostSurface elements only: a shared library the app loads, which binds a delegate with `actionui::host_surface::set_delegate` from a JNI function called on the main thread, and draws on the element's native window (`SurfaceHandle::NativeWindow`; with `wgpu`, `wgpu_surface::create` makes a Vulkan or OpenGL ES surface on it). The crates build for Android only with the `host-surface` feature, and link `libactionui_hostsurface.so`, the add-on's C interface, which `:addon-hostsurface` builds and puts in the app.
+
+`examples/host_surface_android.rs` is such a library, for the "demo.rust" element of the add-on test app (`ActionUIAndroid/addon-testapp`):
+
+```sh
+rustup target add aarch64-linux-android
+NDK=$HOME/Library/Android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/darwin-x86_64/bin
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK/aarch64-linux-android31-clang
+export CC_aarch64_linux_android=$NDK/aarch64-linux-android31-clang AR_aarch64_linux_android=$NDK/llvm-ar
+# The add-on's library for the ABI (cd ActionUIAndroid && ./gradlew :addon-hostsurface:assembleDebug):
+export ACTIONUI_HOSTSURFACE_LIB_DIR=/path/to/ActionUIAndroid/addon-hostsurface/build/intermediates/stripped_native_libs/debug/stripDebugDebugSymbols/out/lib/arm64-v8a
+cargo build --release -p actionui --example host_surface_android --features host-surface,wgpu --target aarch64-linux-android
+mkdir -p target/android-demo-libs/arm64-v8a
+cp target/aarch64-linux-android/release/examples/libhost_surface_android.so target/android-demo-libs/arm64-v8a/
+# Then the app, with the library in it:
+cd ../ActionUIAndroid && ./gradlew :addon-testapp:assembleDebug -PrustDemoLibs=/path/to/ActionUIRust/target/android-demo-libs
+```
+
+Main-thread work the crate defers (freeing a delegate unbound inside a callback, `main_thread::dispatch`) runs on the app's main Looper, which the first `set_delegate` attaches to.
+
 ## Where the interface JSON lives
 
 Three ways, each with its own `App` call:

@@ -42,9 +42,33 @@ fn main() {
     match target_os.as_str() {
         "macos" => link_frameworks(),
         "linux" => link_library(),
+        "android" => link_android_host_surface(),
         // The crate is empty on other systems; nothing to link.
         _ => {}
     }
+}
+
+/// Android: only the HostSurface add-on's C interface, libactionui_hostsurface.so, which the
+/// :addon-hostsurface module of ActionUIAndroid builds (ndk-build) and puts in the app. The
+/// build links it from ACTIONUI_HOSTSURFACE_LIB_DIR, the folder of the .so for the target ABI.
+fn link_android_host_surface() {
+    println!("cargo:rerun-if-env-changed=ACTIONUI_HOSTSURFACE_LIB_DIR");
+    if !host_surface_enabled() {
+        panic!("On Android the actionui crates are a HostSurface client only: build with the host-surface feature.");
+    }
+    let Some(dir) = env::var_os("ACTIONUI_HOSTSURFACE_LIB_DIR") else {
+        panic!(
+            "Set ACTIONUI_HOSTSURFACE_LIB_DIR to the folder that holds libactionui_hostsurface.so for the target \
+             ABI (ActionUIAndroid: ./gradlew :addon-hostsurface:assembleRelease, then \
+             addon-hostsurface/build/intermediates/stripped_native_libs/release/stripReleaseDebugSymbols/out/lib/<abi>)."
+        );
+    };
+    let dir = PathBuf::from(dir);
+    if !dir.join("libactionui_hostsurface.so").is_file() {
+        panic!("There is no libactionui_hostsurface.so in ACTIONUI_HOSTSURFACE_LIB_DIR ({}).", dir.display());
+    }
+    println!("cargo:rustc-link-search=native={}", dir.display());
+    println!("cargo:rustc-link-lib=dylib=actionui_hostsurface");
 }
 
 fn host_surface_enabled() -> bool {

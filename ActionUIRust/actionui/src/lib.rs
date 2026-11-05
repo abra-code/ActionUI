@@ -45,25 +45,30 @@
 //! A panic in a handler is caught and written to standard error and to ActionUI's log,
 //! and the application keeps running.
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", all(target_os = "android", feature = "host-surface"))))]
 compile_error!(
-    "the actionui crate supports macOS and Linux only; put the dependency under \
-     [target.'cfg(any(target_os = \"macos\", target_os = \"linux\"))'.dependencies]"
+    "the actionui crate supports macOS and Linux, and Android with the host-surface feature only; put the \
+     dependency under [target.'cfg(any(target_os = \"macos\", target_os = \"linux\"))'.dependencies] \
+     (and, for a HostSurface client on Android, target_os = \"android\" with features = [\"host-surface\"])"
 );
+
+// On Android, ActionUI itself is the Kotlin library: a Rust program there is only a client of
+// HostSurface elements (libactionui_hostsurface.so), so only the host_surface module, the errors
+// and main_thread::dispatch exist.
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod app;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod dialog;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
 mod error;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
 mod ffi;
-#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux")))]
+#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux", target_os = "android")))]
 pub mod host_surface;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod log;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
 pub mod main_thread;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod panels;
@@ -74,7 +79,7 @@ mod window;
 pub use app::{ActionContext, App};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use dialog::{ButtonRole, DialogButton, InsertPosition, ModalStyle};
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
 pub use error::{Error, Result};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use log::LogLevel;

@@ -22,7 +22,8 @@ serde_json = "1"
 wgpu = { version = "30", optional = true, default-features = false, features = ["metal", "wgsl"] }
 
 # On Linux the canvas renders offscreen (a frame sink): Vulkan where there is a driver, else OpenGL ES (llvmpipe in a VM).
-[target.'cfg(target_os = "linux")'.dependencies]
+# On Android it is a native window: Vulkan, or OpenGL ES on devices without it.
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 wgpu = { version = "30", optional = true, default-features = false, features = ["vulkan", "gles", "wgsl"] }
 
 [dev-dependencies]
@@ -42,4 +43,10 @@ required-features = ["host-surface"]
 
 [[example]]
 name = "host_surface"
+required-features = ["host-surface", "wgpu"]
+
+# Android: a shared library the add-on test app loads (ActionUIAndroid/addon-testapp); see BUILD_GUIDE.md.
+[[example]]
+name = "host_surface_android"
+crate-type = ["cdylib"]
 required-features = ["host-surface", "wgpu"]

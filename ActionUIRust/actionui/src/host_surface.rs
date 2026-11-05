@@ -6,7 +6,7 @@
 
 //! The `HostSurface` element: a part of the window that the program draws with its own
 //! renderer (Metal, wgpu, ...), while ActionUI does the rest of the window. Needs the
-//! `host-surface` feature (macOS and Linux); on macOS [`crate::App::new`] registers the element.
+//! `host-surface` feature (macOS, Linux, and Android); on macOS `App::new` registers the element.
 //!
 //! A document places the element and names it:
 //!
@@ -14,7 +14,7 @@
 //! { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "canvas" } }
 //! ```
 //!
-//! The program binds a [`SurfaceDelegate`] to that name with [`crate::App::set_surface_delegate`],
+//! The program binds a [`SurfaceDelegate`] to that name with [`set_delegate`] (or `App::set_surface_delegate`),
 //! before or after the document loads, and gets the native surface of every element with that
 //! name, in every window:
 //!
@@ -50,7 +50,9 @@ use std::ptr::NonNull;
 
 use actionui_sys::host_surface as sys;
 
-use crate::{App, Result, ffi};
+#[cfg(not(target_os = "android"))]
+use crate::App;
+use crate::{Result, ffi};
 
 /// One announced surface, unique for the life of the process: every "created" brings a new one.
 /// Key the renderer's state by it.
@@ -121,6 +123,8 @@ pub enum PixelFormat {
 pub enum SurfaceHandle {
     /// A `CAMetalLayer *` (macOS). For wgpu: `SurfaceTargetUnsafe::CoreAnimationLayer`.
     MetalLayer(NonNull<c_void>),
+    /// An `ANativeWindow *` (Android). For wgpu: an `AndroidNdk` raw window handle.
+    NativeWindow(NonNull<c_void>),
     /// A frame sink (Linux): no handle; render anywhere at the surface's pixel size and present
     /// the pixels with [`SurfaceId::present_pixels`]. For wgpu: `wgpu_surface::FrameSink` (the `wgpu` feature).
     FrameSink,
@@ -381,24 +385,41 @@ thread_local! {
     static DEPTH: Cell<u32> = const { Cell::new(0) };
 }
 
+/// Binds `delegate` to every HostSurface element whose `surfaceName` is `surface_name`, in every
+/// window, now and later. Live surfaces are announced to it at once. A delegate it replaces gets
+/// [`SurfaceDelegate::destroyed`] for its surfaces first. Called inside a delegate method, the
+/// change takes effect when the outermost callback returns. Main thread only. On Android, where a
+/// Rust program has no `App`, this is how it binds (from a JNI call on the main thread).
+pub fn set_delegate(surface_name: &str, delegate: impl SurfaceDelegate) -> Result<()> {
+    bind(surface_name, Some(Box::new(delegate)))
+}
+
+/// Unbinds the delegate of `surface_name`; it gets [`SurfaceDelegate::destroyed`] for its surfaces
+/// first. Main thread only.
+pub fn remove_delegate(surface_name: &str) -> Result<()> {
+    bind(surface_name, None)
+}
+
+#[cfg(not(target_os = "android"))]
 impl App {
-    /// Binds `delegate` to every HostSurface element whose `surfaceName` is `surface_name`, in
-    /// every window, now and later. Live surfaces are announced to it at once. A delegate it
-    /// replaces gets [`SurfaceDelegate::destroyed`] for its surfaces first. Called inside a
-    /// delegate method, the change takes effect when the outermost callback returns.
+    /// [`set_delegate`], for a program with an `App`.
     pub fn set_surface_delegate(&self, surface_name: &str, delegate: impl SurfaceDelegate) -> Result<()> {
-        bind(surface_name, Some(Box::new(delegate)))
+        set_delegate(surface_name, delegate)
     }
 
-    /// Unbinds the delegate of `surface_name`; it gets [`SurfaceDelegate::destroyed`] for its
-    /// surfaces first.
+    /// [`remove_delegate`], for a program with an `App`.
     pub fn remove_surface_delegate(&self, surface_name: &str) -> Result<()> {
-        bind(surface_name, None)
+        remove_delegate(surface_name)
     }
 }
 
 fn bind(surface_name: &str, delegate: Option<Box<dyn SurfaceDelegate>>) -> Result<()> {
     ffi::require_main_thread()?;
+    // Retired delegates are freed on a later main-loop turn: on Android that needs the Looper.
+    #[cfg(target_os = "android")]
+    if !crate::main_thread::looper::attach() {
+        return Err(crate::Error::ActionUI("could not attach to the main Looper".into()));
+    }
     let name = ffi::cstring("surface name", surface_name)?;
     let slot = delegate.map(|delegate| Box::new(Slot { delegate: RefCell::new(delegate), deferred: RefCell::new(Vec::new()) }));
     let callbacks = sys::AUIHostSurfaceDelegate {
@@ -487,10 +508,7 @@ unsafe fn with_delegate(what: &str, user_data: *mut c_void, body: impl FnOnce(&m
             }
         }
         Err(_) => {
-            let _ = crate::log::log(
-                crate::LogLevel::Warning,
-                &format!("A {what} call arrived while the delegate was still busy with another; skipped"),
-            );
+            ffi::log_warning(&format!("A {what} call arrived while the delegate was still busy with another; skipped"));
         }
     });
     let depth = DEPTH.with(|depth| {
@@ -517,6 +535,7 @@ unsafe extern "C" fn on_surface(
     let handle = match (info.kind, NonNull::new(info.handle)) {
         (sys::AUI_HOST_SURFACE_METAL_LAYER, Some(layer)) => SurfaceHandle::MetalLayer(layer),
         (sys::AUI_HOST_SURFACE_FRAME_SINK, _) => SurfaceHandle::FrameSink,
+        (sys::AUI_HOST_SURFACE_A_NATIVE_WINDOW, Some(window)) => SurfaceHandle::NativeWindow(window),
         (kind, _) => SurfaceHandle::Other(kind),
     };
     let surface = SurfaceInfo {
@@ -596,6 +615,15 @@ pub mod wgpu_surface {
     /// put in one), for a surface whose [`super::SurfaceDelegate::destroyed`] has not returned. The
     /// returned surface must be dropped before that `destroyed` returns.
     pub unsafe fn create(instance: &wgpu::Instance, info: &SurfaceInfo) -> Result<wgpu::Surface<'static>> {
+        #[cfg(target_os = "android")]
+        if let SurfaceHandle::NativeWindow(window) = info.handle {
+            let target = wgpu::SurfaceTargetUnsafe::RawHandle {
+                raw_display_handle: Some(wgpu::rwh::RawDisplayHandle::Android(wgpu::rwh::AndroidDisplayHandle::new())),
+                raw_window_handle: wgpu::rwh::RawWindowHandle::AndroidNdk(wgpu::rwh::AndroidNdkWindowHandle::new(window)),
+            };
+            return unsafe { instance.create_surface_unsafe(target) }
+                .map_err(|error| Error::ActionUI(format!("wgpu could not create a surface: {error}")));
+        }
         let SurfaceHandle::MetalLayer(layer) = info.handle else {
             return Err(Error::ActionUI(format!("no wgpu surface for the handle {:?}", info.handle)));
         };
