@@ -32,7 +32,7 @@ let package = Package(
         .package(path: "../.."),   // the ActionUI package at the repo root
         // The standalone diff-viewer component in its own repo (github.com/abra-code),
         // consumed as a versioned release.
-        .package(url: "https://github.com/abra-code/DiffView", from: "0.1.0"),
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
     ],
     targets: [
         .target(
