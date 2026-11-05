@@ -18,7 +18,7 @@
 //   a live container (a tab not shown, say) stays suspended, not destroyed.
 //
 // It drives frame callbacks from a display link while announced, not suspended, and continuous or
-// asked for a frame.
+// asked for a frame. Input is in HostSurfaceView+Input.swift.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -56,8 +56,26 @@ final class HostSurfaceView: HostSurfacePlatformView {
     private(set) var surfaceID: UInt64 = 0
     /// The client that got "created"; "destroyed" goes to it even after the name was rebound.
     private(set) var announcedBinding: HostSurfaceBinding?
-    private var suspendedSent = false
+    private(set) var suspendedSent = false
     private var lastGeometry: Geometry?
+
+    /// SwiftUI's isEnabled for the element (the disabled modifier, its own or an ancestor's).
+    private(set) var inputEnabled = true
+    /// The cursor over the surface (AUIHostCursor), set by the client.
+    var cursor = Int32(AUIHostCursorArrow.rawValue)
+    #if os(macOS)
+    /// False until the window has been key for a main-loop turn: AppKit picks an initial first
+    /// responder when a window first becomes key, and the surface must not take focus unasked.
+    var focusArmed = false
+    var trackingArea: NSTrackingArea?
+    /// The last Tab key down went to the client (Control-Tab, say), so its key up goes too.
+    var tabKeyDownDelivered = false
+    #else
+    var lastPinchScale: CGFloat = 1
+    var lastRotation: CGFloat = 0
+    var lastScrollTranslation: CGPoint = .zero
+    var pointerInteraction: UIPointerInteraction?
+    #endif
 
     private var displayLink: CADisplayLink?
     private var continuousOverride: Bool?
@@ -96,9 +114,14 @@ final class HostSurfaceView: HostSurfacePlatformView {
         layerContentsRedrawPolicy = .never
         #else
         isMultipleTouchEnabled = true
+        // A new display scale (another screen) is a "changed".
+        registerForTraitChanges([UITraitDisplayScale.self]) { (view: HostSurfaceView, _: UITraitCollection) in
+            view.refresh()
+        }
         #endif
         metalLayer.pixelFormat = .bgra8Unorm
         applyLayerProperties()
+        installInputHandlers()
     }
 
     @available(*, unavailable)
@@ -119,8 +142,9 @@ final class HostSurfaceView: HostSurfacePlatformView {
 
     // MARK: properties
 
-    /// The element's properties after a render. surfaceName and kind are fixed at load.
-    func update(_ new: HostSurfaceProperties) {
+    /// The element's properties after a render, and SwiftUI's isEnabled for it. surfaceName and kind are
+    /// fixed at load.
+    func update(_ new: HostSurfaceProperties, enabled: Bool = true) {
         if (new.surfaceName != surfaceName || new.kind != properties.kind) && !warnedFixedProperties {
             warnedFixedProperties = true
             logger.log("HostSurface \(viewID): 'surfaceName' and 'kind' are fixed at load; the change is ignored", .warning)
@@ -143,8 +167,12 @@ final class HostSurfaceView: HostSurfacePlatformView {
         if isHidden != new.hidden {
             isHidden = new.hidden
         }
+        inputEnabled = enabled
         applyLayerProperties()
         refresh()
+        if !canTakeFocus {
+            giveUpFocus()
+        }
     }
 
     private func applyLayerProperties() {
@@ -277,6 +305,8 @@ final class HostSurfaceView: HostSurfacePlatformView {
         guard surfaceID != 0 else {
             return
         }
+        // FocusOut before "destroyed"; a surface with no client must not keep taking the keys.
+        giveUpFocus()
         send(.destroyed, lastGeometry ?? geometry)
         HostSurfaceRegistry.shared.retire(surfaceID)
         surfaceID = 0
@@ -321,6 +351,44 @@ final class HostSurfaceView: HostSurfacePlatformView {
                 } else {
                     self.teardown()
                 }
+            }
+        }
+    }
+
+    /// Delivers one input event to the client that got "created". The platform handlers decide whether
+    /// input is allowed (HostSurfaceView+Input.swift).
+    func deliverInput(_ event: AUIHostInputEvent, code: String = "", text: String? = nil) {
+        guard surfaceID != 0, let binding = announcedBinding else {
+            return
+        }
+        var event = event
+        event.structSize = UInt32(MemoryLayout<AUIHostInputEvent>.size)
+        let surfaceID = surfaceID
+        HostSurfaceRegistry.shared.deliver {
+            switch binding.client {
+            case .c(let delegate, let userData):
+                guard let callback = delegate.input else {
+                    return
+                }
+                windowUUID.withCString { uuid in
+                    code.withCString { codePointer in
+                        event.code = codePointer
+                        if let text {
+                            text.withCString { textPointer in
+                                event.text = textPointer
+                                callback(surfaceID, uuid, Int64(viewID), &event, userData)
+                            }
+                        } else {
+                            event.text = nil
+                            callback(surfaceID, uuid, Int64(viewID), &event, userData)
+                        }
+                    }
+                }
+            case .swift(let delegate):
+                event.code = nil
+                event.text = nil
+                delegate.hostSurfaceInput(swiftInfo(lastGeometry ?? geometry),
+                                          event: HostSurfaceInput(event: event, code: code, text: text))
             }
         }
     }
@@ -379,6 +447,21 @@ final class HostSurfaceView: HostSurfacePlatformView {
         observedWindow = window
         let center = NotificationCenter.default
         #if os(macOS)
+        focusArmed = false
+        armFocusIfKey()
+        observers.append(center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window,
+                                            queue: nil) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.armFocusIfKey()
+                self?.windowKeyChanged(isKey: true)
+            }
+        })
+        observers.append(center.addObserver(forName: NSWindow.didResignKeyNotification, object: window,
+                                            queue: nil) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.windowKeyChanged(isKey: false)
+            }
+        })
         let ignoresOcclusion = Self.ignoresWindowOcclusionForTesting
         windowVisible = ignoresOcclusion || window.occlusionState.contains(.visible)
         observers.append(center.addObserver(forName: NSWindow.willCloseNotification, object: window,
@@ -467,11 +550,6 @@ final class HostSurfaceView: HostSurfacePlatformView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        refresh()
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
         refresh()
     }
     #endif

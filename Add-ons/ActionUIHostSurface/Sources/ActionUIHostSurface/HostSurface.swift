@@ -13,6 +13,8 @@
      "continuous": false,         // Optional: Bool, default false; a frame callback at every display refresh
                                   //           while the surface is on screen. Otherwise one per requestFrame.
      "preferredFrameRate": 0,     // Optional: Number, default 0 (the display rate); frames per second hint
+     "focusable": true,           // Optional: Bool, default true; a click or tap gives the surface keyboard
+                                  //           focus. It never takes focus unasked; Tab moves focus on.
      "opaque": true,              // Optional: Bool, default true; false lets content behind the element show
                                   //           through transparent pixels the client draws
      "idealWidth": 320,           // Optional: Number, default 320; natural width in points
@@ -22,7 +24,7 @@
 
  A rectangle in the layout whose pixels a client program draws with its own renderer (Metal, wgpu,
  MoltenVK, ANGLE). ActionUI lays it out like any other leaf; the client gets the CAMetalLayer, the
- size in points and pixels, the scale, and frame ticks through the C interface in
+ size in points and pixels, the scale, frame ticks and input through the C interface in
  include/ActionUIHostSurface.h, or the Swift API (ActionUIHostSurface.setDelegate).
 
  Size: the element takes the size its parent proposes; where a dimension is unspecified it uses the
@@ -34,7 +36,8 @@
 
  Baseline View properties (padding, hidden, frame, opacity, cornerRadius, disabled, accessibilityLabel,
  etc.) are inherited from base View. "hidden" is applied by the element itself, on the native view, so
- hiding never destroys the client's surface; a hidden surface is suspended.
+ hiding never destroys the client's surface; a hidden surface is suspended and takes no input.
+ "disabled" stops input and gives up keyboard focus.
  */
 
 import SwiftUI
@@ -182,8 +185,8 @@ struct HostSurfaceRepresentable {
     }
 
     @MainActor
-    func updateContainer(_ container: HostSurfaceContainer) {
-        container.surface.update(properties)
+    func updateContainer(_ container: HostSurfaceContainer, enabled: Bool) {
+        container.surface.update(properties, enabled: enabled)
     }
 
     func fit(_ proposal: ProposedViewSize) -> CGSize {
@@ -199,7 +202,7 @@ extension HostSurfaceRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ container: HostSurfaceContainer, context: Context) {
-        updateContainer(container)
+        updateContainer(container, enabled: context.environment.isEnabled)
     }
 
     static func dismantleNSView(_ container: HostSurfaceContainer, coordinator: ()) {
@@ -217,7 +220,7 @@ extension HostSurfaceRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ container: HostSurfaceContainer, context: Context) {
-        updateContainer(container)
+        updateContainer(container, enabled: context.environment.isEnabled)
     }
 
     static func dismantleUIView(_ container: HostSurfaceContainer, coordinator: ()) {

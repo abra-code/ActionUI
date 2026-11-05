@@ -16,8 +16,8 @@
 //  events (created, changed, suspended, resumed, destroyed), frame ticks and input. On Apple
 //  platforms the surface is a CAMetalLayer.
 //
-//  Threads: every callback runs on the main thread. actionUIHostSurfaceSetDelegate and
-//  ActionUIHostSurface_register are main-thread only. actionUIHostSurfaceRequestFrame and
+//  Threads: every callback runs on the main thread. actionUIHostSurfaceSetDelegate,
+//  actionUIHostSurfaceSetCursor and ActionUIHostSurface_register are main-thread only. actionUIHostSurfaceRequestFrame and
 //  actionUIHostSurfaceSetContinuous may be called from any thread and never wait for the main
 //  thread. A client may render from its own thread (Metal layers allow it), but that thread must
 //  not wait for the main thread while the "destroyed" callback may be joining it: several
@@ -91,7 +91,7 @@ typedef enum {
     AUIHostInputPointerExit = 6,
     AUIHostInputPointerCancel = 7,     // the system took the pointer (a touch became a gesture)
     AUIHostInputScroll = 8,            // deltaX, deltaY in scrollUnit; see AUIHostInputEvent
-    AUIHostInputMagnify = 9,           // deltaX: magnification change, 0.1 = 10 percent larger
+    AUIHostInputMagnify = 9,           // deltaX: added to the scale, 0.1 takes a scale of 1.0 to 1.1
     AUIHostInputRotate = 10,           // deltaX: rotation change in degrees, counterclockwise positive
     AUIHostInputKeyDown = 11,
     AUIHostInputKeyUp = 12,
@@ -128,6 +128,31 @@ enum {
     AUIHostModifierCapsLock = 16
 };
 
+/// The cursor over the surface, for actionUIHostSurfaceSetCursor. On iOS (a pointer on iPad) the
+/// arrow, the I-beam and hidden are shown; the other shapes show the system pointer.
+typedef enum {
+    AUIHostCursorArrow = 0,
+    AUIHostCursorIBeam = 1,
+    AUIHostCursorCrosshair = 2,
+    AUIHostCursorPointingHand = 3,
+    AUIHostCursorOpenHand = 4,
+    AUIHostCursorClosedHand = 5,
+    AUIHostCursorResizeLeftRight = 6,
+    AUIHostCursorResizeUpDown = 7,
+    AUIHostCursorNotAllowed = 8,
+    AUIHostCursorHidden = 9
+} AUIHostCursor;
+
+/// One input event, delivered to the client's input callback while the surface is on screen and its
+/// element is enabled.
+/// - Pointer events come for the mouse, trackpad clicks, touches (one event per touch) and the pen.
+/// - The surface takes the scroll wheel, so an enclosing scroll view does not scroll as well.
+/// - Keys come while the surface has keyboard focus. It never takes focus unasked: a click or tap
+///   focuses it when the element's "focusable" is true (the default), and Tab and Shift-Tab move
+///   focus in and out like any control (they are not delivered).
+/// - FocusIn and FocusOut tell the client when keys start and stop coming. On macOS a focused surface
+///   gets FocusOut when its window stops being key and FocusIn when it is key again; a client lets go of
+///   keys held down at FocusOut, since their key up will not come.
 typedef struct {
     uint32_t structSize;       // sizeof(AUIHostInputEvent) of the sender; fields may be added at the end
     int32_t kind;              // AUIHostInputKind
@@ -146,7 +171,9 @@ typedef struct {
     uint32_t keyCode;          // platform key code (macOS virtual key code, iOS HID usage)
     const char *code;          // portable key name: the W3C UI Events "code" value, such as
                                // "KeyA" or "ArrowLeft"; "" when unknown; valid during the callback
-    const char *text;          // UTF-8 text the key produced, or NULL; valid during the callback
+    const char *text;          // UTF-8 text the key produced (KeyDown), or NULL, also for keys that
+                               // produce no insertable text (arrows, function keys, Escape, Return,
+                               // Backspace); valid during the callback
     double timestampSeconds;   // the platform event time, on its monotonic clock
 } AUIHostInputEvent;
 
@@ -191,6 +218,11 @@ void actionUIHostSurfaceRequestFrame(uint64_t surfaceID);
 /// "continuous" property until the property changes value. Any thread; never waits. Does nothing
 /// when surfaceID is not a live surface.
 void actionUIHostSurfaceSetContinuous(uint64_t surfaceID, bool continuous);
+
+/// Sets the cursor shown while the pointer is over the surface (an AUIHostCursor value), until the
+/// next call or the surface's Destroyed. Main thread only. Returns false off the main thread, when
+/// surfaceID is not a live surface, or when cursor is not an AUIHostCursor value.
+bool actionUIHostSurfaceSetCursor(uint64_t surfaceID, int32_t cursor);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,8 @@ JSON schema and usage documentation for `HostSurface` (ActionUIHostSurface add-o
      "continuous": false,         // Optional: Bool, default false; a frame callback at every display refresh
                                   //           while the surface is on screen. Otherwise one per requestFrame.
      "preferredFrameRate": 0,     // Optional: Number, default 0 (the display rate); frames per second hint
+     "focusable": true,           // Optional: Bool, default true; a click or tap gives the surface keyboard
+                                  //           focus. It never takes focus unasked; Tab moves focus on.
      "opaque": true,              // Optional: Bool, default true; false lets content behind the element show
                                   //           through transparent pixels the client draws
      "idealWidth": 320,           // Optional: Number, default 320; natural width in points
@@ -25,7 +27,7 @@ JSON schema and usage documentation for `HostSurface` (ActionUIHostSurface add-o
  }
 // A rectangle in the layout whose pixels a client program draws with its own renderer (Metal, wgpu,
 // MoltenVK, ANGLE). ActionUI lays it out like any other leaf; the client gets the CAMetalLayer, the
-// size in points and pixels, the scale, and frame ticks through the C interface in
+// size in points and pixels, the scale, frame ticks and input through the C interface in
 // include/ActionUIHostSurface.h, or the Swift API (ActionUIHostSurface.setDelegate).
 //
 // Size: the element takes the size its parent proposes; where a dimension is unspecified it uses the
@@ -37,7 +39,8 @@ JSON schema and usage documentation for `HostSurface` (ActionUIHostSurface add-o
 //
 // Baseline View properties (padding, hidden, frame, opacity, cornerRadius, disabled, accessibilityLabel,
 // etc.) are inherited from base View. "hidden" is applied by the element itself, on the native view, so
-// hiding never destroys the client's surface; a hidden surface is suspended.
+// hiding never destroys the client's surface; a hidden surface is suspended and takes no input.
+// "disabled" stops input and gives up keyboard focus.
 ```
 
 ## The client side
@@ -66,6 +69,24 @@ Frame callbacks arrive at each display refresh while `continuous` is true, or on
 render on its own thread, paced by the frame callback; it must not then call the ActionUI C functions
 that wait for the main thread (`actionUIGet...`, `actionUIInsertElement`, ...) while "destroyed" may be
 joining it.
+
+Input comes to the `input` callback (`hostSurfaceInput` in Swift) while the surface is on screen,
+not hidden, and its element is enabled:
+
+- Pointer down, up, move, drag, enter, exit and cancel, for the mouse, touches (one event per touch,
+  with a `pointerID`) and the pen (pressure, tilt). Positions are in points from the top-left corner.
+- Scroll: deltas are how far the content should move, positive to the right and down, in points
+  (trackpad) or wheel steps, with a phase (began, changed, ended, momentum). The surface takes the
+  wheel, so an enclosing scroll view does not scroll as well.
+- Magnify and rotate: trackpad gestures on macOS, two-finger pinch and rotation on iOS.
+- Keys while the surface has keyboard focus: the platform key code, the W3C UI Events `code`
+  (`KeyA`, `ArrowLeft`, `ShiftLeft`), the modifiers, and the produced text. Modifier keys come as key
+  down and up of their own. Tab and Shift-Tab move focus and are not delivered.
+- Focus in and focus out. The surface never takes focus unasked: a click or tap focuses it when
+  `focusable` is true.
+
+`actionUIHostSurfaceSetCursor(surfaceID, cursor)` sets the cursor over the surface (arrow, I-beam,
+crosshair, hands, resize arrows, not allowed, hidden).
 
 Rules the add-on keeps:
 

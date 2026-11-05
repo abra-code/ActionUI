@@ -3,7 +3,8 @@
 An optional ActionUI add-on that adds the `HostSurface` element: a rectangle in an ActionUI layout
 whose pixels the client program draws with its own renderer - Metal, wgpu, MoltenVK, ANGLE or a CPU
 rasterizer - while ActionUI does everything around it (layout, controls, menus, dialogs). On macOS and
-iOS the client gets a `CAMetalLayer`.
+iOS the client gets a `CAMetalLayer`, frame ticks, and pointer, touch, pen, scroll, gesture and key
+input.
 
 ```json
 { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "viewport", "continuous": true } }
@@ -39,7 +40,7 @@ actionUIHostSurfaceSetDelegate("viewport", &delegate, my_state);
 
 The client contract (events, threads, the frame callback) is in `Documentation/Schemas/HostSurface.md`
 and in the header. `Add-ons/ActionUIAddOnTestApp` has a Swift client that draws with Metal
-(`Sources/HostSurfaceDemoClient.swift`, demo `HostSurface`).
+(`Sources/HostSurfaceDemoClient.swift`, demo `HostSurface`): drag to draw, scroll to shift the color.
 
 ## Design: one surface per element, outside SwiftUI
 
@@ -88,7 +89,8 @@ xcodebuild test -scheme ActionUIHostSurface-Package -destination 'platform=iOS S
 ```
 
 They need the sandbox off (SwiftPM, windows). `HostSurfaceLifecycleTests` drives the binding and
-lifecycle rules with real surface views in windows that are never shown; `HostSurfaceDocumentTests`
+lifecycle rules with real surface views in windows that are never shown; `HostSurfaceInputTests`
+drives input and the focus rules (on macOS with NSEvents); `HostSurfaceDocumentTests`
 hosts real ActionUI documents and checks the event sequence for `hidden`, `padding` (which rebuilds the
 SwiftUI view), element removal and window close.
 
@@ -99,6 +101,8 @@ SwiftUI view), element removal and window close.
 - `Sources/ActionUIHostSurface/ActionUIHostSurface.swift` - registration, the Swift API, the C functions.
 - `Sources/ActionUIHostSurface/HostSurface.swift` - the element, the representable and the container.
 - `Sources/ActionUIHostSurface/HostSurfaceView.swift` - the Metal-layer view and its lifecycle.
+- `Sources/ActionUIHostSurface/HostSurfaceView+Input.swift` - input and focus, macOS and iOS.
+- `Sources/ActionUIHostSurface/HostSurfaceKeyCodes.swift` - key codes to W3C key names.
 - `Sources/ActionUIHostSurface/HostSurfaceRegistry.swift` - clients, surface views, live surfaces.
 - `Sources/ActionUIHostSurface/HostSurfaceProperties.swift` - the element's properties.
 - `Schemas/`, `Documentation/`, `Examples/` - verifier schema, element docs, an example document.

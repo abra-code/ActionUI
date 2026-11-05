@@ -12,6 +12,6 @@
         { "type": "Toggle", "id": 92, "properties": { "title": "Hidden", "isOn": false, "actionID": "hostSurface.hidden" } },
         { "type": "Toggle", "id": 93, "properties": { "title": "Padding", "isOn": false, "actionID": "hostSurface.padding" } }
     ] },
-    { "type": "Text", "id": 94, "properties": { "text": "Surface events appear in the console.", "foregroundStyle": "secondary" } }
+    { "type": "Text", "id": 94, "properties": { "text": "Drag in the area to draw, scroll to shift the color, press C to clear. Surface events appear in the console.", "foregroundStyle": "secondary" } }
   ]
 }

@@ -44,6 +44,19 @@ public enum ActionUIHostSurface {
         }
     }
 
+    /// Sets the cursor shown over the surface (an AUIHostCursor value). Returns false when `surfaceID` is
+    /// not a live surface or `cursor` is not an AUIHostCursor value.
+    @MainActor
+    @discardableResult
+    public static func setCursor(_ cursor: Int32, surfaceID: UInt64) -> Bool {
+        guard HostSurfaceView.isKnownCursor(cursor),
+              let surface = HostSurfaceRegistry.shared.liveSurface(surfaceID) else {
+            return false
+        }
+        surface.setCursor(cursor)
+        return true
+    }
+
     /// Turns frame callbacks at every display refresh on or off, overriding the element's
     /// "continuous" property until the property changes value. Any thread; never waits.
     public static func setContinuous(_ continuous: Bool, surfaceID: UInt64) {
@@ -84,11 +97,28 @@ public protocol HostSurfaceDelegate: AnyObject {
     /// `timestamp`: the target presentation time of the frame in seconds, on the display clock. Use
     /// differences only.
     func hostSurfaceFrame(_ surface: HostSurfaceInfo, timestamp: Double)
+    /// Pointer, touch, scroll, gesture, key and focus input; see AUIHostInputEvent in the header.
+    func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput)
 }
 
 extension HostSurfaceDelegate {
     public func hostSurfaceFrame(_ surface: HostSurfaceInfo, timestamp: Double) {}
+    public func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput) {}
 }
+
+/// One input event for a Swift client: the C struct's numbers, and its strings as Swift strings.
+public struct HostSurfaceInput: Sendable {
+    /// The numeric fields of AUIHostInputEvent (`code` and `text` are NULL here; use the properties).
+    public let event: AUIHostInputEvent
+    /// The W3C UI Events "code" of the key ("KeyA", "ArrowLeft"); "" when unknown or not a key event.
+    public let code: String
+    /// The text a key produced, or nil.
+    public let text: String?
+
+    public var kind: AUIHostInputKind { AUIHostInputKind(rawValue: UInt32(bitPattern: event.kind)) }
+}
+
+extension AUIHostInputEvent: @retroactive @unchecked Sendable {}
 
 // MARK: - C interface (include/ActionUIHostSurface.h)
 
@@ -137,6 +167,16 @@ public func actionUIHostSurfaceRequestFrame(_ surfaceID: UInt64) {
 @c
 public func actionUIHostSurfaceSetContinuous(_ surfaceID: UInt64, _ continuous: Bool) {
     ActionUIHostSurface.setContinuous(continuous, surfaceID: surfaceID)
+}
+
+@c
+public func actionUIHostSurfaceSetCursor(_ surfaceID: UInt64, _ cursor: Int32) -> Bool {
+    guard Thread.isMainThread else {
+        return false
+    }
+    return MainActor.assumeIsolated {
+        ActionUIHostSurface.setCursor(cursor, surfaceID: surfaceID)
+    }
 }
 
 /// Copies a client's delegate struct, honoring its structSize: a client built against an older,

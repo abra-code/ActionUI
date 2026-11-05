@@ -49,6 +49,7 @@ struct RecordedEvent: Equatable, CustomStringConvertible {
 final class RecordingClient: HostSurfaceDelegate {
     private(set) var received: [RecordedEvent] = []
     private(set) var frames: [UInt64] = []
+    private(set) var inputs: [HostSurfaceInput] = []
     var onEvent: ((HostSurfaceInfo, HostSurfaceEvent) -> Void)?
 
     func hostSurface(_ surface: HostSurfaceInfo, event: HostSurfaceEvent) {
@@ -61,11 +62,17 @@ final class RecordingClient: HostSurfaceDelegate {
         frames.append(surface.surfaceID)
     }
 
+    func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput) {
+        inputs.append(event)
+    }
+
     var events: [HostSurfaceEvent] { received.map(\.event) }
+    var inputKinds: [AUIHostInputKind] { inputs.map(\.kind) }
 
     func clear() {
         received = []
         frames = []
+        inputs = []
     }
 }
 
@@ -83,7 +90,16 @@ final class RecordingCClient {
         let heightPixels: UInt32
     }
 
+    /// One input event as the C callback saw it, with its strings copied during the callback.
+    struct Input: Equatable {
+        let kind: Int32
+        let code: String
+        let text: String?
+        let structSize: UInt32
+    }
+
     private(set) var entries: [Entry] = []
+    private(set) var inputs: [Input] = []
 
     var userData: UnsafeMutableRawPointer { Unmanaged.passUnretained(self).toOpaque() }
 
@@ -101,6 +117,18 @@ final class RecordingCClient {
                               widthPixels: info.pointee.widthPixels, heightPixels: info.pointee.heightPixels)
             MainActor.assumeIsolated {
                 client.entries.append(entry)
+            }
+        }
+        delegate.input = { _, _, _, event, userData in
+            guard let userData, let event else {
+                return
+            }
+            let client = Unmanaged<RecordingCClient>.fromOpaque(userData).takeUnretainedValue()
+            let input = Input(kind: event.pointee.kind, code: event.pointee.code.map { String(cString: $0) } ?? "<null>",
+                              text: event.pointee.text.map { String(cString: $0) },
+                              structSize: event.pointee.structSize)
+            MainActor.assumeIsolated {
+                client.inputs.append(input)
             }
         }
         return delegate
