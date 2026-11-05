@@ -101,6 +101,13 @@ pub const AUI_HOST_CURSOR_RESIZE_UP_DOWN: AUIHostCursor = 7;
 pub const AUI_HOST_CURSOR_NOT_ALLOWED: AUIHostCursor = 8;
 pub const AUI_HOST_CURSOR_HIDDEN: AUIHostCursor = 9;
 
+/// The layout of the pixels given to `actionUIHostSurfacePresentPixels`: 4 bytes per pixel, in this order.
+pub type AUIHostPixelFormat = c_int;
+pub const AUI_HOST_PIXEL_BGRA8_PREMULTIPLIED: AUIHostPixelFormat = 1;
+pub const AUI_HOST_PIXEL_RGBA8_PREMULTIPLIED: AUIHostPixelFormat = 2;
+pub const AUI_HOST_PIXEL_BGRX8: AUIHostPixelFormat = 3;
+pub const AUI_HOST_PIXEL_RGBX8: AUIHostPixelFormat = 4;
+
 // MARK: - Structs
 
 /// One surface: its kind, its native handle, and its size.
@@ -178,4 +185,5 @@ unsafe extern "C" {
     pub fn actionUIHostSurfaceRequestFrame(surfaceID: u64);
     pub fn actionUIHostSurfaceSetContinuous(surfaceID: u64, continuous: bool);
     pub fn actionUIHostSurfaceSetCursor(surfaceID: u64, cursor: i32) -> bool;
+    pub fn actionUIHostSurfacePresentPixels(surfaceID: u64, width: u32, height: u32, stride: u32, format: i32, pixels: *const c_void) -> bool;
 }

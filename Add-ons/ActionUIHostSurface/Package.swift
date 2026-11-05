@@ -3,7 +3,8 @@
 // ActionUIHostSurface - an optional ActionUI add-on, packaged as a Swift package.
 //
 // The HostSurface element: a rectangle in an ActionUI layout whose pixels a client program draws with
-// its own renderer. On macOS and iOS the client gets a CAMetalLayer.
+// its own renderer. On macOS and iOS the client gets a CAMetalLayer; on Linux the element is a frame sink
+// that shows the frames the client presents.
 //
 // Two library targets:
 // - CActionUIHostSurface: the plain C header (include/ActionUIHostSurface.h) that C, C++ and Rust
@@ -14,10 +15,52 @@
 // SPM builds ActionUI once and the host app links it. The host links this product + ActionUI and
 // calls ActionUIHostSurface.register() (Swift) or ActionUIHostSurface_register() (C).
 //
-// Apple platforms only for now; the GTK element (a frame sink and a GL area) is a later step.
+// On Linux the add-on is the GTK element (HostSurfaceView+Adwaita.swift) and links ActionUI's ActionUIStatic
+// product: one process has one Swift runtime. It has no Documentation target there: Bundle.module needs full
+// Foundation, and with it ICU's data, which the Linux build leaves out. libActionUI.so links it
+// (ActionUIAdwaita/Library), so programs in other languages get the element without a register call.
 
 import PackageDescription
 
+#if os(Linux)
+let package = Package(
+    name: "ActionUIHostSurface",
+    products: [
+        .library(name: "ActionUIHostSurface", targets: ["ActionUIHostSurface"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+    ],
+    targets: [
+        .target(
+            name: "CActionUIHostSurface",
+            path: "Sources/CActionUIHostSurface"
+        ),
+        .target(
+            name: "ActionUIHostSurface",
+            dependencies: [
+                "CActionUIHostSurface",
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CAdwaita", package: "ActionUI"),
+            ],
+            path: "Sources/ActionUIHostSurface",
+            // The SwiftUI element, the AppKit and UIKit view, and its input.
+            exclude: ["HostSurface.swift", "HostSurfaceView.swift", "HostSurfaceView+Input.swift", "HostSurfaceKeyCodes.swift"]
+        ),
+        .testTarget(
+            name: "HostSurfaceTests",
+            dependencies: [
+                "ActionUIHostSurface",
+                .product(name: "CAdwaita", package: "ActionUI"),
+            ],
+            path: "Tests",
+            // The AppKit and UIKit tests.
+            exclude: ["HostSurfaceDocumentTests.swift", "HostSurfaceInputTests.swift", "HostSurfaceLifecycleTests.swift",
+                      "HostSurfaceTestSupport.swift"]
+        ),
+    ]
+)
+#else
 let package = Package(
     name: "ActionUIHostSurface",
     platforms: [
@@ -65,3 +108,4 @@ let package = Package(
         ),
     ]
 )
+#endif

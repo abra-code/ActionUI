@@ -4,7 +4,8 @@ An optional ActionUI add-on that adds the `HostSurface` element: a rectangle in 
 whose pixels the client program draws with its own renderer - Metal, wgpu, MoltenVK, ANGLE or a CPU
 rasterizer - while ActionUI does everything around it (layout, controls, menus, dialogs). On macOS and
 iOS the client gets a `CAMetalLayer`, frame ticks, and pointer, touch, pen, scroll, gesture and key
-input.
+input. On Linux the element is a frame sink: the client renders where it likes and presents finished
+frames, which the element shows (see "On Linux" below).
 
 ```json
 { "type": "HostSurface", "id": 5, "properties": { "surfaceName": "viewport", "continuous": true } }
@@ -56,9 +57,26 @@ The surface view decides the events from what it observes: a window, a size, a l
 container is dismantled, in case a new container adopts it, except when its window closes (closing a
 window does not detach its views) or its scene disconnects, which tear down at once.
 
+## On Linux
+
+GTK gives a widget no native surface to hand out, so the element is a frame sink there (`kind` "native",
+the default, or "sink"). The client gets the same events, with `AUIHostSurfaceFrameSink` as the kind and
+no handle, and the size in points and pixels. It renders at that pixel size (offscreen with wgpu or
+Vulkan, or on the CPU) and hands each finished frame to `actionUIHostSurfacePresentPixels` from any
+thread. The pixels are copied, frames that come faster than the display are merged, and the newest is
+drawn scaled to the element. After "destroyed" the call returns false. Frame ticks come from the
+window's frame clock at the display's rate (`preferredFrameRate` is ignored there: GTK's frame clock takes no
+rate); "suspended" also comes when the window is minimized or the compositor reports it
+not visible at all. `kind` "gl" (a GL area) is not available yet and draws the placeholder.
+
+The element is linked into `libActionUI.so` (`ActionUIAdwaita/Library`), which registers it, so programs
+in other languages need no register call; the library package ships the header as
+`<ActionUIHostSurface/ActionUIHostSurface.h>`. A Swift program links the package's `ActionUIHostSurface`
+product, as on Apple platforms. Input is not delivered on Linux yet.
+
 ## Consuming it
 
-`Package.swift` makes this a Swift package (macOS 14.6, iOS 17.6). A host adds it as a dependency and
+`Package.swift` makes this a Swift package (macOS 14.6, iOS 17.6, and Linux). A host adds it as a dependency and
 links the `ActionUIHostSurface` product alongside ActionUI:
 
 ```swift
@@ -94,9 +112,14 @@ drives input and the focus rules (on macOS with NSEvents); `HostSurfaceDocumentT
 hosts real ActionUI documents and checks the event sequence for `hidden`, `padding` (which rebuilds the
 SwiftUI view), element removal and window close.
 
+On Linux, `swift test` in a GNOME session runs `HostSurfaceGtkTests`, a scripted run of a real window: the
+events for a fixed frame, hidden at load, `hidden` and a resize without a destroy, a replaced client and
+window close; frames asked for and continuous; frames presented from another thread; the size state; and
+the checks of `actionUIHostSurfacePresentPixels`.
+
 ## Files
 
-- `Package.swift` - the package (Apple platforms).
+- `Package.swift` - the package (Apple platforms and Linux).
 - `Framework/project.yml` - the same sources as a static framework (macOS), for clients that link frameworks; `ActionUIRust/build_frameworks.sh` builds it for the Rust crates. A folder of its own, so that `xcodebuild` in this folder still finds the package.
 - `Sources/CActionUIHostSurface/include/ActionUIHostSurface.h` - the C interface. Its `module.modulemap` names the C module for SwiftPM and the framework build.
 - `Sources/ActionUIHostSurface/ActionUIHostSurface.swift` - registration, the Swift API, the C functions.
@@ -104,6 +127,9 @@ SwiftUI view), element removal and window close.
 - `Sources/ActionUIHostSurface/HostSurfaceView.swift` - the Metal-layer view and its lifecycle.
 - `Sources/ActionUIHostSurface/HostSurfaceView+Input.swift` - input and focus, macOS and iOS.
 - `Sources/ActionUIHostSurface/HostSurfaceKeyCodes.swift` - key codes to W3C key names.
+- `Sources/ActionUIHostSurface/HostSurface+Adwaita.swift` - the element on Linux.
+- `Sources/ActionUIHostSurface/HostSurfaceView+Adwaita.swift` - the frame-sink widget and its lifecycle, Linux.
+- `Sources/ActionUIHostSurface/HostSurfaceSinks+Adwaita.swift` - presented frames on their way to the main thread, Linux.
 - `Sources/ActionUIHostSurface/HostSurfaceRegistry.swift` - clients, surface views, live surfaces.
 - `Sources/ActionUIHostSurface/HostSurfaceProperties.swift` - the element's properties.
 - `Schemas/`, `Documentation/`, `Examples/` - verifier schema, element docs, an example document.

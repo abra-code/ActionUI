@@ -9,13 +9,15 @@
 #     include/ActionUICAdapter/ActionUIC.h       the C interface
 #     include/ActionUIAppKitApplication/ActionUIApp.h   the application functions
 #     include/ActionUIRemote/ActionUIRemote-Swift.h      the remote server's functions (generated)
+#     include/ActionUIHostSurface/ActionUIHostSurface.h  the HostSurface add-on's functions (linked in)
 #     LICENSE.txt
 #     LICENSE-MaterialSymbols.txt                the license of the symbol icons in the library
 #     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the licenses of the packages linked into it
 #   actionui-<version>-linux-<arch>.tar.gz       the folder, packed
 #
 # The headers sit at the include paths the Apple frameworks give them (<ActionUICAdapter/ActionUIC.h>,
-# <ActionUIAppKitApplication/ActionUIApp.h>, <ActionUIRemote/ActionUIRemote-Swift.h>), so one
+# <ActionUIAppKitApplication/ActionUIApp.h>, <ActionUIRemote/ActionUIRemote-Swift.h>,
+# <ActionUIHostSurface/ActionUIHostSurface.h>), so one
 # #include line serves both platforms. ActionUIRemote has no hand-written header, as on Apple: its
 # header is the one Swift generates, taken from the build that made the library. The
 # library is self-contained: it must be built with the Swift runtime linked in, and then needs only
@@ -137,7 +139,7 @@ discard_package() {
     fi
 }
 
-/bin/mkdir -p "$package/lib/pkgconfig" "$package/include/ActionUICAdapter" "$package/include/ActionUIAppKitApplication" "$package/include/ActionUIRemote"
+/bin/mkdir -p "$package/lib/pkgconfig" "$package/include/ActionUICAdapter" "$package/include/ActionUIAppKitApplication" "$package/include/ActionUIRemote" "$package/include/ActionUIHostSurface"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-library-package: could not make the folders of %s\n' "$package" >&2
@@ -161,6 +163,8 @@ copy_into_package "$library" "$package/lib/libActionUI.so" || exit 1
 copy_into_package "$repo/ActionUICAdapter/include/ActionUIC.h" "$package/include/ActionUICAdapter/ActionUIC.h" || exit 1
 copy_into_package "$repo/ActionUIAppKitApplication/include/ActionUIApp.h" "$package/include/ActionUIAppKitApplication/ActionUIApp.h" || exit 1
 copy_into_package "$remote_header" "$package/include/ActionUIRemote/ActionUIRemote-Swift.h" || exit 1
+copy_into_package "$repo/Add-ons/ActionUIHostSurface/Sources/CActionUIHostSurface/include/ActionUIHostSurface.h" \
+    "$package/include/ActionUIHostSurface/ActionUIHostSurface.h" || exit 1
 copy_into_package "$repo/LICENSE.txt" "$package/LICENSE.txt" || exit 1
 
 # The library carries RichText, AsyncImageCache and DiffView (Apache 2.0), through the add-ons: their licenses go with it,

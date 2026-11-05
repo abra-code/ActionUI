@@ -3,7 +3,8 @@
 // The add-on's shared state, all on the main actor:
 // - clients bound by surface name (a C delegate or a Swift HostSurfaceDelegate);
 // - the surface views, one per (windowUUID, viewID), owned here rather than by SwiftUI, so a SwiftUI
-//   rebuild of the element moves the same surface into its new container instead of destroying it;
+//   rebuild of the element moves the same surface into its new container instead of destroying it
+//   (on Linux, one per element widget, which GTK never rebuilds: attach and detach);
 // - the live surfaces by surfaceID, which the calls from other threads address.
 //
 // Every client callback goes through deliver(_:), which defers a delegate change made inside a
@@ -15,6 +16,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import CActionUIHostSurface
+import Dispatch
 
 /// One bound client. A class, so a surface can remember which binding it announced itself to and
 /// send "destroyed" to that one even after the name was bound to another client.
@@ -46,6 +48,7 @@ final class HostSurfaceRegistry {
     /// Views replaced in `owned` by an element that reuses their key under another surface name, until
     /// their teardown. A rebind must still reach them: a client may free its state once it is unbound.
     private var superseded: [ObjectIdentifier: HostSurfaceView] = [:]
+    private var attached: [ObjectIdentifier: HostSurfaceView] = [:]
     private var live: [UInt64: HostSurfaceView] = [:]
     private var lastSurfaceID: UInt64 = 0
 
@@ -125,8 +128,18 @@ final class HostSurfaceRegistry {
         superseded[ObjectIdentifier(view)] = nil
     }
 
+    /// Linux: a surface view for each element widget, from the widget's creation to its end. GTK never
+    /// rebuilds an element's widget, so there is nothing to move between containers.
+    func attach(_ view: HostSurfaceView) {
+        attached[ObjectIdentifier(view)] = view
+    }
+
+    func detach(_ view: HostSurfaceView) {
+        attached[ObjectIdentifier(view)] = nil
+    }
+
     private func surfaces(named name: String) -> [HostSurfaceView] {
-        (Array(owned.values) + Array(superseded.values)).filter { $0.surfaceName == name }
+        (Array(owned.values) + Array(superseded.values) + Array(attached.values)).filter { $0.surfaceName == name }
     }
 
     // MARK: live surfaces
@@ -156,16 +169,36 @@ final class HostSurfaceRegistry {
         for name in Array(bindings.keys) {
             setBinding(nil, for: name)
         }
-        for view in Array(owned.values) + Array(superseded.values) {
+        for view in Array(owned.values) + Array(superseded.values) + Array(attached.values) {
             view.teardown()
         }
         pendingBindings = []
     }
 }
 
+#if canImport(Darwin)
+/// True on the main thread.
+nonisolated var isMainThread: Bool {
+    Thread.isMainThread
+}
+#else
+// FoundationEssentials has no Thread. The main queue carries this key, and the main thread runs with the
+// main queue as its current queue except inside another queue's work, as in the C adapter (ActionUIC.swift).
+private let mainQueueKey: DispatchSpecificKey<Bool> = {
+    let key = DispatchSpecificKey<Bool>()
+    DispatchQueue.main.setSpecific(key: key, value: true)
+    return key
+}()
+
+/// True on the main thread.
+nonisolated var isMainThread: Bool {
+    DispatchQueue.getSpecific(key: mainQueueKey) == true
+}
+#endif
+
 /// Runs work on the main actor: now when called on the main thread, else queued without waiting.
 nonisolated func runOnMainWithoutWaiting(_ work: @escaping @MainActor @Sendable () -> Void) {
-    if Thread.isMainThread {
+    if isMainThread {
         MainActor.assumeIsolated {
             work()
         }

@@ -8,6 +8,7 @@
 
 import ActionUICachedImage
 import ActionUIDiff
+import ActionUIHostSurface
 import ActionUIRichText
 
 @c public func ActionUILinkedAddOns_register() {
@@ -15,5 +16,6 @@ import ActionUIRichText
         ActionUIRichText.register()
         ActionUICachedImage.register()
         ActionUIDiff.register()
+        ActionUIHostSurface.register()
     }
 }

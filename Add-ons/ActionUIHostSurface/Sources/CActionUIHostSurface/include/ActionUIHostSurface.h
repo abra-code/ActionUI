@@ -14,12 +14,14 @@
 //  A client binds to an element by the element's "surfaceName" property, before or after the
 //  document loads, with actionUIHostSurfaceSetDelegate. Its delegate then receives the surface
 //  events (created, changed, suspended, resumed, destroyed), frame ticks and input. On Apple
-//  platforms the surface is a CAMetalLayer.
+//  platforms the surface is a CAMetalLayer. On Linux it is a frame sink: the client renders where it
+//  likes (offscreen with wgpu or Vulkan, or on the CPU) and presents finished frames with
+//  actionUIHostSurfacePresentPixels.
 //
 //  Threads: every callback runs on the main thread. actionUIHostSurfaceSetDelegate,
-//  actionUIHostSurfaceSetCursor and ActionUIHostSurface_register are main-thread only. actionUIHostSurfaceRequestFrame and
-//  actionUIHostSurfaceSetContinuous may be called from any thread and never wait for the main
-//  thread. A client may render from its own thread (Metal layers allow it), but that thread must
+//  actionUIHostSurfaceSetCursor and ActionUIHostSurface_register are main-thread only. actionUIHostSurfaceRequestFrame,
+//  actionUIHostSurfaceSetContinuous and actionUIHostSurfacePresentPixels may be called from any thread
+//  and never wait for the main thread. A client may render from its own thread (Metal layers allow it), but that thread must
 //  not wait for the main thread while the "destroyed" callback may be joining it: several
 //  functions of the ActionUI C adapter (actionUIGet..., actionUIInsertElement, ...) run
 //  synchronously on the main thread when called from another thread, and would deadlock.
@@ -223,6 +225,26 @@ void actionUIHostSurfaceSetContinuous(uint64_t surfaceID, bool continuous);
 /// next call or the surface's Destroyed. Main thread only. Returns false off the main thread, when
 /// surfaceID is not a live surface, or when cursor is not an AUIHostCursor value.
 bool actionUIHostSurfaceSetCursor(uint64_t surfaceID, int32_t cursor);
+
+/// The layout of the pixels given to actionUIHostSurfacePresentPixels: 4 bytes per pixel, in this
+/// order in memory.
+typedef enum {
+    AUIHostPixelBGRA8Premultiplied = 1,   // blue, green, red, alpha; colors premultiplied by alpha
+    AUIHostPixelRGBA8Premultiplied = 2,   // red, green, blue, alpha; colors premultiplied by alpha
+    AUIHostPixelBGRX8 = 3,                // blue, green, red, unused: opaque
+    AUIHostPixelRGBX8 = 4                 // red, green, blue, unused: opaque
+} AUIHostPixelFormat;
+
+/// Frame sink only (AUIHostSurfaceFrameSink): shows one finished frame on the surface. The pixels are
+/// copied before the call returns. Frames that come faster than the display refreshes are merged:
+/// the newest is shown. The frame is drawn scaled to the surface, so render at the pixel size of the
+/// last Created or Changed. Any thread; never waits.
+/// Returns false, and shows nothing, when surfaceID is not a live frame-sink surface (for example
+/// after its Destroyed, and always on Apple platforms, whose surfaces are Metal layers), when width
+/// or height is 0, when stride is less than width * 4, when pixels is NULL, or when format is not an
+/// AUIHostPixelFormat.
+bool actionUIHostSurfacePresentPixels(uint64_t surfaceID, uint32_t width, uint32_t height, uint32_t stride,
+                                      int32_t format, const void *pixels);
 
 #ifdef __cplusplus
 }

@@ -13,7 +13,8 @@ import ActionUI
 
 /// What the element asked for in "kind".
 enum HostSurfaceKindRequest: Equatable {
-    /// "native", or absent: the platform's own surface (a Metal layer on Apple platforms).
+    /// "native", or absent: the platform's own surface (a Metal layer on Apple platforms, the frame sink
+    /// on Linux, where "sink" means the same).
     case native
     /// A kind this platform lacks ("sink", "gl"), or an unknown one: the element draws a placeholder
     /// and announces no surface.
@@ -65,6 +66,11 @@ struct HostSurfaceProperties: Equatable {
             switch raw as? String {
             case "native":
                 kind = .native
+            #if os(Linux)
+            case "sink":
+                // The frame sink is the native kind on Linux: GTK gives a widget no surface of its own.
+                kind = .native
+            #endif
             case let name?:
                 logger.log("HostSurface: kind '\(name)' is not available on this platform; drawing a placeholder", .warning)
                 kind = .unsupported(name)

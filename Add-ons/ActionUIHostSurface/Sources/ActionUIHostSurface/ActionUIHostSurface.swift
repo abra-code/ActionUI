@@ -13,7 +13,9 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+#if canImport(QuartzCore)
 import QuartzCore
+#endif
 import ActionUI
 @_exported import CActionUIHostSurface
 
@@ -64,6 +66,21 @@ public enum ActionUIHostSurface {
             HostSurfaceRegistry.shared.liveSurface(surfaceID)?.setContinuousOverride(continuous)
         }
     }
+
+    /// Frame sink only (Linux): shows one finished frame, 4 bytes per pixel in `format` (an
+    /// AUIHostPixelFormat value), rows `stride` bytes apart. The pixels are copied before it returns.
+    /// Any thread; never waits. False when `surfaceID` is not a live frame-sink surface (always on Apple
+    /// platforms) or the arguments do not describe a frame; see actionUIHostSurfacePresentPixels.
+    @discardableResult
+    public static func presentPixels(surfaceID: UInt64, width: Int, height: Int, stride: Int, format: Int32,
+                                     pixels: UnsafeRawPointer) -> Bool {
+        #if os(Linux)
+        return HostSurfaceSinks.present(surfaceID: surfaceID, width: width, height: height, stride: stride,
+                                        format: format, pixels: pixels)
+        #else
+        return false
+        #endif
+    }
 }
 
 // MARK: - Swift client API
@@ -72,15 +89,18 @@ public enum HostSurfaceEvent: Sendable {
     case created, changed, suspended, resumed, destroyed
 }
 
-/// One surface as the client sees it. `metalLayer` is valid until the "destroyed" event for this
-/// `surfaceID` returns.
+/// One surface as the client sees it. `metalLayer` (Apple platforms) is valid until the "destroyed"
+/// event for this `surfaceID` returns. On Linux the surface is a frame sink: the client presents
+/// finished frames with `ActionUIHostSurface.presentPixels`.
 @MainActor
 public struct HostSurfaceInfo {
     /// Unique for the life of the process; a new one with every "created".
     public let surfaceID: UInt64
     public let windowUUID: String
     public let viewID: Int
+    #if canImport(QuartzCore)
     public let metalLayer: CAMetalLayer
+    #endif
     public let widthPoints: Double
     public let heightPoints: Double
     /// Pixels per point.
@@ -120,6 +140,18 @@ public struct HostSurfaceInput: Sendable {
 
 extension AUIHostInputEvent: @retroactive @unchecked Sendable {}
 
+extension HostSurfaceEvent {
+    var cValue: AUIHostSurfaceEvent {
+        switch self {
+        case .created: return AUIHostSurfaceCreated
+        case .changed: return AUIHostSurfaceChanged
+        case .suspended: return AUIHostSurfaceSuspended
+        case .resumed: return AUIHostSurfaceResumed
+        case .destroyed: return AUIHostSurfaceDestroyed
+        }
+    }
+}
+
 // MARK: - C interface (include/ActionUIHostSurface.h)
 
 /// Plain C entry point for registration, callable from every adapter without the Swift or
@@ -135,7 +167,7 @@ public func ActionUIHostSurface_register() {
 public func actionUIHostSurfaceSetDelegate(_ surfaceName: UnsafePointer<CChar>?,
                                            _ delegate: UnsafePointer<AUIHostSurfaceDelegate>?,
                                            _ userData: UnsafeMutableRawPointer?) -> Bool {
-    guard Thread.isMainThread, let surfaceName else {
+    guard isMainThread, let surfaceName else {
         return false
     }
     let name = String(cString: surfaceName)
@@ -171,12 +203,22 @@ public func actionUIHostSurfaceSetContinuous(_ surfaceID: UInt64, _ continuous: 
 
 @c
 public func actionUIHostSurfaceSetCursor(_ surfaceID: UInt64, _ cursor: Int32) -> Bool {
-    guard Thread.isMainThread else {
+    guard isMainThread else {
         return false
     }
     return MainActor.assumeIsolated {
         ActionUIHostSurface.setCursor(cursor, surfaceID: surfaceID)
     }
+}
+
+@c
+public func actionUIHostSurfacePresentPixels(_ surfaceID: UInt64, _ width: UInt32, _ height: UInt32, _ stride: UInt32,
+                                             _ format: Int32, _ pixels: UnsafeRawPointer?) -> Bool {
+    guard let pixels else {
+        return false
+    }
+    return ActionUIHostSurface.presentPixels(surfaceID: surfaceID, width: Int(width), height: Int(height),
+                                             stride: Int(stride), format: format, pixels: pixels)
 }
 
 /// Copies a client's delegate struct, honoring its structSize: a client built against an older,

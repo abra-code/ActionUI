@@ -56,6 +56,7 @@ fn rust_type_for_c(c_type: &str) -> String {
         "uint64_t" => "u64".into(),
         "double" => "f64".into(),
         "void *" => "*mut c_void".into(),
+        "void const *" | "const void *" => "*const c_void".into(),
         "char const *" | "const char *" => "*const c_char".into(),
         other => {
             // const Name * or Name const *
@@ -134,7 +135,7 @@ fn rust_functions() -> Declarations {
 // MARK: enums and structs
 
 /// `AUIHostSurfaceGLArea` -> `AUI_HOST_SURFACE_GL_AREA`: an underscore before each capital that
-/// follows a small letter, or that starts a word after an acronym.
+/// follows a small letter or a digit, or that starts a word after an acronym.
 fn rust_constant_name(c_name: &str) -> String {
     let rest: Vec<char> = c_name.strip_prefix("AUI").expect("AUI prefix").chars().collect();
     let mut name = String::from("AUI");
@@ -143,7 +144,7 @@ fn rust_constant_name(c_name: &str) -> String {
         let next = rest.get(index + 1).copied();
         let starts_word = c.is_ascii_uppercase()
             && (index == 0
-                || previous.is_some_and(|p| p.is_ascii_lowercase())
+                || previous.is_some_and(|p| p.is_ascii_lowercase() || p.is_ascii_digit())
                 || (previous.is_some_and(|p| p.is_ascii_uppercase()) && next.is_some_and(|n| n.is_ascii_lowercase())));
         if starts_word {
             name.push('_');
@@ -319,7 +320,7 @@ fn differences(in_headers: &Declarations, in_rust: &Declarations) -> Vec<String>
 #[test]
 fn functions_match_the_generated_header() {
     let in_headers = header_functions();
-    assert_eq!(in_headers.len(), 5, "functions in the generated header: {in_headers:?}");
+    assert_eq!(in_headers.len(), 6, "functions in the generated header: {in_headers:?}");
     let problems = differences(&in_headers, &rust_functions());
     assert!(problems.is_empty(), "src/host_surface.rs and the generated header disagree:\n{}", problems.join("\n"));
 }

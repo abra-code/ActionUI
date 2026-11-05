@@ -7,8 +7,9 @@
    "properties": {
      "surfaceName": "viewport",   // Required: String; binds the element to the client registered under this
                                   //           name (actionUIHostSurfaceSetDelegate). Fixed at load.
-     "kind": "native",            // Optional: "native" (default): a CAMetalLayer on macOS and iOS. Other kinds
-                                  //           ("sink", "gl") are not available here: a placeholder is drawn.
+     "kind": "native",            // Optional: "native" (default): a CAMetalLayer on macOS and iOS, a frame sink
+                                  //           on Linux ("sink" there too). Kinds a platform lacks ("sink" on
+                                  //           Apple, "gl") draw a placeholder.
                                   //           Fixed at load.
      "continuous": false,         // Optional: Bool, default false; a frame callback at every display refresh
                                   //           while the surface is on screen. Otherwise one per requestFrame.

@@ -23,6 +23,7 @@ let package = Package(
         .package(path: "../../Add-ons/ActionUIRichText"),
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIDiff"),
+        .package(path: "../../Add-ons/ActionUIHostSurface"),
     ],
     targets: [
         .target(
@@ -33,6 +34,7 @@ let package = Package(
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
+                .product(name: "ActionUIHostSurface", package: "ActionUIHostSurface"),
             ]
         ),
         // Programs in other languages, run against the built library.

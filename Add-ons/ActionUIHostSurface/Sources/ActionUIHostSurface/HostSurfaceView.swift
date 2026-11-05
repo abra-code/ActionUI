@@ -307,6 +307,10 @@ final class HostSurfaceView: HostSurfacePlatformView {
         }
         // FocusOut before "destroyed"; a surface with no client must not keep taking the keys.
         giveUpFocus()
+        // The client's cursor lasts until "destroyed" (the header): a hidden one must not outlive it.
+        if cursor != Int32(AUIHostCursorArrow.rawValue) {
+            setCursor(Int32(AUIHostCursorArrow.rawValue))
+        }
         send(.destroyed, lastGeometry ?? geometry)
         HostSurfaceRegistry.shared.retire(surfaceID)
         surfaceID = 0
@@ -598,17 +602,5 @@ final class HostSurfaceView: HostSurfacePlatformView {
             }
         }
         updateDisplayLink()
-    }
-}
-
-extension HostSurfaceEvent {
-    var cValue: AUIHostSurfaceEvent {
-        switch self {
-        case .created: return AUIHostSurfaceCreated
-        case .changed: return AUIHostSurfaceChanged
-        case .suspended: return AUIHostSurfaceSuspended
-        case .resumed: return AUIHostSurfaceResumed
-        case .destroyed: return AUIHostSurfaceDestroyed
-        }
     }
 }
