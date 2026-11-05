@@ -39,6 +39,11 @@ android {
             path = file("src/main/cpp/Android.mk")
         }
     }
+    // The HostSurface demo's Rust client, when built (ActionUIRust/BUILD_GUIDE.md, Android):
+    // -PrustDemoLibs=<folder with arm64-v8a/libhost_surface_android.so>.
+    (project.findProperty("rustDemoLibs") as String?)?.let { folder ->
+        sourceSets.getByName("main").jniLibs.srcDir(folder)
+    }
 }
 
 dependencies {

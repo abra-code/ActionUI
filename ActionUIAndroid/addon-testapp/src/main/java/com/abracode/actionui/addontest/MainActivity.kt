@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         registerCachedImageHandlers()
         HostSurfaceDemoClient.install()
         HostSurfaceCDemo.install()
+        HostSurfaceRustDemo.install()
         enableEdgeToEdge()
         setContent { AddOnTestApp() }
     }

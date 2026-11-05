@@ -14,6 +14,10 @@
     { "type": "Text", "id": 95, "properties": { "text": "Below, a C client draws through the add-on's C interface (logcat tag HostSurfaceCDemo). Tap to place the square.", "foregroundStyle": "secondary" } },
     { "type": "HostSurface", "id": 96, "properties": {
         "surfaceName": "demo.native", "continuous": true, "cornerRadius": 10,
-        "idealHeight": 160, "frame": { "maxWidth": "infinity" }, "accessibilityLabel": "C canvas" } }
+        "idealHeight": 160, "frame": { "maxWidth": "infinity" }, "accessibilityLabel": "C canvas" } },
+    { "type": "Text", "id": 97, "properties": { "text": "Below, Rust draws with wgpu on the element's native window (logcat tag HostSurfaceRust; the app must be built with the Rust library). Drag to leave dots.", "foregroundStyle": "secondary" } },
+    { "type": "HostSurface", "id": 98, "properties": {
+        "surfaceName": "demo.rust", "cornerRadius": 10,
+        "idealHeight": 200, "frame": { "maxWidth": "infinity" }, "accessibilityLabel": "Rust canvas" } }
   ]
 }
