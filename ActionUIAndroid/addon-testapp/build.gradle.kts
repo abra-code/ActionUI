@@ -12,6 +12,7 @@ plugins {
 android {
     namespace = "com.abracode.actionui.addontest"
     compileSdk = 36
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         applicationId = "com.abracode.actionui.addontest"
@@ -31,6 +32,12 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    // The HostSurface demo's C client (src/main/cpp), built with ndk-build from the NDK.
+    externalNativeBuild {
+        ndkBuild {
+            path = file("src/main/cpp/Android.mk")
+        }
     }
 }
 

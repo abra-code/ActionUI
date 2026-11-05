@@ -10,6 +10,10 @@
     { "type": "Toggle", "id": 91, "properties": { "title": "Animate", "isOn": true, "actionID": "hostSurface.animate" } },
     { "type": "Toggle", "id": 92, "properties": { "title": "Hidden", "isOn": false, "actionID": "hostSurface.hidden" } },
     { "type": "Toggle", "id": 93, "properties": { "title": "Padding", "isOn": false, "actionID": "hostSurface.padding" } },
-    { "type": "Text", "id": 94, "properties": { "text": "Drag in the area to draw. Surface events appear in logcat (tag HostSurfaceDemo).", "foregroundStyle": "secondary" } }
+    { "type": "Text", "id": 94, "properties": { "text": "Drag in the area to draw. Surface events appear in logcat (tag HostSurfaceDemo).", "foregroundStyle": "secondary" } },
+    { "type": "Text", "id": 95, "properties": { "text": "Below, a C client draws through the add-on's C interface (logcat tag HostSurfaceCDemo). Tap to place the square.", "foregroundStyle": "secondary" } },
+    { "type": "HostSurface", "id": 96, "properties": {
+        "surfaceName": "demo.native", "continuous": true, "cornerRadius": 10,
+        "idealHeight": 160, "frame": { "maxWidth": "infinity" }, "accessibilityLabel": "C canvas" } }
   ]
 }

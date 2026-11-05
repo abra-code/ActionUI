@@ -131,6 +131,31 @@ class HostSurfaceRulesTest {
     }
 
     @Test
+    fun aBindingChangeInsideDestroyedOfALostSurfaceWaitsForTheLoss() {
+        val second = Recorder("second", log)
+        val first = object : HostSurfaceDelegate, HostSurfaceRetirable {
+            override fun onSurface(event: HostSurfaceEvent, info: HostSurfaceInfo) {
+                log += "first $event"
+                if (event == HostSurfaceEvent.DESTROYED) {
+                    bind("viewport", second)
+                }
+            }
+            override fun retired() {
+                log += "first retired"
+            }
+        }
+        bind("viewport", first)
+        val controller = element()
+        controller.surfaceAvailable(surface, 200, 100, 2f)
+        controller.surfaceLost()
+        // One DESTROYED, then the retire; the dying Surface is not announced to the new client.
+        assertEquals(listOf("first CREATED", "first DESTROYED", "first retired"), log)
+        assertEquals(0L, controller.surfaceID)
+        controller.surfaceAvailable(surface, 200, 100, 2f)
+        assertEquals("first CREATED, first DESTROYED, first retired, second CREATED", log.joinToString())
+    }
+
+    @Test
     fun hiddenAndZeroSizeSuspendWithoutDestroying() {
         val client = Recorder("a", log)
         bind("viewport", client)

@@ -13,6 +13,9 @@ import android.net.Uri
 class HostSurfaceProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         HostSurfaceElement.register()
+        // The C interface for C, C++ and Rust clients: loaded here, before any client's library, so its
+        // JNI_OnLoad finds the Kotlin bridge with the app's class loader.
+        HostSurfaceNative.load()
         return true
     }
 

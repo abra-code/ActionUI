@@ -20,6 +20,11 @@ import android.view.Surface
 /** One bound client; a class so a surface remembers which binding it announced itself to. */
 internal class HostSurfaceBinding(val delegate: HostSurfaceDelegate)
 
+/** A delegate told when its binding is gone for good: unbound or replaced, after its last DESTROYED. */
+internal interface HostSurfaceRetirable {
+    fun retired()
+}
+
 /** What a controller needs from the platform: frame callbacks, the pointer shape and keyboard focus. */
 internal interface HostSurfaceHost {
     /** Calls [onFrame] with the frame time in nanoseconds at the next vsync, once. */
@@ -45,8 +50,8 @@ internal object HostSurfaceRegistry {
             pending.addLast(name to binding)
             return
         }
+        val old = bindings[name]
         deliver {
-            val old = bindings[name]
             if (old != null) {
                 for (controller in controllers.filter { it.surfaceName == name && it.announcedBinding === old }) {
                     controller.retract()
@@ -60,6 +65,10 @@ internal object HostSurfaceRegistry {
             for (controller in controllers.filter { it.surfaceName == name }) {
                 controller.refresh()
             }
+        }
+        // Every surface it was told about got DESTROYED above, and nothing reaches it any more.
+        if (old != null && old !== binding) {
+            (old.delegate as? HostSurfaceRetirable)?.retired()
         }
     }
 
@@ -167,8 +176,12 @@ internal class HostSurfaceController(
 
     /** The Surface is going away: DESTROYED now, before the platform takes it. */
     fun surfaceLost() {
-        retract()
-        surface = null
+        // In deliver, so a binding change made inside DESTROYED waits until the surface is gone: run earlier, it
+        // would retract the surface a second time and announce the dying Surface to the new client.
+        HostSurfaceRegistry.deliver {
+            retract()
+            surface = null
+        }
     }
 
     fun setProperties(hidden: Boolean, continuous: Boolean) {

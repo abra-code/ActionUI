@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         registerCachedImageHandlers()
         HostSurfaceDemoClient.install()
+        HostSurfaceCDemo.install()
         enableEdgeToEdge()
         setContent { AddOnTestApp() }
     }
