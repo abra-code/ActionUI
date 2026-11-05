@@ -2,23 +2,29 @@
 //
 // Element-level tests of the ActionUIDiff add-on: the Diff wrapper's input-resolution
 // helper (text wins over file, tilde expansion, missing / unreadable files, empty sides)
-// and how it reads raw, ill-typed properties. Reaches internals via @testable import.
+// and how it reads raw, ill-typed properties. Reaches internals via @testable import. The helper is shared by
+// Apple and Linux (DiffInput.swift), so these run on both.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import XCTest
 @testable import ActionUIDiff
 import ActionUI
 
-/// Minimal logger that records what it is handed, so a test can assert a warning fired.
+/// Minimal logger that records what it is handed, so a test can assert a warning fired. No lock: the tests run
+/// on the main actor and the code under test logs synchronously, on the caller's thread.
 private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
-    private let lock = NSLock()
     private var entries: [(String, LoggerLevel)] = []
 
     func log(_ message: String, _ level: LoggerLevel) {
-        lock.withLock { entries.append((message, level)) }
+        entries.append((message, level))
     }
 
     var warnings: [String] {
-        lock.withLock { entries.filter { $0.1 == .warning }.map(\.0) }
+        entries.filter { $0.1 == .warning }.map(\.0)
     }
 }
 
@@ -49,8 +55,26 @@ final class DiffInputResolutionTests: XCTestCase {
             return XCTFail("a missing file must resolve to .unreadable")
         }
         XCTAssertFalse(path.hasPrefix("~"), "the tilde must be expanded, not left literal")
-        XCTAssertTrue(path.hasPrefix(NSHomeDirectory()), "the tilde must expand to the home directory")
+        XCTAssertTrue(path.hasPrefix(FileManager.default.homeDirectoryForCurrentUser.path), "the tilde must expand to the home directory")
         XCTAssertTrue(path.hasSuffix(unique))
+    }
+
+    func testTildeAloneAndWithASlashAreTheHomeWithoutATrailingSlash() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let expected = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
+        XCTAssertEqual(Diff.expandingTilde("~"), expected)
+        XCTAssertEqual(Diff.expandingTilde("~/"), expected)
+        XCTAssertEqual(Diff.expandingTilde("/a/~/b"), "/a/~/b", "only a leading tilde expands")
+    }
+
+    func testTildeWithAUserNameResolvesToThatUsersHome() throws {
+        let logger = RecordingLogger()
+        let home = try XCTUnwrap(FileManager.default.homeDirectory(forUser: "root")).path
+        let resolved = Diff.resolveInput(text: nil, file: "~root/actionui-diff-\(UUID().uuidString)", side: "old", logger: logger)
+        guard case .unreadable(let path) = resolved else {
+            return XCTFail("a missing file must resolve to .unreadable")
+        }
+        XCTAssertTrue(path.hasPrefix(home + "/actionui-diff-"), "~root is root's home, \(home); got \(path)")
     }
 
     func testExistingFileIsReadAsText() throws {

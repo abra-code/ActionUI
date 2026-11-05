@@ -7,11 +7,13 @@
 */
 
 import ActionUICachedImage
+import ActionUIDiff
 import ActionUIRichText
 
 @c public func ActionUILinkedAddOns_register() {
     MainActor.assumeIsolated {
         ActionUIRichText.register()
         ActionUICachedImage.register()
+        ActionUIDiff.register()
     }
 }

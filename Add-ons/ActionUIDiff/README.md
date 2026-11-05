@@ -37,6 +37,11 @@ side; a missing / oversized (over 4 MB) / non-UTF-8 file renders an inline "Cann
 instead of a misleading diff; a side with neither is an empty side (a new-file or deleted-file diff).
 `contextLines` (default 3) and `maxRenderedLines` (default 300) tune the rendering.
 
+- macOS / iOS / visionOS: `DiffView.DiffView` (a SwiftUI view).
+- Linux: `DiffView.DiffGtkView` (GTK widgets), drawn as on Apple, with the same properties: each number, marker
+  and line is selectable on its own, as each SwiftUI `Text` is. A Swift program links `ActionUIDiff` and calls
+  `ActionUIDiff.register()`, as on Apple; `libActionUI.so` registers it for programs in other languages.
+
 The element is **display-only** (void value): there is nothing to read back with `getElementValue`.
 It is **stateless** - it builds from its current properties on every render - so a host can drive it
 at runtime with `setElementProperty` (e.g. inject `oldFile` / `newFile` paths) and the view updates.

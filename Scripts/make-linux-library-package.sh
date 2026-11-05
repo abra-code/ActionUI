@@ -11,7 +11,7 @@
 #     include/ActionUIRemote/ActionUIRemote-Swift.h      the remote server's functions (generated)
 #     LICENSE.txt
 #     LICENSE-MaterialSymbols.txt                the license of the symbol icons in the library
-#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt   the licenses of the packages linked into it
+#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the licenses of the packages linked into it
 #   actionui-<version>-linux-<arch>.tar.gz       the folder, packed
 #
 # The headers sit at the include paths the Apple frameworks give them (<ActionUICAdapter/ActionUIC.h>,
@@ -163,9 +163,9 @@ copy_into_package "$repo/ActionUIAppKitApplication/include/ActionUIApp.h" "$pack
 copy_into_package "$remote_header" "$package/include/ActionUIRemote/ActionUIRemote-Swift.h" || exit 1
 copy_into_package "$repo/LICENSE.txt" "$package/LICENSE.txt" || exit 1
 
-# The library carries RichText and AsyncImageCache (Apache 2.0), through the add-ons: their licenses go with it,
+# The library carries RichText, AsyncImageCache and DiffView (Apache 2.0), through the add-ons: their licenses go with it,
 # from the versions it was built with.
-for dependency in RichText AsyncImageCache; do
+for dependency in RichText AsyncImageCache DiffView; do
     copy_into_package "$checkouts/$dependency/LICENSE" "$package/LICENSE-$dependency.txt" || exit 1
 done
 

@@ -61,8 +61,8 @@ extension finds it there through its $ORIGIN rpath: the installed module is
 self-contained, needing only the system's GTK 4, libadwaita and libsoup 3. The
 library's licenses go beside it, as libActionUI-LICENSE.txt,
 libActionUI-LICENSE-MaterialSymbols.txt (the Material Symbols icons in the library),
-libActionUI-LICENSE-RichText.txt and libActionUI-LICENSE-AsyncImageCache.txt (the
-packages linked into it).
+libActionUI-LICENSE-RichText.txt, libActionUI-LICENSE-AsyncImageCache.txt and
+libActionUI-LICENSE-DiffView.txt (the packages linked into it).
 
 Building
 --------
@@ -232,6 +232,7 @@ class build_ext_with_library(build_ext):
         ('LICENSE-MaterialSymbols.txt', 'libActionUI-LICENSE-MaterialSymbols.txt'),
         ('LICENSE-RichText.txt', 'libActionUI-LICENSE-RichText.txt'),
         ('LICENSE-AsyncImageCache.txt', 'libActionUI-LICENSE-AsyncImageCache.txt'),
+        ('LICENSE-DiffView.txt', 'libActionUI-LICENSE-DiffView.txt'),
     ]
 
     def run(self):

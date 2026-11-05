@@ -12,9 +12,49 @@
 // its own repo (github.com/abra-code/DiffView) - the same relationship RichText has to the
 // ActionUIRichText add-on. This package ships the `Diff` element wrapper on top of it for JSON
 // documents; the chat component consumes the DiffView package directly.
+//
+// On Linux the add-on is the GTK element (Diff+Adwaita.swift) over the same DiffView package, whose GTK view draws
+// the diff, and it links ActionUI's ActionUIStatic product: one process has one Swift runtime. It has no
+// Documentation target there: Bundle.module needs full Foundation, and with it ICU's data, which the Linux build
+// leaves out.
 
 import PackageDescription
 
+#if os(Linux)
+let package = Package(
+    name: "ActionUIDiff",
+    products: [
+        .library(name: "ActionUIDiff", targets: ["ActionUIDiff"]),
+    ],
+    dependencies: [
+        .package(path: "../.."),   // the ActionUI package at the repo root
+        // 0.2.0 is its first version with the GTK view.
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
+    ],
+    targets: [
+        .target(
+            name: "ActionUIDiff",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "DiffView", package: "DiffView"),
+            ],
+            path: "Sources/ActionUIDiff",
+            // The SwiftUI element.
+            exclude: ["Diff.swift"]
+        ),
+        .testTarget(
+            name: "DiffTests",
+            dependencies: [
+                "ActionUIDiff",
+                .product(name: "CAdwaita", package: "ActionUI"),
+                .product(name: "DiffView", package: "DiffView"),
+            ],
+            path: "Tests"
+        ),
+    ]
+)
+#else
 let package = Package(
     name: "ActionUIDiff",
     platforms: [
@@ -66,3 +106,4 @@ let package = Package(
         ),
     ]
 )
+#endif

@@ -64,6 +64,9 @@ needs full Foundation, and with it ICU's data, which the Linux build leaves out.
   document (headings, code blocks, quotes, lists, GFM tables, inline styling, links) into one native
   text view, selectable and copyable as a single unit (table-aware copy). RichText pulls AsyncImageCache
   transitively. Owns `Schemas/RichText.json`.
+- **`ActionUIDiff/`** - a `Diff` element, on Linux too: a unified line diff of two texts or files, backed by the
+  [DiffView](https://github.com/abra-code/DiffView) github package (a SwiftUI view on Apple, GTK widgets on Linux).
+  Owns `Schemas/Diff.json`.
 - **`ActionUIAddOnTestApp/`** - a multiplatform (macOS + iOS) host app that links ActionUI +
   ActionUISwiftAdapter + the add-on and renders a document using the add-on's element. The add-on
   analogue of `ActionUISwiftTestApp`, and the place to exercise an add-on at runtime.

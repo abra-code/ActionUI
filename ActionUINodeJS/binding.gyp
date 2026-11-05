@@ -47,7 +47,8 @@
             "<(lib_dir)/LICENSE.txt",
             "<(lib_dir)/LICENSE-MaterialSymbols.txt",
             "<(lib_dir)/LICENSE-RichText.txt",
-            "<(lib_dir)/LICENSE-AsyncImageCache.txt"
+            "<(lib_dir)/LICENSE-AsyncImageCache.txt",
+            "<(lib_dir)/LICENSE-DiffView.txt"
           ]
         }]
       }],

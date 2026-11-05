@@ -11,7 +11,11 @@
 // ActionUIAndroid map providers, which self-register via a manifest ContentProvider), so
 // registration is this one explicit call.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import ActionUI
 
 public enum ActionUIDiff {

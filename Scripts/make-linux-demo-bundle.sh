@@ -6,12 +6,12 @@
 #   ActionUIDemo.app/
 #     ActionUIDemo        the ActionUIAdwaitaDemo program
 #     *.json, *.png ...   ActionUISwiftTestApp/Resources, copied
-#     RichText.json ...   the documents of the add-ons the program links, from the add-ons' test app
+#     RichText.json ...   the documents of the add-ons the program links (and the Diff document's two text files), from the add-ons' test app
 #     Orb.png ...         the test app's asset images, named after their assets (Image assetName)
 #     Info.json           the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
 #     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
 #     LICENSE.txt, LICENSE-MaterialSymbols.txt   ActionUI's license, and its symbol icons'
-#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt   the packages the add-ons link
+#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the packages the add-ons link
 #
 # The program finds its documents in the folder it runs from. The bundle is self-contained: the
 # program must be built with the Swift runtime linked in, and then needs only the system's GTK 4,
@@ -77,7 +77,7 @@ if [ ! -d "$scratch/checkouts" ]; then
     scratch="$(/usr/bin/dirname "$scratch")"
 fi
 checkouts="$scratch/checkouts"
-for dependency in RichText AsyncImageCache; do
+for dependency in RichText AsyncImageCache DiffView; do
     if [ ! -f "$checkouts/$dependency/LICENSE" ]; then
         printf 'make-linux-demo-bundle: no license of %s in %s; give the products folder swift build made, so that the packages it checked out are found\n' "$dependency" "$checkouts" >&2
         exit 1
@@ -161,11 +161,11 @@ if [ "$status" -ne 0 ]; then
 fi
 
 # The documents of the add-ons that work on Linux: the others show only a placeholder here.
-for document in RichText RichText.remoteImages CachedImage; do
-    /bin/cp "$add_on_resources/$document.json" "$bundle/"
+for document in RichText.json RichText.remoteImages.json CachedImage.json Diff.json DiffSampleOld.txt DiffSampleNew.txt; do
+    /bin/cp "$add_on_resources/$document" "$bundle/"
     status=$?
     if [ "$status" -ne 0 ]; then
-        printf 'make-linux-demo-bundle: could not copy %s.json from %s\n' "$document" "$add_on_resources" >&2
+        printf 'make-linux-demo-bundle: could not copy %s from %s\n' "$document" "$add_on_resources" >&2
         discard_bundle
         exit 1
     fi
@@ -213,8 +213,8 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 
-# The add-ons link RichText and AsyncImageCache: their licenses go with the program too.
-for dependency in RichText AsyncImageCache; do
+# The add-ons link RichText, AsyncImageCache and DiffView: their licenses go with the program too.
+for dependency in RichText AsyncImageCache DiffView; do
     /bin/cp "$checkouts/$dependency/LICENSE" "$bundle/LICENSE-$dependency.txt"
     status=$?
     if [ "$status" -ne 0 ]; then

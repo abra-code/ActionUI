@@ -19,7 +19,7 @@
  - Exit status: 64 for bad arguments, 66 when there are no documents or no document Name, 65 when
    the document opened with --open cannot be loaded (its window shows the error).
  The documents' actions run the test app's own handlers (ActionUISwiftTestApp/DemoHandlers.swift).
- The add-ons that work on Linux (RichText, CachedImage) are linked and registered.
+ The add-ons that work on Linux (RichText, CachedImage, Diff) are linked and registered.
  The Mac app's menu commands (DefaultWindow.json's) are in each window's primary menu.
  The element type the Linux renderer does not have yet (Map) shows a placeholder in those documents.
 */
@@ -31,6 +31,7 @@ import Glibc
 import ActionUI
 import ActionUICachedImage
 import ActionUIDemoHandlers
+import ActionUIDiff
 import ActionUIRichText
 import ActionUISwiftAdapter
 
@@ -100,6 +101,7 @@ var screenshotTried = false
 MainActor.assumeIsolated {
     ActionUIRichText.register()
     ActionUICachedImage.register()
+    ActionUIDiff.register()
     let app = AdwaitaApplication.shared
     app.name = "ActionUI Demo"
     app.applicationID = "com.abracode.actionui.demo"
@@ -145,6 +147,14 @@ MainActor.assumeIsolated {
     app.handlers.windowWillPresent = { windowUUID in
         if windowUUID == launcherUUID {
             ActionUIModel.shared.setElementRows(windowUUID: launcherUUID, viewID: launcherListID, rows: names.map { [$0] })
+        }
+        // The Diff document's second element (id 81) diffs two bundled text files by absolute path, set before
+        // display as the add-ons' test app does on Apple.
+        if windowUUID == "Diff" {
+            for (property, file) in [("oldFile", "DiffSampleOld.txt"), ("newFile", "DiffSampleNew.txt")] {
+                let path = URL(fileURLWithPath: folder).appendingPathComponent(file).path
+                ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 81, propertyName: property, value: path)
+            }
         }
         // A document that could not be loaded shows its error in its window; the run fails.
         if windowUUID == openName, !app.showsDocument(windowUUID) {

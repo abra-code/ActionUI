@@ -1,8 +1,8 @@
 """The add-ons in libActionUI.so, seen from Python through its C functions only.
 
 A program in another language cannot call an add-on's register(), so the library must register its add-ons itself.
-The document shows RichText and CachedImage, which must draw, and Diff, which has no renderer on Linux: it must log
-the warning the other two must not, which shows the warning would have been seen. The exit status is 0 when so.
+The document shows RichText, CachedImage and Diff, which must draw, and QuickLook, which has no renderer on Linux: it
+must log the warning the other three must not, which shows the warning would have been seen. The exit status is 0 when so.
 
 Usage: python3 add_ons.py <libActionUI.so> <add_ons.json>
 """
@@ -11,7 +11,7 @@ import ctypes
 import sys
 
 WINDOW = b"add-ons"
-RICH_TEXT, DIFF = 2, 4
+RICH_TEXT = 2
 MISSING = "is not available on Linux yet"
 
 LOGGER = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int)
@@ -53,7 +53,6 @@ def main():
         # ctypes swallows an exception raised in a callback, so without the finally the application would not end.
         try:
             states["rich text"] = search_state(RICH_TEXT)
-            states["diff"] = search_state(DIFF)
         finally:
             lib.actionUIAppTerminate()
         return 0
@@ -78,9 +77,9 @@ def main():
     print("python: missing:", missing)
     print("python: search state:", states)
     failures = []
-    if not any("Diff" in line for line in missing):
-        failures.append("Diff logged no warning, so the log proves nothing")
-    for name in ("RichText", "CachedImage"):
+    if not any("QuickLook" in line for line in missing):
+        failures.append("QuickLook logged no warning, so the log proves nothing")
+    for name in ("RichText", "CachedImage", "Diff"):
         if any(name in line for line in missing):
             failures.append("%s is not registered" % name)
     if states.get("rich text") != "":

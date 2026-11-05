@@ -17,7 +17,10 @@
  }
 
  An embedded unified line-diff viewer, implemented as an ActionUI add-on (registered via
- ActionUIDiff.register()). It renders the difference between two texts with the standalone DiffView
+ ActionUIDiff.register()):
+   macOS / iOS / visionOS - DiffView.DiffView (a SwiftUI View).
+   Linux - DiffView.DiffGtkView (Diff+Adwaita.swift).
+ It renders the difference between two texts with the standalone DiffView
  component: hunks with old/new line-number gutters, +/- markers, tinted added/removed rows, "N
  unchanged lines" gaps where context collapsed, and honest degenerate cases (identical texts say "No
  changes"; oversized inputs fall back to a plain-text preview).
@@ -94,68 +97,7 @@ struct Diff: ActionUIViewConstruction {
     // Leaf view: no child containers accept runtime insertions.
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    // MARK: - Input resolution
-
-    /// One side's resolved text, or a path the wrapper could not read. Kept separate from rendering
-    /// (a small value, no SwiftUI) so the resolution rules are unit-testable without building a view.
-    enum ResolvedInput: Equatable {
-        case text(String)
-        case unreadable(path: String)
-    }
-
-    /// Resolves one side of the diff from its text and file properties.
-    /// - text wins over file: if `text` is a string it is used (warning if `file` is also set).
-    /// - otherwise `file` is tilde-expanded and read as UTF-8; missing, over 4 MB, or non-UTF-8
-    ///   yields `.unreadable`.
-    /// - neither given yields `.text("")` (a legitimate empty side: pure addition / removal).
-    static func resolveInput(text: Any?, file: Any?, side: String, logger: any ActionUILogger) -> ResolvedInput {
-        if let text = text as? String {
-            if file is String {
-                logger.log("Diff \(side): both text and file set; using text", .warning)
-            }
-            return .text(text)
-        }
-
-        guard let path = file as? String else {
-            return .text("")
-        }
-
-        let expanded = (path as NSString).expandingTildeInPath
-        let fileManager = FileManager.default
-
-        guard let attributes = try? fileManager.attributesOfItem(atPath: expanded),
-              let size = attributes[.size] as? Int, size <= 4_194_304 else {
-            logger.log("Diff \(side): cannot read '\(expanded)' (missing or over 4 MB); rendering a note", .warning)
-            return .unreadable(path: expanded)
-        }
-
-        guard let data = fileManager.contents(atPath: expanded),
-              let contents = String(data: data, encoding: .utf8) else {
-            logger.log("Diff \(side): '\(expanded)' is not readable UTF-8; rendering a note", .warning)
-            return .unreadable(path: expanded)
-        }
-
-        return .text(contents)
-    }
-
-    /// Reads an integer property, falling back to `defaultValue` (with a warning) when it is
-    /// ill-typed or below `minimum`.
-    static func intProperty(_ properties: [String: Any], key: String,
-                                    default defaultValue: Int, minimum: Int,
-                                    logger: any ActionUILogger) -> Int {
-        guard let raw = properties[key] else {
-            return defaultValue
-        }
-        guard let value = raw as? Int else {
-            logger.log("Diff \(key) must be an integer; using \(defaultValue)", .warning)
-            return defaultValue
-        }
-        guard value >= minimum else {
-            logger.log("Diff \(key) must be >= \(minimum); using \(defaultValue)", .warning)
-            return defaultValue
-        }
-        return value
-    }
+    // Input resolution (resolveInput, intProperty) is in DiffInput.swift, shared with Linux.
 
     /// A small secondary-styled note naming the file path(s) the wrapper could not read.
     private static func unreadableNote(paths: [String]) -> some SwiftUI.View {

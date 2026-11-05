@@ -22,6 +22,7 @@ let package = Package(
         .package(path: "../.."),   // the ActionUI package at the repo root
         .package(path: "../../Add-ons/ActionUIRichText"),
         .package(path: "../../Add-ons/ActionUICachedImage"),
+        .package(path: "../../Add-ons/ActionUIDiff"),
     ],
     targets: [
         .target(
@@ -31,6 +32,7 @@ let package = Package(
                 .product(name: "ActionUIStaticHosts", package: "ActionUI"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
+                .product(name: "ActionUIDiff", package: "ActionUIDiff"),
             ]
         ),
         // Programs in other languages, run against the built library.
