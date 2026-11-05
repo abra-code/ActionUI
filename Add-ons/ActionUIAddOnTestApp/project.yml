@@ -34,6 +34,8 @@ packages:
     path: ../ActionUIChat
   ActionUIDiff:
     path: ../ActionUIDiff
+  ActionUIHostSurface:
+    path: ../ActionUIHostSurface
 
 targets:
   ActionUIAddOnTestApp:
@@ -62,6 +64,8 @@ targets:
         product: ActionUIChat
       - package: ActionUIDiff
         product: ActionUIDiff
+      - package: ActionUIHostSurface
+        product: ActionUIHostSurface
     preBuildScripts:
       - name: "Verify JSON resources"
         script: '"${SRCROOT}/Scripts/verify_json_resources.sh"'

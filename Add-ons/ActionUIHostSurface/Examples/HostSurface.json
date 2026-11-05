@@ -1,0 +1,10 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A client draws the area below with Metal.", "font": "headline" } },
+    { "type": "HostSurface", "id": 3, "properties": { "surfaceName": "viewport", "continuous": true, "idealWidth": 480, "idealHeight": 320, "cornerRadius": 8 } },
+    { "type": "Toggle", "id": 4, "properties": { "title": "Animate", "isOn": true, "actionID": "surface.animate" } }
+  ]
+}

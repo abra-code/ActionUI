@@ -13,6 +13,7 @@
 		2F342F24A685081A6D00796B /* ActionUIAddOnTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */; };
 		30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */ = {isa = PBXBuildFile; fileRef = 223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */; };
 		34158BDB51FC0365D2F4186D /* DiffSampleNew.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */; };
+		4347FCFC4C86B43847EF4588 /* HostSurfaceDemoClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A238EAF1E43E6D7B660733C5 /* HostSurfaceDemoClient.swift */; };
 		581062D89D2AE39E5BB7602E /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */; };
 		62CDD50ACCD8CC25B6EF9912 /* RichText.json in Resources */ = {isa = PBXBuildFile; fileRef = 8C4E595F1F40E2EF85F9F588 /* RichText.json */; };
 		6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */ = {isa = PBXBuildFile; fileRef = A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */; };
@@ -20,7 +21,9 @@
 		83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */; };
 		900BCA3C6391EA20BA82A006 /* Chat.agentic.json in Resources */ = {isa = PBXBuildFile; fileRef = DBD652148424E7DF98811E1C /* Chat.agentic.json */; };
 		93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */; };
+		965E1878D0AD406E6AB63F9E /* ActionUIHostSurface in Frameworks */ = {isa = PBXBuildFile; productRef = 1EEA5F041A76AF0C6257340C /* ActionUIHostSurface */; };
 		9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */ = {isa = PBXBuildFile; fileRef = 5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */; };
+		B3162432E6C80BD45F5F9150 /* HostSurface.json in Resources */ = {isa = PBXBuildFile; fileRef = 77A5390B5A6392A60AAA52D7 /* HostSurface.json */; };
 		B4D671CD8BB050943270DEFF /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = 4C9B8E82DC322DADB493567B /* ActionUIDiff */; };
 		C243B510E2EACF91A4836826 /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = 8547149835E3A4CB8FE6B319 /* ActionUICachedImage */; };
 		C79A52BABF56555B91C7E12C /* Chat.remoteImages.json in Resources */ = {isa = PBXBuildFile; fileRef = B2ADF88B6899BECE19EC0532 /* Chat.remoteImages.json */; };
@@ -41,13 +44,16 @@
 		21452584B443364EF4B6DD78 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = ../ActionUIQuickLook; sourceTree = SOURCE_ROOT; };
 		223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.showsChrome.json; sourceTree = "<group>"; };
 		24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.compact.json; sourceTree = "<group>"; };
+		593A93826FEF1A1D3C6BC14B /* ActionUIHostSurface */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIHostSurface; path = ../ActionUIHostSurface; sourceTree = SOURCE_ROOT; };
 		5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.markdown.json; sourceTree = "<group>"; };
 		60D1FD3F7FB5CE7797FFB50F /* ActionUIRichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIRichText; path = ../ActionUIRichText; sourceTree = SOURCE_ROOT; };
 		65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIAddOnTestApp.swift; sourceTree = "<group>"; };
 		6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DiffSampleOld.txt; sourceTree = "<group>"; };
+		77A5390B5A6392A60AAA52D7 /* HostSurface.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = HostSurface.json; sourceTree = "<group>"; };
 		8C4E595F1F40E2EF85F9F588 /* RichText.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = RichText.json; sourceTree = "<group>"; };
 		93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUICachedImage; path = ../ActionUICachedImage; sourceTree = SOURCE_ROOT; };
 		9FC54A4FE510BDD635E8EC2D /* Chat.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.json; sourceTree = "<group>"; };
+		A238EAF1E43E6D7B660733C5 /* HostSurfaceDemoClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSurfaceDemoClient.swift; sourceTree = "<group>"; };
 		A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.modifierReturn.json; sourceTree = "<group>"; };
 		AD08C15AE806040A14627830 /* RichText.remoteImages.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = RichText.remoteImages.json; sourceTree = "<group>"; };
 		AD958B75F9EB537BD75A1095 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ../ActionUIChat; sourceTree = SOURCE_ROOT; };
@@ -70,6 +76,7 @@
 				581062D89D2AE39E5BB7602E /* ActionUIRichText in Frameworks */,
 				D4828D7844C2AC0434113C1F /* ActionUIChat in Frameworks */,
 				B4D671CD8BB050943270DEFF /* ActionUIDiff in Frameworks */,
+				965E1878D0AD406E6AB63F9E /* ActionUIHostSurface in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,6 +87,7 @@
 			isa = PBXGroup;
 			children = (
 				65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */,
+				A238EAF1E43E6D7B660733C5 /* HostSurfaceDemoClient.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -96,6 +104,7 @@
 				0082DE6A4D8F7DE178372147 /* Diff.json */,
 				0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */,
 				6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */,
+				77A5390B5A6392A60AAA52D7 /* HostSurface.json */,
 				24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */,
 				CF7ABC737BFB52F77899E3A0 /* QuickLook.json */,
 				223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */,
@@ -113,6 +122,7 @@
 				93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */,
 				AD958B75F9EB537BD75A1095 /* ActionUIChat */,
 				DA0FBEB4C890493D3B817FB3 /* ActionUIDiff */,
+				593A93826FEF1A1D3C6BC14B /* ActionUIHostSurface */,
 				21452584B443364EF4B6DD78 /* ActionUIQuickLook */,
 				60D1FD3F7FB5CE7797FFB50F /* ActionUIRichText */,
 			);
@@ -162,6 +172,7 @@
 				7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */,
 				FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */,
 				4C9B8E82DC322DADB493567B /* ActionUIDiff */,
+				1EEA5F041A76AF0C6257340C /* ActionUIHostSurface */,
 			);
 			productName = ActionUIAddOnTestApp;
 			productReference = CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */;
@@ -192,6 +203,7 @@
 				9A1E7B212ED37C3FE178BB3E /* XCLocalSwiftPackageReference "../ActionUICachedImage" */,
 				FC10BAE25F9673F1813C71F8 /* XCLocalSwiftPackageReference "../ActionUIChat" */,
 				3C58A84B2A242ADC1C636ECC /* XCLocalSwiftPackageReference "../ActionUIDiff" */,
+				4A9D666B41B6307376C99E3C /* XCLocalSwiftPackageReference "../ActionUIHostSurface" */,
 				8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */,
 				E311EE4B61A09C98DF61B2BE /* XCLocalSwiftPackageReference "../ActionUIRichText" */,
 			);
@@ -219,6 +231,7 @@
 				10A529AC4F89C7EADC7BF12A /* Diff.json in Resources */,
 				34158BDB51FC0365D2F4186D /* DiffSampleNew.txt in Resources */,
 				73890C5557037BFA40BC861E /* DiffSampleOld.txt in Resources */,
+				B3162432E6C80BD45F5F9150 /* HostSurface.json in Resources */,
 				83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */,
 				2958C8147CD88342247317CF /* QuickLook.json in Resources */,
 				30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */,
@@ -258,6 +271,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F342F24A685081A6D00796B /* ActionUIAddOnTestApp.swift in Sources */,
+				4347FCFC4C86B43847EF4588 /* HostSurfaceDemoClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -465,6 +479,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../ActionUIDiff;
 		};
+		4A9D666B41B6307376C99E3C /* XCLocalSwiftPackageReference "../ActionUIHostSurface" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ActionUIHostSurface;
+		};
 		8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../ActionUIQuickLook;
@@ -488,6 +506,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		1EEA5F041A76AF0C6257340C /* ActionUIHostSurface */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIHostSurface;
+		};
 		2B9635CB1742700A0529909B /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;

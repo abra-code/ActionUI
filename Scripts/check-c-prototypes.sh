@@ -9,6 +9,8 @@
 #   ActionUICAdapter            -> ActionUICAdapter/include/ActionUIC.h
 #   ActionUIAppKitApplication   -> ActionUIAppKitApplication/include/ActionUIApp.h
 #   ActionUIAdwaitaApplication  -> ActionUIAppKitApplication/include/ActionUIApp.h (Linux, same header)
+#   Add-ons/ActionUIHostSurface/Sources/ActionUIHostSurface
+#                               -> Add-ons/ActionUIHostSurface/Sources/CActionUIHostSurface/include/ActionUIHostSurface.h
 # ActionUIRemote has no hand-written header: its generated ActionUIRemote-Swift.h is its C
 # declaration. Its folder is checked for @_cdecl too.
 #
@@ -87,7 +89,8 @@ check_no_cdecl() {
 check_pair() {
     local _folder="$repo/$1"
     local _header="$repo/$2"
-    local _label="$1"
+    # A file name for the folder's lists: its path with each "/" as "_".
+    local _label="$(printf '%s' "$1" | /usr/bin/tr '/' '_')"
     if [ ! -d "$_folder" ] || [ ! -f "$_header" ]; then
         printf 'check-c-prototypes: missing %s or %s\n' "$_folder" "$_header" >&2
         return 2
@@ -100,7 +103,8 @@ check_pair() {
         return 2
     fi
     # One name per line: the function name of each prototype, a line starting with a return type.
-    /usr/bin/sed -n 's/^[a-z][A-Za-z0-9_ *]*[ *]\(actionUI[A-Za-z0-9_]*\)(.*/\1/p' "$_header" | /usr/bin/sort -u > "$_declared"
+    # Names start with actionUI, or ActionUI for an add-on's registration (ActionUIHostSurface_register).
+    /usr/bin/sed -n 's/^[a-z][A-Za-z0-9_ *]*[ *]\([Aa]ctionUI[A-Za-z0-9_]*\)(.*/\1/p' "$_header" | /usr/bin/sort -u > "$_declared"
     local _missing="$(/usr/bin/comm -23 "$_exported" "$_declared")"
     local _extra="$(/usr/bin/comm -13 "$_exported" "$_declared")"
     local _count="$(/usr/bin/wc -l < "$_exported" | /usr/bin/tr -d ' ')"
@@ -207,6 +211,12 @@ if [ "$status" -gt "$result" ]; then
     result=$status
 fi
 check_pair ActionUIAdwaitaApplication ActionUIAppKitApplication/include/ActionUIApp.h
+status=$?
+if [ "$status" -gt "$result" ]; then
+    result=$status
+fi
+check_pair Add-ons/ActionUIHostSurface/Sources/ActionUIHostSurface \
+    Add-ons/ActionUIHostSurface/Sources/CActionUIHostSurface/include/ActionUIHostSurface.h
 status=$?
 if [ "$status" -gt "$result" ]; then
     result=$status

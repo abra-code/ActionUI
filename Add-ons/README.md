@@ -67,6 +67,9 @@ needs full Foundation, and with it ICU's data, which the Linux build leaves out.
 - **`ActionUIDiff/`** - a `Diff` element, on Linux too: a unified line diff of two texts or files, backed by the
   [DiffView](https://github.com/abra-code/DiffView) github package (a SwiftUI view on Apple, GTK widgets on Linux).
   Owns `Schemas/Diff.json`.
+- **`ActionUIHostSurface/`** - a `HostSurface` element, macOS and iOS: a rectangle whose pixels the client
+  program draws with its own renderer (Metal, wgpu, ...) into a `CAMetalLayer`, bound by a surface name through
+  a plain C interface (`ActionUIHostSurface.h`) or a Swift API. Owns `Schemas/HostSurface.json`.
 - **`ActionUIAddOnTestApp/`** - a multiplatform (macOS + iOS) host app that links ActionUI +
   ActionUISwiftAdapter + the add-on and renders a document using the add-on's element. The add-on
   analogue of `ActionUISwiftTestApp`, and the place to exercise an add-on at runtime.

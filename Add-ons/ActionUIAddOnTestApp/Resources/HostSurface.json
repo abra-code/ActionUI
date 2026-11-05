@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "HostSurface: the area below is drawn by the app with Metal, not by ActionUI.", "font": "headline" } },
+    { "type": "HostSurface", "id": 90, "properties": {
+        "surfaceName": "demo.metal", "continuous": true, "idealWidth": 480, "idealHeight": 300,
+        "cornerRadius": 10, "accessibilityLabel": "Metal canvas" } },
+    { "type": "VStack", "id": 3, "properties": { "spacing": 6, "alignment": "leading" }, "children": [
+        { "type": "Toggle", "id": 91, "properties": { "title": "Animate", "isOn": true, "actionID": "hostSurface.animate" } },
+        { "type": "Toggle", "id": 92, "properties": { "title": "Hidden", "isOn": false, "actionID": "hostSurface.hidden" } },
+        { "type": "Toggle", "id": 93, "properties": { "title": "Padding", "isOn": false, "actionID": "hostSurface.padding" } }
+    ] },
+    { "type": "Text", "id": 94, "properties": { "text": "Surface events appear in the console.", "foregroundStyle": "secondary" } }
+  ]
+}

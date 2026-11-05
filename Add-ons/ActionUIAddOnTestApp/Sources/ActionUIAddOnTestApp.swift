@@ -12,6 +12,7 @@ import ActionUICachedImage
 import ActionUIRichText
 import ActionUIChat
 import ActionUIDiff
+import ActionUIHostSurface
 
 @main
 struct ActionUIAddOnTestApp: App {
@@ -26,6 +27,8 @@ struct ActionUIAddOnTestApp: App {
         ActionUIRichText.register()
         ActionUIChat.register()
         ActionUIDiff.register()
+        ActionUIHostSurface.register()
+        HostSurfaceDemoClient.install()
 
         ActionUISwift.setDefaultActionHandler { actionID, windowUUID, viewID, viewPartID, _ in
             print("[action] \(actionID) window:\(windowUUID) view:\(viewID).\(viewPartID)")
@@ -82,7 +85,13 @@ struct AddOnPickerView: View {
                 ContentUnavailableView("Select an add-on demo", systemImage: "square.dashed")
             }
         }
-        .onAppear { if selected == nil { selected = demos.first } }
+        // ACTIONUI_ADDON_DEMO=<name> opens that demo first (for scripted runs and screenshots).
+        .onAppear {
+            if selected == nil {
+                let requested = ProcessInfo.processInfo.environment["ACTIONUI_ADDON_DEMO"]
+                selected = requested.flatMap { demos.contains($0) ? $0 : nil } ?? demos.first
+            }
+        }
     }
 }
 
