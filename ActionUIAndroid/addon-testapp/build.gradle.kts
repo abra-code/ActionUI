@@ -39,6 +39,7 @@ dependencies {
     // The add-on(s) under test. Each self-registers its element at startup via a ContentProvider.
     implementation(project(":addon-cachedimage"))
     implementation(project(":addon-richtext"))
+    implementation(project(":addon-hostsurface"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

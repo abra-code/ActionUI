@@ -1,0 +1,15 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "HostSurface: the area below is drawn by the app on an android.view.Surface, not by ActionUI.", "font": "headline" } },
+    { "type": "HostSurface", "id": 90, "properties": {
+        "surfaceName": "demo.canvas", "continuous": true, "cornerRadius": 10,
+        "idealHeight": 320, "frame": { "maxWidth": "infinity" }, "accessibilityLabel": "Canvas" } },
+    { "type": "Toggle", "id": 91, "properties": { "title": "Animate", "isOn": true, "actionID": "hostSurface.animate" } },
+    { "type": "Toggle", "id": 92, "properties": { "title": "Hidden", "isOn": false, "actionID": "hostSurface.hidden" } },
+    { "type": "Toggle", "id": 93, "properties": { "title": "Padding", "isOn": false, "actionID": "hostSurface.padding" } },
+    { "type": "Text", "id": 94, "properties": { "text": "Drag in the area to draw. Surface events appear in logcat (tag HostSurfaceDemo).", "foregroundStyle": "secondary" } }
+  ]
+}

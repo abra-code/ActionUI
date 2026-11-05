@@ -28,6 +28,8 @@ include(":demoApp")
 include(":library")
 include(":map-osm")
 include(":map-google")
+// The HostSurface add-on has no dependency beyond the core library, so it is always part of the build.
+include(":addon-hostsurface")
 
 // Add-ons are OPTIONAL, mirroring the Apple side where the core demo app links no add-ons and a separate
 // ActionUIAddOnTestApp exercises them. The CachedImage add-on depends on the AsyncImageCache library, consumed
