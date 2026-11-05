@@ -59,6 +59,8 @@ extension ChartLayout {
         var grid: AxisLine?
         var tick: AxisLine?
         var label: AxisLabel?
+        /// Where lines may go on a scrolled axis (points): its band lines past the plot are left out.
+        var inView: ClosedRange<Double>?
     }
 
     func marks(_ spec: ChartAxisSpec) -> [ChartAxisMarksSpec] {
@@ -206,10 +208,18 @@ extension ChartLayout {
         return band > 0 ? max(1, Int(min((room / band).rounded(.up), Double(names.count + 1)))) : 1
     }
 
+    // A tick's place among those a tight axis thins: on bands its band, so the labels of a scrolled
+    // axis, which has only the ticks in view, stay on the bands of its lines; else its place in the list.
+    private func thinned(_ value: ChartScalar, _ scale: ChartAxisScale, _ index: Int) -> Int {
+        if case .bands(let names) = scale.kind, case .string(let name) = value, let band = names[name] { return band }
+        return index
+    }
+
     // A band's lines are at its edges, centered or not (measured on macOS 27).
     private func linePositions(_ group: AxisGroup, _ scale: ChartAxisScale, every: Int) -> [Double] {
         if case .bands(let names) = scale.kind {
-            return stride(from: 0, through: names.count, by: every).map { scale.start + Double($0) * scale.bandWidth }
+            let edges = stride(from: 0, through: names.count, by: every).map { scale.start + Double($0) * scale.bandWidth }
+            return group.inView.map { view in edges.filter { view.contains($0) } } ?? edges
         }
         return group.ticks.compactMap { scale.position($0.value, unit: nil) }
     }
@@ -243,7 +253,7 @@ extension ChartLayout {
         let inward = trailing ? anchor?.isTrailing == true : anchor?.isLeading == true
         let rightward = bands ? anchor?.isTrailing != true : trailing != inward
         let x = (trailing ? right : left) + (rightward ? Self.labelGap : -Self.labelGap)
-        for (index, tick) in group.ticks.enumerated() where index % every == 0 {
+        for (index, tick) in group.ticks.enumerated() where thinned(tick.value, scale, index) % every == 0 {
             guard var y = scale.position(tick.value, unit: nil) else { continue }
             // A band's tick is its top line.
             if bands { y -= abs(scale.bandWidth) / 2 }
@@ -292,7 +302,7 @@ extension ChartLayout {
         let labelY = edgeY + (inside ? -outward : outward) * Self.labelGap
         let textY = below != inside ? 0.0 : 1.0
         if case .bands = scale.kind {
-            for (index, tick) in group.ticks.enumerated() where index % every == 0 {
+            for (index, tick) in group.ticks.enumerated() where thinned(tick.value, scale, index) % every == 0 {
                 guard let center = scale.position(tick.value, unit: nil) else { continue }
                 let x = ending ? center + abs(scale.bandWidth) / 2 - Self.labelGap : center
                 primitives.append(.text(tick.label, position: ChartPoint(x: x + label.offset.width, y: labelY + label.offset.height),

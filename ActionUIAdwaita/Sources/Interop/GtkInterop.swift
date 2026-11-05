@@ -215,6 +215,23 @@ func connectDrop(_ target: UnsafeMutableRawPointer, _ run: @escaping @MainActor 
     connectBox(target, "drop", unsafeBitCast(dropTrampoline, to: GCallback.self), run as DropRun)
 }
 
+private typealias ScrollRun = @MainActor (Double, Double) -> Bool
+
+/// For GtkEventControllerScroll's "scroll": (controller, dx, dy, user data), returning whether the
+/// scroll was taken (else it goes on to the widgets around).
+private let scrollTrampoline: @convention(c) (gpointer?, gdouble, gdouble, gpointer?) -> gboolean = { _, dx, dy, data in
+    guard let data else { return 0 }
+    let box: CallbackBox<ScrollRun> = callbackBox(data)
+    return MainActor.assumeIsolated { box.run(dx, dy) } ? 1 : 0
+}
+
+/// Connects `run` to a scroll controller's "scroll", with its deltas; `run` returns whether it took
+/// the scroll.
+@MainActor @discardableResult
+func connectScroll(_ controller: UnsafeMutableRawPointer, _ run: @escaping @MainActor (Double, Double) -> Bool) -> gulong {
+    connectBox(controller, "scroll", unsafeBitCast(scrollTrampoline, to: GCallback.self), run as ScrollRun)
+}
+
 private typealias RangeRun = @MainActor (Int, Int) -> Void
 
 /// For a GtkTextBuffer's "insert-text": (buffer, location, text, length in bytes, user data). Run

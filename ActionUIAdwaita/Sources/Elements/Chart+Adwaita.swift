@@ -19,6 +19,13 @@
  rested 150 ms ("settled", the default), and a value the host sets fires nothing. The marks that
  read "$selection" are drawn from the value (ChartMarkResolver), at each change. ChartSelectionHit
  reads a place as a value, from where the last draw put the plot.
+
+ Scrolling (chartScrollableAxes; ChartLayout+Scroll): the scroll wheel and the touchpad move the
+ window, a vertical wheel the horizontal window when only that axis scrolls, as GTK's scrolled
+ windows do; on a touchscreen a drag across the plot moves it, and there it does not select. A
+ window held at its end passes the scroll on to what holds the chart. Its place is kept on the
+ widget, not in the value, as chartScrollPosition sets only where it starts; a new description
+ that scrolls otherwise starts it again.
 */
 
 #if canImport(FoundationEssentials)
@@ -44,6 +51,12 @@ private let chartStateKey = AttachKey<ChartState>("actionui-chart")
     var dragMoved = false
     /// A "settled" action waiting for the selection to rest.
     var settleSource: guint = 0
+    /// The leading edges of the scrolling axes' windows (ChartScrollWindow), nil until the first
+    /// draw places them; and the scrolling they were placed for.
+    var scroll: (x: Double?, y: Double?) = (nil, nil)
+    var scrollSpec = ChartScrollSpec()
+    /// The windows' leading edges when a touch pan started.
+    var panStart: (x: Double?, y: Double?)?
 
     isolated deinit {
         if settleSource != 0 {
@@ -72,6 +85,10 @@ extension Chart: ActionUIAdwaitaRenderer {
             ChartDates.calendar.firstWeekday = firstWeekday
         }
         state.spec = ChartDescription.parse(description, logger: nil).spec
+        if state.spec.scroll != state.scrollSpec {
+            state.scrollSpec = state.spec.scroll
+            state.scroll = (nil, nil)
+        }
         let selection = ChartSelection.decode(node.model.value as? String, spec: state.spec.selection)
         state.marks = ChartMarkResolver.resolve(state.spec, rows: rows, selection: selection)
         report(state, viewID: node.element.id)
@@ -103,8 +120,10 @@ extension Chart: ActionUIAdwaitaRenderer {
             number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
             formatted: { NumberFormatting.string($0, format: $1) },
             date: { DateFormatting.string($0, skeleton: $1) })
-        let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: width, height: height, metrics: metrics)
+        let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: width, height: height, metrics: metrics,
+                                                         scroll: state.scroll)
         state.geometry = geometry
+        state.scroll = (geometry.xScroll?.leading, geometry.yScroll?.leading)
         var foreground = GdkRGBA()
         gtk_widget_get_color(widget, &foreground)
         let drawing = ChartDrawing(widget: widget, snapshot: snapshot, foreground: foreground, text: text)
@@ -130,10 +149,25 @@ extension Chart: ActionUIAdwaitaRenderer {
         }
         gtk_widget_add_controller(widget, motion)
 
+        let scroller = gtk_event_controller_scroll_new(GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES)!
+        connectScroll(UnsafeMutableRawPointer(scroller)) { [weak state] dx, dy in
+            guard let state else { return false }
+            // A wheel's step is GtkScrolledWindow's: the length shown to the power of 2/3.
+            let wheel = gtk_event_controller_scroll_get_unit(scroller) == GDK_SCROLL_UNIT_WHEEL
+            return scrolled(widget, state, dx: dx, dy: dy, wheel: wheel)
+        }
+        gtk_widget_add_controller(widget, scroller)
+
         let drag = gtk_gesture_drag_new()!
         gtk_gesture_single_set_button(drag, 1)
         connectPoint(UnsafeMutableRawPointer(drag), "drag-begin") { [weak state] x, y in
             guard let state else { return }
+            // A touch on a scrolling chart moves its window.
+            if isTouch(drag), state.geometry.xScroll != nil || state.geometry.yScroll != nil {
+                gtk_gesture_set_state(drag, GTK_EVENT_SEQUENCE_CLAIMED)
+                state.panStart = state.scroll
+                return
+            }
             let spec = state.spec.selection
             let selectsRange = spec.x == .range || spec.y == .range
             // Only a chart that selects takes the drag; another leaves it to what holds the chart.
@@ -151,12 +185,22 @@ extension Chart: ActionUIAdwaitaRenderer {
             }
         }
         connectPoint(UnsafeMutableRawPointer(drag), "drag-update") { [weak state] dx, dy in
-            guard let state, let start = state.dragStart, dx != 0 || dy != 0 || state.dragMoved else { return }
+            guard let state else { return }
+            if let start = state.panStart {
+                pan(widget, state, from: start, dx: dx, dy: dy)
+                return
+            }
+            guard let start = state.dragStart, dx != 0 || dy != 0 || state.dragMoved else { return }
             state.dragMoved = true
             dragged(state, from: start, to: ChartPoint(x: start.x + dx, y: start.y + dy), touch: isTouch(drag))
         }
         connectPoint(UnsafeMutableRawPointer(drag), "drag-end") { [weak state] _, _ in
-            guard let state, state.dragStart != nil else { return }
+            guard let state else { return }
+            if state.panStart != nil {
+                state.panStart = nil
+                return
+            }
+            guard state.dragStart != nil else { return }
             state.dragStart = nil
             let touch = isTouch(drag)
             // A click that did not move selected no range: there is nothing to clear.
@@ -172,6 +216,46 @@ extension Chart: ActionUIAdwaitaRenderer {
             }
         }
         gtk_widget_add_controller(widget, drag)
+    }
+
+    /// A scroll by (dx, dy), in points or in wheel steps: moves the windows of the axes that scroll.
+    /// Returns whether a window moved; one held at its end leaves the scroll to what holds the chart.
+    private static func scrolled(_ widget: WidgetPointer, _ state: ChartState, dx: Double, dy: Double, wheel: Bool) -> Bool {
+        let geometry = state.geometry
+        guard geometry.xScroll != nil || geometry.yScroll != nil else { return false }
+        var dx = dx, dy = dy
+        // Only the horizontal axis scrolls: a vertical wheel or swipe moves it.
+        if geometry.yScroll == nil, dx == 0 {
+            (dx, dy) = (dy, 0)
+        }
+        if wheel {
+            dx *= pow(geometry.plot.width, 2.0 / 3)
+            dy *= pow(geometry.plot.height, 2.0 / 3)
+        }
+        return move(widget, state, from: state.scroll, dx: dx, dy: dy)
+    }
+
+    /// A touch pan by (dx, dy) points from where the windows were when it began: the content follows
+    /// the finger.
+    private static func pan(_ widget: WidgetPointer, _ state: ChartState, from start: (x: Double?, y: Double?), dx: Double, dy: Double) {
+        _ = move(widget, state, from: start, dx: -dx, dy: -dy)
+    }
+
+    /// Moves the windows `dx` points toward the trailing edge and `dy` points down from `start`.
+    private static func move(_ widget: WidgetPointer, _ state: ChartState, from start: (x: Double?, y: Double?), dx: Double, dy: Double) -> Bool {
+        let geometry = state.geometry
+        var next = state.scroll
+        // Down the plot: lower numbers on a rising axis (points per unit below 0), later bands and dates.
+        if let window = geometry.xScroll, let leading = start.x, window.pointsPerUnit != 0 {
+            next.x = window.held(leading + dx / window.pointsPerUnit)
+        }
+        if let window = geometry.yScroll, let leading = start.y, window.pointsPerUnit != 0 {
+            next.y = window.held(leading + dy / window.pointsPerUnit)
+        }
+        guard next.x != state.scroll.x || next.y != state.scroll.y else { return false }
+        state.scroll = next
+        gtk_widget_queue_draw(widget)
+        return true
     }
 
     private static func isTouch(_ gesture: OpaquePointer) -> Bool {

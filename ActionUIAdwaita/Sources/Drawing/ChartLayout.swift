@@ -40,6 +40,9 @@ struct ChartGeometry {
     var x = ChartAxisScale()
     var y = ChartAxisScale()
     var hasSectors = false
+    /// The windows of the axes that scroll.
+    var xScroll: ChartScrollWindow?
+    var yScroll: ChartScrollWindow?
 }
 
 struct ChartLayout {
@@ -60,6 +63,8 @@ struct ChartLayout {
     let metrics: ChartTextMetrics
     let width: Double
     let height: Double
+    /// The leading edges of the scrolling axes' windows so far (ChartScrollWindow), nil the first time.
+    var scroll: (x: Double?, y: Double?) = (nil, nil)
 
     static func primitives(_ spec: ChartSpec, marks: ChartResolvedMarks, width: Double, height: Double, metrics: ChartTextMetrics) -> [ChartPrimitive] {
         laidOut(spec, marks: marks, width: width, height: height, metrics: metrics).primitives
@@ -67,8 +72,9 @@ struct ChartLayout {
 
     /// The primitives, and where the plot and its scales ended up.
     static func laidOut(_ spec: ChartSpec, marks: ChartResolvedMarks, width: Double, height: Double,
-                        metrics: ChartTextMetrics) -> (primitives: [ChartPrimitive], geometry: ChartGeometry) {
-        ChartLayout(spec: spec, marks: marks, styles: ChartStyleMap(spec, marks), metrics: metrics, width: width, height: height).layout()
+                        metrics: ChartTextMetrics, scroll: (x: Double?, y: Double?) = (nil, nil)) -> (primitives: [ChartPrimitive], geometry: ChartGeometry) {
+        ChartLayout(spec: spec, marks: marks, styles: ChartStyleMap(spec, marks), metrics: metrics, width: width, height: height,
+                    scroll: scroll).layout()
     }
 
     private func layout() -> (primitives: [ChartPrimitive], geometry: ChartGeometry) {
@@ -103,7 +109,12 @@ struct ChartLayout {
         let bottom = xLabelsBottom + titleRoom(.bottom) + (legend?.room(.bottom) ?? 0)
         let plotHeight = max(height - top - bottom, 1)
         var yAxis = axis(extents.y, spec.y, length: plotHeight, pointsPerTick: Self.pointsPerYDateTick)
-        let yGroups = hasSectors ? [] : groups(spec.y, yAxis, isX: false)
+        let scrolls = hasSectors ? [] : spec.scroll.axes
+        var yWindow = scrolls.contains(.vertical)
+            ? scrollWindow(&yAxis, visible: spec.scroll.yLength, initial: spec.scroll.initialY, leading: scroll.y,
+                           plotLength: plotHeight, pointsPerTick: Self.pointsPerYDateTick)
+            : nil
+        var yGroups = hasSectors ? [] : groups(spec.y, yAxis, isX: false)
         func room(_ edge: ChartAxisMarkPosition) -> Double {
             // Labels of bands sit in the plot and take none.
             let labeled = yBands ? [] : yGroups.filter { $0.edge == edge && $0.label != nil }
@@ -115,19 +126,35 @@ struct ChartLayout {
         let trailing = yLabelsTrailing + titleRoom(.trailing) + legendTrailing
         let plotWidth = max(width - leading - trailing, 1)
         var xAxis = axis(extents.x, spec.x, length: plotWidth)
-        let xGroups = hasSectors ? [] : groups(spec.x, xAxis, isX: true)
+        var xWindow = scrolls.contains(.horizontal)
+            ? scrollWindow(&xAxis, visible: spec.scroll.xLength, initial: spec.scroll.initialX, leading: scroll.x,
+                           plotLength: plotWidth, pointsPerTick: Self.pointsPerDateTick)
+            : nil
+        var xGroups = hasSectors ? [] : groups(spec.x, xAxis, isX: true)
 
         let style = PlotStyle(spec.plotStyle)
         let frame = style.framed(ChartRect(x: leading, y: top, width: plotWidth, height: plotHeight))
         let plot = style.padded(frame)
         legend?.fit(overPlot: frame)
-        place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
+        if let window = xWindow {
+            xWindow = placeScrolled(&xAxis, spec.x, window, from: plot.x, to: plot.x + plot.width)
+            xGroups = ticksInView(xGroups, xAxis.scale, from: plot.x, to: plot.x + plot.width)
+        } else {
+            place(&xAxis, spec.x, from: plot.x, to: plot.x + plot.width)
+        }
         // Numbers rise up the axis; bands and dates read from the top (measured on macOS 27).
+        let yFrom: Double, yTo: Double
         switch yAxis.scale.kind {
         case .bands, .dates:
-            place(&yAxis, spec.y, from: plot.y, to: plot.y + plot.height)
+            (yFrom, yTo) = (plot.y, plot.y + plot.height)
         default:
-            place(&yAxis, spec.y, from: plot.y + plot.height, to: plot.y)
+            (yFrom, yTo) = (plot.y + plot.height, plot.y)
+        }
+        if let window = yWindow {
+            yWindow = placeScrolled(&yAxis, spec.y, window, from: yFrom, to: yTo)
+            yGroups = ticksInView(yGroups, yAxis.scale, from: plot.y, to: plot.y + plot.height)
+        } else {
+            place(&yAxis, spec.y, from: yFrom, to: yTo)
         }
 
         var primitives: [ChartPrimitive] = []
@@ -158,7 +185,12 @@ struct ChartLayout {
         }
         // A label's row is the room under the band's top line (measured on macOS 27: it follows the font).
         let bandLabelRow = yBands && !labelEdges(spec.y, isX: false).isEmpty ? lineHeight + Self.labelGap : 0
-        let layer = style.layer(frame)
+        // A scrolling chart's marks stop at the plot.
+        var layer = style.layer(frame)
+        if xWindow != nil || yWindow != nil {
+            layer = layer.map { var clipped = $0; clipped.clips = true; return clipped }
+                ?? ChartPlotLayer(rect: frame, radius: 0, opacity: 1, clips: true)
+        }
         if let layer {
             primitives.append(.beginPlot(layer))
             if let background = style.background {
@@ -172,7 +204,8 @@ struct ChartLayout {
         }
         let area = ChartRect(x: frame.x - leading, y: frame.y - top, width: leading + frame.width + trailing, height: top + frame.height + bottom)
         legend?.append(to: &primitives, area: area, plot: frame)
-        return (primitives.filter(\.isDrawable), ChartGeometry(plot: plot, x: xAxis.scale, y: yAxis.scale, hasSectors: hasSectors))
+        return (primitives.filter(\.isDrawable), ChartGeometry(plot: plot, x: xAxis.scale, y: yAxis.scale, hasSectors: hasSectors,
+                                                               xScroll: xWindow, yScroll: yWindow))
     }
 
     /// An axis title, resolved: `along` is how far along its side it sits, 0 at the start.

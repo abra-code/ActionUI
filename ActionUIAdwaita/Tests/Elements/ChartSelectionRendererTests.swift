@@ -192,4 +192,81 @@ final class ChartSelectionRendererTests: XCTestCase {
         XCTAssertEqual(value, "")
         XCTAssertFalse(AdwaitaTestHost.runMainLoop(until: { self.actions > 0 }, timeoutMilliseconds: 300), "no change, no action")
     }
+
+    // MARK: Scrolling
+
+    /// Points at x 0...100, 20 of them in view, selecting x by value, 300 x 200, on screen.
+    private func showScrolling() throws -> RenderNode {
+        let rows = (0...100).map { "[\($0), \($0 % 10)]" }.joined(separator: ", ")
+        let json = ##"""
+        {"type": "Chart", "id": 1, "properties": {"frame": {"width": 300, "height": 200},
+         "chart": {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}], "data": [\##(rows)],
+                   "chartXSelection": "value", "chartScrollableAxes": "horizontal", "chartXVisibleDomain": {"length": 20},
+                   "content": [{"type": "ForEach", "content": [{"type": "PointMark", "x": {"label": "X", "value": "$x"},
+                                                                "y": {"label": "Y", "value": "$y"}}]}]}}}
+        """##
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
+        windows.append(window)
+        let node = try XCTUnwrap(window.root)
+        let gtkWindow = gtk_window_new()!
+        shown.append(gtkWindow)
+        gtk_window_set_child(typed(gtkWindow), node.outerWidget)
+        gtk_window_present(typed(gtkWindow))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        waitForFrame()
+        return node
+    }
+
+    private func waitForFrame() {
+        let end = g_get_monotonic_time() + 200_000
+        _ = AdwaitaTestHost.runMainLoop(until: { g_get_monotonic_time() >= end })
+    }
+
+    /// Emits the scroll controller's "scroll" with (dx, dy); returns whether the chart took it.
+    private func scroll(_ node: RenderNode, dx: Double, dy: Double) throws -> Bool {
+        let type = gtk_event_controller_scroll_get_type()
+        let scroller = try controller(node, type)
+        var handled = GValue()
+        g_value_init(&handled, g_type_from_name("gboolean"))
+        defer { g_value_unset(&handled) }
+        var values = [GValue](repeating: GValue(), count: 3)
+        g_value_init(&values[0], type)
+        g_value_set_object(&values[0], scroller)
+        g_value_init(&values[1], g_type_from_name("gdouble"))
+        g_value_set_double(&values[1], dx)
+        g_value_init(&values[2], g_type_from_name("gdouble"))
+        g_value_set_double(&values[2], dy)
+        g_signal_emitv(&values, g_signal_lookup("scroll", type), 0, &handled)
+        for index in values.indices { g_value_unset(&values[index]) }
+        waitForFrame()
+        return g_value_get_boolean(&handled) != 0
+    }
+
+    /// The x the pointer selects at the plot's leading edge (a few points in).
+    private func leadingX(_ node: RenderNode) throws -> Double {
+        try hover(node, x: 3, y: 100)
+        let selection = ChartSelection.decode(value, spec: ChartSelectionSpec(x: .value, xType: .number))
+        guard case .value(.number(let x))? = selection.x else { throw XCTSkip("no selection: \(value)") }
+        return x
+    }
+
+    func testAScrollMovesTheWindowAndStopsAtItsEnd() throws {
+        let node = try showScrolling()
+        let start = try leadingX(node)
+        XCTAssertLessThan(start, 2, "the window starts at the domain's start")
+        // A vertical wheel moves the only scrolling axis, the horizontal one.
+        XCTAssertTrue(try scroll(node, dx: 0, dy: 3))
+        let moved = try leadingX(node)
+        XCTAssertGreaterThan(moved, start + 5)
+        // Far past the end: held there, and the next scroll is left to what holds the chart.
+        XCTAssertTrue(try scroll(node, dx: 1000, dy: 0))
+        XCTAssertEqual(try leadingX(node), 80, accuracy: 2)
+        XCTAssertFalse(try scroll(node, dx: 5, dy: 0))
+    }
+
+    func testAChartThatDoesNotScrollLeavesTheScrollToItsHolder() throws {
+        let node = try show()
+        XCTAssertFalse(try scroll(node, dx: 0, dy: 3))
+    }
 }
