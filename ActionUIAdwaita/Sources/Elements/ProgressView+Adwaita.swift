@@ -198,7 +198,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
             gtk_widget_class_set_css_name(widgetClass, "actionui-progress-ring")
             gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_PROGRESS_BAR)
         }
-        ringWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIProgressRing", &info, GTypeFlags(0))
+        ringWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIProgressRing", &info, GTypeFlags(rawValue: 0))
         return ringWidgetType
     }
 }

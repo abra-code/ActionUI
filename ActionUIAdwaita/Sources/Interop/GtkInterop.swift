@@ -29,6 +29,20 @@ typealias WidgetPointer = UnsafeMutablePointer<GtkWidget>
     OpaquePointer(pointer)
 }
 
+// MARK: - GLib flags
+
+// Newer GLib (2.88; not 2.84) marks its flag types G_GNUC_FLAG_ENUM, so Swift imports them as option
+// sets, without the C constants (G_FILE_TEST_IS_REGULAR) that it imports from earlier GLib. Only
+// Type(rawValue:) compiles with both, so a flag ActionUI passes is spelled that way: here once,
+// under its C name, or in place as Type(rawValue: 0) for no flags. The values are GLib's ABI.
+
+/// G_FILE_TEST_IS_REGULAR
+let fileTestIsRegular = GFileTest(rawValue: 1 << 0)
+/// G_APPLICATION_NON_UNIQUE
+let applicationNonUnique = GApplicationFlags(rawValue: 1 << 5)
+/// G_LOG_LEVEL_CRITICAL
+let logLevelCritical = GLogLevelFlags(rawValue: 1 << 3)
+
 /// A C string GTK returns (not owned by the caller), as a Swift string.
 func swiftString(_ text: UnsafePointer<CChar>?) -> String? {
     guard let text else { return nil }
@@ -64,7 +78,7 @@ private func connectBox<Run>(_ instance: UnsafeMutableRawPointer, _ signal: Stri
                           after: Bool = false, _ run: Run) -> gulong {
     let data = Unmanaged.passRetained(CallbackBox(run)).toOpaque()
     // G_CONNECT_AFTER (1): after the signal's default handler.
-    let id = g_signal_connect_data(instance, signal, callback, data, releaseClosureBox, GConnectFlags(after ? 1 : 0))
+    let id = g_signal_connect_data(instance, signal, callback, data, releaseClosureBox, GConnectFlags(rawValue: after ? 1 : 0))
     if id == 0 {
         Unmanaged<CallbackBox<Run>>.fromOpaque(data).release()
     }

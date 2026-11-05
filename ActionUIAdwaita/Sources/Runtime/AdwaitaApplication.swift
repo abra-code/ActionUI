@@ -332,7 +332,7 @@ public final class AdwaitaApplication {
         }
         applyBundleInfo()
         // Released when run returns, after the windows are gone.
-        let app = OwnedObject(adopting: adw_application_new(resolvedApplicationID(), G_APPLICATION_NON_UNIQUE)!)
+        let app = OwnedObject(adopting: adw_application_new(resolvedApplicationID(), applicationNonUnique)!)
         application = app.typed()
         connectSignal(app.pointer, "activate", .instanceOnly) { [weak self] in self?.started() }
         connectSignal(app.pointer, "shutdown", .instanceOnly) { [weak self] in self?.handlers.willTerminate?() }
@@ -447,7 +447,7 @@ public final class AdwaitaApplication {
     /// reads unthemed icons from PNG and SVG files only.
     private func applyIcon() {
         guard let icon, let display = gdk_display_get_default() else { return }
-        guard icon.contains("/") || g_file_test(icon, G_FILE_TEST_IS_REGULAR) != 0 else {
+        guard icon.contains("/") || g_file_test(icon, fileTestIsRegular) != 0 else {
             // A theme name, or an image of that name in the app's bundle.
             AppBundle.addToIconTheme()
             gtk_window_set_default_icon_name(icon)

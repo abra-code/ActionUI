@@ -64,7 +64,7 @@ nonisolated(unsafe) private var containerParentWidgetClass: UnsafeMutablePointer
         gtk_widget_class_set_css_name(widgetClass, "actionui-container")
         gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_GROUP)
     }
-    containerType = g_type_register_static(gtk_widget_get_type(), "ActionUIContainer", &info, GTypeFlags(0))
+    containerType = g_type_register_static(gtk_widget_get_type(), "ActionUIContainer", &info, GTypeFlags(rawValue: 0))
     return containerType
 }
 

@@ -60,7 +60,7 @@ enum ZStackLayout {
                 MainActor.assumeIsolated { ZStackLayout.allocate(widget, width: Int(width), height: Int(height)) }
             }
         }
-        zStackLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIZStackLayout", &info, GTypeFlags(0))
+        zStackLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIZStackLayout", &info, GTypeFlags(rawValue: 0))
         return zStackLayoutType
     }
 

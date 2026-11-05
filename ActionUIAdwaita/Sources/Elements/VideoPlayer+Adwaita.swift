@@ -175,7 +175,7 @@ extension VideoPlayer: ActionUIAdwaitaRenderer {
                 }
             }
         }
-        videoLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIVideoLayout", &info, GTypeFlags(0))
+        videoLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIVideoLayout", &info, GTypeFlags(rawValue: 0))
         return videoLayoutType
     }
 }

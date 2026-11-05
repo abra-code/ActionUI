@@ -243,7 +243,7 @@ extension ShareLink: ActionUIAdwaitaRenderer {
         let sender = (swiftString(g_dbus_connection_get_unique_name(bus)) ?? "").dropFirst().replacing(".", with: "_")
         let path = "/org/freedesktop/portal/desktop/request/\(sender)/\(token)"
         request.subscription = g_dbus_connection_signal_subscribe(bus, "org.freedesktop.portal.Desktop", "org.freedesktop.portal.Request",
-                                                                  "Response", path, nil, G_DBUS_SIGNAL_FLAGS_NONE,
+                                                                  "Response", path, nil, GDBusSignalFlags(rawValue: 0),
                                                                   portalResponseTrampoline, data, nil)
 
         let entryType = g_variant_type_new("{sv}")!
@@ -269,7 +269,7 @@ extension ShareLink: ActionUIAdwaitaRenderer {
         }
         g_dbus_connection_call(bus, "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop",
                                "org.freedesktop.portal.Email", "ComposeEmail", parameters, nil,
-                               G_DBUS_CALL_FLAGS_NONE, -1, nil, readyTrampoline, Unmanaged.passRetained(CallbackBox(run)).toOpaque())
+                               GDBusCallFlags(rawValue: 0), -1, nil, readyTrampoline, Unmanaged.passRetained(CallbackBox(run)).toOpaque())
     }
 
     /// The portal's Response: its code is the first value of (ua{sv}).

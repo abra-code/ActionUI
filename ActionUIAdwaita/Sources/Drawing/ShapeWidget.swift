@@ -148,7 +148,7 @@ enum ShapeWidget {
             }
             gtk_widget_class_set_css_name(widgetClass, "actionui-shape")
         }
-        shapeWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIShape", &info, GTypeFlags(0))
+        shapeWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIShape", &info, GTypeFlags(rawValue: 0))
         return shapeWidgetType
     }
 }

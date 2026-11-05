@@ -51,7 +51,7 @@ enum AppBundle {
     static func file(_ name: String, in folder: String?) -> String? {
         guard let folder, !name.isEmpty, !name.contains("/") else { return nil }
         let path = URL(fileURLWithPath: folder).appendingPathComponent(name).path
-        return g_file_test(path, G_FILE_TEST_IS_REGULAR) != 0 ? path : nil
+        return g_file_test(path, fileTestIsRegular) != 0 ? path : nil
     }
 
     /// A resource in the bundle, by its name with its extension.
@@ -119,7 +119,7 @@ struct AppInfo: Decodable, Equatable {
         guard let icon else { return nil }
         if let folder, !icon.hasPrefix("/") {
             let path = URL(fileURLWithPath: folder).appendingPathComponent(icon).path
-            if g_file_test(path, G_FILE_TEST_IS_REGULAR) != 0 { return path }
+            if g_file_test(path, fileTestIsRegular) != 0 { return path }
         }
         return icon
     }

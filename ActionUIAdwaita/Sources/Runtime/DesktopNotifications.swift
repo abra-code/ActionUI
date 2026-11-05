@@ -177,7 +177,7 @@ public enum DesktopNotifications {
         guard !openIDs.isEmpty, let bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nil, nil) else { return }
         for id in openIDs {
             g_dbus_connection_call(bus, service, path, service, "CloseNotification", closeParameters(id), nil,
-                                   G_DBUS_CALL_FLAGS_NONE, callTimeout, nil, nil, nil)
+                                   GDBusCallFlags(rawValue: 0), callTimeout, nil, nil, nil)
         }
         openIDs.removeAll()
         g_dbus_connection_flush_sync(bus, nil, nil)
@@ -203,7 +203,7 @@ public enum DesktopNotifications {
             }
             completion(reply, reply == nil ? message ?? "the desktop's notification service did not answer" : nil)
         }
-        g_dbus_connection_call(bus, service, path, service, method, parameters, nil, G_DBUS_CALL_FLAGS_NONE,
+        g_dbus_connection_call(bus, service, path, service, method, parameters, nil, GDBusCallFlags(rawValue: 0),
                                callTimeout, nil, readyTrampoline, Unmanaged.passRetained(CallbackBox(run)).toOpaque())
     }
 

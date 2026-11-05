@@ -174,7 +174,7 @@ final class LocationPortal: UserLocationSource {
 
     private static func closeSession(_ bus: OpaquePointer, _ session: String) {
         g_dbus_connection_call(bus, service, session, "org.freedesktop.portal.Session", "Close", nil, nil,
-                               G_DBUS_CALL_FLAGS_NONE, -1, nil, nil, nil)
+                               GDBusCallFlags(rawValue: 0), -1, nil, nil, nil)
     }
 
     /// Calls `method` on the portal; `completion` gets the reply (the caller owns it) or the error's
@@ -193,14 +193,14 @@ final class LocationPortal: UserLocationSource {
             completion(reply, message)
             g_object_unref(UnsafeMutableRawPointer(bus))
         }
-        g_dbus_connection_call(bus, Self.service, Self.path, interface, method, parameters, nil, G_DBUS_CALL_FLAGS_NONE,
+        g_dbus_connection_call(bus, Self.service, Self.path, interface, method, parameters, nil, GDBusCallFlags(rawValue: 0),
                                -1, nil, readyTrampoline, Unmanaged.passRetained(CallbackBox(run)).toOpaque())
     }
 
     /// Listens to the portal's `signal` on `path`; `run` gets its parameters.
     private func subscribe(_ bus: OpaquePointer, interface: String, signal: String, path: String,
                            _ run: @escaping BusSignalRun) -> guint {
-        g_dbus_connection_signal_subscribe(bus, Self.service, interface, signal, path, nil, G_DBUS_SIGNAL_FLAGS_NONE,
+        g_dbus_connection_signal_subscribe(bus, Self.service, interface, signal, path, nil, GDBusSignalFlags(rawValue: 0),
                                            signalTrampoline, Unmanaged.passRetained(CallbackBox(run)).toOpaque(), releaseSignalBox)
     }
 

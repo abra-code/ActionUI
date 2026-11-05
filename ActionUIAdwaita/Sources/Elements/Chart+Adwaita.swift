@@ -104,7 +104,7 @@ extension Chart: ActionUIAdwaitaRenderer {
             gtk_widget_class_set_css_name(widgetClass, "actionui-chart")
             gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_IMG)
         }
-        chartWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIChart", &info, GTypeFlags(0))
+        chartWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIChart", &info, GTypeFlags(rawValue: 0))
         return chartWidgetType
     }
 }

@@ -251,7 +251,7 @@ extension Gauge: ActionUIAdwaitaRenderer {
             gtk_widget_class_set_css_name(widgetClass, "actionui-gauge")
             gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_METER)
         }
-        drawingWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIGauge", &info, GTypeFlags(0))
+        drawingWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIGauge", &info, GTypeFlags(rawValue: 0))
         return drawingWidgetType
     }
 }

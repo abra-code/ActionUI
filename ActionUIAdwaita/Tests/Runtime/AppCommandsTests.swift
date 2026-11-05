@@ -87,7 +87,7 @@ final class AppCommandsTests: XCTestCase {
         """#
 
     func testTheMenuHasTheTopGroupsTheCommandMenusAndAboutLast() {
-        let application = adw_application_new("com.abracode.actionui.tests.commands", G_APPLICATION_NON_UNIQUE)!
+        let application = adw_application_new("com.abracode.actionui.tests.commands", applicationNonUnique)!
         defer { g_object_unref(UnsafeMutableRawPointer(application)) }
         let commands = AppCommands()
         commands.start(typed(application), name: "Demo")
@@ -107,7 +107,7 @@ final class AppCommandsTests: XCTestCase {
     }
 
     func testAnItemsActionFiresWithTheElementsIDAndADisabledOneIsDisabled() throws {
-        let application = adw_application_new("com.abracode.actionui.tests.actions", G_APPLICATION_NON_UNIQUE)!
+        let application = adw_application_new("com.abracode.actionui.tests.actions", applicationNonUnique)!
         defer { g_object_unref(UnsafeMutableRawPointer(application)) }
         let commands = AppCommands()
         commands.start(typed(application), name: "Demo")
@@ -153,7 +153,7 @@ final class AppCommandsTests: XCTestCase {
     }
 
     func testAnItemWithoutAnActionIsDisabled() throws {
-        let application = adw_application_new("com.abracode.actionui.tests.noaction", G_APPLICATION_NON_UNIQUE)!
+        let application = adw_application_new("com.abracode.actionui.tests.noaction", applicationNonUnique)!
         defer { g_object_unref(UnsafeMutableRawPointer(application)) }
         let commands = AppCommands()
         commands.start(typed(application), name: "Demo")
@@ -271,7 +271,7 @@ final class AppCommandsTests: XCTestCase {
     }
 
     func testItemsReplacingAppTerminationShowAndTakeCtrlQ() throws {
-        let application = adw_application_new("com.abracode.actionui.tests.quit", G_APPLICATION_NON_UNIQUE)!
+        let application = adw_application_new("com.abracode.actionui.tests.quit", applicationNonUnique)!
         defer { g_object_unref(UnsafeMutableRawPointer(application)) }
         let commands = AppCommands()
         commands.start(typed(application), name: "Demo")

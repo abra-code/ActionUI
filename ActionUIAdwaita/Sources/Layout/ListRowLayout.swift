@@ -39,7 +39,7 @@ enum ListRowLayout {
                 MainActor.assumeIsolated { ListRowLayout.allocate(widget, width: Int(width), height: Int(height)) }
             }
         }
-        listRowLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIListRowLayout", &info, GTypeFlags(0))
+        listRowLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIListRowLayout", &info, GTypeFlags(rawValue: 0))
         return listRowLayoutType
     }
 

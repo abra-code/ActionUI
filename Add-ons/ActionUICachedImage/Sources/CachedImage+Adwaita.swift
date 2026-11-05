@@ -175,7 +175,7 @@ private enum CachedImageWidget {
             gtk_widget_class_set_css_name(widgetClass, "actionui-cached-image")
         }
         info.instance_size = guint16(MemoryLayout<GtkWidget>.size)
-        return g_type_register_static(gtk_widget_get_type(), "ActionUICachedImageWidget", &info, GTypeFlags(0))
+        return g_type_register_static(gtk_widget_get_type(), "ActionUICachedImageWidget", &info, GTypeFlags(rawValue: 0))
     }()
 
     /// A new widget, floating, and the element's state. The widget owns the state, which it reads while it measures

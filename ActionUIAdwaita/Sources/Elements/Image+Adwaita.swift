@@ -234,7 +234,7 @@ extension Image: ActionUIAdwaitaRenderer {
     static func content(_ source: ImageSource) -> ImageContent {
         switch source {
         case .filePath(let path):
-            return g_file_test(path, G_FILE_TEST_IS_REGULAR) != 0 ? .file(path) : .symbol(ImageSource.placeholderSymbol)
+            return g_file_test(path, fileTestIsRegular) != 0 ? .file(path) : .symbol(ImageSource.placeholderSymbol)
         case .systemName(let name):
             return .symbol(name)
         case .assetName(let name):
@@ -315,7 +315,7 @@ extension Image: ActionUIAdwaitaRenderer {
             gtk_widget_class_set_css_name(widgetClass, "actionui-icon")
             gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_IMG)
         }
-        scalableIconWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIScalableIcon", &info, GTypeFlags(0))
+        scalableIconWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIScalableIcon", &info, GTypeFlags(rawValue: 0))
         return scalableIconWidgetType
     }
 

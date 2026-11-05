@@ -155,7 +155,7 @@ final class StyleSheetTests: XCTestCase {
         }
         let handler = g_signal_connect_data(UnsafeMutableRawPointer(provider), "parsing-error",
                                             unsafeBitCast(onError, to: GCallback.self),
-                                            Unmanaged.passUnretained(errors).toOpaque(), nil, GConnectFlags(0))
+                                            Unmanaged.passUnretained(errors).toOpaque(), nil, GConnectFlags(rawValue: 0))
         defer { g_signal_handler_disconnect(UnsafeMutableRawPointer(provider), handler) }
         gtk_css_provider_load_from_string(provider, rules.joined(separator: "\n"))
         XCTAssertEqual(errors.count, 0, "GTK refused some of:\n\(rules.joined(separator: "\n"))")

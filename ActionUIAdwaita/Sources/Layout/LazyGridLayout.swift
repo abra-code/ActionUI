@@ -131,7 +131,7 @@ enum LazyGridLayout {
                 MainActor.assumeIsolated { LazyGridLayout.allocate(widget, width: Int(width), height: Int(height)) }
             }
         }
-        lazyGridLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUILazyGridLayout", &info, GTypeFlags(0))
+        lazyGridLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUILazyGridLayout", &info, GTypeFlags(rawValue: 0))
         return lazyGridLayoutType
     }
 

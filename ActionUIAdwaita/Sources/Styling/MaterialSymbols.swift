@@ -71,7 +71,7 @@ enum MaterialSymbols {
     /// The map's rows as icon names, from the registered resource.
     private static func readMap() -> [String: String] {
         var error: UnsafeMutablePointer<GError>?
-        guard let bytes = g_resources_lookup_data(resourcePath + "/sf_to_material.map", G_RESOURCE_LOOKUP_FLAGS_NONE, &error) else {
+        guard let bytes = g_resources_lookup_data(resourcePath + "/sf_to_material.map", GResourceLookupFlags(rawValue: 0), &error) else {
             let message = error.flatMap { swiftString($0.pointee.message) } ?? "unknown error"
             if let error { g_error_free(error) }
             ActionUIModel.shared.logger.log("The symbol map is missing from the library's resource (\(message)); SF Symbols show image-missing", .error)

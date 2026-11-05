@@ -136,7 +136,7 @@ extension Canvas: ActionUIAdwaitaRenderer {
             }
             gtk_widget_class_set_css_name(widgetClass, "actionui-canvas")
         }
-        canvasWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUICanvas", &info, GTypeFlags(0))
+        canvasWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUICanvas", &info, GTypeFlags(rawValue: 0))
         return canvasWidgetType
     }
 }

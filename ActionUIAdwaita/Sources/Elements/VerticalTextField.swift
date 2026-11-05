@@ -249,7 +249,7 @@ enum VerticalTextField {
                 MainActor.assumeIsolated { VerticalTextField.allocate(widget, width: Int(width), height: Int(height)) }
             }
         }
-        fieldLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIVerticalFieldLayout", &info, GTypeFlags(0))
+        fieldLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIVerticalFieldLayout", &info, GTypeFlags(rawValue: 0))
         return fieldLayoutType
     }
 

@@ -52,8 +52,9 @@ final class RichTextElementState {
     func showBar() {
         guard barVisibility == nil else { return }
         let bar = self.bar ?? makeBar()
+        // G_BINDING_SYNC_CREATE (1 << 1), spelled by value: newer GLib (2.88) has Swift import its flags as an option set.
         barVisibility = g_object_bind_property(UnsafeMutableRawPointer(bar.widget), "search-mode-enabled",
-                                               UnsafeMutableRawPointer(bar.widget), "visible", G_BINDING_SYNC_CREATE)
+                                               UnsafeMutableRawPointer(bar.widget), "visible", GBindingFlags(rawValue: 1 << 1))
     }
 
     private func makeBar() -> RichTextGtkFindBar {

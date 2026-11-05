@@ -73,7 +73,7 @@ enum GridLayout {
                 MainActor.assumeIsolated { GridLayout.allocate(widget, width: Int(width), height: Int(height)) }
             }
         }
-        gridLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIGridLayout", &info, GTypeFlags(0))
+        gridLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIGridLayout", &info, GTypeFlags(rawValue: 0))
         return gridLayoutType
     }
 

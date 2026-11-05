@@ -46,7 +46,7 @@ extension Color: ActionUIAdwaitaRenderer {
             }
             gtk_widget_class_set_css_name(widgetClass, "actionui-fill")
         }
-        fillWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIFill", &info, GTypeFlags(0))
+        fillWidgetType = g_type_register_static(gtk_widget_get_type(), "ActionUIFill", &info, GTypeFlags(rawValue: 0))
         return fillWidgetType
     }
 }

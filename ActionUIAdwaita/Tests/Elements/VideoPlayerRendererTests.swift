@@ -204,7 +204,7 @@ final class VideoPlayerRendererTests: XCTestCase {
         let count = UnsafeMutablePointer<Int>.allocate(capacity: 1)
         count.pointee = 0
         defer { count.deallocate() }
-        let handler = g_log_set_handler("GStreamer-Player", G_LOG_LEVEL_CRITICAL, { _, _, _, data in
+        let handler = g_log_set_handler("GStreamer-Player", logLevelCritical, { _, _, _, data in
             data?.assumingMemoryBound(to: Int.self).pointee += 1
         }, count)
         run()

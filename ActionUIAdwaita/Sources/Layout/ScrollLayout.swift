@@ -72,7 +72,7 @@ enum ScrollLayout {
                 MainActor.assumeIsolated { ScrollLayout.allocate(widget, width: Int(width), height: Int(height)) }
             }
         }
-        scrollLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIScrollLayout", &info, GTypeFlags(0))
+        scrollLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIScrollLayout", &info, GTypeFlags(rawValue: 0))
         return scrollLayoutType
     }
 

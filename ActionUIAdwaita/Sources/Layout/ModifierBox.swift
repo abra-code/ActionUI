@@ -544,7 +544,7 @@ enum ModifierBox {
             gtk_widget_class_set_css_name(widgetClass, "actionui-content")
             gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_GENERIC)
         }
-        contentGroupType = g_type_register_static(parent, "ActionUIContentGroup", &info, GTypeFlags(0))
+        contentGroupType = g_type_register_static(parent, "ActionUIContentGroup", &info, GTypeFlags(rawValue: 0))
         return contentGroupType
     }
 
@@ -566,7 +566,7 @@ enum ModifierBox {
             gtk_widget_class_set_css_name(widgetClass, "actionui-box")
             gtk_widget_class_set_accessible_role(widgetClass, GTK_ACCESSIBLE_ROLE_GENERIC)
         }
-        boxWidgetType = g_type_register_static(parent, "ActionUIModifierBox", &info, GTypeFlags(0))
+        boxWidgetType = g_type_register_static(parent, "ActionUIModifierBox", &info, GTypeFlags(rawValue: 0))
         return boxWidgetType
     }
 
@@ -604,7 +604,7 @@ enum ModifierBox {
                 MainActor.assumeIsolated { ModifierBox.allocateBox(widget, width: Int(width), height: Int(height)) }
             }
         }
-        boxLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIModifierLayout", &info, GTypeFlags(0))
+        boxLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIModifierLayout", &info, GTypeFlags(rawValue: 0))
         return boxLayoutType
     }
 
@@ -631,7 +631,7 @@ enum ModifierBox {
                 MainActor.assumeIsolated { ModifierBox.allocateContent(widget, width: Int(width), height: Int(height)) }
             }
         }
-        contentLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIContentLayout", &info, GTypeFlags(0))
+        contentLayoutType = g_type_register_static(gtk_layout_manager_get_type(), "ActionUIContentLayout", &info, GTypeFlags(rawValue: 0))
         return contentLayoutType
     }
 
