@@ -15,7 +15,7 @@
 #
 # The program finds its documents in the folder it runs from. The bundle is self-contained: the
 # program must be built with the Swift runtime linked in, and then needs only the system's GTK 4,
-# libadwaita and libsoup 3 (and WebKitGTK 6.0 for its WebView page, loaded when shown). Build it with
+# libadwaita and libsoup 3 (and WebKitGTK 6.0 for its WebView page and libshumate for its Map page, each loaded when shown). Build it with
 #   swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Apps --product ActionUIAdwaitaDemo
 # A program linked to a toolchain's Swift runtime is refused. The bundle's copy is stripped of its
 # symbols (llvm-objcopy from the Swift toolchain, else the system's objcopy or strip; left as it is,

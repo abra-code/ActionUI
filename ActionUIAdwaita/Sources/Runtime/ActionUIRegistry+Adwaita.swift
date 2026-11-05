@@ -41,6 +41,7 @@ extension ActionUIRegistry {
         "LazyVGrid": LazyVGrid.self,
         "LazyVStack": LazyVStack.self,
         "Link": Link.self,
+        "Map": Map.self,
         "List": List.self,
         "LoadableView": LoadableView.self,
         "Menu": Menu.self,

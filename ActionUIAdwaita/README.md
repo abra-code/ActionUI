@@ -16,6 +16,7 @@ For how the renderer works (retained widgets, SwiftUI's layout reproduced, what 
 - At run time, besides GTK, libadwaita and libsoup:
   - **glib-networking** for https URLs (installed with GNOME);
   - **WebKitGTK 6.0** (`libwebkitgtk-6.0-4`) for WebView only. It is loaded when a WebView is first shown, so it is a dependency of the app that shows web pages, not of ActionUI; without it a WebView shows a placeholder that names the package. Ubuntu's desktop installs it; Debian's GNOME desktop does not.
+  - **libshumate** (`libshumate-1.0-1`, GNOME's map widget) for Map only, loaded when a Map is first made, so it too is a dependency of the app that shows maps; without it a Map shows a placeholder that names the package. GNOME Maps depends on it, so a desktop with GNOME Maps has it.
   - **GStreamer** for VideoPlayer: built into GTK 4.20 and later, a GTK module before that (`libgtk-4-media-gstreamer`, which Debian's GNOME desktop installs), plus the GStreamer plug-ins for the video's format;
   - **ICU** (any version the system has) for dates and numbers by locale, also loaded when first needed.
 
@@ -144,7 +145,8 @@ swift test --package-path ActionUIAdwaita/Library
 
 ## What is there and what is not yet
 
-- **Elements:** every core element type except **Map**, which shows a placeholder naming its type. All but a few of the test app's 108 documents render with nothing missing.
+- **Elements:** every core element type. All but a few of the test app's 108 documents render with nothing missing.
+- **Map:** OpenStreetMap's standard tiles through libshumate, with the attribution OpenStreetMap requires, a scale, zoom buttons and a compass. The value, both actions and `interactionModes` work; annotations and `showsUserLocation` are not drawn yet. `Documentation/Schemas/Map.md` lists what differs.
 - **Chart:** draws every mark with axes, legends and series colors, comparable to Swift Charts. Selection, scrolling and annotations are not available yet; `Documentation/Schemas/Chart.md` lists what differs.
 - **ShareLink:** Linux desktops have no share sheet, so its button opens a menu of the ways GNOME shares a link: **Copy Link**, and **Send by Email...**, which opens the user's mail program with the subject, the message and the URL (through the desktop's Email portal, else a `mailto:` link). When no email app can be opened, an alert says so.
 - **Application functions** (`actionUIApp*`): windows, the lifecycle handlers, the resource folder and the menu bar's commands (in each window's primary menu) work. The standalone alert and the open and save panels are libadwaita's alert dialog and GTK's file dialog, modal to the active window; each call blocks until the user answers while the main loop keeps running, and takes the macOS configuration keys, ignoring those GTK has no counterpart for (an alert's `style`, a panel's `message`, `showsHiddenFiles`, `treatsFilePackagesAsDirectories`, `canCreateDirectories`; a panel allowing files and folders chooses files). Called before the application runs, they log why and return NULL. **The remote server** (`ActionUIRemote/PROTOCOL.md`) runs as on macOS, its socket by default in `$XDG_RUNTIME_DIR` (else `$TMPDIR`, else `/tmp`); `actionui.contentSizeLimits` measures a window on screen (`ActionUIModel.contentSizeLimits`, null for a window that is only loaded), as do the C function `actionUIGetContentSizeLimits` and the Python, Node.js and Rust `content_size_limits` over it.

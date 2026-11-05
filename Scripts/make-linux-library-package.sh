@@ -19,7 +19,7 @@
 # #include line serves both platforms. ActionUIRemote has no hand-written header, as on Apple: its
 # header is the one Swift generates, taken from the build that made the library. The
 # library is self-contained: it must be built with the Swift runtime linked in, and then needs only
-# the system's GTK 4, libadwaita and libsoup 3 (and WebKitGTK 6.0 for WebView, loaded when shown).
+# the system's GTK 4, libadwaita and libsoup 3 (and WebKitGTK 6.0 for WebView and libshumate for Map, each loaded when first needed).
 # Build it with
 #   swift build -c release --static-swift-stdlib --package-path ActionUIAdwaita/Library --product ActionUI
 # A library linked to a toolchain's Swift runtime is refused. The copy is stripped of its symbols

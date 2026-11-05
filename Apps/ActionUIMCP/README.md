@@ -72,7 +72,7 @@ Scripts/make-linux-mcp-package.sh Apps/ActionUIMCP/.build/release .build/linux-p
 
 `--only-use-versions-from-resolved-file` keeps the tracked `Package.resolved` as it is: the Linux manifest has fewer packages, and a resolve there would drop the macOS-only ones.
 
-The machine needs GNOME 48 or later: GTK 4.18, libadwaita 1.7 and libsoup 3 (on Debian and Ubuntu: `libadwaita-1-0`, `libsoup-3.0-0`; Ubuntu 24.04's libadwaita 1.5 is too old), and glibc 2.38 or later for a build made on Debian 13; WebKitGTK 6.0 (`libwebkitgtk-6.0-4`) for web pages: without it a web page's place shows the package to install. Unpack the tarball anywhere, for example into `~/.local/opt`, and register the server with its full path:
+The machine needs GNOME 48 or later: GTK 4.18, libadwaita 1.7 and libsoup 3 (on Debian and Ubuntu: `libadwaita-1-0`, `libsoup-3.0-0`; Ubuntu 24.04's libadwaita 1.5 is too old), and glibc 2.38 or later for a build made on Debian 13; WebKitGTK 6.0 (`libwebkitgtk-6.0-4`) for web pages and libshumate (`libshumate-1.0-1`) for maps: without one a web page's or a map's place shows the package to install. Unpack the tarball anywhere, for example into `~/.local/opt`, and register the server with its full path:
 
 ```sh
 mkdir -p ~/.local/opt

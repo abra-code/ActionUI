@@ -208,6 +208,8 @@ final class RenderTreeTests: XCTestCase {
     }
 
     func testATypeWithoutARendererShowsThePlaceholder() throws {
+        // Every core type has a renderer on Linux; this one loses its own (tearDown restores it).
+        ActionUIRegistry.shared.renderers["Map"] = nil
         let window = try render("""
             {"type": "VStack", "id": 1, "children": [{"type": "Map", "id": 2}]}
             """)

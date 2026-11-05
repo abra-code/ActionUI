@@ -14,7 +14,7 @@
 #   actionui-mcp-<version>-linux-<arch>.tar.gz  the folder, packed
 #
 # The server finds the schemas and the documentation from its own place, so the folder stays together; unpack it
-# anywhere. It needs GTK 4, libadwaita and libsoup 3 on the machine (WebKitGTK 6.0 for web pages, optional), and
+# anywhere. It needs GTK 4, libadwaita and libsoup 3 on the machine (WebKitGTK 6.0 for web pages and libshumate for maps, optional), and
 # must be built with the Swift runtime linked in:
 #   swift build -c release --static-swift-stdlib --package-path Apps/ActionUIMCP \
 #       --only-use-versions-from-resolved-file --manifest-cache none
