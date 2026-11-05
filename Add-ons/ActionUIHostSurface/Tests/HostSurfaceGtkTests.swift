@@ -34,10 +34,17 @@ private final class RecordingClient: HostSurfaceDelegate {
     private(set) var events: [HostSurfaceEvent] = []
     private(set) var infos: [HostSurfaceInfo] = []
     private(set) var frames = 0
+    /// Events and input kinds in the order they came.
+    private(set) var log: [String] = []
 
     func hostSurface(_ surface: HostSurfaceInfo, event: HostSurfaceEvent) {
         events.append(event)
         infos.append(surface)
+        log.append("\(event)")
+    }
+
+    func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput) {
+        log.append("input \(event.kind.rawValue)")
     }
 
     func hostSurfaceFrame(_ surface: HostSurfaceInfo, timestamp: Double) {
@@ -134,8 +141,28 @@ final class HostSurfaceGtkTests: XCTestCase {
                 let view = HostSurfaceRegistry.shared.liveSurface(firstID)
                 XCTAssertTrue(ActionUIHostSurface.setCursor(Int32(AUIHostCursorHidden.rawValue), surfaceID: firstID))
                 XCTAssertNotNil(view.flatMap { gtk_widget_get_cursor($0.widget) })
+                // Keyboard focus: the surface is focusable with a client, and tells it.
+                XCTAssertNotEqual(view.map { gtk_widget_get_focusable($0.widget) }, 0, "focusable with a client")
+                view.map { _ = gtk_widget_grab_focus($0.widget) }
+                // A window opened by a test is not activated by the compositor, so keys would not come: FocusIn waits
+                // for an active window, as on Apple platforms for the key window.
+                let windowActive = view.flatMap { gtk_widget_get_root($0.widget) }.map {
+                    gtk_window_is_active(UnsafeMutableRawPointer($0).assumingMemoryBound(to: GtkWindow.self)) != 0
+                } ?? false
+                XCTAssertEqual(view.map { gtk_widget_is_focus($0.widget) }, 1, "the surface takes the window's focus")
+                let focusIn = "input \(AUIHostInputFocusIn.rawValue)"
+                if windowActive {
+                    XCTAssertEqual(first.log.last, focusIn, "FocusIn when it takes focus")
+                } else {
+                    XCTAssertFalse(first.log.contains(focusIn), "no FocusIn while the window is not active")
+                }
                 ActionUIHostSurface.setDelegate(replacement, forSurfaceName: "viewport")
                 XCTAssertEqual(first.events.last, .destroyed, "the outgoing client is told first")
+                if windowActive {
+                    XCTAssertEqual(Array(first.log.suffix(2)), ["input \(AUIHostInputFocusOut.rawValue)", "destroyed"],
+                                   "FocusOut before destroyed")
+                }
+                XCTAssertEqual(view.map { gtk_widget_is_focus($0.widget) }, 0, "the focus is given up")
                 XCTAssertEqual(view?.cursor, Int32(AUIHostCursorArrow.rawValue), "the old client's cursor ends at destroyed")
                 XCTAssertNil(view.flatMap { gtk_widget_get_cursor($0.widget) })
                 XCTAssertEqual(replacement.events, [.created])
@@ -196,6 +223,54 @@ final class HostSurfaceGtkTests: XCTestCase {
         }
         XCTAssertEqual(HostSurfaceSinks.memoryFormat(Int32(AUIHostPixelRGBA8Premultiplied.rawValue)),
                        GDK_MEMORY_R8G8B8A8_PREMULTIPLIED)
+    }
+
+    func testInputTables() {
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 30 + 8), "KeyA")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 44 + 8), "KeyZ")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 16 + 8), "KeyQ")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 2 + 8), "Digit1")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 11 + 8), "Digit0")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 59 + 8), "F1")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 68 + 8), "F10")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 88 + 8), "F12")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 105 + 8), "ArrowLeft")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 125 + 8), "MetaLeft")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 3), "", "below the evdev offset")
+        XCTAssertEqual(HostSurfaceGtkInput.code(hardwareKeycode: 500), "")
+
+        XCTAssertEqual(HostSurfaceGtkInput.button(1), 0)
+        XCTAssertEqual(HostSurfaceGtkInput.button(3), 1, "the right button is the secondary")
+        XCTAssertEqual(HostSurfaceGtkInput.button(2), 2, "the middle button")
+        let state = GDK_SHIFT_MASK.rawValue | GDK_SUPER_MASK.rawValue | GDK_LOCK_MASK.rawValue
+        XCTAssertEqual(HostSurfaceGtkInput.modifiers(state),
+                       UInt32(AUIHostModifierShift | AUIHostModifierMeta | AUIHostModifierCapsLock))
+        XCTAssertTrue(HostSurfaceGtkInput.buttonHeld(GDK_BUTTON1_MASK.rawValue))
+        XCTAssertFalse(HostSurfaceGtkInput.buttonHeld(GDK_SHIFT_MASK.rawValue))
+        XCTAssertEqual(HostSurfaceGtkInput.heldButton(GDK_BUTTON3_MASK.rawValue), 1, "a right drag is the secondary")
+        XCTAssertEqual(HostSurfaceGtkInput.heldButton(GDK_BUTTON2_MASK.rawValue), 2)
+        XCTAssertEqual(HostSurfaceGtkInput.heldButton(GDK_BUTTON1_MASK.rawValue | GDK_BUTTON3_MASK.rawValue), 0)
+
+        // GDK's deltas say how far the view scrolls; the header's how far the content moves.
+        XCTAssertTrue(HostSurfaceGtkInput.contentDelta(0, 3) == (0, -3))
+        XCTAssertTrue(HostSurfaceGtkInput.stepDelta(GDK_SCROLL_UP)! == (0, 1), "the wheel up moves the content down")
+        XCTAssertTrue(HostSurfaceGtkInput.stepDelta(GDK_SCROLL_RIGHT)! == (-1, 0))
+
+        XCTAssertEqual(HostSurfaceGtkInput.text(unicode: 0x61, state: 0), "a")
+        XCTAssertEqual(HostSurfaceGtkInput.text(unicode: 0x1F600, state: GDK_SHIFT_MASK.rawValue), "\u{1F600}")
+        XCTAssertNil(HostSurfaceGtkInput.text(unicode: 0x61, state: GDK_CONTROL_MASK.rawValue), "a shortcut, not text")
+        XCTAssertNil(HostSurfaceGtkInput.text(unicode: 0x1B, state: 0), "Escape")
+        XCTAssertNil(HostSurfaceGtkInput.text(unicode: 0, state: 0))
+
+        var clicks = HostSurfaceClickCounter()
+        XCTAssertEqual(clicks.press(button: 0, x: 10, y: 10, timeMilliseconds: 1000, doubleClickTime: 400, doubleClickDistance: 5), 1)
+        XCTAssertEqual(clicks.press(button: 0, x: 12, y: 11, timeMilliseconds: 1300, doubleClickTime: 400, doubleClickDistance: 5), 2)
+        XCTAssertEqual(clicks.press(button: 0, x: 12, y: 11, timeMilliseconds: 1600, doubleClickTime: 400, doubleClickDistance: 5), 3)
+        XCTAssertEqual(clicks.press(button: 0, x: 40, y: 11, timeMilliseconds: 1700, doubleClickTime: 400, doubleClickDistance: 5), 1, "too far")
+        XCTAssertEqual(clicks.press(button: 1, x: 40, y: 11, timeMilliseconds: 1800, doubleClickTime: 400, doubleClickDistance: 5), 1, "another button")
+        XCTAssertEqual(clicks.press(button: 1, x: 40, y: 11, timeMilliseconds: 2300, doubleClickTime: 400, doubleClickDistance: 5), 1, "too late")
+        XCTAssertEqual(clicks.press(button: 1, x: 40, y: 11, timeMilliseconds: 2, doubleClickTime: 400, doubleClickDistance: 5), 1,
+                       "an earlier time is not a double click")
     }
 
     private static func run(_ steps: ArraySlice<() -> Void>, then finish: @escaping @MainActor () -> Void) {

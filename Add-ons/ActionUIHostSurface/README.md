@@ -72,7 +72,9 @@ not visible at all. `kind` "gl" (a GL area) is not available yet and draws the p
 The element is linked into `libActionUI.so` (`ActionUIAdwaita/Library`), which registers it, so programs
 in other languages need no register call; the library package ships the header as
 `<ActionUIHostSurface/ActionUIHostSurface.h>`. A Swift program links the package's `ActionUIHostSurface`
-product, as on Apple platforms. Input is not delivered on Linux yet.
+product, as on Apple platforms.
+
+Input on Linux follows the same rules: pointer, touch, pen, scroll (wheel steps, or points with phases from a touchpad), touchpad pinch as magnify and rotate, keys with their W3C code from the hardware key code, and focus. Keys with Control, Alt or Super held reach the client and also go on to the window, so shortcuts still work. FocusIn waits for an active window. Input methods are not handled.
 
 ## Consuming it
 

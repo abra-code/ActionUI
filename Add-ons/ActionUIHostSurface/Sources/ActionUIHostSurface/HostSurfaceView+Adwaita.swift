@@ -64,6 +64,18 @@ final class HostSurfaceView {
     private var warnedFixedProperties = false
     private(set) var isTornDown = false
 
+    // Input state (HostSurfaceView+AdwaitaInput.swift).
+    var clickCounter = HostSurfaceClickCounter()
+    var touchIDs: [UInt: Int64] = [:]
+    var lastTouchID: Int64 = 0
+    var lastPinchScale = 1.0
+    var scrollGestureActive = false
+    /// The client was told FocusIn and not FocusOut since.
+    var focusDelivered = false
+    /// The window whose activity is watched for focus (not a reference: disconnected when unrealized).
+    private var activityWindow: UnsafeMutableRawPointer?
+    private var activitySignal: gulong = 0
+
     init(widget: UnsafeMutablePointer<GtkWidget>, windowUUID: String, viewID: Int, model: ViewModel?,
          logger: any ActionUILogger) {
         self.widget = widget
@@ -72,6 +84,7 @@ final class HostSurfaceView {
         self.model = model
         self.logger = logger
         HostSurfaceRegistry.shared.attach(self)
+        installInputHandlers()
     }
 
     // MARK: properties
@@ -228,12 +241,21 @@ final class HostSurfaceView {
             lastGeometry = current
             send(.changed, current)
         }
+        // A client can close the window inside a callback: the widget is then disposed and freed, and must
+        // not be touched again.
+        guard !isTornDown else {
+            return
+        }
         // A delegate change made inside a callback can retract the surface before this point.
         if surfaceID != 0, shouldSuspend != suspendedSent {
             suspendedSent.toggle()
             send(suspendedSent ? .suspended : .resumed, lastGeometry ?? current)
+            guard !isTornDown else {
+                return
+            }
         }
         updateFrames()
+        updateFocusability()
     }
 
     /// Sends "destroyed" to the client that was told about the surface, and forgets the surfaceID and its
@@ -242,7 +264,9 @@ final class HostSurfaceView {
         guard surfaceID != 0 else {
             return
         }
+        // FocusOut before "destroyed": a surface with no client must not keep taking the keys.
         giveUpFocus()
+        updateFocusDelivery()
         // Presents from the client's threads fail from here on; a frame waiting for the main thread is dropped.
         HostSurfaceSinks.close(surfaceID)
         send(.destroyed, lastGeometry ?? geometry)
@@ -250,6 +274,10 @@ final class HostSurfaceView {
         surfaceID = 0
         announcedBinding = nil
         suspendedSent = false
+        focusDelivered = false
+        touchIDs = [:]
+        scrollGestureActive = false
+        gtk_widget_set_focusable(widget, 0)
         lastGeometry = nil
         framePending = false
         continuousOverride = nil
@@ -276,9 +304,10 @@ final class HostSurfaceView {
         }
     }
 
-    /// Gives up keyboard focus when the widget has it, so a surface with no client takes no keys.
+    /// Gives up keyboard focus when the widget has it, so a surface with no client takes no keys. The window's
+    /// focus (is_focus), not only the global one: an inactive window would give it back when it becomes active.
     func giveUpFocus() {
-        guard gtk_widget_has_focus(widget) != 0, let root = gtk_widget_get_root(widget) else {
+        guard gtk_widget_is_focus(widget) != 0, let root = gtk_widget_get_root(widget) else {
             return
         }
         gtk_root_set_focus(root, nil)
@@ -305,6 +334,44 @@ final class HostSurfaceView {
         }
         if event == .created || event == .changed {
             publishSize(geometry)
+        }
+    }
+
+    /// Delivers one input event to the client that got "created". The handlers decide whether input is allowed
+    /// (HostSurfaceView+AdwaitaInput.swift).
+    func deliverInput(_ event: AUIHostInputEvent, code: String = "", text: String? = nil) {
+        guard surfaceID != 0, let binding = announcedBinding else {
+            return
+        }
+        var event = event
+        event.structSize = UInt32(MemoryLayout<AUIHostInputEvent>.size)
+        let surfaceID = surfaceID
+        HostSurfaceRegistry.shared.deliver {
+            switch binding.client {
+            case .c(let delegate, let userData):
+                guard let callback = delegate.input else {
+                    return
+                }
+                windowUUID.withCString { uuid in
+                    code.withCString { codePointer in
+                        event.code = codePointer
+                        if let text {
+                            text.withCString { textPointer in
+                                event.text = textPointer
+                                callback(surfaceID, uuid, Int64(viewID), &event, userData)
+                            }
+                        } else {
+                            event.text = nil
+                            callback(surfaceID, uuid, Int64(viewID), &event, userData)
+                        }
+                    }
+                }
+            case .swift(let delegate):
+                event.code = nil
+                event.text = nil
+                delegate.hostSurfaceInput(swiftInfo(lastGeometry ?? geometry),
+                                          event: HostSurfaceInput(event: event, code: code, text: text))
+            }
         }
     }
 
@@ -468,6 +535,13 @@ final class HostSurfaceView {
                                                 releaseWeakView, GConnectFlags(rawValue: 0))
             windowSignals.append(handler)
         }
+        // The window's activity: a focused surface gets FocusOut when its window stops being active.
+        let window = UnsafeMutableRawPointer(root)
+        let box = Unmanaged.passRetained(WeakHostSurfaceView(self)).toOpaque()
+        activitySignal = g_signal_connect_data(window, "notify::is-active",
+                                               unsafeBitCast(activityChangedTrampoline, to: GCallback.self), box,
+                                               releaseWeakView, GConnectFlags(rawValue: 0))
+        activityWindow = window
     }
 
     private func stopObservingWindow() {
@@ -480,6 +554,11 @@ final class HostSurfaceView {
         windowSignals = []
         g_object_unref(UnsafeMutableRawPointer(windowSurface))
         self.windowSurface = nil
+        if let activityWindow, activitySignal != 0 {
+            g_signal_handler_disconnect(activityWindow, activitySignal)
+        }
+        activityWindow = nil
+        activitySignal = 0
     }
 
     // MARK: frames asked for
@@ -531,7 +610,7 @@ final class HostSurfaceView {
 }
 
 /// A weak reference for GLib callbacks, which may outlive the view by a moment.
-private final class WeakHostSurfaceView {
+final class WeakHostSurfaceView {
     weak var view: HostSurfaceView?
 
     init(_ view: HostSurfaceView) {
@@ -539,7 +618,7 @@ private final class WeakHostSurfaceView {
     }
 }
 
-private let releaseWeakView: GClosureNotify = { data, _ in
+let releaseWeakView: GClosureNotify = { data, _ in
     if let data {
         Unmanaged<WeakHostSurfaceView>.fromOpaque(data).release()
     }
@@ -559,6 +638,17 @@ private let windowChangedTrampoline: @convention(c) (gpointer?, gpointer?, gpoin
     nonisolated(unsafe) let box = data
     MainActor.assumeIsolated {
         Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.refresh()
+    }
+}
+
+/// notify::is-active of the window: focus may have come or gone.
+private let activityChangedTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> Void = { _, _, data in
+    guard let data else {
+        return
+    }
+    nonisolated(unsafe) let box = data
+    MainActor.assumeIsolated {
+        Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.updateFocusDelivery()
     }
 }
 
