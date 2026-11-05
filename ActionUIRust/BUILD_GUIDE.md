@@ -233,6 +233,8 @@ The second opens a window for a few seconds and quits by itself. It needs a logg
 
 With `--features host-surface`, `cargo test` also runs `actionui-sys/tests/host_surface_declarations.rs`, which compares the add-on's declarations (functions, enums and struct fields, in order) with its framework's headers.
 
+`ACTIONUI_GUI_TESTS=1 cargo test -p actionui --features host-surface --test host_surface_window` runs an application with a `HostSurface` element and checks the delegate rules: created with a Metal layer, no destroy on `hidden` or `padding`, a delegate bound inside a callback taking over after it, a rebind inside `destroyed`, unbinding, window close, and a window closed inside `created` (its `destroyed` arrives after `created` returns).
+
 ## Common problems
 
 **`The ActionUI frameworks were not found in ...`** from the `actionui-sys` build script. Run `./build_frameworks.sh`, or point `ACTIONUI_FRAMEWORKS_DIR` at the directory with the `.framework` bundles.

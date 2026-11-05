@@ -35,6 +35,7 @@ The examples, in `actionui/examples`:
 
 - `temperature_converter` - the Rust host for `Examples/TemperatureConverter`, on the same JSON as the Swift, Android and web hosts. Values and one action.
 - `folder_contents` - a table filled from a worker thread, a menu bar, a file panel and an alert.
+- `host_surface` - a sketch pad whose canvas Rust draws with wgpu, inside an ActionUI window with its controls (the `HostSurface` element). Needs the add-on: `cargo run --example host_surface --features host-surface,wgpu`.
 
 `actionui-sys` looks for the frameworks in `ActionUIRust/frameworks/Release`. To use frameworks built elsewhere, set `ACTIONUI_FRAMEWORKS_DIR` to the directory that contains the `.framework` bundles.
 

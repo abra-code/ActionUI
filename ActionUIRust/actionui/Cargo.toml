@@ -11,14 +11,31 @@ repository.workspace = true
 # The HostSurface element and actionui::host_surface: a part of the window drawn by the program
 # with its own renderer. macOS only so far.
 host-surface = ["actionui-sys/host-surface"]
+# actionui::host_surface::wgpu_surface: a wgpu surface on a HostSurface, and a device and frame
+# handling that work wherever the element does.
+wgpu = ["host-surface", "dep:wgpu"]
 
 [dependencies]
 actionui-sys = { path = "../actionui-sys", version = "0.9.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+wgpu = { version = "30", optional = true, default-features = false, features = ["metal", "wgsl"] }
+
+[dev-dependencies]
+pollster = "0.4"
 
 # Opens a real window and runs the event loop, so it has its own main() instead of the
 # test harness, which would run it on a worker thread.
 [[test]]
 name = "window_lifecycle"
 harness = false
+
+# Opens a real window with a HostSurface element; runs only with ACTIONUI_GUI_TESTS=1.
+[[test]]
+name = "host_surface_window"
+harness = false
+required-features = ["host-surface"]
+
+[[example]]
+name = "host_surface"
+required-features = ["host-surface", "wgpu"]

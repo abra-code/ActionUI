@@ -59,6 +59,8 @@ mod dialog;
 mod error;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod ffi;
+#[cfg(all(feature = "host-surface", target_os = "macos"))]
+pub mod host_surface;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod log;
 #[cfg(any(target_os = "macos", target_os = "linux"))]

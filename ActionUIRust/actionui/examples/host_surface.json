@@ -1,0 +1,32 @@
+{
+  "type": "HStack",
+  "id": 1,
+  "properties": { "spacing": 16, "padding": 16, "alignment": "top" },
+  "children": [
+    {
+      "type": "VStack",
+      "id": 2,
+      "properties": { "spacing": 10, "alignment": "leading", "frame": { "width": 200 } },
+      "children": [
+        { "type": "Text", "id": 3, "properties": { "text": "Sketch", "font": "title2" } },
+        { "type": "Text", "id": 4, "properties": { "text": "The canvas is drawn by Rust with wgpu. Drag to draw; Backspace removes the last stroke.", "foregroundStyle": "secondary" } },
+        { "type": "Picker", "id": 10, "properties": {
+            "title": "Color", "pickerStyle": "menu", "actionID": "sketch.color",
+            "options": [
+              { "title": "Ink", "tag": "ink" },
+              { "title": "Red", "tag": "red" },
+              { "title": "Green", "tag": "green" },
+              { "title": "Blue", "tag": "blue" }
+            ] } },
+        { "type": "Text", "id": 5, "properties": { "text": "Brush size" } },
+        { "type": "Slider", "id": 11, "properties": { "value": 6.0, "range": { "min": 1.0, "max": 40.0 }, "step": 1.0, "valueChangeActionID": "sketch.size" } },
+        { "type": "Button", "id": 12, "properties": { "title": "Clear", "systemImage": "trash", "actionID": "sketch.clear" } },
+        { "type": "Toggle", "id": 13, "properties": { "title": "Hide the canvas", "isOn": false, "actionID": "sketch.hide" } },
+        { "type": "Text", "id": 14, "properties": { "text": "No strokes", "foregroundStyle": "secondary" } }
+      ]
+    },
+    { "type": "HostSurface", "id": 20, "properties": {
+        "surfaceName": "sketch.canvas", "idealWidth": 640, "idealHeight": 480, "cornerRadius": 8,
+        "accessibilityLabel": "Sketch canvas" } }
+  ]
+}
