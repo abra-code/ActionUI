@@ -8,3 +8,8 @@ license-file.workspace = true
 repository.workspace = true
 links = "actionui"
 build = "build.rs"
+
+[features]
+# Links the ActionUIHostSurface add-on and declares its C interface (actionui_sys::host_surface).
+# macOS only so far; build_frameworks.sh builds the add-on's framework.
+host-surface = []

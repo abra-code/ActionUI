@@ -1,0 +1,49 @@
+# xcodegen spec for the ActionUIHostSurface add-on as a static framework (macOS), for clients that link
+# frameworks rather than Swift packages: the Rust crates (ActionUIRust/build_frameworks.sh builds it).
+# Generate the Xcode project with:  xcodegen generate   (run in this directory, Framework/; it is a
+# folder of its own so that xcodebuild in the package folder still finds the package)
+#
+# The framework COMPILES AGAINST ActionUI but does not contain it: `import ActionUI` resolves to the
+# ActionUI.framework that the same build put in BUILT_PRODUCTS_DIR (build_frameworks.sh builds ActionUI
+# first, with the same SYMROOT), and the host links both. The Swift sources find the C header module
+# (CActionUIHostSurface) through SWIFT_INCLUDE_PATHS and its module.modulemap; a post-build step copies
+# the header into the framework's Headers folder for C, C++ and Rust clients.
+
+name: ActionUIHostSurface
+
+options:
+  bundleIdPrefix: com.abracode.actionui
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.6"
+
+targets:
+  ActionUIHostSurface:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: ../Sources/ActionUIHostSurface
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SKIP_INSTALL: "YES"
+        PRODUCT_MODULE_NAME: ActionUIHostSurface
+        PRODUCT_BUNDLE_IDENTIFIER: com.abracode.actionui.ActionUIHostSurface
+        GENERATE_INFOPLIST_FILE: "YES"
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/../Sources/CActionUIHostSurface/include
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    postBuildScripts:
+      - name: "Copy the C header"
+        script: |
+          /bin/mkdir -p "${BUILT_PRODUCTS_DIR}/${PUBLIC_HEADERS_FOLDER_PATH}" || exit 1
+          /bin/cp "${SRCROOT}/../Sources/CActionUIHostSurface/include/ActionUIHostSurface.h" "${BUILT_PRODUCTS_DIR}/${PUBLIC_HEADERS_FOLDER_PATH}/" || exit 1
+        inputFiles:
+          - $(SRCROOT)/../Sources/CActionUIHostSurface/include/ActionUIHostSurface.h
+        outputFiles:
+          - $(BUILT_PRODUCTS_DIR)/$(PUBLIC_HEADERS_FOLDER_PATH)/ActionUIHostSurface.h
+
+schemes:
+  ActionUIHostSurface:
+    build:
+      targets:
+        ActionUIHostSurface: all

@@ -1,0 +1,6 @@
+// The C module of the HostSurface interface. SwiftPM uses this map for the CActionUIHostSurface target;
+// the Xcode framework build (project.yml) finds it through SWIFT_INCLUDE_PATHS.
+module CActionUIHostSurface {
+    header "ActionUIHostSurface.h"
+    export *
+}

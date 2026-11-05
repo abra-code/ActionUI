@@ -48,6 +48,16 @@ Run the script again after any change to ActionUI's Swift sources. Cargo notices
 ACTIONUI_FRAMEWORKS_DIR=/path/to/Release cargo build
 ```
 
+### The HostSurface add-on (optional)
+
+`build_frameworks.sh` also builds `ActionUIHostSurface.framework`, the add-on for the `HostSurface` element: a part of the window that your program draws with its own renderer (Metal, wgpu). The crates link it only with their `host-surface` feature, so programs that do not use the element do not carry it:
+
+```toml
+actionui = { path = "/path/to/ActionUI/ActionUIRust/actionui", features = ["host-surface"] }
+```
+
+The feature is macOS only so far; a Linux build with it stops with an error. Its raw declarations are in `actionui_sys::host_surface`.
+
 ## Using the crates in your own project
 
 ```toml
@@ -220,6 +230,8 @@ ACTIONUI_GUI_TESTS=1 cargo test -p actionui --test window_lifecycle
 The first command needs no window. It includes `actionui-sys/tests/declarations.rs`, which compares the hand-written declarations with the headers of the frameworks being linked and fails when a function, enum or callback type was added, removed or changed on either side. Run it after rebuilding the frameworks. On Linux it compares them with the library package's C headers instead.
 
 The second opens a window for a few seconds and quits by itself. It needs a logged-in session with the display awake. Do not type while it runs: its text field has keyboard focus.
+
+With `--features host-surface`, `cargo test` also runs `actionui-sys/tests/host_surface_declarations.rs`, which compares the add-on's declarations (functions, enums and struct fields, in order) with its framework's headers.
 
 ## Common problems
 

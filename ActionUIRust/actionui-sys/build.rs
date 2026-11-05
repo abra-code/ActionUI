@@ -23,6 +23,9 @@ const FRAMEWORKS: [&str; 5] = [
     "ActionUIRemote",
 ];
 
+// The HostSurface add-on, linked with the host-surface feature (macOS only for now).
+const HOST_SURFACE_FRAMEWORK: &str = "ActionUIHostSurface";
+
 // System frameworks ActionUI's Swift code uses. Most are named by the object files
 // themselves; AVKit is not (see the note in ActionUI's Package.swift), and listing the
 // main ones keeps the link independent of that mechanism.
@@ -35,12 +38,31 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if host_surface_enabled() && target_os != "macos" {
+        panic!(
+            "The host-surface feature links the ActionUIHostSurface add-on, which is built for macOS only \
+             so far. Build without it on {target_os}."
+        );
+    }
     match target_os.as_str() {
         "macos" => link_frameworks(),
         "linux" => link_library(),
         // The crate is empty on other systems; nothing to link.
         _ => {}
     }
+}
+
+fn host_surface_enabled() -> bool {
+    env::var_os("CARGO_FEATURE_HOST_SURFACE").is_some()
+}
+
+/// The frameworks this build links: ActionUI's, and the add-on with the host-surface feature.
+fn linked_frameworks() -> Vec<&'static str> {
+    let mut frameworks = FRAMEWORKS.to_vec();
+    if host_surface_enabled() {
+        frameworks.push(HOST_SURFACE_FRAMEWORK);
+    }
+    frameworks
 }
 
 fn link_library() {
@@ -100,11 +122,16 @@ fn link_frameworks() {
     println!("cargo:rerun-if-changed={}", frameworks_dir.display());
 
     println!("cargo:rustc-link-search=framework={}", frameworks_dir.display());
-    for framework in FRAMEWORKS {
+    for framework in linked_frameworks() {
         println!("cargo:rustc-link-lib=framework={framework}");
     }
     for framework in SYSTEM_FRAMEWORKS {
         println!("cargo:rustc-link-lib=framework={framework}");
+    }
+    if host_surface_enabled() {
+        // The add-on's view is a CAMetalLayer.
+        println!("cargo:rustc-link-lib=framework=QuartzCore");
+        println!("cargo:rustc-link-lib=framework=Metal");
     }
 
     // The Swift runtime lives in the system; the toolchain directory holds the
@@ -124,7 +151,7 @@ fn link_frameworks() {
 }
 
 fn has_all_frameworks(dir: &Path) -> bool {
-    FRAMEWORKS
+    linked_frameworks()
         .iter()
         .all(|framework| dir.join(format!("{framework}.framework")).is_dir())
 }
@@ -142,7 +169,7 @@ fn find_frameworks_dir() -> PathBuf {
             "ACTIONUI_FRAMEWORKS_DIR is set to '{value}', but that directory does not hold all of: {}. \
              It must be the directory that directly contains the .framework bundles \
              (the 'Release' directory written by ActionUIRust/build_frameworks.sh).",
-            FRAMEWORKS.join(".framework, ") + ".framework"
+            linked_frameworks().join(".framework, ") + ".framework"
         );
     }
 

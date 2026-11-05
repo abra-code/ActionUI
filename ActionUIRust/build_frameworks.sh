@@ -6,7 +6,10 @@
 #   ./build_frameworks.sh /path/to/dir    # output in /path/to/dir/Release
 #
 # Builds the ActionUIAppKitApplication scheme as Release universal (arm64 + x86_64),
-# which also builds ActionUI, ActionUICAdapter, ActionUIMenuBar and ActionUIRemote.
+# which also builds ActionUI, ActionUICAdapter, ActionUIMenuBar and ActionUIRemote, and then
+# the ActionUIHostSurface add-on (Add-ons/ActionUIHostSurface/Framework), which compiles against
+# the ActionUI framework of the first build. The actionui crates link the add-on only with their
+# host-surface feature.
 # The actionui-sys build script finds the result in ./frameworks/Release on its own;
 # for any other location set ACTIONUI_FRAMEWORKS_DIR to the Release directory.
 
@@ -64,5 +67,31 @@ for framework in ActionUI ActionUICAdapter ActionUIAppKitApplication ActionUIMen
         exit 1
     fi
 done
+
+addon_log_file="$frameworks_dir/xcodebuild-hostsurface.log"
+printf 'Building the ActionUIHostSurface add-on, Release, arm64 + x86_64...\n'
+# Same SYMROOT, so `import ActionUI` finds the framework built above; intermediates of their
+# own, since two projects sharing one OBJROOT delete each other's files as stale and every
+# run then recompiles all of ActionUI.
+/usr/bin/xcodebuild \
+    -project "$project_dir/Add-ons/ActionUIHostSurface/Framework/ActionUIHostSurface.xcodeproj" \
+    -scheme ActionUIHostSurface \
+    -destination 'generic/platform=macOS' \
+    -configuration Release \
+    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+    ONLY_ACTIVE_ARCH=NO \
+    SYMROOT="$frameworks_dir" \
+    OBJROOT="$frameworks_dir/Intermediates-HostSurface" \
+    build > "$addon_log_file" 2>&1
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'Error: xcodebuild failed with status %s for the add-on. Last lines of %s:\n' "$status" "$addon_log_file" >&2
+    /usr/bin/tail -n 30 "$addon_log_file" >&2
+    exit 1
+fi
+if [ ! -f "$built_dir/ActionUIHostSurface.framework/Headers/ActionUIHostSurface.h" ]; then
+    printf 'Error: ActionUIHostSurface.framework or its header is missing from %s. See %s\n' "$built_dir" "$addon_log_file" >&2
+    exit 1
+fi
 
 printf 'Frameworks are in %s\n' "$built_dir"

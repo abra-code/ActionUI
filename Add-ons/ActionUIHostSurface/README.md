@@ -97,7 +97,8 @@ SwiftUI view), element removal and window close.
 ## Files
 
 - `Package.swift` - the package (Apple platforms).
-- `Sources/CActionUIHostSurface/include/ActionUIHostSurface.h` - the C interface.
+- `Framework/project.yml` - the same sources as a static framework (macOS), for clients that link frameworks; `ActionUIRust/build_frameworks.sh` builds it for the Rust crates. A folder of its own, so that `xcodebuild` in this folder still finds the package.
+- `Sources/CActionUIHostSurface/include/ActionUIHostSurface.h` - the C interface. Its `module.modulemap` names the C module for SwiftPM and the framework build.
 - `Sources/ActionUIHostSurface/ActionUIHostSurface.swift` - registration, the Swift API, the C functions.
 - `Sources/ActionUIHostSurface/HostSurface.swift` - the element, the representable and the container.
 - `Sources/ActionUIHostSurface/HostSurfaceView.swift` - the Metal-layer view and its lifecycle.
