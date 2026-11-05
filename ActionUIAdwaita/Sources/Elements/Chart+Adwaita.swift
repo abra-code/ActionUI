@@ -20,6 +20,12 @@
  read "$selection" are drawn from the value (ChartMarkResolver), at each change. ChartSelectionHit
  reads a place as a value, from where the last draw put the plot.
 
+ Annotations (ChartAnnotations): each is the element in its "content" shown with its mark's row, as
+ a template row is (RenderNode.templateRowNode: its controls act with the chart's id and the row as
+ viewPartID, -1 outside a ForEach), a child widget of the chart placed beside its mark at each
+ allocation and drawn over the marks. A view is kept while its mark's row is the same; past 1000
+ annotations the chart draws its marks without them, with a warning, as on Apple.
+
  Scrolling (chartScrollableAxes; ChartLayout+Scroll): the scroll wheel and the touchpad move the
  window, a vertical wheel the horizontal window when only that axis scrolls, as GTK's scrolled
  windows do; on a touchscreen a drag across the plot moves it, and there it does not select. A
@@ -36,6 +42,7 @@ import Foundation
 import CAdwaita
 
 nonisolated(unsafe) private var chartWidgetType: GType = 0
+nonisolated(unsafe) private var chartParentClass: UnsafeMutablePointer<GObjectClass>?
 private let chartStateKey = AttachKey<ChartState>("actionui-chart")
 
 /// What a chart draws, kept on its widget.
@@ -57,6 +64,13 @@ private let chartStateKey = AttachKey<ChartState>("actionui-chart")
     var scrollSpec = ChartScrollSpec()
     /// The windows' leading edges when a touch pan started.
     var panStart: (x: Double?, y: Double?)?
+    /// The annotation views, by what they show (kept while that stays the same), and each drawn
+    /// mark's, by instance and ordinal.
+    var annotationNodes: [String: [RenderNode]] = [:]
+    var annotationsByMark: [Int: [RenderNode]] = [:]
+    var annotationsDropped = false
+    /// The last layout, for the size it was made at; nil when the chart changed since.
+    var laidOut: (width: Double, height: Double, primitives: [ChartPrimitive], geometry: ChartGeometry)?
 
     isolated deinit {
         if settleSource != 0 {
@@ -92,7 +106,128 @@ extension Chart: ActionUIAdwaitaRenderer {
         let selection = ChartSelection.decode(node.model.value as? String, spec: state.spec.selection)
         state.marks = ChartMarkResolver.resolve(state.spec, rows: rows, selection: selection)
         report(state, viewID: node.element.id)
+        syncAnnotations(widget, node, state)
+        state.laidOut = nil
+        gtk_widget_queue_allocate(widget)
         gtk_widget_queue_draw(widget)
+    }
+
+    /// Swift Charts' limit, past which a chart draws its marks without annotations (ChartRenderCache).
+    static let maxAnnotations = 1000
+
+    /// Makes a view for each annotation of the marks, keeping the ones that show the same thing.
+    private static func syncAnnotations(_ widget: WidgetPointer, _ node: RenderNode, _ state: ChartState) {
+        var wanted: [(instance: Int, spec: ChartAnnotationSpec, key: String, row: Int, cells: [String])] = []
+        for (index, instance) in state.marks.instances.enumerated() {
+            var ordinal = 0
+            for modifier in instance.mark.modifiers {
+                guard case .annotation(let spec) = modifier else { continue }
+                // As on Apple (ChartContentBuilder): one that reads no row gets none, and -1 as its row.
+                let row = spec.readsRows ? instance.row ?? -1 : -1
+                let cells = spec.readsRows ? instance.annotationRow : []
+                // Template ids are numbered alike in every annotation, so the content itself is
+                // compared too, when a view is reused.
+                let key = "\(ordinal)\u{1F}\(spec.content.id)\u{1F}\(row)\u{1F}" + cells.joined(separator: "\u{1F}")
+                wanted.append((index, spec, key, row, cells))
+                ordinal += 1
+            }
+        }
+        if wanted.count > maxAnnotations {
+            if !state.annotationsDropped {
+                ActionUIModel.shared.logger.log("Chart \(node.element.id): \(wanted.count) annotations (more than \(maxAnnotations)); drawing the marks without them", .warning)
+            }
+            state.annotationsDropped = true
+            wanted = []
+        } else {
+            state.annotationsDropped = false
+        }
+        var unused = state.annotationNodes
+        var kept: [String: [RenderNode]] = [:]
+        var byMark: [Int: [RenderNode]] = [:]
+        for item in wanted {
+            let annotation: RenderNode
+            if let index = unused[item.key]?.firstIndex(where: { ($0.element as? ActionUIElement) == item.spec.content }) {
+                annotation = unused[item.key]!.remove(at: index)
+            } else {
+                annotation = node.templateRowNode(item.spec.content, row: item.cells, rowIndex: item.row)
+                gtk_widget_set_parent(annotation.outerWidget, widget)
+            }
+            kept[item.key, default: []].append(annotation)
+            byMark[item.instance, default: []].append(annotation)
+        }
+        for old in unused.values.joined() {
+            gtk_widget_unparent(old.outerWidget)
+            old.detach()
+        }
+        state.annotationNodes = kept
+        state.annotationsByMark = byMark
+    }
+
+    /// The layout at the widget's size, made again only after the chart changed or the size did.
+    private static func layout(_ widget: WidgetPointer, _ state: ChartState, width: Double, height: Double)
+        -> (primitives: [ChartPrimitive], geometry: ChartGeometry) {
+        if let cached = state.laidOut, cached.width == width, cached.height == height {
+            return (cached.primitives, cached.geometry)
+        }
+        let text = ChartAxisText(widget: widget)
+        let metrics = ChartTextMetrics(
+            size: { text.size($0) },
+            number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
+            formatted: { NumberFormatting.string($0, format: $1) },
+            date: { DateFormatting.string($0, skeleton: $1) })
+        let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: width, height: height, metrics: metrics,
+                                                         scroll: state.scroll)
+        state.geometry = geometry
+        state.scroll = (geometry.xScroll?.leading, geometry.yScroll?.leading)
+        state.laidOut = (width, height, primitives, geometry)
+        return (primitives, geometry)
+    }
+
+    /// Where annotation views are seen: the chart, and along a scrolling axis only its plot, where
+    /// the marks stop.
+    private static func annotationRoom(_ geometry: ChartGeometry) -> ChartRect {
+        var room = geometry.chart
+        if geometry.xScroll != nil { (room.x, room.width) = (geometry.plot.x, geometry.plot.width) }
+        if geometry.yScroll != nil { (room.y, room.height) = (geometry.plot.y, geometry.plot.height) }
+        return room
+    }
+
+    /// Lays the chart out and places each annotation view beside its mark; a view whose mark is not
+    /// drawn, or that falls outside the room views are seen in, is hidden (child-visible: no resize
+    /// is queued from here, and it is neither drawn nor picked).
+    private static func allocate(_ widget: WidgetPointer, width: Int32, height: Int32) {
+        guard let state = attached(on: widget, key: chartStateKey) else { return }
+        // Made again at every allocation: a font or text scale change queues one at the same size.
+        state.laidOut = nil
+        let geometry = layout(widget, state, width: Double(width), height: Double(height)).geometry
+        let room = annotationRoom(geometry)
+        var placed = Set<ObjectIdentifier>()
+        for frame in geometry.annotations {
+            guard let views = state.annotationsByMark[frame.instance], frame.ordinal < views.count else { continue }
+            let view = views[frame.ordinal]
+            let specs = state.marks.instances[frame.instance].mark.modifiers.compactMap { modifier -> ChartAnnotationSpec? in
+                if case .annotation(let spec) = modifier { return spec }
+                return nil
+            }
+            guard frame.ordinal < specs.count else { continue }
+            let box = view.outerWidget!
+            var minimum: Int32 = 0, natural: Int32 = 0
+            gtk_widget_measure(box, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
+            let childWidth = natural
+            gtk_widget_measure(box, GTK_ORIENTATION_VERTICAL, childWidth, &minimum, &natural, nil, nil)
+            let rect = ChartAnnotationPlacement.place(specs[frame.ordinal], frame: frame.frame, center: frame.center,
+                                                      size: ChartSize(width: Double(childWidth), height: Double(natural)),
+                                                      plot: geometry.plot, chart: geometry.chart)
+            guard rect.x < room.x + room.width, rect.x + rect.width > room.x,
+                  rect.y < room.y + room.height, rect.y + rect.height > room.y else { continue }
+            gtk_widget_set_child_visible(box, 1)
+            var origin = graphene_point_t(x: Float(rect.x.rounded()), y: Float(rect.y.rounded()))
+            gtk_widget_allocate(box, childWidth, natural, -1, gsk_transform_translate(nil, &origin))
+            placed.insert(ObjectIdentifier(view))
+        }
+        for view in state.annotationNodes.values.joined() where !placed.contains(ObjectIdentifier(view)) {
+            gtk_widget_set_child_visible(view.outerWidget, 0)
+        }
     }
 
     static var defaultExpansion: Expansion { .both }
@@ -115,21 +250,24 @@ extension Chart: ActionUIAdwaitaRenderer {
         let width = Double(gtk_widget_get_width(widget)), height = Double(gtk_widget_get_height(widget))
         guard width > 0, height > 0 else { return }
         let text = ChartAxisText(widget: widget)
-        let metrics = ChartTextMetrics(
-            size: { text.size($0) },
-            number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
-            formatted: { NumberFormatting.string($0, format: $1) },
-            date: { DateFormatting.string($0, skeleton: $1) })
-        let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: width, height: height, metrics: metrics,
-                                                         scroll: state.scroll)
-        state.geometry = geometry
-        state.scroll = (geometry.xScroll?.leading, geometry.yScroll?.leading)
+        let (primitives, geometry) = layout(widget, state, width: width, height: height)
         var foreground = GdkRGBA()
         gtk_widget_get_color(widget, &foreground)
         let drawing = ChartDrawing(widget: widget, snapshot: snapshot, foreground: foreground, text: text)
         for primitive in primitives {
             drawing.draw(primitive)
         }
+        // The annotations, over the marks, cut off at the room they are seen in.
+        let room = annotationRoom(geometry)
+        var clip = graphene_rect_t(origin: graphene_point_t(x: Float(room.x), y: Float(room.y)),
+                                   size: graphene_size_t(width: Float(room.width), height: Float(room.height)))
+        gtk_snapshot_push_clip(snapshot, &clip)
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            gtk_widget_snapshot_child(widget, current, snapshot)
+            child = gtk_widget_get_next_sibling(current)
+        }
+        gtk_snapshot_pop(snapshot)
     }
 
     // MARK: Selection
@@ -254,6 +392,9 @@ extension Chart: ActionUIAdwaitaRenderer {
         }
         guard next.x != state.scroll.x || next.y != state.scroll.y else { return false }
         state.scroll = next
+        state.laidOut = nil
+        // Allocated again, so the annotations move with the window.
+        gtk_widget_queue_allocate(widget)
         gtk_widget_queue_draw(widget)
         return true
     }
@@ -358,7 +499,21 @@ extension Chart: ActionUIAdwaitaRenderer {
         info.instance_size = guint16(MemoryLayout<GtkWidget>.size)
         info.class_init = { klass, _ in
             guard let klass else { return }
+            chartParentClass = g_type_class_peek_parent(klass)?.assumingMemoryBound(to: GObjectClass.self)
+            // The annotation views are children: they go when the chart does.
+            klass.assumingMemoryBound(to: GObjectClass.self).pointee.dispose = { object in
+                guard let object else { return }
+                let widget: WidgetPointer = typed(object)
+                while let child = gtk_widget_get_first_child(widget) {
+                    gtk_widget_unparent(child)
+                }
+                chartParentClass?.pointee.dispose?(object)
+            }
             let widgetClass = klass.assumingMemoryBound(to: GtkWidgetClass.self)
+            widgetClass.pointee.size_allocate = { widget, width, height, _ in
+                guard let widget else { return }
+                MainActor.assumeIsolated { Chart.allocate(widget, width: width, height: height) }
+            }
             widgetClass.pointee.measure = { _, _, _, minimum, natural, minimumBaseline, naturalBaseline in
                 minimum?.pointee = 0
                 natural?.pointee = MainActor.assumeIsolated { Color.idealLength }

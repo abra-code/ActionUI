@@ -49,6 +49,8 @@ struct ChartMarkInstance {
     let row: Int?
     /// Whether one of its values reads the selection.
     let readsSelection: Bool
+    /// The cells of its row, for an annotation that reads them ("$N"); empty when it has none.
+    let annotationRow: [String]
 
     /// A name that takes a slot: a number or date falls along the room instead.
     var positionName: String? { positionValue == nil ? positionKey : nil }
@@ -258,7 +260,18 @@ struct ChartMarkResolver {
                                  accessibleText: result.said.count < ChartResolvedMarks.namedMarks ? accessibleText(mark, row: row) : nil,
                                  positionKey: positionKey, positionValue: positionValue, positionSpan: positionSpan, positionAxis: positionAxis,
                                  colorValue: colorValue, lineStyleValue: lineStyleValue, sizeValue: sizeValue,
-                                 seriesKey: seriesParts.joined(separator: "\u{1F}"), row: row, readsSelection: readsSelection)
+                                 seriesKey: seriesParts.joined(separator: "\u{1F}"), row: row, readsSelection: readsSelection,
+                                 annotationRow: annotationRow(mark, row: row))
+    }
+
+    /// The row's cells when one of the mark's annotations reads them.
+    private func annotationRow(_ mark: ChartMarkSpec, row: Int?) -> [String] {
+        guard let row, row < columns.rows.count else { return [] }
+        let reads = mark.modifiers.contains { modifier in
+            if case .annotation(let annotation) = modifier { return annotation.readsRows }
+            return false
+        }
+        return reads ? columns.rows[row] : []
     }
 
     private func text(_ text: ChartText, row: Int?) -> String {

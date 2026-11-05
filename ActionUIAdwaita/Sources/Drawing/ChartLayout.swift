@@ -43,6 +43,10 @@ struct ChartGeometry {
     /// The windows of the axes that scroll.
     var xScroll: ChartScrollWindow?
     var yScroll: ChartScrollWindow?
+    /// Where the marks' annotations go (ChartAnnotationPlacement places each view by its frame),
+    /// and the chart's own bounds.
+    var annotations: [ChartAnnotationFrame] = []
+    var chart = ChartRect(x: 0, y: 0, width: 0, height: 0)
 }
 
 struct ChartLayout {
@@ -197,7 +201,8 @@ struct ChartLayout {
                 primitives.append(.roundedFill(frame, radius: layer.radius, ink: .color(background)))
             }
         }
-        appendMarks(stacks, xAxis.scale, yAxis.scale, plot, bandLabelRow: bandLabelRow, into: &primitives)
+        var annotations: [ChartAnnotationFrame] = []
+        appendMarks(stacks, xAxis.scale, yAxis.scale, plot, bandLabelRow: bandLabelRow, into: &primitives, annotations: &annotations)
         if let layer { primitives.append(.endPlot(layer)) }
         if let border = style.border {
             primitives.append(.border(frame, width: border.width, ink: border.ink))
@@ -205,7 +210,8 @@ struct ChartLayout {
         let area = ChartRect(x: frame.x - leading, y: frame.y - top, width: leading + frame.width + trailing, height: top + frame.height + bottom)
         legend?.append(to: &primitives, area: area, plot: frame)
         return (primitives.filter(\.isDrawable), ChartGeometry(plot: plot, x: xAxis.scale, y: yAxis.scale, hasSectors: hasSectors,
-                                                               xScroll: xWindow, yScroll: yWindow))
+                                                               xScroll: xWindow, yScroll: yWindow, annotations: annotations,
+                                                               chart: ChartRect(x: 0, y: 0, width: width, height: height)))
     }
 
     /// An axis title, resolved: `along` is how far along its side it sits, 0 at the start.

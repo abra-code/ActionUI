@@ -269,4 +269,138 @@ final class ChartSelectionRendererTests: XCTestCase {
         let node = try show()
         XCTAssertFalse(try scroll(node, dx: 0, dy: 3))
     }
+
+    // MARK: Annotations
+
+    /// Bars with a Text annotation reading the row's value, 300 x 200, on screen.
+    private func showAnnotated(rows: Int = 3) throws -> RenderNode {
+        let data = (0..<rows).map { #"["d\#($0)", \#($0 + 2)]"# }.joined(separator: ", ")
+        let json = ##"""
+        {"type": "Chart", "id": 1, "properties": {"frame": {"width": 300, "height": 200},
+         "chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [\##(data)],
+                   "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"},
+                                "y": {"label": "N", "value": "$n"},
+                                "annotation": {"content": {"type": "Text", "properties": {"text": "$n"}}}}]}]}}}
+        """##
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
+        windows.append(window)
+        let node = try XCTUnwrap(window.root)
+        let gtkWindow = gtk_window_new()!
+        shown.append(gtkWindow)
+        gtk_window_set_child(typed(gtkWindow), node.outerWidget)
+        gtk_window_present(typed(gtkWindow))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        waitForFrame()
+        return node
+    }
+
+    private func annotationViews(_ node: RenderNode) -> [WidgetPointer] {
+        var views: [WidgetPointer] = []
+        var child = gtk_widget_get_first_child(node.widget)
+        while let current = child {
+            views.append(current)
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return views
+    }
+
+    /// The text of the first label inside `widget`.
+    private func text(in widget: WidgetPointer) -> String? {
+        if g_type_check_instance_is_a(UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GTypeInstance.self), gtk_label_get_type()) != 0 {
+            return gtk_label_get_text(OpaquePointer(widget)).map { String(cString: $0) }
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            if let found = text(in: current) { return found }
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return nil
+    }
+
+    func testEachBarShowsItsAnnotationAboveIt() throws {
+        let node = try showAnnotated()
+        let views = annotationViews(node)
+        XCTAssertEqual(views.count, 3)
+        XCTAssertEqual(Set(views.compactMap { text(in: $0) }), ["2", "3", "4"], "each reads its row")
+        for view in views {
+            XCTAssertNotEqual(gtk_widget_get_visible(view), 0)
+            var bounds = graphene_rect_t()
+            XCTAssertNotEqual(gtk_widget_compute_bounds(view, node.widget, &bounds), 0)
+            XCTAssertGreaterThan(bounds.size.width, 0)
+            XCTAssertLessThan(Double(bounds.origin.y) + Double(bounds.size.height), 200, "above the bottom of the chart")
+        }
+    }
+
+    func testNewRowsKeepTheAnnotationsOfRowsThatStayed() throws {
+        let node = try showAnnotated()
+        let before = Set(annotationViews(node).map { UInt(bitPattern: $0) })
+        ActionUIModel.shared.appendElementRows(windowUUID: windowUUID, viewID: 1, rows: [["d9", "7"]])
+        AdwaitaTestHost.drainMainLoop()
+        let after = annotationViews(node)
+        XCTAssertEqual(after.count, 4)
+        XCTAssertTrue(before.isSubset(of: Set(after.map { UInt(bitPattern: $0) })))
+    }
+
+    func testPastAThousandAnnotationsTheMarksDrawWithoutThem() throws {
+        let node = try showAnnotated(rows: 1001)
+        XCTAssertEqual(annotationViews(node).count, 0)
+    }
+}
+
+extension ChartSelectionRendererTests {
+    /// A 300 x 200 chart of `chart` (the "chart" property's JSON), on screen.
+    private func showChart(_ chart: String) throws -> RenderNode {
+        let json = #"{"type": "Chart", "id": 1, "properties": {"frame": {"width": 300, "height": 200}, "chart": "# + chart + "}}"
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
+        windows.append(window)
+        let node = try XCTUnwrap(window.root)
+        let gtkWindow = gtk_window_new()!
+        shown.append(gtkWindow)
+        gtk_window_set_child(typed(gtkWindow), node.outerWidget)
+        gtk_window_present(typed(gtkWindow))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        waitForFrame()
+        return node
+    }
+
+    func testAScrollingChartShowsOnlyTheAnnotationsOfMarksInItsWindow() throws {
+        let rows = (0...100).map { "[\($0), \($0 % 10)]" }.joined(separator: ", ")
+        let node = try showChart(##"""
+        {"columns": [{"name": "x", "type": "number"}, {"name": "y", "type": "number"}], "data": [\##(rows)],
+         "chartScrollableAxes": "horizontal", "chartXVisibleDomain": {"length": 20},
+         "content": [{"type": "ForEach", "content": [{"type": "PointMark", "x": {"label": "X", "value": "$x"},
+                      "y": {"label": "Y", "value": "$y"}, "annotation": {"content": {"type": "Text", "properties": {"text": "$x"}}}}]}]}
+        """##)
+        let views = annotationViews(node)
+        XCTAssertEqual(views.count, 101)
+        let seen = views.filter { gtk_widget_get_mapped($0) != 0 }
+        XCTAssertGreaterThan(seen.count, 10)
+        XCTAssertLessThan(seen.count, 30, "about the 20 in the window")
+        for view in seen {
+            var bounds = graphene_rect_t()
+            XCTAssertNotEqual(gtk_widget_compute_bounds(view, node.widget, &bounds), 0)
+            XCTAssertLessThan(bounds.origin.x, 300)
+            XCTAssertGreaterThan(bounds.origin.x + bounds.size.width, 0)
+        }
+    }
+
+    func testANewAnnotationContentReplacesTheViews() throws {
+        let node = try showChart(##"""
+        {"columns": ["day", {"name": "n", "type": "number"}], "data": [["d0", "2"], ["d1", "3"], ["d2", "4"]],
+         "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"},
+                      "annotation": {"content": {"type": "Text", "properties": {"text": "$n"}}}}]}]}
+        """##)
+        XCTAssertEqual(Set(annotationViews(node).compactMap { text(in: $0) }), ["2", "3", "4"])
+        let changed: [String: Any] = ["columns": ["day", ["name": "n", "type": "number"]], "data": [["d0", "2"], ["d1", "3"], ["d2", "4"]],
+                                      "content": [["type": "ForEach", "content": [["type": "BarMark", "x": ["label": "Day", "value": "$day"],
+                                                                                   "y": ["label": "N", "value": "$n"],
+                                                                                   "annotation": ["content": ["type": "Text", "properties": ["text": "v$n"]]]]]]]]
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "chart", value: changed)
+        AdwaitaTestHost.drainMainLoop()
+        let views = annotationViews(node)
+        XCTAssertEqual(views.count, 3)
+        XCTAssertEqual(Set(views.compactMap { text(in: $0) }), ["v2", "v3", "v4"])
+    }
 }

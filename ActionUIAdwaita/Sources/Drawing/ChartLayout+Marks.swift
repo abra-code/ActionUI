@@ -17,11 +17,14 @@
    top or leading side. A bar on 0 moves only across its axis, so it narrows.
 */
 
+import Glibc
+
 extension ChartLayout {
     private static let defaultSymbolArea = 50.0
 
     func appendMarks(_ stacks: [Int: Stacked], _ x: ChartAxisScale, _ y: ChartAxisScale, _ plot: ChartRect,
-                             bandLabelRow: Double, into primitives: inout [ChartPrimitive]) {
+                             bandLabelRow: Double, into primitives: inout [ChartPrimitive],
+                             annotations: inout [ChartAnnotationFrame]) {
         let angles = sectorAngles()
         var joined: [JoinedMarks: [Int]] = [:]
         for (index, instance) in marks.instances.enumerated() where instance.mark.kind == .LineMark || instance.mark.kind == .AreaMark {
@@ -31,11 +34,27 @@ extension ChartLayout {
             let instance = marks.instances[index]
             let ink = styles.ink(instance)
             let start = primitives.count
+            let annotationCount = instance.mark.modifiers.reduce(0) { count, modifier in
+                if case .annotation = modifier { return count + 1 }
+                return count
+            }
+            // Where the mark's annotations go (ChartAnnotations), and what "automatic" is for it.
+            func annotate(_ frame: ChartRect?, center: ChartPoint? = nil) {
+                guard annotationCount > 0, let frame else { return }
+                for ordinal in 0..<annotationCount {
+                    annotations.append(ChartAnnotationFrame(instance: index, ordinal: ordinal, frame: frame, center: center))
+                }
+            }
             defer {
                 if primitives.count > start, let effect = effect(instance) {
                     primitives.insert(.beginEffect(effect), at: start)
                     primitives.append(.endEffect(effect))
                 }
+            }
+            // An annotation of a line or area belongs to one of its points.
+            if instance.mark.kind == .LineMark || instance.mark.kind == .AreaMark, annotationCount > 0,
+               let px = position(instance, "x", x), let py = position(instance, "y", y) {
+                annotate(ChartRect(x: px, y: py, width: 0, height: 0))
             }
             switch instance.mark.kind {
             case .BarMark, .RectangleMark:
@@ -50,14 +69,22 @@ extension ChartLayout {
                     }
                     rect = moved(rect, by: moving)
                     primitives.append(rounded(rect, instance, stack: stacks[index], x, y, ink: ink))
+                    annotate(rect)
                 }
             case .PointMark:
                 if let primitive = point(instance, x, y, plot, ink: ink) {
                     primitives.append(primitive)
+                    if case let .symbol(_, center, side, _) = primitive {
+                        let half = side / 2 + ChartAnnotationPlacement.pointMargin
+                        annotate(ChartRect(x: center.x - half, y: center.y - half, width: half * 2, height: half * 2))
+                    }
                 }
             case .RuleMark:
                 if let primitive = rule(instance, x, y, plot, ink: ink) {
                     primitives.append(primitive)
+                    if case let .line(from, to, _, _) = primitive {
+                        annotate(ChartRect(x: min(from.x, to.x), y: min(from.y, to.y), width: abs(to.x - from.x), height: abs(to.y - from.y)))
+                    }
                 }
             case .LineMark:
                 // Joined marks draw at the first one's place, zIndex included, whichever comes up first.
@@ -72,9 +99,11 @@ extension ChartLayout {
                 }
             case .SectorMark:
                 if let angle = angles[index] {
-                    let outline = ChartSectors.outline(sector(instance, angle, plot))
+                    let shape = sector(instance, angle, plot)
+                    let outline = ChartSectors.outline(shape)
                     if !outline.isEmpty {
                         primitives.append(.fill(outline, ink: ink))
+                        annotate(ChartAnnotationPlacement.bounds(of: shape), center: ChartAnnotationPlacement.centroid(of: shape))
                     }
                 }
             }
