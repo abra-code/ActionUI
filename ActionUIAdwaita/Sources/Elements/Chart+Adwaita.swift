@@ -9,6 +9,16 @@
 
  Axis text is the theme's text color and 0.8 of its size, near Swift Charts' caption2 next to body
  text. Numbers and dates are written in the user's locale (NumberFormatting, DateFormatting).
+
+ Selection (chartXSelection, chartYSelection, chartAngleSelection), as Swift Charts on macOS takes
+ it: a value or an angle follows the pointer while it is over the plot, and goes when the pointer
+ leaves; a range is a drag across the plot, from where it started to where it is, and goes when the
+ button is released. On a touchscreen a value follows the finger while it touches, as on iOS. The
+ selection is the element's value (ChartSelection's JSON); a change by the user fires
+ valueChangeActionID at once ("continuous", or a cleared selection) or once the selection has
+ rested 150 ms ("settled", the default), and a value the host sets fires nothing. The marks that
+ read "$selection" are drawn from the value (ChartMarkResolver), at each change. ChartSelectionHit
+ reads a place as a value, from where the last draw put the plot.
 */
 
 #if canImport(FoundationEssentials)
@@ -25,6 +35,21 @@ private let chartStateKey = AttachKey<ChartState>("actionui-chart")
 @MainActor private final class ChartState {
     var spec = ChartSpec()
     var marks = ChartResolvedMarks()
+    /// Where the last draw put the plot and how its axes ran, for reading a place as a value.
+    var geometry = ChartGeometry()
+    weak var node: RenderNode?
+    /// Where a drag that selects a range started, in the widget, and whether it has moved: a click
+    /// that does not move selects no range.
+    var dragStart: ChartPoint?
+    var dragMoved = false
+    /// A "settled" action waiting for the selection to rest.
+    var settleSource: guint = 0
+
+    isolated deinit {
+        if settleSource != 0 {
+            g_source_remove(settleSource)
+        }
+    }
 }
 
 extension Chart: ActionUIAdwaitaRenderer {
@@ -32,7 +57,10 @@ extension Chart: ActionUIAdwaitaRenderer {
         let widget: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(widgetType(), 0, nil, nil)!))
         gtk_widget_set_hexpand(widget, 1)
         gtk_widget_set_vexpand(widget, 1)
-        attach(ChartState(), to: widget, key: chartStateKey)
+        let state = ChartState()
+        state.node = node
+        attach(state, to: widget, key: chartStateKey)
+        watchSelection(widget, state)
         return widget
     }
 
@@ -44,7 +72,8 @@ extension Chart: ActionUIAdwaitaRenderer {
             ChartDates.calendar.firstWeekday = firstWeekday
         }
         state.spec = ChartDescription.parse(description, logger: nil).spec
-        state.marks = ChartMarkResolver.resolve(state.spec, rows: rows)
+        let selection = ChartSelection.decode(node.model.value as? String, spec: state.spec.selection)
+        state.marks = ChartMarkResolver.resolve(state.spec, rows: rows, selection: selection)
         report(state, viewID: node.element.id)
         gtk_widget_queue_draw(widget)
     }
@@ -74,12 +103,167 @@ extension Chart: ActionUIAdwaitaRenderer {
             number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
             formatted: { NumberFormatting.string($0, format: $1) },
             date: { DateFormatting.string($0, skeleton: $1) })
-        let primitives = ChartLayout.primitives(state.spec, marks: state.marks, width: width, height: height, metrics: metrics)
+        let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: width, height: height, metrics: metrics)
+        state.geometry = geometry
         var foreground = GdkRGBA()
         gtk_widget_get_color(widget, &foreground)
         let drawing = ChartDrawing(widget: widget, snapshot: snapshot, foreground: foreground, text: text)
         for primitive in primitives {
             drawing.draw(primitive)
+        }
+    }
+
+    // MARK: Selection
+
+    /// The settle time of a "settled" selection action (Apple's ChartSelectionBinder.settleDelay).
+    static let settleMilliseconds: UInt32 = 150
+
+    private static func watchSelection(_ widget: WidgetPointer, _ state: ChartState) {
+        let motion = gtk_event_controller_motion_new()!
+        connectPoint(UnsafeMutableRawPointer(motion), "motion") { [weak state] x, y in
+            guard let state else { return }
+            hover(state, at: ChartPoint(x: x, y: y))
+        }
+        connectSignal(UnsafeMutableRawPointer(motion), "leave", .instanceOnly) { [weak state] in
+            guard let state, state.dragStart == nil else { return }
+            clearValues(state)
+        }
+        gtk_widget_add_controller(widget, motion)
+
+        let drag = gtk_gesture_drag_new()!
+        gtk_gesture_single_set_button(drag, 1)
+        connectPoint(UnsafeMutableRawPointer(drag), "drag-begin") { [weak state] x, y in
+            guard let state else { return }
+            let spec = state.spec.selection
+            let selectsRange = spec.x == .range || spec.y == .range
+            // Only a chart that selects takes the drag; another leaves it to what holds the chart.
+            guard selectsRange || (isTouch(drag) && !spec.isEmpty) else {
+                gtk_gesture_set_state(drag, GTK_EVENT_SEQUENCE_DENIED)
+                return
+            }
+            gtk_gesture_set_state(drag, GTK_EVENT_SEQUENCE_CLAIMED)
+            let start = ChartPoint(x: x, y: y)
+            state.dragStart = start
+            state.dragMoved = false
+            // A touch shows the values under the finger at once; a range waits for the drag to move.
+            if isTouch(drag) {
+                write(state) { setValues(&$0, state, at: start) }
+            }
+        }
+        connectPoint(UnsafeMutableRawPointer(drag), "drag-update") { [weak state] dx, dy in
+            guard let state, let start = state.dragStart, dx != 0 || dy != 0 || state.dragMoved else { return }
+            state.dragMoved = true
+            dragged(state, from: start, to: ChartPoint(x: start.x + dx, y: start.y + dy), touch: isTouch(drag))
+        }
+        connectPoint(UnsafeMutableRawPointer(drag), "drag-end") { [weak state] _, _ in
+            guard let state, state.dragStart != nil else { return }
+            state.dragStart = nil
+            let touch = isTouch(drag)
+            // A click that did not move selected no range: there is nothing to clear.
+            guard state.dragMoved || touch else { return }
+            write(state) { selection in
+                let spec = state.spec.selection
+                if spec.x == .range || (touch && spec.x == .value) { selection.x = nil }
+                if spec.y == .range || (touch && spec.y == .value) { selection.y = nil }
+                if touch && spec.angle {
+                    selection.angle = nil
+                    selection.row = nil
+                }
+            }
+        }
+        gtk_widget_add_controller(widget, drag)
+    }
+
+    private static func isTouch(_ gesture: OpaquePointer) -> Bool {
+        guard let device = gtk_event_controller_get_current_event_device(gesture) else { return false }
+        return gdk_device_get_source(device) == GDK_SOURCE_TOUCHSCREEN
+    }
+
+    /// The pointer over the chart: the values and the angle selected by value follow it.
+    private static func hover(_ state: ChartState, at point: ChartPoint) {
+        let spec = state.spec.selection
+        guard spec.x == .value || spec.y == .value || spec.angle else { return }
+        write(state) { selection in
+            setValues(&selection, state, at: point)
+        }
+    }
+
+    private static func setValues(_ selection: inout ChartSelection, _ state: ChartState, at point: ChartPoint) {
+        let spec = state.spec.selection
+        let geometry = state.geometry
+        if spec.x == .value {
+            selection.x = ChartSelectionHit.value(at: point, .horizontal, type: spec.xType, geometry: geometry).map { .value($0) }
+        }
+        if spec.y == .value {
+            selection.y = ChartSelectionHit.value(at: point, .vertical, type: spec.yType, geometry: geometry).map { .value($0) }
+        }
+        if spec.angle {
+            let hit = ChartSelectionHit.angle(at: point, marks: state.marks, type: spec.angleType, geometry: geometry)
+            selection.angle = hit?.angle
+            selection.row = hit?.row
+        }
+    }
+
+    /// A drag from `start` to `end`: the range it covers on an axis that selects a range, and on a
+    /// touchscreen the values under the finger.
+    private static func dragged(_ state: ChartState, from start: ChartPoint, to end: ChartPoint, touch: Bool) {
+        let spec = state.spec.selection
+        write(state) { selection in
+            if spec.x == .range {
+                selection.x = ChartSelectionHit.range(from: start, to: end, .horizontal, type: spec.xType, geometry: state.geometry)
+            }
+            if spec.y == .range {
+                selection.y = ChartSelectionHit.range(from: start, to: end, .vertical, type: spec.yType, geometry: state.geometry)
+            }
+            if touch {
+                setValues(&selection, state, at: end)
+            }
+        }
+    }
+
+    /// The pointer left the chart: what follows it goes.
+    private static func clearValues(_ state: ChartState) {
+        let spec = state.spec.selection
+        write(state) { selection in
+            if spec.x == .value { selection.x = nil }
+            if spec.y == .value { selection.y = nil }
+            if spec.angle {
+                selection.angle = nil
+                selection.row = nil
+            }
+        }
+    }
+
+    /// Applies `change` to the selection the value holds, stores it when it differs, and fires the
+    /// action as selectionActionTiming says. The sync the new value causes draws the marks that
+    /// read it.
+    private static func write(_ state: ChartState, _ change: (inout ChartSelection) -> Void) {
+        // Only the user's input selects: a signal GTK emits while a renderer applies the model (a
+        // leave as a host hides the chart under the pointer) writes nothing.
+        guard !UpdateGuard.isApplying, let node = state.node, !state.spec.selection.isEmpty else { return }
+        let spec = state.spec.selection
+        let before = node.model.value as? String ?? ""
+        var selection = ChartSelection.decode(before, spec: spec)
+        change(&selection)
+        let after = selection.encode(spec: spec)
+        guard after != before else { return }
+        node.model.value = after
+        let props = Props(node.properties)
+        guard let actionID = props.valueChangeActionID else { return }
+        if state.settleSource != 0 {
+            g_source_remove(state.settleSource)
+            state.settleSource = 0
+        }
+        let windowUUID = node.windowUUID
+        let viewID = node.element.id
+        let fire = { ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0) }
+        if props.selectionActionTiming == .continuous || after.isEmpty {
+            fire()
+            return
+        }
+        state.settleSource = runAfter(milliseconds: settleMilliseconds) { [weak state] in
+            state?.settleSource = 0
+            fire()
         }
     }
 

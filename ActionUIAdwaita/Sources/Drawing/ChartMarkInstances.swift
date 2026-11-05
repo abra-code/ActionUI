@@ -2,8 +2,13 @@
 /*
  What a chart's entries come to over its rows: one instance per drawn mark, with its plotted values
  read, following Apple's ChartContentBuilder. A mark in a ForEach is drawn once per row, a ForEach
- with its own data over those rows, and a row with a cell that does not parse is skipped whole. A
- mark that reads the selection ("$selection") is not drawn: Linux has no chart selection yet.
+ with its own data over those rows, and a row with a cell that does not parse is skipped whole.
+
+ A mark that reads the selection ("$selection", outside a ForEach) is drawn only while there is a
+ selection it can read, as on Apple: x, xStart and xEnd read the x selection's value, and xStart and
+ xEnd a range's start and end (y likewise). A selected category that no other mark plots on that
+ axis is not drawn, as it would add a category. Selection marks say nothing in the chart's
+ accessible name, which would otherwise change as the pointer moves.
 */
 
 #if canImport(FoundationEssentials)
@@ -40,6 +45,10 @@ struct ChartMarkInstance {
     /// are one line, in the style of the first. A {"by"} that a style nearer the mark replaces, a
     /// symbol's size and a position do not split a line (measured on macOS 27).
     let seriesKey: String
+    /// The row it was read from (of a ForEach's own data when it has some); nil outside a ForEach.
+    let row: Int?
+    /// Whether one of its values reads the selection.
+    let readsSelection: Bool
 
     /// A name that takes a slot: a number or date falls along the room instead.
     var positionName: String? { positionValue == nil ? positionKey : nil }
@@ -66,15 +75,41 @@ struct ChartMarkResolver {
     private var columns: ChartTypedColumns
     private var inlineData = false
     private var result = ChartResolvedMarks()
+    private let selection: ChartSelection
 
-    static func resolve(_ spec: ChartSpec, rows: [[String]]) -> ChartResolvedMarks {
-        var resolver = ChartMarkResolver(columns: ChartTypedColumns(rows: rows, refs: spec.referencedColumns))
+    static func resolve(_ spec: ChartSpec, rows: [[String]], selection: ChartSelection = ChartSelection()) -> ChartResolvedMarks {
+        var resolver = ChartMarkResolver(columns: ChartTypedColumns(rows: rows, refs: spec.referencedColumns), selection: selection)
         resolver.append(spec.content)
+        resolver.dropUnplottedSelections()
         return resolver.result
     }
 
-    private init(columns: ChartTypedColumns) {
+    private init(columns: ChartTypedColumns, selection: ChartSelection) {
         self.columns = columns
+        self.selection = selection
+    }
+
+    private static let xKeys: Set<String> = ["x", "xStart", "xEnd"]
+    private static let yKeys: Set<String> = ["y", "yStart", "yEnd"]
+
+    /// Drops a selection mark at a category that no other mark plots on its axis.
+    private mutating func dropUnplottedSelections() {
+        guard result.instances.contains(where: \.readsSelection) else { return }
+        var categories = (x: Set<String>(), y: Set<String>())
+        for instance in result.instances where !instance.readsSelection {
+            for (key, value) in instance.values {
+                guard case .string(let name) = value else { continue }
+                if Self.xKeys.contains(key) { categories.x.insert(name) }
+                if Self.yKeys.contains(key) { categories.y.insert(name) }
+            }
+        }
+        result.instances.removeAll { instance in
+            guard instance.readsSelection else { return false }
+            return instance.mark.values.contains { key, plottable in
+                guard case .selection = plottable.source, case .string(let name)? = instance.values[key] else { return false }
+                return Self.xKeys.contains(key) ? !categories.x.contains(name) : !categories.y.contains(name)
+            }
+        }
     }
 
     private mutating func append(_ entries: [ChartEntry]) {
@@ -113,7 +148,7 @@ struct ChartMarkResolver {
 
     private mutating func keep(_ instance: ChartMarkInstance) {
         result.instances.append(instance)
-        if let text = instance.accessibleText, result.said.count < ChartResolvedMarks.namedMarks {
+        if !instance.readsSelection, let text = instance.accessibleText, result.said.count < ChartResolvedMarks.namedMarks {
             result.said.append(text)
         }
     }
@@ -134,12 +169,19 @@ struct ChartMarkResolver {
         return true
     }
 
-    private mutating func read(_ plottable: ChartPlottable, row: Int?) -> ChartScalar? {
+    private mutating func read(_ plottable: ChartPlottable, row: Int?, key: String = "") -> ChartScalar? {
         switch plottable.source {
         case .literal(let scalar):
             return scalar
-        case .selection:
-            return nil
+        case .selection(let axis):
+            switch axis == .horizontal ? selection.x : selection.y {
+            case .value(let value)?:
+                return value
+            case .range(let start, let end)?:
+                return key.hasSuffix("Start") ? start : key.hasSuffix("End") ? end : nil
+            case nil:
+                return nil
+            }
         case .column(let index):
             guard let row else { return nil }
             let value = columns.scalar(row: row, ref: ChartColumnRef(index: index, type: plottable.type))
@@ -152,9 +194,11 @@ struct ChartMarkResolver {
 
     private mutating func instance(_ mark: ChartMarkSpec, row: Int?) -> ChartMarkInstance? {
         var values: [String: ChartScalar] = [:]
+        var readsSelection = false
         for (key, plottable) in mark.values {
-            guard let scalar = read(plottable, row: row) else { return nil }
+            guard let scalar = read(plottable, row: row, key: key) else { return nil }
             values[key] = scalar
+            if case .selection = plottable.source { readsSelection = true }
         }
         var styleKey: String?
         var symbolKey: String?
@@ -214,7 +258,7 @@ struct ChartMarkResolver {
                                  accessibleText: result.said.count < ChartResolvedMarks.namedMarks ? accessibleText(mark, row: row) : nil,
                                  positionKey: positionKey, positionValue: positionValue, positionSpan: positionSpan, positionAxis: positionAxis,
                                  colorValue: colorValue, lineStyleValue: lineStyleValue, sizeValue: sizeValue,
-                                 seriesKey: seriesParts.joined(separator: "\u{1F}"))
+                                 seriesKey: seriesParts.joined(separator: "\u{1F}"), row: row, readsSelection: readsSelection)
     }
 
     private func text(_ text: ChartText, row: Int?) -> String {

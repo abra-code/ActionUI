@@ -33,6 +33,15 @@ struct ChartTextMetrics {
     var date: (Date, _ skeleton: String) -> String
 }
 
+/// Where a laid-out chart's plot is and how its axes map values onto it, so a place in the chart
+/// reads back as a value (a selection).
+struct ChartGeometry {
+    var plot = ChartRect(x: 0, y: 0, width: 0, height: 0)
+    var x = ChartAxisScale()
+    var y = ChartAxisScale()
+    var hasSectors = false
+}
+
 struct ChartLayout {
     // Swift Charts' order for series, in ActionUI's named colors.
     static let seriesColors: [ColorSpec] = [.named(.blue), .named(.green), .named(.orange), .named(.purple), .named(.red), .named(.cyan), .named(.yellow)]
@@ -53,10 +62,16 @@ struct ChartLayout {
     let height: Double
 
     static func primitives(_ spec: ChartSpec, marks: ChartResolvedMarks, width: Double, height: Double, metrics: ChartTextMetrics) -> [ChartPrimitive] {
+        laidOut(spec, marks: marks, width: width, height: height, metrics: metrics).primitives
+    }
+
+    /// The primitives, and where the plot and its scales ended up.
+    static func laidOut(_ spec: ChartSpec, marks: ChartResolvedMarks, width: Double, height: Double,
+                        metrics: ChartTextMetrics) -> (primitives: [ChartPrimitive], geometry: ChartGeometry) {
         ChartLayout(spec: spec, marks: marks, styles: ChartStyleMap(spec, marks), metrics: metrics, width: width, height: height).layout()
     }
 
-    private func layout() -> [ChartPrimitive] {
+    private func layout() -> (primitives: [ChartPrimitive], geometry: ChartGeometry) {
         let stacks = stacks()
         let extents = extents(stacks)
         let lineHeight = metrics.size("0").height
@@ -157,7 +172,7 @@ struct ChartLayout {
         }
         let area = ChartRect(x: frame.x - leading, y: frame.y - top, width: leading + frame.width + trailing, height: top + frame.height + bottom)
         legend?.append(to: &primitives, area: area, plot: frame)
-        return primitives.filter(\.isDrawable)
+        return (primitives.filter(\.isDrawable), ChartGeometry(plot: plot, x: xAxis.scale, y: yAxis.scale, hasSectors: hasSectors))
     }
 
     /// An axis title, resolved: `along` is how far along its side it sits, 0 at the start.

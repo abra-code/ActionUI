@@ -163,6 +163,21 @@ enum ChartScaleTransform: Equatable {
             return number < 0 ? -distance : distance
         }
     }
+
+    /// The number `apply` maps onto `value`: what a place on the axis stands for.
+    func invert(_ value: Double) -> Double {
+        switch self {
+        case .linear: return value
+        case .log: return pow(10, value)
+        case .squareRoot: return value * value
+        // `apply` gives a negative only for a negative number and an odd whole exponent, whose
+        // root pow cannot take: take it of the distance from 0.
+        case .power(let exponent): return exponent == 0 ? value : value < 0 ? -pow(-value, 1 / exponent) : pow(value, 1 / exponent)
+        case .symmetricLog(let slope):
+            let distance = expm1(abs(value)) / (slope == 0 ? 1 : slope)
+            return value < 0 ? -distance : distance
+        }
+    }
 }
 
 extension ChartDateFormat {
@@ -354,6 +369,36 @@ struct ChartAxisScale {
             return (position(bin.start) + position(bin.end)) / 2
         default:
             return nil
+        }
+    }
+
+    /// The value at `place` on the axis, as a selection reads it (ChartSelection): the band there
+    /// (the nearest at either end), or the number or instant the place stands for, of the axis's
+    /// `type`; an integer axis gives the nearest whole number. nil for an axis with no values, or a
+    /// place that stands for none.
+    func value(at place: Double, type: ChartColumnType) -> ChartScalar? {
+        switch kind {
+        case .none:
+            return nil
+        case .bands(let names):
+            let width = bandWidth
+            guard !names.isEmpty, width != 0, place.isFinite else { return nil }
+            let index = min(max(Int(((place - start) / width).rounded(.down)), 0), names.count - 1)
+            return names.first { $0.value == index }.map { .string($0.key) }
+        case .numbers(let lo, let hi):
+            guard end != start else { return nil }
+            let low = transform.apply(lo), high = transform.apply(hi)
+            let number = transform.invert(low + (place - start) / (end - start) * (high - low))
+            guard number.isFinite else { return nil }
+            if type == .integer {
+                let whole = number.rounded()
+                return abs(whole) < 9e15 ? .integer(Int(whole)) : nil
+            }
+            return .number(number)
+        case .dates(let lo, let hi):
+            guard end != start else { return .date(lo) }
+            let seconds = (place - start) / (end - start) * hi.timeIntervalSince(lo)
+            return seconds.isFinite ? .date(lo.addingTimeInterval(seconds)) : nil
         }
     }
 
