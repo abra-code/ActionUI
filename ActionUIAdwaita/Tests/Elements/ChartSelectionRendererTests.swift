@@ -403,4 +403,31 @@ extension ChartSelectionRendererTests {
         XCTAssertEqual(views.count, 3)
         XCTAssertEqual(Set(views.compactMap { text(in: $0) }), ["v2", "v3", "v4"])
     }
+
+    func testAnAnnotationPastTheChartsEdgeIsDrawnThereAsOnApple() throws {
+        let json = ##"""
+        {"type": "Chart", "id": 1, "properties": {"frame": {"width": 300, "height": 200},
+         "chart": {"columns": ["day", {"name": "n", "type": "number"}], "data": [["A", 10]], "chartYScale": {"domain": [0, 10]},
+                   "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"},
+                                "y": {"label": "N", "value": "$n"},
+                                "annotation": {"content": {"type": "Text", "properties": {"text": "top"}}}}]}]}}}
+        """##
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
+        windows.append(window)
+        let node = try XCTUnwrap(window.root)
+        let gtkWindow = gtk_window_new()!
+        shown.append(gtkWindow)
+        gtk_window_set_child(typed(gtkWindow), node.outerWidget)
+        gtk_window_present(typed(gtkWindow))
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_widget_get_mapped(node.widget) != 0 }))
+        waitForFrame()
+        // Measured on macOS 27 in a window: a label above a bar that reaches the top draws over what
+        // is around the chart, not cut off at its edge.
+        let view = try XCTUnwrap(annotationViews(node).first)
+        XCTAssertNotEqual(gtk_widget_get_child_visible(view), 0)
+        var bounds = graphene_rect_t()
+        XCTAssertNotEqual(gtk_widget_compute_bounds(view, node.widget, &bounds), 0)
+        XCTAssertLessThan(bounds.origin.y, 0, "above the chart's top")
+    }
 }

@@ -16,9 +16,9 @@
    positions are outside both edges; overlay centers it in the frame, an alignment moving it to an
    edge, spacing in from it.
  - What does not fit: without an overflow resolution, or with "disabled", the view stays where it
-   goes and what passes the chart is cut off (a view past the chart's edge is not seen); "fit" moves
-   it into the chart ("plot": into the plot). padScale is taken as fit (Linux does not widen the
-   scale).
+   goes, drawn past the chart's edges over what is around it (checked in a window on macOS 27; the
+   renders above only showed the chart's own bounds); "fit" moves it into the chart ("plot": into
+   the plot). padScale is taken as fit (Linux does not widen the scale).
 */
 
 #if canImport(FoundationEssentials)

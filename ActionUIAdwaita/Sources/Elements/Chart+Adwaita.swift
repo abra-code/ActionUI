@@ -183,10 +183,13 @@ extension Chart: ActionUIAdwaitaRenderer {
         return (primitives, geometry)
     }
 
-    /// Where annotation views are seen: the chart, and along a scrolling axis only its plot, where
-    /// the marks stop.
+    /// Where annotation views are seen: anywhere, past the chart's edges too, as Swift Charts draws
+    /// them (checked on macOS 27 in a window: a label above a full bar and one beside a rule's end
+    /// drew over what is around the chart); along a scrolling axis only the plot, where the marks
+    /// stop, so the views of marks out of the window go with them.
     private static func annotationRoom(_ geometry: ChartGeometry) -> ChartRect {
-        var room = geometry.chart
+        let reach = 100_000.0
+        var room = ChartRect(x: -reach, y: -reach, width: geometry.chart.width + 2 * reach, height: geometry.chart.height + 2 * reach)
         if geometry.xScroll != nil { (room.x, room.width) = (geometry.plot.x, geometry.plot.width) }
         if geometry.yScroll != nil { (room.y, room.height) = (geometry.plot.y, geometry.plot.height) }
         return room
@@ -257,7 +260,7 @@ extension Chart: ActionUIAdwaitaRenderer {
         for primitive in primitives {
             drawing.draw(primitive)
         }
-        // The annotations, over the marks, cut off at the room they are seen in.
+        // The annotations, over the marks, cut off only where a scrolling axis's window ends.
         let room = annotationRoom(geometry)
         var clip = graphene_rect_t(origin: graphene_point_t(x: Float(room.x), y: Float(room.y)),
                                    size: graphene_size_t(width: Float(room.width), height: Float(room.height)))
