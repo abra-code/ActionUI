@@ -9,7 +9,9 @@ import FoundationEssentials
 import Foundation
 #endif
 import ActionUI
-#if os(Linux)
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
 #endif
 
@@ -101,18 +103,15 @@ extension Diff {
         #endif
     }
 
-    /// A file's size in bytes, nil when it cannot be found.
+    /// The size in bytes of the file at `path`, following symbolic links, so the 4 MB cap holds for the file that
+    /// is read; nil when there is none (also for a link to nothing). stat(2) rather than FileManager's attributes:
+    /// those describe a link itself, not the file it leads to, and on Linux the size's type depends on which
+    /// Foundation is loaded (an NSNumber in the test process, where full Foundation is).
     private static func fileSize(atPath path: String) -> Int? {
-        #if os(Linux)
-        // stat(2): the type of FileManager's size attribute here depends on which Foundation is loaded (an NSNumber in
-        // the test process, where full Foundation is), so no one cast reads it everywhere.
         var info = stat()
         guard stat(path, &info) == 0 else {
             return nil
         }
         return Int(info.st_size)
-        #else
-        return (try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int
-        #endif
     }
 }

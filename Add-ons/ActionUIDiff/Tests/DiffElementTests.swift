@@ -89,6 +89,49 @@ final class DiffInputResolutionTests: XCTestCase {
         XCTAssertEqual(resolved, .text("line1\nline2\n"))
     }
 
+    func testALinkToAFileOverTheCapIsUnreadable() throws {
+        let logger = RecordingLogger()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-diff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+        }
+        let big = folder.appendingPathComponent("big.txt")
+        try Data(repeating: 0x61, count: 4_194_305).write(to: big)
+        let link = folder.appendingPathComponent("link.txt").path
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: big.path)
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger), .unreadable(path: link),
+                       "the cap is the size of the file the link leads to, not of the link")
+        XCTAssertTrue(logger.warnings.contains { $0.contains("over 4 MB") })
+    }
+
+    func testALinkToAFileUnderTheCapIsRead() throws {
+        let logger = RecordingLogger()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-diff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+        }
+        let small = folder.appendingPathComponent("small.txt")
+        try "linked\n".write(to: small, atomically: true, encoding: .utf8)
+        let link = folder.appendingPathComponent("link.txt").path
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: small.path)
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "new", logger: logger), .text("linked\n"))
+    }
+
+    func testALinkToNothingIsUnreadable() throws {
+        let logger = RecordingLogger()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-diff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+        }
+        let link = folder.appendingPathComponent("dangling.txt").path
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: folder.appendingPathComponent("gone.txt").path)
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger), .unreadable(path: link))
+        XCTAssertTrue(logger.warnings.contains { $0.contains("missing or over 4 MB") }, "refused as a missing file")
+    }
+
     func testNonexistentFileYieldsUnreadableAndWarns() {
         let logger = RecordingLogger()
         let missing = "/definitely/not/here/\(UUID().uuidString).txt"
