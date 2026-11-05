@@ -83,15 +83,15 @@ internal fun ActionUIViewConstruction.BuildViewWithSearchable(
     // BuildViewWithModifiers left it out of the environment around this Column
     // (searchableEnvironmentProperties), so the content gets it here: invisible, inert and
     // out of accessibility (applyOuterProperties' hiddenSubtree), with the narrowed locals.
+    // One composition shape for both values (ReactiveEnvironment.kt), so toggling `hidden`
+    // does not dispose and recompose the content.
     val hidden = element.properties?.booleanProperty("hidden") == true
+    val contentProperties = if (hidden) HIDDEN_ONLY_PROPERTIES else null
     Column(modifier.applyOuterProperties(searchableOuterProperties(element.properties), logger, animator)) {
         SearchField(config, element.id)
-        if (hidden) {
-            ProvideReactiveEnvironment(HIDDEN_ONLY_PROPERTIES, logger) {
-                BuildViewWithDecorations(element, Modifier.applyOuterProperties(HIDDEN_ONLY_PROPERTIES, logger), animator)
-            }
-        } else {
-            BuildViewWithDecorations(element, Modifier, animator)
+        ProvideReactiveEnvironment(contentProperties, logger) {
+            val contentModifier = if (hidden) Modifier.applyOuterProperties(HIDDEN_ONLY_PROPERTIES, logger) else Modifier
+            BuildViewWithDecorations(element, contentModifier, animator)
         }
     }
 }

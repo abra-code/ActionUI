@@ -40,6 +40,10 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    // A library's instrumented tests run in the test APK itself, so the test activity
+    // goes there and not into the debug build of every app that uses the library.
+    androidTestImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 // -- Material Symbols (Rounded) variable font fetch ----------------------------

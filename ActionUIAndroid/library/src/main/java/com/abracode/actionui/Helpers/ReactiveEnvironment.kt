@@ -29,17 +29,27 @@ import kotlinx.serialization.json.JsonObject
  * count: a new reactive property is one more entry in the [buildList] below (and
  * its pure resolver), never a new nested wrapper. Everything lands in one
  * [CompositionLocalProvider], so a leaf with several reactive properties pays for
- * one composition group, not one per property, and the common no-reactive-property
- * element pays for none (it early-returns to [content] with no provider).
+ * one composition group, not one per property.
+ *
+ * **One composition shape, always.** The provider is emitted for EVERY element,
+ * with an empty list when nothing applies. These properties change at runtime, and
+ * Compose identifies a composable by its position in the group structure: calling
+ * [content] directly for one value and inside a provider for another puts the
+ * subtree in a different group, so Compose disposes it and composes it anew. Every
+ * `remember` and effect below is lost, and an `AndroidView` releases its view and
+ * runs its factory again - a toggle of `hidden` (or `disabled`, `tint`,
+ * `foregroundStyle`) on any element destroyed the native views in its subtree.
+ * The static [ProvideTextStyleEnvironment] may keep its fast path: its properties
+ * are authored, not written at runtime.
  *
  * **Provided locals.**
  *
- *   * `foregroundStyle` -> [LocalContentColor] (read by `Text`)  — OVERRIDES: an
+ *   * `foregroundStyle` -> [LocalContentColor] (read by `Text`)  - OVERRIDES: an
  *     element's own color replaces the inherited one for its subtree, the standard
  *     [CompositionLocalProvider] contract and SwiftUI's inner-wins environment.
- *   * `tint` -> [LocalActionUITint] (read by the controls)       — OVERRIDES.
- *   * `disabled` -> [LocalActionUIEnabled]                       — NARROWS.
- *   * `hidden` -> [LocalActionUIInputEnabled]                    — NARROWS.
+ *   * `tint` -> [LocalActionUITint] (read by the controls)       - OVERRIDES.
+ *   * `disabled` -> [LocalActionUIEnabled]                       - NARROWS.
+ *   * `hidden` -> [LocalActionUIInputEnabled]                    - NARROWS.
  *
  * "Narrows" (`disabled` / `hidden`) means a value is provided ONLY to turn the flag
  * on, so a descendant cannot re-enable what an ancestor removed (SwiftUI AND-down),
@@ -55,23 +65,14 @@ fun ProvideReactiveEnvironment(
     logger: ActionUILogger? = null,
     content: @Composable () -> Unit,
 ) {
-    if (properties == null) {
-        content()
-        return
-    }
-    val foregroundName = properties.stringProperty("foregroundStyle")
-    val tintName = properties.stringProperty("tint")
+    val foregroundName = properties?.stringProperty("foregroundStyle")
+    val tintName = properties?.stringProperty("tint")
     val disabled = disabledLocalOverride(properties, logger)
     val input = inputEnabledLocalOverride(properties)
-    // Fast path: the overwhelmingly common element carries none of these, so it adds
-    // no provider and no MaterialTheme.colorScheme subscription - just a call through.
-    if (foregroundName == null && tintName == null && disabled == null && input == null) {
-        content()
-        return
-    }
     // Read only when a color name is actually present to resolve. MaterialTheme.colorScheme
-    // is a @ReadOnlyComposable, so this conditional read is legal and lets a color name
-    // (incl. semantic names like "secondary"/"link") map to an adaptive Material role.
+    // is a @ReadOnlyComposable (it emits no group), so this conditional read is legal, keeps
+    // the shape stable, and lets a color name (incl. semantic names like "secondary"/"link")
+    // map to an adaptive Material role.
     val colorScheme = if (foregroundName != null || tintName != null) MaterialTheme.colorScheme else null
     val provided = buildList {
         colorScheme?.let { scheme ->
@@ -81,11 +82,6 @@ fun ProvideReactiveEnvironment(
         disabled?.let { add(LocalActionUIEnabled provides it) }
         input?.let { add(LocalActionUIInputEnabled provides it) }
     }
-    // An invalid color name (resolved to null, already warned) can leave nothing to
-    // provide even though a name was present, so guard again before wrapping.
-    if (provided.isEmpty()) {
-        content()
-        return
-    }
+    // Always the provider, even with nothing to provide (the class note: one shape).
     CompositionLocalProvider(*provided.toTypedArray()) { content() }
 }
