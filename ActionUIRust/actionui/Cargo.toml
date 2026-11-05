@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 # The HostSurface element and actionui::host_surface: a part of the window drawn by the program
-# with its own renderer. macOS only so far.
+# with its own renderer. macOS and Linux.
 host-surface = ["actionui-sys/host-surface"]
 # actionui::host_surface::wgpu_surface: a wgpu surface on a HostSurface, and a device and frame
 # handling that work wherever the element does.
@@ -20,6 +20,10 @@ actionui-sys = { path = "../actionui-sys", version = "0.9.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 wgpu = { version = "30", optional = true, default-features = false, features = ["metal", "wgsl"] }
+
+# On Linux the canvas renders offscreen (a frame sink): Vulkan where there is a driver, else OpenGL ES (llvmpipe in a VM).
+[target.'cfg(target_os = "linux")'.dependencies]
+wgpu = { version = "30", optional = true, default-features = false, features = ["vulkan", "gles", "wgsl"] }
 
 [dev-dependencies]
 pollster = "0.4"

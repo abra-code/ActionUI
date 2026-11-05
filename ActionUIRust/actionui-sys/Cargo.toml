@@ -11,5 +11,5 @@ build = "build.rs"
 
 [features]
 # Links the ActionUIHostSurface add-on and declares its C interface (actionui_sys::host_surface).
-# macOS only so far; build_frameworks.sh builds the add-on's framework.
+# On macOS build_frameworks.sh builds the add-on's framework; on Linux it is part of libActionUI.so.
 host-surface = []

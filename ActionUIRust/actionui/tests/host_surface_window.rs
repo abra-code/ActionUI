@@ -1,8 +1,8 @@
 // Runs a real application with a HostSurface element and checks the binding rules through the
-// Rust API: a delegate gets "created" with a Metal layer; hidden and padding changes do not destroy
-// the surface; a delegate bound inside a callback takes over after it, with "destroyed" first, also
-// when bound inside the "destroyed" of a delegate being replaced; an
-// unbound delegate gets "destroyed"; closing the window destroys the surface.
+// Rust API: a delegate gets "created" with a Metal layer (macOS) or a frame sink (Linux); hidden
+// and padding changes do not destroy the surface; a delegate bound inside a callback takes over
+// after it, with "destroyed" first, also when bound inside the "destroyed" of a delegate being
+// replaced; an unbound delegate gets "destroyed"; closing the window destroys the surface.
 //
 // It needs a window server, so it only runs on request (a locked screen is fine: the surface is
 // created and then suspended as occluded):
@@ -34,7 +34,8 @@ struct Event {
     event: &'static str,
     surface: u64,
     pixels: (u32, u32),
-    metal_layer: bool,
+    /// The platform's handle: a Metal layer on macOS, a frame sink on Linux.
+    native_handle: bool,
 }
 
 thread_local! {
@@ -74,14 +75,18 @@ struct Recorder {
 
 impl Recorder {
     fn record(&self, event: &'static str, info: &SurfaceInfo) {
-        let metal_layer = matches!(info.handle, SurfaceHandle::MetalLayer(_));
+        let native_handle = if cfg!(target_os = "macos") {
+            matches!(info.handle, SurfaceHandle::MetalLayer(_))
+        } else {
+            info.handle == SurfaceHandle::FrameSink
+        };
         EVENTS.with(|events| {
             events.borrow_mut().push(Event {
                 delegate: self.name,
                 event,
                 surface: info.id.get(),
                 pixels: (info.width_pixels, info.height_pixels),
-                metal_layer,
+                native_handle,
             })
         });
     }
@@ -127,7 +132,7 @@ fn check_created() {
     let created = all.iter().find(|event| event.delegate == "second" && event.event == "created");
     check("the second delegate got created", created.is_some());
     if let Some(created) = created {
-        check("with a Metal layer", created.metal_layer);
+        check("with a Metal layer (macOS) or a frame sink (Linux)", created.native_handle);
         check(&format!("and a nonzero pixel size (got {:?})", created.pixels), created.pixels.0 > 0 && created.pixels.1 > 0);
         let first_destroyed = all.iter().position(|event| event.delegate == "first" && event.event == "destroyed");
         let second_created = all.iter().position(|event| event.delegate == "second" && event.event == "created");

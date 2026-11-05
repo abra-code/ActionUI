@@ -23,7 +23,7 @@ const FRAMEWORKS: [&str; 5] = [
     "ActionUIRemote",
 ];
 
-// The HostSurface add-on, linked with the host-surface feature (macOS only for now).
+// The HostSurface add-on, linked with the host-surface feature (macOS; on Linux it is in libActionUI.so).
 const HOST_SURFACE_FRAMEWORK: &str = "ActionUIHostSurface";
 
 // System frameworks ActionUI's Swift code uses. Most are named by the object files
@@ -38,12 +38,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    if host_surface_enabled() && target_os != "macos" {
-        panic!(
-            "The host-surface feature links the ActionUIHostSurface add-on, which is built for macOS only \
-             so far. Build without it on {target_os}."
-        );
-    }
+    // On Linux the add-on is part of libActionUI.so: the host-surface feature links nothing more there.
     match target_os.as_str() {
         "macos" => link_frameworks(),
         "linux" => link_library(),

@@ -56,7 +56,7 @@ ACTIONUI_FRAMEWORKS_DIR=/path/to/Release cargo build
 actionui = { path = "/path/to/ActionUI/ActionUIRust/actionui", features = ["host-surface"] }
 ```
 
-The feature is macOS only so far; a Linux build with it stops with an error. Its raw declarations are in `actionui_sys::host_surface`.
+On Linux the element is part of `libActionUI.so` and the feature links nothing more; with `wgpu` it also turns on wgpu's Vulkan and OpenGL ES backends, since the canvas there renders offscreen. Its raw declarations are in `actionui_sys::host_surface`.
 
 ## Using the crates in your own project
 

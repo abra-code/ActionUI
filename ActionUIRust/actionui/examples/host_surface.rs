@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use actionui::host_surface::wgpu_surface::{self, NextFrame};
-use actionui::host_surface::{Cursor, InputEvent, InputKind, SurfaceDelegate, SurfaceId, SurfaceInfo};
+use actionui::host_surface::{Cursor, InputEvent, InputKind, SurfaceDelegate, SurfaceHandle, SurfaceId, SurfaceInfo};
 use actionui::{App, Window};
 
 const UI: &str = include_str!("host_surface.json");
@@ -146,13 +146,14 @@ struct Gpu {
 impl Gpu {
     fn new() -> Gpu {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::METAL,
+            // Metal on macOS; on Linux, where the canvas is a frame sink, whatever renders offscreen.
+            backends: if cfg!(target_os = "macos") { wgpu::Backends::METAL } else { wgpu::Backends::PRIMARY | wgpu::Backends::GL },
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
-            .expect("no Metal adapter");
+            .expect("no wgpu adapter");
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu_surface::device_descriptor(&adapter)))
-            .expect("no Metal device");
+            .expect("no wgpu device");
         Gpu { instance, adapter, device, queue, pipeline: None }
     }
 
@@ -198,9 +199,16 @@ impl Gpu {
     }
 }
 
-/// One canvas: a wgpu surface on one HostSurface.
+/// Where a canvas draws: a wgpu surface on the native handle (macOS), or an offscreen texture whose
+/// pixels go to a frame sink (Linux).
+enum Target {
+    Native(wgpu::Surface<'static>),
+    Sink(wgpu_surface::FrameSink),
+}
+
+/// One canvas: a wgpu surface (or frame sink) on one HostSurface.
 struct Canvas {
-    surface: wgpu::Surface<'static>,
+    target: Target,
     config: wgpu::SurfaceConfiguration,
     /// The element's surface, to create the wgpu surface again if it is lost.
     info: SurfaceInfo,
@@ -214,27 +222,39 @@ impl Canvas {
         self.scale = info.scale as f32;
         self.config.width = info.width_pixels;
         self.config.height = info.height_pixels;
-        self.surface.configure(&gpu.device, &self.config);
+        match &mut self.target {
+            Target::Native(surface) => surface.configure(&gpu.device, &self.config),
+            Target::Sink(sink) => sink.configure(&gpu.device, info.width_pixels, info.height_pixels),
+        }
     }
 
     fn draw(&mut self, gpu: &mut Gpu, sketch: &Sketch) {
-        let frame = match wgpu_surface::next_frame(&self.surface) {
-            NextFrame::Draw(frame) => frame,
-            NextFrame::Skip => return,
-            NextFrame::Reconfigure => {
-                self.surface.configure(&gpu.device, &self.config);
-                self.info.id.request_frame();
-                return;
-            }
-            NextFrame::Recreate => {
-                // Safety: the info is the live surface's; the old wgpu surface is replaced here.
-                if let Ok(surface) = unsafe { wgpu_surface::create(&gpu.instance, &self.info) } {
-                    self.surface = surface;
-                    self.surface.configure(&gpu.device, &self.config);
-                    self.info.id.request_frame();
+        let (frame, view) = match &mut self.target {
+            Target::Sink(sink) => match sink.view() {
+                Some(view) => (None, view),
+                None => return,
+            },
+            Target::Native(surface) => match wgpu_surface::next_frame(surface) {
+                NextFrame::Draw(frame) => {
+                    let view = frame.texture.create_view(&Default::default());
+                    (Some(frame), view)
                 }
-                return;
-            }
+                NextFrame::Skip => return,
+                NextFrame::Reconfigure => {
+                    surface.configure(&gpu.device, &self.config);
+                    self.info.id.request_frame();
+                    return;
+                }
+                NextFrame::Recreate => {
+                    // Safety: the info is the live surface's; the old wgpu surface is replaced here.
+                    if let Ok(new_surface) = unsafe { wgpu_surface::create(&gpu.instance, &self.info) } {
+                        *surface = new_surface;
+                        surface.configure(&gpu.device, &self.config);
+                        self.info.id.request_frame();
+                    }
+                    return;
+                }
+            },
         };
         let dabs: Vec<f32> = sketch
             .strokes
@@ -252,7 +272,6 @@ impl Canvas {
             layout: &pipeline.get_bind_group_layout(0),
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: screen_buffer.as_entire_binding() }],
         });
-        let view = frame.texture.create_view(&Default::default());
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -275,8 +294,16 @@ impl Canvas {
                 pass.draw(0..6, 0..(dabs.len() / 7) as u32);
             }
         }
-        gpu.queue.submit([encoder.finish()]);
-        gpu.queue.present(frame);
+        match (&self.target, frame) {
+            (Target::Sink(sink), _) => {
+                sink.present(&gpu.device, &gpu.queue, encoder);
+            }
+            (Target::Native(_), Some(frame)) => {
+                gpu.queue.submit([encoder.finish()]);
+                gpu.queue.present(frame);
+            }
+            (Target::Native(_), None) => {}
+        }
     }
 }
 
@@ -307,21 +334,44 @@ impl SurfaceDelegate for SketchCanvas {
     fn created(&mut self, info: &SurfaceInfo) {
         self.note("created", info);
         let gpu = self.gpu.get_or_insert_with(Gpu::new);
-        // Safety: the surface is dropped in destroyed, before it returns.
-        let surface = match unsafe { wgpu_surface::create(&gpu.instance, info) } {
-            Ok(surface) => surface,
-            Err(error) => {
-                eprintln!("{error}");
+        let (target, config) = if info.handle == SurfaceHandle::FrameSink {
+            let sink = match wgpu_surface::FrameSink::new(info) {
+                Ok(sink) => sink,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return;
+                }
+            };
+            let config = wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format: wgpu_surface::FrameSink::FORMAT,
+                width: info.width_pixels,
+                height: info.height_pixels,
+                present_mode: wgpu::PresentMode::Fifo,
+                desired_maximum_frame_latency: 2,
+                alpha_mode: wgpu::CompositeAlphaMode::Opaque,
+                view_formats: vec![],
+                color_space: Default::default(),
+            };
+            (Target::Sink(sink), config)
+        } else {
+            // Safety: the surface is dropped in destroyed, before it returns.
+            let surface = match unsafe { wgpu_surface::create(&gpu.instance, info) } {
+                Ok(surface) => surface,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return;
+                }
+            };
+            let Some(mut config) = surface.get_default_config(&gpu.adapter, info.width_pixels, info.height_pixels) else {
+                eprintln!("the canvas surface does not work with this adapter");
                 return;
-            }
+            };
+            // The colors below are sRGB values; a non-sRGB format shows them as written.
+            config.format = config.format.remove_srgb_suffix();
+            (Target::Native(surface), config)
         };
-        let Some(mut config) = surface.get_default_config(&gpu.adapter, info.width_pixels, info.height_pixels) else {
-            eprintln!("the canvas surface does not work with this adapter");
-            return;
-        };
-        // The colors below are sRGB values; a non-sRGB format shows them as written.
-        config.format = config.format.remove_srgb_suffix();
-        let mut canvas = Canvas { surface, config, info: info.clone(), scale: info.scale as f32, suspended: false };
+        let mut canvas = Canvas { target, config, info: info.clone(), scale: info.scale as f32, suspended: false };
         canvas.configure(gpu, info);
         self.canvases.insert(info.id, canvas);
         self.sketch.borrow_mut().surfaces.push(info.id);

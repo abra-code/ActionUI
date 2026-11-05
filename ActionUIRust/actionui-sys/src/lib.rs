@@ -25,7 +25,7 @@
 #![allow(non_snake_case)]
 
 /// The HostSurface add-on: an element the program draws into with its own renderer.
-#[cfg(all(feature = "host-surface", target_os = "macos"))]
+#[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux")))]
 pub mod host_surface;
 
 use std::ffi::{c_char, c_int};

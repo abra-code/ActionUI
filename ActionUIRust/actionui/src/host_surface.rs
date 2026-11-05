@@ -6,7 +6,7 @@
 
 //! The `HostSurface` element: a part of the window that the program draws with its own
 //! renderer (Metal, wgpu, ...), while ActionUI does the rest of the window. Needs the
-//! `host-surface` feature (macOS only so far); [`crate::App::new`] registers the element.
+//! `host-surface` feature (macOS and Linux); on macOS [`crate::App::new`] registers the element.
 //!
 //! A document places the element and names it:
 //!
@@ -19,7 +19,8 @@
 //! name, in every window:
 //!
 //! - [`SurfaceDelegate::created`]: build the renderer on [`SurfaceInfo::handle`] (on macOS a
-//!   `CAMetalLayer`), sized in pixels. With the `wgpu` feature, [`wgpu_surface`] does it for wgpu.
+//!   `CAMetalLayer`; on Linux a frame sink, see [`SurfaceId::present_pixels`]), sized in pixels.
+//!   With the `wgpu` feature, [`wgpu_surface`] does it for wgpu.
 //! - [`SurfaceDelegate::changed`]: resize to the new pixel size before the next frame.
 //! - [`SurfaceDelegate::suspended`] / [`SurfaceDelegate::resumed`]: the surface left the screen
 //!   (hidden, an occluded window, a collapsed layout) or came back. Ask for no drawable meanwhile.
@@ -31,10 +32,11 @@
 //!
 //! # Threads
 //!
-//! Every delegate method runs on the main thread. [`SurfaceId::request_frame`] and
-//! [`SurfaceId::set_continuous`] may be called from any thread and never wait. A render thread
-//! must not call [`crate::Window`] getters (they wait for the main thread) while
-//! [`SurfaceDelegate::destroyed`] may be joining it; pace it by the frame callback instead.
+//! Every delegate method runs on the main thread. [`SurfaceId::request_frame`],
+//! [`SurfaceId::set_continuous`] and [`SurfaceId::present_pixels`] may be called from any thread
+//! and never wait. A render thread must not call [`crate::Window`] getters (they wait for the
+//! main thread) while [`SurfaceDelegate::destroyed`] may be joining it; pace it by the frame
+//! callback instead.
 //!
 //! # Panics
 //!
@@ -43,6 +45,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ffi::{CStr, c_char, c_void};
+use std::mem::ManuallyDrop;
 use std::ptr::NonNull;
 
 use actionui_sys::host_surface as sys;
@@ -78,6 +81,38 @@ impl SurfaceId {
         ffi::require_main_thread()?;
         Ok(unsafe { sys::actionUIHostSurfaceSetCursor(self.0, cursor as i32) })
     }
+
+    /// Shows one finished frame on a frame-sink surface ([`SurfaceHandle::FrameSink`], Linux): `height`
+    /// rows of `width` pixels, 4 bytes each in `format`, `stride` bytes apart. The pixels are copied
+    /// before it returns; the newest frame wins when several come between two display refreshes.
+    /// Render at the pixel size of the last `created` or `changed`. Any thread; never waits.
+    /// Returns false when the surface is not a live frame sink (always on macOS), when `width` or
+    /// `height` is 0, when `stride` is less than `width * 4`, or when `pixels` is too short for the
+    /// frame.
+    pub fn present_pixels(self, width: u32, height: u32, stride: u32, format: PixelFormat, pixels: &[u8]) -> bool {
+        if width == 0 || height == 0 || (stride as u64) < width as u64 * 4 {
+            return false;
+        }
+        let needed = stride as u64 * (height as u64 - 1) + width as u64 * 4;
+        if (pixels.len() as u64) < needed {
+            return false;
+        }
+        unsafe { sys::actionUIHostSurfacePresentPixels(self.0, width, height, stride, format as i32, pixels.as_ptr().cast()) }
+    }
+}
+
+/// The layout of the pixels given to [`SurfaceId::present_pixels`]: 4 bytes per pixel, in this order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(i32)]
+pub enum PixelFormat {
+    /// Blue, green, red, alpha; colors premultiplied by alpha.
+    Bgra8Premultiplied = sys::AUI_HOST_PIXEL_BGRA8_PREMULTIPLIED,
+    /// Red, green, blue, alpha; colors premultiplied by alpha.
+    Rgba8Premultiplied = sys::AUI_HOST_PIXEL_RGBA8_PREMULTIPLIED,
+    /// Blue, green, red, unused: opaque.
+    Bgrx8 = sys::AUI_HOST_PIXEL_BGRX8,
+    /// Red, green, blue, unused: opaque.
+    Rgbx8 = sys::AUI_HOST_PIXEL_RGBX8,
 }
 
 /// The native surface the program draws into.
@@ -86,6 +121,9 @@ impl SurfaceId {
 pub enum SurfaceHandle {
     /// A `CAMetalLayer *` (macOS). For wgpu: `SurfaceTargetUnsafe::CoreAnimationLayer`.
     MetalLayer(NonNull<c_void>),
+    /// A frame sink (Linux): no handle; render anywhere at the surface's pixel size and present
+    /// the pixels with [`SurfaceId::present_pixels`]. For wgpu: `wgpu_surface::FrameSink` (the `wgpu` feature).
+    FrameSink,
     /// A kind this version of the crate does not know, with its C value.
     Other(i32),
 }
@@ -329,12 +367,16 @@ struct Slot {
     deferred: RefCell<Vec<(i32, SurfaceInfo)>>,
 }
 
+// The tables are ManuallyDrop: the process exits from App::run with delegates still bound, and the main
+// thread's thread-locals are destroyed then in no set order. Dropping a delegate there runs its own
+// destructors, which may use thread-locals already gone (wgpu's queue does, and the process aborted);
+// what is still bound at exit is left to the end of the process instead.
 thread_local! {
     /// The bound delegates by surface name. Main thread only.
-    static SLOTS: RefCell<HashMap<String, Box<Slot>>> = RefCell::new(HashMap::new());
+    static SLOTS: RefCell<ManuallyDrop<HashMap<String, Box<Slot>>>> = RefCell::new(ManuallyDrop::new(HashMap::new()));
     /// Unbound delegates the C side may still call: a change made inside a callback takes
     /// effect when the outermost callback returns, after this crate's code has run.
-    static RETIRED: RefCell<Vec<Box<Slot>>> = const { RefCell::new(Vec::new()) };
+    static RETIRED: RefCell<ManuallyDrop<Vec<Box<Slot>>>> = const { RefCell::new(ManuallyDrop::new(Vec::new())) };
     /// How deep the main thread is in delegate callbacks.
     static DEPTH: Cell<u32> = const { Cell::new(0) };
 }
@@ -416,7 +458,7 @@ fn free_retired() {
     if DEPTH.with(Cell::get) > 0 {
         return;
     }
-    let retired = RETIRED.with(|retired| std::mem::take(&mut *retired.borrow_mut()));
+    let retired: Vec<Box<Slot>> = RETIRED.with(|retired| std::mem::take(&mut **retired.borrow_mut()));
     drop(retired);
 }
 
@@ -474,6 +516,7 @@ unsafe extern "C" fn on_surface(
     let info = unsafe { &*info };
     let handle = match (info.kind, NonNull::new(info.handle)) {
         (sys::AUI_HOST_SURFACE_METAL_LAYER, Some(layer)) => SurfaceHandle::MetalLayer(layer),
+        (sys::AUI_HOST_SURFACE_FRAME_SINK, _) => SurfaceHandle::FrameSink,
         (kind, _) => SurfaceHandle::Other(kind),
     };
     let surface = SurfaceInfo {
@@ -531,7 +574,8 @@ unsafe extern "C" fn on_input(
     unsafe { with_delegate("HostSurface input", user_data, |delegate| delegate.input(SurfaceId(surface_id), &event)) };
 }
 
-/// Registers the element; called by [`App::new`].
+/// Registers the element; called by [`App::new`]. On Linux libActionUI.so registers it itself.
+#[cfg(target_os = "macos")]
 pub(crate) fn register_element() {
     unsafe { sys::ActionUIHostSurface_register() };
 }
@@ -542,7 +586,7 @@ pub(crate) fn register_element() {
 /// element does, and what to do with each `get_current_texture` result. Needs the `wgpu` feature.
 #[cfg(feature = "wgpu")]
 pub mod wgpu_surface {
-    use super::{SurfaceHandle, SurfaceInfo};
+    use super::{PixelFormat, SurfaceHandle, SurfaceId, SurfaceInfo};
     use crate::{Error, Result};
 
     /// Creates a wgpu surface on the element's native surface.
@@ -555,8 +599,14 @@ pub mod wgpu_surface {
         let SurfaceHandle::MetalLayer(layer) = info.handle else {
             return Err(Error::ActionUI(format!("no wgpu surface for the handle {:?}", info.handle)));
         };
-        unsafe { instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(layer.as_ptr())) }
-            .map_err(|error| Error::ActionUI(format!("wgpu could not create a surface: {error}")))
+        #[cfg(target_vendor = "apple")]
+        return unsafe { instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(layer.as_ptr())) }
+            .map_err(|error| Error::ActionUI(format!("wgpu could not create a surface: {error}")));
+        #[cfg(not(target_vendor = "apple"))]
+        {
+            let _ = (instance, layer);
+            Err(Error::ActionUI("a Metal layer outside Apple platforms".into()))
+        }
     }
 
     /// A device descriptor with the adapter's own limits. wgpu's defaults ask for more than some
@@ -575,6 +625,119 @@ pub mod wgpu_surface {
         Reconfigure,
         /// The surface was lost: create it again with [`create`], configure it, then try again.
         Recreate,
+    }
+
+    /// wgpu on a frame-sink surface ([`SurfaceHandle::FrameSink`], Linux): an offscreen texture at
+    /// the surface's pixel size to draw into, and [`FrameSink::present`] to copy it back and show it.
+    /// A program that supports both kinds checks `info.handle` in `created`: [`create`] for a native
+    /// surface, [`FrameSink::new`] for a sink.
+    pub struct FrameSink {
+        id: SurfaceId,
+        target: Option<SinkTarget>,
+    }
+
+    struct SinkTarget {
+        texture: wgpu::Texture,
+        buffer: wgpu::Buffer,
+        width: u32,
+        height: u32,
+        /// Bytes per row in the buffer: the row padded to wgpu's copy alignment.
+        padded_row: u32,
+    }
+
+    impl FrameSink {
+        /// The texture format to render in. Its values are shown as written (no sRGB conversion), and
+        /// presented as premultiplied RGBA.
+        pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+
+        /// A sink for the surface; an error when it is not a frame sink.
+        pub fn new(info: &SurfaceInfo) -> Result<Self> {
+            if info.handle != SurfaceHandle::FrameSink {
+                return Err(Error::ActionUI(format!("not a frame sink: {:?}", info.handle)));
+            }
+            Ok(FrameSink { id: info.id, target: None })
+        }
+
+        /// Makes the texture and the readback buffer for a pixel size (from `created` or `changed`).
+        pub fn configure(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+            let width = width.max(1);
+            let height = height.max(1);
+            if let Some(target) = &self.target {
+                if target.width == width && target.height == height {
+                    return;
+                }
+            }
+            let size = wgpu::Extent3d { width, height, depth_or_array_layers: 1 };
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("HostSurface frame sink"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: Self::FORMAT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            });
+            let alignment = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+            let padded_row = (width * 4).div_ceil(alignment) * alignment;
+            let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("HostSurface frame sink readback"),
+                size: padded_row as u64 * height as u64,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            self.target = Some(SinkTarget { texture, buffer, width, height, padded_row });
+        }
+
+        /// A view of the texture to draw into; None before [`FrameSink::configure`].
+        pub fn view(&self) -> Option<wgpu::TextureView> {
+            self.target.as_ref().map(|target| target.texture.create_view(&Default::default()))
+        }
+
+        /// Submits `encoder` (whose passes drew into [`FrameSink::view`]), copies the texture back
+        /// and presents it. Waits for the GPU. False when nothing was presented: not configured,
+        /// the copy failed, or the surface is gone.
+        pub fn present(&self, device: &wgpu::Device, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder) -> bool {
+            let Some(target) = &self.target else {
+                return false;
+            };
+            encoder.copy_texture_to_buffer(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &target.texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                wgpu::TexelCopyBufferInfo {
+                    buffer: &target.buffer,
+                    layout: wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(target.padded_row),
+                        rows_per_image: Some(target.height),
+                    },
+                },
+                wgpu::Extent3d { width: target.width, height: target.height, depth_or_array_layers: 1 },
+            );
+            queue.submit([encoder.finish()]);
+            let slice = target.buffer.slice(..);
+            slice.map_async(wgpu::MapMode::Read, |_| {});
+            if device.poll(wgpu::PollType::wait_indefinitely()).is_err() {
+                target.buffer.unmap();
+                return false;
+            }
+            let shown = match slice.get_mapped_range() {
+                Ok(pixels) => self.id.present_pixels(
+                    target.width,
+                    target.height,
+                    target.padded_row,
+                    PixelFormat::Rgba8Premultiplied,
+                    &pixels,
+                ),
+                Err(_) => false,
+            };
+            target.buffer.unmap();
+            shown
+        }
     }
 
     /// Gets the next texture and says what to do with it.

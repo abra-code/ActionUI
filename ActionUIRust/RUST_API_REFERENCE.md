@@ -493,7 +493,7 @@ actionui::log::set_logger(|message, level| {
 
 ## `actionui::host_surface`
 
-With the `host-surface` feature (macOS only so far): the `HostSurface` element, a part of a window that the program draws with its own renderer while ActionUI draws the rest. `App::new` registers the element. A document places it and names it:
+With the `host-surface` feature (macOS and Linux): the `HostSurface` element, a part of a window that the program draws with its own renderer while ActionUI draws the rest. `App::new` registers the element on macOS; on Linux `libActionUI.so` registers it itself. A document places it and names it:
 
 ```json
 { "type": "HostSurface", "id": 20, "properties": { "surfaceName": "canvas", "idealWidth": 640, "idealHeight": 480 } }
@@ -508,14 +508,14 @@ With the `host-surface` feature (macOS only so far): the `HostSurface` element, 
 
 | Method | When | What the delegate does |
 |---|---|---|
-| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle` (`SurfaceHandle::MetalLayer` on macOS), sized in pixels. |
+| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, where the program renders anywhere and presents the pixels. |
 | `changed(&SurfaceInfo)` | The size or the scale changed. | Resize before the next frame. |
 | `suspended(&SurfaceInfo)`, `resumed(&SurfaceInfo)` | The surface left the screen (hidden, an occluded window, zero size) or came back. | Ask for no drawable while suspended. |
 | `destroyed(&SurfaceInfo)` | The element went away, its window closed, or the delegate was replaced. | Stop all use of the handle before returning: drop the swapchain, join a render thread. |
 | `frame(SurfaceId, timestamp: f64)` | A display refresh: every one while the element's `continuous` is true, else one per `request_frame`. | Draw. |
 | `input(SurfaceId, &InputEvent)` | Pointer, touch, scroll, magnify, rotate, keys, focus. Positions in points from the top-left corner. | |
 
-`SurfaceInfo` holds the `id`, the element's `window_uuid` and `view_id`, the `handle`, and the size in points, the scale and the size in pixels. `SurfaceId` is new with every `created`; key the renderer's state by it. Its `request_frame()` and `set_continuous(bool)` may be called from any thread and never wait; `set_cursor(Cursor)` is main-thread only.
+`SurfaceInfo` holds the `id`, the element's `window_uuid` and `view_id`, the `handle`, and the size in points, the scale and the size in pixels. `SurfaceId` is new with every `created`; key the renderer's state by it. Its `request_frame()`, `set_continuous(bool)` and `present_pixels(width, height, stride, PixelFormat, &[u8]) -> bool` may be called from any thread and never wait; `set_cursor(Cursor)` is main-thread only. `present_pixels` shows a finished frame on a frame sink (the newest wins); it returns false on macOS and after `destroyed`.
 
 `InputEvent` holds the `kind` (`InputKind`), the pointer type and ID, the button, the modifiers, the click count, the position, scroll deltas (how far the content should move, positive right and down) with their unit and phase, pressure and tilt, and for keys the platform `key_code`, the W3C `code` ("KeyA", "ArrowLeft") and the `text`.
 
@@ -526,8 +526,9 @@ With the `wgpu` feature, `host_surface::wgpu_surface` has:
 | `unsafe create(&wgpu::Instance, &SurfaceInfo) -> Result<wgpu::Surface<'static>>` | A wgpu surface on the element's layer. Drop it before `destroyed` returns. |
 | `device_descriptor(&wgpu::Adapter) -> wgpu::DeviceDescriptor` | Requests the adapter's own limits; the defaults ask for more than some devices have. |
 | `next_frame(&wgpu::Surface) -> NextFrame` | `Draw(texture)`, `Skip` (occluded, a timeout), `Reconfigure` (outdated) or `Recreate` (lost). |
+| `FrameSink::new(&SurfaceInfo) -> Result<FrameSink>` | For a frame sink (Linux): an offscreen texture in `FrameSink::FORMAT`. `configure(&Device, width, height)` at `created` and `changed`, draw into `view()`, then `present(&Device, &Queue, encoder) -> bool` submits, reads the texture back and presents it (it waits for the GPU). |
 
-A render thread must not call the `Window` getters, which wait for the main thread, while `destroyed` may be joining it; pace it by the frame callback instead. `examples/host_surface.rs` is a sketch pad drawn with wgpu on the main thread.
+A render thread must not call the `Window` getters, which wait for the main thread, while `destroyed` may be joining it; pace it by the frame callback instead. `examples/host_surface.rs` is a sketch pad drawn with wgpu on the main thread, on a Metal layer on macOS and through the frame sink on Linux (wgpu's Vulkan or OpenGL ES backend there).
 
 ## Other functions
 

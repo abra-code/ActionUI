@@ -6,8 +6,8 @@
 
 //! Raw declarations of the HostSurface add-on (`ActionUIHostSurface.h`): an ActionUI element
 //! whose pixels the program draws with its own renderer. Compiled with the `host-surface`
-//! feature, which also links `ActionUIHostSurface.framework` (macOS only for now). No logic
-//! lives here; use `actionui::host_surface`.
+//! feature, which also links `ActionUIHostSurface.framework` on macOS (on Linux the add-on is in
+//! `libActionUI.so`). No logic lives here; use `actionui::host_surface`.
 //!
 //! The C names are kept for the types and the struct fields; enum values are in upper case
 //! (`AUIHostSurfaceCreated` is [`AUI_HOST_SURFACE_CREATED`]). `tests/host_surface_declarations.rs`
@@ -16,8 +16,8 @@
 //! The rules are the header's:
 //! - Every callback runs on the main thread. [`actionUIHostSurfaceSetDelegate`],
 //!   [`actionUIHostSurfaceSetCursor`] and [`ActionUIHostSurface_register`] are main-thread only;
-//!   [`actionUIHostSurfaceRequestFrame`] and [`actionUIHostSurfaceSetContinuous`] may be called
-//!   from any thread and never wait.
+//!   [`actionUIHostSurfaceRequestFrame`], [`actionUIHostSurfaceSetContinuous`] and
+//!   [`actionUIHostSurfacePresentPixels`] may be called from any thread and never wait.
 //! - The handle in [`AUIHostSurfaceInfo`] stays valid until the Destroyed callback for that
 //!   surfaceID returns; the client stops all use of it before returning.
 //! - Strings passed to a callback are valid only until it returns.
