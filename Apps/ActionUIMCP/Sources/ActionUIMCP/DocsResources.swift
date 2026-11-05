@@ -103,6 +103,7 @@ enum DocsResources {
     private static let linuxFolders = [
         ("ActionUI", "Documentation"),
         ("ActionUICachedImage", "Add-ons/ActionUICachedImage/Documentation"),
+        ("ActionUIDiff", "Add-ons/ActionUIDiff/Documentation"),
         ("ActionUIRichText", "Add-ons/ActionUIRichText/Documentation"),
     ]
 

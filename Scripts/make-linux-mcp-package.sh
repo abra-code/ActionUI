@@ -10,7 +10,7 @@
 #     share/actionui/ActionUIMCP.svg            the windows' icon (actionui-mcp --install-desktop-entry)
 #     LICENSE.txt
 #     LICENSE-MaterialSymbols.txt               the license of the symbol icons in the server
-#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt   the licenses of the packages the add-ons link
+#     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the licenses of the packages the add-ons link
 #   actionui-mcp-<version>-linux-<arch>.tar.gz  the folder, packed
 #
 # The server finds the schemas and the documentation from its own place, so the folder stays together; unpack it
@@ -50,7 +50,7 @@ if [ ! -d "$output" ]; then
 fi
 
 # The add-ons the Linux server links (Apps/ActionUIMCP/Package.swift, linuxPackage): their schemas and pages go in.
-addons="ActionUICachedImage ActionUIRichText"
+addons="ActionUICachedImage ActionUIDiff ActionUIRichText"
 
 # The version the server states ("actionui-mcp 0.2.1"), and the machine.
 stated="$("$server" --version 2>&1)"
@@ -107,7 +107,7 @@ esac
 # The packages the add-ons link (Apache 2.0), as checked out for this build: <scratch>/checkouts. The products folder
 # is <scratch>/out/Products/<configuration>-linux-<arch>, or <scratch>/<triple>/<configuration> with SwiftPM's native
 # build system.
-dependencies="RichText AsyncImageCache"
+dependencies="RichText AsyncImageCache DiffView"
 products="$(/usr/bin/readlink -f "$1")"
 scratch="$(/usr/bin/dirname "$(/usr/bin/dirname "$products")")"
 if [ ! -d "$scratch/checkouts" ]; then

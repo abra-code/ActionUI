@@ -135,6 +135,7 @@ Package(
     dependencies: [
         .package(path: "../.."),
         .package(path: "../../Add-ons/ActionUICachedImage"),
+        .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUIRichText"),
     ],
     targets: [
@@ -150,6 +151,7 @@ Package(
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
                 .product(name: "ActionUIVerifier", package: "ActionUI"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
+                .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
             ],
             path: "Sources/ActionUIMCP",

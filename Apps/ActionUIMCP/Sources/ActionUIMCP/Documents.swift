@@ -324,11 +324,10 @@ struct DialogSpec {
 enum ContentKind: String, CaseIterable {
     case markdown, text, image, pdf, file, video, web, diff, table, chart
 
-    /// The kinds this system can show. Quick Look (pdf, file) and the Diff add-on have no renderer
-    /// on Linux.
+    /// The kinds this system can show. Quick Look (pdf, file) has no renderer on Linux.
     static var available: [ContentKind] {
         #if os(Linux)
-        allCases.filter { ![.pdf, .file, .diff].contains($0) }
+        allCases.filter { ![.pdf, .file].contains($0) }
         #else
         allCases
         #endif

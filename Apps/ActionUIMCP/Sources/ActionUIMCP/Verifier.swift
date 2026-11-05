@@ -42,7 +42,7 @@ enum Verifier {
     /// Whether `schemas` are the ones a Linux package ships beside the server
     /// (Scripts/make-linux-mcp-package.sh): then they hold the add-ons this server has, and the
     /// ActionUI checkout the server was built from, which may still be on the machine, has others
-    /// (QuickLook, Diff) that it cannot show. Elsewhere add-on schemas are found as before.
+    /// (QuickLook, Chat) that it cannot show. Elsewhere add-on schemas are found as before.
     private static func isPackaged(_ schemas: URL) -> Bool {
         #if os(Linux)
         guard let executable = HostSupport.executablePath else { return false }

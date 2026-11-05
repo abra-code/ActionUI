@@ -12,6 +12,7 @@
 import FoundationEssentials
 import ActionUI
 import ActionUICachedImage
+import ActionUIDiff
 import ActionUIRichText
 import MCPStdio
 
@@ -21,7 +22,7 @@ final class AdwaitaPlatform: WindowPlatform {
     typealias FileType = String
 
     nonisolated static let systemName = "Linux"
-    nonisolated static let shownContent = "report, image, video, web page, table, or chart"
+    nonisolated static let shownContent = "report, image, video, web page, diff, table, or chart"
     nonisolated static let noticeDescription = """
         Show a short desktop notification, for example that a long job finished. Returns {shown} \
         once the desktop took it. It does not take focus; the desktop places and styles it, may \
@@ -51,6 +52,7 @@ final class AdwaitaPlatform: WindowPlatform {
 
     static func registerAddOns() {
         ActionUICachedImage.register()
+        ActionUIDiff.register()
         ActionUIRichText.register()
     }
 

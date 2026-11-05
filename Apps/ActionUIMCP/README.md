@@ -51,7 +51,7 @@ The same server runs on Linux with ActionUI's GTK 4 and libadwaita renderer. It 
 - The "Requested by" line is a line of its own above the header bar, and in every sheet, so neither the document's toolbar nor a sheet can cover it.
 - Every new window takes the keyboard focus: Wayland has no way to open a window and leave the focus where it was. `show` says so in its description.
 - The windows show the ActionUI icon once the server's desktop entry is installed (`--install-desktop-entry`, see Install on Linux); on macOS the Dock shows it without a step.
-- `show` has no `pdf`, `file` or `diff` kinds (Quick Look and the Diff add-on have no Linux renderer), and the tool's schema leaves them out. Of the add-ons, RichText and CachedImage are there.
+- `show` has no `pdf` or `file` kinds (Quick Look has no Linux renderer), and the tool's schema leaves them out. Of the add-ons, RichText, CachedImage and Diff are there.
 - `notify` is a desktop notification (org.freedesktop.Notifications): the desktop places and styles it, may hide it sooner, and holds it back in do-not-disturb mode. Its heading is the "Requested by" line; markdown keeps bold and italic. The server closes it after `duration_s` and when the session ends.
 - `pick_path` uses the desktop's file chooser (through the portal on GNOME).
 - `screenshot` of a document draws it in a window that is never presented, so nothing shows. A WebView's page is not drawn there, and the result says so; screenshot an open window to see the page.

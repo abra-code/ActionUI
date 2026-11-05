@@ -20,9 +20,9 @@ import time
 LINUX = sys.platform.startswith("linux")
 # The suffix that is active here: an inactive one rightly does nothing, so it would test nothing.
 SUFFIX = ":linux" if LINUX else ":macos"
-# Not on Linux: the Diff add-on. A kept window's frame is its content's size there, as Wayland does
-# not tell where a window is.
-NOT_ON_LINUX = ("show diff",)
+# Checks skipped on Linux: those whose labels start with one of these (none). A kept window's frame
+# is its content's size there, as Wayland does not tell where a window is.
+NOT_ON_LINUX = ()
 
 
 class Session:

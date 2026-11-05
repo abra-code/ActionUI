@@ -130,8 +130,8 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
 private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let kinds = JSONValue.array(ContentKind.available.map { .string($0.rawValue) })
     #if os(Linux)
-    let kindText = "markdown (text), text (plain monospaced text), image (path or url), video (path or url), web (url, or HTML in text), table (columns and rows), chart (chart)."
-    let shows = "a markdown report, plain text, an image, a video, a web page, a table, or a chart"
+    let kindText = "markdown (text), text (plain monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let shows = "a markdown report, plain text, an image, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It takes the keyboard focus, as every new window does on Linux."
     #else
     let kindText = "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
@@ -158,10 +158,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
     ]
     #if os(Linux)
-    // No pdf, file or diff kind here (ContentKind.available): their inputs would only mislead.
-    for key in ["old_text", "new_text", "old_path", "new_path"] {
-        properties[key] = nil
-    }
+    // No pdf or file kind here (ContentKind.available): "path" does not offer them.
     properties["path"] = ["type": "string", "description": "Absolute path of a local file for image, video."]
     #endif
     let input: JSONValue = [
