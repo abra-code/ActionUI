@@ -42,6 +42,10 @@ final class ShumateLibrary {
     typealias SetNumber = @convention(c) (OpaquePointer?, gdouble) -> Void
     typealias GetNumber = @convention(c) (OpaquePointer?) -> gdouble
     typealias GetCount = @convention(c) (OpaquePointer?) -> guint
+    typealias NewLayer = @convention(c) (OpaquePointer?) -> WidgetPointer?
+    typealias Pair = @convention(c) (WidgetPointer?, WidgetPointer?) -> Void
+    typealias SetLocation = @convention(c) (OpaquePointer?, gdouble, gdouble) -> Void
+    typealias Command = @convention(c) (WidgetPointer?) -> Void
 
     /// The API versions whose headers the C signatures here were checked against, newest first, each
     /// with the ABI version its library had then (1.0: libshumate 1.4, libshumate-1.0.so.1).
@@ -96,6 +100,16 @@ final class ShumateLibrary {
     let tileSize: GetCount
     let minZoomLevel: GetCount
     let maxZoomLevel: GetCount
+    /// shumate_marker_layer_new (over a viewport), shumate_simple_map_add_overlay_layer (which keeps
+    /// the layer), shumate_marker_new, shumate_marker_set_child, shumate_location_set_location (a
+    /// marker is a ShumateLocation), shumate_marker_layer_add_marker, _remove_all
+    let newMarkerLayer: NewLayer
+    let addOverlayLayer: Pair
+    let newMarker: NewWidget
+    let setMarkerChild: Pair
+    let setLocation: SetLocation
+    let addMarker: Pair
+    let removeAllMarkers: Command
 
     /// The registry that owns the map source; kept for the life of the process, as the library is.
     private var registry: OpaquePointer?
@@ -120,7 +134,14 @@ final class ShumateLibrary {
               let longitude = function("shumate_location_get_longitude", as: GetNumber.self),
               let tileSize = function("shumate_map_source_get_tile_size", as: GetCount.self),
               let minZoomLevel = function("shumate_map_source_get_min_zoom_level", as: GetCount.self),
-              let maxZoomLevel = function("shumate_map_source_get_max_zoom_level", as: GetCount.self) else { return nil }
+              let maxZoomLevel = function("shumate_map_source_get_max_zoom_level", as: GetCount.self),
+              let newMarkerLayer = function("shumate_marker_layer_new", as: NewLayer.self),
+              let addOverlayLayer = function("shumate_simple_map_add_overlay_layer", as: Pair.self),
+              let newMarker = function("shumate_marker_new", as: NewWidget.self),
+              let setMarkerChild = function("shumate_marker_set_child", as: Pair.self),
+              let setLocation = function("shumate_location_set_location", as: SetLocation.self),
+              let addMarker = function("shumate_marker_layer_add_marker", as: Pair.self),
+              let removeAllMarkers = function("shumate_marker_layer_remove_all", as: Command.self) else { return nil }
         self.setUserAgent = setUserAgent
         self.newRegistry = newRegistry
         self.mapSource = mapSource
@@ -138,6 +159,13 @@ final class ShumateLibrary {
         self.tileSize = tileSize
         self.minZoomLevel = minZoomLevel
         self.maxZoomLevel = maxZoomLevel
+        self.newMarkerLayer = newMarkerLayer
+        self.addOverlayLayer = addOverlayLayer
+        self.newMarker = newMarker
+        self.setMarkerChild = setMarkerChild
+        self.setLocation = setLocation
+        self.addMarker = addMarker
+        self.removeAllMarkers = removeAllMarkers
     }
 
     /// The map source every Map shows (mapSourceID), owned by the library; nil, logged once, when the

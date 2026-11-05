@@ -5,8 +5,9 @@
  size; the map opens on the value at that zoom when first laid out; a move of the map sets the value
  and fires valueChangeActionID and actionID once it settles, a host's value moves the map and fires
  only actionID, and nothing fires before the first layout; interactionModes turn libshumate's input
- handlers off and on. The renderer tests need libshumate (package libshumate-1.0-1) and skip without
- it; none needs the tiles.
+ handlers off and on; each annotation is a pin, with its tip on the coordinate, and its title and
+ subtitle, replaced when the annotations change. The renderer tests need libshumate (package
+ libshumate-1.0-1) and skip without it; none needs the tiles.
 */
 
 import XCTest
@@ -228,5 +229,83 @@ final class MapRendererTests: XCTestCase {
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "interactionModes", value: ["pan", "rotate"])
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(try phases(node)["GtkGestureRotate"], GTK_PHASE_NONE)
+    }
+
+    // MARK: Annotations
+
+    private let annotations = #""annotations": [{"coordinate": {"latitude": 37.332, "longitude": -122.031}, "title": "Point", "subtitle": "Subtitle"}, {"coordinate": {"latitude": 37.36, "longitude": -122.05}, "title": "Only a title"}, {"coordinate": {"latitude": 37.31, "longitude": -122.0}}, {"coordinate": {"latitude": "bad", "longitude": 0}, "title": "Skipped"}]"#
+
+    /// The markers on the map, in order.
+    private func markers(_ node: RenderNode) throws -> [WidgetPointer] {
+        let map = try maps(node).map
+        let layer = try XCTUnwrap(Gtk.Widget(map).children.map(\.pointer).first {
+            swiftString(g_type_name_from_instance(typed(OpaquePointer($0)))) == "ShumateMarkerLayer"
+        })
+        return Gtk.Widget(layer).children.map(\.pointer)
+    }
+
+    /// The box of a marker's labels, under its pin.
+    private func textBox(_ marker: WidgetPointer) throws -> WidgetPointer {
+        let view = try XCTUnwrap(gtk_widget_get_first_child(marker))
+        return try XCTUnwrap(gtk_widget_get_first_child(view).flatMap { gtk_widget_get_next_sibling($0) })
+    }
+
+    /// The texts of the labels in a marker, in order.
+    private func texts(_ marker: WidgetPointer) throws -> [String] {
+        Gtk.Widget(try textBox(marker)).children.map { swiftString(gtk_label_get_text(opaque($0.pointer))) ?? "?" }
+    }
+
+    func testEachAnnotationIsAPinWithItsTitleAndSubtitleAtItsCoordinate() throws {
+        let library = try requireShumate()
+        let node = try render(annotations)
+        let markers = try markers(node)
+        // The one without a valid coordinate is skipped, as on Apple.
+        XCTAssertEqual(markers.count, 3)
+        XCTAssertEqual(markers.map { library.latitude(OpaquePointer($0)) }, [37.332, 37.36, 37.31])
+        XCTAssertEqual(markers.map { library.longitude(OpaquePointer($0)) }, [-122.031, -122.05, -122.0])
+        XCTAssertEqual(try texts(markers[0]), ["Point", "Subtitle"])
+        XCTAssertEqual(try texts(markers[1]), ["Only a title"])
+        XCTAssertEqual(try texts(markers[2]), [])
+        let labels = Gtk.Widget(try textBox(markers[0])).children.map(\.pointer)
+        XCTAssertNotEqual(gtk_widget_has_css_class(labels[0], "caption-heading"), 0)
+        XCTAssertNotEqual(gtk_widget_has_css_class(labels[1], "caption"), 0)
+        // A drag that starts on a pin moves the map.
+        XCTAssertTrue(markers.allSatisfy { gtk_widget_get_can_target($0) == 0 })
+    }
+
+    func testThePinsTipIsOnItsCoordinateInTheLaidOutMap() throws {
+        _ = try requireShumate()
+        // Pins at the map's center, with and without text, so their points belong at the middle.
+        let center = #"{"latitude": 37.33233141, "longitude": -122.0312186}"#
+        let node = try render(#""annotations": [{"coordinate": "# + center + #", "title": "Point", "subtitle": "Subtitle"}, {"coordinate": "# + center + #"}]"#)
+        layOut(node, width: 400, height: 400)
+        let map = try maps(node).map
+        for marker in try markers(node) {
+            let pin = try XCTUnwrap(gtk_widget_get_first_child(try XCTUnwrap(gtk_widget_get_first_child(marker))))
+            var bounds = graphene_rect_t()
+            XCTAssertNotEqual(gtk_widget_compute_bounds(pin, map, &bounds), 0)
+            XCTAssertEqual(bounds.size.height, Float(Map.pinSize))
+            // The glyph's point is a twelfth of the pin above the bottom of its square.
+            let tip = bounds.origin.y + bounds.size.height - Float(Map.pinSize) / 12
+            XCTAssertEqual(tip, 200, accuracy: 1.5)
+            XCTAssertEqual(bounds.origin.x + bounds.size.width / 2, 200, accuracy: 1.5)
+        }
+    }
+
+    func testNewAnnotationsReplaceThePins() throws {
+        let library = try requireShumate()
+        let node = try render(annotations)
+        XCTAssertEqual(try markers(node).count, 3)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "annotations", value: [
+            ["coordinate": ["latitude": 48.8584, "longitude": 2.2945], "title": "Eiffel Tower"],
+        ])
+        AdwaitaTestHost.drainMainLoop()
+        let replaced = try markers(node)
+        XCTAssertEqual(replaced.count, 1)
+        XCTAssertEqual(library.latitude(OpaquePointer(replaced[0])), 48.8584)
+        XCTAssertEqual(try texts(replaced[0]), ["Eiffel Tower"])
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "annotations", value: [Any]())
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(try markers(node).count, 0)
     }
 }
