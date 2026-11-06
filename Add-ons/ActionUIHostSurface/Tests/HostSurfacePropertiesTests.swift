@@ -59,7 +59,9 @@ final class HostSurfacePropertiesTests: XCTestCase {
         XCTAssertEqual(sink.kind, .native, "the frame sink is the native kind on Linux")
         XCTAssertEqual(HostSurfaceProperties(["surfaceName": "s", "kind": "gl"], logger: RecordingLogger()).kind, .gl)
         #else
-        let lacking = ["sink", "gl", "vulkan"]
+        let lacking = ["gl", "vulkan"]
+        XCTAssertEqual(HostSurfaceProperties(["surfaceName": "s", "kind": "sink"], logger: RecordingLogger()).kind, .sink,
+                       "the frame sink, on every platform")
         #endif
         for name in lacking {
             let logger = RecordingLogger()

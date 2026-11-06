@@ -16,11 +16,16 @@ enum HostSurfaceKindRequest: Equatable {
     /// "native", or absent: the platform's own surface (a Metal layer on Apple platforms, the frame sink
     /// on Linux, where "sink" means the same).
     case native
+    #if !os(Linux)
+    /// "sink" (Apple platforms): a frame sink, as on Linux; the client presents finished frames with
+    /// actionUIHostSurfacePresentPixels. The same kind gives a sink on every platform.
+    case sink
+    #endif
     #if os(Linux)
     /// "gl" (Linux): a GtkGLArea; the client draws in the render callback with GTK's GL context current.
     case gl
     #endif
-    /// A kind this platform lacks ("sink", "gl"), or an unknown one: the element draws a placeholder
+    /// A kind this platform lacks ("gl" on Apple platforms), or an unknown one: the element draws a placeholder
     /// and announces no surface.
     case unsupported(String)
 }
@@ -70,6 +75,10 @@ struct HostSurfaceProperties: Equatable {
             switch raw as? String {
             case "native":
                 kind = .native
+            #if !os(Linux)
+            case "sink":
+                kind = .sink
+            #endif
             #if os(Linux)
             case "sink":
                 // The frame sink is the native kind on Linux: GTK gives a widget no surface of its own.

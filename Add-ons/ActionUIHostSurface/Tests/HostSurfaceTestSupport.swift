@@ -48,11 +48,14 @@ struct RecordedEvent: Equatable, CustomStringConvertible {
 @MainActor
 final class RecordingClient: HostSurfaceDelegate {
     private(set) var received: [RecordedEvent] = []
+    /// The kind of each surface event's surface, in order.
+    private(set) var kinds: [AUIHostSurfaceKind] = []
     private(set) var frames: [UInt64] = []
     private(set) var inputs: [HostSurfaceInput] = []
     var onEvent: ((HostSurfaceInfo, HostSurfaceEvent) -> Void)?
 
     func hostSurface(_ surface: HostSurfaceInfo, event: HostSurfaceEvent) {
+        kinds.append(surface.kind)
         received.append(RecordedEvent(event: event, surfaceID: surface.surfaceID, viewID: surface.viewID,
                                       widthPixels: surface.widthPixels, heightPixels: surface.heightPixels))
         onEvent?(surface, event)

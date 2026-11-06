@@ -1601,13 +1601,13 @@ def set_cursor(surface_id: int, cursor: Cursor) -> bool:
 
 def present_pixels(surface_id: int, pixels, width: Optional[int] = None, height: Optional[int] = None,
                    stride: Optional[int] = None, format: PixelFormat = PixelFormat.RGBA8_PREMULTIPLIED) -> bool:
-    """Show one finished frame on a frame-sink surface (Linux): `height` rows of `width` pixels, 4 bytes each in
+    """Show one finished frame on a frame-sink surface ("kind": "sink"): `height` rows of `width` pixels, 4 bytes each in
     `format`, `stride` bytes apart (default width * 4). `pixels` is anything with the buffer protocol: bytes,
     bytearray, memoryview, or a C-contiguous NumPy array of shape (height, width, 4) and dtype uint8, whose
     shape gives width and height when they are left out. The pixels are copied before it returns; frames that
     come faster than the display are merged. Render at the pixel size of the last created or changed.
     Any thread; never waits for the main thread. Returns False when the surface is not a live frame sink
-    (always on macOS, whose surfaces are Metal layers, and after destroyed)."""
+    (a Metal layer, and after destroyed)."""
     if width is None or height is None:
         shape = getattr(pixels, 'shape', None)
         if shape is None or len(shape) != 3 or shape[2] != 4:

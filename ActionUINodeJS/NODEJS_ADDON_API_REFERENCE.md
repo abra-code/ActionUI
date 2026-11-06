@@ -456,13 +456,15 @@ size in pixels. `event` holds `kind` (`InputKind`), `pointerType`, `button`, `po
 positive right and down) with `scrollUnit` and `scrollPhase`, `pressure`, `tiltX`, `tiltY`, and for keys
 `keyCode`, `code` (the W3C name, "KeyA") and `text`.
 
-What a surface is, by platform:
+What a surface is:
 
-- Linux: a frame sink (`SurfaceKind.FRAME_SINK`): render at the pixel size anywhere (a typed array, a canvas
-  library, WebGPU offscreen) and hand the frames to `presentPixels`, from any thread. With `"kind": "gl"` in the
-  document, a GL area (`SurfaceKind.GL_AREA`): draw in `render` with a GL binding.
-- macOS: a Metal layer (`SurfaceKind.METAL_LAYER`, `handle` is the `CAMetalLayer` pointer) for a native module
-  that draws with Metal. `presentPixels` returns false there.
+- `"kind": "sink"` in the document: a frame sink (`SurfaceKind.FRAME_SINK`) on macOS and Linux alike. Render at
+  the pixel size anywhere (a typed array, a canvas library, WebGPU offscreen) and hand the frames to
+  `presentPixels`, from any thread. A script that uses it runs unchanged on both platforms.
+- No kind (or `"native"`): a frame sink on Linux too; on macOS a Metal layer (`SurfaceKind.METAL_LAYER`,
+  `handle` is the `CAMetalLayer` pointer) for a native module that draws with Metal, where `presentPixels`
+  returns false.
+- `"kind": "gl"` (Linux): a GL area (`SurfaceKind.GL_AREA`): draw in `render` with a GL binding.
 
 `example_host_surface.js` animates a frame sink from JavaScript.
 

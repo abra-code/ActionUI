@@ -67,19 +67,15 @@ public enum ActionUIHostSurface {
         }
     }
 
-    /// Frame sink only (Linux): shows one finished frame, 4 bytes per pixel in `format` (an
-    /// AUIHostPixelFormat value), rows `stride` bytes apart. The pixels are copied before it returns.
-    /// Any thread; never waits. False when `surfaceID` is not a live frame-sink surface (always on Apple
-    /// platforms) or the arguments do not describe a frame; see actionUIHostSurfacePresentPixels.
+    /// Frame sink only ("kind": "sink"; the native kind on Linux): shows one finished frame, 4 bytes per
+    /// pixel in `format` (an AUIHostPixelFormat value), rows `stride` bytes apart. The pixels are copied
+    /// before it returns. Any thread; never waits. False when `surfaceID` is not a live frame-sink surface
+    /// or the arguments do not describe a frame; see actionUIHostSurfacePresentPixels.
     @discardableResult
     public static func presentPixels(surfaceID: UInt64, width: Int, height: Int, stride: Int, format: Int32,
                                      pixels: UnsafeRawPointer) -> Bool {
-        #if os(Linux)
-        return HostSurfaceSinks.present(surfaceID: surfaceID, width: width, height: height, stride: stride,
-                                        format: format, pixels: pixels)
-        #else
-        return false
-        #endif
+        HostSurfaceSinks.present(surfaceID: surfaceID, width: width, height: height, stride: stride,
+                                 format: format, pixels: pixels)
     }
 }
 
@@ -90,15 +86,20 @@ public enum HostSurfaceEvent: Sendable {
 }
 
 /// One surface as the client sees it. `metalLayer` (Apple platforms) is valid until the "destroyed"
-/// event for this `surfaceID` returns. On Linux the surface is a frame sink: the client presents
-/// finished frames with `ActionUIHostSurface.presentPixels`.
+/// event for this `surfaceID` returns. A frame sink ("kind": "sink", and the native kind on Linux) takes
+/// finished frames from `ActionUIHostSurface.presentPixels` instead.
 @MainActor
 public struct HostSurfaceInfo {
     /// Unique for the life of the process; a new one with every "created".
     public let surfaceID: UInt64
     public let windowUUID: String
     public let viewID: Int
+    /// What the surface is: AUIHostSurfaceMetalLayer (Apple platforms), AUIHostSurfaceFrameSink ("kind":
+    /// "sink"; present frames with presentPixels), AUIHostSurfaceGLArea (Linux, "kind": "gl").
+    public let kind: AUIHostSurfaceKind
     #if canImport(QuartzCore)
+    /// The surface's Metal layer; draw into it only when `kind` is AUIHostSurfaceMetalLayer (a frame sink
+    /// shows the presented frames above it).
     public let metalLayer: CAMetalLayer
     #endif
     public let widthPoints: Double

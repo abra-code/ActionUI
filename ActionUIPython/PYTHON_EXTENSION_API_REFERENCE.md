@@ -742,13 +742,15 @@ the size in pixels. `InputEvent` holds the `kind` (`InputKind`), pointer type, b
 positive right and down) with their unit and phase, pressure, tilt, and for keys `key_code`, the W3C `code`
 ("KeyA") and `text`.
 
-What a surface is, by platform:
+What a surface is:
 
-- Linux: a frame sink (`SurfaceKind.FRAME_SINK`): render at the pixel size anywhere (NumPy, Pillow, Cairo,
-  wgpu-py offscreen) and hand the frames to `present_pixels`, from any thread. With `"kind": "gl"` in the
-  document, a GL area (`SurfaceKind.GL_AREA`): draw in `render` with PyOpenGL or another GL binding.
-- macOS: a Metal layer (`SurfaceKind.METAL_LAYER`, `handle` is the `CAMetalLayer` pointer) for a Metal binding
-  (PyObjC's Metal framework, for example). `present_pixels` returns False there.
+- `"kind": "sink"` in the document: a frame sink (`SurfaceKind.FRAME_SINK`) on macOS and Linux alike. Render at
+  the pixel size anywhere (NumPy, Pillow, Cairo, wgpu-py offscreen) and hand the frames to `present_pixels`,
+  from any thread. A script that uses it runs unchanged on both platforms.
+- No kind (or `"native"`): a frame sink on Linux too; on macOS a Metal layer (`SurfaceKind.METAL_LAYER`,
+  `handle` is the `CAMetalLayer` pointer) for a Metal binding (PyObjC's Metal framework, for example), where
+  `present_pixels` returns False.
+- `"kind": "gl"` (Linux): a GL area (`SurfaceKind.GL_AREA`): draw in `render` with PyOpenGL or another binding.
 
 `example_host_surface.py` animates a frame sink from Python.
 

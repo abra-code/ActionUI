@@ -4,8 +4,7 @@
  * itself into a Uint8Array and presents as pixels (actionui.presentPixels). The canvas shows color bands that
  * drift over time; the slider sets their speed, and a click on the canvas flips their direction.
  *
- * On Linux the HostSurface is a frame sink, so this draws. On macOS the surface is a Metal layer, which needs a
- * native module that draws with Metal; the window opens, and the canvas stays empty.
+ * The element asks for "kind": "sink", a frame sink on macOS and Linux alike, so the same script draws on both.
  *
  * Run: node example_host_surface.js
  */
@@ -20,7 +19,7 @@ const actionui = require('./index.js');
 const DOCUMENT = {
     type: 'VStack', properties: { padding: 12, spacing: 10 }, children: [
         { type: 'HostSurface', id: 5,
-          properties: { surfaceName: 'bands', continuous: true, idealWidth: 480, idealHeight: 240 } },
+          properties: { surfaceName: 'bands', kind: 'sink', continuous: true, idealWidth: 480, idealHeight: 240 } },
         { type: 'Text', id: 7, properties: { text: 'Speed (click the canvas to reverse)' } },
         { type: 'Slider', id: 6, properties: { value: 60, range: { min: 0, max: 240 }, actionID: 'speed' } },
     ],
@@ -38,7 +37,7 @@ const bands = {
         this.resize(info);
         actionui.setCursor(info.surfaceId, actionui.Cursor.POINTING_HAND);
         if (info.kind !== actionui.SurfaceKind.FRAME_SINK) {
-            console.log('The surface is not a frame sink (a Metal layer on macOS): nothing to present here.');
+            console.log('The surface is not a frame sink: nothing to present here.');
         }
     },
     changed(info) { this.resize(info); },

@@ -689,12 +689,12 @@ function setContinuous(surfaceId, continuous) { _actionui.hostSurfaceSetContinuo
 function setCursor(surfaceId, cursor) { return _actionui.hostSurfaceSetCursor(surfaceId, cursor); }
 
 /**
- * Shows one finished frame on a frame-sink surface (Linux): `height` rows of `width` pixels, 4 bytes each in
+ * Shows one finished frame on a frame-sink surface ("kind": "sink"): `height` rows of `width` pixels, 4 bytes each in
  * `format`, `stride` bytes apart (default width * 4). `pixels` is a Buffer, a typed array (Uint8Array,
  * Uint8ClampedArray, an ImageData's data, ...), a DataView or an ArrayBuffer. The pixels are copied before it
  * returns; frames that come faster than the display are merged. Render at the pixel size of the last created
  * or changed. Any thread (a worker too); never waits for the main thread. Returns false when the surface is
- * not a live frame sink (always on macOS, whose surfaces are Metal layers, and after destroyed).
+ * not a live frame sink (a Metal layer, and after destroyed).
  */
 function presentPixels(surfaceId, pixels, width, height,
     { stride = width * 4, format = PixelFormat.RGBA8_PREMULTIPLIED } = {}) {

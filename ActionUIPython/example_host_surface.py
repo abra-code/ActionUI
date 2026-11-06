@@ -4,8 +4,7 @@ A HostSurface drawn from Python: a window with an ActionUI slider beside a canva
 and presents as pixels (actionui.present_pixels). The canvas shows color bands that drift over time; the
 slider sets their speed, and a click on the canvas flips their direction.
 
-On Linux the HostSurface is a frame sink, so this draws. On macOS the surface is a Metal layer, which needs a
-Metal binding to draw into; the window opens, and the canvas stays empty.
+The element asks for "kind": "sink", a frame sink on macOS and Linux alike, so the same script draws on both.
 
 Plain Python, no NumPy: each frame builds one row of pixels and repeats it, which bytes do in C.
 
@@ -21,7 +20,7 @@ import actionui
 DOCUMENT = {
     "type": "VStack", "properties": {"padding": 12, "spacing": 10}, "children": [
         {"type": "HostSurface", "id": 5,
-         "properties": {"surfaceName": "bands", "continuous": True, "idealWidth": 480, "idealHeight": 240}},
+         "properties": {"surfaceName": "bands", "kind": "sink", "continuous": True, "idealWidth": 480, "idealHeight": 240}},
         {"type": "Text", "id": 7, "properties": {"text": "Speed (click the canvas to reverse)"}},
         {"type": "Slider", "id": 6, "properties": {"value": 60, "range": {"min": 0, "max": 240}, "actionID": "speed"}},
     ],

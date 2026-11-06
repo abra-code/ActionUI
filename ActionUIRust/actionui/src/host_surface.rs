@@ -19,7 +19,8 @@
 //! name, in every window:
 //!
 //! - [`SurfaceDelegate::created`]: build the renderer on [`SurfaceInfo::handle`] (on macOS a
-//!   `CAMetalLayer`; on Linux a frame sink, see [`SurfaceId::present_pixels`]), sized in pixels.
+//!   `CAMetalLayer`; on Linux, and for an element with "kind": "sink", a frame sink, see
+//!   [`SurfaceId::present_pixels`]), sized in pixels.
 //!   With the `wgpu` feature, [`wgpu_surface`] does it for wgpu.
 //! - [`SurfaceDelegate::changed`]: resize to the new pixel size before the next frame.
 //! - [`SurfaceDelegate::suspended`] / [`SurfaceDelegate::resumed`]: the surface left the screen
@@ -84,11 +85,11 @@ impl SurfaceId {
         Ok(unsafe { sys::actionUIHostSurfaceSetCursor(self.0, cursor as i32) })
     }
 
-    /// Shows one finished frame on a frame-sink surface ([`SurfaceHandle::FrameSink`], Linux): `height`
+    /// Shows one finished frame on a frame-sink surface ([`SurfaceHandle::FrameSink`]): `height`
     /// rows of `width` pixels, 4 bytes each in `format`, `stride` bytes apart. The pixels are copied
     /// before it returns; the newest frame wins when several come between two display refreshes.
     /// Render at the pixel size of the last `created` or `changed`. Any thread; never waits.
-    /// Returns false when the surface is not a live frame sink (always on macOS), when `width` or
+    /// Returns false when the surface is not a live frame sink (a Metal layer, say), when `width` or
     /// `height` is 0, when `stride` is less than `width * 4`, or when `pixels` is too short for the
     /// frame.
     pub fn present_pixels(self, width: u32, height: u32, stride: u32, format: PixelFormat, pixels: &[u8]) -> bool {
@@ -127,8 +128,9 @@ pub enum SurfaceHandle {
     NativeWindow(NonNull<c_void>),
     /// A GtkGLArea (Linux, the element's "kind" "gl"): no handle; draw in [`SurfaceDelegate::render`].
     GlArea,
-    /// A frame sink (Linux): no handle; render anywhere at the surface's pixel size and present
-    /// the pixels with [`SurfaceId::present_pixels`]. For wgpu: `wgpu_surface::FrameSink` (the `wgpu` feature).
+    /// A frame sink (the element's "kind": "sink", and Linux's native kind): no handle; render anywhere at the
+    /// surface's pixel size and present the pixels with [`SurfaceId::present_pixels`]. For wgpu:
+    /// `wgpu_surface::FrameSink` (the `wgpu` feature).
     FrameSink,
     /// A kind this version of the crate does not know, with its C value.
     Other(i32),
@@ -670,7 +672,7 @@ pub mod wgpu_surface {
         Recreate,
     }
 
-    /// wgpu on a frame-sink surface ([`SurfaceHandle::FrameSink`], Linux): an offscreen texture at
+    /// wgpu on a frame-sink surface ([`SurfaceHandle::FrameSink`]): an offscreen texture at
     /// the surface's pixel size to draw into, and [`FrameSink::present`] to copy it back and show it.
     /// A program that supports both kinds checks `info.handle` in `created`: [`create`] for a native
     /// surface, [`FrameSink::new`] for a sink.

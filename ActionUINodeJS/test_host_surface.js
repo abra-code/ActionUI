@@ -3,11 +3,10 @@
  * Integration test of the HostSurface API (setSurfaceDelegate, presentPixels, ...).
  *
  * Starts a real application run loop with a window that holds HostSurface elements, and checks:
- * - a bound delegate gets "created" with the platform's kind (a Metal layer on macOS, a frame sink on Linux);
+ * - a bound delegate of a "kind": "sink" element gets "created" as a frame sink, on macOS and Linux alike;
  * - a delegate bound inside a callback takes over after it: the old one gets "destroyed" first, the new one
  *   "created" with a new surface ID;
- * - presentPixels from a worker thread (true on Linux; false on macOS, whose surfaces are Metal layers), and
- *   the argument checks;
+ * - presentPixels from a worker thread, and the argument checks;
  * - on Linux, a "gl" element's render callback;
  * - window close sends "destroyed".
  *
@@ -28,9 +27,11 @@ const SAFETY_TIMEOUT_MS = 20000;
 
 const DOCUMENT = {
     type: 'VStack', properties: { frame: { width: 300 } }, children: [
-        { type: 'HostSurface', id: 5, properties: { surfaceName: 'js.canvas', frame: { width: 200, height: 120 } } },
+        { type: 'HostSurface', id: 5, properties: { surfaceName: 'js.canvas', kind: 'sink', frame: { width: 200, height: 120 } } },
         ...(IS_LINUX ? [{ type: 'HostSurface', id: 6,
-            properties: { surfaceName: 'js.gl', kind: 'gl', frame: { width: 80, height: 60 } } }] : []),
+            properties: { surfaceName: 'js.gl', kind: 'gl', frame: { width: 80, height: 60 } } }]
+            // No kind: on macOS the surface stays a Metal layer, which takes no presented frames.
+            : [{ type: 'HostSurface', id: 8, properties: { surfaceName: 'js.metal', frame: { width: 80, height: 60 } } }]),
         { type: 'HostSurface', id: 7, properties: { surfaceName: 'js.throws', frame: { width: 40, height: 40 } } },
     ],
 };
@@ -87,6 +88,13 @@ const first = {
     destroyed(info) { state.first.push(['destroyed', info]); },
 };
 
+const metalClient = {
+    created(info) {
+        const shown = actionui.presentPixels(info.surfaceId, new Uint8Array(16), 2, 2);
+        state.metal = [info.kind, info.handle, shown];
+    },
+};
+
 const glClient = {
     created(info) { state.glEvents.push(['created', info.kind]); actionui.requestFrame(info.surfaceId); },
     render() { state.glRenders += 1; },
@@ -106,14 +114,13 @@ function report() {
     check(`the first delegate got created, rebound, then destroyed (${firstKinds})`,
         JSON.stringify(firstKinds) === JSON.stringify(['created', 'rebound', 'destroyed']));
     const firstInfo = state.first.length ? state.first[0][1] : null;
-    const expectedKind = IS_LINUX ? actionui.SurfaceKind.FRAME_SINK : actionui.SurfaceKind.METAL_LAYER;
-    check(`created with the platform's kind (${firstInfo && firstInfo.kind})`, firstInfo && firstInfo.kind === expectedKind);
+    check(`created as a frame sink (${firstInfo && firstInfo.kind})`,
+        firstInfo && firstInfo.kind === actionui.SurfaceKind.FRAME_SINK);
     if (firstInfo) {
         check(`the size of the frame, 200 x 120 points (${firstInfo.widthPoints} x ${firstInfo.heightPoints})`,
             firstInfo.widthPoints === 200 && firstInfo.heightPoints === 120);
         check('a nonzero pixel size', firstInfo.widthPixels > 0 && firstInfo.heightPixels > 0);
-        check('a Metal layer handle (BigInt) on macOS, none for a frame sink',
-            IS_LINUX ? firstInfo.handle === null : (typeof firstInfo.handle === 'bigint' && firstInfo.handle !== 0n));
+        check('no handle for a frame sink', firstInfo.handle === null);
     }
     const secondCreated = state.second.filter(([kind]) => kind === 'created').map(([, info]) => info);
     check('the second delegate got created', secondCreated.length === 1);
@@ -121,7 +128,7 @@ function report() {
         check('with a new surface ID', secondCreated[0].surfaceId !== firstInfo.surfaceId);
     }
     check(`the second delegate got destroyed at window close (${secondKinds})`, secondKinds[secondKinds.length - 1] === 'destroyed');
-    check(`presentPixels from a worker returned ${IS_LINUX} (${state.presentOnWorker})`, state.presentOnWorker === IS_LINUX);
+    check(`presentPixels from a worker returned true (${state.presentOnWorker})`, state.presentOnWorker === true);
     check(`presentPixels refuses a short buffer, a zero width, and a string (${state.presentErrors})`,
         JSON.stringify(state.presentErrors) === JSON.stringify(['RangeError', 'RangeError', 'TypeError']));
     check(`setCursor on a live surface returned true (${state.cursorSet})`, state.cursorSet === true);
@@ -132,6 +139,12 @@ function report() {
     }
     check(`a bridge that threw a Symbol got its later calls (${state.thrower})`,
         state.thrower !== null && state.thrower[0] === 'created' && state.thrower[state.thrower.length - 1] === 'destroyed');
+    if (!IS_LINUX) {
+        const metal = state.metal;
+        check(`an element with no kind is a Metal layer with a handle, and takes no frames (${metal})`,
+            metal != null && metal[0] === actionui.SurfaceKind.METAL_LAYER && typeof metal[1] === 'bigint'
+            && metal[1] !== 0n && metal[2] === false);
+    }
     if (IS_LINUX) {
         check(`the GL client got created and destroyed (${JSON.stringify(state.glEvents)})`,
             JSON.stringify(state.glEvents) === JSON.stringify([['created', actionui.SurfaceKind.GL_AREA],
@@ -147,6 +160,7 @@ console.log('ActionUI HostSurface Integration Test (Node.js)');
 const app = new actionui.Application({ name: 'HostSurfaceTest' });
 actionui.setSurfaceDelegate('js.canvas', first);
 if (IS_LINUX) app.setSurfaceDelegate('js.gl', glClient);
+else app.setSurfaceDelegate('js.metal', metalClient);
 
 const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'actionui-hostsurface-test-'));
 const documentPath = path.join(folder, 'HostSurface.json');

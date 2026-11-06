@@ -3,11 +3,10 @@
 Integration test of the HostSurface API (actionui.SurfaceDelegate, set_surface_delegate, present_pixels).
 
 Starts a real application run loop with a window that holds HostSurface elements, and checks:
-- a bound delegate gets "created" with the platform's kind (a Metal layer on macOS, a frame sink on Linux);
+- a bound delegate of a "kind": "sink" element gets "created" as a frame sink, on macOS and Linux alike;
 - a delegate bound inside a callback takes over after it: the old one gets "destroyed" first, the new one
   "created" with a new surface ID;
-- present_pixels from another thread (True on Linux; False on macOS, whose surfaces are Metal layers), and the
-  argument checks;
+- present_pixels from another thread, and the argument checks;
 - on Linux, a "gl" element's render callback;
 - window close sends "destroyed".
 
@@ -32,11 +31,14 @@ IS_LINUX = sys.platform.startswith("linux")
 DOCUMENT = {
     "type": "VStack", "properties": {"frame": {"width": 300}}, "children": [
         {"type": "HostSurface", "id": 5,
-         "properties": {"surfaceName": "py.canvas", "frame": {"width": 200, "height": 120}}},
+         "properties": {"surfaceName": "py.canvas", "kind": "sink", "frame": {"width": 200, "height": 120}}},
     ] + ([
         {"type": "HostSurface", "id": 6,
          "properties": {"surfaceName": "py.gl", "kind": "gl", "frame": {"width": 80, "height": 60}}},
-    ] if IS_LINUX else []),
+    ] if IS_LINUX else [
+        # No kind: on macOS the surface stays a Metal layer, which takes no presented frames.
+        {"type": "HostSurface", "id": 7, "properties": {"surfaceName": "py.metal", "frame": {"width": 80, "height": 60}}},
+    ]),
 }
 
 state = {
@@ -48,6 +50,7 @@ state = {
     "present_on_thread": None,
     "present_errors": [],
     "cursor_set": None,
+    "metal": None,
     "errors": [],
 }
 
@@ -98,6 +101,12 @@ class Second(actionui.SurfaceDelegate):
         state["second"].append(("destroyed", info))
 
 
+class MetalClient(actionui.SurfaceDelegate):
+    def created(self, info):
+        shown = actionui.present_pixels(info.surface_id, b"\x00" * 16, 2, 2)
+        state["metal"] = (info.kind, info.handle, shown)
+
+
 class GLClient(actionui.SurfaceDelegate):
     def created(self, info):
         state["gl_events"].append(("created", info.kind))
@@ -128,23 +137,20 @@ def _report():
     check(f"the first delegate got created, rebound, then destroyed ({first_kinds})",
           first_kinds == ["created", "rebound", "destroyed"])
     first_info = state["first"][0][1] if state["first"] else None
-    expected_kind = actionui.SurfaceKind.FRAME_SINK if IS_LINUX else actionui.SurfaceKind.METAL_LAYER
-    check(f"created with the platform's kind ({first_info.kind if first_info else None})",
-          first_info is not None and first_info.kind == expected_kind)
+    check(f"created as a frame sink ({first_info.kind if first_info else None})",
+          first_info is not None and first_info.kind == actionui.SurfaceKind.FRAME_SINK)
     if first_info is not None:
         check(f"the size of the frame, 200 x 120 points ({first_info.width_points} x {first_info.height_points})",
               first_info.width_points == 200 and first_info.height_points == 120)
         check("a nonzero pixel size", first_info.width_pixels > 0 and first_info.height_pixels > 0)
-        check("a Metal layer handle on macOS, none for a frame sink",
-              (first_info.handle is None) if IS_LINUX else (isinstance(first_info.handle, int) and first_info.handle != 0))
+        check("no handle for a frame sink", first_info.handle is None)
     second_created = [info for kind, info in state["second"] if kind == "created"]
     check("the second delegate got created", len(second_created) == 1)
     if second_created and first_info is not None:
         check("with a new surface ID", second_created[0].surface_id != first_info.surface_id)
     check(f"the second delegate got destroyed at window close ({second_kinds})", second_kinds[-1:] == ["destroyed"])
-    expected_present = True if IS_LINUX else False
-    check(f"present_pixels from another thread returned {expected_present} ({state['present_on_thread']})",
-          state["present_on_thread"] is expected_present)
+    check(f"present_pixels from another thread returned True ({state['present_on_thread']})",
+          state["present_on_thread"] is True)
     check(f"present_pixels refuses a short buffer, a zero width, and a missing size ({state['present_errors']})",
           state["present_errors"] == ["ValueError"] * 3)
     check(f"set_cursor on a live surface returned True ({state['cursor_set']})", state["cursor_set"] is True)
@@ -152,6 +158,11 @@ def _report():
         check(f"a requested frame came ({state['frames']})", state["frames"] >= 1)
     else:
         print("  (the window was not visible, so no frame was expected)", flush=True)
+    if not IS_LINUX:
+        metal = state["metal"]
+        check(f"an element with no kind is a Metal layer with a handle, and takes no frames ({metal})",
+              metal is not None and metal[0] == actionui.SurfaceKind.METAL_LAYER and isinstance(metal[1], int)
+              and metal[1] != 0 and metal[2] is False)
     if IS_LINUX:
         check(f"the GL client got created and destroyed ({state['gl_events']})",
               state["gl_events"] == [("created", actionui.SurfaceKind.GL_AREA), ("destroyed", actionui.SurfaceKind.GL_AREA)])
@@ -169,6 +180,8 @@ app = actionui.Application()
 actionui.set_surface_delegate("py.canvas", First())
 if IS_LINUX:
     app.set_surface_delegate("py.gl", GLClient())
+else:
+    app.set_surface_delegate("py.metal", MetalClient())
 
 folder = tempfile.mkdtemp(prefix="actionui-hostsurface-test-")
 document_path = os.path.join(folder, "HostSurface.json")

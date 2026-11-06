@@ -84,6 +84,14 @@ product, as on Apple platforms.
 
 Input on Linux follows the same rules: pointer, touch, pen, scroll (wheel steps, or points with phases from a touchpad), touchpad pinch as magnify and rotate, keys with their W3C code from the hardware key code, and focus. Keys with Control, Alt or Super held reach the client and also go on to the window, so shortcuts still work. FocusIn waits for an active window. Input methods are not handled.
 
+## The frame sink on Apple platforms
+
+`"kind": "sink"` gives a frame sink on macOS and iOS too, so a client that presents pixels (a Python or Node.js
+script, a CPU renderer, wgpu rendering offscreen) runs unchanged on every platform. The info's kind is
+`AUIHostSurfaceFrameSink` with no handle, and `actionUIHostSurfacePresentPixels` works as on Linux: from any
+thread, the pixels copied into a `CGImage` before it returns, the newest frame shown (scaled to the element) as
+the contents of a layer above the view's unused Metal layer. Without a kind the surface stays a `CAMetalLayer`.
+
 ## Consuming it
 
 `Package.swift` makes this a Swift package (macOS 14.6, iOS 17.6, and Linux). A host adds it as a dependency and

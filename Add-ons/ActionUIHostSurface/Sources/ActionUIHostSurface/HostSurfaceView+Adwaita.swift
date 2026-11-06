@@ -206,6 +206,7 @@ final class HostSurfaceView {
 
     private func swiftInfo(_ geometry: Geometry) -> HostSurfaceInfo {
         HostSurfaceInfo(surfaceID: surfaceID, windowUUID: windowUUID, viewID: viewID,
+                        kind: glArea != nil ? AUIHostSurfaceGLArea : AUIHostSurfaceFrameSink,
                         widthPoints: geometry.widthPoints, heightPoints: geometry.heightPoints,
                         scale: geometry.scale, widthPixels: Int(geometry.widthPixels),
                         heightPixels: Int(geometry.heightPixels))

@@ -7,11 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0E5750131D00E6C6C31B1D2B /* HostSurfaceSinks+Apple.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1420CF7CAFD19DCFFEB509B /* HostSurfaceSinks+Apple.swift */; };
 		3AF7D1AFB1D55E9E975176F8 /* HostSurfaceView+Input.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E0C1D10ACE08ABD936054F /* HostSurfaceView+Input.swift */; };
 		5B9FF62CFD44C9C335AD6B82 /* HostSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B4A05E5A335333F6F50037 /* HostSurface.swift */; };
 		5E11629E0A3CB81625521001 /* HostSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572F425DB8221152AFC3BAE0 /* HostSurfaceView.swift */; };
 		79313998CB0D8DB2F077C2B9 /* ActionUIHostSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65ED129D2BADB26B895EA2C3 /* ActionUIHostSurface.swift */; };
+		7A294196367D5D90C7C6EA74 /* HostSurface+Adwaita.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23B0EEECAFBC1F287C954EF /* HostSurface+Adwaita.swift */; };
 		8ABD7CB6E880D6DAF4FE38DB /* HostSurfaceKeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E49674BF5D30C966C049AB /* HostSurfaceKeyCodes.swift */; };
+		B10BE38CDAD4B8E5F2DD6DB2 /* HostSurfaceSinks+Adwaita.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC4310BA7ABAFBC67DCE9ED /* HostSurfaceSinks+Adwaita.swift */; };
+		B482E0381CC5B19928F49372 /* HostSurfaceInputMapping+Adwaita.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D25DF6DB02528DA0CA08553 /* HostSurfaceInputMapping+Adwaita.swift */; };
+		C7D2F2C0E390F433DF786AF6 /* HostSurfaceView+AdwaitaInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD4F586BA1E21517E4BF0E88 /* HostSurfaceView+AdwaitaInput.swift */; };
+		D01E4D22E1D643AF30B0CDC3 /* HostSurfaceView+Adwaita.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D26A115C7E5191B3460F311 /* HostSurfaceView+Adwaita.swift */; };
 		F8D0B44F18C4C515B1B7C7F9 /* HostSurfaceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BFBFCC20D5D130465CE24C /* HostSurfaceRegistry.swift */; };
 		FEFB61FC92E9D3959ADF057F /* HostSurfaceProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCCB89933F1D657C6476099 /* HostSurfaceProperties.swift */; };
 /* End PBXBuildFile section */
@@ -19,11 +25,17 @@
 /* Begin PBXFileReference section */
 		01B4A05E5A335333F6F50037 /* HostSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSurface.swift; sourceTree = "<group>"; };
 		2CCCB89933F1D657C6476099 /* HostSurfaceProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSurfaceProperties.swift; sourceTree = "<group>"; };
+		2D26A115C7E5191B3460F311 /* HostSurfaceView+Adwaita.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurfaceView+Adwaita.swift"; sourceTree = "<group>"; };
+		4D25DF6DB02528DA0CA08553 /* HostSurfaceInputMapping+Adwaita.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurfaceInputMapping+Adwaita.swift"; sourceTree = "<group>"; };
 		572F425DB8221152AFC3BAE0 /* HostSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSurfaceView.swift; sourceTree = "<group>"; };
 		65ED129D2BADB26B895EA2C3 /* ActionUIHostSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIHostSurface.swift; sourceTree = "<group>"; };
 		74E0C1D10ACE08ABD936054F /* HostSurfaceView+Input.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurfaceView+Input.swift"; sourceTree = "<group>"; };
+		7AC4310BA7ABAFBC67DCE9ED /* HostSurfaceSinks+Adwaita.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurfaceSinks+Adwaita.swift"; sourceTree = "<group>"; };
 		A2BFBFCC20D5D130465CE24C /* HostSurfaceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSurfaceRegistry.swift; sourceTree = "<group>"; };
 		A4E49674BF5D30C966C049AB /* HostSurfaceKeyCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSurfaceKeyCodes.swift; sourceTree = "<group>"; };
+		AD4F586BA1E21517E4BF0E88 /* HostSurfaceView+AdwaitaInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurfaceView+AdwaitaInput.swift"; sourceTree = "<group>"; };
+		B1420CF7CAFD19DCFFEB509B /* HostSurfaceSinks+Apple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurfaceSinks+Apple.swift"; sourceTree = "<group>"; };
+		B23B0EEECAFBC1F287C954EF /* HostSurface+Adwaita.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostSurface+Adwaita.swift"; sourceTree = "<group>"; };
 		FB418A9B2304CE8D5EB20645 /* ActionUIHostSurface.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIHostSurface.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -58,10 +70,16 @@
 			children = (
 				65ED129D2BADB26B895EA2C3 /* ActionUIHostSurface.swift */,
 				01B4A05E5A335333F6F50037 /* HostSurface.swift */,
+				B23B0EEECAFBC1F287C954EF /* HostSurface+Adwaita.swift */,
+				4D25DF6DB02528DA0CA08553 /* HostSurfaceInputMapping+Adwaita.swift */,
 				A4E49674BF5D30C966C049AB /* HostSurfaceKeyCodes.swift */,
 				2CCCB89933F1D657C6476099 /* HostSurfaceProperties.swift */,
 				A2BFBFCC20D5D130465CE24C /* HostSurfaceRegistry.swift */,
+				7AC4310BA7ABAFBC67DCE9ED /* HostSurfaceSinks+Adwaita.swift */,
+				B1420CF7CAFD19DCFFEB509B /* HostSurfaceSinks+Apple.swift */,
 				572F425DB8221152AFC3BAE0 /* HostSurfaceView.swift */,
+				2D26A115C7E5191B3460F311 /* HostSurfaceView+Adwaita.swift */,
+				AD4F586BA1E21517E4BF0E88 /* HostSurfaceView+AdwaitaInput.swift */,
 				74E0C1D10ACE08ABD936054F /* HostSurfaceView+Input.swift */,
 				FACAA1A49C6E5F0FCB69443A /* .claude */,
 			);
@@ -163,10 +181,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				79313998CB0D8DB2F077C2B9 /* ActionUIHostSurface.swift in Sources */,
+				7A294196367D5D90C7C6EA74 /* HostSurface+Adwaita.swift in Sources */,
 				5B9FF62CFD44C9C335AD6B82 /* HostSurface.swift in Sources */,
+				B482E0381CC5B19928F49372 /* HostSurfaceInputMapping+Adwaita.swift in Sources */,
 				8ABD7CB6E880D6DAF4FE38DB /* HostSurfaceKeyCodes.swift in Sources */,
 				FEFB61FC92E9D3959ADF057F /* HostSurfaceProperties.swift in Sources */,
 				F8D0B44F18C4C515B1B7C7F9 /* HostSurfaceRegistry.swift in Sources */,
+				B10BE38CDAD4B8E5F2DD6DB2 /* HostSurfaceSinks+Adwaita.swift in Sources */,
+				0E5750131D00E6C6C31B1D2B /* HostSurfaceSinks+Apple.swift in Sources */,
+				D01E4D22E1D643AF30B0CDC3 /* HostSurfaceView+Adwaita.swift in Sources */,
+				C7D2F2C0E390F433DF786AF6 /* HostSurfaceView+AdwaitaInput.swift in Sources */,
 				3AF7D1AFB1D55E9E975176F8 /* HostSurfaceView+Input.swift in Sources */,
 				5E11629E0A3CB81625521001 /* HostSurfaceView.swift in Sources */,
 			);

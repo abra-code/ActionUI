@@ -78,6 +78,8 @@ final class HostSurfaceView: HostSurfacePlatformView {
     #endif
 
     private var displayLink: CADisplayLink?
+    /// "kind": "sink": the layer that shows the presented frames.
+    private(set) var sinkLayer: CALayer?
     private var continuousOverride: Bool?
     private var framePending = false
 
@@ -120,6 +122,14 @@ final class HostSurfaceView: HostSurfacePlatformView {
         }
         #endif
         metalLayer.pixelFormat = .bgra8Unorm
+        if properties.kind == .sink {
+            // The presented frames, scaled to the view, above the (unused) Metal layer.
+            let layer = CALayer()
+            layer.contentsGravity = .resize
+            layer.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull(), "backgroundColor": NSNull()]
+            metalLayer.addSublayer(layer)
+            sinkLayer = layer
+        }
         applyLayerProperties()
         installInputHandlers()
     }
@@ -177,6 +187,8 @@ final class HostSurfaceView: HostSurfacePlatformView {
 
     private func applyLayerProperties() {
         metalLayer.isOpaque = properties.opaque
+        // Opaque, as on Linux: premultiplied colors over black are the colors themselves.
+        sinkLayer?.backgroundColor = properties.opaque ? CGColor(gray: 0, alpha: 1) : nil
         if let displayLink {
             applyFrameRate(to: displayLink)
         }
@@ -239,14 +251,16 @@ final class HostSurfaceView: HostSurfacePlatformView {
     private func info(_ geometry: Geometry) -> AUIHostSurfaceInfo {
         AUIHostSurfaceInfo(
             structSize: UInt32(MemoryLayout<AUIHostSurfaceInfo>.size),
-            kind: Int32(AUIHostSurfaceMetalLayer.rawValue),
-            handle: Unmanaged.passUnretained(metalLayer).toOpaque(),
+            kind: Int32(isSink ? AUIHostSurfaceFrameSink.rawValue : AUIHostSurfaceMetalLayer.rawValue),
+            // A frame sink has no handle: the client presents frames.
+            handle: isSink ? nil : Unmanaged.passUnretained(metalLayer).toOpaque(),
             widthPoints: geometry.widthPoints, heightPoints: geometry.heightPoints, scale: geometry.scale,
             widthPixels: geometry.widthPixels, heightPixels: geometry.heightPixels)
     }
 
     private func swiftInfo(_ geometry: Geometry) -> HostSurfaceInfo {
-        HostSurfaceInfo(surfaceID: surfaceID, windowUUID: windowUUID, viewID: viewID, metalLayer: metalLayer,
+        HostSurfaceInfo(surfaceID: surfaceID, windowUUID: windowUUID, viewID: viewID,
+                        kind: isSink ? AUIHostSurfaceFrameSink : AUIHostSurfaceMetalLayer, metalLayer: metalLayer,
                         widthPoints: geometry.widthPoints, heightPoints: geometry.heightPoints,
                         scale: geometry.scale, widthPixels: Int(geometry.widthPixels),
                         heightPixels: Int(geometry.heightPixels))
@@ -283,6 +297,9 @@ final class HostSurfaceView: HostSurfacePlatformView {
                 return
             }
             surfaceID = HostSurfaceRegistry.shared.announce(self)
+            if isSink {
+                HostSurfaceSinks.open(surfaceID)
+            }
             announcedBinding = binding
             lastGeometry = current
             suspendedSent = false
@@ -310,6 +327,11 @@ final class HostSurfaceView: HostSurfacePlatformView {
         // The client's cursor lasts until "destroyed" (the header): a hidden one must not outlive it.
         if cursor != Int32(AUIHostCursorArrow.rawValue) {
             setCursor(Int32(AUIHostCursorArrow.rawValue))
+        }
+        // Presents from the client's threads fail from here on, and the old client's last frame goes.
+        if isSink {
+            HostSurfaceSinks.close(surfaceID)
+            showContents(nil)
         }
         send(.destroyed, lastGeometry ?? geometry)
         HostSurfaceRegistry.shared.retire(surfaceID)
@@ -535,6 +557,7 @@ final class HostSurfaceView: HostSurfacePlatformView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
+        layoutSink()
         refresh()
     }
 
@@ -554,9 +577,31 @@ final class HostSurfaceView: HostSurfacePlatformView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        layoutSink()
         refresh()
     }
     #endif
+
+    // MARK: frame sink ("kind": "sink")
+
+    /// "kind": "sink": the client presents frames (HostSurfaceSinks+Apple.swift) instead of drawing into the
+    /// Metal layer. Fixed at load.
+    var isSink: Bool {
+        sinkLayer != nil
+    }
+
+    private func layoutSink() {
+        sinkLayer?.frame = CGRect(origin: .zero, size: bounds.size)
+    }
+
+    /// Shows a frame the client presented for this surface (HostSurfaceSinks hands it over).
+    func show(_ frame: HostSurfaceFrame) {
+        showContents(frame.image)
+    }
+
+    private func showContents(_ image: CGImage?) {
+        sinkLayer?.contents = image
+    }
 
     // MARK: frames
 
