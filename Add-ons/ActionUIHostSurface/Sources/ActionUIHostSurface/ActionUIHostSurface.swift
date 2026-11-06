@@ -119,11 +119,16 @@ public protocol HostSurfaceDelegate: AnyObject {
     func hostSurfaceFrame(_ surface: HostSurfaceInfo, timestamp: Double)
     /// Pointer, touch, scroll, gesture, key and focus input; see AUIHostInputEvent in the header.
     func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput)
+    /// GL area only (Linux, "kind": "gl"): draw now, with GTK's GL context current and its framebuffer
+    /// bound. Comes after a frame callback asked for it (requestFrame, or continuous), and when GTK first
+    /// shows or resizes the area.
+    func hostSurfaceRender(_ surface: HostSurfaceInfo)
 }
 
 extension HostSurfaceDelegate {
     public func hostSurfaceFrame(_ surface: HostSurfaceInfo, timestamp: Double) {}
     public func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput) {}
+    public func hostSurfaceRender(_ surface: HostSurfaceInfo) {}
 }
 
 /// One input event for a Swift client: the C struct's numbers, and its strings as Swift strings.

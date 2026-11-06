@@ -14,7 +14,8 @@
 //  A client binds to an element by the element's "surfaceName" property, before or after the
 //  document loads, with actionUIHostSurfaceSetDelegate. Its delegate then receives the surface
 //  events (created, changed, suspended, resumed, destroyed), frame ticks and input. On Apple
-//  platforms the surface is a CAMetalLayer. On Linux it is a frame sink: the client renders where it
+//  platforms the surface is a CAMetalLayer, on Android an ANativeWindow. On Linux it is a frame sink
+//  (or, with "kind": "gl", a GL area the client draws in from the render callback): the client renders where it
 //  likes (offscreen with wgpu or Vulkan, or on the CPU) and presents finished frames with
 //  actionUIHostSurfacePresentPixels.
 //
@@ -192,7 +193,10 @@ typedef struct {
                   double timestampSeconds, void *userData);
     void (*input)(uint64_t surfaceID, const char *windowUUID, int64_t viewID,
                   const AUIHostInputEvent *event, void *userData);
-    /// GL area only (Linux): draw now, with the GL context current. Unused on Apple platforms.
+    /// GL area only (Linux, "kind": "gl"): draw now, with GTK's GL context current and its framebuffer
+    /// bound. Each frame callback asks for one; GTK also renders when it first shows or resizes the
+    /// area. The surface callback runs with the context current too, so GL objects are made in Created
+    /// and freed in Destroyed. Unused on Apple platforms and Android.
     void (*render)(uint64_t surfaceID, const char *windowUUID, int64_t viewID, void *userData);
 } AUIHostSurfaceDelegate;
 

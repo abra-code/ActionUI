@@ -34,13 +34,21 @@ private final class RecordingClient: HostSurfaceDelegate {
     private(set) var events: [HostSurfaceEvent] = []
     private(set) var infos: [HostSurfaceInfo] = []
     private(set) var frames = 0
+    private(set) var renders = 0
     /// Events and input kinds in the order they came.
     private(set) var log: [String] = []
+    /// Runs inside the surface callback, before the event is recorded.
+    var onEvent: ((HostSurfaceEvent) -> Void)?
 
     func hostSurface(_ surface: HostSurfaceInfo, event: HostSurfaceEvent) {
+        onEvent?(event)
         events.append(event)
         infos.append(surface)
         log.append("\(event)")
+    }
+
+    func hostSurfaceRender(_ surface: HostSurfaceInfo) {
+        renders += 1
     }
 
     func hostSurfaceInput(_ surface: HostSurfaceInfo, event: HostSurfaceInput) {
@@ -54,6 +62,24 @@ private final class RecordingClient: HostSurfaceDelegate {
     var surfaceID: UInt64 { infos.last?.surfaceID ?? 0 }
 }
 
+/// What the C client of "gl-c" saw: its events and renders (callbacks run on the main thread).
+nonisolated(unsafe) private var cEvents: [Int32] = []
+nonisolated(unsafe) private var cRenders = 0
+nonisolated(unsafe) private var cKind: Int32 = 0
+
+/// A C delegate, as a C or Rust client binds one, for the render callback's C path.
+nonisolated(unsafe) private var cDelegate = AUIHostSurfaceDelegate(
+    structSize: UInt32(MemoryLayout<AUIHostSurfaceDelegate>.size),
+    surface: { _, _, _, event, info, _ in
+        cEvents.append(event)
+        if let info {
+            cKind = info.pointee.kind
+        }
+    },
+    frame: nil,
+    input: nil,
+    render: { _, _, _, _ in cRenders += 1 })
+
 @MainActor
 final class HostSurfaceGtkTests: XCTestCase {
     private let windowUUID = "host-surface-gtk"
@@ -64,7 +90,9 @@ final class HostSurfaceGtkTests: XCTestCase {
             {"type": "HostSurface", "id": 5, "properties": {"surfaceName": "viewport", "frame": {"width": 200, "height": 120}}},
             {"type": "HostSurface", "id": 6, "properties": {"surfaceName": "other", "idealWidth": 50, "idealHeight": 40,
                                                             "hidden": true}},
-            {"type": "HostSurface", "id": 7, "properties": {"surfaceName": "placeholder", "kind": "gl"}}
+            {"type": "HostSurface", "id": 7, "properties": {"surfaceName": "placeholder", "kind": "vulkan"}},
+            {"type": "HostSurface", "id": 8, "properties": {"surfaceName": "gl", "kind": "gl", "frame": {"width": 100, "height": 80}}},
+            {"type": "HostSurface", "id": 9, "properties": {"surfaceName": "gl-c", "kind": "gl", "frame": {"width": 60, "height": 40}}}
         ]}
         """
 
@@ -100,6 +128,10 @@ final class HostSurfaceGtkTests: XCTestCase {
         let replacement = RecordingClient()
         ActionUIHostSurface.setDelegate(first, forSurfaceName: "viewport")
         ActionUIHostSurface.setDelegate(second, forSurfaceName: "other")
+        let gl = RecordingClient()
+        let glSuccessor = RecordingClient()
+        ActionUIHostSurface.setDelegate(gl, forSurfaceName: "gl")
+        XCTAssertTrue(actionUIHostSurfaceSetDelegate("gl-c", &cDelegate, nil), "a C client binds on the main thread")
         var firstID: UInt64 = 0
 
         // Each step runs after the updates of the one before it, on the main loop.
@@ -115,7 +147,14 @@ final class HostSurfaceGtkTests: XCTestCase {
                 XCTAssertEqual(second.infos.first?.widthPoints, 400, "it grows to the width it is offered")
                 XCTAssertEqual(ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 5, key: "size") as? [Double],
                                [200, 120], "the size state")
-                XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 2, "the placeholder announces nothing")
+                XCTAssertEqual(gl.events, [.created], "the GL area is announced once it has a context")
+                XCTAssertEqual(gl.infos.first?.widthPoints, 100)
+                XCTAssertNotNil(HostSurfaceRegistry.shared.liveSurface(gl.surfaceID)?.glArea, "a GtkGLArea child")
+                XCTAssertFalse(presentFromAnotherThread(gl.surfaceID), "a GL area is no frame sink")
+                ActionUIHostSurface.requestFrame(surfaceID: gl.surfaceID)
+                XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 4, "the placeholder announces nothing")
+                XCTAssertEqual(cEvents, [Int32(AUIHostSurfaceCreated.rawValue)], "the C client got created")
+                XCTAssertEqual(cKind, Int32(AUIHostSurfaceGLArea.rawValue), "for a GL area")
                 firstID = first.surfaceID
                 XCTAssertTrue(presentFromAnotherThread(firstID), "a live surface takes a frame from any thread")
                 XCTAssertFalse(presentFromAnotherThread(9_999), "an unknown surface does not")
@@ -123,6 +162,9 @@ final class HostSurfaceGtkTests: XCTestCase {
             },
             { [self] in
                 XCTAssertEqual(textureWidth(firstID), 4, "the presented frame is shown")
+                XCTAssertGreaterThanOrEqual(gl.frames, 1, "the GL client got its frame")
+                XCTAssertGreaterThanOrEqual(gl.renders, 1, "and the render it asked for")
+                XCTAssertGreaterThanOrEqual(cRenders, 1, "the C client's render callback is called (the area's first show)")
                 XCTAssertEqual(first.frames, 1, "one requested frame came, and no more")
                 setProperty(5, "hidden", true)
             },
@@ -173,11 +215,21 @@ final class HostSurfaceGtkTests: XCTestCase {
             },
             { [self] in
                 XCTAssertGreaterThanOrEqual(replacement.frames, 2, "continuous frames come")
+                // A client rebinding inside the GL area's "destroyed": the area is not announced again for the
+                // context that is about to go.
+                gl.onEvent = { event in
+                    if event == .destroyed {
+                        ActionUIHostSurface.setDelegate(glSuccessor, forSurfaceName: "gl")
+                    }
+                }
                 AdwaitaApplication.shared.closeWindow(windowUUID)
             },
             { [self] in
                 XCTAssertEqual(replacement.events.last, .destroyed, "closing the window destroys")
                 XCTAssertEqual(second.events.last, .destroyed)
+                XCTAssertEqual(gl.events.last, .destroyed, "the GL area's surface goes with its window")
+                XCTAssertEqual(cEvents.last, Int32(AUIHostSurfaceDestroyed.rawValue), "and the C client's")
+                XCTAssertEqual(glSuccessor.events, [], "no created for a context about to go")
                 XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 0)
                 XCTAssertFalse(presentFromAnotherThread(replacement.surfaceID))
                 stepsRun += 1

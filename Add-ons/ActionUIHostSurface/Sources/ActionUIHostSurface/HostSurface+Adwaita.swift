@@ -2,7 +2,8 @@
 /*
  The HostSurface element on Linux, the counterpart of HostSurface.swift (the sample JSON and the properties are
  there): the same JSON over a frame sink, HostSurfaceView+Adwaita.swift. "kind" "native" (the default) and "sink"
- are the frame sink; "gl" is not available yet and draws a placeholder, as an unknown kind does.
+ are the frame sink; "gl" is a GtkGLArea the client draws in from the render callback, with GTK's GL context
+ current. An unknown kind draws a placeholder.
 
  Size: the ideal size (idealWidth, idealHeight; 320 x 240 by default) is the natural size, and the element grows
  to what it is offered, as the SwiftUI element takes the proposed size. frame and padding work as usual.

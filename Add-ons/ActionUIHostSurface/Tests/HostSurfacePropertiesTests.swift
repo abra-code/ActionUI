@@ -54,9 +54,10 @@ final class HostSurfacePropertiesTests: XCTestCase {
 
     func testKindsThisPlatformLacksAreUnsupported() {
         #if os(Linux)
-        let lacking = ["gl", "vulkan"]
+        let lacking = ["vulkan"]
         let sink = HostSurfaceProperties(["surfaceName": "s", "kind": "sink"], logger: RecordingLogger())
         XCTAssertEqual(sink.kind, .native, "the frame sink is the native kind on Linux")
+        XCTAssertEqual(HostSurfaceProperties(["surfaceName": "s", "kind": "gl"], logger: RecordingLogger()).kind, .gl)
         #else
         let lacking = ["sink", "gl", "vulkan"]
         #endif

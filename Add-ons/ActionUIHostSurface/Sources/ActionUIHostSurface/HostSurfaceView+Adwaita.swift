@@ -19,6 +19,13 @@
 //
 // Frame callbacks come from the widget's tick callback (the window's frame clock) while announced, not
 // suspended, and continuous or asked for a frame.
+//
+// "kind" "gl": the widget holds a GtkGLArea child instead of showing presented frames. The client draws in the
+// render callback, which each frame callback asks for (and GTK, when it first shows or resizes the area), with
+// GTK's GL context current and its framebuffer bound; "created", "changed" and "destroyed" also come with the
+// context current, so the client makes and frees its GL objects there. The surface exists while the GL area is
+// realized with a context: "destroyed" comes when it unrealizes (its window closes, the element goes), before the
+// context does.
 
 #if os(Linux)
 
@@ -48,6 +55,11 @@ final class HostSurfaceView {
     private(set) var announcedBinding: HostSurfaceBinding?
     private(set) var suspendedSent = false
     private var lastGeometry: Geometry?
+
+    /// "kind" "gl": the GtkGLArea child the client draws in (owned by the widget, a child of it).
+    private(set) var glArea: UnsafeMutablePointer<GtkWidget>?
+    /// Inside the GL area's unrealize, after "destroyed": its context is about to go.
+    private var glContextGoing = false
 
     /// The newest presented frame (a GdkTexture this view holds a reference to).
     private(set) var texture: OpaquePointer?
@@ -95,6 +107,9 @@ final class HostSurfaceView {
             loaded = true
             surfaceName = new.surfaceName
             properties = new
+            if new.kind == .gl {
+                makeGLArea()
+            }
         } else if (new.surfaceName != surfaceName || new.kind != properties.kind) && !warnedFixedProperties {
             warnedFixedProperties = true
             logger.log("HostSurface \(viewID): 'surfaceName' and 'kind' are fixed at load; the change is ignored", .warning)
@@ -183,7 +198,7 @@ final class HostSurfaceView {
     private func info(_ geometry: Geometry) -> AUIHostSurfaceInfo {
         AUIHostSurfaceInfo(
             structSize: UInt32(MemoryLayout<AUIHostSurfaceInfo>.size),
-            kind: Int32(AUIHostSurfaceFrameSink.rawValue),
+            kind: Int32(glArea != nil ? AUIHostSurfaceGLArea.rawValue : AUIHostSurfaceFrameSink.rawValue),
             handle: nil,
             widthPoints: geometry.widthPoints, heightPoints: geometry.heightPoints, scale: geometry.scale,
             widthPixels: geometry.widthPixels, heightPixels: geometry.heightPixels)
@@ -227,16 +242,23 @@ final class HostSurfaceView {
         let current = geometry
         if surfaceID == 0 {
             guard let binding = HostSurfaceRegistry.shared.binding(for: surfaceName), isInWindow,
-                  current.hasPixels else {
+                  current.hasPixels, glArea == nil || glReady else {
                 updateFrames()
                 return
             }
             surfaceID = HostSurfaceRegistry.shared.announce(self)
-            HostSurfaceSinks.open(surfaceID)
+            if glArea == nil {
+                HostSurfaceSinks.open(surfaceID)
+            }
             announcedBinding = binding
             lastGeometry = current
             suspendedSent = false
             send(.created, current)
+            if let area = typedGLArea, !isTornDown {
+                // The area shows from now on, with the client's first drawing.
+                gtk_gl_area_queue_render(area)
+                gtk_widget_queue_draw(widget)
+            }
         } else if current != lastGeometry, current.hasPixels {
             lastGeometry = current
             send(.changed, current)
@@ -269,6 +291,8 @@ final class HostSurfaceView {
         updateFocusDelivery()
         // Presents from the client's threads fail from here on; a frame waiting for the main thread is dropped.
         HostSurfaceSinks.close(surfaceID)
+        // A GL client frees its GL objects in "destroyed", in its context.
+        makeGLCurrent()
         send(.destroyed, lastGeometry ?? geometry)
         HostSurfaceRegistry.shared.retire(surfaceID)
         surfaceID = 0
@@ -317,6 +341,8 @@ final class HostSurfaceView {
         guard let binding = announcedBinding else {
             return
         }
+        // A GL client may make GL calls in any event.
+        makeGLCurrent()
         let surfaceID = surfaceID
         HostSurfaceRegistry.shared.deliver {
             switch binding.client {
@@ -419,6 +445,17 @@ final class HostSurfaceView {
             drawPlaceholder(snapshot, bounds: &bounds)
             return
         }
+        if let glArea {
+            if glFailed {
+                // No GL context (GL disabled or unavailable): the placeholder, as for a kind the platform lacks.
+                drawPlaceholder(snapshot, bounds: &bounds)
+            } else if surfaceID != 0 {
+                // Only a client's drawing: GTK renders the area on show and resize even with none, into a buffer
+                // nobody drew.
+                gtk_widget_snapshot_child(widget, glArea, snapshot)
+            }
+            return
+        }
         guard let texture else {
             return
         }
@@ -451,6 +488,107 @@ final class HostSurfaceView {
         gtk_snapshot_append_layout(snapshot, layout, &color)
         gtk_snapshot_restore(snapshot)
         g_object_unref(UnsafeMutableRawPointer(layout))
+    }
+
+    // MARK: GL area ("kind": "gl")
+
+    private var typedGLArea: UnsafeMutablePointer<GtkGLArea>? {
+        glArea.map { UnsafeMutableRawPointer($0).assumingMemoryBound(to: GtkGLArea.self) }
+    }
+
+    /// The GL area is realized with a working context: the surface can be announced.
+    private var glReady: Bool {
+        guard !glContextGoing, let glArea, let area = typedGLArea, gtk_widget_get_realized(glArea) != 0 else {
+            return false
+        }
+        return gtk_gl_area_get_context(area) != nil && gtk_gl_area_get_error(area) == nil
+    }
+
+    /// The GL area is realized but has no working context.
+    private var glFailed: Bool {
+        guard let glArea, let area = typedGLArea, gtk_widget_get_realized(glArea) != 0 else {
+            return false
+        }
+        return gtk_gl_area_get_context(area) == nil || gtk_gl_area_get_error(area) != nil
+    }
+
+    /// Makes the GL area's context current, for "created", "changed" and "destroyed" (render has it already).
+    private func makeGLCurrent() {
+        if glReady, let area = typedGLArea {
+            gtk_gl_area_make_current(area)
+        }
+    }
+
+    /// The GL area child: it fills the widget, takes no pointer events (the widget's controllers do), and renders
+    /// only when asked (a frame callback, or GTK showing or resizing it); a plain redraw shows the last rendering.
+    private func makeGLArea() {
+        guard let area = gtk_gl_area_new() else {
+            return
+        }
+        glArea = area
+        gtk_widget_set_can_target(area, 0)
+        gtk_widget_set_focusable(area, 0)
+        gtk_gl_area_set_auto_render(UnsafeMutableRawPointer(area).assumingMemoryBound(to: GtkGLArea.self), 0)
+        gtk_widget_set_parent(area, widget)
+        let signals: [(String, GCallback)] = [
+            ("realize", unsafeBitCast(glRealizedTrampoline, to: GCallback.self)),
+            ("unrealize", unsafeBitCast(glUnrealizingTrampoline, to: GCallback.self)),
+            ("render", unsafeBitCast(glRenderTrampoline, to: GCallback.self)),
+        ]
+        for (signal, callback) in signals {
+            let box = Unmanaged.passRetained(WeakHostSurfaceView(self)).toOpaque()
+            g_signal_connect_data(UnsafeMutableRawPointer(area), signal, callback, box, releaseWeakView,
+                                  GConnectFlags(rawValue: 0))
+        }
+    }
+
+    /// The widget is being disposed: the GL area goes with it.
+    func removeChildren() {
+        if let glArea {
+            gtk_widget_unparent(glArea)
+            self.glArea = nil
+        }
+    }
+
+    fileprivate func glRealized() {
+        if let area = typedGLArea, let error = gtk_gl_area_get_error(area) {
+            logger.log("HostSurface \(viewID): no GL context: \(String(cString: error.pointee.message))", .warning)
+            gtk_widget_queue_draw(widget)
+        }
+        refresh()
+    }
+
+    /// The GL area's context is about to go (its window closes, the element is removed): "destroyed" now,
+    /// while the client can still free its GL objects in it.
+    fileprivate func glUnrealizing() {
+        HostSurfaceRegistry.shared.deliver {
+            retract()
+            // A rebinding made inside "destroyed" applies as this returns, still before the context goes: it must
+            // not announce the area again for that context.
+            glContextGoing = true
+        }
+        glContextGoing = false
+    }
+
+    /// GTK renders the GL area: the client draws, with the context current and the framebuffer bound.
+    fileprivate func glRender() {
+        guard surfaceID != 0, !suspendedSent, let binding = announcedBinding else {
+            return
+        }
+        let surfaceID = surfaceID
+        HostSurfaceRegistry.shared.deliver {
+            switch binding.client {
+            case .c(let delegate, let userData):
+                guard let callback = delegate.render else {
+                    return
+                }
+                windowUUID.withCString { uuid in
+                    callback(surfaceID, uuid, Int64(viewID), userData)
+                }
+            case .swift(let delegate):
+                delegate.hostSurfaceRender(swiftInfo(lastGeometry ?? geometry))
+            }
+        }
     }
 
     // MARK: cursor
@@ -487,6 +625,13 @@ final class HostSurfaceView {
     // MARK: what the widget reports (HostSurfaceWidget)
 
     func allocated() {
+        if let glArea {
+            // GTK wants a widget measured before it is allocated.
+            var minimum: Int32 = 0
+            var natural: Int32 = 0
+            gtk_widget_measure(glArea, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, nil, nil)
+            gtk_widget_allocate(glArea, gtk_widget_get_width(widget), gtk_widget_get_height(widget), -1, nil)
+        }
         refresh()
     }
 
@@ -600,6 +745,10 @@ final class HostSurfaceView {
                 }
             }
         }
+        // A GL client draws in the render callback, which this asks for.
+        if let glArea, surfaceID != 0, !suspendedSent {
+            gtk_gl_area_queue_render(UnsafeMutableRawPointer(glArea).assumingMemoryBound(to: GtkGLArea.self))
+        }
         let wanted = surfaceID != 0 && !suspendedSent && (continuous || framePending)
         if !wanted {
             // GTK removes the callback when it returns false.
@@ -639,6 +788,38 @@ private let windowChangedTrampoline: @convention(c) (gpointer?, gpointer?, gpoin
     MainActor.assumeIsolated {
         Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.refresh()
     }
+}
+
+/// The GL area's realize and unrealize (before its context goes), and render (the client draws; true: handled).
+private let glRealizedTrampoline: @convention(c) (gpointer?, gpointer?) -> Void = { _, data in
+    guard let data else {
+        return
+    }
+    nonisolated(unsafe) let box = data
+    MainActor.assumeIsolated {
+        Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.glRealized()
+    }
+}
+
+private let glUnrealizingTrampoline: @convention(c) (gpointer?, gpointer?) -> Void = { _, data in
+    guard let data else {
+        return
+    }
+    nonisolated(unsafe) let box = data
+    MainActor.assumeIsolated {
+        Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.glUnrealizing()
+    }
+}
+
+private let glRenderTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> gboolean = { _, _, data in
+    guard let data else {
+        return 1
+    }
+    nonisolated(unsafe) let box = data
+    MainActor.assumeIsolated {
+        Unmanaged<WeakHostSurfaceView>.fromOpaque(box).takeUnretainedValue().view?.glRender()
+    }
+    return 1
 }
 
 /// notify::is-active of the window: focus may have come or gone.
@@ -693,7 +874,9 @@ enum HostSurfaceWidget {
                 guard let object else { return }
                 nonisolated(unsafe) let target = object
                 MainActor.assumeIsolated {
-                    view(of: UnsafeMutableRawPointer(target).assumingMemoryBound(to: GtkWidget.self))?.teardown()
+                    let view = view(of: UnsafeMutableRawPointer(target).assumingMemoryBound(to: GtkWidget.self))
+                    view?.teardown()
+                    view?.removeChildren()
                 }
                 parentClass?.withMemoryRebound(to: GObjectClass.self, capacity: 1) { $0.pointee.dispose?(object) }
             }

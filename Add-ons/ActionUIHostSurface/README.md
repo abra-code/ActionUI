@@ -67,7 +67,15 @@ thread. The pixels are copied, frames that come faster than the display are merg
 drawn scaled to the element. After "destroyed" the call returns false. Frame ticks come from the
 window's frame clock at the display's rate (`preferredFrameRate` is ignored there: GTK's frame clock takes no
 rate); "suspended" also comes when the window is minimized or the compositor reports it
-not visible at all. `kind` "gl" (a GL area) is not available yet and draws the placeholder.
+not visible at all.
+
+`kind` "gl" is a GtkGLArea instead, for OpenGL clients: the client draws in the delegate's `render` callback
+(`hostSurfaceRender` for a Swift client), with GTK's GL context current and its framebuffer bound. Each frame
+callback asks for a render (continuous, or `actionUIHostSurfaceRequestFrame`), and GTK renders too when it
+first shows or resizes the area (a plain redraw shows the last rendering). "created", "changed" and "destroyed" also come with the context current, so the client makes
+and frees its GL objects there; "destroyed" comes when the area unrealizes, before its context goes. The client
+brings its own GL loader. The info's kind is `AUIHostSurfaceGLArea`, with no handle, and
+`actionUIHostSurfacePresentPixels` returns false for it.
 
 The element is linked into `libActionUI.so` (`ActionUIAdwaita/Library`), which registers it, so programs
 in other languages need no register call; the library package ships the header as
