@@ -125,7 +125,9 @@ def macos_setup_arguments():
             has_adapter   = os.path.isdir(os.path.join(d, 'ActionUICAdapter.framework'))
             has_appkit    = os.path.isdir(os.path.join(d, 'ActionUIAppKitApplication.framework'))
             has_remote    = os.path.isdir(os.path.join(d, 'ActionUIRemote.framework'))
-            if has_actionui and has_adapter and has_appkit and has_remote:
+            # The HostSurface add-on (build_and_install.sh builds it after the others).
+            has_surface   = os.path.isdir(os.path.join(d, 'ActionUIHostSurface.framework'))
+            if has_actionui and has_adapter and has_appkit and has_remote and has_surface:
                 return d
 
         return None
@@ -136,12 +138,13 @@ def macos_setup_arguments():
         print(
             "Error: could not locate all required static frameworks.\n"
             "\n"
-            "Provide the path to the directory that contains all four static .framework\n"
-            "bundles using the ACTIONUI_FRAMEWORKS_DIR environment variable:\n"
+            "Provide the path to the directory that contains the five static .framework\n"
+            "bundles (ActionUI, ActionUICAdapter, ActionUIAppKitApplication, ActionUIRemote,\n"
+            "ActionUIHostSurface) using the ACTIONUI_FRAMEWORKS_DIR environment variable:\n"
             "\n"
             "  ACTIONUI_FRAMEWORKS_DIR=/path/to/frameworks pip install .\n"
             "\n"
-            "Or place both .framework bundles in ./frameworks/ next to this script.\n"
+            "Or place the .framework bundles in ./frameworks/ next to this script.\n"
             "\n"
             "Build the frameworks from the ActionUI Xcode project (see BUILD.md),\n"
             "or download a pre-built archive from the ActionUI GitHub releases.",
@@ -154,6 +157,7 @@ def macos_setup_arguments():
     print(f"  ActionUICAdapter.framework           OK")
     print(f"  ActionUIAppKitApplication.framework  OK")
     print(f"  ActionUIRemote.framework             OK")
+    print(f"  ActionUIHostSurface.framework        OK")
 
     # -----------------------------------------------------------------------
     # Extension definition
@@ -188,7 +192,9 @@ def macos_setup_arguments():
             '-framework', 'ActionUICAdapter',
             '-framework', 'ActionUIAppKitApplication',
             '-framework', 'ActionUIRemote',
+            '-framework', 'ActionUIHostSurface',
             # System frameworks used by ActionUI's Swift code.
+            # (QuartzCore and Metal: the HostSurface element's CAMetalLayer.)
             # clang resolves these from the SDK sysroot on any standard macOS
             # setup, but listing them explicitly avoids surprises in CI or
             # non-standard toolchain environments.
@@ -197,6 +203,8 @@ def macos_setup_arguments():
             '-framework', 'AppKit',
             '-framework', 'AVKit',
             '-framework', 'Charts',
+            '-framework', 'QuartzCore',
+            '-framework', 'Metal',
             f"-mmacosx-version-min={MIN_MACOS_VERSION}",
         ],
     )
@@ -262,7 +270,8 @@ def linux_setup_arguments():
     for d in candidates:
         has_library = os.path.isfile(os.path.join(d, 'lib', 'libActionUI.so'))
         has_headers = (os.path.isfile(os.path.join(d, 'include', 'ActionUICAdapter', 'ActionUIC.h'))
-                       and os.path.isfile(os.path.join(d, 'include', 'ActionUIAppKitApplication', 'ActionUIApp.h')))
+                       and os.path.isfile(os.path.join(d, 'include', 'ActionUIAppKitApplication', 'ActionUIApp.h'))
+                       and os.path.isfile(os.path.join(d, 'include', 'ActionUIHostSurface', 'ActionUIHostSurface.h')))
         has_licenses = all(os.path.isfile(os.path.join(d, source))
                            for source, _ in build_ext_with_library.license_files)
         if has_library and has_headers and not has_licenses:
@@ -305,7 +314,9 @@ def linux_setup_arguments():
         include_dirs=[os.path.join(library_dir, 'include')],
         library_dirs=[os.path.join(library_dir, 'lib')],
         libraries=['ActionUI'],
-        extra_link_args=['-Wl,-rpath,$ORIGIN'],
+        # GLib, for an idle source (the HostSurface bindings free a retired client on a later main-loop turn);
+        # libActionUI.so needs it already, and the versioned name links it without GLib's development files.
+        extra_link_args=['-Wl,-rpath,$ORIGIN', '-l:libglib-2.0.so.0'],
     )
 
     return {

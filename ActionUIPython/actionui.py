@@ -193,6 +193,8 @@ class Application:
             _actionui.app_set_resource_folder(os.path.abspath(resource_folder))
 
         _actionui.set_default_action_handler(self._action_bridge)
+        # The HostSurface element, before the first document loads (on Linux libActionUI.so has it already).
+        _actionui.host_surface_register()
         # Register internal bridges so we always handle window lifecycle
         # events regardless of whether the user registers their own handlers.
         _actionui.app_set_window_will_close(self._on_window_will_close)
@@ -702,6 +704,15 @@ class Application:
     # ------------------------------------------------------------------
     # Menu bar
     # ------------------------------------------------------------------
+
+    def set_surface_delegate(self, surface_name: str, delegate: 'SurfaceDelegate'):
+        """Bind `delegate` to every HostSurface element whose surfaceName is `surface_name`; see
+        `set_surface_delegate` (the module function)."""
+        set_surface_delegate(surface_name, delegate)
+
+    def remove_surface_delegate(self, surface_name: str):
+        """Unbind the delegate of `surface_name`; it gets `destroyed` for its surfaces first."""
+        remove_surface_delegate(surface_name)
 
     def load_menu_bar(self, source: Optional[str] = None):
         """Install the default menu bar and optionally apply custom commands.
@@ -1383,6 +1394,233 @@ class Window:
 # Module-level convenience functions
 # ---------------------------------------------------------------------------
 
+# MARK: - HostSurface
+
+class SurfaceKind(IntEnum):
+    """What a HostSurface is (SurfaceInfo.kind)."""
+    METAL_LAYER = _actionui.HOST_SURFACE_METAL_LAYER      # macOS: handle is a CAMetalLayer pointer
+    NATIVE_WINDOW = _actionui.HOST_SURFACE_NATIVE_WINDOW  # Android (not this adapter)
+    GL_AREA = _actionui.HOST_SURFACE_GL_AREA              # Linux "kind": "gl": draw in render()
+    FRAME_SINK = _actionui.HOST_SURFACE_FRAME_SINK        # Linux: present frames with present_pixels()
+
+
+class PixelFormat(IntEnum):
+    """The layout of the pixels given to present_pixels: 4 bytes per pixel, in this order."""
+    BGRA8_PREMULTIPLIED = _actionui.PIXEL_BGRA8_PREMULTIPLIED
+    RGBA8_PREMULTIPLIED = _actionui.PIXEL_RGBA8_PREMULTIPLIED
+    BGRX8 = _actionui.PIXEL_BGRX8   # opaque
+    RGBX8 = _actionui.PIXEL_RGBX8   # opaque
+
+
+class Cursor(IntEnum):
+    """The cursor over a surface, for set_cursor."""
+    ARROW = 0
+    I_BEAM = 1
+    CROSSHAIR = 2
+    POINTING_HAND = 3
+    OPEN_HAND = 4
+    CLOSED_HAND = 5
+    RESIZE_LEFT_RIGHT = 6
+    RESIZE_UP_DOWN = 7
+    NOT_ALLOWED = 8
+    HIDDEN = 9
+
+
+class InputKind(IntEnum):
+    """The kind of an InputEvent."""
+    POINTER_DOWN = 1
+    POINTER_UP = 2
+    POINTER_MOVE = 3
+    POINTER_DRAG = 4
+    POINTER_ENTER = 5
+    POINTER_EXIT = 6
+    POINTER_CANCEL = 7
+    SCROLL = 8
+    MAGNIFY = 9
+    ROTATE = 10
+    KEY_DOWN = 11
+    KEY_UP = 12
+    FOCUS_IN = 13
+    FOCUS_OUT = 14
+
+
+class PointerType(IntEnum):
+    """InputEvent.pointer_type."""
+    MOUSE = 0
+    TOUCH = 1
+    PEN = 2
+
+
+class ScrollUnit(IntEnum):
+    """InputEvent.scroll_unit."""
+    POINTS = 0   # precise deltas (trackpad)
+    STEPS = 1    # wheel steps
+
+
+class ScrollPhase(IntEnum):
+    """InputEvent.scroll_phase."""
+    NONE = 0         # a wheel step, no gesture
+    BEGAN = 1
+    CHANGED = 2
+    ENDED = 3
+    MOMENTUM = 4     # inertia after the fingers lifted
+    MOMENTUM_ENDED = 5
+
+
+class Modifiers:
+    """Bits of InputEvent.modifiers."""
+    SHIFT = 1
+    CONTROL = 2
+    ALT = 4     # Option on macOS
+    META = 8    # Command on macOS, Super on Linux
+    CAPS_LOCK = 16
+
+
+@dataclass(frozen=True)
+class SurfaceInfo:
+    """One surface as a delegate sees it. `surface_id` is new with every `created`; key your state by it.
+    `handle` is the native handle as an integer (a CAMetalLayer pointer on macOS), None for a frame sink or a GL
+    area, and valid until `destroyed` for this surface returns."""
+    surface_id: int
+    window_uuid: str
+    view_id: int
+    kind: SurfaceKind
+    handle: Optional[int]
+    width_points: float
+    height_points: float
+    scale: float          # pixels per point
+    width_pixels: int
+    height_pixels: int
+
+
+@dataclass(frozen=True)
+class InputEvent:
+    """One input event. Positions are in points from the surface's top-left corner. Scroll deltas say how far
+    the content should move, positive to the right and down, in `scroll_unit` (0 points, 1 wheel steps)."""
+    kind: InputKind
+    pointer_type: int     # 0 mouse, 1 touch, 2 pen
+    button: int           # 0 primary, 1 secondary, 2 middle
+    pointer_id: int
+    modifiers: int        # Modifiers bits
+    click_count: int
+    x: float
+    y: float
+    delta_x: float
+    delta_y: float
+    scroll_unit: int
+    scroll_phase: int
+    pressure: float
+    tilt_x: float
+    tilt_y: float
+    key_code: int         # the platform key code
+    code: str             # the W3C key name ("KeyA", "ArrowLeft"); "" when unknown
+    text: Optional[str]   # the text a key down produced
+    timestamp: float
+
+
+class SurfaceDelegate:
+    """A client of HostSurface elements: override the methods you need. Every method runs on the main thread.
+
+    - created / changed: the surface has a window, a nonzero pixel size, and this delegate (changed: a new size
+      or scale). Build or resize the renderer at info.width_pixels x info.height_pixels.
+    - suspended / resumed: the surface left the screen (hidden, zero size, an occluded window) or came back.
+    - destroyed: stop all use of the surface before returning. Comes before a successor's created.
+    - frame: a display refresh, at every one while continuous, else one per request_frame.
+    - input: pointer, touch, scroll, gesture, key and focus input.
+    - render: a GL area only (Linux, "kind": "gl"): draw now with GL; GTK's context is current.
+
+    An exception a method raises is printed, and the application keeps running.
+    """
+
+    def created(self, info: SurfaceInfo): pass
+    def changed(self, info: SurfaceInfo): pass
+    def suspended(self, info: SurfaceInfo): pass
+    def resumed(self, info: SurfaceInfo): pass
+    def destroyed(self, info: SurfaceInfo): pass
+    def frame(self, surface_id: int, timestamp: float): pass
+    def input(self, surface_id: int, event: InputEvent): pass
+    def render(self, surface_id: int): pass
+
+
+def _surface_bridge(delegate: SurfaceDelegate) -> Callable:
+    """The callable the native module calls for one binding: dispatches to the delegate's methods."""
+    def bridge(kind: str, surface_id: int, window_uuid: str, view_id: int, payload):
+        try:
+            if kind == 'frame':
+                delegate.frame(surface_id, payload)
+            elif kind == 'input':
+                fields = list(payload)
+                fields[0] = InputKind(fields[0]) if fields[0] in InputKind._value2member_map_ else fields[0]
+                delegate.input(surface_id, InputEvent(*fields))
+            elif kind == 'render':
+                delegate.render(surface_id)
+            else:
+                surface_kind, handle, wpt, hpt, scale, wpx, hpx = payload
+                if surface_kind in SurfaceKind._value2member_map_:
+                    surface_kind = SurfaceKind(surface_kind)
+                info = SurfaceInfo(surface_id, window_uuid, view_id, surface_kind, handle, wpt, hpt, scale, wpx, hpx)
+                getattr(delegate, kind)(info)
+        except (SystemExit, KeyboardInterrupt):
+            # Ctrl-C, or sys.exit() in a delegate method: end the application the normal way, not from inside
+            # the add-on's callback.
+            _actionui.app_terminate()
+        except BaseException:
+            import traceback
+            traceback.print_exc()
+    return bridge
+
+
+def set_surface_delegate(surface_name: str, delegate: SurfaceDelegate):
+    """Bind `delegate` to every HostSurface element whose surfaceName is `surface_name`, in every window, now
+    and later. Live surfaces are announced to it at once; a delegate it replaces gets `destroyed` first. Called
+    inside a delegate method, the change takes effect when the outermost callback returns. Main thread only."""
+    if delegate is None:
+        raise TypeError("delegate must not be None; use remove_surface_delegate")
+    _actionui.host_surface_set_delegate(surface_name, _surface_bridge(delegate))
+
+
+def remove_surface_delegate(surface_name: str):
+    """Unbind the delegate of `surface_name`; it gets `destroyed` for its surfaces first. Main thread only."""
+    _actionui.host_surface_set_delegate(surface_name, None)
+
+
+def request_frame(surface_id: int):
+    """One frame callback at the next display refresh. Any thread; never waits."""
+    _actionui.host_surface_request_frame(surface_id)
+
+
+def set_continuous(surface_id: int, continuous: bool):
+    """Frame callbacks at every display refresh on or off, until the element's "continuous" changes. Any thread."""
+    _actionui.host_surface_set_continuous(surface_id, continuous)
+
+
+def set_cursor(surface_id: int, cursor: Cursor) -> bool:
+    """The cursor over the surface, until the next call or its destroyed. Main thread only."""
+    return _actionui.host_surface_set_cursor(surface_id, int(cursor))
+
+
+def present_pixels(surface_id: int, pixels, width: Optional[int] = None, height: Optional[int] = None,
+                   stride: Optional[int] = None, format: PixelFormat = PixelFormat.RGBA8_PREMULTIPLIED) -> bool:
+    """Show one finished frame on a frame-sink surface (Linux): `height` rows of `width` pixels, 4 bytes each in
+    `format`, `stride` bytes apart (default width * 4). `pixels` is anything with the buffer protocol: bytes,
+    bytearray, memoryview, or a C-contiguous NumPy array of shape (height, width, 4) and dtype uint8, whose
+    shape gives width and height when they are left out. The pixels are copied before it returns; frames that
+    come faster than the display are merged. Render at the pixel size of the last created or changed.
+    Any thread; never waits for the main thread. Returns False when the surface is not a live frame sink
+    (always on macOS, whose surfaces are Metal layers, and after destroyed)."""
+    if width is None or height is None:
+        shape = getattr(pixels, 'shape', None)
+        if shape is None or len(shape) != 3 or shape[2] != 4:
+            raise ValueError("width and height are needed unless pixels has a (height, width, 4) shape")
+        height, width = int(shape[0]), int(shape[1])
+    if stride is None:
+        stride = width * 4
+    for name, value in (("width", width), ("height", height), ("stride", stride)):
+        if not 0 < value < 2 ** 32:
+            raise ValueError(f"{name} must be between 1 and 2**32 - 1, got {value}")
+    return _actionui.host_surface_present_pixels(surface_id, width, height, stride, int(format), pixels)
+
+
 def get_version() -> str:
     """Return the ActionUI version string."""
     return _actionui.get_version() or "unknown"
@@ -1412,4 +1650,21 @@ __all__ = [
     'get_version',
     'get_last_error',
     'clear_error',
+    'SurfaceDelegate',
+    'SurfaceInfo',
+    'SurfaceKind',
+    'InputEvent',
+    'InputKind',
+    'Modifiers',
+    'PointerType',
+    'ScrollUnit',
+    'ScrollPhase',
+    'PixelFormat',
+    'Cursor',
+    'set_surface_delegate',
+    'remove_surface_delegate',
+    'request_frame',
+    'set_continuous',
+    'set_cursor',
+    'present_pixels',
 ]

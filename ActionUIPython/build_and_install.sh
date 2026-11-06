@@ -49,8 +49,29 @@ fi
 # xcodebuild places output under SYMROOT/Release/
 BUILT_DIR="$FRAMEWORKS_DIR/Release"
 
-# Verify all four frameworks exist
-for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication ActionUIRemote; do
+# The HostSurface add-on, against the ActionUI framework just built (same SYMROOT). Its intermediates
+# are its own: two projects sharing one OBJROOT delete each other's files as stale, and every run
+# then recompiles all of ActionUI.
+echo "Building the ActionUIHostSurface add-on..."
+# The script runs with set -e: the status is captured with || so a failure reaches the message below.
+status=0
+xcodebuild \
+    -project "$PROJECT_DIR/Add-ons/ActionUIHostSurface/Framework/ActionUIHostSurface.xcodeproj" \
+    -scheme ActionUIHostSurface \
+    -destination 'generic/platform=macOS' \
+    -configuration Release \
+    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+    ONLY_ACTIVE_ARCH=NO \
+    SYMROOT="$FRAMEWORKS_DIR" \
+    OBJROOT="$FRAMEWORKS_DIR/Intermediates-HostSurface" \
+    build > "$FRAMEWORKS_DIR/xcodebuild-hostsurface.log" 2>&1 || status=$?
+if [ "$status" -ne 0 ]; then
+    echo "Error: xcodebuild failed for the HostSurface add-on (status $status); see $FRAMEWORKS_DIR/xcodebuild-hostsurface.log" >&2
+    exit 1
+fi
+
+# Verify all the frameworks exist
+for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication ActionUIRemote ActionUIHostSurface; do
     if [ ! -d "$BUILT_DIR/${fw}.framework" ]; then
         echo "Error: ${fw}.framework not found in $BUILT_DIR" >&2
         exit 1

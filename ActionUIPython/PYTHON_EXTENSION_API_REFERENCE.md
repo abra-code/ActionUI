@@ -698,6 +698,60 @@ err = actionui.get_last_error()
 actionui.clear_error()
 ```
 
+### HostSurface
+
+The `HostSurface` element is a part of a window that the program draws itself (the ActionUIHostSurface add-on;
+linked in on macOS, part of `libActionUI.so` on Linux, registered by `Application()`). A document names it:
+
+```json
+{ "type": "HostSurface", "id": 5, "properties": { "surfaceName": "canvas", "idealWidth": 320, "idealHeight": 240 } }
+```
+
+The program binds a delegate to the name; every method runs on the main thread, and an exception a method
+raises is printed:
+
+```python
+class Canvas(actionui.SurfaceDelegate):
+    def created(self, info):       # a window, a nonzero size, this delegate: build at info.width_pixels x height_pixels
+        actionui.set_continuous(info.surface_id, True)
+    def changed(self, info): ...   # a new size or scale
+    def suspended(self, info): ... # off screen (hidden, zero size, occluded window)
+    def resumed(self, info): ...
+    def destroyed(self, info): ... # stop using the surface before returning
+    def frame(self, surface_id, timestamp):
+        actionui.present_pixels(surface_id, pixels, width, height)   # Linux frame sink
+    def input(self, surface_id, event): ...   # pointer, touch, scroll, gestures, keys, focus
+    def render(self, surface_id): ...         # Linux "kind": "gl": draw with GL, GTK's context current
+
+actionui.set_surface_delegate("canvas", Canvas())   # or app.set_surface_delegate(...)
+```
+
+| Function | Thread | Description |
+|---|---|---|
+| `set_surface_delegate(name, delegate)` | main | Binds `delegate` to every element with that `surfaceName`, now and later. Live surfaces are announced at once; a delegate it replaces gets `destroyed` first. Inside a delegate method, the change takes effect when the outermost callback returns. |
+| `remove_surface_delegate(name)` | main | Unbinds; the delegate gets `destroyed` for its surfaces first. |
+| `request_frame(surface_id)` | any | One `frame` at the next display refresh. |
+| `set_continuous(surface_id, on)` | any | `frame` at every refresh, until the element's `continuous` changes. |
+| `set_cursor(surface_id, Cursor)` | main | The cursor over the surface. |
+| `present_pixels(surface_id, pixels, width=None, height=None, stride=None, format=PixelFormat.RGBA8_PREMULTIPLIED) -> bool` | any | A finished frame for a frame sink. `pixels` is anything with the buffer protocol: `bytes`, `bytearray`, `memoryview`, or a C-contiguous NumPy array of shape `(height, width, 4)` and `uint8`, whose shape gives the size. The pixels are copied with the GIL released; the newest frame wins. False when the surface is not a live frame sink. |
+
+`SurfaceInfo` holds `surface_id` (new with every `created`; key your state by it), `window_uuid`, `view_id`,
+`kind` (`SurfaceKind`), `handle` (the native handle as an integer, or None), the size in points, `scale`, and
+the size in pixels. `InputEvent` holds the `kind` (`InputKind`), pointer type, button, pointer ID, modifiers
+(`Modifiers` bits), click count, `x` and `y` in points, scroll deltas (how far the content should move,
+positive right and down) with their unit and phase, pressure, tilt, and for keys `key_code`, the W3C `code`
+("KeyA") and `text`.
+
+What a surface is, by platform:
+
+- Linux: a frame sink (`SurfaceKind.FRAME_SINK`): render at the pixel size anywhere (NumPy, Pillow, Cairo,
+  wgpu-py offscreen) and hand the frames to `present_pixels`, from any thread. With `"kind": "gl"` in the
+  document, a GL area (`SurfaceKind.GL_AREA`): draw in `render` with PyOpenGL or another GL binding.
+- macOS: a Metal layer (`SurfaceKind.METAL_LAYER`, `handle` is the `CAMetalLayer` pointer) for a Metal binding
+  (PyObjC's Metal framework, for example). `present_pixels` returns False there.
+
+`example_host_surface.py` animates a frame sink from Python.
+
 ---
 
 ## Naming Conventions

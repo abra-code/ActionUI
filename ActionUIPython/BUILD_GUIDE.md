@@ -118,6 +118,12 @@ To use a custom output directory for frameworks:
 
 ### Step 1 — Obtain the static frameworks
 
+The extension also links the HostSurface add-on (`ActionUIHostSurface.framework`, the `HostSurface` element;
+see `PYTHON_EXTENSION_API_REFERENCE.md`). `build_and_install.sh` builds it after the others from
+`Add-ons/ActionUIHostSurface/Framework/ActionUIHostSurface.xcodeproj` (scheme `ActionUIHostSurface`, the same
+`SYMROOT`, an `OBJROOT` of its own); `setup.py` looks for it with the other frameworks and links it with
+QuartzCore and Metal.
+
 #### Option A: Build from source (Xcode)
 
 Open `ActionUI.xcodeproj` and build the three required targets:
@@ -208,6 +214,10 @@ ActionUI library package instead of the static frameworks. No Swift installation
 
 Prerequisites: Python 3 with its development headers (`Python.h`) and setuptools, a C
 compiler (gcc or clang), and at run time GTK 4, libadwaita and libsoup 3.
+
+The HostSurface element is part of `libActionUI.so`, and the package has its header
+(`include/ActionUIHostSurface/ActionUIHostSurface.h`). The extension also links GLib by its versioned name
+(`libglib-2.0.so.0`, which GTK brings), for one idle source; GLib's development files are not needed.
 
 1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
 

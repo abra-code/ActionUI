@@ -10,11 +10,22 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <unistd.h>
 
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
+#include <ActionUIHostSurface/ActionUIHostSurface.h>
+#if defined(__APPLE__)
+#include <dispatch/dispatch.h>
+#else
+/* GLib's idle source, from libglib-2.0.so.0 (libActionUI.so's GTK needs it already): declared here so the
+ * extension builds without GLib's development files. */
+typedef int (*HostSurfaceSourceFunc)(void *data);
+extern unsigned int g_idle_add(HostSurfaceSourceFunc function, void *data);
+#endif
 
 /* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
  * only; on Linux the main thread's ID is the process ID, and Python.h defines _GNU_SOURCE,
@@ -44,6 +55,7 @@ typedef struct {
     PyObject* app_should_terminate;
     PyObject* app_window_will_close;
     PyObject* app_window_will_present;
+    PyObject* host_surface_clients;  // dict: surface name (str) -> capsule of the bound HostSurfaceClient
 } ActionUIModuleState;
 
 static inline ActionUIModuleState* get_state(PyObject* module) {
@@ -1182,6 +1194,351 @@ static PyObject* py_remove_window(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+// MARK: - HostSurface (ActionUIHostSurface.h)
+
+/*
+ * A HostSurface client: the Python bridge the surface events, frames, input and renders of one binding go to
+ * (actionui.py dispatches them to the delegate's methods). One per actionUIHostSurfaceSetDelegate call.
+ *
+ * The add-on applies a binding change made inside one of its callbacks after the outermost callback returns,
+ * and may still call the outgoing client then (its "destroyed"). So an unbound client is not freed at once:
+ * it waits in a retired list, freed on a later main-loop turn when no callback is running (as the Rust crate
+ * does). All of this is on the main thread.
+ */
+typedef struct HostSurfaceClient {
+    PyObject* bridge;
+    struct HostSurfaceClient* next_retired;
+} HostSurfaceClient;
+
+static int s_host_surface_depth = 0;
+static HostSurfaceClient* s_host_surface_retired = NULL;
+static bool s_host_surface_free_scheduled = false;
+
+static void host_surface_schedule_free(void);
+
+/* Frees the retired clients, unless a callback is running (its end schedules this again). Main thread. */
+static void host_surface_free_retired(void) {
+    s_host_surface_free_scheduled = false;
+    if (s_host_surface_depth > 0 || s_host_surface_retired == NULL) {
+        return;
+    }
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    HostSurfaceClient* client = s_host_surface_retired;
+    s_host_surface_retired = NULL;
+    while (client != NULL) {
+        HostSurfaceClient* next = client->next_retired;
+        Py_XDECREF(client->bridge);
+        free(client);
+        client = next;
+    }
+    PyGILState_Release(gstate);
+}
+
+#if defined(__APPLE__)
+static void host_surface_free_retired_dispatch(void* unused) {
+    (void)unused;
+    host_surface_free_retired();
+}
+#else
+static int host_surface_free_retired_idle(void* unused) {
+    (void)unused;
+    host_surface_free_retired();
+    return 0;  /* G_SOURCE_REMOVE */
+}
+#endif
+
+static void host_surface_schedule_free(void) {
+    if (s_host_surface_free_scheduled || s_host_surface_retired == NULL) {
+        return;
+    }
+    s_host_surface_free_scheduled = true;
+#if defined(__APPLE__)
+    dispatch_async_f(dispatch_get_main_queue(), NULL, host_surface_free_retired_dispatch);
+#else
+    g_idle_add(host_surface_free_retired_idle, NULL);
+#endif
+}
+
+static void host_surface_retire(HostSurfaceClient* client) {
+    if (client == NULL) {
+        return;
+    }
+    client->next_retired = s_host_surface_retired;
+    s_host_surface_retired = client;
+    host_surface_schedule_free();
+}
+
+static void host_surface_capsule_destructor(PyObject* capsule) {
+    (void)capsule;  /* The client is retired explicitly, never by the capsule. */
+}
+
+/* Calls client->bridge(kind, surface_id, window_uuid, view_id, payload), stealing a reference to payload. An
+ * exception the bridge lets through is printed, never left set. Called from the add-on on the main thread. */
+static void host_surface_call(void* user_data, const char* kind, uint64_t surface_id, const char* window_uuid,
+                              int64_t view_id, PyObject* payload) {
+    HostSurfaceClient* client = (HostSurfaceClient*)user_data;
+    if (client == NULL || client->bridge == NULL) {
+        Py_XDECREF(payload);
+        return;
+    }
+    s_host_surface_depth += 1;
+    if (payload == NULL) {
+        PyErr_PrintEx(0);  /* 0: no sys.last_traceback, whose frames would keep delegates alive */
+    } else {
+        PyObject* result = PyObject_CallFunction(client->bridge, "sKsLO", kind, (unsigned long long)surface_id,
+                                                 window_uuid != NULL ? window_uuid : "", (long long)view_id, payload);
+        if (result == NULL) {
+            PyErr_PrintEx(0);
+        }
+        Py_XDECREF(result);
+        Py_DECREF(payload);
+    }
+    s_host_surface_depth -= 1;
+    if (s_host_surface_depth == 0) {
+        host_surface_schedule_free();
+    }
+}
+
+static const char* host_surface_event_name(int32_t event) {
+    switch (event) {
+        case AUIHostSurfaceCreated: return "created";
+        case AUIHostSurfaceChanged: return "changed";
+        case AUIHostSurfaceSuspended: return "suspended";
+        case AUIHostSurfaceResumed: return "resumed";
+        case AUIHostSurfaceDestroyed: return "destroyed";
+        default: return NULL;
+    }
+}
+
+static void host_surface_on_surface(uint64_t surface_id, const char* window_uuid, int64_t view_id, int32_t event,
+                                    const AUIHostSurfaceInfo* info, void* user_data) {
+    const char* name = host_surface_event_name(event);
+    if (name == NULL || info == NULL) {
+        return;
+    }
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    /* (kind, handle, width_points, height_points, scale, width_pixels, height_pixels) */
+    PyObject* handle = info->handle != NULL ? PyLong_FromVoidPtr(info->handle) : (Py_INCREF(Py_None), Py_None);
+    PyObject* payload = handle == NULL ? NULL : Py_BuildValue("(iNdddII)", (int)info->kind, handle, info->widthPoints,
+                                                               info->heightPoints, info->scale, info->widthPixels,
+                                                               info->heightPixels);
+    host_surface_call(user_data, name, surface_id, window_uuid, view_id, payload);
+    PyGILState_Release(gstate);
+}
+
+static void host_surface_on_frame(uint64_t surface_id, const char* window_uuid, int64_t view_id, double timestamp,
+                                  void* user_data) {
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    host_surface_call(user_data, "frame", surface_id, window_uuid, view_id, PyFloat_FromDouble(timestamp));
+    PyGILState_Release(gstate);
+}
+
+static void host_surface_on_input(uint64_t surface_id, const char* window_uuid, int64_t view_id,
+                                  const AUIHostInputEvent* event, void* user_data) {
+    if (event == NULL) {
+        return;
+    }
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    /* The fields of AUIHostInputEvent in order (actionui.py names them); the strings as str, text None. */
+    PyObject* text = event->text != NULL ? PyUnicode_DecodeUTF8(event->text, (Py_ssize_t)strlen(event->text), "replace")
+                                         : (Py_INCREF(Py_None), Py_None);
+    PyObject* code = PyUnicode_DecodeUTF8(event->code != NULL ? event->code : "",
+                                          event->code != NULL ? (Py_ssize_t)strlen(event->code) : 0, "replace");
+    PyObject* payload = NULL;
+    if (text != NULL && code != NULL) {
+        payload = Py_BuildValue("(iiiLIiddddiidddINNd)", (int)event->kind, (int)event->pointerType, (int)event->button,
+                                (long long)event->pointerID, (unsigned int)event->modifiers, (int)event->clickCount,
+                                event->x, event->y, event->deltaX, event->deltaY, (int)event->scrollUnit,
+                                (int)event->scrollPhase, event->pressure, event->tiltX, event->tiltY,
+                                (unsigned int)event->keyCode, code, text, event->timestampSeconds);
+    } else {
+        Py_XDECREF(text);
+        Py_XDECREF(code);
+    }
+    host_surface_call(user_data, "input", surface_id, window_uuid, view_id, payload);
+    PyGILState_Release(gstate);
+}
+
+static void host_surface_on_render(uint64_t surface_id, const char* window_uuid, int64_t view_id, void* user_data) {
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    Py_INCREF(Py_None);
+    host_surface_call(user_data, "render", surface_id, window_uuid, view_id, Py_None);
+    PyGILState_Release(gstate);
+}
+
+static PyObject* py_host_surface_register(PyObject* self, PyObject* args) {
+    (void)self;
+    (void)args;
+    if (!is_main_thread()) {
+        PyErr_SetString(PyExc_RuntimeError, "host_surface_register must be called on the main thread");
+        return NULL;
+    }
+    ActionUIHostSurface_register();
+    Py_RETURN_NONE;
+}
+
+/* host_surface_set_delegate(name, bridge|None): binds (or unbinds) the HostSurface elements named name. */
+static PyObject* py_host_surface_set_delegate(PyObject* self, PyObject* args) {
+    const char* name = NULL;
+    PyObject* bridge = NULL;
+    if (!PyArg_ParseTuple(args, "sO", &name, &bridge)) {
+        return NULL;
+    }
+    if (!is_main_thread()) {
+        PyErr_SetString(PyExc_RuntimeError, "host_surface_set_delegate must be called on the main thread");
+        return NULL;
+    }
+    if (name[0] == '\0') {
+        PyErr_SetString(PyExc_ValueError, "the surface name must not be empty");
+        return NULL;
+    }
+    if (bridge != Py_None && !PyCallable_Check(bridge)) {
+        PyErr_SetString(PyExc_TypeError, "the bridge must be callable or None");
+        return NULL;
+    }
+    ActionUIModuleState* state = get_state(self);
+    PyObject* key = PyUnicode_FromString(name);
+    if (key == NULL) {
+        return NULL;
+    }
+    HostSurfaceClient* client = NULL;
+    PyObject* capsule = NULL;
+    if (bridge != Py_None) {
+        client = calloc(1, sizeof(HostSurfaceClient));
+        if (client == NULL) {
+            Py_DECREF(key);
+            return PyErr_NoMemory();
+        }
+        Py_INCREF(bridge);
+        client->bridge = bridge;
+        capsule = PyCapsule_New(client, "actionui.HostSurfaceClient", host_surface_capsule_destructor);
+        if (capsule == NULL) {
+            Py_DECREF(bridge);
+            free(client);
+            Py_DECREF(key);
+            return NULL;
+        }
+    }
+    /* The table is updated before the add-on call: the outgoing client's "destroyed", sent during it, may bind
+     * the name again, and the add-on applies that change after this one, so it must win here too. */
+    HostSurfaceClient* old = NULL;
+    PyObject* old_capsule = PyDict_GetItemWithError(state->host_surface_clients, key);
+    if (old_capsule != NULL) {
+        old = (HostSurfaceClient*)PyCapsule_GetPointer(old_capsule, "actionui.HostSurfaceClient");
+    }
+    Py_XINCREF(old_capsule);
+    int stored = capsule != NULL ? PyDict_SetItem(state->host_surface_clients, key, capsule)
+                                 : (old_capsule != NULL ? PyDict_DelItem(state->host_surface_clients, key) : 0);
+    if (stored != 0) {
+        Py_XDECREF(old_capsule);
+        Py_XDECREF(capsule);
+        if (client != NULL) {
+            Py_DECREF(client->bridge);
+            free(client);
+        }
+        Py_DECREF(key);
+        return NULL;
+    }
+    AUIHostSurfaceDelegate delegate = {
+        .structSize = sizeof(AUIHostSurfaceDelegate),
+        .surface = host_surface_on_surface,
+        .frame = host_surface_on_frame,
+        .input = host_surface_on_input,
+        .render = host_surface_on_render,
+    };
+    bool bound = actionUIHostSurfaceSetDelegate(name, client != NULL ? &delegate : NULL, client);
+    if (!bound) {
+        /* Nothing happened on the add-on's side: put the old client back. */
+        if (old_capsule != NULL) {
+            PyDict_SetItem(state->host_surface_clients, key, old_capsule);
+        } else if (capsule != NULL) {
+            PyDict_DelItem(state->host_surface_clients, key);
+        }
+        Py_XDECREF(old_capsule);
+        Py_XDECREF(capsule);
+        if (client != NULL) {
+            Py_DECREF(client->bridge);
+            free(client);
+        }
+        Py_DECREF(key);
+        PyErr_SetString(PyExc_RuntimeError, "HostSurface refused the delegate");
+        return NULL;
+    }
+    Py_XDECREF(old_capsule);
+    Py_XDECREF(capsule);
+    Py_DECREF(key);
+    host_surface_retire(old);
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_host_surface_request_frame(PyObject* self, PyObject* args) {
+    (void)self;
+    unsigned long long surface_id = 0;
+    if (!PyArg_ParseTuple(args, "K", &surface_id)) {
+        return NULL;
+    }
+    actionUIHostSurfaceRequestFrame((uint64_t)surface_id);
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_host_surface_set_continuous(PyObject* self, PyObject* args) {
+    (void)self;
+    unsigned long long surface_id = 0;
+    int continuous = 0;
+    if (!PyArg_ParseTuple(args, "Kp", &surface_id, &continuous)) {
+        return NULL;
+    }
+    actionUIHostSurfaceSetContinuous((uint64_t)surface_id, continuous != 0);
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_host_surface_set_cursor(PyObject* self, PyObject* args) {
+    (void)self;
+    unsigned long long surface_id = 0;
+    int cursor = 0;
+    if (!PyArg_ParseTuple(args, "Ki", &surface_id, &cursor)) {
+        return NULL;
+    }
+    if (!is_main_thread()) {
+        PyErr_SetString(PyExc_RuntimeError, "host_surface_set_cursor must be called on the main thread");
+        return NULL;
+    }
+    return PyBool_FromLong(actionUIHostSurfaceSetCursor((uint64_t)surface_id, (int32_t)cursor));
+}
+
+/* host_surface_present_pixels(surface_id, width, height, stride, format, pixels) -> bool. pixels: any object
+ * with the buffer protocol (bytes, bytearray, memoryview, a C-contiguous NumPy array). Any thread; the GIL is
+ * released while the add-on copies the pixels. */
+static PyObject* py_host_surface_present_pixels(PyObject* self, PyObject* args) {
+    (void)self;
+    unsigned long long surface_id = 0;
+    unsigned int width = 0;
+    unsigned int height = 0;
+    unsigned int stride = 0;
+    int format = 0;
+    Py_buffer pixels;
+    if (!PyArg_ParseTuple(args, "KIIIiy*", &surface_id, &width, &height, &stride, &format, &pixels)) {
+        return NULL;
+    }
+    if (width == 0 || height == 0 || (unsigned long long)stride < (unsigned long long)width * 4) {
+        PyBuffer_Release(&pixels);
+        PyErr_SetString(PyExc_ValueError, "width and height must be positive, and stride at least width * 4");
+        return NULL;
+    }
+    unsigned long long needed = (unsigned long long)stride * (height - 1) + (unsigned long long)width * 4;
+    if ((unsigned long long)pixels.len < needed) {
+        PyBuffer_Release(&pixels);
+        PyErr_Format(PyExc_ValueError, "the pixels hold %zd bytes; the frame needs %llu", pixels.len, needed);
+        return NULL;
+    }
+    bool shown;
+    Py_BEGIN_ALLOW_THREADS
+    shown = actionUIHostSurfacePresentPixels((uint64_t)surface_id, width, height, stride, (int32_t)format, pixels.buf);
+    Py_END_ALLOW_THREADS
+    PyBuffer_Release(&pixels);
+    return PyBool_FromLong(shown);
+}
+
 // MARK: - Module Definition
 
 static PyMethodDef ActionUIMethods[] = {
@@ -1349,6 +1706,20 @@ static PyMethodDef ActionUIMethods[] = {
     {"app_run_alert",                 py_app_run_alert,                 METH_VARARGS,
      "app_run_alert([configJSON]) -> str|None — run modal NSAlert; returns clicked button title or None."},
 
+    /* HostSurface (ActionUIHostSurface.h) */
+    {"host_surface_register",         py_host_surface_register,         METH_NOARGS,
+     "host_surface_register() -- register the HostSurface element (main thread; libActionUI.so does it on Linux)."},
+    {"host_surface_set_delegate",     py_host_surface_set_delegate,     METH_VARARGS,
+     "host_surface_set_delegate(name, bridge|None) -- bind the HostSurface elements named name (main thread)."},
+    {"host_surface_request_frame",    py_host_surface_request_frame,    METH_VARARGS,
+     "host_surface_request_frame(surface_id) -- one frame callback at the next refresh (any thread)."},
+    {"host_surface_set_continuous",   py_host_surface_set_continuous,   METH_VARARGS,
+     "host_surface_set_continuous(surface_id, on) -- frame callbacks at every refresh (any thread)."},
+    {"host_surface_set_cursor",       py_host_surface_set_cursor,       METH_VARARGS,
+     "host_surface_set_cursor(surface_id, cursor) -> bool -- the cursor over the surface (main thread)."},
+    {"host_surface_present_pixels",   py_host_surface_present_pixels,   METH_VARARGS,
+     "host_surface_present_pixels(surface_id, width, height, stride, format, pixels) -> bool -- a frame for a frame sink (any thread)."},
+
     {NULL, NULL, 0, NULL}
 };
 
@@ -1367,6 +1738,7 @@ static int actionui_traverse(PyObject* module, visitproc visit, void* arg) {
     Py_VISIT(state->app_should_terminate);
     Py_VISIT(state->app_window_will_close);
     Py_VISIT(state->app_window_will_present);
+    Py_VISIT(state->host_surface_clients);
     return 0;
 }
 
@@ -1385,6 +1757,7 @@ static int actionui_clear(PyObject* module) {
     Py_CLEAR(state->app_should_terminate);
     Py_CLEAR(state->app_window_will_close);
     Py_CLEAR(state->app_window_will_present);
+    Py_CLEAR(state->host_surface_clients);
     return 0;
 }
 
@@ -1424,6 +1797,11 @@ PyMODINIT_FUNC PyInit__actionui(void) {
     state->app_should_terminate      = NULL;
     state->app_window_will_close     = NULL;
     state->app_window_will_present   = NULL;
+    state->host_surface_clients      = PyDict_New();
+    if (state->action_handlers == NULL || state->host_surface_clients == NULL) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     /* Log-level constants */
     PyModule_AddIntConstant(module, "LOG_ERROR",   ActionUILogLevelError);
@@ -1431,6 +1809,16 @@ PyMODINIT_FUNC PyInit__actionui(void) {
     PyModule_AddIntConstant(module, "LOG_INFO",    ActionUILogLevelInfo);
     PyModule_AddIntConstant(module, "LOG_DEBUG",   ActionUILogLevelDebug);
     PyModule_AddIntConstant(module, "LOG_VERBOSE", ActionUILogLevelVerbose);
+
+    /* HostSurface kinds and pixel formats (ActionUIHostSurface.h) */
+    PyModule_AddIntConstant(module, "HOST_SURFACE_METAL_LAYER", AUIHostSurfaceMetalLayer);
+    PyModule_AddIntConstant(module, "HOST_SURFACE_NATIVE_WINDOW", AUIHostSurfaceANativeWindow);
+    PyModule_AddIntConstant(module, "HOST_SURFACE_GL_AREA", AUIHostSurfaceGLArea);
+    PyModule_AddIntConstant(module, "HOST_SURFACE_FRAME_SINK", AUIHostSurfaceFrameSink);
+    PyModule_AddIntConstant(module, "PIXEL_BGRA8_PREMULTIPLIED", AUIHostPixelBGRA8Premultiplied);
+    PyModule_AddIntConstant(module, "PIXEL_RGBA8_PREMULTIPLIED", AUIHostPixelRGBA8Premultiplied);
+    PyModule_AddIntConstant(module, "PIXEL_BGRX8", AUIHostPixelBGRX8);
+    PyModule_AddIntConstant(module, "PIXEL_RGBX8", AUIHostPixelRGBX8);
 
     return module;
 }
