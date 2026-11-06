@@ -4,6 +4,11 @@
  * itself into a Uint8Array and presents as pixels (actionui.presentPixels). The canvas shows color bands that
  * drift over time; the slider sets their speed, and a click on the canvas flips their direction.
  *
+ * Frame pacing: while the bands move, the surface is continuous (a frame callback at every display refresh). At
+ * speed 0 the program turns that off and asks for single frames only when the picture must be drawn again (a new
+ * surface, a new size), so a still canvas costs no CPU. This is the pattern to follow for content that changes
+ * only now and then.
+ *
  * The element asks for "kind": "sink", a frame sink on macOS and Linux alike, so the same script draws on both.
  *
  * Run: node example_host_surface.js
@@ -34,14 +39,37 @@ const bands = {
     offset: 0,          // how far the bands have moved, in pixels
     last: null,         // the previous frame's timestamp
 
+    moving() { return this.speed > 0; },
+
+    // Frames at every refresh while the bands move; else one frame, to draw the still picture.
+    pace(surfaceId) {
+        actionui.setContinuous(surfaceId, this.moving());
+        if (!this.moving()) actionui.requestFrame(surfaceId);
+    },
+
+    setSpeed(speed) {
+        const wasMoving = this.moving();
+        this.speed = speed;
+        if (this.moving() !== wasMoving) {
+            // Start timing afresh, so the time spent still does not move the bands at once.
+            this.last = null;
+            for (const surfaceId of this.sizes.keys()) this.pace(surfaceId);
+        }
+    },
+
     created(info) {
         this.resize(info);
         actionui.setCursor(info.surfaceId, actionui.Cursor.POINTING_HAND);
         if (info.kind !== actionui.SurfaceKind.FRAME_SINK) {
             console.log('The surface is not a frame sink: nothing to present here.');
         }
+        this.pace(info.surfaceId);
     },
-    changed(info) { this.resize(info); },
+    changed(info) {
+        this.resize(info);
+        // A new size needs a new picture; while moving, the next refresh brings one anyway.
+        if (!this.moving()) actionui.requestFrame(info.surfaceId);
+    },
     destroyed(info) { this.sizes.delete(info.surfaceId); },
 
     resize(info) {
@@ -50,6 +78,7 @@ const bands = {
     },
 
     input(surfaceId, event) {
+        // At speed 0 the picture does not change, so no frame is needed.
         if (event.kind === actionui.InputKind.POINTER_DOWN) this.direction = -this.direction;
     },
 
@@ -66,7 +95,10 @@ const bands = {
         for (let x = 0; x < width; x++) {
             const index = ((Math.floor((x + offset) / band) % PALETTE.length) + PALETTE.length) % PALETTE.length;
             const [red, green, blue] = PALETTE[index];
-            pixels.set([red, green, blue, 0xFF], x * 4);
+            pixels[x * 4] = red;
+            pixels[x * 4 + 1] = green;
+            pixels[x * 4 + 2] = blue;
+            pixels[x * 4 + 3] = 0xFF;
         }
         for (let y = 1; y < height; y++) pixels.copyWithin(y * width * 4, 0, width * 4);
         actionui.presentPixels(surfaceId, pixels, width, height);
@@ -77,7 +109,7 @@ const app = new actionui.Application({ name: 'HostSurface Example' });
 app.setSurfaceDelegate('bands', bands);
 app.registerHandler('speed', (context) => {
     const value = new actionui.Window(context.windowUuid).getDouble(6);
-    if (value != null) bands.speed = value;
+    if (value != null) bands.setSpeed(value);
 });
 
 const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'actionui-host-surface-example-'));

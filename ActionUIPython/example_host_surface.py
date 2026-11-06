@@ -4,6 +4,11 @@ A HostSurface drawn from Python: a window with an ActionUI slider beside a canva
 and presents as pixels (actionui.present_pixels). The canvas shows color bands that drift over time; the
 slider sets their speed, and a click on the canvas flips their direction.
 
+Frame pacing: while the bands move, the surface is continuous (a frame callback at every display refresh). At
+speed 0 the script turns that off and asks for single frames only when the picture must be drawn again (a new
+surface, a new size), so a still canvas costs no CPU. This is the pattern to follow for content that changes
+only now and then.
+
 The element asks for "kind": "sink", a frame sink on macOS and Linux alike, so the same script draws on both.
 
 Plain Python, no NumPy: each frame builds one row of pixels and repeats it, which bytes do in C.
@@ -37,20 +42,43 @@ class Bands(actionui.SurfaceDelegate):
         self.offset = 0.0       # how far the bands have moved, in pixels
         self.last = None        # the previous frame's timestamp
 
+    def moving(self):
+        return self.speed > 0
+
+    def pace(self, surface_id):
+        """Frames at every refresh while the bands move; else one frame, to draw the still picture."""
+        actionui.set_continuous(surface_id, self.moving())
+        if not self.moving():
+            actionui.request_frame(surface_id)
+
+    def set_speed(self, speed):
+        was_moving = self.moving()
+        self.speed = speed
+        if self.moving() != was_moving:
+            # Start timing afresh, so the time spent still does not move the bands at once.
+            self.last = None
+            for surface_id in self.size:
+                self.pace(surface_id)
+
     def created(self, info):
         self.size[info.surface_id] = (info.width_pixels, info.height_pixels, info.scale)
         actionui.set_cursor(info.surface_id, actionui.Cursor.POINTING_HAND)
         if info.kind != actionui.SurfaceKind.FRAME_SINK:
             print(f"The surface is {info.kind.name}, not a frame sink: nothing to present here.")
+        self.pace(info.surface_id)
 
     def changed(self, info):
         self.size[info.surface_id] = (info.width_pixels, info.height_pixels, info.scale)
+        # A new size needs a new picture; while moving, the next refresh brings one anyway.
+        if not self.moving():
+            actionui.request_frame(info.surface_id)
 
     def destroyed(self, info):
         self.size.pop(info.surface_id, None)
 
     def input(self, surface_id, event):
         if event.kind == actionui.InputKind.POINTER_DOWN:
+            # At speed 0 the picture does not change, so no frame is needed.
             self.direction = -self.direction
 
     def frame(self, surface_id, timestamp):
@@ -79,7 +107,7 @@ app.set_surface_delegate("bands", bands)
 def _speed(context):
     value = actionui.Window(context.window_uuid).get_double(6)
     if value is not None:
-        bands.speed = value
+        bands.set_speed(value)
 
 
 folder = tempfile.mkdtemp(prefix="actionui-host-surface-example-")
