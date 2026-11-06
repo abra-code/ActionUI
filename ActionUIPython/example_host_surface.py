@@ -28,6 +28,7 @@ DOCUMENT = {
          "properties": {"surfaceName": "bands", "kind": "sink", "continuous": True, "idealWidth": 480, "idealHeight": 240}},
         {"type": "Text", "id": 7, "properties": {"text": "Speed (click the canvas to reverse)"}},
         {"type": "Slider", "id": 6, "properties": {"value": 60, "range": {"min": 0, "max": 240}, "valueChangeActionID": "speed"}},
+        {"type": "Text", "id": 8, "properties": {"text": "", "foregroundStyle": "secondary"}},
     ],
 }
 
@@ -37,6 +38,7 @@ PALETTE = [(0x2E, 0x86, 0xDE), (0xF4, 0xA2, 0x59), (0x8C, 0xC0, 0x84), (0xE0, 0x
 class Bands(actionui.SurfaceDelegate):
     def __init__(self):
         self.size = {}          # surface_id -> (width_pixels, height_pixels, scale)
+        self.window = {}        # surface_id -> the UUID of the window it is in
         self.speed = 60.0       # points per second
         self.direction = 1
         self.offset = 0.0       # how far the bands have moved, in pixels
@@ -50,6 +52,9 @@ class Bands(actionui.SurfaceDelegate):
         actionui.set_continuous(surface_id, self.moving())
         if not self.moving():
             actionui.request_frame(surface_id)
+        status = ("Frames: continuous, one at every display refresh" if self.moving()
+                  else "Frames: still, drawn only when asked for (request_frame)")
+        actionui.Window(self.window[surface_id]).set_string(8, status)
 
     def set_speed(self, speed):
         was_moving = self.moving()
@@ -62,6 +67,7 @@ class Bands(actionui.SurfaceDelegate):
 
     def created(self, info):
         self.size[info.surface_id] = (info.width_pixels, info.height_pixels, info.scale)
+        self.window[info.surface_id] = info.window_uuid
         actionui.set_cursor(info.surface_id, actionui.Cursor.POINTING_HAND)
         if info.kind != actionui.SurfaceKind.FRAME_SINK:
             print(f"The surface is {info.kind.name}, not a frame sink: nothing to present here.")
@@ -75,6 +81,7 @@ class Bands(actionui.SurfaceDelegate):
 
     def destroyed(self, info):
         self.size.pop(info.surface_id, None)
+        self.window.pop(info.surface_id, None)
 
     def input(self, surface_id, event):
         if event.kind == actionui.InputKind.POINTER_DOWN:

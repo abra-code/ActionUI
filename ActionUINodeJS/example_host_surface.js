@@ -27,13 +27,14 @@ const DOCUMENT = {
           properties: { surfaceName: 'bands', kind: 'sink', continuous: true, idealWidth: 480, idealHeight: 240 } },
         { type: 'Text', id: 7, properties: { text: 'Speed (click the canvas to reverse)' } },
         { type: 'Slider', id: 6, properties: { value: 60, range: { min: 0, max: 240 }, valueChangeActionID: 'speed' } },
+        { type: 'Text', id: 8, properties: { text: '', foregroundStyle: 'secondary' } },
     ],
 };
 
 const PALETTE = [[0x2E, 0x86, 0xDE], [0xF4, 0xA2, 0x59], [0x8C, 0xC0, 0x84], [0xE0, 0x5A, 0x6A], [0x7A, 0x5C, 0xC9]];
 
 const bands = {
-    sizes: new Map(),   // surfaceId -> { width, height, scale, pixels }
+    sizes: new Map(),   // surfaceId -> { width, height, scale, pixels, windowUuid }
     speed: 60,          // points per second
     direction: 1,
     offset: 0,          // how far the bands have moved, in pixels
@@ -45,6 +46,9 @@ const bands = {
     pace(surfaceId) {
         actionui.setContinuous(surfaceId, this.moving());
         if (!this.moving()) actionui.requestFrame(surfaceId);
+        const status = this.moving() ? 'Frames: continuous, one at every display refresh'
+                                     : 'Frames: still, drawn only when asked for (requestFrame)';
+        new actionui.Window(this.sizes.get(surfaceId).windowUuid).setString(8, 0, status);
     },
 
     setSpeed(speed) {
@@ -74,7 +78,8 @@ const bands = {
 
     resize(info) {
         const { widthPixels: width, heightPixels: height, scale } = info;
-        this.sizes.set(info.surfaceId, { width, height, scale, pixels: new Uint8Array(width * height * 4) });
+        this.sizes.set(info.surfaceId,
+                       { width, height, scale, pixels: new Uint8Array(width * height * 4), windowUuid: info.windowUuid });
     },
 
     input(surfaceId, event) {
