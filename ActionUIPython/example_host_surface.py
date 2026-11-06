@@ -22,7 +22,7 @@ DOCUMENT = {
         {"type": "HostSurface", "id": 5,
          "properties": {"surfaceName": "bands", "kind": "sink", "continuous": True, "idealWidth": 480, "idealHeight": 240}},
         {"type": "Text", "id": 7, "properties": {"text": "Speed (click the canvas to reverse)"}},
-        {"type": "Slider", "id": 6, "properties": {"value": 60, "range": {"min": 0, "max": 240}, "actionID": "speed"}},
+        {"type": "Slider", "id": 6, "properties": {"value": 60, "range": {"min": 0, "max": 240}, "valueChangeActionID": "speed"}},
     ],
 }
 
@@ -32,9 +32,10 @@ PALETTE = [(0x2E, 0x86, 0xDE), (0xF4, 0xA2, 0x59), (0x8C, 0xC0, 0x84), (0xE0, 0x
 class Bands(actionui.SurfaceDelegate):
     def __init__(self):
         self.size = {}          # surface_id -> (width_pixels, height_pixels, scale)
-        self.speed = 60.0       # pixels per second
+        self.speed = 60.0       # points per second
         self.direction = 1
-        self.start = None
+        self.offset = 0.0       # how far the bands have moved, in pixels
+        self.last = None        # the previous frame's timestamp
 
     def created(self, info):
         self.size[info.surface_id] = (info.width_pixels, info.height_pixels, info.scale)
@@ -56,9 +57,11 @@ class Bands(actionui.SurfaceDelegate):
         if surface_id not in self.size:
             return
         width, height, scale = self.size[surface_id]
-        if self.start is None:
-            self.start = timestamp
-        offset = int((timestamp - self.start) * self.speed * scale * self.direction)
+        # Moved by the time since the last frame, so a new speed or direction takes over from where the bands are.
+        if self.last is not None:
+            self.offset += (timestamp - self.last) * self.speed * scale * self.direction
+        self.last = timestamp
+        offset = int(self.offset)
         band = max(1, int(40 * scale))
         row = bytearray()
         for x in range(width):

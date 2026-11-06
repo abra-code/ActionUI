@@ -21,7 +21,7 @@ const DOCUMENT = {
         { type: 'HostSurface', id: 5,
           properties: { surfaceName: 'bands', kind: 'sink', continuous: true, idealWidth: 480, idealHeight: 240 } },
         { type: 'Text', id: 7, properties: { text: 'Speed (click the canvas to reverse)' } },
-        { type: 'Slider', id: 6, properties: { value: 60, range: { min: 0, max: 240 }, actionID: 'speed' } },
+        { type: 'Slider', id: 6, properties: { value: 60, range: { min: 0, max: 240 }, valueChangeActionID: 'speed' } },
     ],
 };
 
@@ -31,7 +31,8 @@ const bands = {
     sizes: new Map(),   // surfaceId -> { width, height, scale, pixels }
     speed: 60,          // points per second
     direction: 1,
-    start: null,
+    offset: 0,          // how far the bands have moved, in pixels
+    last: null,         // the previous frame's timestamp
 
     created(info) {
         this.resize(info);
@@ -55,9 +56,11 @@ const bands = {
     frame(surfaceId, timestamp) {
         const size = this.sizes.get(surfaceId);
         if (!size) return;
-        if (this.start === null) this.start = timestamp;
         const { width, height, scale, pixels } = size;
-        const offset = Math.floor((timestamp - this.start) * this.speed * scale * this.direction);
+        // Moved by the time since the last frame, so a new speed or direction takes over from where the bands are.
+        if (this.last !== null) this.offset += (timestamp - this.last) * this.speed * scale * this.direction;
+        this.last = timestamp;
+        const offset = Math.floor(this.offset);
         const band = Math.max(1, Math.floor(40 * scale));
         // One row, then copied down: rows are the same.
         for (let x = 0; x < width; x++) {
