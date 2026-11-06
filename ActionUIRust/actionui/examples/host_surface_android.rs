@@ -139,8 +139,12 @@ impl RustCanvas {
         let frame = match wgpu_surface::next_frame(&canvas.surface) {
             NextFrame::Draw(frame) => frame,
             NextFrame::Skip => return,
-            NextFrame::Reconfigure | NextFrame::Recreate => {
+            NextFrame::Reconfigure => {
                 canvas.surface.configure(&gpu.device, &canvas.config);
+                return;
+            }
+            NextFrame::Recreate => {
+                self.recreate(id);
                 return;
             }
         };
@@ -181,6 +185,28 @@ impl RustCanvas {
         }
         gpu.queue.submit([encoder.finish()]);
         gpu.queue.present(frame);
+    }
+
+    /// A lost surface: the old wgpu surface is dropped first, as an ANativeWindow takes one surface at a
+    /// time (Vulkan and EGL refuse a second one), then a new one is made. A canvas that cannot get one
+    /// stays removed, and its frames draw nothing.
+    fn recreate(&mut self, id: SurfaceId) {
+        let Some(gpu) = &self.gpu else {
+            return;
+        };
+        let Some(Canvas { surface, config, info, suspended }) = self.canvases.remove(&id) else {
+            return;
+        };
+        drop(surface);
+        // Safety: the info is the live surface's (its destroyed has not come), and the new wgpu surface is
+        // dropped in destroyed, before it returns.
+        match unsafe { wgpu_surface::create(&gpu.instance, &info) } {
+            Ok(surface) => {
+                surface.configure(&gpu.device, &config);
+                self.canvases.insert(id, Canvas { surface, config, info, suspended });
+            }
+            Err(error) => log(&format!("recreate: {error}")),
+        }
     }
 }
 

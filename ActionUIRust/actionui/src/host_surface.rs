@@ -125,6 +125,8 @@ pub enum SurfaceHandle {
     MetalLayer(NonNull<c_void>),
     /// An `ANativeWindow *` (Android). For wgpu: an `AndroidNdk` raw window handle.
     NativeWindow(NonNull<c_void>),
+    /// A GtkGLArea (Linux, the element's "kind" "gl"): no handle; draw in [`SurfaceDelegate::render`].
+    GlArea,
     /// A frame sink (Linux): no handle; render anywhere at the surface's pixel size and present
     /// the pixels with [`SurfaceId::present_pixels`]. For wgpu: `wgpu_surface::FrameSink` (the `wgpu` feature).
     FrameSink,
@@ -163,6 +165,11 @@ pub trait SurfaceDelegate: 'static {
     /// differences only.
     fn frame(&mut self, _surface: SurfaceId, _timestamp: f64) {}
     fn input(&mut self, _surface: SurfaceId, _event: &InputEvent) {}
+    /// A GL area only ([`SurfaceHandle::GlArea`], Linux): draw now, with GTK's GL context current and
+    /// its framebuffer bound. Each frame callback asks for one; GTK also renders when it redraws the area.
+    /// The surface events come with the context current too, so GL objects are made in `created` and
+    /// freed in `destroyed`. The program brings its own GL loader.
+    fn render(&mut self, _surface: SurfaceId) {}
 }
 
 /// The cursor over a surface.
@@ -427,7 +434,7 @@ fn bind(surface_name: &str, delegate: Option<Box<dyn SurfaceDelegate>>) -> Resul
         surface: Some(on_surface),
         frame: Some(on_frame),
         input: Some(on_input),
-        render: None,
+        render: Some(on_render),
     };
     let user_data = slot.as_ref().map_or(std::ptr::null_mut(), |slot| (&**slot as *const Slot).cast_mut().cast::<c_void>());
     // Recorded before the C call: a callback it runs (the old delegate's "destroyed") may bind
@@ -535,6 +542,7 @@ unsafe extern "C" fn on_surface(
     let handle = match (info.kind, NonNull::new(info.handle)) {
         (sys::AUI_HOST_SURFACE_METAL_LAYER, Some(layer)) => SurfaceHandle::MetalLayer(layer),
         (sys::AUI_HOST_SURFACE_FRAME_SINK, _) => SurfaceHandle::FrameSink,
+        (sys::AUI_HOST_SURFACE_GL_AREA, _) => SurfaceHandle::GlArea,
         (sys::AUI_HOST_SURFACE_A_NATIVE_WINDOW, Some(window)) => SurfaceHandle::NativeWindow(window),
         (kind, _) => SurfaceHandle::Other(kind),
     };
@@ -577,6 +585,13 @@ unsafe extern "C" fn on_frame(surface_id: u64, _window_uuid: *const c_char, _vie
         return;
     }
     unsafe { with_delegate("HostSurface frame", user_data, |delegate| delegate.frame(SurfaceId(surface_id), timestamp)) };
+}
+
+unsafe extern "C" fn on_render(surface_id: u64, _window_uuid: *const c_char, _view_id: i64, user_data: *mut c_void) {
+    if user_data.is_null() {
+        return;
+    }
+    unsafe { with_delegate("HostSurface render", user_data, |delegate| delegate.render(SurfaceId(surface_id))) };
 }
 
 unsafe extern "C" fn on_input(

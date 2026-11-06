@@ -508,12 +508,13 @@ With the `host-surface` feature (macOS, Linux, and Android, where a Rust library
 
 | Method | When | What the delegate does |
 |---|---|---|
-| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, where the program renders anywhere and presents the pixels; `SurfaceHandle::NativeWindow` (an `ANativeWindow`) on Android. |
+| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, where the program renders anywhere and presents the pixels; `SurfaceHandle::NativeWindow` (an `ANativeWindow`) on Android; `SurfaceHandle::GlArea` on Linux for `"kind": "gl"`. |
 | `changed(&SurfaceInfo)` | The size or the scale changed. | Resize before the next frame. |
 | `suspended(&SurfaceInfo)`, `resumed(&SurfaceInfo)` | The surface left the screen (hidden, an occluded window, zero size) or came back. | Ask for no drawable while suspended. |
 | `destroyed(&SurfaceInfo)` | The element went away, its window closed, or the delegate was replaced. | Stop all use of the handle before returning: drop the swapchain, join a render thread. |
 | `frame(SurfaceId, timestamp: f64)` | A display refresh: every one while the element's `continuous` is true, else one per `request_frame`. | Draw. |
 | `input(SurfaceId, &InputEvent)` | Pointer, touch, scroll, magnify, rotate, keys, focus. Positions in points from the top-left corner. | |
+| `render(SurfaceId)` | A GL area only (`SurfaceHandle::GlArea`, the element's `"kind": "gl"` on Linux): GTK renders it, after each frame callback and when it redraws. | Draw with GL; GTK's context is current and its framebuffer bound. The surface events come with the context current too. |
 
 `SurfaceInfo` holds the `id`, the element's `window_uuid` and `view_id`, the `handle`, and the size in points, the scale and the size in pixels. `SurfaceId` is new with every `created`; key the renderer's state by it. Its `request_frame()`, `set_continuous(bool)` and `present_pixels(width, height, stride, PixelFormat, &[u8]) -> bool` may be called from any thread and never wait; `set_cursor(Cursor)` is main-thread only. `present_pixels` shows a finished frame on a frame sink (the newest wins); it returns false on macOS and after `destroyed`.
 

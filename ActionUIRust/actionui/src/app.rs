@@ -82,8 +82,13 @@ struct Handlers {
 // A handler being replaced or removed is moved out of the table and dropped after the
 // borrow has ended (`replace`, `insert` and `remove` return it): dropping it runs the
 // destructors of what it captured, and those may come back here.
+//
+// ManuallyDrop: the process exits from App::run with the handlers in place, and the main thread's
+// thread-locals are destroyed then in no set order. Dropping a handler there runs the destructors of what
+// it captured, which may use thread-locals already gone (a wgpu object does, and the process aborts); the
+// handlers are left to the end of the process instead, as the HostSurface delegates are.
 thread_local! {
-    static HANDLERS: RefCell<Handlers> = RefCell::new(Handlers::default());
+    static HANDLERS: RefCell<std::mem::ManuallyDrop<Handlers>> = RefCell::new(std::mem::ManuallyDrop::new(Handlers::default()));
 }
 
 static APP_CREATED: AtomicBool = AtomicBool::new(false);
@@ -292,8 +297,8 @@ impl App {
 
     /// Runs the event loop. It does not return: quitting the application ends the
     /// process from inside the loop, so code after this call, and the destructors of
-    /// values still alive in `main`, do not run. (Handlers, and what they captured, are
-    /// dropped as the process exits.) Do final work in
+    /// values still alive in `main`, do not run. (Handlers, and what they captured, are not
+    /// dropped either: the process ends with them.) Do final work in
     /// [`App::on_will_terminate`].
     ///
     /// Panics when the event loop is already running, as when a handler calls it: a second
