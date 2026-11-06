@@ -59,12 +59,13 @@ fn rust_type_for_c(c_type: &str) -> String {
         "void const *" | "const void *" => "*const c_void".into(),
         "char const *" | "const char *" => "*const c_char".into(),
         other => {
-            // const Name * or Name const *
+            // const Name * or Name const *, then Name *
             let pointee = other.strip_prefix("const ").and_then(|rest| rest.strip_suffix(" *"))
                 .or_else(|| other.strip_suffix(" const *"));
-            match pointee {
-                Some(name) => format!("*const {name}"),
-                None => other.to_string(),
+            match (pointee, other.strip_suffix(" *")) {
+                (Some(name), _) => format!("*const {name}"),
+                (None, Some(name)) => format!("*mut {name}"),
+                (None, None) => other.to_string(),
             }
         }
     }
@@ -225,8 +226,15 @@ fn header_types() -> Declarations {
                     let return_type = rust_type_for_c(&field[..star]);
                     fields.push(format!("{field_name}: Option<unsafe extern \"C\" {}>", function_text(&params, &return_type)));
                 } else {
-                    // "double x, y" declares two fields.
-                    let (first_type, first_name) = split_trailing_identifier(field.split(',').next().unwrap());
+                    // "double x, y" declares two fields; "Plane planes[4]" is an array.
+                    let first = field.split(',').next().unwrap();
+                    if let Some(open) = first.find('[') {
+                        let count = first[open + 1..].trim_end().trim_end_matches(']').trim();
+                        let (element_type, name) = split_trailing_identifier(&first[..open]);
+                        fields.push(format!("{name}: [{}; {count}]", rust_type_for_c(&element_type)));
+                        continue;
+                    }
+                    let (first_type, first_name) = split_trailing_identifier(first);
                     let rust_type = rust_type_for_c(&first_type);
                     fields.push(format!("{first_name}: {rust_type}"));
                     for more in field.split(',').skip(1) {
@@ -320,7 +328,7 @@ fn differences(in_headers: &Declarations, in_rust: &Declarations) -> Vec<String>
 #[test]
 fn functions_match_the_generated_header() {
     let in_headers = header_functions();
-    assert_eq!(in_headers.len(), 6, "functions in the generated header: {in_headers:?}");
+    assert_eq!(in_headers.len(), 8, "functions in the generated header: {in_headers:?}");
     let problems = differences(&in_headers, &rust_functions());
     assert!(problems.is_empty(), "src/host_surface.rs and the generated header disagree:\n{}", problems.join("\n"));
 }
@@ -329,7 +337,7 @@ fn functions_match_the_generated_header() {
 fn types_match_the_c_header() {
     let in_headers = header_types();
     let structs = in_headers.values().filter(|text| text.starts_with("struct ")).count();
-    assert_eq!(structs, 3, "structs found in the C header; the header format may have changed");
+    assert_eq!(structs, 6, "structs found in the C header; the header format may have changed");
     assert!(in_headers.len() > 50, "only {} types and values found in the C header", in_headers.len());
     let problems = differences(&in_headers, &rust_types());
     assert!(problems.is_empty(), "src/host_surface.rs and the C header disagree:\n{}", problems.join("\n"));
@@ -347,4 +355,9 @@ fn the_add_on_links() {
     assert!(!bound, "SetDelegate must refuse a call off the main thread");
     let cursor_set = unsafe { actionUIHostSurfaceSetCursor(1, AUI_HOST_CURSOR_CROSSHAIR) };
     assert!(!cursor_set, "SetCursor must refuse a call off the main thread");
+    // The dmabuf calls are Linux only.
+    let presented = unsafe { actionUIHostSurfacePresentDmabuf(1, std::ptr::null()) };
+    assert!(!presented, "PresentDmabuf is false on macOS");
+    let formats = unsafe { actionUIHostSurfaceCopyDmabufFormats(1, std::ptr::null_mut(), 0) };
+    assert_eq!(formats, 0, "CopyDmabufFormats is 0 on macOS");
 }

@@ -34,7 +34,8 @@
 //! # Threads
 //!
 //! Every delegate method runs on the main thread. [`SurfaceId::request_frame`],
-//! [`SurfaceId::set_continuous`] and [`SurfaceId::present_pixels`] may be called from any thread
+//! [`SurfaceId::set_continuous`] and [`SurfaceId::present_pixels`] (and, on Linux,
+//! `SurfaceId::present_dmabuf` and `SurfaceId::dmabuf_formats`) may be called from any thread
 //! and never wait. A render thread must not call [`crate::Window`] getters (they wait for the
 //! main thread) while [`SurfaceDelegate::destroyed`] may be joining it; pace it by the frame
 //! callback instead.
@@ -102,6 +103,99 @@ impl SurfaceId {
         }
         unsafe { sys::actionUIHostSurfacePresentPixels(self.0, width, height, stride, format as i32, pixels.as_ptr().cast()) }
     }
+
+    /// Linux only: shows a dmabuf frame (a GPU buffer shared by file descriptor) on a frame-sink
+    /// surface, as [`present_pixels`](Self::present_pixels) shows pixels, but without a copy: GTK
+    /// imports the buffer into its renderer. `release` runs once, on the main thread, when GTK no
+    /// longer reads the buffer (a newer frame replaced it, or the surface was destroyed); after that
+    /// the buffer may be drawn into again. Any thread; never waits.
+    ///
+    /// Returns false, and drops `release` without calling it, when the surface is not a live frame
+    /// sink, when the size is 0, when there are no planes or more than 4, or when the display cannot
+    /// import the `fourcc` with the `modifier` (see [`dmabuf_formats`](Self::dmabuf_formats)).
+    ///
+    /// # Safety
+    /// Every plane's file descriptor must stay open, and the buffer must not be drawn into, until
+    /// `release` runs. The GPU must have finished drawing into the buffer (most drivers attach that wait
+    /// to the dmabuf themselves).
+    #[cfg(target_os = "linux")]
+    pub unsafe fn present_dmabuf(self, buffer: &Dmabuf, release: impl FnOnce() + Send + 'static) -> bool {
+        if buffer.planes.is_empty() || buffer.planes.len() > 4 {
+            return false;
+        }
+        let mut planes = [sys::AUIHostDmabufPlane::default(); 4];
+        for (slot, plane) in planes.iter_mut().zip(&buffer.planes) {
+            *slot = sys::AUIHostDmabufPlane { fd: plane.fd, offset: plane.offset, stride: plane.stride };
+        }
+        type Release = Box<dyn FnOnce() + Send>;
+        unsafe extern "C" fn call_release(data: *mut c_void) {
+            let release = unsafe { Box::from_raw(data.cast::<Release>()) };
+            ffi::guard("dmabuf release", (), move || release());
+        }
+        let data = Box::into_raw(Box::new(Box::new(release) as Release));
+        let description = sys::AUIHostDmabuf {
+            structSize: std::mem::size_of::<sys::AUIHostDmabuf>() as u32,
+            width: buffer.width,
+            height: buffer.height,
+            fourcc: buffer.fourcc,
+            modifier: buffer.modifier,
+            premultiplied: buffer.premultiplied,
+            planeCount: buffer.planes.len() as u32,
+            planes,
+            release: Some(call_release),
+            releaseData: data.cast(),
+        };
+        let shown = unsafe { sys::actionUIHostSurfacePresentDmabuf(self.0, &description) };
+        if !shown {
+            // Never called for a refused frame: drop it here.
+            drop(unsafe { Box::from_raw(data) });
+        }
+        shown
+    }
+
+    /// Linux only: the formats (fourcc and modifier) the display can import as dmabuf frames, so the
+    /// program can allocate buffers it takes. Empty when the surface is not a live frame sink. Any thread.
+    #[cfg(target_os = "linux")]
+    pub fn dmabuf_formats(self) -> Vec<DmabufFormat> {
+        let count = unsafe { sys::actionUIHostSurfaceCopyDmabufFormats(self.0, std::ptr::null_mut(), 0) };
+        let mut formats = vec![sys::AUIHostDmabufFormat::default(); count as usize];
+        let all = unsafe { sys::actionUIHostSurfaceCopyDmabufFormats(self.0, formats.as_mut_ptr(), count) };
+        formats.truncate(all.min(count) as usize);
+        formats.into_iter().map(|format| DmabufFormat { fourcc: format.fourcc, modifier: format.modifier }).collect()
+    }
+}
+
+/// A dmabuf frame for [`SurfaceId::present_dmabuf`] (Linux): the buffer's size, its pixel format
+/// (a `DRM_FORMAT_` fourcc from drm_fourcc.h) and memory layout (a `DRM_FORMAT_MOD_` modifier; 0 is
+/// the plain linear layout), and 1 to 4 planes.
+#[cfg(target_os = "linux")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Dmabuf {
+    pub width: u32,
+    pub height: u32,
+    pub fourcc: u32,
+    pub modifier: u64,
+    /// Colors premultiplied by alpha.
+    pub premultiplied: bool,
+    pub planes: Vec<DmabufPlane>,
+}
+
+/// One plane of a [`Dmabuf`]: its file descriptor (still owned by the program), and where its pixels
+/// start and how far apart its rows are, in bytes.
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DmabufPlane {
+    pub fd: std::os::fd::RawFd,
+    pub offset: u32,
+    pub stride: u32,
+}
+
+/// A pixel format and memory layout the display can import, from [`SurfaceId::dmabuf_formats`].
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DmabufFormat {
+    pub fourcc: u32,
+    pub modifier: u64,
 }
 
 /// The layout of the pixels given to [`SurfaceId::present_pixels`]: 4 bytes per pixel, in this order.
@@ -825,5 +919,37 @@ mod tests {
             fn destroyed(&mut self, _surface: &SurfaceInfo) {}
         }
         assert!(matches!(bind("canvas", Some(Box::new(Nothing))), Err(crate::Error::NotMainThread)));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_refused_dmabuf_drops_its_release_uncalled() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        struct Dropped(Arc<AtomicBool>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let called = Arc::new(AtomicBool::new(false));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let guard = Dropped(dropped.clone());
+        let called_in_release = called.clone();
+        let buffer = Dmabuf { width: 4, height: 4, fourcc: 0x3432_5241, modifier: 0, premultiplied: true,
+                              planes: vec![DmabufPlane { fd: 0, offset: 0, stride: 16 }] };
+        // No live surface has this ID.
+        let shown = unsafe {
+            SurfaceId(u64::MAX).present_dmabuf(&buffer, move || {
+                let _keep = &guard;
+                called_in_release.store(true, Ordering::SeqCst);
+            })
+        };
+        assert!(!shown);
+        assert!(dropped.load(Ordering::SeqCst), "the release closure is dropped");
+        assert!(!called.load(Ordering::SeqCst), "and never called");
+        assert!(SurfaceId(u64::MAX).dmabuf_formats().is_empty());
+        let no_planes = Dmabuf { planes: Vec::new(), ..buffer };
+        assert!(!unsafe { SurfaceId(u64::MAX).present_dmabuf(&no_planes, || {}) });
     }
 }

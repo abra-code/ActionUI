@@ -420,10 +420,52 @@ final class HostSurfaceView {
 
     /// Shows a frame the client presented for this surface (HostSurfaceSinks hands it over).
     func show(_ frame: HostSurfaceFrame) {
-        let made = gdk_memory_texture_new(Int32(frame.width), Int32(frame.height), frame.format, frame.bytes,
-                                          gsize(frame.stride))
-        frame.release()
-        setTexture(made)
+        switch frame {
+        case .pixels(let bytes, let width, let height, let stride, let format):
+            let made = gdk_memory_texture_new(Int32(width), Int32(height), format, bytes, gsize(stride))
+            g_bytes_unref(bytes)
+            setTexture(made)
+        case .dmabuf(let buffer):
+            if let made = makeDmabufTexture(buffer) {
+                setTexture(made)
+            }
+        }
+    }
+
+    /// Wraps a client's dmabuf in a GdkDmabufTexture; GTK imports it into its renderer without a copy. The
+    /// texture's destroy notification (GTK no longer reads the buffer) hands it back to the client. nil, with
+    /// the buffer handed back at once and the shown frame kept, when GTK refuses it.
+    private func makeDmabufTexture(_ buffer: HostSurfaceDmabuf) -> OpaquePointer? {
+        let description = buffer.buffer
+        let builder = gdk_dmabuf_texture_builder_new()
+        defer { g_object_unref(UnsafeMutableRawPointer(builder)) }
+        gdk_dmabuf_texture_builder_set_display(builder, gtk_widget_get_display(widget))
+        gdk_dmabuf_texture_builder_set_width(builder, description.width)
+        gdk_dmabuf_texture_builder_set_height(builder, description.height)
+        gdk_dmabuf_texture_builder_set_fourcc(builder, description.fourcc)
+        gdk_dmabuf_texture_builder_set_modifier(builder, guint64(description.modifier))
+        gdk_dmabuf_texture_builder_set_premultiplied(builder, description.premultiplied ? 1 : 0)
+        gdk_dmabuf_texture_builder_set_n_planes(builder, description.planeCount)
+        for (index, plane) in buffer.planes.enumerated() {
+            gdk_dmabuf_texture_builder_set_fd(builder, UInt32(index), plane.fd)
+            gdk_dmabuf_texture_builder_set_offset(builder, UInt32(index), plane.offset)
+            gdk_dmabuf_texture_builder_set_stride(builder, UInt32(index), plane.stride)
+        }
+        let retained = Unmanaged.passRetained(buffer).toOpaque()
+        var error: UnsafeMutablePointer<GError>?
+        let made = gdk_dmabuf_texture_builder_build(builder, { data in
+            // GTK no longer reads the buffer (the texture is finalized, on whatever thread drops it last).
+            guard let data else { return }
+            Unmanaged<HostSurfaceDmabuf>.fromOpaque(data).takeRetainedValue().release()
+        }, retained, &error)
+        guard let made else {
+            let message = error.map { String(cString: $0.pointee.message) } ?? "unknown error"
+            error.map { g_error_free($0) }
+            logger.log("HostSurface: GTK refused a dmabuf frame (\(message)); the frame is not shown", .warning)
+            Unmanaged<HostSurfaceDmabuf>.fromOpaque(retained).takeRetainedValue().release()
+            return nil
+        }
+        return made
     }
 
     private func setTexture(_ new: OpaquePointer?) {

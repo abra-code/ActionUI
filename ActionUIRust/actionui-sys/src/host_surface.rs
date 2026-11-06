@@ -16,8 +16,10 @@
 //! The rules are the header's:
 //! - Every callback runs on the main thread. [`actionUIHostSurfaceSetDelegate`],
 //!   [`actionUIHostSurfaceSetCursor`] and [`ActionUIHostSurface_register`] are main-thread only;
-//!   [`actionUIHostSurfaceRequestFrame`], [`actionUIHostSurfaceSetContinuous`] and
-//!   [`actionUIHostSurfacePresentPixels`] may be called from any thread and never wait.
+//!   [`actionUIHostSurfaceRequestFrame`], [`actionUIHostSurfaceSetContinuous`],
+//!   [`actionUIHostSurfacePresentPixels`], [`actionUIHostSurfacePresentDmabuf`] and
+//!   [`actionUIHostSurfaceCopyDmabufFormats`] may be called from any thread and never wait.
+//! - The dmabuf calls are Linux only: elsewhere they return false and 0.
 //! - The handle in [`AUIHostSurfaceInfo`] stays valid until the Destroyed callback for that
 //!   surfaceID returns; the client stops all use of it before returning.
 //! - Strings passed to a callback are valid only until it returns.
@@ -176,6 +178,45 @@ impl Default for AUIHostSurfaceDelegate {
     }
 }
 
+/// One plane of a dmabuf: its file descriptor, and where its pixels start and how far apart its rows are.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+#[rustfmt::skip] // tests/host_surface_declarations.rs reads one field per line
+pub struct AUIHostDmabufPlane {
+    pub fd: i32,
+    pub offset: u32,
+    pub stride: u32,
+}
+
+/// A dmabuf frame for [`actionUIHostSurfacePresentDmabuf`] (Linux). `structSize` must be
+/// `size_of::<AUIHostDmabuf>()`. The file descriptors stay the caller's and must stay open, with the
+/// buffer unchanged, until `release` is called: exactly once for every present that returned true, on
+/// the main thread, never for one that returned false.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+#[rustfmt::skip] // tests/host_surface_declarations.rs reads one field per line
+pub struct AUIHostDmabuf {
+    pub structSize: u32,
+    pub width: u32,
+    pub height: u32,
+    pub fourcc: u32,
+    pub modifier: u64,
+    pub premultiplied: bool,
+    pub planeCount: u32,
+    pub planes: [AUIHostDmabufPlane; 4],
+    pub release: Option<unsafe extern "C" fn(*mut c_void)>,
+    pub releaseData: *mut c_void,
+}
+
+/// A pixel format and memory layout the display can import, from [`actionUIHostSurfaceCopyDmabufFormats`].
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[rustfmt::skip] // tests/host_surface_declarations.rs reads one field per line
+pub struct AUIHostDmabufFormat {
+    pub fourcc: u32,
+    pub modifier: u64,
+}
+
 // MARK: - Functions
 
 #[rustfmt::skip] // tests/host_surface_declarations.rs reads one declaration per line
@@ -186,4 +227,6 @@ unsafe extern "C" {
     pub fn actionUIHostSurfaceSetContinuous(surfaceID: u64, continuous: bool);
     pub fn actionUIHostSurfaceSetCursor(surfaceID: u64, cursor: i32) -> bool;
     pub fn actionUIHostSurfacePresentPixels(surfaceID: u64, width: u32, height: u32, stride: u32, format: i32, pixels: *const c_void) -> bool;
+    pub fn actionUIHostSurfacePresentDmabuf(surfaceID: u64, buffer: *const AUIHostDmabuf) -> bool;
+    pub fn actionUIHostSurfaceCopyDmabufFormats(surfaceID: u64, formats: *mut AUIHostDmabufFormat, capacity: u32) -> u32;
 }

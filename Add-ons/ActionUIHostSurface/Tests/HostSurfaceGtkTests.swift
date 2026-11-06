@@ -3,8 +3,9 @@
 // The element on Linux, in a real application window: the surface events (created at the frame's size, hidden
 // at load, hidden and resized later without a destroy, a replaced client told first, window close), frames asked
 // for and continuous, frames presented from another thread, the size state, and the placeholder for a kind Linux
-// lacks. An application runs once in a process, so this is one scripted test whose steps run on the application's
-// main loop. The binding rules are shared with the Apple element and tested there too.
+// lacks, and dmabuf frames (when /dev/udmabuf is available). An application runs once in a process, so this is one
+// scripted test whose steps run on the application's main loop. The binding rules are shared with the Apple element
+// and tested there too.
 
 #if os(Linux)
 
@@ -67,6 +68,16 @@ nonisolated(unsafe) private var cEvents: [Int32] = []
 nonisolated(unsafe) private var cRenders = 0
 nonisolated(unsafe) private var cKind: Int32 = 0
 
+/// The tags of the dmabuf frames handed back, in order, and whether every release ran on the main thread.
+nonisolated(unsafe) private var dmabufReleased: [Int] = []
+nonisolated(unsafe) private var dmabufReleasedOffMain = false
+private let recordRelease: @convention(c) (UnsafeMutableRawPointer?) -> Void = { data in
+    if g_main_context_is_owner(g_main_context_default()) == 0 {
+        dmabufReleasedOffMain = true
+    }
+    dmabufReleased.append(Int(bitPattern: data))
+}
+
 /// A C delegate, as a C or Rust client binds one, for the render callback's C path.
 nonisolated(unsafe) private var cDelegate = AUIHostSurfaceDelegate(
     structSize: UInt32(MemoryLayout<AUIHostSurfaceDelegate>.size),
@@ -117,6 +128,32 @@ final class HostSurfaceGtkTests: XCTestCase {
         return gdk_texture_get_width(texture)
     }
 
+    /// The shown texture is a GdkDmabufTexture.
+    private func showsDmabuf(_ surfaceID: UInt64) -> Bool {
+        guard let texture = HostSurfaceRegistry.shared.liveSurface(surfaceID)?.texture else { return false }
+        return g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(texture), gdk_dmabuf_texture_get_type()) != 0
+    }
+
+    /// The first pixel of the shown texture, downloaded as GDK's default format (blue, green, red, alpha).
+    private func firstPixel(_ surfaceID: UInt64) -> [UInt8] {
+        guard let texture = HostSurfaceRegistry.shared.liveSurface(surfaceID)?.texture else { return [] }
+        let width = Int(gdk_texture_get_width(texture))
+        let height = Int(gdk_texture_get_height(texture))
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            gdk_texture_download(texture, buffer.baseAddress?.assumingMemoryBound(to: guchar.self), gsize(width * 4))
+        }
+        return Array(pixels.prefix(4))
+    }
+
+    private func presentDmabuf(_ surfaceID: UInt64, _ buffer: AUIHostDmabuf) -> Bool {
+        var copy = buffer
+        return actionUIHostSurfacePresentDmabuf(surfaceID, &copy)
+    }
+
+    /// The buffers presented by the dmabuf steps, alive until the test ends.
+    private var dmabufs: [TestDmabuf] = []
+
     func testTheElementInAWindow() throws {
         try XCTSkipUnless(gtk_init_check() != 0, "needs a display")
         // The C entry point, on the thread the application runs on: it holds on the main actor there too.
@@ -166,6 +203,63 @@ final class HostSurfaceGtkTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(gl.renders, 1, "and the render it asked for")
                 XCTAssertGreaterThanOrEqual(cRenders, 1, "the C client's render callback is called (the area's first show)")
                 XCTAssertEqual(first.frames, 1, "one requested frame came, and no more")
+
+                // dmabuf frames: the formats, the argument checks, and a frame dropped before it was shown.
+                let count = actionUIHostSurfaceCopyDmabufFormats(firstID, nil, 0)
+                XCTAssertGreaterThan(count, 0, "the display imports dmabufs")
+                var formats = [AUIHostDmabufFormat](repeating: AUIHostDmabufFormat(), count: Int(count))
+                XCTAssertEqual(actionUIHostSurfaceCopyDmabufFormats(firstID, &formats, count), count)
+                XCTAssertTrue(formats.contains { $0.fourcc == testDrmFormatARGB8888 && $0.modifier == 0 },
+                              "ARGB8888 in the linear layout")
+                XCTAssertEqual(actionUIHostSurfaceCopyDmabufFormats(gl.surfaceID, nil, 0), 0, "a GL area is no frame sink")
+                guard let a = TestDmabuf(width: 8, height: 4, pixel: [0x10, 0x20, 0x30, 0xFF]),
+                      let b = TestDmabuf(width: 6, height: 2, pixel: [0x40, 0x40, 0x40, 0xFF]),
+                      let c = TestDmabuf(width: 5, height: 3, pixel: [0x30, 0x20, 0x10, 0xFF]) else {
+                    print("HOSTSURFACE dmabuf steps skipped: /dev/udmabuf is not available")
+                    return
+                }
+                dmabufs = [a, b, c]
+                let tag = { (number: Int) in UnsafeMutableRawPointer(bitPattern: number) }
+                var bad = a.frame(release: recordRelease, releaseData: tag(9), fourcc: 0x2020_2020)
+                XCTAssertFalse(presentDmabuf(firstID, bad), "a format the display does not import")
+                bad = a.frame(release: recordRelease, releaseData: tag(9))
+                bad.planeCount = 0
+                XCTAssertFalse(presentDmabuf(firstID, bad), "no planes")
+                bad = a.frame(release: nil, releaseData: nil)
+                XCTAssertFalse(presentDmabuf(firstID, bad), "no release callback")
+                bad = a.frame(release: recordRelease, releaseData: tag(9))
+                bad.structSize -= 8
+                XCTAssertFalse(presentDmabuf(firstID, bad), "another struct size")
+                bad.structSize += 8
+                bad.planes.0.fd = -1
+                XCTAssertFalse(presentDmabuf(firstID, bad), "a plane with no fd")
+                XCTAssertFalse(presentDmabuf(gl.surfaceID, a.frame(release: recordRelease, releaseData: tag(9))),
+                               "a GL area takes no dmabuf")
+                XCTAssertFalse(actionUIHostSurfacePresentDmabuf(firstID, nil))
+                let frameA = a.frame(release: recordRelease, releaseData: tag(1))
+                let frameB = b.frame(release: recordRelease, releaseData: tag(2))
+                let presented = DispatchQueue.global().sync { [self] in
+                    (presentDmabuf(firstID, frameB), presentDmabuf(firstID, frameA))
+                }
+                XCTAssertTrue(presented.0 && presented.1, "a dmabuf frame from any thread")
+            },
+            { [self] in
+                guard dmabufs.count == 3 else {
+                    setProperty(5, "hidden", true)
+                    return
+                }
+                XCTAssertTrue(showsDmabuf(firstID), "a GdkDmabufTexture")
+                XCTAssertEqual(textureWidth(firstID), 8, "the newest frame wins")
+                XCTAssertEqual(firstPixel(firstID), [0x10, 0x20, 0x30, 0xFF], "GTK reads the client's buffer")
+                XCTAssertEqual(dmabufReleased, [2], "the frame dropped before it was shown is handed back, and no other")
+                XCTAssertFalse(dmabufReleased.contains(9), "a refused frame is never handed back")
+                XCTAssertTrue(presentDmabuf(firstID, dmabufs[2].frame(release: recordRelease, releaseData: UnsafeMutableRawPointer(bitPattern: 3))))
+            },
+            { [self] in
+                if dmabufs.count == 3 {
+                    XCTAssertEqual(textureWidth(firstID), 5, "the next dmabuf frame is shown")
+                    XCTAssertEqual(firstPixel(firstID), [0x30, 0x20, 0x10, 0xFF])
+                }
                 setProperty(5, "hidden", true)
             },
             { [self] in
@@ -232,6 +326,13 @@ final class HostSurfaceGtkTests: XCTestCase {
                 XCTAssertEqual(glSuccessor.events, [], "no created for a context about to go")
                 XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 0)
                 XCTAssertFalse(presentFromAnotherThread(replacement.surfaceID))
+            },
+            { [self] in
+                // A shown dmabuf is handed back once GTK lets go of its texture: replaced, or its surface destroyed.
+                if dmabufs.count == 3 {
+                    XCTAssertEqual(dmabufReleased.sorted(), [1, 2, 3], "every presented dmabuf handed back once")
+                    XCTAssertFalse(dmabufReleasedOffMain, "and on the main thread")
+                }
                 stepsRun += 1
             },
         ]

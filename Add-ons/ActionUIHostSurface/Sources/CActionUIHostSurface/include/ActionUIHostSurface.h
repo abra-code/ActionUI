@@ -22,7 +22,8 @@
 //
 //  Threads: every callback runs on the main thread. actionUIHostSurfaceSetDelegate,
 //  actionUIHostSurfaceSetCursor and ActionUIHostSurface_register are main-thread only. actionUIHostSurfaceRequestFrame,
-//  actionUIHostSurfaceSetContinuous and actionUIHostSurfacePresentPixels may be called from any thread
+//  actionUIHostSurfaceSetContinuous, actionUIHostSurfacePresentPixels, actionUIHostSurfacePresentDmabuf and
+//  actionUIHostSurfaceCopyDmabufFormats may be called from any thread
 //  and never wait for the main thread. A client may render from its own thread (Metal layers allow it), but that thread must
 //  not wait for the main thread while the "destroyed" callback may be joining it: several
 //  functions of the ActionUI C adapter (actionUIGet..., actionUIInsertElement, ...) run
@@ -251,6 +252,65 @@ typedef enum {
 /// or taller than 16384 pixels, an IOSurface's maximum).
 bool actionUIHostSurfacePresentPixels(uint64_t surfaceID, uint32_t width, uint32_t height, uint32_t stride,
                                       int32_t format, const void *pixels);
+
+// MARK: dmabuf frames (Linux)
+//
+// A client that renders on the GPU can present a dmabuf (a Linux GPU buffer shared by file descriptor)
+// instead of pixels: GTK imports it into its renderer without copying, so the frame never passes through
+// CPU memory and the client never waits for a readback. Linux only; on other platforms
+// actionUIHostSurfacePresentDmabuf returns false and actionUIHostSurfaceCopyDmabufFormats returns 0.
+
+/// One plane of a dmabuf: its file descriptor, and where its pixels start and how far apart its rows are.
+typedef struct {
+    int32_t fd;
+    uint32_t offset;
+    uint32_t stride;
+} AUIHostDmabufPlane;
+
+/// A dmabuf frame for actionUIHostSurfacePresentDmabuf. structSize must be sizeof(AUIHostDmabuf).
+///
+/// The file descriptors stay the client's: ActionUI neither duplicates nor closes them, and they must
+/// stay open, with the buffer unchanged, until release is called. release is called exactly once for
+/// every present that returned true, on the main thread, when GTK no longer reads the buffer: after a
+/// newer frame replaced it (shown or not), or after the surface's Destroyed. It is never called for a
+/// present that returned false, nor for buffers still held when the process exits. A shown buffer comes
+/// back when GTK next draws without it, which can wait while the surface is suspended (hidden or off
+/// screen): size the buffer pool for that, and never block waiting for a release (skip the frame
+/// instead). The client must make sure the GPU has finished drawing into the buffer
+/// before presenting it (most drivers attach that wait to the dmabuf themselves).
+typedef struct {
+    uint32_t structSize;
+    uint32_t width;
+    uint32_t height;
+    uint32_t fourcc;                 // a DRM_FORMAT_ value (drm_fourcc.h), such as DRM_FORMAT_ARGB8888
+    uint64_t modifier;               // a DRM_FORMAT_MOD_ value; DRM_FORMAT_MOD_LINEAR (0) for plain rows
+    bool premultiplied;              // colors premultiplied by alpha
+    uint32_t planeCount;             // 1 to 4
+    AUIHostDmabufPlane planes[4];
+    void (*release)(void *releaseData);
+    void *releaseData;
+} AUIHostDmabuf;
+
+/// A pixel format and memory layout the display can import, from actionUIHostSurfaceCopyDmabufFormats.
+typedef struct {
+    uint32_t fourcc;
+    uint64_t modifier;
+} AUIHostDmabufFormat;
+
+/// Frame sink only (AUIHostSurfaceFrameSink), Linux only: shows a dmabuf frame on the surface, scaled to
+/// it, as actionUIHostSurfacePresentPixels shows pixels (the newest frame wins). The struct is copied;
+/// the buffer is not. Any thread; never waits.
+/// Returns false, and never calls release, when surfaceID is not a live frame-sink surface, when buffer
+/// is NULL or its structSize is not sizeof(AUIHostDmabuf), when width or height is 0 or past INT32_MAX,
+/// when planeCount is not 1 to 4 or a used plane's fd is negative, when release is NULL, or when the
+/// display cannot import the fourcc with the modifier (see actionUIHostSurfaceCopyDmabufFormats).
+bool actionUIHostSurfacePresentDmabuf(uint64_t surfaceID, const AUIHostDmabuf *buffer);
+
+/// Linux only: the formats (fourcc and modifier pairs) the display of a live frame-sink surface can
+/// import, so a client can allocate buffers GTK takes. Copies up to capacity of them into formats (which
+/// may be NULL when capacity is 0) and returns how many there are in all; 0 when surfaceID is not a live
+/// frame-sink surface or the display imports no dmabufs. Any thread.
+uint32_t actionUIHostSurfaceCopyDmabufFormats(uint64_t surfaceID, AUIHostDmabufFormat *formats, uint32_t capacity);
 
 #ifdef __cplusplus
 }

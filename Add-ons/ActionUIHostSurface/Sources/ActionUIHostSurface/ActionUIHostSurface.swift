@@ -227,6 +227,33 @@ public func actionUIHostSurfacePresentPixels(_ surfaceID: UInt64, _ width: UInt3
                                              stride: Int(stride), format: format, pixels: pixels)
 }
 
+/// Linux only (HostSurfaceSinks+Adwaita.swift); false on other platforms, which have no dmabufs.
+@c
+public func actionUIHostSurfacePresentDmabuf(_ surfaceID: UInt64, _ buffer: UnsafePointer<AUIHostDmabuf>?) -> Bool {
+    #if os(Linux)
+    // structSize first: a client's shorter struct must not be read past its end.
+    guard let buffer,
+          UnsafeRawPointer(buffer).load(as: UInt32.self) == UInt32(MemoryLayout<AUIHostDmabuf>.size) else {
+        return false
+    }
+    return HostSurfaceSinks.presentDmabuf(surfaceID: surfaceID, buffer: buffer.pointee)
+    #else
+    return false
+    #endif
+}
+
+/// Linux only; 0 on other platforms.
+@c
+public func actionUIHostSurfaceCopyDmabufFormats(_ surfaceID: UInt64, _ formats: UnsafeMutablePointer<AUIHostDmabufFormat>?,
+                                                 _ capacity: UInt32) -> UInt32 {
+    #if os(Linux)
+    let count = HostSurfaceSinks.copyDmabufFormats(surfaceID: surfaceID, into: formats, capacity: Int(capacity))
+    return UInt32(clamping: count)
+    #else
+    return 0
+    #endif
+}
+
 /// Copies a client's delegate struct, honoring its structSize: a client built against an older,
 /// shorter struct gets NULL for the callbacks it does not know. nil when structSize does not even
 /// cover the first callback.

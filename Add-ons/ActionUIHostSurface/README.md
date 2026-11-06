@@ -69,6 +69,15 @@ window's frame clock at the display's rate (`preferredFrameRate` is ignored ther
 rate); "suspended" also comes when the window is minimized or the compositor reports it
 not visible at all.
 
+A client that renders on the GPU can present a dmabuf (a GPU buffer shared by file descriptor) instead of
+pixels, with `actionUIHostSurfacePresentDmabuf`: GTK imports it into its renderer as a `GdkDmabufTexture`,
+with no copy through CPU memory and no wait for a readback. The client describes the buffer (size, `fourcc`,
+`modifier`, up to 4 planes), keeps its file descriptors open, and gets the buffer back through its release
+callback, on the main thread, once GTK no longer reads it; a pool of three buffers keeps up with the display.
+`actionUIHostSurfaceCopyDmabufFormats` lists the format and layout pairs the display imports. Graphics offload
+(the compositor showing the buffer directly) is not used: in testing the compositor could refuse the buffers
+and never hand them back.
+
 `kind` "gl" is a GtkGLArea instead, for OpenGL clients: the client draws in the delegate's `render` callback
 (`hostSurfaceRender` for a Swift client), with GTK's GL context current and its framebuffer bound. Each frame
 callback asks for a render (continuous, or `actionUIHostSurfaceRequestFrame`), and GTK renders too when it
