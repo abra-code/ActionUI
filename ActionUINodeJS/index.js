@@ -355,6 +355,8 @@ class Application {
         // registration still calls actionUIRegisterActionHandler so ActionUI's
         // internal routing knows which IDs are claimed.
         _actionui.setDefaultActionHandler(this._actionBridge.bind(this));
+        // The HostSurface element, before the first document loads (on Linux libActionUI.so has it already).
+        _actionui.hostSurfaceRegister();
     }
 
     static instance() { return _appInstance; }
@@ -515,6 +517,12 @@ class Application {
 
     closeWindow(uuid) { _actionui.appCloseWindow(uuid); }
 
+    /** Binds a HostSurface delegate; see setSurfaceDelegate (the module function). */
+    setSurfaceDelegate(surfaceName, delegate) { setSurfaceDelegate(surfaceName, delegate); }
+
+    /** Unbinds the HostSurface delegate of `surfaceName`; see removeSurfaceDelegate. */
+    removeSurfaceDelegate(surfaceName) { removeSurfaceDelegate(surfaceName); }
+
     loadMenuBar(source) {
         if (source == null) { _actionui.appLoadMenuBar(); return; }
         let json = source;
@@ -584,6 +592,116 @@ function _buildPanelConfig({ title, prompt, message, identifier, allowedTypes,
 }
 
 // ---------------------------------------------------------------------------
+// HostSurface
+// ---------------------------------------------------------------------------
+
+/** What a HostSurface is (info.kind). */
+const SurfaceKind = Object.freeze({
+    METAL_LAYER: _actionui.HOST_SURFACE_METAL_LAYER,      // macOS: info.handle is a CAMetalLayer pointer (BigInt)
+    NATIVE_WINDOW: _actionui.HOST_SURFACE_NATIVE_WINDOW,  // Android (not this adapter)
+    GL_AREA: _actionui.HOST_SURFACE_GL_AREA,              // Linux "kind": "gl": draw in render()
+    FRAME_SINK: _actionui.HOST_SURFACE_FRAME_SINK,        // Linux: present frames with presentPixels()
+});
+
+/** The layout of the pixels given to presentPixels: 4 bytes per pixel, in this order. */
+const PixelFormat = Object.freeze({
+    BGRA8_PREMULTIPLIED: _actionui.PIXEL_BGRA8_PREMULTIPLIED,
+    RGBA8_PREMULTIPLIED: _actionui.PIXEL_RGBA8_PREMULTIPLIED,
+    BGRX8: _actionui.PIXEL_BGRX8,   // opaque
+    RGBX8: _actionui.PIXEL_RGBX8,   // opaque
+});
+
+/** The cursor over a surface, for setCursor. */
+const Cursor = Object.freeze({
+    ARROW: 0, I_BEAM: 1, CROSSHAIR: 2, POINTING_HAND: 3, OPEN_HAND: 4, CLOSED_HAND: 5,
+    RESIZE_LEFT_RIGHT: 6, RESIZE_UP_DOWN: 7, NOT_ALLOWED: 8, HIDDEN: 9,
+});
+
+/** The kind of an input event. */
+const InputKind = Object.freeze({
+    POINTER_DOWN: 1, POINTER_UP: 2, POINTER_MOVE: 3, POINTER_DRAG: 4, POINTER_ENTER: 5, POINTER_EXIT: 6,
+    POINTER_CANCEL: 7, SCROLL: 8, MAGNIFY: 9, ROTATE: 10, KEY_DOWN: 11, KEY_UP: 12, FOCUS_IN: 13, FOCUS_OUT: 14,
+});
+
+/** event.pointerType, event.scrollUnit and event.scrollPhase. */
+const PointerType = Object.freeze({ MOUSE: 0, TOUCH: 1, PEN: 2 });
+const ScrollUnit = Object.freeze({ POINTS: 0, STEPS: 1 });
+const ScrollPhase = Object.freeze({ NONE: 0, BEGAN: 1, CHANGED: 2, ENDED: 3, MOMENTUM: 4, MOMENTUM_ENDED: 5 });
+
+/** Bits of event.modifiers. */
+const Modifiers = Object.freeze({ SHIFT: 1, CONTROL: 2, ALT: 4, META: 8, CAPS_LOCK: 16 });
+
+const INPUT_FIELDS = ['kind', 'pointerType', 'button', 'pointerId', 'modifiers', 'clickCount', 'x', 'y',
+    'deltaX', 'deltaY', 'scrollUnit', 'scrollPhase', 'pressure', 'tiltX', 'tiltY', 'keyCode', 'code', 'text',
+    'timestamp'];
+
+/** The function the native module calls for one binding: dispatches to the delegate's methods. */
+function surfaceBridge(delegate) {
+    return (kind, surfaceId, windowUuid, viewId, payload) => {
+        try {
+            if (kind === 'frame') {
+                delegate.frame?.(surfaceId, payload);
+            } else if (kind === 'input') {
+                const event = {};
+                INPUT_FIELDS.forEach((name, index) => { event[name] = payload[index]; });
+                delegate.input?.(surfaceId, Object.freeze(event));
+            } else if (kind === 'render') {
+                delegate.render?.(surfaceId);
+            } else {
+                const [surfaceKind, handle, widthPoints, heightPoints, scale, widthPixels, heightPixels] = payload;
+                delegate[kind]?.(Object.freeze({
+                    surfaceId, windowUuid, viewId, kind: surfaceKind, handle,
+                    widthPoints, heightPoints, scale, widthPixels, heightPixels,
+                }));
+            }
+        } catch (error) {
+            console.error('actionui: a HostSurface delegate threw:', error);
+        }
+    };
+}
+
+/**
+ * Binds `delegate` to every HostSurface element whose surfaceName is `surfaceName`, in every window, now and
+ * later. The delegate is any object with some of: created(info), changed(info), suspended(info),
+ * resumed(info), destroyed(info), frame(surfaceId, timestamp), input(surfaceId, event), render(surfaceId).
+ * Live surfaces are announced to it at once; a delegate it replaces gets destroyed first. Called inside a
+ * delegate method, the change takes effect when the outermost callback returns. Main thread only.
+ */
+function setSurfaceDelegate(surfaceName, delegate) {
+    if (delegate == null || typeof delegate !== 'object') {
+        throw new TypeError('delegate must be an object; use removeSurfaceDelegate to unbind');
+    }
+    _actionui.hostSurfaceSetDelegate(surfaceName, surfaceBridge(delegate));
+}
+
+/** Unbinds the delegate of `surfaceName`; it gets destroyed for its surfaces first. Main thread only. */
+function removeSurfaceDelegate(surfaceName) {
+    _actionui.hostSurfaceSetDelegate(surfaceName, null);
+}
+
+/** One frame callback at the next display refresh. Any thread (a worker too); never waits. */
+function requestFrame(surfaceId) { _actionui.hostSurfaceRequestFrame(surfaceId); }
+
+/** Frame callbacks at every display refresh on or off, until the element's "continuous" changes. Any thread. */
+function setContinuous(surfaceId, continuous) { _actionui.hostSurfaceSetContinuous(surfaceId, !!continuous); }
+
+/** The cursor over the surface (a Cursor value). Main thread only. */
+function setCursor(surfaceId, cursor) { return _actionui.hostSurfaceSetCursor(surfaceId, cursor); }
+
+/**
+ * Shows one finished frame on a frame-sink surface (Linux): `height` rows of `width` pixels, 4 bytes each in
+ * `format`, `stride` bytes apart (default width * 4). `pixels` is a Buffer, a typed array (Uint8Array,
+ * Uint8ClampedArray, an ImageData's data, ...), a DataView or an ArrayBuffer. The pixels are copied before it
+ * returns; frames that come faster than the display are merged. Render at the pixel size of the last created
+ * or changed. Any thread (a worker too); never waits for the main thread. Returns false when the surface is
+ * not a live frame sink (always on macOS, whose surfaces are Metal layers, and after destroyed).
+ */
+function presentPixels(surfaceId, pixels, width, height,
+    { stride = width * 4, format = PixelFormat.RGBA8_PREMULTIPLIED } = {}) {
+    return _actionui.hostSurfacePresentPixels(surfaceId, pixels, width, height, stride, format);
+}
+
+// ---------------------------------------------------------------------------
 // Module-level convenience functions
 // ---------------------------------------------------------------------------
 
@@ -606,6 +724,20 @@ module.exports = {
     getVersion,
     getLastError,
     clearError,
+    SurfaceKind,
+    PixelFormat,
+    Cursor,
+    InputKind,
+    Modifiers,
+    PointerType,
+    ScrollUnit,
+    ScrollPhase,
+    setSurfaceDelegate,
+    removeSurfaceDelegate,
+    requestFrame,
+    setContinuous,
+    setCursor,
+    presentPixels,
     // Expose raw native module for advanced use
     _native: _actionui,
 };

@@ -125,6 +125,12 @@ otool -L build/Release/actionui.node | grep -v '/usr\|/System\|node\|libc'
 
 ## Building on Linux
 
+The HostSurface element (see `NODEJS_ADDON_API_REFERENCE.md`) is part of `libActionUI.so`, and the package has
+its header (`include/ActionUIHostSurface/ActionUIHostSurface.h`). On macOS the addon links
+`ActionUIHostSurface.framework` with QuartzCore and Metal; `build_and_install.sh` builds it after the other
+frameworks (from `Add-ons/ActionUIHostSurface/Framework/ActionUIHostSurface.xcodeproj`, the same `SYMROOT`, an
+`OBJROOT` of its own).
+
 The same `src/actionui_node.c` and `binding.gyp` build the addon on Linux, against the ActionUI
 library package instead of the static frameworks. No Swift installation is needed.
 

@@ -36,7 +36,8 @@ any thread; they dispatch to the main queue internally.
 
 The calls that store a JS callback (`setLogger`, `registerActionHandler`,
 `unregisterActionHandler`, `setDefaultActionHandler`, the `appSet...` lifecycle and window
-setters) and `appRun` belong to the main thread: ActionUI calls every callback there, with
+setters, the HostSurface `hostSurfaceRegister`, `hostSurfaceSetDelegate` and `hostSurfaceSetCursor`) and
+`appRun` belong to the main thread: ActionUI calls every callback there, with
 the main thread's environment. From a worker they throw "... must be called on the main
 thread, not in a worker".
 
@@ -408,6 +409,62 @@ actionui.getVersion()    // ActionUI's version, such as '0.9.0'
 actionui.getLastError()  // string or null
 actionui.clearError()
 ```
+
+---
+
+### HostSurface
+
+The `HostSurface` element is a part of a window that the program draws itself (the ActionUIHostSurface add-on;
+linked in on macOS, part of `libActionUI.so` on Linux, registered by `new Application()`). A document names it:
+
+```json
+{ "type": "HostSurface", "id": 5, "properties": { "surfaceName": "canvas", "idealWidth": 320, "idealHeight": 240 } }
+```
+
+The program binds a delegate, any object with some of these methods, to the name. Every method runs on the main
+thread, through `napi_make_callback` (so `process.nextTick` and Promise callbacks run after it), and an
+exception a method throws is printed:
+
+```js
+actionui.setSurfaceDelegate('canvas', {           // or app.setSurfaceDelegate(...)
+    created(info) { actionui.setContinuous(info.surfaceId, true); },  // build at info.widthPixels x heightPixels
+    changed(info) {},       // a new size or scale
+    suspended(info) {},     // off screen (hidden, zero size, occluded window)
+    resumed(info) {},
+    destroyed(info) {},     // stop using the surface before returning
+    frame(surfaceId, timestamp) {
+        actionui.presentPixels(surfaceId, pixels, width, height);  // Linux frame sink
+    },
+    input(surfaceId, event) {},  // pointer, touch, scroll, gestures, keys, focus
+    render(surfaceId) {},        // Linux "kind": "gl": draw with GL, GTK's context current
+});
+```
+
+| Function | Thread | Description |
+|---|---|---|
+| `setSurfaceDelegate(name, delegate)` | main | Binds `delegate` to every element with that `surfaceName`, now and later. Live surfaces are announced at once; a delegate it replaces gets `destroyed` first. Inside a delegate method, the change takes effect when the outermost callback returns. Throws in a worker. |
+| `removeSurfaceDelegate(name)` | main | Unbinds; the delegate gets `destroyed` for its surfaces first. |
+| `requestFrame(surfaceId)` | any, workers too | One `frame` at the next display refresh. |
+| `setContinuous(surfaceId, on)` | any, workers too | `frame` at every refresh, until the element's `continuous` changes. |
+| `setCursor(surfaceId, Cursor.X)` | main | The cursor over the surface; returns whether the surface is alive. |
+| `presentPixels(surfaceId, pixels, width, height, { stride = width * 4, format = PixelFormat.RGBA8_PREMULTIPLIED } = {})` | any, workers too | A finished frame for a frame sink. `pixels` is a Buffer, a typed array (`Uint8Array`, `Uint8ClampedArray`, an `ImageData`'s `data`), a DataView or an ArrayBuffer; a typed array over a `SharedArrayBuffer` lets a worker render into memory the main thread shares. The pixels are copied before it returns; the newest frame wins. False when the surface is not a live frame sink. Throws a RangeError for a buffer too short for the frame. |
+
+`info` holds `surfaceId` (new with every `created`; key your state by it; a Number), `windowUuid`, `viewId`,
+`kind` (`SurfaceKind`), `handle` (the native handle as a BigInt, or null), the size in points, `scale`, and the
+size in pixels. `event` holds `kind` (`InputKind`), `pointerType`, `button`, `pointerId`, `modifiers`
+(`Modifiers` bits), `clickCount`, `x` and `y` in points, `deltaX` and `deltaY` (how far the content should move,
+positive right and down) with `scrollUnit` and `scrollPhase`, `pressure`, `tiltX`, `tiltY`, and for keys
+`keyCode`, `code` (the W3C name, "KeyA") and `text`.
+
+What a surface is, by platform:
+
+- Linux: a frame sink (`SurfaceKind.FRAME_SINK`): render at the pixel size anywhere (a typed array, a canvas
+  library, WebGPU offscreen) and hand the frames to `presentPixels`, from any thread. With `"kind": "gl"` in the
+  document, a GL area (`SurfaceKind.GL_AREA`): draw in `render` with a GL binding.
+- macOS: a Metal layer (`SurfaceKind.METAL_LAYER`, `handle` is the `CAMetalLayer` pointer) for a native module
+  that draws with Metal. `presentPixels` returns false there.
+
+`example_host_surface.js` animates a frame sink from JavaScript.
 
 ---
 

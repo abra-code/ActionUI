@@ -32,6 +32,9 @@ const GUARDED = [
     ['appSetWindowWillClose', [fn]],
     ['appSetWindowWillPresent', [fn]],
     ['appRun', []],
+    ['hostSurfaceRegister', []],
+    ['hostSurfaceSetDelegate', ['worker.surface', fn]],
+    ['hostSurfaceSetCursor', [1, 0]],
 ];
 
 // ---------------------------------------------------------------------------

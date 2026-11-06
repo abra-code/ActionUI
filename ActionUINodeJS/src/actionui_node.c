@@ -49,6 +49,7 @@
 #endif
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
+#include <ActionUIHostSurface/ActionUIHostSurface.h>
 
 /* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
  * only; on Linux the main thread's ID is the process ID). */
@@ -2010,6 +2011,473 @@ static napi_value node_app_run_alert(napi_env env, napi_callback_info info) {
 
 // MARK: - Module Init
 
+// MARK: - HostSurface (ActionUIHostSurface.h)
+
+/*
+ * A HostSurface client: the JS bridge the surface events, frames, input and renders of one binding go to
+ * (index.js dispatches them to the delegate's methods). One per actionUIHostSurfaceSetDelegate call, on the
+ * main environment.
+ *
+ * The add-on applies a binding change made inside one of its callbacks after the outermost callback returns,
+ * and may still call the outgoing client then (its "destroyed"). So an unbound client is not freed at once:
+ * it waits in a retired list, freed on a later main-loop turn when no callback is running (as the Rust crate
+ * and the Python module do). All of this is on the main thread.
+ */
+typedef struct HostSurfaceClient {
+    napi_ref bridge;
+    struct HostSurfaceClient* next_retired;
+} HostSurfaceClient;
+
+typedef struct HostSurfaceBound {
+    char* name;
+    HostSurfaceClient* client;
+    struct HostSurfaceBound* next;
+} HostSurfaceBound;
+
+static HostSurfaceBound* s_host_surface_bound = NULL;
+static int s_host_surface_depth = 0;
+static HostSurfaceClient* s_host_surface_retired = NULL;
+static bool s_host_surface_free_scheduled = false;
+
+/* Frees the retired clients, unless a callback is running (its end schedules this again). Main thread. */
+static void host_surface_free_retired(void) {
+    s_host_surface_free_scheduled = false;
+    if (s_host_surface_depth > 0 || s_host_surface_retired == NULL || g_state == NULL) {
+        return;
+    }
+    HostSurfaceClient* client = s_host_surface_retired;
+    s_host_surface_retired = NULL;
+    while (client != NULL) {
+        HostSurfaceClient* next = client->next_retired;
+        if (client->bridge != NULL) {
+            napi_delete_reference(g_state->env, client->bridge);
+        }
+        free(client);
+        client = next;
+    }
+}
+
+#if defined(__APPLE__)
+static void host_surface_free_retired_dispatch(void* unused) {
+    (void)unused;
+    host_surface_free_retired();
+}
+#else
+static gboolean host_surface_free_retired_idle(gpointer unused) {
+    (void)unused;
+    host_surface_free_retired();
+    return G_SOURCE_REMOVE;
+}
+#endif
+
+static void host_surface_schedule_free(void) {
+    if (s_host_surface_free_scheduled || s_host_surface_retired == NULL) {
+        return;
+    }
+    s_host_surface_free_scheduled = true;
+#if defined(__APPLE__)
+    dispatch_async_f(dispatch_get_main_queue(), NULL, host_surface_free_retired_dispatch);
+#else
+    g_idle_add(host_surface_free_retired_idle, NULL);
+#endif
+}
+
+static void host_surface_retire(HostSurfaceClient* client) {
+    if (client == NULL) {
+        return;
+    }
+    client->next_retired = s_host_surface_retired;
+    s_host_surface_retired = client;
+    host_surface_schedule_free();
+}
+
+/* Records `client` (or, NULL, no client) as the binding of `name`, and returns the client it replaces. False in
+ * *stored when the record could not be made (out of memory). */
+static HostSurfaceClient* host_surface_replace_bound(const char* name, HostSurfaceClient* client, bool* stored) {
+    *stored = true;
+    HostSurfaceBound** link = &s_host_surface_bound;
+    while (*link != NULL && strcmp((*link)->name, name) != 0) {
+        link = &(*link)->next;
+    }
+    HostSurfaceClient* old = NULL;
+    if (*link != NULL) {
+        old = (*link)->client;
+        if (client != NULL) {
+            (*link)->client = client;
+        } else {
+            HostSurfaceBound* gone = *link;
+            *link = gone->next;
+            free(gone->name);
+            free(gone);
+        }
+    } else if (client != NULL) {
+        HostSurfaceBound* entry = calloc(1, sizeof(HostSurfaceBound));
+        char* copy = strdup(name);
+        if (entry == NULL || copy == NULL) {
+            free(entry);
+            free(copy);
+            *stored = false;
+            return NULL;
+        }
+        entry->name = copy;
+        entry->client = client;
+        entry->next = s_host_surface_bound;
+        s_host_surface_bound = entry;
+    }
+    return old;
+}
+
+/* Builds the last argument of a bridge call, inside the call's handle scope. */
+typedef napi_value (*HostSurfacePayloadBuilder)(napi_env env, const void* data);
+
+/* Calls client->bridge(kind, surfaceId, windowUUID, viewId, payload) through napi_make_callback, so nextTick
+ * and Promise queues drain after it. An exception the bridge lets through is reported, never left pending.
+ * Called from the add-on on the main thread. */
+static void host_surface_call(void* user_data, const char* kind, uint64_t surface_id, const char* window_uuid,
+                              int64_t view_id, HostSurfacePayloadBuilder build, const void* data) {
+    HostSurfaceClient* client = (HostSurfaceClient*)user_data;
+    if (client == NULL || client->bridge == NULL || g_state == NULL) {
+        return;
+    }
+    napi_env env = g_state->env;
+    s_host_surface_depth += 1;
+    napi_handle_scope scope;
+    napi_open_handle_scope(env, &scope);
+    napi_value fn;
+    if (napi_get_reference_value(env, client->bridge, &fn) == napi_ok && fn != NULL) {
+        napi_value argv[5];
+        napi_create_string_utf8(env, kind, NAPI_AUTO_LENGTH, &argv[0]);
+        napi_create_double(env, (double)surface_id, &argv[1]);
+        napi_create_string_utf8(env, window_uuid != NULL ? window_uuid : "", NAPI_AUTO_LENGTH, &argv[2]);
+        napi_create_int64(env, view_id, &argv[3]);
+        argv[4] = build(env, data);
+        napi_value global, result;
+        napi_get_global(env, &global);
+        napi_make_callback(env, g_state->async_ctx, global, fn, 5, argv, &result);
+        bool pending = false;
+        napi_is_exception_pending(env, &pending);
+        if (pending) {
+            napi_value error;
+            napi_get_and_clear_last_exception(env, &error);
+            napi_value text;
+            char message[512] = "";
+            if (napi_coerce_to_string(env, error, &text) == napi_ok) {
+                napi_get_value_string_utf8(env, text, message, sizeof(message), NULL);
+            } else {
+                /* A Symbol, or a toString that throws: clear that exception too, or it stays pending and the
+                 * next callback's napi_make_callback refuses to run. */
+                napi_value ignored;
+                napi_get_and_clear_last_exception(env, &ignored);
+                snprintf(message, sizeof(message), "(a value that cannot be shown as text)");
+            }
+            fprintf(stderr, "actionui: a HostSurface delegate threw: %s\n", message);
+        }
+    }
+    napi_close_handle_scope(env, scope);
+    s_host_surface_depth -= 1;
+    if (s_host_surface_depth == 0) {
+        host_surface_schedule_free();
+    }
+}
+
+static napi_value host_surface_number_array(napi_env env, const double* values, size_t count) {
+    napi_value array;
+    napi_create_array_with_length(env, count, &array);
+    for (size_t index = 0; index < count; index++) {
+        napi_value value;
+        napi_create_double(env, values[index], &value);
+        napi_set_element(env, array, (uint32_t)index, value);
+    }
+    return array;
+}
+
+/* [kind, handle (BigInt) | null, widthPoints, heightPoints, scale, widthPixels, heightPixels] */
+static napi_value host_surface_info_payload(napi_env env, const void* data) {
+    const AUIHostSurfaceInfo* info = (const AUIHostSurfaceInfo*)data;
+    double values[7] = {info->kind, 0, info->widthPoints, info->heightPoints, info->scale, info->widthPixels,
+                        info->heightPixels};
+    napi_value array = host_surface_number_array(env, values, 7);
+    napi_value handle;
+    if (info->handle != NULL) {
+        napi_create_bigint_uint64(env, (uint64_t)(uintptr_t)info->handle, &handle);
+    } else {
+        napi_get_null(env, &handle);
+    }
+    napi_set_element(env, array, 1, handle);
+    return array;
+}
+
+static napi_value host_surface_number_payload(napi_env env, const void* data) {
+    napi_value value;
+    napi_create_double(env, *(const double*)data, &value);
+    return value;
+}
+
+static napi_value host_surface_undefined_payload(napi_env env, const void* data) {
+    (void)data;
+    napi_value value;
+    napi_get_undefined(env, &value);
+    return value;
+}
+
+/* The fields of AUIHostInputEvent in order (index.js names them): 16 numbers, then code, text (or null),
+ * timestampSeconds. */
+static napi_value host_surface_input_payload(napi_env env, const void* data) {
+    const AUIHostInputEvent* event = (const AUIHostInputEvent*)data;
+    double values[16] = {event->kind, event->pointerType, event->button, (double)event->pointerID, event->modifiers,
+                         event->clickCount, event->x, event->y, event->deltaX, event->deltaY, event->scrollUnit,
+                         event->scrollPhase, event->pressure, event->tiltX, event->tiltY, event->keyCode};
+    napi_value array = host_surface_number_array(env, values, 16);
+    napi_value code, text, timestamp;
+    napi_create_string_utf8(env, event->code != NULL ? event->code : "", NAPI_AUTO_LENGTH, &code);
+    if (event->text != NULL) {
+        napi_create_string_utf8(env, event->text, NAPI_AUTO_LENGTH, &text);
+    } else {
+        napi_get_null(env, &text);
+    }
+    napi_create_double(env, event->timestampSeconds, &timestamp);
+    napi_set_element(env, array, 16, code);
+    napi_set_element(env, array, 17, text);
+    napi_set_element(env, array, 18, timestamp);
+    return array;
+}
+
+static const char* host_surface_event_name(int32_t event) {
+    switch (event) {
+        case AUIHostSurfaceCreated: return "created";
+        case AUIHostSurfaceChanged: return "changed";
+        case AUIHostSurfaceSuspended: return "suspended";
+        case AUIHostSurfaceResumed: return "resumed";
+        case AUIHostSurfaceDestroyed: return "destroyed";
+        default: return NULL;
+    }
+}
+
+static void host_surface_on_surface(uint64_t surface_id, const char* window_uuid, int64_t view_id, int32_t event,
+                                    const AUIHostSurfaceInfo* info, void* user_data) {
+    const char* name = host_surface_event_name(event);
+    if (name == NULL || info == NULL) {
+        return;
+    }
+    host_surface_call(user_data, name, surface_id, window_uuid, view_id, host_surface_info_payload, info);
+}
+
+static void host_surface_on_frame(uint64_t surface_id, const char* window_uuid, int64_t view_id, double timestamp,
+                                  void* user_data) {
+    host_surface_call(user_data, "frame", surface_id, window_uuid, view_id, host_surface_number_payload, &timestamp);
+}
+
+static void host_surface_on_input(uint64_t surface_id, const char* window_uuid, int64_t view_id,
+                                  const AUIHostInputEvent* event, void* user_data) {
+    if (event == NULL) {
+        return;
+    }
+    host_surface_call(user_data, "input", surface_id, window_uuid, view_id, host_surface_input_payload, event);
+}
+
+static void host_surface_on_render(uint64_t surface_id, const char* window_uuid, int64_t view_id, void* user_data) {
+    host_surface_call(user_data, "render", surface_id, window_uuid, view_id, host_surface_undefined_payload, NULL);
+}
+
+/* A surface ID argument: a non-negative integer Number (IDs stay far below 2^53). Throws otherwise. */
+static bool host_surface_get_id(napi_env env, napi_value value, uint64_t* id) {
+    double number = -1;
+    if (napi_get_value_double(env, value, &number) != napi_ok || !(number >= 0) || number > 9007199254740991.0 ||
+        number != (double)(uint64_t)number) {
+        napi_throw_type_error(env, NULL, "the surface ID must be a non-negative integer");
+        return false;
+    }
+    *id = (uint64_t)number;
+    return true;
+}
+
+static napi_value node_host_surface_register(napi_env env, napi_callback_info info) {
+    (void)info;
+    if (!require_main_env(env, "hostSurfaceRegister")) return NULL;
+    ActionUIHostSurface_register();
+    return NULL;
+}
+
+/* hostSurfaceSetDelegate(name, bridge|null): binds (or unbinds) the HostSurface elements named name. */
+static napi_value node_host_surface_set_delegate(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "hostSurfaceSetDelegate")) return NULL;
+    size_t argc = 2;
+    napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char name[256];
+    size_t length = 0;
+    if (argc < 2 || napi_get_value_string_utf8(env, argv[0], name, sizeof(name), &length) != napi_ok ||
+        length == 0 || length >= sizeof(name) - 1) {
+        napi_throw_type_error(env, NULL, "hostSurfaceSetDelegate(name, bridge|null): name must be a non-empty string");
+        return NULL;
+    }
+    napi_valuetype type;
+    napi_typeof(env, argv[1], &type);
+    if (type != napi_function && type != napi_null && type != napi_undefined) {
+        napi_throw_type_error(env, NULL, "hostSurfaceSetDelegate(name, bridge|null): bridge must be a function or null");
+        return NULL;
+    }
+    HostSurfaceClient* client = NULL;
+    if (type == napi_function) {
+        client = calloc(1, sizeof(HostSurfaceClient));
+        if (client == NULL || napi_create_reference(env, argv[1], 1, &client->bridge) != napi_ok) {
+            free(client);
+            napi_throw_error(env, NULL, "out of memory");
+            return NULL;
+        }
+    }
+    /* The table is updated before the add-on call: the outgoing client's "destroyed", sent during it, may bind
+     * the name again, and the add-on applies that change after this one, so it must win here too. */
+    bool stored = true;
+    HostSurfaceClient* old = host_surface_replace_bound(name, client, &stored);
+    if (!stored) {
+        napi_delete_reference(env, client->bridge);
+        free(client);
+        napi_throw_error(env, NULL, "out of memory");
+        return NULL;
+    }
+    AUIHostSurfaceDelegate delegate = {
+        .structSize = sizeof(AUIHostSurfaceDelegate),
+        .surface = host_surface_on_surface,
+        .frame = host_surface_on_frame,
+        .input = host_surface_on_input,
+        .render = host_surface_on_render,
+    };
+    bool bound = actionUIHostSurfaceSetDelegate(name, client != NULL ? &delegate : NULL, client);
+    if (!bound) {
+        /* Nothing happened on the add-on's side: put the old client back. */
+        host_surface_replace_bound(name, old, &stored);
+        if (client != NULL) {
+            napi_delete_reference(env, client->bridge);
+            free(client);
+        }
+        napi_throw_error(env, NULL, "HostSurface refused the delegate");
+        return NULL;
+    }
+    host_surface_retire(old);
+    return NULL;
+}
+
+static napi_value node_host_surface_request_frame(napi_env env, napi_callback_info info) {
+    size_t argc = 1;
+    napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    uint64_t id = 0;
+    if (argc < 1 || !host_surface_get_id(env, argv[0], &id)) return NULL;
+    actionUIHostSurfaceRequestFrame(id);
+    return NULL;
+}
+
+static napi_value node_host_surface_set_continuous(napi_env env, napi_callback_info info) {
+    size_t argc = 2;
+    napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    uint64_t id = 0;
+    bool on = false;
+    if (argc < 2 || !host_surface_get_id(env, argv[0], &id)) return NULL;
+    napi_get_value_bool(env, argv[1], &on);
+    actionUIHostSurfaceSetContinuous(id, on);
+    return NULL;
+}
+
+static napi_value node_host_surface_set_cursor(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "hostSurfaceSetCursor")) return NULL;
+    size_t argc = 2;
+    napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    uint64_t id = 0;
+    int32_t cursor = 0;
+    if (argc < 2 || !host_surface_get_id(env, argv[0], &id)) return NULL;
+    napi_get_value_int32(env, argv[1], &cursor);
+    napi_value result;
+    napi_get_boolean(env, actionUIHostSurfaceSetCursor(id, cursor), &result);
+    return result;
+}
+
+/* The bytes of a Buffer, a typed array, a DataView or an ArrayBuffer. */
+static bool host_surface_get_bytes(napi_env env, napi_value value, const void** data, size_t* length) {
+    bool is = false;
+    napi_is_typedarray(env, value, &is);
+    if (is) {
+        napi_typedarray_type type;
+        size_t count = 0, offset = 0;
+        void* bytes = NULL;
+        napi_value buffer;
+        if (napi_get_typedarray_info(env, value, &type, &count, &bytes, &buffer, &offset) != napi_ok) return false;
+        size_t size = 1;
+        switch (type) {
+            case napi_int16_array: case napi_uint16_array: size = 2; break;
+            case napi_int32_array: case napi_uint32_array: case napi_float32_array: size = 4; break;
+            case napi_float64_array: case napi_bigint64_array: case napi_biguint64_array: size = 8; break;
+            default: size = 1; break;
+        }
+        *data = bytes;
+        *length = count * size;
+        return true;
+    }
+    napi_is_dataview(env, value, &is);
+    if (is) {
+        void* bytes = NULL;
+        size_t count = 0, offset = 0;
+        napi_value buffer;
+        if (napi_get_dataview_info(env, value, &count, &bytes, &buffer, &offset) != napi_ok) return false;
+        *data = bytes;
+        *length = count;
+        return true;
+    }
+    napi_is_arraybuffer(env, value, &is);
+    if (is) {
+        void* bytes = NULL;
+        size_t count = 0;
+        if (napi_get_arraybuffer_info(env, value, &bytes, &count) != napi_ok) return false;
+        *data = bytes;
+        *length = count;
+        return true;
+    }
+    return false;
+}
+
+/* hostSurfacePresentPixels(surfaceId, pixels, width, height, stride, format) -> boolean. Any thread (a worker
+ * included): the add-on copies the pixels before it returns. */
+static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_info info) {
+    size_t argc = 6;
+    napi_value argv[6];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    if (argc < 6) {
+        napi_throw_type_error(env, NULL, "hostSurfacePresentPixels(surfaceId, pixels, width, height, stride, format)");
+        return NULL;
+    }
+    uint64_t id = 0;
+    if (!host_surface_get_id(env, argv[0], &id)) return NULL;
+    const void* bytes = NULL;
+    size_t length = 0;
+    if (!host_surface_get_bytes(env, argv[1], &bytes, &length)) {
+        napi_throw_type_error(env, NULL, "pixels must be a Buffer, a typed array, a DataView or an ArrayBuffer");
+        return NULL;
+    }
+    uint32_t width = 0, height = 0, stride = 0;
+    int32_t format = 0;
+    napi_get_value_uint32(env, argv[2], &width);
+    napi_get_value_uint32(env, argv[3], &height);
+    napi_get_value_uint32(env, argv[4], &stride);
+    napi_get_value_int32(env, argv[5], &format);
+    if (width == 0 || height == 0 || (uint64_t)stride < (uint64_t)width * 4) {
+        napi_throw_range_error(env, NULL, "width and height must be positive, and stride at least width * 4");
+        return NULL;
+    }
+    uint64_t needed = (uint64_t)stride * (height - 1) + (uint64_t)width * 4;
+    if ((uint64_t)length < needed) {
+        char message[160];
+        snprintf(message, sizeof(message), "the pixels hold %zu bytes; the frame needs %llu", length,
+                 (unsigned long long)needed);
+        napi_throw_range_error(env, NULL, message);
+        return NULL;
+    }
+    napi_value result;
+    napi_get_boolean(env, actionUIHostSurfacePresentPixels(id, width, height, stride, format, bytes), &result);
+    return result;
+}
+
 #define EXPORT_FN(exports, name, fn) do { \
     napi_value _fn; \
     napi_create_function(env, name, NAPI_AUTO_LENGTH, fn, NULL, &_fn); \
@@ -2213,6 +2681,22 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_INT(exports, "LOG_INFO",    ActionUILogLevelInfo);
     EXPORT_INT(exports, "LOG_DEBUG",   ActionUILogLevelDebug);
     EXPORT_INT(exports, "LOG_VERBOSE", ActionUILogLevelVerbose);
+
+    /* HostSurface (ActionUIHostSurface.h) */
+    EXPORT_FN(exports, "hostSurfaceRegister",       node_host_surface_register);
+    EXPORT_FN(exports, "hostSurfaceSetDelegate",    node_host_surface_set_delegate);
+    EXPORT_FN(exports, "hostSurfaceRequestFrame",   node_host_surface_request_frame);
+    EXPORT_FN(exports, "hostSurfaceSetContinuous",  node_host_surface_set_continuous);
+    EXPORT_FN(exports, "hostSurfaceSetCursor",      node_host_surface_set_cursor);
+    EXPORT_FN(exports, "hostSurfacePresentPixels",  node_host_surface_present_pixels);
+    EXPORT_INT(exports, "HOST_SURFACE_METAL_LAYER",   AUIHostSurfaceMetalLayer);
+    EXPORT_INT(exports, "HOST_SURFACE_NATIVE_WINDOW", AUIHostSurfaceANativeWindow);
+    EXPORT_INT(exports, "HOST_SURFACE_GL_AREA",       AUIHostSurfaceGLArea);
+    EXPORT_INT(exports, "HOST_SURFACE_FRAME_SINK",    AUIHostSurfaceFrameSink);
+    EXPORT_INT(exports, "PIXEL_BGRA8_PREMULTIPLIED",  AUIHostPixelBGRA8Premultiplied);
+    EXPORT_INT(exports, "PIXEL_RGBA8_PREMULTIPLIED",  AUIHostPixelRGBA8Premultiplied);
+    EXPORT_INT(exports, "PIXEL_BGRX8",                AUIHostPixelBGRX8);
+    EXPORT_INT(exports, "PIXEL_RGBX8",                AUIHostPixelRGBX8);
 
     return exports;
 }
