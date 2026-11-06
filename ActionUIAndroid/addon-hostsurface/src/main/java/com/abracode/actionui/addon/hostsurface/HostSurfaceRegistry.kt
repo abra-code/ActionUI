@@ -127,6 +127,8 @@ internal class HostSurfaceController(
     val windowUUID: String,
     val viewID: Int,
     val composited: Boolean,
+    /** "kind": "sink": the element opens a frame-sink slot for each announced surface (HostSurfaceNative). */
+    val sink: Boolean,
     private val host: HostSurfaceHost,
 ) {
     var announcedBinding: HostSurfaceBinding? = null
@@ -228,6 +230,9 @@ internal class HostSurfaceController(
                 return
             }
             surfaceID = HostSurfaceRegistry.announce(this)
+            if (sink) {
+                HostSurfaceNative.openSink(surfaceID, current)
+            }
             announcedBinding = binding
             announcedSize = widthPixels to heightPixels
             suspendedSent = false
@@ -251,6 +256,11 @@ internal class HostSurfaceController(
         }
         // FOCUS_OUT before DESTROYED, as on Apple: a successor gets no keys before a tap gives it FOCUS_IN.
         host.giveUpFocus()
+        if (sink) {
+            // Before DESTROYED, as on Apple: presents fail from here on (one under way finishes first), and the
+            // old client's last frame is cleared.
+            HostSurfaceNative.closeSink(surfaceID)
+        }
         send(HostSurfaceEvent.DESTROYED)
         HostSurfaceRegistry.retire(surfaceID)
         surfaceID = 0
@@ -264,7 +274,7 @@ internal class HostSurfaceController(
     private fun info(): HostSurfaceInfo? {
         val current = surface ?: return null
         return HostSurfaceInfo(
-            surfaceID, windowUUID, viewID, current, announcedSize.first, announcedSize.second, density, composited,
+            surfaceID, windowUUID, viewID, current, announcedSize.first, announcedSize.second, density, composited, sink,
         )
     }
 

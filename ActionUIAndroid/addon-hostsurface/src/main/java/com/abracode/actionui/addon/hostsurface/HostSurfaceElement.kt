@@ -8,7 +8,9 @@ package com.abracode.actionui.addon.hostsurface
    "properties": {
      "surfaceName": "viewport",   // Required: binds the element to the client set with HostSurfaces.setDelegate.
                                   //           Fixed at load.
-     "kind": "native",            // Optional: "native" (default): an android.view.Surface. "sink" and "gl" are
+     "kind": "native",            // Optional: "native" (default): an android.view.Surface. "sink": a frame sink,
+                                  //           the client presents finished pixels (HostSurfaces.presentPixels,
+                                  //           actionUIHostSurfacePresentPixels), as on Apple and Linux. "gl" is
                                   //           not available here: a placeholder is drawn. Fixed at load.
      "continuous": false,         // Optional: onFrame at every vsync while the surface is on screen.
      "focusable": true,           // Optional: a tap or click gives the surface keyboard focus; never at load.
@@ -76,8 +78,10 @@ import kotlinx.serialization.json.doubleOrNull
 /** The element's own properties; ill-typed values warn and fall back to the default. Pure, for unit tests. */
 internal data class HostSurfaceProperties(
     val surfaceName: String = "",
-    /** null: "native"; else the unsupported kind. */
+    /** null: "native" or "sink"; else the unsupported kind. */
     val unsupportedKind: String? = null,
+    /** "kind": "sink": a frame sink. */
+    val sink: Boolean = false,
     val continuous: Boolean = false,
     val focusable: Boolean = true,
     val opaque: Boolean = true,
@@ -112,9 +116,10 @@ internal data class HostSurfaceProperties(
                 warn("'surfaceName' is required and must be a non-empty String; no client can bind to this surface")
             }
             val kindRaw = properties?.get("kind")
+            val kindName = (kindRaw as? JsonPrimitive)?.takeIf { it.isString }?.content
             val unsupported = when {
                 kindRaw == null -> null
-                kindRaw is JsonPrimitive && kindRaw.isString && kindRaw.content == "native" -> null
+                kindName == "native" || kindName == "sink" -> null
                 else -> {
                     val kind = (kindRaw as? JsonPrimitive)?.content ?: kindRaw.toString()
                     warn("kind '$kind' is not available on this platform; drawing a placeholder")
@@ -124,6 +129,7 @@ internal data class HostSurfaceProperties(
             return HostSurfaceProperties(
                 surfaceName = name,
                 unsupportedKind = unsupported,
+                sink = kindName == "sink",
                 continuous = bool("continuous", false),
                 focusable = bool("focusable", true),
                 opaque = bool("opaque", true),
@@ -168,9 +174,9 @@ object HostSurfaceElement : ActionUIViewConstruction {
             }
             return
         }
-        // surfaceName and composited are fixed at load: the controller is made once per element.
+        // surfaceName, kind and composited are fixed at load: the controller is made once per element.
         val controller = remember(windowUUID, element.id) {
-            HostSurfaceViews.Holder(props.surfaceName, windowUUID, element.id, props.composited)
+            HostSurfaceViews.Holder(props.surfaceName, windowUUID, element.id, props.composited, props.sink)
         }
         DisposableEffect(controller) {
             onDispose { controller.release() }
@@ -233,6 +239,7 @@ internal object HostSurfaceViews {
         private val windowUUID: String,
         private val viewID: Int,
         private val composited: Boolean,
+        private val sink: Boolean,
     ) : HostSurfaceHost {
         var controller: HostSurfaceController? = null
             private set
@@ -249,7 +256,7 @@ internal object HostSurfaceViews {
             get() = inputEnabled && controller?.hidden == false && (controller?.surfaceID ?: 0L) != 0L
 
         fun makeView(context: Context): View {
-            val made = HostSurfaceController(surfaceName, windowUUID, viewID, composited, this)
+            val made = HostSurfaceController(surfaceName, windowUUID, viewID, composited, sink, this)
             controller = made
             val density = context.resources.displayMetrics.density
             val surfaceView = if (composited) makeTextureView(context, made, density) else makeSurfaceView(context, made, density)

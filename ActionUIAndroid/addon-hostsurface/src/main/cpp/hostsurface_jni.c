@@ -14,6 +14,9 @@
 //    forwards to it (HostSurfaceNative.kt); the Kotlin registry applies the usual rules.
 //  - A surface's android.view.Surface becomes an ANativeWindow at CREATED. The library holds a reference
 //    until DESTROYED for that surface has returned, so the handle stays valid as long as the header says.
+//  - A frame sink ("kind": "sink") keeps its surface's ANativeWindow in a table the element opens before CREATED
+//    and closes before DESTROYED; actionUIHostSurfacePresentPixels copies a frame into the window's next buffer
+//    from any thread, under the table's lock, so a close waits for a present under way.
 //  - The library must be loaded with System.loadLibrary("actionui_hostsurface") before a client calls in
 //    (the add-on's ContentProvider does it at process start), so JNI_OnLoad caches the Java VM and the
 //    Kotlin bridge class: a thread that a client started has no class loader to find it with.
@@ -26,6 +29,7 @@
 #include <jni.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -237,16 +241,117 @@ EXPORT bool actionUIHostSurfaceSetCursor(uint64_t surfaceID, int32_t cursor) {
     return set == JNI_TRUE;
 }
 
+// MARK: - Frame sinks ("kind": "sink"), by surfaceID, under sinkLock
+
+typedef struct {
+    uint64_t surfaceID;
+    ANativeWindow *window;
+    int32_t bufferWidth;   // the buffer size last set with ANativeWindow_setBuffersGeometry; 0 before the first
+    int32_t bufferHeight;
+    bool presented;        // a frame was shown, so closing clears it
+} SinkSlot;
+
+static pthread_mutex_t sinkLock = PTHREAD_MUTEX_INITIALIZER;
+static SinkSlot *sinks = NULL;
+static size_t sinkCount = 0;
+static size_t sinkCapacity = 0;
+
+/// The slot of a surface, or NULL. With sinkLock held.
+static SinkSlot *sinkFor(uint64_t surfaceID) {
+    for (size_t index = 0; index < sinkCount; index++) {
+        if (sinks[index].surfaceID == surfaceID) {
+            return &sinks[index];
+        }
+    }
+    return NULL;
+}
+
+/// Clears what the window shows (a transparent frame). With sinkLock held; best effort: a surface on its way out
+/// may refuse the lock.
+static void clearWindow(ANativeWindow *window) {
+    ANativeWindow_Buffer buffer;
+    if (ANativeWindow_lock(window, &buffer, NULL) != 0) {
+        return;
+    }
+    size_t rowBytes = (size_t)buffer.width * 4;
+    for (int32_t y = 0; y < buffer.height; y++) {
+        memset((uint8_t *)buffer.bits + (size_t)y * (size_t)buffer.stride * 4, 0, rowBytes);
+    }
+    ANativeWindow_unlockAndPost(window);
+}
+
+/// Copies one row of pixels into the window's RGBA layout.
+static void copyRow(uint8_t *target, const uint8_t *source, uint32_t width, int32_t format) {
+    switch (format) {
+    case AUIHostPixelRGBA8Premultiplied:
+        memcpy(target, source, (size_t)width * 4);
+        break;
+    case AUIHostPixelBGRA8Premultiplied:
+        for (uint32_t x = 0; x < width; x++) {
+            target[(size_t)x * 4] = source[(size_t)x * 4 + 2];
+            target[(size_t)x * 4 + 1] = source[(size_t)x * 4 + 1];
+            target[(size_t)x * 4 + 2] = source[(size_t)x * 4];
+            target[(size_t)x * 4 + 3] = source[(size_t)x * 4 + 3];
+        }
+        break;
+    case AUIHostPixelRGBX8:
+        for (uint32_t x = 0; x < width; x++) {
+            memcpy(target + (size_t)x * 4, source + (size_t)x * 4, 3);
+            target[(size_t)x * 4 + 3] = 0xFF;
+        }
+        break;
+    default: // AUIHostPixelBGRX8
+        for (uint32_t x = 0; x < width; x++) {
+            target[(size_t)x * 4] = source[(size_t)x * 4 + 2];
+            target[(size_t)x * 4 + 1] = source[(size_t)x * 4 + 1];
+            target[(size_t)x * 4 + 2] = source[(size_t)x * 4];
+            target[(size_t)x * 4 + 3] = 0xFF;
+        }
+        break;
+    }
+}
+
 EXPORT bool actionUIHostSurfacePresentPixels(uint64_t surfaceID, uint32_t width, uint32_t height, uint32_t stride,
                                              int32_t format, const void *pixels) {
-    // Android surfaces are native windows, not frame sinks.
-    (void)surfaceID;
-    (void)width;
-    (void)height;
-    (void)stride;
-    (void)format;
-    (void)pixels;
-    return false;
+    if (pixels == NULL || width == 0 || height == 0 || width > INT32_MAX || height > INT32_MAX ||
+        (uint64_t)stride < (uint64_t)width * 4 || format < AUIHostPixelBGRA8Premultiplied || format > AUIHostPixelRGBX8) {
+        return false;
+    }
+    pthread_mutex_lock(&sinkLock);
+    SinkSlot *slot = sinkFor(surfaceID);
+    if (slot == NULL) {
+        pthread_mutex_unlock(&sinkLock);
+        return false;
+    }
+    // The buffers take the frame's size; the compositor scales them to the surface.
+    if (slot->bufferWidth != (int32_t)width || slot->bufferHeight != (int32_t)height) {
+        if (ANativeWindow_setBuffersGeometry(slot->window, (int32_t)width, (int32_t)height,
+                                             WINDOW_FORMAT_RGBA_8888) != 0) {
+            pthread_mutex_unlock(&sinkLock);
+            return false;
+        }
+        slot->bufferWidth = (int32_t)width;
+        slot->bufferHeight = (int32_t)height;
+    }
+    ANativeWindow_Buffer buffer;
+    if (ANativeWindow_lock(slot->window, &buffer, NULL) != 0) {
+        pthread_mutex_unlock(&sinkLock);
+        return false;
+    }
+    bool fits = buffer.width >= (int32_t)width && buffer.height >= (int32_t)height &&
+                buffer.format == WINDOW_FORMAT_RGBA_8888;
+    if (fits) {
+        for (uint32_t y = 0; y < height; y++) {
+            copyRow((uint8_t *)buffer.bits + (size_t)y * (size_t)buffer.stride * 4,
+                    (const uint8_t *)pixels + (size_t)y * stride, width, format);
+        }
+    }
+    bool posted = ANativeWindow_unlockAndPost(slot->window) == 0 && fits;
+    if (posted) {
+        slot->presented = true;
+    }
+    pthread_mutex_unlock(&sinkLock);
+    return posted;
 }
 
 // MARK: - Native windows, by surfaceID (main thread only)
@@ -316,9 +421,88 @@ static void releaseUTF8(JNIEnv *env, jbyteArray bytes, const char *chars) {
 }
 
 JNIEXPORT void JNICALL
+Java_com_abracode_actionui_addon_hostsurface_HostSurfaceNative_nativeSinkOpen(
+    JNIEnv *env, jclass bridge, jlong surfaceID, jobject surface) {
+    (void)bridge;
+    ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
+    if (window == NULL) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "no native window for frame sink %llu",
+                            (unsigned long long)surfaceID);
+        return;
+    }
+    pthread_mutex_lock(&sinkLock);
+    bool added = false;
+    if (sinkFor((uint64_t)surfaceID) == NULL) {
+        if (sinkCount == sinkCapacity) {
+            size_t capacity = sinkCapacity == 0 ? 4 : sinkCapacity * 2;
+            SinkSlot *grown = realloc(sinks, capacity * sizeof(SinkSlot));
+            if (grown != NULL) {
+                sinks = grown;
+                sinkCapacity = capacity;
+            }
+        }
+        if (sinkCount < sinkCapacity) {
+            sinks[sinkCount] = (SinkSlot){ .surfaceID = (uint64_t)surfaceID, .window = window };
+            sinkCount += 1;
+            added = true;
+        }
+    }
+    pthread_mutex_unlock(&sinkLock);
+    if (!added) {
+        ANativeWindow_release(window);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_abracode_actionui_addon_hostsurface_HostSurfaceNative_nativeSinkClose(JNIEnv *env, jclass bridge, jlong surfaceID) {
+    (void)env;
+    (void)bridge;
+    pthread_mutex_lock(&sinkLock);
+    ANativeWindow *window = NULL;
+    for (size_t index = 0; index < sinkCount; index++) {
+        if (sinks[index].surfaceID == (uint64_t)surfaceID) {
+            window = sinks[index].window;
+            if (sinks[index].presented) {
+                // The old client's frame must not be shown to the next one.
+                clearWindow(window);
+            }
+            sinks[index] = sinks[sinkCount - 1];
+            sinkCount -= 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&sinkLock);
+    if (window != NULL) {
+        ANativeWindow_release(window);
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_abracode_actionui_addon_hostsurface_HostSurfaceNative_nativePresentPixels(
+    JNIEnv *env, jclass bridge, jlong surfaceID, jbyteArray pixels, jint width, jint height, jint stride, jint format) {
+    (void)bridge;
+    if (pixels == NULL || width <= 0 || height <= 0 || stride <= 0) {
+        return JNI_FALSE;
+    }
+    jsize length = (*env)->GetArrayLength(env, pixels);
+    if ((int64_t)length < (int64_t)stride * (height - 1) + (int64_t)width * 4) {
+        return JNI_FALSE;
+    }
+    jbyte *bytes = (*env)->GetByteArrayElements(env, pixels, NULL);
+    if (bytes == NULL) {
+        clearException(env, "GetByteArrayElements");
+        return JNI_FALSE;
+    }
+    bool shown = actionUIHostSurfacePresentPixels((uint64_t)surfaceID, (uint32_t)width, (uint32_t)height,
+                                                  (uint32_t)stride, format, bytes);
+    (*env)->ReleaseByteArrayElements(env, pixels, bytes, JNI_ABORT);
+    return shown ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
 Java_com_abracode_actionui_addon_hostsurface_HostSurfaceNative_nativeSurface(
     JNIEnv *env, jclass bridge, jlong handle, jint event, jlong surfaceID, jbyteArray windowUUID, jint viewID,
-    jobject surface, jint widthPixels, jint heightPixels, jfloat density) {
+    jobject surface, jint widthPixels, jint heightPixels, jfloat density, jboolean frameSink) {
     (void)bridge;
     HostSurfaceClient *client = (HostSurfaceClient *)(intptr_t)handle;
     uint64_t identifier = (uint64_t)surfaceID;
@@ -342,8 +526,9 @@ Java_com_abracode_actionui_addon_hostsurface_HostSurfaceNative_nativeSurface(
         double scale = density > 0 ? (double)density : 1.0;
         AUIHostSurfaceInfo info = {
             .structSize = sizeof(AUIHostSurfaceInfo),
-            .kind = AUIHostSurfaceANativeWindow,
-            .handle = window,
+            // A frame sink has no handle: the client presents pixels, and ActionUI is the window's producer.
+            .kind = frameSink ? AUIHostSurfaceFrameSink : AUIHostSurfaceANativeWindow,
+            .handle = frameSink ? NULL : window,
             .widthPoints = widthPixels / scale,
             .heightPoints = heightPixels / scale,
             .scale = scale,

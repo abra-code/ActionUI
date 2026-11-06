@@ -23,6 +23,18 @@ import android.view.Surface
 
 enum class HostSurfaceEvent { CREATED, CHANGED, SUSPENDED, RESUMED, DESTROYED }
 
+/** The layout of the pixels given to [HostSurfaces.presentPixels]: 4 bytes per pixel, in this order. */
+enum class HostPixelFormat {
+    /** Blue, green, red, alpha; colors premultiplied by alpha. */
+    BGRA8_PREMULTIPLIED,
+    /** Red, green, blue, alpha; colors premultiplied by alpha. The surface's own layout: copied as is. */
+    RGBA8_PREMULTIPLIED,
+    /** Blue, green, red, unused: opaque. */
+    BGRX8,
+    /** Red, green, blue, unused: opaque. */
+    RGBX8,
+}
+
 /** One announced surface. [surface] is valid until DESTROYED for [surfaceID] returns. */
 class HostSurfaceInfo(
     /** Unique for the life of the process; a new one with every CREATED. */
@@ -36,6 +48,11 @@ class HostSurfaceInfo(
     val density: Float,
     /** True for a TextureView ("composited": true), false for a SurfaceView. */
     val composited: Boolean,
+    /**
+     * True for a frame sink ("kind": "sink"): present finished pixels with [HostSurfaces.presentPixels] and do not
+     * draw into [surface], which ActionUI then fills.
+     */
+    val frameSink: Boolean = false,
 ) {
     val widthPoints: Float get() = widthPixels / density
     val heightPoints: Float get() = heightPixels / density
@@ -136,6 +153,25 @@ object HostSurfaces {
         val controller = HostSurfaceRegistry.liveSurface(surfaceID) ?: return false
         controller.setCursor(cursor)
         return true
+    }
+
+    /**
+     * Frame sink only ([HostSurfaceInfo.frameSink]): shows one finished frame, [height] rows of [width] pixels,
+     * 4 bytes each in [format], [stride] bytes apart, scaled to the surface. The pixels are copied into the
+     * surface's next buffer before it returns. Any thread; never waits for the main thread, but may wait briefly
+     * for a free buffer when frames come faster than the display shows them. Returns false when the surface is not
+     * a live frame sink (for example after its DESTROYED), when a size is 0, when [stride] is less than
+     * [width] * 4, or when [pixels] is too short for the frame.
+     */
+    fun presentPixels(
+        surfaceID: Long, pixels: ByteArray, width: Int, height: Int, stride: Int = width * 4,
+        format: HostPixelFormat = HostPixelFormat.RGBA8_PREMULTIPLIED,
+    ): Boolean {
+        if (width <= 0 || height <= 0 || stride < width.toLong() * 4 ||
+            pixels.size < stride.toLong() * (height - 1) + width.toLong() * 4 || !HostSurfaceNative.loaded) {
+            return false
+        }
+        return HostSurfaceNative.nativePresentPixels(surfaceID, pixels, width, height, stride, format.ordinal + 1)
     }
 
     private fun onMain(work: () -> Unit) {

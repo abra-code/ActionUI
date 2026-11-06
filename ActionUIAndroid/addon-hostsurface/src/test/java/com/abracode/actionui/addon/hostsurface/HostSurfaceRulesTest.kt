@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -68,7 +69,7 @@ class HostSurfaceRulesTest {
     }
 
     private fun element(name: String = "viewport", viewID: Int = 5) =
-        HostSurfaceController(name, "window", viewID, composited = false, host = FakeHost())
+        HostSurfaceController(name, "window", viewID, composited = false, sink = false, host = FakeHost())
 
     private fun bind(name: String, delegate: HostSurfaceDelegate?) =
         HostSurfaceRegistry.setBinding(name, delegate?.let { HostSurfaceBinding(it) })
@@ -204,7 +205,7 @@ class HostSurfaceRulesTest {
     @Test
     fun framesAreAskedForOnlyWhileOnScreen() {
         val host = FakeHost()
-        val controller = HostSurfaceController("viewport", "window", 5, composited = false, host = host)
+        val controller = HostSurfaceController("viewport", "window", 5, composited = false, sink = false, host = host)
         bind("viewport", Recorder("a", log))
         controller.surfaceAvailable(surface, 200, 100, 2f)
         controller.setProperties(hidden = true, continuous = true)
@@ -216,7 +217,7 @@ class HostSurfaceRulesTest {
     @Test
     fun aFrameRequestedBeforeASuspensionComesAfterTheResume() {
         val host = FakeHost()
-        val controller = HostSurfaceController("viewport", "window", 5, composited = false, host = host)
+        val controller = HostSurfaceController("viewport", "window", 5, composited = false, sink = false, host = host)
         val frames = mutableListOf<Long>()
         bind("viewport", object : HostSurfaceDelegate {
             override fun onSurface(event: HostSurfaceEvent, info: HostSurfaceInfo) {}
@@ -238,7 +239,7 @@ class HostSurfaceRulesTest {
     @Test
     fun focusIsGivenUpBeforeDestroyed() {
         val host = FakeHost(log)
-        val controller = HostSurfaceController("viewport", "window", 5, composited = false, host = host)
+        val controller = HostSurfaceController("viewport", "window", 5, composited = false, sink = false, host = host)
         bind("viewport", Recorder("a", log))
         controller.surfaceAvailable(surface, 200, 100, 2f)
         controller.surfaceLost()
@@ -262,7 +263,11 @@ class HostSurfaceRulesTest {
                 hidden = true, idealWidth = 640.0, idealHeight = 480.5),
             all,
         )
-        assertEquals("sink", props("""{ "surfaceName": "s", "kind": "sink" }""").unsupportedKind)
+        val sink = props("""{ "surfaceName": "s", "kind": "sink" }""")
+        assertEquals("a frame sink is supported", null, sink.unsupportedKind)
+        assertTrue(sink.sink)
+        assertEquals("gl", props("""{ "surfaceName": "s", "kind": "gl" }""").unsupportedKind)
+        assertFalse(props("""{ "surfaceName": "s", "kind": "native" }""").sink)
         assertEquals(
             "ill-typed values fall back",
             HostSurfaceProperties(surfaceName = "s"),

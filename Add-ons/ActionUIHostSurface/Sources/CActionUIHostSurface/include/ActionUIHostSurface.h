@@ -17,8 +17,8 @@
 //  platforms the surface is a CAMetalLayer, on Android an ANativeWindow. On Linux it is a frame sink
 //  (or, with "kind": "gl", a GL area the client draws in from the render callback): the client renders where it
 //  likes (offscreen with wgpu or Vulkan, or on the CPU) and presents finished frames with
-//  actionUIHostSurfacePresentPixels. "kind": "sink" gives a frame sink on Apple platforms and Linux alike, so
-//  one client that presents pixels works on both.
+//  actionUIHostSurfacePresentPixels. "kind": "sink" gives a frame sink on Apple platforms, Linux and Android
+//  alike, so one client that presents pixels works on all of them.
 //
 //  Threads: every callback runs on the main thread. actionUIHostSurfaceSetDelegate,
 //  actionUIHostSurfaceSetCursor and ActionUIHostSurface_register are main-thread only. actionUIHostSurfaceRequestFrame,
@@ -244,7 +244,9 @@ typedef enum {
 /// Frame sink only (AUIHostSurfaceFrameSink): shows one finished frame on the surface. The pixels are
 /// copied before the call returns. Frames that come faster than the display refreshes are merged:
 /// the newest is shown. The frame is drawn scaled to the surface, so render at the pixel size of the
-/// last Created or Changed. Any thread; never waits.
+/// last Created or Changed. Any thread; never waits for the main thread. On Android the frame goes into the
+/// surface's next buffer at once, so a client presenting faster than the display may wait briefly for a free
+/// buffer there, and every frame is shown rather than merged.
 /// Returns false, and shows nothing, when surfaceID is not a live frame-sink surface (for example
 /// after its Destroyed, or a Metal layer), when width
 /// or height is 0, when stride is less than width * 4, when pixels is NULL, when format is not an

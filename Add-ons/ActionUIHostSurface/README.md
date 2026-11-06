@@ -104,6 +104,12 @@ matches the surface on the GPU, so a frame costs the main thread almost nothing;
 is, the other formats are converted in the copy. A frame wider or taller than an IOSurface takes (16384 pixels) is
 refused. Without a kind the surface stays a `CAMetalLayer`.
 
+On Android (the Kotlin add-on in `ActionUIAndroid/addon-hostsurface`), `"kind": "sink"` gives a frame sink as
+well: a C or Rust client's `actionUIHostSurfacePresentPixels`, or a Kotlin client's `HostSurfaces.presentPixels`,
+copies the frame into the surface's next buffer at once (RGBA8 premultiplied as is, the other formats converted in
+the copy), and the compositor scales it to the element. A client presenting faster than the display may wait
+briefly there for a free buffer; every frame is shown rather than merged.
+
 ## Consuming it
 
 `Package.swift` makes this a Swift package (macOS 14.6, iOS 17.6, and Linux). A host adds it as a dependency and

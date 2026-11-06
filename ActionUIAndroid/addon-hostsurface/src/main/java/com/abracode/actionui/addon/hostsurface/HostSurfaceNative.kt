@@ -60,12 +60,40 @@ internal object HostSurfaceNative {
         return HostSurfaces.setCursor(surfaceID, shape)
     }
 
+    // MARK: frame sinks ("kind": "sink"), for every client
+
+    /** Opens the frame-sink slot of a surface just announced. Main thread. */
+    fun openSink(surfaceID: Long, surface: android.view.Surface) {
+        if (loaded) {
+            nativeSinkOpen(surfaceID, surface)
+        }
+    }
+
+    /** Closes it before DESTROYED: later presents fail, and the shown frame is cleared. Main thread. */
+    fun closeSink(surfaceID: Long) {
+        if (loaded) {
+            nativeSinkClose(surfaceID)
+        }
+    }
+
+    @JvmStatic
+    private external fun nativeSinkOpen(surfaceID: Long, surface: android.view.Surface)
+
+    @JvmStatic
+    private external fun nativeSinkClose(surfaceID: Long)
+
+    /** actionUIHostSurfacePresentPixels; [format] is the C AUIHostPixelFormat value. */
+    @JvmStatic
+    external fun nativePresentPixels(
+        surfaceID: Long, pixels: ByteArray, width: Int, height: Int, stride: Int, format: Int,
+    ): Boolean
+
     // MARK: the client's C delegate
 
     @JvmStatic
     external fun nativeSurface(
         handle: Long, event: Int, surfaceID: Long, windowUUID: ByteArray, viewID: Int,
-        surface: android.view.Surface, widthPixels: Int, heightPixels: Int, density: Float,
+        surface: android.view.Surface, widthPixels: Int, heightPixels: Int, density: Float, frameSink: Boolean,
     )
 
     @JvmStatic
@@ -108,7 +136,7 @@ internal class NativeHostSurfaceDelegate(val handle: Long) : HostSurfaceDelegate
         }
         HostSurfaceNative.nativeSurface(
             handle, event.ordinal + 1, info.surfaceID, element.windowUUID, element.viewID, info.surface,
-            info.widthPixels, info.heightPixels, info.density,
+            info.widthPixels, info.heightPixels, info.density, info.frameSink,
         )
     }
 
