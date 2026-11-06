@@ -77,6 +77,7 @@ Package(
         .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIRichText"),
+        .package(path: "../../Add-ons/ActionUIHostSurface"),
     ],
     targets: [
         .executableTarget(
@@ -89,6 +90,7 @@ Package(
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "ActionUIHostSurface", package: "ActionUIHostSurface"),
                 // Resource-only doc bundles: depending on them makes one viewer build also build the
                 // core + add-on documentation bundles, harvested by OMC's update_appletbuilder.sh.
                 .product(name: "ActionUIDocumentation", package: "ActionUI"),
@@ -97,6 +99,7 @@ Package(
                 .product(name: "ActionUIDiffDocumentation", package: "ActionUIDiff"),
                 .product(name: "ActionUICachedImageDocumentation", package: "ActionUICachedImage"),
                 .product(name: "ActionUIRichTextDocumentation", package: "ActionUIRichText"),
+                .product(name: "ActionUIHostSurfaceDocumentation", package: "ActionUIHostSurface"),
             ],
             path: "Sources/ActionUIViewer",
             linkerSettings: sdkStampLinkerSettings

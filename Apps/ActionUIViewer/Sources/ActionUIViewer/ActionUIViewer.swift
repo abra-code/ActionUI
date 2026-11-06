@@ -28,6 +28,7 @@ import ActionUIChat
 import ActionUIDiff
 import ActionUICachedImage
 import ActionUIRichText
+import ActionUIHostSurface
 
 final class CustomLogger: ActionUI.ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
@@ -159,6 +160,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         ActionUIDiff.register()
         ActionUICachedImage.register()
         ActionUIRichText.register()
+        ActionUIHostSurface.register()
         // The viewer is a pure viewer: it renders documents but never injects a runtime transport. A
         // Chat element takes its protocol/transport only from a host-injected states["config"], so in
         // the viewer (which injects nothing) a Chat stays INERT - composer disabled, no transport. A
