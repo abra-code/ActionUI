@@ -508,7 +508,7 @@ With the `host-surface` feature (macOS, Linux, and Android, where a Rust library
 
 | Method | When | What the delegate does |
 |---|---|---|
-| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, where the program renders anywhere and presents the pixels; `SurfaceHandle::NativeWindow` (an `ANativeWindow`) on Android; `SurfaceHandle::GlArea` on Linux for `"kind": "gl"`. |
+| `created(&SurfaceInfo)` | The surface has a window, a size and this delegate. | Build the renderer on `info.handle`, sized in pixels: `SurfaceHandle::MetalLayer` on macOS; `SurfaceHandle::FrameSink` on Linux, and on every platform for `"kind": "sink"`, where the program renders anywhere and presents the pixels; `SurfaceHandle::NativeWindow` (an `ANativeWindow`) on Android; `SurfaceHandle::GlArea` on Linux for `"kind": "gl"`. |
 | `changed(&SurfaceInfo)` | The size or the scale changed. | Resize before the next frame. |
 | `suspended(&SurfaceInfo)`, `resumed(&SurfaceInfo)` | The surface left the screen (hidden, an occluded window, zero size) or came back. | Ask for no drawable while suspended. |
 | `destroyed(&SurfaceInfo)` | The element went away, its window closed, or the delegate was replaced. | Stop all use of the handle before returning: drop the swapchain, join a render thread. |
@@ -529,7 +529,7 @@ With the `wgpu` feature, `host_surface::wgpu_surface` has:
 | `unsafe create(&wgpu::Instance, &SurfaceInfo) -> Result<wgpu::Surface<'static>>` | A wgpu surface on the element's layer (macOS) or native window (Android). Drop it before `destroyed` returns. |
 | `device_descriptor(&wgpu::Adapter) -> wgpu::DeviceDescriptor` | Requests the adapter's own limits; the defaults ask for more than some devices have. |
 | `next_frame(&wgpu::Surface) -> NextFrame` | `Draw(texture)`, `Skip` (occluded, a timeout), `Reconfigure` (outdated) or `Recreate` (lost). |
-| `FrameSink::new(&SurfaceInfo) -> Result<FrameSink>` | For a frame sink (Linux): an offscreen texture in `FrameSink::FORMAT`. `configure(&Device, width, height)` at `created` and `changed`, draw into `view()`, then `present(&Device, &Queue, encoder) -> bool` submits, reads the texture back and presents it (it waits for the GPU). |
+| `FrameSink::new(&SurfaceInfo) -> Result<FrameSink>` | For a frame sink: an offscreen texture in `FrameSink::FORMAT`. `configure(&Device, width, height)` at `created` and `changed`, draw into `view()`, then `present(&mut self, &Device, &Queue, encoder) -> bool` submits the frame with a copy into one of `FrameSink::READBACK_BUFFERS` readback buffers and returns. A worker thread waits for that frame's GPU work, reads it back and presents it, so the render thread does not wait for the GPU unless every buffer is still on its way (on Vulkan and Metal; on wgpu's OpenGL ES backend the wait holds the GL context, so there is no overlap). Dropping the sink waits for the frames on their way. |
 
 A render thread must not call the `Window` getters, which wait for the main thread, while `destroyed` may be joining it; pace it by the frame callback instead. `examples/host_surface.rs` is a sketch pad drawn with wgpu on the main thread, on a Metal layer on macOS and through the frame sink on Linux (wgpu's Vulkan or OpenGL ES backend there).
 

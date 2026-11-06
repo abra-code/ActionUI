@@ -294,7 +294,7 @@ impl Canvas {
                 pass.draw(0..6, 0..(dabs.len() / 7) as u32);
             }
         }
-        match (&self.target, frame) {
+        match (&mut self.target, frame) {
             (Target::Sink(sink), _) => {
                 sink.present(&gpu.device, &gpu.queue, encoder);
             }

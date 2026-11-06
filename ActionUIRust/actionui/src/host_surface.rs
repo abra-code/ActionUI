@@ -770,18 +770,110 @@ pub mod wgpu_surface {
     /// the surface's pixel size to draw into, and [`FrameSink::present`] to copy it back and show it.
     /// A program that supports both kinds checks `info.handle` in `created`: [`create`] for a native
     /// surface, [`FrameSink::new`] for a sink.
+    ///
+    /// The copy back is pipelined: `present` submits the frame and its copy into one of
+    /// [`FrameSink::READBACK_BUFFERS`] buffers and returns, and a worker thread waits for that frame's
+    /// GPU work, reads the pixels and presents them. The render thread goes on with the next frame
+    /// meanwhile, so CPU and GPU work overlap; it waits only when every buffer is still on its way
+    /// (the GPU that many frames behind). On wgpu's OpenGL ES backend the worker's wait holds the GL
+    /// context, so submits wait for it and there is no overlap (Vulkan and Metal overlap). Dropping
+    /// the sink waits for the frames on their way.
     pub struct FrameSink {
         id: SurfaceId,
         target: Option<SinkTarget>,
+        readback: Option<Readback>,
+        /// Counts configurations, so buffers of an earlier size coming back are not reused.
+        generation: u64,
     }
 
     struct SinkTarget {
         texture: wgpu::Texture,
-        buffer: wgpu::Buffer,
+        buffers: Vec<wgpu::Buffer>,
+        /// Indexes of the buffers no frame is using.
+        free: Vec<usize>,
         width: u32,
         height: u32,
-        /// Bytes per row in the buffer: the row padded to wgpu's copy alignment.
+        /// Bytes per row in the buffers: the row padded to wgpu's copy alignment.
         padded_row: u32,
+    }
+
+    /// The worker thread and its two channels: frames to read back, and buffers it is done with.
+    struct Readback {
+        jobs: Option<std::sync::mpsc::Sender<ReadbackJob>>,
+        done: std::sync::mpsc::Receiver<(u64, usize)>,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+
+    struct ReadbackJob {
+        id: SurfaceId,
+        generation: u64,
+        index: usize,
+        buffer: wgpu::Buffer,
+        submission: wgpu::SubmissionIndex,
+        width: u32,
+        height: u32,
+        padded_row: u32,
+    }
+
+    impl Readback {
+        fn start(device: &wgpu::Device) -> Option<Readback> {
+            let (jobs, job_queue) = std::sync::mpsc::channel::<ReadbackJob>();
+            let (finished, done) = std::sync::mpsc::channel();
+            let device = device.clone();
+            let thread = std::thread::Builder::new()
+                .name("HostSurface frame sink readback".into())
+                .spawn(move || {
+                    for job in job_queue {
+                        let slice = job.buffer.slice(..);
+                        let (mapped, mapping) = std::sync::mpsc::channel();
+                        slice.map_async(wgpu::MapMode::Read, move |result| {
+                            let _ = mapped.send(result.is_ok());
+                        });
+                        // This frame's work only: the render thread may have submitted more since.
+                        let waited = device.poll(wgpu::PollType::Wait { submission_index: Some(job.submission), timeout: None });
+                        let mut ready = mapping.try_recv();
+                        if waited.is_ok() && ready.is_err() {
+                            // The map is handed out on a later poll on some backends.
+                            let _ = device.poll(wgpu::PollType::wait_indefinitely());
+                            ready = mapping.try_recv();
+                        }
+                        if ready == Ok(true) {
+                            #[cfg(test)]
+                            READ_BACK.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            if let Ok(pixels) = slice.get_mapped_range() {
+                                job.id.present_pixels(job.width, job.height, job.padded_row, PixelFormat::Rgba8Premultiplied, &pixels);
+                            }
+                            job.buffer.unmap();
+                        } else if ready.is_err() {
+                            // The map is still pending (the wait failed, for example after a submission
+                            // that failed validation): cancel it, or it completes later and the buffer
+                            // comes back mapped, failing every frame copied into it from then on.
+                            job.buffer.unmap();
+                        }
+                        if finished.send((job.generation, job.index)).is_err() {
+                            break;
+                        }
+                    }
+                })
+                .ok()?;
+            Some(Readback { jobs: Some(jobs), done, thread: Some(thread) })
+        }
+    }
+
+    /// Frames the worker read back (tests only).
+    #[cfg(test)]
+    pub(super) static READ_BACK: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    impl Drop for FrameSink {
+        /// Waits for the frames on their way, so none is presented after the sink is gone.
+        fn drop(&mut self) {
+            if let Some(readback) = &mut self.readback {
+                readback.jobs.take();
+                if let Some(thread) = readback.thread.take() {
+                    let _ = thread.join();
+                }
+            }
+        }
     }
 
     impl FrameSink {
@@ -789,15 +881,18 @@ pub mod wgpu_surface {
         /// presented as premultiplied RGBA.
         pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
+        /// How many frames can be on their way back from the GPU at once.
+        pub const READBACK_BUFFERS: usize = 3;
+
         /// A sink for the surface; an error when it is not a frame sink.
         pub fn new(info: &SurfaceInfo) -> Result<Self> {
             if info.handle != SurfaceHandle::FrameSink {
                 return Err(Error::ActionUI(format!("not a frame sink: {:?}", info.handle)));
             }
-            Ok(FrameSink { id: info.id, target: None })
+            Ok(FrameSink { id: info.id, target: None, readback: None, generation: 0 })
         }
 
-        /// Makes the texture and the readback buffer for a pixel size (from `created` or `changed`).
+        /// Makes the texture and the readback buffers for a pixel size (from `created` or `changed`).
         pub fn configure(&mut self, device: &wgpu::Device, width: u32, height: u32) {
             let width = width.max(1);
             let height = height.max(1);
@@ -805,6 +900,9 @@ pub mod wgpu_surface {
                 if target.width == width && target.height == height {
                     return;
                 }
+            }
+            if self.readback.is_none() {
+                self.readback = Readback::start(device);
             }
             let size = wgpu::Extent3d { width, height, depth_or_array_layers: 1 };
             let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -819,13 +917,19 @@ pub mod wgpu_surface {
             });
             let alignment = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
             let padded_row = (width * 4).div_ceil(alignment) * alignment;
-            let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("HostSurface frame sink readback"),
-                size: padded_row as u64 * height as u64,
-                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                mapped_at_creation: false,
-            });
-            self.target = Some(SinkTarget { texture, buffer, width, height, padded_row });
+            let buffers: Vec<wgpu::Buffer> = (0..Self::READBACK_BUFFERS)
+                .map(|_| {
+                    device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("HostSurface frame sink readback"),
+                        size: padded_row as u64 * height as u64,
+                        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                        mapped_at_creation: false,
+                    })
+                })
+                .collect();
+            self.generation += 1;
+            let free = (0..buffers.len()).collect();
+            self.target = Some(SinkTarget { texture, buffers, free, width, height, padded_row });
         }
 
         /// A view of the texture to draw into; None before [`FrameSink::configure`].
@@ -833,13 +937,33 @@ pub mod wgpu_surface {
             self.target.as_ref().map(|target| target.texture.create_view(&Default::default()))
         }
 
-        /// Submits `encoder` (whose passes drew into [`FrameSink::view`]), copies the texture back
-        /// and presents it. Waits for the GPU. False when nothing was presented: not configured,
-        /// the copy failed, or the surface is gone.
-        pub fn present(&self, device: &wgpu::Device, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder) -> bool {
-            let Some(target) = &self.target else {
+        /// Submits `encoder` (whose passes drew into [`FrameSink::view`]) with a copy of the texture
+        /// into a free readback buffer, and hands the frame to the worker, which presents it once the
+        /// GPU is done. Returns without waiting for the GPU unless every readback buffer is still on its
+        /// way. False when nothing was submitted: not configured, or the worker is gone. A frame
+        /// submitted after the surface's `destroyed` is not shown.
+        pub fn present(&mut self, _device: &wgpu::Device, queue: &wgpu::Queue, mut encoder: wgpu::CommandEncoder) -> bool {
+            let (Some(target), Some(readback)) = (&mut self.target, &mut self.readback) else {
                 return false;
             };
+            // The buffers the worker is done with; those of an earlier size are dropped with their target.
+            while let Ok((generation, index)) = readback.done.try_recv() {
+                if generation == self.generation {
+                    target.free.push(index);
+                }
+            }
+            let index = match target.free.pop() {
+                Some(index) => index,
+                None => loop {
+                    // Every buffer is on its way: wait for the oldest.
+                    match readback.done.recv() {
+                        Ok((generation, index)) if generation == self.generation => break index,
+                        Ok(_) => continue,
+                        Err(_) => return false,
+                    }
+                },
+            };
+            let buffer = target.buffers[index].clone();
             encoder.copy_texture_to_buffer(
                 wgpu::TexelCopyTextureInfo {
                     texture: &target.texture,
@@ -848,7 +972,7 @@ pub mod wgpu_surface {
                     aspect: wgpu::TextureAspect::All,
                 },
                 wgpu::TexelCopyBufferInfo {
-                    buffer: &target.buffer,
+                    buffer: &buffer,
                     layout: wgpu::TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(target.padded_row),
@@ -857,25 +981,22 @@ pub mod wgpu_surface {
                 },
                 wgpu::Extent3d { width: target.width, height: target.height, depth_or_array_layers: 1 },
             );
-            queue.submit([encoder.finish()]);
-            let slice = target.buffer.slice(..);
-            slice.map_async(wgpu::MapMode::Read, |_| {});
-            if device.poll(wgpu::PollType::wait_indefinitely()).is_err() {
-                target.buffer.unmap();
-                return false;
-            }
-            let shown = match slice.get_mapped_range() {
-                Ok(pixels) => self.id.present_pixels(
-                    target.width,
-                    target.height,
-                    target.padded_row,
-                    PixelFormat::Rgba8Premultiplied,
-                    &pixels,
-                ),
-                Err(_) => false,
+            let submission = queue.submit([encoder.finish()]);
+            let job = ReadbackJob {
+                id: self.id,
+                generation: self.generation,
+                index,
+                buffer,
+                submission,
+                width: target.width,
+                height: target.height,
+                padded_row: target.padded_row,
             };
-            target.buffer.unmap();
-            shown
+            let sent = readback.jobs.as_ref().is_some_and(|jobs| jobs.send(job).is_ok());
+            if !sent {
+                target.free.push(index);
+            }
+            sent
         }
     }
 
@@ -919,6 +1040,146 @@ mod tests {
             fn destroyed(&mut self, _surface: &SurfaceInfo) {}
         }
         assert!(matches!(bind("canvas", Some(Box::new(Nothing))), Err(crate::Error::NotMainThread)));
+    }
+
+    /// The pipelined readback with a real GPU device (skipped without one): every frame of a burst
+    /// longer than the buffer count is submitted and read back, and dropping the sink waits for them.
+    /// The surface ID is no live surface, so present_pixels is refused; the readback still runs.
+    /// The frame-sink GPU tests run one at a time: READ_BACK counts every sink's frames.
+    #[cfg(feature = "wgpu")]
+    static FRAME_SINK_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[cfg(feature = "wgpu")]
+    #[test]
+    fn the_frame_sink_reads_back_every_frame_of_a_burst() {
+        use wgpu_surface::FrameSink;
+        let _serial = FRAME_SINK_TESTS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let instance = wgpu::Instance::default();
+        let Ok(adapter) = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())) else {
+            eprintln!("no GPU adapter; skipped");
+            return;
+        };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu_surface::device_descriptor(&adapter)))
+            .expect("a device");
+        let info = SurfaceInfo {
+            id: SurfaceId(u64::MAX),
+            window_uuid: String::new(),
+            view_id: 1,
+            handle: SurfaceHandle::FrameSink,
+            width_points: 64.0,
+            height_points: 32.0,
+            scale: 1.0,
+            width_pixels: 64,
+            height_pixels: 32,
+        };
+        let before = wgpu_surface::READ_BACK.load(std::sync::atomic::Ordering::SeqCst);
+        let mut sink = FrameSink::new(&info).expect("a frame sink");
+        let mut encoder = device.create_command_encoder(&Default::default());
+        assert!(!sink.present(&device, &queue, encoder), "nothing before configure");
+        sink.configure(&device, 64, 32);
+        let frames = FrameSink::READBACK_BUFFERS * 3 + 1;
+        for frame in 0..frames {
+            if frame == frames / 2 {
+                // A new size halfway: buffers of the old one coming back are not reused.
+                sink.configure(&device, 48, 24);
+            }
+            let view = sink.view().expect("a view");
+            encoder = device.create_command_encoder(&Default::default());
+            {
+                let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLUE), store: wgpu::StoreOp::Store },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+            }
+            assert!(sink.present(&device, &queue, encoder), "frame {frame} submitted");
+        }
+        drop(sink);
+        let read = wgpu_surface::READ_BACK.load(std::sync::atomic::Ordering::SeqCst) - before;
+        assert_eq!(read, frames, "every frame read back before the drop returned");
+    }
+
+    /// A frame whose submission fails validation (a program with its own error handler goes on)
+    /// spoils only that frame: its readback buffer comes back unmapped, so the frames copied into it
+    /// later raise no errors. The worker waits for the bad frame before the next is submitted.
+    #[cfg(feature = "wgpu")]
+    #[test]
+    fn a_failed_submission_spoils_only_its_own_frame() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use wgpu_surface::FrameSink;
+        let _serial = FRAME_SINK_TESTS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let instance = wgpu::Instance::default();
+        let Ok(adapter) = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())) else {
+            eprintln!("no GPU adapter; skipped");
+            return;
+        };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu_surface::device_descriptor(&adapter)))
+            .expect("a device");
+        let errors = std::sync::Arc::new(AtomicUsize::new(0));
+        let counter = errors.clone();
+        device.on_uncaptured_error(std::sync::Arc::new(move |_: wgpu::Error| {
+            counter.fetch_add(1, Ordering::SeqCst);
+        }));
+        let info = SurfaceInfo {
+            id: SurfaceId(u64::MAX - 1),
+            window_uuid: String::new(),
+            view_id: 1,
+            handle: SurfaceHandle::FrameSink,
+            width_points: 64.0,
+            height_points: 32.0,
+            scale: 1.0,
+            width_pixels: 64,
+            height_pixels: 32,
+        };
+        // Not a render attachment: a pass drawing into it fails validation.
+        let not_attachment = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let mut sink = FrameSink::new(&info).expect("a frame sink");
+        sink.configure(&device, 64, 32);
+        let mut after_bad_frame = 0;
+        for frame in 0..FrameSink::READBACK_BUFFERS * 4 {
+            let view = if frame == 1 { not_attachment.create_view(&Default::default()) } else { sink.view().expect("a view") };
+            let mut encoder = device.create_command_encoder(&Default::default());
+            {
+                let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLUE), store: wgpu::StoreOp::Store },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+            }
+            sink.present(&device, &queue, encoder);
+            if frame == 1 {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                after_bad_frame = errors.load(Ordering::SeqCst);
+            }
+        }
+        drop(sink);
+        assert!(after_bad_frame > 0, "the bad frame raised an error");
+        assert_eq!(errors.load(Ordering::SeqCst), after_bad_frame, "no errors after the bad frame");
     }
 
     #[cfg(target_os = "linux")]
