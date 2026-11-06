@@ -22,6 +22,7 @@
             "-framework ActionUIHostSurface",
             "-framework QuartzCore",
             "-framework Metal",
+            "-framework IOSurface",
             "-framework Foundation",
             "-framework SwiftUI",
             "-framework AppKit",

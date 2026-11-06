@@ -89,8 +89,11 @@ Input on Linux follows the same rules: pointer, touch, pen, scroll (wheel steps,
 `"kind": "sink"` gives a frame sink on macOS and iOS too, so a client that presents pixels (a Python or Node.js
 script, a CPU renderer, wgpu rendering offscreen) runs unchanged on every platform. The info's kind is
 `AUIHostSurfaceFrameSink` with no handle, and `actionUIHostSurfacePresentPixels` works as on Linux: from any
-thread, the pixels copied into a `CGImage` before it returns, the newest frame shown (scaled to the element) as
-the contents of a layer above the view's unused Metal layer. Without a kind the surface stays a `CAMetalLayer`.
+thread, the pixels copied into an `IOSurface` (BGRA, tagged sRGB) before it returns, the newest frame shown
+(scaled to the element) as the contents of a layer above the view's unused Metal layer. The render server color
+matches the surface on the GPU, so a frame costs the main thread almost nothing; BGRA8 premultiplied is copied as
+is, the other formats are converted in the copy. A frame wider or taller than an IOSurface takes (16384 pixels) is
+refused. Without a kind the surface stays a `CAMetalLayer`.
 
 ## Consuming it
 

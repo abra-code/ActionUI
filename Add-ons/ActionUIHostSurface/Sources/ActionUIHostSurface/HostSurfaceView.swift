@@ -25,6 +25,7 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+import IOSurface
 import QuartzCore
 import ActionUI
 import CActionUIHostSurface
@@ -596,11 +597,11 @@ final class HostSurfaceView: HostSurfacePlatformView {
 
     /// Shows a frame the client presented for this surface (HostSurfaceSinks hands it over).
     func show(_ frame: HostSurfaceFrame) {
-        showContents(frame.image)
+        showContents(frame.surface)
     }
 
-    private func showContents(_ image: CGImage?) {
-        sinkLayer?.contents = image
+    private func showContents(_ surface: IOSurface?) {
+        sinkLayer?.contents = surface
     }
 
     // MARK: frames

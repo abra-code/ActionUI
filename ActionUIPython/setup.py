@@ -194,7 +194,8 @@ def macos_setup_arguments():
             '-framework', 'ActionUIRemote',
             '-framework', 'ActionUIHostSurface',
             # System frameworks used by ActionUI's Swift code.
-            # (QuartzCore and Metal: the HostSurface element's CAMetalLayer.)
+            # (QuartzCore and Metal: the HostSurface element's CAMetalLayer;
+            # IOSurface: the frames of its frame sink.)
             # clang resolves these from the SDK sysroot on any standard macOS
             # setup, but listing them explicitly avoids surprises in CI or
             # non-standard toolchain environments.
@@ -205,6 +206,7 @@ def macos_setup_arguments():
             '-framework', 'Charts',
             '-framework', 'QuartzCore',
             '-framework', 'Metal',
+            '-framework', 'IOSurface',
             f"-mmacosx-version-min={MIN_MACOS_VERSION}",
         ],
     )

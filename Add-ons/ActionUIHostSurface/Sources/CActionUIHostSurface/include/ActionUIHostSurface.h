@@ -246,8 +246,9 @@ typedef enum {
 /// last Created or Changed. Any thread; never waits.
 /// Returns false, and shows nothing, when surfaceID is not a live frame-sink surface (for example
 /// after its Destroyed, or a Metal layer), when width
-/// or height is 0, when stride is less than width * 4, when pixels is NULL, or when format is not an
-/// AUIHostPixelFormat.
+/// or height is 0, when stride is less than width * 4, when pixels is NULL, when format is not an
+/// AUIHostPixelFormat, or when the frame is larger than the platform takes (on Apple platforms, wider
+/// or taller than 16384 pixels, an IOSurface's maximum).
 bool actionUIHostSurfacePresentPixels(uint64_t surfaceID, uint32_t width, uint32_t height, uint32_t stride,
                                       int32_t format, const void *pixels);
 

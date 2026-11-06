@@ -1,8 +1,8 @@
 // Add-ons/ActionUIHostSurface/Tests/HostSurfaceSinkTests.swift
 //
 // The frame sink on Apple platforms ("kind": "sink"): announced as AUIHostSurfaceFrameSink with no handle, frames
-// presented from any thread shown as the sink layer's contents, the newest winning, presents refused outside the
-// surface's life and for frames that are not frames.
+// presented from any thread shown as the sink layer's contents (a BGRA IOSurface tagged sRGB), the newest winning,
+// the shown surface never written, presents refused outside the surface's life and for frames that are not frames.
 
 #if !os(Linux)
 
@@ -11,6 +11,7 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+import IOSurface
 import XCTest
 import ActionUI
 @testable import ActionUIHostSurface
@@ -42,8 +43,8 @@ final class HostSurfaceSinkTests: XCTestCase {
 
     /// Presents a frame of one color from another thread; the call must not wait for the main thread.
     nonisolated private static func present(_ surfaceID: UInt64, width: UInt32 = 4, height: UInt32 = 2,
-                                            format: AUIHostPixelFormat = AUIHostPixelBGRX8) -> Bool {
-        let pixels = [UInt8](repeating: 0x80, count: Int(width * height * 4))
+                                            format: AUIHostPixelFormat = AUIHostPixelBGRX8, byte: UInt8 = 0x80) -> Bool {
+        let pixels = [UInt8](repeating: byte, count: Int(width * height * 4))
         return DispatchQueue.global().sync {
             pixels.withUnsafeBytes { buffer in
                 actionUIHostSurfacePresentPixels(surfaceID, width, height, width * 4, Int32(format.rawValue),
@@ -52,9 +53,17 @@ final class HostSurfaceSinkTests: XCTestCase {
         }
     }
 
-    private func shownImage(_ container: HostSurfaceContainer) -> CGImage? {
+    private func shownSurface(_ container: HostSurfaceContainer) -> IOSurface? {
         guard let contents = container.surface.sinkLayer?.contents else { return nil }
-        return (contents as! CGImage)
+        return (contents as! IOSurface)
+    }
+
+    /// The blue, green, red and alpha bytes of one pixel of a surface.
+    private func bgra(_ surface: IOSurface, x: Int = 0, y: Int = 0) -> [UInt8] {
+        surface.lock(options: .readOnly, seed: nil)
+        defer { surface.unlock(options: .readOnly, seed: nil) }
+        let pixel = surface.baseAddress + y * surface.bytesPerRow + x * 4
+        return (0..<4).map { pixel.load(fromByteOffset: $0, as: UInt8.self) }
     }
 
     func testASinkIsAnnouncedAsAFrameSinkWithNoHandle() {
@@ -76,31 +85,19 @@ final class HostSurfaceSinkTests: XCTestCase {
         let surfaceID = try XCTUnwrap(client.received.first?.surfaceID)
         XCTAssertEqual(HostSurfaceRegistry.shared.liveSurface(surfaceID).map { _ in true }, true)
         XCTAssertEqual(client.kinds.first, AUIHostSurfaceFrameSink, "a Swift client sees the kind too")
-        XCTAssertNil(shownImage(container), "nothing shown before a frame")
+        XCTAssertNil(shownSurface(container), "nothing shown before a frame")
 
         XCTAssertTrue(Self.present(surfaceID, width: 4, height: 2))
         XCTAssertTrue(Self.present(surfaceID, width: 6, height: 3, format: AUIHostPixelRGBA8Premultiplied))
         TestHost.pump()
-        let image = try XCTUnwrap(shownImage(container), "the frame is shown on the next main-loop turn")
-        XCTAssertEqual(image.width, 6, "the newest frame wins")
-        XCTAssertEqual(image.height, 3)
+        let surface = try XCTUnwrap(shownSurface(container), "the frame is shown on the next main-loop turn")
+        XCTAssertEqual(surface.width, 6, "the newest frame wins")
+        XCTAssertEqual(surface.height, 3)
+        XCTAssertNotNil(IOSurfaceCopyValue(surface, kIOSurfaceColorSpace), "tagged sRGB, matched by the render server")
 
         ActionUIHostSurface.setDelegate(nil, forSurfaceName: "viewport")
-        XCTAssertNil(shownImage(container), "the old client's frame goes with its surface")
+        XCTAssertNil(shownSurface(container), "the old client's frame goes with its surface")
         XCTAssertFalse(Self.present(surfaceID), "a destroyed surface takes no frames")
-    }
-
-    /// Red, green, blue and alpha of the one pixel of a 1 x 1 image, drawn into a known RGBA bitmap.
-    private func rgba(_ image: CGImage) -> [UInt8] {
-        var pixel = [UInt8](repeating: 0, count: 4)
-        let space = CGColorSpace(name: CGColorSpace.sRGB)!
-        pixel.withUnsafeMutableBytes { buffer in
-            let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                                    space: space,
-                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)!
-            context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-        }
-        return pixel
     }
 
     func testEachPixelFormatShowsItsColors() throws {
@@ -109,21 +106,26 @@ final class HostSurfaceSinkTests: XCTestCase {
         let container = sink()
         TestHost.place(container, in: window)
         let surfaceID = try XCTUnwrap(client.received.first?.surfaceID)
-        // One pixel with red 0x30, green 0x20, blue 0x10 (and alpha 0xFF), in each layout.
-        let cases: [(AUIHostPixelFormat, [UInt8])] = [
-            (AUIHostPixelBGRA8Premultiplied, [0x10, 0x20, 0x30, 0xFF]),
-            (AUIHostPixelRGBA8Premultiplied, [0x30, 0x20, 0x10, 0xFF]),
-            (AUIHostPixelBGRX8, [0x10, 0x20, 0x30, 0x00]),
-            (AUIHostPixelRGBX8, [0x30, 0x20, 0x10, 0x00]),
+        // One pixel with red 0x30, green 0x20, blue 0x10, in each layout; alpha 0x80 is kept for the premultiplied
+        // formats and becomes 0xFF for the opaque ones.
+        let cases: [(AUIHostPixelFormat, [UInt8], [UInt8])] = [
+            (AUIHostPixelBGRA8Premultiplied, [0x10, 0x20, 0x30, 0xFF], [0x10, 0x20, 0x30, 0xFF]),
+            (AUIHostPixelRGBA8Premultiplied, [0x30, 0x20, 0x10, 0xFF], [0x10, 0x20, 0x30, 0xFF]),
+            (AUIHostPixelBGRX8, [0x10, 0x20, 0x30, 0x00], [0x10, 0x20, 0x30, 0xFF]),
+            (AUIHostPixelRGBX8, [0x30, 0x20, 0x10, 0x00], [0x10, 0x20, 0x30, 0xFF]),
+            (AUIHostPixelBGRA8Premultiplied, [0x10, 0x20, 0x30, 0x80], [0x10, 0x20, 0x30, 0x80]),
+            (AUIHostPixelRGBA8Premultiplied, [0x30, 0x20, 0x10, 0x80], [0x10, 0x20, 0x30, 0x80]),
+            (AUIHostPixelBGRX8, [0x10, 0x20, 0x30, 0x80], [0x10, 0x20, 0x30, 0xFF]),
+            (AUIHostPixelRGBX8, [0x30, 0x20, 0x10, 0x80], [0x10, 0x20, 0x30, 0xFF]),
         ]
-        for (format, bytes) in cases {
+        for (format, bytes, expected) in cases {
             let shown = bytes.withUnsafeBytes { buffer in
                 actionUIHostSurfacePresentPixels(surfaceID, 1, 1, 4, Int32(format.rawValue), buffer.baseAddress)
             }
             XCTAssertTrue(shown)
             TestHost.pump()
-            let image = try XCTUnwrap(shownImage(container))
-            XCTAssertEqual(rgba(image), [0x30, 0x20, 0x10, 0xFF], "format \(format.rawValue)")
+            let surface = try XCTUnwrap(shownSurface(container))
+            XCTAssertEqual(bgra(surface), expected, "format \(format.rawValue), alpha \(bytes[3])")
         }
     }
 
@@ -145,10 +147,58 @@ final class HostSurfaceSinkTests: XCTestCase {
         }
         XCTAssertTrue(shown)
         TestHost.pump()
-        let image = try XCTUnwrap(shownImage(container))
-        XCTAssertEqual(image.width, 3)
-        XCTAssertEqual(image.height, 2)
-        XCTAssertEqual(image.bytesPerRow, 16)
+        let surface = try XCTUnwrap(shownSurface(container))
+        XCTAssertEqual(surface.width, 3)
+        XCTAssertEqual(surface.height, 2)
+        XCTAssertEqual(bgra(surface, x: 2, y: 1), [0x10, 0x20, 0x30, 0xFF], "the second row from 16 bytes in")
+    }
+
+    func testAConvertedFormatReadsAnUnalignedTightlyCutBuffer() throws {
+        let client = RecordingClient()
+        ActionUIHostSurface.setDelegate(client, forSurfaceName: "viewport")
+        let container = sink()
+        TestHost.place(container, in: window)
+        let surfaceID = try XCTUnwrap(client.received.first?.surfaceID)
+        // 3 x 2 RGBX pixels, rows 14 bytes apart (not a multiple of 4), starting 1 byte into the buffer, which ends
+        // right after the last row's 12 bytes.
+        var bytes = [UInt8](repeating: 0xEE, count: 1 + 14 + 12)
+        for row in 0..<2 {
+            for x in 0..<3 {
+                let start = 1 + row * 14 + x * 4
+                bytes.replaceSubrange(start..<(start + 4), with: [0x30, 0x20, UInt8(0x10 + row * 3 + x), 0x00])
+            }
+        }
+        let shown = bytes.withUnsafeBytes { buffer in
+            actionUIHostSurfacePresentPixels(surfaceID, 3, 2, 14, Int32(AUIHostPixelRGBX8.rawValue), buffer.baseAddress! + 1)
+        }
+        XCTAssertTrue(shown)
+        TestHost.pump()
+        let surface = try XCTUnwrap(shownSurface(container))
+        XCTAssertEqual(bgra(surface, x: 0, y: 0), [0x10, 0x20, 0x30, 0xFF])
+        XCTAssertEqual(bgra(surface, x: 2, y: 1), [0x15, 0x20, 0x30, 0xFF])
+    }
+
+    func testTheShownFrameIsNeverWritten() throws {
+        let client = RecordingClient()
+        ActionUIHostSurface.setDelegate(client, forSurfaceName: "viewport")
+        let container = sink()
+        TestHost.place(container, in: window)
+        let surfaceID = try XCTUnwrap(client.received.first?.surfaceID)
+        XCTAssertTrue(Self.present(surfaceID, format: AUIHostPixelBGRA8Premultiplied, byte: 0x11))
+        TestHost.pump()
+        XCTAssertTrue(Self.present(surfaceID, format: AUIHostPixelBGRA8Premultiplied, byte: 0x22))
+        TestHost.pump()
+        let shown = try XCTUnwrap(shownSurface(container))
+        XCTAssertEqual(bgra(shown), [0x22, 0x22, 0x22, 0x22])
+        // Frames presented while it is shown go to other surfaces, however many come before the main thread runs.
+        for byte: UInt8 in [0x33, 0x44, 0x55, 0x66] {
+            XCTAssertTrue(Self.present(surfaceID, format: AUIHostPixelBGRA8Premultiplied, byte: byte))
+        }
+        XCTAssertEqual(bgra(shown), [0x22, 0x22, 0x22, 0x22], "the shown frame is untouched")
+        TestHost.pump()
+        let newest = try XCTUnwrap(shownSurface(container))
+        XCTAssertEqual(bgra(newest), [0x66, 0x66, 0x66, 0x66], "the newest frame wins")
+        XCTAssertFalse(newest === shown)
     }
 
     func testAMetalLayerSurfaceIsNoSink() throws {
@@ -175,6 +225,9 @@ final class HostSurfaceSinkTests: XCTestCase {
             XCTAssertFalse(actionUIHostSurfacePresentPixels(77, 2, 0, 8, bgrx, base), "no height")
             XCTAssertFalse(actionUIHostSurfacePresentPixels(77, 2, 2, 7, bgrx, base), "a stride shorter than a row")
             XCTAssertFalse(actionUIHostSurfacePresentPixels(77, 2, 2, 8, 0, base), "an unknown format")
+            let wide = UInt32(HostSurfaceSinks.maxWidth + 1)
+            XCTAssertFalse(actionUIHostSurfacePresentPixels(77, wide, 1, wide * 4, bgrx, base),
+                           "wider than an IOSurface takes")
             HostSurfaceSinks.close(77)
             XCTAssertFalse(actionUIHostSurfacePresentPixels(77, 2, 2, 8, bgrx, base), "a closed slot")
         }

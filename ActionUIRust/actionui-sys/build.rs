@@ -148,9 +148,10 @@ fn link_frameworks() {
         println!("cargo:rustc-link-lib=framework={framework}");
     }
     if host_surface_enabled() {
-        // The add-on's view is a CAMetalLayer.
+        // The add-on's view is a CAMetalLayer; its frame sink shows IOSurfaces.
         println!("cargo:rustc-link-lib=framework=QuartzCore");
         println!("cargo:rustc-link-lib=framework=Metal");
+        println!("cargo:rustc-link-lib=framework=IOSurface");
     }
 
     // The Swift runtime lives in the system; the toolchain directory holds the
