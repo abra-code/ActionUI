@@ -265,6 +265,17 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
     }
 
+    /// Add `actionui.performAction` (PROTOCOL.md section 7), which fires an element's configured
+    /// action as if the user had activated it. Off by default: every other method reads or sets
+    /// state, and this one runs the host's action handlers, which a host may not want any client
+    /// that holds a token to reach. A host turns it on for a test harness. It ends with the server,
+    /// like any registration. Safe from any thread, with the timing of `register(method:)`.
+    public func enablePerformAction() {
+        onMain { [registry] in
+            registry.handlers["actionui.performAction"] = ActionUIRemoteMethods.performAction
+        }
+    }
+
     public func unregister(method: String) {
         onMain { [registry] in
             registry.handlers.removeValue(forKey: method)

@@ -175,6 +175,7 @@ Setters return `true` so that a batch reply is easy to scan.
 | `actionui.presentToast` | window, message, duration? (seconds, default 4), actionTitle?, actionID? | `true` |
 | `actionui.dismissToast` | window | `true` |
 | `actionui.contentSizeLimits` | window | `{"minWidth","minHeight","maxWidth","maxHeight"}` or null |
+| `actionui.performAction` | window, viewID, viewPartID?, property? (default `actionID`; must be `actionID` or end in `ActionID`), context? | the action id it fired; `1003` when the view has no such property. Only when the host turned it on (see notes) |
 
 Notes:
 
@@ -183,6 +184,7 @@ Notes:
   `omc_present_modal` does). Without a resolver only absolute paths are accepted. `format`
   defaults to `plist` for a `.plist` extension and `json` otherwise; an explicit `format` wins.
 - Selection methods are programmatic and fire no action.
+- `performAction` is off unless the host turns it on (`enablePerformAction()`, `actionUIRemoteEnablePerformAction()`), and then appears in `hello`'s list. It fires the element's configured action through the host's action handler as the view does when the user activates it, without changing the element's value or state first; a client that wants the handler to see a new value sets it beforehand. `viewPartID` and `context` reach the handler as given. An element inside a container's `template` has no view of its own and cannot be named (`1002`), so a template row's Button is not fired this way. It is for test harnesses: every other method reads or sets state, and this one runs the host's handlers.
 - Unknown window and unknown view are checked before every element call, so `1001`/`1002` are
   reported even for methods the engine would otherwise treat as a silent no-op.
 - `removeWindow` is the one window method that does not check for an unknown window: the host

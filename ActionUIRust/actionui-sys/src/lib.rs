@@ -222,4 +222,5 @@ unsafe extern "C" {
     pub fn actionUIRemoteUnexportToken() -> bool;
     pub fn actionUIRemoteRegisterMethod(method: *const c_char, callback: Option<unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char>, context: *mut c_void) -> bool;
     pub fn actionUIRemoteUnregisterMethod(method: *const c_char) -> bool;
+    pub fn actionUIRemoteEnablePerformAction() -> bool;
 }

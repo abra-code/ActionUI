@@ -457,6 +457,17 @@ public func actionUIRemoteRegisterMethod(_ method: UnsafePointer<CChar>?,
     return true
 }
 
+/// Add `actionui.performAction` to the running server: `ActionUIRemoteServer.enablePerformAction()`
+/// for a host that is not Swift. Off until a host calls this; it ends with the server.
+///
+/// - Returns: false when no server is running.
+@c
+public func actionUIRemoteEnablePerformAction() -> CBool {
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    server.enablePerformAction()
+    return true
+}
+
 /// Remove a method `actionUIRemoteRegisterMethod` registered. Built-in `actionui.` methods
 /// cannot be removed this way.
 ///

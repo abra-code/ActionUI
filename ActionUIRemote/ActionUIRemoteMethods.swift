@@ -293,6 +293,41 @@ enum ActionUIRemoteMethods {
         registry.handlers.merge(table) { _, builtin in builtin }
     }
 
+    /// `actionui.performAction`, which `ActionUIRemoteServer.enablePerformAction()` adds to the
+    /// table: fire an element's configured action through the model's action handler, as the
+    /// element's view does when the user activates it, so a client tests the wiring from the
+    /// description's action id to the host's handler. It does not change the element's value or
+    /// state first (a Button with a popover or sheet does not show it); a client sets the value
+    /// beforehand when the handler reads it.
+    ///
+    /// Params: window, viewID, viewPartID? (default 0; handed to the handler as given), property?
+    /// (the property holding the action id, default "actionID"; it must be named actionID or end
+    /// in ActionID), context? (handed to the handler as the view would hand its own, e.g. a
+    /// Picker's tag). Returns the action id it fired. An element inside a container's template has
+    /// no view model, so it is an unknown view (1002): a template row's Button, which the view
+    /// fires with the container's id and the row index, cannot be fired this way.
+    static let performAction: ActionUIRemoteServer.Handler = { raw in
+        let p = Params(raw)
+        let (window, viewID) = try p.windowAndView()
+        let viewPartID = try p.viewPartID()
+        let property = try p.optionalString("property") ?? "actionID"
+        guard property == "actionID" || (property.hasSuffix("ActionID") && property.count > "ActionID".count) else {
+            throw ActionUIRemoteError.invalidParams("Param \"property\" must be actionID or end in ActionID, not \"\(property)\"")
+        }
+        let model = ActionUIModel.shared
+        guard let actionID = model.getElementProperty(windowUUID: window, viewID: viewID, propertyName: property) as? String,
+              !actionID.isEmpty else {
+            throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
+                                      message: "View \(viewID) has no \(property) to perform")
+        }
+        var context: Any? = raw["context"]
+        if context is ActionUIJSONNull {
+            context = nil
+        }
+        model.actionHandler(actionID, windowUUID: window, viewID: viewID, viewPartID: viewPartID, context: context)
+        return actionID
+    }
+
     // MARK: - Helpers
 
     /// Run an engine call that throws and report its failure as `engineFailure` (1003).

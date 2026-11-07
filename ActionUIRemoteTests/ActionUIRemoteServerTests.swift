@@ -514,6 +514,96 @@ final class ActionUIRemoteServerTests: XCTestCase {
         wait(for: [done], timeout: 20)
         XCTAssertEqual(mismatches.value, 0, "every reply must carry the id of its own connection's request, in order")
     }
+
+    // MARK: - performAction
+
+    /// A window with a Button whose actionID and popoverActionID a test fires, a Text with no action,
+    /// and a List whose template holds a Button.
+    private func loadActionWindow() throws -> String {
+        let uuid = UUID().uuidString
+        let description: [String: Any] = [
+            "id": 1,
+            "type": "VStack",
+            "children": [
+                ["id": 20, "type": "Button", "properties": ["title": "Press", "actionID": "test.press", "popoverActionID": "test.popover"]],
+                ["id": 21, "type": "Text", "properties": ["text": "no action"]],
+                ["id": 22, "type": "List", "template": ["id": 30, "type": "Button", "properties": ["title": "$1", "actionID": "test.row"]]],
+            ],
+        ]
+        _ = try ActionUIModel.shared.loadDescription(from: description, windowUUID: uuid)
+        return uuid
+    }
+
+    private func errorCode(_ body: () throws -> Any?) -> Int? {
+        do {
+            _ = try body()
+            return nil
+        } catch let failure as RPCFailure {
+            return failure.code
+        } catch {
+            return -1
+        }
+    }
+
+    func testPerformActionIsOffUntilTheHostTurnsItOn() throws {
+        let window = try loadActionWindow()
+        let methods = (try call("actionui.hello") as? [String: Any])?["methods"] as? [String] ?? []
+        XCTAssertFalse(methods.contains("actionui.performAction"))
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20]) }, -32601)
+
+        server.enablePerformAction()
+        let after = (try call("actionui.hello") as? [String: Any])?["methods"] as? [String] ?? []
+        XCTAssertTrue(after.contains("actionui.performAction"))
+    }
+
+    func testPerformActionFiresTheElementsActionThroughTheModel() throws {
+        let window = try loadActionWindow()
+        server.enablePerformAction()
+
+        let fired = ResultBox<[String]>()
+        fired.value = []
+        let seen = ResultBox<(String, Int, Int, String?)>()
+        ActionUIModel.shared.registerActionHandler(for: "test.press") { actionID, windowUUID, viewID, viewPartID, context in
+            fired.value?.append(actionID)
+            seen.value = (windowUUID, viewID, viewPartID, context as? String)
+        }
+        ActionUIModel.shared.registerActionHandler(for: "test.popover") { actionID, _, _, _, _ in
+            fired.value?.append(actionID)
+        }
+
+        XCTAssertEqual(try call("actionui.performAction", ["window": window, "viewID": 20]) as? String, "test.press")
+        XCTAssertEqual(fired.value, ["test.press"])
+        XCTAssertEqual(seen.value?.0, window)
+        XCTAssertEqual(seen.value?.1, 20)
+        XCTAssertEqual(seen.value?.2, 0)
+        XCTAssertNil(seen.value?.3)
+
+        // A row index and a context go through as given.
+        _ = try call("actionui.performAction", ["window": window, "viewID": 20, "viewPartID": 3, "context": "tag-7"])
+        XCTAssertEqual(seen.value?.2, 3)
+        XCTAssertEqual(seen.value?.3, "tag-7")
+
+        // Another of the element's action properties.
+        XCTAssertEqual(try call("actionui.performAction", ["window": window, "viewID": 20, "property": "popoverActionID"]) as? String, "test.popover")
+        XCTAssertEqual(fired.value, ["test.press", "test.press", "test.popover"])
+    }
+
+    func testPerformActionRefusesWhatItCannotFire() throws {
+        let window = try loadActionWindow()
+        server.enablePerformAction()
+        ActionUIModel.shared.registerActionHandler(for: "test.press") { _, _, _, _, _ in
+            XCTFail("nothing may fire")
+        }
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 21]) }, 1003, "a Text has no actionID")
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 99]) }, 1002)
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 30]) }, 1002,
+                       "an element inside a template has no view of its own to name")
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": "no-such-window", "viewID": 20]) }, 1001)
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "title"]) }, -32602,
+                       "only action properties")
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "ActionID"]) }, -32602)
+        XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "missingActionID"]) }, 1003)
+    }
 }
 
 #endif
