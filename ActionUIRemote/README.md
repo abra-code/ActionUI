@@ -76,8 +76,22 @@ actionUIRemoteStopServer();
 `actionUIRemoteServerIsRunning()` answers whether one is up. NULL arguments mean the per-process
 default path and the running process's name and version. This is what OMC calls.
 
-Registering host methods is still Swift-only: a handler is a Swift closure, so a C host that
-needs its own `omc.*` verbs supplies them through a small Swift file of its own.
+A C host registers its own methods (PROTOCOL.md section 8) with
+`actionUIRemoteRegisterMethod(name, callback, context)` once the server runs, and removes one
+with `actionUIRemoteUnregisterMethod(name)`. The callback runs on the main thread and gets the
+request's params as JSON text; it returns a JSON reply in a `malloc` buffer, `{"result": ...}` or
+`{"error": {"code": ..., "message": ...}}`, which the server frees:
+
+```c
+static char *ping(void *context, const char *method, const char *paramsJSON) {
+    return strdup("{\"result\":\"pong\"}");
+}
+...
+actionUIRemoteRegisterMethod("myhost.ping", ping, NULL);
+```
+
+Names in the reserved `actionui.` namespace and names without a namespace are refused. The
+methods end with the server, so a host that restarts it registers them again.
 
 Every request runs on the main actor against `ActionUIModel.shared`. A main thread that does
 not respond within `mainThreadTimeout` (10 s) answers `1005` instead of hanging the client.

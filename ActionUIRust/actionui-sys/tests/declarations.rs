@@ -76,6 +76,59 @@ fn rust_type_for_c(c_type: &str) -> String {
     .to_string()
 }
 
+/// Splits a parameter list at the commas outside parentheses, so that a parameter whose type is
+/// a function pointer stays whole: the generated headers spell a Swift `@convention(c)` type
+/// inline, as `ret (* _Nullable name)(arg, arg)`, and Rust as `Option<unsafe extern "C" fn(arg,
+/// arg) -> ret>`.
+fn split_top_level(text: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0;
+    for (index, character) in text.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(&text[start..index]);
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&text[start..]);
+    parts
+}
+
+/// A C parameter of function pointer type, `ret (* nullability name)(args)`, as its name and the
+/// Rust type src/lib.rs must spell for it; None for any other parameter. A nullable pointer is an
+/// Option in Rust, a non-null one the bare function type.
+fn function_pointer_param(param: &str) -> Option<(String, String)> {
+    let param = param.trim();
+    let star = param.find("(*")?;
+    let name_close = star + param[star..].find(')')?;
+    let args_open = name_close + 1 + param[name_close + 1..].find('(')?;
+    let args_close = param.rfind(')')?;
+
+    let return_c_type = &param[..star];
+    let pointer_part = &param[star + 2..name_close];
+    let (_, name) = split_trailing_identifier(pointer_part);
+    let nullable = !pointer_part.contains("_Nonnull");
+
+    let args_text = param[args_open + 1..args_close].trim();
+    let args = if args_text == "void" || args_text.is_empty() {
+        Vec::new()
+    } else {
+        split_top_level(args_text).into_iter().map(rust_type_for_c).collect()
+    };
+    let return_type = rust_type_for_c(return_c_type);
+    let mut function = format!("unsafe extern \"C\" fn({})", args.join(", "));
+    if !return_type.is_empty() {
+        function = format!("{function} -> {return_type}");
+    }
+    let rust_type = if nullable { format!("Option<{function}>") } else { function };
+    Some((name.to_string(), rust_type))
+}
+
 /// Splits "type name" at the last identifier.
 fn split_trailing_identifier(text: &str) -> (&str, &str) {
     let text = text.trim();
@@ -145,7 +198,11 @@ fn header_signatures(linked_dir: &Path) -> Signatures {
             let params_text = declaration[open + 1..close].trim();
             let mut params = Vec::new();
             if params_text != "void" && !params_text.is_empty() {
-                for param in params_text.split(',') {
+                for param in split_top_level(params_text) {
+                    if let Some((param_name, rust_type)) = function_pointer_param(param) {
+                        params.push((param_name, rust_type));
+                        continue;
+                    }
                     let (param_c_type, param_name) = split_trailing_identifier(param);
                     params.push((param_name.to_string(), rust_type_for_c(param_c_type)));
                 }
@@ -204,7 +261,7 @@ fn rust_signatures() -> Signatures {
         let mut params = Vec::new();
         let params_text = declaration[open + 1..close].trim();
         if !params_text.is_empty() {
-            for param in params_text.split(',') {
+            for param in split_top_level(params_text) {
                 let (param_name, param_type) = param.split_once(':').expect("parameter has a type");
                 params.push((param_name.trim().to_string(), param_type.trim().to_string()));
             }

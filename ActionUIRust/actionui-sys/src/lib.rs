@@ -30,9 +30,7 @@
 #[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux", target_os = "android")))]
 pub mod host_surface;
 
-use std::ffi::{c_char, c_int};
-#[cfg(target_os = "macos")]
-use std::ffi::c_void;
+use std::ffi::{c_char, c_int, c_void};
 
 // MARK: - Types (ActionUIC.h)
 
@@ -222,4 +220,6 @@ unsafe extern "C" {
     pub fn actionUIRemoteRevokeTokensWithLabel(label: *const c_char);
     pub fn actionUIRemoteSetRequiresToken(required: bool) -> bool;
     pub fn actionUIRemoteUnexportToken() -> bool;
+    pub fn actionUIRemoteRegisterMethod(method: *const c_char, callback: Option<unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char>, context: *mut c_void) -> bool;
+    pub fn actionUIRemoteUnregisterMethod(method: *const c_char) -> bool;
 }

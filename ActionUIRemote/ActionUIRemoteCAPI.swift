@@ -315,4 +315,163 @@ public func actionUIRemoteServerIsRunning() -> CBool {
     return ActionUIRemoteServer.shared != nil
 }
 
+// MARK: - Host extension methods
+
+/// A host method written in C, the C form of `ActionUIRemoteServer.Handler` (PROTOCOL.md
+/// section 8).
+///
+/// Called on the main thread, once per request, while the client's connection waits for the
+/// answer, so it must return promptly: the connection gives up after the server's main-thread
+/// timeout and answers 1005. A host that has to wait for something answers "not yet" and lets
+/// the client ask again. It must not stop the server from inside the call, and a C++ host must
+/// not let an exception leave it: it returns into Swift, where unwinding is undefined.
+///
+/// - Parameters:
+///   - context: the pointer passed to `actionUIRemoteRegisterMethod`, unchanged.
+///   - method: the method's name, so one function can serve several.
+///   - paramsJSON: the request's named params as a JSON object in UTF-8, `{}` when it had none,
+///     with the reserved `token` key already removed (PROTOCOL.md section 10).
+/// - Returns: the answer as JSON text in a buffer from `malloc`, which this target frees: an
+///   object with either a `result` member, any JSON value, or an `error` member, an object with
+///   an integer `code` and a string `message`, as in a JSON-RPC reply. NULL, text that is not
+///   JSON or an object with neither member answers -32603 (internal error), and the host's
+///   mistake is logged.
+public typealias ActionUIRemoteMethodCallback = @convention(c) (
+    _ context: UnsafeMutableRawPointer?,
+    _ method: UnsafePointer<CChar>,
+    _ paramsJSON: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>?
+
+/// A C host method and its context, carried into the registry's main-actor closure. The context
+/// is the host's to keep alive and thread-safe; this target only hands it back, on the main
+/// thread, which is where the host registered it to be used.
+private struct CHostMethod: @unchecked Sendable {
+    let callback: ActionUIRemoteMethodCallback
+    let context: UnsafeMutableRawPointer?
+}
+
+/// Whether `name` may be registered or unregistered through the C entry points: namespaced, with
+/// something on both sides of the first dot, and not in the reserved `actionui.` namespace, so a
+/// host cannot replace or remove a built-in method this way.
+private func isHostMethodName(_ name: String) -> Bool {
+    guard let dot = name.firstIndex(of: "."), dot != name.startIndex,
+          name.index(after: dot) != name.endIndex else {
+        return false
+    }
+    return name[name.startIndex..<dot] != "actionui"
+}
+
+/// The reply a C host method returned, turned into what a Swift handler returns or throws.
+@MainActor
+private func hostMethodOutcome(_ reply: UnsafeMutablePointer<CChar>?, method: String) throws -> Any? {
+    func malformed(_ problem: String) -> ActionUIRemoteError {
+        ActionUIModel.shared.logger.log("ActionUIRemote: host method \(method) \(problem)", .error)
+        return ActionUIRemoteError(code: ActionUIRemoteError.internalError,
+                                   message: "Internal error: host method \(method) \(problem)")
+    }
+
+    guard let reply else {
+        throw malformed("returned no reply")
+    }
+    let text = String(cString: reply)
+    free(reply)
+
+    let object: [String: Any]
+    do {
+        guard let parsed = try ActionUIJSON.value(from: text) as? [String: Any] else {
+            throw malformed("returned JSON that is not an object")
+        }
+        object = parsed
+    } catch let error as ActionUIRemoteError {
+        throw error
+    } catch {
+        throw malformed("returned text that is not JSON: \(error)")
+    }
+
+    if let errorObject = object["error"] {
+        guard let fields = errorObject as? [String: Any],
+              let code = fields["code"] as? Int,
+              let message = fields["message"] as? String else {
+            throw malformed("returned an error without an integer code and a string message")
+        }
+        throw ActionUIRemoteError(code: code, message: message, data: fields["data"])
+    }
+    guard object.keys.contains("result") else {
+        throw malformed("returned an object with neither result nor error")
+    }
+    // ActionUIJSON reads null as ActionUIJSONNull, which the encoder writes back as null.
+    return object["result"]
+}
+
+/// Register a method written in C on the running server, or replace one registered earlier
+/// under the same name. This is `ActionUIRemoteServer.register(method:handler:)` for a host
+/// that is not Swift.
+///
+/// The method lives as long as the server: `actionUIRemoteStopServer` drops it with everything
+/// else, and a host that starts the server again registers it again.
+///
+/// - Parameters:
+///   - method: the name, in the host's own namespace (`omc.test.status`). Names in the reserved
+///     `actionui.` namespace, and names without a namespace, are refused.
+///   - callback: the implementation; see `ActionUIRemoteMethodCallback`.
+///   - context: handed back to every call, never read or freed here. It must stay valid until
+///     the method is unregistered or the server stops. Done on the main thread, that is as soon
+///     as the call returns; done from another thread, a call may already be running or queued,
+///     so only once the main queue has run after it.
+/// - Returns: false when no server is running, the name is refused, or the callback is NULL;
+///   nothing was registered in that case.
+///
+/// Safe from any thread. From the main thread the method is callable as soon as this returns;
+/// from another thread, from the next main-queue turn.
+@c
+public func actionUIRemoteRegisterMethod(_ method: UnsafePointer<CChar>?,
+                                         _ callback: ActionUIRemoteMethodCallback?,
+                                         _ context: UnsafeMutableRawPointer?) -> CBool {
+    guard let method, let callback else { return false }
+    let name = String(cString: method)
+    guard isHostMethodName(name) else { return false }
+    guard let server = ActionUIRemoteServer.shared else { return false }
+
+    let hostMethod = CHostMethod(callback: callback, context: context)
+    server.register(method: name) { [weak server] params in
+        // A request queued for the main thread before a stop still runs after it; the host
+        // may already have freed the context, so a stopped server never calls back.
+        guard let server, ActionUIRemoteServer.shared === server else {
+            throw ActionUIRemoteError(code: ActionUIRemoteError.internalError,
+                                      message: "Internal error: the server stopped before \(name) ran")
+        }
+        let paramsText: String
+        do {
+            paramsText = try ActionUIJSON.string(from: params)
+        } catch {
+            throw ActionUIRemoteError(code: ActionUIRemoteError.internalError,
+                                      message: "Internal error: the params could not be written as JSON: \(error)")
+        }
+        let reply = name.withCString { nameC in
+            paramsText.withCString { paramsC in
+                hostMethod.callback(hostMethod.context, nameC, paramsC)
+            }
+        }
+        return try hostMethodOutcome(reply, method: name)
+    }
+    return true
+}
+
+/// Remove a method `actionUIRemoteRegisterMethod` registered. Built-in `actionui.` methods
+/// cannot be removed this way.
+///
+/// - Returns: false when no server is running or the name is refused; true otherwise, also when
+///   no method had that name.
+///
+/// Safe from any thread, with the same timing as registering.
+@c
+public func actionUIRemoteUnregisterMethod(_ method: UnsafePointer<CChar>?) -> CBool {
+    guard let method else { return false }
+    let name = String(cString: method)
+    guard isHostMethodName(name) else { return false }
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    server.unregister(method: name)
+    return true
+}
+
 #endif

@@ -21,6 +21,45 @@ private final class ResultBox<T>: @unchecked Sendable {
     var value: T?
 }
 
+/// What the C host method below saw. Main thread only: the server calls host methods there.
+private final class CHostMethodRecorder: @unchecked Sendable {
+    var calls: [String] = []
+}
+
+private func cReply(_ text: String) -> UnsafeMutablePointer<CChar>? {
+    return strdup(text)
+}
+
+/// One C function for every test method, answering by name, as a C host would write it.
+private let cHostMethodForTests: ActionUIRemoteMethodCallback = { context, method, paramsJSON in
+    let name = String(cString: method)
+    if let context {
+        let recorder = Unmanaged<CHostMethodRecorder>.fromOpaque(context).takeUnretainedValue()
+        recorder.calls.append(name)
+    }
+    switch name {
+    case "host.echo":
+        let params = String(cString: paramsJSON)
+        return cReply(#"{"result":{"method":"host.echo","params":"# + params + "}}")
+    case "host.fail":
+        return cReply(#"{"error":{"code":1004,"message":"refused on purpose","data":{"why":"test"}}}"#)
+    case "host.null":
+        return cReply(#"{"result":null}"#)
+    case "host.noReply":
+        return nil
+    case "host.notJSON":
+        return cReply("this is not JSON")
+    case "host.notObject":
+        return cReply("[1,2]")
+    case "host.neither":
+        return cReply(#"{"answer":1}"#)
+    case "host.badError":
+        return cReply(#"{"error":{"code":"1004","message":"code is a string"}}"#)
+    default:
+        return cReply(#"{"error":{"code":-32601,"message":"unexpected"}}"#)
+    }
+}
+
 @MainActor
 final class ActionUIRemoteSharedServerTests: XCTestCase {
 
@@ -611,6 +650,147 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         XCTAssertEqual(shared.tokenLabels, ["command0", "command1", "command2", "command3", "host"])
         shared.revokeTokens(label: "command2")
         XCTAssertEqual(shared.tokenLabels, ["command0", "command1", "command3", "host"])
+    }
+
+    // MARK: - The C face for host extension methods
+
+    /// Start a server and return a client already authenticated with the start-up token.
+    private func startedServerAndClient() throws -> TestSocketClient {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let token = try tokenParam()
+        let hello = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":0,"method":"actionui.hello","params":{"# + token + "}}"))
+        XCTAssertNotNil(hello["result"], "the client should be authenticated")
+        return client
+    }
+
+    func testACHostMethodIsServedWithItsParamsAndContext() throws {
+        let client = try startedServerAndClient()
+        let recorder = CHostMethodRecorder()
+        let context = Unmanaged.passUnretained(recorder).toOpaque()
+        XCTAssertTrue("host.echo".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, context) })
+
+        let hello = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello"}"#))
+        let methods = (hello["result"] as? [String: Any])?["methods"] as? [String] ?? []
+        XCTAssertTrue(methods.contains("host.echo"), "a C method is listed like any other: \(methods)")
+
+        // Sending the token again on this request also checks that it is removed before the C
+        // method sees the params.
+        let token = try tokenParam()
+        let reply = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":2,"method":"host.echo","params":{"a":[1,"two",null],"# + token + "}}"))
+        let result = try XCTUnwrap(reply["result"] as? [String: Any], "reply: \(reply)")
+        XCTAssertEqual(result["method"] as? String, "host.echo")
+        let echoed = try XCTUnwrap(result["params"] as? [String: Any])
+        XCTAssertEqual(echoed.keys.sorted(), ["a"], "the token must not reach a C method")
+        let list = try XCTUnwrap(echoed["a"] as? [Any])
+        XCTAssertEqual(list.count, 3)
+        XCTAssertEqual(list[0] as? Int, 1)
+        XCTAssertEqual(list[1] as? String, "two")
+        XCTAssertTrue(list[2] is NSNull)
+
+        XCTAssertEqual(recorder.calls, ["host.echo"], "recorded through the context, so it came back unchanged")
+
+        let noParams = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":3,"method":"host.echo"}"#))
+        XCTAssertEqual(((noParams["result"] as? [String: Any])?["params"] as? [String: Any])?.count, 0,
+                       "no params arrive as an empty object")
+    }
+
+    func testACHostMethodAnswersWithItsErrorOrANullResult() throws {
+        let client = try startedServerAndClient()
+        let recorder = CHostMethodRecorder()
+        let context = Unmanaged.passUnretained(recorder).toOpaque()
+        XCTAssertTrue("host.fail".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, context) })
+        XCTAssertTrue("host.null".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, context) })
+
+        let failed = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":1,"method":"host.fail"}"#))
+        let error = try XCTUnwrap(failed["error"] as? [String: Any])
+        XCTAssertEqual(error["code"] as? Int, 1004)
+        XCTAssertEqual(error["message"] as? String, "refused on purpose")
+        XCTAssertEqual((error["data"] as? [String: Any])?["why"] as? String, "test")
+        XCTAssertNil(failed["result"])
+
+        let null = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"host.null"}"#))
+        XCTAssertTrue(null.keys.contains("result"))
+        XCTAssertTrue(null["result"] is NSNull)
+        XCTAssertNil(null["error"])
+    }
+
+    func testAMalformedCReplyIsAnInternalError() throws {
+        let client = try startedServerAndClient()
+        let recorder = CHostMethodRecorder()
+        let context = Unmanaged.passUnretained(recorder).toOpaque()
+        let malformed = ["host.noReply", "host.notJSON", "host.notObject", "host.neither", "host.badError"]
+        for name in malformed {
+            XCTAssertTrue(name.withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, context) })
+        }
+        for (index, name) in malformed.enumerated() {
+            let reply = try XCTUnwrap(exchangeJSON(client,
+                #"{"jsonrpc":"2.0","id":\#(index),"method":"\#(name)"}"#))
+            XCTAssertEqual((reply["error"] as? [String: Any])?["code"] as? Int, -32603, "\(name): \(reply)")
+            XCTAssertNil(reply["result"], name)
+        }
+        XCTAssertEqual(recorder.calls, malformed, "each was called, once")
+    }
+
+    func testCRegistrationRefusesReservedAndBareNamesAndANullCallback() throws {
+        // Nothing running: nothing to register on.
+        XCTAssertFalse("host.early".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, nil) })
+        XCTAssertFalse("host.early".withCString { actionUIRemoteUnregisterMethod($0) })
+
+        let client = try startedServerAndClient()
+        for name in ["actionui.hello", "actionui.newThing", "bare", ".x", "x.", ""] {
+            XCTAssertFalse(name.withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, nil) }, name)
+            XCTAssertFalse(name.withCString { actionUIRemoteUnregisterMethod($0) }, name)
+        }
+        XCTAssertFalse(actionUIRemoteRegisterMethod(nil, cHostMethodForTests, nil))
+        XCTAssertFalse("host.nil".withCString { actionUIRemoteRegisterMethod($0, nil, nil) })
+        XCTAssertFalse(actionUIRemoteUnregisterMethod(nil))
+
+        // The built-in is untouched by the refused attempts.
+        let hello = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello"}"#))
+        XCTAssertEqual((hello["result"] as? [String: Any])?["protocolVersion"] as? Int,
+                       ActionUIRemoteServer.protocolVersion)
+        let nilMethod = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"host.nil"}"#))
+        XCTAssertEqual((nilMethod["error"] as? [String: Any])?["code"] as? Int, -32601)
+    }
+
+    func testAnUnregisteredCMethodIsNotFoundAndAStopDropsTheRest() throws {
+        let client = try startedServerAndClient()
+        XCTAssertTrue("host.null".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, nil) })
+        XCTAssertTrue("host.null".withCString { actionUIRemoteUnregisterMethod($0) })
+        XCTAssertTrue("host.never".withCString { actionUIRemoteUnregisterMethod($0) },
+                      "removing a name nothing has is not an error")
+        let gone = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":1,"method":"host.null"}"#))
+        XCTAssertEqual((gone["error"] as? [String: Any])?["code"] as? Int, -32601)
+
+        XCTAssertTrue("host.null".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, nil) })
+        actionUIRemoteStopServer()
+        let fresh = try startedServerAndClient()
+        let afterRestart = try XCTUnwrap(exchangeJSON(fresh, #"{"jsonrpc":"2.0","id":2,"method":"host.null"}"#))
+        XCTAssertEqual((afterRestart["error"] as? [String: Any])?["code"] as? Int, -32601,
+                       "a restarted server starts without the host's methods")
+    }
+
+    /// A request already queued for the main thread when the host stops the server must not
+    /// reach the C method: the host may free the context as soon as the stop returns.
+    func testACMethodIsNotCalledAfterAStopOnTheMainThread() throws {
+        let client = try startedServerAndClient()
+        let recorder = CHostMethodRecorder()
+        let context = Unmanaged.passUnretained(recorder).toOpaque()
+        XCTAssertTrue("host.echo".withCString { actionUIRemoteRegisterMethod($0, cHostMethodForTests, context) })
+
+        // The main thread is busy here, so the request waits on the main queue.
+        client.write(#"{"jsonrpc":"2.0","id":1,"method":"host.echo"}"# + "\n")
+        usleep(300_000)
+        actionUIRemoteStopServer()
+
+        let drained = expectation(description: "main queue ran")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { drained.fulfill() }
+        wait(for: [drained], timeout: 5)
+        XCTAssertEqual(recorder.calls, [], "the method ran after the server stopped")
     }
 
     /// Send a notification, then a request, and return the single line that comes back.
