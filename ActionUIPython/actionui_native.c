@@ -414,6 +414,13 @@ static PyObject* py_app_remote_server_token(PyObject* self, PyObject* args) {
     return PyUnicode_FromString(token);
 }
 
+// Turns on the running server's actionui.performAction (a test harness's click); False when no
+// server runs.
+static PyObject* py_app_remote_enable_perform_action(PyObject* self, PyObject* args) {
+    if (actionUIAppRemoteEnablePerformAction()) Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
 static PyObject* py_app_load_and_present_window(PyObject* self, PyObject* args) {
     const char* urlString;
     const char* windowUUID;
@@ -1693,6 +1700,8 @@ static PyMethodDef ActionUIMethods[] = {
      "app_remote_server_endpoint() -> str|None - the running server's socket path."},
     {"app_remote_server_token",       py_app_remote_server_token,       METH_NOARGS,
      "app_remote_server_token() -> str|None - the token the running server requires."},
+    {"app_remote_enable_perform_action", py_app_remote_enable_perform_action, METH_NOARGS,
+     "app_remote_enable_perform_action() -> bool - turn on actionui.performAction; False if no server runs."},
     {"app_load_and_present_window",   py_app_load_and_present_window,   METH_VARARGS,
      "app_load_and_present_window(url, windowUUID[, title]) — load JSON and open a window."},
     {"app_close_window",              py_app_close_window,              METH_VARARGS,

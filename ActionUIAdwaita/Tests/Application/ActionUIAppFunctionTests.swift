@@ -121,6 +121,7 @@ final class ActionUIAppFunctionTests: XCTestCase {
         var tooSmall = [CChar](repeating: 0, count: 16)
         XCTAssertFalse(actionUIAppRemoteCopyServerToken(&tooSmall, tooSmall.count), "a buffer smaller than the token")
         XCTAssertFalse(actionUIAppStartRemoteServer(path), "a second start is refused")
+        XCTAssertTrue(actionUIAppRemoteEnablePerformAction(), "performAction can be turned on while the server runs")
 
         actionUIAppStopRemoteServer()
         XCTAssertNil(actionUIAppRemoteServerEndpoint())

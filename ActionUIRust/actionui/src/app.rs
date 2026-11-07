@@ -432,6 +432,18 @@ impl App {
         unsafe { ffi::copy_string(buffer.as_ptr()) }
     }
 
+    /// Turns on the running remote server's `actionui.performAction`, which fires an
+    /// element's action as a click would, so a test harness can check the wiring from a
+    /// control's `actionID` to its handler. Off until this is called; it ends with the
+    /// server. Fails when the server is not running.
+    pub fn enable_remote_perform_action(&self) -> Result<()> {
+        if unsafe { sys::actionUIAppRemoteEnablePerformAction() } {
+            Ok(())
+        } else {
+            Err(Error::ActionUI("the remote server is not running".to_string()))
+        }
+    }
+
     // MARK: - Actions
 
     /// Runs `handler` for every action with this `actionID`: a button press, a menu item,

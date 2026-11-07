@@ -314,6 +314,14 @@ public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CC
     return actionUIRemoteCopyServerToken(outToken, outTokenSize)
 }
 
+/// Turn on the running server's `actionui.performAction`, which fires an element's action as a
+/// click would, for a test harness. Off until this is called; it ends with the server.
+/// Equivalent to `actionUIRemoteEnablePerformAction()`. False when no server is running.
+@c
+public func actionUIAppRemoteEnablePerformAction() -> CBool {
+    return actionUIRemoteEnablePerformAction()
+}
+
 /// The socket path of the running server, or NULL when none is running; owned by the library and
 /// valid until the next start or stop.
 @c

@@ -49,6 +49,7 @@ def test_module_api_surface():
         "app_stop_remote_server",
         "app_remote_server_endpoint",
         "app_remote_server_token",
+        "app_remote_enable_perform_action",
         "app_set_name",
         "app_set_application_id",
         "app_set_icon",
@@ -421,6 +422,11 @@ def test_remote_server(app: actionui.Application):
 
     token = app.remote_server_token
     check("remote_server_token reports a token", isinstance(token, str) and token != "")
+    try:
+        app.enable_remote_perform_action()
+        check("enable_remote_perform_action succeeds while the server runs", True)
+    except RuntimeError:
+        check("enable_remote_perform_action succeeds while the server runs", False)
     check("the token is exported to child processes",
           os.environ.get(actionui.REMOTE_TOKEN_ENV) == token)
     # The framework's setenv is invisible to os.environ, so the mirror above is what makes the
@@ -451,6 +457,11 @@ def test_remote_server(app: actionui.Application):
     check("the environment variable is unset",
           actionui.REMOTE_ENDPOINT_ENV not in os.environ)
     check("remote_server_token is None after stopping", app.remote_server_token is None)
+    try:
+        app.enable_remote_perform_action()
+        check("enable_remote_perform_action raises when no server runs", False)
+    except RuntimeError:
+        check("enable_remote_perform_action raises when no server runs", True)
     check("the token variable is unset", actionui.REMOTE_TOKEN_ENV not in os.environ)
 
     try:

@@ -195,8 +195,10 @@ fn check_remote_server(app: App) {
     check("it exports the socket path for child processes", std::env::var("ACTIONUI_REMOTE_ENDPOINT").ok() == endpoint.ok());
     check("it has a token", app.remote_server_token().is_some_and(|token| !token.is_empty()));
     check("a second start is an error", app.start_remote_server(None).is_err());
+    check("performAction can be turned on while it runs", app.enable_remote_perform_action().is_ok());
     app.stop_remote_server();
     check("after stopping it reports no socket path", app.remote_server_endpoint().is_none());
+    check("turning performAction on with no server is an error", app.enable_remote_perform_action().is_err());
 }
 
 // The menu bar belongs to AppKit and the crate has no call that reads it back, so the test

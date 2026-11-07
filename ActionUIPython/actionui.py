@@ -502,6 +502,14 @@ class Application:
         """
         return _actionui.app_remote_server_token()
 
+    def enable_remote_perform_action(self):
+        """Turn on the running server's ``actionui.performAction``, which fires an element's
+        action as a click would, so a test harness can check the wiring from a control's
+        ``actionID`` to its handler.  Off until this is called; it ends with the server.
+        Raises RuntimeError when the server is not running."""
+        if not _actionui.app_remote_enable_perform_action():
+            raise RuntimeError("the remote server is not running")
+
     def load_and_present_window(self,
                                 url: str,
                                 window_uuid: Optional[str] = None,

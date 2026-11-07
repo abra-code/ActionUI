@@ -297,6 +297,11 @@ void actionUIAppStopRemoteServer(void);
 const char* actionUIAppRemoteServerEndpoint(void);
 // The running server's socket path, or NULL.  Owned by the framework and valid
 // until the next start or stop; copy it if you keep it.
+
+bool actionUIAppRemoteEnablePerformAction(void);
+// Turn on actionui.performAction, which fires an element's action as a click
+// would, for a test harness.  Off until called; ends with the server.  False
+// when no server is running.
 ```
 
 The wire contract is `ActionUIRemote/PROTOCOL.md`; the client a child process
@@ -589,6 +594,7 @@ subprocess.run(["python3", "worker.py"],
 
 app.remote_server_endpoint    # the socket path, or None
 app.remote_server_token       # the token it requires, or None
+app.enable_remote_perform_action()  # for a test harness: allow actionui.performAction
 app.stop_remote_server()      # also runs at interpreter exit
 ```
 

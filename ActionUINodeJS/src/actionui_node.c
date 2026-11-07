@@ -1905,6 +1905,14 @@ static napi_value node_app_remote_server_token(napi_env env, napi_callback_info 
     return ret;
 }
 
+// Turns on the running server's actionui.performAction (a test harness's click); false when no
+// server runs.
+static napi_value node_app_remote_enable_perform_action(napi_env env, napi_callback_info info) {
+    napi_value ret;
+    napi_get_boolean(env, actionUIAppRemoteEnablePerformAction(), &ret);
+    return ret;
+}
+
 static napi_value node_app_load_and_present_window(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -2668,6 +2676,7 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "appStopRemoteServer",      node_app_stop_remote_server);
     EXPORT_FN(exports, "appRemoteServerEndpoint",  node_app_remote_server_endpoint);
     EXPORT_FN(exports, "appRemoteServerToken",     node_app_remote_server_token);
+    EXPORT_FN(exports, "appRemoteEnablePerformAction", node_app_remote_enable_perform_action);
     EXPORT_FN(exports, "appLoadAndPresentWindow",  node_app_load_and_present_window);
     EXPORT_FN(exports, "appCloseWindow",           node_app_close_window);
     EXPORT_FN(exports, "appLoadMenuBar",           node_app_load_menu_bar);

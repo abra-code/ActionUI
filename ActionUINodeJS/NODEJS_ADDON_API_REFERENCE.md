@@ -217,6 +217,7 @@ spawn('python3', ['worker.py'],
 
 app.remoteServerEndpoint;    // the socket path, or null
 app.remoteServerToken;       // the token it requires, or null
+app.enableRemotePerformAction();  // for a test harness: allow actionui.performAction
 app.stopRemoteServer();      // also runs on process exit
 ```
 
@@ -499,6 +500,7 @@ native.appStartRemoteServer(path)      // path or null for a per-process default
 native.appStopRemoteServer()
 native.appRemoteServerEndpoint()       // the socket path, or null
 native.appRemoteServerToken()          // the token the server requires, or null
+native.appRemoteEnablePerformAction() // turn on actionui.performAction; false if no server runs
 
 // Type-specific setters (windowUuid, viewId, partId, value)
 native.setIntValue(uuid, viewId, partId, value)

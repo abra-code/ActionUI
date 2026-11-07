@@ -202,6 +202,7 @@ Lets other processes of the same user read and drive this application's windows,
 | `stop_remote_server(&self)` | Stops the server and removes the socket. |
 | `remote_server_endpoint(&self) -> Option<String>` | The socket path while the server runs. |
 | `remote_server_token(&self) -> Option<String>` | The token a client must present, if any. |
+| `enable_remote_perform_action(&self) -> Result<()>` | Turns on `actionui.performAction`, which fires an element's action as a click would, for a test harness. Off until called; fails when the server is not running. |
 
 Starting the server exports `ACTIONUI_REMOTE_ENDPOINT` and `ACTIONUI_REMOTE_TOKEN` in this process's environment, so a child process started afterwards finds the server by itself. The server stops when the application terminates.
 

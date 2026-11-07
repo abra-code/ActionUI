@@ -37,7 +37,7 @@ function testNativeAPISurface() {
         'setLogger', 'log',
         // Remote bridge
         'appStartRemoteServer', 'appStopRemoteServer', 'appRemoteServerEndpoint',
-        'appRemoteServerToken',
+        'appRemoteServerToken', 'appRemoteEnablePerformAction',
         // Action handlers
         'registerActionHandler', 'unregisterActionHandler', 'setDefaultActionHandler',
         // Type-specific setters
@@ -340,6 +340,9 @@ function testRemoteBridge(app) {
 
     const token = app.remoteServerToken;
     check('remoteServerToken reports a token', typeof token === 'string' && token.length > 0);
+    let enabled = true;
+    try { app.enableRemotePerformAction(); } catch (e) { enabled = false; }
+    check('enableRemotePerformAction succeeds while the server runs', enabled);
     check('the token is exported to child processes',
           process.env.ACTIONUI_REMOTE_TOKEN === token);
 
@@ -372,6 +375,9 @@ function testRemoteBridge(app) {
     check('the environment variable is unset',
           process.env.ACTIONUI_REMOTE_ENDPOINT === undefined);
     check('remoteServerToken is null after stopping', app.remoteServerToken === null);
+    let refused = false;
+    try { app.enableRemotePerformAction(); } catch (e) { refused = true; }
+    check('enableRemotePerformAction throws when no server runs', refused);
     check('the token variable is unset', process.env.ACTIONUI_REMOTE_TOKEN === undefined);
 
     let stoppedTwice = true;

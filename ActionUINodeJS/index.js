@@ -504,6 +504,18 @@ class Application {
      */
     get remoteServerToken() { return _actionui.appRemoteServerToken(); }
 
+    /**
+     * Turns on the running server's actionui.performAction, which fires an element's action as a
+     * click would, so a test harness can check the wiring from a control's actionID to its
+     * handler. Off until this is called; it ends with the server. Throws when the server is not
+     * running.
+     */
+    enableRemotePerformAction() {
+        if (!_actionui.appRemoteEnablePerformAction()) {
+            throw new Error('the remote server is not running');
+        }
+    }
+
     loadAndPresentWindow(url, uuid, title) {
         if (uuid == null) uuid = randomUUID();
         if (!url.startsWith('file://') && !url.startsWith('http://') && !url.startsWith('https://')) {

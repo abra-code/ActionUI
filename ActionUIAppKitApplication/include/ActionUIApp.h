@@ -95,6 +95,7 @@ void actionUIAppStopRemoteServer(void) ACTIONUI_NOEXCEPT;
 const char *actionUIAppRemoteServerToken(void) ACTIONUI_NOEXCEPT;
 bool actionUIAppRemoteCopyServerToken(char *outToken, long outTokenSize) ACTIONUI_NOEXCEPT;  // false if outToken is NULL or too small; long is ptrdiff_t (Swift Int) on 64-bit platforms
 const char *actionUIAppRemoteServerEndpoint(void) ACTIONUI_NOEXCEPT;
+bool actionUIAppRemoteEnablePerformAction(void) ACTIONUI_NOEXCEPT;  // turns on actionui.performAction for a test harness; false if no server runs
 
 #ifdef __cplusplus
 }
