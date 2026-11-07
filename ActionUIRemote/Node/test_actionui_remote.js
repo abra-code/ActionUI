@@ -421,6 +421,14 @@ async function testAgainstTheFakeHost(directory) {
         check('rows round trip', JSON.stringify(rows) === JSON.stringify([['a', 'b'], ['c', 'd']]),
               JSON.stringify(rows));
 
+        await win.setProperty(2, 'actionID', 'test.press');
+        check('performAction resolves to the action id', (await win.performAction(2)) === 'test.press');
+        check('performAction with a row and a context',
+              (await win.performAction(2, { viewPartId: 3, context: 'tag' })) === 'test.press');
+        await checkThrows('performAction on a view without the property is 1003',
+                          () => win.performAction(2, { property: 'popoverActionID' }),
+                          (error) => error instanceof aui.RemoteError && error.code === 1003);
+
         const info = await win.getElementInfo();
         check('getElementInfo describes the fixture', JSON.stringify(info).includes('Table'),
               JSON.stringify(info));

@@ -209,6 +209,9 @@ Rows and selection: `actionui_get_column_count VIEWID`, `actionui_get_rows VIEWI
 `actionui_select_row VIEWID INDEX` (prints the row, or null), `actionui_select_row_with_content VIEWID TEXT [COLUMN]`
 (prints the index, or -1), `actionui_clear_selection VIEWID`.
 
+Actions: `actionui_perform_action VIEWID [PART] [PROPERTY]` (prints the action id it fired), for a
+host that turned `actionui.performAction` on, such as a test harness.
+
 Structure: `actionui_insert_element PARENTID ELEMENT_JSON [CONTAINER] [POSITION]` (prints the new
 id), `actionui_insert_row PARENTID CELLS_JSON [CONTAINER] [POSITION]` (prints the ids),
 `actionui_remove_element VIEWID`. `POSITION` is `append`, `prepend`, or a JSON object such as

@@ -871,6 +871,26 @@ class RowTests(FakeHostTestCase):
         self.assertTrue(self.win.clear_selection(5))
         self.assertNotIn(5, self.model["selection"])
 
+    def test_perform_action_fires_the_elements_action_id(self):
+        self.win.set_property(2, "actionID", "test.press")
+        self.win.set_property(2, "popoverActionID", "test.popover")
+        self.assertEqual(self.win.perform_action(2), "test.press")
+        self.assertEqual(self.win.perform_action(2, view_part_id=3, context="tag"), "test.press")
+        self.assertEqual(self.win.perform_action(2, property="popoverActionID"), "test.popover")
+        performed = self.model["performed"]
+        self.assertEqual([entry["actionID"] for entry in performed], ["test.press", "test.press", "test.popover"])
+        self.assertEqual(performed[1]["viewPartID"], 3)
+        self.assertEqual(performed[1]["context"], "tag")
+
+    def test_perform_action_refuses_what_it_cannot_fire(self):
+        with self.assertRaises(aui.RemoteError) as caught:
+            self.win.perform_action(2)
+        self.assertEqual(caught.exception.code, 1003)
+        self.win.set_property(2, "title", "Press")
+        with self.assertRaises(aui.RemoteError) as caught:
+            self.win.perform_action(2, property="title")
+        self.assertEqual(caught.exception.code, -32602)
+
     def test_an_index_must_be_an_integer(self):
         with self.assertRaises(TypeError):
             self.win.select_row(5, True)
@@ -1140,6 +1160,7 @@ BATCH_CALLS = [
     ("select_row", (5, 0), {}, "actionui.selectRow"),
     ("select_row_with_content", (5, "a"), {}, "actionui.selectRowWithContent"),
     ("clear_selection", (5,), {}, "actionui.clearSelection"),
+    ("perform_action", (2,), {}, "actionui.performAction"),
     ("insert_element", (10, {"type": "Text"}), {}, "actionui.insertElement"),
     ("insert_row", (5, [{"type": "Text"}]), {}, "actionui.insertRow"),
     ("remove_element", (11,), {}, "actionui.removeElement"),

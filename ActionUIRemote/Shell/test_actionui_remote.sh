@@ -349,6 +349,11 @@ t_run actionui_select_row_with_content 5 "zzz" 0
 t_eq "select_row_with_content with no match is -1" "-1" "$_t_out"
 t_run actionui_clear_selection 5
 t_eq "clear_selection exits 0 and prints nothing" "0:" "$_t_rc:$_t_out"
+t_run actionui_set_property 2 actionID '"test.press"'
+t_run actionui_perform_action 2
+t_eq "perform_action prints the action id" "0:test.press" "$_t_rc:$_t_out"
+t_run actionui_perform_action 2 3 popoverActionID
+t_eq "perform_action on a property the view lacks is a host error 1003" "1:1003" "$_t_rc:$ACTIONUI_ERROR_CODE"
 t_run actionui_clear_rows 5
 t_run actionui_get_rows 5
 t_eq "clear_rows empties the table" "[]" "$_t_out"

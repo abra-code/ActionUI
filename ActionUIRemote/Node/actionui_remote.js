@@ -835,6 +835,19 @@ class Window {
         return this._invoke('actionui.clearSelection', this._params(null, viewId));
     }
 
+    // -- actions
+
+    // Fires the element's action as a click would: its actionID, or another property ending in
+    // ActionID ({ property }), through the host's action handler, with viewPartId and context handed
+    // through. Resolves to the action id. Only a host that turned actionui.performAction on (a test
+    // harness) has it; any other rejects with RemoteError -32601.
+    performAction(viewId, { viewPartId = null, property = null, context = null } = {}) {
+        const more = {};
+        if (property !== null) more.property = String(property);
+        if (context !== null) more.context = context;
+        return this._invoke('actionui.performAction', this._params(more, viewId, viewPartId));
+    }
+
     // -- structural mutation
 
     // The parent is `parentID`, a named param of its own - not the `viewID` every other method
