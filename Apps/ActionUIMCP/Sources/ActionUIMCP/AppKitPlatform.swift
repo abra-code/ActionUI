@@ -6,7 +6,7 @@
 
 // AppKitPlatform.swift - the windows on macOS: an NSWindow around a SwiftUI hosting view. Capture
 // is in AppKitPlatform+Capture.swift, notices in AppKitPlatform+Notices.swift, file panels in
-// AppKitPlatform+Panels.swift.
+// AppKitPlatform+Panels.swift, window placement and Window menu names in AppKitPlatform+Placement.swift.
 
 #if canImport(AppKit)
 import AppKit
@@ -85,16 +85,19 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     }
 
     /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
-    /// window. No Quit item in the server: quitting would end the client's server; closing windows is
-    /// enough. The keeper serves no one and gets one.
+    /// window. The Window menu is the application's windows menu, where AppKit lists the open
+    /// windows. No Quit item in the server: quitting would end the client's server; closing windows
+    /// is enough. The keeper serves no one and gets one.
     private static func makeMainMenu(quitItem: Bool) -> NSMenu {
         let mainMenu = NSMenu()
-        func submenu(_ title: String, _ items: [NSMenuItem]) {
+        @discardableResult
+        func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenu {
             let menu = NSMenu(title: title)
             items.forEach(menu.addItem)
             let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             holder.submenu = menu
             mainMenu.addItem(holder)
+            return menu
         }
         func item(_ title: String, _ action: Selector, _ key: String, _ modifiers: NSEvent.ModifierFlags = .command) -> NSMenuItem {
             let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: key)
@@ -112,9 +115,13 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
             item("Paste", #selector(NSText.paste(_:)), "v"),
             item("Select All", #selector(NSText.selectAll(_:)), "a"),
         ])
-        submenu("Window", [
+        // AppKit adds a separator and the list of windows below these.
+        NSApplication.shared.windowsMenu = submenu("Window", [
             item("Close", #selector(NSWindow.performClose(_:)), "w"),
             item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
+            item("Zoom", #selector(NSWindow.performZoom(_:)), ""),
+            .separator(),
+            item("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)), ""),
         ])
         return mainMenu
     }
@@ -153,7 +160,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
             window.setContentSize(Self.clampedToScreen(content.fitting))
         }
         window.delegate = self
-        window.center()
+        Self.place(window)
 
         windows[windowID] = window
         controllers[windowID] = content.controller
@@ -163,7 +170,27 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         } else {
             window.orderFrontRegardless()
         }
+        Self.listInWindowsMenu(window)
+        #if DEBUG
+        writePlacementReport()
+        #endif
     }
+
+    #if DEBUG
+    /// ACTIONUI_MCP_TEST_PLACEMENT_REPORT=<path>: for the live test, after each window opens, write
+    /// every window's title and frame and the names the Window menu lists.
+    private func writePlacementReport() {
+        guard let path = ProcessInfo.processInfo.environment["ACTIONUI_MCP_TEST_PLACEMENT_REPORT"] else { return }
+        let shown: [[String: Any]] = windows.values.map { window in
+            let frame = window.frame
+            return ["title": window.title, "frame": [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height]]
+        }
+        let listed = NSApp.windowsMenu?.items.filter { $0.target is NSWindow }.map(\.title) ?? []
+        let report: [String: Any] = ["windows": shown, "menu": listed]
+        guard let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) else { return }
+        try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
+    }
+    #endif
 
     static func clampedToScreen(_ size: NSSize) -> NSSize {
         let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)

@@ -34,6 +34,7 @@ extension AppKitPlatform {
         window.isReleasedWhenClosed = false
         window.contentView = content.controller.view
         window.title = "Preview"
+        window.isExcludedFromWindowsMenu = true
         window.setContentSize(size.map { NSSize(width: $0.width, height: $0.height) } ?? Self.clampedToScreen(content.fitting))
         window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
         window.orderFrontRegardless()

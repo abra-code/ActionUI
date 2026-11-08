@@ -71,6 +71,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         controllers[record.window] = controller
         // Not activated: the user keeps focus wherever it was.
         window.orderFrontRegardless()
+        AppKitPlatform.listInWindowsMenu(window)
     }
 
     func windowWillClose(_ notification: Notification) {

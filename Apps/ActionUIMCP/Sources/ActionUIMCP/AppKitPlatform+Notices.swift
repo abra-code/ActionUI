@@ -69,6 +69,7 @@ extension AppKitPlatform {
         let panel = NoticePanel(contentRect: NSRect(origin: .zero, size: size),
                                 styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isReleasedWhenClosed = false
+        panel.isExcludedFromWindowsMenu = true
         panel.isFloatingPanel = true
         panel.level = .floating
         // The app is never active while a notice shows; a default panel would hide at once.

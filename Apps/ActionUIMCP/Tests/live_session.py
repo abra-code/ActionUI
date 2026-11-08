@@ -578,6 +578,30 @@ s.call(14, "wait", {"timeout_s": 1})
 check("a notice is not a window with events", is_error(s.response(14)))
 s.close()
 
+# Placement and the Window menu (macOS): windows of the same size open a step apart, never on top of
+# one another, and the Window menu lists each of them, a long title shortened in the middle.
+if not LINUX:
+    import tempfile as _tempfile
+    placement = os.path.join(_tempfile.mkdtemp(prefix="actionui-mcp-placement-"), "placement.json")
+    s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_PLACEMENT_REPORT": placement})
+    long_title = "ActionUI: ActionUIRemote clients: perform_action, performAction, actionui_perform_action"
+    titles = ["Note one", "Note two", long_title]
+    # Sent together, as parallel tool calls arrive: the windows then open in one run loop pass.
+    for request_id, title in enumerate(titles, start=1):
+        s.call(request_id, "show", {"title": title, "kind": "text", "text": title, "width": 900, "height": 700})
+    for request_id in range(1, len(titles) + 1):
+        s.response(request_id)
+    with open(placement) as handle:
+        report = json.load(handle)
+    corners = [(w["frame"][0], w["frame"][1] + w["frame"][3]) for w in report["windows"]]
+    check("windows of the same size open apart", len(set(corners)) == 3, report)
+    menu = report["menu"]
+    check("Window menu lists every window by its title", len(menu) == 3 and "Note one" in menu and "Note two" in menu, menu)
+    check("Window menu shortens a long title", long_title not in menu
+          and any(name.startswith("ActionUI: ActionUIRemote") and name.endswith("actionui_perform_action")
+                  and len(name) <= 60 for name in menu), menu)
+    s.close()
+
 # Kept windows: at the end of input the server hands them to a keeper process, which shows them
 # with the same frame and values, then (test hook) closes them a second later and exits.
 import glob
