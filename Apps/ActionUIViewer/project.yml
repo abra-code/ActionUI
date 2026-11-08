@@ -50,6 +50,8 @@ targets:
         product: ActionUI
       - package: ActionUI
         product: ActionUISwiftAdapter
+      - package: ActionUI
+        product: ActionUIMenuBar
       - package: ActionUIQuickLook
         product: ActionUIQuickLook
       - package: ActionUIChat

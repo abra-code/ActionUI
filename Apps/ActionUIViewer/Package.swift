@@ -85,6 +85,7 @@ Package(
             dependencies: [
                 .product(name: "ActionUI", package: "ActionUI"),
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
+                .product(name: "ActionUIMenuBar", package: "ActionUI"),
                 .product(name: "ActionUIQuickLook", package: "ActionUIQuickLook"),
                 .product(name: "ActionUIChat", package: "ActionUIChat"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),

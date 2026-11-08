@@ -7,14 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */; };
-		4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = 018DD60E7C130C7B79604D82 /* ActionUIChat */; };
-		787487FCD463A7ECEFAD108E /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = E143EDA77C064A4A614C4901 /* ActionUICachedImage */; };
-		AA4C7B381C4EC07116A26E37 /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 35F3761AE12844D832BDD605 /* ActionUIRichText */; };
+		07003A206E274435264A31B6 /* ActionUIMenuBar in Frameworks */ = {isa = PBXBuildFile; productRef = 23E5861BFD1D8E470D447FDE /* ActionUIMenuBar */; };
+		4B87B3FC6FCA654841DC0801 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */; };
+		73CFE2CDB7BE73C7EA41EE56 /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 35F3761AE12844D832BDD605 /* ActionUIRichText */; };
+		787487FCD463A7ECEFAD108E /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */; };
+		AA4C7B381C4EC07116A26E37 /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = E143EDA77C064A4A614C4901 /* ActionUICachedImage */; };
 		B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */; };
 		C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */; };
 		C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61EEE11E5292D427ED46EAAB /* ActionUI */; };
-		F27AD044F8309FD9674EFB3F /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */; };
+		F27AD044F8309FD9674EFB3F /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = 018DD60E7C130C7B79604D82 /* ActionUIChat */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,11 +36,12 @@
 			files = (
 				C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */,
 				B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */,
-				07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */,
-				4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */,
-				F27AD044F8309FD9674EFB3F /* ActionUIDiff in Frameworks */,
-				787487FCD463A7ECEFAD108E /* ActionUICachedImage in Frameworks */,
-				AA4C7B381C4EC07116A26E37 /* ActionUIRichText in Frameworks */,
+				07003A206E274435264A31B6 /* ActionUIMenuBar in Frameworks */,
+				4B87B3FC6FCA654841DC0801 /* ActionUIQuickLook in Frameworks */,
+				F27AD044F8309FD9674EFB3F /* ActionUIChat in Frameworks */,
+				787487FCD463A7ECEFAD108E /* ActionUIDiff in Frameworks */,
+				AA4C7B381C4EC07116A26E37 /* ActionUICachedImage in Frameworks */,
+				73CFE2CDB7BE73C7EA41EE56 /* ActionUIRichText in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +112,7 @@
 			packageProductDependencies = (
 				61EEE11E5292D427ED46EAAB /* ActionUI */,
 				D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */,
+				23E5861BFD1D8E470D447FDE /* ActionUIMenuBar */,
 				4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */,
 				018DD60E7C130C7B79604D82 /* ActionUIChat */,
 				DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */,
@@ -377,6 +380,10 @@
 		018DD60E7C130C7B79604D82 /* ActionUIChat */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUIChat;
+		};
+		23E5861BFD1D8E470D447FDE /* ActionUIMenuBar */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIMenuBar;
 		};
 		35F3761AE12844D832BDD605 /* ActionUIRichText */ = {
 			isa = XCSwiftPackageProductDependency;

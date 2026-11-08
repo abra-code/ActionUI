@@ -15,6 +15,7 @@ import SwiftUI
 import AppKit
 import ActionUI
 import ActionUISwiftAdapter
+import ActionUIMenuBar
 import CoreServices
 import UniformTypeIdentifiers
 import CoreGraphics
@@ -143,6 +144,30 @@ func printUsage() {
 class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow!
     var screenshotPath: String?
+
+    static let appName = "ActionUI Viewer"
+
+    /// The standard menu bar that the ActionUI application hosts get (ActionUIMenuBar), so the
+    /// viewer behaves like any Mac app: copy, paste, undo and select all in text fields, Cmd-W,
+    /// Cmd-Q, the Window menu listing the window, Services, and the Help menu's search field.
+    /// Before launch finishes, so the first window opens with the menu bar in place.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        ActionUIMenuBarBuilder.installDefaultMenuBar(appName: Self.appName, aboutTarget: self,
+                                                     aboutAction: #selector(showAboutPanel(_:)))
+        // Items that can never work here go: the viewer shows the one file named on its command
+        // line (the New and Open group), and it has no help book, so its Help item would only say
+        // that help is not available. The Help menu stays for its search field.
+        ActionUIMenuBarBuilder.loadMenuBarCommands(json: """
+            [{"type": "CommandGroup", "properties": {"placement": "replacing", "placementTarget": "newItem"}},
+             {"type": "CommandGroup", "properties": {"placement": "replacing", "placementTarget": "help"}}]
+            """, itemBuilder: { _ in nil })
+    }
+
+    /// The standard About panel, under the name the menu shows: a SwiftPM build of this tool has
+    /// no Info.plist, so the panel would otherwise show the executable's name.
+    @MainActor @objc func showAboutPanel(_ sender: Any?) {
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: Self.appName])
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Task { @MainActor in
@@ -302,7 +327,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window = windowClass.init(contentRect: NSRect(origin: NSPoint(x: 100, y: 100), size: layoutSize),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                                   backing: .buffered, defer: false)
-        window.title = "ActionUI Viewer - \(displayTitle)"
+        window.title = "\(Self.appName) - \(displayTitle)"
         window.delegate = self
         
         let hostingController = ActionUISwift.loadHostingController(from: url, windowUUID: windowUUID, isContentView: true)
