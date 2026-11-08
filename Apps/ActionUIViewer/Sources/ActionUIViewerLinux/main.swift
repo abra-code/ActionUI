@@ -1,7 +1,8 @@
 // Apps/ActionUIViewer/Sources/ActionUIViewerLinux/main.swift
 /*
  ActionUIViewer: opens an ActionUI document in a window on Linux, through AdwaitaApplication,
- with the add-ons that work on Linux (RichText, CachedImage, Diff).
+ with the add-ons that work on Linux (RichText, CachedImage, Diff, HostSurface). No client draws
+ into a HostSurface here: it keeps its place in the layout and shows nothing.
 
  Usage: ActionUIViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]...
 
@@ -26,6 +27,7 @@ import ActionUI
 import ActionUICachedImage
 import ActionUIDiff
 import ActionUIRichText
+import ActionUIHostSurface
 
 let usage = "usage: ActionUIViewer <document.json> [--dark] [--screenshot <file.png>] [--rows <id> <rows.json>]..."
 let windowUUID = "viewer"
@@ -78,6 +80,7 @@ MainActor.assumeIsolated {
     ActionUIRichText.register()
     ActionUICachedImage.register()
     ActionUIDiff.register()
+    ActionUIHostSurface.register()
     let app = AdwaitaApplication.shared
     app.name = "ActionUI Viewer"
     app.applicationID = "com.abracode.actionui.viewer"

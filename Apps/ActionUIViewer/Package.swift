@@ -122,6 +122,7 @@ Package(
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUIRichText"),
+        .package(path: "../../Add-ons/ActionUIHostSurface"),
     ],
     targets: [
         .executableTarget(
@@ -132,6 +133,7 @@ Package(
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "ActionUIHostSurface", package: "ActionUIHostSurface"),
             ],
             path: "Sources/ActionUIViewerLinux"
         ),
