@@ -86,8 +86,9 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
 
     /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
     /// window. The Window menu is the application's windows menu, where AppKit lists the open
-    /// windows. No Quit item in the server: quitting would end the client's server; closing windows
-    /// is enough. The keeper serves no one and gets one.
+    /// windows, and the Services submenu its services menu. No Quit item in the server: quitting
+    /// would end the client's server; closing windows is enough. The keeper serves no one and gets
+    /// one.
     private static func makeMainMenu(quitItem: Bool) -> NSMenu {
         let mainMenu = NSMenu()
         @discardableResult
@@ -104,8 +105,14 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
             menuItem.keyEquivalentModifierMask = modifiers
             return menuItem
         }
-        submenu("ActionUI", [item("Hide", #selector(NSApplication.hide(_:)), "h")]
+        // The system fills the Services submenu, for example to send text selected in a window to
+        // another application.
+        let services = NSMenu(title: "Services")
+        let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
+        servicesItem.submenu = services
+        submenu("ActionUI", [servicesItem, .separator(), item("Hide", #selector(NSApplication.hide(_:)), "h")]
                             + (quitItem ? [.separator(), item("Quit", #selector(NSApplication.terminate(_:)), "q")] : []))
+        NSApplication.shared.servicesMenu = services
         submenu("Edit", [
             item("Undo", Selector(("undo:")), "z"),
             item("Redo", Selector(("redo:")), "z", [.command, .shift]),
