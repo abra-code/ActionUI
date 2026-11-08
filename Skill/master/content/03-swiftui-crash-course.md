@@ -6,15 +6,15 @@ flavors: [lite]
 
 ## Layout Fundamentals
 
-ActionUI uses the same layout model as SwiftUI. You do not need to know Swift — just understand these concepts.
+ActionUI uses the same layout model as SwiftUI. You do not need to know Swift - just understand these concepts.
 
 ### Stacks
 
 Stacks group views in a line. Children are placed in the `children` array.
 
-- `VStack` — top to bottom (vertical column)
-- `HStack` — left to right (horizontal row)
-- `ZStack` — layered (back to front, like CSS z-index)
+- `VStack` - top to bottom (vertical column)
+- `HStack` - left to right (horizontal row)
+- `ZStack` - layered (back to front, like CSS z-index)
 
 ```json
 { "type": "VStack", "properties": { "spacing": 12 }, "children": [
@@ -48,7 +48,7 @@ Set explicit sizes with `frame`. Without a frame, a view sizes to its content.
 Colors can be strings (named, hex, or system):
 - Named: `"red"`, `"blue"`, `"green"`, `"white"`, `"black"`, `"clear"`, `"gray"`, `"orange"`, `"purple"`, `"yellow"`, `"pink"`, `"teal"`, `"indigo"`
 - Hex: `"#FF5733"`, `"#FF573380"` (with alpha)
-- System adaptive (light/dark): `"systemBackground"`, `"secondarySystemBackground"`, `"label"`, `"secondaryLabel"`
+- Adaptive (light/dark): `"background"`, `"background.secondary"`, `"primary"`, `"secondary"`
 
 ### Modifiers (Universal Properties)
 
@@ -59,7 +59,7 @@ These apply to **any** element type. Place them in `properties`.
 | `foregroundStyle` | color string | Text and icon color |
 | `background` | color string | Background fill |
 | `cornerRadius` | number | Rounded corners |
-| `opacity` | 0.0–1.0 | Transparency |
+| `opacity` | 0.0-1.0 | Transparency |
 | `padding` | number or `{"top":n,"leading":n,"bottom":n,"trailing":n}` | Inset from edges |
 | `frame` | object | Size constraints |
 | `shadow` | `{"color":"black","radius":4,"x":0,"y":2}` | Drop shadow |

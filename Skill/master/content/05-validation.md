@@ -6,19 +6,14 @@ flavors: [claude, capable, lite]
 
 ## Validation
 
-After generating or modifying ActionUI JSON, always validate before presenting the result:
+After generating or modifying ActionUI JSON, always validate before presenting the result (the path is relative to this skill's folder):
 
 ```bash
-python3 Skill/scripts/validate_actionui.py <file-or-directory>
+python3 -B scripts/validate_actionui.py <file-or-directory>
 ```
 
-Fix all `[ERROR]` issues before presenting. `[WARNING]` lines are likely typos or unsupported properties — investigate and fix if possible. `[INFO]` lines are informational only.
+Fix every `[ERROR]`. Treat every `[WARNING]` as a probable bug: an unknown property or value is only a warning, and the runtime ignores it, so the document "works" without doing what you wrote. `[INFO]` lines are informational.
 
-Common errors:
-- Unknown property name → typo or hallucinated property; check the element schema
-- Wrong value type → e.g., `"spacing": "16"` should be `"spacing": 16`
-- Duplicate `id` → change one of the conflicting IDs
-- Missing required property → add the required field
-- Unknown element `type` → check the spelling; types are PascalCase
+Common causes: a misspelled or invented property (check the element's schema), a wrong value type (`"16"` for `16`), a duplicate `id`, a missing required property, a misspelled `type`.
 
-Full element documentation is in `docs/Schemas/<Type>.md`. Read the relevant schema when unsure about a property name or value.
+The validator does not catch every mistake that matters: the element notes below list the ones it misses (event keys, `keyboardShortcut` modifiers, empty Picker tags).

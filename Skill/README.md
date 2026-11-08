@@ -20,7 +20,8 @@ Skill/
 │       ├── 07-examples.md        few-shot examples (lite only)
 │       ├── 08-patterns.md        real-world layout patterns (level 2)
 │       ├── 09-reference-docs.md  pointer to docs/ for full element specs
-│       └── 10-visual-verification.md screenshot check with ActionUIViewer --hide-window (claude only)
+│       ├── 10-visual-verification.md screenshot check: the MCP screenshot tool or ActionUIViewer (claude only)
+│       └── 11-mcp-tools.md       using the ActionUI MCP server's tools (claude, capable)
 │
 ├── SKILL.md                      generated; claude flavor; committed
 ├── dist/                         generated build output; gitignored

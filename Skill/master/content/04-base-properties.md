@@ -6,73 +6,29 @@ flavors: [claude, capable]
 
 ## Universal View Properties
 
-All elements inherit these `properties` keys. None are required.
+Every element takes the SwiftUI-named modifiers in `properties` (`padding`, `frame`, `font`, `foregroundStyle`, `background`, `opacity`, `cornerRadius`, `clipShape`, `shadow`, `border`, `offset`, `zIndex`, `rotationEffect`, `scaleEffect`, `animation`, `transition`, `disabled`, `hidden`, `tint`, `buttonStyle`, `controlSize`, `labelsHidden`, `navigationTitle`, ...). The full list and values are in `docs/Schemas/View.md`. What differs from SwiftUI or fails silently:
 
-### Layout
+- **`padding`**: a number, `"default"`, or `{top, leading, bottom, trailing}`.
+- **`frame`**: either `{width, height, alignment}` or `{minWidth, idealWidth, maxWidth, minHeight, idealHeight, maxHeight, alignment}`, not a mix. `"infinity"` for `.infinity`.
+- **`font`**: a text style name (`title`, `headline`, `body`, `caption`, ...) or `{size, weight, design}` (`"design": "monospaced"`).
+- **Colors**: a SwiftUI name (`red`, `primary`, `secondary`, `accentColor`, `background`, `background.secondary`, `fill`, `separator`, `windowBackground`, ...), hex `#RRGGBB[AA]`, or `"<color>.opacity(0.5)"`. UIKit names (`systemBackground`, `label`) do not work.
+- **`hidden`**: the view is invisible but still takes its space (SwiftUI `.hidden()`), on every platform. To swap panels, stack them in a `ZStack` and show one. In a toolbar, `hidden` removes the item.
+- **`keyboardShortcut`**: `{key, modifiers}`. **Omitting `modifiers` means `["command"]`**: write `"modifiers": []` for a bare Return or Escape.
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `padding` | number \| `"default"` \| `{top?,leading?,bottom?,trailing?}` | |
-| `frame` | `{width?,height?,alignment?}` OR `{minWidth?,idealWidth?,maxWidth?,minHeight?,idealHeight?,maxHeight?,alignment?}` | Two mutually exclusive forms. Use `"infinity"` for `.infinity`. |
-| `offset` | `{x?,y?}` | Relative position in points |
-| `hidden` | boolean | Invisible, non-interactive, but STILL LAID OUT - the space is reserved on every platform. No collapse semantic; see the ZStack panel switcher. In a toolbar it removes the item instead. |
-| `zIndex` | number | Z-order within container |
+### Events: which key a control fires
 
-### Appearance
+Handlers get `(actionID, viewID, viewPartID, context)`. Use the key the control actually fires, or nothing happens (the validator does not check this):
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `foregroundStyle` | color | Text/icon color. Hex `#RRGGBB[AA]`, named (`red`, `blue`, etc.), or semantic (`primary`, `secondary`, etc.) |
-| `tint` | color | Interactive control tint (buttons, toggles, sliders) |
-| `background` | color | Background fill (string form). Use `background` top-level key for a view background. |
-| `opacity` | number | 0.0–1.0 |
-| `font` | string \| `{name?,size,weight?,design?}` | Named styles: `largeTitle title title2 title3 headline subheadline body callout footnote caption caption2`. Weight values: `ultraLight thin light regular medium semibold bold heavy black`. |
-| `cornerRadius` | number | |
-| `clipShape` | `"circle"` \| `"capsule"` \| `"rectangle"` \| `"ellipse"` \| `{type:"roundedRectangle",cornerRadius?}` | |
-| `shadow` | `{color?,radius?,x?,y?}` | |
-| `border` | `{color?,width?}` | |
-| `multilineTextAlignment` | `"leading"` \| `"center"` \| `"trailing"` | Applies to Text; propagates to child Text views on containers |
+- `actionID`: Button, Toggle, Picker, Stepper, ColorPicker, TabView, List and Table (selection), DisclosureGroup, Menu items, and `VStack`/`HStack`/`ZStack` (a tap on the whole box).
+- `valueChangeActionID`: Slider, DatePicker, TextEditor, and a Chart's selection.
+- TextField: `actionID` on submit (Return), `valueChangeActionID` on every edit.
+- Tab, Link and NavigationLink fire no action of their own.
+- Also: `onAppearActionID`, `onDisappearActionID`, `onHoverActionID`, `doubleClickActionID` (List, Table), and drops: `onDropTypes` (UTType ids, required) with `onDropActionID`.
 
-### Transform
+### Subview keys (top-level on the node, not in `properties`)
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `rotationEffect` | number | Degrees; positive = clockwise |
-| `scaleEffect` | number \| `{x?,y?,anchor?}` | |
-| `animation` | string \| `{curve,duration?,delay?,speed?,value?}` | Curves: `default linear easeIn easeOut easeInOut spring bouncy smooth snappy interactiveSpring` |
+`overlay`, `background` (a view), `sheet`, `popover`, `fullScreenCover`, `toolbar`, `contextMenu` (with optional `contextMenuPreview`), `swipeActions`, `safeAreaInset`. On `NavigationStack` / `NavigationSplitView`, use `persistentToolbar` for items that stay on every screen; put a screen's own `toolbar` on that screen's view.
 
-### Interaction
+### Platform overrides
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `actionID` | string | Tap/click action. On `VStack`/`HStack`/`ZStack` it makes the WHOLE container tappable - the rich-cell idiom; see 08-patterns.md |
-| `valueChangeActionID` | string | Fires when observable value changes |
-| `onAppearActionID` | string | |
-| `onDisappearActionID` | string | |
-| `onHoverActionID` | string | macOS/iPadOS with pointer |
-| `onDropTypes` | string[] | UTType ids; required alongside `onDropActionID` |
-| `onDropActionID` | string | Drop target handler |
-| `onDropTargetedActionID` | string | Visual feedback during drag-over |
-| `keyboardShortcut` | `{key, modifiers?}` | Modifiers array: `command shift option control capsLock` |
-| `disabled` | boolean | |
-
-### Control Styling
-
-| Property | Type | Notes |
-|----------|------|-------|
-| `buttonStyle` | `automatic` \| `plain` \| `borderless` \| `bordered` \| `borderedProminent` | Propagates to child buttons when set on a container |
-| `controlSize` | `mini` \| `small` \| `regular` \| `large` \| `extraLarge` | |
-| `labelsHidden` | boolean | Hides labels on child form controls |
-
-### Universal Subview Keys (top-level, not in `properties`)
-
-Any element may also have these top-level keys for overlay/modal presentation:
-
-| Key | Value | Notes |
-|-----|-------|-------|
-| `overlay` | element node | Rendered on top |
-| `background` | element node | Rendered behind (view form) |
-| `sheet` | element node | Modal sheet |
-| `popover` | element node | Popover |
-| `fullScreenCover` | element node | Full-screen modal |
-| `toolbar` | array of ToolbarItem/ToolbarItemGroup | |
+`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. Details: the JSON guide, "Per-Platform Property Overrides".

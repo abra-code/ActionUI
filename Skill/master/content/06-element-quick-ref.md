@@ -4,55 +4,38 @@ level: 2
 flavors: [claude, capable]
 ---
 
-## Element Quick Reference
+## Elements
 
-Element type names are PascalCase. For full property documentation read `docs/Schemas/<Type>.md`; for a ready-to-use template read `docs/Elements/<Type>.json`. See `docs/ActionUI-Elements.md` for the complete index.
+Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`, `LazyHStack`), `ScrollView`, `Grid`/`LazyVGrid`/`LazyHGrid`, `List`, `Form`, `Section`, `Table`, `GroupBox`, `DisclosureGroup`, `NavigationStack`, `NavigationSplitView`, `TabView`/`Tab`, `HSplitView`/`VSplitView`, controls (`Button`, `Toggle`, `Picker`, `Slider`, `Stepper`, `DatePicker`, `ColorPicker`, `TextField`, `SecureField`, `TextEditor`), display (`Text`, `Label`, `Image`, `AsyncImage`, `ProgressView`, `Gauge`, `Divider`, `Spacer`, shapes, `Canvas`, `Chart`, `Map`, `WebView`, `VideoPlayer`), and `Menu`, `ControlGroup`, `LabeledContent`, `Link`, `ShareLink`, `ContentUnavailableView`, `LoadableView`. The index is `docs/ActionUI-Elements.md`; each element's properties are in `docs/Schemas/<Type>.md`.
 
-### Layout Containers
+### Where children go
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `VStack` | `spacing`, `alignment` (leading/center/trailing) | `children` array |
-| `HStack` | `spacing`, `alignment` (top/center/bottom/firstTextBaseline/lastTextBaseline) | `children` array |
-| `ZStack` | `alignment` (topLeading, center, bottomTrailing, etc.) | `children` array |
-| `LazyVStack` | `spacing`, `alignment`, `pinnedViews` | `children` array |
-| `LazyHStack` | `spacing`, `alignment` | `children` array |
-| `ScrollView` | `axis` (vertical/horizontal/both), `showsIndicators` | `content` (single view) |
-| `Group` | — | `children` array |
-| `GroupBox` | `title` | `children` array |
-| `GeometryReader` | — | `children` array |
+- `children` (array): stacks, `Group`, `GroupBox`, `List`, `Form`, `Section`, `DisclosureGroup`, `TabView` (of `Tab`), `Menu`, `ControlGroup`, `LabeledContent`, split views, `ToolbarItemGroup`.
+- `content` (one view): `ScrollView`, `ScrollViewReader`, `GeometryReader`, `Tab`, `ToolbarItem`, `NavigationStack` (plus `destinations`).
+- `NavigationSplitView`: `sidebar` and `detail` are both required; `content` is only the optional middle column.
+- `Grid`: `rows`, an array of rows, each an array of cell views.
+- `template` (List, Section, GroupBox, DisclosureGroup, stacks): one view repeated per data row, with `"$1"`, `"$2"` reading the row's columns.
 
-### Grid
+### Rows come at run time
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `Grid` | `spacing`, `alignment`, `horizontalSpacing`, `verticalSpacing` | `rows` (2-D array of cell elements) |
-| `LazyVGrid` | `columns` (GridItem array), `spacing` | `children` array |
-| `LazyHGrid` | `rows` (GridItem array), `spacing` | `children` array |
+A `Table`'s rows and a `template`'s rows are never in the document: the application sends them after the window opens. A `Table` needs `columns` (the header titles); give `minWidths` with `widths`, or columns can shrink to slivers.
 
-### Navigation
+### Names that differ from SwiftUI (each is a common mistake)
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `NavigationStack` | — | `content` (single view), `destinations` array |
-| `NavigationSplitView` | `style` | `sidebar`, `content`, `detail` (each single view) |
-| `NavigationLink` | `title`, `destinationViewId` (Form 2), `actionID` | `content` (custom label) |
-| `TabView` | `actionID` | `children` array of `Tab` nodes |
-| `Tab` | `title`, `systemImage`, `actionID` | `content` (single view) |
+- `Picker`: `options` is a list of strings or `{title, tag}` objects. Its value is the `tag`; plain strings get tags `"1"`, `"2"`, ... (1-based). An option whose `title` or `tag` is empty is silently dropped: give a "none" row a sentinel tag such as `"none"`.
+- `TabView`: its value and `actionID` context are the 0-based tab index.
+- `Slider`: `range: {min, max}`, `step`; no title. `Stepper`: `range`, `step`, `label` or `labelFormat`. `Gauge`: `range`, `title`, `style`.
+- `DisclosureGroup`, `ControlGroup`, `LabeledContent` (+ `children` for the value), `GroupBox`: `title`. `Section`: `header` only.
+- `NavigationLink`: an inline `destination`, or the base property `destinationViewId` naming one of the stack's `destinations`.
+- `ScrollViewReader`: `scrollTo` (an element id) and `anchor`.
+- `Map`: `coordinate: {latitude, longitude}`, `annotations`, `showsUserLocation`, `interactionModes`.
+- `LoadableView`: exactly one of `url`, `filePath`, `name`, plus `viewDidLoadActionID`; no inline content.
+- `Menu`: `title`, items in `children`; a custom trigger view in the top-level `label`.
+- `Toggle` in a `template`: `"isOn": "$1"` exactly (one column reference); the user's change is written back into that column. `disabled` and `hidden` may also be `"$N"`.
 
-### Lists and Forms
+### Chart
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `List` | `listStyle`, `actionID`, `doubleClickActionID`, `itemType` | `children` array or `template` |
-| `Form` | — | `children` array |
-| `Section` | `header`, `footer` | `children` array |
-| `Table` | `columns` (array of column defs) | `rows` (2-D array of cell values) |
-| `DisclosureGroup` | `label`, `isExpanded`, `actionID` | `children` array |
-
-### Charts
-
-`Chart` (Apple only; Android and Web draw a "Chart Unavailable" placeholder) has one property, `chart`: a description `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Read `docs/Schemas/Chart.md` before writing one.
+`Chart` takes one property, `chart`: `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Apple and Linux draw it; Android and the web show a "Chart Unavailable" placeholder. Read `docs/Schemas/Chart.md` before writing one.
 
 ```json
 { "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 240 }, "chart": {
@@ -62,69 +45,8 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
     { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" } }] }] } } }
 ```
 
-- Marks: `BarMark`, `LineMark`, `PointMark`, `AreaMark`, `RuleMark`, `RectangleMark`, `SectorMark`; each takes the keys of one Swift Charts initializer (`x` + `y`, `x` + `yStart` + `yEnd`, ...), and every plotted value is `{"label", "value"}`.
-- `ForEach` draws its content once per row; inside it `"$name"` or `"$1"` reads a cell. Column types: `string` (a bare name), `number`, `integer`, `date` (ISO 8601).
-- `{"by": "$column"}` in `foregroundStyle`, `symbol` or `lineStyle` styles by a column and adds a legend. Chart keys: `chartXScale`, `chartYAxis` (`"hidden"` or `AxisMarks`), `chartXAxisLabel`, `chartLegend`, `chartPlotStyle`.
-- At runtime, set the `chart` property to replace the chart whole, and use the rows calls to stream data (cells in column order).
-- Selection: `"chartXSelection": "value"` (or `"range"`, `chartYSelection`, `"chartAngleSelection": "value"`) makes the selection the chart's value (a JSON string such as `{"x": "Tue"}`) and fires `valueChangeActionID`. Draw it with a mark outside the ForEach whose value is `"$selection"` (a RuleMark), shown only while something is selected.
-- Scrolling: `"chartScrollableAxes": "horizontal"` with `"chartXVisibleDomain": {"length": n}` (data units, seconds on a date axis, a count of categories) and optionally `"chartScrollPosition": {"initialX": value}`.
-- Annotations: `"annotation": {"position": "top", "content": {"type": "Text", "properties": {"text": "$users"}}}` on a mark draws an element next to it, built for each row as a template row is (inside a ForEach, `"$column"` reads the row). Annotate a few marks; past 1000 the chart leaves them out.
+`"$column"` reads a cell only inside `ForEach`. A selection (`chartXSelection`) becomes the chart's value and fires `valueChangeActionID`; draw it with a mark outside the `ForEach` whose value is `"$selection"`.
 
-### Text and Display
+### Add-on elements
 
-| Type | Key properties | Notes |
-|------|---------------|-------|
-| `Text` | `text`, `markdown` | `markdown` takes precedence |
-| `Image` | `systemName`, `assetName`, `resourceName`, `filePath`, `contentMode`, `resizable` | One source property required |
-| `Label` | `title`, `systemImage` | SF Symbol label |
-| `Divider` | — | |
-| `Spacer` | `minLength` | |
-| `ProgressView` | `progressViewStyle` (automatic/linear/circular), `value`, `total`, `title` | |
-| `Gauge` | `value`, `min`, `max`, `title`, `label`, `currentValueLabel` | |
-| `Canvas` | `operations` (array), `backgroundColor`, `coordinateMode` | Drawing surface |
-
-### Input Controls
-
-| Type | Key properties | Value type |
-|------|---------------|-----------|
-| `Button` | `title`, `systemImage`, `role` (destructive/cancel), `actionID` | — |
-| `Toggle` | `title`, `actionID` | boolean |
-| `Slider` | `range: {min,max}`, `step`, `title`, `actionID` | number |
-| `Stepper` | `range: {min,max}`, `step`, `title`, `actionID` | number |
-| `Picker` | `title`, `pickerStyle`, `actionID` | string (selected label) |
-| `DatePicker` | `title`, `displayedComponents`, `actionID` | string (ISO 8601 date) |
-| `ColorPicker` | `title`, `actionID` | string (hex color) |
-| `TextField` | `title`, `actionID`, `keyboard` | string |
-| `SecureField` | `title`, `actionID` | string |
-| `TextEditor` | `actionID` | string |
-
-### Overlays and Modals (top-level keys, not `properties`)
-
-`overlay`, `background` (view), `sheet`, `popover`, `fullScreenCover`, `toolbar`
-
-`persistentToolbar` - on `NavigationStack` / `NavigationSplitView` only: toolbar items that stay in the bar on every screen inside the container. A `toolbar` on those two types is a deprecated alias for it. Implemented on all four hosts.
-
-### Shapes
-
-`Circle`, `Ellipse`, `Rectangle`, `RoundedRectangle`, `Capsule` — accept View base properties (foregroundStyle, frame, etc.)
-
-### Special
-
-| Type | Notes |
-|------|-------|
-| `Link` | `url`, `title`, `actionID` |
-| `ShareLink` | `item`, `subject`, `message` |
-| `Menu` | `title` | `children` (button list); optional `label` top-level for a custom trigger view |
-| `ControlGroup` | `style` | `children` array |
-| `LabeledContent` | `label`, `value` |
-| `ScrollViewReader` | Wraps a ScrollView; `actionID` for scroll-to |
-| `Map` | `latitude`, `longitude`, `span` |
-| `WebView` | `url` |
-| `VideoPlayer` | `url` |
-| `AsyncImage` | `url`, `contentMode` |
-| `LoadableView` | `actionID`, `loadingView`, `errorView` | `content` (single view) |
-| `ContentUnavailableView` | `title`, `systemImage`, `description` |
-| `EmptyView` | — | |
-| `HSplitView` / `VSplitView` | macOS split pane | `children` array |
-| `ToolbarItem` | `placement` | `content` (single view) |
-| `ToolbarItemGroup` | `placement` | `content` (single view) |
+`RichText`, `Diff`, `CachedImage`, `QuickLook`, `Chat`, `HostSurface` exist only where the host application registered them; check before using one. Their schemas are in `Add-ons/<Name>/Documentation/Schemas/`.

@@ -6,12 +6,10 @@ flavors: [claude, capable, lite]
 
 ## Reference Documents
 
-This skill package includes a `docs/` folder with full per-element documentation:
+Full detail lives in the reference docs, not here. In this skill package they are in `docs/`; in an ActionUI checkout, in `Documentation/` (add-on elements: `Add-ons/<Name>/Documentation/Schemas/`). The ActionUI MCP server also serves them as resources `actionui://docs/guide` and `actionui://docs/elements/<Type>`.
 
-- `docs/ActionUI-Elements.md` — complete element index (all types, with links)
-- `docs/ActionUI-JSON-Guide.md` — JSON structure guide and layout reference
-- `docs/ActionUI-MenuBar-JSON-Guide.md` — menu-bar JSON format (`MainMenu.json`): array root, `CommandMenu`/`CommandGroup` (delete via `replacing` with no children), Button/Divider children
-- `docs/Schemas/<Type>.md` — full property specification for a specific element
-- `docs/Elements/<Type>.json` — ready-to-use JSON template for a specific element
-
-When a property isn't working as expected, when you need the complete property list for an element, or when your SwiftUI knowledge of a modifier may be incomplete or outdated, read the relevant `docs/Schemas/<Type>.md` file. For a starting-point JSON snippet, use `docs/Elements/<Type>.json`. To customize the application menu bar (a document with an **array** root, distinct from a view), read `docs/ActionUI-MenuBar-JSON-Guide.md`.
+- `docs/Schemas/<Type>.md`: every property of one element, its value and events. Read it before using an element you have not used, and whenever a property does not behave as expected.
+- `docs/Elements/<Type>.json`: a ready-to-use template for one element.
+- `docs/ActionUI-JSON-Guide.md`: structure, layout, platform overrides, charts.
+- `docs/ActionUI-Elements.md`: the index of every element.
+- `docs/ActionUI-MenuBar-JSON-Guide.md`: the menu-bar document (`MainMenu.json`), whose root is an array, not a view.

@@ -6,8 +6,6 @@ flavors: [claude, capable]
 
 ## SwiftUI Alignment
 
-ActionUI property names and values **exactly match SwiftUI modifier names**. If you know SwiftUI, you already know ActionUI: `foregroundStyle`, `font`, `padding`, `frame`, `clipShape`, `cornerRadius`, `shadow`, `rotationEffect`, `scaleEffect`, `animation` — all spelled and valued the same way as their SwiftUI counterparts.
+Property names and values follow SwiftUI's modifier names: `foregroundStyle`, `font`, `padding`, `frame`, `clipShape`, `shadow`, `rotationEffect`, `animation`, `transition` are spelled and valued as in SwiftUI, and the tree mirrors the SwiftUI view hierarchy. When unsure, ask what SwiftUI calls it.
 
-The JSON tree mirrors the SwiftUI view hierarchy. Container views (`VStack`, `HStack`, `List`, `NavigationStack`) correspond directly to their SwiftUI equivalents. Modifier application order follows SwiftUI conventions.
-
-When in doubt about a property name or value, ask: "what does SwiftUI call this?" — the answer is the ActionUI property name.
+The exceptions are where an element's JSON shape cannot follow a Swift initializer: the element notes below list the ones that trip agents up. Everything else is in the element's schema.

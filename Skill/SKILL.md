@@ -1,7 +1,7 @@
 ---
 name: actionui
 description: >
-  Generate and validate ActionUI JSON for macOS and iOS native UI. Use when the user asks to design, create, edit, fix, or verify ActionUI JSON files, or asks about ActionUI elements, properties, or layout.
+  Generate and validate ActionUI JSON for native UI on Apple platforms, Linux, Android and the web. Use when the user asks to design, create, edit, fix, or verify ActionUI JSON files, or asks about ActionUI elements, properties, or layout.
 version: "1.2"
 ---
 
@@ -10,7 +10,7 @@ version: "1.2"
 
 ## What is ActionUI
 
-ActionUI is a Swift framework that renders native SwiftUI views from a declarative JSON tree. A JSON file describes a view hierarchy; ActionUI parses it and produces live native UI on macOS and iOS. No Swift code is needed to define the UI — only valid JSON.
+ActionUI renders native UI from a declarative JSON tree: SwiftUI on Apple platforms, GTK/Adwaita on Linux, Jetpack Compose on Android, and the DOM on the web. A JSON document describes a view hierarchy; no UI code is needed, only valid JSON.
 
 ## JSON Node Structure
 
@@ -30,199 +30,118 @@ Every node in the tree follows this shape:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `type` | string | **Required.** Element type, case-sensitive. |
-| `id` | integer | Optional. Positive non-zero integer, unique across the entire file. Needed for runtime API calls. |
-| `properties` | object | Element-specific properties plus inherited View modifiers. |
-| container keys | array/object | Element-specific structural keys outside `properties`: `children`, `content`, `destinations`, `template`, `rows`. |
-
-**Never put container keys (`children`, `content`, etc.) inside `properties`.**
+| `type` | string | **Required.** Element type, PascalCase, case-sensitive. |
+| `id` | integer | Optional. Positive, unique across the whole document. Give one to every element the app reads, updates or handles events from. |
+| `properties` | object | The element's own properties plus the universal View properties. |
+| structural keys | array/object | Outside `properties`: `children`, `content`, `template`, `destination(s)`, `rows`, `sidebar`/`detail`, and the subview keys (`toolbar`, `sheet`, ...). |
 
 ## Core Generation Rules
 
-1. `type` is always a string. Element type names are PascalCase and case-sensitive (`VStack`, not `vstack`).
-2. `id` must be a positive non-zero integer. IDs must be unique across the entire JSON file. Omit `id` when no runtime interaction is needed.
-3. Children arrays (`children`, `destinations`, `rows`) are **top-level keys** on the element node — never inside `properties`.
-4. A single child view (`content`) is a JSON object, not an array.
-5. Property values must match the declared type. Common mistake: `"spacing": "16"` (string) instead of `"spacing": 16` (number).
-6. Do not invent property names. Only use properties defined in the element schema or the universal View base properties.
+1. Structural keys (`children`, `content`, `template`, ...) are top-level keys on the node, never inside `properties`.
+2. `content` is a single view (an object); `children` is an array.
+3. Values must have the declared type: `"spacing": 16`, not `"spacing": "16"`.
+4. Do not invent property names. An unknown property is only a validator WARNING and is ignored at run time, so a typo fails silently: read every warning.
 
 
 
 ## SwiftUI Alignment
 
-ActionUI property names and values **exactly match SwiftUI modifier names**. If you know SwiftUI, you already know ActionUI: `foregroundStyle`, `font`, `padding`, `frame`, `clipShape`, `cornerRadius`, `shadow`, `rotationEffect`, `scaleEffect`, `animation` — all spelled and valued the same way as their SwiftUI counterparts.
+Property names and values follow SwiftUI's modifier names: `foregroundStyle`, `font`, `padding`, `frame`, `clipShape`, `shadow`, `rotationEffect`, `animation`, `transition` are spelled and valued as in SwiftUI, and the tree mirrors the SwiftUI view hierarchy. When unsure, ask what SwiftUI calls it.
 
-The JSON tree mirrors the SwiftUI view hierarchy. Container views (`VStack`, `HStack`, `List`, `NavigationStack`) correspond directly to their SwiftUI equivalents. Modifier application order follows SwiftUI conventions.
-
-When in doubt about a property name or value, ask: "what does SwiftUI call this?" — the answer is the ActionUI property name.
+The exceptions are where an element's JSON shape cannot follow a Swift initializer: the element notes below list the ones that trip agents up. Everything else is in the element's schema.
 
 
 
 ## Universal View Properties
 
-All elements inherit these `properties` keys. None are required.
+Every element takes the SwiftUI-named modifiers in `properties` (`padding`, `frame`, `font`, `foregroundStyle`, `background`, `opacity`, `cornerRadius`, `clipShape`, `shadow`, `border`, `offset`, `zIndex`, `rotationEffect`, `scaleEffect`, `animation`, `transition`, `disabled`, `hidden`, `tint`, `buttonStyle`, `controlSize`, `labelsHidden`, `navigationTitle`, ...). The full list and values are in `docs/Schemas/View.md`. What differs from SwiftUI or fails silently:
 
-### Layout
+- **`padding`**: a number, `"default"`, or `{top, leading, bottom, trailing}`.
+- **`frame`**: either `{width, height, alignment}` or `{minWidth, idealWidth, maxWidth, minHeight, idealHeight, maxHeight, alignment}`, not a mix. `"infinity"` for `.infinity`.
+- **`font`**: a text style name (`title`, `headline`, `body`, `caption`, ...) or `{size, weight, design}` (`"design": "monospaced"`).
+- **Colors**: a SwiftUI name (`red`, `primary`, `secondary`, `accentColor`, `background`, `background.secondary`, `fill`, `separator`, `windowBackground`, ...), hex `#RRGGBB[AA]`, or `"<color>.opacity(0.5)"`. UIKit names (`systemBackground`, `label`) do not work.
+- **`hidden`**: the view is invisible but still takes its space (SwiftUI `.hidden()`), on every platform. To swap panels, stack them in a `ZStack` and show one. In a toolbar, `hidden` removes the item.
+- **`keyboardShortcut`**: `{key, modifiers}`. **Omitting `modifiers` means `["command"]`**: write `"modifiers": []` for a bare Return or Escape.
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `padding` | number \| `"default"` \| `{top?,leading?,bottom?,trailing?}` | |
-| `frame` | `{width?,height?,alignment?}` OR `{minWidth?,idealWidth?,maxWidth?,minHeight?,idealHeight?,maxHeight?,alignment?}` | Two mutually exclusive forms. Use `"infinity"` for `.infinity`. |
-| `offset` | `{x?,y?}` | Relative position in points |
-| `hidden` | boolean | Invisible, non-interactive, but STILL LAID OUT - the space is reserved on every platform. No collapse semantic; see the ZStack panel switcher. In a toolbar it removes the item instead. |
-| `zIndex` | number | Z-order within container |
+### Events: which key a control fires
 
-### Appearance
+Handlers get `(actionID, viewID, viewPartID, context)`. Use the key the control actually fires, or nothing happens (the validator does not check this):
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `foregroundStyle` | color | Text/icon color. Hex `#RRGGBB[AA]`, named (`red`, `blue`, etc.), or semantic (`primary`, `secondary`, etc.) |
-| `tint` | color | Interactive control tint (buttons, toggles, sliders) |
-| `background` | color | Background fill (string form). Use `background` top-level key for a view background. |
-| `opacity` | number | 0.0–1.0 |
-| `font` | string \| `{name?,size,weight?,design?}` | Named styles: `largeTitle title title2 title3 headline subheadline body callout footnote caption caption2`. Weight values: `ultraLight thin light regular medium semibold bold heavy black`. |
-| `cornerRadius` | number | |
-| `clipShape` | `"circle"` \| `"capsule"` \| `"rectangle"` \| `"ellipse"` \| `{type:"roundedRectangle",cornerRadius?}` | |
-| `shadow` | `{color?,radius?,x?,y?}` | |
-| `border` | `{color?,width?}` | |
-| `multilineTextAlignment` | `"leading"` \| `"center"` \| `"trailing"` | Applies to Text; propagates to child Text views on containers |
+- `actionID`: Button, Toggle, Picker, Stepper, ColorPicker, TabView, List and Table (selection), DisclosureGroup, Menu items, and `VStack`/`HStack`/`ZStack` (a tap on the whole box).
+- `valueChangeActionID`: Slider, DatePicker, TextEditor, and a Chart's selection.
+- TextField: `actionID` on submit (Return), `valueChangeActionID` on every edit.
+- Tab, Link and NavigationLink fire no action of their own.
+- Also: `onAppearActionID`, `onDisappearActionID`, `onHoverActionID`, `doubleClickActionID` (List, Table), and drops: `onDropTypes` (UTType ids, required) with `onDropActionID`.
 
-### Transform
+### Subview keys (top-level on the node, not in `properties`)
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `rotationEffect` | number | Degrees; positive = clockwise |
-| `scaleEffect` | number \| `{x?,y?,anchor?}` | |
-| `animation` | string \| `{curve,duration?,delay?,speed?,value?}` | Curves: `default linear easeIn easeOut easeInOut spring bouncy smooth snappy interactiveSpring` |
+`overlay`, `background` (a view), `sheet`, `popover`, `fullScreenCover`, `toolbar`, `contextMenu` (with optional `contextMenuPreview`), `swipeActions`, `safeAreaInset`. On `NavigationStack` / `NavigationSplitView`, use `persistentToolbar` for items that stay on every screen; put a screen's own `toolbar` on that screen's view.
 
-### Interaction
+### Platform overrides
 
-| Property | Type | Notes |
-|----------|------|-------|
-| `actionID` | string | Tap/click action. On `VStack`/`HStack`/`ZStack` it makes the WHOLE container tappable - the rich-cell idiom; see 08-patterns.md |
-| `valueChangeActionID` | string | Fires when observable value changes |
-| `onAppearActionID` | string | |
-| `onDisappearActionID` | string | |
-| `onHoverActionID` | string | macOS/iPadOS with pointer |
-| `onDropTypes` | string[] | UTType ids; required alongside `onDropActionID` |
-| `onDropActionID` | string | Drop target handler |
-| `onDropTargetedActionID` | string | Visual feedback during drag-over |
-| `keyboardShortcut` | `{key, modifiers?}` | Modifiers array: `command shift option control capsLock` |
-| `disabled` | boolean | |
-
-### Control Styling
-
-| Property | Type | Notes |
-|----------|------|-------|
-| `buttonStyle` | `automatic` \| `plain` \| `borderless` \| `bordered` \| `borderedProminent` | Propagates to child buttons when set on a container |
-| `controlSize` | `mini` \| `small` \| `regular` \| `large` \| `extraLarge` | |
-| `labelsHidden` | boolean | Hides labels on child form controls |
-
-### Universal Subview Keys (top-level, not in `properties`)
-
-Any element may also have these top-level keys for overlay/modal presentation:
-
-| Key | Value | Notes |
-|-----|-------|-------|
-| `overlay` | element node | Rendered on top |
-| `background` | element node | Rendered behind (view form) |
-| `sheet` | element node | Modal sheet |
-| `popover` | element node | Popover |
-| `fullScreenCover` | element node | Full-screen modal |
-| `toolbar` | array of ToolbarItem/ToolbarItemGroup | |
+`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. Details: the JSON guide, "Per-Platform Property Overrides".
 
 
 
 ## Validation
 
-After generating or modifying ActionUI JSON, always validate before presenting the result:
+After generating or modifying ActionUI JSON, always validate before presenting the result (the path is relative to this skill's folder):
 
 ```bash
-python3 Skill/scripts/validate_actionui.py <file-or-directory>
+python3 -B scripts/validate_actionui.py <file-or-directory>
 ```
 
-Fix all `[ERROR]` issues before presenting. `[WARNING]` lines are likely typos or unsupported properties — investigate and fix if possible. `[INFO]` lines are informational only.
+Fix every `[ERROR]`. Treat every `[WARNING]` as a probable bug: an unknown property or value is only a warning, and the runtime ignores it, so the document "works" without doing what you wrote. `[INFO]` lines are informational.
 
-Common errors:
-- Unknown property name → typo or hallucinated property; check the element schema
-- Wrong value type → e.g., `"spacing": "16"` should be `"spacing": 16`
-- Duplicate `id` → change one of the conflicting IDs
-- Missing required property → add the required field
-- Unknown element `type` → check the spelling; types are PascalCase
+Common causes: a misspelled or invented property (check the element's schema), a wrong value type (`"16"` for `16`), a duplicate `id`, a missing required property, a misspelled `type`.
 
-Full element documentation is in `docs/Schemas/<Type>.md`. Read the relevant schema when unsure about a property name or value.
+The validator does not catch every mistake that matters: the element notes below list the ones it misses (event keys, `keyboardShortcut` modifiers, empty Picker tags).
 
 
 
 ## Visual Verification (Screenshot)
 
-The validator catches schema errors, not clipped labels, wrapped titles, or a row that squeezes its controls out of view. After validation, render the document with ActionUIViewer and read the PNG:
+The validator catches schema errors, not clipped labels, wrapped titles or controls squeezed out of view. After validating, render the document and look at the image:
 
-```bash
-ActionUIViewer <file.json> --screenshot out.png --hide-window
-```
+- With the ActionUI MCP server connected: its `screenshot` tool (macOS and Linux).
+- Otherwise ActionUIViewer: `ActionUIViewer <file.json> --screenshot out.png`, adding `--hide-window` on macOS (renders off screen: no window on the desktop, no Screen Recording permission, works with the screen locked; the Linux viewer has no such flag). Add `--screenshot-delay 5` for WebView or VideoPlayer content.
 
-Where the viewer is: `ActionUIViewer` on PATH, or in an ActionUI checkout via `cd Apps/ActionUIViewer && swift build --product ActionUIViewer --show-bin-path`, where `Scripts/test-viewer.sh -H <Name>` also captures the sample files. A host application that embeds ActionUI may bundle its own copy of the viewer; its own skill or documentation says where.
-
-`--hide-window` draws the window in-process, off screen: nothing appears on the user's desktop, no Screen Recording permission is needed, and it works while the screen is locked. Prefer it in agent sessions. Without it the default capture reads the window server and falls back to the same in-process rendering when the screen is locked, so an image comes back either way. Add `--screenshot-delay 5` for documents with WebView or VideoPlayer content.
-
-Reading the image:
-- The document lays out in 800x600 points, and the image adds the title bar above that: 32 points, or 52 when the document has a toolbar (a NavigationSplitView always has one). On macOS 26 and later that makes the image 1600x1264 or 1600x1304 pixels on a Retina display. A document whose minimum size is larger than 800x600 makes the window larger. Look for truncated text, labels wrapping onto a second line, controls clipped at the window edge, overlaps, and empty space where an element should be.
-- Panes that the app fills at runtime are empty in a preview; that is not a layout defect.
-- The image has no window shadow, the selected tab of a TabView draws as a solid block, and with the screen locked controls show the inactive gray tint instead of the accent color. Judge layout, not tint.
-- The viewer needs a logged-in GUI session. A run that prints nothing and never exits is a shell sandbox blocking its window-server connection; rerun it outside the sandbox.
+Look for truncated or wrapping text, controls clipped at the window edge, overlaps, and empty space where an element should be. Panes the app fills at run time are empty in a preview; judge layout, not colors or tint. The viewer needs a logged-in GUI session: a run that prints nothing and never exits is usually a sandbox blocking the window server.
 
 
 
-## Element Quick Reference
+## Elements
 
-Element type names are PascalCase. For full property documentation read `docs/Schemas/<Type>.md`; for a ready-to-use template read `docs/Elements/<Type>.json`. See `docs/ActionUI-Elements.md` for the complete index.
+Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`, `LazyHStack`), `ScrollView`, `Grid`/`LazyVGrid`/`LazyHGrid`, `List`, `Form`, `Section`, `Table`, `GroupBox`, `DisclosureGroup`, `NavigationStack`, `NavigationSplitView`, `TabView`/`Tab`, `HSplitView`/`VSplitView`, controls (`Button`, `Toggle`, `Picker`, `Slider`, `Stepper`, `DatePicker`, `ColorPicker`, `TextField`, `SecureField`, `TextEditor`), display (`Text`, `Label`, `Image`, `AsyncImage`, `ProgressView`, `Gauge`, `Divider`, `Spacer`, shapes, `Canvas`, `Chart`, `Map`, `WebView`, `VideoPlayer`), and `Menu`, `ControlGroup`, `LabeledContent`, `Link`, `ShareLink`, `ContentUnavailableView`, `LoadableView`. The index is `docs/ActionUI-Elements.md`; each element's properties are in `docs/Schemas/<Type>.md`.
 
-### Layout Containers
+### Where children go
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `VStack` | `spacing`, `alignment` (leading/center/trailing) | `children` array |
-| `HStack` | `spacing`, `alignment` (top/center/bottom/firstTextBaseline/lastTextBaseline) | `children` array |
-| `ZStack` | `alignment` (topLeading, center, bottomTrailing, etc.) | `children` array |
-| `LazyVStack` | `spacing`, `alignment`, `pinnedViews` | `children` array |
-| `LazyHStack` | `spacing`, `alignment` | `children` array |
-| `ScrollView` | `axis` (vertical/horizontal/both), `showsIndicators` | `content` (single view) |
-| `Group` | — | `children` array |
-| `GroupBox` | `title` | `children` array |
-| `GeometryReader` | — | `children` array |
+- `children` (array): stacks, `Group`, `GroupBox`, `List`, `Form`, `Section`, `DisclosureGroup`, `TabView` (of `Tab`), `Menu`, `ControlGroup`, `LabeledContent`, split views, `ToolbarItemGroup`.
+- `content` (one view): `ScrollView`, `ScrollViewReader`, `GeometryReader`, `Tab`, `ToolbarItem`, `NavigationStack` (plus `destinations`).
+- `NavigationSplitView`: `sidebar` and `detail` are both required; `content` is only the optional middle column.
+- `Grid`: `rows`, an array of rows, each an array of cell views.
+- `template` (List, Section, GroupBox, DisclosureGroup, stacks): one view repeated per data row, with `"$1"`, `"$2"` reading the row's columns.
 
-### Grid
+### Rows come at run time
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `Grid` | `spacing`, `alignment`, `horizontalSpacing`, `verticalSpacing` | `rows` (2-D array of cell elements) |
-| `LazyVGrid` | `columns` (GridItem array), `spacing` | `children` array |
-| `LazyHGrid` | `rows` (GridItem array), `spacing` | `children` array |
+A `Table`'s rows and a `template`'s rows are never in the document: the application sends them after the window opens. A `Table` needs `columns` (the header titles); give `minWidths` with `widths`, or columns can shrink to slivers.
 
-### Navigation
+### Names that differ from SwiftUI (each is a common mistake)
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `NavigationStack` | — | `content` (single view), `destinations` array |
-| `NavigationSplitView` | `style` | `sidebar`, `content`, `detail` (each single view) |
-| `NavigationLink` | `title`, `destinationViewId` (Form 2), `actionID` | `content` (custom label) |
-| `TabView` | `actionID` | `children` array of `Tab` nodes |
-| `Tab` | `title`, `systemImage`, `actionID` | `content` (single view) |
+- `Picker`: `options` is a list of strings or `{title, tag}` objects. Its value is the `tag`; plain strings get tags `"1"`, `"2"`, ... (1-based). An option whose `title` or `tag` is empty is silently dropped: give a "none" row a sentinel tag such as `"none"`.
+- `TabView`: its value and `actionID` context are the 0-based tab index.
+- `Slider`: `range: {min, max}`, `step`; no title. `Stepper`: `range`, `step`, `label` or `labelFormat`. `Gauge`: `range`, `title`, `style`.
+- `DisclosureGroup`, `ControlGroup`, `LabeledContent` (+ `children` for the value), `GroupBox`: `title`. `Section`: `header` only.
+- `NavigationLink`: an inline `destination`, or the base property `destinationViewId` naming one of the stack's `destinations`.
+- `ScrollViewReader`: `scrollTo` (an element id) and `anchor`.
+- `Map`: `coordinate: {latitude, longitude}`, `annotations`, `showsUserLocation`, `interactionModes`.
+- `LoadableView`: exactly one of `url`, `filePath`, `name`, plus `viewDidLoadActionID`; no inline content.
+- `Menu`: `title`, items in `children`; a custom trigger view in the top-level `label`.
+- `Toggle` in a `template`: `"isOn": "$1"` exactly (one column reference); the user's change is written back into that column. `disabled` and `hidden` may also be `"$N"`.
 
-### Lists and Forms
+### Chart
 
-| Type | Key properties | Children |
-|------|---------------|----------|
-| `List` | `listStyle`, `actionID`, `doubleClickActionID`, `itemType` | `children` array or `template` |
-| `Form` | — | `children` array |
-| `Section` | `header`, `footer` | `children` array |
-| `Table` | `columns` (array of column defs) | `rows` (2-D array of cell values) |
-| `DisclosureGroup` | `label`, `isExpanded`, `actionID` | `children` array |
-
-### Charts
-
-`Chart` (Apple only; Android and Web draw a "Chart Unavailable" placeholder) has one property, `chart`: a description `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Read `docs/Schemas/Chart.md` before writing one.
+`Chart` takes one property, `chart`: `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Apple and Linux draw it; Android and the web show a "Chart Unavailable" placeholder. Read `docs/Schemas/Chart.md` before writing one.
 
 ```json
 { "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 240 }, "chart": {
@@ -232,446 +151,102 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
     { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" } }] }] } } }
 ```
 
-- Marks: `BarMark`, `LineMark`, `PointMark`, `AreaMark`, `RuleMark`, `RectangleMark`, `SectorMark`; each takes the keys of one Swift Charts initializer (`x` + `y`, `x` + `yStart` + `yEnd`, ...), and every plotted value is `{"label", "value"}`.
-- `ForEach` draws its content once per row; inside it `"$name"` or `"$1"` reads a cell. Column types: `string` (a bare name), `number`, `integer`, `date` (ISO 8601).
-- `{"by": "$column"}` in `foregroundStyle`, `symbol` or `lineStyle` styles by a column and adds a legend. Chart keys: `chartXScale`, `chartYAxis` (`"hidden"` or `AxisMarks`), `chartXAxisLabel`, `chartLegend`, `chartPlotStyle`.
-- At runtime, set the `chart` property to replace the chart whole, and use the rows calls to stream data (cells in column order).
-- Selection: `"chartXSelection": "value"` (or `"range"`, `chartYSelection`, `"chartAngleSelection": "value"`) makes the selection the chart's value (a JSON string such as `{"x": "Tue"}`) and fires `valueChangeActionID`. Draw it with a mark outside the ForEach whose value is `"$selection"` (a RuleMark), shown only while something is selected.
-- Scrolling: `"chartScrollableAxes": "horizontal"` with `"chartXVisibleDomain": {"length": n}` (data units, seconds on a date axis, a count of categories) and optionally `"chartScrollPosition": {"initialX": value}`.
-- Annotations: `"annotation": {"position": "top", "content": {"type": "Text", "properties": {"text": "$users"}}}` on a mark draws an element next to it, built for each row as a template row is (inside a ForEach, `"$column"` reads the row). Annotate a few marks; past 1000 the chart leaves them out.
+`"$column"` reads a cell only inside `ForEach`. A selection (`chartXSelection`) becomes the chart's value and fires `valueChangeActionID`; draw it with a mark outside the `ForEach` whose value is `"$selection"`.
 
-### Text and Display
+### Add-on elements
 
-| Type | Key properties | Notes |
-|------|---------------|-------|
-| `Text` | `text`, `markdown` | `markdown` takes precedence |
-| `Image` | `systemName`, `assetName`, `resourceName`, `filePath`, `contentMode`, `resizable` | One source property required |
-| `Label` | `title`, `systemImage` | SF Symbol label |
-| `Divider` | — | |
-| `Spacer` | `minLength` | |
-| `ProgressView` | `progressViewStyle` (automatic/linear/circular), `value`, `total`, `title` | |
-| `Gauge` | `value`, `min`, `max`, `title`, `label`, `currentValueLabel` | |
-| `Canvas` | `operations` (array), `backgroundColor`, `coordinateMode` | Drawing surface |
-
-### Input Controls
-
-| Type | Key properties | Value type |
-|------|---------------|-----------|
-| `Button` | `title`, `systemImage`, `role` (destructive/cancel), `actionID` | — |
-| `Toggle` | `title`, `actionID` | boolean |
-| `Slider` | `range: {min,max}`, `step`, `title`, `actionID` | number |
-| `Stepper` | `range: {min,max}`, `step`, `title`, `actionID` | number |
-| `Picker` | `title`, `pickerStyle`, `actionID` | string (selected label) |
-| `DatePicker` | `title`, `displayedComponents`, `actionID` | string (ISO 8601 date) |
-| `ColorPicker` | `title`, `actionID` | string (hex color) |
-| `TextField` | `title`, `actionID`, `keyboard` | string |
-| `SecureField` | `title`, `actionID` | string |
-| `TextEditor` | `actionID` | string |
-
-### Overlays and Modals (top-level keys, not `properties`)
-
-`overlay`, `background` (view), `sheet`, `popover`, `fullScreenCover`, `toolbar`
-
-`persistentToolbar` - on `NavigationStack` / `NavigationSplitView` only: toolbar items that stay in the bar on every screen inside the container. A `toolbar` on those two types is a deprecated alias for it. Implemented on all four hosts.
-
-### Shapes
-
-`Circle`, `Ellipse`, `Rectangle`, `RoundedRectangle`, `Capsule` — accept View base properties (foregroundStyle, frame, etc.)
-
-### Special
-
-| Type | Notes |
-|------|-------|
-| `Link` | `url`, `title`, `actionID` |
-| `ShareLink` | `item`, `subject`, `message` |
-| `Menu` | `title` | `children` (button list); optional `label` top-level for a custom trigger view |
-| `ControlGroup` | `style` | `children` array |
-| `LabeledContent` | `label`, `value` |
-| `ScrollViewReader` | Wraps a ScrollView; `actionID` for scroll-to |
-| `Map` | `latitude`, `longitude`, `span` |
-| `WebView` | `url` |
-| `VideoPlayer` | `url` |
-| `AsyncImage` | `url`, `contentMode` |
-| `LoadableView` | `actionID`, `loadingView`, `errorView` | `content` (single view) |
-| `ContentUnavailableView` | `title`, `systemImage`, `description` |
-| `EmptyView` | — | |
-| `HSplitView` / `VSplitView` | macOS split pane | `children` array |
-| `ToolbarItem` | `placement` | `content` (single view) |
-| `ToolbarItemGroup` | `placement` | `content` (single view) |
+`RichText`, `Diff`, `CachedImage`, `QuickLook`, `Chat`, `HostSurface` exist only where the host application registered them; check before using one. Their schemas are in `Add-ons/<Name>/Documentation/Schemas/`.
 
 
 
-## Real-World Patterns
+## Patterns
 
-Patterns observed in production ActionUI apps. Use these as building blocks.
+### Window size
 
-### Window sizing (macOS)
-
-Set `minWidth`/`minHeight` + `idealWidth`/`idealHeight` on the root frame. The window opens at ideal and respects the minimum.
+Put `minWidth`/`minHeight` and `idealWidth`/`idealHeight` on the root view's `frame`. A window opens at its ideal size, but on macOS and Linux no wider than 900 points unless the minimum is wider.
 
 ```json
-"frame": { "minWidth": 860, "minHeight": 500, "idealWidth": 980, "idealHeight": 620 }
+"frame": { "minWidth": 720, "minHeight": 480, "idealWidth": 860, "idealHeight": 600 }
 ```
 
-### File decomposition with LoadableView
+### Dialog buttons with Return and Escape
 
-Large apps split UI across multiple JSON files loaded on demand. Each tab or section references its own file:
-
-```json
-{
-  "type": "TabView",
-  "properties": { "style": "sidebarAdaptable", "frame": { "minWidth": 860, "minHeight": 500, "idealWidth": 980, "idealHeight": 620 } },
-  "children": [
-    { "type": "Tab", "properties": { "title": "General", "systemImage": "info.circle" },
-      "content": { "type": "LoadableView", "properties": { "name": "General.json", "viewDidLoadActionID": "app.general.loaded" } } },
-    { "type": "Tab", "properties": { "title": "Settings", "systemImage": "gear" },
-      "content": { "type": "LoadableView", "properties": { "name": "Settings.json", "viewDidLoadActionID": "app.settings.loaded" } } }
-  ]
-}
-```
-
-`viewDidLoadActionID` fires when the view finishes loading so the app can populate it with data.
-
-### Toolbar with ToolbarItem / ToolbarItemGroup
-
-Use the `toolbar` top-level key (not inside `properties`) on any view to attach toolbar items. `ToolbarItem` holds a single `content` view; `ToolbarItemGroup` holds multiple items under `children`.
-
-One exception: on a `NavigationStack` or `NavigationSplitView`, `toolbar` is a DEPRECATED spelling of `persistentToolbar` and logs a warning. Put a screen's toolbar on that screen's own element (the stack's `content`, or a destination); use `persistentToolbar` on the container only for items that must stay in the bar on EVERY screen inside it, such as a global status indicator. Those items cost bar space on every screen, so keep them to one or two. Implemented on all four hosts.
-
-```json
-{
-  "type": "List",
-  "id": 1,
-  "properties": { "navigationTitle": "Inbox", "actionID": "list.selection.changed" },
-  "children": [...],
-  "toolbar": [
-    {
-      "type": "ToolbarItem",
-      "id": 10,
-      "properties": { "placement": "topBarLeading" },
-      "content": {
-        "type": "Button",
-        "id": 100,
-        "properties": { "title": "Edit", "actionID": "toolbar.edit" }
-      }
-    },
-    {
-      "type": "ToolbarItemGroup",
-      "id": 11,
-      "properties": { "placement": "topBarTrailing" },
-      "children": [
-        { "type": "Button", "id": 110, "properties": { "systemImage": "line.3.horizontal.decrease.circle", "actionID": "toolbar.filter" } },
-        { "type": "Button", "id": 111, "properties": { "systemImage": "square.and.pencil", "actionID": "toolbar.compose" } }
-      ]
-    }
-  ]
-}
-```
-
-Common `placement` values: `topBarLeading`, `topBarTrailing`, `navigationBarLeading`, `navigationBarTrailing`, `principal`.
-
-### Master-detail with HSplitView
-
-Left panel: `minWidth` + `idealWidth`. Right panel: `maxWidth: "infinity"`.
-
-```json
-{
-  "type": "HSplitView",
-  "children": [
-    {
-      "type": "VStack",
-      "properties": { "spacing": 0, "frame": { "minWidth": 240, "idealWidth": 300, "maxHeight": "infinity" } },
-      "children": [
-        { "type": "Table", "id": 1, "properties": { "columns": ["Item"], "widths": [280], "actionID": "item.selected" } }
-      ]
-    },
-    { "type": "VStack", "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } }, "children": [] }
-  ]
-}
-```
-
-### NavigationSplitView sidebar column width
-
-Set sidebar width on the sidebar's **root view** via `navigationSplitViewColumnWidth`, not on the NavigationSplitView itself:
-
-```json
-{
-  "type": "NavigationSplitView",
-  "properties": { "style": "balanced", "frame": { "minWidth": 800, "minHeight": 600 } },
-  "sidebar": {
-    "type": "VStack",
-    "properties": { "navigationSplitViewColumnWidth": { "min": 220, "ideal": 280, "max": 360 } },
-    "children": [...]
-  },
-  "detail": { ... }
-}
-```
-
-### ZStack panel switcher
-
-Overlay multiple panels, all hidden initially. The app reveals the correct one by ID based on selection. This is the pattern for inspectors and context-sensitive detail panes.
-
-This is the idiom *because* `hidden` reserves layout space on every platform (SwiftUI `.hidden()` semantics) - there is no collapse semantic, so hiding a panel in a VStack would leave its gap behind. Overlaying them in a ZStack means the panels share one slot and only the visible one shows. Give the ZStack the size you want the slot to have.
-
-```json
-{ "type": "ZStack", "children": [
-  { "type": "VStack", "id": 500, "properties": { "hidden": true }, "children": [...] },
-  { "type": "VStack", "id": 501, "properties": { "hidden": true }, "children": [...] }
-]}
-```
-
-### Inspector panel: stacked GroupBoxes
-
-Group related fields in separate `GroupBox` elements. Inside each: `VStack(alignment: leading)` → zero-height invisible `Divider` (adds visual gap at top of the Form) → `Form`.
-
-```json
-{ "type": "GroupBox", "properties": { "title": "Color" }, "children": [
-  { "type": "VStack", "properties": { "alignment": "leading" }, "children": [
-    { "type": "Divider", "properties": { "opacity": 0, "frame": { "height": 0 } } },
-    { "type": "Form", "children": [
-      { "type": "Picker", "id": 1, "properties": {
-        "title": "Fill",
-        "options": [{"title": "None", "tag": "none"}, {"title": "Solid", "tag": "solid"}],
-        "actionID": "color.fill.changed"
-      }}
-    ]}
-  ]}
-]}
-```
-
-The invisible Divider trick adds top padding inside a Form where regular padding doesn't work well.
-
-### Aligned label-field rows (without Form)
-
-Fixed-width trailing-aligned `Text` label + stretching `TextField`:
-
-```json
-{ "type": "HStack", "properties": { "spacing": 8 }, "children": [
-  { "type": "Text", "properties": { "text": "Bundle ID", "frame": { "width": 110, "alignment": "trailing" } } },
-  { "type": "TextField", "id": 1, "properties": { "prompt": "com.example.app", "actionID": "bundleid.changed" } }
-]}
-```
-
-Use consistent label widths across all rows for column alignment.
-
-### Picker options with title + tag
-
-Use `{title, tag}` objects when the display label should differ from the value delivered to the action handler:
-
-```json
-"options": [
-  {"title": "Script File", "tag": "exe_script_file"},
-  {"title": "AppleScript", "tag": "exe_applescript"},
-  {"title": "Terminal", "tag": "exe_terminal"}
-]
-```
-
-### Dialog OK/Cancel with keyboard shortcuts
+`"modifiers": []` binds the bare key; without it the shortcut is Command-Return / Command-Escape.
 
 ```json
 { "type": "HStack", "children": [
   { "type": "Spacer" },
-  { "type": "Button", "properties": { "title": "Cancel", "buttonStyle": "bordered",
-      "keyboardShortcut": { "key": "escape" }, "actionID": "dialog.cancel" } },
-  { "type": "Button", "id": 99, "properties": { "title": "Create", "buttonStyle": "borderedProminent",
-      "keyboardShortcut": { "key": "return" }, "actionID": "dialog.confirm" } }
+  { "type": "Button", "properties": { "title": "Cancel", "keyboardShortcut": { "key": "escape", "modifiers": [] }, "actionID": "dialog.cancel" } },
+  { "type": "Button", "properties": { "title": "Create", "buttonStyle": "borderedProminent", "keyboardShortcut": { "key": "return", "modifiers": [] }, "actionID": "dialog.confirm" } }
 ]}
 ```
 
-### TextEditor as log/output view
+### Toolbar
 
-Read-only monospaced output area with secondary background:
-
-```json
-{ "type": "TextEditor", "id": 1, "properties": {
-  "font": { "size": 11, "design": "monospaced" },
-  "background": "background.secondary",
-  "scrollContentBackground": "hidden",
-  "readOnly": true,
-  "frame": { "minHeight": 200, "idealHeight": 300 }
-}}
-```
-
-### Drag-and-drop on Table
+`toolbar` is a top-level key holding `ToolbarItem` (one view in `content`) and `ToolbarItemGroup` (views in `children`) nodes. `placement` is one of `automatic`, `principal`, `primaryAction`, `secondaryAction`, `confirmationAction`, `cancellationAction`, `destructiveAction`, `topBarLeading`, `topBarTrailing`, `bottomBar`, `keyboard`, `navigation`, `status`.
 
 ```json
-{ "type": "Table", "id": 1, "properties": {
-  "onDropTypes": ["public.file-url", "public.folder"],
-  "onDropActionID": "files.dropped"
-}}
+"toolbar": [
+  { "type": "ToolbarItem", "properties": { "placement": "primaryAction" },
+    "content": { "type": "Button", "id": 100, "properties": { "systemImage": "plus", "actionID": "item.add" } } }
+]
 ```
 
+### Panels that replace each other
 
-### Runtime value semantics (what action handlers actually receive)
+`hidden` keeps the space, so do not stack hidden panels in a VStack. Overlay them in a `ZStack`, all `"hidden": true` but one, and switch them by id at run time.
 
-Verified against the live runtime — getting these wrong produces silent
-no-ops that are very hard to debug from the JSON alone:
+### A whole row or card as one tap target
 
-- **Picker** (segmented, menu, …): the observable value and the action's
-  trigger context are the **1-based option index** ("1", "2", …), not the
-  option title. Setting the value programmatically also takes the index —
-  setting it to an option's title is a silent no-op. Keep the ordered option
-  list available to handlers so they can map index → name.
-- **TabView**: the `actionID` delivers the **0-based tab index** as trigger
-  context.
-- Programmatic `options`/value updates can fire the control's
-  `actionID`/`valueChangeActionID` with transitional or bogus values —
-  handlers must validate what they receive.
-
-### Whole-cell tap: a rich row that is ONE tap target
-
-Put `actionID` on the `VStack`/`HStack`/`ZStack` itself and the whole container
-becomes tappable. This is how you build a cell that is an avatar, a name and a
-status line rather than a small glyph `Button` wedged inside one: `Button`
-renders title + `systemImage` only, so it can never BE the rich cell.
+Put `actionID` on a `VStack`/`HStack`/`ZStack` and its whole box (padding included) is tappable; a `Button` cannot be a rich cell. In a `template` row the handler gets the container's id as `viewID` and the row index as `viewPartID`. A control inside the cell keeps its own action, and the innermost action wins. Only these three types do this on every platform.
 
 ```json
-{
-  "type": "VStack", "id": 900,
-  "template": {
-    "type": "HStack",
-    "properties": { "actionID": "receiver.open", "padding": 8, "frame": { "maxWidth": "infinity" } },
-    "children": [
-      { "type": "Image", "properties": { "systemName": "$1" } },
-      { "type": "Text",  "properties": { "text": "$2" } },
-      { "type": "Spacer" },
-      { "type": "Button", "properties": { "title": "Done", "actionID": "receiver.done" } }
-    ]
-  }
-}
+{ "type": "VStack", "id": 900, "template": {
+  "type": "HStack", "properties": { "actionID": "item.open", "padding": 8, "frame": { "maxWidth": "infinity" } },
+  "children": [ { "type": "Image", "properties": { "systemName": "$1" } }, { "type": "Text", "properties": { "text": "$2" } } ] } }
 ```
 
-What the handler receives:
+### Checkbox list
 
-- **Inside a `template` row**: `viewID` is the owning container's id (900 here)
-  and `viewPartID` is the row index, exactly as for a `Button` in the same row.
-  A template instance's own id is 0 and identifies nothing, so this is the only
-  way a data-driven cell can say which row was tapped.
-- **Outside a template**: the element's own id, with `viewPartID` 0.
+A `List` with a `Toggle` template: `"isOn": "$1"`, the title from another column. The handler gets the list's id, the row index as `viewPartID`, and the new state as `context`; the row already holds the new value. Do not use `"itemType": {"viewType": "Toggle"}`.
 
-A `Toggle` in a template row is template-aware in the same way: it fires with
-the container's id and the row index (see "Checkbox list" below).
+### Sidebar width
 
-A `Button` (or any control) nested inside keeps its own tap: pressing "Done"
-fires `receiver.done` and does NOT also fire `receiver.open`. The same holds for
-a tappable container nested inside another one, and for a tappable cell inside a
-selectable `List` row - the innermost action wins and nothing else fires.
+In a `NavigationSplitView`, set `navigationSplitViewColumnWidth: {min, ideal, max}` on the sidebar's root view, not on the split view.
 
-The target covers the container's FINAL box, `padding` and `frame` included, so
-give the cell a `padding` when you want the gaps around the children to be part
-of the tap area. An unpadded stack hugs its content, and the space between
-children is still inside the box.
+### Read-only log
 
-Accessibility comes with it on all three hosts: the cell is announced as a
-single button reading its children's labels, and it is reachable by keyboard
-(Enter or Space on the web, where a plain container would otherwise be
-unreachable). That is the reason to prefer this over a leading-glyph `Button` -
-one focusable element with one action, instead of a small target beside inert
-text.
+A `TextEditor` with `"readOnly": true`, `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`.
 
-A `disabled: true` container is inert and gets no tap target, and so is one
-inside a disabled ancestor.
+### Drop target
 
-Web note: on the web ANY element carrying an `actionID` is clickable, not only
-these three containers - that predates the pattern and still holds. Apple and
-Android wire only `VStack`/`HStack`/`ZStack`, so keep the `actionID` on one of
-them if the document has to behave identically everywhere.
-
-### Checkbox list: a Toggle whose state lives in the row
-
-For a list of items the application fills at run time, each with a checkbox, put
-a `Toggle` in the `template` and point `isOn` at one column:
-
-```json
-{
-  "type": "List", "id": 600,
-  "properties": { "actionID": "packs.selection.changed" },
-  "template": {
-    "type": "Toggle",
-    "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "disabled": "$4", "actionID": "packs.toggled" }
-  }
-}
-```
-
-Rows: `["true", "Xcode and Swift builds", "xcode", "false"]`, one per item.
-
-- `isOn`, `disabled` and `hidden` take a column reference in a template: `"true"`
-  or `"1"` is on, `"false"`, `"0"` or empty is off.
-- `isOn` must be exactly one reference (`"$1"`). The user's toggle is then
-  written back into that column as `"true"` or `"false"`, so the rows always
-  hold the current ticks: read them with `getElementRows` when the user
-  confirms. Anything else (`true`, `"$0"`, `"$1 x"`) makes the Toggle
-  display-only, and the validator warns.
-- The handler receives `viewID` = the list's id, `viewPartID` = the row index,
-  `context` = the new Boolean. The row is already written when it runs. Do not
-  redraw the rows from the handler; there is nothing to redraw.
-- Toggling does not select the row, and filling the rows fires nothing.
-- Do not use `"itemType": { "viewType": "Toggle" }` (Form 1); it is refused.
-
-In a macOS `Table`, the same thing is a column type:
-`{ "viewType": "Toggle", "actionID": "packs.toggled", "disabledColumn": 4 }`.
-There the handler receives `viewPartID` = the column index and `context` = the
-row index, and reads the new state from `rows[context][viewPartID]`. Android has
-no `Table`; use the `List` form there.
-
-### Table column minimum widths
-
-Always declare `minWidths` alongside `widths` — the default per-column
-minimum is 10 pt, which lets columns collapse into unreadable slivers when
-the window shrinks:
-
-```json
-"widths":    [36, 190, 270],
-"minWidths": [16, 160, 100]
-```
-
-### Two container-key mistakes the validator catches late
-
-- `GroupBox` content goes in `children` (an array) — there is no `content`
-  key on GroupBox.
-- `NavigationSplitView` requires `sidebar` **and** `detail`; a lone
-  `sidebar` + `content` pair (without `detail`) is invalid — `content` is
-  only the optional middle pane of a three-column split.
+`onDropTypes` (UTType ids such as `public.file-url`) with `onDropActionID`, on any element; a `Table` still needs its `columns`.
 
 
 
-## ActionUI MCP Server Tools
+## ActionUI MCP Server
 
-When the `actionui` MCP server is connected, you can put native windows on the user's Mac directly. Pick the lightest tool that fits:
+When the `actionui` MCP server is connected you can open native windows on the user's desktop (macOS or Linux). The tool descriptions explain each tool; pick the lightest that fits: `ask_user` (a question with a few fields, no ActionUI syntax), `pick_path`, `show` (a report, image, diff, table or chart, without waiting), `notify`, and `show_document` only for a layout you write.
 
-| Need | Tool |
-|------|------|
-| A question, choice, or approval with a few typed fields | `ask_user` - no ActionUI syntax; returns `{action, button, values}` |
-| Several options at once | `ask_user` with a `multichoice` field (checkboxes; the answer is an array) |
-| A file, folder, or save location | `pick_path` |
-| Show a report, text, image, PDF, video, web page, diff, table, or chart and move on | `show` - returns at once; a chart's Chart has id 1 for `update_window` |
-| Tell the user something short, such as a finished job, without interrupting | `notify` - disappears by itself |
-| Any other layout | `show_document` with a document you write |
+For `show_document`:
 
-**Documents.** Pass the document as a JSON object in the `document` argument (or an absolute `.json` path in `path`), never as a string. Give every element whose value you need a unique positive `id`. Run `validate_document` first: fix every error, and read the warnings, which usually name a misspelled property. `show_document` refuses a document with errors, and returns any warnings with its result. To see the layout before the user does, `screenshot` renders the document off screen and returns a PNG.
-
-**Dialog or window.** `mode: "dialog"` adds a footer and buttons (the last is the default; "Cancel" is bound to Escape), waits, and returns every value keyed by id. Draw your own buttons instead with `buttons: []` and list their actionIDs in `close_actions`. `mode: "window"` returns `{window}` at once: collect the user's actions with `wait`, update the window with `update_window` (properties such as a chart description, values, table rows), read it with `get_values`, and end with `close_window`. Each `wait` is a round trip, so handle the whole batch it returns before waiting again.
-
-**Keeping a window.** Windows close when your session ends. Pass `keep: true` to `show`, or to `show_document` in window mode, for content the user will want after you are done, such as a report or a diff. The window that stays is a copy with the values it had: its actions no longer reach you.
-
-**Waiting.** Blocking calls (`ask_user`, `pick_path`, dialogs, `wait`) last until the user acts or `timeout_s` passes. Some clients move a long call to the background and deliver the result later; do not assume an answer you have not received.
-
-**Privacy and refusals.** Everything the user enters is sent to you. Never ask for passwords or other secrets; SecureField is refused. LoadableView is refused too, because the document it loads would skip the checks: put its content inline. WebView `userScripts` are removed. Platform overrides such as `"font:macos"` are resolved before the checks. In `update_window`, `properties` may not be null, `userScripts`, a child-element key such as `children`, `id` or `type`, or carry a `:<platform>` suffix; a refused entry comes back in `problems`.
+- Pass the document as a JSON object, never as a string. Run `validate_document` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
+- A dialog cannot fill a `Table` or a `template` (rows come at run time): use `mode: "window"` and `update_window` rows, static `children`, or `show` with a table.
+- Refused in documents: `SecureField` (never ask for secrets: everything entered reaches you), `LoadableView` (put the content inline), `popover`, `"placement": "secondaryAction"`, `WindowGroup`; WebView `userScripts` are removed. `close_actions` may not start with `mcp.`.
+- Windows close when your session ends unless shown with `keep: true`.
 
 
 
 ## Reference Documents
 
-This skill package includes a `docs/` folder with full per-element documentation:
+Full detail lives in the reference docs, not here. In this skill package they are in `docs/`; in an ActionUI checkout, in `Documentation/` (add-on elements: `Add-ons/<Name>/Documentation/Schemas/`). The ActionUI MCP server also serves them as resources `actionui://docs/guide` and `actionui://docs/elements/<Type>`.
 
-- `docs/ActionUI-Elements.md` — complete element index (all types, with links)
-- `docs/ActionUI-JSON-Guide.md` — JSON structure guide and layout reference
-- `docs/ActionUI-MenuBar-JSON-Guide.md` — menu-bar JSON format (`MainMenu.json`): array root, `CommandMenu`/`CommandGroup` (delete via `replacing` with no children), Button/Divider children
-- `docs/Schemas/<Type>.md` — full property specification for a specific element
-- `docs/Elements/<Type>.json` — ready-to-use JSON template for a specific element
-
-When a property isn't working as expected, when you need the complete property list for an element, or when your SwiftUI knowledge of a modifier may be incomplete or outdated, read the relevant `docs/Schemas/<Type>.md` file. For a starting-point JSON snippet, use `docs/Elements/<Type>.json`. To customize the application menu bar (a document with an **array** root, distinct from a view), read `docs/ActionUI-MenuBar-JSON-Guide.md`.
+- `docs/Schemas/<Type>.md`: every property of one element, its value and events. Read it before using an element you have not used, and whenever a property does not behave as expected.
+- `docs/Elements/<Type>.json`: a ready-to-use template for one element.
+- `docs/ActionUI-JSON-Guide.md`: structure, layout, platform overrides, charts.
+- `docs/ActionUI-Elements.md`: the index of every element.
+- `docs/ActionUI-MenuBar-JSON-Guide.md`: the menu-bar document (`MainMenu.json`), whose root is an array, not a view.
 
 
 
-*Generated by Skill/build_skill.py — edit Skill/master/content/*.md, not this file.*
+*Generated by Skill/build_skill.py - edit Skill/master/content/*.md, not this file.*

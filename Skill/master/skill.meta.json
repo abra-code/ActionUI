@@ -1,7 +1,7 @@
 {
   "name": "actionui",
   "version": "1.2",
-  "description": "Generate and validate ActionUI JSON for macOS and iOS native UI. Use when the user asks to design, create, edit, fix, or verify ActionUI JSON files, or asks about ActionUI elements, properties, or layout.",
+  "description": "Generate and validate ActionUI JSON for native UI on Apple platforms, Linux, Android and the web. Use when the user asks to design, create, edit, fix, or verify ActionUI JSON files, or asks about ActionUI elements, properties, or layout.",
 
   "flavors": {
     "claude": {

@@ -14,7 +14,7 @@ flavors: [lite]
   "properties": { "spacing": 16, "padding": 20 },
   "children": [
     { "type": "Text", "properties": { "text": "Enter your name", "font": "headline" } },
-    { "type": "TextField", "id": 1, "properties": { "title": "Name", "actionID": "nameChanged" } },
+    { "type": "TextField", "id": 1, "properties": { "title": "Name", "actionID": "nameSubmitted" } },
     { "type": "Button", "id": 2, "properties": { "title": "Submit", "actionID": "submit", "buttonStyle": "borderedProminent" } }
   ]
 }
