@@ -35,6 +35,8 @@ packages:
     path: ../../Add-ons/ActionUICachedImage  # the add-on package
   ActionUIRichText:
     path: ../../Add-ons/ActionUIRichText     # the add-on package
+  ActionUIHostSurface:
+    path: ../../Add-ons/ActionUIHostSurface  # the add-on package
 
 targets:
   ActionUIViewer:
@@ -62,6 +64,8 @@ targets:
         product: ActionUICachedImage
       - package: ActionUIRichText
         product: ActionUIRichText
+      - package: ActionUIHostSurface
+        product: ActionUIHostSurface
     settings:
       base:
         SWIFT_VERSION: "6.0"

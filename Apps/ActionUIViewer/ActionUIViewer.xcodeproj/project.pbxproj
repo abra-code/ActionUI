@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		07003A206E274435264A31B6 /* ActionUIMenuBar in Frameworks */ = {isa = PBXBuildFile; productRef = 23E5861BFD1D8E470D447FDE /* ActionUIMenuBar */; };
 		4B87B3FC6FCA654841DC0801 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */; };
+		65B952441812724012475CC8 /* ActionUIHostSurface in Frameworks */ = {isa = PBXBuildFile; productRef = 5DBC9DB64236BD1C70F02418 /* ActionUIHostSurface */; };
 		73CFE2CDB7BE73C7EA41EE56 /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 35F3761AE12844D832BDD605 /* ActionUIRichText */; };
 		787487FCD463A7ECEFAD108E /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */; };
 		AA4C7B381C4EC07116A26E37 /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = E143EDA77C064A4A614C4901 /* ActionUICachedImage */; };
@@ -25,6 +26,7 @@
 		633FF57269441FF212A51E46 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = "../../Add-ons/ActionUIQuickLook"; sourceTree = SOURCE_ROOT; };
 		7CEAACC186172508668A996A /* ActionUIViewer */ = {isa = PBXFileReference; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
 		A01507BFFE61594BFD82D6E1 /* ActionUIDiff */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIDiff; path = "../../Add-ons/ActionUIDiff"; sourceTree = SOURCE_ROOT; };
+		AABA83BF346E1261DB5F1429 /* ActionUIHostSurface */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIHostSurface; path = "../../Add-ons/ActionUIHostSurface"; sourceTree = SOURCE_ROOT; };
 		C3B63FCC32CB30C2F1CDDCB3 /* ActionUIRichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIRichText; path = "../../Add-ons/ActionUIRichText"; sourceTree = SOURCE_ROOT; };
 		E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIViewer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -42,6 +44,7 @@
 				787487FCD463A7ECEFAD108E /* ActionUIDiff in Frameworks */,
 				AA4C7B381C4EC07116A26E37 /* ActionUICachedImage in Frameworks */,
 				73CFE2CDB7BE73C7EA41EE56 /* ActionUIRichText in Frameworks */,
+				65B952441812724012475CC8 /* ActionUIHostSurface in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,6 +58,7 @@
 				5F01C6F266D133CB1395B5D1 /* ActionUICachedImage */,
 				20E9B2BC72A5CACE71112E6B /* ActionUIChat */,
 				A01507BFFE61594BFD82D6E1 /* ActionUIDiff */,
+				AABA83BF346E1261DB5F1429 /* ActionUIHostSurface */,
 				633FF57269441FF212A51E46 /* ActionUIQuickLook */,
 				C3B63FCC32CB30C2F1CDDCB3 /* ActionUIRichText */,
 			);
@@ -118,6 +122,7 @@
 				DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */,
 				E143EDA77C064A4A614C4901 /* ActionUICachedImage */,
 				35F3761AE12844D832BDD605 /* ActionUIRichText */,
+				5DBC9DB64236BD1C70F02418 /* ActionUIHostSurface */,
 			);
 			productName = ActionUIViewer;
 			productReference = 7CEAACC186172508668A996A /* ActionUIViewer */;
@@ -148,6 +153,7 @@
 				2754EDBF61842C696E51D850 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUICachedImage" */,
 				89D90977C400366893C0CC02 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIChat" */,
 				D65E9205FD48112B173705B7 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIDiff" */,
+				07B6ECC5A0D45E14AE843699 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIHostSurface" */,
 				CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */,
 				0B4DB22B1B390CE073E98486 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIRichText" */,
 			);
@@ -350,6 +356,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		07B6ECC5A0D45E14AE843699 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIHostSurface" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../Add-ons/ActionUIHostSurface";
+		};
 		0B4DB22B1B390CE073E98486 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIRichText" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../../Add-ons/ActionUIRichText";
@@ -392,6 +402,10 @@
 		4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUIQuickLook;
+		};
+		5DBC9DB64236BD1C70F02418 /* ActionUIHostSurface */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIHostSurface;
 		};
 		61EEE11E5292D427ED46EAAB /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
