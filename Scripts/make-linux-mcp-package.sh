@@ -52,7 +52,7 @@ fi
 # The add-ons the Linux server links (Apps/ActionUIMCP/Package.swift, linuxPackage): their schemas and pages go in.
 addons="ActionUICachedImage ActionUIDiff ActionUIRichText"
 
-# The version the server states ("actionui-mcp 0.2.1"), and the machine.
+# The version the server states ("actionui-mcp 0.3.0"), and the machine.
 stated="$("$server" --version 2>&1)"
 status=$?
 if [ "$status" -ne 0 ]; then
