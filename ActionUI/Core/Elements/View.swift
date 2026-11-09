@@ -87,7 +87,7 @@
                               //   default); declaring it makes that structural change animate.
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
-     "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
+     "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier); the action's context is the URL (its text in the C, remote and JavaScript bindings)
      "onAppearActionID": "view.onAppear", // Optional: String for action identifier triggered on view appear (via .onAppear modifier)
      "onDisappearActionID": "view.onDisappear", // Optional: String for action identifier triggered on view disappear (via .onDisappear modifier)
      "onHoverActionID": "view.hovered", // Optional: String for action triggered when pointer enters/exits (via .onHover). macOS primary.

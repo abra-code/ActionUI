@@ -33,7 +33,7 @@ public enum ActionUIJSON {
     // MARK: - Values
 
     /// Convert a Swift-native value to JSON text: Bool, any integer or floating-point type, String,
-    /// ActionUIJSONNull (as `null`), an Optional (nil as `null`), and arrays and string-keyed
+    /// ActionUIJSONNull (as `null`), an Optional (nil as `null`), a URL (its absolute text), and arrays and string-keyed
     /// dictionaries of them (Core/Helpers/JSONValue.swift). Keys are in no fixed order; "/" is
     /// written as "\/". An inexact double is written in its shortest form (`0.1`).
     ///

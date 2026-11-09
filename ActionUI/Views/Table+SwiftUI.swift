@@ -144,7 +144,7 @@ extension Table: ActionUISwiftUIRenderer {
                                         switch actionContext {
                                         case .rowIndex: return rowData.firstIndex(where: { $0.id == row.id }) ?? -1
                                         case .columnIndex: return column.id
-                                        case .rowColumnIndex: return Point(row: rowData.firstIndex(where: { $0.id == row.id }) ?? -1, column: column.id)
+                                        case .rowColumnIndex: return ["row": rowData.firstIndex(where: { $0.id == row.id }) ?? -1, "column": column.id] as [String: Any]
                                         case .title: return value
                                         }
                                     }()

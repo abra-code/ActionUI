@@ -124,6 +124,9 @@ public enum JSONValue: Sendable, Equatable {
         #endif
         case let string as String:
             self = .string(string)
+        // An action's context can be a URL (openURLActionID): its text
+        case let url as URL:
+            self = .string(url.absoluteString)
         case let array as [Any]:
             self = .array(array.map { JSONValue(any: $0) })
         case let dictionary as [String: Any]:

@@ -508,13 +508,23 @@ public class ActionUIJavaScriptCore {
         }
         actionUIObject.setValue(setElementStateFromString, forProperty: "setElementStateFromString")
     }
-    
+
+    // An action's context as a handler argument. A URL (openURLActionID) is passed as its text,
+    // as the JSON adapters pass it: JavaScriptCore would hand the script an opaque NSURL wrapper.
+    nonisolated private static func jsContext(_ context: Any?) -> Any {
+        guard let context else { return NSNull() }
+        if let url = context as? URL {
+            return url.absoluteString
+        }
+        return FoundationBridge.foundation(context)
+    }
+
     private func setupActionHandlerMethods(actionUIObject: JSValue) {
         // registerActionHandler(actionID, handlerFunction) - handlerFunction(actionID, windowUUID, viewID, viewPartID, context)
         let registerActionHandler: @convention(block) (String, JSValue) -> Void = { actionID, handlerFunction in
             if handlerFunction.isObject {
                 let swiftHandler: (String, String, Int, Int, Any?) -> Void = { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
-                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext.map(FoundationBridge.foundation) ?? NSNull()])
+                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, ActionUIJavaScriptCore.jsContext(swiftContext)])
                 }
                 ActionUIJavaScriptCore.model.registerActionHandler(for: actionID, handler: swiftHandler)
             }
@@ -531,7 +541,7 @@ public class ActionUIJavaScriptCore {
         let setDefaultActionHandler: @convention(block) (JSValue) -> Void = { handlerFunction in
             if handlerFunction.isObject {
                 let swiftHandler: (String, String, Int, Int, Any?) -> Void = { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
-                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext.map(FoundationBridge.foundation) ?? NSNull()])
+                    _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, ActionUIJavaScriptCore.jsContext(swiftContext)])
                 }
                 ActionUIJavaScriptCore.model.setDefaultActionHandler(swiftHandler)
             }

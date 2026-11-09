@@ -292,6 +292,18 @@ final class JSONValueTests: XCTestCase {
         XCTAssertNil(JSONValue(any: Optional(Date()) as Any), "A wrapped value without JSON is still refused")
     }
 
+    // The contexts actions hand over: a URL (openURLActionID) is its text, and a table cell's
+    // row and column (actionContext rowColumnIndex) is a dictionary, as the other platforms send it
+    func testActionContextsHaveJSON() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/a/b?q=1"))
+        XCTAssertEqual(JSONValue(any: url), .string("https://example.com/a/b?q=1"))
+        XCTAssertEqual(try JSONValue(any: URL(fileURLWithPath: "/tmp/x y"))?.text(), #""file:\/\/\/tmp\/x%20y""#)
+        let cell: [String: Any] = ["row": 2, "column": 1]
+        XCTAssertEqual(JSONValue(any: cell), .object(["row": .int(2), "column": .int(1)]))
+        // Written compact, in no fixed key order: read back, it is the same object
+        XCTAssertEqual(try parse(ActionUIJSON.string(from: cell)), .object(["row": .int(2), "column": .int(1)]))
+    }
+
     func testRefusesValuesWithoutJSON() {
         XCTAssertNil(JSONValue(any: Date()))
         XCTAssertNil(JSONValue(any: [1, Date()] as [Any]), "One value without JSON refuses the array")

@@ -12,11 +12,6 @@ import UIKit
 import AppKit
 #endif
 
-struct Point: Codable {
-    let row: Int
-    let column: Int
-}
-
 extension SwiftUI.Image {
     // Initializes a SwiftUI Image from a file path
     // Parameters:

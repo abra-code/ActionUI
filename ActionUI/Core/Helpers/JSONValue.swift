@@ -119,7 +119,8 @@ enum JSONValue: Codable, Sendable, Equatable {
 
     /// From a Swift-native value: Bool; any integer type (`.int`, or `.double` for a value beyond
     /// Int's range); any floating-point type, CGFloat among them (`.double`); String;
-    /// ActionUIJSONNull; an Optional (nil is `.null`); and arrays and string-keyed dictionaries of
+    /// ActionUIJSONNull; an Optional (nil is `.null`); a URL (its absolute text, as an action's
+    /// openURLActionID context reaches JSON bindings); and arrays and string-keyed dictionaries of
     /// them. nil for anything else (a Date, a color, a coordinate). The scalar types are tested by
     /// their Swift type (an NSNumber does not cast to BinaryInteger), so on Apple an NSNumber is
     /// refused rather than bridged;
@@ -164,6 +165,9 @@ enum JSONValue: Codable, Sendable, Equatable {
         } else if let object = value as? [String: Any] {
             guard let converted = Self.object(object) else { return nil }
             self = converted
+        } else if let url = value as? URL {
+            // An action's context can be a URL (openURLActionID): its text, as Foundation printed it
+            self = .string(url.absoluteString)
         } else if let unwrapped = Self.unwrappedOptional(value) {
             guard let inner = unwrapped else {
                 self = .null
