@@ -14,6 +14,9 @@
 //   value (String)         Current plain-text content (via getElementValue / setElementValue).
 //   value (AttributedString) Current attributed content when markdown is used or an AttributedString is set via setElementValue.
 //                            setElementValue accepts AttributedString directly or a markdown String.
+//   "text" and "markdown" are the first content only: the value is set from them when the description loads, and
+//   from then on the Text shows its value. To change what it shows at run time, set the value (setElementValue);
+//   setting the "text" or "markdown" property afterwards changes nothing on screen.
 */
 
 #if canImport(FoundationEssentials)
