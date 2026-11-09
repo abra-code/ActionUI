@@ -14,8 +14,8 @@
  }
 
  Observable state (via getElementState / setElementState):
-   states["progress"] Double?         Current progress (0.0 – total). Overrides the initial JSON "value"
-                                      property at runtime. Set to nil to revert to indeterminate.
+   states["progress"] Double?         Current progress (0.0 to total). Overrides the initial JSON "value"
+                                      property at runtime. Set to a negative number (-1) for indeterminate, even over a "value".
 */
 
 #if canImport(FoundationEssentials)
@@ -51,11 +51,12 @@ extension ProgressView {
 
     /// The progress shown with its total, nil when indeterminate: states["progress"], which a host
     /// sets at run time, else the value; the total is 1.0 when not given. A progress above the total
-    /// is indeterminate too.
+    /// is indeterminate too, and so is a negative one: a host sets -1 to go back to indeterminate,
+    /// even over the value.
     static func determinateProgress(_ model: ViewModel, _ props: Props) -> (value: Double, total: Double)? {
         guard let value = model.states.double(forKey: "progress") ?? initialValue(model) as? Double else { return nil }
         let total = props.total ?? 1.0
-        return value <= total ? (value, total) : nil
+        return value >= 0 && value <= total ? (value, total) : nil
     }
 
     /// The user tapped the progress view: fires actionID.

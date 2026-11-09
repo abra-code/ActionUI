@@ -1,8 +1,8 @@
 // Core/Elements/ProgressViewCoreTests.swift
 /*
  Tests for ProgressView.determinateProgress, the progress both renderers show (states["progress"],
- else the value, out of total, 1.0 when not given; none or more than the total is indeterminate),
- and for ProgressView.userTapped, which fires actionID.
+ else the value, out of total, 1.0 when not given; none, a negative one or more than the total is
+ indeterminate), and for ProgressView.userTapped, which fires actionID.
 */
 
 import XCTest
@@ -52,6 +52,23 @@ final class ProgressViewCoreTests: XCTestCase {
         ActionUIModel.shared.windowModels[windowUUID] = nil
         let (_, over, overProps) = try load(#""value": 5, "total": 4"#)
         XCTAssertNil(ProgressView.determinateProgress(over, overProps))
+    }
+
+    func testANegativeProgressIsIndeterminateUntilANumberComesBack() throws {
+        let (_, model, props) = try load(#""value": 0.25"#)
+        _ = ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 1, key: "progress", value: 0.75)
+        XCTAssertEqual(ProgressView.determinateProgress(model, props)?.value, 0.75)
+        XCTAssertTrue(ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 1, key: "progress", value: -1),
+                      "a negative number replaces a number")
+        XCTAssertNil(ProgressView.determinateProgress(model, props), "negative: indeterminate, not the JSON value")
+        _ = ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 1, key: "progress", value: 0.5)
+        XCTAssertEqual(ProgressView.determinateProgress(model, props)?.value, 0.5, "a number after a negative one shows again")
+    }
+
+    func testANegativeValueIsIndeterminate() throws {
+        let (_, model, props) = try load(#""value": 0.25"#)
+        ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: -1.0)
+        XCTAssertNil(ProgressView.determinateProgress(model, props), "a negative value set at run time: indeterminate")
     }
 
     func testATapFiresTheAction() throws {

@@ -6,7 +6,7 @@
 // **indeterminate** (the browser's animated bar — the web counterpart of the
 // SwiftUI/Material spinner). valueType is "double": a host reads/writes the
 // progress with get/setDouble(id); setting the value to null reverts to
-// indeterminate, mirroring Apple's states["progress"] = nil.
+// indeterminate, as a negative states["progress"] does on Apple.
 //
 // Properties (mirroring ProgressView.swift):
 //   value    current progress, 0.0…total (Double). Omit (or supply an invalid /
@@ -133,7 +133,7 @@ register("ProgressView", {
                 getValue: () => (isDeterminate(current) ? current : null),
                 setValue: (value) => {
                     // A valid number ⇒ determinate; null/invalid ⇒ indeterminate
-                    // (the web analog of setting states["progress"] = nil).
+                    // (the web analog of a negative states["progress"] on Apple).
                     const n = Number(value);
                     current = (value !== null && value !== undefined && Number.isFinite(n)) ? n : null;
                     renderValue();
