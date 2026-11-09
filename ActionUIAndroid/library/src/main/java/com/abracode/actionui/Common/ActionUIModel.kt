@@ -502,6 +502,36 @@ object ActionUIModel {
     }
 
     /**
+     * Appends [text] to the value of an element whose value is a String (TextEditor,
+     * TextField, SecureField): the value becomes the old value followed by [text], as a
+     * [setElementValue] of the whole would make it (an external mutation: it bumps the
+     * mutation token and ends refresh targeting), and no actionID fires. An unset value of a
+     * String-typed element becomes [text]. Returns false, with a warning, for a view that is
+     * not found or whose value is not text. Mirrors the Swift `appendElementText` (Android has
+     * no attributed value, so there is no markdown case).
+     */
+    fun appendElementText(windowUUID: String = "", viewID: Int, text: String): Boolean {
+        val viewModel = viewModel(windowUUID, viewID) ?: return false
+        val current = viewModel.value
+        val newValue: String = when {
+            current is String -> current + text
+            current == null && ActionUIRegistry.lookup(viewModel.elementType)?.valueType == ActionUIValueType.STRING -> text
+            else -> {
+                logger.log(
+                    "appendElementText: the value of viewID $viewID (${viewModel.elementType}) is not text",
+                    LoggerLevel.warning,
+                )
+                return false
+            }
+        }
+        viewModel.mutationToken += 1
+        viewModel.value = newValue
+        endRefreshTargeting(windowUUID, viewID)
+        logger.log("Appended ${text.length} chars of text for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+        return true
+    }
+
+    /**
      * Returns the element's value as a string for scripting, formatted by the
      * element's declared [ActionUIValueType]. String values are returned directly;
      * other types use their canonical string form (a [ActionUIValueType.DATE] as

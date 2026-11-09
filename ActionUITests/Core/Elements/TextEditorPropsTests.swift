@@ -1,6 +1,6 @@
 // Core/Elements/TextEditorPropsTests.swift
 /*
- Tests for TextEditor.Props: the text and markdown sources (the initial value prefers text, then markdown), placeholder, readOnly and the action.
+ Tests for TextEditor.Props: the text and markdown sources (the initial value prefers text, then markdown), placeholder, readOnly, the implementation and the action.
 */
 
 import XCTest
@@ -14,7 +14,15 @@ final class TextEditorPropsTests: XCTestCase {
         XCTAssertNil(props.markdown)
         XCTAssertNil(props.placeholder)
         XCTAssertFalse(props.readOnly)
+        XCTAssertEqual(props.implementation, .swiftUI)
         XCTAssertNil(props.valueChangeActionID)
+    }
+
+    func testImplementation() {
+        XCTAssertEqual(TextEditor.Props(["implementation": "native"]).implementation, .native)
+        XCTAssertEqual(TextEditor.Props(["implementation": "swiftUI"]).implementation, .swiftUI)
+        XCTAssertEqual(TextEditor.Props(["implementation": "NSTextView"]).implementation, .swiftUI, "an unknown value is the default")
+        XCTAssertEqual(TextEditor.Props(["implementation": true]).implementation, .swiftUI)
     }
 
     func testValidValues() {

@@ -24,6 +24,21 @@ extension TextEditor: ActionUISwiftUIRenderer {
         let valueChangeActionID = props.valueChangeActionID
         let markdown = props.markdown
 
+        #if os(macOS)
+        if props.implementation == .native && markdown == nil {
+            return NativeTextEditorContainer(
+                model: model,
+                initialValue: initialValue,
+                isReadOnly: isReadOnly,
+                placeholder: placeholder,
+                valueChangeActionID: valueChangeActionID,
+                windowUUID: windowUUID,
+                elementId: element.id,
+                style: NativeTextStyle(properties, logger: logger)
+            )
+        }
+        #endif
+
         return TextEditorContainer(
             model: model,
             initialValue: initialValue,

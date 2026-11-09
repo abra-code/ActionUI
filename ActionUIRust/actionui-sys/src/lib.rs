@@ -120,6 +120,7 @@ unsafe extern "C" {
     pub fn actionUIClearElementRows(windowUUID: *const c_char, viewID: i64);
     pub fn actionUISetElementRowsJSON(windowUUID: *const c_char, viewID: i64, rowsJSON: *const c_char) -> bool;
     pub fn actionUIAppendElementRowsJSON(windowUUID: *const c_char, viewID: i64, rowsJSON: *const c_char) -> bool;
+    pub fn actionUIAppendElementText(windowUUID: *const c_char, viewID: i64, text: *const c_char) -> bool;
 
     pub fn actionUISelectElementRowByIndex(windowUUID: *const c_char, viewID: i64, index: i64) -> bool;
     pub fn actionUISelectElementRowWithContent(windowUUID: *const c_char, viewID: i64, text: *const c_char, column: i64) -> i64;

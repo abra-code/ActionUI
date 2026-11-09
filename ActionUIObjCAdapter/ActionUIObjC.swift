@@ -226,6 +226,19 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         }
     }
 
+    /// Appends text to the value of an element whose value is a String (TextEditor, TextField,
+    /// SecureField). A TextEditor drawn natively ("implementation": "native") lays out only the new
+    /// text, so output that arrives in pieces costs each piece. No actionID fires.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - text: The text to append.
+    /// - Returns: NO, with a warning, when the view is not found or its value is not text.
+    @discardableResult
+    @MainActor @objc public class func appendElementTextWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, text: NSString) -> Bool {
+        model.appendElementText(windowUUID: windowUUID as String, viewID: Int(viewID), text: text as String)
+    }
+
     /// Appends rows to a table/list view element's existing content.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.

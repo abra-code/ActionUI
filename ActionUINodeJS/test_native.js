@@ -143,6 +143,9 @@ catch { check('setRows() does not throw', false); }
 try { win.appendRows(1, [['c']]); check('appendRows() does not throw', true); }
 catch { check('appendRows() does not throw', false); }
 
+try { win.appendText(1, 'x'); check('appendText() does not throw', true); }
+catch { check('appendText() does not throw', false); }
+
 try { win.clearRows(1); check('clearRows() does not throw', true); }
 catch { check('clearRows() does not throw', false); }
 

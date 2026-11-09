@@ -312,6 +312,7 @@ const val = win.getValue(viewId)   // parsed from JSON; null if not set
 win.setRows(viewId, [['Alice', '30'], ['Bob', '25']])
 const rows = win.getRows(viewId)               // [['Alice','30'],['Bob','25']] or null
 win.appendRows(viewId, [['Carol', '28']])
+win.appendText(viewId, 'more text')            // TextEditor / TextField / SecureField; fires no action
 const count = win.getColumnCount(viewId)       // number or null
 win.clearRows(viewId)
 ```
@@ -528,6 +529,7 @@ native.getElementRowsJSON(uuid, viewId)
 native.clearElementRows(uuid, viewId)
 native.setElementRowsJSON(uuid, viewId, rowsJSON)
 native.appendElementRowsJSON(uuid, viewId, rowsJSON)
+native.appendElementText(uuid, viewId, text)
 
 // Element selection (Table / List; programmatic, fires no action)
 native.selectElementRowByIndex(uuid, viewId, index)            // bool: true if a row was selected; out-of-range clears

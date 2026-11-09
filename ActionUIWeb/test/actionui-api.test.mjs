@@ -179,3 +179,37 @@ test("Window.uuid falls back to Math.random when crypto is entirely absent", () 
         assert.match(Window.fromJSON({ type: "Text", id: 1 }, undefined, makeLogger()).uuid, UUID_V4_RE);
     });
 });
+
+test("appendElementText appends to a TextEditor and a TextField (a TextEditor fires no action)", () => {
+    const app = new Application({ name: "T" });
+    const fired = [];
+    app.action("edited", (ctx) => fired.push(ctx.actionID));
+    const win = Window.fromJSON({
+        type: "VStack",
+        children: [
+            { type: "TextEditor", id: 1, properties: { text: "Hello", valueChangeActionID: "edited" } },
+            { type: "TextField", id: 2, properties: { text: "ab" } },
+        ],
+    }, undefined, makeLogger());
+    app.presentWindow(win, makeElement());
+    assert.equal(win.appendElementText(1, ", world"), true);
+    assert.equal(win.getString(1), "Hello, world");
+    assert.equal(win.appendElementText(2, "cd"), true);
+    assert.equal(win.getString(2), "abcd");
+    assert.equal(win.appendElementText(1, "!"), true, "appends repeat");
+    assert.equal(win.getString(1), "Hello, world!");
+    assert.deepEqual(fired, [], "no actionID fires");
+});
+
+test("appendElementText is refused for a non-text element and an unknown view", () => {
+    const app = new Application({ name: "T" });
+    const logger = makeLogger();
+    const win = Window.fromJSON({
+        type: "VStack",
+        children: [{ type: "Slider", id: 3, properties: { value: 0.5 } }],
+    }, undefined, logger);
+    app.presentWindow(win, makeElement());
+    assert.equal(win.appendElementText(3, "x"), false);
+    assert.equal(win.getValue(3), 0.5, "the value is unchanged");
+    assert.equal(win.appendElementText(404, "x"), false);
+});

@@ -158,6 +158,11 @@ enum ActionUIRemoteMethods {
             model.appendElementRows(windowUUID: window, viewID: viewID, rows: try p.rows("rows"))
             return true
         }
+        table["actionui.appendText"] = { raw in
+            let p = Params(raw)
+            let (window, viewID) = try p.windowAndView()
+            return model.appendElementText(windowUUID: window, viewID: viewID, text: try p.string("text"))
+        }
         table["actionui.clearRows"] = { raw in
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()

@@ -785,6 +785,15 @@ static PyObject* py_append_element_rows_json(PyObject* self, PyObject* args) {
     return PyBool_FromLong(actionUIAppendElementRowsJSON(windowUUID, viewID, rowsJSON));
 }
 
+static PyObject* py_append_element_text(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long viewID;
+    const char* text;
+    if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &text) == 0)
+        return NULL;
+    return PyBool_FromLong(actionUIAppendElementText(windowUUID, viewID, text));
+}
+
 // MARK: - Python API: Element Selection
 
 static PyObject* py_select_element_row_by_index(PyObject* self, PyObject* args) {
@@ -1591,6 +1600,7 @@ static PyMethodDef ActionUIMethods[] = {
     {"clear_element_rows",          py_clear_element_rows,          METH_VARARGS, "clear_element_rows(windowUUID, viewID)"},
     {"set_element_rows_json",       py_set_element_rows_json,       METH_VARARGS, "set_element_rows_json(windowUUID, viewID, rowsJSON)"},
     {"append_element_rows_json",    py_append_element_rows_json,    METH_VARARGS, "append_element_rows_json(windowUUID, viewID, rowsJSON)"},
+    {"append_element_text",         py_append_element_text,         METH_VARARGS, "append_element_text(windowUUID, viewID, text)"},
 
     /* Element selection */
     {"select_element_row_by_index",     py_select_element_row_by_index,     METH_VARARGS, "select_element_row_by_index(windowUUID, viewID, index) -> bool"},

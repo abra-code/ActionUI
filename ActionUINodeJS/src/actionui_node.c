@@ -819,6 +819,31 @@ static napi_value node_append_element_rows_json(napi_env env, napi_callback_info
     return result;
 }
 
+static napi_value node_append_element_text(napi_env env, napi_callback_info info) {
+    size_t argc = 3; napi_value argv[3];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    int64_t viewID = 0;
+    napi_get_value_int64(env, argv[1], &viewID);
+    /* Output appended in pieces can be large: the text is copied whole, at its own length */
+    size_t textLength = 0;
+    napi_value result;
+    if (napi_get_value_string_utf8(env, argv[2], NULL, 0, &textLength) != napi_ok) {
+        napi_throw_type_error(env, NULL, "appendElementText: text must be a string");
+        return NULL;
+    }
+    char *text = (char *)malloc(textLength + 1);
+    if (text == NULL) {
+        napi_throw_error(env, NULL, "appendElementText: out of memory");
+        return NULL;
+    }
+    napi_get_value_string_utf8(env, argv[2], text, textLength + 1, &len);
+    napi_get_boolean(env, actionUIAppendElementText(uuid, viewID, text), &result);
+    free(text);
+    return result;
+}
+
 // MARK: - N-API: Element Selection
 
 static napi_value node_select_element_row_by_index(napi_env env, napi_callback_info info) {
@@ -2611,6 +2636,7 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "clearElementRows",         node_clear_element_rows);
     EXPORT_FN(exports, "setElementRowsJSON",       node_set_element_rows_json);
     EXPORT_FN(exports, "appendElementRowsJSON",    node_append_element_rows_json);
+    EXPORT_FN(exports, "appendElementText",        node_append_element_text);
 
     /* Element selection */
     EXPORT_FN(exports, "selectElementRowByIndex",     node_select_element_row_by_index);

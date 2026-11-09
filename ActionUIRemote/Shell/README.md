@@ -205,7 +205,7 @@ Properties and state: `actionui_get_property VIEWID NAME`, `actionui_set_propert
 `actionui_set_state VIEWID KEY JSON`, `actionui_set_state_string VIEWID KEY TEXT`.
 
 Rows and selection: `actionui_get_column_count VIEWID`, `actionui_get_rows VIEWID`,
-`actionui_set_rows VIEWID JSON`, `actionui_append_rows VIEWID JSON`, `actionui_clear_rows VIEWID`,
+`actionui_set_rows VIEWID JSON`, `actionui_append_rows VIEWID JSON`, `actionui_clear_rows VIEWID`, `actionui_append_text VIEWID TEXT` (TextEditor, TextField or SecureField; prints true, or false for a non-text value),
 `actionui_select_row VIEWID INDEX` (prints the row, or null), `actionui_select_row_with_content VIEWID TEXT [COLUMN]`
 (prints the index, or -1), `actionui_clear_selection VIEWID`.
 

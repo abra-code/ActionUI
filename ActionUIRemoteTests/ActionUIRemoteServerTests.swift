@@ -280,6 +280,16 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertNil(try call("actionui.getState", viewParams(2, ["key": "nope"])))
     }
 
+    func testAppendText() throws {
+        XCTAssertEqual(try call("actionui.setValueString", viewParams(2, ["value": "ab"])) as? Bool, true)
+        XCTAssertEqual(try call("actionui.appendText", viewParams(2, ["text": "cd"])) as? Bool, true)
+        XCTAssertEqual(try call("actionui.getValue", viewParams(2)) as? String, "abcd")
+        // A Toggle's value is a Bool, not text.
+        XCTAssertEqual(try call("actionui.setValue", viewParams(3, ["value": true])) as? Bool, true)
+        XCTAssertEqual(try call("actionui.appendText", viewParams(3, ["text": "x"])) as? Bool, false)
+        assertFailure("actionui.appendText", viewParams(2), code: -32602)
+    }
+
     // MARK: - Rows and selection
 
     func testRowsAndSelection() throws {

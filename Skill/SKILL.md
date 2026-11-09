@@ -216,7 +216,7 @@ In a `NavigationSplitView`, set `navigationSplitViewColumnWidth: {min, ideal, ma
 
 ### Read-only log
 
-A `TextEditor` with `"readOnly": true`, `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`.
+A `TextEditor` with `"readOnly": true`, `"implementation": "native"` (macOS: the host appends output with `appendElementText` at the new text's cost, not the whole text's), `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`.
 
 ### Drop target
 

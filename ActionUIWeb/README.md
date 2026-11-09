@@ -133,7 +133,8 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
   (loaded by the host page; see `demo/index.html`).
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
   `ActionUINodeJS/index.js` - `Window.fromURL/fromJSON`, `presentWindow`,
-  `get/setString|Bool|Int|Double|Value`, `get/setState` (named element states,
+  `get/setString|Bool|Int|Double|Value`, `appendElementText(viewID, text)` (append to a
+  String value, fires no actionID, returns false for a non-text element), `get/setState` (named element states,
   e.g. DisclosureGroup's `isExpanded`), the rows API for data-driven collections
   (`get/set/append/clearElementRows`, `getElementColumnCount` - sugar over the
   `content` state, used by Table and List's data-driven modes), the programmatic

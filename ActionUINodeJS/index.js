@@ -168,6 +168,7 @@ class Window {
     }
     setRows(viewId, rows)    { _actionui.setElementRowsJSON(this.uuid, viewId, JSON.stringify(rows)); }
     appendRows(viewId, rows) { _actionui.appendElementRowsJSON(this.uuid, viewId, JSON.stringify(rows)); }
+    appendText(viewId, text) { _actionui.appendElementText(this.uuid, viewId, text); }
     clearRows(viewId)        { _actionui.clearElementRows(this.uuid, viewId); }
 
     // Element selection (Table / List) — programmatic, fires no actionID

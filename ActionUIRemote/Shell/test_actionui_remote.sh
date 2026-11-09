@@ -339,6 +339,11 @@ t_eq "get_column_count" "2" "$_t_out"
 t_run actionui_append_rows 5 '[["e","f"]]'
 t_run actionui_get_rows 5
 t_contains "append_rows appends" '["e","f"]' "$_t_out"
+t_run actionui_set_string 2 "ab"
+t_run actionui_append_text 2 "c d"
+t_eq "append_text prints true" "true" "$_t_out"
+t_run actionui_get_string 2
+t_eq "append_text appends" "abc d" "$_t_out"
 t_run actionui_select_row 5 1
 t_eq "select_row prints the row" '["c","d"]' "$_t_out"
 t_run actionui_select_row 5 99

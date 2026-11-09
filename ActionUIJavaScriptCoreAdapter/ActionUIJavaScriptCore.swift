@@ -131,6 +131,15 @@ import AppKit
 ///   - Description: Appends rows to a table/list view element's existing content.
 ///   - Example: `ActionUI.appendElementRows("window-12345", 1, [["Charlie", "22"]]);`
 ///
+/// - `appendElementText(windowUUID, viewID, text)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `text`: String - Text to append.
+///   - Returns: Boolean - false (with a warning) when the view is not found or its value is not text.
+///   - Description: Appends text to the value of an element whose value is a String (TextEditor, TextField, SecureField); fires no actionID.
+///   - Example: `ActionUI.appendElementText("window-12345", 2, "next line\n");`
+///
 /// - `selectElementRow(windowUUID, viewID, index)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -414,6 +423,12 @@ public class ActionUIJavaScriptCore {
             }
         }
         actionUIObject.setValue(appendElementRows, forProperty: "appendElementRows")
+
+        // appendElementText(windowUUID, viewID, text) -> Bool
+        let appendElementText: @convention(block) (String, Double, String) -> Bool = { windowUUID, viewID, text in
+            return ActionUIJavaScriptCore.model.appendElementText(windowUUID: windowUUID, viewID: Int(viewID), text: text)
+        }
+        actionUIObject.setValue(appendElementText, forProperty: "appendElementText")
 
         // selectElementRow(windowUUID, viewID, index) -> selected row values, or null
         let selectElementRow: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, index in

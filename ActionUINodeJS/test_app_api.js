@@ -50,6 +50,7 @@ function testNativeAPISurface() {
         'getElementColumnCount',
         // Element rows
         'getElementRowsJSON', 'clearElementRows', 'setElementRowsJSON', 'appendElementRowsJSON',
+        'appendElementText',
         // Element properties
         'getElementPropertyJSON', 'setElementPropertyJSON',
         // Element state
@@ -112,7 +113,7 @@ function testJSAPISurface(app, win) {
         'getInt', 'getDouble', 'getBool', 'getString',
         'setValue', 'getValue',
         'getColumnCount',
-        'getRows', 'setRows', 'appendRows', 'clearRows',
+        'getRows', 'setRows', 'appendRows', 'appendText', 'clearRows',
         'getProperty', 'setProperty',
         'getState', 'getStateString', 'setState', 'setStateFromString',
         'getElementInfo', 'removeWindow',

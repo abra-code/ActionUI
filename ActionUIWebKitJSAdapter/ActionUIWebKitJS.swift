@@ -130,6 +130,15 @@ import AppKit
 ///   - Description: Appends rows to a table/list view element's existing content.
 ///   - Example: `ActionUI.appendElementRows("window-12345", 1, [["Charlie", "22"]]);`
 ///
+/// - `appendElementText(windowUUID, viewID, text)` (async)
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `text`: String - Text to append.
+///   - Returns: Promise<Boolean> - false (with a warning) when the view is not found or its value is not text.
+///   - Description: Appends text to the value of an element whose value is a String (TextEditor, TextField, SecureField); fires no actionID.
+///   - Example: `ActionUI.appendElementText("window-12345", 2, "next line\n");`
+///
 /// - `selectElementRow(windowUUID, viewID, index)` (async)
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -587,6 +596,20 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 ActionUIWebKitJS.model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
             } else {
                 print("Invalid arguments for appendElementRows: \(args)")
+            }
+        case "appendElementText":
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let text = args[2] as? String {
+                let appended = ActionUIWebKitJS.model.appendElementText(windowUUID: windowUUID, viewID: viewID, text: text)
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: \(Self.jsLiteral(id)), result: \(appended)})") { _, error in
+                    if let error = error {
+                        print("appendElementText response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for appendElementText: \(args)")
             }
         case "selectElementRow":
             if args.count == 3, let windowUUID = args[0] as? String,

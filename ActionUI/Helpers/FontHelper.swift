@@ -54,6 +54,70 @@ struct FontHelper {
         }
     }
 
+    #if os(macOS)
+    /// The AppKit font for a parsed font property, for views drawn by AppKit (the native
+    /// TextEditor). As `font(for:)`, except that a named font that is missing falls back to the
+    /// system font in the spec's design at its size, so { "name": "Monaco", "design": "monospaced" }
+    /// stays monospaced where Monaco is not installed.
+    static func nsFont(for spec: FontSpec) -> NSFont {
+        switch spec {
+        case let .textStyle(style):
+            return NSFont.preferredFont(forTextStyle: nsTextStyle(style))
+        case let .named(name):
+            return NSFont(name: name, size: bodyFontSize) ?? NSFont.systemFont(ofSize: bodyFontSize)
+        case let .sized(name, size, weight, design):
+            let pointSize = CGFloat(size)
+            if let name, let named = NSFont(name: name, size: pointSize) {
+                guard let weight else { return named }
+                let descriptor = named.fontDescriptor.addingAttributes([.traits: [NSFontDescriptor.TraitKey.weight: nsWeight(weight)]])
+                return NSFont(descriptor: descriptor, size: pointSize) ?? named
+            }
+            let nsWeight = weight.map(nsWeight) ?? .regular
+            switch design {
+            case .monospaced:
+                return NSFont.monospacedSystemFont(ofSize: pointSize, weight: nsWeight)
+            case .default:
+                return NSFont.systemFont(ofSize: pointSize, weight: nsWeight)
+            case .rounded, .serif:
+                let system = NSFont.systemFont(ofSize: pointSize, weight: nsWeight)
+                let systemDesign: NSFontDescriptor.SystemDesign = design == .rounded ? .rounded : .serif
+                guard let descriptor = system.fontDescriptor.withDesign(systemDesign) else { return system }
+                return NSFont(descriptor: descriptor, size: pointSize) ?? system
+            }
+        }
+    }
+
+    private static func nsTextStyle(_ style: FontTextStyle) -> NSFont.TextStyle {
+        switch style {
+        case .largeTitle: return .largeTitle
+        case .title: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .body: return .body
+        case .callout: return .callout
+        case .caption: return .caption1
+        case .caption2: return .caption2
+        case .footnote: return .footnote
+        }
+    }
+
+    private static func nsWeight(_ weight: FontWeight) -> NSFont.Weight {
+        switch weight {
+        case .ultraLight: return .ultraLight
+        case .thin: return .thin
+        case .light: return .light
+        case .regular: return .regular
+        case .medium: return .medium
+        case .semibold: return .semibold
+        case .bold: return .bold
+        case .heavy: return .heavy
+        case .black: return .black
+        }
+    }
+    #endif
+
     private static func textStyle(_ style: FontTextStyle) -> Font {
         switch style {
         case .largeTitle: return .largeTitle

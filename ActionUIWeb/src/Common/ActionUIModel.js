@@ -110,6 +110,28 @@ export class ActionUIModel {
         this.endRefreshTargeting(viewID); // a value delivered to a refreshing view (or descendant) ends its pull
     }
 
+    // Appends `text` to the value of an element whose value is a String (TextEditor,
+    // TextField, SecureField): the value becomes the old value followed by `text`, as a
+    // setElementValue of the whole would make it (an external mutation: it ends refresh
+    // targeting), and no actionID fires. Returns false, with a warning, for an element
+    // that is not found or whose value is not text. The web TextEditor seeds "" and stores
+    // no attributed value for markdown, so there is no unset or markdown case. Mirrors the
+    // Swift appendElementText.
+    appendElementText(viewID, text) {
+        const hasValue = this.bindings.has(viewID) || this.values.has(viewID);
+        if (!hasValue) {
+            this.logger.log(`appendElementText: no element with id ${viewID}`, "warning");
+            return false;
+        }
+        const current = this.getElementValue(viewID, 0);
+        if (typeof current !== "string") {
+            this.logger.log(`appendElementText: the value of element ${viewID} is not text`, "warning");
+            return false;
+        }
+        this.setElementValue(viewID, 0, current + String(text));
+        return true;
+    }
+
     getElementState(viewID, key) {
         const binding = this.stateBindings.get(viewID);
         if (binding) {

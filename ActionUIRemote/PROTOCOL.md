@@ -160,6 +160,7 @@ Setters return `true` so that a batch reply is easy to scan.
 | `actionui.getRows` | window, viewID | `[[string]]` or null |
 | `actionui.setRows` | window, viewID, rows `[[string]]` | `true` |
 | `actionui.appendRows` | window, viewID, rows | `true` |
+| `actionui.appendText` | window, viewID, text (string) | `true`; `false` when the view is missing or its value is not text (no action fires) |
 | `actionui.clearRows` | window, viewID | `true` |
 | `actionui.selectRow` | window, viewID, index (0-based) | the selected row `[string]`; null when out of range (selection cleared) or when the element is not a Table or List (selection untouched) |
 | `actionui.selectRowWithContent` | window, viewID, text, column? (0-based; omit for any column) | the matched row index, or -1 |

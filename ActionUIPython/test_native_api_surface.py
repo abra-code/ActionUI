@@ -187,6 +187,8 @@ def test_element_rows(uuid_str):
     assert r is True
     r = _actionui.append_element_rows_json(uuid_str, vid, json.dumps([["E", "F"]]))
     assert r is True
+    r = _actionui.append_element_text(uuid_str, vid, "x")
+    assert r is True
     _actionui.clear_element_rows(uuid_str, vid)
     print("  element_rows: OK")
 
@@ -233,6 +235,7 @@ def test_noop_calls(uuid_str):
     _actionui.set_value_from_json(uuid_str, vid, vpid, "{}")
     _actionui.set_element_rows_json(uuid_str, vid, "[]")
     _actionui.append_element_rows_json(uuid_str, vid, "[]")
+    _actionui.append_element_text(uuid_str, vid, "x")
     _actionui.clear_element_rows(uuid_str, vid)
     _actionui.set_element_property_json(uuid_str, vid, "x", "{}")
     _actionui.set_element_state_json(uuid_str, vid, "x", "{}")

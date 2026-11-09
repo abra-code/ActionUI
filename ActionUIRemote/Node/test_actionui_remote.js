@@ -243,6 +243,10 @@ async function testTheWireShapes(directory) {
         check('setRows stringifies cells',
               JSON.stringify(envelope.params.rows) === JSON.stringify([['1', '2']]),
               JSON.stringify(envelope.params.rows));
+        envelope = await sent(() => win.appendText(2, 7));
+        check('appendText sends the text as a string',
+              envelope.method === 'actionui.appendText' && envelope.params.text === '7',
+              JSON.stringify(envelope));
         await checkThrows('a flat row of strings is rejected rather than silently reshaped',
                           async () => win.setRows(5, ['a', 'b']),
                           (error) => error instanceof TypeError);

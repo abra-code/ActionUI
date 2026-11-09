@@ -521,6 +521,69 @@ final class ActionUIModelTests: XCTestCase {
         XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [])
     }
 
+    // MARK: - appendElementText tests
+
+    private func loadElement(_ type: String, properties: [String: Any] = [:]) throws {
+        let elementDict: [String: Any] = ["id": 1, "type": type, "properties": properties]
+        _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
+    }
+
+    func testAppendElementTextAppendsToTheValue() throws {
+        try loadElement("TextEditor", properties: ["text": "Hello"])
+        let model = ActionUIModel.shared
+        XCTAssertTrue(model.appendElementText(windowUUID: windowUUID, viewID: 1, text: ", "))
+        XCTAssertTrue(model.appendElementText(windowUUID: windowUUID, viewID: 1, text: "world"))
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? String, "Hello, world")
+    }
+
+    func testAppendElementTextAppendsToATextField() throws {
+        try loadElement("TextField", properties: ["text": "a"])
+        XCTAssertTrue(ActionUIModel.shared.appendElementText(windowUUID: windowUUID, viewID: 1, text: "b"))
+        XCTAssertEqual(ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 1) as? String, "ab")
+    }
+
+    /// A text element whose value was never set starts from empty text.
+    func testAppendElementTextToAnUnsetValue() throws {
+        try loadElement("TextEditor")
+        let model = ActionUIModel.shared
+        model.windowModels[windowUUID]?.viewModels[1]?.value = nil
+        XCTAssertTrue(model.appendElementText(windowUUID: windowUUID, viewID: 1, text: "first"))
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? String, "first")
+    }
+
+    func testAppendElementTextAppendsAnUnstyledRunToAnAttributedValue() throws {
+        try loadElement("TextEditor")
+        let model = ActionUIModel.shared
+        var bold = AttributedString("Bold")
+        bold.inlinePresentationIntent = .stronglyEmphasized
+        model.windowModels[windowUUID]?.viewModels[1]?.value = bold
+        XCTAssertTrue(model.appendElementText(windowUUID: windowUUID, viewID: 1, text: " plain"))
+        let value = try XCTUnwrap(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? AttributedString)
+        XCTAssertEqual(String(value.characters), "Bold plain")
+        XCTAssertEqual(value.runs.count, 2)
+    }
+
+    func testAppendElementTextRefusesAValueThatIsNotText() throws {
+        try loadElement("Slider", properties: ["value": 0.5])
+        let model = ActionUIModel.shared
+        XCTAssertFalse(model.appendElementText(windowUUID: windowUUID, viewID: 1, text: "1"))
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? Double, 0.5)
+    }
+
+    func testAppendElementTextRefusesAnUnknownView() throws {
+        try loadElement("TextEditor", properties: ["text": "a"])
+        XCTAssertFalse(ActionUIModel.shared.appendElementText(windowUUID: windowUUID, viewID: 999, text: "b"))
+    }
+
+    /// The value changes as a host's setElementValue changes it: the change is seen by observers.
+    func testAppendElementTextCountsAsAMutation() throws {
+        try loadElement("TextEditor", properties: ["text": "a"])
+        let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[1])
+        let before = viewModel.mutationToken
+        ActionUIModel.shared.appendElementText(windowUUID: windowUUID, viewID: 1, text: "b")
+        XCTAssertNotEqual(viewModel.mutationToken, before)
+    }
+
     // MARK: - getElementColumnCount tests
 
     func testGetElementColumnCountFromContent() throws {

@@ -1018,6 +1018,10 @@ class Window:
         """Append rows to a table/list element's existing content."""
         _actionui.append_element_rows_json(self.uuid, view_id, json.dumps(rows))
 
+    def append_text(self, view_id: int, text: str):
+        """Append text to the String value of a TextEditor, TextField or SecureField (fires no action)."""
+        return _actionui.append_element_text(self.uuid, view_id, text)
+
     def clear_rows(self, view_id: int):
         """Clear all content rows, preserving column definitions."""
         _actionui.clear_element_rows(self.uuid, view_id)

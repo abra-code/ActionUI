@@ -114,6 +114,25 @@
             });
         },
 
+        // Append text to a String-valued element: TextEditor, TextField, SecureField (async;
+        // resolves to true, or false when the view is not found or its value is not text).
+        appendElementText: function(windowUUID, viewID, text) {
+            return new Promise(function(resolve, reject) {
+                const id = Math.random().toString(36).substring(2);
+                window.addEventListener('message', function handler(event) {
+                    if (event.data.id === id) {
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.result);
+                    }
+                });
+                window.webkit.messageHandlers.actionUI.postMessage({
+                    method: 'appendElementText',
+                    id: id,
+                    args: [windowUUID, viewID, text]
+                });
+            });
+        },
+
         // Forget a window's model once the host is done with the window (fire-and-forget)
         removeWindow: function(windowUUID) {
             window.webkit.messageHandlers.actionUI.postMessage({

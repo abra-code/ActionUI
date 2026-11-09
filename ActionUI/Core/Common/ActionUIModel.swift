@@ -456,6 +456,40 @@ public class ActionUIModel {
         }
     }
 
+    // Appends text to the value of an element whose value is a String (TextEditor, TextField,
+    // SecureField): the value becomes the old value followed by `text`, as a setElementValue of the
+    // whole would make it, and no actionID fires. A TextEditor drawn natively ("implementation":
+    // "native") then appends only `text` to what it shows, so output that arrives in pieces costs
+    // each piece's length; other editors show the whole new value. A markdown TextEditor's
+    // AttributedString value gets `text` as an unstyled run. Returns false, with a warning, for a
+    // view that is not found or whose value is not text.
+    @discardableResult
+    public func appendElementText(windowUUID: String, viewID: Int, text: String) -> Bool {
+        guard let windowModel = windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[viewID] else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return false
+        }
+        let newValue: Any
+        if let attributed = viewModel.value as? AttributedString {
+            newValue = attributed + AttributedString(text)
+        } else if let string = viewModel.value as? String {
+            newValue = string + text
+        } else if viewModel.value == nil,
+                  ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType) == String.self {
+            newValue = text
+        } else {
+            logger.log("appendElementText: the value of viewID \(viewID) (\(viewModel.elementType)) is not text", .warning)
+            return false
+        }
+        viewModel.mutationToken &+= 1
+        viewModel.value = newValue
+        windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
+        logger.log("Appended \(text.utf8.count) bytes of text for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+        return true
+    }
+
     // MARK: - Element State API
 
     // Returns the current value for a single state key, or nil if the view or key is not found.

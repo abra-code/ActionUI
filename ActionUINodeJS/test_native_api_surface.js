@@ -195,6 +195,8 @@ function testElementRows(uuid) {
     check('setElementRowsJSON returns true', r === true);
     r = native.appendElementRowsJSON(uuid, vid, JSON.stringify([['E', 'F']]));
     check('appendElementRowsJSON returns true', r === true);
+    r = native.appendElementText(uuid, vid, 'x');
+    check('appendElementText returns true', r === true);
     r = native.clearElementRows(uuid, vid);
     check('clearElementRows does not throw', r === true || r === undefined);
 }
@@ -243,6 +245,7 @@ function testNoopCalls(uuid) {
     native.setValueFromJSON(uuid, vid, vpid, '{}');
     native.setElementRowsJSON(uuid, vid, '[]');
     native.appendElementRowsJSON(uuid, vid, '[]');
+    native.appendElementText(uuid, vid, 'x');
     native.clearElementRows(uuid, vid);
     native.setElementPropertyJSON(uuid, vid, 'x', '{}');
     native.setElementStateJSON(uuid, vid, 'x', '{}');

@@ -816,6 +816,10 @@ class Window {
         return this._invoke('actionui.appendRows', this._params({ rows: coerceRows(rows) }, viewId));
     }
 
+    appendText(viewId, text) {
+        return this._invoke('actionui.appendText', this._params({ text: String(text) }, viewId));
+    }
+
     clearRows(viewId) {
         return this._invoke('actionui.clearRows', this._params(null, viewId));
     }

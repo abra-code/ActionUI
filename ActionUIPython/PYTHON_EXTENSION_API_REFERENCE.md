@@ -109,6 +109,8 @@ void  actionUIClearElementRows     (const char* windowUUID, int64_t viewID);
 bool  actionUISetElementRowsJSON   (const char* windowUUID, int64_t viewID, const char* rowsJSON);
 bool  actionUIAppendElementRowsJSON(const char* windowUUID, int64_t viewID, const char* rowsJSON);
 // JSON format: [["cell1","cell2"],["cell3","cell4"],...]
+bool  actionUIAppendElementText    (const char* windowUUID, int64_t viewID, const char* text);
+// Appends to a String value (TextEditor, TextField, SecureField); fires no action
 ```
 
 ### Element selection (Table / List; programmatic, fires no action)
@@ -673,6 +675,7 @@ value = window.get_value(view_id)        # -> dict / list / str / int / float / 
 window.set_rows(view_id, [["Alice", "30"], ["Bob", "25"]])
 rows = window.get_rows(view_id)          # -> [["Alice", "30"], ["Bob", "25"]]
 window.append_rows(view_id, [["Carol", "28"]])
+window.append_text(view_id, "more text") # TextEditor / TextField / SecureField; fires no action
 count = window.get_column_count(view_id) # -> int
 window.clear_rows(view_id)
 

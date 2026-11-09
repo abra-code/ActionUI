@@ -121,6 +121,7 @@ bool actionUISetElementValueJSON(const char *windowUUID, int64_t viewID, int64_t
 char *actionUIGetElementValueJSON(const char *windowUUID, int64_t viewID, int64_t viewPartID) ACTIONUI_NOEXCEPT;
 bool actionUISetElementValueString(const char *windowUUID, int64_t viewID, int64_t viewPartID, const char *valueString, const char *contentType) ACTIONUI_NOEXCEPT;  // contentType may be NULL
 char *actionUIGetElementValueString(const char *windowUUID, int64_t viewID, int64_t viewPartID, const char *contentType) ACTIONUI_NOEXCEPT;  // contentType may be NULL
+bool actionUIAppendElementText(const char *windowUUID, int64_t viewID, const char *text) ACTIONUI_NOEXCEPT;  // appends to a String value (TextEditor, TextField)
 bool actionUISetIntValue(const char *windowUUID, int64_t viewID, int64_t viewPartID, int64_t value) ACTIONUI_NOEXCEPT;
 bool actionUIGetIntValue(const char *windowUUID, int64_t viewID, int64_t viewPartID, int64_t *outValue) ACTIONUI_NOEXCEPT;
 bool actionUISetDoubleValue(const char *windowUUID, int64_t viewID, int64_t viewPartID, double value) ACTIONUI_NOEXCEPT;

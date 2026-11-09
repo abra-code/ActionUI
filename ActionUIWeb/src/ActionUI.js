@@ -212,6 +212,10 @@ export class Window {
     setInt(viewID, viewPartID = 0, value)    { this.setValue(viewID, viewPartID, Math.trunc(value)); }
     setDouble(viewID, viewPartID = 0, value) { this.setValue(viewID, viewPartID, Number(value)); }
 
+    // Appends text to a String value (TextEditor, TextField, SecureField), as a setString of
+    // the whole would, firing no actionID. Returns false for a non-text or unknown element.
+    appendElementText(viewID, text) { return this.model.appendElementText(viewID, text); }
+
     // State bridge — named per-element states (e.g. DisclosureGroup's
     // "isExpanded"), same names as the Node.js adapter. The string-transport
     // variants (getStateString/setStateFromString) are a C-bridge concern and

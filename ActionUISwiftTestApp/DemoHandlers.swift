@@ -673,6 +673,24 @@ public enum DemoHandlers {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 8, value: "Drop files or folders here")
         }
 
+        // Native TextEditor demo handlers (TextEditor.native.json)
+        // IDs: 1 = TextEditor (read-only, "implementation": "native"), 2 = line count
+        var nativeLogLines = 0
+        ActionUISwift.registerActionHandler(actionID: "texteditor.native.append") { _, windowUUID, _, _, _ in
+            var piece = ""
+            for _ in 0..<1000 {
+                nativeLogLines += 1
+                piece += "\(nativeLogLines): the quick brown fox jumps over the lazy dog\n"
+            }
+            ActionUISwift.appendElementText(windowUUID: windowUUID, viewID: 1, text: piece)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "\(nativeLogLines) lines")
+        }
+        ActionUISwift.registerActionHandler(actionID: "texteditor.native.clear") { _, windowUUID, _, _, _ in
+            nativeLogLines = 0
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 1, value: "")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "0 lines")
+        }
+
         // Text content type demo handlers (Text.contentType.json)
         // IDs: 1 = TextEditor (read-only display), 2 = status label
         let contentTypeRTF = "{\\rtf1\\ansi\\deff0 {\\fonttbl{\\f0 Helvetica;}} \\f0 {\\b Bold RTF} and {\\i italic} with {\\b\\i bold-italic} text.}"

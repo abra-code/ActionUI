@@ -830,6 +830,13 @@ class RowTests(FakeHostTestCase):
         self.assertTrue(self.win.clear_rows(5))
         self.assertEqual(self.win.get_rows(5), [])
 
+    def test_append_text(self):
+        self.win.set_string(2, "ab")
+        self.assertTrue(self.win.append_text(2, "cd"))
+        self.assertEqual(self.win.get_string(2), "abcd")
+        self.win.set_int(3, 5)
+        self.assertFalse(self.win.append_text(3, "x"))
+
     def test_get_rows_is_none_when_no_rows_are_recorded(self):
         # A divergence: the fake has no notion of table-ness and answers null for any view it
         # holds no rows for, the Table included. The real host answers null only for an element
@@ -1156,6 +1163,7 @@ BATCH_CALLS = [
     ("get_rows", (5,), {}, "actionui.getRows"),
     ("set_rows", (5, [["a"]]), {}, "actionui.setRows"),
     ("append_rows", (5, [["b"]]), {}, "actionui.appendRows"),
+    ("append_text", (2, "x"), {}, "actionui.appendText"),
     ("clear_rows", (5,), {}, "actionui.clearRows"),
     ("select_row", (5, 0), {}, "actionui.selectRow"),
     ("select_row_with_content", (5, "a"), {}, "actionui.selectRowWithContent"),

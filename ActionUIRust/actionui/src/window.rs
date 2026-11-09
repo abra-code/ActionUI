@@ -295,6 +295,14 @@ impl Window {
         if accepted { Ok(()) } else { Err(ffi::failure("ActionUI did not accept the rows")) }
     }
 
+    /// Appends text to the String value of a TextEditor, TextField or SecureField. Fires no action.
+    pub fn append_text(&self, view_id: i64, text: &str) -> Result<()> {
+        let uuid = self.uuid_c()?;
+        let text = ffi::cstring("text", text)?;
+        let accepted = unsafe { sys::actionUIAppendElementText(uuid.as_ptr(), view_id, text.as_ptr()) };
+        if accepted { Ok(()) } else { Err(ffi::failure("ActionUI did not accept the text")) }
+    }
+
     pub fn clear_rows(&self, view_id: i64) -> Result<()> {
         let uuid = self.uuid_c()?;
         unsafe { sys::actionUIClearElementRows(uuid.as_ptr(), view_id) };

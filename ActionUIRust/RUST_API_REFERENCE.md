@@ -276,6 +276,7 @@ let selected: Option<Vec<String>> = window.get_value(TABLE)?;
 | `column_count(view_id) -> Result<i64>` | The number of columns; 0 for any other element. |
 | `set_rows<T: Serialize>(view_id, rows: &T) -> Result<()>` | Replaces all rows. `rows` is a list of rows, each a list of cells: `&[["a", "b"], ["c", "d"]]`, a `Vec<Vec<String>>`. |
 | `append_rows<T: Serialize>(view_id, rows: &T) -> Result<()>` | Adds rows after the existing ones. |
+| `append_text(view_id, text: &str) -> Result<()>` | Appends text to the String value of a TextEditor, TextField or SecureField. Fires no action. |
 | `get_rows<T: DeserializeOwned>(view_id) -> Result<Option<T>>` | The rows, usually read as `Vec<Vec<String>>`. |
 | `clear_rows(view_id) -> Result<()>` | Removes all rows. |
 | `select_row(view_id, index: i64) -> Result<bool>` | Selects the row at a 0-based index and returns true. An index outside the rows clears the selection and returns false. |

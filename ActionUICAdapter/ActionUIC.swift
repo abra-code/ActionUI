@@ -468,6 +468,28 @@ public func actionUISetElementValueString(
     return true
 }
 
+/// Appends text to the value of an element whose value is a String (TextEditor, TextField,
+/// SecureField), as ActionUIModel.appendElementText does: a TextEditor drawn natively
+/// ("implementation": "native") lays out only the new text, so output that arrives in pieces
+/// costs each piece. A view that is not found, or whose value is not text, logs a warning.
+@c
+public func actionUIAppendElementText(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ text: UnsafePointer<CChar>
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftText = String(cString: text)
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.appendElementText(windowUUID: swiftWindowUUID, viewID: Int(viewID), text: swiftText)
+    }
+
+    return true
+}
+
 @c
 public func actionUIGetElementValueString(
     _ windowUUID: UnsafePointer<CChar>,
