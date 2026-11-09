@@ -205,6 +205,19 @@ final class AlertTests: XCTestCase {
         XCTAssertNil(windowModel.viewModels[501], "Modal child ViewModel should be removed after dismiss")
     }
 
+    func testDismissModalRemovesWhatALoadableViewInItLoaded() throws {
+        let modalJSON = #"{ "id": 700, "type": "LoadableView", "properties": { "filePath": "/tmp/panel.json" } }"#.data(using: .utf8)!
+        try ActionUIModel.shared.presentModal(windowUUID: windowUUID, data: modalJSON, format: "json", style: .sheet)
+        let contentJSON = #"{ "id": 701, "type": "Text", "properties": { "text": "X" } }"#.data(using: .utf8)!
+        _ = try ActionUIModel.shared.loadSubViewDescription(from: contentJSON, format: "json", windowUUID: windowUUID, parentID: 700)
+        XCTAssertEqual(ActionUIModel.shared.getElementInfo(windowUUID: windowUUID), [1: "VStack", 700: "LoadableView", 701: "Text"])
+
+        ActionUIModel.shared.dismissModal(windowUUID: windowUUID)
+
+        XCTAssertEqual(ActionUIModel.shared.getElementInfo(windowUUID: windowUUID), [1: "VStack"])
+        XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID]?.loadedSubViewIDs[700])
+    }
+
     func testDismissModalIdempotent() throws {
         // Dismissing when no modal is active should not crash
         ActionUIModel.shared.dismissModal(windowUUID: windowUUID)

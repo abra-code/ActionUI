@@ -129,30 +129,34 @@ final class WindowModel {
             throw ActionUIError("Unsupported format: \(format)")
         }
 
-        // Populate new ViewModels and record ownership if tracking a parent
+        // Populate new ViewModels; ownership is recorded after the merge
         let subViewModels = populateViewModels(from: subElement)
-        if parentID != 0 {
-            loadedSubViewIDs[parentID] = Set(subViewModels.keys)
-        }
 
         // Merge subViewModels into main viewModels, ensuring no ID conflicts.
         // Build the merged dictionary first, then assign once.
         var merged = self.viewModels
+        var mergedIDs: Set<Int> = []
         for (id, viewModel) in subViewModels {
             if merged[id] == nil {
                 merged[id] = viewModel
+                mergedIDs.insert(id)
             } else {
                 logger.log("ID conflict for sub-view \(id); skipping merge", .error)
             }
         }
         self.viewModels = merged
+        // Only the ids merged here are this content's: a conflicting id is another element's, whose
+        // view model a reload or a removal of this LoadableView must not delete.
+        if parentID != 0 {
+            loadedSubViewIDs[parentID] = mergedIDs
+        }
 
         logger.log("Loaded sub-view with element id: \(subElement.id)" + (parentID != 0 ? " for parent \(parentID)" : ""), .debug)
         return subElement
     }
 
     /// Recursively collect all sub-view IDs owned by parentID (and their nested children)
-    private func collectAndRemoveSubViewIDs(for parentID: Int) -> Set<Int> {
+    func collectAndRemoveSubViewIDs(for parentID: Int) -> Set<Int> {
         guard let directChildren = loadedSubViewIDs.removeValue(forKey: parentID) else { return [] }
         var allIDs = directChildren
         for childID in directChildren {
@@ -362,7 +366,11 @@ final class WindowModel {
             throw InsertError.parentNotFound(parentID: location.parentID)
         }
 
-        let descendantIDs = collectAllElementIDs(in: location.removedElement)
+        // The subtree as it is now, not as loaded: elements inserted inside it go with it, and an
+        // element removed from it earlier may have had its id reused elsewhere, which must stay.
+        // A LoadableView inside it takes the content it loaded along.
+        var descendantIDs = collectEffectiveElementIDs(in: location.removedElement)
+        for id in descendantIDs { descendantIDs.formUnion(collectAndRemoveSubViewIDs(for: id)) }
         // The removed view keeps its `.transition()`, so a transition-bearing element animates its
         // exit when the removal runs inside an animated transaction; otherwise the removal is instant.
         runStructuralMutation(animatedFor: location.removedElement) {
@@ -470,6 +478,29 @@ final class WindowModel {
         var ids: Set<Int> = [element.id]
         for child in element.childElements {
             ids.formUnion(collectAllElementIDs(in: child))
+        }
+        return ids
+    }
+
+    // Ids of the element subtree rooted at `element` in the effective tree (static +
+    // dynamicSubviews overrides per parent), the subtree as it is on screen now.
+    private func collectEffectiveElementIDs(in element: ActionUIElement) -> Set<Int> {
+        var ids: Set<Int> = [element.id]
+        let subviews = effectiveSubviews(of: element)
+        for key in ActionUISubviewContainers.arrayKeys {
+            if let arr = subviews[key] as? [ActionUIElement] {
+                for child in arr { ids.formUnion(collectEffectiveElementIDs(in: child)) }
+            }
+        }
+        if let rows = subviews[ActionUISubviewContainers.rowsKey] as? [[ActionUIElement]] {
+            for row in rows {
+                for child in row { ids.formUnion(collectEffectiveElementIDs(in: child)) }
+            }
+        }
+        for key in ActionUISubviewContainers.singleKeys {
+            if let child = subviews[key] as? ActionUIElement {
+                ids.formUnion(collectEffectiveElementIDs(in: child))
+            }
         }
         return ids
     }

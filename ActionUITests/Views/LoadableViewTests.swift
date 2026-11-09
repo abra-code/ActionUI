@@ -231,6 +231,18 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[701])
     }
 
+    func testRemovingTheLoadableViewRemovesTheContentItLoaded() throws {
+        let windowModel = try loadRootWithLoadableView()
+        _ = try windowModel.loadSubViewDescription(from: subViewJSON(rootID: 200, childIDs: [201]), format: "json", parentID: 100)
+
+        try ActionUIModel.shared.removeElement(windowUUID: windowUUID, viewID: 100)
+
+        XCTAssertNil(windowModel.viewModels[200], "Loaded content goes with its LoadableView")
+        XCTAssertNil(windowModel.viewModels[201], "Loaded content goes with its LoadableView")
+        XCTAssertNil(windowModel.loadedSubViewIDs[100])
+        XCTAssertEqual(ActionUIModel.shared.getElementInfo(windowUUID: windowUUID), [1: "VStack"])
+    }
+
     func testFullWindowReloadClearsTracking() throws {
         let windowModel = try loadRootWithLoadableView()
         let parentID = 100

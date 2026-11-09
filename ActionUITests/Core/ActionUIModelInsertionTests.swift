@@ -381,6 +381,58 @@ final class ActionUIModelInsertionTests: XCTestCase {
         XCTAssertNil(model.windowModels[windowUUID]?.dynamicallyInsertedIDs[1])
     }
 
+    // MARK: - getElementInfo after insertions and removals
+
+    func testGetElementInfoListsInsertedElements() throws {
+        try loadVStack(id: 1)
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 10))
+
+        let info = model.getElementInfo(windowUUID: windowUUID)
+        XCTAssertEqual(info, [1: "VStack", 10: "Text"])
+    }
+
+    func testGetElementInfoDropsRemovedElementsAndTheirDescendants() throws {
+        // Elements of the loaded document, not inserted ones: the document's own tree keeps them
+        let nested: [String: Any] = ["id": 11, "type": "VStack", "properties": [:], "children": [textDict(id: 12)]]
+        try loadVStack(id: 1, children: [textDict(id: 10), nested])
+        try model.removeElement(windowUUID: windowUUID, viewID: 10)
+        try model.removeElement(windowUUID: windowUUID, viewID: 11)
+
+        let info = model.getElementInfo(windowUUID: windowUUID)
+        XCTAssertEqual(info, [1: "VStack"], "Removed elements, and what was inside them, are no longer listed")
+    }
+
+    func testGetElementInfoReportsTheTypeOfAnElementInsertedWithARemovedOnesID() throws {
+        try loadVStack(id: 1, children: [textDict(id: 10)])
+        try model.removeElement(windowUUID: windowUUID, viewID: 10)
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1,
+                                    dict: ["id": 10, "type": "Button", "properties": ["title": "Go"]])
+
+        let info = model.getElementInfo(windowUUID: windowUUID)
+        XCTAssertEqual(info[10], "Button", "The live element's type, not the removed one's")
+    }
+
+    func testGetElementInfoDropsElementsInsertedInsideARemovedOne() throws {
+        try loadVStack(id: 1, children: [["id": 11, "type": "VStack", "properties": [:]]])
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 11, dict: textDict(id: 20))
+        try model.removeElement(windowUUID: windowUUID, viewID: 11)
+
+        XCTAssertNil(model.windowModels[windowUUID]?.viewModels[20], "An element inserted inside a removed one goes with it")
+        XCTAssertEqual(model.getElementInfo(windowUUID: windowUUID), [1: "VStack"])
+    }
+
+    func testRemovingAnElementKeepsAnElementElsewhereThatReusedTheIDOfOneRemovedFromIt() throws {
+        let nested: [String: Any] = ["id": 11, "type": "VStack", "properties": [:], "children": [textDict(id: 12)]]
+        try loadVStack(id: 1, children: [nested])
+        try model.removeElement(windowUUID: windowUUID, viewID: 12)
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1,
+                                    dict: ["id": 12, "type": "Button", "properties": ["title": "Go"]])
+        try model.removeElement(windowUUID: windowUUID, viewID: 11)
+
+        XCTAssertNotNil(model.windowModels[windowUUID]?.viewModels[12], "The new 12 is not inside 11")
+        XCTAssertEqual(model.getElementInfo(windowUUID: windowUUID), [1: "VStack", 12: "Button"])
+    }
+
     // MARK: - removeElement — error cases
 
     func testRemoveElementRootForbidden() throws {

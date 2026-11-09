@@ -832,34 +832,23 @@ public class ActionUIModel {
 
     // Returns a dictionary mapping positive (user-assigned) view IDs to their view type strings for a given window.
     // Negative IDs are auto-assigned and excluded; 0 is not a valid ID.
-    // Includes elements loaded dynamically by LoadableView (merged into viewModels but not in the element tree).
+    // The window's live elements are exactly its view models: every element of the loaded document,
+    // of an inserted subtree, of LoadableView content and of a presented modal gets one
+    // (WindowModel.populateViewModels, which records the element's type), and removing an element
+    // or dismissing a modal deletes them. The loaded element tree is not the answer: insertElement
+    // and removeElement keep a parent's new children in its view model's dynamicSubviews and leave
+    // the tree as loaded, so a removed element stayed listed, and an element inserted with a
+    // removed one's id was reported with the removed one's type.
     public func getElementInfo(windowUUID: String) -> [Int: String] {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No window found for windowUUID: \(windowUUID)", .warning)
             return [:]
         }
         var result: [Int: String] = [:]
-        if let rootElement = windowModel.element {
-            collectElementInfo(from: rootElement, into: &result)
-        }
-        // Also include positive IDs from viewModels that weren't in the element tree
-        // (e.g. elements loaded dynamically by LoadableView)
-        for (id, viewModel) in windowModel.viewModels {
-            if id > 0 && result[id] == nil {
-                result[id] = viewModel.elementType
-            }
+        for (id, viewModel) in windowModel.viewModels where id > 0 {
+            result[id] = viewModel.elementType
         }
         return result
-    }
-
-    // Recursively collects element IDs and types from the element tree
-    private func collectElementInfo(from element: any ActionUIElementBase, into result: inout [Int: String]) {
-        if element.id > 0 {
-            result[element.id] = element.type
-        }
-        for child in element.childElements {
-            collectElementInfo(from: child, into: &result)
-        }
     }
 
     // MARK: - Window-Level Modal (sheet / fullScreenCover)
@@ -877,8 +866,11 @@ public class ActionUIModel {
             logger.log("presentModal: No WindowModel for windowUUID: \(windowUUID)", .error)
             throw ActionUIError("No WindowModel for windowUUID")
         }
+        // An id the window already had outside a modal is skipped by the merge and stays the other
+        // element's, so dismissing the modal must not delete it.
+        let existingIDs = Set(windowModel.viewModels.keys).subtracting(windowModel.windowModal?.loadedViewIDs ?? [])
         let element = try windowModel.loadModalDescription(from: data, format: format)
-        let loadedIDs = collectAllElementIDs(from: element)
+        let loadedIDs = collectAllElementIDs(from: element).subtracting(existingIDs)
         windowModel.windowModal = WindowModal(
             element: element,
             style: style,
@@ -892,8 +884,11 @@ public class ActionUIModel {
     public func dismissModal(windowUUID: String) {
         guard let windowModel = windowModels[windowUUID],
               let modal = windowModel.windowModal else { return }
+        // With the content a LoadableView in the modal loaded
+        var removedIDs = modal.loadedViewIDs
+        for id in modal.loadedViewIDs { removedIDs.formUnion(windowModel.collectAndRemoveSubViewIDs(for: id)) }
         var updated = windowModel.viewModels
-        for id in modal.loadedViewIDs { updated.removeValue(forKey: id) }
+        for id in removedIDs { updated.removeValue(forKey: id) }
         windowModel.viewModels = updated
         windowModel.windowModal = nil
         if let actionID = modal.onDismissActionID {
