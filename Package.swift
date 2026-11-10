@@ -413,6 +413,11 @@ Package(
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
         // What that library adds: the C adapter, the application functions and the remote server.
         .library(name: "ActionUIStaticHosts", targets: ["ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
+        // The same three one by one, for a host that runs its own application (as an AppKit host does
+        // on macOS) and takes the C adapter and the remote server without ActionUI's application.
+        .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
+        .library(name: "ActionUIRemote", targets: ["ActionUIRemote"]),
+        .library(name: "ActionUIAdwaitaApplication", targets: ["ActionUIAdwaitaApplication"]),
         // libadwaita's and GTK's C API, so an add-on sees GtkWidget as ActionUI's module does.
         .library(name: "CAdwaita", targets: ["CAdwaita"]),
         // The Swift adapter, for Swift programs.

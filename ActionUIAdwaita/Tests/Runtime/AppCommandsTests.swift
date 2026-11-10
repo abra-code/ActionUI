@@ -255,7 +255,8 @@ final class AppCommandsTests: XCTestCase {
         let json = #"[{"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [{"type": "Button", "properties": {"title": "Go"}}]}]"#
         commands.load(json: json, once: "group")
         commands.load(json: json, once: "group")
-        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Go]]", "[About ]"])
+        // Not started: About names GLib's application name (a host's own application sets it)
+        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Go]]", "[About \(commands.appName)]"])
     }
 
     func testShortcutsBecomeGTKAccelerators() {

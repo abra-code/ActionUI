@@ -342,9 +342,10 @@ public final class AdwaitaApplication {
         AppPanels.cancelAll()
         // An application that quits (terminate) leaves its windows open, each holding the
         // application; they go here, with no handler asked or told.
-        for presented in Array(windows.values) {
+        for (windowUUID, presented) in windows {
             presented.closingByHost = true
             presented.renderTree?.detach()
+            WindowRegistry.shared.unregister(windowUUID, window: presented.window)
             gtk_window_destroy(presented.window)
         }
         windows = [:]
@@ -355,6 +356,7 @@ public final class AdwaitaApplication {
         isActive = false
         holdsWhileWindowless = false
         AppCommands.shared.stop()
+        AppCommands.shared.quitHandler = nil
         application = nil
         return status
     }
@@ -402,6 +404,8 @@ public final class AdwaitaApplication {
         hasStarted = true
         applyIcon()
         if let application {
+            // Ctrl+Q asks shouldTerminate, as the user's other ways to quit do.
+            AppCommands.shared.quitHandler = { [weak self] in self?.terminate() }
             AppCommands.shared.start(application, name: name ?? ProcessInfo.processInfo.processName)
         }
         handlers.willFinishLaunching?()
@@ -559,6 +563,7 @@ public final class AdwaitaApplication {
 
         let presented = PresentedWindow(window: window, renderTree: renderTree)
         windows[windowUUID] = presented
+        WindowRegistry.shared.register(windowUUID, window: window, renderTree: renderTree)
         connectBooleanSignal(window, "close-request") { [weak self, weak presented] in
             guard let self, let presented else { return false }
             return !self.windowWillClose(windowUUID, presented)
@@ -567,6 +572,7 @@ public final class AdwaitaApplication {
             guard let self, let presented, self.windows[windowUUID] === presented else { return }
             presented.renderTree?.detach()
             self.windows[windowUUID] = nil
+            WindowRegistry.shared.unregister(windowUUID, window: presented.window)
             AppBundle.setDocumentFolder(nil, window: windowUUID)
         }
         connectSignal(window, "notify::is-active", .instanceAndArgument) { [weak self] in
@@ -734,6 +740,7 @@ public final class AdwaitaApplication {
         }
         if windows[windowUUID] === presented {
             windows[windowUUID] = nil
+            WindowRegistry.shared.unregister(windowUUID, window: presented.window)
             dropRemoteLoad(windowUUID)
             AppBundle.setDocumentFolder(nil, window: windowUUID)
         }

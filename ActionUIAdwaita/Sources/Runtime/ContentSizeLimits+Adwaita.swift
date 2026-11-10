@@ -48,7 +48,7 @@ extension ActionUIModel {
     /// The size limits of the content of the window showing `windowUUID`, or nil when no such
     /// window is on screen with its document.
     public func contentSizeLimits(windowUUID: String) -> ContentSizeLimits? {
-        guard let content = AdwaitaApplication.shared.contentWidget(windowUUID) else {
+        guard let content = WindowRegistry.shared.contentWidget(windowUUID) else {
             return nil
         }
         let widget = Gtk.Widget(content)

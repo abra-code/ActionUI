@@ -203,7 +203,7 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
         // An empty title counts as none.
         let stackTitle = nonEmpty(BaseModifiers(node.properties).navigationTitle)
         let rootTitle = content.flatMap { ScreenTitle.find(in: $0, windowModel: node.windowModel) }
-            ?? stackTitle ?? windowTitle(widget) ?? nonEmpty(AdwaitaApplication.shared.name) ?? ProcessInfo.processInfo.processName
+            ?? stackTitle ?? windowTitle(widget) ?? nonEmpty(swiftString(g_get_application_name())) ?? ProcessInfo.processInfo.processName
         setTitle(state.rootPage.typed(), rootTitle)
         for entry in state.entries {
             guard let page = state.pages[entry.element.id], let child = node.childNodes[entry.element.id] else { continue }

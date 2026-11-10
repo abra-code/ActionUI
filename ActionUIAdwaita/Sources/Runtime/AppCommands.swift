@@ -24,7 +24,14 @@
  actionID for the active window's document, with the element's id as viewID.
 
  Each item is an action of the application, so its shortcut works in every window, as a menu bar
- shortcut does.
+ shortcut does. The application is the one start() gave (ActionUI's own, AdwaitaApplication), else
+ the process's default GApplication once it is registered: a host that runs its own application
+ gets the menu on it with no call, as AppKit code finds NSApp. The actions go on the application
+ when the menu is loaded or a menu button is made, whichever first finds one. Ctrl+Q and its
+ quit action are ActionUI's own application's only (it runs the quit handler, AdwaitaApplication's
+ terminate, which asks its shouldTerminate handler): a host's application quits by its own rules,
+ so the host binds Quit itself, or puts an item at appTermination, as NSApp's terminate goes
+ through the host's own delegate on macOS.
 */
 
 #if canImport(FoundationEssentials)
@@ -42,10 +49,55 @@ final class AppCommands {
     let menu = OwnedObject(adopting: g_menu_new()!)
     /// The CommandMenu and CommandGroup elements loaded, in order.
     private var commands: [[String: Any]] = []
-    private var application: UnsafeMutablePointer<AdwApplication>?
-    private var appName = ""
-    /// The actions installed on the application, removed before a rebuild.
+    /// The application start() gave, until stop().
+    private var startedApplication: OpaquePointer?
+    private var startedName: String?
+    /// The application the actions were installed on, held weakly (GLib clears it when the
+    /// application goes away, so a rebuild never touches a freed one), and the actions' names,
+    /// removed before a rebuild. nonisolated(unsafe) only so deinit can free it: it is used on the
+    /// main thread alone, where GLib also clears it.
+    private nonisolated(unsafe) let installedBox: UnsafeMutablePointer<gpointer?> = {
+        let box = UnsafeMutablePointer<gpointer?>.allocate(capacity: 1)
+        box.initialize(to: nil)
+        return box
+    }()
+    private var installedApplication: OpaquePointer? {
+        get { installedBox.pointee.map(OpaquePointer.init) }
+        set {
+            if let old = installedBox.pointee {
+                g_object_remove_weak_pointer(old.assumingMemoryBound(to: GObject.self), installedBox)
+            }
+            installedBox.pointee = newValue.map { UnsafeMutableRawPointer($0) }
+            if let new = installedBox.pointee {
+                g_object_add_weak_pointer(new.assumingMemoryBound(to: GObject.self), installedBox)
+            }
+        }
+    }
     private var actionNames: [String] = []
+    /// What Ctrl+Q does; nil quits the application.
+    var quitHandler: (@MainActor () -> Void)?
+
+    /// The application the actions go on: start()'s, else the default GApplication once it is
+    /// registered and is a GtkApplication (see the header).
+    private var application: OpaquePointer? {
+        if let startedApplication {
+            return startedApplication
+        }
+        guard let candidate = g_application_get_default(), g_application_get_is_registered(candidate) != 0,
+              g_type_check_instance_is_a(UnsafeMutableRawPointer(candidate).assumingMemoryBound(to: GTypeInstance.self),
+                                         gtk_application_get_type()) != 0 else { return nil }
+        return OpaquePointer(candidate)
+    }
+
+    /// The name About shows: start()'s, else GLib's application name.
+    var appName: String {
+        startedName ?? swiftString(g_get_application_name()) ?? ProcessInfo.processInfo.processName
+    }
+
+    /// The UUID of the active window of the application in use, "" when it shows no document.
+    func activeWindowUUID() -> String {
+        WindowRegistry.shared.activeWindowUUID(of: application)
+    }
 
     static let topTargets = ["newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard",
                              "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize",
@@ -69,6 +121,13 @@ final class AppCommands {
 
     /// A separate instance for tests; the application uses `shared`.
     init() {}
+
+    deinit {
+        if let application = installedBox.pointee {
+            g_object_remove_weak_pointer(application.assumingMemoryBound(to: GObject.self), installedBox)
+        }
+        installedBox.deallocate()
+    }
 
     /// Adds the CommandMenu and CommandGroup elements in `json` (an array of them) to the menu;
     /// nil only makes sure the menu is there. Returns false, logging why, for JSON that is not
@@ -97,21 +156,27 @@ final class AppCommands {
         return load(json: json)
     }
 
-    /// The application started: its actions can be installed.
+    /// ActionUI's own application started: its actions can be installed.
     func start(_ application: UnsafeMutablePointer<AdwApplication>, name: String) {
-        self.application = application
-        appName = name
+        startedApplication = OpaquePointer(application)
+        startedName = name
         rebuild()
     }
 
-    /// The application ended.
+    /// ActionUI's own application ended: its actions went with it.
     func stop() {
-        application = nil
+        startedApplication = nil
+        startedName = nil
+        installedApplication = nil
         actionNames = []
     }
 
-    /// A new menu button showing the menu: the window's primary menu, which F10 also opens.
+    /// A new menu button showing the menu: the window's primary menu, which F10 also opens. The
+    /// actions go on the application now if they are not on it yet.
     func makeMenuButton() -> WidgetPointer {
+        if application != installedApplication {
+            rebuild()
+        }
         let button = gtk_menu_button_new()!
         gtk_menu_button_set_icon_name(OpaquePointer(button), "open-menu-symbolic")
         gtk_menu_button_set_menu_model(OpaquePointer(button), typed(menu.opaquePointer))
@@ -134,13 +199,14 @@ final class AppCommands {
     private func rebuild() {
         let root = menu.opaquePointer
         g_menu_remove_all(root)
-        if let application {
+        if let installedApplication {
             for name in actionNames {
-                g_action_map_remove_action(OpaquePointer(application), name)
-                Self.setAccelerators(application, "app." + name, [])
+                g_action_map_remove_action(installedApplication, name)
+                Self.setAccelerators(installedApplication, "app." + name, [])
             }
         }
         actionNames = []
+        installedApplication = application
 
         // The groups at each target, in the order loaded.
         var groups: [String: [(placement: String, entries: [Entry])]] = [:]
@@ -265,43 +331,48 @@ final class AppCommands {
     private func addAction(actionID: String?, viewID: Int, accelerator: String?, disabled: Bool, about: Bool) -> String {
         let name = "actionui-command-\(actionNames.count)"
         actionNames.append(name)
-        guard let application else { return name }
+        guard let application = installedApplication else { return name }
         let action = OwnedObject(adopting: g_simple_action_new(name, nil)!)
-        connectSignal(action.pointer, "activate", .instanceAndArgument) {
+        connectSignal(action.pointer, "activate", .instanceAndArgument) { [weak self] in
             if about {
                 AppCommands.showAbout()
             } else if let actionID {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: AdwaitaApplication.shared.activeWindowUUID(),
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: self?.activeWindowUUID() ?? "",
                                                    viewID: viewID, viewPartID: 0, context: nil)
             }
         }
         g_simple_action_set_enabled(action.opaquePointer, disabled ? 0 : 1)
-        g_action_map_add_action(OpaquePointer(application), action.opaquePointer)
+        g_action_map_add_action(application, action.opaquePointer)
         if let accelerator {
             Self.setAccelerators(application, "app." + name, [accelerator])
         }
         return name
     }
 
-    /// Ctrl+Q quits, unless appTermination is replaced.
+    /// Ctrl+Q quits ActionUI's own application, unless appTermination is replaced. Not on a host's:
+    /// see the header.
     private func installQuit(replaced: Bool) {
-        guard let application, !replaced else { return }
+        guard let application = installedApplication, startedApplication != nil, !replaced else { return }
         let name = "actionui-quit"
         actionNames.append(name)
         let action = OwnedObject(adopting: g_simple_action_new(name, nil)!)
-        connectSignal(action.pointer, "activate", .instanceAndArgument) {
-            AdwaitaApplication.shared.terminate()
+        connectSignal(action.pointer, "activate", .instanceAndArgument) { [weak self] in
+            if let quitHandler = self?.quitHandler {
+                quitHandler()
+            } else {
+                g_application_quit(typed(application))
+            }
         }
-        g_action_map_add_action(OpaquePointer(application), action.opaquePointer)
+        g_action_map_add_action(application, action.opaquePointer)
         Self.setAccelerators(application, "app." + name, ["<Control>q"])
     }
 
-    private static func setAccelerators(_ application: UnsafeMutablePointer<AdwApplication>, _ action: String, _ accelerators: [String]) {
+    private static func setAccelerators(_ application: OpaquePointer, _ action: String, _ accelerators: [String]) {
         var pointers = accelerators.map { strdup($0) }
         pointers.append(nil)
         pointers.withUnsafeBufferPointer { buffer in
             buffer.baseAddress!.withMemoryRebound(to: UnsafePointer<CChar>?.self, capacity: buffer.count) { list in
-                gtk_application_set_accels_for_action(typed(OpaquePointer(application)), action, list)
+                gtk_application_set_accels_for_action(typed(application), action, list)
             }
         }
         for pointer in pointers {
@@ -316,7 +387,8 @@ final class AppCommands {
         if let icon = swiftString(gtk_window_get_default_icon_name()) {
             adw_about_dialog_set_application_icon(OpaquePointer(dialog), icon)
         }
-        let parent = AdwaitaApplication.shared.gtkWindow(AdwaitaApplication.shared.activeWindowUUID())
+        // The active window, whether or not it shows a document (a host's own window may not)
+        let parent = WindowRegistry.activeWindow(of: AppCommands.shared.application)
         adw_dialog_present(typed(OpaquePointer(dialog)), parent.map { WidgetPointer(OpaquePointer($0)) })
     }
 
