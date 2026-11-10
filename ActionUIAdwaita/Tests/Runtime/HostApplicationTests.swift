@@ -73,6 +73,21 @@ final class HostApplicationTests: XCTestCase {
         return application
     }
 
+    /// The first widget of `type` at or below `widget`, depth first.
+    private func descendant(of widget: WidgetPointer, type: GType) -> WidgetPointer? {
+        if g_type_check_instance_is_a(UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GTypeInstance.self), type) != 0 {
+            return widget
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            if let found = descendant(of: current, type: type) {
+                return found
+            }
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return nil
+    }
+
     private func release(_ application: UnsafeMutablePointer<AdwApplication>) {
         if g_application_get_default() == UnsafeMutablePointer<GApplication>(OpaquePointer(application)) {
             g_application_set_default(nil)
@@ -155,5 +170,59 @@ final class HostApplicationTests: XCTestCase {
         g_object_ref_sink(UnsafeMutableRawPointer(button))
         g_object_unref(UnsafeMutableRawPointer(button))
         XCTAssertNotNil(g_action_map_lookup_action(map, "actionui-command-0"), "a menu button installs the actions")
+    }
+
+    // MARK: A document in a window the host made (HostWindow, actionUILoadIntoHostWindow*)
+
+    func testAHostWindowIsFilledRegisteredAndSizedAndKeepsItsModelAfterItGoes() throws {
+        let application = try makeRegisteredHostApplication("com.abracode.actionui.tests.host.fill")
+        defer { release(application) }
+        let window: UnsafeMutablePointer<GtkWindow> = typed(adw_application_window_new(typed(application))!)
+        var destroyed = false
+        defer { if !destroyed { gtk_window_destroy(window) } }
+        XCTAssertTrue(HostWindow.load(json: Self.document, into: UnsafeMutableRawPointer(window), windowUUID: windowUUID, subtitle: "From the host"))
+
+        // Filled as ActionUI's own windows are: the toolbar view, the document in the toast overlay
+        let toolbar = try XCTUnwrap(adw_application_window_get_content(typed(window)))
+        XCTAssertNotEqual(g_type_check_instance_is_a(UnsafeMutableRawPointer(toolbar).assumingMemoryBound(to: GTypeInstance.self), adw_toolbar_view_get_type()), 0)
+        let overlay = try XCTUnwrap(adw_toolbar_view_get_content(OpaquePointer(toolbar)))
+        XCTAssertEqual(adw_toast_overlay_get_child(OpaquePointer(overlay)), WindowRegistry.shared.contentWidget(windowUUID))
+        XCTAssertEqual(WindowSubtitle.subtitle(of: window), "From the host")
+        let header = try XCTUnwrap(descendant(of: WidgetPointer(OpaquePointer(toolbar)), type: adw_header_bar_get_type()), "a header bar")
+        XCTAssertNotNil(descendant(of: header, type: gtk_menu_button_get_type()), "with the primary menu's button")
+        XCTAssertNotNil(WindowRegistry.shared.presenter(windowUUID), "the document's modals, alerts and toasts show on it")
+        var width: Int32 = 0, height: Int32 = 0
+        gtk_window_get_default_size(window, &width, &height)
+        XCTAssertGreaterThan(width, 0, "a default size from the document")
+        XCTAssertGreaterThan(height, 0)
+        XCTAssertEqual(WindowRegistry.shared.gtkWindow(windowUUID), window, "registered")
+
+        // The host closes it: the window leaves the registry, its model stays for the host's code
+        gtk_window_destroy(window)
+        destroyed = true
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertNil(WindowRegistry.shared.gtkWindow(windowUUID))
+        XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID], "the model is the host's to remove")
+        ActionUIModel.shared.removeWindow(windowUUID)
+        XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID])
+    }
+
+    func testAPlainGtkWindowIsRefusedAndABadDocumentShowsWhy() throws {
+        // Not an AdwApplicationWindow or AdwWindow: nothing done
+        let plain: UnsafeMutablePointer<GtkWindow> = typed(gtk_window_new()!)
+        defer { gtk_window_destroy(plain) }
+        XCTAssertFalse(HostWindow.load(json: Self.document, into: UnsafeMutableRawPointer(plain), windowUUID: windowUUID, subtitle: nil))
+        XCTAssertNil(WindowRegistry.shared.gtkWindow(windowUUID))
+        XCTAssertNil(gtk_window_get_child(plain))
+
+        // A document that does not load: false, and the window shows why
+        let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        defer { gtk_window_destroy(window) }
+        XCTAssertFalse(HostWindow.load(json: "{ not json", into: UnsafeMutableRawPointer(window), windowUUID: windowUUID, subtitle: nil))
+        let toolbar = try XCTUnwrap(adw_window_get_content(typed(window)))
+        let overlay = try XCTUnwrap(adw_toolbar_view_get_content(OpaquePointer(toolbar)))
+        let shown = try XCTUnwrap(adw_toast_overlay_get_child(OpaquePointer(overlay)))
+        XCTAssertNotEqual(g_type_check_instance_is_a(UnsafeMutableRawPointer(shown).assumingMemoryBound(to: GTypeInstance.self), gtk_label_get_type()), 0, "the error, as a label")
+        XCTAssertNil(WindowRegistry.shared.contentWidget(windowUUID), "no document content")
     }
 }

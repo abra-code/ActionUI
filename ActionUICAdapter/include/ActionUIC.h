@@ -172,6 +172,17 @@ void actionUIDismissToast(const char *windowUUID) ACTIONUI_NOEXCEPT;
 #if defined(__APPLE__)
 void *actionUILoadHostingControllerFromURL(const char *urlString, const char *windowUUID, bool isContentView) ACTIONUI_NOEXCEPT;  // NSHostingController on macOS, UIView on iOS; retained
 #endif
+// Linux only (ActionUIC+Linux.swift), the counterpart of the hosting controller for a host that runs its own
+// GtkApplication: fills gtkWindow (an AdwApplicationWindow or AdwWindow the host made, not presented yet) with
+// the document as ActionUI fills its own windows (header bar with the toolbar items and the primary menu,
+// toasts, scrolling, the document's modals and alerts) and sets its default size; subtitle may be NULL. The
+// host presents and closes the window; closing it keeps the model, which actionUIRemoveWindow removes. The
+// document is the window's content (not a WindowGroup).
+// false (error set) when the document cannot be loaded (the window shows why) or the window cannot be filled.
+#if defined(__linux__)
+bool actionUILoadIntoHostWindowFromURL(void *gtkWindow, const char *urlString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;  // a path or file URL
+bool actionUILoadIntoHostWindowFromJSON(void *gtkWindow, const char *jsonString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;
+#endif
 
 #ifdef __cplusplus
 }
