@@ -129,6 +129,7 @@ Package(
             name: "ActionUIViewer",
             dependencies: [
                 .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "CAdwaita", package: "ActionUI"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),

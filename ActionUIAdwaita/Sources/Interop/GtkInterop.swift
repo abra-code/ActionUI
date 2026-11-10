@@ -15,17 +15,17 @@
 
 import CAdwaita
 
-typealias WidgetPointer = UnsafeMutablePointer<GtkWidget>
+package typealias WidgetPointer = UnsafeMutablePointer<GtkWidget>
 
-@inline(__always) func typed<T>(_ pointer: OpaquePointer) -> UnsafeMutablePointer<T> {
+@inline(__always) package func typed<T>(_ pointer: OpaquePointer) -> UnsafeMutablePointer<T> {
     UnsafeMutablePointer<T>(pointer)
 }
 
-@inline(__always) func typed<T, U>(_ pointer: UnsafeMutablePointer<U>) -> UnsafeMutablePointer<T> {
+@inline(__always) package func typed<T, U>(_ pointer: UnsafeMutablePointer<U>) -> UnsafeMutablePointer<T> {
     UnsafeMutablePointer<T>(OpaquePointer(pointer))
 }
 
-@inline(__always) func opaque<U>(_ pointer: UnsafeMutablePointer<U>) -> OpaquePointer {
+@inline(__always) package func opaque<U>(_ pointer: UnsafeMutablePointer<U>) -> OpaquePointer {
     OpaquePointer(pointer)
 }
 
@@ -37,14 +37,14 @@ typealias WidgetPointer = UnsafeMutablePointer<GtkWidget>
 // under its C name, or in place as Type(rawValue: 0) for no flags. The values are GLib's ABI.
 
 /// G_FILE_TEST_IS_REGULAR
-let fileTestIsRegular = GFileTest(rawValue: 1 << 0)
+package let fileTestIsRegular = GFileTest(rawValue: 1 << 0)
 /// G_APPLICATION_NON_UNIQUE
-let applicationNonUnique = GApplicationFlags(rawValue: 1 << 5)
+package let applicationNonUnique = GApplicationFlags(rawValue: 1 << 5)
 /// G_LOG_LEVEL_CRITICAL
 let logLevelCritical = GLogLevelFlags(rawValue: 1 << 3)
 
 /// A C string GTK returns (not owned by the caller), as a Swift string.
-func swiftString(_ text: UnsafePointer<CChar>?) -> String? {
+package func swiftString(_ text: UnsafePointer<CChar>?) -> String? {
     guard let text else { return nil }
     return String(cString: text)
 }
@@ -53,9 +53,9 @@ func swiftString(_ text: UnsafePointer<CChar>?) -> String? {
 
 /// A Swift closure handed to GLib (a signal handler, a timer): retained while GLib holds it, and
 /// released by GLib's destroy notification (releaseClosureBox, releaseObject).
-@MainActor final class CallbackBox<Run> {
+@MainActor package final class CallbackBox<Run> {
     let run: Run
-    init(_ run: Run) { self.run = run }
+    package init(_ run: Run) { self.run = run }
 }
 
 /// The box behind a callback's user data, which GLib passes back unchanged.
@@ -268,7 +268,7 @@ func connectTextDeleting(_ buffer: UnsafeMutableRawPointer, _ run: @escaping @Ma
 }
 
 /// The C signature of a signal's handler, which decides the trampoline.
-enum SignalShape {
+package enum SignalShape {
     /// (instance, user data): "clicked", "activate", "changed", "map", "destroy"
     case instanceOnly
     /// (instance, argument, user data): "notify::<property>"
@@ -282,7 +282,7 @@ enum SignalShape {
 /// the widget. With `after`, `run` runs after the signal's default handler (which does the work of
 /// "undo"). Returns GLib's handler id (0 if the signal does not exist, which GLib logs).
 @MainActor @discardableResult
-func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape, after: Bool = false,
+package func connectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String, _ shape: SignalShape, after: Bool = false,
                    _ run: @escaping @MainActor () -> Void) -> gulong {
     let callback: GCallback
     switch shape {
@@ -345,7 +345,7 @@ private let booleanTrampoline: @convention(c) (gpointer?, gpointer?) -> gboolean
 /// returns its answer to GTK: for "close-request", true keeps the window open. Returns GLib's
 /// handler id (0 if the signal does not exist).
 @MainActor @discardableResult
-func connectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
+package func connectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
                           _ run: @escaping @MainActor () -> Bool) -> gulong {
     connectBox(instance, signal, unsafeBitCast(booleanTrampoline, to: GCallback.self), run as BooleanRun)
 }

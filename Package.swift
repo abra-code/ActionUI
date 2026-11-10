@@ -518,7 +518,7 @@ Package(
         ),
         .target(
             name: "ActionUIAdwaitaApplication",
-            dependencies: ["ActionUI", "ActionUIAppHeaders", "ActionUIRemote"],
+            dependencies: ["ActionUI", "CAdwaita", "ActionUIAppHeaders", "ActionUIRemote"],
             path: "ActionUIAdwaitaApplication"
         ),
         // The Swift adapter without its SwiftUI views (ActionUISwift+SwiftUI.swift), for Swift programs.

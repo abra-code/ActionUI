@@ -22,12 +22,12 @@ private let drainMainQueue: @convention(c) (Int32, GIOCondition, gpointer?) -> g
     return 1  // G_SOURCE_CONTINUE
 }
 
-@MainActor enum MainLoopBridge {
+@MainActor package enum MainLoopBridge {
     private static var installed = false
 
     /// Watches libdispatch's main queue from the default GLib main context. Call it once, on the
     /// main thread, before the main loop runs; later calls do nothing.
-    static func install() {
+    package static func install() {
         guard !installed else { return }
         let descriptor = _dispatch_get_main_queue_handle_4CF()
         guard descriptor >= 0 else {

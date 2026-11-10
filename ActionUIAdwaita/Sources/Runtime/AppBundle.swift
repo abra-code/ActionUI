@@ -26,10 +26,10 @@ import CAdwaita
 import Glibc
 
 @MainActor
-enum AppBundle {
+package enum AppBundle {
     /// The folder resources are looked up in: the host's (ActionUIResourceFolder), else the running
     /// program's folder; nil only when neither is known.
-    static var folder: String? { ActionUIResourceFolder.path ?? programFolder }
+    package static var folder: String? { ActionUIResourceFolder.path ?? programFolder }
     private static let programFolder = defaultFolder()
 
     /// The folder of each window's document, by window, when it came from a file.
@@ -63,7 +63,7 @@ enum AppBundle {
 
     /// What `Info.json` in `folder` says about the app: nil when there is no such file, or it is
     /// not a JSON object of the expected keys (logged).
-    static func info(in folder: String?) -> AppInfo? {
+    package static func info(in folder: String?) -> AppInfo? {
         guard let path = file("Info.json", in: folder) else { return nil }
         guard let data = FileManager.default.contents(atPath: path) else {
             ActionUIModel.shared.logger.log("\(path) could not be read; it is ignored", .warning)
@@ -80,7 +80,7 @@ enum AppBundle {
     // MARK: Documents
 
     /// Records the folder of the document a window shows (nil: not from a file).
-    static func setDocumentFolder(_ folder: String?, window windowUUID: String) {
+    package static func setDocumentFolder(_ folder: String?, window windowUUID: String) {
         documentFolders[windowUUID] = folder
     }
 
@@ -88,10 +88,16 @@ enum AppBundle {
         documentFolders[windowUUID]
     }
 
+    /// A document's format by its URL ("json" or "plist"), as Core reads it (ActionUIDocumentLoader),
+    /// for the application module: Core is also built for Apple, where it takes no package access.
+    package static func documentFormat(of url: URL) -> String {
+        ActionUIDocumentLoader.format(of: url)
+    }
+
     // MARK: Icon theme
 
     /// Puts the bundle on the icon theme's search path, once per folder.
-    static func addToIconTheme() {
+    package static func addToIconTheme() {
         guard let folder, !iconFoldersAdded.contains(folder), let display = gdk_display_get_default() else { return }
         iconFoldersAdded.insert(folder)
         gtk_icon_theme_add_search_path(gtk_icon_theme_get_for_display(display), folder)
@@ -100,14 +106,14 @@ enum AppBundle {
 
 /// An app's `Info.json`. Other keys (a desktop entry's summary and categories) are for the tools
 /// that install the app; the runtime does not read them.
-struct AppInfo: Decodable, Equatable {
+package struct AppInfo: Decodable, Equatable {
     /// The reverse-DNS application ID.
-    var applicationID: String?
+    package var applicationID: String?
     /// The application's name.
-    var name: String?
+    package var name: String?
     /// The windows' icon: a PNG or SVG file in the bundle (a path relative to it), else an icon
     /// theme name or an absolute path.
-    var icon: String?
+    package var icon: String?
 
     private enum CodingKeys: String, CodingKey {
         case applicationID, name, icon
@@ -115,7 +121,7 @@ struct AppInfo: Decodable, Equatable {
 
     /// The icon as AdwaitaApplication takes it: the path of the file at `icon` relative to
     /// `folder`, else the value itself.
-    func iconValue(in folder: String?) -> String? {
+    package func iconValue(in folder: String?) -> String? {
         guard let icon else { return nil }
         if let folder, !icon.hasPrefix("/") {
             let path = URL(fileURLWithPath: folder).appendingPathComponent(icon).path
@@ -127,7 +133,7 @@ struct AppInfo: Decodable, Equatable {
 
 extension AppInfo {
     /// An empty string counts as a key left out (a template not filled in).
-    init(from decoder: Decoder) throws {
+    package init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         func value(_ key: CodingKeys) throws -> String? {
             try container.decodeIfPresent(String.self, forKey: key).flatMap { $0.isEmpty ? nil : $0 }

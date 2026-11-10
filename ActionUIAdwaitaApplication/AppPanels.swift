@@ -1,4 +1,4 @@
-// Sources/Runtime/AppPanels.swift
+// ActionUIAdwaitaApplication/AppPanels.swift
 /*
  The application's standalone alert and its file panels, behind the synchronous C calls
  actionUIAppRunAlert, actionUIAppRunOpenPanel and actionUIAppRunSavePanel: an AdwAlertDialog and a
@@ -33,6 +33,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import CAdwaita
+import ActionUI
 
 // MARK: - The requests, read from the JSON
 

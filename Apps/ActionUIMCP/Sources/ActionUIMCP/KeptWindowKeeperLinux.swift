@@ -12,6 +12,7 @@
 #if os(Linux)
 import FoundationEssentials
 import ActionUI
+import ActionUIAdwaitaApplication
 import ActionUISwiftAdapter
 import MCPStdio
 

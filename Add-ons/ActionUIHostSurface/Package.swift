@@ -51,6 +51,7 @@ let package = Package(
             name: "HostSurfaceTests",
             dependencies: [
                 "ActionUIHostSurface",
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "CAdwaita", package: "ActionUI"),
             ],
             path: "Tests",

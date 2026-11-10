@@ -22,7 +22,7 @@
 import CAdwaita
 
 @MainActor
-enum WindowSubtitle {
+package enum WindowSubtitle {
     private final class Text {
         let value: String
         init(_ value: String) { self.value = value }
@@ -31,12 +31,12 @@ enum WindowSubtitle {
     private static let key = AttachKey<Text>("actionui-window-subtitle")
 
     /// Keeps `subtitle` on `window`, for the sheets presented over it.
-    static func set(_ subtitle: String, on window: UnsafeMutablePointer<GtkWindow>) {
+    package static func set(_ subtitle: String, on window: UnsafeMutablePointer<GtkWindow>) {
         attach(Text(subtitle), to: UnsafeMutableRawPointer(window), key: key)
     }
 
     /// The subtitle kept on `window`, nil when it has none.
-    static func subtitle(of window: UnsafeMutablePointer<GtkWindow>) -> String? {
+    package static func subtitle(of window: UnsafeMutablePointer<GtkWindow>) -> String? {
         attached(on: UnsafeMutableRawPointer(window), key: key)?.value
     }
 
@@ -48,7 +48,7 @@ enum WindowSubtitle {
     }
 
     /// The line showing `subtitle`.
-    static func line(_ subtitle: String) -> WidgetPointer {
+    package static func line(_ subtitle: String) -> WidgetPointer {
         let label = gtk_label_new(subtitle)!
         gtk_label_set_ellipsize(opaque(label), PANGO_ELLIPSIZE_END)
         gtk_label_set_single_line_mode(opaque(label), 1)

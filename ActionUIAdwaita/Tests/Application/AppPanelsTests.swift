@@ -17,7 +17,7 @@ import Dispatch
 import Glibc
 #endif
 @testable import ActionUI
-import ActionUIAdwaitaApplication
+@testable import ActionUIAdwaitaApplication
 
 final class AppPanelRequestTests: XCTestCase {
     func testAPanelKnowsExtensionsMimeTypesAndTheCommonIdentifiers() {

@@ -18,7 +18,7 @@ import CSoup
 
 /// Bytes GLib owns (a GBytes), released with the last Swift reference. GBytes is immutable and its
 /// reference count atomic, so the bytes can be read on another thread (decoding an image).
-final class LoadedBytes: @unchecked Sendable {
+package final class LoadedBytes: @unchecked Sendable {
     let bytes: OpaquePointer
 
     init(adopting bytes: OpaquePointer) {
@@ -26,7 +26,7 @@ final class LoadedBytes: @unchecked Sendable {
     }
 
     /// A copy of the bytes.
-    var data: Data {
+    package var data: Data {
         var size: gsize = 0
         guard let start = g_bytes_get_data(bytes, &size), size > 0 else { return Data() }
         return Data(bytes: start, count: Int(size))
@@ -38,11 +38,11 @@ final class LoadedBytes: @unchecked Sendable {
 }
 
 /// An asynchronous call's completion: runs with the call's GAsyncResult.
-typealias ReadyRun = @MainActor (OpaquePointer?) -> Void
+package typealias ReadyRun = @MainActor (OpaquePointer?) -> Void
 
 /// GIO's ready callback for one call: runs the box's closure once, then releases the box. Its user
 /// data is `Unmanaged.passRetained(CallbackBox(run)).toOpaque()` (also used by ShareLink's D-Bus call).
-let readyTrampoline: @convention(c) (UnsafeMutablePointer<GObject>?, OpaquePointer?, gpointer?) -> Void = { _, result, data in
+package let readyTrampoline: @convention(c) (UnsafeMutablePointer<GObject>?, OpaquePointer?, gpointer?) -> Void = { _, result, data in
     guard let data else { return }
     let box = Unmanaged<CallbackBox<ReadyRun>>.fromOpaque(data).takeRetainedValue()
     // A pointer is not Sendable; its address is. GIO calls back on the main thread.
@@ -51,7 +51,7 @@ let readyTrampoline: @convention(c) (UnsafeMutablePointer<GObject>?, OpaquePoint
 }
 
 @MainActor
-enum URLLoader {
+package enum URLLoader {
     /// How long one step of an http request (connecting, a read, a write) may wait before the
     /// request fails, in seconds; a server that keeps sending slowly can take longer in all.
     static let timeout: guint = 30
@@ -59,7 +59,7 @@ enum URLLoader {
     private static var session: UnsafeMutablePointer<SoupSession>?
 
     /// Loads `url`'s bytes and passes them to `completion`, or nil (see the header).
-    static func fetch(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
+    package static func fetch(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
         // Lowercase and interned by GLib: not freed.
         switch swiftString(g_uri_peek_scheme(url)) {
         case "http", "https":

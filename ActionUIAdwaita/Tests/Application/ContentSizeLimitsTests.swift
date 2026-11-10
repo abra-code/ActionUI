@@ -14,7 +14,7 @@ import XCTest
 import CAdwaita
 import Glibc
 @testable import ActionUI
-import ActionUIAdwaitaApplication
+@testable import ActionUIAdwaitaApplication
 
 /// What the did-finish-launching handler measured, by window; a C function pointer cannot capture.
 nonisolated(unsafe) private var measured: [String: ContentSizeLimits?] = [:]

@@ -23,8 +23,8 @@ import Foundation
 import CAdwaita
 
 @MainActor
-final class WindowRegistry {
-    static let shared = WindowRegistry()
+package final class WindowRegistry {
+    package static let shared = WindowRegistry()
 
     /// A window showing a document: its GTK window and its render tree (nil while it shows why its
     /// document could not be loaded).
@@ -46,7 +46,7 @@ final class WindowRegistry {
     init() {}
 
     /// Registers `window` as the one showing `windowUUID`, in place of any before it.
-    func register(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?) {
+    package func register(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?) {
         MainLoopBridge.install()
         if let old = entries[windowUUID] {
             Self.disconnect(old)
@@ -60,7 +60,7 @@ final class WindowRegistry {
 
     /// Forgets the window showing `windowUUID`, if it is `window` (a newer window under the same
     /// UUID stays registered).
-    func unregister(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>) {
+    package func unregister(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>) {
         guard let entry = entries[windowUUID], entry.window == window else { return }
         Self.disconnect(entry)
         entries[windowUUID] = nil

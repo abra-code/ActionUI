@@ -15,7 +15,7 @@ import CAdwaita
 import Dispatch
 import Glibc
 @testable import ActionUI
-import ActionUIAdwaitaApplication
+@testable import ActionUIAdwaitaApplication
 
 /// What the C handlers record; C function pointers cannot capture, so they write here.
 nonisolated(unsafe) private var events: [String] = []

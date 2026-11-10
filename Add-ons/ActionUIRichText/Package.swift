@@ -51,6 +51,7 @@ let package = Package(
             name: "RichTextTests",
             dependencies: [
                 "ActionUIRichText",
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "CAdwaita", package: "ActionUI"),
                 .product(name: "RichText", package: "RichText"),
             ],

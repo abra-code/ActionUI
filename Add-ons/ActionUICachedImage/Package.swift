@@ -53,6 +53,7 @@ let package = Package(
             name: "CachedImageTests",
             dependencies: [
                 "ActionUICachedImage",
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "CAdwaita", package: "ActionUI"),
                 .product(name: "AsyncImageCache", package: "AsyncImageCache"),
             ],

@@ -27,7 +27,7 @@
 import CAdwaita
 
 @MainActor
-final class ScreenBar {
+package final class ScreenBar {
     enum Slot: CaseIterable {
         case leading, principal, trailing, search, overflow, bottom
     }
@@ -61,7 +61,7 @@ final class ScreenBar {
     /// The bar on `header` (an AdwHeaderBar), with its bottom bar in `toolbarView` (the AdwToolbarView
     /// holding the header bar and the screen). With `principalChanged`, the caller shows
     /// `principalWidget` as the title widget itself.
-    init(header: WidgetPointer, toolbarView: WidgetPointer?, principalChanged: (() -> Void)? = nil) {
+    package init(header: WidgetPointer, toolbarView: WidgetPointer?, principalChanged: (() -> Void)? = nil) {
         StyleSheet.shared.installFixedRules("actionui-overflow", Self.overflowRules)
         self.header = OwnedObject(retaining: header)
         start = OwnedObject(retaining: gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6)!)

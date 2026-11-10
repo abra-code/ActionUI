@@ -5,20 +5,31 @@
  Presenting it in a GTK window comes with the application runtime.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
 
 @MainActor
-final class AdwaitaWindow {
+package final class AdwaitaWindow {
     let windowModel: WindowModel
     /// The root element's node; nil when the window model has no element loaded.
-    private(set) var root: RenderNode?
+    package private(set) var root: RenderNode?
     /// The window's modals, dialogs and toasts, once the window is on screen.
-    private(set) var presenter: WindowPresenter?
+    package private(set) var presenter: WindowPresenter?
 
     var windowUUID: String { windowModel.windowUUID }
 
     /// The window's content: the root node's box.
-    var contentWidget: WidgetPointer? { root?.outerWidget }
+    package var contentWidget: WidgetPointer? { root?.outerWidget }
+
+    /// The tree for the document loaded under `windowUUID`, nil when none is loaded: for the
+    /// application module, which cannot see the model's internal window models.
+    package static func forWindow(_ windowUUID: String) -> AdwaitaWindow? {
+        ActionUIModel.shared.windowModels[windowUUID].map { AdwaitaWindow(windowModel: $0) }
+    }
 
     /// Builds and syncs the tree for the element loaded into `windowModel`.
     init(windowModel: WindowModel) {
@@ -42,19 +53,19 @@ final class AdwaitaWindow {
     static let headerBarTypes: Set<String> = ["NavigationStack", "NavigationSplitView"]
 
     /// Whether the document brings its own header bars (its root is a navigation container).
-    var showsOwnHeaderBars: Bool {
+    package var showsOwnHeaderBars: Bool {
         root.map { Self.headerBarTypes.contains($0.element.type) } ?? false
     }
 
     /// Starts showing the window model's modals, dialogs and toasts: dialogs over `parent`'s
     /// window, toasts in `toastOverlay` (an AdwToastOverlay).
-    func startPresenting(over parent: WidgetPointer, toastOverlay: OpaquePointer) {
+    package func startPresenting(over parent: WidgetPointer, toastOverlay: OpaquePointer) {
         presenter?.stop()
         presenter = WindowPresenter(windowModel: windowModel, parent: parent, toastOverlay: toastOverlay)
     }
 
     /// The window is going away: its nodes leave the tree and its presentations come down.
-    func detach() {
+    package func detach() {
         presenter?.stop()
         presenter = nil
         root?.detach()
@@ -64,5 +75,14 @@ final class AdwaitaWindow {
     isolated deinit {
         presenter?.stop()
         root?.detach()
+    }
+}
+
+@MainActor
+extension ActionUIModel {
+    /// Loads a window's document into the model under `windowUUID` (loadDescription), for the
+    /// application module: Core is also built for Apple, where it takes no package access.
+    package func loadWindowDocument(_ data: Data, format: String, windowUUID: String) throws {
+        _ = try loadDescription(from: data, format: format, windowUUID: windowUUID)
     }
 }

@@ -1,4 +1,4 @@
-// Sources/Runtime/OffscreenWindow.swift
+// ActionUIAdwaitaApplication/OffscreenWindow.swift
 /*
  A document's window drawn where the user never sees it (AdwaitaApplication.renderOffscreen), for a
  host that shows an agent or a test what a document looks like before, or instead of, showing it.
@@ -24,6 +24,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import CAdwaita
+import ActionUI
 
 extension AdwaitaApplication {
     @MainActor

@@ -7,6 +7,7 @@
 
 import XCTest
 import ActionUI
+import ActionUIAdwaitaApplication
 import AsyncImageCache
 import CAdwaita
 import Dispatch

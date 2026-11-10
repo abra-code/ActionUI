@@ -14,8 +14,8 @@
 import Dispatch
 
 @MainActor
-final class SyncScheduler {
-    static let shared = SyncScheduler()
+package final class SyncScheduler {
+    package static let shared = SyncScheduler()
 
     private var dirty: [ObjectIdentifier: RenderNode] = [:]
     private var flushQueued = false
@@ -34,7 +34,7 @@ final class SyncScheduler {
     static let maximumRounds = 64
 
     /// Syncs the dirty nodes, parents first, and those they mark dirty, in rounds.
-    func flush() {
+    package func flush() {
         var rounds = 0
         repeat {
             flushQueued = false

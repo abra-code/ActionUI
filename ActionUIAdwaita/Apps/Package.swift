@@ -23,6 +23,7 @@ let package = Package(
             name: "ActionUIAdwaitaDemo",
             dependencies: [
                 .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "CAdwaita", package: "ActionUI"),
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
                 .product(name: "ActionUIDemoHandlers", package: "ActionUI"),

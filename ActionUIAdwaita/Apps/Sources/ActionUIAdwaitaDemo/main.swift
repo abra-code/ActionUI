@@ -29,6 +29,7 @@ import Dispatch
 import FoundationEssentials
 import Glibc
 import ActionUI
+import ActionUIAdwaitaApplication
 import ActionUICachedImage
 import ActionUIDemoHandlers
 import ActionUIDiff

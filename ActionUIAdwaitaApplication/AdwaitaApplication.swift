@@ -1,4 +1,4 @@
-// Sources/Runtime/AdwaitaApplication.swift
+// ActionUIAdwaitaApplication/AdwaitaApplication.swift
 /*
  The application on Linux: an AdwApplication, its windows and its lifecycle, which the
  actionUIApp* C functions drive (on Apple, ActionUIAppKitApplication does this with NSApplication).
@@ -70,6 +70,7 @@ import FoundationEssentials
 import Foundation
 #endif
 import CAdwaita
+import ActionUI
 import Dispatch
 
 @MainActor
@@ -549,7 +550,7 @@ public final class AdwaitaApplication {
         if let commands = loaded.commands {
             AppCommands.shared.load(json: commands.json, once: commands.key)
         }
-        let renderTree = loaded.error == nil ? ActionUIModel.shared.windowModels[windowUUID].map { AdwaitaWindow(windowModel: $0) } : nil
+        let renderTree = loaded.error == nil ? AdwaitaWindow.forWindow(windowUUID) : nil
         let content = renderTree?.contentWidget ?? errorContent(loaded.error ?? "The document has no content")
 
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_application_window_new(typed(application))!)
@@ -664,11 +665,10 @@ public final class AdwaitaApplication {
             ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): the application has not started; nothing to render with", .error)
             return nil
         }
-        guard prepared.error == nil, let windowModel = ActionUIModel.shared.windowModels[prepared.windowUUID] else {
+        guard prepared.error == nil, let renderTree = AdwaitaWindow.forWindow(prepared.windowUUID) else {
             ActionUIModel.shared.logger.log("Window \(prepared.windowUUID): the document could not be loaded; nothing to render", .error)
             return nil
         }
-        let renderTree = AdwaitaWindow(windowModel: windowModel)
         guard let content = renderTree.contentWidget else { return nil }
         // Not an application window: GTK would count it among the application's windows.
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
@@ -786,7 +786,7 @@ public final class AdwaitaApplication {
                 logger.log("Window \(windowUUID): \(text) could not be loaded", .error)
                 return ("\(text) could not be loaded", title, nil)
             }
-            let format = ActionUIDocumentLoader.format(of: url)
+            let format = AppBundle.documentFormat(of: url)
             let document = windowGroup(data, format: format)
             do {
                 try loadDocument(document, format: format, windowUUID: windowUUID)
@@ -804,7 +804,7 @@ public final class AdwaitaApplication {
             }
             var title = url.deletingPathExtension().lastPathComponent
             do {
-                let format = ActionUIDocumentLoader.format(of: url)
+                let format = AppBundle.documentFormat(of: url)
                 let document = windowGroup(try Data(contentsOf: url), format: format)
                 title = document.title ?? title
                 AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
@@ -867,7 +867,7 @@ public final class AdwaitaApplication {
         if let error = document.error {
             throw DocumentError(description: error)
         }
-        _ = try ActionUIModel.shared.loadDescription(from: document.data, format: format, windowUUID: windowUUID)
+        try ActionUIModel.shared.loadWindowDocument(document.data, format: format, windowUUID: windowUUID)
     }
 
     /// Whether `text` is an http or https URL, which loads before its window appears.

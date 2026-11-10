@@ -148,6 +148,7 @@ Package(
             dependencies: [
                 "MCPStdio",
                 .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
                 .product(name: "ActionUIVerifier", package: "ActionUI"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),

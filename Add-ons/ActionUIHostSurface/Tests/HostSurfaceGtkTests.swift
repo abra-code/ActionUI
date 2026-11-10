@@ -11,6 +11,7 @@
 
 import XCTest
 import ActionUI
+import ActionUIAdwaitaApplication
 import CAdwaita
 import Dispatch
 import FoundationEssentials

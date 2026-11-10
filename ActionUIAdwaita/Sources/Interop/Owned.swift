@@ -31,19 +31,19 @@
 import CAdwaita
 
 /// One reference to a GObject.
-struct OwnedObject: ~Copyable {
-    let pointer: UnsafeMutableRawPointer
+package struct OwnedObject: ~Copyable {
+    package let pointer: UnsafeMutableRawPointer
 
     /// A new or borrowed object, with a reference of our own (g_object_ref_sink: a new widget's
     /// floating reference is claimed, any other pointer retained).
-    init(retaining pointer: UnsafeMutableRawPointer) {
+    package init(retaining pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
         g_object_ref_sink(pointer)
     }
 
     /// An object handed over with its reference (transfer full), taken as is. Never a new widget
     /// (gtk_label_new, g_object_new of a widget), whose reference is floating: use `retaining:`.
-    init(adopting pointer: UnsafeMutableRawPointer) {
+    package init(adopting pointer: UnsafeMutableRawPointer) {
         assert(g_object_is_floating(pointer) == 0, "a new widget's floating reference: use init(retaining:)")
         self.pointer = pointer
     }
@@ -59,7 +59,7 @@ struct OwnedObject: ~Copyable {
     }
 
     /// An object of a final type handed over with its reference (g_menu_new, g_simple_action_new).
-    init(adopting object: OpaquePointer) {
+    package init(adopting object: OpaquePointer) {
         self.init(adopting: UnsafeMutableRawPointer(object))
     }
 
@@ -69,7 +69,7 @@ struct OwnedObject: ~Copyable {
 
     /// The object as a typed pointer, for the GTK functions that take one (gtk_box_append takes a
     /// GtkBox): the caller knows its type.
-    func typed<T>(_ type: T.Type = T.self) -> UnsafeMutablePointer<T> {
+    package func typed<T>(_ type: T.Type = T.self) -> UnsafeMutablePointer<T> {
         pointer.assumingMemoryBound(to: T.self)
     }
 
@@ -79,7 +79,7 @@ struct OwnedObject: ~Copyable {
     }
 
     /// The object as an opaque pointer, for the GTK functions that take one.
-    var opaquePointer: OpaquePointer {
+    package var opaquePointer: OpaquePointer {
         OpaquePointer(pointer)
     }
 
@@ -132,7 +132,7 @@ struct OwnedVariant: ~Copyable {
 
 /// A string GLib hands to the caller to free (g_date_time_format, gtk_text_buffer_get_text), as a
 /// Swift string, freed here.
-func takeGString(_ text: UnsafeMutablePointer<gchar>?) -> String? {
+package func takeGString(_ text: UnsafeMutablePointer<gchar>?) -> String? {
     guard let text else { return nil }
     defer { g_free(text) }
     return String(cString: text)

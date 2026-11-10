@@ -34,7 +34,7 @@ import Foundation
 #endif
 
 @MainActor
-final class WindowPresenter {
+package final class WindowPresenter {
     let windowModel: WindowModel
     /// A widget in the window, which AdwDialog presents over.
     private let parent: WidgetPointer
@@ -58,7 +58,7 @@ final class WindowPresenter {
     }
 
     /// Stops watching and takes down what is shown, leaving the model as it is (the window closes).
-    func stop() {
+    package func stop() {
         isActive = false
         closeModal()
         closeDialog()
@@ -66,7 +66,7 @@ final class WindowPresenter {
     }
 
     /// Watches again after stop, showing what the model holds (a window that did not close after all).
-    func resume() {
+    package func resume() {
         guard !isActive else { return }
         isActive = true
         update()

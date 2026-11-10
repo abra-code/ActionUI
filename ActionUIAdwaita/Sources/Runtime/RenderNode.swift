@@ -85,7 +85,7 @@ public final class RenderNode {
     }
     /// The header bar of the screen this node is the root of (a page's, a column's, a window's), set
     /// by whoever made the bar. Setting it shows the toolbars of the nodes below in it.
-    var screenBar: ScreenBar? {
+    package var screenBar: ScreenBar? {
         didSet { markToolbarsDirty() }
     }
     /// True for the root of a window's document, and for a NavigationStack at the root of a dialog
@@ -97,7 +97,7 @@ public final class RenderNode {
     /// document, and from a split view the column carrying the menu when that is a
     /// NavigationStack. The application sets it on a window's document after the first sync, so a
     /// change syncs the node again.
-    var showsPrimaryMenu = false {
+    package var showsPrimaryMenu = false {
         didSet {
             if showsPrimaryMenu != oldValue {
                 SyncScheduler.shared.markDirty(self)
@@ -433,7 +433,7 @@ public final class RenderNode {
     /// Takes down the presentations of this node and its descendants, as detach does (no action,
     /// the states stay), the nodes staying in the tree: the host closes the window, which
     /// AdwDialogHost would answer by closing a sheet instead.
-    func takeDownPresentations() {
+    package func takeDownPresentations() {
         presentations?.detach()
         for child in childNodes.values {
             child.takeDownPresentations()
@@ -442,7 +442,7 @@ public final class RenderNode {
 
     /// Shows again what the states of this node and its descendants ask for, after
     /// takeDownPresentations (a window that did not close after all).
-    func restorePresentations() {
+    package func restorePresentations() {
         if let presentations {
             presentations.apply(presentations.requested())
         }

@@ -11,6 +11,7 @@
 #if os(Linux)
 import FoundationEssentials
 import ActionUI
+import ActionUIAdwaitaApplication
 import ActionUICachedImage
 import ActionUIDiff
 import ActionUIRichText

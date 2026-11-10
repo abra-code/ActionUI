@@ -13,6 +13,7 @@
 import XCTest
 import CAdwaita
 @testable import ActionUI
+@testable import ActionUIAdwaitaApplication
 
 @MainActor
 final class NodePresentationsTests: XCTestCase {

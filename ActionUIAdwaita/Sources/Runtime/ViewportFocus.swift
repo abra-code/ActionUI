@@ -12,7 +12,7 @@
 import CAdwaita
 
 @MainActor
-enum ViewportFocus {
+package enum ViewportFocus {
     /// The window's focus handler while the viewport is mapped.
     @MainActor
     final class Follower {
@@ -38,7 +38,7 @@ enum ViewportFocus {
 
     /// Makes the viewport GTK put around `scroller`'s child follow focus as GTK 4.20 does. Called
     /// after the child is set; nothing when the child scrolls itself (no viewport).
-    static func follow(_ scroller: WidgetPointer) {
+    package static func follow(_ scroller: WidgetPointer) {
         guard gtkFollowsPopoverFocus, let viewport = gtk_scrolled_window_get_child(OpaquePointer(scroller)),
               Gtk.Widget(viewport).isA(gtk_viewport_get_type()) else { return }
         gtk_viewport_set_scroll_to_focus(OpaquePointer(viewport), 0)

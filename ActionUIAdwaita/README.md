@@ -131,7 +131,7 @@ swift test --package-path ActionUIAdwaita/Library
 
 ## Using it from a program
 
-- **Swift:** depend on the ActionUI package's `ActionUIStatic` product, which links the same `ActionUI` module into the program. That module holds the portable core and the GTK renderer; `AdwaitaApplication` runs an application and presents documents. The Swift adapter (`ActionUISwiftAdapter`), which offers the same calls as on Apple, is a target of the package, for the programs inside it such as the demo; it is not a product on Linux yet. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`, which carries a second, private Swift runtime and libdispatch (its main queue would not be the program's).
+- **Swift:** depend on the ActionUI package's `ActionUIStatic` product, which links the same `ActionUI` module into the program. That module holds the portable core and the GTK renderer. A program that lets ActionUI run its application also depends on the `ActionUIAdwaitaApplication` product (`import ActionUIAdwaitaApplication`), where `AdwaitaApplication` runs an application and presents documents and `AppPanels` shows the alert and the file panels; a program that runs its own `GtkApplication` leaves it out, as an AppKit host on macOS leaves out `ActionUIAppKitApplication`. The Swift adapter (`ActionUISwiftAdapter`), which offers the same calls as on Apple, is a target of the package, for the programs inside it such as the demo; it is not a product on Linux yet. Swift programs compile ActionUI in and use the toolchain's Swift runtime; they do not load `libActionUI.so`, which carries a second, private Swift runtime and libdispatch (its main queue would not be the program's).
 - **C, Python, Node.js, Rust and other languages:** load `libActionUI.so`, which holds the renderer, the add-ons (RichText and CachedImage, registered on first use, so a document just uses them), the C adapter (`ActionUIC.h`) and the application functions (`ActionUIApp.h`), with the same names and signatures as on macOS. Built with the Swift runtime inside it, it needs no Swift installation:
 
   ```sh
@@ -160,7 +160,8 @@ swift test --package-path ActionUIAdwaita/Library
 |---|---|
 | `Sources/Elements` | one renderer per element type (`Button+Adwaita.swift`, ...) |
 | `Sources/Layout` | SwiftUI's layout reproduced: stacks, grids, frames, scroll views, modifier boxes |
-| `Sources/Runtime` | the render tree, `AdwaitaApplication`, windows, toolbars, menus, presentations |
+| `Sources/Runtime` | the render tree, the window registry, toolbars, the primary menu, presentations |
+| `../ActionUIAdwaitaApplication` | the optional application module: `AdwaitaApplication`, `AppPanels`, offscreen rendering, and the `actionUIApp*` C functions |
 | `Sources/Styling`, `Formatting`, `Markdown`, `Drawing` | CSS for colors and fonts, number and date formats, markdown text, shapes |
 | `Sources/Interop` | the Swift side of the GTK, GLib and WebKitGTK C APIs |
 | `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |

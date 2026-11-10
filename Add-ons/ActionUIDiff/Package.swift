@@ -47,6 +47,7 @@ let package = Package(
             name: "DiffTests",
             dependencies: [
                 "ActionUIDiff",
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "CAdwaita", package: "ActionUI"),
                 .product(name: "DiffView", package: "DiffView"),
             ],

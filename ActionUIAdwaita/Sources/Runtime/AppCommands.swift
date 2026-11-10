@@ -42,8 +42,8 @@ import Foundation
 import CAdwaita
 
 @MainActor
-final class AppCommands {
-    static let shared = AppCommands()
+package final class AppCommands {
+    package static let shared = AppCommands()
 
     /// The primary menu every window's menu button shows, rebuilt in place.
     let menu = OwnedObject(adopting: g_menu_new()!)
@@ -75,7 +75,7 @@ final class AppCommands {
     }
     private var actionNames: [String] = []
     /// What Ctrl+Q does; nil quits the application.
-    var quitHandler: (@MainActor () -> Void)?
+    package var quitHandler: (@MainActor () -> Void)?
 
     /// The application the actions go on: start()'s, else the default GApplication once it is
     /// registered and is a GtkApplication (see the header).
@@ -133,7 +133,7 @@ final class AppCommands {
     /// nil only makes sure the menu is there. Returns false, logging why, for JSON that is not
     /// such an array.
     @discardableResult
-    func load(json: String?) -> Bool {
+    package func load(json: String?) -> Bool {
         if let json {
             guard let parsed = try? ActionUIJSON.value(from: json), let array = parsed as? [Any] else {
                 ActionUIModel.shared.logger.log("actionUIAppLoadMenuBar: the commands are not a JSON array", .error)
@@ -151,20 +151,20 @@ final class AppCommands {
     /// As load(json:), unless commands with `key` were loaded already (a WindowGroup's, for each
     /// window of the group).
     @discardableResult
-    func load(json: String, once key: String) -> Bool {
+    package func load(json: String, once key: String) -> Bool {
         guard loadedKeys.insert(key).inserted else { return true }
         return load(json: json)
     }
 
     /// ActionUI's own application started: its actions can be installed.
-    func start(_ application: UnsafeMutablePointer<AdwApplication>, name: String) {
+    package func start(_ application: UnsafeMutablePointer<AdwApplication>, name: String) {
         startedApplication = OpaquePointer(application)
         startedName = name
         rebuild()
     }
 
     /// ActionUI's own application ended: its actions went with it.
-    func stop() {
+    package func stop() {
         startedApplication = nil
         startedName = nil
         installedApplication = nil
@@ -173,7 +173,7 @@ final class AppCommands {
 
     /// A new menu button showing the menu: the window's primary menu, which F10 also opens. The
     /// actions go on the application now if they are not on it yet.
-    func makeMenuButton() -> WidgetPointer {
+    package func makeMenuButton() -> WidgetPointer {
         if application != installedApplication {
             rebuild()
         }

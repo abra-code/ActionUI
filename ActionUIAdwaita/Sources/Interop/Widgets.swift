@@ -14,21 +14,21 @@
 import CAdwaita
 
 // @MainActor on the enum does not reach its nested types, so each view carries its own.
-enum Gtk {
+package enum Gtk {
     /// A widget's size in one orientation; baselines are nil when it reports none.
-    struct Measurement: Equatable {
-        var minimum: Int
-        var natural: Int
+    package struct Measurement: Equatable {
+        package var minimum: Int
+        package var natural: Int
         var minimumBaseline: Int?
         var naturalBaseline: Int?
     }
 
     /// Any widget.
     @MainActor
-    struct Widget {
+    package struct Widget {
         let pointer: WidgetPointer
 
-        init(_ pointer: WidgetPointer) {
+        package init(_ pointer: WidgetPointer) {
             self.pointer = pointer
         }
 
@@ -60,7 +60,7 @@ enum Gtk {
         /// below the widget's minimum in the other orientation is measured at that minimum, as
         /// gtk_widget_measure does itself, but without the warning it logs for every such call
         /// (since GTK 4.18.0).
-        func measure(_ orientation: GtkOrientation, forSize: Int = -1) -> Measurement {
+        package func measure(_ orientation: GtkOrientation, forSize: Int = -1) -> Measurement {
             var minimum: Int32 = 0
             var natural: Int32 = 0
             var minimumBaseline: Int32 = -1
