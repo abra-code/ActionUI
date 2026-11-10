@@ -554,8 +554,10 @@ final class ActionUIModelTests: XCTestCase {
     func testAppendElementTextAppendsAnUnstyledRunToAnAttributedValue() throws {
         try loadElement("TextEditor")
         let model = ActionUIModel.shared
+        // A styled run: a link, the attribute both platforms have (FoundationEssentials on Linux has
+        // no inlinePresentationIntent)
         var bold = AttributedString("Bold")
-        bold.inlinePresentationIntent = .stronglyEmphasized
+        bold.link = URL(string: "https://example.com")
         model.windowModels[windowUUID]?.viewModels[1]?.value = bold
         XCTAssertTrue(model.appendElementText(windowUUID: windowUUID, viewID: 1, text: " plain"))
         let value = try XCTUnwrap(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? AttributedString)
