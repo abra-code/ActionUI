@@ -2,7 +2,9 @@
 /*
  Tests for NavigationSplitView on GTK, in a window on screen: two columns sit in one overlay split
  view and three in two; columnVisibility shows and hides the columns and the sidebar toggle writes
- it and fires valueChangeActionID; a column takes its ideal width; a chosen sidebar child shows its
+ it and fires valueChangeActionID; a column takes its ideal width; the user drags a column's edge
+ within its range, leaving the detail its minimum width, and the dragged width outlasts hiding the
+ sidebar; a fixed width is not dragged, a column without a width is; a chosen sidebar child shows its
  destination in the detail, as does the host's write; a column that is a NavigationStack shows no
  header bar of its own; a column's title is its navigationTitle; the window shows no header bar.
 */
@@ -140,6 +142,107 @@ final class NavigationSplitViewRendererTests: XCTestCase {
         let window = try XCTUnwrap(gtkWindow)
         XCTAssertEqual(gtk_widget_get_width(split.widget), gtk_widget_get_width(typed(window)))
         XCTAssertEqual(gtk_widget_get_height(split.widget), gtk_widget_get_height(typed(window)))
+    }
+
+    // MARK: Dragging a column's edge
+
+    /// The sidebar's width once GTK has laid it out at `expected` (on its next frame), else as it is.
+    private func width(_ resizer: SidebarResizer, settlingAt expected: Double) throws -> Double {
+        _ = AdwaitaTestHost.runMainLoop(until: { resizer.edge()?.width == expected })
+        return try XCTUnwrap(resizer.edge()).width
+    }
+
+    func testTheUserDragsTheSidebarsEdgeWithinItsRange() throws {
+        let split = try present(Self.twoColumns)
+        let resizer = try parts(split).sidebarResizer
+        let edge = try XCTUnwrap(resizer.edge())
+        XCTAssertEqual(edge.width, 280, "the ideal width")
+        XCTAssertTrue(edge.sidebarLeft)
+        XCTAssertTrue(resizer.grabs(edge.x + 3), "a press near the edge")
+        XCTAssertFalse(resizer.grabs(edge.x + 10), "a press in the detail")
+        XCTAssertFalse(resizer.beginDrag(at: edge.x - 10), "a press in the sidebar")
+
+        XCTAssertTrue(resizer.beginDrag(at: edge.x))
+        resizer.drag(by: 60)
+        XCTAssertEqual(try width(resizer, settlingAt: 340), 340)
+        resizer.drag(by: 500)
+        XCTAssertEqual(try width(resizer, settlingAt: 400), 400, "its max")
+        resizer.drag(by: -500)
+        XCTAssertEqual(try width(resizer, settlingAt: 200), 200, "its min")
+        resizer.drag(by: 40)
+        resizer.endDrag()
+        XCTAssertEqual(try width(resizer, settlingAt: 320), 320)
+        XCTAssertEqual(resizer.userWidth, 320)
+    }
+
+    func testADragLeavesTheDetailItsMinimumWidth() throws {
+        let split = try present(#"""
+            {"type": "NavigationSplitView", "id": 1,
+             "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Side", "navigationSplitViewColumnWidth": {"min": 150, "ideal": 200, "max": 2000}}},
+             "detail": {"type": "Text", "id": 3, "properties": {"text": "Detail", "frame": {"minWidth": 600}}}}
+            """#)
+        let parts = try parts(split)
+        let resizer = parts.sidebarResizer
+        XCTAssertTrue(resizer.beginDrag(at: try XCTUnwrap(resizer.edge()).x))
+        resizer.drag(by: 2000)
+        resizer.endDrag()
+        AdwaitaTestHost.drainMainLoop()
+        let detailMinimum = Gtk.Widget(parts.detail.toolbar).measure(GTK_ORIENTATION_HORIZONTAL).minimum
+        XCTAssertGreaterThanOrEqual(detailMinimum, 600)
+        XCTAssertEqual(resizer.userWidth, Double(Int(gtk_widget_get_width(split.widget)) - detailMinimum))
+        XCTAssertEqual(gtk_widget_get_width(split.widget), gtk_widget_get_width(typed(try XCTUnwrap(gtkWindow))), "the window did not grow")
+    }
+
+    func testTheDraggedWidthOutlastsHidingTheSidebar() throws {
+        let split = try present(Self.twoColumns)
+        let parts = try parts(split)
+        let resizer = parts.sidebarResizer
+        XCTAssertTrue(resizer.beginDrag(at: try XCTUnwrap(resizer.edge()).x))
+        resizer.drag(by: 50)
+        resizer.endDrag()
+        setState(split, "columnVisibility", "detail")
+        XCTAssertNil(resizer.edge(), "a hidden sidebar has no edge to drag")
+        setState(split, "columnVisibility", "all")
+        XCTAssertEqual(adw_overlay_split_view_get_min_sidebar_width(parts.outer), 330)
+        XCTAssertEqual(adw_overlay_split_view_get_max_sidebar_width(parts.outer), 330)
+    }
+
+    func testAFixedWidthIsNotDraggedAndAColumnWithoutOneIs() throws {
+        let split = try present(#"""
+            {"type": "NavigationSplitView", "id": 1,
+             "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Side"}},
+             "content": {"type": "Text", "id": 3, "properties": {"text": "Middle", "navigationSplitViewColumnWidth": 320}},
+             "detail": {"type": "Text", "id": 4, "properties": {"text": "Detail"}}}
+            """#)
+        let parts = try parts(split)
+        let content = try XCTUnwrap(parts.contentResizer)
+        let contentEdge = try XCTUnwrap(content.edge())
+        XCTAssertEqual(contentEdge.width, 320)
+        XCTAssertFalse(content.beginDrag(at: contentEdge.x), "a fixed width")
+
+        let sidebar = parts.sidebarResizer
+        XCTAssertEqual(sidebar.range, sidebar.defaultRange, "libadwaita's range")
+        XCTAssertEqual(adw_overlay_split_view_get_min_sidebar_width(parts.outer), sidebar.defaultRange.lowerBound, "not pinned")
+        XCTAssertTrue(sidebar.beginDrag(at: try XCTUnwrap(sidebar.edge()).x))
+        sidebar.drag(by: 1000)
+        sidebar.endDrag()
+        XCTAssertEqual(sidebar.userWidth, sidebar.defaultRange.upperBound)
+        XCTAssertEqual(try width(sidebar, settlingAt: sidebar.defaultRange.upperBound), sidebar.defaultRange.upperBound)
+    }
+
+    func testAMaxWithoutAMinOrBelowItBoundsTheWidth() throws {
+        let split = try present(#"""
+            {"type": "NavigationSplitView", "id": 1,
+             "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Side", "navigationSplitViewColumnWidth": {"ideal": 300, "max": 150}}},
+             "content": {"type": "Text", "id": 3, "properties": {"text": "Middle", "navigationSplitViewColumnWidth": {"min": 400, "ideal": 300, "max": 250}}},
+             "detail": {"type": "Text", "id": 4, "properties": {"text": "Detail"}}}
+            """#)
+        let parts = try parts(split)
+        let inner = try XCTUnwrap(parts.inner)
+        XCTAssertEqual(adw_overlay_split_view_get_min_sidebar_width(parts.outer), 150, "the max, without a min")
+        XCTAssertEqual(adw_overlay_split_view_get_max_sidebar_width(parts.outer), 150)
+        XCTAssertEqual(adw_overlay_split_view_get_min_sidebar_width(inner), 250, "the max, over a min above it")
+        XCTAssertEqual(adw_overlay_split_view_get_max_sidebar_width(inner), 250)
     }
 
     func testAChosenSidebarChildShowsItsDestinationInTheDetail() throws {

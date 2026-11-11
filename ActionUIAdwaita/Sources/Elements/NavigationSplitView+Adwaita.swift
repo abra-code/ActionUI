@@ -13,8 +13,14 @@
    hides the sidebar (in two columns it shows both), "detail" shows the detail alone. A toggle at
    the start of the detail's header bar shows and hides the sidebar, writes the state and fires
    valueChangeActionID, as SwiftUI's sidebar button does.
- - navigationSplitViewColumnWidth on the sidebar's and the content's root: the column is its ideal
-   (or fixed) width; libadwaita's columns are not resized by dragging.
+ - navigationSplitViewColumnWidth on the sidebar's and the content's root: the column starts at its
+   ideal (or fixed) width, without one at libadwaita's (a quarter of the split view, 180 to 280
+   pixels). The user drags the column's edge to resize it, as HSplitView's dividers are dragged
+   (libadwaita's split views have no handle of their own): within its min and max (without them,
+   libadwaita's range, widened to take the ideal), and leaving the next column its minimum width; a
+   fixed width is not dragged. A press counts within 4 pixels of the edge, where the pointer shows
+   the resize cursor. The dragged width stays when the window is resized, and the document's later
+   updates keep it within the column's range.
  - Destinations: when the sidebar is a List whose children have destinationViewId, choosing one
    stores states["selectedDestination"] (the child's destination, else the child's id, as on
    Apple), after the List's own selection and action, and the detail shows that destination;
@@ -65,10 +71,15 @@ final class SplitViewParts {
     /// stays within reach.
     let primaryMenu: WidgetPointer
     let detailMenu: WidgetPointer
+    /// The drags on the sidebar's edge, and on the content's (three columns only).
+    let sidebarResizer: SidebarResizer
+    let contentResizer: SidebarResizer?
 
     init(outer: OpaquePointer, inner: OpaquePointer?) {
         self.outer = outer
         self.inner = inner
+        sidebarResizer = SidebarResizer(split: outer)
+        contentResizer = inner.map { SidebarResizer(split: $0) }
         content = inner == nil ? nil : SplitViewColumn()
         // Packed before the column's toolbar items, so it stays outermost.
         primaryMenu = AppCommands.shared.makeMenuButton()
@@ -119,6 +130,8 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
             guard let node else { return }
             userToggledSidebar(node)
         }
+        parts.sidebarResizer.watchDrags()
+        parts.contentResizer?.watchDrags()
         attach(parts, to: outer, key: splitViewPartsKey)
         return outer
     }
@@ -188,15 +201,15 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
                          ownBars: AdwaitaWindow.headerBarTypes.contains(element.type), isDetail: column === parts.detail)
         }
         if let sidebar, let child = node.childNodes[sidebar.id] {
-            setWidth(parts.outer, BaseModifiers(child.properties).columnWidth)
+            parts.sidebarResizer.setColumnWidth(BaseModifiers(child.properties).columnWidth)
         }
         let carriesMenu = { (column: (any ActionUIElementBase)?) in
             node.showsPrimaryMenu && !(column.map { AdwaitaWindow.headerBarTypes.contains($0.type) } ?? true)
         }
         Gtk.Widget(parts.primaryMenu).isVisible = showsSidebar && carriesMenu(sidebar)
         Gtk.Widget(parts.detailMenu).isVisible = !showsSidebar && carriesMenu(detail)
-        if let content, let inner = parts.inner, let child = node.childNodes[content.id] {
-            setWidth(inner, BaseModifiers(child.properties).columnWidth)
+        if let content, let resizer = parts.contentResizer, let child = node.childNodes[content.id] {
+            resizer.setColumnWidth(BaseModifiers(child.properties).columnWidth)
         }
     }
 
@@ -241,23 +254,6 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
             if adw_header_bar_get_show_title(header) != shows {
                 adw_header_bar_set_show_title(header, shows)
             }
-        }
-    }
-
-    /// The column at its ideal or fixed width (libadwaita's columns are not dragged).
-    private static func setWidth(_ split: OpaquePointer, _ width: BaseModifiers.ColumnWidth?) {
-        let pixels: Double
-        switch width {
-        case .fixed(let fixed): pixels = fixed
-        case .range(let minimum, let ideal, let maximum): pixels = min(max(ideal, minimum ?? ideal), maximum ?? ideal)
-        case nil: return
-        }
-        guard pixels.isFinite, pixels > 0 else { return }
-        if adw_overlay_split_view_get_min_sidebar_width(split) != pixels {
-            adw_overlay_split_view_set_min_sidebar_width(split, pixels)
-        }
-        if adw_overlay_split_view_get_max_sidebar_width(split) != pixels {
-            adw_overlay_split_view_set_max_sidebar_width(split, pixels)
         }
     }
 
@@ -307,5 +303,162 @@ extension NavigationSplitView: ActionUIAdwaitaRenderer {
                 split.model.states["selectedDestination"] = destination
             }
         }
+    }
+}
+
+// MARK: Dragging a column's edge
+
+/// The user's drags on the edge of one split view's sidebar: the sidebar column in the outer split
+/// view, the content column in the inner one. As SplitLayout's dividers: a drag gesture on the split
+/// view, which sees a press before the columns do, takes it within SplitLayout.grabDistance of the
+/// edge, and a motion controller shows the resize cursor there. The column's width is libadwaita's
+/// minimum and maximum sidebar width, both set to it.
+@MainActor
+final class SidebarResizer {
+    let split: OpaquePointer
+    private var widget: WidgetPointer { UnsafeMutablePointer(split) }
+    /// libadwaita's own range, for a column without navigationSplitViewColumnWidth.
+    let defaultRange: ClosedRange<Double>
+    /// The widths the user may drag the column to; nil: a fixed width, not dragged.
+    private(set) var range: ClosedRange<Double>?
+    /// The width the user dragged the column to; nil until then.
+    private(set) var userWidth: Double?
+    /// The column's width when the drag began; nil while there is no drag.
+    private(set) var dragStart: Double?
+    private var cursorShown = false
+
+    init(split: OpaquePointer) {
+        self.split = split
+        let minimum = adw_overlay_split_view_get_min_sidebar_width(split)
+        defaultRange = minimum...max(minimum, adw_overlay_split_view_get_max_sidebar_width(split))
+        range = defaultRange
+    }
+
+    /// The column's width from its navigationSplitViewColumnWidth: the width the user dragged to,
+    /// kept within the column's range, else the ideal (or fixed) width; without one, libadwaita's,
+    /// a share of the split view's width within its range.
+    func setColumnWidth(_ width: BaseModifiers.ColumnWidth?) {
+        switch width {
+        case .fixed(let fixed):
+            range = nil
+            userWidth = nil
+            setLimits(fixed...fixed)
+        case .range(let minimum, let ideal, let maximum):
+            // Without a min or a max, libadwaita's, widened to take the ideal. The max wins over a
+            // min above it, as the column's width did before it could be dragged.
+            let high = maximum ?? max(ideal, defaultRange.upperBound)
+            let columnRange = min(minimum ?? min(ideal, defaultRange.lowerBound), high)...high
+            range = columnRange
+            userWidth = userWidth.map { Self.clamp($0, columnRange) }
+            let pinned = userWidth ?? Self.clamp(ideal, columnRange)
+            setLimits(pinned...pinned)
+        case nil:
+            range = defaultRange
+            userWidth = userWidth.map { Self.clamp($0, defaultRange) }
+            setLimits(userWidth.map { $0...$0 } ?? defaultRange)
+        }
+    }
+
+    /// The sidebar's edge in the split view's coordinates, its width, and whether it lies left of
+    /// the edge; nil while the sidebar is hidden or laid over the content.
+    func edge() -> (x: Double, width: Double, sidebarLeft: Bool)? {
+        guard adw_overlay_split_view_get_show_sidebar(split) != 0, adw_overlay_split_view_get_collapsed(split) == 0,
+              let sidebar = adw_overlay_split_view_get_sidebar(split) else { return nil }
+        var bounds = graphene_rect_t()
+        guard gtk_widget_compute_bounds(sidebar, widget, &bounds) != 0, bounds.size.width > 0 else { return nil }
+        let leading = adw_overlay_split_view_get_sidebar_position(split) == GTK_PACK_START
+        let sidebarLeft = leading == (gtk_widget_get_direction(widget) != GTK_TEXT_DIR_RTL)
+        let width = Double(bounds.size.width)
+        return (Double(bounds.origin.x) + (sidebarLeft ? width : 0), width, sidebarLeft)
+    }
+
+    /// Whether a press at `x` (in the split view) is on the edge of a column the user can resize.
+    func grabs(_ x: Double) -> Bool {
+        guard let range, range.upperBound > range.lowerBound, let edge = edge() else { return false }
+        return abs(x - edge.x) <= SplitLayout.grabDistance
+    }
+
+    /// Starts a drag for a press at `x`, when it is on the edge.
+    func beginDrag(at x: Double) -> Bool {
+        guard grabs(x), let edge = edge() else { return false }
+        dragStart = edge.width
+        return true
+    }
+
+    /// Moves the edge `dx` from where the drag began: the column's width, within its range, leaving
+    /// the column beside it its minimum width.
+    func drag(by dx: Double) {
+        guard let dragStart, let range, let edge = edge() else { return }
+        let wanted = dragStart + (edge.sidebarLeft ? dx : -dx)
+        let beside = adw_overlay_split_view_get_content(split).map { Gtk.Widget($0).measure(GTK_ORIENTATION_HORIZONTAL).minimum } ?? 0
+        let room = Double(gtk_widget_get_width(widget) - Int32(clamping: beside))
+        let width = max(range.lowerBound, min(wanted, range.upperBound, room)).rounded()
+        userWidth = width
+        setLimits(width...width)
+    }
+
+    func endDrag() {
+        dragStart = nil
+    }
+
+    /// libadwaita's minimum and maximum sidebar width, changed only when they differ.
+    private func setLimits(_ limits: ClosedRange<Double>) {
+        guard limits.lowerBound.isFinite, limits.upperBound.isFinite, limits.lowerBound > 0 else { return }
+        if adw_overlay_split_view_get_min_sidebar_width(split) != limits.lowerBound {
+            adw_overlay_split_view_set_min_sidebar_width(split, limits.lowerBound)
+        }
+        if adw_overlay_split_view_get_max_sidebar_width(split) != limits.upperBound {
+            adw_overlay_split_view_set_max_sidebar_width(split, limits.upperBound)
+        }
+    }
+
+    private static func clamp(_ value: Double, _ range: ClosedRange<Double>) -> Double {
+        min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    /// Shows the resize cursor on the split view, or takes it away.
+    private func showCursor(_ shown: Bool) {
+        guard shown != cursorShown else { return }
+        cursorShown = shown
+        gtk_widget_set_cursor_from_name(widget, shown ? "col-resize" : nil)
+    }
+
+    /// The drag gesture (seen before the columns see the press) and the motion controller that shows
+    /// the resize cursor near the edge.
+    func watchDrags() {
+        let drag = gtk_gesture_drag_new()!
+        gtk_gesture_single_set_button(drag, 1)
+        gtk_event_controller_set_propagation_phase(drag, GTK_PHASE_CAPTURE)
+        connectPoint(UnsafeMutableRawPointer(drag), "drag-begin") { [weak self] x, _ in
+            guard let self else { return }
+            gtk_gesture_set_state(drag, beginDrag(at: x) ? GTK_EVENT_SEQUENCE_CLAIMED : GTK_EVENT_SEQUENCE_DENIED)
+        }
+        connectPoint(UnsafeMutableRawPointer(drag), "drag-update") { [weak self] dx, _ in
+            self?.drag(by: dx)
+        }
+        connectPoint(UnsafeMutableRawPointer(drag), "drag-end") { [weak self] dx, _ in
+            guard let self else { return }
+            let dragging = dragStart != nil
+            endDrag()
+            // Released away from the edge (the column at its limit): no motion may follow to take
+            // the cursor away.
+            var x = 0.0
+            var y = 0.0
+            if dragging, gtk_gesture_drag_get_start_point(drag, &x, &y) != 0 {
+                showCursor(grabs(x + dx))
+            }
+        }
+        gtk_widget_add_controller(widget, drag)
+
+        let motion = gtk_event_controller_motion_new()!
+        connectPoint(UnsafeMutableRawPointer(motion), "motion") { [weak self] x, _ in
+            guard let self else { return }
+            showCursor(dragStart != nil || grabs(x))
+        }
+        connectSignal(UnsafeMutableRawPointer(motion), "leave", .instanceOnly) { [weak self] in
+            guard let self, dragStart == nil else { return }
+            showCursor(false)
+        }
+        gtk_widget_add_controller(widget, motion)
     }
 }
