@@ -13,6 +13,13 @@ For how the renderer works (retained widgets, SwiftUI's layout reproduced, what 
   sudo apt install libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev pkg-config
   ```
 
+- For a Linux virtual machine on a Mac: [`agent-vm/swift-gtk`](agent-vm/swift-gtk/recipe.json) is an [agent-vm](https://github.com/abra-code/agent-vm) image recipe that installs all of the above on Debian 13 or Ubuntu 26.04 (ARM). It installs swift.org's toolchain for the system it runs on into `/usr`, refusing a download not signed by the Swift 6.x release key; the `swift`, `platform`, `signed_by` and `sha256` parameters choose another release, build or key, or pin the download. Add a desktop recipe (`Recipes/linux-gnome`) to run the apps on the box's screen:
+
+  ```sh
+  agent-vm image create swift-gtk --linux ubuntu-26.04 --recipe ActionUIAdwaita/agent-vm/swift-gtk/recipe.json
+  agent-vm image create swift-gtk-gnome --from swift-gtk --recipe <agent-vm>/Recipes/linux-gnome/recipe.json
+  ```
+
 - At run time, besides GTK, libadwaita and libsoup:
   - **glib-networking** for https URLs (installed with GNOME);
   - **WebKitGTK 6.0** (`libwebkitgtk-6.0-4`) for WebView only. It is loaded when a WebView is first shown, so it is a dependency of the app that shows web pages, not of ActionUI; without it a WebView shows a placeholder that names the package. Ubuntu's desktop installs it; Debian's GNOME desktop does not.

@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "guest": "linux",
+  "description": "The swift.org Swift toolchain in /usr, checked against the Swift release signing key, and the GTK 4, libadwaita and libsoup development packages ActionUI's Linux renderer builds against. For Debian 13 and Ubuntu 26.04 images. A box of it needs no network to build ActionUI's own packages; the add-ons fetch their dependencies from GitHub (--allow pack:github).",
+  "parameters": {
+    "swift": {
+      "description": "The Swift release, e.g. 6.4.2 (ActionUI needs 6.3 or later)",
+      "default": "6.4.2"
+    },
+    "platform": {
+      "description": "swift.org's build for this system, e.g. debian13-aarch64 or ubuntu26.04-aarch64; auto: the one named after this system",
+      "default": "auto"
+    },
+    "signed_by": {
+      "description": "Fingerprint of the key that must have signed the download: the Swift 6.x Release Signing Key, as listed on swift.org's install page",
+      "default": "52BB7E3DE28A71BE22EC05FFEF80A866B47A981F"
+    },
+    "sha256": {
+      "description": "Optional SHA-256 of the download, to pin it; empty: the signature is checked and the SHA-256 printed",
+      "default": ""
+    }
+  },
+  "steps": [
+    {
+      "name": "What the Swift toolchain links against, gpg, and the GTK, libadwaita and libsoup development packages",
+      "user": "root",
+      "run": "apt-get -q -y -o Dpkg::Use-Pty=0 update && apt-get -q -y -o Dpkg::Use-Pty=0 install --no-install-recommends binutils libc6-dev g++ libcurl4-openssl-dev libedit2 libpython3-dev libsqlite3-0 libxml2-dev libncurses-dev libz3-dev pkg-config tzdata zlib1g-dev unzip gnupg git ca-certificates curl libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev libharfbuzz-dev libglib2.0-dev-bin glib-networking",
+      "env": { "DEBIAN_FRONTEND": "noninteractive" },
+      "timeoutSeconds": 2400
+    },
+    {
+      "name": "The install script",
+      "user": "root",
+      "copy": "files/install-swift.sh",
+      "to": "/usr/local/libexec/install-swift-signed",
+      "mode": "0755"
+    },
+    {
+      "name": "Swift from swift.org, checked against the release signing key",
+      "user": "root",
+      "run": "/usr/local/libexec/install-swift-signed \"$AGENT_VM_PARAM_SWIFT\" \"$AGENT_VM_PARAM_PLATFORM\" \"$AGENT_VM_PARAM_SIGNED_BY\" \"$AGENT_VM_PARAM_SHA256\"",
+      "timeoutSeconds": 2400
+    }
+  ],
+  "update": [
+    {
+      "name": "Newer development packages",
+      "user": "root",
+      "run": "apt-get -q -y -o Dpkg::Use-Pty=0 update && apt-get -q -y -o Dpkg::Use-Pty=0 install --only-upgrade binutils libc6-dev g++ libcurl4-openssl-dev libedit2 libpython3-dev libsqlite3-0 libxml2-dev libncurses-dev libz3-dev pkg-config tzdata zlib1g-dev gnupg libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev libharfbuzz-dev libglib2.0-dev-bin glib-networking",
+      "env": { "DEBIAN_FRONTEND": "noninteractive" },
+      "timeoutSeconds": 2400
+    }
+  ],
+  "checks": [
+    "set -o pipefail; swift --version 2>&1 | grep -v '^swift runtime:'",
+    "test -f /usr/lib/swift/linux/libFoundation.so && echo shared runtime in /usr/lib/swift/linux",
+    "test -d /usr/lib/swift_static/linux && echo static runtime in /usr/lib/swift_static/linux",
+    "pkg-config --modversion gtk4 libadwaita-1 libsoup-3.0 harfbuzz",
+    "command -v glib-compile-resources"
+  ]
+}
