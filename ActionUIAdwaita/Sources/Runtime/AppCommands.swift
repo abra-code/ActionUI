@@ -136,7 +136,7 @@ package final class AppCommands {
     package func load(json: String?) -> Bool {
         if let json {
             guard let parsed = try? ActionUIJSON.value(from: json), let array = parsed as? [Any] else {
-                ActionUIModel.shared.logger.log("actionUIAppLoadMenuBar: the commands are not a JSON array", .error)
+                ActionUIModel.shared.logger.log("Menu commands: the JSON is not an array", .error)
                 return false
             }
             commands += array.compactMap { $0 as? [String: Any] }

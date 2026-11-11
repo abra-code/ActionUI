@@ -564,7 +564,7 @@ public final class AdwaitaApplication {
 
         let presented = PresentedWindow(window: window, renderTree: renderTree)
         windows[windowUUID] = presented
-        WindowRegistry.shared.register(windowUUID, window: window, renderTree: renderTree)
+        WindowRegistry.shared.register(windowUUID, window: window, renderTree: renderTree, barsHeight: size.barsHeight)
         connectBooleanSignal(window, "close-request") { [weak self, weak presented] in
             guard let self, let presented else { return false }
             return !self.windowWillClose(windowUUID, presented)

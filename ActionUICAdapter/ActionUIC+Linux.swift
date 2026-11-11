@@ -67,3 +67,72 @@ public func actionUILoadIntoHostWindowFromJSON(_ gtkWindow: UnsafeMutableRawPoin
     }
     return loaded
 }
+
+// MARK: - For a host that runs its own application
+
+/// Starts running Swift's main-actor work (ActionUI's C calls made from other threads, the remote
+/// bridge's answers) under the GLib main loop now, rather than when the first window is registered:
+/// for a host that does work before it shows a window. Call it on the main thread, before or while
+/// the main loop runs; later calls do nothing.
+@c
+public func actionUIInstallMainLoopBridge() {
+    // Not runOnMainActorSync: from another thread its wait on the main queue would be the very
+    // work this installs the runner for
+    guard isMainThread else {
+        setError("actionUIInstallMainLoopBridge: call it on the main thread")
+        return
+    }
+    clearError()
+    MainActor.assumeIsolated {
+        MainLoopBridge.install()
+    }
+}
+
+/// Adds the CommandMenu and CommandGroup elements in `json` (a JSON array of them, the format of
+/// a macOS menu bar document) to the primary menu every window's header bar shows, as ActionUI's
+/// own application loads its menu bar. Each item becomes an action of the process's default
+/// GApplication (the host's own), which fires its actionID for the active window's document, with
+/// its keyboard shortcut working in every window; Quit stays the host's to bind. Successive calls
+/// add to the menu. Returns false, with an error set, for JSON that is not an array (elements of
+/// other types in it are ignored).
+@c
+public func actionUILoadMenuBarJSON(_ json: UnsafePointer<CChar>?) -> CBool {
+    clearError()
+    guard let json else {
+        setError("actionUILoadMenuBarJSON: the JSON is required")
+        return false
+    }
+    let text = String(cString: json)
+    let loaded = runOnMainActorSync {
+        AppCommands.shared.load(json: text)
+    }
+    if !loaded {
+        setError("actionUILoadMenuBarJSON: the JSON is not an array (of CommandMenu and CommandGroup elements)")
+    }
+    return loaded
+}
+
+/// The height of the bars ActionUI put above the document's content in the window showing
+/// `windowUUID` (the header bar, and the subtitle line when there is one), measured when it was
+/// filled, for a host's window or one ActionUI's own application presents: what a host adds to a
+/// size below the bars (a layout size, a document's minimum) to get the window's size. A bottom
+/// toolbar (toolbar items placed at bottomBar), which shows below the content after the window is
+/// filled, is not included, as ActionUI's own opening size leaves it out. -1, with an error set,
+/// when no window shows that UUID.
+@c
+public func actionUIGetWindowBarsHeight(_ windowUUID: UnsafePointer<CChar>?) -> Double {
+    clearError()
+    guard let windowUUID else {
+        setError("actionUIGetWindowBarsHeight: the window UUID is required")
+        return -1
+    }
+    let uuid = String(cString: windowUUID)
+    let height = runOnMainActorSync {
+        WindowRegistry.shared.barsHeight(uuid)
+    }
+    guard let height else {
+        setError("actionUIGetWindowBarsHeight: no window shows \(uuid)")
+        return -1
+    }
+    return Double(height)
+}

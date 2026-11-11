@@ -33,10 +33,11 @@ package enum WindowAssembly {
     /// and `content` below them, scrolled when its minimum is larger than the monitor. With
     /// `presents`, the document's modals, dialogs and toasts start showing. `contentSize` (below
     /// the bars; a side of zero or less keeps the document's) overrides the document's size.
-    /// Returns the window's opening size, bars included, no larger than the monitor.
+    /// Returns the window's opening size, bars included, no larger than the monitor, and the bars'
+    /// height above the content (what a size below the bars adds to make the window's).
     package static func assemble(_ window: UnsafeMutablePointer<GtkWindow>, toolbar: WidgetPointer, content: WidgetPointer,
                                  renderTree: AdwaitaWindow?, windowUUID: String, subtitle: String?,
-                                 contentSize: (width: Int, height: Int)?, presents: Bool) -> (width: Int32, height: Int32) {
+                                 contentSize: (width: Int, height: Int)?, presents: Bool) -> (width: Int32, height: Int32, barsHeight: Int32) {
         // First of the bars, where a document's toolbar items cannot push it away (WindowSubtitle).
         if let subtitle, !subtitle.isEmpty {
             WindowSubtitle.set(subtitle, on: window)
@@ -86,7 +87,7 @@ package enum WindowAssembly {
             if size.height > 0 { height = Int32(clamping: size.height) }
         }
         let windowHeight = min(Int(height) + Int(barsHeight), Int(monitor.height))
-        return (min(width, monitor.width), Int32(windowHeight))
+        return (min(width, monitor.width), Int32(windowHeight), barsHeight)
     }
 
     /// A window's content when its document could not be loaded: the error, selectable.

@@ -196,12 +196,17 @@ final class HostApplicationTests: XCTestCase {
         XCTAssertGreaterThan(width, 0, "a default size from the document")
         XCTAssertGreaterThan(height, 0)
         XCTAssertEqual(WindowRegistry.shared.gtkWindow(windowUUID), window, "registered")
+        // With the height of its bars (header bar and subtitle line), which the window's height includes
+        let barsHeight = try XCTUnwrap(WindowRegistry.shared.barsHeight(windowUUID))
+        XCTAssertGreaterThan(barsHeight, 0, "the header bar and the subtitle line have a height")
+        XCTAssertGreaterThan(height, barsHeight, "the window's default height is the content's plus the bars'")
 
         // The host closes it: the window leaves the registry, its model stays for the host's code
         gtk_window_destroy(window)
         destroyed = true
         AdwaitaTestHost.drainMainLoop()
         XCTAssertNil(WindowRegistry.shared.gtkWindow(windowUUID))
+        XCTAssertNil(WindowRegistry.shared.barsHeight(windowUUID), "no bars height for a window that is gone")
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID], "the model is the host's to remove")
         ActionUIModel.shared.removeWindow(windowUUID)
         XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID])

@@ -101,7 +101,7 @@ package enum HostWindow {
         let size = WindowAssembly.assemble(window, toolbar: toolbar, content: content, renderTree: renderTree,
                                            windowUUID: windowUUID, subtitle: subtitle, contentSize: nil, presents: true)
         gtk_window_set_default_size(window, size.width, size.height)
-        WindowRegistry.shared.register(windowUUID, window: window, renderTree: renderTree)
+        WindowRegistry.shared.register(windowUUID, window: window, renderTree: renderTree, barsHeight: size.barsHeight)
         connectSignal(rawWindow, "destroy", .instanceOnly) {
             // Only while this window is the one under the UUID: a newer one keeps its folder.
             if WindowRegistry.shared.gtkWindow(windowUUID) == nil || WindowRegistry.shared.gtkWindow(windowUUID) == window {

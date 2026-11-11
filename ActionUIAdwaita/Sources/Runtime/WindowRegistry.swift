@@ -31,12 +31,15 @@ package final class WindowRegistry {
     final class Entry {
         let window: UnsafeMutablePointer<GtkWindow>
         let renderTree: AdwaitaWindow?
+        /// The height of the bars above the content (WindowAssembly.assemble), 0 when not measured.
+        let barsHeight: Int32
         /// The window's "destroy" handler, which forgets it.
         var destroyHandler: gulong = 0
 
-        init(window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?) {
+        init(window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?, barsHeight: Int32) {
             self.window = window
             self.renderTree = renderTree
+            self.barsHeight = barsHeight
         }
     }
 
@@ -45,13 +48,15 @@ package final class WindowRegistry {
     /// A separate instance for tests; the renderer uses `shared`.
     init() {}
 
-    /// Registers `window` as the one showing `windowUUID`, in place of any before it.
-    package func register(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?) {
+    /// Registers `window` as the one showing `windowUUID`, in place of any before it; `barsHeight`
+    /// is the height of the bars above its content, as WindowAssembly.assemble measured it.
+    package func register(_ windowUUID: String, window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?,
+                          barsHeight: Int32 = 0) {
         MainLoopBridge.install()
         if let old = entries[windowUUID] {
             Self.disconnect(old)
         }
-        let entry = Entry(window: window, renderTree: renderTree)
+        let entry = Entry(window: window, renderTree: renderTree, barsHeight: barsHeight)
         entry.destroyHandler = connectSignal(UnsafeMutableRawPointer(window), "destroy", .instanceOnly) { [weak self] in
             self?.unregister(windowUUID, window: window)
         }
@@ -83,6 +88,13 @@ package final class WindowRegistry {
     /// The GTK window showing `windowUUID`, if it is registered.
     func gtkWindow(_ windowUUID: String) -> UnsafeMutablePointer<GtkWindow>? {
         entries[windowUUID]?.window
+    }
+
+    /// The height of the bars above the content of the window showing `windowUUID` (its header bar
+    /// and subtitle line), nil when no window shows it. A host adds it to a size below the bars to
+    /// get the window's size (actionUIGetWindowBarsHeight).
+    package func barsHeight(_ windowUUID: String) -> Int32? {
+        entries[windowUUID]?.barsHeight
     }
 
     /// The document's content in the window showing `windowUUID`: the root element's widget,

@@ -54,7 +54,8 @@ private let mainQueueKey: DispatchSpecificKey<Bool> = {
     return key
 }()
 
-private var isMainThread: Bool {
+// Internal, not private: ActionUIC+Linux.swift asks it too
+var isMainThread: Bool {
     DispatchQueue.getSpecific(key: mainQueueKey) == true
 }
 

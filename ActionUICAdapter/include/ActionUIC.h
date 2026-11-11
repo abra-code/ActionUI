@@ -182,6 +182,18 @@ void *actionUILoadHostingControllerFromURL(const char *urlString, const char *wi
 #if defined(__linux__)
 bool actionUILoadIntoHostWindowFromURL(void *gtkWindow, const char *urlString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;  // a path or file URL
 bool actionUILoadIntoHostWindowFromJSON(void *gtkWindow, const char *jsonString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;
+// For a host that runs its own GtkApplication (ActionUI's own application does these itself):
+// - starts running main-actor work (C calls from other threads, the remote bridge's answers) under the GLib
+//   main loop now, rather than when the first window is filled; main thread only, later calls do nothing;
+void actionUIInstallMainLoopBridge(void) ACTIONUI_NOEXCEPT;
+// - adds menu commands (a JSON array of CommandMenu and CommandGroup elements, a macOS menu bar document) to
+//   the primary menu of every window's header bar, as actions of the default GApplication that fire their
+//   actionID for the active window; successive calls add; false (error set) for JSON that is not an array;
+bool actionUILoadMenuBarJSON(const char *json) ACTIONUI_NOEXCEPT;
+// - the height of the bars ActionUI put above the content of the window showing windowUUID (header bar,
+//   subtitle line; not a bottom toolbar), a host's window or ActionUI's own, to add to a size below the bars
+//   for the window's size; -1 (error set) for no such window.
+double actionUIGetWindowBarsHeight(const char *windowUUID) ACTIONUI_NOEXCEPT;
 #endif
 
 #ifdef __cplusplus
