@@ -73,6 +73,60 @@
               "modifiers": ["command", "shift"]
             }
           }
+        },
+        {
+          "type": "Divider",
+          "id": 10
+        },
+        {
+          "type": "Menu",
+          "id": 11,
+          "properties": {
+            "title": "Submenu Demo"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "id": 12,
+              "properties": {
+                "title": "First Item",
+                "actionID": "action.submenu.first"
+              }
+            },
+            {
+              "type": "Button",
+              "id": 13,
+              "properties": {
+                "title": "Second Item",
+                "actionID": "action.submenu.second"
+              }
+            },
+            {
+              "type": "Divider",
+              "id": 14
+            },
+            {
+              "type": "Menu",
+              "id": 15,
+              "properties": {
+                "title": "Nested Submenu"
+              },
+              "children": [
+                {
+                  "type": "Button",
+                  "id": 16,
+                  "properties": {
+                    "title": "Deep Item",
+                    "actionID": "action.submenu.deep",
+                    "keyboardShortcut": {
+                      "key": "J",
+                      "modifiers": ["command", "option"]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     },
