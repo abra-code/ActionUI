@@ -16,7 +16,7 @@ import SwiftUI
      "systemImage:web": String // Optional, WEB ONLY: SF Symbol name for the account button's glyph, resolved through the SF-to-Material map. Read only when "role:web" is "account"; defaults to a person glyph.
    },
    "children": [
-     // Array of child elements (e.g., Button, Divider)
+     // Array of child elements (Button, Menu, Divider); a Menu is a submenu of its own children
      {
        "type": "Button",
        "id": Int,

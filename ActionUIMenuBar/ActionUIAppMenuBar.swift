@@ -24,8 +24,10 @@
 //  caller:
 //
 //    • Action items are produced by an `itemBuilder` closure.  The engine
-//      handles all structure (placement, separators, titles, keyboard
+//      handles all structure (placement, separators, submenus, titles, keyboard
 //      shortcuts); the host returns a wired NSMenuItem for each Button element.
+//      A Menu element is a submenu titled with its `title`, holding its own
+//      Buttons, Dividers and Menus (as a Menu in a SwiftUI CommandMenu).
 //    • The "About" item defaults to the standard
 //      `NSApplication.orderFrontStandardAboutPanel(_:)` selector; a host may
 //      supply its own target/action.
@@ -940,8 +942,22 @@ private func buildMenuItem(from element: [String: Any],
         configureActionItem(item, properties: properties)
         return item
 
+    case "Menu":
+        // A submenu: its title, its own Buttons, Dividers and Menus
+        let properties = element["properties"] as? [String: Any] ?? [:]
+        let title = properties["title"] as? String ?? ""
+        let submenu = NSMenu(title: title)
+        for child in element["children"] as? [[String: Any]] ?? [] {
+            if let item = buildMenuItem(from: child, itemBuilder: itemBuilder, logger: logger) {
+                submenu.addItem(item)
+            }
+        }
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
+
     default:
-        logger.log("Unsupported menu child type '\(type)'; only Button and Divider are supported", .warning)
+        logger.log("Unsupported menu child type '\(type)'; only Button, Menu and Divider are supported", .warning)
         return nil
     }
 }

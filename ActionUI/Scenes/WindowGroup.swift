@@ -42,7 +42,7 @@ import SwiftUI
          "name": String // Required: Non-empty string for the menu title
        },
        "children": [
-         // Array of child elements (e.g., Button, Divider)
+         // Array of child elements (Button, Menu, Divider)
          {
            "type": "Button",
            "id": Int,
@@ -70,7 +70,7 @@ import SwiftUI
          "placementTarget": String // Required: One of "appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help"
        },
        "children": [
-         // Array of child elements (e.g., Button, Divider)
+         // Array of child elements (Button, Menu, Divider)
          {
            "type": "Button",
            "id": Int,

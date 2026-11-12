@@ -2,7 +2,8 @@
 /*
  Tests for the application's commands on Linux (AppCommands): the primary menu's sections (the
  top targets' groups, each CommandMenu as a submenu, then the bottom targets and About), placement
- before, after and replacing (a childless replacing group removing About), Dividers as sections;
+ before, after and replacing (a childless replacing group removing About), Dividers as sections,
+ a Menu as a submenu (nested, in a CommandMenu or a group, its items firing their actions);
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
  a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
  title and its commands (its platform overrides applied), loaded once per group, and not before
@@ -98,6 +99,38 @@ final class AppCommandsTests: XCTestCase {
             "[Tools>[[New Action], [Run]]]",
             "[About Demo, About Module]",
         ])
+    }
+
+    func testAMenuIsASubmenuInACommandMenuOrAGroupAndItsItemsFire() throws {
+        let application = adw_application_new("com.abracode.actionui.tests.submenus", applicationNonUnique)!
+        defer { g_object_unref(UnsafeMutableRawPointer(application)) }
+        let commands = AppCommands()
+        commands.start(typed(application), name: "Demo")
+        XCTAssertTrue(commands.load(json: #"""
+            [{"type": "CommandMenu", "properties": {"name": "Commands"}, "children": [
+                {"type": "Button", "properties": {"title": "Top", "actionID": "test.new"}},
+                {"type": "Menu", "properties": {"title": "Images"}, "children": [
+                    {"type": "Button", "properties": {"title": "Convert"}},
+                    {"type": "Menu", "properties": {"title": "Resize"}, "children": [
+                        {"type": "Button", "id": 21, "properties": {"title": "Half", "actionID": "test.run"}}]},
+                    {"type": "Divider"},
+                    {"type": "Button", "properties": {"title": "Rotate"}}]}]},
+             {"type": "CommandGroup", "properties": {"placement": "after", "placementTarget": "help"}, "children": [
+                {"type": "Menu", "properties": {"title": "Guides"}, "children": [
+                    {"type": "Button", "properties": {"title": "Start"}}]},
+                {"type": "Text", "properties": {"text": "not an item"}}]}]
+            """#))
+        XCTAssertEqual(outline(commands.menu.opaquePointer), [
+            "[Commands>[Top, Images>[[Convert, Resize>[Half]], [Rotate]]]]",
+            "[Guides>[Start]]",
+            "[About Demo]",
+        ])
+        // Half: the first section, Commands, Images (index 1), its first section, Resize (index 1), Half
+        let half = try XCTUnwrap(actionName(commands.menu.opaquePointer, [0, 0, 1, 0, 1, 0]))
+        let map = OpaquePointer(application)
+        g_action_activate(try XCTUnwrap(g_action_map_lookup_action(map, String(half.dropFirst(4)))), nil)
+        XCTAssertEqual(fired.map(\.actionID), ["test.run"])
+        XCTAssertEqual(fired.first?.viewID, 21)
     }
 
     func testAChildlessReplacingGroupRemovesAbout() {

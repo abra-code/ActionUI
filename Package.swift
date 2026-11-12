@@ -317,6 +317,13 @@ Package(
             path: "ActionUITests"
         ),
 
+        // MARK: - Unit tests for the menu-bar builder (macOS)
+        .testTarget(
+            name: "ActionUIMenuBarTests",
+            dependencies: ["ActionUIMenuBar", "ActionUI"],
+            path: "ActionUIMenuBarTests"
+        ),
+
         // MARK: - ActionUIRemote
         // Remote binding: JSON-RPC 2.0 codec, Unix domain socket server, and the method table
         // over ActionUIModel. Swift over FoundationEssentials (Foundation on Apple), Dispatch and

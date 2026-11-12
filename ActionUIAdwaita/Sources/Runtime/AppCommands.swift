@@ -18,7 +18,9 @@
  appTermination (Ctrl+Q quits, as in GNOME apps, with no menu item) have items of their own; the
  macOS identifiers of those two items, "about" and "quit", name their targets too. Any other
  target is help, as Core reads a missing one. A Divider (or Separator) starts a new section.
- Button is the one item kind, as on macOS: its title, its keyboardShortcut as the action's
+ A Menu is a submenu titled with its title, holding its own Buttons, Dividers and Menus, as a Menu
+ in a SwiftUI CommandMenu and in ActionUIMenuBar's.
+ Button is the one action item, as on macOS: its title, its keyboardShortcut as the action's
  accelerator (command and control are Ctrl, option Alt, shift Shift; no modifiers given, or none
  known, is Ctrl), disabled or no actionID greying it out, as AppKit does. Choosing one fires its
  actionID for the active window's document, with the element's id as viewID.
@@ -188,9 +190,11 @@ package final class AppCommands {
 
     // MARK: Building
 
-    /// One menu item: a Button's title, the action it fires and its shortcut, or a Divider.
+    /// One menu item: a Button's title, the action it fires and its shortcut, a Menu's title and
+    /// items, or a Divider.
     private enum Entry {
         case item(title: String, actionID: String?, viewID: Int, accelerator: String?, disabled: Bool)
+        case submenu(title: String, entries: [Entry])
         /// The default appInfo item.
         case about
         case divider
@@ -298,6 +302,10 @@ package final class AppCommands {
                 let name = addAction(actionID: actionID, viewID: viewID, accelerator: accelerator,
                                      disabled: disabled || actionID == nil, about: false)
                 g_menu_append(model, title, "app." + name)
+            case .submenu(let title, let entries):
+                let submenu = OwnedObject(adopting: g_menu_new()!)
+                appendEntries(submenu.opaquePointer, entries)
+                g_menu_append_submenu(model, title, typed(submenu.opaquePointer))
             case .about:
                 let name = addAction(actionID: nil, viewID: 0, accelerator: nil, disabled: false, about: true)
                 g_menu_append(model, "About \(appName)", "app." + name)
@@ -307,7 +315,7 @@ package final class AppCommands {
         }
     }
 
-    /// A Button or Divider element as an entry; nil for anything else (logged).
+    /// A Button, Menu or Divider element as an entry; nil for anything else (logged).
     private static func entry(_ element: [String: Any]) -> Entry? {
         switch element["type"] as? String {
         case "Divider", "Separator":
@@ -319,6 +327,10 @@ package final class AppCommands {
                          viewID: element["id"] as? Int ?? 0,
                          accelerator: (properties["keyboardShortcut"] as? [String: Any]).flatMap(accelerator),
                          disabled: properties["disabled"] as? Bool ?? false)
+        case "Menu":
+            let properties = element["properties"] as? [String: Any] ?? [:]
+            return .submenu(title: properties["title"] as? String ?? "",
+                            entries: (element["children"] as? [[String: Any]] ?? []).compactMap(entry))
         default:
             ActionUIModel.shared.logger.log("Commands: a \(element["type"] as? String ?? "?") is not a menu item on Linux; it is left out", .warning)
             return nil

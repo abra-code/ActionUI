@@ -15,7 +15,7 @@ import SwiftUI
      "placementTarget": String // Optional: One of "appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help". Defaults to "help" if missing or invalid
    },
    "children": [
-     // Array of child elements (e.g., Button, Divider)
+     // Array of child elements (Button, Menu, Divider); a Menu is a submenu of its own children
      {
        "type": "Button",
        "id": Int,
