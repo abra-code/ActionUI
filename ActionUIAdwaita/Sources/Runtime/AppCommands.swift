@@ -28,6 +28,7 @@
  missing one. A Divider (or Separator) starts a new section.
  A Menu is a submenu titled with its title, holding its own Buttons, Dividers and Menus, as a Menu
  in a SwiftUI CommandMenu and in ActionUIMenuBar's.
+ Titles show as written: an underscore is not a mnemonic mark, as it is in a GTK menu label.
  Button is the one action item, as on macOS: its title, its keyboardShortcut as the action's
  accelerator (command and control are Ctrl, option Alt, shift Shift; no modifiers given, or none
  known, is Ctrl), disabled or no actionID greying it out, as AppKit does. Choosing one fires its
@@ -310,7 +311,7 @@ package final class AppCommands {
             for command in menus {
                 let submenu = OwnedObject(adopting: g_menu_new()!)
                 appendEntries(submenu.opaquePointer, command.entries)
-                g_menu_append_submenu(section.opaquePointer, command.name, typed(submenu.opaquePointer))
+                g_menu_append_submenu(section.opaquePointer, Self.label(command.name), typed(submenu.opaquePointer))
             }
             g_menu_append_section(root, nil, typed(section.opaquePointer))
         }
@@ -320,6 +321,12 @@ package final class AppCommands {
         }
         installQuit(replaced: groups["appTermination"]?.contains { $0.placement == "replacing" } ?? false)
         setMenuOnButtons(attach: true)
+    }
+
+    /// A title as a menu label: GTK's menus read "_" as the mark of a mnemonic, so "my_file.txt"
+    /// showed as "myfile.txt"; doubled, it shows as written, as a macOS menu title does.
+    static func label(_ title: String) -> String {
+        title.replacing("_", with: "__")
     }
 
     /// The sections of one target: the "before" groups, the target's own items (or what replaces
@@ -373,14 +380,14 @@ package final class AppCommands {
                 // An item with no action is greyed out, as AppKit shows a menu item without one.
                 let name = addAction(actionID: actionID, viewID: viewID, accelerator: accelerator,
                                      disabled: disabled || actionID == nil, about: false)
-                g_menu_append(model, title, "app." + name)
+                g_menu_append(model, Self.label(title), "app." + name)
             case .submenu(let title, let entries):
                 let submenu = OwnedObject(adopting: g_menu_new()!)
                 appendEntries(submenu.opaquePointer, entries)
-                g_menu_append_submenu(model, title, typed(submenu.opaquePointer))
+                g_menu_append_submenu(model, Self.label(title), typed(submenu.opaquePointer))
             case .about:
                 let name = addAction(actionID: nil, viewID: 0, accelerator: nil, disabled: false, about: true)
-                g_menu_append(model, "About \(appName)", "app." + name)
+                g_menu_append(model, Self.label("About \(appName)"), "app." + name)
             case .divider:
                 break
             }

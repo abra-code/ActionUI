@@ -6,7 +6,7 @@
  a Menu as a submenu (nested, in a CommandMenu or a group, its items firing their actions);
  macOS menu bar names (standard item identifiers, menu titles) as the sections that hold such items;
  commands loaded under a key replaced in place, and removed by an empty array; a menu button's
- popover showing a rebuilt submenu as it is now, one page each;
+ popover showing a rebuilt submenu as it is now, one page each; titles with underscores shown as written;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
  a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
  title and its commands (its platform overrides applied), loaded once per group, and not before
@@ -213,6 +213,23 @@ final class AppCommandsTests: XCTestCase {
         let pages = popoverPages(button)
         XCTAssertEqual(pages.filter { $0.hasPrefix("Recent:") }, ["Recent:Recent,c.txt,b.txt,a.txt"],
                        "one Recent page, as the menu is now: \(pages)")
+    }
+
+    func testTitlesWithUnderscoresShowAsWritten() throws {
+        let commands = AppCommands()
+        XCTAssertTrue(commands.load(json: #"""
+            [{"type": "CommandMenu", "properties": {"name": "My_Menu"}, "children": [
+                {"type": "Button", "properties": {"title": "my_file.txt"}},
+                {"type": "Menu", "properties": {"title": "sub_menu"}, "children": [
+                    {"type": "Button", "properties": {"title": "a_b"}}]}]}]
+            """#))
+        // The model holds the escaped labels; the popover shows them as written
+        XCTAssertEqual(outline(commands.menu.opaquePointer)[0], "[My__Menu>[my__file.txt, sub__menu>[a__b]]]")
+        let button = commands.makeMenuButton()
+        g_object_ref_sink(UnsafeMutableRawPointer(button))
+        defer { g_object_unref(UnsafeMutableRawPointer(button)) }
+        let pages = popoverPages(button).filter { !$0.hasPrefix("main:") }
+        XCTAssertEqual(pages.sorted(), ["My__Menu:My_Menu,my_file.txt,sub_menu", "sub__menu:sub_menu,a_b"].sorted(), "\(pages)")
     }
 
     func testAChildlessReplacingGroupRemovesAbout() {
