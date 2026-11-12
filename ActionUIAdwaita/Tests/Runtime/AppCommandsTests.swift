@@ -5,6 +5,8 @@
  before, after and replacing (a childless replacing group removing About), Dividers as sections,
  a Menu as a submenu (nested, in a CommandMenu or a group, its items firing their actions);
  macOS menu bar names (standard item identifiers, menu titles) as the sections that hold such items;
+ commands loaded under a key replaced in place, and removed by an empty array; a menu button's
+ popover showing a rebuilt submenu as it is now, one page each;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
  a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
  title and its commands (its platform overrides applied), loaded once per group, and not before
@@ -132,6 +134,85 @@ final class AppCommandsTests: XCTestCase {
         g_action_activate(try XCTUnwrap(g_action_map_lookup_action(map, String(half.dropFirst(4)))), nil)
         XCTAssertEqual(fired.map(\.actionID), ["test.run"])
         XCTAssertEqual(fired.first?.viewID, 21)
+    }
+
+    func testCommandsLoadedUnderAKeyAreReplacedInPlace() {
+        let commands = AppCommands()
+        let recent = { (titles: [String]) -> String in
+            let items = titles.map { #"{"type": "Button", "properties": {"title": "\#($0)"}}"# }.joined(separator: ", ")
+            return #"[{"type": "CommandMenu", "properties": {"name": "Recent"}, "children": [\#(items)]}]"#
+        }
+        XCTAssertTrue(commands.load(json: #"[{"type": "CommandMenu", "properties": {"name": "First"}}]"#))
+        XCTAssertTrue(commands.load(json: recent(["a.txt"]), replacing: "recent"))
+        XCTAssertTrue(commands.load(json: #"[{"type": "CommandMenu", "properties": {"name": "Last"}}]"#))
+        XCTAssertEqual(outline(commands.menu.opaquePointer)[0], "[First>[], Recent>[a.txt], Last>[]]")
+        XCTAssertTrue(commands.load(json: recent(["b.txt", "a.txt"]), replacing: "recent"))
+        XCTAssertEqual(outline(commands.menu.opaquePointer)[0], "[First>[], Recent>[b.txt, a.txt], Last>[]]",
+                       "replaced where it was, not added")
+        XCTAssertFalse(commands.load(json: #"{"type": "CommandMenu"}"#, replacing: "recent"), "not an array")
+        XCTAssertEqual(outline(commands.menu.opaquePointer)[0], "[First>[], Recent>[b.txt, a.txt], Last>[]]", "unchanged")
+        XCTAssertTrue(commands.load(json: "[]", replacing: "recent"))
+        XCTAssertEqual(outline(commands.menu.opaquePointer)[0], "[First>[], Last>[]]", "an empty array removes them")
+        XCTAssertTrue(commands.load(json: recent(["c.txt"]), replacing: "recent"))
+        XCTAssertEqual(outline(commands.menu.opaquePointer)[0], "[First>[], Last>[], Recent>[c.txt]]", "after a removal, at the end")
+    }
+
+    /// The pages of a menu button's popover: each name with the labels on it.
+    private func popoverPages(_ button: UnsafeMutablePointer<GtkWidget>) -> [String] {
+        guard let popover = gtk_menu_button_get_popover(OpaquePointer(button)) else { return [] }
+        func find(_ widget: UnsafeMutablePointer<GtkWidget>) -> UnsafeMutablePointer<GtkWidget>? {
+            if g_type_check_instance_is_a(UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GTypeInstance.self), gtk_stack_get_type()) != 0 {
+                return widget
+            }
+            var child = gtk_widget_get_first_child(widget)
+            while let current = child {
+                if let found = find(current) { return found }
+                child = gtk_widget_get_next_sibling(current)
+            }
+            return nil
+        }
+        func labels(_ widget: UnsafeMutablePointer<GtkWidget>) -> [String] {
+            var result: [String] = []
+            if g_type_check_instance_is_a(UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GTypeInstance.self), gtk_label_get_type()) != 0 {
+                result.append(swiftString(gtk_label_get_text(OpaquePointer(widget))) ?? "")
+            }
+            var child = gtk_widget_get_first_child(widget)
+            while let current = child {
+                result += labels(current)
+                child = gtk_widget_get_next_sibling(current)
+            }
+            return result
+        }
+        guard let stack = find(UnsafeMutablePointer<GtkWidget>(OpaquePointer(popover))) else { return [] }
+        guard let pages = gtk_stack_get_pages(OpaquePointer(stack)) else { return [] }
+        defer { g_object_unref(UnsafeMutableRawPointer(pages)) }
+        var result: [String] = []
+        for index in 0..<g_list_model_get_n_items(pages) {
+            guard let page = g_list_model_get_item(pages, index) else { continue }
+            let name = swiftString(gtk_stack_page_get_name(OpaquePointer(page))) ?? "?"
+            if let child = gtk_stack_page_get_child(OpaquePointer(page)) {
+                result.append(name + ":" + labels(child).filter { !$0.isEmpty }.joined(separator: ","))
+            }
+            g_object_unref(page)
+        }
+        return result
+    }
+
+    func testAMenuButtonShowsARebuiltSubmenuAsItIsNow() throws {
+        let commands = AppCommands()
+        let recent = { (titles: [String]) -> String in
+            let items = titles.map { #"{"type": "Button", "properties": {"title": "\#($0)"}}"# }.joined(separator: ", ")
+            return #"[{"type": "CommandMenu", "properties": {"name": "Recent"}, "children": [\#(items)]}]"#
+        }
+        XCTAssertTrue(commands.load(json: recent(["a.txt"]), replacing: "recent"))
+        let button = commands.makeMenuButton()
+        g_object_ref_sink(UnsafeMutableRawPointer(button))
+        defer { g_object_unref(UnsafeMutableRawPointer(button)) }
+        XCTAssertTrue(commands.load(json: recent(["b.txt", "a.txt"]), replacing: "recent"))
+        XCTAssertTrue(commands.load(json: recent(["c.txt", "b.txt", "a.txt"]), replacing: "recent"))
+        let pages = popoverPages(button)
+        XCTAssertEqual(pages.filter { $0.hasPrefix("Recent:") }, ["Recent:Recent,c.txt,b.txt,a.txt"],
+                       "one Recent page, as the menu is now: \(pages)")
     }
 
     func testAChildlessReplacingGroupRemovesAbout() {

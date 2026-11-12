@@ -190,6 +190,10 @@ void actionUIInstallMainLoopBridge(void) ACTIONUI_NOEXCEPT;
 //   the primary menu of every window's header bar, as actions of the default GApplication that fire their
 //   actionID for the active window; successive calls add; false (error set) for JSON that is not an array;
 bool actionUILoadMenuBarJSON(const char *json) ACTIONUI_NOEXCEPT;
+// - loads such commands under key, in place of the ones loaded under that key before and where they were
+//   (at the end the first time); an empty array removes them: for a part a host keeps current (Open Recent);
+//   false (error set, menu unchanged) for a missing key or JSON that is not an array;
+bool actionUIReplaceMenuBarJSON(const char *key, const char *json) ACTIONUI_NOEXCEPT;
 // - the height of the bars ActionUI put above the content of the window showing windowUUID (header bar,
 //   subtitle line; not a bottom toolbar), a host's window or ActionUI's own, to add to a size below the bars
 //   for the window's size; -1 (error set) for no such window.

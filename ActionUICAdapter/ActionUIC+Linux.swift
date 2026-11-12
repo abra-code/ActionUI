@@ -112,6 +112,30 @@ public func actionUILoadMenuBarJSON(_ json: UnsafePointer<CChar>?) -> CBool {
     return loaded
 }
 
+/// Loads the CommandMenu and CommandGroup elements in `json` (a JSON array, as for
+/// actionUILoadMenuBarJSON) under `key`, in place of the ones loaded under that key before, where
+/// those were in the menu (after everything loaded so far, the first time); an empty array removes
+/// them. For a part of the menu a host keeps current, such as an Open Recent submenu rebuilt when
+/// the recent files change. Returns false, with an error set and the menu unchanged, for a missing
+/// key or JSON that is not an array.
+@c
+public func actionUIReplaceMenuBarJSON(_ key: UnsafePointer<CChar>?, _ json: UnsafePointer<CChar>?) -> CBool {
+    clearError()
+    guard let key, let json, key.pointee != 0 else {
+        setError("actionUIReplaceMenuBarJSON: the key and the JSON are required")
+        return false
+    }
+    let keyText = String(cString: key)
+    let text = String(cString: json)
+    let loaded = runOnMainActorSync {
+        AppCommands.shared.load(json: text, replacing: keyText)
+    }
+    if !loaded {
+        setError("actionUIReplaceMenuBarJSON: the JSON is not an array (of CommandMenu and CommandGroup elements)")
+    }
+    return loaded
+}
+
 /// The height of the bars ActionUI put above the document's content in the window showing
 /// `windowUUID` (the header bar, and the subtitle line when there is one), measured when it was
 /// filled, for a host's window or one ActionUI's own application presents: what a host adds to a

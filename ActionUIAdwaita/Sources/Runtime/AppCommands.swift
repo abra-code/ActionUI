@@ -57,8 +57,9 @@ package final class AppCommands {
 
     /// The primary menu every window's menu button shows, rebuilt in place.
     let menu = OwnedObject(adopting: g_menu_new()!)
-    /// The CommandMenu and CommandGroup elements loaded, in order.
-    private var commands: [[String: Any]] = []
+    /// The CommandMenu and CommandGroup elements loaded, in order, each with the key it was loaded
+    /// under by load(json:replacing:), nil for the others.
+    private var commands: [(key: String?, element: [String: Any])] = []
     /// The application start() gave, until stop().
     private var startedApplication: OpaquePointer?
     private var startedName: String?
@@ -84,6 +85,14 @@ package final class AppCommands {
         }
     }
     private var actionNames: [String] = []
+    /// The menu buttons made, each held weakly in a box GLib clears when the button goes. A rebuild
+    /// takes the menu from them first and gives it back after, so GTK makes each popover anew from
+    /// the menu as it is then:
+    /// GtkPopoverMenu keeps a stack page per submenu, named by its label, and does not remove one
+    /// when its item leaves the model, so a submenu rebuilt under the same name never showed (the
+    /// first page stayed, the new one was refused as a duplicate) and pages piled up. Used on the
+    /// main thread alone; nonisolated(unsafe) only so deinit can free the boxes.
+    private nonisolated(unsafe) var menuButtonBoxes: [UnsafeMutablePointer<gpointer?>] = []
     /// What Ctrl+Q does; nil quits the application.
     package var quitHandler: (@MainActor () -> Void)?
 
@@ -147,6 +156,12 @@ package final class AppCommands {
             g_object_remove_weak_pointer(application.assumingMemoryBound(to: GObject.self), installedBox)
         }
         installedBox.deallocate()
+        for box in menuButtonBoxes {
+            if let button = box.pointee {
+                g_object_remove_weak_pointer(button.assumingMemoryBound(to: GObject.self), box)
+            }
+            box.deallocate()
+        }
     }
 
     /// Adds the CommandMenu and CommandGroup elements in `json` (an array of them) to the menu;
@@ -159,8 +174,28 @@ package final class AppCommands {
                 ActionUIModel.shared.logger.log("Menu commands: the JSON is not an array", .error)
                 return false
             }
-            commands += array.compactMap { $0 as? [String: Any] }
+            commands += array.compactMap { $0 as? [String: Any] }.map { (key: nil, element: $0) }
         }
+        rebuild()
+        return true
+    }
+
+    /// Loads the CommandMenu and CommandGroup elements in `json` (an array of them) under `key`, in
+    /// place of the ones loaded under it before, where those were in the order loaded (at the end
+    /// the first time); an empty array removes them. For a part of the menu a host keeps current,
+    /// such as an Open Recent submenu. Returns false, logging why and changing nothing, for JSON
+    /// that is not an array.
+    @discardableResult
+    package func load(json: String, replacing key: String) -> Bool {
+        guard let parsed = try? ActionUIJSON.value(from: json), let array = parsed as? [Any] else {
+            ActionUIModel.shared.logger.log("Menu commands: the JSON is not an array", .error)
+            return false
+        }
+        let replacement = array.compactMap { $0 as? [String: Any] }.map { (key: Optional(key), element: $0) }
+        let place = commands.firstIndex { $0.key == key } ?? commands.endIndex
+        let before = commands[..<place].filter { $0.key != key }
+        let after = commands[place...].filter { $0.key != key }
+        commands = before + replacement + after
         rebuild()
         return true
     }
@@ -203,7 +238,24 @@ package final class AppCommands {
         gtk_menu_button_set_primary(OpaquePointer(button), 1)
         gtk_widget_set_tooltip_text(button, "Main Menu")
         setAccessibleLabel(button, "Main Menu")
+        let box = UnsafeMutablePointer<gpointer?>.allocate(capacity: 1)
+        box.initialize(to: UnsafeMutableRawPointer(button))
+        g_object_add_weak_pointer(UnsafeMutableRawPointer(button).assumingMemoryBound(to: GObject.self), box)
+        menuButtonBoxes.append(box)
         return button
+    }
+
+    /// Takes the menu from every menu button still there (attach false) or gives it back (true),
+    /// forgetting the boxes of buttons that are gone. See menuButtonBoxes.
+    private func setMenuOnButtons(attach: Bool) {
+        menuButtonBoxes = menuButtonBoxes.filter { box in
+            guard let button = box.pointee else {
+                box.deallocate()
+                return false
+            }
+            gtk_menu_button_set_menu_model(OpaquePointer(button), attach ? typed(menu.opaquePointer) : nil)
+            return true
+        }
     }
 
     // MARK: Building
@@ -219,6 +271,7 @@ package final class AppCommands {
     }
 
     private func rebuild() {
+        setMenuOnButtons(attach: false) // given back at the end (see menuButtonBoxes)
         let root = menu.opaquePointer
         g_menu_remove_all(root)
         if let installedApplication {
@@ -233,7 +286,7 @@ package final class AppCommands {
         // The groups at each target, in the order loaded.
         var groups: [String: [(placement: String, entries: [Entry])]] = [:]
         var menus: [(name: String, entries: [Entry])] = []
-        for command in commands {
+        for command in commands.map(\.element) {
             let properties = command["properties"] as? [String: Any] ?? [:]
             let entries = (command["children"] as? [[String: Any]] ?? []).compactMap(Self.entry)
             switch command["type"] as? String {
@@ -266,6 +319,7 @@ package final class AppCommands {
             appendSections(root, target: target, groups[target] ?? [], defaults: defaults)
         }
         installQuit(replaced: groups["appTermination"]?.contains { $0.placement == "replacing" } ?? false)
+        setMenuOnButtons(attach: true)
     }
 
     /// The sections of one target: the "before" groups, the target's own items (or what replaces
