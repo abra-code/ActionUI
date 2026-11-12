@@ -4,6 +4,7 @@
  top targets' groups, each CommandMenu as a submenu, then the bottom targets and About), placement
  before, after and replacing (a childless replacing group removing About), Dividers as sections,
  a Menu as a submenu (nested, in a CommandMenu or a group, its items firing their actions);
+ macOS menu bar names (standard item identifiers, menu titles) as the sections that hold such items;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
  a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
  title and its commands (its platform overrides applied), loaded once per group, and not before
@@ -175,12 +176,29 @@ final class AppCommandsTests: XCTestCase {
         }
     }
 
-    func testTheMacOSIdentifiersOfAboutAndQuitNameTheirTargets() {
+    func testMacOSMenuBarNamesStandForTheirSections() {
         XCTAssertEqual(AppCommands.target("about"), "appInfo")
         XCTAssertEqual(AppCommands.target("quit"), "appTermination")
         XCTAssertEqual(AppCommands.target("newItem"), "newItem")
-        XCTAssertEqual(AppCommands.target("Format"), "help", "a target Linux does not have")
+        // macOS's standard items and menus, where Linux keeps the same kind of item
+        XCTAssertEqual(AppCommands.target("new"), "newItem")
+        XCTAssertEqual(AppCommands.target("open"), "newItem")
+        XCTAssertEqual(AppCommands.target("File"), "newItem")
+        XCTAssertEqual(AppCommands.target("close"), "saveItem")
+        XCTAssertEqual(AppCommands.target("copy"), "pasteboard")
+        XCTAssertEqual(AppCommands.target("Edit"), "undoRedo")
+        XCTAssertEqual(AppCommands.target("Format"), "textFormatting")
+        XCTAssertEqual(AppCommands.target("minimize"), "windowSize")
+        XCTAssertEqual(AppCommands.target("Help"), "help")
+        XCTAssertEqual(AppCommands.target("Tools"), "help", "a name neither side has")
         XCTAssertEqual(AppCommands.target(nil), "help")
+        let replaced = AppCommands()
+        replaced.load(json: #"""
+            [{"type": "CommandGroup", "properties": {"placement": "replacing", "placementTarget": "new"}, "children": [
+                {"type": "Button", "properties": {"title": "New Project"}}]}]
+            """#)
+        XCTAssertEqual(outline(replaced.menu.opaquePointer), ["[New Project]", "[About \(replaced.appName)]"],
+                       "an item replacing macOS's New is first, where New is")
         let commands = AppCommands()
         commands.load(json: #"[{"type": "CommandGroup", "properties": {"placement": "replacing", "placementTarget": "about"}}]"#)
         XCTAssertEqual(outline(commands.menu.opaquePointer), [], "removing About by its identifier")

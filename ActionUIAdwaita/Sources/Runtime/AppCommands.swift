@@ -15,9 +15,17 @@
    then any items a group puts at appTermination.
  A group's items come before ("before") or after ("after") the target's own; "replacing" puts
  them in its place, and without children takes the target's own away. Only appInfo (About) and
- appTermination (Ctrl+Q quits, as in GNOME apps, with no menu item) have items of their own; the
- macOS identifiers of those two items, "about" and "quit", name their targets too. Any other
- target is help, as Core reads a missing one. A Divider (or Separator) starts a new section.
+ appTermination (Ctrl+Q quits, as in GNOME apps, with no menu item) have items of their own.
+ A target may also be what macOS's menu bar names (ActionUIMenuBar): one of its standard items'
+ identifiers or a top-level menu's title. Linux has no such item or menu, so the name stands for the
+ section where the same kind of item is, the SwiftUI group macOS keeps it in: "new" and "open" are
+ newItem, "close" saveItem, "undo" and "redo" undoRedo, "cut", "copy", "paste", "delete" and
+ "selectAll" pasteboard, "minimize" and "zoom" windowSize, "bringAllToFront" windowArrangement,
+ "services" systemServices, "hide", "hideOthers" and "showAll" appVisibility, "about" appInfo,
+ "quit" appTermination, "help" help; the menus "File" newItem, "Edit" undoRedo, "Format"
+ textFormatting, "View" toolbar, "Window" windowSize, "Help" help. So a MainMenu.json written for
+ macOS puts its items where a Linux user looks for them. Any other target is help, as Core reads a
+ missing one. A Divider (or Separator) starts a new section.
  A Menu is a submenu titled with its title, holding its own Buttons, Dividers and Menus, as a Menu
  in a SwiftUI CommandMenu and in ActionUIMenuBar's.
  Button is the one action item, as on macOS: its title, its keyboardShortcut as the action's
@@ -109,16 +117,26 @@ package final class AppCommands {
     /// puts there do.
     static let bottomTargets = ["appSettings", "help", "appInfo", "appTermination"]
 
-    /// The target a placementTarget names: one of the menu's, or the macOS menu bar's identifier of
-    /// a default item Linux also has ("about" is appInfo's item, "quit" appTermination's); any
-    /// other is help, as Core reads a missing one.
+    /// The section a macOS menu bar name stands for (see the header): a standard item's identifier
+    /// or a top-level menu's title, by the SwiftUI group that holds it on macOS.
+    static let macOSNames: [String: String] = [
+        "new": "newItem", "open": "newItem", "close": "saveItem",
+        "undo": "undoRedo", "redo": "undoRedo",
+        "cut": "pasteboard", "copy": "pasteboard", "paste": "pasteboard", "delete": "pasteboard", "selectAll": "pasteboard",
+        "minimize": "windowSize", "zoom": "windowSize", "bringAllToFront": "windowArrangement",
+        "services": "systemServices", "hide": "appVisibility", "hideOthers": "appVisibility", "showAll": "appVisibility",
+        "about": "appInfo", "quit": "appTermination",
+        "File": "newItem", "Edit": "undoRedo", "Format": "textFormatting", "View": "toolbar", "Window": "windowSize", "Help": "help",
+    ]
+
+    /// The target a placementTarget names: one of the menu's, or a macOS menu bar name for the
+    /// section where Linux keeps that kind of item; any other is help, as Core reads a missing one.
     static func target(_ name: String?) -> String {
-        switch name {
-        case "about": return "appInfo"
-        case "quit": return "appTermination"
-        case let name? where (topTargets + bottomTargets).contains(name): return name
-        default: return "help"
+        guard let name else { return "help" }
+        if (topTargets + bottomTargets).contains(name) {
+            return name
         }
+        return macOSNames[name] ?? "help"
     }
 
     /// A separate instance for tests; the application uses `shared`.
