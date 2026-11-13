@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.droppingUntypedElements
 import com.abracode.actionui.Common.ActionUIImageRegistry
 import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUILogger
@@ -93,7 +94,7 @@ object ActionUI {
     ) {
         val raw = json.parseToJsonElement(jsonString)
         val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
-        val element = json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
+        val element = json.decodeFromJsonElement(ActionUIElement.serializer(), filtered).droppingUntypedElements(logger)
         // Key the window model on the source text: the element is re-decoded each
         // recomposition (a fresh but structurally identical instance), so it is not
         // a stable remember key.

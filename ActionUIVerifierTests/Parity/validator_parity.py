@@ -2,7 +2,7 @@
 """Compare the Swift verifier (actionui-verify) with the Python verifier (validate_actionui.py).
 
 Both read ActionUIVerifier/Schemas; this checks that they also apply the same rules. Both tools
-are run over the same files, cross-platform and deployed to macos, ios and android, and their
+are run over the same files, cross-platform and deployed to macos, ios, android and linux, and their
 output is compared line by line, summary line included. Two parts of a line are ignored:
   - "(value: ...)" in a "does not match any allowed form" message, a language-specific
     rendering of the offending value;
@@ -26,7 +26,7 @@ PYTHON_VERIFIER = REPO / "Tools" / "verifier" / "validate_actionui.py"
 TOOL_PACKAGE = REPO / "Apps" / "ActionUIVerifier"
 
 SAMPLE_DIRS = ["ActionUISwiftTestApp/Resources", "Documentation/Elements", "Examples", "Add-ons", "Skill/master"]
-PLATFORMS = [None, "macos", "ios", "android"]
+PLATFORMS = [None, "macos", "ios", "android", "linux"]
 VALUE_PART = re.compile(r" \(value: .*?\) does not match")
 INVALID_JSON = re.compile(r": invalid JSON .*$")
 

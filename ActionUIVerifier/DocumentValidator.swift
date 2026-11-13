@@ -380,6 +380,11 @@ public struct DocumentValidator: Sendable {
 
         // type, possibly per platform. Each variant must be a known element type.
         guard let typeVariants = expanded["type"], !typeVariants.isEmpty else {
+            if hadType, targetPlatform != nil, !isRoot {
+                // The type is given only for other platforms: the runtime skips the element here
+                // (as it drops other platforms' properties), so there is nothing to check.
+                return issues
+            }
             if hadType, let target = targetPlatform {
                 issues.append(.init(severity: .error, path: path, message: "no 'type' variant applies to target platform '\(target)'"))
             } else {

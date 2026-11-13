@@ -139,6 +139,20 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
     #expect(try issues(["type:ios": "Text"], platform: "macos") == ["[ERROR] doc: no 'type' variant applies to target platform 'macos'"])
 }
 
+/// The runtime leaves out a child typed only for other platforms, so deployed elsewhere it is not
+/// checked: not even its properties or its id, which may repeat a shown element's.
+@Test func childTypedOnlyForOtherPlatformsIsSkipped() throws {
+    let document: JSONValue = ["type": "VStack", "children": [
+        ["type": "Text", "id": 7, "properties": ["text": "x"]],
+        ["type:apple": "Button", "id": 7, "properties": ["titel": "Go"]],
+    ]]
+    #expect(try issues(document, platform: "linux") == [])
+    #expect(try issues(document, platform: "android") == [])
+    let found = try issues(document, platform: "macos")
+    #expect(found.contains { $0.contains("titel") })
+    #expect(found.contains { $0.hasPrefix("[ERROR]") && $0.contains("7") })
+}
+
 @Test func crossPlatformVariantTypesCheckPlainPropertiesAgainstAll() throws {
     #expect(try issues(["type:macos": "Button", "type:ios": "Text", "properties": ["title": "Go"]], platform: nil) == [])
     let found = try issues(["type:ios": "Text", "type:macos": "Button", "properties": ["titel": "Go"]], platform: nil)

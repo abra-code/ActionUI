@@ -367,6 +367,20 @@ class DeploymentModeTests(unittest.TestCase):
         self.assertEqual(len(errs), 1, _msg(errs))
         self.assertIn("no 'type' variant applies to target platform 'macos'", str(errs[0]))
 
+    def test_child_typed_only_for_other_platforms_is_skipped(self):
+        # The runtime leaves such a child out, so deployed elsewhere it is not checked: not even
+        # its properties or its id, which may repeat a shown element's.
+        doc = {"type": "VStack", "children": [
+            {"type": "Text", "id": 7, "properties": {"text": "x"}},
+            {"type:apple": "Button", "id": 7, "properties": {"titel": "Go"}},
+        ]}
+        self.assertEqual(_validate(doc, platform="linux"), [], _msg(_validate(doc, platform="linux")))
+        self.assertEqual(_validate(doc, platform="android"), [], _msg(_validate(doc, platform="android")))
+        # On the platform it is typed for, it is checked as usual.
+        found = _validate(doc, platform="macos")
+        self.assertTrue(any("titel" in str(i) for i in found), _msg(found))
+        self.assertTrue(any("7" in str(i) for i in _errors(found)), _msg(found))
+
     def test_other_platform_children_variant_is_skipped(self):
         doc = {"type": "VStack", "children": [{"type": "Text", "id": 6}],
                "children:ios": [{"type": "Nope", "id": 6}]}

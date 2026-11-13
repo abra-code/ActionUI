@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import android.content.res.AssetManager
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.droppingUntypedElements
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.PlatformFilter
@@ -119,7 +120,7 @@ internal fun decodeDescription(
     val element = try {
         val raw = json.parseToJsonElement(text)
         val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
-        json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
+        json.decodeFromJsonElement(ActionUIElement.serializer(), filtered).droppingUntypedElements(logger)
     } catch (e: SerializationException) {
         logger.log("LoadableLoader: failed to parse loaded description: ${e.message}", LoggerLevel.error)
         return DescriptionLoad.Failed("Failed to parse description")

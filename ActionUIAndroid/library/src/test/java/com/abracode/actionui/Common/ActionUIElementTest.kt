@@ -245,4 +245,40 @@ class ActionUIElementTest {
 
         assertEquals(listOf(2, 3), element.subElements().map { it.id })
     }
+
+    @Test
+    fun `an element typed only for other platforms is left out at any depth`() {
+        // What PlatformFilter leaves of "type:macos" on Android: an element with no type. It is
+        // dropped from arrays, rows and single slots, so it takes no place and its id (7, also
+        // the shown Text's) is not registered; each drop is logged at info.
+        val infos = mutableListOf<String>()
+        val logger = object : ActionUILogger {
+            override fun log(message: String, level: LoggerLevel) {
+                if (level == LoggerLevel.info) infos.add(message)
+            }
+        }
+        val element = decode(
+            """
+            { "type": "VStack", "id": 1,
+              "children": [
+                { "type": "Text", "id": 7 },
+                { "id": 7, "properties": { "title": "Mac only" } },
+                { "type": "HStack", "id": 2, "children": [ { "id": 8 }, { "type": "Text", "id": 3 } ] }
+              ],
+              "overlay": { "id": 9 },
+              "rows": [ [ { "id": 10 }, { "type": "Text", "id": 4 } ] ]
+            }
+            """.trimIndent()
+        ).droppingUntypedElements(logger)
+
+        assertEquals(listOf(7, 2), element.children?.map { it.id })
+        assertEquals(listOf(3), element.children?.get(1)?.children?.map { it.id })
+        assertNull(element.overlay)
+        assertEquals(listOf(4), element.rows?.single()?.map { it.id })
+        assertEquals(listOf(7, 2, 3, 4), allIds(element))
+        assertEquals(4, infos.count { it == SKIPPED_UNTYPED_ELEMENT })
+    }
+
+    private fun allIds(element: ActionUIElement): List<Int> =
+        element.subElements().flatMap { listOf(it.id) + allIds(it) }
 }

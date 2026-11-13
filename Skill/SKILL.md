@@ -79,7 +79,7 @@ Handlers get `(actionID, viewID, viewPartID, context)`. Use the key the control 
 
 ### Platform overrides
 
-`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. Details: the JSON guide, "Per-Platform Property Overrides".
+`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. The suffix also works on `type`: an element typed only for some platforms (`"type:apple": "Toggle"` and no `type`) is left out elsewhere, taking no space (`hidden` keeps the space); the root needs a `type` on every platform. Details: the JSON guide, "Per-Platform Property Overrides".
 
 
 

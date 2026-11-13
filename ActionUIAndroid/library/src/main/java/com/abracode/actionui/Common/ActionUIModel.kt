@@ -1019,7 +1019,7 @@ object ActionUIModel {
         }
         val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
         val element = try {
-            json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
+            json.decodeFromJsonElement(ActionUIElement.serializer(), filtered).droppingUntypedElements(logger)
         } catch (e: Exception) {
             throw InsertError.InvalidJSON(e.message ?: "could not decode element")
         }
@@ -1038,7 +1038,7 @@ object ActionUIModel {
         return raw.map { cell ->
             val filtered = PlatformFilter.Android.withLogger(logger).filter(cell)
             val element = try {
-                json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
+                json.decodeFromJsonElement(ActionUIElement.serializer(), filtered).droppingUntypedElements(logger)
             } catch (e: Exception) {
                 throw InsertError.InvalidJSON(e.message ?: "could not decode cell")
             }

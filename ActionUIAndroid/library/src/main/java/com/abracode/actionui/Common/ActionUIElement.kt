@@ -145,6 +145,50 @@ data class ActionUIElement(
 ) : ActionUIElementBase
 
 /**
+ * This element with every contained element that has no `type` left out, at any depth: from the
+ * arrays, and a single-element slot set to null. [PlatformFilter] leaves such an element when its
+ * type is given only for other platforms (`"type:macos"` and no `type`), and it is not shown here,
+ * as Swift's `ElementSlot` and the Web renderer skip it when the document loads: it takes no
+ * place in a container and its id is not registered. The element itself is kept whatever its
+ * type (the caller decides what a root with none means). Each one left out is logged at info.
+ */
+fun ActionUIElement.droppingUntypedElements(logger: ActionUILogger?): ActionUIElement {
+    fun one(element: ActionUIElement?): ActionUIElement? = when {
+        element == null -> null
+        element.type.isEmpty() -> {
+            logger?.log(SKIPPED_UNTYPED_ELEMENT, LoggerLevel.info)
+            null
+        }
+        else -> element.droppingUntypedElements(logger)
+    }
+    fun list(elements: List<ActionUIElement>?): List<ActionUIElement>? = elements?.mapNotNull { one(it) }
+    return copy(
+        children = list(children),
+        content = one(content),
+        template = one(template),
+        destination = one(destination),
+        destinations = list(destinations),
+        sidebar = one(sidebar),
+        detail = one(detail),
+        toolbar = list(toolbar),
+        persistentToolbar = list(persistentToolbar),
+        sheet = one(sheet),
+        fullScreenCover = one(fullScreenCover),
+        popover = one(popover),
+        rows = rows?.map { row -> row.mapNotNull { one(it) } },
+        overlay = one(overlay),
+        background = one(background),
+        contextMenu = list(contextMenu),
+        contextMenuPreview = one(contextMenuPreview),
+        swipeActions = list(swipeActions),
+        safeAreaInset = one(safeAreaInset),
+    )
+}
+
+internal const val SKIPPED_UNTYPED_ELEMENT =
+    "Skipped an element with no type (its type is given only for other platforms, or missing)"
+
+/**
  * Every directly-contained child element, flattened across all named containers
  * in a stable order, for tree traversal (e.g. seeding view models by id). Add
  * each new single-child / array container here so existing walks pick it up
