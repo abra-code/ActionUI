@@ -8,7 +8,7 @@
 #     *.json, *.png ...   ActionUISwiftTestApp/Resources, copied
 #     RichText.json ...   the documents of the add-ons the program links (and the Diff document's two text files), from the add-ons' test app
 #     Orb.png ...         the test app's asset images, named after their assets (Image assetName)
-#     Info.json           the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
+#     Info.plist          the app's ID, name and icon (ActionUIAdwaita/DemoBundle, copied)
 #     ActionUIDemo.svg    the app's icon (ActionUIAdwaita/DemoBundle)
 #     LICENSE.txt, LICENSE-MaterialSymbols.txt   ActionUI's license, and its symbol icons'
 #     LICENSE-RichText.txt, LICENSE-AsyncImageCache.txt, LICENSE-DiffView.txt   the packages the add-ons link
@@ -190,7 +190,7 @@ for imageset in "$assets"/*.imageset; do
     done
 done
 
-# The app's Info.json (application ID, name, icon) and its icon, for the runtime and for
+# The app's Info.plist (application ID, name, icon) and its icon, for the runtime and for
 # Scripts/linux-app-entry.py, which adds the bundle to the desktop's app list.
 /bin/cp "$demo_bundle_files"/* "$bundle/"
 status=$?

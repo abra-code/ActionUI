@@ -53,29 +53,36 @@ Scripts/make-linux-demo-bundle.sh ActionUIAdwaita/Apps/.build/release /tmp     #
 Scripts/linux-app-entry.py install /tmp/ActionUIDemo.app  # optional: the demo in the desktop's app list
 ```
 
-`ActionUIDemo.app` is a plain folder: the program, stripped (about 17 MB), beside its documents and images, its `Info.json` and its icon (both from `ActionUIAdwaita/DemoBundle`). The program finds its documents in the folder it runs from.
+`ActionUIDemo.app` is a plain folder: the program, stripped (about 17 MB), beside its documents and images, its `Info.plist` and its icon (both from `ActionUIAdwaita/DemoBundle`). The program finds its documents in the folder it runs from.
 
-## Info.json
+## Info.plist
 
-An app's folder (the program's folder, or for Python and Node.js the main script's, the resource folder) can hold an `Info.json` that names the app, as `Info.plist` does on Apple:
+An app describes itself in an `Info.plist`, the same file and keys as an Apple bundle's. It is at the app folder's top level (the flat layout: the program's folder, or for Python and Node.js the main script's, the resource folder), or in `Contents` when the app has the macOS layout (the program in `Contents/Linux`, its resources in `Contents/Resources`):
 
-```json
-{
-  "applicationID": "org.example.MyApp",
-  "name": "My App",
-  "icon": "MyApp.svg"
-}
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>org.example.MyApp</string>
+	<key>CFBundleDisplayName</key>
+	<string>My App</string>
+	<key>CFBundleIconFile</key>
+	<string>MyApp</string>
+</dict>
+</plist>
 ```
 
-- `applicationID`: the reverse-DNS application ID. The desktop matches the app's windows to its desktop entry, `<applicationID>.desktop`, by it, so the dock shows the entry's name and icon; with no matching entry it shows the raw ID and a generic icon.
-- `name`: the application's name, in the About item and dialog of the windows' primary menu, and the title of a window that has none of its own (a document file's window takes the file's name).
-- `icon`: the windows' icon, a PNG or SVG file (GTK reads no other formats) by its path relative to the app's folder (`MyApp.svg`, `icons/MyApp.svg`) or an absolute path, else an icon theme name.
+- `CFBundleIdentifier`: the reverse-DNS application ID. The desktop matches the app's windows to its desktop entry, `<CFBundleIdentifier>.desktop`, by it, so the dock shows the entry's name and icon; with no matching entry it shows the raw ID and a generic icon.
+- `CFBundleDisplayName`, else `CFBundleName`: the application's name, in the About item and dialog of the windows' primary menu, and the title of a window that has none of its own (a document file's window takes the file's name).
+- `CFBundleIconFile`: the windows' icon, a file name in the resources with its extension optional. GTK reads no `.icns`, so on Linux the name is looked for as `MyApp.svg`, then `MyApp.png` (or the file named, when it is an SVG or a PNG): one plist serves both systems, with `MyApp.icns` beside the SVG for macOS.
 
-All keys are optional; an empty string counts as left out. A value the program sets in code (`actionUIAppSetApplicationID`, `actionUIAppSetName`, `actionUIAppSetIcon` and their Python, Node.js, Rust and Swift counterparts) wins over the file; with neither, the ID is made from the name (`com.abracode.actionui.<name>`). Other keys are left for the tools that install the app. On Apple the file is not read.
+All keys are optional; an empty string counts as left out. A value the program sets in code (`actionUIAppSetApplicationID`, `actionUIAppSetName`, `actionUIAppSetIcon` and their Python, Node.js, Rust and Swift counterparts) wins over the file; with neither, the ID is made from the name (`com.abracode.actionui.<name>`). Other keys are left for the tools that install the app.
 
 ### In the desktop's app list
 
-`Scripts/linux-app-entry.py` adds an app folder to the app list of the desktop (GNOME's Apps, KDE Plasma's launcher, Xfce's menu and others that follow the freedesktop.org standards), for the current user, from its `Info.json`:
+`Scripts/linux-app-entry.py` adds an app folder to the app list of the desktop (GNOME's Apps, KDE Plasma's launcher, Xfce's menu and others that follow the freedesktop.org standards), for the current user, from its `Info.plist`:
 
 ```sh
 Scripts/linux-app-entry.py install /path/to/MyApp.app                                # runs MyApp.app/MyApp
@@ -83,19 +90,18 @@ Scripts/linux-app-entry.py install /path/to/MyApp --exec 'python3 MyApp.py'     
 Scripts/linux-app-entry.py uninstall /path/to/MyApp.app                              # or: uninstall org.example.MyApp
 ```
 
-It writes `~/.local/share/applications/<applicationID>.desktop` and copies the icon into the user's icon theme as `<applicationID>.svg` or `.png` (a square PNG of a standard size: 48, 64, 128, 256, 512 and others; an SVG serves every size). `Info.json` needs `applicationID` for it; two more keys go into the entry:
+It writes `~/.local/share/applications/<CFBundleIdentifier>.desktop` and copies the icon into the user's icon theme as `<CFBundleIdentifier>.svg` or `.png` (a square PNG of a standard size: 48, 64, 128, 256, 512 and others; an SVG serves every size). It needs `CFBundleIdentifier`; the entry runs `CFBundleExecutable` in the program folder (the app folder, or `Contents/Linux`), else the executable named after the app folder. Two keys only Linux reads go into the entry, and macOS ignores them:
 
-```json
-{
-  "applicationID": "org.example.MyApp",
-  "name": "My App",
-  "icon": "MyApp.svg",
-  "summary": "Edits my things",
-  "categories": ["Utility"]
-}
+```xml
+	<key>LinuxDesktopComment</key>
+	<string>Edits my things</string>
+	<key>LinuxDesktopCategories</key>
+	<array>
+		<string>Utility</string>
+	</array>
 ```
 
-The desktop picks the entry up within seconds. A changed icon is another matter in GNOME: its Apps grid can keep showing the icon it first drew until the next login, even after the entry is uninstalled and installed again, while the dock shows the new icon at once. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the folder's program (the executable named after the folder, else its only executable). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG.
+The desktop picks the entry up within seconds. A changed icon is another matter in GNOME: its Apps grid can keep showing the icon it first drew until the next login, even after the entry is uninstalled and installed again, while the dock shows the new icon at once. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the app's program (`CFBundleExecutable`, else the executable named after the app folder, else the only executable in the program folder). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG (with neither, the entry gets the desktop's generic icon, and the script says so).
 
 ## Checking documents
 

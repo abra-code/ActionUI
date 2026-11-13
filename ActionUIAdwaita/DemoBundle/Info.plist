@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.abracode.actionui.demo</string>
+	<key>CFBundleName</key>
+	<string>ActionUIDemo</string>
+	<key>CFBundleDisplayName</key>
+	<string>ActionUI Demo</string>
+	<key>CFBundleExecutable</key>
+	<string>ActionUIDemo</string>
+	<key>CFBundleIconFile</key>
+	<string>ActionUIDemo</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>LinuxDesktopComment</key>
+	<string>ActionUI elements on GTK and libadwaita</string>
+	<key>LinuxDesktopCategories</key>
+	<array>
+		<string>Development</string>
+		<string>GTK</string>
+	</array>
+</dict>
+</plist>

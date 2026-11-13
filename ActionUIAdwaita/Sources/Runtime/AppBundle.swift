@@ -13,8 +13,10 @@
  - Image `resourceName`: a file of that name in the bundle.
  - Image `assetName`: the bundle is on the icon theme's search path, so an image file named after
    the asset (Orb.png) at the bundle's top level is found.
- - `Info.json` at the bundle's top level describes the app (AppInfo): its application ID, name and
-   icon, used where the host sets none, as Info.plist does on Apple.
+ - `Info.plist` describes the app (AppInfo), as on Apple: its application ID, name and icon
+   (CFBundleIdentifier, CFBundleDisplayName or CFBundleName, CFBundleIconFile), used where the
+   host sets none. It is at the bundle's top level, or in `Contents` when the bundle has the macOS
+   layout (the program in `Contents/Linux`, the resources in `Contents/Resources`).
 */
 
 #if canImport(FoundationEssentials)
@@ -59,20 +61,37 @@ package enum AppBundle {
         file(name, in: folder)
     }
 
-    // MARK: Info.json
+    // MARK: Info.plist
 
-    /// What `Info.json` in `folder` says about the app: nil when there is no such file, or it is
-    /// not a JSON object of the expected keys (logged).
+    /// Where an app's `Info.plist` is, and the resources folder its icon is looked up in, for a
+    /// bundle folder (AppBundle.folder): `Info.plist` at the folder's top level, the resources
+    /// beside it (the flat layout); else, for a folder that is `Contents/Linux` (the program's) or
+    /// `Contents/Resources` of the macOS layout, `Contents/Info.plist` and `Contents/Resources`.
+    /// nil when there is no `Info.plist` in either place.
+    package static func infoLocation(for folder: String?) -> (plist: String, resources: String)? {
+        guard let folder else { return nil }
+        if let plist = file("Info.plist", in: folder) { return (plist, folder) }
+        let url = URL(fileURLWithPath: folder).standardizedFileURL
+        let contents = url.deletingLastPathComponent()
+        guard ["Linux", "Resources"].contains(url.lastPathComponent), contents.lastPathComponent == "Contents",
+              let plist = file("Info.plist", in: contents.path) else { return nil }
+        return (plist, contents.appendingPathComponent("Resources").path)
+    }
+
+    /// What the app's `Info.plist` says about it (see infoLocation): nil when there is none, or it
+    /// is not a property list whose keys read are strings (logged).
     package static func info(in folder: String?) -> AppInfo? {
-        guard let path = file("Info.json", in: folder) else { return nil }
-        guard let data = FileManager.default.contents(atPath: path) else {
-            ActionUIModel.shared.logger.log("\(path) could not be read; it is ignored", .warning)
+        guard let location = infoLocation(for: folder) else { return nil }
+        guard let data = FileManager.default.contents(atPath: location.plist) else {
+            ActionUIModel.shared.logger.log("\(location.plist) could not be read; it is ignored", .warning)
             return nil
         }
         do {
-            return try JSONDecoder().decode(AppInfo.self, from: data)
+            var info = try PropertyListDecoder().decode(AppInfo.self, from: data)
+            info.resources = location.resources
+            return info
         } catch {
-            ActionUIModel.shared.logger.log("\(path) is not a JSON object of strings applicationID, name and icon (\(error)); it is ignored", .warning)
+            ActionUIModel.shared.logger.log("\(location.plist) is not a property list whose CFBundleIdentifier, CFBundleDisplayName, CFBundleName and CFBundleIconFile are strings (\(error)); it is ignored", .warning)
             return nil
         }
     }
@@ -104,30 +123,34 @@ package enum AppBundle {
     }
 }
 
-/// An app's `Info.json`. Other keys (a desktop entry's summary and categories) are for the tools
-/// that install the app; the runtime does not read them.
+/// What the runtime reads of an app's `Info.plist`, the same file and keys as on Apple. Other keys
+/// are for the tools that install the app (the desktop entry's LinuxDesktopComment and
+/// LinuxDesktopCategories, Scripts/linux-app-entry.py); the runtime does not read them.
 package struct AppInfo: Decodable, Equatable {
-    /// The reverse-DNS application ID.
+    /// The reverse-DNS application ID: CFBundleIdentifier.
     package var applicationID: String?
-    /// The application's name.
+    /// The application's name: CFBundleDisplayName, else CFBundleName.
     package var name: String?
-    /// The windows' icon: a PNG or SVG file in the bundle (a path relative to it), else an icon
-    /// theme name or an absolute path.
-    package var icon: String?
+    /// CFBundleIconFile: the icon's file name in the resources, its extension optional.
+    package var iconFile: String?
+    /// The resources folder the icon is looked up in (set by AppBundle.info, not read).
+    package var resources: String?
 
     private enum CodingKeys: String, CodingKey {
-        case applicationID, name, icon
+        case CFBundleIdentifier, CFBundleDisplayName, CFBundleName, CFBundleIconFile
     }
 
-    /// The icon as AdwaitaApplication takes it: the path of the file at `icon` relative to
-    /// `folder`, else the value itself.
-    package func iconValue(in folder: String?) -> String? {
-        guard let icon else { return nil }
-        if let folder, !icon.hasPrefix("/") {
-            let path = URL(fileURLWithPath: folder).appendingPathComponent(icon).path
-            if g_file_test(path, fileTestIsRegular) != 0 { return path }
-        }
-        return icon
+    /// The icon as AdwaitaApplication takes it, the path of a PNG or SVG file in the resources
+    /// (GTK reads no .icns): the file CFBundleIconFile names when it is one, else its name with
+    /// the extension .svg, then .png. nil when there is none.
+    package func iconValue() -> String? {
+        guard let iconFile, let resources, !iconFile.contains("/") else { return nil }
+        let named = URL(fileURLWithPath: resources).appendingPathComponent(iconFile)
+        let base = named.deletingPathExtension()
+        var candidates: [URL] = []
+        if ["svg", "png"].contains(named.pathExtension.lowercased()) { candidates.append(named) }
+        candidates += [base.appendingPathExtension("svg"), base.appendingPathExtension("png")]
+        return candidates.map(\.path).first { g_file_test($0, fileTestIsRegular) != 0 }
     }
 }
 
@@ -138,6 +161,10 @@ extension AppInfo {
         func value(_ key: CodingKeys) throws -> String? {
             try container.decodeIfPresent(String.self, forKey: key).flatMap { $0.isEmpty ? nil : $0 }
         }
-        self.init(applicationID: try value(.applicationID), name: try value(.name), icon: try value(.icon))
+        // Both names are read, so a wrong type in either fails alike (as in linux-app-entry.py)
+        let displayName = try value(.CFBundleDisplayName)
+        let bundleName = try value(.CFBundleName)
+        self.init(applicationID: try value(.CFBundleIdentifier), name: displayName ?? bundleName,
+                  iconFile: try value(.CFBundleIconFile))
     }
 }

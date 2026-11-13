@@ -2,17 +2,24 @@
 """Adds an ActionUI app to the Linux desktop's app list (GNOME's Apps, KDE's launcher and others),
 or takes it off, for the current user.
 
-The app folder's Info.json gives the application ID, name and icon, as the ActionUI runtime reads
-them, and optionally a summary and categories for the entry:
+The app's Info.plist gives the application ID, name and icon, as the ActionUI runtime reads them,
+and optionally a comment and categories for the entry. It is at the app folder's top level (the flat
+layout: the program beside its resources), or Contents/Info.plist in the macOS layout (the program
+in Contents/Linux, the resources in Contents/Resources):
 
-    {"applicationID": "org.example.MyApp", "name": "My App", "icon": "MyApp.svg",
-     "summary": "Edits my things", "categories": ["Utility"]}
+    CFBundleIdentifier      org.example.MyApp (required here)
+    CFBundleDisplayName     My App (else CFBundleName, else the folder's name)
+    CFBundleIconFile        MyApp: MyApp.svg, else MyApp.png, in the resources (or the file
+                            named, when it is an SVG or a PNG)
+    CFBundleExecutable      the program, in the folder or in Contents/Linux
+    LinuxDesktopComment     Edits my things (the entry's Comment)
+    LinuxDesktopCategories  an array of strings, such as Utility (the entry's Categories)
 
-install writes $XDG_DATA_HOME/applications/<applicationID>.desktop (XDG_DATA_HOME defaults to
-~/.local/share). The desktop matches the app's windows to that entry by the application ID, so the
-dock shows the entry's name and icon. The icon is copied into the user's hicolor icon theme as
-<applicationID>.svg (scalable) or .png (its own size), and the entry names it by the ID. A PNG of a
-size the theme has no folder for is named by its path in the app folder instead.
+install writes $XDG_DATA_HOME/applications/<CFBundleIdentifier>.desktop (XDG_DATA_HOME defaults
+to ~/.local/share). The desktop matches the app's windows to that entry by the application ID, so
+the dock shows the entry's name and icon. The icon is copied into the user's hicolor icon theme as
+<id>.svg (scalable) or .png (its own size), and the entry names it by the ID. A PNG of a size the
+theme has no folder for is named by its path in the app folder instead.
 
 Usage:
     linux-app-entry.py install <app folder> [--exec <command line>]
@@ -20,21 +27,23 @@ Usage:
 
 --exec: the entry's command line, quoted as the Desktop Entry Specification quotes Exec arguments
 (an argument with spaces in double quotes; field codes such as %f kept), run in the app folder:
-for a Python or Node.js app, such as 'python3 MyApp.py'. Without it, the entry runs the app
-folder's program: the executable file named after the folder (MyApp for MyApp.app), else the only
-executable file in it.
+for a Python or Node.js app, such as 'python3 MyApp.py'. Without it, the entry runs the app's
+program: CFBundleExecutable in the program folder (the app folder, or Contents/Linux), else the
+executable file named after the app folder (MyApp for MyApp.app), else the only executable file
+there.
 
 uninstall takes the application ID itself when the app folder is gone.
 
-Exit status: 0 done, 1 a step failed, 64 bad arguments or Info.json.
+Exit status: 0 done, 1 a step failed, 64 bad arguments or Info.plist.
 """
 
-import json
 import os
+import plistlib
 import shutil
 import struct
 import subprocess
 import sys
+import xml.parsers.expat
 
 # The square sizes the hicolor theme has an apps folder for.
 HICOLOR_SIZES = (16, 22, 24, 32, 36, 48, 64, 72, 96, 128, 192, 256, 512)
@@ -73,51 +82,102 @@ def is_valid_application_id(value):
     return True
 
 
+STRING_KEYS = ("CFBundleIdentifier", "CFBundleDisplayName", "CFBundleName", "CFBundleIconFile",
+               "CFBundleExecutable", "LinuxDesktopComment")
+
+
+def app_layout(folder):
+    """(Info.plist path, resources folder, program folder) of the app folder: Info.plist at its top
+    level (flat), else Contents/Info.plist (the macOS layout)."""
+    flat = os.path.join(folder, "Info.plist")
+    if os.path.isfile(flat):
+        return flat, folder, folder
+    contents = os.path.join(folder, "Contents")
+    nested = os.path.join(contents, "Info.plist")
+    if os.path.isfile(nested):
+        return nested, os.path.join(contents, "Resources"), os.path.join(contents, "Linux")
+    raise UsageError("no Info.plist in " + folder + " or its Contents folder; it gives the application ID the entry is named after")
+
+
 def read_info(folder):
-    """Info.json in folder, with its keys checked; an empty string counts as left out."""
-    path = os.path.join(folder, "Info.json")
+    """The app's Info.plist (app_layout), with its keys checked; an empty string counts as left
+    out. Adds "resources" and "programs", the folders of the layout."""
+    path, resources, programs = app_layout(folder)
     try:
-        with open(path, encoding="utf-8") as file:
-            info = json.load(file)
-    except FileNotFoundError:
-        raise UsageError(path + " is missing; it gives the application ID the entry is named after")
-    except (OSError, ValueError) as error:
+        with open(path, "rb") as file:
+            info = plistlib.load(file)
+    except (OSError, ValueError, xml.parsers.expat.ExpatError) as error:
         raise UsageError("could not read " + path + ": " + str(error))
     if not isinstance(info, dict):
-        raise UsageError(path + " is not a JSON object")
-    for key in ("applicationID", "name", "icon", "summary"):
+        raise UsageError(path + " is not a dictionary")
+    for key in STRING_KEYS:
         value = info.get(key)
         if value is not None and not isinstance(value, str):
             raise UsageError(path + ": " + key + " is not a string")
         if value == "":
             info.pop(key)
-    categories = info.get("categories", [])
+    categories = info.get("LinuxDesktopCategories", [])
     if not isinstance(categories, list) or not all(isinstance(item, str) for item in categories):
-        raise UsageError(path + ": categories is not a list of strings")
-    application_id = info.get("applicationID")
+        raise UsageError(path + ": LinuxDesktopCategories is not an array of strings")
+    application_id = info.get("CFBundleIdentifier")
     if application_id is None:
-        raise UsageError(path + " has no applicationID")
+        raise UsageError(path + " has no CFBundleIdentifier")
     if not is_valid_application_id(application_id):
         raise UsageError(path + ": '" + application_id + "' is not a valid application ID (reverse DNS, such as org.example.MyApp)")
+    info["resources"] = resources
+    info["programs"] = programs
     return info
 
 
-def default_program(folder):
-    """The folder's executable file named after it, else its only executable file."""
+def default_program(folder, info):
+    """CFBundleExecutable in the program folder, else the executable file named after the app
+    folder, else the only executable file in the program folder."""
+    programs = info["programs"]
+    named_executable = info.get("CFBundleExecutable")
+    if named_executable is not None:
+        path = os.path.join(programs, named_executable)
+        if "/" not in named_executable and os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+        raise UsageError("CFBundleExecutable " + named_executable + " is not an executable file in " + programs)
     base = os.path.basename(os.path.normpath(folder))
-    named = os.path.join(folder, base[:-4] if base.endswith(".app") else base)
+    named = os.path.join(programs, base[:-4] if base.endswith(".app") else base)
     if os.path.isfile(named) and os.access(named, os.X_OK):
         return named
+    if not os.path.isdir(programs):
+        raise UsageError("no program folder " + programs + "; give the command line with --exec")
     executables = []
-    for name in sorted(os.listdir(folder)):
-        path = os.path.join(folder, name)
+    for name in sorted(os.listdir(programs)):
+        path = os.path.join(programs, name)
         if os.path.isfile(path) and os.access(path, os.X_OK) and not name.endswith(".so"):
             executables.append(path)
     if len(executables) == 1:
         return executables[0]
     if not executables:
-        raise UsageError("no executable file in " + folder + "; give the command line with --exec")
-    raise UsageError("more than one executable file in " + folder + "; give the command line with --exec")
+        raise UsageError("no executable file in " + programs + "; give the command line with --exec")
+    raise UsageError("more than one executable file in " + programs + "; give the command line with --exec")
+
+
+def icon_path(info):
+    """The icon file CFBundleIconFile names, as the runtime finds it: the file itself when it is an
+    SVG or a PNG, else its name with .svg, then .png, in the resources. None when it names none, or
+    there is no such file (said on stderr)."""
+    icon_file = info.get("CFBundleIconFile")
+    if icon_file is None:
+        return None
+    if "/" in icon_file:
+        raise UsageError("CFBundleIconFile " + icon_file + " is a path; it is a file name in " + info["resources"])
+    named = os.path.join(info["resources"], icon_file)
+    base, extension = os.path.splitext(named)
+    candidates = [named] if extension.lower() in (".svg", ".png") else []
+    candidates += [base + ".svg", base + ".png"]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    # A bundle made on macOS names its .icns, and a new one may get its PNG or SVG only when it is
+    # first built: the entry is still made, with the desktop's generic icon
+    print("linux-app-entry: no icon for CFBundleIconFile " + icon_file + ": " + " or ".join(os.path.basename(c) for c in candidates)
+          + " in " + info["resources"] + " (a macOS .icns or Icon Composer file does not work on Linux: export a PNG or an SVG)", file=sys.stderr)
+    return None
 
 
 def quote_exec_argument(argument):
@@ -169,25 +229,15 @@ def refresh_icon_cache():
     print("linux-app-entry: " + theme + " has an icon cache and no gtk-update-icon-cache was found; the icon may not show until it is updated", file=sys.stderr)
 
 
-def install_icon(folder, info):
+def install_icon(info):
     """Copies the app's icon into the user's hicolor theme; returns the entry's Icon value, or None."""
-    icon = info.get("icon")
-    application_id = info["applicationID"]
-    if icon is None:
+    application_id = info["CFBundleIdentifier"]
+    path = icon_path(info)
+    if path is None:
         # A copy an earlier install made is no longer named by the entry.
         for old in icon_files(application_id):
             os.remove(old)
         return None
-    path = icon if os.path.isabs(icon) else os.path.join(folder, icon)
-    if not os.path.isfile(path):
-        # A path or a file name would make an entry with no icon (and one desktop-file-validate
-        # rejects): most likely a misspelled file.
-        if "/" in icon or os.path.splitext(icon)[1].lower() in (".png", ".svg", ".xpm", ".icns"):
-            raise UsageError(path + " is missing; the icon is a PNG or SVG file in the app folder, or an icon theme name")
-        # An icon theme name, as the runtime takes it.
-        for old in icon_files(application_id):
-            os.remove(old)
-        return icon
     theme = os.path.join(data_home(), "icons", "hicolor")
     lower = path.lower()
     if lower.endswith(".svg"):
@@ -217,33 +267,39 @@ def install_icon(folder, info):
 
 def install(folder, exec_line):
     info = read_info(folder)
-    application_id = info["applicationID"]
+    application_id = info["CFBundleIdentifier"]
+    program = None
     if exec_line is None:
-        program = default_program(folder)
+        program = default_program(folder, info)
         if "%" in program:
             # GLib looks for the program before it turns "%%" back into "%", finds no such file and
             # drops the entry, though the specification asks for the "%%".
             raise UsageError(program + " has a \"%\" in its path, which GNOME and other GLib-based desktops do not list; move the app to a path without one")
         exec_line = quote_exec_argument(program)
-    icon = install_icon(folder, info)
+    icon = install_icon(info)
     base = os.path.basename(os.path.normpath(folder))
+    name = info.get("CFBundleDisplayName") or info.get("CFBundleName") or (base[:-4] if base.endswith(".app") else base)
     lines = [
         "[Desktop Entry]",
         "Type=Application",
         "Version=1.5",
-        "Name=" + escape_value(info.get("name") or (base[:-4] if base.endswith(".app") else base)),
+        "Name=" + escape_value(name),
     ]
-    if info.get("summary"):
-        lines.append("Comment=" + escape_value(info["summary"]))
+    if info.get("LinuxDesktopComment"):
+        lines.append("Comment=" + escape_value(info["LinuxDesktopComment"]))
     # The string escape (a backslash doubled) comes on top of the Exec quoting.
     lines.append("Exec=" + escape_value(exec_line))
+    if program is not None:
+        # The desktop leaves the entry out once the program is gone (an app moved or deleted, an
+        # applet built in a temporary folder), rather than listing an app that does not start.
+        lines.append("TryExec=" + escape_value(program))
     lines.append("Path=" + escape_value(folder))
     if icon is not None:
         lines.append("Icon=" + escape_value(icon))
-    else:
-        print("linux-app-entry: Info.json names no icon; the desktop shows a generic one", file=sys.stderr)
+    elif info.get("CFBundleIconFile") is None:
+        print("linux-app-entry: Info.plist names no icon (CFBundleIconFile); the desktop shows a generic one", file=sys.stderr)
     lines.append("Terminal=false")
-    categories = [item for item in info.get("categories", []) if item]
+    categories = [item for item in info.get("LinuxDesktopCategories", []) if item]
     if categories:
         lines.append("Categories=" + "".join(escape_value(item).replace(";", "\\;") + ";" for item in categories))
     # Matches the window to the entry in an X11 session, where the window class stands for the ID.
@@ -293,7 +349,7 @@ def main(arguments):
     if command == "install":
         install(folder, exec_line)
     else:
-        uninstall(read_info(folder)["applicationID"])
+        uninstall(read_info(folder)["CFBundleIdentifier"])
 
 
 if __name__ == "__main__":

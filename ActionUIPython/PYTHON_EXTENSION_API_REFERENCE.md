@@ -435,7 +435,7 @@ app = actionui.Application(name="My App")     # set the app name in the menu bar
 app = actionui.Application(icon="icon.png")   # custom icon (Dock + About panel)
 app = actionui.Application(name="My App", icon="icon.png")  # both
 # If icon is omitted, the default ActionUI icon (shipped with the module) is used on
-# macOS; on Linux, the icon the resource folder's Info.json names, if any.
+# macOS; on Linux, the icon the resource folder's Info.plist names (CFBundleIconFile), if any.
 app = actionui.Application(resource_folder="ui")  # where the app's resources are
 # resource_folder: where LoadableView names, Image resourceName and WebView script
 # resources are looked up before the main bundle (Python's). If omitted, the folder
@@ -444,7 +444,7 @@ app = actionui.Application(resource_folder="ui")  # where the app's resources ar
 app = actionui.Application(name="My App", application_id="org.example.MyApp")
 # application_id: the reverse-DNS ID Linux matches the app's windows to its
 # org.example.MyApp.desktop entry by. If omitted, the one in the resource folder's
-# Info.json, else one made from the name (com.abracode.actionui.<name>, or
+# Info.plist (CFBundleIdentifier), else one made from the name (com.abracode.actionui.<name>, or
 # com.abracode.actionui.app with no name). Nothing on macOS, where the bundle
 # identifier serves.
 ```
