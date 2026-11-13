@@ -162,6 +162,7 @@ antenna.radiowaves.left.and.right.circle.fill e8bf 1
 app eb36 300
 app.badge.checkmark f1fe 300
 app.badge.checkmark.fill f1fe 1
+app.dashed e3c2 300
 app.fill eb36 1
 app.gift e8f6 300
 app.grid e9b0 300
@@ -1007,6 +1008,7 @@ checkmark.circle.dotted f0be 300
 checkmark.circle.fill f0be 1
 checkmark.circle.trianglebadge.exclamationmark f0be 300
 checkmark.circle.trianglebadge.exclamationmark.fill f0be 1
+checkmark.diamond e2e6 300
 checkmark.gobackward f232 300
 checkmark.icloud e2bf 300
 checkmark.icloud.fill e2bf 1
