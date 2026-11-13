@@ -352,7 +352,7 @@
 			repositoryURL = "https://github.com/abra-code/RichText";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.4.1;
+				minimumVersion = 0.4.2;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

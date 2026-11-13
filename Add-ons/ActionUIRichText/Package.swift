@@ -33,7 +33,7 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
         // 0.4.0 is its first version with the Linux port.
-        .package(url: "https://github.com/abra-code/RichText", from: "0.4.1"),
+        .package(url: "https://github.com/abra-code/RichText", from: "0.4.2"),
     ],
     targets: [
         .target(
@@ -80,7 +80,7 @@ let package = Package(
         // 0.2 adds the find engine, highlights and bar behind the "showFindBar" property and the "search" state.
         // 0.2.4 adds remoteImages, behind the "remoteImages" property; 0.2.5 fixes several documents
         // showing the same image at once (all but one kept the placeholder).
-        .package(url: "https://github.com/abra-code/RichText", from: "0.4.1"),
+        .package(url: "https://github.com/abra-code/RichText", from: "0.4.2"),
         // DO NOT COMMIT: local path dependency so an unreleased RichText can be built
         // .package(path: "../../../RichText"),   // 0.2: the find engine, highlights and bar
     ],
