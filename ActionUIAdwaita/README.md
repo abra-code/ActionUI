@@ -86,7 +86,7 @@ All keys are optional; an empty string counts as left out. A value the program s
 
 ```sh
 Scripts/linux-app-entry.py install /path/to/MyApp.app                                # runs MyApp.app/MyApp
-Scripts/linux-app-entry.py install /path/to/MyApp --exec 'python3 MyApp.py'          # a Python or Node.js app
+Scripts/linux-app-entry.py install /path/to/MyApp --exec 'python3 MyApp.py %U'       # a Python or Node.js app
 Scripts/linux-app-entry.py uninstall /path/to/MyApp.app                              # or: uninstall org.example.MyApp
 ```
 
@@ -101,7 +101,16 @@ It writes `~/.local/share/applications/<CFBundleIdentifier>.desktop` and copies 
 	</array>
 ```
 
-The desktop picks the entry up within seconds. A changed icon is another matter in GNOME: its Apps grid can keep showing the icon it first drew until the next login, even after the entry is uninstalled and installed again, while the dock shows the new icon at once. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the app's program (`CFBundleExecutable`, else the executable named after the app folder, else the only executable in the program folder). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG (with neither, the entry gets the desktop's generic icon, and the script says so).
+The files and folders the app opens are its `CFBundleDocumentTypes`, as on macOS: the entry lists them as MIME types (`MimeType`), so the file manager's Open With offers the app for them, and the entry's command line ends in `%U`, which hands the app the chosen files as `file://` URLs. Each document type's `CFBundleTypeMIMETypes` is taken as given; its `LSItemContentTypes` (such as `public.plain-text`, `public.folder`, `com.apple.application-bundle`) and `CFBundleTypeExtensions` (`txt`, `png`) are turned into MIME types; a type whose `CFBundleTypeRole` is `None` is left out, and `CFBundleTypeOSTypes`, legacy Mac OS file types, are not read. `*` (any file) is not listed: as `application/octet-stream` it would make the app the default for every file the desktop cannot type further, so an app that takes any file names the types it should be offered for. The URL schemes in `CFBundleURLTypes` are listed as `x-scheme-handler/<scheme>`, so a link with the scheme opens the app with the URL, as on macOS. A Linux desktop types every folder `inode/directory` whatever its name, so an app that opens bundles is offered for every folder. For what these cannot say, a Linux-only array adds MIME types as given:
+
+```xml
+	<key>LinuxMimeTypes</key>
+	<array>
+		<string>application/x-example</string>
+	</array>
+```
+
+The desktop picks the entry up within seconds. A changed command line is another matter in GNOME: GNOME Shell can keep starting the program the entry named before, until the entry is uninstalled, some seconds pass, and it is installed again (or the next login). A changed icon is another matter in GNOME: its Apps grid can keep showing the icon it first drew until the next login, even after the entry is uninstalled and installed again, while the dock shows the new icon at once. `--exec` takes the entry's command line, run in the app folder; without it the entry runs the app's program (`CFBundleExecutable`, else the executable named after the app folder, else the only executable in the program folder). macOS `.icns` and Icon Composer files do not work on Linux: export a PNG or an SVG (with neither, the entry gets the desktop's generic icon, and the script says so).
 
 ## Checking documents
 

@@ -74,8 +74,11 @@ class LinuxAppEntryTests(unittest.TestCase):
             file.write("#!/bin/sh\n")
         os.chmod(path, 0o755)
 
-    def run_script(self, *arguments):
+    def run_script(self, *arguments, tools=None):
+        """The script's result; tools, a folder put first on PATH, stands in for desktop tools."""
         environment = dict(os.environ, XDG_DATA_HOME=self.data_home)
+        if tools is not None:
+            environment["PATH"] = tools + os.pathsep + environment.get("PATH", "")
         return subprocess.run([sys.executable, SCRIPT] + list(arguments), env=environment, capture_output=True, text=True)
 
     def entry(self, application_id):
@@ -96,7 +99,7 @@ class LinuxAppEntryTests(unittest.TestCase):
         self.assertIn("Type=Application", lines)
         self.assertIn("Name=My App", lines, "the display name before the name")
         self.assertIn("Comment=Edits things", lines)
-        self.assertIn('Exec="' + folder + '/My App"', lines, "the program, quoted for the space")
+        self.assertIn('Exec="' + folder + '/My App" %U', lines, "the program, quoted for the space, given the files it opens")
         self.assertIn("TryExec=" + folder + "/My App", lines, "the entry goes once the program is gone")
         self.assertIn("Path=" + folder, lines)
         self.assertIn("Icon=org.example.MyApp", lines)
@@ -111,7 +114,8 @@ class LinuxAppEntryTests(unittest.TestCase):
         result = self.run_script("install", folder)
         self.assertEqual(result.returncode, 0, result.stderr)
         lines = self.entry("org.example.Applet")
-        self.assertIn("Exec=" + folder + "/Contents/Linux/Applet", lines, "CFBundleExecutable in Contents/Linux")
+        self.assertIn("Exec=" + folder + "/Contents/Linux/Applet %U", lines, "CFBundleExecutable in Contents/Linux")
+        self.assertFalse(any(line.startswith("MimeType=") for line in lines), "no document types, no MimeType")
         self.assertIn("Name=Applet", lines)
         self.assertIn("Icon=org.example.Applet", lines)
         self.assertTrue(os.path.isfile(self.theme_file("512x512", "apps", "org.example.Applet.png")))
@@ -223,6 +227,109 @@ class LinuxAppEntryTests(unittest.TestCase):
         self.assertEqual(self.run_script("install", folder).returncode, 0)
         self.assertFalse(os.path.exists(self.theme_file("128x128", "apps", "org.example.Swap.png")))
         self.assertTrue(os.path.isfile(self.theme_file("scalable", "apps", "org.example.Swap.svg")))
+
+    def mime_line(self, application_id):
+        lines = [line for line in self.entry(application_id) if line.startswith("MimeType=")]
+        return lines[0] if lines else None
+
+    def test_an_app_that_opens_bundles_is_offered_for_folders(self):
+        # AppletBuilder's document types: bundles by identifier and by extension, all folders on Linux
+        types = [{"CFBundleTypeExtensions": ["app", "omc", "droplet", "applet"], "CFBundleTypeRole": "Viewer",
+                  "LSItemContentTypes": ["com.apple.application-bundle", "com.apple.bundle", "com.apple.package"]}]
+        folder = self.app("Builder.app", {"CFBundleIdentifier": "org.example.Builder", "CFBundleDocumentTypes": types})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.mime_line("org.example.Builder"), "MimeType=inode/directory;", "once, however many say it")
+        self.assertNotIn("no MIME type known", result.stderr, "the unknown extensions are covered by the identifiers")
+
+    def test_any_file_and_legacy_file_types_list_nothing(self):
+        # The applet templates: "*" (any file) is not listed, or the app would become the default
+        # for untyped files; CFBundleTypeOSTypes (legacy) are not read. Neither is reported.
+        folder = self.app("Droplet", {"CFBundleIdentifier": "org.example.Droplet", "CFBundleDocumentTypes": [
+            {"CFBundleTypeExtensions": ["*"], "CFBundleTypeOSTypes": ["****"], "CFBundleTypeRole": "Viewer"},
+            {"CFBundleTypeOSTypes": ["fold"], "CFBundleTypeRole": "Viewer"}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNone(self.mime_line("org.example.Droplet"))
+        self.assertNotIn("no MIME type known", result.stderr)
+
+    def test_url_schemes_are_listed_as_scheme_handlers(self):
+        folder = self.app("Linked", {"CFBundleIdentifier": "org.example.Linked", "CFBundleURLTypes": [
+            {"CFBundleURLName": "Linked", "CFBundleURLSchemes": ["Applet-Builder", "file"]}, {"CFBundleURLSchemes": ["x.y+z-1"]}],
+            "CFBundleDocumentTypes": [{"LSItemContentTypes": ["public.folder"]}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.mime_line("org.example.Linked"),
+                         "MimeType=inode/directory;x-scheme-handler/applet-builder;x-scheme-handler/x.y+z-1;",
+                         "lowercased; file is no scheme an app handles")
+        for bad in ({"CFBundleURLTypes": "applet"}, {"CFBundleURLTypes": [{"CFBundleURLSchemes": ["1abc"]}]},
+                    {"CFBundleURLTypes": [{"CFBundleURLSchemes": ["a b"]}]}, {"CFBundleURLTypes": [{"CFBundleURLSchemes": "abc"}]}):
+            self.write_info(os.path.join(folder, "Info.plist"), dict({"CFBundleIdentifier": "org.example.Linked"}, **bad))
+            self.assertEqual(self.run_script("install", folder).returncode, 64, str(bad))
+
+    def test_types_from_every_key_in_order_and_role_none_left_out(self):
+        folder = self.app("Viewer", {"CFBundleIdentifier": "org.example.Viewer", "LinuxMimeTypes": ["application/x-example", "text/plain"],
+                                     "CFBundleDocumentTypes": [
+                                         {"CFBundleTypeMIMETypes": ["text/x-log"], "LSItemContentTypes": ["public.plain-text", "com.adobe.pdf"],
+                                          "CFBundleTypeExtensions": ["png", ".MD"], "CFBundleTypeRole": "Editor"},
+                                         {"CFBundleTypeExtensions": ["zip"], "CFBundleTypeRole": "None"}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.mime_line("org.example.Viewer"),
+                         "MimeType=text/x-log;text/plain;application/pdf;image/png;text/markdown;application/x-example;")
+
+    def test_an_unknown_type_is_said_and_left_out(self):
+        folder = self.app("Odd", {"CFBundleIdentifier": "org.example.OddTypes", "CFBundleDocumentTypes": [
+            {"CFBundleTypeExtensions": ["zzqqx"], "LSItemContentTypes": ["com.example.nothing"]}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no MIME type known for com.example.nothing, .zzqqx", result.stderr)
+        self.assertIsNone(self.mime_line("org.example.OddTypes"))
+
+    def test_a_compressed_extension_is_not_its_uncompressed_type(self):
+        # mimetypes gives tgz as application/x-tar (with an encoding); the desktop has its own type
+        folder = self.app("Packed", {"CFBundleIdentifier": "org.example.Packed", "CFBundleDocumentTypes": [
+            {"CFBundleTypeExtensions": ["tgz", "gz", "svgz"]}, {"CFBundleTypeExtensions": ["bz2", "tar.bz2"]}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.mime_line("org.example.Packed"), "MimeType=application/x-compressed-tar;application/gzip;image/svg+xml-compressed;")
+        self.assertIn("no MIME type known for .bz2, .tar.bz2", result.stderr)
+
+    def test_the_desktop_database_is_updated_on_install_and_uninstall(self):
+        tools = os.path.join(self.temporary.name, "tools")
+        os.makedirs(tools)
+        log = os.path.join(self.temporary.name, "update-desktop-database.log")
+        with open(os.path.join(tools, "update-desktop-database"), "w") as file:
+            file.write('#!/bin/sh\nprintf "%s\\n" "$*" >> "' + log + '"\n')
+        os.chmod(os.path.join(tools, "update-desktop-database"), 0o755)
+        folder = self.app("Listed", {"CFBundleIdentifier": "org.example.Listed", "CFBundleDocumentTypes": [{"LSItemContentTypes": ["public.folder"]}]})
+        applications = os.path.join(self.data_home, "applications")
+        self.assertEqual(self.run_script("install", folder, tools=tools).returncode, 0)
+        self.assertEqual(self.run_script("uninstall", folder, tools=tools).returncode, 0)
+        self.assertEqual(self.run_script("uninstall", folder, tools=tools).returncode, 0, "nothing left to remove")
+        with open(log) as file:
+            self.assertEqual(file.read().splitlines(), ["--quiet " + applications] * 2, "after install and the uninstall that removed the entry")
+
+    def test_a_wildcard_type_is_said_and_left_out(self):
+        folder = self.app("Wild", {"CFBundleIdentifier": "org.example.Wild", "CFBundleDocumentTypes": [
+            {"CFBundleTypeMIMETypes": ["image/*", "image/png"]}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("image/* is left out", result.stderr)
+        self.assertEqual(self.mime_line("org.example.Wild"), "MimeType=image/png;")
+
+    def test_malformed_document_types_are_refused_and_leave_the_entry(self):
+        folder = self.app("Typed", {"CFBundleIdentifier": "org.example.Typed", "CFBundleDocumentTypes": [{"LSItemContentTypes": ["public.folder"]}]})
+        self.assertEqual(self.run_script("install", folder).returncode, 0)
+        cases = ({"CFBundleDocumentTypes": "public.folder"}, {"CFBundleDocumentTypes": ["public.folder"]},
+                 {"CFBundleDocumentTypes": [{"CFBundleTypeExtensions": "txt"}]}, {"LinuxMimeTypes": "text/plain"},
+                 {"LinuxMimeTypes": ["text plain"]}, {"CFBundleDocumentTypes": [{"CFBundleTypeMIMETypes": ["text/plain;x"]}]})
+        for case in cases:
+            self.write_info(os.path.join(folder, "Info.plist"), dict({"CFBundleIdentifier": "org.example.Typed"}, **case))
+            result = self.run_script("install", folder)
+            self.assertEqual(result.returncode, 64, str(case))
+            self.assertEqual(self.mime_line("org.example.Typed"), "MimeType=inode/directory;", str(case))
+        self.assertEqual(self.run_script("uninstall", folder).returncode, 0, "a bad document type does not stop an uninstall")
 
     def test_a_refused_icon_leaves_the_installed_one(self):
         folder = self.app("Keep", {"CFBundleIdentifier": "org.example.Keep", "CFBundleIconFile": "Keep.svg"}, {"Keep.svg": SVG, "Bad.png": b"not a PNG"})

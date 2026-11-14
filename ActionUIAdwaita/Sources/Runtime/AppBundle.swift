@@ -124,8 +124,9 @@ package enum AppBundle {
 }
 
 /// What the runtime reads of an app's `Info.plist`, the same file and keys as on Apple. Other keys
-/// are for the tools that install the app (the desktop entry's LinuxDesktopComment and
-/// LinuxDesktopCategories, Scripts/linux-app-entry.py); the runtime does not read them.
+/// are for the tools that install the app (the desktop entry's LinuxDesktopComment,
+/// LinuxDesktopCategories, CFBundleDocumentTypes and LinuxMimeTypes, Scripts/linux-app-entry.py);
+/// the runtime does not read them.
 package struct AppInfo: Decodable, Equatable {
     /// The reverse-DNS application ID: CFBundleIdentifier.
     package var applicationID: String?

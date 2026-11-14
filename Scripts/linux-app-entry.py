@@ -14,10 +14,22 @@ in Contents/Linux, the resources in Contents/Resources):
     CFBundleExecutable      the program, in the folder or in Contents/Linux
     LinuxDesktopComment     Edits my things (the entry's Comment)
     LinuxDesktopCategories  an array of strings, such as Utility (the entry's Categories)
+    CFBundleDocumentTypes   the files and folders the app opens (the entry's MimeType), as on macOS:
+                            each type's CFBundleTypeMIMETypes as given, its LSItemContentTypes
+                            (public.folder, com.apple.application-bundle, public.plain-text, ...)
+                            and CFBundleTypeExtensions (txt, png) turned into MIME types; "*" (any
+                            file) is not listed, a type whose CFBundleTypeRole is None is left out,
+                            and CFBundleTypeOSTypes (legacy Mac OS file types) are not read
+    CFBundleURLTypes        the URL schemes the app is opened with (each CFBundleURLSchemes item
+                            as x-scheme-handler/<scheme> in MimeType)
+    LinuxMimeTypes          an array of MIME types added as given, for what the above cannot say
 
 install writes $XDG_DATA_HOME/applications/<CFBundleIdentifier>.desktop (XDG_DATA_HOME defaults
 to ~/.local/share). The desktop matches the app's windows to that entry by the application ID, so
-the dock shows the entry's name and icon. The icon is copied into the user's hicolor icon theme as
+the dock shows the entry's name and icon. The program is given the files or URLs it is opened with
+(%U), so the file manager's Open With lists the app for the types in MimeType. A folder's type is
+inode/directory whatever its name, so an app that opens bundles (MyApp.app) is listed for every
+folder. The icon is copied into the user's hicolor icon theme as
 <id>.svg (scalable) or .png (its own size), and the entry names it by the ID. A PNG of a size the
 theme has no folder for is named by its path in the app folder instead.
 
@@ -27,18 +39,20 @@ Usage:
 
 --exec: the entry's command line, quoted as the Desktop Entry Specification quotes Exec arguments
 (an argument with spaces in double quotes; field codes such as %f kept), run in the app folder:
-for a Python or Node.js app, such as 'python3 MyApp.py'. Without it, the entry runs the app's
-program: CFBundleExecutable in the program folder (the app folder, or Contents/Linux), else the
-executable file named after the app folder (MyApp for MyApp.app), else the only executable file
-there.
+for a Python or Node.js app, such as 'python3 MyApp.py %U'. Without it, the entry runs the app's
+program, followed by %U: CFBundleExecutable in the program folder (the app folder, or
+Contents/Linux), else the executable file named after the app folder (MyApp for MyApp.app), else
+the only executable file there.
 
 uninstall takes the application ID itself when the app folder is gone.
 
 Exit status: 0 done, 1 a step failed, 64 bad arguments or Info.plist.
 """
 
+import mimetypes
 import os
 import plistlib
+import re
 import shutil
 import struct
 import subprocess
@@ -126,6 +140,7 @@ def read_info(folder):
         raise UsageError(path + ": '" + application_id + "' is not a valid application ID (reverse DNS, such as org.example.MyApp)")
     info["resources"] = resources
     info["programs"] = programs
+    info["plistPath"] = path
     return info
 
 
@@ -194,6 +209,170 @@ def quote_exec_argument(argument):
 def escape_value(value):
     """A string value of a desktop entry key."""
     return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
+
+
+# Apple's type identifiers (LSItemContentTypes) and the MIME types the desktop files the same things
+# under. A bundle or package is a folder on Linux; the desktop types every folder inode/directory.
+UTI_MIME_TYPES = {
+    "public.item": ("application/octet-stream", "inode/directory"),
+    "public.data": ("application/octet-stream",),
+    "public.content": ("application/octet-stream",),
+    "public.folder": ("inode/directory",),
+    "public.directory": ("inode/directory",),
+    "com.apple.bundle": ("inode/directory",),
+    "com.apple.package": ("inode/directory",),
+    "com.apple.application": ("inode/directory",),
+    "com.apple.application-bundle": ("inode/directory",),
+    "public.text": ("text/plain",),
+    "public.plain-text": ("text/plain",),
+    "public.utf8-plain-text": ("text/plain",),
+    "public.utf16-plain-text": ("text/plain",),
+    "public.source-code": ("text/plain",),
+    "public.script": ("text/plain",),
+    "public.shell-script": ("application/x-shellscript",),
+    "public.python-script": ("text/x-python",),
+    "public.json": ("application/json",),
+    "public.xml": ("application/xml",),
+    "public.yaml": ("application/yaml",),
+    "public.html": ("text/html",),
+    "public.comma-separated-values-text": ("text/csv",),
+    "public.tab-separated-values-text": ("text/tab-separated-values",),
+    "net.daringfireball.markdown": ("text/markdown",),
+    "public.rtf": ("application/rtf",),
+    "com.adobe.pdf": ("application/pdf",),
+    "public.image": ("image/png", "image/jpeg", "image/gif", "image/tiff", "image/bmp", "image/webp", "image/svg+xml"),
+    "public.png": ("image/png",),
+    "public.jpeg": ("image/jpeg",),
+    "com.compuserve.gif": ("image/gif",),
+    "public.tiff": ("image/tiff",),
+    "com.microsoft.bmp": ("image/bmp",),
+    "org.webmproject.webp": ("image/webp",),
+    "public.svg-image": ("image/svg+xml",),
+    "public.heic": ("image/heic",),
+    "public.audio": ("audio/mpeg", "audio/x-wav", "audio/flac", "audio/ogg", "audio/mp4"),
+    "public.mp3": ("audio/mpeg",),
+    "com.microsoft.waveform-audio": ("audio/x-wav",),
+    "public.movie": ("video/mp4", "video/quicktime", "video/x-matroska", "video/webm"),
+    "public.video": ("video/mp4", "video/quicktime", "video/x-matroska", "video/webm"),
+    "public.mpeg-4": ("video/mp4",),
+    "com.apple.quicktime-movie": ("video/quicktime",),
+    "public.zip-archive": ("application/zip",),
+    "public.tar-archive": ("application/x-tar",),
+    "org.gnu.gnu-zip-archive": ("application/gzip",),
+}
+
+# Extensions (CFBundleTypeExtensions) whose MIME type differs from what Python's mimetypes says, or
+# that it does not know; "app" is a bundle, which is a folder on Linux. For a compressed file
+# mimetypes gives the type inside (tgz: application/x-tar) and an encoding, which the desktop does
+# not use: it has a type of its own for the compressed file. "*" (any file) is not here: listed as
+# application/octet-stream it would make the app the default for every file the desktop cannot
+# type further, so an app that takes any file names its types to be offered for them.
+EXTENSION_MIME_TYPES = {
+    "app": ("inode/directory",),
+    "md": ("text/markdown",),
+    "markdown": ("text/markdown",),
+    "py": ("text/x-python",),
+    "sh": ("application/x-shellscript",),
+    "yaml": ("application/yaml",),
+    "yml": ("application/yaml",),
+    "json": ("application/json",),
+    "gz": ("application/gzip",),
+    "tgz": ("application/x-compressed-tar",),
+    "tar.gz": ("application/x-compressed-tar",),
+    "svgz": ("image/svg+xml-compressed",),
+}
+
+URL_SCHEME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*$")
+MIME_TYPE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$")
+
+
+def string_array(value, where):
+    """value when it is an array of strings, else a UsageError naming where it is."""
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise UsageError(where + " is not an array of strings")
+    return value
+
+
+def mime_types(info, plist_path):
+    """The MIME types the entry lists (MimeType): CFBundleDocumentTypes turned into MIME types, then
+    LinuxMimeTypes as given, without repeats. An identifier, extension or file type with no known
+    MIME type is said on stderr when its document type gives none at all."""
+    found = []
+    document_types = info.get("CFBundleDocumentTypes", [])
+    if not isinstance(document_types, list):
+        raise UsageError(plist_path + ": CFBundleDocumentTypes is not an array")
+    for index, document_type in enumerate(document_types):
+        where = plist_path + ": CFBundleDocumentTypes item " + str(index)
+        if not isinstance(document_type, dict):
+            raise UsageError(where + " is not a dictionary")
+        if document_type.get("CFBundleTypeRole") == "None":
+            continue  # declared, not opened
+        given = string_array(document_type.get("CFBundleTypeMIMETypes", []), where + " CFBundleTypeMIMETypes")
+        identifiers = string_array(document_type.get("LSItemContentTypes", []), where + " LSItemContentTypes")
+        extensions = string_array(document_type.get("CFBundleTypeExtensions", []), where + " CFBundleTypeExtensions")
+        # CFBundleTypeOSTypes (classic Mac OS file types) are legacy and have no part on Linux
+        types = list(given)
+        unknown = []
+        for identifier in identifiers:
+            known = UTI_MIME_TYPES.get(identifier)
+            if known:
+                types.extend(known)
+            else:
+                unknown.append(identifier)
+        for extension in extensions:
+            extension = extension.lstrip(".").lower()
+            if extension == "*":
+                continue  # any file: not listed (EXTENSION_MIME_TYPES)
+            known = EXTENSION_MIME_TYPES.get(extension)
+            if known is None:
+                guessed, encoding = mimetypes.guess_type("file." + extension, strict=False)
+                known = (guessed,) if guessed and encoding is None else None
+            if known:
+                types.extend(known)
+            elif extension:
+                unknown.append("." + extension)
+        if not types and unknown:
+            print("linux-app-entry: " + where + ": no MIME type known for " + ", ".join(unknown)
+                  + "; the app is not offered for them (list their MIME types in LinuxMimeTypes)", file=sys.stderr)
+        found.extend(types)
+    # The URL schemes the app is opened with (CFBundleURLTypes), as on macOS: the desktop hands the
+    # URL to the program (%U). An OMC applet runs only a command that opts in to URLs.
+    url_types = info.get("CFBundleURLTypes", [])
+    if not isinstance(url_types, list):
+        raise UsageError(plist_path + ": CFBundleURLTypes is not an array")
+    for index, url_type in enumerate(url_types):
+        where = plist_path + ": CFBundleURLTypes item " + str(index)
+        if not isinstance(url_type, dict):
+            raise UsageError(where + " is not a dictionary")
+        for scheme in string_array(url_type.get("CFBundleURLSchemes", []), where + " CFBundleURLSchemes"):
+            if not URL_SCHEME_PATTERN.match(scheme):
+                raise UsageError(where + ": '" + scheme + "' is not a URL scheme (a letter, then letters, digits, +, - or .)")
+            if scheme.lower() != "file":
+                found.append("x-scheme-handler/" + scheme.lower())
+    found.extend(string_array(info.get("LinuxMimeTypes", []), plist_path + ": LinuxMimeTypes"))
+    result = []
+    for mime_type in found:
+        if mime_type.endswith("/*"):
+            # A macOS plist may name a family (image/*); a desktop entry lists exact types only
+            print("linux-app-entry: " + plist_path + ": " + mime_type + " is left out: a desktop entry lists exact MIME types (name them, or list them in LinuxMimeTypes)", file=sys.stderr)
+            continue
+        if not MIME_TYPE_PATTERN.match(mime_type):
+            raise UsageError(plist_path + ": '" + mime_type + "' is not a MIME type (type/subtype)")
+        if mime_type not in result:
+            result.append(mime_type)
+    return result
+
+
+def update_desktop_database():
+    """The desktop finds the apps for a MIME type in applications/mimeinfo.cache, which
+    update-desktop-database rewrites; without it, Open With may not list the app until it runs."""
+    tool = shutil.which("update-desktop-database")
+    if tool is None:
+        return
+    applications = os.path.join(data_home(), "applications")
+    result = subprocess.run([tool, "--quiet", applications], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        print("linux-app-entry: update-desktop-database failed for " + applications + ": " + (result.stderr or result.stdout).strip(), file=sys.stderr)
 
 
 def png_size(path):
@@ -275,7 +454,11 @@ def install(folder, exec_line):
             # GLib looks for the program before it turns "%%" back into "%", finds no such file and
             # drops the entry, though the specification asks for the "%%".
             raise UsageError(program + " has a \"%\" in its path, which GNOME and other GLib-based desktops do not list; move the app to a path without one")
-        exec_line = quote_exec_argument(program)
+        # %U: the files (as file:// URLs) or URLs the app is opened with; ActionUI and OMC apps
+        # take both on their command line
+        exec_line = quote_exec_argument(program) + " %U"
+    # Before anything is written: a malformed document type leaves an installed entry whole
+    opened_types = mime_types(info, info["plistPath"])
     icon = install_icon(info)
     base = os.path.basename(os.path.normpath(folder))
     name = info.get("CFBundleDisplayName") or info.get("CFBundleName") or (base[:-4] if base.endswith(".app") else base)
@@ -302,6 +485,8 @@ def install(folder, exec_line):
     categories = [item for item in info.get("LinuxDesktopCategories", []) if item]
     if categories:
         lines.append("Categories=" + "".join(escape_value(item).replace(";", "\\;") + ";" for item in categories))
+    if opened_types:
+        lines.append("MimeType=" + "".join(item + ";" for item in opened_types))
     # Matches the window to the entry in an X11 session, where the window class stands for the ID.
     lines.append("StartupWMClass=" + application_id)
     applications = os.path.join(data_home(), "applications")
@@ -314,6 +499,7 @@ def install(folder, exec_line):
         result = subprocess.run([validator, entry], capture_output=True, text=True, check=False)
         if result.returncode != 0 or result.stdout.strip():
             print("linux-app-entry: desktop-file-validate: " + (result.stdout + result.stderr).strip(), file=sys.stderr)
+    update_desktop_database()
     print("installed " + entry)
 
 
@@ -326,6 +512,8 @@ def uninstall(application_id):
         os.remove(path)
     if removed:
         refresh_icon_cache()
+        if entry in removed:
+            update_desktop_database()
         print("removed " + ", ".join(removed))
     else:
         print("nothing installed for " + application_id)
