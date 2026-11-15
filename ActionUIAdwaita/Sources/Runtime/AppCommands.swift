@@ -86,6 +86,11 @@ package final class AppCommands {
         }
     }
     private var actionNames: [String] = []
+    /// The number in the next item action's name, never reused: a name taken again by a rebuild
+    /// showed the shortcut its earlier item had in the popover, though the application's own
+    /// table had dropped it (an item put in before About moved About to Quit's old name, and
+    /// About showed Ctrl+Q).
+    private var nextActionNumber = 0
     /// The menu buttons made, each held weakly in a box GLib clears when the button goes. A rebuild
     /// takes the menu from them first and gives it back after, so GTK makes each popover anew from
     /// the menu as it is then:
@@ -420,7 +425,8 @@ package final class AppCommands {
 
     /// Installs an action for an item (or the About item) and its accelerator; returns its name.
     private func addAction(actionID: String?, viewID: Int, accelerator: String?, disabled: Bool, about: Bool) -> String {
-        let name = "actionui-command-\(actionNames.count)"
+        let name = "actionui-command-\(nextActionNumber)"
+        nextActionNumber += 1
         actionNames.append(name)
         guard let application = installedApplication else { return name }
         let action = OwnedObject(adopting: g_simple_action_new(name, nil)!)

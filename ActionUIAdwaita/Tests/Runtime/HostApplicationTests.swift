@@ -169,7 +169,87 @@ final class HostApplicationTests: XCTestCase {
         let button = commands.makeMenuButton()
         g_object_ref_sink(UnsafeMutableRawPointer(button))
         g_object_unref(UnsafeMutableRawPointer(button))
-        XCTAssertNotNil(g_action_map_lookup_action(map, "actionui-command-0"), "a menu button installs the actions")
+        // Not by name: the build before registration used up the first numbers.
+        XCTAssertFalse(itemActions(map).isEmpty, "a menu button installs the actions")
+    }
+
+    /// The names of the menu items' actions on a registered application.
+    private func itemActions(_ map: OpaquePointer) -> [String] {
+        guard let list = g_action_group_list_actions(map) else { return [] }
+        defer { g_strfreev(list) }
+        var names: [String] = []
+        var index = 0
+        while let name = list[index] {
+            names.append(String(cString: name))
+            index += 1
+        }
+        return names.filter { $0.hasPrefix("actionui-command-") }
+    }
+
+    /// The texts of the labels at or below `widget`, depth first, without empty ones.
+    private func labels(_ widget: WidgetPointer) -> [String] {
+        var result: [String] = []
+        if g_type_check_instance_is_a(UnsafeMutableRawPointer(widget).assumingMemoryBound(to: GTypeInstance.self), gtk_label_get_type()) != 0,
+           let text = swiftString(gtk_label_get_text(OpaquePointer(widget))), !text.isEmpty {
+            result.append(text)
+        }
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            result += labels(current)
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return result
+    }
+
+    func testAnItemMovedByARebuildDoesNotShowAnotherItemsShortcut() throws {
+        // As OMC's menu: Quit (Ctrl+Q) after appTermination, then a keyed group put in before
+        // About once the applet knows it (Add to Desktop). Every item after the new one moves
+        // down one place; About, where Quit was, showed Ctrl+Q.
+        let application = try makeRegisteredHostApplication("com.abracode.actionui.tests.host.moved")
+        defer { release(application) }
+        let commands = AppCommands()
+        XCTAssertTrue(commands.load(json: #"""
+            [{"type": "CommandGroup", "properties": {"placement": "after", "placementTarget": "appTermination"}, "children": [
+                {"type": "Button", "id": 3, "properties": {"title": "Quit", "actionID": "host.run", "keyboardShortcut": {"key": "q"}}}]}]
+            """#))
+        let window: UnsafeMutablePointer<GtkWindow> = typed(gtk_application_window_new(typed(application))!)
+        defer { gtk_window_destroy(window) }
+        let button = commands.makeMenuButton()
+        gtk_window_set_child(window, button)
+        XCTAssertTrue(commands.load(json: #"""
+            [{"type": "CommandGroup", "properties": {"placement": "before", "placementTarget": "appInfo"}, "children": [
+                {"type": "Button", "id": 5, "properties": {"title": "Add to Desktop", "actionID": "host.run"}}]}]
+            """#, replacing: "desktop"))
+
+        let map = OpaquePointer(application)
+        var shortcuts: [String: String] = [:]
+        for index in 0..<g_menu_model_get_n_items(typed(commands.menu.opaquePointer)) {
+            guard let section = g_menu_model_get_item_link(typed(commands.menu.opaquePointer), index, "section") else { continue }
+            defer { g_object_unref(UnsafeMutableRawPointer(section)) }
+            let model = OpaquePointer(section)
+            for item in 0..<g_menu_model_get_n_items(typed(model)) {
+                guard let label = g_menu_model_get_item_attribute_value(typed(model), item, "label", nil),
+                      let action = g_menu_model_get_item_attribute_value(typed(model), item, "action", nil) else { continue }
+                let title = swiftString(g_variant_get_string(label, nil)) ?? "?"
+                let name = swiftString(g_variant_get_string(action, nil)) ?? "?"
+                g_variant_unref(label)
+                g_variant_unref(action)
+                var accel = ""
+                if let list = gtk_application_get_accels_for_action(typed(map), name) {
+                    accel = list[0].map { String(cString: $0) } ?? ""
+                    g_strfreev(list)
+                }
+                shortcuts[title.hasPrefix("About ") ? "About" : title] = accel
+            }
+        }
+        XCTAssertEqual(shortcuts, ["Add to Desktop": "", "About": "", "Quit": "<Control>q"], "the application's shortcuts")
+
+        let popover = try XCTUnwrap(gtk_menu_button_get_popover(OpaquePointer(button)))
+        let shown = labels(UnsafeMutablePointer<GtkWidget>(OpaquePointer(popover)))
+        let about = try XCTUnwrap(shown.firstIndex { $0.hasPrefix("About ") }, "\(shown)")
+        XCTAssertNotEqual(shown.indices.contains(about + 1) ? shown[about + 1] : "", "Ctrl+Q", "About shows no shortcut: \(shown)")
+        XCTAssertEqual(shown.suffix(2), ["Quit", "Ctrl+Q"], "Quit shows Ctrl+Q: \(shown)")
+        withExtendedLifetime(commands) {}
     }
 
     // MARK: A document in a window the host made (HostWindow, actionUILoadIntoHostWindow*)
