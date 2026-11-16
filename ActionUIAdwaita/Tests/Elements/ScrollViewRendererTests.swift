@@ -4,7 +4,8 @@
  showsIndicators false keeps scrolling without a scrollbar; the axis changes at run time; content
  taller than the ScrollView scrolls over all of it, at its own height; without content it is
  empty; a horizontal one measures its content's height at the width the content gets (wrapping
- text). (Its layout against SwiftUI is in the layout parity fixtures: scrollview-*.)
+ text); its natural height is its content's, capped by a maxHeight, with a small minimum. (Its
+ layout against SwiftUI is in the layout parity fixtures: scrollview-*.)
 */
 
 import XCTest
@@ -118,6 +119,22 @@ final class ScrollViewRendererTests: XCTestCase {
         XCTAssertEqual(frame(try XCTUnwrap(content.childNodes[5]).widget, in: node.outerWidget)[3], 50, "the Color keeps its cap under the text")
         XCTAssertEqual(frame(content.outerWidget, in: node.outerWidget)[3], text[3] + 50)
         XCTAssertEqual(frame(scroll.outerWidget, in: node.outerWidget)[3], text[3] + 50)
+    }
+
+    func testAVerticalScrollViewAsksForItsContentsHeightAndCanBeSmall() throws {
+        // SwiftUI's ideal size: what a window, sheet or popover that fits its content gives it
+        let node = try render(#"{"type": "ScrollView", "id": 1, "content": "# + tallContent + "}")
+        let height = Gtk.Widget(node.outerWidget).measure(GTK_ORIENTATION_VERTICAL)
+        XCTAssertEqual(height.natural, 1000, "its content's height")
+        XCTAssertLessThan(height.minimum, 100, "it scrolls, so it can be made small")
+    }
+
+    func testAMaxHeightCapsTheScrollViewsHeightAndShortContentIsShown() throws {
+        let short = ##"{"type": "Color", "id": 2, "properties": {"color": "#FF0000", "frame": {"width": 100, "height": 100}}}"##
+        let capped = try render(#"{"type": "ScrollView", "id": 1, "properties": {"frame": {"maxHeight": 200}}, "content": "# + tallContent + "}")
+        XCTAssertEqual(Gtk.Widget(capped.outerWidget).measure(GTK_ORIENTATION_VERTICAL).natural, 200, "long content scrolls under the cap")
+        let column = try render(##"{"type": "VStack", "id": 3, "properties": {"spacing": 0}, "children": [{"type": "Color", "id": 4, "properties": {"color": "#00FF00", "frame": {"width": 100, "height": 30}}}, {"type": "ScrollView", "id": 1, "properties": {"frame": {"maxHeight": 200}}, "content": \##(short)}]}"##)
+        XCTAssertEqual(Gtk.Widget(column.outerWidget).measure(GTK_ORIENTATION_VERTICAL).natural, 130, "a stack that fits its content shows the short content whole")
     }
 
     func testAScrollViewWithoutContentIsEmpty() throws {

@@ -118,8 +118,9 @@ package enum WindowAssembly {
     }
 
     /// Runs `measure` with every scrolled window in `content` asking for its content's natural
-    /// size, then as before. A scrolled window asks for almost nothing along an axis it scrolls, so
-    /// a document in a ScrollView (or holding a List) opened as a strip; it opens tall enough to
+    /// size, then as before. A List, Table or TextEditor is a scrolled window that asks for almost
+    /// nothing along the axis it scrolls, so a document holding one opened as a strip (a
+    /// ScrollView asks for its content's size itself, ScrollView+Adwaita.swift); it opens tall enough to
     /// show its content now, up to the monitor, as other documents do. The minimum stays the
     /// scrolled windows' own, so the window can still be made small. (SwiftUI's WindowGroup opens
     /// 900 x 418 whatever the content; Linux fits the content, the owner's choice.)

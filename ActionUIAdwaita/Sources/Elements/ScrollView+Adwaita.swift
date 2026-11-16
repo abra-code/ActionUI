@@ -4,7 +4,9 @@
  the content as SwiftUI does. Measured on macOS 27 (the scrollview layout parity fixtures): a
  ScrollView expands along its scroll axes (two of them in a stack share the space like two
  Colors) and takes its content's size across them (a vertical one beside a Color is as wide as its
- content, all of the space when the content expands).
+ content, all of the space when the content expands). Asked for its natural size
+ (SwiftUI's ideal size) it asks for its content's in both axes, as SwiftUI does: a window that fits
+ its content shows what a ScrollView holds, up to the ScrollView's maxHeight, past which it scrolls.
 
  The scrollbars: scrolling is off across the scroll axes; showsIndicators false keeps scrolling
  without a scrollbar (GTK_POLICY_EXTERNAL). macOS draws overlay scrollers, as libadwaita does, so
@@ -46,14 +48,16 @@ extension ScrollView: ActionUIAdwaitaRenderer {
         if current != policies {
             gtk_scrolled_window_set_policy(scroller, policies.0, policies.1)
         }
-        // Across a scroll axis the scrolled window asks for its content's natural size.
-        let propagatesWidth: gboolean = horizontal ? 0 : 1
-        if gtk_scrolled_window_get_propagate_natural_width(scroller) != propagatesWidth {
-            gtk_scrolled_window_set_propagate_natural_width(scroller, propagatesWidth)
+        // The scrolled window's natural size is its content's in both axes, as a SwiftUI
+        // ScrollView's ideal size is its content's: a window, sheet or popover that fits its content
+        // shows what the ScrollView holds, and a frame's maxHeight caps it, past which it scrolls.
+        // Along a scroll axis the minimum stays the scrollbar's, and a stack shares space by
+        // minimums and caps (StackSolver), not natural sizes, so it can still be made small.
+        if gtk_scrolled_window_get_propagate_natural_width(scroller) == 0 {
+            gtk_scrolled_window_set_propagate_natural_width(scroller, 1)
         }
-        let propagatesHeight: gboolean = vertical ? 0 : 1
-        if gtk_scrolled_window_get_propagate_natural_height(scroller) != propagatesHeight {
-            gtk_scrolled_window_set_propagate_natural_height(scroller, propagatesHeight)
+        if gtk_scrolled_window_get_propagate_natural_height(scroller) == 0 {
+            gtk_scrolled_window_set_propagate_natural_height(scroller, 1)
         }
         // Expanding along a scroll axis; across, it expands where its content does (the scrolled
         // window computes that from its child).

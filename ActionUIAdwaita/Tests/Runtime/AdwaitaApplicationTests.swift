@@ -671,7 +671,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     func testADocumentInAScrollViewOpensTallEnoughToShowIt() throws {
         let app = AdwaitaApplication()
         var size: (Int32, Int32) = (0, 0)
-        var propagates: gboolean = 1
+        var minimumHeight: Int = -1
         let rows = (0..<12).map { #"{"type": "Color", "id": \#($0 + 3), "properties": {"color": "red", "frame": {"width": 200, "height": 40}}}"# }
         app.handlers.didFinishLaunching = {
             app.presentWindow(json: Data(#"{"type": "ScrollView", "id": 1, "content": {"type": "VStack", "id": 2, "children": [\#(rows.joined(separator: ","))]}}"#.utf8),
@@ -679,7 +679,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-scroll") {
                 size = self.defaultSize(window)
                 if let scroller = self.content(window).flatMap(self.firstScrolledWindow) {
-                    propagates = gtk_scrolled_window_get_propagate_natural_height(OpaquePointer(scroller))
+                    minimumHeight = Gtk.Widget(scroller).measure(GTK_ORIENTATION_VERTICAL).minimum
                 }
             }
             app.closeWindow("app-scroll")
@@ -689,7 +689,8 @@ final class AdwaitaApplicationTests: XCTestCase {
         // Twelve rows 40 tall (Colors have no spacing between them): 480 and the header bar, under
         // the box's 800-tall monitor.
         XCTAssertGreaterThan(size.1, 480, "its content's height and the header bar, not a strip")
-        XCTAssertEqual(propagates, 0, "afterwards it scrolls as before")
+        XCTAssertGreaterThanOrEqual(minimumHeight, 0)
+        XCTAssertLessThan(minimumHeight, 480, "it still scrolls: the window can be made shorter than the content")
     }
 
     func testContentThatGrowsOpensAtLeastAsTallAsSwiftUIs() throws {
