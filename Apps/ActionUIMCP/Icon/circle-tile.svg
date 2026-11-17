@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Circular app icon background, for icons that should stand apart from regular app tiles (in the
+  style of Apple Watch app icons), on Linux and anywhere else drawn without Icon Composer.
+  The circular counterpart of rounded-tile.svg, with the same canvas, extent and artwork mapping.
+
+  Canvas: 1024 x 1024. Face: a circle 944 across, its bounding square at (40, 24), so center
+  (512, 496) and radius 472, with a darker side 32 units deep below it (the same circle moved down
+  32), as GNOME's app icons show their depth. Face and side together cover 944 x 976 of the canvas,
+  as rounded-tile.svg does. For a flat circle, as on Apple Watch, delete "tile-side".
+
+  Those sizes are for Linux desktops. On macOS a regular app tile is 824 across with a soft shadow
+  in its margin, but a circle is meant to stand apart, and Dock icons are small (most people keep
+  them at 32 to 64 points), where a margin and a soft shadow only make the icon smaller and duller.
+  So there draw the flat circle with no side, nearly edge to edge: 1008 across, centered (8 left on
+  each side for antialiasing). In the Dock on macOS 27 it read crisper than 904 to 984 circles with
+  shadows, and than Icon Composer's glass rendering. Move the "layers" mapping with it:
+  translate(512 - d/2, 512 - d/2) scale(d / 1024) for a circle d across.
+
+  Artwork drawn for an Icon Composer .icon bundle is relative to the face's bounding square, which
+  fills that bundle's 1024 artboard (on watchOS the artboard is the circle's bounding square too).
+  Placed here it needs the artboard mapped onto that square:
+  transform="translate(40, 24) scale(0.921875)" on a group holding it. Within the artboard, a layer
+  SVG is a 768 x 768 box centered on the artboard, scaled by the layer's "scale" about the
+  artboard's center and moved by its "translation-in-points":
+  translate(512 + tx, 512 + ty) scale(s) translate(-384, -384).
+
+  Put glyph layers in the "layers" group, which already maps the artboard onto the face's square.
+  A circle leaves less room in its corners than a rounded square: keep artwork inside the circle
+  of diameter 768 at the artboard's center (radius 384 around (512, 512)), which is the inscribed
+  circle of rounded-tile.svg's 768 x 768 safe area.
+
+  Keep the result to SVG 1.2 Tiny plus plain groups, so every Linux desktop draws it (see
+  rounded-tile.svg for why: KDE Plasma draws app icons with Qt's SVG renderer, which draws no nested
+  <svg> element and no <clipPath>). So:
+  - Do not paste a layer SVG in as a nested <svg>. Put its contents in a group whose transform does
+    what the nested viewport did: for a 768 x 768 viewport and the layer's viewBox "x y w h",
+    s = min(768 / w, 768 / h), transform="translate((768 - w*s)/2 - x*s, (768 - h*s)/2 - y*s) scale(s)",
+    inside the layer's own placement group.
+  - No clipPath; no CSS style sheets or "style" attributes beyond what SVG Tiny allows; no
+    external references (href to files) or embedded bitmaps where a vector will do.
+  - Check a new icon in Plasma (or with Qt's QSvgRenderer), not only in a browser or librsvg.
+
+  Colors: the face is filled by the "face-fill" gradient, top to bottom (x1/y1 to x2/y2, in the
+  circle's own 0..1 bounding box); give both stops the same color for a flat face. The side is
+  "side-fill", usually the face's bottom color, darker.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="face-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b4b52"/>
+      <stop offset="1" stop-color="#1f1f23"/>
+    </linearGradient>
+    <linearGradient id="side-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121214"/>
+      <stop offset="1" stop-color="#121214"/>
+    </linearGradient>
+  </defs>
+  <circle id="tile-side" cx="512" cy="528" r="472" fill="url(#side-fill)"/>
+  <circle id="tile-face" cx="512" cy="496" r="472" fill="url(#face-fill)"/>
+  <g id="layers" transform="translate(40, 24) scale(0.921875)">
+  </g>
+</svg>
