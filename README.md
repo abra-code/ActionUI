@@ -11,25 +11,23 @@ ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **
 ```json
 {
   "type": "Form",
-  "properties": {
-    "children": [
-      {
-        "type": "TextField",
-        "id": 1,
-        "properties": { "title": "Name", "prompt": "Enter your name", "actionID": "nameChanged" }
-      },
-      {
-        "type": "Picker",
-        "id": 2,
-        "properties": { "title": "Theme", "items": ["Light", "Dark", "Auto"], "actionID": "themeChanged" }
-      },
-      {
-        "type": "Button",
-        "id": 3,
-        "properties": { "title": "Save", "buttonStyle": "borderedProminent", "actionID": "save" }
-      }
-    ]
-  }
+  "children": [
+    {
+      "type": "TextField",
+      "id": 1,
+      "properties": { "title": "Name", "prompt": "Enter your name", "actionID": "nameChanged" }
+    },
+    {
+      "type": "Picker",
+      "id": 2,
+      "properties": { "title": "Theme", "options": ["Light", "Dark", "Auto"], "actionID": "themeChanged" }
+    },
+    {
+      "type": "Button",
+      "id": 3,
+      "properties": { "title": "Save", "buttonStyle": "borderedProminent", "actionID": "save" }
+    }
+  ]
 }
 ```
 
