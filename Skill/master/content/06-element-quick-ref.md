@@ -6,7 +6,7 @@ flavors: [claude, capable]
 
 ## Elements
 
-Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`, `LazyHStack`), `ScrollView`, `Grid`/`LazyVGrid`/`LazyHGrid`, `List`, `Form`, `Section`, `Table`, `GroupBox`, `DisclosureGroup`, `NavigationStack`, `NavigationSplitView`, `TabView`/`Tab`, `HSplitView`/`VSplitView`, controls (`Button`, `Toggle`, `Picker`, `Slider`, `Stepper`, `DatePicker`, `ColorPicker`, `TextField`, `SecureField`, `TextEditor`), display (`Text`, `Label`, `Image`, `AsyncImage`, `ProgressView`, `Gauge`, `Divider`, `Spacer`, shapes, `Canvas`, `Chart`, `Map`, `WebView`, `VideoPlayer`), and `Menu`, `ControlGroup`, `LabeledContent`, `Link`, `ShareLink`, `ContentUnavailableView`, `LoadableView`. The index is `docs/ActionUI-Elements.md`; each element's properties are in `docs/Schemas/<Type>.md`.
+Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`, `LazyHStack`), `ScrollView`, `Grid`/`LazyVGrid`/`LazyHGrid`, `List`, `Form`, `Section`, `Table`, `GroupBox`, `DisclosureGroup`, `NavigationStack`, `NavigationSplitView`, `TabView`/`Tab`, `HSplitView`/`VSplitView`, `Group`, `GeometryReader`, `ScrollViewReader`, `NavigationLink`, controls (`Button`, `Toggle`, `Picker`, `Slider`, `Stepper`, `DatePicker`, `ColorPicker`, `TextField`, `SecureField`, `TextEditor`), display (`Text`, `Label`, `Image`, `AsyncImage`, `ProgressView`, `Gauge`, `Divider`, `Spacer`, shapes, `Canvas`, `Chart`, `Map`, `WebView`, `VideoPlayer`), and `Menu`, `ControlGroup`, `LabeledContent`, `Link`, `ShareLink`, `ContentUnavailableView`, `LoadableView`. The index is `docs/ActionUI-Elements.md`; each element's properties are in `docs/Schemas/<Type>.md`.
 
 ### Where children go
 
@@ -35,17 +35,7 @@ A `Table`'s rows and a `template`'s rows are never in the document: the applicat
 
 ### Chart
 
-`Chart` takes one property, `chart`: `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Apple and Linux draw it; Android and the web show a "Chart Unavailable" placeholder. Read `docs/Schemas/Chart.md` before writing one.
-
-```json
-{ "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 240 }, "chart": {
-  "columns": ["day", { "name": "visits", "type": "number" }],
-  "data": [["Mon", 120], ["Tue", 180]],
-  "content": [{ "type": "ForEach", "content": [
-    { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" } }] }] } } }
-```
-
-`"$column"` reads a cell only inside `ForEach`. A selection (`chartXSelection`) becomes the chart's value and fires `valueChangeActionID`; draw it with a mark outside the `ForEach` whose value is `"$selection"`.
+`Chart` takes one property, `chart` (`columns`, `data`, and `content` marks in Swift Charts' vocabulary), unlike any other element: read `docs/Schemas/Chart.md` before writing one. Apple and Linux draw it; Android and the web show a placeholder.
 
 ### Add-on elements
 

@@ -41,6 +41,14 @@ Every node in the tree follows this shape:
 2. `content` is a single view (an object); `children` is an array.
 3. Values must have the declared type: `"spacing": 16`, not `"spacing": "16"`.
 4. Do not invent property names. An unknown property is only a validator WARNING and is ignored at run time, so a typo fails silently: read every warning.
+5. A document is plain JSON with one root view. No comments: the schema docs annotate their samples with `//` comments, which make a document invalid; copy the keys, not the comments.
+
+## Workflow
+
+1. **Before writing an element you have not used**, read its schema, `docs/Schemas/<Type>.md` (every property, its values and the events it fires), or start from its template, `docs/Elements/<Type>.json`. Guessing a property name from SwiftUI usually works, but when it does not, nothing fails: the property is just ignored.
+2. **When changing an existing document**, read all of it first and keep every `id` and `actionID` as they are unless asked to change them: the application finds elements by `id` and handles actions by name, so a renumbered id or a renamed action breaks it without any error. Give new elements ids no other element uses.
+3. **Validate** (see Validation) and fix every error and warning.
+4. **Look at it** when the layout changed and you can render it: the validator does not see clipped or squeezed views.
 
 
 
@@ -58,18 +66,18 @@ Every element takes the SwiftUI-named modifiers in `properties` (`padding`, `fra
 
 - **`padding`**: a number, `"default"`, or `{top, leading, bottom, trailing}`.
 - **`frame`**: either `{width, height, alignment}` or `{minWidth, idealWidth, maxWidth, minHeight, idealHeight, maxHeight, alignment}`, not a mix. `"infinity"` for `.infinity`.
-- **`font`**: a text style name (`title`, `headline`, `body`, `caption`, ...) or `{size, weight, design}` (`"design": "monospaced"`).
+- **`font`**: a text style name (`title`, `headline`, `body`, `caption`, ...), a font name (`"Menlo"`), or `{name, size, weight, design}` (`size` required; `"design": "monospaced"`).
 - **Colors**: a SwiftUI name (`red`, `primary`, `secondary`, `accentColor`, `background`, `background.secondary`, `fill`, `separator`, `windowBackground`, ...), hex `#RRGGBB[AA]`, or `"<color>.opacity(0.5)"`. UIKit names (`systemBackground`, `label`) do not work.
-- **`hidden`**: the view is invisible but still takes its space (SwiftUI `.hidden()`), on every platform. To swap panels, stack them in a `ZStack` and show one. In a toolbar, `hidden` removes the item.
+- **`hidden`**: the view is invisible but still takes its space (SwiftUI `.hidden()`), on every platform. To swap panels, stack them in a `ZStack` and show one. (Android and the web remove a hidden toolbar item instead.)
 - **`keyboardShortcut`**: `{key, modifiers}`. **Omitting `modifiers` means `["command"]`**: write `"modifiers": []` for a bare Return or Escape.
 
 ### Events: which key a control fires
 
 Handlers get `(actionID, viewID, viewPartID, context)`. Use the key the control actually fires, or nothing happens (the validator does not check this):
 
-- `actionID`: Button, Toggle, Picker, Stepper, ColorPicker, TabView, List and Table (selection), DisclosureGroup, Menu items, and `VStack`/`HStack`/`ZStack` (a tap on the whole box).
-- `valueChangeActionID`: Slider, DatePicker, TextEditor, and a Chart's selection.
-- TextField: `actionID` on submit (Return), `valueChangeActionID` on every edit.
+- `actionID`: Button, Toggle, Picker, Stepper, ColorPicker, TabView, List and Table (selection), Menu items, and `VStack`/`HStack`/`ZStack` (a tap on the whole box).
+- `valueChangeActionID`: Slider, DatePicker, TextEditor, DisclosureGroup (expanded or collapsed), and a Chart's selection.
+- TextField and SecureField: `actionID` on submit (Return), `valueChangeActionID` on every edit.
 - Tab, Link and NavigationLink fire no action of their own.
 - Also: `onAppearActionID`, `onDisappearActionID`, `onHoverActionID`, `doubleClickActionID` (List, Table), and drops: `onDropTypes` (UTType ids, required) with `onDropActionID`.
 
@@ -79,7 +87,7 @@ Handlers get `(actionID, viewID, viewPartID, context)`. Use the key the control 
 
 ### Platform overrides
 
-`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. The suffix also works on `type`: an element typed only for some platforms (`"type:apple": "Toggle"` and no `type`) is left out elsewhere, taking no space (`hidden` keeps the space); the root needs a `type` on every platform. Details: the JSON guide, "Per-Platform Property Overrides".
+`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. On `type` (`"type:apple": "Toggle"` and no plain `type`) the suffix leaves the element out on the other platforms. Details: the JSON guide, "Per-Platform Property Overrides".
 
 
 
@@ -112,7 +120,7 @@ Look for truncated or wrapping text, controls clipped at the window edge, overla
 
 ## Elements
 
-Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`, `LazyHStack`), `ScrollView`, `Grid`/`LazyVGrid`/`LazyHGrid`, `List`, `Form`, `Section`, `Table`, `GroupBox`, `DisclosureGroup`, `NavigationStack`, `NavigationSplitView`, `TabView`/`Tab`, `HSplitView`/`VSplitView`, controls (`Button`, `Toggle`, `Picker`, `Slider`, `Stepper`, `DatePicker`, `ColorPicker`, `TextField`, `SecureField`, `TextEditor`), display (`Text`, `Label`, `Image`, `AsyncImage`, `ProgressView`, `Gauge`, `Divider`, `Spacer`, shapes, `Canvas`, `Chart`, `Map`, `WebView`, `VideoPlayer`), and `Menu`, `ControlGroup`, `LabeledContent`, `Link`, `ShareLink`, `ContentUnavailableView`, `LoadableView`. The index is `docs/ActionUI-Elements.md`; each element's properties are in `docs/Schemas/<Type>.md`.
+Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`, `LazyHStack`), `ScrollView`, `Grid`/`LazyVGrid`/`LazyHGrid`, `List`, `Form`, `Section`, `Table`, `GroupBox`, `DisclosureGroup`, `NavigationStack`, `NavigationSplitView`, `TabView`/`Tab`, `HSplitView`/`VSplitView`, `Group`, `GeometryReader`, `ScrollViewReader`, `NavigationLink`, controls (`Button`, `Toggle`, `Picker`, `Slider`, `Stepper`, `DatePicker`, `ColorPicker`, `TextField`, `SecureField`, `TextEditor`), display (`Text`, `Label`, `Image`, `AsyncImage`, `ProgressView`, `Gauge`, `Divider`, `Spacer`, shapes, `Canvas`, `Chart`, `Map`, `WebView`, `VideoPlayer`), and `Menu`, `ControlGroup`, `LabeledContent`, `Link`, `ShareLink`, `ContentUnavailableView`, `LoadableView`. The index is `docs/ActionUI-Elements.md`; each element's properties are in `docs/Schemas/<Type>.md`.
 
 ### Where children go
 
@@ -141,17 +149,7 @@ A `Table`'s rows and a `template`'s rows are never in the document: the applicat
 
 ### Chart
 
-`Chart` takes one property, `chart`: `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Apple and Linux draw it; Android and the web show a "Chart Unavailable" placeholder. Read `docs/Schemas/Chart.md` before writing one.
-
-```json
-{ "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 240 }, "chart": {
-  "columns": ["day", { "name": "visits", "type": "number" }],
-  "data": [["Mon", 120], ["Tue", 180]],
-  "content": [{ "type": "ForEach", "content": [
-    { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" } }] }] } } }
-```
-
-`"$column"` reads a cell only inside `ForEach`. A selection (`chartXSelection`) becomes the chart's value and fires `valueChangeActionID`; draw it with a mark outside the `ForEach` whose value is `"$selection"`.
+`Chart` takes one property, `chart` (`columns`, `data`, and `content` marks in Swift Charts' vocabulary), unlike any other element: read `docs/Schemas/Chart.md` before writing one. Apple and Linux draw it; Android and the web show a placeholder.
 
 ### Add-on elements
 
@@ -183,7 +181,7 @@ Put `minWidth`/`minHeight` and `idealWidth`/`idealHeight` on the root view's `fr
 
 ### Toolbar
 
-`toolbar` is a top-level key holding `ToolbarItem` (one view in `content`) and `ToolbarItemGroup` (views in `children`) nodes. `placement` is one of `automatic`, `principal`, `primaryAction`, `secondaryAction`, `confirmationAction`, `cancellationAction`, `destructiveAction`, `topBarLeading`, `topBarTrailing`, `bottomBar`, `keyboard`, `navigation`, `status`.
+`toolbar` is a top-level key holding `ToolbarItem` (one view in `content`) and `ToolbarItemGroup` (views in `children`) nodes. `placement` is one of `automatic`, `principal`, `primaryAction`, `secondaryAction`, `confirmationAction`, `cancellationAction`, `destructiveAction`; iOS only: `topBarLeading`, `topBarTrailing`, `bottomBar`, `keyboard`; macOS only: `navigation`, `status`. Elsewhere a platform-only placement falls back to `automatic`.
 
 ```json
 "toolbar": [
@@ -216,11 +214,7 @@ In a `NavigationSplitView`, set `navigationSplitViewColumnWidth: {min, ideal, ma
 
 ### Read-only log
 
-A `TextEditor` with `"readOnly": true`, `"implementation": "native"` (macOS: the host appends output with `appendElementText` at the new text's cost, not the whole text's), `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`.
-
-### Drop target
-
-`onDropTypes` (UTType ids such as `public.file-url`) with `onDropActionID`, on any element; a `Table` still needs its `columns`.
+A `TextEditor` with `"readOnly": true`, `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`. For a long log the host keeps appending to, add `"implementation": "native"` (see the TextEditor schema).
 
 
 
@@ -230,7 +224,7 @@ When the `actionui` MCP server is connected you can open native windows on the u
 
 For `show_document`:
 
-- Pass the document as a JSON object, never as a string. Run `validate_document` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
+- Pass the document as a JSON object or an absolute `.json` path, never as a JSON string. Run `validate_document` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
 - A dialog cannot fill a `Table` or a `template` (rows come at run time): use `mode: "window"` and `update_window` rows, static `children`, or `show` with a table.
 - Refused in documents: `SecureField` (never ask for secrets: everything entered reaches you), `LoadableView` (put the content inline), `popover`, `"placement": "secondaryAction"`, `WindowGroup`; WebView `userScripts` are removed. `close_actions` may not start with `mcp.`.
 - Windows close when your session ends unless shown with `keep: true`.

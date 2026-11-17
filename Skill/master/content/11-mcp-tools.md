@@ -10,7 +10,7 @@ When the `actionui` MCP server is connected you can open native windows on the u
 
 For `show_document`:
 
-- Pass the document as a JSON object, never as a string. Run `validate_document` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
+- Pass the document as a JSON object or an absolute `.json` path, never as a JSON string. Run `validate_document` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
 - A dialog cannot fill a `Table` or a `template` (rows come at run time): use `mode: "window"` and `update_window` rows, static `children`, or `show` with a table.
 - Refused in documents: `SecureField` (never ask for secrets: everything entered reaches you), `LoadableView` (put the content inline), `popover`, `"placement": "secondaryAction"`, `WindowGroup`; WebView `userScripts` are removed. `close_actions` may not start with `mcp.`.
 - Windows close when your session ends unless shown with `keep: true`.

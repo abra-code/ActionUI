@@ -28,7 +28,7 @@ Put `minWidth`/`minHeight` and `idealWidth`/`idealHeight` on the root view's `fr
 
 ### Toolbar
 
-`toolbar` is a top-level key holding `ToolbarItem` (one view in `content`) and `ToolbarItemGroup` (views in `children`) nodes. `placement` is one of `automatic`, `principal`, `primaryAction`, `secondaryAction`, `confirmationAction`, `cancellationAction`, `destructiveAction`, `topBarLeading`, `topBarTrailing`, `bottomBar`, `keyboard`, `navigation`, `status`.
+`toolbar` is a top-level key holding `ToolbarItem` (one view in `content`) and `ToolbarItemGroup` (views in `children`) nodes. `placement` is one of `automatic`, `principal`, `primaryAction`, `secondaryAction`, `confirmationAction`, `cancellationAction`, `destructiveAction`; iOS only: `topBarLeading`, `topBarTrailing`, `bottomBar`, `keyboard`; macOS only: `navigation`, `status`. Elsewhere a platform-only placement falls back to `automatic`.
 
 ```json
 "toolbar": [
@@ -61,8 +61,4 @@ In a `NavigationSplitView`, set `navigationSplitViewColumnWidth: {min, ideal, ma
 
 ### Read-only log
 
-A `TextEditor` with `"readOnly": true`, `"implementation": "native"` (macOS: the host appends output with `appendElementText` at the new text's cost, not the whole text's), `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`.
-
-### Drop target
-
-`onDropTypes` (UTType ids such as `public.file-url`) with `onDropActionID`, on any element; a `Table` still needs its `columns`.
+A `TextEditor` with `"readOnly": true`, `"font": {"size": 11, "design": "monospaced"}`, `"scrollContentBackground": "hidden"` and a `background`. For a long log the host keeps appending to, add `"implementation": "native"` (see the TextEditor schema).

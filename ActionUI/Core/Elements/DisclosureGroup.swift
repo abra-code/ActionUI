@@ -6,7 +6,8 @@
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "title": "Details",  // Non-optional: String for the disclosure title; set to nil if invalid
-     "isExpanded": true   // Optional: Boolean for initial expanded state; set to nil if invalid
+     "isExpanded": true,  // Optional: Boolean for initial expanded state; set to nil if invalid
+     "valueChangeActionID": "details.toggled" // Optional: String for action triggered when the user expands or collapses the group; states["isExpanded"] holds the new state
    },
    "children": [
      { "type": "Text", "properties": { "text": "Content" } }

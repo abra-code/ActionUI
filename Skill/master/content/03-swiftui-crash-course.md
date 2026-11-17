@@ -92,7 +92,7 @@ Any tappable element uses `actionID`. The app code handles the ID string.
 { "type": "Button", "properties": { "title": "Save", "actionID": "savePressed" } }
 ```
 
-You can also put `actionID` directly on most view types to make them tappable.
+Putting `actionID` on a `VStack`, `HStack` or `ZStack` makes the whole box tappable. Other views (`Text`, `Image`, ...) do not become tap targets on every platform: wrap them in a stack or use a `Button`.
 
 ### Lists and Navigation
 
