@@ -1,19 +1,19 @@
 # ActionUI vs React Native
 
-A comparison of ActionUI with React Native, focusing on architecture, philosophy, and trade-offs. ActionUI now drives **three native renderers from one JSON schema**: SwiftUI on Apple platforms (iOS, macOS, and the rest), Jetpack Compose on Android, and DOM/CSS in the browser. React Native additionally targets Windows and Linux through community-maintained forks. The two frameworks are now direct cross-platform competitors for iOS + Android + Web, with different architecture trade-offs.
+A comparison of ActionUI with React Native, focusing on architecture, philosophy, and trade-offs. ActionUI now drives **four native renderers from one JSON schema**: SwiftUI on Apple platforms (iOS, macOS, and the rest), GTK 4 and libadwaita on Linux, Jetpack Compose on Android, and DOM/CSS in the browser. React Native additionally targets Windows (react-native-windows). The two frameworks are now direct cross-platform competitors for iOS + Android + Web, with different architecture trade-offs; on the Linux desktop ActionUI has a native renderer of its own.
 
 ## Architectural Differences
 
 | Aspect | ActionUI | React Native |
 |--------|----------|--------------|
-| Runtime | None — Apple: JSON → SwiftUI directly; Android: JSON → Jetpack Compose; Web: JSON → DOM/CSS (plain ES modules, no build step) | JavaScript engine (Hermes/JSC) with native bridge |
+| Runtime | None — Apple: JSON → SwiftUI directly; Linux: JSON → GTK 4 / libadwaita widgets; Android: JSON → Jetpack Compose; Web: JSON → DOM/CSS (plain ES modules, no build step) | JavaScript engine (Hermes/JSC) with native bridge |
 | UI definition | Pure data (JSON) — same schema on all platforms | Code (JSX) that produces virtual DOM |
-| Rendering | Apple: SwiftUI views directly; Android: Jetpack Compose views; Web: real DOM elements | Bridge to UIKit/AppKit/Android (New Architecture: Fabric) |
-| Cross-platform keys | `:android` / `:ios` suffix for per-platform overrides (rare) | `Platform.select()`, platform-specific file extensions |
+| Rendering | Apple: SwiftUI views directly; Linux: GTK widgets; Android: Jetpack Compose views; Web: real DOM elements | Bridge to UIKit/AppKit/Android (New Architecture: Fabric) |
+| Cross-platform keys | `:ios` / `:macos` / `:apple` / `:linux` / `:android` / `:web` suffix for per-platform overrides (rare) | `Platform.select()`, platform-specific file extensions |
 | State | Flat set/get by view ID | useState, useReducer, Redux, Context API, etc. |
-| Diffing | None — SwiftUI/Compose handles updates | Virtual DOM reconciliation |
-| Build toolchain | Xcode + Swift (iOS/macOS), Android Studio + Gradle (Android) | Node.js, Metro bundler, Babel/TypeScript, CocoaPods/Gradle |
-| Client language | Any (Python, C, Swift, ObjC, JS, C++) | JavaScript/TypeScript |
+| Diffing | None — SwiftUI/GTK/Compose handles updates | Virtual DOM reconciliation |
+| Build toolchain | Xcode + Swift (iOS/macOS), Swift on Linux (or the prebuilt `libActionUI.so`, which needs no Swift), Android Studio + Gradle (Android) | Node.js, Metro bundler, Babel/TypeScript, CocoaPods/Gradle |
+| Client language | Any (Python, C, Swift, ObjC, JS, Node.js, C++, Rust) | JavaScript/TypeScript |
 
 ## Where ActionUI Excels
 
@@ -23,27 +23,27 @@ ActionUI has no runtime, no virtual DOM, no reconciliation, no bridge. JSON goes
 React Native requires understanding JSX, component lifecycle, hooks (useState, useEffect, useMemo, useCallback), the bridge architecture, and typically a state management library. The mental model is significantly more complex.
 
 ### True Native Rendering
-ActionUI produces actual native views with full platform behavior on every target — SwiftUI on Apple platforms, Jetpack Compose on Android, and real DOM/CSS in the browser. It doesn't abstract away the platform; it embraces each one. The same JSON key drives a `NavigationBar` on Android and a `TabView` on iOS without any client code change. Where platforms genuinely differ (e.g. a macOS-only Table or an Android-specific Material style), ActionUI lets JSON express that with a `:android` / `:ios` suffix rather than forcing a fake cross-platform abstraction.
+ActionUI produces actual native views with full platform behavior on every target — SwiftUI on Apple platforms, GTK 4 and libadwaita on Linux, Jetpack Compose on Android, and real DOM/CSS in the browser. It doesn't abstract away the platform; it embraces each one. The same JSON key drives a `NavigationBar` on Android and a `TabView` on iOS without any client code change. Where platforms genuinely differ (e.g. a macOS-only Table or an Android-specific Material style), ActionUI lets JSON express that with a `:android` / `:ios` / `:linux` suffix rather than forcing a fake cross-platform abstraction.
 
 Even the Web renderer avoids the usual abstraction tax: it emits plain DOM and CSS with no framework runtime, no virtual DOM, and no build step. React Native, by contrast, bridges to UIKit and Android's native views, and its Web target (React Native Web) re-implements native primitives on top of the DOM. The JS bridge means some platform behaviors are approximated or require manual native modules. macOS support is maintained by Microsoft (react-native-macos), not first-class.
 
-### macOS-First
-ActionUI has deep AppKit integration: native menu bars with CommandGroup/CommandMenu, file open/save panels, alert dialogs, multi-window with per-window state, window lifecycle callbacks. This is first-class macOS app behavior.
+### macOS-First, Linux Too
+ActionUI has deep AppKit integration: native menu bars with CommandGroup/CommandMenu, file open/save panels, alert dialogs, multi-window with per-window state, window lifecycle callbacks. This is first-class macOS app behavior. The same application functions work on Linux with GNOME's conventions: libadwaita's alert dialog, GTK's file dialogs, the menu bar's commands in each window's primary menu.
 
 React Native's macOS support is maintained by Microsoft (react-native-macos) and lacks many macOS conventions — proper menu bars, multi-window, and native panels require significant custom native code.
 
 ### Build Toolchain
-ActionUI: Xcode for iOS/macOS, Android Studio for Android, `pip install` for the Python bridge. No Node.js, no Metro bundler, no Babel, no TypeScript transpiler. Each platform uses its own standard native toolchain — nothing extra.
+ActionUI: Xcode for iOS/macOS, Swift for Linux (a Python, Node.js or Rust program uses the prebuilt `libActionUI.so` and needs no Swift), Android Studio for Android, `pip install` for the Python bridge. No Node.js, no Metro bundler, no Babel, no TypeScript transpiler. Each platform uses its own standard native toolchain — nothing extra.
 
 A React Native project adds a JavaScript layer on top of both native toolchains: hundreds of npm dependencies, Metro bundler, and Babel/TypeScript coordinated with CocoaPods and Gradle versions. Build failures from npm/native version mismatches are a common time cost.
 
 ### Performance
-ActionUI has essentially zero overhead — calling SwiftUI is the entire rendering path. No JS-to-native bridge, no serialization, no virtual DOM diffing.
+ActionUI has essentially zero overhead — calling SwiftUI (or GTK on Linux) is the entire rendering path. No JS-to-native bridge, no serialization, no virtual DOM diffing.
 
 React Native's bridge adds latency to every interaction that crosses the JS/native boundary. The New Architecture (JSI, Fabric, TurboModules) reduces this but adds its own complexity.
 
 ### Language Agnostic
-ActionUI's C API means any language that can call C functions can drive the UI: Python, Swift, Objective-C, C++, JavaScript (via JavaScriptCore or WebKit). The UI definition (JSON) is completely separate from the client language.
+ActionUI's C API means any language that can call C functions can drive the UI: Python, Swift, Objective-C, C++, Rust, Node.js, JavaScript (via JavaScriptCore or WebKit). On Linux, `libActionUI.so` offers the same C functions. The UI definition (JSON) is completely separate from the client language.
 
 React Native locks you into JavaScript/TypeScript for app logic.
 
@@ -51,15 +51,15 @@ React Native locks you into JavaScript/TypeScript for app logic.
 LoadableView loads new JSON UI definitions at runtime from local files or network URLs. This is a production feature — deployed apps can reconfigure their UI dynamically. This is comparable to React Native's hot reload but available in shipping apps, not just during development.
 
 ### Zero-Dependency Web Renderer
-ActionUI's browser renderer emits plain DOM and CSS from the same JSON that drives Apple and Android — no framework runtime, no virtual DOM, no bundler, no npm install. It is served as static ES modules straight from a URL ([live demo](https://abracode.com/ActionUIWeb/demo/)), works from any path prefix, and includes touch/mobile adaptation (bottom sheets, collapsing navigation, swipe-back, pull-to-refresh). React Native's browser story (React Native Web) re-implements native primitives on top of the DOM and still ships a JS bundle and build toolchain. For a lightweight embeddable UI on the web, ActionUI's output is dramatically smaller and simpler.
+ActionUI's browser renderer emits plain DOM and CSS from the same JSON that drives Apple, Linux and Android — no framework runtime, no virtual DOM, no bundler, no npm install. It is served as static ES modules straight from a URL ([live demo](https://abracode.com/ActionUIWeb/demo/)), works from any path prefix, and includes touch/mobile adaptation (bottom sheets, collapsing navigation, swipe-back, pull-to-refresh). React Native's browser story (React Native Web) re-implements native primitives on top of the DOM and still ships a JS bundle and build toolchain. For a lightweight embeddable UI on the web, ActionUI's output is dramatically smaller and simpler.
 
 ## Where React Native Excels
 
 ### Broader Platform Reach
-Web is no longer a React Native advantage — ActionUI ships its own browser renderer (see "Zero-Dependency Web Renderer" above). What React Native still reaches that ActionUI does not is the desktop-Windows and Linux surface, via the community-maintained react-native-windows and react-native-linux forks. For apps that must run natively on Windows or Linux, React Native remains the practical choice; ActionUI's non-Apple desktop story is the browser.
+Web and Linux are no longer React Native advantages — ActionUI ships its own browser renderer (see "Zero-Dependency Web Renderer" above) and a native GNOME renderer for Linux (GTK 4 and libadwaita). What React Native still reaches that ActionUI does not is the Windows desktop, via react-native-windows. For apps that must run natively on Windows, React Native remains the practical choice; ActionUI's Windows story is the browser.
 
 ### Ecosystem Maturity on Android
-Both frameworks now cover iOS, Android, and Web. React Native's Android ecosystem is older and deeper — more battle-tested third-party libraries, more Stack Overflow answers, more edge cases already hit and fixed. ActionUI's Android renderer (Jetpack Compose) reached feature parity with the Apple renderer this release, sharing the same JSON across all three platforms, but it is younger and its community is smaller. A handful of add-on element types (e.g. the Chat element) are Apple-only for now. For apps within the shared element set, the JSON is identical across platforms with no code changes.
+Both frameworks now cover iOS, Android, and Web. React Native's Android ecosystem is older and deeper — more battle-tested third-party libraries, more Stack Overflow answers, more edge cases already hit and fixed. ActionUI's Android renderer (Jetpack Compose) reached feature parity with the Apple renderer this release, sharing the same JSON across platforms, but it is younger and its community is smaller. A handful of add-on element types (e.g. the Chat element) are Apple-only for now; on Linux, RichText, CachedImage, Diff and HostSurface are there too. For apps within the shared element set, the JSON is identical across platforms with no code changes.
 
 ### Dynamic UI Construction
 React Native's core model is dynamic — every render cycle can produce a completely different component tree based on state. Conditional rendering, lists of dynamic length, and component composition are natural.
@@ -69,7 +69,7 @@ ActionUI's UI structure is defined by JSON at window creation. Dynamic behavior 
 ### Ecosystem
 React Native has thousands of third-party components, navigation libraries (React Navigation, Expo Router), animation libraries (Reanimated), and form libraries. The npm ecosystem provides solutions for most common needs.
 
-ActionUI is a focused library without a third-party ecosystem. Its ~57 built-in components cover common UI patterns, and a new add-on architecture lets custom element types (Chat, Diff, RichText, QuickLook, CachedImage) register into the engine without living in core — but specialized needs still require extending the framework rather than reaching for an existing package.
+ActionUI is a focused library without a third-party ecosystem. Its 60+ built-in element types cover common UI patterns, and a new add-on architecture lets custom element types (Chat, Diff, RichText, QuickLook, CachedImage, HostSurface) register into the engine without living in core — but specialized needs still require extending the framework rather than reaching for an existing package.
 
 ### Navigation and Routing
 React Native has mature navigation solutions with stack navigators, tab navigators, drawer navigators, deep linking, and animated transitions.
@@ -101,7 +101,8 @@ This is not a limitation — it's a deliberate design choice. For applet-style a
 | macOS applets and tools | ActionUI |
 | iOS + Android with no JS runtime | ActionUI |
 | Lightweight web UI with no build step or JS bundle | ActionUI |
-| Native Windows / Linux desktop | React Native |
+| Native Linux (GNOME) desktop | ActionUI |
+| Native Windows desktop | React Native |
 | Deep/mature Android third-party ecosystem | React Native |
 | AI-generated UIs | ActionUI |
 | Complex animations and gesture-driven interactions | React Native |
@@ -109,5 +110,5 @@ This is not a limitation — it's a deliberate design choice. For applet-style a
 | Large team with JS/TS expertise | React Native |
 | Minimal toolchain and dependencies | ActionUI |
 | Third-party component ecosystem | React Native |
-| Language-agnostic client code (Python, C, Swift, C++) | ActionUI |
-| Same JSON drives Apple, Android, and the Web | ActionUI |
+| Language-agnostic client code (Python, C, Swift, C++, Rust) | ActionUI |
+| Same JSON drives Apple, Linux, Android, and the Web | ActionUI |
