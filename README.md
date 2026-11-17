@@ -2,7 +2,7 @@
 
 **Build native interfaces from JSON, across Apple, Android, Linux, and the Web — designed for AI-assisted development and rapid prototyping**
 
-ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **three native renderers** from a shared schema: SwiftUI on Apple platforms, Jetpack Compose on Android, and DOM/CSS in the browser. A fourth, for **Linux** (GTK 4 and libadwaita, in Swift), renders nearly all core elements. It replaces Interface Builder, Storyboards, or hand-coded UI with a simple, declarative format that's both human-readable and AI-friendly.
+ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **four native renderers** from a shared schema: SwiftUI on Apple platforms, GTK 4 and libadwaita on Linux, Jetpack Compose on Android, and DOM/CSS in the browser. It replaces Interface Builder, Storyboards, or hand-coded UI with a simple, declarative format that's both human-readable and AI-friendly.
 
 **[Try the live browser demo →](https://abracode.com/ActionUIWeb/demo/)** (no install, no local server)
 
@@ -33,20 +33,20 @@ ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **
 }
 ```
 
-This produces a fully native form — a SwiftUI form on Apple, a Compose form on Android, a DOM form on the Web — from the same JSON, with no per-platform UI code and no storyboards.
+This produces a fully native form — a SwiftUI form on Apple, a GTK form on Linux, a Compose form on Android, a DOM form on the Web — from the same JSON, with no per-platform UI code and no storyboards.
 
 ## Key Features
 
-- **Three native renderers, one JSON** — SwiftUI (Apple), Jetpack Compose (Android), DOM/CSS (Web), at feature parity across ~57 components — layouts, inputs, tables, maps, video, canvas, and more
+- **Four native renderers, one JSON** — SwiftUI (Apple), GTK 4 and libadwaita (Linux), Jetpack Compose (Android), DOM/CSS (Web), at feature parity across 60+ element types — layouts, inputs, tables, maps, video, canvas, and more
 - **Runtime flexibility** — load UIs from JSON files or network without recompilation
-- **Add-on architecture** — third-party element types (Chat, Diff, RichText, QuickLook, CachedImage) plug into the engine without living in core
-- **Python bridge** — build complete macOS apps in Python with `import actionui`
-- **Rust bridge** - native macOS interface in JSON, program logic in Rust, one self-contained executable (see [ActionUIRust](ActionUIRust/README.md))
+- **Add-on architecture** — third-party element types (Chat, Diff, RichText, QuickLook, CachedImage, HostSurface) plug into the engine without living in core
+- **Python bridge** — build complete macOS and Linux apps in Python with `import actionui`
+- **Rust bridge** - native macOS and Linux interface in JSON, program logic in Rust, one self-contained executable (see [ActionUIRust](ActionUIRust/README.md))
 - **Multi-window, menu bar, dialogs** — native app features out of the box
 - **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
 - **Apple platforms** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript, Rust
-- **Linux** - native GNOME interfaces (GTK 4 and libadwaita) from the same JSON and the same C interface; all core elements except Map, with Chart drawing bars, points, rules, lines and areas so far, no add-ons yet (see [ActionUIAdwaita](ActionUIAdwaita/README.md))
+- **Linux** - native GNOME interfaces (GTK 4 and libadwaita) from the same JSON and the same C interface: every core element type, and the RichText, CachedImage, Diff and HostSurface add-ons; Python, Node.js and Rust programs too (see [ActionUIAdwaita](ActionUIAdwaita/README.md) for what differs)
 
 ## Example Apps using ActionUI
 
@@ -80,7 +80,8 @@ app.run()
 
 - [Architecture & Technical Details](Documentation/Architecture.md)
 - [ActionUI on Linux](ActionUIAdwaita/README.md)
-- [JSON Specifications](Documentation/ActionUI-JSON-Specifications.json)
+- [JSON Guide](Documentation/ActionUI-JSON-Guide.md)
+- [Element Reference](Documentation/ActionUI-Elements.md)
 - [Comparison: ActionUI Python vs tkinter](Documentation/Comparison-vs-tkinter.md)
 - [Comparison: ActionUI vs React Native](Documentation/Comparison-vs-ReactNative.md)
 
@@ -90,7 +91,7 @@ app.run()
 
 **Fail Gracefully** — Invalid JSON doesn't crash. A property of the wrong type is ignored, missing values get defaults, and the UI degrades gracefully.
 
-**Platform Native** — ActionUI doesn't abstract platforms away — it embraces each one. The generated views are real SwiftUI views on Apple, real Compose composables on Android, and real DOM on the Web, with each platform's full performance and capabilities.
+**Platform Native** — ActionUI doesn't abstract platforms away — it embraces each one. The generated views are real SwiftUI views on Apple, real GTK widgets on Linux, real Compose composables on Android, and real DOM on the Web, with each platform's full performance and capabilities.
 
 **Minimal Complexity** — JSON defines the UI, your code handles the logic. No state management framework, no build toolchain, no widget hierarchy to manage.
 
