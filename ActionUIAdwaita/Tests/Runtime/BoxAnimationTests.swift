@@ -20,7 +20,9 @@ final class BoxAnimationTests: XCTestCase {
     private var windowUUID = ""
     private var windows: [AdwaitaWindow] = []
     private var shownWindows: [UnsafeMutablePointer<GtkWidget>] = []
-    private var animationsWereEnabled = true
+    /// The setting before the test, to put back; nil when setUp skipped the test before reading it
+    /// (no display: GTK then has no settings object, and tearDown still runs).
+    private var animationsWereEnabled: Bool?
 
     override func setUp() async throws {
         // No super.setUp(): see PaintModifierTests.
@@ -60,7 +62,9 @@ final class BoxAnimationTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
         ActionUIRegistry.shared.loadBuiltIns()
-        Self.animationsEnabled = animationsWereEnabled
+        if let animationsWereEnabled {
+            Self.animationsEnabled = animationsWereEnabled
+        }
     }
 
     // MARK: Curves

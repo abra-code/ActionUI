@@ -1,0 +1,65 @@
+# Linux: builds ActionUI's Linux package (the core and the GTK 4 / libadwaita renderer) and runs its
+# tests that need no display, in an Ubuntu 26.04 container: the renderer targets Ubuntu 26.04's GTK
+# and libadwaita, which the stock runner images are older than. The steps are in Scripts/ci-linux.sh.
+#
+# Runs on pushes to every branch (branches that merge main run it too) and on pull requests,
+# except when only documentation changed.
+
+name: Linux
+
+on:
+  # Branches only: a tag push would run it too, and GitHub applies no path filter to tags.
+  push:
+    branches: ['**']
+    paths-ignore:
+      - '**.md'
+      - 'Documentation/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'Documentation/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run still going, except on main,
+# where every commit keeps its result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build-and-test:
+    name: Build and test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:26.04
+    timeout-minutes: 60
+    env:
+      ACTIONUI_CI_SWIFT: '6.4.2'
+    steps:
+      # The image has no git; without it actions/checkout downloads an archive instead of cloning.
+      - name: Install git
+        run: |
+          apt-get -q -y -o Dpkg::Use-Pty=0 update
+          DEBIAN_FRONTEND=noninteractive apt-get -q -y -o Dpkg::Use-Pty=0 install --no-install-recommends git ca-certificates
+
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Install Swift and the GTK development packages
+        run: Scripts/ci-linux.sh install
+
+      - name: Build
+        run: Scripts/ci-linux.sh build
+
+      - name: Test
+        run: Scripts/ci-linux.sh test
