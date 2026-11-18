@@ -1,9 +1,9 @@
 // Tests/Elements/MenuRendererTests.swift
 /*
  Tests for the Menu renderer on GTK: a menu button with the title, or the label element, and an
- arrow; the children as a GMenu (a Divider starts a section, a Section has its header, a nested Menu
- is a submenu, a hidden Button is left out); choosing an item runs the Button's actionID once, a
- disabled Button's item is disabled; the menu is rebuilt only when it changes; children inserted
+ arrow, or with neither the arrow alone; the children as a GMenu (a Divider starts a section, a
+ Section has its header, a nested Menu is a submenu, a hidden Button is left out); choosing an
+ item runs the Button's actionID once, a disabled Button's item is disabled; the menu is rebuilt only when it changes; children inserted
  into a nested Section or Menu at run time are shown; an underscore in an item's title is not a
  mnemonic; it does not grow. A Toggle is a check item and a Picker a submenu of radio items, their
  marks following the value without rebuilding the menu; a Text, plain or markdown, is an item with
@@ -90,6 +90,25 @@ final class MenuRendererTests: XCTestCase {
         XCTAssertNotEqual(gtk_menu_button_get_always_show_arrow(OpaquePointer(node.widget)), 0)
         XCTAssertEqual(gtk_widget_compute_expand(node.widget, GTK_ORIENTATION_HORIZONTAL), 0)
         XCTAssertEqual(gtk_widget_compute_expand(node.widget, GTK_ORIENTATION_VERTICAL), 0)
+    }
+
+    func testWithNeitherATitleNorALabelTheArrowIsAlone() throws {
+        let node = try render(#"""
+            {"type": "Menu", "id": 1, "label": {"type:apple": "Image", "properties": {"systemName": "chevron.up.chevron.down"}}, "children": [
+              {"type": "Button", "id": 3, "properties": {"title": "Recent"}}]}
+            """#)
+        let button = OpaquePointer(node.widget)
+        XCTAssertNil(gtk_menu_button_get_label(button), "no label, not even an empty one")
+        XCTAssertNil(gtk_menu_button_get_child(button))
+        // The arrow is the inner button's only child, as GTK makes a new menu button.
+        let inner = try XCTUnwrap(gtk_widget_get_first_child(node.widget))
+        let arrow = try XCTUnwrap(gtk_widget_get_first_child(inner))
+        XCTAssertNil(gtk_widget_get_first_child(arrow))
+        XCTAssertNil(gtk_widget_get_next_sibling(arrow))
+        // A title set later shows beside the arrow.
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "title", value: "Recent")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(swiftString(gtk_menu_button_get_label(button)), "Recent")
     }
 
     func testTheChildrenBecomeSectionsItemsAndASubmenu() throws {

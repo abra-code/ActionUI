@@ -2,7 +2,8 @@
 /*
  Menu on GTK: a GtkMenuButton showing the title, or the label element, with a down arrow, which
  opens GTK's own menu built from the children, as macOS shows a pop-up button that opens a menu. As
- large as it is (it does not grow).
+ large as it is (it does not grow). With neither a title nor a label element, the arrow alone,
+ centered (a label element given only for other platforms, "type:apple", is none here).
 
  The children become menu items, not widgets (a GMenu model with one action per item, in an action
  group on the button):
@@ -148,7 +149,11 @@ extension Menu: ActionUIAdwaitaRenderer {
         })
         if label == nil {
             let title = Props(node.properties).title
-            if swiftString(gtk_menu_button_get_label(button)) != title {
+            let shown = swiftString(gtk_menu_button_get_label(button))
+            // No title on a button that never had one: GTK's arrow alone, centered. A label, even an
+            // empty one, takes the space beside the arrow and moves it off center.
+            if title.isEmpty && shown == nil { return }
+            if shown != title {
                 gtk_menu_button_set_label(button, title)
             }
         }
