@@ -1,6 +1,7 @@
-# Windows: builds ActionUI's portable core and runs its tests on GitHub-hosted Windows runners,
-# x64 and arm64, with Scripts/ci-windows.py (which also runs by hand on a Windows machine).
-# Each job uploads its logs and summary as an artifact and adds the summary to the run page.
+# Windows: on GitHub-hosted Windows runners, x64 and arm64, with Scripts/ci-windows.py (which also
+# runs by hand on a Windows machine): builds ActionUI's portable core and runs its tests, and
+# builds the WinUI shim and runs its C smoke test. Each job uploads its logs and summary as an
+# artifact and adds the summary to the run page.
 
 name: windows
 
@@ -63,5 +64,38 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: windows-core-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-results
+          if-no-files-found: warn
+
+  shim:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+          - arch: arm64
+            runner: windows-11-arm
+    name: shim (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Git settings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+
+      - name: Check out
+        uses: actions/checkout@v7.0.1
+
+      # Installs the Windows App SDK runtime for the runner's user (the smoke test needs it).
+      - name: Build the shim and run its smoke test
+        run: python Scripts/ci-windows.py shim --install-runtime --results ci-results
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-shim-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-results
           if-no-files-found: warn
