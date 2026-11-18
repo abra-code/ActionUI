@@ -27,10 +27,11 @@
 import Foundation
 import PackageDescription
 
-// Three packages, one chosen at the end. applePackage() is the full package for Apple platforms,
+// Four packages, one chosen at the end. applePackage() is the full package for Apple platforms,
 // linuxPackage() the one for Linux: the same module ActionUI, made of the portable code in
 // ActionUI/Core, the toolkit-free renderer code in ActionUIRendererShared (layout solvers and
 // helpers any non-Apple renderer can use) and the GTK renderer in ActionUIAdwaita.
+// windowsPackage() is the same for Windows, with the WinUI renderer in ActionUIWinUI.
 // coreCheckPackage() builds only the portable code (ActionUI/Core and ActionUIRendererShared), as
 // the module ActionUI; set ACTIONUI_CORE_ONLY=1 to select it on either host, which
 // Scripts/check-core.sh does on a Mac to cross-build it for Linux.
@@ -592,10 +593,59 @@ Package(
 )
 }
 
+// The package for Windows: the module ActionUI, made of the portable code (ActionUI/Core and
+// ActionUIRendererShared) and the WinUI 3 renderer in ActionUIWinUI. The renderer calls WinUI
+// through ActionUI's own C++/WinRT shim (ActionUIWinUI/Shim), a DLL that SwiftPM does not build:
+// Scripts/ci-windows.py builds it with MSVC first and passes its folder to the linker
+// (-Xswiftc -L<folder>).
+func windowsPackage() -> Package {
+Package(
+    name: "ActionUI",
+    products: [
+        .library(name: "ActionUI", targets: ["ActionUI"]),
+        .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
+    ],
+    targets: [
+        // The shim's C interface and libdispatch's main-queue hooks.
+        .systemLibrary(
+            name: "CWinUI",
+            path: "ActionUIWinUI/CWinUI"
+        ),
+        // The portable code and the WinUI renderer: one module, as ActionUI is on Apple platforms.
+        .target(
+            name: "ActionUI",
+            dependencies: ["CWinUI"],
+            path: ".",
+            exclude: excludingAllBut(["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIWinUI/Sources"]),
+            sources: ["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIWinUI/Sources"]
+        ),
+        // The renderer's smoke test from Swift: WinUI through the shim, the main-queue bridge, a
+        // PNG of a window.
+        .executableTarget(
+            name: "ActionUIWinUISmoke",
+            dependencies: ["ActionUI", "CWinUI"],
+            path: "ActionUIWinUI/Apps/Smoke",
+            // Placed beside the program by Scripts/ci-windows.py.
+            exclude: ["ActionUIWinUISmoke.exe.manifest"]
+        ),
+        // The portable tests, as in coreCheckPackage.
+        .testTarget(
+            name: "ActionUITests",
+            dependencies: ["ActionUI"],
+            path: ".",
+            exclude: excludingAllBut(["ActionUITests/Core", "ActionUIRendererShared/Tests"]),
+            sources: ["ActionUITests/Core", "ActionUIRendererShared/Tests"]
+        ),
+    ]
+)
+}
+
 // Only the chosen package may be constructed: PackageDescription takes the last Package created as
 // the manifest.
 #if os(Linux)
 let package = coreOnly ? coreCheckPackage() : linuxPackage()
+#elseif os(Windows)
+let package = coreOnly ? coreCheckPackage() : windowsPackage()
 #else
 let package = coreOnly ? coreCheckPackage() : applePackage()
 #endif

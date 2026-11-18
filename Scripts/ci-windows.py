@@ -15,6 +15,10 @@ Usage:
       renders a window's content into DIR/shim-smoke.png. Everything goes to .build/winui-shim.
       --install-runtime first installs the Windows App SDK runtime from the package's MSIX files
       for the current user (the smoke test needs it; CI machines do not have it).
+  python Scripts/ci-windows.py winui [--results DIR] [--install-runtime]
+      What shim does, then builds the Swift package for Windows (windowsPackage in Package.swift)
+      with the shim's import library on the linker path, in .build/ci-windows-winui, and runs its
+      smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png.
 
 Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
 """
@@ -167,7 +171,8 @@ def write_summary(results, summary):
 
 def check_core(results):
     env = dict(os.environ, ACTIONUI_CORE_ONLY="1")
-    scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-core")]
+    # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
+    scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-core"), "--manifest-cache", "none"]
     summary = {"name": "core builds and passes its tests", "environment": environment_facts(),
                "steps": [], "passed": False}
     build = run_step("core-build", ["swift", "build", "--build-tests"] + scratch, results, env)
@@ -312,10 +317,13 @@ def install_runtime(folders, arch, results):
                     results, dict(os.environ), cwd=results, timeout=600)
 
 
-def check_shim(results, install):
+def check_shim(results, install, swift=False):
+    """The shim and its C smoke test; with `swift`, then the Swift package (windowsPackage) and its
+    smoke test, ActionUIWinUISmoke, linked against the shim just built."""
     arch = windows_arch()
-    summary = {"name": "WinUI shim builds and drives a window from C", "environment": environment_facts(),
-               "steps": [], "findings": [], "passed": False}
+    name = ("WinUI shim and renderer build and drive a window from C and Swift" if swift
+            else "WinUI shim builds and drives a window from C")
+    summary = {"name": name, "environment": environment_facts(), "steps": [], "findings": [], "passed": False}
     findings = summary["findings"]
 
     def finish(passed):
@@ -395,15 +403,52 @@ def check_shim(results, install):
     findings += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace").splitlines()
                  if line.startswith("smoke:")]
     findings.append(f"ActionUIWinUIShim.dll: {(out / 'ActionUIWinUIShim.dll').stat().st_size} bytes")
-    return finish(step["status"] == 0 and png.is_file() and png.stat().st_size > 0)
+    if not (step["status"] == 0 and png.is_file() and png.stat().st_size > 0):
+        return finish(False)
+    if not swift:
+        return finish(True)
+    return finish(check_swift_smoke(out, bootstrap, results, summary))
+
+
+def check_swift_smoke(shim_out, bootstrap, results, summary):
+    """Builds ActionUIWinUISmoke with the shim's import library on the linker path, places the shim
+    DLL, the bootstrapper DLL and the program's manifest beside it, and runs it. True when it
+    passed."""
+    # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
+    scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-winui"), "--manifest-cache", "none"]
+    product = ["--product", "ActionUIWinUISmoke"]
+    env = dict(os.environ)
+    env.pop("ACTIONUI_CORE_ONLY", None)
+    step = run_step("swift-build", ["swift", "build"] + product + scratch + ["-Xswiftc", f"-L{shim_out}"],
+                    results, env)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
+    bin_path = Path(shown[-1].strip()) if shown else Path()
+    program = bin_path / "ActionUIWinUISmoke.exe"
+    if not program.is_file():
+        summary["findings"].append(f"no ActionUIWinUISmoke.exe in {bin_path}")
+        return False
+    for source in [shim_out / "ActionUIWinUIShim.dll", bootstrap]:
+        shutil.copy2(source, bin_path / source.name)
+    shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
+                 bin_path / "ActionUIWinUISmoke.exe.manifest")
+    png = results / "swift-smoke.png"
+    step = run_step("swift-smoke", [program, png], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+    summary["steps"].append(step)
+    summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                            .splitlines() if line.startswith("smoke:")]
+    return step["status"] == 0 and png.is_file() and png.stat().st_size > 0
 
 
 def main():
     parser = argparse.ArgumentParser(description="ActionUI Windows build and test driver")
-    parser.add_argument("command", choices=["core", "shim"])
+    parser.add_argument("command", choices=["core", "shim", "winui"])
     parser.add_argument("--results", default=str(REPO_DIR / ".build" / "ci-windows-results"))
     parser.add_argument("--install-runtime", action="store_true",
-                        help="shim: install the Windows App SDK runtime for the current user first")
+                        help="shim, winui: install the Windows App SDK runtime for the current user first")
     arguments = parser.parse_args()
     # Piped stdout on Windows uses the ANSI code page; a log line it cannot encode (a test
     # fixture's text in an assertion message) must not end the run with a traceback.
@@ -418,6 +463,12 @@ def main():
         return check_core(results)
     if arguments.command == "shim":
         return check_shim(results, arguments.install_runtime)
+    if arguments.command == "winui":
+        if shutil.which("swift") is None:
+            print("ci-windows: swift is not on PATH; install the Swift toolchain for Windows",
+                  file=sys.stderr)
+            return 1
+        return check_shim(results, arguments.install_runtime, swift=True)
     return 2
 
 

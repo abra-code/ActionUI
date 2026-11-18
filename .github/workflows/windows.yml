@@ -1,7 +1,7 @@
 # Windows: on GitHub-hosted Windows runners, x64 and arm64, with Scripts/ci-windows.py (which also
 # runs by hand on a Windows machine): builds ActionUI's portable core and runs its tests, and
-# builds the WinUI shim and runs its C smoke test. Each job uploads its logs and summary as an
-# artifact and adds the summary to the run page.
+# builds the WinUI shim and the Swift package for Windows and runs their smoke tests (C and Swift).
+# Each job uploads its logs and summary as an artifact and adds the summary to the run page.
 
 name: windows
 
@@ -67,18 +67,20 @@ jobs:
           path: ci-results
           if-no-files-found: warn
 
-  shim:
+  winui:
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x64
             runner: windows-2025
+            swift_arch: amd64
           - arch: arm64
             runner: windows-11-arm
-    name: shim (${{ matrix.arch }})
+            swift_arch: arm64
+    name: winui (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Git settings
         run: |
@@ -88,14 +90,22 @@ jobs:
       - name: Check out
         uses: actions/checkout@v7.0.1
 
-      # Installs the Windows App SDK runtime for the runner's user (the smoke test needs it).
-      - name: Build the shim and run its smoke test
-        run: python Scripts/ci-windows.py shim --install-runtime --results ci-results
+      - name: Install Swift
+        uses: compnerd/gha-setup-swift@v0.5.1
+        with:
+          swift-version: swift-6.4.2-release
+          swift-build: 6.4.2-RELEASE
+          build_arch: ${{ matrix.swift_arch }}
+          cache: true
+
+      # Installs the Windows App SDK runtime for the runner's user (the smoke tests need it).
+      - name: Build the shim and the renderer and run their smoke tests
+        run: python Scripts/ci-windows.py winui --install-runtime --results ci-results
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: windows-shim-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: windows-winui-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-results
           if-no-files-found: warn

@@ -1,0 +1,5 @@
+module CWinUI [system] {
+    header "CWinUI.h"
+    link "ActionUIWinUIShim"
+    export *
+}
