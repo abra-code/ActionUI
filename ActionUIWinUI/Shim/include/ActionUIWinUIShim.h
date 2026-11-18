@@ -131,12 +131,68 @@ ACTIONUI_WINUI_API bool actionUIWinUIButtonSetTitle(ActionUIWinUIObject *button,
 ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
                                                    ActionUIWinUICallback destroyContext);
 
+// MARK: - CheckBox
+
+// A new CheckBox, unchecked, showing no title. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUICheckBoxCreate(void);
+// Shows `title` beside the box.
+ACTIONUI_WINUI_API bool actionUIWinUICheckBoxSetTitle(ActionUIWinUIObject *checkBox, const char *title);
+ACTIONUI_WINUI_API bool actionUIWinUICheckBoxSetChecked(ActionUIWinUIObject *checkBox, bool checked);
+// Whether it is checked now; false on failure.
+ACTIONUI_WINUI_API bool actionUIWinUICheckBoxIsChecked(ActionUIWinUIObject *checkBox);
+// Click: the user checked or unchecked it (pointer, keyboard, an accessibility tool), after the
+// change. Never from a setter.
+ACTIONUI_WINUI_API bool actionUIWinUICheckBoxOnClick(ActionUIWinUIObject *checkBox, ActionUIWinUICallback handler, void *context,
+                                                     ActionUIWinUICallback destroyContext);
+
+// MARK: - ToggleSwitch
+
+// A new ToggleSwitch, off. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIToggleSwitchCreate(void);
+// Shows `title` beside the switch, on and off (in place of WinUI's own "On" and "Off").
+ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchSetTitle(ActionUIWinUIObject *toggleSwitch, const char *title);
+ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchSetOn(ActionUIWinUIObject *toggleSwitch, bool on);
+// Whether it is on now; false on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchIsOn(ActionUIWinUIObject *toggleSwitch);
+// Toggled: it turned on or off, by the user and also by actionUIWinUIToggleSwitchSetOn (WinUI
+// reports both); compare with the value to tell them apart.
+ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchOnToggled(ActionUIWinUIObject *toggleSwitch, ActionUIWinUICallback handler,
+                                                           void *context, ActionUIWinUICallback destroyContext);
+
+// MARK: - TextBox
+
+// A new TextBox (one line of editable text), empty. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUITextBoxCreate(void);
+// Replaces the text, only when it differs (setting it moves the caret).
+ACTIONUI_WINUI_API bool actionUIWinUITextBoxSetText(ActionUIWinUIObject *textBox, const char *text);
+// The text now, as a new UTF-8 string the caller frees with actionUIWinUIFreeString; NULL on
+// failure.
+ACTIONUI_WINUI_API char *actionUIWinUITextBoxCopyText(ActionUIWinUIObject *textBox);
+ACTIONUI_WINUI_API void actionUIWinUIFreeString(char *string);
+// The grayed text shown while the box is empty.
+ACTIONUI_WINUI_API bool actionUIWinUITextBoxSetPlaceholder(ActionUIWinUIObject *textBox, const char *placeholder);
+// TextChanged: the text changed, by the user and also by actionUIWinUITextBoxSetText (WinUI reports
+// both, a moment after the change); compare with the value to tell them apart.
+ACTIONUI_WINUI_API bool actionUIWinUITextBoxOnTextChanged(ActionUIWinUIObject *textBox, ActionUIWinUICallback handler,
+                                                          void *context, ActionUIWinUICallback destroyContext);
+// Submit: the user pressed Return in the box, or the focus left it (as ending editing commits on
+// macOS). Never from a setter.
+ACTIONUI_WINUI_API bool actionUIWinUITextBoxOnSubmit(ActionUIWinUIObject *textBox, ActionUIWinUICallback handler, void *context,
+                                                     ActionUIWinUICallback destroyContext);
+
 // MARK: - Automation
 
 // Operates `element` as an accessibility tool does, through its UI Automation peer: what a screen
 // reader or a test drives. Invoke presses a button: its Click handler runs during the call. Fails
 // when the element has no peer or the peer cannot be invoked.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element);
+// Toggle turns a check box or a toggle switch over (its Click, or Toggled, follows). Fails when
+// the element cannot be toggled.
+ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element);
+// SetValue replaces an element's value through UI Automation's Value pattern (its change event
+// follows). A TextBox, whose peer has no Value pattern in WinUI 2.7, gets its text set directly,
+// which raises TextChanged as typing does. Fails when the element takes no value.
+ACTIONUI_WINUI_API bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *value);
 
 // MARK: - Layout
 

@@ -6,6 +6,14 @@
  under observation tracking).
 */
 
+/// How an element grows when offered more space than it needs (SwiftUI's flexibility), as on Linux.
+struct Expansion: OptionSet {
+    let rawValue: Int
+    static let horizontal = Expansion(rawValue: 1)
+    static let vertical = Expansion(rawValue: 2)
+    static let both: Expansion = [.horizontal, .vertical]
+}
+
 @MainActor
 protocol ActionUIWinUIRenderer {
     /// Creates the element's WinUI object, once per element instance. Reads nothing from the
@@ -17,4 +25,12 @@ protocol ActionUIWinUIRenderer {
     /// again whenever anything it read changed. Idempotent. Never writes the model and never fires
     /// actions.
     static func update(_ view: WinUIObject, _ node: RenderNode)
+
+    /// How the element grows in a stack, before frame modifiers: a TextField takes the width it
+    /// is offered. Default: none, it keeps the size it asks for.
+    static var defaultExpansion: Expansion { get }
+}
+
+extension ActionUIWinUIRenderer {
+    static var defaultExpansion: Expansion { [] }
 }

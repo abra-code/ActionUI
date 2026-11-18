@@ -69,6 +69,11 @@ SMOKE_TIMEOUT_SECONDS = 180
 PREVIEW_OPTIONS = {
     "Controls": ["240", "220", "--invoke", "3", "--expect-action", "button.pressed",
                  "--on-action", "button.pressed", "2", "Pressed through UI Automation"],
+    "Inputs": ["360", "260", "--toggle", "3", "--toggle", "4", "--set-text", "6", "typed through UI Automation",
+               "--expect-action", "checkbox.changed", "--expect-action", "switch.changed",
+               "--expect-action", "field.changed",
+               "--on-action", "checkbox.changed", "2", "The check box changed",
+               "--on-action", "field.changed", "5", "The field changed"],
 }
 
 

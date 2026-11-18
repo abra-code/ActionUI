@@ -12,6 +12,8 @@ extension ActionUIRegistry {
         "HStack": HStack.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
+        "TextField": TextField.self,
+        "Toggle": Toggle.self,
         "VStack": VStack.self,
     ]
 

@@ -6,18 +6,23 @@
 
  - Each child is measured with the stack's cross size and an unbounded length along the axis; what
    it asks for is its size along the axis (StackChild.fixed). A Spacer expands, at least its
-   minLength long (StackChild.spacer).
+   minLength long (StackChild.spacer), and so does a child whose renderer expands along the axis
+   (a TextField in an HStack: StackChild.expanding, at least what it asked for). A child that
+   expands across takes the stack's whole cross size (a TextField in a VStack), so the stack takes
+   all the width it is offered.
  - Default spacing (none given) is 8, and 0 next to a Spacer, as SwiftUI's; a given spacing is used
    everywhere.
  - The stack asks for its children's lengths and gaps along the axis (all it is offered when it
-   holds a Spacer) and its widest child across.
+   holds a child that expands along it) and its widest child across.
  - Arranged in more room than it asked for (the root of a window), the stack is centered in it, as
    SwiftUI centers a window's content, and in less room around the middle, its children keeping
    their sizes (as on Linux); its children are aligned across inside the stack's own cross size
    (alignment: leading, center or trailing for a VStack; top, center or bottom for an HStack).
 
- Not yet: children that expand without being Spacers (Color, frames with infinite maximums),
- compressing children that do not fit (a Text that would wrap), baselines.
+ Not yet: frames with infinite maximums, compressing children that do not fit (a Text that would
+ wrap in an HStack), baselines, expansion through a nested stack (an HStack holding an HStack with a
+ TextField keeps the inner stack at its own width; a stack's expansion is its renderer's, not yet
+ its children's).
 */
 
 import CWinUI
@@ -35,6 +40,8 @@ final class StackLayout {
         let view: WinUIObject
         /// A Spacer's minLength; nil for any other child.
         let spacerMinimum: Double?
+        /// How the child grows (its renderer's defaultExpansion).
+        var expansion: Expansion = []
     }
 
     let axis: Axis
@@ -56,6 +63,7 @@ final class StackLayout {
         let current = items.map { ObjectIdentifier($0.view) }
         let wanted = newItems.map { ObjectIdentifier($0.view) }
         let spacersChanged = items.map(\.spacerMinimum) != newItems.map(\.spacerMinimum)
+            || items.map(\.expansion.rawValue) != newItems.map(\.expansion.rawValue)
         items = newItems
         if current != wanted {
             do {
@@ -94,6 +102,13 @@ final class StackLayout {
         axis == .vertical ? ActionUIWinUISize(width: cross, height: main) : ActionUIWinUISize(width: main, height: cross)
     }
 
+    /// Whether `item` grows along the stack's axis, and across it.
+    private func expands(_ item: Item) -> (main: Bool, cross: Bool) {
+        let horizontal = item.expansion.contains(.horizontal)
+        let vertical = item.expansion.contains(.vertical)
+        return axis == .vertical ? (vertical, horizontal) : (horizontal, vertical)
+    }
+
     private func rect(main: Double, cross: Double, mainLength: Double, crossLength: Double) -> ActionUIWinUIRect {
         axis == .vertical
             ? ActionUIWinUIRect(x: cross, y: main, width: crossLength, height: mainLength)
@@ -117,8 +132,11 @@ final class StackLayout {
             }
             let desired = item.view.measure(size(main: .infinity, cross: crossOffer))
             let length = StackSolver.length(main(desired), rounding: .up)
-            children.append(.fixed(minimum: length, natural: length))
-            crossSizes.append(StackSolver.length(cross(desired), rounding: .up))
+            let (expandsAlong, expandsAcross) = expands(item)
+            children.append(expandsAlong ? .expanding(minimum: length) : .fixed(minimum: length, natural: length))
+            let crossLength = StackSolver.length(cross(desired), rounding: .up)
+            // A child that expands across takes all the stack is offered across, when that is known.
+            crossSizes.append(expandsAcross && crossOffer.isFinite ? max(crossLength, StackSolver.length(crossOffer)) : crossLength)
         }
         return (children, crossSizes)
     }
@@ -131,9 +149,9 @@ final class StackLayout {
         let (children, crossSizes) = measureChildren(crossOffer: cross(available))
         let gaps = gaps(children)
         let offeredMain = main(available)
-        let hasSpacer = items.contains { $0.spacerMinimum != nil }
+        let hasExpanding = items.contains { $0.spacerMinimum != nil || expands($0).main }
         let sizes: [Int]
-        if offeredMain.isFinite && hasSpacer {
+        if offeredMain.isFinite && hasExpanding {
             sizes = StackSolver.mainSizes(children, available: StackSolver.length(offeredMain), gaps: gaps)
         } else {
             sizes = children.map(\.minimum)
@@ -172,6 +190,6 @@ final class StackLayout {
     stack.setItems(children.compactMap { child in
         guard let view = child.view else { return nil }
         let spacerMinimum = child.element.type == "Spacer" ? (Spacer.Props(child.properties).minLength ?? Spacer.defaultMinLength) : nil
-        return StackLayout.Item(view: view, spacerMinimum: spacerMinimum)
+        return StackLayout.Item(view: view, spacerMinimum: spacerMinimum, expansion: child.renderer.defaultExpansion)
     })
 }

@@ -1,0 +1,24 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "The check box has not changed" } },
+    { "type": "Toggle", "id": 3, "properties": { "title": "A check box", "actionID": "checkbox.changed" } },
+    { "type": "Toggle", "id": 4, "properties": { "title": "A switch", "style": "switch", "isOn": true, "actionID": "switch.changed" } },
+    { "type": "Text", "id": 5, "properties": { "text": "The field has not changed" } },
+    {
+      "type": "TextField",
+      "id": 6,
+      "properties": { "title": "Name", "prompt": "Type a name", "valueChangeActionID": "field.changed", "actionID": "field.submitted" }
+    },
+    {
+      "type": "HStack",
+      "id": 7,
+      "children": [
+        { "type": "Text", "id": 8, "properties": { "text": "Beside a field:" } },
+        { "type": "TextField", "id": 9, "properties": { "prompt": "fills the rest of the row" } }
+      ]
+    }
+  ]
+}
