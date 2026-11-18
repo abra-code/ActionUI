@@ -1,0 +1,67 @@
+# Windows: builds ActionUI's portable core and runs its tests on GitHub-hosted Windows runners,
+# x64 and arm64, with Scripts/ci-windows.py (which also runs by hand on a Windows machine).
+# Each job uploads its logs and summary as an artifact and adds the summary to the run page.
+
+name: windows
+
+on:
+  push:
+    branches: [WinUI]
+    paths-ignore: ["**/*.md", "Documentation/**"]
+  pull_request:
+    branches: [WinUI]
+    paths-ignore: ["**/*.md", "Documentation/**"]
+  workflow_dispatch:
+
+# The jobs only read the repository; artifacts and the toolchain cache use the runner's own token.
+permissions:
+  contents: read
+
+# A newer push to the same branch replaces a run that is still going.
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+            swift_arch: amd64
+          - arch: arm64
+            runner: windows-11-arm
+            swift_arch: arm64
+    name: core (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      # Test fixtures are compared byte for byte: no CRLF conversion. SwiftPM build paths are deep.
+      - name: Git settings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+
+      - name: Check out
+        uses: actions/checkout@v7.0.1
+
+      - name: Install Swift
+        uses: compnerd/gha-setup-swift@v0.5.1
+        with:
+          swift-version: swift-6.4.2-release
+          swift-build: 6.4.2-RELEASE
+          build_arch: ${{ matrix.swift_arch }}
+          cache: true
+
+      - name: Build and test the core
+        run: python Scripts/ci-windows.py core --results ci-results
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-core-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-results
+          if-no-files-found: warn
