@@ -23,6 +23,7 @@
 #define ActionUIApp_h
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -93,7 +94,7 @@ char *actionUIAppRunSavePanel(const char *configJSON) ACTIONUI_NOEXCEPT;
 bool actionUIAppStartRemoteServer(const char *socketPath) ACTIONUI_NOEXCEPT;
 void actionUIAppStopRemoteServer(void) ACTIONUI_NOEXCEPT;
 const char *actionUIAppRemoteServerToken(void) ACTIONUI_NOEXCEPT;
-bool actionUIAppRemoteCopyServerToken(char *outToken, long outTokenSize) ACTIONUI_NOEXCEPT;  // false if outToken is NULL or too small; long is ptrdiff_t (Swift Int) on 64-bit platforms
+bool actionUIAppRemoteCopyServerToken(char *outToken, ptrdiff_t outTokenSize) ACTIONUI_NOEXCEPT;  // false if outToken is NULL or too small; ptrdiff_t is Swift Int on every platform
 const char *actionUIAppRemoteServerEndpoint(void) ACTIONUI_NOEXCEPT;
 bool actionUIAppRemoteEnablePerformAction(void) ACTIONUI_NOEXCEPT;  // turns on actionui.performAction for a test harness; false if no server runs
 
