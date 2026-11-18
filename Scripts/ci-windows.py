@@ -17,8 +17,10 @@ Usage:
       for the current user (the smoke test needs it; CI machines do not have it).
   python Scripts/ci-windows.py winui [--results DIR] [--install-runtime]
       What shim does, then builds the Swift package for Windows (windowsPackage in Package.swift)
-      with the shim's import library on the linker path, in .build/ci-windows-winui, and runs its
-      smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png.
+      with the shim's import library on the linker path, in .build/ci-windows-winui, runs its
+      smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png, and renders each document
+      in ActionUIWinUI/Apps/Preview/Documents with ActionUIWinUIPreview into
+      DIR/preview-<name>.png, printing where each element was placed.
 
 Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
 """
@@ -411,16 +413,15 @@ def check_shim(results, install, swift=False):
 
 
 def check_swift_smoke(shim_out, bootstrap, results, summary):
-    """Builds ActionUIWinUISmoke with the shim's import library on the linker path, places the shim
-    DLL, the bootstrapper DLL and the program's manifest beside it, and runs it. True when it
-    passed."""
+    """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) with the
+    shim's import library on the linker path, places the shim DLL, the bootstrapper DLL and the
+    programs' manifests beside them, runs the smoke test, then renders each document in
+    ActionUIWinUI/Apps/Preview/Documents with the preview. True when all of them passed."""
     # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-winui"), "--manifest-cache", "none"]
-    product = ["--product", "ActionUIWinUISmoke"]
     env = dict(os.environ)
     env.pop("ACTIONUI_CORE_ONLY", None)
-    step = run_step("swift-build", ["swift", "build"] + product + scratch + ["-Xswiftc", f"-L{shim_out}"],
-                    results, env)
+    step = run_step("swift-build", ["swift", "build"] + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
     summary["steps"].append(step)
     if step["status"] != 0:
         summary["errors"] = first_errors(results / step["log"])
@@ -428,19 +429,33 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
     shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
     bin_path = Path(shown[-1].strip()) if shown else Path()
     program = bin_path / "ActionUIWinUISmoke.exe"
-    if not program.is_file():
-        summary["findings"].append(f"no ActionUIWinUISmoke.exe in {bin_path}")
-        return False
+    preview = bin_path / "ActionUIWinUIPreview.exe"
+    for expected in [program, preview]:
+        if not expected.is_file():
+            summary["findings"].append(f"no {expected.name} in {bin_path}")
+            return False
     for source in [shim_out / "ActionUIWinUIShim.dll", bootstrap]:
         shutil.copy2(source, bin_path / source.name)
-    shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
-                 bin_path / "ActionUIWinUISmoke.exe.manifest")
+    # One manifest for both programs (supported OS, per-monitor DPI).
+    manifest = REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest"
+    for name in ["ActionUIWinUISmoke.exe.manifest", "ActionUIWinUIPreview.exe.manifest"]:
+        shutil.copy2(manifest, bin_path / name)
     png = results / "swift-smoke.png"
     step = run_step("swift-smoke", [program, png], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
     summary["steps"].append(step)
     summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
                             .splitlines() if line.startswith("smoke:")]
-    return step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
+    for document in documents:
+        png = results / f"preview-{document.stem}.png"
+        step = run_step(f"preview-{document.stem}", [preview, document, png], results, env, cwd=bin_path,
+                        timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                                .splitlines() if line.startswith("preview:")]
+        passed = passed and step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    return passed
 
 
 def main():

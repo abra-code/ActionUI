@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "ActionUI on WinUI 3: a document" } },
+    {
+      "type": "HStack",
+      "id": 3,
+      "children": [
+        { "type": "Text", "id": 4, "properties": { "text": "Leading" } },
+        { "type": "Spacer", "id": 5, "properties": { "minLength": 40 } },
+        { "type": "Text", "id": 6, "properties": { "text": "Trailing" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 7,
+      "properties": { "spacing": 4, "alignment": "top" },
+      "children": [
+        { "type": "Text", "id": 8, "properties": { "text": "One" } },
+        { "type": "Text", "id": 9, "properties": { "text": "Two" } },
+        { "type": "Text", "id": 10, "properties": { "text": "Three" } }
+      ]
+    },
+    { "type": "Toggle", "id": 11, "properties": { "title": "No WinUI Toggle yet" } },
+    { "type": "Text", "id": 12, "properties": { "markdown": "Plain **markdown** characters for now" } }
+  ]
+}

@@ -1,10 +1,39 @@
 // Sources/Runtime/ActionUIRegistry+WinUI.swift
 /*
- The WinUI renderer's half of ActionUIRegistry. The renderer has no elements yet, so it registers
- none: ActionUI/Core and its specs load on their own, as in the core-check package
- (ActionUICoreCheck). The elements come with the renderer runtime.
+ The WinUI renderer's half of ActionUIRegistry, as on Linux (ActionUIRegistry+Adwaita.swift): the
+ renderer table, keyed like the spec table, and the placeholder for element types that have no
+ WinUI renderer yet.
 */
 
 extension ActionUIRegistry {
-    internal func loadRendererBuiltIns() {}
+    // The WinUI renderers of the built-in element types; the others render as the placeholder.
+    static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
+        "HStack": HStack.self,
+        "Spacer": Spacer.self,
+        "Text": Text.self,
+        "VStack": VStack.self,
+    ]
+
+    // Static because an extension cannot add stored instance properties; the registry is a single
+    // shared instance.
+    private static var winUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [:]
+    private static var typesReportedMissing: Set<String> = []
+
+    // The WinUI built-ins, after loadBuiltIns has filled `specs`. Core's default hooks stay.
+    internal func loadRendererBuiltIns() {
+        Self.winUIRenderers = Self.builtInWinUIRenderers
+        Self.typesReportedMissing = []
+    }
+
+    /// The renderer for an element type, or the placeholder (logged once per type) when the type
+    /// has none on Windows.
+    func winUIRenderer(forElementType type: String) -> any ActionUIWinUIRenderer.Type {
+        if let renderer = Self.winUIRenderers[type] {
+            return renderer
+        }
+        if Self.typesReportedMissing.insert(type).inserted {
+            logger.log("\(type) is not available on Windows yet; showing a placeholder", .warning)
+        }
+        return PlaceholderRenderer.self
+    }
 }

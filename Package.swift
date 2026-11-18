@@ -604,6 +604,7 @@ Package(
     products: [
         .library(name: "ActionUI", targets: ["ActionUI"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
+        .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
     ],
     targets: [
         // The shim's C interface and libdispatch's main-queue hooks.
@@ -627,6 +628,14 @@ Package(
             path: "ActionUIWinUI/Apps/Smoke",
             // Placed beside the program by Scripts/ci-windows.py.
             exclude: ["ActionUIWinUISmoke.exe.manifest"]
+        ),
+        // Renders an ActionUI document with the WinUI renderer into a PNG and prints where each
+        // element was placed. Documents holds the ones Scripts/ci-windows.py renders.
+        .executableTarget(
+            name: "ActionUIWinUIPreview",
+            dependencies: ["ActionUI", "CWinUI"],
+            path: "ActionUIWinUI/Apps/Preview",
+            exclude: ["Documents"]
         ),
         // The portable tests, as in coreCheckPackage.
         .testTarget(
