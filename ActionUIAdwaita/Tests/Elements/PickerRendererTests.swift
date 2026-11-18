@@ -4,7 +4,8 @@
  value selects one (the first option without a value, none for a value that is no tag); the title
  is shown beside the dropdown, hidden by labelsHidden, and names the dropdown either way; choosing
  an item sets the value and fires actionID with the tag, and a host value fires nothing; sections
- give the popup headers; changed options rebuild the items. The other styles: wheel is the menu;
+ give the popup headers; changed options rebuild the items; the dropdown asks for its widest item's
+ width whichever item it shows. The other styles: wheel is the menu;
  segments and radio buttons (under headings) show the items and follow the value the same way; a
  radio group's title is beside its first row.
 */
@@ -125,6 +126,39 @@ final class PickerRendererTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(items(node), ["A", "B", "C"])
         XCTAssertNil(gtk_drop_down_get_header_factory(dropdown(node)), "a plain list: no headers")
+    }
+
+    func testTheDropdownIsAsWideAsItsWidestItemWhicheverItShows() throws {
+        // Beside it, pickers that have only the long or only the short title, which GTK sizes to
+        // that title in any case.
+        let root = try render(#"""
+            {"type": "VStack", "id": 9, "children": [
+              {"type": "Picker", "id": 1, "properties": {"labelsHidden": true, "options": ["Print", "Print with print0 (for piping to xargs -0)", "Delete"]}},
+              {"type": "Picker", "id": 2, "properties": {"labelsHidden": true, "options": ["Print with print0 (for piping to xargs -0)"]}},
+              {"type": "Picker", "id": 3, "properties": {"labelsHidden": true, "options": ["Print"]}}]}
+            """#)
+        AdwaitaTestHost.drainMainLoop()
+        let node = try XCTUnwrap(root.childNodes[1])
+        let widget = Picker.accessibleWidget(node.widget)
+        let longOnly = Gtk.Widget(Picker.accessibleWidget(try XCTUnwrap(root.childNodes[2]).widget)).measure(GTK_ORIENTATION_HORIZONTAL)
+        let shortOnly = Gtk.Widget(Picker.accessibleWidget(try XCTUnwrap(root.childNodes[3]).widget)).measure(GTK_ORIENTATION_HORIZONTAL)
+        XCTAssertEqual(selected(node), 0, "showing the short item")
+        let short = Gtk.Widget(widget).measure(GTK_ORIENTATION_HORIZONTAL)
+        XCTAssertLessThan(shortOnly.natural, longOnly.natural)
+        XCTAssertEqual(short.natural, longOnly.natural, "the widest item's width, though a short one is shown")
+        XCTAssertEqual(short.minimum, shortOnly.minimum, "the minimum stays GTK's for the item shown")
+
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "options", value: ["A", "B"])
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertLessThan(Gtk.Widget(widget).measure(GTK_ORIENTATION_HORIZONTAL).natural, short.natural, "new options: their widest")
+
+        // GTK's "(None)", shown only for no items, does not widen a dropdown of narrower items.
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "options", value: ["I"])
+        AdwaitaTestHost.drainMainLoop()
+        let narrow = Gtk.Widget(widget).measure(GTK_ORIENTATION_HORIZONTAL).natural
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "options", value: [String]())
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertLessThan(narrow, Gtk.Widget(widget).measure(GTK_ORIENTATION_HORIZONTAL).natural, "one narrow item: narrower than \"(None)\", shown for no items")
     }
 
     // MARK: Styles

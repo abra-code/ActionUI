@@ -2,7 +2,8 @@
 /*
  Picker on GTK: the title beside the choice, as macOS shows it (measured on macOS 27):
  - menu, wheel and no style: a GtkDropDown, as macOS's pop-up button (macOS has no wheel style and
-   shows the menu);
+   shows the menu), as wide as its widest item whichever it shows, centered in a wider frame and
+   shrinking in a narrower one (measured on macOS 27);
  - segmented: an AdwToggleGroup, its segments equally wide, as macOS's segmented control;
  - radioGroup: a column of radio buttons (grouped GtkCheckButtons), the title beside the first; with
    horizontalRadioGroupLayout a row of them, 8 apart.
@@ -35,6 +36,9 @@ private let pickerStateKey = AttachKey<PickerState>("actionui-picker-state")
     var sectionStarts: [(start: Int, title: String?)] = []
     /// The radio group's buttons, one per tag.
     var radios: [WidgetPointer] = []
+    /// The menu's hidden column of item titles, which makes the dropdown as wide as its widest
+    /// item (widthColumn(in:)); nil when GTK's dropdown is not built as expected.
+    var widthColumn: WidgetPointer?
 }
 
 extension Picker: ActionUIAdwaitaRenderer {
@@ -71,6 +75,7 @@ extension Picker: ActionUIAdwaitaRenderer {
             let dropdown = gtk_drop_down_new(nil, expression)!
             // Its text is centered, though GTK reports no baseline for it (Baselines).
             attach(TextLineMarker(.centered), to: dropdown, key: textLineMarkerKey)
+            state.widthColumn = widthColumn(in: dropdown)
             gtk_box_append(typed(box), dropdown)
             connectUserSignal(dropdown, "notify::selected", .instanceAndArgument) { [weak node, weak state] in
                 guard let node, let state else { return }
@@ -131,7 +136,11 @@ extension Picker: ActionUIAdwaitaRenderer {
             state.sections = props.sections
             state.tags = props.sections.flatMap { $0.items.map(\.tag) }
             switch kind {
-            case .menu: setOptions(OpaquePointer(control), props.sections, state)
+            case .menu:
+                // The titles first: they show or hide GTK's "(None)" page before the new model
+                // picks the page the dropdown shows (setWidthTitles).
+                setWidthTitles(state, props.sections)
+                setOptions(OpaquePointer(control), props.sections, state)
             case .segmented: setSegments(control, props.sections)
             case .radioGroup: setRadios(control, props.sections, state, node)
             }
@@ -271,6 +280,57 @@ extension Picker: ActionUIAdwaitaRenderer {
             gtk_drop_down_set_header_factory(dropdown, factory.opaquePointer)
         } else {
             gtk_drop_down_set_header_factory(dropdown, nil)
+        }
+    }
+
+    /// A hidden page added to the dropdown's button stack (GtkDropDown's template: the button's
+    /// child is a box whose first child is the stack of its "empty" and "item" pages), for the
+    /// item titles setWidthTitles puts in it. The stack, made as wide as its widest page, then asks
+    /// for the widest title's width whichever item it shows, as macOS's pop-up button does, where
+    /// GTK's asks for the shown item's (the button grew and shrank with the choice). The titles
+    /// ellipsize, so the dropdown's minimum stays GTK's, as before; the height stays the shown
+    /// page's. Nil, and GTK's sizing, when the dropdown is built otherwise.
+    private static func widthColumn(in dropdown: WidgetPointer) -> WidgetPointer? {
+        guard let button = Gtk.Widget(dropdown).firstChild?.pointer,
+              g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(button)), gtk_button_get_type()) != 0,
+              let content = gtk_button_get_child(typed(button)),
+              let stack = Gtk.Widget(content).firstChild?.pointer,
+              g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(stack)), gtk_stack_get_type()) != 0 else {
+            return nil
+        }
+        gtk_stack_set_hhomogeneous(OpaquePointer(stack), 1)
+        gtk_stack_set_vhomogeneous(OpaquePointer(stack), 0)
+        let column = newWidget(gtk_box_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
+        gtk_orientable_set_orientation(OpaquePointer(column), GTK_ORIENTATION_VERTICAL)
+        // Never the visible page: the dropdown shows "empty" or "item".
+        guard let page = gtk_stack_add_named(OpaquePointer(stack), column, "actionui-widest") else { return column }
+        // Out of the accessibility tree, where it would be an empty tab panel in the dropdown; the
+        // stack still measures it, as it measures a page by its child's visibility.
+        gtk_stack_page_set_visible(page, 0)
+        return column
+    }
+
+    /// One label per item title in the menu's width column, in the button's font, as the button
+    /// shows its item (GTK hides the item's check mark there). GTK's "(None)" page is shown only
+    /// when there are no items, the only time the dropdown shows it: otherwise its width would
+    /// count too, and a dropdown of narrower items would be as wide as "(None)". Called before
+    /// the dropdown gets the new model, so that "(None)" is shown when the model asks for it.
+    private static func setWidthTitles(_ state: PickerState, _ sections: [Props.OptionSection]) {
+        guard let column = state.widthColumn else { return }
+        while let child = Gtk.Widget(column).firstChild?.pointer {
+            gtk_box_remove(typed(column), child)
+        }
+        let items = sections.flatMap(\.items)
+        if let stack = gtk_widget_get_parent(column),
+           let empty = gtk_stack_get_child_by_name(OpaquePointer(stack), "empty") {
+            Gtk.Widget(empty).isVisible = items.isEmpty
+        }
+        for item in items {
+            let label = newWidget(gtk_label_get_type(), accessibleRole: GTK_ACCESSIBLE_ROLE_PRESENTATION)
+            gtk_label_set_text(opaque(label), item.title)
+            gtk_label_set_ellipsize(opaque(label), PANGO_ELLIPSIZE_END)
+            gtk_label_set_xalign(opaque(label), 0)
+            gtk_box_append(typed(column), label)
         }
     }
 
