@@ -7,7 +7,9 @@
 
 #include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
 
+#include <winrt/Windows.UI.h>
 #include <winrt/Windows.Graphics.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
@@ -22,6 +24,40 @@ namespace streams = winrt::Windows::Storage::Streams;
 mux::Window windowFrom(ActionUIWinUIObject *window) {
     return objectAs<mux::Window>(window, L"Window");
 }
+
+// What every window's content sits on: a Grid with the theme's page background, as a WinUI page has
+// (the brush of the theme in effect when the host is made: a later light/dark switch does not reach
+// it yet).
+// The background also makes the whole content area render (RenderTargetBitmap draws only what has
+// pixels: without it, a window's empty space is cut off).
+constexpr wchar_t const *hostName = L"ActionUIWindowHost";
+
+mux::Media::Brush pageBackground() {
+    try {
+        wf::IInspectable found =
+            mux::Application::Current().Resources().Lookup(winrt::box_value(L"ApplicationPageBackgroundThemeBrush"));
+        mux::Media::Brush brush = found.try_as<mux::Media::Brush>();
+        if (brush != nullptr) {
+            return brush;
+        }
+    } catch (...) {
+    }
+    return mux::Media::SolidColorBrush(winrt::Windows::UI::Color{255, 255, 255, 255});
+}
+
+// The window's host Grid, made and set as its content the first time.
+muxc::Grid windowHost(mux::Window const &window) {
+    muxc::Grid host = window.Content().try_as<muxc::Grid>();
+    if (host != nullptr && host.Name() == hostName) {
+        return host;
+    }
+    host = muxc::Grid();
+    host.Name(hostName);
+    host.Background(pageBackground());
+    window.Content(host);
+    return host;
+}
+
 
 // Effective pixels to physical pixels for this window: its monitor's DPI over 96.
 double windowScale(mux::Window const &window) {
@@ -89,6 +125,30 @@ winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, Ac
     }
 }
 
+// Renders `element` into the PNG at `path` from the UI thread's queue, so completion never runs
+// before the caller returns.
+bool startRender(const char *where, mux::UIElement const &element, const char *path, ActionUIWinUICompletion completion,
+                 void *context) {
+    if (path == nullptr || path[0] == '\0') {
+        return fail(where, "the path is empty");
+    }
+    if (element.XamlRoot() == nullptr) {
+        return fail(where, "the element is not in a window's content");
+    }
+    std::wstring widePath(toHString(path));
+    dispatching::DispatcherQueue queue = dispatching::DispatcherQueue::GetForCurrentThread();
+    if (queue == nullptr) {
+        return fail(where, "not on the UI thread (no DispatcherQueue)");
+    }
+    bool queued = queue.TryEnqueue([element, widePath, completion, context]() {
+        renderToPNG(element, widePath, completion, context);
+    });
+    if (!queued) {
+        return fail(where, "the UI thread's queue refused the call (shutting down?)");
+    }
+    return true;
+}
+
 } // namespace
 
 } // namespace actionui_winui
@@ -132,13 +192,28 @@ bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width
 
 bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element) {
     return guarded("window set content", [&]() {
-        mux::Window typed = windowFrom(window);
-        if (element == nullptr) {
-            typed.Content(nullptr);
-        } else {
-            typed.Content(objectAs<mux::UIElement>(element, L"UIElement"));
+        // Checked before the old content goes: a refused element leaves the window as it was.
+        mux::UIElement typed{nullptr};
+        if (element != nullptr) {
+            typed = objectAs<mux::UIElement>(element, L"UIElement");
+        }
+        muxc::Grid host = windowHost(windowFrom(window));
+        host.Children().Clear();
+        if (typed != nullptr) {
+            host.Children().Append(typed);
         }
         return true;
+    });
+}
+
+bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *path, ActionUIWinUICompletion completion,
+                                    void *context) {
+    return guarded("window render to PNG", [&]() {
+        mux::Window typed = windowFrom(window);
+        if (typed.Content() == nullptr) {
+            return fail("window render to PNG", "the window has no content");
+        }
+        return startRender("window render to PNG", windowHost(typed), path, completion, context);
     });
 }
 
@@ -159,26 +234,7 @@ bool actionUIWinUIWindowClose(ActionUIWinUIObject *window) {
 bool actionUIWinUIRenderToPNG(ActionUIWinUIObject *element, const char *path, ActionUIWinUICompletion completion,
                               void *context) {
     return guarded("render to PNG", [&]() {
-        if (path == nullptr || path[0] == '\0') {
-            return fail("render to PNG", "the path is empty");
-        }
-        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
-        if (typed.XamlRoot() == nullptr) {
-            return fail("render to PNG", "the element is not in a window's content");
-        }
-        // Started from the queue, so completion never runs before this function returns.
-        std::wstring widePath(toHString(path));
-        dispatching::DispatcherQueue queue = dispatching::DispatcherQueue::GetForCurrentThread();
-        if (queue == nullptr) {
-            return fail("render to PNG", "not on the UI thread (no DispatcherQueue)");
-        }
-        bool queued = queue.TryEnqueue([typed, widePath, completion, context]() {
-            renderToPNG(typed, widePath, completion, context);
-        });
-        if (!queued) {
-            return fail("render to PNG", "the UI thread's queue refused the call (shutting down?)");
-        }
-        return true;
+        return startRender("render to PNG", objectAs<mux::UIElement>(element, L"UIElement"), path, completion, context);
     });
 }
 

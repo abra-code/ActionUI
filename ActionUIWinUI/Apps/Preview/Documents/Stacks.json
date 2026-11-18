@@ -23,7 +23,7 @@
         { "type": "Text", "id": 10, "properties": { "text": "Three" } }
       ]
     },
-    { "type": "Toggle", "id": 11, "properties": { "title": "No WinUI Toggle yet" } },
+    { "type": "Toggle", "id": 11, "properties": { "title": "A Toggle, a check box" } },
     { "type": "Text", "id": 12, "properties": { "markdown": "Plain **markdown** characters for now" } }
   ]
 }

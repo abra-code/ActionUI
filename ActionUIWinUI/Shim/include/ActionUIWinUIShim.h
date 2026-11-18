@@ -92,7 +92,8 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetTitle(ActionUIWinUIObject *window,
 // The size of the window's content area (inside its frame and title bar).
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width,
                                                           double height);
-// Makes `element` the window's content (NULL removes it). The window keeps its own reference.
+// Makes `element` the window's content (NULL removes it). The window keeps its own reference. The
+// content sits on the theme's page background, filling the window's content area.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);
 // Shows the window and brings it to the front.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
@@ -251,6 +252,12 @@ ACTIONUI_WINUI_API ActionUIWinUIRect actionUIWinUIElementLayoutFrame(ActionUIWin
 // quit while a rendering is pending: it holds a reference to `element` until it completes.
 ACTIONUI_WINUI_API bool actionUIWinUIRenderToPNG(ActionUIWinUIObject *element, const char *path,
                                                  ActionUIWinUICompletion completion, void *context);
+// The same for the window's whole content area (its content on the page background), at the
+// window's content size: what the window shows below its title bar, the system's own title bar not
+// included. Fails when the window has no content yet; the rendering holds a reference to the host
+// (the window's content) until it completes.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *path,
+                                                       ActionUIWinUICompletion completion, void *context);
 
 #ifdef __cplusplus
 }

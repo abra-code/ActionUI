@@ -1,6 +1,7 @@
 // ActionUIWinUI/Apps/Preview/main.swift - ActionUIWinUIPreview: renders an ActionUI document with
-// the WinUI renderer into a PNG, in a window of the given content size, and prints where WinUI
-// placed each element (its frame in its parent), so a run can be compared with SwiftUI's and GTK's.
+// the WinUI renderer into a PNG of the window's whole content area (below the title bar), in a
+// window of the given content size, and prints where WinUI placed each element (its frame in its
+// parent), so a run can be compared with SwiftUI's and GTK's.
 //
 // Usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [options]
 //   --invoke ID              after the first layout, operates element ID as an accessibility tool
@@ -163,11 +164,12 @@ final class Preview {
         if let root = tree?.root {
             report(root, indent: "")
         }
-        guard let content = tree?.view else {
+        guard let window else {
             finish()
             return
         }
-        let started = actionUIWinUIRenderToPNG(content.pointer, pngPath, { _, succeeded in
+        // The whole content area, as the window shows it below its title bar.
+        let started = actionUIWinUIWindowRenderToPNG(window.pointer, pngPath, { _, succeeded in
             MainActor.assumeIsolated { Preview.shared.renderDone(succeeded) }
         }, nil)
         if !started {
