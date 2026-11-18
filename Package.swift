@@ -29,9 +29,11 @@ import PackageDescription
 
 // Three packages, one chosen at the end. applePackage() is the full package for Apple platforms,
 // linuxPackage() the one for Linux: the same module ActionUI, made of the portable code in
-// ActionUI/Core and the GTK renderer in ActionUIAdwaita. coreCheckPackage() builds only
-// ActionUI/Core, as the module ActionUI; set ACTIONUI_CORE_ONLY=1 to select it on either host,
-// which Scripts/check-core.sh does on a Mac to cross-build Core for Linux.
+// ActionUI/Core, the toolkit-free renderer code in ActionUIRendererShared (layout solvers and
+// helpers any non-Apple renderer can use) and the GTK renderer in ActionUIAdwaita.
+// coreCheckPackage() builds only the portable code (ActionUI/Core and ActionUIRendererShared), as
+// the module ActionUI; set ACTIONUI_CORE_ONLY=1 to select it on either host, which
+// Scripts/check-core.sh does on a Mac to cross-build it for Linux.
 let coreOnly = Context.environment["ACTIONUI_CORE_ONLY"] == "1"
 
 // Every path in a target's folder (`target`, relative to the repository; "" for the root) that is
@@ -389,16 +391,17 @@ Package(
         .target(
             name: "ActionUI",
             path: ".",
-            exclude: excludingAllBut(["ActionUI/Core", "ActionUICoreCheck"]),
-            sources: ["ActionUI/Core", "ActionUICoreCheck"]
+            exclude: excludingAllBut(["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUICoreCheck"]),
+            sources: ["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUICoreCheck"]
         ),
-        // The Core tests: ActionUITests/Core, portable like the code they test.
+        // The portable tests: ActionUITests/Core and ActionUIRendererShared/Tests, portable like
+        // the code they test.
         .testTarget(
             name: "ActionUITests",
             dependencies: ["ActionUI"],
-            path: "ActionUITests",
-            exclude: excludingAllBut(["Core"], in: "ActionUITests"),
-            sources: ["Core"]
+            path: ".",
+            exclude: excludingAllBut(["ActionUITests/Core", "ActionUIRendererShared/Tests"]),
+            sources: ["ActionUITests/Core", "ActionUIRendererShared/Tests"]
         ),
     ]
 )
@@ -447,15 +450,15 @@ Package(
             path: "ActionUIAdwaita/CSoup",
             pkgConfig: "libsoup-3.0"
         ),
-        // The portable code and the GTK renderer: one module, as ActionUI is on Apple platforms.
+        // The portable code, the shared renderer code and the GTK renderer: one module, as ActionUI is on Apple platforms.
         // The symbol icons come from CSymbolResource; ActionUISymbolResourceCheck warns when they
         // were not generated (Scripts/prepare-linux-symbols.sh).
         .target(
             name: "ActionUI",
             dependencies: ["CAdwaita", "CSoup", "CSymbolResource", "CLinkedAddOns"],
             path: ".",
-            exclude: excludingAllBut(["ActionUI/Core", "ActionUIAdwaita/Sources"]),
-            sources: ["ActionUI/Core", "ActionUIAdwaita/Sources"],
+            exclude: excludingAllBut(["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIAdwaita/Sources"]),
+            sources: ["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIAdwaita/Sources"],
             plugins: ["ActionUISymbolResourceCheck"]
         ),
         // Reaches the add-ons linked into libActionUI.so, in a package ActionUI cannot depend on.
@@ -555,13 +558,13 @@ Package(
             path: "ActionUIVerifierTests",
             exclude: ["Parity"]
         ),
-        // The Core tests, as in coreCheckPackage.
+        // The portable tests, as in coreCheckPackage.
         .testTarget(
             name: "ActionUITests",
             dependencies: ["ActionUI"],
-            path: "ActionUITests",
-            exclude: excludingAllBut(["Core"], in: "ActionUITests"),
-            sources: ["Core"]
+            path: ".",
+            exclude: excludingAllBut(["ActionUITests/Core", "ActionUIRendererShared/Tests"]),
+            sources: ["ActionUITests/Core", "ActionUIRendererShared/Tests"]
         ),
         // An element written as an add-on writes one, for the renderer tests: a module of its own,
         // so what it uses is ActionUI's public contract.
