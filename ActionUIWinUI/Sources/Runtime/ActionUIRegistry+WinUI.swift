@@ -8,6 +8,7 @@
 extension ActionUIRegistry {
     // The WinUI renderers of the built-in element types; the others render as the placeholder.
     static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
+        "Button": Button.self,
         "HStack": HStack.self,
         "Spacer": Spacer.self,
         "Text": Text.self,

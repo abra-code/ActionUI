@@ -11,6 +11,8 @@
 #undef GetCurrentTime
 
 #include <exception>
+#include <memory>
+#include <utility>
 #include <string>
 #include <string_view>
 
@@ -62,6 +64,62 @@ ActionUIWinUIObject *guardedObject(const char *where, Body &&body) noexcept {
         return result != nullptr;
     });
     return succeeded ? result : nullptr;
+}
+
+// The calling thread's DispatcherQueue; throws when the thread has none (it is not the UI thread).
+dispatching::DispatcherQueue currentQueue();
+
+// Calls callback(context) on `queue`'s thread: at once when this is that thread (or `queue` is
+// null), else sent there. When the queue refuses (it is shutting down), the call is dropped: a leak
+// rather than a call on the wrong thread.
+void callOnUIThread(dispatching::DispatcherQueue const &queue, ActionUIWinUICallback callback, void *context) noexcept;
+
+// What an event registration holds: the caller's handler and context, freed (destroyContext, on
+// the UI thread) when the last copy goes, which is when the control lets go of its handlers.
+struct EventHandler : std::enable_shared_from_this<EventHandler> {
+    EventHandler(ActionUIWinUICallback handler, void *context, ActionUIWinUICallback destroyContext,
+                 dispatching::DispatcherQueue queue)
+        : handler(handler), context(context), destroyContext(destroyContext), queue(std::move(queue)) {}
+    EventHandler(EventHandler const &) = delete;
+    EventHandler &operator=(EventHandler const &) = delete;
+    ~EventHandler() {
+        if (destroyContext != nullptr) {
+            callOnUIThread(queue, destroyContext, context);
+        }
+    }
+    // Holds the handler alive while it runs: a handler that releases its own control (closing the
+    // window) must not free its context under it, whatever XAML does with the delegate meanwhile.
+    void fire() const {
+        std::shared_ptr<EventHandler const> keep = shared_from_this();
+        handler(context);
+    }
+
+    ActionUIWinUICallback handler;
+    void *context;
+    ActionUIWinUICallback destroyContext;
+    dispatching::DispatcherQueue queue;
+};
+
+// Registers an event handler made from `handler`, `context` and `destroyContext` with `connect`,
+// which subscribes a lambda holding it to the control's event. destroyContext runs exactly once:
+// at once when no holder was made, else when the last copy of the holder goes (the control
+// releasing its handlers, or this function returning after a failure).
+template <typename Connect>
+bool registerHandler(const char *where, ActionUIWinUICallback handler, void *context, ActionUIWinUICallback destroyContext,
+                     Connect &&connect) {
+    std::shared_ptr<EventHandler> holder;
+    bool registered = guarded(where, [&]() {
+        if (handler == nullptr) {
+            return fail(where, "the handler is NULL");
+        }
+        holder = std::make_shared<EventHandler>(handler, context, destroyContext, currentQueue());
+        connect(holder);
+        return true;
+    });
+    if (!registered && holder == nullptr && destroyContext != nullptr) {
+        destroyContext(context);
+    }
+    return registered;
 }
 
 // UTF-8 (NULL reads as empty) to a WinRT string.

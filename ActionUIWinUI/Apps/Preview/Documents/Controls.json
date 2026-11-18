@@ -1,0 +1,14 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Not pressed yet" } },
+    { "type": "Button", "id": 3, "properties": { "title": "Press me", "actionID": "button.pressed" } },
+    {
+      "type": "Text",
+      "id": 4,
+      "properties": { "text": "A long line of text that does not fit in this narrow window, so it wraps onto more lines, and a word longer than the window: Supercalifragilisticexpialidocious" }
+    }
+  ]
+}

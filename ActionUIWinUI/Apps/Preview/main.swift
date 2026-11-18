@@ -2,9 +2,15 @@
 // the WinUI renderer into a PNG, in a window of the given content size, and prints where WinUI
 // placed each element (its frame in its parent), so a run can be compared with SwiftUI's and GTK's.
 //
-// Usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT]
-// Prints "preview:" lines; exit status 0 when the document loaded, rendered and the PNG is not
-// empty. Built and run by Scripts/ci-windows.py winui.
+// Usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [options]
+//   --invoke ID              after the first layout, operates element ID as an accessibility tool
+//                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
+//   --expect-action ACTION   fails unless the action ACTION fired; repeatable
+//   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
+// Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
+// loaded and rendered, the PNG is not empty, every --invoke worked and every expected action
+// fired at least once. Built and run by
+// Scripts/ci-windows.py winui.
 
 import ActionUI
 import CWinUI
@@ -21,6 +27,12 @@ final class Preview {
     var window: WinUIObject?
     var tree: WinUIWindow?
     var rendered = false
+    var invocations: [Int] = []
+    var expectedActions: [String] = []
+    var valuesOnAction: [String: (viewID: Int, text: String)] = [:]
+    var firedActions: [String] = []
+    /// False once an --invoke found no element or the shim refused it.
+    var invocationsWorked = true
 
     func say(_ line: String) {
         print("preview: \(line)")
@@ -66,9 +78,58 @@ final class Preview {
             finish()
             return
         }
+        ActionUIModel.shared.setDefaultActionHandler { actionID, windowUUID, viewID, _, _ in
+            MainActor.assumeIsolated { Preview.shared.actionFired(actionID, windowUUID: windowUUID, viewID: viewID) }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(800)) {
+            MainActor.assumeIsolated { Preview.shared.invokeThenRender() }
+        }
+    }
+
+    func actionFired(_ actionID: String, windowUUID: String, viewID: Int) {
+        firedActions.append(actionID)
+        say("action \(actionID) from element \(viewID)")
+        if let change = valuesOnAction[actionID] {
+            ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: change.viewID, value: change.text)
+        }
+    }
+
+    /// Operates the elements named by --invoke, then lets the model's changes reach WinUI (a sync,
+    /// then a layout) before reporting and rendering.
+    func invokeThenRender() {
+        guard !invocations.isEmpty else {
+            reportAndRender()
+            return
+        }
+        for viewID in invocations {
+            guard let node = tree?.root.flatMap({ find(viewID, in: $0) }), let view = node.view else {
+                say("--invoke \(viewID): no such element on screen")
+                invocationsWorked = false
+                continue
+            }
+            if actionUIWinUIAutomationInvoke(view.pointer) {
+                say("invoked \(node.element.type) \(viewID)")
+            } else {
+                say("--invoke \(viewID): \(WinUIError.last("invoking"))")
+                invocationsWorked = false
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
             MainActor.assumeIsolated { Preview.shared.reportAndRender() }
         }
+    }
+
+    /// The node of element `viewID` in the tree under `node`.
+    func find(_ viewID: Int, in node: RenderNode) -> RenderNode? {
+        if node.element.id == viewID {
+            return node
+        }
+        for child in node.orderedChildren {
+            if let found = find(viewID, in: child) {
+                return found
+            }
+        }
+        return nil
     }
 
     func reportAndRender() {
@@ -162,15 +223,39 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-guard arguments.count == 3 || arguments.count == 5 else {
-    print("usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT]")
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
+guard arguments.count >= 3 else {
+    print(usage)
     exit(64)
 }
 let preview = Preview.shared
 preview.documentPath = arguments[1]
 preview.pngPath = arguments[2]
-if arguments.count == 5, let width = Double(arguments[3]), let height = Double(arguments[4]), width > 0, height > 0 {
+var index = 3
+if arguments.count >= 5, let width = Double(arguments[3]), let height = Double(arguments[4]) {
+    guard width > 0, height > 0 else {
+        print("preview: WIDTH and HEIGHT must be positive")
+        exit(64)
+    }
     preview.contentSize = ActionUIWinUISize(width: width, height: height)
+    index = 5
+}
+while index < arguments.count {
+    let option = arguments[index]
+    if option == "--invoke", index + 1 < arguments.count, let viewID = Int(arguments[index + 1]) {
+        preview.invocations.append(viewID)
+        index += 2
+    } else if option == "--expect-action", index + 1 < arguments.count {
+        preview.expectedActions.append(arguments[index + 1])
+        index += 2
+    } else if option == "--on-action", index + 3 < arguments.count, let viewID = Int(arguments[index + 2]) {
+        preview.valuesOnAction[arguments[index + 1]] = (viewID, arguments[index + 3])
+        index += 4
+    } else {
+        print("preview: cannot read the option \(option)")
+        print(usage)
+        exit(64)
+    }
 }
 _ = preview.pngPath.withCString(encodedAs: UTF16.self) { _wremove($0) }
 
@@ -187,5 +272,9 @@ if !ran {
 actionUIWinUIShutdown()
 
 let size = fileSize(preview.pngPath)
-print("preview: run \(ran ? "ok" : "failed"), rendered \(preview.rendered ? "yes" : "no"), PNG \(size) bytes")
-exit(ran && preview.rendered && size > 0 ? 0 : 1)
+let missing = preview.expectedActions.filter { !preview.firedActions.contains($0) }
+if !missing.isEmpty {
+    print("preview: expected actions that did not fire: \(missing)")
+}
+print("preview: run \(ran ? "ok" : "failed"), rendered \(preview.rendered ? "yes" : "no"), PNG \(size) bytes, actions fired \(preview.firedActions.count)")
+exit(ran && preview.rendered && size > 0 && missing.isEmpty && preview.invocationsWorked ? 0 : 1)

@@ -20,4 +20,13 @@ bool actionUIWinUITextBlockSetText(ActionUIWinUIObject *textBlock, const char *t
     });
 }
 
+bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *textBlock, bool wraps) {
+    return guarded("text block set wraps", [&]() {
+        // Wrap, not WrapWholeWords: a word that does not fit breaks too, as SwiftUI's Text does.
+        objectAs<muxc::TextBlock>(textBlock, L"TextBlock")
+            .TextWrapping(wraps ? mux::TextWrapping::Wrap : mux::TextWrapping::NoWrap);
+        return true;
+    });
+}
+
 } // extern "C"

@@ -1,5 +1,6 @@
 // ShimSmokeTest.c - drives the WinUI shim from plain C: starts WinUI, opens a window with a
-// TextBlock, renders it into a PNG and quits. Also checks that ActionUIWinUIShim.h is valid C.
+// TextBlock, renders it into a PNG and quits. Also checks that ActionUIWinUIShim.h is valid C, and
+// that an event registration frees its context exactly once on every path.
 //
 // Usage: ShimSmokeTest.exe PNG_PATH
 // Prints "smoke:" lines; exit status 0 when every step worked and the PNG is not empty.
@@ -14,7 +15,52 @@ typedef struct SmokeState {
     ActionUIWinUIObject *window;
     ActionUIWinUIObject *text;
     bool rendered;
+    bool eventsFreed;
 } SmokeState;
+
+static void printLastError(const char *where);
+
+static int g_handlerCalls = 0;
+static int g_contextsFreed = 0;
+
+static void countHandler(void *context) {
+    (void)context;
+    g_handlerCalls += 1;
+}
+
+static void countFreed(void *context) {
+    (void)context;
+    g_contextsFreed += 1;
+}
+
+// An event registration frees its context exactly once: when it fails (no control, no handler),
+// at once; when it succeeds, once the control is gone. True when the failure cases did and the
+// successful one kept its context; the release is checked later (finish), since XAML may destroy a
+// released control after the call returns.
+static bool checkEventContexts(void) {
+    g_contextsFreed = 0;
+    bool registered = actionUIWinUIButtonOnClick(NULL, countHandler, NULL, countFreed);
+    bool noControl = !registered && g_contextsFreed == 1;
+
+    ActionUIWinUIObject *button = actionUIWinUIButtonCreate();
+    if (button == NULL) {
+        printLastError("button create");
+        return false;
+    }
+    g_contextsFreed = 0;
+    registered = actionUIWinUIButtonOnClick(button, NULL, NULL, countFreed);
+    bool noHandler = !registered && g_contextsFreed == 1;
+
+    g_contextsFreed = 0;
+    registered = actionUIWinUIButtonOnClick(button, countHandler, NULL, countFreed);
+    bool keptWhileAlive = registered && g_contextsFreed == 0;
+    actionUIWinUIRelease(button);
+
+    printf("smoke: event contexts freed: no control %s, no handler %s, kept while alive %s\n",
+           noControl ? "yes" : "NO", noHandler ? "yes" : "NO", keptWhileAlive ? "yes" : "NO");
+    fflush(stdout);
+    return noControl && noHandler && keptWhileAlive;
+}
 
 static void printLastError(const char *where) {
     char message[512];
@@ -25,6 +71,12 @@ static void printLastError(const char *where) {
 
 // Releases the window and the text, then quits. On the UI thread.
 static void finish(SmokeState *state) {
+    // The released button of checkEventContexts is gone by now: its context was freed once.
+    bool freedWithControl = g_contextsFreed == 1 && g_handlerCalls == 0;
+    printf("smoke: event context freed with its control: %s (%d frees, %d handler calls)\n",
+           freedWithControl ? "yes" : "NO", g_contextsFreed, g_handlerCalls);
+    fflush(stdout);
+    state->eventsFreed = state->eventsFreed && freedWithControl;
     if (state->window != NULL) {
         bool closed = actionUIWinUIWindowClose(state->window);
         if (!closed) {
@@ -63,6 +115,7 @@ static void onLaunched(void *context) {
     SmokeState *state = (SmokeState *)context;
     printf("smoke: launched\n");
     fflush(stdout);
+    state->eventsFreed = checkEventContexts();
     state->window = actionUIWinUIWindowCreate();
     state->text = actionUIWinUITextBlockCreate();
     if (state->window == NULL || state->text == NULL) {
@@ -101,7 +154,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "usage: %s PNG_PATH\n", argv[0]);
         return 64;
     }
-    SmokeState state = {argv[1], NULL, NULL, false};
+    SmokeState state = {argv[1], NULL, NULL, false, false};
     remove(state.pngPath);
 
     bool initialized = actionUIWinUIInitialize();
@@ -116,7 +169,8 @@ int main(int argc, char **argv) {
     actionUIWinUIShutdown();
 
     long size = fileSize(state.pngPath);
-    printf("smoke: run %s, rendered %s, PNG %ld bytes\n", ran ? "ok" : "failed", state.rendered ? "yes" : "no", size);
-    bool passed = ran && state.rendered && size > 0;
+    printf("smoke: run %s, rendered %s, PNG %ld bytes, event contexts %s\n", ran ? "ok" : "failed",
+           state.rendered ? "yes" : "no", size, state.eventsFreed ? "ok" : "WRONG");
+    bool passed = ran && state.rendered && size > 0 && state.eventsFreed;
     return passed ? 0 : 1;
 }

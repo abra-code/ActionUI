@@ -38,24 +38,10 @@ struct CallbackPanel : muxc::PanelT<CallbackPanel> {
           m_queue(dispatching::DispatcherQueue::GetForCurrentThread()) {}
 
     // On the thread that let go of the last reference. The context belongs to the UI thread (its
-    // Swift side is main-actor isolated): from any other thread, destroyContext is sent there. If
-    // the queue refuses (it is shutting down), the context is left alone, a leak rather than a call
-    // on the wrong thread.
+    // Swift side is main-actor isolated): from any other thread, destroyContext is sent there
+    // (callOnUIThread).
     ~CallbackPanel() {
-        if (m_destroyContext == nullptr) {
-            return;
-        }
-        bool elsewhere = false;
-        try {
-            elsewhere = m_queue != nullptr && !m_queue.HasThreadAccess();
-            if (elsewhere) {
-                m_queue.TryEnqueue([destroy = m_destroyContext, context = m_context]() { destroy(context); });
-            }
-        } catch (...) {
-        }
-        if (!elsewhere) {
-            m_destroyContext(m_context);
-        }
+        callOnUIThread(m_queue, m_destroyContext, m_context);
     }
 
     wf::Size MeasureOverride(wf::Size available) {

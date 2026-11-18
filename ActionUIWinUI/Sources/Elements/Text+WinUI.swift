@@ -1,9 +1,12 @@
 // Sources/Elements/Text+WinUI.swift
 /*
  Text on WinUI: a TextBlock showing the value (a String or an AttributedString set at run time),
- else the markdown property's text, else the text property, as on Apple and Linux.
+ else the markdown property's text, else the text property, as on Apple and Linux. It wraps as
+ SwiftUI's Text does, at word boundaries and inside a word that does not fit, when offered less
+ width than one line needs (in a VStack narrower than the line; an HStack does not yet compress
+ its children).
 
- Not yet: wrapping (a TextBlock keeps one line), fonts, colors and alignment. Markdown shows its
+ Not yet: fonts, colors and alignment. Markdown shows its
  source as is (asterisks included): Core's default markdown hook makes no styles, and the Markdown
  parser the GTK renderer uses has not moved to the shared code yet.
 */
@@ -19,6 +22,9 @@ extension Text: ActionUIWinUIRenderer {
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
         guard let text = WinUIObject(adopting: actionUIWinUITextBlockCreate()) else {
             throw WinUIError.last("creating a TextBlock")
+        }
+        guard actionUIWinUITextBlockSetWraps(text.pointer, true) else {
+            throw WinUIError.last("making a TextBlock wrap")
         }
         return text
     }

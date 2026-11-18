@@ -64,6 +64,12 @@ WINUI_RUNTIME_MSIX = [
     "Microsoft.WindowsAppRuntime.DDLM.2.msix",
 ]
 SMOKE_TIMEOUT_SECONDS = 180
+# Options for ActionUIWinUIPreview by document name (ActionUIWinUI/Apps/Preview/Documents), beside
+# the document and the PNG: a window size, and elements to operate with the actions they must fire.
+PREVIEW_OPTIONS = {
+    "Controls": ["240", "220", "--invoke", "3", "--expect-action", "button.pressed",
+                 "--on-action", "button.pressed", "2", "Pressed through UI Automation"],
+}
 
 
 def run_step(name, command, results, env, cwd=REPO_DIR, timeout=STEP_TIMEOUT_SECONDS):
@@ -449,7 +455,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"
-        step = run_step(f"preview-{document.stem}", [preview, document, png], results, env, cwd=bin_path,
+        options = PREVIEW_OPTIONS.get(document.stem, [])
+        step = run_step(f"preview-{document.stem}", [preview, document, png] + options, results, env, cwd=bin_path,
                         timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)
         summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")

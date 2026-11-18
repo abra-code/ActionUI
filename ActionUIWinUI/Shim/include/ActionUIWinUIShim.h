@@ -103,6 +103,40 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
 // A new TextBlock (read-only text). NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUITextBlockCreate(void);
 ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetText(ActionUIWinUIObject *textBlock, const char *text);
+// Whether the text wraps onto more lines when it is offered less width than one line needs (at
+// word boundaries, and inside a word that does not fit). A new TextBlock does not wrap.
+ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *textBlock, bool wraps);
+
+// MARK: - Events
+
+// A control's event handlers (actionUIWinUIButtonOnClick, ...) take a handler, a context and a
+// destroyContext: handler(context) runs on the UI thread each time the event happens, and
+// destroyContext(context), when not NULL, runs once the control is gone (on the UI thread, also
+// when the last reference goes away on another thread), so the caller can free `context`. When
+// registering fails, destroyContext runs at once (after the error is recorded: a destroyContext that
+// calls the shim may replace it). At shutdown, when the UI thread's queue no longer takes work, a
+// destroyContext due from another thread is dropped (a leak, never a call on the wrong thread).
+// Each event says which changes report it: the user's (pointer, keyboard, an accessibility tool)
+// and, for some, the shim's own setters too. A handler stays alive while it runs, also when it lets
+// go of its own control.
+
+// MARK: - Button
+
+// A new Button showing no content. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIButtonCreate(void);
+// Shows `title` as the button's content.
+ACTIONUI_WINUI_API bool actionUIWinUIButtonSetTitle(ActionUIWinUIObject *button, const char *title);
+// Click: the user clicked the button, pressed it with the keyboard, or an accessibility tool invoked
+// it. Never from a setter.
+ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
+                                                   ActionUIWinUICallback destroyContext);
+
+// MARK: - Automation
+
+// Operates `element` as an accessibility tool does, through its UI Automation peer: what a screen
+// reader or a test drives. Invoke presses a button: its Click handler runs during the call. Fails
+// when the element has no peer or the peer cannot be invoked.
+ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element);
 
 // MARK: - Layout
 

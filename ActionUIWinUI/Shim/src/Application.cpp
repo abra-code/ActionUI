@@ -128,6 +128,8 @@ void CALLBACK onHandleSignaled(PVOID parameter, BOOLEAN) {
     }
 }
 
+} // namespace
+
 dispatching::DispatcherQueue currentQueue() {
     dispatching::DispatcherQueue queue = dispatching::DispatcherQueue::GetForCurrentThread();
     if (queue == nullptr) {
@@ -136,7 +138,22 @@ dispatching::DispatcherQueue currentQueue() {
     return queue;
 }
 
-} // namespace
+void callOnUIThread(dispatching::DispatcherQueue const &queue, ActionUIWinUICallback callback, void *context) noexcept {
+    if (callback == nullptr) {
+        return;
+    }
+    bool elsewhere = false;
+    try {
+        elsewhere = queue != nullptr && !queue.HasThreadAccess();
+        if (elsewhere) {
+            queue.TryEnqueue([callback, context]() { callback(context); });
+        }
+    } catch (...) {
+    }
+    if (!elsewhere) {
+        callback(context);
+    }
+}
 
 } // namespace actionui_winui
 
