@@ -58,6 +58,8 @@ ACTIONUI_WINUI_API void actionUIWinUIShutdown(void);
 // Starts WinUI on the calling thread, which becomes the UI thread, and blocks until the
 // application quits. onLaunched(context) is called on the UI thread once WinUI is ready; create
 // the first window there. Returns false when WinUI could not start or onLaunched could not run.
+// From Swift, call it on the process's main thread: Swift's main actor is that thread, and the
+// shim's callbacks run on the thread that calls this.
 ACTIONUI_WINUI_API bool actionUIWinUIRun(ActionUIWinUICallback onLaunched, void *context);
 
 // Ends the application: actionUIWinUIRun returns once the current work is done.
@@ -101,6 +103,54 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
 // A new TextBlock (read-only text). NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUITextBlockCreate(void);
 ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetText(ActionUIWinUIObject *textBlock, const char *text);
+
+// MARK: - Layout
+
+typedef struct ActionUIWinUISize {
+    double width;
+    double height;
+} ActionUIWinUISize;
+
+typedef struct ActionUIWinUIRect {
+    double x;
+    double y;
+    double width;
+    double height;
+} ActionUIWinUIRect;
+
+// WinUI's two layout passes over a panel, handed to the caller. `panel` is the panel itself,
+// borrowed for the call (no reference of its own). Measure: given the size offered (a dimension
+// may be infinite), measure the children (actionUIWinUIElementMeasure) and return the size the
+// panel wants. Arrange: place every child inside `finalSize` (actionUIWinUIElementArrange).
+typedef ActionUIWinUISize (*ActionUIWinUIMeasureCallback)(void *context, ActionUIWinUIObject *panel,
+                                                          ActionUIWinUISize available);
+typedef void (*ActionUIWinUIArrangeCallback)(void *context, ActionUIWinUIObject *panel, ActionUIWinUISize finalSize);
+
+// A new panel (a WinUI Panel) whose layout is the callbacks'. destroyContext(context), when not
+// NULL, is called once the panel is gone (on the UI thread), so the caller can free `context`.
+// NULL on failure (and destroyContext is then called at once). destroyContext runs on the UI thread
+// also when the last reference goes away on another thread.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIPanelCreate(ActionUIWinUIMeasureCallback measure,
+                                                                 ActionUIWinUIArrangeCallback arrange, void *context,
+                                                                 ActionUIWinUICallback destroyContext);
+// The panel's children, in order. The panel keeps its own reference to each. The count is -1 on
+// failure.
+ACTIONUI_WINUI_API int32_t actionUIWinUIPanelChildCount(ActionUIWinUIObject *panel);
+ACTIONUI_WINUI_API bool actionUIWinUIPanelInsertChild(ActionUIWinUIObject *panel, int32_t index,
+                                                      ActionUIWinUIObject *child);
+ACTIONUI_WINUI_API bool actionUIWinUIPanelRemoveChild(ActionUIWinUIObject *panel, int32_t index);
+
+// In a measure callback: measures `element` with the size offered and returns the size it wants
+// (its DesiredSize). {0, 0} on failure.
+ACTIONUI_WINUI_API ActionUIWinUISize actionUIWinUIElementMeasure(ActionUIWinUIObject *element,
+                                                                 ActionUIWinUISize available);
+// In an arrange callback: places `element` at `frame`, in its parent's coordinates. Fails when the
+// position is not finite; a width or height that is not finite, or is negative, becomes 0.
+ACTIONUI_WINUI_API bool actionUIWinUIElementArrange(ActionUIWinUIObject *element, ActionUIWinUIRect frame);
+// Asks WinUI to measure `element` again (after a change that alters its size).
+ACTIONUI_WINUI_API bool actionUIWinUIElementInvalidateMeasure(ActionUIWinUIObject *element);
+// Where `element` was last placed: its offset in its parent and its size. {0, 0, 0, 0} on failure.
+ACTIONUI_WINUI_API ActionUIWinUIRect actionUIWinUIElementLayoutFrame(ActionUIWinUIObject *element);
 
 // MARK: - Rendering
 

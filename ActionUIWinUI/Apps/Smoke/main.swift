@@ -1,11 +1,14 @@
 // ActionUIWinUI/Apps/Smoke/main.swift - ActionUIWinUISmoke, the WinUI renderer's smoke test from
-// Swift: starts WinUI through the shim, installs MainLoopBridge, opens a window with a TextBlock,
-// changes its text from main-actor work queued three ways (DispatchQueue.main.async, a hop from a
-// global queue, a Task on the main actor), renders the window's content into a PNG and quits.
+// Swift: starts WinUI through the shim, installs MainLoopBridge, opens a window whose content is a
+// LayoutPanel holding three TextBlocks that Swift stacks vertically (8 apart), changes the first
+// text from main-actor work queued three ways (DispatchQueue.main.async, a hop from a global
+// queue, a Task on the main actor), checks that WinUI placed each child where Swift's arrange pass
+// put it, renders the window's content into a PNG and quits.
 //
 // Usage: ActionUIWinUISmoke PNG_PATH
 // Prints "smoke:" lines; exit status 0 when every step worked, all three main-actor jobs ran on
-// the UI thread and the PNG is not empty. Built and run by Scripts/ci-windows.py winui.
+// the UI thread, every child is where the arrange pass put it and the PNG is not empty. Built and
+// run by Scripts/ci-windows.py winui.
 
 import ActionUI
 import CWinUI
@@ -15,11 +18,16 @@ import ucrt
 @MainActor
 final class Smoke {
     static let shared = Smoke()
+    static let spacing = 8.0
 
     var pngPath = ""
-    var window: OpaquePointer?
-    var text: OpaquePointer?
+    var window: WinUIObject?
+    var panel: LayoutPanel?
+    var texts: [WinUIObject] = []
     var mainActorJobs: [String] = []
+    var arranged: [ActionUIWinUIRect] = []
+    var layoutPasses = 0
+    var framesMatch = false
     var rendered = false
 
     func say(_ line: String) {
@@ -33,20 +41,10 @@ final class Smoke {
             finish()
             return
         }
-        window = actionUIWinUIWindowCreate()
-        text = actionUIWinUITextBlockCreate()
-        guard let window, let text else {
-            say(WinUIError.last("creating the window and its text").description)
-            finish()
-            return
-        }
-        var ok = actionUIWinUIWindowSetTitle(window, "ActionUI WinUI smoke test (Swift)")
-        ok = ok && actionUIWinUIWindowSetContentSize(window, 480, 160)
-        ok = ok && actionUIWinUITextBlockSetText(text, "set by onLaunched")
-        ok = ok && actionUIWinUIWindowSetContent(window, text)
-        ok = ok && actionUIWinUIWindowActivate(window)
-        guard ok else {
-            say(WinUIError.last("setting up the window").description)
+        do {
+            try build()
+        } catch {
+            say(error.description)
             finish()
             return
         }
@@ -63,26 +61,85 @@ final class Smoke {
         Task { @MainActor in
             Smoke.shared.ran("Task on the main actor")
         }
-        // Then render, whatever ran, after the window's first layout.
+        // Then check the layout and render, whatever ran, after the window's layout.
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(800)) {
-            MainActor.assumeIsolated { Smoke.shared.render() }
+            MainActor.assumeIsolated { Smoke.shared.checkAndRender() }
+        }
+    }
+
+    func build() throws(WinUIError) {
+        guard let window = WinUIObject(adopting: actionUIWinUIWindowCreate()) else {
+            throw WinUIError.last("creating the window")
+        }
+        self.window = window
+        let panel = try LayoutPanel()
+        self.panel = panel
+        for line in ["set by onLaunched", "A second line, longer than the first one", "Third"] {
+            guard let text = WinUIObject(adopting: actionUIWinUITextBlockCreate()) else {
+                throw WinUIError.last("creating a text block")
+            }
+            guard actionUIWinUITextBlockSetText(text.pointer, line) else {
+                throw WinUIError.last("setting a text")
+            }
+            try panel.append(text)
+            texts.append(text)
+        }
+        // A vertical stack: as wide as its widest child, children one above the other.
+        panel.measure = { [unowned panel] available in
+            let sizes = panel.children.map { $0.measure(ActionUIWinUISize(width: available.width, height: .infinity)) }
+            let width = sizes.map(\.width).max() ?? 0
+            let height = sizes.map(\.height).reduce(0, +) + Smoke.spacing * Double(max(sizes.count - 1, 0))
+            return ActionUIWinUISize(width: width, height: height)
+        }
+        panel.arrange = { [unowned panel] finalSize in
+            var y = 0.0
+            var frames: [ActionUIWinUIRect] = []
+            for child in panel.children {
+                let size = child.measure(ActionUIWinUISize(width: finalSize.width, height: .infinity))
+                let frame = ActionUIWinUIRect(x: 0, y: y, width: size.width, height: size.height)
+                child.arrange(frame)
+                frames.append(frame)
+                y += size.height + Smoke.spacing
+            }
+            Smoke.shared.arranged = frames
+            Smoke.shared.layoutPasses += 1
+        }
+        guard actionUIWinUIWindowSetTitle(window.pointer, "ActionUI WinUI smoke test (Swift)"),
+              actionUIWinUIWindowSetContentSize(window.pointer, 480, 160),
+              actionUIWinUIWindowSetContent(window.pointer, panel.object.pointer),
+              actionUIWinUIWindowActivate(window.pointer) else {
+            throw WinUIError.last("setting up the window")
         }
     }
 
     func ran(_ job: String) {
         mainActorJobs.append(job)
         say("main actor job ran: \(job)")
-        if let text {
-            _ = actionUIWinUITextBlockSetText(text, "ActionUI on WinUI 3, from Swift: \(mainActorJobs.count) of 3 main-actor jobs")
+        if let first = texts.first {
+            _ = actionUIWinUITextBlockSetText(first.pointer, "ActionUI on WinUI 3, from Swift: \(mainActorJobs.count) of 3 main-actor jobs")
+            // A longer text: WinUI measures and arranges the panel again.
         }
     }
 
-    func render() {
-        guard let text else {
+    func describe(_ frame: ActionUIWinUIRect) -> String {
+        "(\(frame.x), \(frame.y), \(frame.width), \(frame.height))"
+    }
+
+    func checkAndRender() {
+        let placed = texts.map(\.layoutFrame)
+        framesMatch = !arranged.isEmpty && placed.count == arranged.count && zip(placed, arranged).allSatisfy { actual, expected in
+            abs(actual.x - expected.x) < 0.5 && abs(actual.y - expected.y) < 0.5
+                && abs(actual.width - expected.width) < 0.5 && abs(actual.height - expected.height) < 0.5
+        }
+        say("layout passes: \(layoutPasses)")
+        say("arranged by Swift: \(arranged.map(describe))")
+        say("placed by WinUI:   \(placed.map(describe))")
+        say("frames match: \(framesMatch)")
+        guard let panel else {
             finish()
             return
         }
-        let started = actionUIWinUIRenderToPNG(text, pngPath, { _, succeeded in
+        let started = actionUIWinUIRenderToPNG(panel.object.pointer, pngPath, { _, succeeded in
             MainActor.assumeIsolated { Smoke.shared.renderDone(succeeded) }
         }, nil)
         if !started {
@@ -97,15 +154,14 @@ final class Smoke {
         finish()
     }
 
-    /// Releases the window and the text, then quits; on the UI thread, before actionUIWinUIRun
-    /// returns.
+    /// Closes the window and lets go of every object, then quits; on the UI thread, before
+    /// actionUIWinUIRun returns.
     func finish() {
         if let window {
-            _ = actionUIWinUIWindowClose(window)
+            _ = actionUIWinUIWindowClose(window.pointer)
         }
-        actionUIWinUIRelease(text)
-        actionUIWinUIRelease(window)
-        text = nil
+        texts = []
+        panel = nil
         window = nil
         actionUIWinUIQuit()
     }
@@ -154,5 +210,6 @@ if !ran {
 actionUIWinUIShutdown()
 
 let size = fileSize(smoke.pngPath)
-print("smoke: run \(ran ? "ok" : "failed"), main-actor jobs \(smoke.mainActorJobs.count) of 3, rendered \(smoke.rendered ? "yes" : "no"), PNG \(size) bytes")
-exit(ran && smoke.mainActorJobs.count == 3 && smoke.rendered && size > 0 ? 0 : 1)
+print("smoke: panel objects still alive after the run: \(LayoutPanel.livePanelObjects)")
+print("smoke: run \(ran ? "ok" : "failed"), main-actor jobs \(smoke.mainActorJobs.count) of 3, frames match \(smoke.framesMatch ? "yes" : "no"), rendered \(smoke.rendered ? "yes" : "no"), PNG \(size) bytes")
+exit(ran && smoke.mainActorJobs.count == 3 && smoke.framesMatch && smoke.rendered && size > 0 ? 0 : 1)
