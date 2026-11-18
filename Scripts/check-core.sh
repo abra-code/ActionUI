@@ -1,10 +1,12 @@
 #!/bin/bash
 #
-# Scripts/check-core.sh - checks that the portable code in ActionUI/Core builds for Linux.
+# Scripts/check-core.sh - checks that the portable code (ActionUI/Core and ActionUIRendererShared)
+# builds for Linux.
 #
-# 1. Imports: every import line under ActionUI/Core and ActionUIAdwaita/Sources (the GTK renderer,
-#    built into the same module on Linux) follows the rule in check-core-imports.awk.
-# 2. Cross-build: builds ActionUI/Core alone (ACTIONUI_CORE_ONLY=1 selects that package) with a
+# 1. Imports: every import line under ActionUI/Core, ActionUIRendererShared/Sources (held to Core's
+#    rule) and ActionUIAdwaita/Sources (the GTK renderer, built into the same module on Linux)
+#    follows the rule in check-core-imports.awk.
+# 2. Cross-build: builds the portable code alone (ACTIONUI_CORE_ONLY=1 selects that package) with a
 #    Swift toolchain's static Linux SDK, so anything that needs full Foundation, SwiftUI, AppKit,
 #    UIKit, CoreGraphics or CoreFoundation fails to compile here, on the Mac.
 #
@@ -65,7 +67,7 @@ EOF_TOOLCHAINS
 }
 
 # Step 1: imports.
-checked_files="$(/usr/bin/find "$repo/ActionUI/Core" "$repo/ActionUIAdwaita/Sources" -name '*.swift' -type f | /usr/bin/sort)"
+checked_files="$(/usr/bin/find "$repo/ActionUI/Core" "$repo/ActionUIRendererShared/Sources" "$repo/ActionUIAdwaita/Sources" -name '*.swift' -type f | /usr/bin/sort)"
 case "$checked_files" in
     *"/ActionUI/Core/"*) ;;
     *)
@@ -92,7 +94,7 @@ if [ -z "$linux_swift" ] || [ ! -x "$linux_swift" ]; then
     exit 2
 fi
 scratch="${TMPDIR:-/tmp}/actionui-core-check"
-printf 'check-core: cross-building ActionUI/Core with %s (%s)\n' "$linux_swift" "$linux_sdk"
+printf 'check-core: cross-building the portable code with %s (%s)\n' "$linux_swift" "$linux_sdk"
 # --manifest-cache none: the check package's exclude list comes from the folder listing, and a
 # cached manifest would keep an old list (SwiftPM keys its cache on the manifest's text).
 ACTIONUI_CORE_ONLY=1 "$linux_swift" build --swift-sdk "$linux_sdk" --package-path "$repo" --scratch-path "$scratch" --manifest-cache none
