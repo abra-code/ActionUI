@@ -20,8 +20,8 @@ package final class WinUIWindow {
 
     package var windowUUID: String { windowModel.windowUUID }
 
-    /// The WinUI object of the root element: the window's content.
-    package var view: WinUIObject? { root?.view }
+    /// The root element's box (its WinUI object with its padding and frame): the window's content.
+    package var view: WinUIObject? { root?.outerView }
 
     /// Loads `json` (an ActionUI document) into the window model `windowUUID` and builds its tree.
     package static func load(json: String, windowUUID: String) throws -> WinUIWindow {

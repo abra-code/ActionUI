@@ -8,6 +8,8 @@
 #include <limits>
 
 #include <winrt/Windows.Foundation.Numerics.h>
+#include <winrt/Windows.UI.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
 
 namespace actionui_winui {
 
@@ -123,6 +125,26 @@ bool actionUIWinUIPanelInsertChild(ActionUIWinUIObject *panel, int32_t index, Ac
             return fail("panel insert child", "the index is out of range");
         }
         children.InsertAt(static_cast<uint32_t>(index), elementFrom(child));
+        return true;
+    });
+}
+
+bool actionUIWinUIPanelSetBackground(ActionUIWinUIObject *panel, const ActionUIWinUIColor *color) {
+    return guarded("panel set background", [&]() {
+        muxc::Panel typed = panelFrom(panel);
+        if (color == nullptr) {
+            typed.Background(nullptr);
+            return true;
+        }
+        auto channel = [](double value) {
+            double clamped = std::isfinite(value) ? (value < 0 ? 0.0 : (value > 1 ? 1.0 : value)) : 0.0;
+            return static_cast<uint8_t>(clamped * 255.0 + 0.5);
+        };
+        winrt::Windows::UI::Color wanted{channel(color->alpha), channel(color->red), channel(color->green), channel(color->blue)};
+        mux::Media::SolidColorBrush current = typed.Background().try_as<mux::Media::SolidColorBrush>();
+        if (current == nullptr || current.Color() != wanted) {
+            typed.Background(mux::Media::SolidColorBrush(wanted));
+        }
         return true;
     });
 }

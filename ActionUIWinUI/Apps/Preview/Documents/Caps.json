@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": { "background": "blue.opacity(0.1)" },
+      "children": [
+        { "type": "Text", "id": 3, "properties": { "text": "maxWidth 100", "frame": { "maxWidth": 100 }, "background": "orange.opacity(0.4)" } },
+        { "type": "Spacer", "id": 4 },
+        { "type": "Text", "id": 5, "properties": { "text": "end" } }
+      ]
+    },
+    { "type": "Text", "id": 6, "properties": { "text": "maxWidth 200, leading", "frame": { "maxWidth": 200, "alignment": "leading" }, "background": "mint.opacity(0.5)" } },
+    {
+      "type": "VStack",
+      "id": 7,
+      "properties": { "alignment": "leading", "frame": { "width": 150 }, "background": "gray.opacity(0.2)" },
+      "children": [
+        { "type": "Text", "id": 8, "properties": { "text": "220 wide in 150", "frame": { "width": 220 }, "background": "pink.opacity(0.4)" } }
+      ]
+    }
+  ]
+}

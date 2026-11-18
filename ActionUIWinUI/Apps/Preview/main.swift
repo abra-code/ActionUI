@@ -180,7 +180,8 @@ final class Preview {
 
     /// Prints the node's element and frame, then its children's, in document order.
     func report(_ node: RenderNode, indent: String) {
-        let frame = node.view?.layoutFrame ?? ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
+        // The box's frame in its parent: the element with its padding and frame, as SwiftUI reports one.
+        let frame = node.outerView?.layoutFrame ?? ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
         say("\(indent)\(node.element.type) \(node.element.id): (\(frame.x), \(frame.y), \(frame.width), \(frame.height))")
         for child in node.orderedChildren {
             report(child, indent: indent + "  ")

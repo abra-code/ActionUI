@@ -8,6 +8,10 @@
    the node dirty, and SyncScheduler syncs it again in its next flush.
  - Children are kept by element id (syncChildren): a child whose element stays keeps its node and
    its WinUI object; a new one gets a new node, synced right after its parent.
+ - The WinUI object sits in a ModifierBox (padding, frame, background); a parent lays out the box
+   (outerView).
+   How the element expands (its renderer's default, overridden per axis by a frame) is known from
+   its creation, since a parent lays out a new child before the child's first sync.
 */
 
 import Observation
@@ -24,6 +28,15 @@ package final class RenderNode {
     private(set) var renderer: any ActionUIWinUIRenderer.Type
     /// The element's WinUI object.
     package private(set) var view: WinUIObject!
+    /// The box around it, which applies padding and frame; nil if the shim could not make one.
+    private(set) var box: ModifierBox?
+    /// What a parent lays out: the box, else the object.
+    package var outerView: WinUIObject! { box?.panel.object ?? view }
+    /// How the element grows in a stack: the renderer's defaultExpansion, overridden per axis by a
+    /// frame (one with a maximum expands, a fixed one does not).
+    private(set) var expansion: Expansion = []
+    /// How far it grows in each axis when it expands: its frame's finite maximum, nil for no limit.
+    private(set) var caps: (horizontal: Int?, vertical: Int?) = (nil, nil)
 
     /// What the renderer keeps for this element instance beside its WinUI object (a stack's
     /// StackLayout), as on Linux.
@@ -66,6 +79,32 @@ package final class RenderNode {
             renderer = PlaceholderRenderer.self
             view = try? renderer.makeView(self)
         }
+        if let view {
+            do {
+                box = try ModifierBox(content: view)
+                box?.contentExpansion = renderer.defaultExpansion
+            } catch {
+                ActionUIModel.shared.logger.log("RenderNode: \(error); \(element.type) shows without padding or frame", .error)
+            }
+        }
+        // As sync computes it, untracked: a child is made during its parent's sync, whose
+        // observation would take these reads as the parent's.
+        let initial = UntrackedReads.perform { geometry }
+        expansion = Self.expansion(renderer.defaultExpansion, geometry: initial)
+        caps = (initial.frame.horizontal.cap, initial.frame.vertical.cap)
+    }
+
+    /// The element's padding and frame, from its current properties. A tracked read.
+    private var geometry: BoxGeometry {
+        BoxGeometry(BaseModifiers(ActionUIRegistry.shared.baseModifierProperties(properties, forElementType: element.type)))
+    }
+
+    private static func expansion(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
+        let frame = geometry.frameExpansion
+        var expansion: Expansion = []
+        if frame.horizontal ?? renderer.contains(.horizontal) { expansion.insert(.horizontal) }
+        if frame.vertical ?? renderer.contains(.vertical) { expansion.insert(.vertical) }
+        return expansion
     }
 
     // MARK: Syncing
@@ -73,8 +112,17 @@ package final class RenderNode {
     /// Makes the WinUI object show the model, and watches what that read.
     func sync() {
         guard isAttached, let view else { return }
+        var expansionChanged = false
         withObservationTracking {
             renderer.update(view, self)
+            let geometry = geometry
+            box?.contentExpansion = renderer.defaultExpansion
+            box?.update(geometry)
+            let newExpansion = Self.expansion(renderer.defaultExpansion, geometry: geometry)
+            let newCaps = (geometry.frame.horizontal.cap, geometry.frame.vertical.cap)
+            expansionChanged = newExpansion != expansion || newCaps != caps
+            expansion = newExpansion
+            caps = newCaps
         } onChange: { [weak self] in
             // The model is main-actor isolated, so changes, and this call, happen on the main
             // thread, before the new value is stored.
@@ -82,6 +130,10 @@ package final class RenderNode {
                 guard let self else { return }
                 SyncScheduler.shared.markDirty(self)
             }
+        }
+        // The parent laid this node out with its old expansion or caps.
+        if expansionChanged, let parent {
+            SyncScheduler.shared.markDirty(parent)
         }
         let created = unsyncedChildren
         unsyncedChildren = []

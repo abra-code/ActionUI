@@ -231,6 +231,17 @@ ACTIONUI_WINUI_API bool actionUIWinUIPanelInsertChild(ActionUIWinUIObject *panel
                                                       ActionUIWinUIObject *child);
 ACTIONUI_WINUI_API bool actionUIWinUIPanelRemoveChild(ActionUIWinUIObject *panel, int32_t index);
 
+// A color: red, green, blue and alpha, each from 0 to 1 (sRGB).
+typedef struct ActionUIWinUIColor {
+    double red;
+    double green;
+    double blue;
+    double alpha;
+} ActionUIWinUIColor;
+
+// Fills the panel's area with `color` behind its children; NULL removes the fill.
+ACTIONUI_WINUI_API bool actionUIWinUIPanelSetBackground(ActionUIWinUIObject *panel, const ActionUIWinUIColor *color);
+
 // In a measure callback: measures `element` with the size offered and returns the size it wants
 // (its DesiredSize). {0, 0} on failure.
 ACTIONUI_WINUI_API ActionUIWinUISize actionUIWinUIElementMeasure(ActionUIWinUIObject *element,

@@ -1,0 +1,25 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16, "background": "gray.opacity(0.15)" },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "padding 12 on yellow", "padding": 12, "background": "yellow" } },
+    { "type": "Text", "id": 3, "properties": { "text": "a fixed 220 x 40 frame", "frame": { "width": 220, "height": 40 }, "background": "mint" } },
+    {
+      "type": "Text",
+      "id": 4,
+      "properties": { "text": "maxWidth infinity, leading", "frame": { "maxWidth": "infinity", "alignment": "leading" }, "background": "orange.opacity(0.4)" }
+    },
+    {
+      "type": "HStack",
+      "id": 5,
+      "properties": { "background": "blue.opacity(0.1)" },
+      "children": [
+        { "type": "Text", "id": 6, "properties": { "text": "padded", "padding": 8, "background": "blue.opacity(0.3)" } },
+        { "type": "Spacer", "id": 7 },
+        { "type": "Text", "id": 8, "properties": { "text": "w 80", "frame": { "width": 80 }, "background": "pink.opacity(0.4)" } }
+      ]
+    },
+    { "type": "Button", "id": 9, "properties": { "title": "A button with padding 6", "padding": 6, "background": "green.opacity(0.3)" } }
+  ]
+}
