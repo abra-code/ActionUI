@@ -184,6 +184,15 @@ class PlatformFilterTest {
     }
 
     @Test
+    fun `a windows variant is dropped without a warning`() {
+        // windows is a known platform, not a typo.
+        val logger = CapturingLogger()
+        val filter = PlatformFilter(setOf("android"), logger)
+        filter.filter(parse("""{"tint:windows":"blue"}"""))
+        assertTrue("Expected no warnings, got: ${logger.warnings}", logger.warnings.isEmpty())
+    }
+
+    @Test
     fun `multiple unknown suffixes each produce one warning`() {
         val logger = CapturingLogger()
         val filter = PlatformFilter(setOf("android"), logger)
@@ -250,7 +259,7 @@ class PlatformFilterTest {
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",
             "desktop", "web",
-            "linux"
+            "linux", "windows"
         )
         assertEquals(expected, PlatformFilter.ALL_PLATFORMS)
     }

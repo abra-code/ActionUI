@@ -492,9 +492,11 @@ final class ActionUIModelInsertionTests: XCTestCase {
     // macOS, iOS, tvOS, etc. (The macOS-only specificity test is guarded below.)
 
     // The value the platform suffix this runtime is on picks: "text:apple" on Apple, "text:linux"
-    // on Linux (PlatformFilter.runtimeActiveSet).
+    // on Linux, "text:windows" on Windows (PlatformFilter.runtimeActiveSet).
     #if os(Linux)
     private let platformValue = "linux-value"
+    #elseif os(Windows)
+    private let platformValue = "windows-value"
     #else
     private let platformValue = "apple-value"
     #endif
@@ -507,6 +509,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
                 "text": "base",
                 "text:apple": "apple-value",
                 "text:linux": "linux-value",
+                "text:windows": "windows-value",
                 "text:android": "android-value",
             ],
         ]
@@ -528,7 +531,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
 
     func testInsertElementViaJSONStringResolvesPlatformSuffix() throws {
         try loadVStack(id: 1)
-        let json = #"{"id": 30, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:linux": "linux-value", "text:android": "android-value"}}"#
+        let json = #"{"id": 30, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:linux": "linux-value", "text:windows": "windows-value", "text:android": "android-value"}}"#
         _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, json: json)
 
         let inserted = firstInsertedChild(of: 1)
@@ -546,7 +549,7 @@ final class ActionUIModelInsertionTests: XCTestCase {
             "type": "VStack",
             "properties": {},
             "children": [
-                {"id": 20, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:linux": "linux-value", "text:android": "android-value"}}
+                {"id": 20, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:linux": "linux-value", "text:windows": "windows-value", "text:android": "android-value"}}
             ]
         }
         """

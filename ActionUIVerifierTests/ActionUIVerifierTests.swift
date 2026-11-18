@@ -139,6 +139,15 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
     #expect(try issues(["type:ios": "Text"], platform: "macos") == ["[ERROR] doc: no 'type' variant applies to target platform 'macos'"])
 }
 
+/// "windows" is a known platform suffix: no unknown-suffix issue on any target, and deployed to
+/// windows it is the text.
+@Test func windowsVariantIsKnown() throws {
+    let document: JSONValue = ["type": "Text", "properties": ["text": "x", "text:windows": "winui"]]
+    #expect(try issues(document, platform: "ios") == [])
+    #expect(try issues(document, platform: "windows") == [])
+    #expect(try issues(document, platform: nil) == [])
+}
+
 /// The runtime leaves out a child typed only for other platforms, so deployed elsewhere it is not
 /// checked: not even its properties or its id, which may repeat a shown element's.
 @Test func childTypedOnlyForOtherPlatformsIsSkipped() throws {

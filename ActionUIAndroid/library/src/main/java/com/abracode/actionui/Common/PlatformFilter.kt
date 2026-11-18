@@ -92,7 +92,7 @@ class PlatformFilter(
 
     companion object {
         /**
-         * Every recognized platform token across Apple, Android, Linux, and (reserved)
+         * Every recognized platform token across Apple, Android, Linux, Windows, and (reserved)
          * cross-platform targets. Must match `PlatformFilter.allPlatforms` in
          * the Swift port - both filters must agree on which suffixes are
          * platform tokens vs unknown/typos.
@@ -101,7 +101,7 @@ class PlatformFilter(
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",
             "desktop", "web",
-            "linux"
+            "linux", "windows"
         )
 
         /**

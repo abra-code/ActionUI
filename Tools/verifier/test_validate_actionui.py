@@ -329,6 +329,14 @@ class DeploymentModeTests(unittest.TestCase):
         self.assertEqual(_validate(doc, platform="linux"), [])
         self.assertEqual(_validate(doc), [])
 
+    def test_windows_variant_is_known(self):
+        # text:windows is a known platform suffix: no unknown-suffix issue on any target, and on
+        # windows it is the text.
+        doc = {"type": "Text", "properties": {"text": "x", "text:windows": "winui"}}
+        self.assertEqual(_validate(doc, platform="ios"), [])
+        self.assertEqual(_validate(doc, platform="windows"), [])
+        self.assertEqual(_validate(doc), [])
+
     def test_umbrella_suffix_applies_to_member_platform(self):
         # weight:android applies to androidtv via the android umbrella.
         doc = {"type": "Text", "properties": {"text": "x", "weight:android": 1}}

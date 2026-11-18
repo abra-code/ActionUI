@@ -48,13 +48,15 @@ public struct ValidationIssue: Sendable, Equatable, CustomStringConvertible {
 /// Mirrors ActionUI/Common/PlatformFilter.swift and verifier/platform_filter.py.
 enum Platforms {
     static let all: Set<String> = ["ios", "macos", "tvos", "watchos", "visionos", "apple",
-                                   "android", "androidtv", "wear", "desktop", "web", "linux"]
+                                   "android", "androidtv", "wear", "desktop", "web", "linux",
+                                   "windows"]
     static let families: [String: Set<String>] = [
         "apple": ["apple", "ios", "macos", "tvos", "watchos", "visionos"],
         "android": ["android", "androidtv", "wear"],
         "desktop": ["desktop"],
         "web": ["web"],
         "linux": ["linux"],
+        "windows": ["windows"],
     ]
 
     /// Splits a key on its last colon: ("text:ios") -> ("text", "ios").

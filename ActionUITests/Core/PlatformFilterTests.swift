@@ -143,6 +143,18 @@ final class PlatformFilterTests: XCTestCase {
         XCTAssertEqual(try canonicalJSON(PlatformFilter(active: ["linux"], logger: logger).filter(parsed)), #"{"text":"gtk"}"#)
     }
 
+    // MARK: - windows
+
+    // "windows" is a known platform: elsewhere a windows variant is dropped without a warning, and
+    // on Windows it wins over the unsuffixed key.
+    func testWindowsVariantIsDroppedQuietlyElsewhereAndUsedOnWindows() throws {
+        let logger = CapturingLogger()
+        let parsed = try parseDict(#"{"text":"base","text:windows":"winui"}"#)
+        XCTAssertEqual(try canonicalJSON(PlatformFilter(active: ["linux"], logger: logger).filter(parsed)), #"{"text":"base"}"#)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertEqual(try canonicalJSON(PlatformFilter(active: ["windows"], logger: logger).filter(parsed)), #"{"text":"winui"}"#)
+    }
+
     // MARK: - Unknown suffix → warn + drop
 
     func testUnknownSuffixIsDroppedWithWarning() throws {
@@ -240,10 +252,10 @@ final class PlatformFilterTests: XCTestCase {
 
     func testRuntimeActiveSetIsNonEmptyOnSupportedPlatforms() throws {
         // PlatformFilter.runtimeActiveSet is computed from compile-time platform
-        // flags; on any platform the tests can run on (Apple), it should be non-empty.
+        // flags; on any platform the tests can run on (Apple, Linux, Windows), it is non-empty.
         XCTAssertFalse(
             PlatformFilter.runtimeActiveSet.isEmpty,
-            "runtimeActiveSet must be non-empty on a supported Apple platform"
+            "runtimeActiveSet must be non-empty on a supported platform"
         )
     }
 
@@ -262,7 +274,7 @@ final class PlatformFilterTests: XCTestCase {
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",
             "desktop", "web",
-            "linux"
+            "linux", "windows"
         ]
         XCTAssertEqual(PlatformFilter.allPlatforms, expected)
     }

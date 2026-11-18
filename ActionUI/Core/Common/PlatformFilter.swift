@@ -115,7 +115,7 @@ public struct PlatformFilter {
 
     // MARK: - Token table
 
-    /// Every recognized platform token across Apple, Android, Linux, and (reserved)
+    /// Every recognized platform token across Apple, Android, Linux, Windows, and (reserved)
     /// cross-platform targets. Must match `PlatformFilter.Companion.ALL_PLATFORMS`
     /// in the Kotlin port — both filters must agree on which suffixes are
     /// platform tokens vs unknown/typos.
@@ -123,7 +123,7 @@ public struct PlatformFilter {
         "ios", "macos", "tvos", "watchos", "visionos", "apple",
         "android", "androidtv", "wear",
         "desktop", "web",
-        "linux"
+        "linux", "windows"
     ]
 
     // MARK: - Runtime-active set
@@ -144,6 +144,8 @@ public struct PlatformFilter {
             return ["visionos", "apple"]
         #elseif os(Linux)
             return ["linux"]
+        #elseif os(Windows)
+            return ["windows"]
         #else
             return []
         #endif

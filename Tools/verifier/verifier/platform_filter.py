@@ -22,7 +22,7 @@ ALL_PLATFORMS: frozenset[str] = frozenset({
     "ios", "macos", "tvos", "watchos", "visionos", "apple",
     "android", "androidtv", "wear",
     "desktop", "web",
-    "linux",
+    "linux", "windows",
 })
 
 
@@ -54,6 +54,7 @@ PLATFORM_FAMILIES: dict[str, frozenset[str]] = {
     "desktop": frozenset({"desktop"}),
     "web":     frozenset({"web"}),
     "linux":   frozenset({"linux"}),
+    "windows": frozenset({"windows"}),
 }
 
 
