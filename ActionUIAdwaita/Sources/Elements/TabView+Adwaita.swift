@@ -1,8 +1,14 @@
 // Sources/Elements/TabView+Adwaita.swift
 /*
- TabView on GTK: an AdwViewStack under an AdwViewSwitcher, libadwaita's tabs (the switcher above
- the pages, where macOS draws its tab buttons). Each child is a Tab: its title, its systemImage
+ TabView on GTK: an AdwViewStack under a switcher, libadwaita's tabs (the switcher above the
+ pages, where macOS draws its tab buttons). Each child is a Tab: its title, its systemImage
  (SymbolNames) and its badge label the switcher's button; its "content" is the page.
+
+ - The switcher: when no tab has a systemImage, an AdwInlineViewSwitcher showing the titles only
+   (libadwaita 1.7), as macOS draws a TabView's tabs, which shrinks its labels when the row is too
+   narrow; when any tab has one, an AdwViewSwitcher with each tab's symbol beside its title (a tab
+   without one gets a question mark, Apple's placeholder for a tab item with no image). The kind
+   follows the tabs when their systemImage properties change.
 
  - The value, as on Apple, is the selected tab's index (initially the selection property); the
    user's choice stores it and fires actionID with the index as context; a host's write switches.
@@ -16,16 +22,22 @@ import CAdwaita
 /// The widgets of a TabView, kept on its box.
 @MainActor
 final class TabViewParts {
+    let box: WidgetPointer
     let stack: OpaquePointer
-    let switcher: WidgetPointer
+    var switcher: WidgetPointer
+    /// Whether the switcher shows the tabs' symbols (an AdwViewSwitcher) or their titles only (an
+    /// AdwInlineViewSwitcher).
+    var showsSymbols: Bool
     /// The page of each tab's content, by the content's element id.
     var pages: [Int: OpaquePointer] = [:]
     /// The content element id of each tab, in order: the page names follow the index.
     var contentIDs: [Int] = []
 
-    init(stack: OpaquePointer, switcher: WidgetPointer) {
+    init(box: WidgetPointer, stack: OpaquePointer, switcher: WidgetPointer, showsSymbols: Bool) {
+        self.box = box
         self.stack = stack
         self.switcher = switcher
+        self.showsSymbols = showsSymbols
     }
 }
 
@@ -40,16 +52,12 @@ extension TabView: ActionUIAdwaitaRenderer {
         // Fills what it is offered, as SwiftUI's does.
         gtk_widget_set_hexpand(box, 1)
         gtk_widget_set_vexpand(box, 1)
-        let switcher = adw_view_switcher_new()!
-        adw_view_switcher_set_policy(OpaquePointer(switcher), ADW_VIEW_SWITCHER_POLICY_WIDE)
-        adw_view_switcher_set_stack(OpaquePointer(switcher), OpaquePointer(stack))
-        gtk_widget_set_halign(switcher, GTK_ALIGN_CENTER)
-        gtk_widget_set_margin_top(switcher, 6)
-        gtk_widget_set_margin_bottom(switcher, 6)
+        let showsSymbols = tabsHaveSymbols(node)
+        let switcher = makeSwitcher(showsSymbols: showsSymbols, stack: OpaquePointer(stack))
         gtk_widget_set_vexpand(stack, 1)
         gtk_box_append(typed(box), switcher)
         gtk_box_append(typed(box), stack)
-        let parts = TabViewParts(stack: OpaquePointer(stack), switcher: switcher)
+        let parts = TabViewParts(box: box, stack: OpaquePointer(stack), switcher: switcher, showsSymbols: showsSymbols)
         attach(parts, to: box, key: tabViewPartsKey)
         connectUserSignal(stack, "notify::visible-child-name", .instanceAndArgument) { [weak node] in
             guard let node else { return }
@@ -60,6 +68,45 @@ extension TabView: ActionUIAdwaitaRenderer {
 
     /// The page name of the tab at `index`.
     static func pageName(_ index: Int) -> String { "tab-\(index)" }
+
+    /// Whether any of the TabView's tabs has a systemImage (the current value of the property).
+    private static func tabsHaveSymbols(_ node: RenderNode) -> Bool {
+        let tabs = node.effectiveElement.subviews?["children"] as? [any ActionUIElementBase] ?? []
+        return tabs.contains { tab in
+            let properties = node.windowModel.viewModels[tab.id].map { ActionUIRegistry.shared.currentProperties(element: tab, model: $0) } ?? tab.properties
+            return !((properties["systemImage"] as? String) ?? "").isEmpty
+        }
+    }
+
+    /// The switcher for `stack`: symbols and titles, or the titles only (see the header).
+    private static func makeSwitcher(showsSymbols: Bool, stack: OpaquePointer) -> WidgetPointer {
+        let switcher: WidgetPointer
+        if showsSymbols {
+            switcher = adw_view_switcher_new()!
+            adw_view_switcher_set_policy(OpaquePointer(switcher), ADW_VIEW_SWITCHER_POLICY_WIDE)
+            adw_view_switcher_set_stack(OpaquePointer(switcher), stack)
+        } else {
+            switcher = adw_inline_view_switcher_new()!
+            adw_inline_view_switcher_set_display_mode(OpaquePointer(switcher), ADW_INLINE_VIEW_SWITCHER_LABELS)
+            adw_inline_view_switcher_set_can_shrink(OpaquePointer(switcher), 1)
+            adw_inline_view_switcher_set_stack(OpaquePointer(switcher), stack)
+        }
+        gtk_widget_set_halign(switcher, GTK_ALIGN_CENTER)
+        gtk_widget_set_margin_top(switcher, 6)
+        gtk_widget_set_margin_bottom(switcher, 6)
+        return switcher
+    }
+
+    /// Puts the other kind of switcher in place when the tabs gained or lost their symbols.
+    private static func updateSwitcherKind(_ parts: TabViewParts, _ node: RenderNode) {
+        let showsSymbols = tabsHaveSymbols(node)
+        guard showsSymbols != parts.showsSymbols else { return }
+        let replacement = makeSwitcher(showsSymbols: showsSymbols, stack: parts.stack)
+        gtk_box_insert_child_after(typed(parts.box), replacement, parts.switcher)
+        gtk_box_remove(typed(parts.box), parts.switcher)
+        parts.switcher = replacement
+        parts.showsSymbols = showsSymbols
+    }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
         guard let parts = attached(on: widget, key: tabViewPartsKey) else { return }
@@ -85,6 +132,7 @@ extension TabView: ActionUIAdwaitaRenderer {
         })
 
         // The switcher's buttons: each Tab's title, symbol and badge.
+        updateSwitcherKind(parts, node)
         for tab in tabs {
             guard let content = tab.subviews?["content"] as? any ActionUIElementBase,
                   let page = parts.pages[content.id] else { continue }

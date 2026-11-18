@@ -1,9 +1,10 @@
 // Tests/Elements/TabViewRendererTests.swift
 /*
- Tests for TabView on GTK: each Tab's content is a page of an AdwViewStack under an AdwViewSwitcher,
- its title, symbol and badge on the switcher's button; the selection property and the value pick
- the page, a host's write switches it; the user's choice stores the index and fires actionID with
- it; a changed list of tabs rebuilds the pages.
+ Tests for TabView on GTK: each Tab's content is a page of an AdwViewStack under a switcher, its
+ title, symbol and badge on the switcher's button; tabs with no symbol at all get a titles-only
+ switcher, and gaining or losing one swaps the kind in place; the selection property and the value
+ pick the page, a host's write switches it; the user's choice stores the index and fires actionID
+ with it; a changed list of tabs rebuilds the pages.
 */
 
 import XCTest
@@ -67,6 +68,62 @@ final class TabViewRendererTests: XCTestCase {
         let news = try XCTUnwrap(parts.pages[40])
         XCTAssertNotEqual(adw_view_stack_page_get_needs_attention(news), 0, "a text badge needs attention")
         XCTAssertEqual(swiftString(adw_view_stack_page_get_icon_name(news)), SymbolNames.iconName("questionmark"), "no symbol: a question mark")
+    }
+
+    private static let titlesOnly = #"""
+        {"type": "TabView", "id": 1, "children": [
+            {"type": "Tab", "id": 2, "properties": {"title": "Name"},
+             "content": {"type": "Text", "id": 20, "properties": {"text": "Name page"}}},
+            {"type": "Tab", "id": 3, "properties": {"title": "Content"},
+             "content": {"type": "Text", "id": 30, "properties": {"text": "Content page"}}}
+        ]}
+        """#
+
+    private func isA(_ widget: WidgetPointer, _ type: GType) -> Bool {
+        g_type_check_instance_is_a(UnsafeMutablePointer<GTypeInstance>(OpaquePointer(widget)), type) != 0
+    }
+
+    private func children(of widget: WidgetPointer) -> [WidgetPointer] {
+        var result: [WidgetPointer] = []
+        var child = gtk_widget_get_first_child(widget)
+        while let current = child {
+            result.append(current)
+            child = gtk_widget_get_next_sibling(current)
+        }
+        return result
+    }
+
+    func testTabsWithASymbolGetTheSymbolSwitcher() throws {
+        let parts = try parts(render(Self.document))
+        XCTAssertTrue(parts.showsSymbols)
+        XCTAssertTrue(isA(parts.switcher, adw_view_switcher_get_type()))
+    }
+
+    func testTitleOnlyTabsGetATitlesSwitcherAsOnMacOS() throws {
+        let parts = try parts(render(Self.titlesOnly))
+        XCTAssertFalse(parts.showsSymbols)
+        XCTAssertTrue(isA(parts.switcher, adw_inline_view_switcher_get_type()))
+        XCTAssertEqual(adw_inline_view_switcher_get_display_mode(OpaquePointer(parts.switcher)), ADW_INLINE_VIEW_SWITCHER_LABELS)
+        XCTAssertNotEqual(adw_inline_view_switcher_get_can_shrink(OpaquePointer(parts.switcher)), 0)
+        XCTAssertTrue(adw_inline_view_switcher_get_stack(OpaquePointer(parts.switcher)) == parts.stack)
+    }
+
+    func testASymbolGainedOrLostSwapsTheSwitcherInPlace() throws {
+        let node = try render(Self.titlesOnly)
+        let parts = try parts(node)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "systemImage", value: "gear")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertTrue(parts.showsSymbols)
+        XCTAssertTrue(isA(parts.switcher, adw_view_switcher_get_type()))
+        XCTAssertTrue(adw_view_switcher_get_stack(OpaquePointer(parts.switcher)) == parts.stack)
+        XCTAssertEqual(children(of: parts.box).count, 2, "the old switcher is gone")
+        XCTAssertTrue(children(of: parts.box).first == parts.switcher, "above the pages")
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 3, propertyName: "systemImage", value: "")
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertFalse(parts.showsSymbols)
+        XCTAssertTrue(isA(parts.switcher, adw_inline_view_switcher_get_type()))
+        XCTAssertEqual(children(of: parts.box).count, 2)
+        XCTAssertTrue(children(of: parts.box).first == parts.switcher)
     }
 
     func testTheSelectionPicksThePageAndAHostsWriteSwitchesIt() throws {
