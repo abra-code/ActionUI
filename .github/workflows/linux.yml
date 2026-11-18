@@ -1,6 +1,7 @@
-# Linux: builds ActionUI's Linux package (the core and the GTK 4 / libadwaita renderer) and runs its
-# tests that need no display, in an Ubuntu 26.04 container: the renderer targets Ubuntu 26.04's GTK
-# and libadwaita, which the stock runner images are older than. The steps are in Scripts/ci-linux.sh.
+# Linux: builds ActionUI's Linux package (the core and the GTK 4 / libadwaita renderer), runs its
+# tests that need no display, then the renderer tests on a headless GNOME display (Mutter), in an
+# Ubuntu 26.04 container: the renderer targets Ubuntu 26.04's GTK and libadwaita, which the stock
+# runner images are older than. The steps are in Scripts/ci-linux.sh.
 #
 # Runs on pushes to every branch (branches that merge main run it too) and on pull requests,
 # except when only documentation changed.
@@ -63,3 +64,9 @@ jobs:
 
       - name: Test
         run: Scripts/ci-linux.sh test
+
+      - name: Install the headless display and media
+        run: Scripts/ci-linux.sh install-gui
+
+      - name: Test the renderer on a headless display
+        run: Scripts/ci-linux.sh test-gui

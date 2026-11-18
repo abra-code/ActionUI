@@ -29,14 +29,23 @@ final class ColorRGBATests: XCTestCase {
         for name in ColorName.allCases {
             StyleSheet.shared.apply(["color: \(ColorCSS.value(name));"], to: probe, slot: "probe")
             AdwaitaTestHost.drainMainLoop()
-            var css = GdkRGBA()
-            gtk_widget_get_color(probe, &css)
+            var resolved = GdkRGBA()
+            gtk_widget_get_color(probe, &resolved)
+            // As GTK paints it: a CSS color outside sRGB is painted clamped to it. libadwaita's
+            // standalone orange accent (Ubuntu's default where the desktop sets none) has a blue of
+            // -0.29 in light mode in CSS, and is painted, and given by ColorRGBA, with a blue of 0.
+            let css = GdkRGBA(red: Self.clamped(resolved.red), green: Self.clamped(resolved.green),
+                              blue: Self.clamped(resolved.blue), alpha: Self.clamped(resolved.alpha))
             // secondary is the text color around it at an opacity: the probe's parent's.
             let drawn = ColorRGBA.resolve(name, for: parent)
             let close = abs(css.red - drawn.red) < 0.01 && abs(css.green - drawn.green) < 0.01
                 && abs(css.blue - drawn.blue) < 0.01 && abs(css.alpha - drawn.alpha) < 0.01
             XCTAssertTrue(close, "\(name): CSS \(css), drawn \(drawn)")
         }
+    }
+
+    private static func clamped(_ value: Float) -> Float {
+        min(max(value, 0), 1)
     }
 
     func testComponentsAndOpacitiesCarryOver() throws {
