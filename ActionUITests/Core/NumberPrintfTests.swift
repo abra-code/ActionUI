@@ -34,6 +34,6 @@ final class NumberPrintfTests: XCTestCase {
     func testAFormatSplitsAroundItsConversion() {
         XCTAssertEqual(NumberPrintf.parse("100%% at %+.1f%% now"),
                        NumberPrintf.Parsed(prefix: "100% at ", conversion: "%+.1f", suffix: "% now", isInteger: false))
-        XCTAssertEqual(NumberPrintf.parse("%05d"), NumberPrintf.Parsed(prefix: "", conversion: "%05ld", suffix: "", isInteger: true))
+        XCTAssertEqual(NumberPrintf.parse("%05d"), NumberPrintf.Parsed(prefix: "", conversion: "%05lld", suffix: "", isInteger: true))
     }
 }

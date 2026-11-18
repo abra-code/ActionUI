@@ -34,8 +34,9 @@ import Musl
 
 enum NumberPrintf {
     /// A format split around its one conversion: the text before and after it ("%%" already "%"),
-    /// the conversion as the C format to pass to vsnprintf (an integer one with the "l" length
-    /// modifier), and whether it takes an integer.
+    /// the conversion as the C format to pass to vsnprintf (an integer one with the "ll" length
+    /// modifier, for the Int64 it is given: "l" is 32 bits on Windows), and whether it takes an
+    /// integer.
     struct Parsed: Equatable {
         var prefix: String
         var conversion: String
@@ -57,7 +58,7 @@ enum NumberPrintf {
         let number: String?
         if parsed.isInteger {
             guard value.isFinite, let integer = Int64(exactly: value.rounded(.towardZero)) else { return nil }
-            number = printf(parsed.conversion, Int(integer))
+            number = printf(parsed.conversion, integer)
         } else if value.isNaN {
             // No sign for NaN, where C libraries differ (glibc prints "+nan" for "%+f" and "-nan" for a
             // negative NaN, Darwin "nan" for both).
@@ -137,7 +138,7 @@ enum NumberPrintf {
             guard index < scalars.count, "difFeEgG".unicodeScalars.contains(scalars[index]) else { return nil }
             isInteger = scalars[index] == "d" || scalars[index] == "i"
             if isInteger {
-                spec.append("l")
+                spec.append(contentsOf: "ll".unicodeScalars)
             }
             spec.append(scalars[index])
             index += 1
