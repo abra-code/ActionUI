@@ -7,6 +7,9 @@
 #   import Foundation             directly after an #else that follows that import
 #   import Darwin / Glibc / Musl  in Lock.swift (its C library mutex) and NumberPrintf.swift
 #                                 (vsnprintf) only
+#   import WinSDK                 in Lock.swift only (its Windows lock, SRWLOCK)
+#   import ucrt                   in NumberPrintf.swift only (the Microsoft C runtime's
+#                                 locale-taking printf)
 #   import CAdwaita, import CLinkedAddOns, import CSoup, import CSymbolResource, import Glibc in the GTK renderer, which
 #   builds only on Linux
 # Anything else is reported as "file:line: message", and the exit status is 1.
@@ -52,6 +55,10 @@ FNR == 1 {
             ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
             ok = (FILENAME ~ /(^|\/)(Lock|NumberPrintf)\.swift$/)
+        } else if (module == "WinSDK") {
+            ok = (FILENAME ~ /(^|\/)Lock\.swift$/)
+        } else if (module == "ucrt") {
+            ok = (FILENAME ~ /(^|\/)NumberPrintf\.swift$/)
         }
         if (!ok) {
             printf "%s:%d: import %s is not allowed in %s\n", FILENAME, FNR, module, (renderer ? "the GTK renderer" : "Core")

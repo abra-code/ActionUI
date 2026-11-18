@@ -30,6 +30,8 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
+#elseif os(Windows)
+import ucrt
 #endif
 
 enum NumberPrintf {
@@ -50,7 +52,11 @@ enum NumberPrintf {
     static let maxLength = 4096
 
     /// The C locale for numbers, which vsnprintf formats in whatever locale the process is in.
+    #if os(Windows)
+    nonisolated(unsafe) private static let cLocale = _create_locale(LC_NUMERIC, "C")
+    #else
     nonisolated(unsafe) private static let cLocale = newlocale(Int32(1) << LC_NUMERIC, "C", nil)
+    #endif
 
     /// `format` with `value` in it, or nil when the format is refused.
     static func format(_ format: String, _ value: Double, decimalSeparator: String = systemDecimalSeparator) -> String? {
@@ -154,14 +160,23 @@ enum NumberPrintf {
     }
 
     /// vsnprintf in the C locale, twice: for the length, then the text (a va_list is used once).
+    /// On Windows the Microsoft C runtime's variants that take the locale as an argument.
     private static func printf(_ format: String, _ argument: CVarArg) -> String? {
+        #if os(Windows)
+        let length = withVaList([argument]) { _vscprintf_l(format, cLocale, $0) }
+        #else
         let previous = uselocale(cLocale)
         defer { uselocale(previous) }
         let length = withVaList([argument]) { vsnprintf(nil, 0, format, $0) }
+        #endif
         guard length >= 0 else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(length) + 1)
         let written = buffer.withUnsafeMutableBufferPointer { bytes in
+            #if os(Windows)
+            withVaList([argument]) { _vsnprintf_l(bytes.baseAddress, bytes.count, format, cLocale, $0) }
+            #else
             withVaList([argument]) { vsnprintf(bytes.baseAddress, bytes.count, format, $0) }
+            #endif
         }
         guard written == length else { return nil }
         return String(decoding: buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
