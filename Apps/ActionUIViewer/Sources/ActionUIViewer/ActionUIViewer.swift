@@ -200,8 +200,21 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         var hideWindow = false
 
         let args = CommandLine.arguments
+        // An option that needs a value and has none, an unknown option, or a second document is
+        // refused, as the Linux viewer does: taken as the document or ignored, a mistyped option
+        // left the window open waiting, or loaded the option's text as a file.
+        func refuse(_ message: String) {
+            print("Error: \(message)")
+            printUsage()
+            NSApp.terminate(nil)
+        }
+        let optionsWithValues: Set<String> = ["--screenshot", "--method", "--screenshot-delay"]
         var i = 1
         while i < args.count {
+            if optionsWithValues.contains(args[i]) && i + 1 >= args.count {
+                refuse("\(args[i]) needs a value")
+                return
+            }
             switch args[i] {
             case "-h", "--help":
                 printUsage()
@@ -242,9 +255,15 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                     screenshotDelay = seconds
                 }
             default:
-                if jsonFilePath == nil {
-                    jsonFilePath = args[i]
+                if args[i].hasPrefix("-") && args[i] != "-" {
+                    refuse("unknown option \(args[i])")
+                    return
                 }
+                guard jsonFilePath == nil else {
+                    refuse("more than one document given (\(args[i]))")
+                    return
+                }
+                jsonFilePath = args[i]
             }
             i += 1
         }
@@ -262,8 +281,12 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         
         var url: URL
         var displayTitle: String
+        // The downloaded copy of a remote document, removed once it has been read.
+        var downloadedFile: URL?
         
-        if pathOrUrl.hasPrefix("http://") || pathOrUrl.hasPrefix("https://") {
+        // A URL scheme is not case-sensitive: "HTTPS://" is a remote address, not a file path.
+        let lowercased = pathOrUrl.lowercased()
+        if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://") {
             guard let parsedUrl = URL(string: pathOrUrl) else {
                 print("Error: Invalid URL: \(pathOrUrl)")
                 NSApp.terminate(nil)
@@ -286,6 +309,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 let tempFile = tempDir.appendingPathComponent("remote_\(UUID().uuidString).json")
                 try data.write(to: tempFile)
                 url = tempFile
+                downloadedFile = tempFile
                 print("Saved remote JSON to temp file: \(tempFile.path)")
             } catch {
                 print("Error fetching remote JSON: \(error)")
@@ -331,6 +355,11 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.delegate = self
         
         let hostingController = ActionUISwift.loadHostingController(from: url, windowUUID: windowUUID, isContentView: true)
+        // The document was read when the view was made (FileLoadableView reads in its init), so
+        // the downloaded copy is not needed any more; left in place it collected one per run.
+        if let downloadedFile {
+            try? FileManager.default.removeItem(at: downloadedFile)
+        }
         window.contentView = hostingController.view
         // layoutSize is the area the document lays out in. The content view spans the titlebar,
         // so add the titlebar's height; the layout pass first, so that a SwiftUI toolbar, which
