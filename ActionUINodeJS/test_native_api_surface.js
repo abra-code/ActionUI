@@ -420,6 +420,38 @@ function testNullClearing() {
     }
 }
 
+// Strings past the old fixed buffers arrive whole: window ids were cut at 127 bytes, text at
+// 4095 and JSON at 65535, so a table above 64 KB never arrived (threat model B-F10).
+function testLongValuesArriveWhole() {
+    console.log('\n=== Long values arrive whole ===');
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aui-long-'));
+    try {
+        const file = path.join(dir, 'doc.json');
+        fs.writeFileSync(file, JSON.stringify({ type: 'VStack', children: [
+            { type: 'TextField', id: 2, properties: { title: 'T' } },
+            { type: 'Table', id: 5, properties: { columns: ['A', 'B'] } }] }));
+        const uuid = 'W-' + 'w'.repeat(200);
+        native.loadHostingController(require('url').pathToFileURL(file).href, uuid, true);
+        const text = 'x'.repeat(10000) + 'END';
+        native.setStringValue(uuid, 2, 0, text);
+        check('a 10 KB text under a 202-byte window id comes back whole',
+              native.getStringValue(uuid, 2, 0) === text);
+        const rows = [];
+        for (let i = 0; i < 3000; i++) rows.push(['row ' + i + ' ' + 'y'.repeat(30), String(i)]);
+        const json = JSON.stringify(rows);
+        check('the rows are more than 64 KB of JSON', json.length > 65536);
+        native.setElementRowsJSON(uuid, 5, json);
+        const back = native.getElementRowsJSON(uuid, 5);
+        check('a table of more than 64 KB arrives whole', typeof back === 'string' && back === json);
+        native.removeWindow(uuid);
+    } finally {
+        fs.rmSync(dir, { recursive: true });
+    }
+}
+
 function main() {
     console.log('ActionUI Native Module — API Surface Test');
     console.log('='.repeat(55));
@@ -451,6 +483,7 @@ function main() {
     testContentSizeLimitsUnknownWindow();
     // macOS only: the Linux library hands out no native view.
     if (process.platform === 'darwin') testLoadHostingController(testUuid);
+    if (process.platform === 'darwin') testLongValuesArriveWhole();
     testMenuBarNoop();
     testAppControl();
     testFilePanels();
