@@ -69,7 +69,7 @@ final class ModifierBox {
     let group: LayoutPanel
     let content: WinUIObject
     private(set) var geometry = BoxGeometry()
-    /// Whether the content itself expands (its renderer's defaultExpansion): content that expands
+    /// Whether the content itself expands (its renderer's expansion): content that expands
     /// takes the room inside the padding.
     var contentExpansion: Expansion = []
     /// The padded content's size from the last measure pass, per axis.

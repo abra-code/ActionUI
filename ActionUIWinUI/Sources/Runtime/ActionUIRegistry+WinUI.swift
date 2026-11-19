@@ -10,6 +10,7 @@ extension ActionUIRegistry {
     static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
         "Button": Button.self,
         "HStack": HStack.self,
+        "ScrollView": ScrollView.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextField": TextField.self,

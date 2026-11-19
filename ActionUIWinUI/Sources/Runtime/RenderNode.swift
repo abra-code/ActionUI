@@ -32,7 +32,7 @@ package final class RenderNode {
     private(set) var box: ModifierBox?
     /// What a parent lays out: the box, else the object.
     package var outerView: WinUIObject! { box?.panel.object ?? view }
-    /// How the element grows in a stack: the renderer's defaultExpansion, overridden per axis by a
+    /// How the element grows in a stack: the renderer's expansion, overridden per axis by a
     /// frame (one with a maximum expands, a fixed one does not).
     private(set) var expansion: Expansion = []
     /// The font and foreground of the element's text: its own modifiers over its parent's
@@ -90,7 +90,7 @@ package final class RenderNode {
         if let view {
             do {
                 box = try ModifierBox(content: view)
-                box?.contentExpansion = renderer.defaultExpansion
+                box?.contentExpansion = UntrackedReads.perform { renderer.expansion(self) }
             } catch {
                 ActionUIModel.shared.logger.log("RenderNode: \(error); \(element.type) shows without padding or frame", .error)
             }
@@ -98,7 +98,7 @@ package final class RenderNode {
         // As sync computes it, untracked: a child is made during its parent's sync, whose
         // observation would take these reads as the parent's.
         let initial = UntrackedReads.perform { geometry }
-        expansion = Self.expansion(renderer.defaultExpansion, geometry: initial)
+        expansion = Self.expansion(UntrackedReads.perform { renderer.expansion(self) }, geometry: initial)
         caps = (initial.frame.horizontal.cap, initial.frame.vertical.cap)
     }
 
@@ -142,9 +142,9 @@ package final class RenderNode {
             textAppearance = (parent?.textAppearance ?? TextAppearance()).applying(modifiers)
             renderer.update(view, self)
             let geometry = BoxGeometry(modifiers)
-            box?.contentExpansion = renderer.defaultExpansion
+            box?.contentExpansion = renderer.expansion(self)
             box?.update(geometry)
-            let newExpansion = Self.expansion(renderer.defaultExpansion, geometry: geometry)
+            let newExpansion = Self.expansion(renderer.expansion(self), geometry: geometry)
             let newCaps = (geometry.frame.horizontal.cap, geometry.frame.vertical.cap)
             expansionChanged = newExpansion != expansion || newCaps != caps
             expansion = newExpansion

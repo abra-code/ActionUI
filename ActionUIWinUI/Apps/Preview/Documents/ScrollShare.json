@@ -1,0 +1,48 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Two ScrollViews share the height", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 3,
+      "properties": { "background": "blue.opacity(0.15)" },
+      "content": {
+        "type": "VStack",
+        "id": 4,
+        "properties": { "alignment": "leading", "spacing": 4 },
+        "children": [
+          { "type": "Text", "id": 5, "properties": { "text": "First row 1" } },
+          { "type": "Text", "id": 6, "properties": { "text": "First row 2" } },
+          { "type": "Text", "id": 7, "properties": { "text": "First row 3" } },
+          { "type": "Text", "id": 8, "properties": { "text": "First row 4" } },
+          { "type": "Text", "id": 9, "properties": { "text": "First row 5" } },
+          { "type": "Text", "id": 10, "properties": { "text": "First row 6" } },
+          { "type": "Text", "id": 11, "properties": { "text": "First row 7" } },
+          { "type": "Text", "id": 12, "properties": { "text": "First row 8" } }
+        ]
+      }
+    },
+    {
+      "type": "ScrollView",
+      "id": 13,
+      "properties": { "background": "green.opacity(0.15)" },
+      "content": {
+        "type": "VStack",
+        "id": 14,
+        "properties": { "alignment": "leading", "spacing": 4 },
+        "children": [
+          { "type": "Text", "id": 15, "properties": { "text": "Second row 1" } },
+          { "type": "Text", "id": 16, "properties": { "text": "Second row 2" } },
+          { "type": "Text", "id": 17, "properties": { "text": "Second row 3" } },
+          { "type": "Text", "id": 18, "properties": { "text": "Second row 4" } },
+          { "type": "Text", "id": 19, "properties": { "text": "Second row 5" } },
+          { "type": "Text", "id": 20, "properties": { "text": "Second row 6" } },
+          { "type": "Text", "id": 21, "properties": { "text": "Second row 7" } },
+          { "type": "Text", "id": 22, "properties": { "text": "Second row 8" } }
+        ]
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@
 //                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed)
+//   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
@@ -34,11 +35,11 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), toggle(Int), setText(Int, String)
+        case invoke(Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .toggle(let id), .setText(let id, _): return id
+            case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _): return id
             }
         }
     }
@@ -134,6 +135,9 @@ final class Preview {
             case .setText(_, let text):
                 worked = actionUIWinUIAutomationSetValue(view.pointer, text)
                 what = "set the text of"
+            case .scroll(_, let x, let y):
+                worked = actionUIWinUIScrollViewerScrollTo(view.pointer, x, y)
+                what = "scrolled"
             }
             if worked {
                 say("\(what) \(node.element.type) \(viewID)")
@@ -253,7 +257,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT | --scroll ID X Y]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -281,6 +285,10 @@ while index < arguments.count {
     } else if option == "--set-text", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.setText(viewID, arguments[index + 2]))
         index += 3
+    } else if option == "--scroll", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let x = Double(arguments[index + 2]), let y = Double(arguments[index + 3]) {
+        preview.invocations.append(.scroll(viewID, x, y))
+        index += 4
     } else if option == "--expect-action", index + 1 < arguments.count {
         preview.expectedActions.append(arguments[index + 1])
         index += 2

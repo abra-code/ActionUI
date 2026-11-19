@@ -1,0 +1,52 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A vertical ScrollView, 120 high, scrolled by 50", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 3,
+      "properties": { "frame": { "height": 120 }, "background": "fill.secondary" },
+      "content": {
+        "type": "VStack",
+        "id": 4,
+        "properties": { "alignment": "leading", "spacing": 4 },
+        "children": [
+          { "type": "Text", "id": 5, "properties": { "text": "Row 1" } },
+          { "type": "Text", "id": 6, "properties": { "text": "Row 2" } },
+          { "type": "Text", "id": 7, "properties": { "text": "Row 3" } },
+          { "type": "Text", "id": 8, "properties": { "text": "Row 4" } },
+          { "type": "Text", "id": 9, "properties": { "text": "Row 5" } },
+          { "type": "Text", "id": 10, "properties": { "text": "Row 6" } },
+          { "type": "Text", "id": 11, "properties": { "text": "Row 7" } },
+          { "type": "Text", "id": 12, "properties": { "text": "Row 8" } },
+          { "type": "Text", "id": 13, "properties": { "text": "Row 9" } },
+          { "type": "Text", "id": 14, "properties": { "text": "Row 10" } }
+        ]
+      }
+    },
+    { "type": "Text", "id": 15, "properties": { "text": "A horizontal ScrollView", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 16,
+      "properties": { "axis": "horizontal", "showsIndicators": false },
+      "content": {
+        "type": "HStack",
+        "id": 17,
+        "properties": { "spacing": 8 },
+        "children": [
+          { "type": "Text", "id": 18, "properties": { "text": "One", "padding": 10, "background": "blue.opacity(0.3)" } },
+          { "type": "Text", "id": 19, "properties": { "text": "Two", "padding": 10, "background": "green.opacity(0.3)" } },
+          { "type": "Text", "id": 20, "properties": { "text": "Three", "padding": 10, "background": "orange.opacity(0.3)" } },
+          { "type": "Text", "id": 21, "properties": { "text": "Four", "padding": 10, "background": "pink.opacity(0.3)" } },
+          { "type": "Text", "id": 22, "properties": { "text": "Five", "padding": 10, "background": "purple.opacity(0.3)" } },
+          { "type": "Text", "id": 23, "properties": { "text": "Six", "padding": 10, "background": "teal.opacity(0.3)" } },
+          { "type": "Text", "id": 24, "properties": { "text": "Seven", "padding": 10, "background": "yellow.opacity(0.4)" } },
+          { "type": "Text", "id": 25, "properties": { "text": "Eight", "padding": 10, "background": "red.opacity(0.3)" } },
+          { "type": "Text", "id": 26, "properties": { "text": "Nine", "padding": 10, "background": "indigo.opacity(0.3)" } }
+        ]
+      }
+    }
+  ]
+}

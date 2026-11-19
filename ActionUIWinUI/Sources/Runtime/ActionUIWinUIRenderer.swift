@@ -29,8 +29,15 @@ protocol ActionUIWinUIRenderer {
     /// How the element grows in a stack, before frame modifiers: a TextField takes the width it
     /// is offered. Default: none, it keeps the size it asks for.
     static var defaultExpansion: Expansion { get }
+
+    /// The same for one element, when it depends on its properties (a ScrollView expands along its
+    /// scroll axes). Read during the node's sync, tracked, and once at its creation, untracked.
+    /// Default: defaultExpansion.
+    static func expansion(_ node: RenderNode) -> Expansion
 }
 
 extension ActionUIWinUIRenderer {
     static var defaultExpansion: Expansion { [] }
+
+    static func expansion(_ node: RenderNode) -> Expansion { defaultExpansion }
 }

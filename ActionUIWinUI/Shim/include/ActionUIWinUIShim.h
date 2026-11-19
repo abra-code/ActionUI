@@ -274,6 +274,50 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *elemen
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetFont(ActionUIWinUIObject *element, const char *family, double size,
                                                     int32_t weight);
 
+// MARK: - Placement
+
+typedef enum ActionUIWinUIAlignment {
+    // Given the whole slot in that axis (WinUI's default).
+    ActionUIWinUIAlignStretch = 0,
+    // At its own size, at the start of the slot (left, top), its center, or its end.
+    ActionUIWinUIAlignStart = 1,
+    ActionUIWinUIAlignCenter = 2,
+    ActionUIWinUIAlignEnd = 3,
+} ActionUIWinUIAlignment;
+
+// How `element` sits in the slot its parent arranges it in, in each axis (a FrameworkElement's
+// HorizontalAlignment and VerticalAlignment). The shim's own panels lay their children out
+// themselves; this is for WinUI's containers (a ScrollViewer's content).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetAlignment(ActionUIWinUIObject *element, ActionUIWinUIAlignment horizontal,
+                                                         ActionUIWinUIAlignment vertical);
+
+// MARK: - ScrollViewer
+
+// A new ScrollViewer, with no content, scrolling vertically. No zooming. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIScrollViewerCreate(void);
+// Which axes scroll. An axis that does not scroll gives the content the viewer's size in it.
+// showsIndicators false scrolls without scroll bars; with them, WinUI shows them while the pointer
+// is over the viewer.
+ACTIONUI_WINUI_API bool actionUIWinUIScrollViewerSetAxes(ActionUIWinUIObject *scroll, bool horizontal, bool vertical,
+                                                         bool showsIndicators);
+// Makes `element` the content (NULL removes it). The viewer keeps its own reference.
+ACTIONUI_WINUI_API bool actionUIWinUIScrollViewerSetContent(ActionUIWinUIObject *scroll, ActionUIWinUIObject *element);
+// Scrolls to the offset (from the content's top left), without animation.
+ACTIONUI_WINUI_API bool actionUIWinUIScrollViewerScrollTo(ActionUIWinUIObject *scroll, double x, double y);
+
+typedef struct ActionUIWinUIScrollState {
+    double offsetX;
+    double offsetY;
+    double viewportWidth;
+    double viewportHeight;
+    double extentWidth;
+    double extentHeight;
+} ActionUIWinUIScrollState;
+
+// Where the viewer is scrolled to, how much it shows and how large its content is; zeros on
+// failure.
+ACTIONUI_WINUI_API ActionUIWinUIScrollState actionUIWinUIScrollViewerState(ActionUIWinUIObject *scroll);
+
 // MARK: - Rendering
 
 // Renders `element`, which must be in a window's content (shown or not) and laid out, into a PNG

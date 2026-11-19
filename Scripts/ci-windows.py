@@ -68,6 +68,8 @@ SMOKE_TIMEOUT_SECONDS = 180
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
 PREVIEW_OPTIONS = {
     "Fonts": ["480", "480"],
+    "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
+    "ScrollShare": ["280", "260", "--scroll", "3", "0", "40"],
     "Controls": ["240", "220", "--invoke", "3", "--expect-action", "button.pressed",
                  "--on-action", "button.pressed", "2", "Pressed through UI Automation"],
     "Inputs": ["360", "260", "--toggle", "3", "--toggle", "4", "--set-text", "6", "typed through UI Automation",
