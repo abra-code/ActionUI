@@ -64,6 +64,16 @@ extension Button: ActionUIWinUIRenderer {
             content.layout?.setTitle(props.title)
             content.layout?.setIconSide(side)
         }
+        // The content's own objects: hiding the button from accessibility tools does not hide them.
+        if let icon = content.icon {
+            node.applyAccessibilityHidden(to: icon)
+        }
+        if let layout = content.layout {
+            node.applyAccessibilityHidden(to: layout.title)
+            if let icon = layout.icon {
+                node.applyAccessibilityHidden(to: icon)
+            }
+        }
         if case .icon = kind, let icon = content.icon, side != content.iconSide {
             content.iconSide = side
             if !actionUIWinUISymbolSetSize(icon.pointer, side) {

@@ -22,9 +22,13 @@
    fixed one keeps it from expanding.
  - background: a color, or a semantic style as the WinUI theme paints it (Paint: "fill.tertiary" is
    a control fill, "background" the window's), fills the frame behind the element.
+ - opacity fades the whole box, background included, as on Linux (on Apple the border and shadow,
+   applied after it, stay unfaded).
+ - hidden keeps the element's space, as SwiftUI's .hidden() does: the box draws nothing and lets the
+   pointer through. Its controls lose keyboard focus and accessibility tools skip it (RenderNode).
 
- Not yet: overlay, border, cornerRadius, opacity, offset, hidden, background views, and the other
- base modifiers the GTK ModifierBox applies.
+ Not yet: overlay, border, cornerRadius, offset, background views, and the other base modifiers the
+ GTK ModifierBox applies.
 
  Content larger than its frame (a 220-wide column in a frame 150 wide) overflows it, centered or by
  the frame's alignment, as in SwiftUI: the group reports at most the room it was offered to WinUI
@@ -40,12 +44,16 @@ struct BoxGeometry: Equatable {
     var frame = (horizontal: FrameAxis.none, vertical: FrameAxis.none)
     var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
     var background: Paint?
+    /// The whole box's opacity, 0 to 1.
+    var opacity = 1.0
+    /// Hidden: the box keeps its space but draws nothing and lets the pointer through.
+    var hidden = false
 
     static func == (left: BoxGeometry, right: BoxGeometry) -> Bool {
         left.padding.horizontal == right.padding.horizontal && left.padding.vertical == right.padding.vertical
             && left.frame.horizontal == right.frame.horizontal && left.frame.vertical == right.frame.vertical
             && left.alignment.horizontal == right.alignment.horizontal && left.alignment.vertical == right.alignment.vertical
-            && left.background == right.background
+            && left.background == right.background && left.opacity == right.opacity && left.hidden == right.hidden
     }
 
     init() {}
@@ -55,6 +63,19 @@ struct BoxGeometry: Equatable {
         frame = ModifierBox.frameAxes(modifiers.frame)
         alignment = ModifierBox.alignmentAxes(modifiers.frame?.alignment)
         background = Paint.parse(modifiers.background, role: .background)
+        if let value = modifiers.opacity, value.isFinite {
+            opacity = min(max(value, 0), 1)
+        }
+        hidden = modifiers.hidden
+    }
+
+    /// Whether the layout depends on what changed between `self` and `other` (opacity and hidden do not).
+    func sameLayout(as other: BoxGeometry) -> Bool {
+        var drawn = other
+        drawn.opacity = opacity
+        drawn.hidden = hidden
+        drawn.background = background
+        return drawn == self
     }
 
     /// How the frame decides expansion in each axis: true or false, nil to follow the content.
@@ -90,15 +111,27 @@ final class ModifierBox {
         group.arrange = { [unowned self] finalSize in arrangeGroup(finalSize) }
     }
 
-    /// Applies new padding, frame and background; asks for a layout when they changed.
+    /// Applies new padding, frame, background, opacity and hidden state; asks for a layout when the
+    /// padding or the frame changed.
     func update(_ newGeometry: BoxGeometry) {
         guard newGeometry != geometry else { return }
         if newGeometry.background != geometry.background {
             Paint.apply(newGeometry.background, ActionUIWinUIBrushBackground, to: group.object, what: "a background")
         }
+        if newGeometry.opacity != geometry.opacity || newGeometry.hidden != geometry.hidden {
+            if !actionUIWinUIElementSetOpacity(panel.object.pointer, newGeometry.hidden ? 0 : newGeometry.opacity) {
+                ActionUIModel.shared.logger.log("ModifierBox: \(WinUIError.last("setting the opacity"))", .error)
+            }
+        }
+        if newGeometry.hidden != geometry.hidden, !actionUIWinUIElementSetHitTestVisible(panel.object.pointer, !newGeometry.hidden) {
+            ActionUIModel.shared.logger.log("ModifierBox: \(WinUIError.last("hiding an element"))", .error)
+        }
+        let relayout = !newGeometry.sameLayout(as: geometry)
         geometry = newGeometry
-        panel.invalidateLayout()
-        group.invalidateLayout()
+        if relayout {
+            panel.invalidateLayout()
+            group.invalidateLayout()
+        }
     }
 
     // MARK: Layout, one axis at a time

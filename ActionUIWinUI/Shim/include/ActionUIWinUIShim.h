@@ -281,6 +281,20 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *elemen
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetFont(ActionUIWinUIObject *element, const char *family, double size,
                                                     int32_t weight);
 
+// MARK: - State
+
+// How opaque `element` and everything in it is drawn, from 0 (invisible, still laid out) to 1.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetOpacity(ActionUIWinUIObject *element, double opacity);
+// Whether the pointer reaches `element` and everything in it (false: clicks and hovering pass through).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetHitTestVisible(ActionUIWinUIObject *element, bool visible);
+// Whether a control can be used (false: drawn disabled, no pointer or keyboard focus). Does nothing for an
+// element that is not a control (a text block, a panel); WinUI passes a control's state to the controls
+// in its content.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetEnabled(ActionUIWinUIObject *element, bool enabled);
+// Whether accessibility tools (UI Automation clients: screen readers) skip `element` (its children are
+// not skipped with it: hide each).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUIObject *element, bool hidden);
+
 // MARK: - Placement
 
 typedef enum ActionUIWinUIAlignment {

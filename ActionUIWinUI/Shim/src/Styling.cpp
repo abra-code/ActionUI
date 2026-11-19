@@ -1,5 +1,6 @@
 // Styling.cpp - brushes (backgrounds and foregrounds, from a color or the theme) and fonts, on the
-// elements that have them: panels, controls, text blocks.
+// elements that have them: panels, controls, text blocks; and an element's state: opacity, whether the
+// pointer reaches it, whether a control is enabled, whether accessibility tools skip it.
 
 #include "ShimInternal.h"
 
@@ -7,6 +8,8 @@
 
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Text.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
 
@@ -177,6 +180,52 @@ bool actionUIWinUIElementSetFont(ActionUIWinUIObject *element, const char *famil
             } else {
                 control.ClearValue(muxc::Control::FontWeightProperty());
             }
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetOpacity(ActionUIWinUIObject *element, double opacity) {
+    return guarded("element set opacity", [&]() {
+        double clamped = std::isfinite(opacity) ? (opacity < 0 ? 0.0 : (opacity > 1 ? 1.0 : opacity)) : 1.0;
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        if (typed.Opacity() != clamped) {
+            typed.Opacity(clamped);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetHitTestVisible(ActionUIWinUIObject *element, bool visible) {
+    return guarded("element set hit test visible", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        if (typed.IsHitTestVisible() != visible) {
+            typed.IsHitTestVisible(visible);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetEnabled(ActionUIWinUIObject *element, bool enabled) {
+    return guarded("element set enabled", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        // Set even when IsEnabled already reads `enabled`: under a disabled parent control (a
+        // ScrollViewer) it reads false whatever the control's own value, which must still become
+        // false, or the control comes back enabled with its parent.
+        if (muxc::Control control = typed.try_as<muxc::Control>(); control != nullptr) {
+            control.IsEnabled(enabled);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUIObject *element, bool hidden) {
+    return guarded("element set accessibility hidden", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        mux::Automation::Peers::AccessibilityView view =
+            hidden ? mux::Automation::Peers::AccessibilityView::Raw : mux::Automation::Peers::AccessibilityView::Content;
+        if (mux::Automation::AutomationProperties::GetAccessibilityView(typed) != view) {
+            mux::Automation::AutomationProperties::SetAccessibilityView(typed, view);
         }
         return true;
     });

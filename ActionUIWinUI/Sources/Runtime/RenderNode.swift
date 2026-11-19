@@ -8,12 +8,13 @@
    the node dirty, and SyncScheduler syncs it again in its next flush.
  - Children are kept by element id (syncChildren): a child whose element stays keeps its node and
    its WinUI object; a new one gets a new node, synced right after its parent.
- - The WinUI object sits in a ModifierBox (padding, frame, background); a parent lays out the box
+ - The WinUI object sits in a ModifierBox (padding, frame, background, opacity, hidden); a parent lays out the box
    (outerView).
    How the element expands (its renderer's default, overridden per axis by a frame) is known from
    its creation, since a parent lays out a new child before the child's first sync.
 */
 
+import CWinUI
 import Observation
 
 @MainActor
@@ -44,6 +45,15 @@ package final class RenderNode {
     /// The appearance last applied to the WinUI object (applyTextAppearance), to set it only on a
     /// change.
     private var appliedAppearance: TextAppearance?
+    /// Inherited states, as SwiftUI's environment passes them down: disabled by the element's own
+    /// modifier or an ancestor's; hidden likewise (the box of the element that is hidden draws
+    /// nothing, ModifierBox); skipped by accessibility tools when hidden or accessibilityHidden.
+    private(set) var isDisabled = false
+    private(set) var isHidden = false
+    private(set) var isAccessibilityHidden = false
+    /// The states last applied to the WinUI object (applyStates).
+    private var appliedEnabled: Bool?
+    private var appliedAccessibilityHidden: Bool?
     /// True after the first sync.
     private(set) var hasSynced = false
     /// How far it grows in each axis when it expands: its frame's finite maximum, nil for no limit.
@@ -117,6 +127,35 @@ package final class RenderNode {
         BoxGeometry(baseModifiers)
     }
 
+    /// Applies the inherited states to the WinUI object, only when they changed: a control under a
+    /// disabled or hidden element cannot be used (a hidden one draws nothing anyway, and so takes no
+    /// keyboard focus); an element under a hidden or accessibilityHidden one is skipped by
+    /// accessibility tools. Each node applies its own, since WinUI passes neither through panels.
+    private func applyStates(to view: WinUIObject) {
+        let enabled = !(isDisabled || isHidden)
+        if appliedEnabled != enabled {
+            appliedEnabled = enabled
+            if !actionUIWinUIElementSetEnabled(view.pointer, enabled) {
+                ActionUIModel.shared.logger.log("RenderNode: \(WinUIError.last("enabling an element"))", .error)
+            }
+        }
+        if appliedAccessibilityHidden != isAccessibilityHidden {
+            appliedAccessibilityHidden = isAccessibilityHidden
+            if !actionUIWinUIElementSetAccessibilityHidden(view.pointer, isAccessibilityHidden) {
+                ActionUIModel.shared.logger.log("RenderNode: \(WinUIError.last("hiding an element from accessibility tools"))", .error)
+            }
+        }
+    }
+
+    /// Applies the node's accessibility-hidden state to an inner object its renderer made (a label's
+    /// title and icon, a button's icon and title, an image): WinUI's accessibility view hides one
+    /// element, not its children, and ActionUI's panels are not seen by accessibility tools at all.
+    func applyAccessibilityHidden(to inner: WinUIObject) {
+        if !actionUIWinUIElementSetAccessibilityHidden(inner.pointer, isAccessibilityHidden) {
+            ActionUIModel.shared.logger.log("RenderNode: \(WinUIError.last("hiding an element from accessibility tools"))", .error)
+        }
+    }
+
     /// Draws the WinUI object's text with the node's appearance, only when it changed: for the
     /// renderers of elements that show text (Text, Button, Toggle, TextField).
     func applyTextAppearance(to view: WinUIObject, what: String) {
@@ -149,11 +188,16 @@ package final class RenderNode {
         guard isAttached, let view else { return }
         var expansionChanged = false
         let previousAppearance = textAppearance
+        let previousStates = (isDisabled, isHidden, isAccessibilityHidden)
         withObservationTracking {
             let modifiers = baseModifiers
             // Before the renderer's update, which draws the text with it.
             textAppearance = (parent?.textAppearance ?? TextAppearance()).applying(modifiers)
+            isDisabled = (parent?.isDisabled ?? false) || modifiers.disabled == true
+            isHidden = (parent?.isHidden ?? false) || modifiers.hidden
+            isAccessibilityHidden = isHidden || (parent?.isAccessibilityHidden ?? false) || modifiers.accessibilityHidden == true
             renderer.update(view, self)
+            applyStates(to: view)
             let geometry = BoxGeometry(modifiers)
             box?.contentExpansion = renderer.expansion(self)
             box?.update(geometry)
@@ -181,7 +225,7 @@ package final class RenderNode {
         unsyncedChildren = []
         // The children inherit the appearance; new ones read it in their first sync below (and are
         // not marked, as the GTK renderer skips them).
-        if hasSynced && textAppearance != previousAppearance {
+        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden) != previousStates) {
             let new = Set(created.map(ObjectIdentifier.init))
             for child in childNodes.values where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)

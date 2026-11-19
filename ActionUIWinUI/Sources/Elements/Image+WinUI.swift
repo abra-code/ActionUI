@@ -213,6 +213,10 @@ extension Image: ActionUIWinUIRenderer {
                             to: child, what: "a symbol")
             }
         }
+        if let child = layout.child {
+            // The image or icon itself: hiding the Image's panel from accessibility tools does not hide it.
+            node.applyAccessibilityHidden(to: child)
+        }
         if changed {
             layout.panel.invalidateLayout()
         }

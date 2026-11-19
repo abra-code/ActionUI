@@ -1,0 +1,47 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "id": 3, "properties": { "title": "Enabled", "systemImage": "star" } },
+        { "type": "Button", "id": 4, "properties": { "title": "Disabled", "systemImage": "star", "disabled": true } }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 5,
+      "properties": { "spacing": 8, "alignment": "leading", "disabled": true, "padding": 8, "background": "fill.secondary" },
+      "children": [
+        { "type": "Text", "id": 6, "properties": { "text": "A disabled column" } },
+        { "type": "TextField", "id": 7, "properties": { "prompt": "Typing is off", "frame": { "width": 200 } } },
+        { "type": "Toggle", "id": 8, "properties": { "title": "Off too" } },
+        { "type": "Button", "id": 9, "properties": { "title": "Not this one either" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 10,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Text", "id": 11, "properties": { "text": "Before" } },
+        { "type": "Text", "id": 12, "properties": { "text": "Hidden", "hidden": true, "padding": 4, "background": "yellow" } },
+        { "type": "Text", "id": 13, "properties": { "text": "After: the hidden text keeps its space" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 14,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Text", "id": 15, "properties": { "text": "opacity 1", "padding": 4, "background": "mint" } },
+        { "type": "Text", "id": 16, "properties": { "text": "opacity 0.5", "opacity": 0.5, "padding": 4, "background": "mint" } },
+        { "type": "Text", "id": 17, "properties": { "text": "opacity 0.2", "opacity": 0.2, "padding": 4, "background": "mint" } }
+      ]
+    }
+  ]
+}

@@ -36,6 +36,10 @@ extension Label: ActionUIWinUIRenderer {
                         to: icon, what: "a Label's symbol")
         }
         layout.setIconSide(ImageLayout.symbolSide(node, scale: nil))
+        node.applyAccessibilityHidden(to: layout.title)
+        if let icon = layout.icon {
+            node.applyAccessibilityHidden(to: icon)
+        }
     }
 }
 
