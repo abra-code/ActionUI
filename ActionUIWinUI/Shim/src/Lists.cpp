@@ -54,6 +54,22 @@ bool actionUIWinUIListReplaceElement(ActionUIWinUIObject *list, int32_t index, A
     });
 }
 
+ActionUIWinUIObject *actionUIWinUIListCopyItemElement(ActionUIWinUIObject *list, int32_t index) {
+    return guardedObject("list copy item element", [&]() -> ActionUIWinUIObject * {
+        auto items = objectAs<muxc::ListView>(list, L"ListView").Items();
+        if (index < 0 || static_cast<uint32_t>(index) >= items.Size()) {
+            fail("list copy item element", "no item at that index");
+            return nullptr;
+        }
+        mux::UIElement element = items.GetAt(static_cast<uint32_t>(index)).try_as<mux::UIElement>();
+        if (element == nullptr) {
+            fail("list copy item element", "the item shows text, not an element");
+            return nullptr;
+        }
+        return toObject(element);
+    });
+}
+
 bool actionUIWinUIListTruncate(ActionUIWinUIObject *list, int32_t count) {
     return guarded("list truncate", [&]() {
         auto items = objectAs<muxc::ListView>(list, L"ListView").Items();

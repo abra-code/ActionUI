@@ -1,0 +1,25 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Button cells", "font": "headline" } },
+    {
+      "type": "List",
+      "id": 3,
+      "properties": {
+        "frame": { "height": 130 },
+        "itemType": { "viewType": "Button", "actionID": "row.pressed", "actionContext": "rowIndex" }
+      }
+    },
+    { "type": "Text", "id": 4, "properties": { "text": "Image cells", "font": "headline" } },
+    {
+      "type": "List",
+      "id": 5,
+      "properties": {
+        "frame": { "height": 130 },
+        "itemType": { "viewType": "Image", "dataInterpretation": "systemName" }
+      }
+    }
+  ]
+}

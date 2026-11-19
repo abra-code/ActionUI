@@ -4,10 +4,14 @@
  Linux), in the forms the Linux renderer has:
 
  - Rows (Form 1): one row per content row (setElementRows) whose first column is not empty, showing
-   the first column as text. Selectable: a selection the user makes becomes the value (the row's
-   columns) and fires actionID (Core RowSelection); a double click (or Return) fires
-   doubleClickActionID with the row's index in the content, the row becoming the value first (and
-   actionID firing when that changed it), as on Linux.
+   the first column in the cell itemType.viewType names, as on Linux: a Text; a Button at its
+   natural width at the leading edge, whose click fires itemType.actionID with the text (or with the
+   row's index in the content for actionContext rowIndex); an Image reading the text as
+   itemType.dataInterpretation says, a symbol at Image's medium size or a file at its own size.
+   Selectable: a selection the user makes becomes the value (the row's columns) and fires actionID
+   (Core RowSelection); a double click (or Return) fires doubleClickActionID with the row's index in
+   the content, the row becoming the value first (and actionID firing when that changed it), as on
+   Linux.
  - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
    the selected child's id as text, and actionID fires with the id as its context; without one, the
    rows are not selectable and the children handle their own input.
@@ -19,9 +23,11 @@
  the user's, and the renderer ignores the one it made (ListState.shownIndex), so actionID fires only
  for the user's.
 
- Not yet: itemType's Button,
- Image and AsyncImage cells (text for now); listStyle and the row styling (listRowBackground,
- listRowSeparator, listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none).
+ Not yet: itemType's AsyncImage cell (text for now); the inherited buttonStyle on Button cells (WinUI's
+ Button has no styles yet); listStyle and the row styling (listRowBackground, listRowSeparator,
+ listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none). A change of any row's
+ text makes every row again (a Button cell loses keyboard focus); an Image cell reads its file only
+ then (a file rewritten under the same name shows the old picture until the rows change).
 */
 
 import CWinUI
@@ -37,6 +43,8 @@ import CWinUI
     var drawnRows: [[String]] = []
     var shownIndices: [Int] = []
     var shownTexts: [String]?
+    /// The cell the rows show (rows mode), as last made.
+    var shownCell: RowCell?
     /// The element id of each row's child, and the boxes the rows show (children mode): a child
     /// replaced under the same id has a new node and box.
     var childIDs: [Int]?
@@ -45,6 +53,14 @@ import CWinUI
     var rowNodes: [RenderNode] = []
     /// The row the renderer last selected: a selection event reporting it is the renderer's own.
     var shownIndex: Int32 = -1
+
+    /// A rows-mode cell: its type, how an Image cell reads its text, and an Image symbol's side (its
+    /// font's), each 0 or the default when the type does not use it.
+    struct RowCell: Equatable {
+        var type = List.Props.ViewType.text
+        var interpretation = List.Props.DataInterpretation.systemName
+        var symbolSide = 0.0
+    }
 }
 
 extension List: ActionUIWinUIRenderer {
@@ -117,6 +133,7 @@ extension List: ActionUIWinUIRenderer {
         state.drawnRows = []
         state.shownIndices = []
         state.shownTexts = nil
+        state.shownCell = nil
         state.childIDs = nil
         state.shownBoxes = nil
     }
@@ -140,13 +157,15 @@ extension List: ActionUIWinUIRenderer {
         state.drawnRows = items
         state.shownIndices = shown
         let texts = shown.map { items[$0][0] }
-        if texts != state.shownTexts {
+        let cell = rowCell(node)
+        if texts != state.shownTexts || cell != state.shownCell {
             state.shownTexts = texts
+            state.shownCell = cell
             // The rows change: the selection is shown again below.
             state.shownIndex = -1
             var filled = actionUIWinUIListClear(view.pointer)
-            for text in texts where filled {
-                filled = actionUIWinUIListAppendText(view.pointer, text)
+            for (position, text) in texts.enumerated() where filled {
+                filled = appendCell(view, node, state, text, position: position, cell)
             }
             if !filled {
                 ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing the rows"))", .error)
@@ -155,6 +174,89 @@ extension List: ActionUIWinUIRenderer {
         }
         let position = RowSelection.selectedIndex(value: node.model.value, in: items).flatMap { shown.firstIndex(of: $0) }
         select(view, state, position)
+    }
+
+    /// The cell itemType names. Tracked reads of the properties (and of the font, for a symbol's side).
+    private static func rowCell(_ node: RenderNode) -> ListState.RowCell {
+        let props = Props(node.properties)
+        switch props.viewType {
+        case .image:
+            return ListState.RowCell(type: .image, interpretation: props.dataInterpretation,
+                                     symbolSide: ImageLayout.symbolSide(node, scale: nil))
+        case .button:
+            return ListState.RowCell(type: .button)
+        case .text, .asyncImage:
+            return ListState.RowCell(type: .text)
+        }
+    }
+
+    /// Adds the row at `position` showing `text` in `cell`.
+    private static func appendCell(_ view: WinUIObject, _ node: RenderNode, _ state: ListState, _ text: String,
+                                   position: Int, _ cell: ListState.RowCell) -> Bool {
+        let object: WinUIObject?
+        switch cell.type {
+        case .button:
+            object = buttonCell(text, node, state, position: position)
+        case .image:
+            object = imageCell(text, cell)
+        case .text, .asyncImage:
+            object = nil
+        }
+        guard let object else {
+            // A text row; also the row of a cell that could not be made (an image the shim has no
+            // symbol for shows nothing, as Image does), so the rows stay in step with the content.
+            return actionUIWinUIListAppendText(view.pointer, cell.type == .text ? text : "")
+        }
+        placeInRow(object)
+        return actionUIWinUIListAppendElement(view.pointer, object.pointer)
+    }
+
+    /// A Button cell titled `text`; its click fires itemType.actionID.
+    private static func buttonCell(_ text: String, _ node: RenderNode, _ state: ListState, position: Int) -> WinUIObject? {
+        guard let button = WinUIObject(adopting: actionUIWinUIButtonCreate()),
+              actionUIWinUIButtonSetTitle(button.pointer, text) else {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("making a Button cell"))", .error)
+            return nil
+        }
+        // The rows are made again when any changes, so the position stays this button's.
+        WinUIEvents.connect(button, actionUIWinUIButtonOnClick, "a List's Button cell") { [weak node, weak state] in
+            guard let node, let state, node.isAttached else { return }
+            buttonClicked(node, state, position: position)
+        }
+        return button
+    }
+
+    /// An Image cell: the text read as itemType.dataInterpretation says (ImageSource, as SwiftUI's cell
+    /// reads it), shown as Image shows it unresized: a symbol at the font's medium symbol size, in the
+    /// color WinUI gives the row's content (as a text row's); a file at its own size. Nil when the shim has no symbol for the name.
+    private static func imageCell(_ text: String, _ cell: ListState.RowCell) -> WinUIObject? {
+        // As Image reads its value: the "mixed" rules take a path by its "/"; a Windows path has
+        // backslashes ("C:\pics\a.png").
+        let interpretation = cell.interpretation == .mixed && text.contains("\\") ? "path" : cell.interpretation.rawValue
+        let content = Image.content(ImageSource.resolve(text, interpretation: interpretation, lookup: Image.lookup))
+        guard let child = Image.makeChild(content) else { return nil }
+        let shown: Bool
+        switch content {
+        case .file(let path):
+            shown = actionUIWinUIImageSetFile(child.pointer, path) && actionUIWinUIImageSetStretch(child.pointer, ActionUIWinUIImageStretchNone)
+        case .symbol:
+            shown = actionUIWinUISymbolSetSize(child.pointer, cell.symbolSide)
+        }
+        if !shown {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing an Image cell \(text)"))", .error)
+        }
+        return child
+    }
+
+    /// A Button cell's click: itemType.actionID fires with the row's text, or its index in the content
+    /// when actionContext is rowIndex, as SwiftUI's cell fires it.
+    private static func buttonClicked(_ node: RenderNode, _ state: ListState, position: Int) {
+        let props = Props(node.properties)
+        guard let actionID = props.itemActionID, state.shownIndices.indices.contains(position) else { return }
+        let index = state.shownIndices[position]
+        let context: Any = props.actionContext == .rowIndex ? index : state.drawnRows[index][0]
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id,
+                                           viewPartID: 0, context: context)
     }
 
     // MARK: Children

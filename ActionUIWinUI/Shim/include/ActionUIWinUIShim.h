@@ -203,6 +203,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIListAppendElement(ActionUIWinUIObject *list
 // Shows `element` in the item at `index` (from 0) instead of what it showed; an index past the items
 // fails. A selected item loses its selection.
 ACTIONUI_WINUI_API bool actionUIWinUIListReplaceElement(ActionUIWinUIObject *list, int32_t index, ActionUIWinUIObject *element);
+// The element the item at `index` (from 0) shows, a new reference; NULL when there is no such item
+// or it shows text.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIListCopyItemElement(ActionUIWinUIObject *list, int32_t index);
 // Removes the items from `count` on, keeping the first `count`.
 ACTIONUI_WINUI_API bool actionUIWinUIListTruncate(ActionUIWinUIObject *list, int32_t count);
 // Whether the user can select a row (false: rows show their content and take no selection).

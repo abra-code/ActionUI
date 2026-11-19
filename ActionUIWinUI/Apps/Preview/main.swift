@@ -8,6 +8,7 @@
 //   --invoke ID              after the first layout, operates element ID as an accessibility tool
 //                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
+//   --invoke-row ID ROW      the same with the element List ID shows in row ROW (from 0; a Button cell)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --add-row ID TEXT        appends a row to element ID's content through the model, as an adapter
@@ -42,12 +43,12 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), setProperty(Int, String, String),
-             addRow(Int, String)
+        case invoke(Int), invokeRow(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
+             setProperty(Int, String, String), addRow(Int, String)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
+            case .invoke(let id), .invokeRow(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
                  .addRow(let id, _):
                 return id
             }
@@ -57,7 +58,7 @@ final class Preview {
         var changesModel: Bool {
             switch self {
             case .setProperty, .addRow: true
-            case .invoke, .toggle, .setText, .scroll: false
+            case .invoke, .invokeRow, .toggle, .setText, .scroll: false
             }
         }
     }
@@ -119,17 +120,20 @@ final class Preview {
             finish()
             return
         }
-        ActionUIModel.shared.setDefaultActionHandler { actionID, windowUUID, viewID, _, _ in
-            MainActor.assumeIsolated { Preview.shared.actionFired(actionID, windowUUID: windowUUID, viewID: viewID) }
+        ActionUIModel.shared.setDefaultActionHandler { actionID, windowUUID, viewID, _, context in
+            let shownContext = context.map { "\($0)" }
+            MainActor.assumeIsolated {
+                Preview.shared.actionFired(actionID, windowUUID: windowUUID, viewID: viewID, context: shownContext)
+            }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(800)) {
             MainActor.assumeIsolated { Preview.shared.invokeThenRender() }
         }
     }
 
-    func actionFired(_ actionID: String, windowUUID: String, viewID: Int) {
+    func actionFired(_ actionID: String, windowUUID: String, viewID: Int, context: String?) {
         firedActions.append(actionID)
-        say("action \(actionID) from element \(viewID)")
+        say("action \(actionID) from element \(viewID)" + (context.map { " with context \($0)" } ?? ""))
         if let change = valuesOnAction[actionID] {
             ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: change.viewID, value: change.text)
         }
@@ -168,6 +172,13 @@ final class Preview {
             case .invoke:
                 worked = actionUIWinUIAutomationInvoke(view.pointer)
                 what = "invoked"
+            case .invokeRow(_, let row):
+                if let element = WinUIObject(adopting: actionUIWinUIListCopyItemElement(view.pointer, Int32(row))) {
+                    worked = actionUIWinUIAutomationInvoke(element.pointer)
+                } else {
+                    worked = false
+                }
+                what = "invoked row \(row) of"
             case .toggle:
                 worked = actionUIWinUIAutomationToggle(view.pointer)
                 what = "toggled"
@@ -330,7 +341,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -353,6 +364,10 @@ while index < arguments.count {
     if option == "--invoke", index + 1 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.invoke(viewID))
         index += 2
+    } else if option == "--invoke-row", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let row = Int(arguments[index + 2]) {
+        preview.invocations.append(.invokeRow(viewID, row))
+        index += 3
     } else if option == "--toggle", index + 1 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.toggle(viewID))
         index += 2
