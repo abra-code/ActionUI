@@ -183,7 +183,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
             """,
         inputSchema: input,
         outputSchema: output,
-        annotations: ["readOnlyHint": true, "openWorldHint": false]
+        annotations: ["readOnlyHint": true, "openWorldHint": true]
     ) { arguments, context in
         let spec = try ViewerSpec(arguments: arguments)
         let keep = try keepArgument(arguments)

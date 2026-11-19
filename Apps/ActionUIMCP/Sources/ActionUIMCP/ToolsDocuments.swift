@@ -62,7 +62,7 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
             sheet). WebView userScripts are removed.
             """,
         inputSchema: input,
-        annotations: ["readOnlyHint": true, "openWorldHint": false],
+        annotations: ["readOnlyHint": true, "openWorldHint": true],
         heartbeatInterval: 15
     ) { arguments, context in
         let document = try AgentDocument(arguments: arguments)
@@ -137,7 +137,7 @@ func validateDocumentTool(host: WindowHost) -> MCPTool {
                                       "errors": ["type": "array", "items": ["type": "string"]],
                                       "warnings": ["type": "array", "items": ["type": "string"]]],
                        "required": ["ok", "errors", "warnings"]],
-        annotations: ["readOnlyHint": true, "openWorldHint": false]
+        annotations: ["readOnlyHint": true, "openWorldHint": true]
     ) { arguments, _ in
         let document: AgentDocument
         do {
@@ -338,7 +338,7 @@ func screenshotTool(host: WindowHost) -> MCPTool {
             """,
         inputSchema: input,
         outputSchema: output,
-        annotations: ["readOnlyHint": true, "openWorldHint": false]
+        annotations: ["readOnlyHint": true, "openWorldHint": true]
     ) { arguments, _ in
         let delay = min(max(arguments["delay_s"]?.double ?? 0.5, 0), 10)
         try await requireGraphicalSession(host)

@@ -77,7 +77,7 @@ struct AgentDocument {
             return ("\(here): platform suffixes are not resolved here; set the plain property name", [], value)
         }
         if name == "userScripts" {
-            return ("\(here): userScripts is refused; scripts from an agent are not run", [], value)
+            return ("\(here): userScripts is refused; user scripts from an agent are not injected", [], value)
         }
         if containerKeys.contains(name) || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
             return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [], value)
@@ -232,7 +232,7 @@ struct AgentDocument {
             if type == "WebView", properties["userScripts"] != nil {
                 properties["userScripts"] = nil
                 object["properties"] = .object(properties)
-                warnings.append("\(here): userScripts removed; scripts from an agent are not run")
+                warnings.append("\(here): userScripts removed; user scripts from an agent are not injected")
             }
         } else if object["properties"] != nil {
             errors.append("\(here): \"properties\" must be an object")
