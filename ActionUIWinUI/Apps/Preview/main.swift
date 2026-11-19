@@ -18,6 +18,8 @@
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
 //                            does (VALUE a number when it reads as one, else a string)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
+//   --forbid-action ACTION   fails if the action ACTION fired (a renderer's own change taken for the
+//                            user's); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
 // loaded and rendered, the PNG is not empty, every operation worked and every expected action
@@ -63,6 +65,7 @@ final class Preview {
         }
     }
     var expectedActions: [String] = []
+    var forbiddenActions: [String] = []
     var valuesOnAction: [String: (viewID: Int, text: String)] = [:]
     var firedActions: [String] = []
     /// False once an --invoke found no element or the shim refused it.
@@ -341,7 +344,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -387,6 +390,9 @@ while index < arguments.count {
     } else if option == "--expect-action", index + 1 < arguments.count {
         preview.expectedActions.append(arguments[index + 1])
         index += 2
+    } else if option == "--forbid-action", index + 1 < arguments.count {
+        preview.forbiddenActions.append(arguments[index + 1])
+        index += 2
     } else if option == "--on-action", index + 3 < arguments.count, let viewID = Int(arguments[index + 2]) {
         preview.valuesOnAction[arguments[index + 1]] = (viewID, arguments[index + 3])
         index += 4
@@ -415,5 +421,9 @@ let missing = preview.expectedActions.filter { !preview.firedActions.contains($0
 if !missing.isEmpty {
     print("preview: expected actions that did not fire: \(missing)")
 }
+let forbidden = preview.forbiddenActions.filter { preview.firedActions.contains($0) }
+if !forbidden.isEmpty {
+    print("preview: actions that must not fire fired: \(forbidden)")
+}
 print("preview: run \(ran ? "ok" : "failed"), rendered \(preview.rendered ? "yes" : "no"), PNG \(size) bytes, actions fired \(preview.firedActions.count)")
-exit(ran && preview.rendered && size > 0 && missing.isEmpty && preview.invocationsWorked ? 0 : 1)
+exit(ran && preview.rendered && size > 0 && missing.isEmpty && forbidden.isEmpty && preview.invocationsWorked ? 0 : 1)

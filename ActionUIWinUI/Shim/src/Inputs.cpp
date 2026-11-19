@@ -171,6 +171,26 @@ bool actionUIWinUITextBoxSetPlaceholder(ActionUIWinUIObject *textBox, const char
     });
 }
 
+bool actionUIWinUITextBoxSetMultiline(ActionUIWinUIObject *textBox) {
+    return guarded("text box set multiline", [&]() {
+        muxc::TextBox typed = objectAs<muxc::TextBox>(textBox, L"TextBox");
+        typed.AcceptsReturn(true);
+        typed.TextWrapping(mux::TextWrapping::Wrap);
+        muxc::ScrollViewer::SetVerticalScrollBarVisibility(typed, muxc::ScrollBarVisibility::Auto);
+        return true;
+    });
+}
+
+bool actionUIWinUITextBoxSetReadOnly(ActionUIWinUIObject *textBox, bool readOnly) {
+    return guarded("text box set read only", [&]() {
+        muxc::TextBox typed = objectAs<muxc::TextBox>(textBox, L"TextBox");
+        if (typed.IsReadOnly() != readOnly) {
+            typed.IsReadOnly(readOnly);
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUITextBoxOnTextChanged(ActionUIWinUIObject *textBox, ActionUIWinUICallback handler, void *context,
                                        ActionUIWinUICallback destroyContext) {
     return registerHandler("text box on text changed", handler, context, destroyContext,

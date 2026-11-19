@@ -234,6 +234,11 @@ ACTIONUI_WINUI_API char *actionUIWinUITextBoxCopyText(ActionUIWinUIObject *textB
 ACTIONUI_WINUI_API void actionUIWinUIFreeString(char *string);
 // The grayed text shown while the box is empty.
 ACTIONUI_WINUI_API bool actionUIWinUITextBoxSetPlaceholder(ActionUIWinUIObject *textBox, const char *placeholder);
+// Makes the box an editor of several lines: Return starts a new line, lines wrap at words, and a
+// vertical scroll bar shows when the text is taller than the box.
+ACTIONUI_WINUI_API bool actionUIWinUITextBoxSetMultiline(ActionUIWinUIObject *textBox);
+// Whether the text can only be read, selected and copied (the caret stays, for selecting).
+ACTIONUI_WINUI_API bool actionUIWinUITextBoxSetReadOnly(ActionUIWinUIObject *textBox, bool readOnly);
 // TextChanged: the text changed, by the user and also by actionUIWinUITextBoxSetText (WinUI reports
 // both, a moment after the change); compare with the value to tell them apart.
 ACTIONUI_WINUI_API bool actionUIWinUITextBoxOnTextChanged(ActionUIWinUIObject *textBox, ActionUIWinUICallback handler,

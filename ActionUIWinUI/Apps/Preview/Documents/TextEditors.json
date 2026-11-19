@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "An editor", "font": "headline" } },
+    {
+      "type": "TextEditor",
+      "id": 3,
+      "properties": {
+        "text": "A TextEditor shows several lines of text.\nA long line wraps at a word when it reaches the editor's trailing edge, as this one does.",
+        "valueChangeActionID": "wrapped.changed",
+        "frame": { "height": 90 }
+      }
+    },
+    { "type": "Text", "id": 4, "properties": { "text": "Read only", "font": "headline" } },
+    {
+      "type": "TextEditor",
+      "id": 5,
+      "properties": { "text": "This text can be selected and copied, not changed.", "readOnly": true, "frame": { "height": 50 } }
+    },
+    { "type": "Text", "id": 6, "properties": { "text": "With a placeholder", "font": "headline" } },
+    {
+      "type": "TextEditor",
+      "id": 7,
+      "properties": { "placeholder": "Type a note", "valueChangeActionID": "editor.changed", "frame": { "height": 50 } }
+    },
+    {
+      "type": "TextEditor",
+      "id": 8,
+      "properties": { "placeholder": "Typed into through UI Automation", "valueChangeActionID": "typed.changed", "frame": { "height": 50 } }
+    },
+    { "type": "Text", "id": 9, "properties": { "text": "Nothing typed yet", "foregroundStyle": "secondary" } }
+  ]
+}
