@@ -27,7 +27,7 @@ import AppKit
 ///       - `info` (3): Indicates general information for debugging or tracking (e.g., view registration or state update).
 ///       - `debug` (4): Indicates detailed debugging information for developers (e.g., intermediate state changes or binding updates).
 ///       - `verbose` (5): Indicates exhaustive diagnostic information (e.g., every view construction step).
-///   - Description: Sets a custom logger function to handle debugging and error reporting. The function is stored globally and called from native via evaluateJavaScript.
+///   - Description: Sets a custom logger function to handle debugging and error reporting. The function is stored globally and called from native via evaluateJavaScript. A release build of the adapter forwards errors and warnings only; a debug build forwards every level.
 ///   - Example: `ActionUI.setLogger(function(message, level) { console.log("[Level " + level + "] " + message); });`
 ///
 /// - `setElementValue(windowUUID, viewID, viewPartID, value)`
@@ -282,15 +282,41 @@ import AppKit
 /// Message handler name for JavaScript-to-native communication.
 private let messageHandlerName = "actionUI"
 
+/// Prints a detail line in a debug build only. A release build prints only failures, and never the
+/// values that pass through the bridge (a SecureField's text read by page script among them).
+private func trace(_ message: @autoclosure () -> String) {
+#if DEBUG
+    print(message())
+#endif
+}
+
+/// Prints that a call from JavaScript had invalid arguments; the arguments themselves, which may
+/// hold values, only in a debug build.
+private func invalidArguments(_ method: String, _ args: [Any]) {
+    print("Invalid arguments for \(method)")
+    trace("  arguments: \(args)")
+}
+
 /// Logger bridge to forward native logs to JavaScript.
 private final class WebKitJSLoggerBridge: ActionUILogger, @unchecked Sendable {
     weak var adapter: ActionUIWebKitJS?
-    
+
+    /// The most detailed level forwarded to the page: warnings and errors in a release build, every
+    /// level in a debug build, as the model's own default logger prints (Core/Common/ActionUIModel.swift).
+    static var maxForwardedLevel: LoggerLevel {
+#if DEBUG
+        .verbose
+#else
+        .warning
+#endif
+    }
+
     init(adapter: ActionUIWebKitJS) {
         self.adapter = adapter
     }
     
     func log(_ message: String, _ level: LoggerLevel) {
+        guard level.rawValue <= Self.maxForwardedLevel.rawValue else { return }
         guard let adapter = adapter else {
             print("Logger adapter is nil: \(message) [Level \(level.rawValue)]")
             return
@@ -309,7 +335,7 @@ private final class WebKitJSLoggerBridge: ActionUILogger, @unchecked Sendable {
         Task { @MainActor in
             do {
                 let result = try await adapter.webView.evaluateJavaScript(js)
-                print("Logger call result: \(result ?? "nil")")
+                trace("Logger call result: \(result ?? "nil")")
             } catch {
                 print("Logger call error: \(error)")
             }
@@ -353,7 +379,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
            let bridgeSource = try? String(contentsOf: bridgeURL, encoding: .utf8) {
             let userScript = WKUserScript(source: bridgeSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
             config.userContentController.addUserScript(userScript)
-            print("Injected ActionUIWebKitJSBridge.js at document start")
+            trace("Injected ActionUIWebKitJSBridge.js at document start")
         } else {
             print("Failed to load ActionUIWebKitJSBridge.js from bundle")
         }
@@ -380,9 +406,9 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             return
         }
         
-        print("Attempting to load JavaScript from: \(scriptURL.absoluteString)")
+        trace("Attempting to load JavaScript from: \(scriptURL.absoluteString)")
         if FileManager.default.fileExists(atPath: scriptURL.path) {
-            print("Confirmed: BusinessLogic.js exists at \(scriptURL.path)")
+            trace("Confirmed: BusinessLogic.js exists at \(scriptURL.path)")
         } else {
             print("Error: BusinessLogic.js not found at \(scriptURL.path)")
         }
@@ -392,9 +418,9 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             return
         }
         
-        print("Loading HTML from: \(htmlURL.absoluteString)")
+        trace("Loading HTML from: \(htmlURL.absoluteString)")
         if FileManager.default.fileExists(atPath: htmlURL.path) {
-            print("Confirmed: index.html exists at \(htmlURL.path)")
+            trace("Confirmed: index.html exists at \(htmlURL.path)")
         } else {
             print("Error: index.html not found at \(htmlURL.path)")
         }
@@ -409,13 +435,14 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
         ActionUIWebKitJS.model.setDefaultActionHandler { [weak self] actionID, windowUUID, viewID, viewPartID, context in
             guard let self = self else { return }
             let argsJSON = self.jsonForActionHandlerArgs(actionID, windowUUID, viewID, viewPartID, context)
-            print("Dispatching action: \(actionID) with args: \(argsJSON)")
+            // The arguments carry the action's context, which may be typed text: not logged.
+            trace("Dispatching action: \(actionID)")
             let js = "window.actionUIDispatch('action', \(Self.jsLiteral(actionID)), \(argsJSON))"
             self.webView.evaluateJavaScript(js) { result, error in
                 if let error = error {
                     print("Action handler call error: \(error)")
                 } else {
-                    print("Action handler call result: \(result ?? "nil")")
+                    trace("Action handler call result: \(result ?? "nil")")
                 }
             }
         }
@@ -492,7 +519,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
     // Handle messages from JavaScript
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "consoleLog", let body = message.body as? [String: Any], let msg = body["message"] as? String {
-            print("JS Console: \(msg)")
+            trace("JS Console: \(msg)")
             return
         }
         
@@ -504,20 +531,20 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
         }
         
         let methodLog = "Received message for method: \(method)"
-        print(methodLog)
+        trace(methodLog)
         
         switch method {
         case "testFromJS":
-            print("Received test from JS: Native side called successfully!")
+            trace("Received test from JS: Native side called successfully!")
         case "setElementValue":
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let viewPartID = numberAsInt(args[2]) {
                 let value = FoundationBridge.native(args[3])
-                print("setElementValue called with windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), value: \(value)")
+                trace("setElementValue called with windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), a \(type(of: value))")
                 ActionUIWebKitJS.model.setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value)
             } else {
-                print("Invalid arguments for setElementValue: \(args)")
+                invalidArguments("setElementValue", args)
             }
         case "setElementValueFromString":
             // args: [windowUUID, viewID, viewPartID, value, contentType?]
@@ -528,7 +555,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let contentType = args.count >= 5 ? args[4] as? String : nil
                 ActionUIWebKitJS.model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value, contentType: contentType)
             } else {
-                print("Invalid arguments for setElementValueFromString: \(args)")
+                invalidArguments("setElementValueFromString", args)
             }
         case "getElementValue":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -541,11 +568,11 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     if let error = error {
                         print("getElementValue response error: \(error)")
                     } else {
-                        print("getElementValue response sent: \(json)")
+                        trace("getElementValue response sent")
                     }
                 }
             } else {
-                print("Invalid arguments for getElementValue: \(args)")
+                invalidArguments("getElementValue", args)
             }
         case "getElementColumnCount":
             if args.count == 2, let windowUUID = args[0] as? String,
@@ -558,7 +585,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementColumnCount: \(args)")
+                invalidArguments("getElementColumnCount", args)
             }
         case "getElementRows":
             if args.count == 2, let windowUUID = args[0] as? String,
@@ -572,14 +599,14 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementRows: \(args)")
+                invalidArguments("getElementRows", args)
             }
         case "clearElementRows":
             if args.count == 2, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]) {
                 ActionUIWebKitJS.model.clearElementRows(windowUUID: windowUUID, viewID: viewID)
             } else {
-                print("Invalid arguments for clearElementRows: \(args)")
+                invalidArguments("clearElementRows", args)
             }
         case "setElementRows":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -587,7 +614,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let rows = args[2] as? [[String]] {
                 ActionUIWebKitJS.model.setElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
             } else {
-                print("Invalid arguments for setElementRows: \(args)")
+                invalidArguments("setElementRows", args)
             }
         case "appendElementRows":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -595,7 +622,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let rows = args[2] as? [[String]] {
                 ActionUIWebKitJS.model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
             } else {
-                print("Invalid arguments for appendElementRows: \(args)")
+                invalidArguments("appendElementRows", args)
             }
         case "appendElementText":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -609,7 +636,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for appendElementText: \(args)")
+                invalidArguments("appendElementText", args)
             }
         case "selectElementRow":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -624,7 +651,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for selectElementRow: \(args)")
+                invalidArguments("selectElementRow", args)
             }
         case "selectElementRowWithContent":
             if args.count == 4, let windowUUID = args[0] as? String,
@@ -640,14 +667,14 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for selectElementRowWithContent: \(args)")
+                invalidArguments("selectElementRowWithContent", args)
             }
         case "clearElementSelection":
             if args.count == 2, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]) {
                 ActionUIWebKitJS.model.clearElementSelection(windowUUID: windowUUID, viewID: viewID)
             } else {
-                print("Invalid arguments for clearElementSelection: \(args)")
+                invalidArguments("clearElementSelection", args)
             }
         case "getElementProperty":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -662,7 +689,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementProperty: \(args)")
+                invalidArguments("getElementProperty", args)
             }
         case "setElementProperty":
             if args.count == 4, let windowUUID = args[0] as? String,
@@ -671,13 +698,13 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let value = FoundationBridge.native(args[3])
                 ActionUIWebKitJS.model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
             } else {
-                print("Invalid arguments for setElementProperty: \(args)")
+                invalidArguments("setElementProperty", args)
             }
         case "removeWindow":
             if args.count == 1, let windowUUID = args[0] as? String {
                 ActionUIWebKitJS.model.removeWindow(windowUUID)
             } else {
-                print("Invalid arguments for removeWindow: \(args)")
+                invalidArguments("removeWindow", args)
             }
         case "getElementInfo":
             if args.count == 1, let windowUUID = args[0] as? String {
@@ -692,7 +719,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementInfo: \(args)")
+                invalidArguments("getElementInfo", args)
             }
         case "getElementValueAsString":
             // args: [windowUUID, viewID, viewPartID?, contentType?]
@@ -708,7 +735,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementValueAsString: \(args)")
+                invalidArguments("getElementValueAsString", args)
             }
         case "getElementState":
             // args: [windowUUID, viewID, key]
@@ -724,7 +751,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementState: \(args)")
+                invalidArguments("getElementState", args)
             }
         case "getElementStateAsString":
             // args: [windowUUID, viewID, key]
@@ -739,7 +766,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     }
                 }
             } else {
-                print("Invalid arguments for getElementStateAsString: \(args)")
+                invalidArguments("getElementStateAsString", args)
             }
         case "setElementState":
             // args: [windowUUID, viewID, key, value]
@@ -749,7 +776,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let value = FoundationBridge.native(args[3])
                 ActionUIWebKitJS.model.setElementState(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
             } else {
-                print("Invalid arguments for setElementState: \(args)")
+                invalidArguments("setElementState", args)
             }
         case "setElementStateFromString":
             // args: [windowUUID, viewID, key, value]
@@ -759,7 +786,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let value = args[3] as? String {
                 ActionUIWebKitJS.model.setElementStateFromString(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
             } else {
-                print("Invalid arguments for setElementStateFromString: \(args)")
+                invalidArguments("setElementStateFromString", args)
             }
         case "presentModal":
             // args: [windowUUID, jsonString, format, style, onDismissActionID?]
@@ -777,13 +804,13 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     print("presentModal error: \(error)")
                 }
             } else {
-                print("Invalid arguments for presentModal: \(args)")
+                invalidArguments("presentModal", args)
             }
         case "dismissModal":
             if args.count >= 1, let windowUUID = args[0] as? String {
                 ActionUIWebKitJS.model.dismissModal(windowUUID: windowUUID)
             } else {
-                print("Invalid arguments for dismissModal: \(args)")
+                invalidArguments("dismissModal", args)
             }
         case "presentAlert":
             // args: [windowUUID, title, message?, buttons?]
@@ -796,7 +823,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     ActionUIWebKitJS.model.presentAlert(windowUUID: windowUUID, title: title, message: message)
                 }
             } else {
-                print("Invalid arguments for presentAlert: \(args)")
+                invalidArguments("presentAlert", args)
             }
         case "presentConfirmationDialog":
             // args: [windowUUID, title, message?, buttons]
@@ -805,13 +832,13 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let buttons  = args.count >= 4 ? parseDialogButtons(args[3] as? [Any]) ?? [] : []
                 ActionUIWebKitJS.model.presentConfirmationDialog(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
             } else {
-                print("Invalid arguments for presentConfirmationDialog: \(args)")
+                invalidArguments("presentConfirmationDialog", args)
             }
         case "dismissDialog":
             if args.count >= 1, let windowUUID = args[0] as? String {
                 ActionUIWebKitJS.model.dismissDialog(windowUUID: windowUUID)
             } else {
-                print("Invalid arguments for dismissDialog: \(args)")
+                invalidArguments("dismissDialog", args)
             }
         case "presentToast":
             // args: [windowUUID, message, duration?, actionTitle?, actionID?]
@@ -821,13 +848,13 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 let actionID    = args.count >= 5 ? args[4] as? String : nil
                 ActionUIWebKitJS.model.presentToast(windowUUID: windowUUID, message: message, duration: duration, actionTitle: actionTitle, actionID: actionID)
             } else {
-                print("Invalid arguments for presentToast: \(args)")
+                invalidArguments("presentToast", args)
             }
         case "dismissToast":
             if args.count >= 1, let windowUUID = args[0] as? String {
                 ActionUIWebKitJS.model.dismissToast(windowUUID: windowUUID)
             } else {
-                print("Invalid arguments for dismissToast: \(args)")
+                invalidArguments("dismissToast", args)
             }
         case "insertElement":
             // args: [windowUUID, parentID, json, container?, position?, positionParam?]
@@ -849,7 +876,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     print("insertElement error: \(error)")
                 }
             } else {
-                print("Invalid arguments for insertElement: \(args)")
+                invalidArguments("insertElement", args)
             }
         case "insertRow":
             // args: [windowUUID, parentID, json, container?, position?, positionIndex?]
@@ -872,7 +899,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     print("insertRow error: \(error)")
                 }
             } else {
-                print("Invalid arguments for insertRow: \(args)")
+                invalidArguments("insertRow", args)
             }
         case "removeElement":
             // args: [windowUUID, viewID]
@@ -884,7 +911,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                     print("removeElement error: \(error)")
                 }
             } else {
-                print("Invalid arguments for removeElement: \(args)")
+                invalidArguments("removeElement", args)
             }
         default:
             print("Unknown method: \(method)")
@@ -904,7 +931,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
     // MARK: - WKNavigationDelegate
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        print("WebView navigation finished")
+        trace("WebView navigation finished")
         testNativeToJS()
         // Modified: Removed runBusinessLogic trigger as BusinessLogic.js runs immediately
     }
@@ -918,11 +945,11 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
     }
     
     public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        print("WebView didCommit navigation")
+        trace("WebView didCommit navigation")
     }
     
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        print("WebView didStartProvisionalNavigation")
+        trace("WebView didStartProvisionalNavigation")
     }
     
     public func testNativeToJS() {
@@ -930,7 +957,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             if let error = error {
                 print("Test native to JS error: \(error)")
             } else {
-                print("Test native to JS result: \(result ?? "nil")")
+                trace("Test native to JS result: \(result ?? "nil")")
             }
         }
     }
