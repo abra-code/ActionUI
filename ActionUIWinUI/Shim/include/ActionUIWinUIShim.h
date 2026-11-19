@@ -127,6 +127,10 @@ ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *text
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIButtonCreate(void);
 // Shows `title` as the button's content.
 ACTIONUI_WINUI_API bool actionUIWinUIButtonSetTitle(ActionUIWinUIObject *button, const char *title);
+// Shows `content` (an element: a symbol, a panel of an icon and a title) as the button's content; NULL
+// shows nothing. The content's text and icons take the button's text color, which changes with its
+// state (pointer over, pressed, disabled).
+ACTIONUI_WINUI_API bool actionUIWinUIButtonSetContent(ActionUIWinUIObject *button, ActionUIWinUIObject *content);
 // Click: the user clicked the button, pressed it with the keyboard, or an accessibility tool invoked
 // it. Never from a setter.
 ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
@@ -372,14 +376,15 @@ ACTIONUI_WINUI_API bool actionUIWinUIFileExists(const char *path);
 
 // The SF Symbol names ActionUI can draw on Windows are those of its SF Symbols -> Material Symbols
 // map, compiled into the shim with their outlines (Scripts/prepare-windows-symbols.py) at each row's
-// fill and weight; no font ships. A symbol is a shape: paint it with actionUIWinUIElementSetBrush
-// (Fill), as the text color draws SF Symbols.
+// fill and weight; no font ships. A symbol is an icon element (a PathIcon): it draws in the inherited
+// text color (a button's changes with its state), as SF Symbols take the text color, or in the brush
+// actionUIWinUIElementSetBrush gives its Foreground.
 
 // Whether the shim was built with the symbol outlines (false: every name is unknown).
 ACTIONUI_WINUI_API bool actionUIWinUISymbolsAvailable(void);
 // Whether `name` (an SF Symbol name, exact) has an outline.
 ACTIONUI_WINUI_API bool actionUIWinUISymbolExists(const char *name);
-// A new shape drawing the symbol `name` in a square of actionUIWinUISymbolSetSize's size (the Material
+// A new icon drawing the symbol `name` in a square of actionUIWinUISymbolSetSize's size (the Material
 // glyph's em box: the glyph sits inside it with the font's margins). NULL (with an error) when the name
 // has no outline.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name);

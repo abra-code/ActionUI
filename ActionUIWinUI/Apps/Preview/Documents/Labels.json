@@ -1,0 +1,23 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Label", "id": 2, "properties": { "title": "Favorites", "systemImage": "star.fill" } },
+    { "type": "Label", "id": 3, "properties": { "title": "Documents", "systemImage": "folder" } },
+    { "type": "Label", "id": 4, "properties": { "title": "Notifications", "systemImage": "bell.fill", "font": "title" } },
+    { "type": "Label", "id": 5, "properties": { "title": "Loved", "systemImage": "heart.fill", "foregroundStyle": "red" } },
+    { "type": "Label", "id": 6, "properties": { "title": "A label without an icon" } },
+    {
+      "type": "HStack",
+      "id": 7,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "id": 8, "properties": { "title": "Save" } },
+        { "type": "Button", "id": 9, "properties": { "title": "Add item", "systemImage": "plus.circle" } },
+        { "type": "Button", "id": 10, "properties": { "systemImage": "trash" } },
+        { "type": "Button", "id": 11, "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "imageScale": "large" } }
+      ]
+    }
+  ]
+}

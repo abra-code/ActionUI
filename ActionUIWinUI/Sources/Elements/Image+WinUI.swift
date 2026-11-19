@@ -36,7 +36,7 @@ enum ImageContent: Equatable {
     case symbol(String)
 }
 
-/// An Image's panel: its one child (a WinUI Image or a symbol's path) at the image's size, centered in
+/// An Image's panel: its one child (a WinUI Image or a symbol's icon) at the image's size, centered in
 /// the room it is given.
 @MainActor
 final class ImageLayout {
@@ -64,6 +64,38 @@ final class ImageLayout {
         panel.measure = { [unowned self] available in measure(available) }
         panel.arrange = { [unowned self] finalSize in arrange(finalSize) }
     }
+
+    /// A symbol's side for `node`'s font: the font size (the theme's body size when none) times
+    /// SwiftUI's symbol box factor, times the image scale's factor ("small", "medium", "large"; nil:
+    /// medium). Image, Label and Button's symbols.
+    static func symbolSide(_ node: RenderNode, scale: String?) -> Double {
+        let fontSize = TextAppearance.winUIFont(node.textAppearance.font).size
+        let base = (fontSize > 0 ? fontSize : 14) * symbolFontFactor
+        switch scale {
+        case "small": return (base * 0.8).rounded()
+        case "large": return (base * 1.28).rounded()
+        default: return base.rounded()
+        }
+    }
+
+    /// A new symbol icon for `name`, nil (logged once per name) when the shim has no outline for it.
+    static func makeSymbol(_ name: String) -> WinUIObject? {
+        guard actionUIWinUISymbolExists(name) else {
+            if reportedMissing.insert(name).inserted {
+                let why = actionUIWinUISymbolsAvailable() ? "the SF Symbols map has no Material symbol for it"
+                                                          : "ActionUI's shim was built without its symbols (Scripts/prepare-windows-symbols.py)"
+                ActionUIModel.shared.logger.log("No Windows symbol for \"\(name)\": \(why); showing nothing", .warning)
+            }
+            return nil
+        }
+        let symbol = WinUIObject(adopting: actionUIWinUISymbolCreate(name))
+        if symbol == nil {
+            ActionUIModel.shared.logger.log("Image: \(WinUIError.last("drawing the symbol \(name)"))", .error)
+        }
+        return symbol
+    }
+
+    private static var reportedMissing: Set<String> = []
 
     /// Shows `newChild` for `newContent`, replacing the child shown before.
     func show(_ newChild: WinUIObject?, for newContent: ImageContent) {
@@ -131,7 +163,6 @@ extension Image: ActionUIWinUIRenderer {
     /// File name extensions of images WinUI decodes (some need a codec installed).
     static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "ico", "svg",
                                                "webp", "jxr", "wdp", "heic", "heif", "avif"]
-    private static var reportedMissing: Set<String> = []
 
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
         let layout = try ImageLayout()
@@ -177,8 +208,9 @@ extension Image: ActionUIWinUIRenderer {
                 changed = true
             }
             if let child = layout.child {
-                let paint = Paint.parse(node.textAppearance.foreground, role: .foreground) ?? .theme("TextFillColorPrimaryBrush")
-                Paint.apply(paint, ActionUIWinUIBrushFill, to: child, what: "a symbol")
+                // The foregroundStyle in effect, else the inherited text color (a button's follows its state).
+                Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground), ActionUIWinUIBrushForeground,
+                            to: child, what: "a symbol")
             }
         }
         if changed {
@@ -186,7 +218,7 @@ extension Image: ActionUIWinUIRenderer {
         }
     }
 
-    /// The child for `content`: a WinUI Image for a file, the symbol's shape (nil when the shim has no
+    /// The child for `content`: a WinUI Image for a file, the symbol's icon (nil when the shim has no
     /// outline for the name).
     static func makeChild(_ content: ImageContent) -> WinUIObject? {
         switch content {
@@ -197,32 +229,12 @@ extension Image: ActionUIWinUIRenderer {
             }
             return image
         case .symbol(let name):
-            guard actionUIWinUISymbolExists(name) else {
-                if reportedMissing.insert(name).inserted {
-                    let why = actionUIWinUISymbolsAvailable() ? "the SF Symbols map has no Material symbol for it"
-                                                              : "ActionUI's shim was built without its symbols (Scripts/prepare-windows-symbols.py)"
-                    ActionUIModel.shared.logger.log("No Windows symbol for \"\(name)\": \(why); showing nothing", .warning)
-                }
-                return nil
-            }
-            let symbol = WinUIObject(adopting: actionUIWinUISymbolCreate(name))
-            if symbol == nil {
-                ActionUIModel.shared.logger.log("Image: \(WinUIError.last("drawing the symbol \(name)"))", .error)
-            }
-            return symbol
+            return ImageLayout.makeSymbol(name)
         }
     }
 
-    /// A symbol's side: the font size (the theme's body size when none) times SwiftUI's symbol box
-    /// factor, times the image scale's factor.
     static func symbolSide(_ node: RenderNode, _ props: Props) -> Double {
-        let fontSize = TextAppearance.winUIFont(node.textAppearance.font).size
-        let base = (fontSize > 0 ? fontSize : 14) * ImageLayout.symbolFontFactor
-        switch props.imageScale {
-        case .small: return (base * 0.8).rounded()
-        case .large: return (base * 1.28).rounded()
-        case .medium, nil: return base.rounded()
-        }
+        ImageLayout.symbolSide(node, scale: props.imageScale?.rawValue)
     }
 
     // MARK: What to show

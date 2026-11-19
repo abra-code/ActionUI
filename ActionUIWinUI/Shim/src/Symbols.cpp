@@ -1,6 +1,6 @@
 // Symbols.cpp - SF Symbols on Windows: the Material Symbols outline that ActionUI's SF -> Material map gives
 // a name, at the row's fill and weight, compiled into the shim (generated/symbols.inc, written by
-// Scripts/prepare-windows-symbols.py), drawn as a WinUI Path in the glyph's em box. No font ships; the
+// Scripts/prepare-windows-symbols.py), drawn as a WinUI PathIcon in the glyph's em box. No font ships; the
 // outlines are those of the Linux icons. Their path text is compressed with Windows' Compression API
 // (about 1.7 MB in 0.5 MB) and unpacked once, at the first symbol drawn.
 
@@ -16,13 +16,11 @@
 
 #include <winrt/Microsoft.UI.Xaml.Markup.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
-#include <winrt/Microsoft.UI.Xaml.Shapes.h>
 #include <winrt/Windows.UI.Xaml.Interop.h>
 
 #pragma comment(lib, "cabinet.lib")
 
 namespace media = winrt::Microsoft::UI::Xaml::Media;
-namespace shapes = winrt::Microsoft::UI::Xaml::Shapes;
 
 using namespace actionui_winui;
 
@@ -115,32 +113,33 @@ ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name) {
                                                        : "no outline for that symbol name");
             return nullptr;
         }
-        shapes::Path path;
-        path.Data(geometry(symbolPath(row->path)));
-        path.Stretch(media::Stretch::None);
+        // A PathIcon, not a Path: an icon draws in the inherited text color (a button's, which changes
+        // with its state), as SF Symbols take the text color.
+        muxc::PathIcon icon;
+        icon.Data(geometry(symbolPath(row->path)));
         double units = ACTIONUI_SYMBOL_UNITS;
-        path.Width(units);
-        path.Height(units);
-        return toObject(path);
+        icon.Width(units);
+        icon.Height(units);
+        return toObject(icon);
     });
 }
 
 bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size) {
     return guarded("symbol set size", [&]() {
-        shapes::Path path = objectAs<shapes::Path>(symbol, L"Path");
+        muxc::PathIcon icon = objectAs<muxc::PathIcon>(symbol, L"PathIcon");
         if (!(size >= 0)) {
             return fail("symbol set size", "the size is not a number of pixels");
         }
         // One transform per symbol, made at the first size: stacks size a symbol several times a pass.
-        media::ScaleTransform scale = path.Data().Transform().try_as<media::ScaleTransform>();
+        media::ScaleTransform scale = icon.Data().Transform().try_as<media::ScaleTransform>();
         if (scale == nullptr) {
             scale = media::ScaleTransform();
-            path.Data().Transform(scale);
+            icon.Data().Transform(scale);
         }
         scale.ScaleX(size / ACTIONUI_SYMBOL_UNITS);
         scale.ScaleY(size / ACTIONUI_SYMBOL_UNITS);
-        path.Width(size);
-        path.Height(size);
+        icon.Width(size);
+        icon.Height(size);
         return true;
     });
 }

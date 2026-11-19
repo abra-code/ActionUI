@@ -28,6 +28,18 @@ bool actionUIWinUIButtonSetTitle(ActionUIWinUIObject *button, const char *title)
     });
 }
 
+bool actionUIWinUIButtonSetContent(ActionUIWinUIObject *button, ActionUIWinUIObject *content) {
+    return guarded("button set content", [&]() {
+        muxc::Button typed = objectAs<muxc::Button>(button, L"Button");
+        if (content == nullptr) {
+            typed.Content(nullptr);
+        } else {
+            typed.Content(objectAs<mux::UIElement>(content, L"UIElement"));
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
                                 ActionUIWinUICallback destroyContext) {
     return registerHandler("button on click", handler, context, destroyContext,

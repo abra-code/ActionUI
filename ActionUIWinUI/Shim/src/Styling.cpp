@@ -103,6 +103,15 @@ bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBru
                 }
                 return true;
             }
+            // A symbol (a PathIcon): without its own, it draws in the inherited text color.
+            if (muxc::IconElement icon = typed.try_as<muxc::IconElement>(); icon != nullptr) {
+                if (wanted == nullptr) {
+                    icon.ClearValue(muxc::IconElement::ForegroundProperty());
+                } else if (!samePaint(icon.Foreground(), wanted)) {
+                    icon.Foreground(wanted);
+                }
+                return true;
+            }
             return fail("element set brush", "the element has no foreground");
         }
         if (property == ActionUIWinUIBrushFill || property == ActionUIWinUIBrushStroke) {
