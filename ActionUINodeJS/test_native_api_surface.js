@@ -354,6 +354,45 @@ function testTypeChecking() {
     }
 }
 
+// String arguments are checked: a value of another type, or a missing one, throws a TypeError
+// instead of handing the library an uninitialized buffer (which replayed an earlier call's value).
+// Strings longer than the old fixed buffers (128, 256, 4096, 65536 bytes) arrive whole.
+function testStringArguments(uuid) {
+    console.log('\n=== String arguments (wrong type or missing must throw TypeError) ===');
+    const throwsTypeError = (fn) => {
+        try { fn(); } catch (e) { return e instanceof TypeError; }
+        return false;
+    };
+    check('setStringValue with a number value throws TypeError',
+        throwsTypeError(() => native.setStringValue(uuid, 1, 0, 42)));
+    check('setStringValue with no value throws TypeError',
+        throwsTypeError(() => native.setStringValue(uuid, 1, 0)));
+    check('setStringValue with a null window id throws TypeError',
+        throwsTypeError(() => native.setStringValue(null, 1, 0, 'x')));
+    check('setElementRowsJSON with undefined JSON throws TypeError',
+        throwsTypeError(() => native.setElementRowsJSON(uuid, 1, undefined)));
+    check('registerActionHandler with a number id throws TypeError',
+        throwsTypeError(() => native.registerActionHandler(7, () => {})));
+    check('log with an object message throws TypeError',
+        throwsTypeError(() => native.log({}, native.LOG_DEBUG)));
+    check('getValueAsString with a number content type throws TypeError',
+        throwsTypeError(() => native.getValueAsString(uuid, 1, 0, 5)));
+    check('getValueAsString with a null content type does not throw',
+        !throwsTypeError(() => native.getValueAsString(uuid, 1, 0, null)));
+
+    const longText = 'x'.repeat(70000);
+    let threw = false;
+    try {
+        native.setStringValue(uuid, 1, 0, longText);
+        native.setElementRowsJSON(uuid, 1, JSON.stringify([[longText]]));
+        native.registerActionHandler('a'.repeat(300), () => {});
+        native.unregisterActionHandler('a'.repeat(300));
+    } catch (e) {
+        threw = true;
+    }
+    check('strings longer than the old fixed buffers are accepted', !threw);
+}
+
 function testNullClearing() {
     console.log('\n=== Null handler clearing ===');
     try {
@@ -416,6 +455,7 @@ function main() {
     testAppControl();
     testFilePanels();
     testTypeChecking();
+    testStringArguments(testUuid);
     testNullClearing();
 
     console.log('\n' + '='.repeat(55));

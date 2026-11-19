@@ -65,6 +65,12 @@ class ActionContext {
 // Window
 // ---------------------------------------------------------------------------
 
+// The setters take (viewId, value) for part 0, as documented, or (viewId, partId, value). Reading a
+// two-argument call as (viewId, partId) would send no value at all.
+function partAndValue(rest) {
+    return rest.length >= 2 ? [rest[0] ?? 0, rest[1]] : [0, rest[0]];
+}
+
 class Window {
     constructor(uuid) {
         this.uuid = uuid || randomUUID();
@@ -113,11 +119,11 @@ class Window {
         }
     }
 
-    // Type-specific setters
-    setInt(viewId, partId = 0, value)    { _actionui.setIntValue(this.uuid, viewId, partId, value); }
-    setDouble(viewId, partId = 0, value) { _actionui.setDoubleValue(this.uuid, viewId, partId, value); }
-    setBool(viewId, partId = 0, value)   { _actionui.setBoolValue(this.uuid, viewId, partId, value); }
-    setString(viewId, partId = 0, value) { _actionui.setStringValue(this.uuid, viewId, partId, value); }
+    // Type-specific setters: (viewId, value) sets part 0, (viewId, partId, value) a given part.
+    setInt(viewId, ...rest)    { const [partId, value] = partAndValue(rest); _actionui.setIntValue(this.uuid, viewId, partId, value); }
+    setDouble(viewId, ...rest) { const [partId, value] = partAndValue(rest); _actionui.setDoubleValue(this.uuid, viewId, partId, value); }
+    setBool(viewId, ...rest)   { const [partId, value] = partAndValue(rest); _actionui.setBoolValue(this.uuid, viewId, partId, value); }
+    setString(viewId, ...rest) { const [partId, value] = partAndValue(rest); _actionui.setStringValue(this.uuid, viewId, partId, value); }
 
     // Type-specific getters
     getInt(viewId, partId = 0)    { return _actionui.getIntValue(this.uuid, viewId, partId); }
@@ -125,8 +131,9 @@ class Window {
     getBool(viewId, partId = 0)   { return _actionui.getBoolValue(this.uuid, viewId, partId); }
     getString(viewId, partId = 0) { return _actionui.getStringValue(this.uuid, viewId, partId); }
 
-    // Generic value access (JSON round-trip)
-    setValue(viewId, partId = 0, value) {
+    // Generic value access (JSON round-trip): (viewId, value) or (viewId, partId, value)
+    setValue(viewId, ...rest) {
+        const [partId, value] = partAndValue(rest);
         if (typeof value === 'boolean') {
             _actionui.setBoolValue(this.uuid, viewId, partId, value);
         } else if (typeof value === 'number') {

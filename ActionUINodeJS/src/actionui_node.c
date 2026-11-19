@@ -166,6 +166,82 @@ static void addon_state_finalizer(napi_env env, void* data, void* hint) {
 
 // MARK: - Callback helpers
 
+/* After a call into JavaScript from a native callback: if the function threw, print the error
+ * and clear it. A pending exception left behind makes Node-API refuse the next call into
+ * JavaScript and is later thrown into an unrelated caller. `who` names the callback. */
+static void report_callback_exception(napi_env env, const char* who) {
+    bool pending = false;
+    napi_is_exception_pending(env, &pending);
+    if (!pending) return;
+    napi_value error;
+    napi_get_and_clear_last_exception(env, &error);
+    napi_value text;
+    char message[512] = "";
+    if (napi_coerce_to_string(env, error, &text) == napi_ok) {
+        napi_get_value_string_utf8(env, text, message, sizeof(message), NULL);
+    } else {
+        /* A Symbol, or a toString that throws: clear that exception too. */
+        napi_value ignored;
+        napi_get_and_clear_last_exception(env, &ignored);
+        snprintf(message, sizeof(message), "(a value that cannot be shown as text)");
+    }
+    fprintf(stderr, "actionui: %s threw: %s\n", who, message);
+}
+
+// MARK: - String arguments
+
+/* String arguments are copied to the heap at their real length, so nothing is cut short, and are
+ * freed when the variable goes out of scope: declare them with STRING_ARG(name). */
+static void free_string_arg(char** string) {
+    free(*string);
+}
+#define STRING_ARG(name) __attribute__((cleanup(free_string_arg))) char* name = NULL
+
+/* Copies a required string argument into *out. A value of any other type, including a missing
+ * argument (Node-API passes undefined for it), throws a TypeError naming the argument and
+ * returns false; the caller then returns NULL. */
+static bool read_string_arg(napi_env env, napi_value value, char** out, const char* name) {
+    napi_valuetype type = napi_undefined;
+    napi_typeof(env, value, &type);
+    if (type != napi_string) {
+        char message[160];
+        snprintf(message, sizeof(message), "%s must be a string", name);
+        napi_throw_type_error(env, NULL, message);
+        return false;
+    }
+    size_t length = 0;
+    if (napi_get_value_string_utf8(env, value, NULL, 0, &length) != napi_ok) {
+        napi_throw_type_error(env, NULL, "could not read a string argument");
+        return false;
+    }
+    char* copy = (char*)malloc(length + 1);
+    if (copy == NULL) {
+        napi_throw_error(env, NULL, "out of memory");
+        return false;
+    }
+    size_t copied = 0;
+    if (napi_get_value_string_utf8(env, value, copy, length + 1, &copied) != napi_ok) {
+        free(copy);
+        napi_throw_type_error(env, NULL, "could not read a string argument");
+        return false;
+    }
+    copy[copied] = '\0';
+    free(*out);
+    *out = copy;
+    return true;
+}
+
+/* An optional string argument: absent, undefined or null leaves *out NULL; a string is copied as
+ * read_string_arg does; any other type throws a TypeError. */
+static bool read_optional_string_arg(napi_env env, size_t argc, napi_value* argv, size_t index,
+                                     char** out, const char* name) {
+    if (index >= argc) return true;
+    napi_valuetype type = napi_undefined;
+    napi_typeof(env, argv[index], &type);
+    if (type == napi_undefined || type == napi_null) return true;
+    return read_string_arg(env, argv[index], out, name);
+}
+
 /* Call a no-arg JS callback stored as a napi_ref.
  *
  * napi_make_callback (≡ node::MakeCallback) is used instead of
@@ -188,6 +264,7 @@ static void call_void_callback(napi_ref ref) {
         __attribute__((unused)) napi_status s = napi_make_callback(env, g_state->async_ctx, global, fn, 0, NULL, &result);
         DIAGNOSTIC_LOG("[actionui:diag] call_void_callback: make_callback status=%d async_ctx=%p\n",
                 (int)s, (void*)g_state->async_ctx);
+        report_callback_exception(env, "an app lifecycle callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -206,6 +283,7 @@ static void call_string_callback(napi_ref ref, const char* str) {
         napi_get_global(env, &global);
         napi_create_string_utf8(env, str ? str : "", NAPI_AUTO_LENGTH, &arg);
         napi_make_callback(env, g_state->async_ctx, global, fn, 1, &arg, &result);
+        report_callback_exception(env, "a window callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -255,6 +333,7 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
         napi_create_string_utf8(env, message ? message : "", NAPI_AUTO_LENGTH, &argv[0]);
         napi_create_int32(env, (int32_t)level, &argv[1]);
         napi_call_function(env, global, fn, 2, argv, &result);
+        report_callback_exception(env, "the logger callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -282,8 +361,12 @@ static void action_handler_bridge(const char* actionID,
         if (napi_get_reference_value(env, g_state->action_handlers, &handlers_obj) == napi_ok) {
             napi_value js_key;
             napi_create_string_utf8(env, actionID, NAPI_AUTO_LENGTH, &js_key);
+            /* Only the table's own entries: an action id comes from the document, and an id such
+             * as "constructor" or "__defineGetter__" must not reach an inherited function. */
+            bool own = false;
             napi_value handler_val;
-            if (napi_get_property(env, handlers_obj, js_key, &handler_val) == napi_ok) {
+            if (napi_has_own_property(env, handlers_obj, js_key, &own) == napi_ok && own &&
+                napi_get_property(env, handlers_obj, js_key, &handler_val) == napi_ok) {
                 napi_valuetype vtype;
                 napi_typeof(env, handler_val, &vtype);
                 if (vtype == napi_function) {
@@ -316,6 +399,7 @@ static void action_handler_bridge(const char* actionID,
             napi_get_null(env, &argv[4]);
         }
         napi_call_function(env, global, fn, 5, argv, &result);
+        report_callback_exception(env, "an action handler");
     }
 
     napi_close_handle_scope(env, scope);
@@ -349,6 +433,7 @@ static bool app_should_terminate_bridge(void) {
             napi_coerce_to_bool(env, ret, &ret);
             napi_get_value_bool(env, ret, &result);
         }
+        report_callback_exception(env, "the should-terminate callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -443,8 +528,8 @@ static napi_value node_set_logger(napi_env env, napi_callback_info info) {
 static napi_value node_log(napi_env env, napi_callback_info info) {
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char message[4096]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], message, sizeof(message), &len);
+    STRING_ARG(message);
+    if (!read_string_arg(env, argv[0], &message, "message")) return NULL;
     int32_t level = 0;
     napi_get_value_int32(env, argv[1], &level);
     actionUILog(message, (ActionUILogLevel)level);
@@ -473,8 +558,8 @@ static napi_value node_register_action_handler(napi_env env, napi_callback_info 
     if (!require_main_env(env, "registerActionHandler")) return NULL;
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char actionID[256]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], actionID, sizeof(actionID), &len);
+    STRING_ARG(actionID);
+    if (!read_string_arg(env, argv[0], &actionID, "actionID")) return NULL;
 
     napi_valuetype vtype;
     napi_typeof(env, argv[1], &vtype);
@@ -499,8 +584,8 @@ static napi_value node_unregister_action_handler(napi_env env, napi_callback_inf
     if (!require_main_env(env, "unregisterActionHandler")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char actionID[256]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], actionID, sizeof(actionID), &len);
+    STRING_ARG(actionID);
+    if (!read_string_arg(env, argv[0], &actionID, "actionID")) return NULL;
 
     napi_value handlers_obj;
     napi_get_reference_value(env, g_state->action_handlers, &handlers_obj);
@@ -540,8 +625,8 @@ static napi_value node_set_default_action_handler(napi_env env, napi_callback_in
 static napi_value node_set_int_value(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0, value = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -554,8 +639,8 @@ static napi_value node_set_int_value(napi_env env, napi_callback_info info) {
 static napi_value node_set_double_value(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0; double value = 0.0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -568,8 +653,8 @@ static napi_value node_set_double_value(napi_env env, napi_callback_info info) {
 static napi_value node_set_bool_value(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0; bool value = false;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -582,17 +667,14 @@ static napi_value node_set_bool_value(napi_env env, napi_callback_info info) {
 static napi_value node_set_string_value(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    char value[4096];
-    if (argc >= 4) {
-        napi_get_value_string_utf8(env, argv[3], value, sizeof(value), &len);
-    } else {
-        value[0] = '\0';
-    }
+    /* Required: a missing value arrives as undefined and throws. */
+    STRING_ARG(value);
+    if (!read_string_arg(env, argv[3], &value, "value")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetStringValue(uuid, viewID, partID, value), &result);
     return result;
@@ -603,8 +685,8 @@ static napi_value node_set_string_value(napi_env env, napi_callback_info info) {
 static napi_value node_get_int_value(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -618,8 +700,8 @@ static napi_value node_get_int_value(napi_env env, napi_callback_info info) {
 static napi_value node_get_double_value(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -633,8 +715,8 @@ static napi_value node_get_double_value(napi_env env, napi_callback_info info) {
 static napi_value node_get_bool_value(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -648,8 +730,8 @@ static napi_value node_get_bool_value(napi_env env, napi_callback_info info) {
 static napi_value node_get_string_value(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -666,50 +748,30 @@ static napi_value node_get_string_value(napi_env env, napi_callback_info info) {
 static napi_value node_set_value_from_string(napi_env env, napi_callback_info info) {
     size_t argc = 5; napi_value argv[5];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], value[65536]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(value);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    if (argc >= 4) {
-        napi_get_value_string_utf8(env, argv[3], value, sizeof(value), &len);
-    } else {
-        value[0] = '\0';
-    }
-    const char* contentTypePtr = NULL;
-    char contentTypeBuf[64] = {0};
-    if (argc >= 5) {
-        napi_valuetype ct_type;
-        napi_typeof(env, argv[4], &ct_type);
-        if (ct_type == napi_string) {
-            napi_get_value_string_utf8(env, argv[4], contentTypeBuf, sizeof(contentTypeBuf), &len);
-            contentTypePtr = contentTypeBuf;
-        }
-    }
+    if (!read_optional_string_arg(env, argc, argv, 3, &value, "value")) return NULL;
+    STRING_ARG(contentType);
+    if (!read_optional_string_arg(env, argc, argv, 4, &contentType, "contentType")) return NULL;
     napi_value result;
-    napi_get_boolean(env, actionUISetElementValueString(uuid, viewID, partID, value, contentTypePtr), &result);
+    napi_get_boolean(env, actionUISetElementValueString(uuid, viewID, partID, value != NULL ? value : "", contentType), &result);
     return result;
 }
 
 static napi_value node_get_value_as_string(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    const char* contentTypePtr = NULL;
-    char contentTypeBuf[64] = {0};
-    if (argc >= 4) {
-        napi_valuetype ct_type;
-        napi_typeof(env, argv[3], &ct_type);
-        if (ct_type == napi_string) {
-            napi_get_value_string_utf8(env, argv[3], contentTypeBuf, sizeof(contentTypeBuf), &len);
-            contentTypePtr = contentTypeBuf;
-        }
-    }
-    char* val = actionUIGetElementValueString(uuid, viewID, partID, contentTypePtr);
+    STRING_ARG(contentType);
+    if (!read_optional_string_arg(env, argc, argv, 3, &contentType, "contentType")) return NULL;
+    char* val = actionUIGetElementValueString(uuid, viewID, partID, contentType);
     if (val == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
     napi_create_string_utf8(env, val, NAPI_AUTO_LENGTH, &result);
@@ -720,16 +782,13 @@ static napi_value node_get_value_as_string(napi_env env, napi_callback_info info
 static napi_value node_set_value_from_json(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], json[65536]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(json);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    if (argc >= 4) {
-        napi_get_value_string_utf8(env, argv[3], json, sizeof(json), &len);
-    } else {
-        json[0] = '\0';
-    }
+    /* Required: a missing value arrives as undefined and throws. */
+    if (!read_string_arg(env, argv[3], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetElementValueJSON(uuid, viewID, partID, json), &result);
     return result;
@@ -738,8 +797,8 @@ static napi_value node_set_value_from_json(napi_env env, napi_callback_info info
 static napi_value node_get_value_as_json(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
@@ -756,8 +815,8 @@ static napi_value node_get_value_as_json(napi_env env, napi_callback_info info) 
 static napi_value node_get_element_column_count(napi_env env, napi_callback_info info) {
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     napi_value result;
@@ -770,8 +829,8 @@ static napi_value node_get_element_column_count(napi_env env, napi_callback_info
 static napi_value node_get_element_rows_json(napi_env env, napi_callback_info info) {
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     char* json = actionUIGetElementRowsJSON(uuid, viewID);
@@ -785,8 +844,8 @@ static napi_value node_get_element_rows_json(napi_env env, napi_callback_info in
 static napi_value node_clear_element_rows(napi_env env, napi_callback_info info) {
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     actionUIClearElementRows(uuid, viewID);
@@ -796,11 +855,11 @@ static napi_value node_clear_element_rows(napi_env env, napi_callback_info info)
 static napi_value node_set_element_rows_json(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], json[65536]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(json);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
+    if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetElementRowsJSON(uuid, viewID, json), &result);
     return result;
@@ -809,11 +868,11 @@ static napi_value node_set_element_rows_json(napi_env env, napi_callback_info in
 static napi_value node_append_element_rows_json(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], json[65536]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(json);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
+    if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUIAppendElementRowsJSON(uuid, viewID, json), &result);
     return result;
@@ -822,25 +881,14 @@ static napi_value node_append_element_rows_json(napi_env env, napi_callback_info
 static napi_value node_append_element_text(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    /* Output appended in pieces can be large: the text is copied whole, at its own length */
-    size_t textLength = 0;
+    STRING_ARG(text);
+    if (!read_string_arg(env, argv[2], &text, "text")) return NULL;
     napi_value result;
-    if (napi_get_value_string_utf8(env, argv[2], NULL, 0, &textLength) != napi_ok) {
-        napi_throw_type_error(env, NULL, "appendElementText: text must be a string");
-        return NULL;
-    }
-    char *text = (char *)malloc(textLength + 1);
-    if (text == NULL) {
-        napi_throw_error(env, NULL, "appendElementText: out of memory");
-        return NULL;
-    }
-    napi_get_value_string_utf8(env, argv[2], text, textLength + 1, &len);
     napi_get_boolean(env, actionUIAppendElementText(uuid, viewID, text), &result);
-    free(text);
     return result;
 }
 
@@ -849,8 +897,8 @@ static napi_value node_append_element_text(napi_env env, napi_callback_info info
 static napi_value node_select_element_row_by_index(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, index = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     napi_get_value_int64(env, argv[2], &index);
@@ -862,11 +910,11 @@ static napi_value node_select_element_row_by_index(napi_env env, napi_callback_i
 static napi_value node_select_element_row_with_content(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], text[4096]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(text);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, column = -1;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], text, sizeof(text), &len);
+    if (!read_string_arg(env, argv[2], &text, "text")) return NULL;
     napi_get_value_int64(env, argv[3], &column);
     napi_value result;
     napi_create_int64(env, actionUISelectElementRowWithContent(uuid, viewID, text, column), &result);
@@ -876,8 +924,8 @@ static napi_value node_select_element_row_with_content(napi_env env, napi_callba
 static napi_value node_clear_element_selection(napi_env env, napi_callback_info info) {
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     actionUIClearElementSelection(uuid, viewID);
@@ -889,11 +937,11 @@ static napi_value node_clear_element_selection(napi_env env, napi_callback_info 
 static napi_value node_get_element_property_json(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], name[256]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(name);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], name, sizeof(name), &len);
+    if (!read_string_arg(env, argv[2], &name, "name")) return NULL;
     char* json = actionUIGetElementPropertyJSON(uuid, viewID, name);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -905,12 +953,12 @@ static napi_value node_get_element_property_json(napi_env env, napi_callback_inf
 static napi_value node_set_element_property_json(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], name[256], json[65536]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(name); STRING_ARG(json);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], name, sizeof(name), &len);
-    napi_get_value_string_utf8(env, argv[3], json, sizeof(json), &len);
+    if (!read_string_arg(env, argv[2], &name, "name")) return NULL;
+    if (!read_string_arg(env, argv[3], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetElementPropertyJSON(uuid, viewID, name, json), &result);
     return result;
@@ -921,11 +969,11 @@ static napi_value node_set_element_property_json(napi_env env, napi_callback_inf
 static napi_value node_get_element_state_json(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], key[256]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(key);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], key, sizeof(key), &len);
+    if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
     char* json = actionUIGetElementStateJSON(uuid, viewID, key);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -937,11 +985,11 @@ static napi_value node_get_element_state_json(napi_env env, napi_callback_info i
 static napi_value node_get_element_state_string(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], key[256]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(key);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], key, sizeof(key), &len);
+    if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
     char* val = actionUIGetElementStateString(uuid, viewID, key);
     if (val == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -953,12 +1001,12 @@ static napi_value node_get_element_state_string(napi_env env, napi_callback_info
 static napi_value node_set_element_state_json(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], key[256], json[65536]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(key); STRING_ARG(json);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], key, sizeof(key), &len);
-    napi_get_value_string_utf8(env, argv[3], json, sizeof(json), &len);
+    if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
+    if (!read_string_arg(env, argv[3], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetElementStateJSON(uuid, viewID, key, json), &result);
     return result;
@@ -967,12 +1015,12 @@ static napi_value node_set_element_state_json(napi_env env, napi_callback_info i
 static napi_value node_set_element_state_from_string(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], key[256], value[4096]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid); STRING_ARG(key); STRING_ARG(value);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], key, sizeof(key), &len);
-    napi_get_value_string_utf8(env, argv[3], value, sizeof(value), &len);
+    if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
+    if (!read_string_arg(env, argv[3], &value, "value")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetElementStateFromString(uuid, viewID, key, value), &result);
     return result;
@@ -983,8 +1031,8 @@ static napi_value node_set_element_state_from_string(napi_env env, napi_callback
 static napi_value node_get_element_info_json(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     char* json = actionUIGetElementInfoJSON(uuid);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -1007,20 +1055,18 @@ static napi_value node_insert_element(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 3) { napi_throw_error(env, NULL, "insert_element requires (windowUUID, parentID, json[, container, position, positionParam])"); return NULL; }
 
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
-    int64_t parentID;
+    int64_t parentID = 0;
     napi_get_value_int64(env, argv[1], &parentID);
 
-    char json[65536];
-    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
+    STRING_ARG(json);
+    if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
 
-    const char* container_ptr = NULL; char container_buf[256];
-    if (argc >= 4) {
-        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
-        if (vtype == napi_string) { napi_get_value_string_utf8(env, argv[3], container_buf, sizeof(container_buf), &len); container_ptr = container_buf; }
-    }
+    STRING_ARG(container);
+    if (!read_optional_string_arg(env, argc, argv, 3, &container, "container")) return NULL;
+    const char* container_ptr = container;
 
     int64_t position = 0, positionParam = 0;
     if (argc >= 5) napi_get_value_int64(env, argv[4], &position);
@@ -1051,20 +1097,18 @@ static napi_value node_insert_row(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 3) { napi_throw_error(env, NULL, "insert_row requires (windowUUID, parentID, json[, container, position, positionIndex])"); return NULL; }
 
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
-    int64_t parentID;
+    int64_t parentID = 0;
     napi_get_value_int64(env, argv[1], &parentID);
 
-    char json[65536];
-    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
+    STRING_ARG(json);
+    if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
 
-    const char* container_ptr = NULL; char container_buf[256];
-    if (argc >= 4) {
-        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
-        if (vtype == napi_string) { napi_get_value_string_utf8(env, argv[3], container_buf, sizeof(container_buf), &len); container_ptr = container_buf; }
-    }
+    STRING_ARG(container);
+    if (!read_optional_string_arg(env, argc, argv, 3, &container, "container")) return NULL;
+    const char* container_ptr = container;
 
     int64_t position = 0, positionIndex = 0;
     if (argc >= 5) napi_get_value_int64(env, argv[4], &position);
@@ -1098,10 +1142,10 @@ static napi_value node_remove_element(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 2) { napi_throw_error(env, NULL, "remove_element requires (windowUUID, viewID)"); return NULL; }
 
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
-    int64_t viewID;
+    int64_t viewID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
 
     bool ok = actionUIRemoveElement(uuid, viewID);
@@ -1119,20 +1163,15 @@ static napi_value node_remove_element(napi_env env, napi_callback_info info) {
 static napi_value node_present_modal(napi_env env, napi_callback_info info) {
     size_t argc = 5; napi_value argv[5];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], json[65536], format[32], style[32]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid,   sizeof(uuid),   &len);
-    napi_get_value_string_utf8(env, argv[1], json,   sizeof(json),   &len);
-    napi_get_value_string_utf8(env, argv[2], format, sizeof(format), &len);
-    napi_get_value_string_utf8(env, argv[3], style,  sizeof(style),  &len);
+    STRING_ARG(uuid); STRING_ARG(json); STRING_ARG(format); STRING_ARG(style);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
+    if (!read_string_arg(env, argv[1], &json, "json")) return NULL;
+    if (!read_string_arg(env, argv[2], &format, "format")) return NULL;
+    if (!read_string_arg(env, argv[3], &style, "style")) return NULL;
 
-    char dismiss_action[256]; const char* dismiss_ptr = NULL;
-    if (argc >= 5) {
-        napi_valuetype vtype; napi_typeof(env, argv[4], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[4], dismiss_action, sizeof(dismiss_action), &len);
-            dismiss_ptr = dismiss_action;
-        }
-    }
+    STRING_ARG(dismiss_action);
+    if (!read_optional_string_arg(env, argc, argv, 4, &dismiss_action, "dismissActionID")) return NULL;
+    const char* dismiss_ptr = dismiss_action;
 
     ActionUIModalStyle modal_style = (strcmp(style, "fullScreenCover") == 0)
         ? ActionUIModalStyleFullScreenCover : ActionUIModalStyleSheet;
@@ -1150,8 +1189,8 @@ static napi_value node_present_modal(napi_env env, napi_callback_info info) {
 static napi_value node_dismiss_modal(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     actionUIDismissModal(uuid);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1159,26 +1198,16 @@ static napi_value node_dismiss_modal(napi_env env, napi_callback_info info) {
 static napi_value node_present_alert(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], title[512]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid,  sizeof(uuid),  &len);
-    napi_get_value_string_utf8(env, argv[1], title, sizeof(title), &len);
+    STRING_ARG(uuid); STRING_ARG(title);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
+    if (!read_string_arg(env, argv[1], &title, "title")) return NULL;
 
-    char message[4096]; const char* message_ptr = NULL;
-    if (argc >= 3) {
-        napi_valuetype vtype; napi_typeof(env, argv[2], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[2], message, sizeof(message), &len);
-            message_ptr = message;
-        }
-    }
-    char buttons[65536]; const char* buttons_ptr = NULL;
-    if (argc >= 4) {
-        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[3], buttons, sizeof(buttons), &len);
-            buttons_ptr = buttons;
-        }
-    }
+    STRING_ARG(message);
+    if (!read_optional_string_arg(env, argc, argv, 2, &message, "message")) return NULL;
+    const char* message_ptr = message;
+    STRING_ARG(buttons);
+    if (!read_optional_string_arg(env, argc, argv, 3, &buttons, "buttons")) return NULL;
+    const char* buttons_ptr = buttons;
     (void)actionUIPresentAlert(uuid, title, message_ptr, buttons_ptr);
     napi_value t; napi_get_boolean(env, true, &t); return t;
 }
@@ -1186,26 +1215,16 @@ static napi_value node_present_alert(napi_env env, napi_callback_info info) {
 static napi_value node_present_confirmation_dialog(napi_env env, napi_callback_info info) {
     size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], title[512]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid,  sizeof(uuid),  &len);
-    napi_get_value_string_utf8(env, argv[1], title, sizeof(title), &len);
+    STRING_ARG(uuid); STRING_ARG(title);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
+    if (!read_string_arg(env, argv[1], &title, "title")) return NULL;
 
-    char message[4096]; const char* message_ptr = NULL;
-    if (argc >= 3) {
-        napi_valuetype vtype; napi_typeof(env, argv[2], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[2], message, sizeof(message), &len);
-            message_ptr = message;
-        }
-    }
-    char buttons_buf[65536]; const char* buttons_ptr = "[]";
-    if (argc >= 4) {
-        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[3], buttons_buf, sizeof(buttons_buf), &len);
-            buttons_ptr = buttons_buf;
-        }
-    }
+    STRING_ARG(message);
+    if (!read_optional_string_arg(env, argc, argv, 2, &message, "message")) return NULL;
+    const char* message_ptr = message;
+    STRING_ARG(buttons_buf);
+    if (!read_optional_string_arg(env, argc, argv, 3, &buttons_buf, "buttons")) return NULL;
+    const char* buttons_ptr = buttons_buf != NULL ? buttons_buf : "[]";
     (void)actionUIPresentConfirmationDialog(uuid, title, message_ptr, buttons_ptr);
     napi_value t; napi_get_boolean(env, true, &t); return t;
 }
@@ -1213,8 +1232,8 @@ static napi_value node_present_confirmation_dialog(napi_env env, napi_callback_i
 static napi_value node_dismiss_dialog(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     actionUIDismissDialog(uuid);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1225,9 +1244,9 @@ static napi_value node_dismiss_dialog(napi_env env, napi_callback_info info) {
 static napi_value node_present_toast(napi_env env, napi_callback_info info) {
     size_t argc = 5; napi_value argv[5];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], message[4096]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid,    sizeof(uuid),    &len);
-    napi_get_value_string_utf8(env, argv[1], message, sizeof(message), &len);
+    STRING_ARG(uuid); STRING_ARG(message);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
+    if (!read_string_arg(env, argv[1], &message, "message")) return NULL;
 
     double duration = 4.0;
     if (argc >= 3) {
@@ -1236,22 +1255,12 @@ static napi_value node_present_toast(napi_env env, napi_callback_info info) {
             napi_get_value_double(env, argv[2], &duration);
         }
     }
-    char actionTitle[512]; const char* actionTitle_ptr = NULL;
-    if (argc >= 4) {
-        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[3], actionTitle, sizeof(actionTitle), &len);
-            actionTitle_ptr = actionTitle;
-        }
-    }
-    char actionID[512]; const char* actionID_ptr = NULL;
-    if (argc >= 5) {
-        napi_valuetype vtype; napi_typeof(env, argv[4], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[4], actionID, sizeof(actionID), &len);
-            actionID_ptr = actionID;
-        }
-    }
+    STRING_ARG(actionTitle);
+    if (!read_optional_string_arg(env, argc, argv, 3, &actionTitle, "actionTitle")) return NULL;
+    const char* actionTitle_ptr = actionTitle;
+    STRING_ARG(actionID);
+    if (!read_optional_string_arg(env, argc, argv, 4, &actionID, "actionID")) return NULL;
+    const char* actionID_ptr = actionID;
     (void)actionUIPresentToast(uuid, message, duration, actionTitle_ptr, actionID_ptr);
     napi_value t; napi_get_boolean(env, true, &t); return t;
 }
@@ -1259,8 +1268,8 @@ static napi_value node_present_toast(napi_env env, napi_callback_info info) {
 static napi_value node_dismiss_toast(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     actionUIDismissToast(uuid);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1273,9 +1282,9 @@ static napi_value node_dismiss_toast(napi_env env, napi_callback_info info) {
 static napi_value node_load_hosting_controller(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char url[4096], uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], url,  sizeof(url),  &len);
-    napi_get_value_string_utf8(env, argv[1], uuid, sizeof(uuid), &len);
+    STRING_ARG(url); STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &url, "url")) return NULL;
+    if (!read_string_arg(env, argv[1], &uuid, "windowUUID")) return NULL;
     bool is_content_view = false;
     napi_get_value_bool(env, argv[2], &is_content_view);
 
@@ -1305,8 +1314,8 @@ static napi_value node_load_hosting_controller(napi_env env, napi_callback_info 
 static napi_value node_get_content_size_limits(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
     double minW = 0, minH = 0, maxW = 0, maxH = 0;
     if (!actionUIGetContentSizeLimits(uuid, &minW, &minH, &maxW, &maxH)) {
@@ -1335,8 +1344,8 @@ static napi_value node_get_content_size_limits(napi_env env, napi_callback_info 
 static napi_value node_remove_window(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     actionUIRemoveWindow(uuid);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1800,8 +1809,8 @@ static void uv_pump_teardown(void) {
 static napi_value node_app_set_name(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char name[512]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], name, sizeof(name), &len);
+    STRING_ARG(name);
+    if (!read_string_arg(env, argv[0], &name, "name")) return NULL;
     actionUIAppSetName(name);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1809,11 +1818,8 @@ static napi_value node_app_set_name(napi_env env, napi_callback_info info) {
 static napi_value node_app_set_application_id(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char applicationID[512]; size_t len;
-    if (argc < 1 || napi_get_value_string_utf8(env, argv[0], applicationID, sizeof(applicationID), &len) != napi_ok) {
-        napi_throw_type_error(env, NULL, "appSetApplicationID: expected a string");
-        return NULL;
-    }
+    STRING_ARG(applicationID);
+    if (!read_string_arg(env, argv[0], &applicationID, "applicationID")) return NULL;
     actionUIAppSetApplicationID(applicationID);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1821,8 +1827,8 @@ static napi_value node_app_set_application_id(napi_env env, napi_callback_info i
 static napi_value node_app_set_icon(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char path[4096]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], path, sizeof(path), &len);
+    STRING_ARG(path);
+    if (!read_string_arg(env, argv[0], &path, "path")) return NULL;
     actionUIAppSetIcon(path);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1835,11 +1841,8 @@ static napi_value node_app_set_resource_folder(napi_env env, napi_callback_info 
     if (vtype == napi_null || vtype == napi_undefined) {
         actionUIAppSetResourceFolder(NULL);
     } else {
-        char path[4096]; size_t len;
-        if (napi_get_value_string_utf8(env, argv[0], path, sizeof(path), &len) != napi_ok) {
-            napi_throw_type_error(env, NULL, "appSetResourceFolder: expected a string or null");
-            return NULL;
-        }
+        STRING_ARG(path);
+        if (!read_string_arg(env, argv[0], &path, "path")) return NULL;
         actionUIAppSetResourceFolder(path);
     }
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
@@ -1873,11 +1876,11 @@ static napi_value node_app_start_remote_server(napi_env env, napi_callback_info 
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     const char* path_ptr = NULL;   // NULL asks the framework for its per-process default
-    char path[1024]; size_t len;
+    STRING_ARG(path);
     if (argc >= 1) {
         napi_valuetype vtype; napi_typeof(env, argv[0], &vtype);
         if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[0], path, sizeof(path), &len);
+            if (!read_string_arg(env, argv[0], &path, "path")) return NULL;
             path_ptr = path;
         }
     }
@@ -1941,18 +1944,13 @@ static napi_value node_app_remote_enable_perform_action(napi_env env, napi_callb
 static napi_value node_app_load_and_present_window(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char url[4096], uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], url,  sizeof(url),  &len);
-    napi_get_value_string_utf8(env, argv[1], uuid, sizeof(uuid), &len);
+    STRING_ARG(url); STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &url, "url")) return NULL;
+    if (!read_string_arg(env, argv[1], &uuid, "windowUUID")) return NULL;
 
-    char title[512]; const char* title_ptr = NULL;
-    if (argc >= 3) {
-        napi_valuetype vtype; napi_typeof(env, argv[2], &vtype);
-        if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[2], title, sizeof(title), &len);
-            title_ptr = title;
-        }
-    }
+    STRING_ARG(title);
+    if (!read_optional_string_arg(env, argc, argv, 2, &title, "title")) return NULL;
+    const char* title_ptr = title;
     actionUIAppLoadAndPresentWindow(url, uuid, title_ptr);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1960,8 +1958,8 @@ static napi_value node_app_load_and_present_window(napi_env env, napi_callback_i
 static napi_value node_app_close_window(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128]; size_t len;
-    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     actionUIAppCloseWindow(uuid);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1970,11 +1968,11 @@ static napi_value node_app_load_menu_bar(napi_env env, napi_callback_info info) 
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     const char* json_ptr = NULL;
-    char json[65536]; size_t len;
+    STRING_ARG(json);
     if (argc >= 1) {
         napi_valuetype vtype; napi_typeof(env, argv[0], &vtype);
         if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[0], json, sizeof(json), &len);
+            if (!read_string_arg(env, argv[0], &json, "json")) return NULL;
             json_ptr = json;
         }
     }
@@ -1986,11 +1984,11 @@ static napi_value node_app_run_open_panel(napi_env env, napi_callback_info info)
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     const char* cfg_ptr = NULL;
-    char cfg[65536]; size_t len;
+    STRING_ARG(cfg);
     if (argc >= 1) {
         napi_valuetype vtype; napi_typeof(env, argv[0], &vtype);
         if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[0], cfg, sizeof(cfg), &len);
+            if (!read_string_arg(env, argv[0], &cfg, "config")) return NULL;
             cfg_ptr = cfg;
         }
     }
@@ -2006,11 +2004,11 @@ static napi_value node_app_run_save_panel(napi_env env, napi_callback_info info)
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     const char* cfg_ptr = NULL;
-    char cfg[65536]; size_t len;
+    STRING_ARG(cfg);
     if (argc >= 1) {
         napi_valuetype vtype; napi_typeof(env, argv[0], &vtype);
         if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[0], cfg, sizeof(cfg), &len);
+            if (!read_string_arg(env, argv[0], &cfg, "config")) return NULL;
             cfg_ptr = cfg;
         }
     }
@@ -2026,11 +2024,11 @@ static napi_value node_app_run_alert(napi_env env, napi_callback_info info) {
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     const char* cfg_ptr = NULL;
-    char cfg[65536]; size_t len;
+    STRING_ARG(cfg);
     if (argc >= 1) {
         napi_valuetype vtype; napi_typeof(env, argv[0], &vtype);
         if (vtype == napi_string) {
-            napi_get_value_string_utf8(env, argv[0], cfg, sizeof(cfg), &len);
+            if (!read_string_arg(env, argv[0], &cfg, "config")) return NULL;
             cfg_ptr = cfg;
         }
     }
@@ -2187,24 +2185,7 @@ static void host_surface_call(void* user_data, const char* kind, uint64_t surfac
         napi_value global, result;
         napi_get_global(env, &global);
         napi_make_callback(env, g_state->async_ctx, global, fn, 5, argv, &result);
-        bool pending = false;
-        napi_is_exception_pending(env, &pending);
-        if (pending) {
-            napi_value error;
-            napi_get_and_clear_last_exception(env, &error);
-            napi_value text;
-            char message[512] = "";
-            if (napi_coerce_to_string(env, error, &text) == napi_ok) {
-                napi_get_value_string_utf8(env, text, message, sizeof(message), NULL);
-            } else {
-                /* A Symbol, or a toString that throws: clear that exception too, or it stays pending and the
-                 * next callback's napi_make_callback refuses to run. */
-                napi_value ignored;
-                napi_get_and_clear_last_exception(env, &ignored);
-                snprintf(message, sizeof(message), "(a value that cannot be shown as text)");
-            }
-            fprintf(stderr, "actionui: a HostSurface delegate threw: %s\n", message);
-        }
+        report_callback_exception(env, "a HostSurface delegate");
     }
     napi_close_handle_scope(env, scope);
     s_host_surface_depth -= 1;
@@ -2337,10 +2318,13 @@ static napi_value node_host_surface_set_delegate(napi_env env, napi_callback_inf
     size_t argc = 2;
     napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char name[256];
-    size_t length = 0;
-    if (argc < 2 || napi_get_value_string_utf8(env, argv[0], name, sizeof(name), &length) != napi_ok ||
-        length == 0 || length >= sizeof(name) - 1) {
+    if (argc < 2) {
+        napi_throw_type_error(env, NULL, "hostSurfaceSetDelegate(name, bridge|null) takes two arguments");
+        return NULL;
+    }
+    STRING_ARG(name);
+    if (!read_string_arg(env, argv[0], &name, "name")) return NULL;
+    if (name[0] == '\0') {
         napi_throw_type_error(env, NULL, "hostSurfaceSetDelegate(name, bridge|null): name must be a non-empty string");
         return NULL;
     }
@@ -2523,6 +2507,17 @@ static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_i
     napi_set_named_property(env, exports, name, _v); \
 } while (0)
 
+/* Object.create(null), or NULL when it cannot be made. */
+static napi_value create_null_prototype_object(napi_env env) {
+    napi_value global, object_ctor, create_fn, null_value, result;
+    if (napi_get_global(env, &global) != napi_ok) return NULL;
+    if (napi_get_named_property(env, global, "Object", &object_ctor) != napi_ok) return NULL;
+    if (napi_get_named_property(env, object_ctor, "create", &create_fn) != napi_ok) return NULL;
+    if (napi_get_null(env, &null_value) != napi_ok) return NULL;
+    if (napi_call_function(env, object_ctor, create_fn, 1, &null_value, &result) != napi_ok) return NULL;
+    return result;
+}
+
 static napi_value Init(napi_env env, napi_value exports) {
 #if !defined(__APPLE__)
     if (!s_loaded_on_main_thread) {
@@ -2535,9 +2530,15 @@ static napi_value Init(napi_env env, napi_value exports) {
     ActionUIAddonState* state = (ActionUIAddonState*)calloc(1, sizeof(ActionUIAddonState));
     state->env = env;
 
-    /* action_handlers is a plain JS object used as a string-keyed map. */
-    napi_value handlers_obj;
-    napi_create_object(env, &handlers_obj);
+    /* action_handlers is a JS object used as a string-keyed map. It has no prototype
+     * (Object.create(null)), so an action id such as "__proto__" or "constructor" is an ordinary
+     * key, never an inherited property or the prototype setter. */
+    napi_value handlers_obj = create_null_prototype_object(env);
+    if (handlers_obj == NULL) {
+        free(state);
+        napi_throw_error(env, NULL, "actionui: could not create the action handler table");
+        return NULL;
+    }
     napi_create_reference(env, handlers_obj, 1, &state->action_handlers);
 
     napi_set_instance_data(env, state, addon_state_finalizer, NULL);
