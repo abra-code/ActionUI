@@ -75,37 +75,78 @@ public extension ActionUIRemoteServer {
     /// 103 bytes on macOS (107 on Linux) and a long `TMPDIR` leaves little room.
     ///
     /// On Linux the private directory is `$XDG_RUNTIME_DIR` (`/run/user/<uid>`: mode 0700, the
-    /// user's own, emptied at logout), which a desktop session sets; without it `$TMPDIR`, then
-    /// `/tmp`, which every user shares: the socket is still 0600 and checks each peer's uid, but
-    /// another user could take the name first, and the start would fail. A variable is passed
-    /// over unless it names a directory this process can use: `XDG_RUNTIME_DIR` one the user owns,
-    /// as the XDG specification requires (after `su` it may still name the first user's), and
-    /// `TMPDIR` one it may create files in. A session not yet up leaves the first missing.
+    /// user's own, emptied at logout), which a desktop session sets, when it names a directory the
+    /// user owns with no access for anyone else, as the XDG specification requires (after `su` it
+    /// may still name the first user's). Without one, the socket goes in a directory of this
+    /// user's own inside `$TMPDIR` (when it names a directory this process may create files in and
+    /// nobody else can rename entries in, and the socket path still fits), else inside `/tmp`,
+    /// which every user shares: `actionui-<uid>`, created with mode 0700 and used only when it is
+    /// a real directory (not a link) that this user owns and nobody else can enter. When another user has taken that name, a new directory with a random name is made
+    /// instead (`mkdtemp`). The server unlinks whatever is at its path before binding, which is
+    /// safe only in a directory nobody else can write.
     static func defaultSocketPath() -> String {
         let name = "actionui-\(getpid()).sock"
         #if os(macOS)
         return (NSTemporaryDirectory() as NSString).appendingPathComponent(name)
         #else
-        for variable in ["XDG_RUNTIME_DIR", "TMPDIR"] {
-            guard let raw = getenv(variable) else { continue }
+        func directory(_ variable: String) -> (path: String, status: stat)? {
+            guard let raw = getenv(variable) else { return nil }
             var folder = String(cString: raw)
             while folder.count > 1, folder.hasSuffix("/") {
                 folder.removeLast()
             }
             var status = stat()
             guard folder.hasPrefix("/"), stat(folder, &status) == 0, status.st_mode & S_IFMT == S_IFDIR else {
-                continue
+                return nil
             }
-            let usable = variable == "XDG_RUNTIME_DIR"
-                ? status.st_uid == getuid()
-                : access(folder, W_OK | X_OK) == 0
-            if usable {
-                return folder == "/" ? "/" + name : folder + "/" + name
-            }
+            return (folder, status)
         }
-        return "/tmp/" + name
+        func join(_ folder: String, _ file: String) -> String {
+            folder == "/" ? "/" + file : folder + "/" + file
+        }
+        if let runtime = directory("XDG_RUNTIME_DIR"), runtime.status.st_uid == getuid(),
+           runtime.status.st_mode & 0o077 == 0 {
+            return join(runtime.path, name)
+        }
+        // TMPDIR only when nobody else can rename what is in it (else another user could swap the
+        // checked directory for their own after the check): owned by this user or root, and
+        // writable by no one else or sticky. And only when the socket path still fits sun_path.
+        var base = "/tmp"
+        let folderName = max("actionui-\(getuid())".utf8.count, "actionui-XXXXXX".utf8.count)
+        if let temporary = directory("TMPDIR"), access(temporary.path, W_OK | X_OK) == 0,
+           temporary.status.st_uid == getuid() || temporary.status.st_uid == 0,
+           temporary.status.st_mode & 0o022 == 0 || temporary.status.st_mode & mode_t(S_ISVTX) != 0,
+           temporary.path.utf8.count + 1 + folderName + 1 + name.utf8.count <= UnixSocketServer.maxPathLength {
+            base = temporary.path
+        }
+        if let own = privateDirectory(join(base, "actionui-\(getuid())")) {
+            return join(own, name)
+        }
+        var template = Array(join(base, "actionui-XXXXXX").utf8CString)
+        if mkdtemp(&template) != nil {
+            return join(String(decoding: template.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self), name)
+        }
+        // No directory could be made: the socket is still 0600 and checks each peer's uid, but
+        // another user could take the name first, and the start would fail.
+        return join(base, name)
         #endif
     }
+
+    #if !os(macOS)
+    /// `path` when it is, or can be made, a directory of this user's own that nobody else can
+    /// enter: created with mode 0700 when missing, then checked without following a link.
+    static func privateDirectory(_ path: String) -> String? {
+        if mkdir(path, 0o700) != 0 && errno != EEXIST {
+            return nil
+        }
+        var status = stat()
+        guard lstat(path, &status) == 0, status.st_mode & S_IFMT == S_IFDIR, status.st_uid == getuid(),
+              status.st_mode & 0o077 == 0 else {
+            return nil
+        }
+        return path
+    }
+    #endif
 
     /// The process-wide server, or nil when none is running. This is where a host registers its
     /// own methods: `ActionUIRemoteServer.shared?.register(method: "omc.terminate") { ... }`.

@@ -128,6 +128,81 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
                        "children spawned after the start must inherit the endpoint")
     }
 
+    #if os(Linux)
+    /// Runs `body` with XDG_RUNTIME_DIR and TMPDIR set as given (nil: unset), then restores both.
+    private func withEnvironment(runtime: String?, temporary: String?, _ body: () throws -> Void) rethrows {
+        let names: [String] = ["XDG_RUNTIME_DIR", "TMPDIR"]
+        let saved = names.map { name in (name, getenv(name).map { String(cString: $0) }) }
+        defer {
+            for (name, value) in saved {
+                if let value { setenv(name, value, 1) } else { unsetenv(name) }
+            }
+        }
+        let given: [(String, String?)] = [("XDG_RUNTIME_DIR", runtime), ("TMPDIR", temporary)]
+        for (name, value) in given {
+            if let value { setenv(name, value, 1) } else { unsetenv(name) }
+        }
+        try body()
+    }
+
+    private func mode(_ path: String) -> mode_t {
+        var status = stat()
+        XCTAssertEqual(lstat(path, &status), 0, path)
+        return status.st_mode & 0o777
+    }
+
+    func testOnLinuxTheDefaultPathIsInADirectoryNobodyElseCanEnter() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("remote-path-\(UUID().uuidString)").path
+        XCTAssertEqual(mkdir(base, 0o755), 0)
+        defer { try? FileManager.default.removeItem(atPath: base) }
+        let name = "actionui-\(getpid()).sock"
+
+        // A runtime directory others can enter is passed over, as the XDG specification requires.
+        let runtime = base + "/runtime"
+        XCTAssertEqual(mkdir(runtime, 0o755), 0)
+        try withEnvironment(runtime: runtime, temporary: base) {
+            let own = base + "/actionui-\(getuid())"
+            XCTAssertEqual(ActionUIRemoteServer.defaultSocketPath(), own + "/" + name)
+            XCTAssertEqual(mode(own), 0o700, "made private")
+        }
+        // A private runtime directory is used as it is.
+        XCTAssertEqual(chmod(runtime, 0o700), 0)
+        try withEnvironment(runtime: runtime, temporary: base) {
+            XCTAssertEqual(ActionUIRemoteServer.defaultSocketPath(), runtime + "/" + name)
+        }
+        // A directory of the per-user name that others can enter is not used: a new one is made.
+        XCTAssertEqual(chmod(base + "/actionui-\(getuid())", 0o755), 0)
+        try withEnvironment(runtime: nil, temporary: base) {
+            let path = ActionUIRemoteServer.defaultSocketPath()
+            let folder = (path as NSString).deletingLastPathComponent
+            XCTAssertTrue(folder.hasPrefix(base + "/actionui-"), path)
+            XCTAssertNotEqual(folder, base + "/actionui-\(getuid())", path)
+            XCTAssertEqual(mode(folder), 0o700, path)
+            XCTAssertEqual((path as NSString).lastPathComponent, name)
+        }
+        // A TMPDIR others may rename entries in is passed over: they could swap the checked
+        // directory for their own. Sticky, it is used.
+        let shared = base + "/shared"
+        XCTAssertEqual(mkdir(shared, 0o755), 0)
+        XCTAssertEqual(chmod(shared, 0o777), 0)
+        try withEnvironment(runtime: nil, temporary: shared) {
+            XCTAssertTrue(ActionUIRemoteServer.defaultSocketPath().hasPrefix("/tmp/actionui-"))
+        }
+        XCTAssertEqual(chmod(shared, 0o1777), 0)
+        try withEnvironment(runtime: nil, temporary: shared) {
+            XCTAssertEqual(ActionUIRemoteServer.defaultSocketPath(), shared + "/actionui-\(getuid())/" + name)
+        }
+        // A TMPDIR too long for the socket path to fit sun_path is passed over.
+        let long = base + "/" + String(repeating: "d", count: 60)
+        XCTAssertEqual(mkdir(long, 0o700), 0)
+        try withEnvironment(runtime: nil, temporary: long) {
+            let path = ActionUIRemoteServer.defaultSocketPath()
+            XCTAssertTrue(path.hasPrefix("/tmp/actionui-"), path)
+            XCTAssertLessThanOrEqual(path.utf8.count, 103, path)
+        }
+    }
+    #endif
+
     func testTheDefaultPathIsOnePerProcessAndFitsSunPath() throws {
         let expected = ActionUIRemoteServer.defaultSocketPath()
         XCTAssertTrue(expected.contains("\(getpid())"), "one socket per process: \(expected)")
