@@ -259,6 +259,9 @@ typedef enum ActionUIWinUIBrushProperty {
     ActionUIWinUIBrushBackground = 0,
     // The color of a text block's or a control's text.
     ActionUIWinUIBrushForeground = 1,
+    // What fills a shape's inside, and what draws its outline.
+    ActionUIWinUIBrushFill = 2,
+    ActionUIWinUIBrushStroke = 3,
 } ActionUIWinUIBrushProperty;
 
 // Paints `property` of `element` with `color`; when `color` is NULL, with the theme's brush named
@@ -317,6 +320,28 @@ typedef struct ActionUIWinUIScrollState {
 // Where the viewer is scrolled to, how much it shows and how large its content is; zeros on
 // failure.
 ACTIONUI_WINUI_API ActionUIWinUIScrollState actionUIWinUIScrollViewerState(ActionUIWinUIObject *scroll);
+
+// MARK: - Shapes
+
+typedef enum ActionUIWinUIShapeKind {
+    ActionUIWinUIShapeRectangle = 0,
+    // A rectangle whose corners actionUIWinUIShapeSetCornerRadius rounds.
+    ActionUIWinUIShapeRoundedRectangle = 1,
+    ActionUIWinUIShapeEllipse = 2,
+    // An ellipse, for a circle: arrange it in a square (the shim draws what it is given).
+    ActionUIWinUIShapeCircle = 3,
+    // A rectangle, for a capsule: round it by half its shorter side (actionUIWinUIShapeSetCornerRadius).
+    ActionUIWinUIShapeCapsule = 4,
+} ActionUIWinUIShapeKind;
+
+// A new shape that fills the size it is arranged in, with no fill or stroke: paint them with
+// actionUIWinUIElementSetBrush (Fill, Stroke). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIShapeCreate(ActionUIWinUIShapeKind kind);
+// A rectangle's corner radius (0: square corners). WinUI clamps it to half the width and half the
+// height separately, so a radius past half the shorter side makes elliptical corners.
+ACTIONUI_WINUI_API bool actionUIWinUIShapeSetCornerRadius(ActionUIWinUIObject *shape, double radius);
+// The width of a shape's outline (0: none).
+ACTIONUI_WINUI_API bool actionUIWinUIShapeSetStrokeThickness(ActionUIWinUIObject *shape, double thickness);
 
 // MARK: - Rendering
 

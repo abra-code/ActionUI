@@ -1,0 +1,27 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Rows with a Divider, Color or shape and no fixed height" } },
+    {
+      "type": "HStack",
+      "id": 3,
+      "children": [
+        { "type": "Text", "id": 4, "properties": { "text": "Left" } },
+        { "type": "Divider", "id": 5 },
+        { "type": "Text", "id": 6, "properties": { "text": "Right" } },
+        { "type": "Color", "id": 7, "properties": { "color": "orange", "frame": { "width": 30 } } },
+        { "type": "Circle", "id": 8, "properties": { "fill": "green", "frame": { "width": 20 } } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 9,
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "A wrapping text beside a Color, in a row that is measured with unlimited height and arranged at its tallest child's height." } },
+        { "type": "Color", "id": 11, "properties": { "color": "blue.opacity(0.3)" } }
+      ]
+    }
+  ]
+}

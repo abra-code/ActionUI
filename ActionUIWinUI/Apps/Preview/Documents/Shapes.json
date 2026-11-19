@@ -1,0 +1,50 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": { "spacing": 10 },
+      "children": [
+        { "type": "Rectangle", "id": 3, "properties": { "fill": "blue", "frame": { "width": 60, "height": 40 } } },
+        { "type": "RoundedRectangle", "id": 4, "properties": { "cornerRadius": 10, "fill": "orange", "frame": { "width": 60, "height": 40 } } },
+        { "type": "Circle", "id": 5, "properties": { "fill": "green", "frame": { "width": 60, "height": 40 } } },
+        { "type": "Capsule", "id": 6, "properties": { "fill": "pink", "frame": { "width": 70, "height": 30 } } },
+        { "type": "Ellipse", "id": 7, "properties": { "stroke": "purple", "strokeLineWidth": 3, "frame": { "width": 70, "height": 40 } } }
+      ]
+    },
+    { "type": "Divider", "id": 8 },
+    {
+      "type": "HStack",
+      "id": 9,
+      "properties": { "frame": { "height": 24 } },
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "Left" } },
+        { "type": "Divider", "id": 11 },
+        { "type": "Text", "id": 12, "properties": { "text": "Right" } },
+        { "type": "Rectangle", "id": 13, "properties": { "foregroundStyle": "red", "frame": { "width": 24, "height": 16 } } },
+        { "type": "RoundedRectangle", "id": 20, "properties": { "cornerRadius": 40, "fill": "indigo", "frame": { "width": 60, "height": 20 } } }
+      ]
+    },
+    {
+      "type": "ZStack",
+      "id": 14,
+      "properties": { "frame": { "width": 220, "height": 60 } },
+      "children": [
+        { "type": "Color", "id": 15, "properties": { "color": "yellow.opacity(0.4)" } },
+        { "type": "Text", "id": 16, "properties": { "text": "A Text over a Color in a ZStack" } }
+      ]
+    },
+    {
+      "type": "ZStack",
+      "id": 17,
+      "properties": { "alignment": "bottomTrailing", "frame": { "width": 220, "height": 50 }, "background": "fill.secondary" },
+      "children": [
+        { "type": "Text", "id": 18, "properties": { "text": "bottomTrailing" } }
+      ]
+    },
+    { "type": "Color", "id": 19, "properties": { "color": "teal", "frame": { "height": 12 } } }
+  ]
+}

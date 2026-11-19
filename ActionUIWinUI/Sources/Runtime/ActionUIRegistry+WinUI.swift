@@ -9,13 +9,21 @@ extension ActionUIRegistry {
     // The WinUI renderers of the built-in element types; the others render as the placeholder.
     static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
         "Button": Button.self,
+        "Capsule": Capsule.self,
+        "Circle": Circle.self,
+        "Color": Color.self,
+        "Divider": Divider.self,
+        "Ellipse": Ellipse.self,
         "HStack": HStack.self,
+        "Rectangle": Rectangle.self,
+        "RoundedRectangle": RoundedRectangle.self,
         "ScrollView": ScrollView.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextField": TextField.self,
         "Toggle": Toggle.self,
         "VStack": VStack.self,
+        "ZStack": ZStack.self,
     ]
 
     // Static because an extension cannot add stored instance properties; the registry is a single

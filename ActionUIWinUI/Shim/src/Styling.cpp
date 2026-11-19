@@ -8,6 +8,7 @@
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Text.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Microsoft.UI.Xaml.Shapes.h>
 
 namespace media = winrt::Microsoft::UI::Xaml::Media;
 
@@ -103,6 +104,21 @@ bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBru
                 return true;
             }
             return fail("element set brush", "the element has no foreground");
+        }
+        if (property == ActionUIWinUIBrushFill || property == ActionUIWinUIBrushStroke) {
+            winrt::Microsoft::UI::Xaml::Shapes::Shape shape = typed.try_as<winrt::Microsoft::UI::Xaml::Shapes::Shape>();
+            if (shape == nullptr) {
+                return fail("element set brush", "the element is not a shape");
+            }
+            media::Brush current = property == ActionUIWinUIBrushFill ? shape.Fill() : shape.Stroke();
+            if (!samePaint(current, wanted)) {
+                if (property == ActionUIWinUIBrushFill) {
+                    shape.Fill(wanted);
+                } else {
+                    shape.Stroke(wanted);
+                }
+            }
+            return true;
         }
         return fail("element set brush", "unknown brush property");
     });

@@ -47,7 +47,7 @@ enum Paint: Equatable {
 
     /// A color: its own RGBA, except the named colors that follow the system (primary, secondary,
     /// accentColor), which are the theme's.
-    private static func paint(_ color: ColorSpec, role: Role) -> Paint {
+    static func paint(_ color: ColorSpec, role: Role) -> Paint {
         if case let .named(name) = color {
             switch name {
             case .primary: return .theme("TextFillColorPrimaryBrush")

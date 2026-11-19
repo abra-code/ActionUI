@@ -142,6 +142,13 @@ final class StackLayout {
     /// for arrange, which must not measure it with another size (layoutChildren): its ideal length
     /// after a measure unbounded along the axis.
     private var compressedMinimums: [ObjectIdentifier: Int] = [:]
+    /// The size across the children were measured for in the last measure pass. Arrange measures
+    /// them for it again, not for its own size across: a child whose desired size follows the
+    /// offer (a Color, a shape, a Divider) would ask for another size, which invalidates the
+    /// stack's measure, and the stack, measured again for the first size, would never settle (an
+    /// HStack in a VStack is measured unbounded in height and arranged as tall as its tallest
+    /// child). Across, arrange still gives a child that expands the stack's whole size (crossSize).
+    private var measuredCrossOffer = Double.infinity
 
     /// The size across of a child asking for `desired`: a child that expands across takes all the
     /// stack is offered across, when that is known, up to its cap.
@@ -173,7 +180,9 @@ final class StackLayout {
         var compressed: [Int] = []
         if isMeasurePass {
             compressedMinimums = [:]
+            measuredCrossOffer = crossOffer
         }
+        let measureCross = measuredCrossOffer
         for (index, item) in items.enumerated() {
             if let minimum = item.spacerMinimum {
                 // Measured all the same: WinUI arranges only children measured in this pass.
@@ -187,7 +196,7 @@ final class StackLayout {
             if expandsAlong && compressibleAlong(item) {
                 let key = ObjectIdentifier(item.view)
                 if isMeasurePass && mainOffer.isFinite {
-                    let smallest = item.view.measure(size(main: 0, cross: crossOffer))
+                    let smallest = item.view.measure(size(main: 0, cross: measureCross))
                     compressedMinimums[key] = StackSolver.length(main(smallest), rounding: .up)
                 }
                 children.append(.expanding(minimum: compressedMinimums[key] ?? 0, cap: capAlong))
@@ -195,7 +204,7 @@ final class StackLayout {
                 compressed.append(index)
                 continue
             }
-            let desired = item.view.measure(size(main: .infinity, cross: crossOffer))
+            let desired = item.view.measure(size(main: .infinity, cross: measureCross))
             let length = StackSolver.length(main(desired), rounding: .up)
             children.append(expandsAlong ? .expanding(minimum: length, cap: capAlong) : .fixed(minimum: length, natural: length))
             crossSizes.append(crossSize(desired, expandsAcross: expandsAcross, cap: capAcross, crossOffer: crossOffer))
@@ -211,7 +220,7 @@ final class StackLayout {
         for index in compressed {
             let item = items[index]
             // Unbounded: its ideal length, a ScrollView its content's (SwiftUI's ideal size).
-            let desired = item.view.measure(size(main: mainOffer.isFinite ? Double(sizes[index]) : .infinity, cross: crossOffer))
+            let desired = item.view.measure(size(main: mainOffer.isFinite ? Double(sizes[index]) : .infinity, cross: measureCross))
             if !mainOffer.isFinite {
                 sizes[index] = StackSolver.length(main(desired), rounding: .up)
                 if isMeasurePass {
