@@ -1097,6 +1097,25 @@ final class AdwaitaApplicationTests: XCTestCase {
         return found
     }
 
+    /// Calls `check` at once and then every 50 ms until it returns true or `timeout` ms have passed, then
+    /// `done` with its last answer. A window or a sheet larger than its window settles (opens, slides in,
+    /// lays out again) in its own time, longer on a busy machine: a fixed wait read positions too early
+    /// on a slow CI runner. The default timeout keeps a test that waits twice inside its 8 s watchdog.
+    private func waitUntil(timeout: UInt32 = 2500, _ check: @escaping @MainActor () -> Bool,
+                           then done: @escaping @MainActor (Bool) -> Void) {
+        var waited: UInt32 = 0
+        @MainActor func poll() {
+            let answer = check()
+            if answer || waited >= timeout {
+                done(answer)
+                return
+            }
+            waited += 50
+            _ = runAfter(milliseconds: 50) { poll() }
+        }
+        poll()
+    }
+
     /// Whether the start of `line`'s text is on screen in `window`. A label found in the tree says
     /// nothing about that: it can be below the screen, or in the middle of a sheet wider than its
     /// window.
@@ -1129,7 +1148,11 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             app.presentWindow(json: document(width: 100, height: 3000), windowUUID: "app-tall", title: nil, options: options)
             app.presentWindow(json: document(width: 5000, height: 20), windowUUID: "app-wide", title: nil, options: options)
-            _ = runAfter(milliseconds: 500) {
+            @MainActor func lineInView(_ uuid: String) -> Bool {
+                guard let window = app.gtkWindow(uuid), let line = self.label(showing: subtitle, in: typed(window)) else { return false }
+                return self.startIsInView(line, of: window)
+            }
+            self.waitUntil({ lineInView("app-tall") && lineInView("app-wide") }) { _ in
                 for uuid in ["app-tall", "app-wide"] {
                     guard let window = app.gtkWindow(uuid), let line = self.label(showing: subtitle, in: typed(window)) else { continue }
                     inView[uuid] = self.startIsInView(line, of: window)
@@ -1159,7 +1182,15 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.presentWindow(json: Data(document.utf8), windowUUID: "app-w2", title: "Plain")
             @MainActor func show(_ uuid: String, _ id: Int, _ key: String, then next: @escaping @MainActor () -> Void) {
                 _ = ActionUIModel.shared.setElementState(windowUUID: uuid, viewID: id, key: key, value: true)
-                _ = runAfter(milliseconds: 400) {
+                // app-w1: until the sheet's line (after the window's own) is there and in view; app-w2,
+                // whose sheet has no line, is looked at once the sheet has had time to open.
+                @MainActor func settled() -> Bool {
+                    guard uuid == "app-w1" else { return true }
+                    guard let window = app.gtkWindow(uuid) else { return false }
+                    let lines = self.labels(showing: subtitle, in: typed(window))
+                    return lines.count >= 2 && lines.last.map { self.startIsInView($0, of: window) } == true
+                }
+                _ = runAfter(milliseconds: 400) { self.waitUntil(settled) { _ in
                     let lines = app.gtkWindow(uuid).map { self.labels(showing: subtitle, in: typed($0)) } ?? []
                     if uuid == "app-w1", let window = app.gtkWindow(uuid), let line = lines.last {
                         // The window's own line, under the sheet, comes first.
@@ -1168,7 +1199,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                     _ = ActionUIModel.shared.setElementState(windowUUID: uuid, viewID: id, key: key, value: false)
                     if uuid == "app-w1" { counts.append(lines.count) } else { plain = lines.count }
                     _ = runAfter(milliseconds: 400) { next() }
-                }
+                } }
             }
             _ = runAfter(milliseconds: 200) {
                 windowCount = app.gtkWindow("app-w1").map { self.labels(showing: subtitle, in: typed($0)).count } ?? 0
@@ -1203,10 +1234,15 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.presentWindow(json: Data(document.utf8), windowUUID: "app-w1", title: "Sheet",
                               options: AdwaitaApplication.WindowOptions(subtitle: subtitle, contentSize: (500, 400)))
             _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: true)
-            _ = runAfter(milliseconds: 500) {
-                if let window = app.gtkWindow("app-w1"), let line = self.labels(showing: subtitle, in: typed(window)).last {
-                    inView = self.startIsInView(line, of: window)
-                }
+            // Until the sheet's line (after the window's own, which is in view from the start) is there
+            // and in view.
+            @MainActor func sheetLineInView() -> Bool {
+                guard let window = app.gtkWindow("app-w1") else { return false }
+                let lines = self.labels(showing: subtitle, in: typed(window))
+                return lines.count >= 2 && lines.last.map { self.startIsInView($0, of: window) } == true
+            }
+            self.waitUntil(sheetLineInView) { answer in
+                inView = answer
                 _ = ActionUIModel.shared.setElementState(windowUUID: "app-w1", viewID: 1, key: "sheetVisible", value: false)
                 _ = runAfter(milliseconds: 300) {
                     app.closeWindow("app-w1")
