@@ -12,6 +12,7 @@ extension ActionUIRegistry {
         "Capsule": Capsule.self,
         "Circle": Circle.self,
         "Color": Color.self,
+        "DatePicker": DatePicker.self,
         "Divider": Divider.self,
         "Ellipse": Ellipse.self,
         "GroupBox": GroupBox.self,

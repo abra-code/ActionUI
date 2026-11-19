@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "DatePicker",
+      "id": 2,
+      "properties": { "title": "Day", "selectedDate": "2024-07-16", "valueChangeActionID": "day.changed" }
+    },
+    {
+      "type": "DatePicker",
+      "id": 3,
+      "properties": { "title": "Time", "displayedComponents": "hourAndMinute", "selectedDate": "2024-07-16T14:30:00",
+                      "valueChangeActionID": "time.changed" }
+    },
+    {
+      "type": "DatePicker",
+      "id": 4,
+      "properties": { "title": "Both", "displayedComponents": "dateAndTime", "selectedDate": "2024-07-16T09:05:00",
+                      "range": { "start": "2024-01-01", "end": "2024-12-31" }, "valueChangeActionID": "both.changed" }
+    },
+    {
+      "type": "DatePicker",
+      "id": 6,
+      "properties": { "title": "Past its range", "selectedDate": "2026-03-01",
+                      "range": { "start": "2024-01-01", "end": "2024-12-31" }, "valueChangeActionID": "outside.changed" }
+    },
+    {
+      "type": "DatePicker",
+      "id": 5,
+      "properties": { "title": "Calendar", "displayStyle": "graphical", "selectedDate": "2024-07-16",
+                      "valueChangeActionID": "calendar.changed" }
+    }
+  ]
+}

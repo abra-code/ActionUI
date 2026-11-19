@@ -190,6 +190,39 @@ ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetColumns(ActionUIWinUIObject *choic
 ACTIONUI_WINUI_API bool actionUIWinUIChoiceOnSelectionChanged(ActionUIWinUIObject *choice, ActionUIWinUICallback handler,
                                                              void *context, ActionUIWinUICallback destroyContext);
 
+// MARK: - Date and time controls (a DatePicker's)
+
+// Days are local calendar days (Gregorian, the system's time zone); times are minutes after midnight.
+typedef enum ActionUIWinUIDateKind {
+    // A field showing the day, which opens a calendar (CalendarDatePicker).
+    ActionUIWinUIDateField = 0,
+    // A month's calendar shown inline (CalendarView), one day selectable.
+    ActionUIWinUIDateCalendar = 1,
+    // Hour and minute fields (TimePicker).
+    ActionUIWinUIDateTime = 2,
+} ActionUIWinUIDateKind;
+
+// A new date or time control with nothing picked. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIDateControlCreate(ActionUIWinUIDateKind kind);
+// Shows `day` as the picked day of a field or calendar (a calendar shows its month), when another day
+// is shown.
+ACTIONUI_WINUI_API bool actionUIWinUIDateControlSetDay(ActionUIWinUIObject *control, int32_t year, int32_t month, int32_t day);
+// The picked day of a field or calendar; false when none is picked (a calendar's day can be clicked off).
+ACTIONUI_WINUI_API bool actionUIWinUIDateControlGetDay(ActionUIWinUIObject *control, int32_t *year, int32_t *month, int32_t *day);
+// The first and last days a field or calendar offers; not limited: WinUI's hundred years either side of
+// today.
+ACTIONUI_WINUI_API bool actionUIWinUIDateControlSetRange(ActionUIWinUIObject *control, bool limited, int32_t startYear,
+                                                         int32_t startMonth, int32_t startDay, int32_t endYear,
+                                                         int32_t endMonth, int32_t endDay);
+// Shows `minutes` after midnight as a time picker's time, when it shows another.
+ACTIONUI_WINUI_API bool actionUIWinUIDateControlSetTime(ActionUIWinUIObject *control, int32_t minutes);
+// A time picker's time in minutes after midnight; -1 on failure.
+ACTIONUI_WINUI_API int32_t actionUIWinUIDateControlGetTime(ActionUIWinUIObject *control);
+// Changed: the picked day or time changed, by the user and also by the setters above (callers compare
+// with what they set).
+ACTIONUI_WINUI_API bool actionUIWinUIDateControlOnChanged(ActionUIWinUIObject *control, ActionUIWinUICallback handler,
+                                                          void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - ListView (a List's rows)
 
 // A new ListView with no items and single selection. NULL on failure.
