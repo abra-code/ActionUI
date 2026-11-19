@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 6, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "largeTitle", "font": "largeTitle" } },
+    { "type": "Text", "id": 3, "properties": { "text": "title", "font": "title" } },
+    { "type": "Text", "id": 4, "properties": { "text": "title2 and title3", "font": "title2" } },
+    { "type": "Text", "id": 5, "properties": { "text": "headline", "font": "headline" } },
+    { "type": "Text", "id": 6, "properties": { "text": "body (the default)" } },
+    { "type": "Text", "id": 7, "properties": { "text": "caption", "font": "caption" } },
+    {
+      "type": "VStack",
+      "id": 8,
+      "properties": { "alignment": "leading", "foregroundStyle": "secondary", "font": "callout", "padding": 8, "background": "fill.tertiary" },
+      "children": [
+        { "type": "Text", "id": 9, "properties": { "text": "secondary and callout, from the VStack" } },
+        { "type": "Text", "id": 10, "properties": { "text": "16 bold, its own font", "font": { "size": 16, "weight": "bold" } } },
+        { "type": "Text", "id": 11, "properties": { "text": "monospaced design", "font": { "size": 13, "design": "monospaced" } } }
+      ]
+    },
+    { "type": "Text", "id": 12, "properties": { "text": "accentColor text on background.secondary", "foregroundStyle": "accentColor", "padding": 6, "background": "background.secondary" } },
+    { "type": "Button", "id": 13, "properties": { "title": "A headline Button", "font": "headline" } },
+    { "type": "TextField", "id": 14, "properties": { "prompt": "a title3 TextField in the accent color", "font": "title3", "foregroundStyle": "accentColor" } }
+  ]
+}

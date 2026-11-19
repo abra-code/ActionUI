@@ -1,0 +1,160 @@
+// Styling.cpp - brushes (backgrounds and foregrounds, from a color or the theme) and fonts, on the
+// elements that have them: panels, controls, text blocks.
+
+#include "ShimInternal.h"
+
+#include <cmath>
+
+#include <winrt/Windows.UI.h>
+#include <winrt/Windows.UI.Text.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
+
+namespace media = winrt::Microsoft::UI::Xaml::Media;
+
+using namespace actionui_winui;
+
+namespace {
+
+uint8_t channel(double value) {
+    double clamped = std::isfinite(value) ? (value < 0 ? 0.0 : (value > 1 ? 1.0 : value)) : 0.0;
+    return static_cast<uint8_t>(clamped * 255.0 + 0.5);
+}
+
+// The brush for `color`, or for the theme resource `themeBrush`; nullptr for neither (the
+// element's own default). Throws when the theme has no such brush.
+media::Brush brushFor(const ActionUIWinUIColor *color, const char *themeBrush) {
+    if (color != nullptr) {
+        return media::SolidColorBrush(winrt::Windows::UI::Color{channel(color->alpha), channel(color->red),
+                                                               channel(color->green), channel(color->blue)});
+    }
+    if (themeBrush == nullptr || themeBrush[0] == '\0') {
+        return nullptr;
+    }
+    winrt::hstring key = toHString(themeBrush);
+    wf::IInspectable found{nullptr};
+    try {
+        found = mux::Application::Current().Resources().Lookup(winrt::box_value(key));
+    } catch (winrt::hresult_error const &) {
+        throw winrt::hresult_invalid_argument(L"the theme has no resource " + key);
+    }
+    media::Brush brush = found != nullptr ? found.try_as<media::Brush>() : nullptr;
+    if (brush == nullptr) {
+        throw winrt::hresult_invalid_argument(L"the theme resource " + key + L" is not a brush");
+    }
+    return brush;
+}
+
+// Whether `current` already paints what `wanted` would (the same solid color, or the same brush).
+bool samePaint(media::Brush const &current, media::Brush const &wanted) {
+    if (current == wanted) {
+        return true;
+    }
+    media::SolidColorBrush currentSolid = current != nullptr ? current.try_as<media::SolidColorBrush>() : nullptr;
+    media::SolidColorBrush wantedSolid = wanted != nullptr ? wanted.try_as<media::SolidColorBrush>() : nullptr;
+    return currentSolid != nullptr && wantedSolid != nullptr && currentSolid.Color() == wantedSolid.Color()
+        && currentSolid.Opacity() == wantedSolid.Opacity();
+}
+
+} // namespace
+
+extern "C" {
+
+bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBrushProperty property,
+                                  const ActionUIWinUIColor *color, const char *themeBrush) {
+    return guarded("element set brush", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        media::Brush wanted = brushFor(color, themeBrush);
+        if (property == ActionUIWinUIBrushBackground) {
+            // No paint clears the local value, as for the foreground: a control's default
+            // background comes from its style, which a null local value would hide.
+            if (muxc::Panel panel = typed.try_as<muxc::Panel>(); panel != nullptr) {
+                if (wanted == nullptr) {
+                    panel.ClearValue(muxc::Panel::BackgroundProperty());
+                } else if (!samePaint(panel.Background(), wanted)) {
+                    panel.Background(wanted);
+                }
+                return true;
+            }
+            if (muxc::Control control = typed.try_as<muxc::Control>(); control != nullptr) {
+                if (wanted == nullptr) {
+                    control.ClearValue(muxc::Control::BackgroundProperty());
+                } else if (!samePaint(control.Background(), wanted)) {
+                    control.Background(wanted);
+                }
+                return true;
+            }
+            return fail("element set brush", "the element has no background");
+        }
+        if (property == ActionUIWinUIBrushForeground) {
+            if (muxc::TextBlock text = typed.try_as<muxc::TextBlock>(); text != nullptr) {
+                if (wanted == nullptr) {
+                    text.ClearValue(muxc::TextBlock::ForegroundProperty());
+                } else if (!samePaint(text.Foreground(), wanted)) {
+                    text.Foreground(wanted);
+                }
+                return true;
+            }
+            if (muxc::Control control = typed.try_as<muxc::Control>(); control != nullptr) {
+                if (wanted == nullptr) {
+                    control.ClearValue(muxc::Control::ForegroundProperty());
+                } else if (!samePaint(control.Foreground(), wanted)) {
+                    control.Foreground(wanted);
+                }
+                return true;
+            }
+            return fail("element set brush", "the element has no foreground");
+        }
+        return fail("element set brush", "unknown brush property");
+    });
+}
+
+bool actionUIWinUIElementSetFont(ActionUIWinUIObject *element, const char *family, double size, int32_t weight) {
+    return guarded("element set font", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        muxc::TextBlock text = typed.try_as<muxc::TextBlock>();
+        muxc::Control control = text == nullptr ? typed.try_as<muxc::Control>() : nullptr;
+        if (text == nullptr && control == nullptr) {
+            return fail("element set font", "the element shows no text");
+        }
+        // Each part: the given value, else the element's default (cleared, so the theme's applies).
+        bool hasFamily = family != nullptr && family[0] != '\0';
+        bool hasSize = std::isfinite(size) && size > 0;
+        bool hasWeight = weight >= 1 && weight <= 999;
+        if (text != nullptr) {
+            if (hasFamily) {
+                text.FontFamily(media::FontFamily(toHString(family)));
+            } else {
+                text.ClearValue(muxc::TextBlock::FontFamilyProperty());
+            }
+            if (hasSize) {
+                text.FontSize(size);
+            } else {
+                text.ClearValue(muxc::TextBlock::FontSizeProperty());
+            }
+            if (hasWeight) {
+                text.FontWeight(winrt::Windows::UI::Text::FontWeight{static_cast<uint16_t>(weight)});
+            } else {
+                text.ClearValue(muxc::TextBlock::FontWeightProperty());
+            }
+        } else {
+            if (hasFamily) {
+                control.FontFamily(media::FontFamily(toHString(family)));
+            } else {
+                control.ClearValue(muxc::Control::FontFamilyProperty());
+            }
+            if (hasSize) {
+                control.FontSize(size);
+            } else {
+                control.ClearValue(muxc::Control::FontSizeProperty());
+            }
+            if (hasWeight) {
+                control.FontWeight(winrt::Windows::UI::Text::FontWeight{static_cast<uint16_t>(weight)});
+            } else {
+                control.ClearValue(muxc::Control::FontWeightProperty());
+            }
+        }
+        return true;
+    });
+}
+
+} // extern "C"

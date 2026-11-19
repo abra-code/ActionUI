@@ -35,6 +35,14 @@ package final class RenderNode {
     /// How the element grows in a stack: the renderer's defaultExpansion, overridden per axis by a
     /// frame (one with a maximum expands, a fixed one does not).
     private(set) var expansion: Expansion = []
+    /// The font and foreground of the element's text: its own modifiers over its parent's
+    /// appearance, which descendants inherit (as SwiftUI's environment passes them down).
+    private(set) var textAppearance = TextAppearance()
+    /// The appearance last applied to the WinUI object (applyTextAppearance), to set it only on a
+    /// change.
+    private var appliedAppearance: TextAppearance?
+    /// True after the first sync.
+    private(set) var hasSynced = false
     /// How far it grows in each axis when it expands: its frame's finite maximum, nil for no limit.
     private(set) var caps: (horizontal: Int?, vertical: Int?) = (nil, nil)
 
@@ -94,9 +102,23 @@ package final class RenderNode {
         caps = (initial.frame.horizontal.cap, initial.frame.vertical.cap)
     }
 
-    /// The element's padding and frame, from its current properties. A tracked read.
+    /// The base modifiers the box and the text appearance read, from the current properties. A
+    /// tracked read.
+    private var baseModifiers: BaseModifiers {
+        BaseModifiers(ActionUIRegistry.shared.baseModifierProperties(properties, forElementType: element.type))
+    }
+
+    /// The element's padding, frame and background, from its current properties. A tracked read.
     private var geometry: BoxGeometry {
-        BoxGeometry(BaseModifiers(ActionUIRegistry.shared.baseModifierProperties(properties, forElementType: element.type)))
+        BoxGeometry(baseModifiers)
+    }
+
+    /// Draws the WinUI object's text with the node's appearance, only when it changed: for the
+    /// renderers of elements that show text (Text, Button, Toggle, TextField).
+    func applyTextAppearance(to view: WinUIObject, what: String) {
+        guard appliedAppearance != textAppearance else { return }
+        appliedAppearance = textAppearance
+        textAppearance.apply(to: view, what: what)
     }
 
     private static func expansion(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
@@ -113,9 +135,13 @@ package final class RenderNode {
     func sync() {
         guard isAttached, let view else { return }
         var expansionChanged = false
+        let previousAppearance = textAppearance
         withObservationTracking {
+            let modifiers = baseModifiers
+            // Before the renderer's update, which draws the text with it.
+            textAppearance = (parent?.textAppearance ?? TextAppearance()).applying(modifiers)
             renderer.update(view, self)
-            let geometry = geometry
+            let geometry = BoxGeometry(modifiers)
             box?.contentExpansion = renderer.defaultExpansion
             box?.update(geometry)
             let newExpansion = Self.expansion(renderer.defaultExpansion, geometry: geometry)
@@ -137,6 +163,15 @@ package final class RenderNode {
         }
         let created = unsyncedChildren
         unsyncedChildren = []
+        // The children inherit the appearance; new ones read it in their first sync below (and are
+        // not marked, as the GTK renderer skips them).
+        if hasSynced && textAppearance != previousAppearance {
+            let new = Set(created.map(ObjectIdentifier.init))
+            for child in childNodes.values where !new.contains(ObjectIdentifier(child)) {
+                SyncScheduler.shared.markDirty(child)
+            }
+        }
+        hasSynced = true
         for child in created {
             child.sync()
         }

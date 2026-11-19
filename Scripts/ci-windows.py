@@ -67,6 +67,7 @@ SMOKE_TIMEOUT_SECONDS = 180
 # Options for ActionUIWinUIPreview by document name (ActionUIWinUI/Apps/Preview/Documents), beside
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
 PREVIEW_OPTIONS = {
+    "Fonts": ["480", "480"],
     "Controls": ["240", "220", "--invoke", "3", "--expect-action", "button.pressed",
                  "--on-action", "button.pressed", "2", "Pressed through UI Automation"],
     "Inputs": ["360", "260", "--toggle", "3", "--toggle", "4", "--set-text", "6", "typed through UI Automation",

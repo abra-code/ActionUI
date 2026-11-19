@@ -20,8 +20,8 @@
    only a minimum, the content at least the minimum; with an unbounded proposal, the ideal if given.
    A frame with a maximum makes the element expand in that axis (its stack gives it the room), a
    fixed one keeps it from expanding.
- - background: a color fills the frame, behind the element (a semantic style, such as
-   "fill.tertiary", not yet: ColorRGBA).
+ - background: a color, or a semantic style as the WinUI theme paints it (Paint: "fill.tertiary" is
+   a control fill, "background" the window's), fills the frame behind the element.
 
  Not yet: overlay, border, cornerRadius, opacity, offset, hidden, background views, and the other
  base modifiers the GTK ModifierBox applies. A frame larger than the room its parent has (a
@@ -37,22 +37,13 @@ struct BoxGeometry: Equatable {
     var padding = (horizontal: PaddingAxis(), vertical: PaddingAxis())
     var frame = (horizontal: FrameAxis.none, vertical: FrameAxis.none)
     var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
-    var background: ActionUIWinUIColor?
+    var background: Paint?
 
     static func == (left: BoxGeometry, right: BoxGeometry) -> Bool {
         left.padding.horizontal == right.padding.horizontal && left.padding.vertical == right.padding.vertical
             && left.frame.horizontal == right.frame.horizontal && left.frame.vertical == right.frame.vertical
             && left.alignment.horizontal == right.alignment.horizontal && left.alignment.vertical == right.alignment.vertical
-            && sameColor(left.background, right.background)
-    }
-
-    static func sameColor(_ left: ActionUIWinUIColor?, _ right: ActionUIWinUIColor?) -> Bool {
-        switch (left, right) {
-        case (nil, nil): return true
-        case let (left?, right?):
-            return left.red == right.red && left.green == right.green && left.blue == right.blue && left.alpha == right.alpha
-        default: return false
-        }
+            && left.background == right.background
     }
 
     init() {}
@@ -61,7 +52,7 @@ struct BoxGeometry: Equatable {
         padding = ModifierBox.paddingAxes(modifiers.padding)
         frame = ModifierBox.frameAxes(modifiers.frame)
         alignment = ModifierBox.alignmentAxes(modifiers.frame?.alignment)
-        background = ColorRGBA.parse(modifiers.background)
+        background = Paint.parse(modifiers.background, role: .background)
     }
 
     /// How the frame decides expansion in each axis: true or false, nil to follow the content.
@@ -100,16 +91,8 @@ final class ModifierBox {
     /// Applies new padding, frame and background; asks for a layout when they changed.
     func update(_ newGeometry: BoxGeometry) {
         guard newGeometry != geometry else { return }
-        if !BoxGeometry.sameColor(newGeometry.background, geometry.background) {
-            let set: Bool
-            if var color = newGeometry.background {
-                set = actionUIWinUIPanelSetBackground(group.object.pointer, &color)
-            } else {
-                set = actionUIWinUIPanelSetBackground(group.object.pointer, nil)
-            }
-            if !set {
-                ActionUIModel.shared.logger.log("ModifierBox: \(WinUIError.last("setting a background"))", .error)
-            }
+        if newGeometry.background != geometry.background {
+            Paint.apply(newGeometry.background, ActionUIWinUIBrushBackground, to: group.object, what: "a background")
         }
         geometry = newGeometry
         panel.invalidateLayout()

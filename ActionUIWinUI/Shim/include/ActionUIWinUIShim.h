@@ -231,16 +231,6 @@ ACTIONUI_WINUI_API bool actionUIWinUIPanelInsertChild(ActionUIWinUIObject *panel
                                                       ActionUIWinUIObject *child);
 ACTIONUI_WINUI_API bool actionUIWinUIPanelRemoveChild(ActionUIWinUIObject *panel, int32_t index);
 
-// A color: red, green, blue and alpha, each from 0 to 1 (sRGB).
-typedef struct ActionUIWinUIColor {
-    double red;
-    double green;
-    double blue;
-    double alpha;
-} ActionUIWinUIColor;
-
-// Fills the panel's area with `color` behind its children; NULL removes the fill.
-ACTIONUI_WINUI_API bool actionUIWinUIPanelSetBackground(ActionUIWinUIObject *panel, const ActionUIWinUIColor *color);
 
 // In a measure callback: measures `element` with the size offered and returns the size it wants
 // (its DesiredSize). {0, 0} on failure.
@@ -253,6 +243,36 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementArrange(ActionUIWinUIObject *element
 ACTIONUI_WINUI_API bool actionUIWinUIElementInvalidateMeasure(ActionUIWinUIObject *element);
 // Where `element` was last placed: its offset in its parent and its size. {0, 0, 0, 0} on failure.
 ACTIONUI_WINUI_API ActionUIWinUIRect actionUIWinUIElementLayoutFrame(ActionUIWinUIObject *element);
+
+// MARK: - Styling
+
+// A color: red, green, blue and alpha, each from 0 to 1 (sRGB).
+typedef struct ActionUIWinUIColor {
+    double red;
+    double green;
+    double blue;
+    double alpha;
+} ActionUIWinUIColor;
+
+typedef enum ActionUIWinUIBrushProperty {
+    // What fills a panel's or a control's area behind its content.
+    ActionUIWinUIBrushBackground = 0,
+    // The color of a text block's or a control's text.
+    ActionUIWinUIBrushForeground = 1,
+} ActionUIWinUIBrushProperty;
+
+// Paints `property` of `element` with `color`; when `color` is NULL, with the theme's brush named
+// `themeBrush` (a WinUI theme resource: "TextFillColorSecondaryBrush", "AccentFillColorDefaultBrush",
+// ...), as the theme has it when this is called; when both are NULL, the element's own default.
+// Fails when the element has no such property or the theme no such brush.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBrushProperty property,
+                                                     const ActionUIWinUIColor *color, const char *themeBrush);
+
+// The font of a text block's or a control's text: `family` (NULL: the theme's, Segoe UI), `size` in
+// effective pixels (0 or less: the theme's) and `weight` from 1 to 999 (400 regular, 600 semibold,
+// 700 bold; 0: the theme's). Fails when the element shows no text of its own.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetFont(ActionUIWinUIObject *element, const char *family, double size,
+                                                    int32_t weight);
 
 // MARK: - Rendering
 

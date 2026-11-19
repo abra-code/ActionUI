@@ -23,6 +23,7 @@ extension Button: ActionUIWinUIRenderer {
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
+        node.applyTextAppearance(to: view, what: "a Button")
         let title = Props(node.properties).title
         let state = node.state as? ShownText ?? ShownText()
         node.state = state

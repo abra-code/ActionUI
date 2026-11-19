@@ -6,7 +6,10 @@
  width than one line needs (in a VStack narrower than the line; an HStack does not yet compress
  its children).
 
- Not yet: fonts, colors and alignment. Markdown shows its
+ The font and foregroundStyle, its own or inherited, are drawn as TextAppearance describes (WinUI's
+ type ramp, the theme's text colors).
+
+ Not yet: multilineTextAlignment. Markdown shows its
  source as is (asterisks included): Core's default markdown hook makes no styles, and the Markdown
  parser the GTK renderer uses has not moved to the shared code yet.
 */
@@ -30,6 +33,7 @@ extension Text: ActionUIWinUIRenderer {
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
+        node.applyTextAppearance(to: view, what: "a Text")
         let shown = displayedText(node.model.value, node.properties)
         let state = node.state as? ShownText ?? ShownText()
         node.state = state

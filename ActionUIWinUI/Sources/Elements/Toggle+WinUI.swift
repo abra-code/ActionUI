@@ -54,6 +54,7 @@ extension Toggle: ActionUIWinUIRenderer {
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
         guard let state = node.state as? ToggleState else { return }
+        node.applyTextAppearance(to: view, what: "a Toggle")
         let props = Props(node.properties)
         let on = Toggle.initialValue(node.model) as? Bool ?? false
         // Both are set even when the other fails: a title the shim refused must not hide the state.

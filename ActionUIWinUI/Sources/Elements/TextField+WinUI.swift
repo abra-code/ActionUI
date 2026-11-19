@@ -55,6 +55,7 @@ extension TextField: ActionUIWinUIRenderer {
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
+        node.applyTextAppearance(to: view, what: "a TextField")
         let props = Props(node.properties)
         let text = node.model.value as? String ?? props.initialValue
         let placeholder = props.prompt ?? props.title

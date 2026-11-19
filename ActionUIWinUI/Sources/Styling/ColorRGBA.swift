@@ -1,12 +1,12 @@
 // Sources/Styling/ColorRGBA.swift
 /*
- Colors (Core's ColorSpec) as the shim's ActionUIWinUIColor. Named colors are Apple's light-mode
- system colors (SwiftUI's Color.red and the others), as the GTK renderer uses them where its own
- palette has none; primary and secondary are the light-mode label colors; accentColor is Apple's
- blue. A translucent color (.opacity) multiplies the alpha.
+ Colors (Core's ColorSpec) as the shim's ActionUIWinUIColor. The named hues (red, blue, ...) are
+ SwiftUI's light-mode values, as the GTK renderer uses them where its own palette has none: Windows
+ has no named palette of its own. A translucent color (.opacity) multiplies the alpha. What follows
+ the system (primary, secondary, accentColor, and the semantic styles) is the WinUI theme's brush
+ instead (Paint); the values below for those are only a fallback.
 
- Not yet: dark mode, the Windows accent color, and the semantic shape styles a background can name
- ("fill.tertiary", "background", "separator", ...): those draw nothing for now.
+ Not yet: dark-mode values of the named hues.
 */
 
 import CWinUI
