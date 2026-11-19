@@ -502,6 +502,29 @@ def test_remote_server(app: actionui.Application):
         shutil.rmtree(directory, ignore_errors=True)
 
 
+def test_default_logger_prints_warnings_and_errors_only(app):
+    print("\n--- default logger ---")
+    import contextlib
+    import io
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        for level in actionui.LogLevel:
+            app.logger._log_callback(f"message at {level.name}", int(level))
+    text = printed.getvalue()
+    check("an error is printed", "message at ERROR" in text)
+    check("a warning is printed", "message at WARNING" in text)
+    check("info, debug and verbose are not printed",
+          not any(f"message at {name}" in text for name in ("INFO", "DEBUG", "VERBOSE")))
+    received = []
+    app.logger.set_callback(lambda message, level: received.append(level))
+    try:
+        for level in actionui.LogLevel:
+            app.logger._log_callback("message", int(level))
+    finally:
+        app.logger.set_callback(None)
+    check("a callback receives every level", received == list(actionui.LogLevel))
+
+
 # -------------------------------------------------------------------------
 
 
@@ -523,6 +546,7 @@ def main():
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
     test_remote_server(app)
+    test_default_logger_prints_warnings_and_errors_only(app)
 
     print()
     print("=" * 50)

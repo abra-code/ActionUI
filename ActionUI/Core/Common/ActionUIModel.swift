@@ -35,8 +35,14 @@ public class ActionUIModel {
     }
 
     private init() {
-        // Initialize with default ConsoleLogger
-        self.logger = ConsoleLogger(maxLevel: .verbose)
+        // Default ConsoleLogger: warnings and errors in a release build, as the registry's, every
+        // level in a debug build. Its lines go to standard output, which a script host often
+        // captures or pipes; a host that wants more installs its own logger.
+        var loggerLevel: LoggerLevel = .warning
+#if DEBUG
+        loggerLevel = .verbose
+#endif
+        self.logger = ConsoleLogger(maxLevel: loggerLevel)
     }
 
     // MARK: - Window enumeration
@@ -1128,6 +1134,7 @@ public class ActionUIModel {
         viewModel.mutationToken &+= 1
         viewModel.properties[propertyName] = value
         ActionUIRegistry.shared.getDidSetProperty(forElementType: viewModel.elementType)?(propertyName, viewModel, logger)
-        logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
+        // The type only: a property can hold text a host would not print, a SecureField's included.
+        logger.log("Set property '\(propertyName)' to a \(type(of: value)) for viewID: \(viewID)", .debug)
     }
 }

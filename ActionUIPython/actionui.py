@@ -116,7 +116,10 @@ class Logger:
     def _log_callback(self, message: str, level: int):
         if self._callback:
             self._callback(message, LogLevel(level))
-        else:
+        elif level <= LogLevel.WARNING:
+            # Without a callback, warnings and errors only, as the library's own default logger:
+            # the detailed levels carry ids, titles and addresses into standard output, which a
+            # script's caller often captures. A callback receives every level.
             print(f"[ActionUI][{LogLevel(level).name}] {message}")
 
     def set_callback(self, callback: Optional[Callable[[str, LogLevel], None]]):
