@@ -429,6 +429,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetHitTestVisible(ActionUIWinUIObjec
 // element that is not a control (a text block, a panel); WinUI passes a control's state to the controls
 // in its content.
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetEnabled(ActionUIWinUIObject *element, bool enabled);
+// A control's padding, the room between its border and its content, in pixels (a Button's is 11, 5,
+// 11, 6 by default); fails for an element that is no Control or a padding that is not a number.
+ACTIONUI_WINUI_API bool actionUIWinUIControlSetPadding(ActionUIWinUIObject *control, double leading, double top, double trailing,
+                                                       double bottom);
 // Whether accessibility tools (UI Automation clients: screen readers) skip `element` (its children are
 // not skipped with it: hide each).
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUIObject *element, bool hidden);

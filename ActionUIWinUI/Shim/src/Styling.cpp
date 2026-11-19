@@ -219,6 +219,22 @@ bool actionUIWinUIElementSetEnabled(ActionUIWinUIObject *element, bool enabled) 
     });
 }
 
+bool actionUIWinUIControlSetPadding(ActionUIWinUIObject *control, double leading, double top, double trailing, double bottom) {
+    return guarded("control set padding", [&]() {
+        if (!(std::isfinite(leading) && std::isfinite(top) && std::isfinite(trailing) && std::isfinite(bottom) && leading >= 0 &&
+              top >= 0 && trailing >= 0 && bottom >= 0)) {
+            return fail("control set padding", "a padding is not a number of pixels");
+        }
+        muxc::Control typed = objectAs<muxc::Control>(control, L"Control");
+        mux::Thickness wanted{leading, top, trailing, bottom};
+        mux::Thickness shown = typed.Padding();
+        if (shown.Left != wanted.Left || shown.Top != wanted.Top || shown.Right != wanted.Right || shown.Bottom != wanted.Bottom) {
+            typed.Padding(wanted);
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUIObject *element, bool hidden) {
     return guarded("element set accessibility hidden", [&]() {
         mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
