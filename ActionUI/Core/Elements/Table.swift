@@ -163,7 +163,8 @@ extension Table {
     /// A user toggle of a Toggle cell: writes "true" or "false" into that cell of the rows
     /// (the selection follows its row), then fires the column's `actionID` with the column
     /// as `viewPartID` and the row index as context, the Button cell's "rowIndex" convention.
-    /// Returns whether the toggle was taken (false when the row is gone).
+    /// Returns whether the toggle was taken (false when the row is gone, or the column lies beyond
+    /// the row by more than TemplateHelper.maxRowPadding cells).
     @discardableResult
     static func commitCellToggle(
         _ isOn: Bool,

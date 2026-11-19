@@ -41,6 +41,26 @@ final class DocumentLoaderTests: XCTestCase {
         ActionUIDocumentLoader.source(for: value, bundleURL: bundleURL, logger: logger)
     }
 
+    func testOnlyARegularFileIsRead() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("regular-file-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("a.json")
+        try Data("{}".utf8).write(to: file)
+        let link = folder.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        let deviceLink = folder.appendingPathComponent("zero.json")
+        try FileManager.default.createSymbolicLink(at: deviceLink, withDestinationURL: URL(fileURLWithPath: "/dev/zero"))
+
+        XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(file), Data("{}".utf8))
+        XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(link), Data("{}".utf8), "a link to a regular file is read")
+        for path in ["/dev/zero", "/dev/null", folder.path, deviceLink.path] {
+            XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path)), path) { error in
+                XCTAssertTrue(error is ActionUIDocumentLoader.NotARegularFile, "\(path): \(error)")
+            }
+        }
+    }
+
     func testRemoteURLs() {
         XCTAssertEqual(source("https://example.com/a.json"), .success(.remote(URL(string: "https://example.com/a.json")!)))
         XCTAssertEqual(source("HTTP://example.com/a"), .success(.remote(URL(string: "HTTP://example.com/a")!)))

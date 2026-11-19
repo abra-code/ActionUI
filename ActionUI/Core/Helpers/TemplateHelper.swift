@@ -179,11 +179,17 @@ struct TemplateHelper {
         return rows.firstIndex(of: drawnRow)
     }
 
+    /// How many empty cells writeRowCell adds at most to reach the column it writes.
+    nonisolated static let maxRowPadding = 64
+
     /// Writes `text` into one cell of a container's states["content"] after a user edit of
     /// a row-bound control (a Toggle in a template row or in a Table column). A row shorter
-    /// than `column` is padded with empty strings. A selection resting on that row follows
-    /// it, so the write loses no highlight and fires no selection action.
-    /// Returns the index of the row written, or nil when the container or the row is gone.
+    /// than `column` is padded with empty strings, by at most `maxRowPadding` cells: the column
+    /// comes from the document ("$4000000000" would otherwise pad one row by billions of cells on
+    /// one click). A selection resting on that row follows it, so the write loses no highlight
+    /// and fires no selection action.
+    /// Returns the index of the row written, or nil when the container or the row is gone, or the
+    /// column lies beyond the padding limit.
     @discardableResult
     static func writeRowCell(
         windowUUID: String,
@@ -198,6 +204,10 @@ struct TemplateHelper {
         var rows = model.states["content"] as? [[String]] ?? []
         guard let index = currentRowIndex(of: drawnRow, drawnAt: rowIndex, in: rows) else { return nil }
         let oldRow = rows[index]
+        guard column < oldRow.count + maxRowPadding else {
+            ActionUIModel.shared.logger.log("A row-bound control names column \(column + 1), beyond the row's \(oldRow.count) cells plus \(maxRowPadding); not written", .warning)
+            return nil
+        }
         var newRow = oldRow
         while newRow.count <= column {
             newRow.append("")

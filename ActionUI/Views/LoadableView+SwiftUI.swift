@@ -28,10 +28,16 @@ extension LoadableView: ActionUISwiftUIRenderer {
         switch source {
         case .failure(let error):
             return SwiftUI.Text(error.message)
+        // Each kind behind LoadableNestingGuard (Common/FileLoadableView.swift): a document that
+        // loads itself is refused at the repeat, and nesting stops at a fixed depth.
         case .success(.remote(let url)):
-            return RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
+            return LoadableNestingGuard(source: url.absoluteString, logger: logger) {
+                RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
+            }
         case .success(.file(let fileURL)):
-            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
+            return LoadableNestingGuard(source: fileURL.resolvingSymlinksInPath().standardizedFileURL.absoluteString, logger: logger) {
+                FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
+            }
         }
     }
 

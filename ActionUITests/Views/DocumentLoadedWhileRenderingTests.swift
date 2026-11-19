@@ -92,6 +92,47 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         XCTAssertEqual(tableRowCounts(in: host), [3])
     }
 
+    /// Keeps every message, so a test can look for the refusal (XCTestLogger fails on errors).
+    private final class CapturingLogger: ActionUILogger, @unchecked Sendable {
+        var messages: [String] = []
+        func log(_ message: String, _ level: LoggerLevel) { messages.append(message) }
+    }
+
+    func testADocumentThatLoadsItselfIsRefusedAtTheRepeat() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("self-loading-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("Self.json")
+        let document: [String: Any] = [
+            "type": "VStack", "id": 1,
+            "children": [["type": "LoadableView", "id": 2, "properties": ["filePath": file.path]]],
+        ]
+        try JSONSerialization.data(withJSONObject: document).write(to: file)
+        let logger = CapturingLogger()
+        ActionUIModel.shared.logger = logger
+
+        let content = FileLoadableView(fileURL: file, windowUUID: windowUUID, isContentView: true, logger: logger)
+        let host = NSHostingView(rootView: content.frame(width: 300, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300), styleMask: [.titled],
+                              backing: .buffered, defer: false)
+        window.contentView = host
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+        spin(0.5)
+
+        XCTAssertTrue(logger.messages.contains { $0.contains("it includes itself") }, "\(logger.messages.suffix(5))")
+        let loads = logger.messages.filter { $0.hasPrefix("Successfully loaded json for LoadableView from") }.count
+        XCTAssertLessThanOrEqual(loads, 4, "the document loaded \(loads) times")
+    }
+
+    func testTheNestingRuleRefusesARepeatAndADeepChain() {
+        XCTAssertNil(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "b", inside: ["a"]))
+        XCTAssertEqual(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "a", inside: ["a", "b"]), "it includes itself")
+        let deep = (0..<16).map { "doc\($0)" }
+        XCTAssertEqual(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "next", inside: deep), "LoadableViews are nested more than 16 deep")
+        XCTAssertNil(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "next", inside: Array(deep.dropLast())))
+    }
+
     func testRowsSurviveWhenTheHostLoadsTheDocumentInItsWindowContent() throws {
         try checkRowsSurvive(isContentView: true)
     }

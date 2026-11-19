@@ -78,6 +78,22 @@ enum ActionUIDocumentLoader {
         let message: String
     }
 
+    /// The contents of the local file at `url`, which must be a regular file once symbolic links
+    /// are followed. A document names the path, so it could name a device such as /dev/zero or a
+    /// named pipe, and reading one would never end (or never begin) on the main thread.
+    nonisolated static func readRegularFile(_ url: URL) throws -> Data {
+        let path = url.resolvingSymlinksInPath().path
+        let type = try FileManager.default.attributesOfItem(atPath: path)[.type] as? FileAttributeType
+        guard type == .typeRegular else { throw NotARegularFile(path: url.path) }
+        return try Data(contentsOf: URL(fileURLWithPath: path))
+    }
+
+    /// A path that names something other than a regular file: a folder, a device, a pipe or a socket.
+    struct NotARegularFile: Error, CustomStringConvertible {
+        let path: String
+        var description: String { "\(path) is not a regular file" }
+    }
+
     /// "plist" for a file or URL whose name ends in ".plist" (any case), else "json".
     static func format(of url: URL) -> String {
         url.pathExtension.lowercased() == "plist" ? "plist" : "json"
