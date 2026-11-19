@@ -10,7 +10,15 @@
 const _actionui = require('node-gyp-build')(__dirname);
 const { randomUUID } = require('crypto');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const fs = require('fs');
+
+// The file:// URL of a filesystem path, made absolute and percent-encoded. Joined as text, a '#' or
+// '?' in a file name would end the path and '%41' would be decoded, so the file loaded would not be
+// the file named.
+function fileURL(filePath) {
+    return pathToFileURL(path.resolve(filePath)).href;
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -81,7 +89,7 @@ class Window {
         const win = new Window(uuid);
         let url = filePath;
         if (!url.startsWith('file://')) {
-            url = 'file://' + path.resolve(filePath);
+            url = fileURL(filePath);
         }
         try {
             win._viewPtr = _actionui.loadHostingController(url, win.uuid, isContentView);
@@ -527,7 +535,7 @@ class Application {
     loadAndPresentWindow(url, uuid, title) {
         if (uuid == null) uuid = randomUUID();
         if (!url.startsWith('file://') && !url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'file://' + path.resolve(url);
+            url = fileURL(url);
         }
         const window = new Window(uuid);
         this._windows.set(uuid, window);
@@ -760,4 +768,6 @@ module.exports = {
     presentPixels,
     // Expose raw native module for advanced use
     _native: _actionui,
+    // The path-to-URL conversion of loadAndPresentWindow and Window.fromFile, for the tests
+    _fileURL: fileURL,
 };

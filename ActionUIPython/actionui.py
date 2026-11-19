@@ -15,6 +15,15 @@ from enum import IntEnum, Enum
 from dataclasses import dataclass, field
 
 
+def _file_url(path: str) -> str:
+    """The file:// URL of a filesystem path, made absolute and percent-encoded. Joined as text, a
+    '#' or '?' in a file name would end the path and '%41' would be decoded, so the file loaded
+    would not be the file named."""
+    import os
+    from pathlib import Path
+    return Path(os.path.abspath(path)).as_uri()
+
+
 # The remote bridge's environment contract (ActionUIRemote/PROTOCOL.md section 9). A child
 # process reads these two to find the host and the window it was started for.
 REMOTE_ENDPOINT_ENV = "ACTIONUI_REMOTE_ENDPOINT"
@@ -535,8 +544,7 @@ class Application:
         if window_uuid is None:
             window_uuid = str(uuid.uuid4())
         if not url.startswith(('file://', 'http://', 'https://')):
-            import os
-            url = 'file://' + os.path.abspath(url)
+            url = _file_url(url)
         # Create and register the Window before calling into C so that it is
         # available inside the window_will_present callback, which fires
         # synchronously before makeKeyAndOrderFront.
@@ -809,8 +817,7 @@ class Window:
         """
         window = cls(window_uuid)
         if not filepath.startswith('file://'):
-            import os
-            filepath = 'file://' + os.path.abspath(filepath)
+            filepath = _file_url(filepath)
         try:
             window._view_ptr = _actionui.load_hosting_controller(
                 filepath, window.uuid, is_content_view)

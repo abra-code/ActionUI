@@ -192,10 +192,10 @@ def test_url_conversion():
     """load_and_present_window must convert bare paths to file:// URLs."""
     print("\n=== URL conversion logic ===")
 
-    # Replicate the guard from Application.load_and_present_window
+    # The guard from Application.load_and_present_window, with the module's own path conversion
     def convert(url: str) -> str:
         if not url.startswith(("file://", "http://", "https://")):
-            url = "file://" + os.path.abspath(url)
+            url = actionui._file_url(url)
         return url
 
     check("bare /abs/path → file:///abs/path",
@@ -212,6 +212,10 @@ def test_url_conversion():
 
     check("https:// URL unchanged",
           convert("https://example.com/ui.json") == "https://example.com/ui.json")
+
+    # Joined as text, "#" and "?" ended the path and "%41" was decoded, so another file loaded.
+    check("'#', '?', '%' and a space in a file name are percent-encoded",
+          convert("/tmp/a b#c?d%41.json") == "file:///tmp/a%20b%23c%3Fd%2541.json")
 
 
 def test_menu_bar_api(app: actionui.Application):
