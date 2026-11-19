@@ -476,24 +476,23 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
     // Helper to coerce JSON numbers to Int
     
     private func numberAsInt(_ value: Any) -> Int? {
+        // Int(exactly:), never Int(Double): a whole number out of range (1e300) or not finite would
+        // stop the process, and a message from the page must not end the host.
         switch value {
-        case let doubleValue as Double:
-            if doubleValue.isFinite && doubleValue == floor(doubleValue) {
-                return Int(doubleValue)
-            } else {
-                print("Invalid double value")
-                return nil
-            }
         case let intValue as Int:
             return intValue
-        case let numberValue as NSNumber:
-            let doubleValue = numberValue.doubleValue
-            if doubleValue.isFinite && doubleValue == floor(doubleValue) {
-                return Int(doubleValue)
-            } else {
-                print("Invalid double value")
+        case let doubleValue as Double:
+            guard let intValue = Int(exactly: doubleValue) else {
+                print("Invalid number: not a whole number in range")
                 return nil
             }
+            return intValue
+        case let numberValue as NSNumber:
+            guard let intValue = Int(exactly: numberValue.doubleValue) else {
+                print("Invalid number: not a whole number in range")
+                return nil
+            }
+            return intValue
         default:
             print("Invalid numeric type. Expected number, got \(type(of: value))")
             return nil
