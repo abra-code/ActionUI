@@ -1,4 +1,5 @@
-// Ranges.cpp - the controls that show a number in a range: Slider, for ActionUI's Slider.
+// Ranges.cpp - the controls that show a number in a range: Slider, for ActionUI's Slider; ProgressBar and
+// ProgressRing, for ActionUI's ProgressView.
 
 #include "ShimInternal.h"
 
@@ -84,6 +85,57 @@ bool actionUIWinUISliderOnValueChanged(ActionUIWinUIObject *slider, ActionUIWinU
                                objectAs<muxc::Slider>(slider, L"Slider")
                                    .ValueChanged([holder](auto &&, auto &&) { holder->fire(); });
                            });
+}
+
+ActionUIWinUIObject *actionUIWinUIProgressCreate(ActionUIWinUIProgressKind kind) {
+    return guardedObject("progress create", [&]() -> ActionUIWinUIObject * {
+        switch (kind) {
+        case ActionUIWinUIProgressBar: {
+            muxc::ProgressBar bar;
+            bar.IsIndeterminate(true);
+            return toObject(bar);
+        }
+        case ActionUIWinUIProgressRing: {
+            muxc::ProgressRing ring;
+            ring.IsIndeterminate(true);
+            ring.Width(32);
+            ring.Height(32);
+            return toObject(ring);
+        }
+        }
+        fail("progress create", "an unknown kind");
+        return nullptr;
+    });
+}
+
+bool actionUIWinUIProgressSet(ActionUIWinUIObject *progress, bool determinate, double value, double total) {
+    return guarded("progress set", [&]() {
+        if (determinate && !(total > 0 && value >= 0 && value <= total)) {
+            return fail("progress set", "the progress is not within 0 and a positive total");
+        }
+        wf::IInspectable object = objectAs<wf::IInspectable>(progress, L"IInspectable");
+        if (auto bar = object.try_as<muxc::ProgressBar>()) {
+            if (determinate) {
+                bar.Minimum(0);
+                bar.Maximum(total);
+                bar.Value(value);
+            }
+            if (bar.IsIndeterminate() == determinate) {
+                bar.IsIndeterminate(!determinate);
+            }
+            return true;
+        }
+        muxc::ProgressRing ring = objectAs<muxc::ProgressRing>(progress, L"ProgressBar or ProgressRing");
+        if (determinate) {
+            ring.Minimum(0);
+            ring.Maximum(total);
+            ring.Value(value);
+        }
+        if (ring.IsIndeterminate() == determinate) {
+            ring.IsIndeterminate(!determinate);
+        }
+        return true;
+    });
 }
 
 } // extern "C"

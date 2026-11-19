@@ -206,6 +206,21 @@ ACTIONUI_WINUI_API double actionUIWinUISliderGetValue(ActionUIWinUIObject *slide
 ACTIONUI_WINUI_API bool actionUIWinUISliderOnValueChanged(ActionUIWinUIObject *slider, ActionUIWinUICallback handler,
                                                           void *context, ActionUIWinUICallback destroyContext);
 
+// MARK: - Progress (a ProgressView's)
+
+typedef enum ActionUIWinUIProgressKind {
+    // A horizontal bar (ProgressBar), as wide as it is given.
+    ActionUIWinUIProgressBar = 0,
+    // A ring 32 x 32 (ProgressRing): a spinner, or filled to the progress.
+    ActionUIWinUIProgressRing = 1,
+} ActionUIWinUIProgressKind;
+
+// A new progress indicator, indeterminate (the bar moves, the ring spins). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIProgressCreate(ActionUIWinUIProgressKind kind);
+// Shows `value` out of `total` (determinate; fails unless 0 <= value <= total and total > 0), or an
+// unknown progress (not determinate: value and total are ignored).
+ACTIONUI_WINUI_API bool actionUIWinUIProgressSet(ActionUIWinUIObject *progress, bool determinate, double value, double total);
+
 // MARK: - Date and time controls (a DatePicker's)
 
 // Days are local calendar days (Gregorian, the system's time zone); times are minutes after midnight.

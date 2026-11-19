@@ -92,6 +92,7 @@ PREVIEW_OPTIONS = {
     "Sliders": ["420", "340", "--set-text", "10", "0.75", "--expect-action", "moved.changed",
                 "--on-action", "moved.changed", "12", "Moved through UI Automation",
                 "--forbid-action", "plain.changed", "--forbid-action", "stepped.changed", "--forbid-action", "outside.changed"],
+    "ProgressViews": ["420", "380", "--set-property", "7", "value", "0.8"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

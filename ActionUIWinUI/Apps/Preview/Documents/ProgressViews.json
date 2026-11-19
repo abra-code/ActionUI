@@ -1,0 +1,21 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 16, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "ProgressView", "id": 2, "properties": { "title": "A known progress", "value": 0.3 } },
+    { "type": "ProgressView", "id": 3, "properties": { "title": "Linear, unknown", "progressViewStyle": "linear" } },
+    {
+      "type": "HStack",
+      "id": 4,
+      "properties": { "spacing": 24 },
+      "children": [
+        { "type": "ProgressView", "id": 5, "properties": { "title": "Unknown" } },
+        { "type": "ProgressView", "id": 6, "properties": { "title": "Circular", "progressViewStyle": "circular", "value": 6, "total": 10 } }
+      ]
+    },
+    { "type": "ProgressView", "id": 7, "properties": { "title": "Given a value later" } },
+    { "type": "ProgressView", "id": 8, "properties": { "title": "", "value": 0.5 } },
+    { "type": "ProgressView", "id": 9, "properties": { "value": 0.5 } }
+  ]
+}
