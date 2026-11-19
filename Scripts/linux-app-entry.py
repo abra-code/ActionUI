@@ -214,9 +214,6 @@ def escape_value(value):
 # Apple's type identifiers (LSItemContentTypes) and the MIME types the desktop files the same things
 # under. A bundle or package is a folder on Linux; the desktop types every folder inode/directory.
 UTI_MIME_TYPES = {
-    "public.item": ("application/octet-stream", "inode/directory"),
-    "public.data": ("application/octet-stream",),
-    "public.content": ("application/octet-stream",),
     "public.folder": ("inode/directory",),
     "public.directory": ("inode/directory",),
     "com.apple.bundle": ("inode/directory",),
@@ -282,6 +279,12 @@ EXTENSION_MIME_TYPES = {
     "svgz": ("image/svg+xml-compressed",),
 }
 
+# The identifiers a macOS plist uses for "any file" or "any item". Like the extension "*", they are
+# not listed: as application/octet-stream (and, for public.item, inode/directory) they would make the
+# app a candidate, or the default, for every file the desktop cannot type further and for every
+# folder. An app that takes any file names the types to be offered for, as for "*".
+ANY_ITEM_IDENTIFIERS = {"public.item", "public.data", "public.content"}
+
 URL_SCHEME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*$")
 MIME_TYPE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$")
 
@@ -314,6 +317,8 @@ def mime_types(info, plist_path):
         types = list(given)
         unknown = []
         for identifier in identifiers:
+            if identifier in ANY_ITEM_IDENTIFIERS:
+                continue  # any file or item: not listed (ANY_ITEM_IDENTIFIERS)
             known = UTI_MIME_TYPES.get(identifier)
             if known:
                 types.extend(known)

@@ -253,6 +253,22 @@ class LinuxAppEntryTests(unittest.TestCase):
         self.assertIsNone(self.mime_line("org.example.Droplet"))
         self.assertNotIn("no MIME type known", result.stderr)
 
+    def test_any_item_identifiers_list_nothing(self):
+        # public.item, public.data and public.content are how a macOS plist says "any file" or "any
+        # item": listed as application/octet-stream and inode/directory they made the app a candidate
+        # for every untyped file and every folder. A folder type given by name is still listed.
+        folder = self.app("Anything", {"CFBundleIdentifier": "org.example.Anything", "CFBundleDocumentTypes": [
+            {"LSItemContentTypes": ["public.item", "public.data", "public.content"], "CFBundleTypeRole": "Viewer"}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNone(self.mime_line("org.example.Anything"))
+        self.assertNotIn("no MIME type known", result.stderr)
+        self.write_info(os.path.join(folder, "Info.plist"), {"CFBundleIdentifier": "org.example.Anything", "CFBundleDocumentTypes": [
+            {"LSItemContentTypes": ["public.item", "public.folder", "public.plain-text"]}]})
+        result = self.run_script("install", folder)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.mime_line("org.example.Anything"), "MimeType=inode/directory;text/plain;")
+
     def test_url_schemes_are_listed_as_scheme_handlers(self):
         folder = self.app("Linked", {"CFBundleIdentifier": "org.example.Linked", "CFBundleURLTypes": [
             {"CFBundleURLName": "Linked", "CFBundleURLSchemes": ["Applet-Builder", "file"]}, {"CFBundleURLSchemes": ["x.y+z-1"]}],
