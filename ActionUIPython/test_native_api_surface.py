@@ -15,6 +15,36 @@ import threading
 import uuid
 
 
+def test_callback_errors_are_reported_and_cleared():
+    """An exception raised in a callback is printed and cleared, so later calls work; sys.exit()
+    in a callback ends the process with its code. Before, the error indicator was left set: the
+    exception was never shown and a later call failed with a SystemError."""
+    import os
+    import subprocess
+    here = os.path.dirname(os.path.abspath(__file__))
+    script = (
+        "import sys\n"
+        "sys.path.insert(0, sys.argv[1])\n"
+        "import _actionui\n"
+        "mode = sys.argv[2]\n"
+        "def logger(message, level):\n"
+        "    if mode == 'raise':\n"
+        "        raise ValueError('boom from the logger')\n"
+        "    sys.exit(7)\n"
+        "_actionui.set_logger(logger)\n"
+        "_actionui.get_string_value('no-such-window', 1, 0)\n"
+        "print('second call returned', _actionui.get_version(), flush=True)\n"
+    )
+    raised = subprocess.run([sys.executable, "-c", script, here, "raise"], capture_output=True, text=True, timeout=60)
+    assert raised.returncode == 0, raised.stdout + raised.stderr
+    assert "ValueError: boom from the logger" in raised.stderr, raised.stderr
+    assert "second call returned" in raised.stdout, raised.stdout + raised.stderr
+    exited = subprocess.run([sys.executable, "-c", script, here, "exit"], capture_output=True, text=True, timeout=60)
+    assert exited.returncode == 7, exited.stdout + exited.stderr
+    assert "second call returned" not in exited.stdout
+    print("  callback errors: reported and cleared; sys.exit() ends the process")
+
+
 def test_module_constants():
     assert _actionui.LOG_ERROR == 1
     assert _actionui.LOG_WARNING == 2
@@ -296,6 +326,7 @@ def main():
     test_action_handler_lifecycle()
     test_app_calls()
     test_app_run_off_the_main_thread()
+    test_callback_errors_are_reported_and_cleared()
 
     test_uuid = str(uuid.uuid4())
 

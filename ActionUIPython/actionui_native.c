@@ -62,6 +62,20 @@ static inline ActionUIModuleState* get_state(PyObject* module) {
     return (ActionUIModuleState*)PyModule_GetState(module);
 }
 
+// MARK: - Callback errors
+
+/* After a callback into Python: report an exception it raised and clear it. Left set, the error
+ * indicator outlives the callback, and a later call fails with a SystemError that names nothing.
+ * Prints the traceback as Python does for an uncaught exception; for SystemExit that ends the
+ * process with its code, as sys.exit() does in a script. Ctrl-C (KeyboardInterrupt) asks the
+ * application to quit. Call with the GIL held. */
+static void report_callback_error(void) {
+    if (!PyErr_Occurred()) return;
+    bool interrupted = PyErr_ExceptionMatches(PyExc_KeyboardInterrupt) != 0;
+    PyErr_PrintEx(0);  /* 0: no sys.last_traceback, whose frames would keep objects alive */
+    if (interrupted) actionUIAppTerminate();
+}
+
 // MARK: - Logger Bridge
 
 static void logger_callback_bridge(const char* message, ActionUILogLevel level) {
@@ -77,6 +91,7 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
     PyObject* result = PyObject_CallFunction(state->logger_callback, "si",
                                              message, (int)level);
     Py_XDECREF(result);
+    report_callback_error();
     PyGILState_Release(gstate);
 }
 
@@ -99,6 +114,11 @@ static void action_handler_bridge(const char* actionID,
 
     /* Look up handler for this actionID, fall back to default. */
     PyObject* py_actionID = PyUnicode_FromString(actionID);
+    if (py_actionID == NULL) {  /* not valid UTF-8: PyDict_GetItem and Py_DECREF would take NULL */
+        report_callback_error();
+        PyGILState_Release(gstate);
+        return;
+    }
     PyObject* handler     = NULL;
     if (state->action_handlers != NULL)
         handler = PyDict_GetItem(state->action_handlers, py_actionID);
@@ -113,13 +133,16 @@ static void action_handler_bridge(const char* actionID,
             py_context = Py_None;
             Py_INCREF(Py_None);
         }
-        PyObject* result = PyObject_CallFunction(handler, "ssLLO",
-                                                 actionID, windowUUID,
-                                                 (long long)viewID,
-                                                 (long long)viewPartID,
-                                                 py_context);
-        Py_XDECREF(result);
-        Py_DECREF(py_context);
+        if (py_context != NULL) {
+            PyObject* result = PyObject_CallFunction(handler, "ssLLO",
+                                                     actionID, windowUUID,
+                                                     (long long)viewID,
+                                                     (long long)viewPartID,
+                                                     py_context);
+            Py_XDECREF(result);
+            Py_DECREF(py_context);
+        }
+        report_callback_error();
     }
 
     Py_DECREF(py_actionID);
@@ -142,6 +165,7 @@ static void func_name(void) { \
         if (state != NULL && state->state_field != NULL) { \
             PyObject* r = PyObject_CallObject(state->state_field, NULL); \
             Py_XDECREF(r); \
+            report_callback_error(); \
         } \
     } \
     PyGILState_Release(gstate); \
@@ -168,6 +192,7 @@ static bool app_should_terminate_bridge(void) {
                 result = (PyObject_IsTrue(py_result) != 0);
                 Py_DECREF(py_result);
             }
+            report_callback_error();
         }
     }
     PyGILState_Release(gstate);
@@ -183,6 +208,7 @@ static void app_window_will_close_bridge(const char* windowUUID) {
         if (state != NULL && state->app_window_will_close != NULL) {
             PyObject* r = PyObject_CallFunction(state->app_window_will_close, "s", windowUUID);
             Py_XDECREF(r);
+            report_callback_error();
         }
     }
     PyGILState_Release(gstate);
@@ -197,6 +223,7 @@ static void app_window_will_present_bridge(const char* windowUUID) {
         if (state != NULL && state->app_window_will_present != NULL) {
             PyObject* r = PyObject_CallFunction(state->app_window_will_present, "s", windowUUID);
             Py_XDECREF(r);
+            report_callback_error();
         }
     }
     PyGILState_Release(gstate);
@@ -1299,15 +1326,13 @@ static void host_surface_call(void* user_data, const char* kind, uint64_t surfac
     }
     s_host_surface_depth += 1;
     if (payload == NULL) {
-        PyErr_PrintEx(0);  /* 0: no sys.last_traceback, whose frames would keep delegates alive */
+        report_callback_error();
     } else {
         PyObject* result = PyObject_CallFunction(client->bridge, "sKsLO", kind, (unsigned long long)surface_id,
                                                  window_uuid != NULL ? window_uuid : "", (long long)view_id, payload);
-        if (result == NULL) {
-            PyErr_PrintEx(0);
-        }
         Py_XDECREF(result);
         Py_DECREF(payload);
+        report_callback_error();
     }
     s_host_surface_depth -= 1;
     if (s_host_surface_depth == 0) {
