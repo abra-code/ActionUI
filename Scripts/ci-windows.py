@@ -69,6 +69,7 @@ SMOKE_TIMEOUT_SECONDS = 180
 PREVIEW_OPTIONS = {
     "Floors": ["420", "380"],
     "NestedFloors": ["420", "420"],
+    "Images": ["560", "440"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
@@ -381,6 +382,18 @@ def check_shim(results, install, swift=False):
     generated = generate_projection(folders, work, msvc, results, summary)
     if generated is None:
         return failed_step(summary["steps"][-1])
+
+    # The symbol outlines compiled into the shim (Scripts/prepare-windows-symbols.py, which needs fontTools).
+    step = run_step("symbols-fonttools", [sys.executable, "-m", "pip", "install", "--quiet", "fonttools"], results,
+                    dict(os.environ))
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        return failed_step(step)
+    step = run_step("symbols-prepare", [sys.executable, REPO_DIR / "Scripts" / "prepare-windows-symbols.py"], results,
+                    dict(os.environ))
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        return failed_step(step)
 
     out = work / arch
     if out.exists():

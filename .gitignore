@@ -45,3 +45,4 @@ ActionUIRust/target/
 Tools/material_symbols/font/
 Tools/material_symbols/build/
 ActionUIAdwaita/CSymbolResource/generated/
+ActionUIWinUI/Shim/src/generated/

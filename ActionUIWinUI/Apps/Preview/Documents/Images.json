@@ -1,0 +1,87 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 3, "properties": { "systemName": "plus" } },
+        { "type": "Image", "id": 4, "properties": { "systemName": "xmark" } },
+        { "type": "Image", "id": 5, "properties": { "systemName": "star.fill" } },
+        { "type": "Image", "id": 6, "properties": { "systemName": "heart.fill" } },
+        { "type": "Image", "id": 7, "properties": { "systemName": "house" } },
+        { "type": "Image", "id": 8, "properties": { "systemName": "trash" } },
+        { "type": "Image", "id": 9, "properties": { "systemName": "gearshape" } },
+        { "type": "Image", "id": 10, "properties": { "systemName": "folder" } },
+        { "type": "Image", "id": 11, "properties": { "systemName": "person.crop.circle" } },
+        { "type": "Image", "id": 12, "properties": { "systemName": "no.such.symbol" } },
+        { "type": "Text", "id": 13, "properties": { "text": "Symbols beside body text" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 14,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 15, "properties": { "systemName": "star.fill", "imageScale": "small" } },
+        { "type": "Image", "id": 16, "properties": { "systemName": "star.fill", "imageScale": "medium" } },
+        { "type": "Image", "id": 17, "properties": { "systemName": "star.fill", "imageScale": "large" } },
+        { "type": "Text", "id": 18, "properties": { "text": "small, medium, large" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 19,
+      "properties": { "spacing": 8, "font": "title" },
+      "children": [
+        { "type": "Image", "id": 20, "properties": { "systemName": "bell.fill" } },
+        { "type": "Text", "id": 21, "properties": { "text": "Title font" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 22,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 23, "properties": { "systemName": "heart.fill", "foregroundStyle": "red" } },
+        { "type": "Image", "id": 24, "properties": { "systemName": "gearshape", "foregroundStyle": "blue" } },
+        { "type": "Image", "id": 25, "properties": { "systemName": "trash", "foregroundStyle": "secondary" } },
+        { "type": "Text", "id": 26, "properties": { "text": "foregroundStyle" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 27,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 28, "properties": { "systemName": "star.fill", "resizable": true, "contentMode": "fit", "frame": { "width": 48, "height": 48 }, "background": "fill.secondary" } },
+        { "type": "Image", "id": 29, "properties": { "systemName": "folder", "resizable": true, "contentMode": "fit", "frame": { "width": 32, "height": 48 }, "background": "fill.secondary" } },
+        {
+          "type": "VStack",
+          "id": 38,
+          "properties": { "frame": { "width": 40 } },
+          "children": [
+            { "type": "Image", "id": 39, "properties": { "systemName": "globe", "resizable": true, "contentMode": "fit" } }
+          ]
+        },
+        { "type": "Text", "id": 30, "properties": { "text": "resizable symbols: 48 x 48, 32 x 48, in a 40 column" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 31,
+      "properties": { "spacing": 8, "alignment": "top" },
+      "children": [
+        { "type": "Image", "id": 32, "properties": { "filePath": "Images/sample_image.png" } },
+        { "type": "Image", "id": 33, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "contentMode": "fit", "frame": { "width": 80, "height": 80 }, "background": "fill.secondary" } },
+        { "type": "Image", "id": 34, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "contentMode": "fill", "frame": { "width": 80, "height": 80 }, "background": "fill.secondary" } },
+        { "type": "Image", "id": 35, "properties": { "filePath": "Images/ActionUIDemo.svg", "resizable": true, "contentMode": "fit", "frame": { "width": 64, "height": 64 } } },
+        { "type": "Image", "id": 36, "properties": { "filePath": "Images/missing.png" } }
+      ]
+    },
+    { "type": "Text", "id": 37, "properties": { "text": "A PNG at its size, fitted and filled in 80 x 80, an SVG fitted in 64 x 64, a missing file", "font": "caption" } }
+  ]
+}

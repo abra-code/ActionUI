@@ -343,6 +343,49 @@ ACTIONUI_WINUI_API bool actionUIWinUIShapeSetCornerRadius(ActionUIWinUIObject *s
 // The width of a shape's outline (0: none).
 ACTIONUI_WINUI_API bool actionUIWinUIShapeSetStrokeThickness(ActionUIWinUIObject *shape, double thickness);
 
+// MARK: - Images
+
+typedef enum ActionUIWinUIImageStretch {
+    // The image's own size (in effective pixels), never scaled.
+    ActionUIWinUIImageStretchNone = 0,
+    // Scaled to fit the size it is arranged in, keeping its aspect ratio (SwiftUI's fit).
+    ActionUIWinUIImageStretchFit = 1,
+    // Scaled to cover that size, keeping its aspect ratio, clipped to it (SwiftUI's fill).
+    ActionUIWinUIImageStretchFill = 2,
+} ActionUIWinUIImageStretch;
+
+// A new Image control showing nothing, at its image's own size. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIImageCreate(void);
+// Shows the image file at `path` (absolute, or relative to the current folder): an .svg file as a
+// vector image, anything else through WinUI's bitmap decoders (PNG, JPEG, GIF, BMP, TIFF, ICO, and
+// what the system's codecs add). A bitmap file is read again at every call, not taken from WinUI's
+// cache, so a file rewritten under the same name shows its new image; an SVG file may come from the
+// cache (SvgImageSource has no such option). Loading is asynchronous: the image has its size once it
+// has loaded, and a file that cannot be decoded shows nothing.
+ACTIONUI_WINUI_API bool actionUIWinUIImageSetFile(ActionUIWinUIObject *image, const char *path);
+ACTIONUI_WINUI_API bool actionUIWinUIImageSetStretch(ActionUIWinUIObject *image, ActionUIWinUIImageStretch stretch);
+// Whether `path` (absolute, or relative to the current folder) names a file that exists and is not a
+// folder. False for NULL. Any thread; sets no error.
+ACTIONUI_WINUI_API bool actionUIWinUIFileExists(const char *path);
+
+// MARK: - Symbols
+
+// The SF Symbol names ActionUI can draw on Windows are those of its SF Symbols -> Material Symbols
+// map, compiled into the shim with their outlines (Scripts/prepare-windows-symbols.py) at each row's
+// fill and weight; no font ships. A symbol is a shape: paint it with actionUIWinUIElementSetBrush
+// (Fill), as the text color draws SF Symbols.
+
+// Whether the shim was built with the symbol outlines (false: every name is unknown).
+ACTIONUI_WINUI_API bool actionUIWinUISymbolsAvailable(void);
+// Whether `name` (an SF Symbol name, exact) has an outline.
+ACTIONUI_WINUI_API bool actionUIWinUISymbolExists(const char *name);
+// A new shape drawing the symbol `name` in a square of actionUIWinUISymbolSetSize's size (the Material
+// glyph's em box: the glyph sits inside it with the font's margins). NULL (with an error) when the name
+// has no outline.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name);
+// The side of the symbol's square, in effective pixels; the outline scales with it.
+ACTIONUI_WINUI_API bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size);
+
 // MARK: - Rendering
 
 // Renders `element`, which must be in a window's content (shown or not) and laid out, into a PNG

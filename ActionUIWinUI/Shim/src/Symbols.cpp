@@ -1,0 +1,148 @@
+// Symbols.cpp - SF Symbols on Windows: the Material Symbols outline that ActionUI's SF -> Material map gives
+// a name, at the row's fill and weight, compiled into the shim (generated/symbols.inc, written by
+// Scripts/prepare-windows-symbols.py), drawn as a WinUI Path in the glyph's em box. No font ships; the
+// outlines are those of the Linux icons. Their path text is compressed with Windows' Compression API
+// (about 1.7 MB in 0.5 MB) and unpacked once, at the first symbol drawn.
+
+#include "ShimInternal.h"
+
+#include <algorithm>
+#include <cstring>
+#include <iterator>
+#include <string>
+#include <vector>
+
+#include <compressapi.h>
+
+#include <winrt/Microsoft.UI.Xaml.Markup.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Microsoft.UI.Xaml.Shapes.h>
+#include <winrt/Windows.UI.Xaml.Interop.h>
+
+#pragma comment(lib, "cabinet.lib")
+
+namespace media = winrt::Microsoft::UI::Xaml::Media;
+namespace shapes = winrt::Microsoft::UI::Xaml::Shapes;
+
+using namespace actionui_winui;
+
+namespace {
+
+struct SymbolRow {
+    const char *name;
+    unsigned short path;
+};
+
+#if __has_include("generated/symbols.inc")
+#include "generated/symbols.inc"
+constexpr size_t kSymbolRowCount = std::size(kSymbolRows);
+#else
+#define ACTIONUI_SYMBOL_UNITS 960
+#define ACTIONUI_SYMBOL_ALGORITHM COMPRESS_ALGORITHM_LZMS
+#define ACTIONUI_SYMBOL_TEXT_SIZE 0
+const unsigned char kSymbolData[] = {0};
+const unsigned int kSymbolOffsets[] = {0};
+const SymbolRow kSymbolRows[] = {{"", 0}};
+constexpr size_t kSymbolRowCount = 0;
+#endif
+
+// The outlines' path text, unpacked once (C++ makes the first call's initialization thread-safe; a
+// failure throws, and the next call tries again).
+std::vector<char> const &symbolText() {
+    static std::vector<char> const text = []() {
+        std::vector<char> unpacked(ACTIONUI_SYMBOL_TEXT_SIZE);
+        DECOMPRESSOR_HANDLE handle = nullptr;
+        if (!CreateDecompressor(ACTIONUI_SYMBOL_ALGORITHM, nullptr, &handle)) {
+            winrt::throw_last_error();
+        }
+        SIZE_T written = 0;
+        BOOL unpackedAll = Decompress(handle, kSymbolData, sizeof(kSymbolData), unpacked.data(), unpacked.size(),
+                                      &written);
+        DWORD error = GetLastError();
+        CloseDecompressor(handle);
+        if (!unpackedAll) {
+            winrt::throw_hresult(HRESULT_FROM_WIN32(error));
+        }
+        if (written != unpacked.size()) {
+            throw winrt::hresult_error(E_FAIL, L"the symbol outlines unpacked to an unexpected size");
+        }
+        return unpacked;
+    }();
+    return text;
+}
+
+// The path text of outline `index` (NUL-terminated, inside symbolText()).
+const char *symbolPath(unsigned short index) {
+    return symbolText().data() + kSymbolOffsets[index];
+}
+
+// The row of `name`, or nullptr. The rows are sorted by name, byte by byte.
+const SymbolRow *findRow(const char *name) {
+    const SymbolRow *begin = kSymbolRows;
+    const SymbolRow *end = kSymbolRows + kSymbolRowCount;
+    const SymbolRow *found = std::lower_bound(begin, end, name, [](SymbolRow const &row, const char *wanted) {
+        return std::strcmp(row.name, wanted) < 0;
+    });
+    return found != end && std::strcmp(found->name, name) == 0 ? found : nullptr;
+}
+
+// The outline as a geometry: XAML's path syntax, with "F1" for the nonzero fill rule fonts use (the
+// syntax's default, even-odd, would hollow out overlapping contours).
+media::Geometry geometry(const char *path) {
+    std::string text = std::string("F1 ") + path;
+    wf::IInspectable converted = mux::Markup::XamlBindingHelper::ConvertValue(
+        winrt::xaml_typename<media::Geometry>(), winrt::box_value(winrt::to_hstring(text)));
+    return converted.as<media::Geometry>();
+}
+
+} // namespace
+
+extern "C" {
+
+bool actionUIWinUISymbolsAvailable(void) {
+    return kSymbolRowCount != 0;
+}
+
+bool actionUIWinUISymbolExists(const char *name) {
+    return name != nullptr && findRow(name) != nullptr;
+}
+
+ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name) {
+    return guardedObject("symbol create", [&]() -> ActionUIWinUIObject * {
+        const SymbolRow *row = name != nullptr ? findRow(name) : nullptr;
+        if (row == nullptr) {
+            fail("symbol create", kSymbolRowCount == 0 ? "the shim was built without symbol outlines"
+                                                       : "no outline for that symbol name");
+            return nullptr;
+        }
+        shapes::Path path;
+        path.Data(geometry(symbolPath(row->path)));
+        path.Stretch(media::Stretch::None);
+        double units = ACTIONUI_SYMBOL_UNITS;
+        path.Width(units);
+        path.Height(units);
+        return toObject(path);
+    });
+}
+
+bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size) {
+    return guarded("symbol set size", [&]() {
+        shapes::Path path = objectAs<shapes::Path>(symbol, L"Path");
+        if (!(size >= 0)) {
+            return fail("symbol set size", "the size is not a number of pixels");
+        }
+        // One transform per symbol, made at the first size: stacks size a symbol several times a pass.
+        media::ScaleTransform scale = path.Data().Transform().try_as<media::ScaleTransform>();
+        if (scale == nullptr) {
+            scale = media::ScaleTransform();
+            path.Data().Transform(scale);
+        }
+        scale.ScaleX(size / ACTIONUI_SYMBOL_UNITS);
+        scale.ScaleY(size / ACTIONUI_SYMBOL_UNITS);
+        path.Width(size);
+        path.Height(size);
+        return true;
+    });
+}
+
+} // extern "C"

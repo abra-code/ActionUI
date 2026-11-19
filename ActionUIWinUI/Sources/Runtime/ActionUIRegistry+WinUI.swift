@@ -15,6 +15,7 @@ extension ActionUIRegistry {
         "Divider": Divider.self,
         "Ellipse": Ellipse.self,
         "HStack": HStack.self,
+        "Image": Image.self,
         "Rectangle": Rectangle.self,
         "RoundedRectangle": RoundedRectangle.self,
         "ScrollView": ScrollView.self,

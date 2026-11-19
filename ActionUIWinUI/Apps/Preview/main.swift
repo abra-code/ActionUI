@@ -4,6 +4,7 @@
 // parent), so a run can be compared with SwiftUI's and GTK's.
 //
 // Usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [options]
+//   Relative image paths in the document are taken from the document's folder.
 //   --invoke ID              after the first layout, operates element ID as an accessibility tool
 //                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
@@ -66,6 +67,14 @@ final class Preview {
             say("cannot read \(documentPath)")
             finish()
             return
+        }
+        // Relative image paths in the document are taken from its folder (the PNG path was made
+        // absolute before).
+        if let folder = documentFolder(documentPath) {
+            let changed = folder.withCString(encodedAs: UTF16.self) { _wchdir($0) }
+            if changed != 0 {
+                say("cannot change to the document's folder \(folder)")
+            }
         }
         do {
             let tree = try WinUIWindow.load(json: json, windowUUID: "preview")
@@ -224,6 +233,24 @@ final class Preview {
     }
 }
 
+/// `path` made absolute against the current folder (the C runtime's _wfullpath), or `path` itself when
+/// that fails.
+func absolutePath(_ path: String) -> String {
+    let full = path.withCString(encodedAs: UTF16.self) { _wfullpath(nil, $0, 0) }
+    guard let full else { return path }
+    defer { free(full) }
+    return String(decodingCString: full, as: UTF16.self)
+}
+
+/// The folder holding the file at `path` (its absolute form), or nil when it has none.
+func documentFolder(_ path: String) -> String? {
+    let absolute = absolutePath(path)
+    guard let slash = absolute.lastIndex(where: { $0 == "\\" || $0 == "/" }) else { return nil }
+    let folder = String(absolute[..<slash])
+    // A drive's root keeps its backslash: "C:" alone is the current folder on drive C.
+    return folder.hasSuffix(":") ? folder + "\\" : folder
+}
+
 /// The UTF-8 text of the file at `path`, or nil. Through the C runtime's wide calls: its narrow ones
 /// read a path in the ANSI code page.
 func readFile(_ path: String) -> String? {
@@ -277,7 +304,8 @@ guard arguments.count >= 3 else {
 }
 let preview = Preview.shared
 preview.documentPath = arguments[1]
-preview.pngPath = arguments[2]
+// Absolute, since the program changes to the document's folder once it has read it.
+preview.pngPath = absolutePath(arguments[2])
 var index = 3
 if arguments.count >= 5, let width = Double(arguments[3]), let height = Double(arguments[4]) {
     guard width > 0, height > 0 else {
