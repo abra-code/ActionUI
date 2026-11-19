@@ -101,6 +101,7 @@ PREVIEW_OPTIONS = {
                      "--on-action", "typed.changed", "5", "The field's text changed",
                      "--forbid-action", "empty.changed", "--forbid-action", "filled.changed"],
     "FormSections": ["420", "420"],
+    "FormColumns": ["460", "520"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

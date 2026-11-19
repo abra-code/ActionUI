@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 16, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "Form",
+      "id": 2,
+      "children": [
+        {
+          "type": "LabeledContent",
+          "id": 3,
+          "properties": { "title": "Name" },
+          "children": [ { "type": "Text", "id": 4, "properties": { "text": "Ada Lovelace" } } ]
+        },
+        {
+          "type": "Picker",
+          "id": 5,
+          "properties": { "title": "Size", "options": ["Small", "Medium", "Large"] }
+        },
+        { "type": "Stepper", "id": 6, "properties": { "label": "Copies", "value": 2 } },
+        {
+          "type": "Picker",
+          "id": 15,
+          "properties": { "title": "Hidden title", "labelsHidden": true, "options": ["Its title hidden"] }
+        },
+        {
+          "type": "LabeledContent",
+          "id": 16,
+          "properties": { "title": "" },
+          "children": [ { "type": "Text", "id": 17, "properties": { "text": "An empty title" } } ]
+        },
+        { "type": "Text", "id": 7, "properties": { "text": "A row without a title" } },
+        {
+          "type": "Section",
+          "id": 8,
+          "properties": { "header": "More" },
+          "children": [
+            { "type": "DatePicker", "id": 9, "properties": { "title": "A longer title", "selectedDate": "2024-07-16" } },
+            { "type": "Button", "id": 10, "properties": { "title": "Apply" } }
+          ]
+        }
+      ]
+    },
+    { "type": "Divider", "id": 11 },
+    {
+      "type": "Form",
+      "id": 12,
+      "children": [
+        { "type": "Text", "id": 13, "properties": { "text": "A Form without titled rows" } },
+        { "type": "Button", "id": 14, "properties": { "title": "Starts at its edge" } }
+      ]
+    }
+  ]
+}

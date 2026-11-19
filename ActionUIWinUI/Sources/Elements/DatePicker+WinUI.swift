@@ -22,8 +22,8 @@
  Not yet: a change of displayedComponents or of the graphical style keeps the controls made first (they
  are chosen when the element is made); the field's and the time's own formats follow Windows' locale
  settings, where macOS writes the date in numbers; a value more than a hundred years from today with
- no range is moved by WinUI's own limits and stored as a pick; an accessible name from the title; a title in a Form's
- label column; controlSize.
+ no range is moved by WinUI's own limits and stored as a pick; an accessible name from the title;
+ controlSize.
 */
 
 #if canImport(FoundationEssentials)

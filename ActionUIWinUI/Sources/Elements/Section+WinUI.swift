@@ -84,5 +84,13 @@ extension Section: ActionUIWinUIRenderer {
         node.applyAccessibilityHidden(to: state.header)
         let headerItem = header.isEmpty ? [] : [StackLayout.Item(view: state.header, spacerMinimum: nil)]
         state.stack.setItems(headerItem + stackItems(node.syncChildren(node.subviews("children"))))
+        // In a Form its rows may have changed without its size: the Form works its column out again.
+        var ancestor = node.parent
+        while let current = ancestor, current.element.type == "Section" {
+            ancestor = current.parent
+        }
+        if let form = ancestor, form.element.type == "Form" {
+            StackViews.stack(of: form)?.invalidate()
+        }
     }
 }

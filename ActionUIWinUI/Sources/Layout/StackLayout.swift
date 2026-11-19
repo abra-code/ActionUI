@@ -80,6 +80,26 @@ final class StackLayout {
     var spacing: Double?
     var alignment = StackSolver.Alignment.center
     private(set) var items: [Item] = []
+    /// Room before some children across the axis, by their view: a Form's rows without a title start
+    /// in its content column (FormColumn). A child is offered and given the stack's size across less
+    /// its inset, after it.
+    private(set) var leadingInsets: [ObjectIdentifier: Int] = [:]
+
+    /// Sets the room before each child across the axis (by view; none for the others); asks for a
+    /// new layout when it changed.
+    /// `invalidate` false: the stack's own measure is running and uses them.
+    func setLeadingInsets(_ insets: [ObjectIdentifier: Int], invalidate: Bool = true) {
+        let kept = insets.filter { $0.value != 0 }
+        guard kept != leadingInsets else { return }
+        leadingInsets = kept
+        if invalidate {
+            panel.invalidateLayout()
+        }
+    }
+
+    private func inset(_ item: Item) -> Int {
+        leadingInsets[ObjectIdentifier(item.view)] ?? 0
+    }
 
     init(axis: Axis) throws(WinUIError) {
         self.axis = axis
@@ -217,8 +237,10 @@ final class StackLayout {
             measuredLengths = [:]
             measuredCrossOffer = crossOffer
         }
-        let measureCross = measuredCrossOffer
         for (index, item) in items.enumerated() {
+            // Offered across what the stack has less the child's inset.
+            let measureCross = max(measuredCrossOffer - Double(inset(item)), 0)
+            let itemCrossOffer = max(crossOffer - Double(inset(item)), 0)
             if let minimum = item.spacerMinimum {
                 // Measured all the same: WinUI arranges only children measured in this pass.
                 _ = item.view.measure(ActionUIWinUISize(width: 0, height: 0))
@@ -263,7 +285,7 @@ final class StackLayout {
             let desired = item.view.measureRequested(size(main: .infinity, cross: measureCross))
             let length = StackSolver.length(main(desired), rounding: .up)
             children.append(expandsAlong ? .expanding(minimum: length, cap: capAlong) : .fixed(minimum: length, natural: length))
-            crossSizes.append(crossSize(desired, expandsAcross: expandsAcross, cap: capAcross, crossOffer: crossOffer))
+            crossSizes.append(crossSize(desired, expandsAcross: expandsAcross, cap: capAcross, crossOffer: itemCrossOffer))
         }
         let gaps = gaps(children)
         var sizes: [Int]
@@ -284,6 +306,8 @@ final class StackLayout {
         var leftRoom = false
         for index in compressed where !expands(items[index]).main {
             let item = items[index]
+            let measureCross = max(measuredCrossOffer - Double(inset(item)), 0)
+            let itemCrossOffer = max(crossOffer - Double(inset(item)), 0)
             let key = ObjectIdentifier(item.view)
             let offer = isMeasurePass ? (mainOffer.isFinite ? Double(sizes[index]) : .infinity)
                                       : (measuredLengths[key]?.offer ?? .infinity)
@@ -297,13 +321,15 @@ final class StackLayout {
                 measuredLengths[key] = (sizes[index], offer)
                 children[index] = .fixed(minimum: sizes[index], natural: sizes[index])
             }
-            crossSizes[index] = crossSize(desired, expandsAcross: expands(item).cross, cap: caps(item).cross, crossOffer: crossOffer)
+            crossSizes[index] = crossSize(desired, expandsAcross: expands(item).cross, cap: caps(item).cross, crossOffer: itemCrossOffer)
         }
         if leftRoom {
             sizes = StackSolver.mainSizes(children, available: StackSolver.length(mainOffer), gaps: gaps)
         }
         for index in compressed where expands(items[index]).main {
             let item = items[index]
+            let measureCross = max(measuredCrossOffer - Double(inset(item)), 0)
+            let itemCrossOffer = max(crossOffer - Double(inset(item)), 0)
             // Unbounded: its ideal length, a ScrollView its content's (SwiftUI's ideal size). Arrange
             // after a measure unbounded along the axis measures it unbounded again (a no-op for
             // WinUI): the stack arranged larger than it asked for (filling a wider column) gives it
@@ -317,10 +343,14 @@ final class StackLayout {
                     compressedMinimums[ObjectIdentifier(item.view)] = sizes[index]
                 }
             }
-            crossSizes[index] = crossSize(desired, expandsAcross: expands(item).cross, cap: caps(item).cross, crossOffer: crossOffer)
+            crossSizes[index] = crossSize(desired, expandsAcross: expands(item).cross, cap: caps(item).cross, crossOffer: itemCrossOffer)
         }
         if isMeasurePass {
             unboundedLengths = mainOffer.isFinite ? nil : sizes
+        }
+        // Each child's size across with its inset before it.
+        for (index, item) in items.enumerated() where item.spacerMinimum == nil {
+            crossSizes[index] += inset(item)
         }
         return (sizes, crossSizes, gaps)
     }
@@ -348,9 +378,11 @@ final class StackLayout {
         let blockStart = StackSolver.centeredStart(length: block, available: finalCross)
         for (index, item) in items.enumerated() {
             let crossSize = crossSizes[index]
-            let offset = blockStart + StackSolver.alignedOffset(size: crossSize, block: block, alignment: alignment)
+            // The child after its inset (crossSize holds both).
+            let before = item.spacerMinimum == nil ? inset(item) : 0
+            let offset = blockStart + StackSolver.alignedOffset(size: crossSize, block: block, alignment: alignment) + before
             item.view.arrange(rect(main: Double(position), cross: Double(offset), mainLength: Double(sizes[index]),
-                                   crossLength: Double(crossSize)))
+                                   crossLength: Double(crossSize - before)))
             position += sizes[index] + (index < gaps.count ? gaps[index] : 0)
         }
     }

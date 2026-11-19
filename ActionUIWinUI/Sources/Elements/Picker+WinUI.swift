@@ -19,15 +19,15 @@
  - The style is read when the element is made (a later change of style keeps the first control).
 
  Not yet: sections and dividers (a menu's headers and lines); the title as the control's accessible
- name when labelsHidden hides it; a Picker in a Form's label column; the dropdown as wide as its widest
- item (a ComboBox takes its selected item's width).
+ name when labelsHidden hides it; the dropdown as wide as its widest item (a ComboBox takes its
+ selected item's width).
 */
 
 import CWinUI
 
 /// A title beside a control, `spacing` apart: a Picker's.
 @MainActor
-final class TitledControlLayout {
+final class TitledControlLayout: FormLabeledLayout {
     static let spacing = 8.0
 
     let panel: LayoutPanel
@@ -42,9 +42,19 @@ final class TitledControlLayout {
     var rows = 1 {
         didSet { if rows != oldValue { panel.invalidateLayout() } }
     }
+    /// In a Form, its label column's width (FormColumn): the title ends there and the control starts
+    /// `spacing` after it, at the row's leading edge rather than centered in a wider frame.
+    var formColumn: Double? {
+        didSet { if formColumn != oldValue { panel.invalidateLayout() } }
+    }
     private var shownTitle: String?
     private var measuredTitle = ActionUIWinUISize(width: 0, height: 0)
     private var measuredControl = ActionUIWinUISize(width: 0, height: 0)
+
+    /// The title's width, nil when labelsHidden hides it.
+    func formTitleWidth() -> Double? {
+        titleHidden ? nil : title.measure(ActionUIWinUISize(width: .infinity, height: .infinity)).width
+    }
 
     init(control: WinUIObject) throws(WinUIError) {
         panel = try LayoutPanel()
@@ -67,9 +77,19 @@ final class TitledControlLayout {
         }
         shownTitle = text
         panel.invalidateLayout()
+        // In a Form its row keeps its size; the Form works its column out again.
+        formChanged?()
     }
 
-    private var leading: Double { titleHidden ? 0 : measuredTitle.width + Self.spacing }
+    /// Asks the Form this row is in to lay its rows out again (FormColumn sets it).
+    var formChanged: (() -> Void)?
+
+    private var leading: Double {
+        if let formColumn, !titleHidden {
+            return formColumn + Self.spacing
+        }
+        return titleHidden ? 0 : measuredTitle.width + Self.spacing
+    }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         let titleSize = title.measure(ActionUIWinUISize(width: .infinity, height: .infinity))
@@ -83,12 +103,14 @@ final class TitledControlLayout {
     private func arrange(_ finalSize: ActionUIWinUISize) {
         // At their own sizes, centered in a wider frame (macOS centers its pop-up button there, as the
         // Linux renderer does); in a narrower one the control gets what is left.
-        let start = max((finalSize.width - leading - measuredControl.width) / 2, 0)
+        let start = formColumn != nil ? 0 : max((finalSize.width - leading - measuredControl.width) / 2, 0)
         let controlWidth = min(measuredControl.width, max(finalSize.width - leading, 0))
         let controlY = (finalSize.height - measuredControl.height) / 2
         let firstRow = measuredControl.height / Double(max(rows, 1))
         let titleY = controlY + (firstRow - measuredTitle.height) / 2
-        title.arrange(ActionUIWinUIRect(x: start, y: titleY, width: measuredTitle.width, height: measuredTitle.height))
+        // In a Form the title ends at the label column.
+        let titleX = formColumn.map { $0 - measuredTitle.width } ?? start
+        title.arrange(ActionUIWinUIRect(x: titleX, y: titleY, width: measuredTitle.width, height: measuredTitle.height))
         control.arrange(ActionUIWinUIRect(x: start + leading, y: controlY, width: controlWidth, height: measuredControl.height))
     }
 }

@@ -18,7 +18,7 @@
    disabled, as a Picker's title.
 
  Not yet: accessible names (the group after its label, the buttons Decrement and Increment, as VoiceOver
- names them); a label in a Form's label column; controlSize.
+ names them); controlSize.
 */
 
 import CWinUI
