@@ -442,6 +442,27 @@ class CliTests(unittest.TestCase):
             r = self._run(str(p))
             self.assertEqual(r.returncode, 1)
 
+    def test_a_file_that_cannot_be_checked_is_an_error_and_the_run_goes_on(self):
+        # Each used to end a folder run: RecursionError and UnicodeDecodeError went uncaught, and
+        # a named pipe called *.json blocked the open for good.
+        import os
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            depth = 100000
+            (folder / "a-deep.json").write_text('{"type": "VStack", "children": [' * depth + "]}" * depth)
+            (folder / "b-latin1.json").write_bytes('{"type": "Text", "properties": {"text": "caf\u00e9"}}'.encode("latin-1"))
+            os.mkfifo(folder / "c-pipe.json")
+            self._write(folder, "d-ok.json", {"type": "Text", "properties": {"text": "x"}})
+            r = subprocess.run([sys.executable, str(_VALIDATOR), str(folder)],
+                               capture_output=True, text=True, timeout=60)
+            output = r.stdout + r.stderr
+            self.assertEqual(r.returncode, 1, output)
+            self.assertNotIn("Traceback", output)
+            self.assertIn("a-deep.json: nested too deeply to check", output)
+            self.assertIn("b-latin1.json: not UTF-8 text", output)
+            self.assertIn("c-pipe.json: not a regular file", output)
+            self.assertIn("[OK] " + str(folder / "d-ok.json"), output, "the files after them are still checked")
+
 
 class MenuBarCliTests(unittest.TestCase):
     """A top-level JSON array is validated as a MainMenu.json menu-bar document."""
