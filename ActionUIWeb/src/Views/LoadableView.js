@@ -23,6 +23,11 @@
 //                        the source, so a re-render for the same source does not
 //                        re-fire — Apple/Android dedup).
 //
+// Nesting: a loaded document may hold LoadableViews of its own, up to
+// MAX_LOADABLE_DEPTH levels; a document that loads itself, directly or through
+// another, is refused at the repeat, so a self-including document cannot fetch
+// without end.
+//
 // Deferred vs. Apple: `.plist` sources warn-and-skip (no web property-list parser —
 // the Android stance); use a JSON description.
 
@@ -30,6 +35,33 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
 import { PlatformFilter } from "../Common/PlatformFilter.js";
 import { resolveLoadableSource, classifyLoadableSource } from "../Helpers/LoadableSource.js";
+import { pageBaseURL } from "../Helpers/URLPolicy.js";
+
+// How many LoadableViews may be nested inside one another.
+const MAX_LOADABLE_DEPTH = 16;
+
+// The resolved address each LoadableView node shows, for the nesting checks.
+const loadedAddressOf = new WeakMap();
+
+// Why a document loaded at `address` into `node` must not be shown, or null when it may be: too
+// deep, or the same address as a LoadableView it sits in. Read when the fetch completes, by which
+// time the node is in its parent's tree.
+function nestingRefusal(node, address) {
+    let depth = 0;
+    for (let ancestor = node.parentNode; ancestor; ancestor = ancestor.parentNode) {
+        const ancestorAddress = loadedAddressOf.get(ancestor);
+        if (ancestorAddress === undefined) continue;
+        depth += 1;
+        if (ancestorAddress === address) return "it includes itself";
+        if (depth >= MAX_LOADABLE_DEPTH) return `LoadableViews are nested more than ${MAX_LOADABLE_DEPTH} deep`;
+    }
+    return null;
+}
+
+// The absolute address a fetch of `fetchURL` goes to, as the browser resolves it.
+function resolvedAddress(fetchURL) {
+    try { return new URL(fetchURL, pageBaseURL()).href; } catch { return fetchURL; }
+}
 
 register("LoadableView", {
     // The active source (url/filePath/name); settable to swap the document.
@@ -83,6 +115,7 @@ register("LoadableView", {
             const classified = classifyLoadableSource(source);
 
             if (classified.kind === "none") {
+                loadedAddressOf.delete(node);
                 renderMessage("No valid source provided", "aui-loadable-error");
                 return;
             }
@@ -92,6 +125,7 @@ register("LoadableView", {
                 return;
             }
 
+            const address = resolvedAddress(classified.fetchURL);
             renderMessage("Loading…", "aui-loadable-loading");
             fetch(classified.fetchURL)
                 .then((response) => {
@@ -100,6 +134,14 @@ register("LoadableView", {
                 })
                 .then((text) => {
                     if (token !== loadToken) return; // superseded by a newer load
+                    const refusal = nestingRefusal(node, address);
+                    if (refusal !== null) {
+                        loadedAddressOf.delete(node);
+                        ctx.logger.log(`LoadableView: not showing '${source}': ${refusal}`, "error");
+                        renderMessage(`Failed to load view: ${source}`, "aui-loadable-error");
+                        return;
+                    }
+                    loadedAddressOf.set(node, address);
                     const raw = JSON.parse(text);
                     const normalized = PlatformFilter.WEB.withLogger(ctx.logger).filter(raw);
                     const loaded = ActionUIElement.fromObject(normalized, ctx.logger);
