@@ -134,8 +134,7 @@ package final class RenderNode {
     }
 
     /// The renderer's compression, without the axes a fixed frame sizes: SwiftUI's fixed frame
-    /// keeps its size in a stack. A stack cannot see it: WinUI caps a desired size at the size
-    /// offered, so the box measured with nothing offered asks for nothing.
+    /// keeps its size in a stack, so the stack need not measure it for its smallest size.
     private static func compression(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
         var compression = renderer
         if geometry.frame.horizontal.fixed != nil { compression.remove(.horizontal) }

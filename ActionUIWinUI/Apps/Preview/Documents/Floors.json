@@ -1,0 +1,201 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "spacing": 10,
+    "alignment": "leading",
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 3,
+          "properties": {
+            "text": "Min 120",
+            "frame": {
+              "minWidth": 120
+            },
+            "background": "fill.secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 4,
+          "properties": {
+            "text": "A long text beside a label with a minimum width keeps the label at that width and wraps itself."
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 5,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 6,
+          "properties": {
+            "text": "Padded",
+            "padding": 12,
+            "background": "fill.secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 7,
+          "properties": {
+            "text": "A long text beside a padded label keeps the label's padding and wraps itself instead."
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 8,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "HStack",
+          "id": 9,
+          "properties": {
+            "background": "fill.secondary"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "id": 10,
+              "properties": {
+                "text": "Row min 100",
+                "frame": {
+                  "minWidth": 100
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "Text",
+          "id": 11,
+          "properties": {
+            "text": "A row's smallest width is its children's: this text wraps beside it."
+          }
+        }
+      ]
+    },
+    {
+      "type": "ScrollView",
+      "id": 12,
+      "properties": {
+        "axis": "horizontal",
+        "frame": {
+          "height": 96
+        },
+        "background": "fill.secondary"
+      },
+      "content": {
+        "type": "VStack",
+        "id": 18,
+        "properties": {
+          "alignment": "leading"
+        },
+        "children": [
+          {
+            "type": "HStack",
+            "id": 13,
+            "children": [
+              {
+                "type": "ScrollView",
+                "id": 14,
+                "properties": {
+                  "axis": "horizontal",
+                  "frame": {
+                    "maxWidth": 300
+                  },
+                  "background": "blue.opacity(0.25)"
+                },
+                "content": {
+                  "type": "Text",
+                  "id": 15,
+                  "properties": {
+                    "text": "Capped"
+                  }
+                }
+              },
+              {
+                "type": "ScrollView",
+                "id": 16,
+                "properties": {
+                  "axis": "horizontal",
+                  "background": "green.opacity(0.25)"
+                },
+                "content": {
+                  "type": "Text",
+                  "id": 17,
+                  "properties": {
+                    "text": "An uncapped scroll view whose content is wider than the window around it"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "Text",
+            "id": 19,
+            "properties": {
+              "text": "A long text in the same scrolled column, wider than the window"
+            }
+          },
+          {
+            "type": "HStack",
+            "id": 20,
+            "children": [
+              {
+                "type": "ScrollView",
+                "id": 21,
+                "properties": {
+                  "axis": "horizontal",
+                  "frame": {
+                    "maxWidth": 300
+                  },
+                  "background": "orange.opacity(0.3)"
+                },
+                "content": {
+                  "type": "Text",
+                  "id": 22,
+                  "properties": {
+                    "text": "Capped, beside a Spacer"
+                  }
+                }
+              },
+              {
+                "type": "Spacer",
+                "id": 23
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

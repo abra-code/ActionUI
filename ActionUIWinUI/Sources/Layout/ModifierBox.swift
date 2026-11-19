@@ -153,7 +153,10 @@ final class ModifierBox {
         func inner(_ size: Double, _ padding: PaddingAxis) -> Double {
             size.isFinite ? max(size - Double(padding.total), 0) : size
         }
-        let desired = content.measure(ActionUIWinUISize(width: inner(available.width, geometry.padding.horizontal),
+        // What the content asks for even beyond the room (a stack's children at their smallest), so
+        // the box's own answer is its true size: a stack measuring it with nothing offered learns
+        // its smallest size.
+        let desired = content.measureRequested(ActionUIWinUISize(width: inner(available.width, geometry.padding.horizontal),
                                                         height: inner(available.height, geometry.padding.vertical)))
         padded = (StackSolver.length(desired.width, rounding: .up) + geometry.padding.horizontal.total,
                   StackSolver.length(desired.height, rounding: .up) + geometry.padding.vertical.total)

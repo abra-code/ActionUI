@@ -67,6 +67,7 @@ SMOKE_TIMEOUT_SECONDS = 180
 # Options for ActionUIWinUIPreview by document name (ActionUIWinUI/Apps/Preview/Documents), beside
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
 PREVIEW_OPTIONS = {
+    "Floors": ["420", "380"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
     "Shapes": ["420", "340"],

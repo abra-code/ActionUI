@@ -13,6 +13,9 @@ import CWinUI
 
 @MainActor package final class WinUIObject {
     package let pointer: OpaquePointer
+    /// The ActionUI panel this object is, when it is one (LayoutPanel sets it), for
+    /// measureRequested.
+    package weak var layoutPanel: LayoutPanel?
 
     /// Takes over the reference a shim function returned; nil (nothing to release) when it
     /// returned NULL.
@@ -35,6 +38,17 @@ import CWinUI
     /// Measures this element with the size offered and returns the size it wants.
     package func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         actionUIWinUIElementMeasure(pointer, available)
+    }
+
+    /// Measures this element with the size offered and returns the size it asked for, which can be
+    /// larger than the size offered: an ActionUI panel's own answer (its padding, its frame's
+    /// minimum, a stack's children at their smallest), where WinUI's desired size is capped at the
+    /// size offered. Another element (a TextBlock) gives its desired size. When WinUI skips the
+    /// measure (offered the same size again, nothing changed), the panel's answer is still the one
+    /// for this size.
+    package func measureRequested(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
+        let desired = measure(available)
+        return layoutPanel?.requested ?? desired
     }
 
     /// Places this element at `frame`, in its parent's coordinates.

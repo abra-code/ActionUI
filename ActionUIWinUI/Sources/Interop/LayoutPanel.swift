@@ -26,7 +26,10 @@ private func panelBox(_ context: UnsafeMutableRawPointer?) -> PanelBox? {
 private let measurePanel: ActionUIWinUIMeasureCallback = { context, _, available in
     let box = panelBox(context)
     return MainActor.assumeIsolated {
-        box?.panel?.measure(available) ?? ActionUIWinUISize(width: 0, height: 0)
+        guard let panel = box?.panel else { return ActionUIWinUISize(width: 0, height: 0) }
+        let size = panel.measure(available)
+        panel.requested = size
+        return size
     }
 }
 
@@ -54,6 +57,9 @@ private let releaseBox: ActionUIWinUICallback = { context in
 
     /// Given the size offered, measures the children and returns the size the panel wants.
     package var measure: (ActionUIWinUISize) -> ActionUIWinUISize = { _ in ActionUIWinUISize(width: 0, height: 0) }
+    /// What `measure` last returned, before WinUI capped it at the size offered (its desired size
+    /// is never larger): WinUIObject.measureRequested.
+    package fileprivate(set) var requested = ActionUIWinUISize(width: 0, height: 0)
     /// Places every child inside the final size.
     package var arrange: (ActionUIWinUISize) -> Void = { _ in }
 
@@ -70,6 +76,7 @@ private let releaseBox: ActionUIWinUICallback = { context in
         }
         self.object = object
         box.panel = self
+        object.layoutPanel = self
     }
 
     package func insert(_ child: WinUIObject, at index: Int) throws(WinUIError) {

@@ -30,8 +30,17 @@
  A stack expands as its children do (StackViews.childrenExpansion): a row holding a Color or a
  TextField takes the room its own stack gives it, as in SwiftUI.
 
- Not yet: baselines; a compressed child's frame minimum and padding (WinUI reports no minimum
- size, so a squeezed child can go below them; a fixed frame is kept). A compressed Text leaves what it does not use of its share to the others in
+ A compressed child keeps its padding and its frame's minimum: its smallest size is what its box
+ asks for with nothing offered, read before WinUI caps it at the size offered
+ (WinUIObject.measureRequested), so a stack nested along the same axis (a row in a row) has its
+ children's smallest size.
+
+ Not yet: across its own axis a nested stack reports no floor (a column in a row can be squeezed
+ to nothing: stacks measure children across with WinUI's capped size); a floor that changes while
+ running (a bound minWidth, a nested stack gaining a child) reaches the parent only at its next
+ layout, as WinUI invalidates a parent only when a child's capped size changes.
+
+ Not yet: baselines. A compressed Text leaves what it does not use of its share to the others in
  one more sharing; SwiftUI offers each child in turn what the ones before it left, so the shares can
  differ by a few points when several Texts wrap in one row.
 */
@@ -57,9 +66,10 @@ final class StackLayout {
         var cap: (horizontal: Int?, vertical: Int?) = (nil, nil)
         /// The axes along which it can be made smaller than it asks for (RenderNode.compression):
         /// a ScrollView along its scroll axes, as SwiftUI's ScrollView shrinks to nothing; a Text
-        /// across a row. Its smallest size is its box measured with nothing offered, which is 0:
-        /// WinUI reports no desired size above the size offered, so a frame's minimum and padding
-        /// are not kept yet (a fixed frame turns compression off: RenderNode.compression).
+        /// across a row. Its smallest size is what its box asks for with nothing offered (its
+        /// padding and frame minimum, a row nested in a row: its children at their smallest), read past
+        /// WinUI's cap (WinUIObject.measureRequested); a fixed frame turns compression off
+        /// (RenderNode.compression).
         var compressible: Expansion = []
     }
 
@@ -165,6 +175,12 @@ final class StackLayout {
     /// HStack in a VStack is measured unbounded in height and arranged as tall as its tallest
     /// child). Across, arrange still gives a child that expands the stack's whole size (crossSize).
     private var measuredCrossOffer = Double.infinity
+    /// The children's lengths from the last measure pass when it was unbounded along the axis (each
+    /// child's ideal length), else nil. Arranged in exactly what it then asked for, the stack gives
+    /// each child that length again: shared out anew, a child with a frame's finite maximum would
+    /// be offered a share above its ideal (the solver offers the least flexible first), measured
+    /// for it, ask for another size, and the stack's layout would never finish.
+    private var unboundedLengths: [Int]?
 
     /// The size across of a child asking for `desired`: a child that expands across takes all the
     /// stack is offered across, when that is known, up to its cap.
@@ -183,12 +199,12 @@ final class StackLayout {
     /// arranges an element at least as large as it last measured (clipping the rest), so one
     /// measured unbounded would be as long as its content and never scroll, and a measure during
     /// arrange that changes its desired size invalidates the stack's measure, which would then never
-    /// settle. Its smallest length is what it asks for with nothing offered (0: WinUI gives no
-    /// desired size above the size offered), measured in the measure pass
+    /// settle. Its smallest length is what it asks for with nothing offered (its padding and frame
+    /// minimum, read past WinUI's cap: WinUIObject.measureRequested), measured in the measure pass
     /// only. After a measure unbounded along the axis it is the child's ideal length instead: the
     /// stack asked for every child's ideal and is arranged in at least that (WinUI does not arrange
     /// an element smaller than it measured), so arrange keeps each compressible child at its ideal
-    /// or more, a size its last measure already gives.
+    /// or more and measures it unbounded again, as its last measure was.
     private func layoutChildren(mainOffer: Double, crossOffer: Double, isMeasurePass: Bool)
         -> (sizes: [Int], crossSizes: [Int], gaps: [Int]) {
         var children: [StackChild] = []
@@ -213,7 +229,7 @@ final class StackLayout {
             if expandsAlong && compressibleAlong(item) {
                 let key = ObjectIdentifier(item.view)
                 if isMeasurePass && mainOffer.isFinite {
-                    let smallest = item.view.measure(size(main: 0, cross: measureCross))
+                    let smallest = item.view.measureRequested(size(main: 0, cross: measureCross))
                     compressedMinimums[key] = StackSolver.length(main(smallest), rounding: .up)
                 }
                 children.append(.expanding(minimum: compressedMinimums[key] ?? 0, cap: capAlong))
@@ -230,7 +246,7 @@ final class StackLayout {
                     let naturalLength = StackSolver.length(main(natural), rounding: .up)
                     var smallestLength = naturalLength
                     if mainOffer.isFinite {
-                        let smallest = item.view.measure(size(main: 0, cross: measureCross))
+                        let smallest = item.view.measureRequested(size(main: 0, cross: measureCross))
                         smallestLength = min(StackSolver.length(main(smallest), rounding: .up), naturalLength)
                     }
                     children.append(.fixed(minimum: smallestLength, natural: naturalLength))
@@ -254,6 +270,10 @@ final class StackLayout {
             sizes = StackSolver.mainSizes(children, available: StackSolver.length(mainOffer), gaps: gaps)
         } else {
             sizes = children.map(\.minimum)
+        }
+        if !isMeasurePass, let ideal = unboundedLengths, ideal.count == sizes.count,
+           StackSolver.length(of: ideal, gaps: gaps) == StackSolver.length(mainOffer) {
+            sizes = ideal
         }
         // A compressible child that does not expand (a Text in a row) is measured for the length it
         // is offered (unbounded: its one line), which arrange repeats, and takes what it asks for of
@@ -282,8 +302,13 @@ final class StackLayout {
         }
         for index in compressed where expands(items[index]).main {
             let item = items[index]
-            // Unbounded: its ideal length, a ScrollView its content's (SwiftUI's ideal size).
-            let desired = item.view.measure(size(main: mainOffer.isFinite ? Double(sizes[index]) : .infinity, cross: measureCross))
+            // Unbounded: its ideal length, a ScrollView its content's (SwiftUI's ideal size). Arrange
+            // after a measure unbounded along the axis measures it unbounded again (a no-op for
+            // WinUI): the stack arranged larger than it asked for (filling a wider column) gives it
+            // more than its ideal, and measured for that, a child with a frame's finite maximum
+            // would ask for another size and the layout would never finish.
+            let unbounded = !mainOffer.isFinite || (!isMeasurePass && unboundedLengths != nil)
+            let desired = item.view.measure(size(main: unbounded ? .infinity : Double(sizes[index]), cross: measureCross))
             if !mainOffer.isFinite {
                 sizes[index] = StackSolver.length(main(desired), rounding: .up)
                 if isMeasurePass {
@@ -291,6 +316,9 @@ final class StackLayout {
                 }
             }
             crossSizes[index] = crossSize(desired, expandsAcross: expands(item).cross, cap: caps(item).cross, crossOffer: crossOffer)
+        }
+        if isMeasurePass {
+            unboundedLengths = mainOffer.isFinite ? nil : sizes
         }
         return (sizes, crossSizes, gaps)
     }
