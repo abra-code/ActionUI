@@ -51,6 +51,8 @@ package final class RenderNode {
     private(set) var isDisabled = false
     private(set) var isHidden = false
     private(set) var isAccessibilityHidden = false
+    /// labelsHidden, as SwiftUI's environment passes it down: a container's hides its controls' titles.
+    private(set) var isLabelsHidden = false
     /// The states last applied to the WinUI object (applyStates).
     private var appliedEnabled: Bool?
     private var appliedAccessibilityHidden: Bool?
@@ -188,7 +190,7 @@ package final class RenderNode {
         guard isAttached, let view else { return }
         var expansionChanged = false
         let previousAppearance = textAppearance
-        let previousStates = (isDisabled, isHidden, isAccessibilityHidden)
+        let previousStates = (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden)
         withObservationTracking {
             let modifiers = baseModifiers
             // Before the renderer's update, which draws the text with it.
@@ -196,6 +198,7 @@ package final class RenderNode {
             isDisabled = (parent?.isDisabled ?? false) || modifiers.disabled == true
             isHidden = (parent?.isHidden ?? false) || modifiers.hidden
             isAccessibilityHidden = isHidden || (parent?.isAccessibilityHidden ?? false) || modifiers.accessibilityHidden == true
+            isLabelsHidden = (parent?.isLabelsHidden ?? false) || modifiers.labelsHidden
             renderer.update(view, self)
             applyStates(to: view)
             let geometry = BoxGeometry(modifiers)
@@ -225,7 +228,7 @@ package final class RenderNode {
         unsyncedChildren = []
         // The children inherit the appearance; new ones read it in their first sync below (and are
         // not marked, as the GTK renderer skips them).
-        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden) != previousStates) {
+        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden) != previousStates) {
             let new = Set(created.map(ObjectIdentifier.init))
             for child in childNodes.values where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)

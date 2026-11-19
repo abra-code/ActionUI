@@ -164,6 +164,32 @@ ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchIsOn(ActionUIWinUIObject *toggl
 ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchOnToggled(ActionUIWinUIObject *toggleSwitch, ActionUIWinUICallback handler,
                                                            void *context, ActionUIWinUICallback destroyContext);
 
+// MARK: - Choices (a Picker's controls)
+
+typedef enum ActionUIWinUIChoiceKind {
+    // A ComboBox: one item shown, the others in a dropdown list.
+    ActionUIWinUIChoiceMenu = 0,
+    // A RadioButtons group: a column of radio buttons (actionUIWinUIChoiceSetColumns for a row).
+    ActionUIWinUIChoiceRadio = 1,
+    // A SelectorBar: the items side by side, one selected (the Windows App SDK's segmented selector).
+    ActionUIWinUIChoiceSegments = 2,
+} ActionUIWinUIChoiceKind;
+
+// A new choice control of `kind`, with no items. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIChoiceCreate(ActionUIWinUIChoiceKind kind);
+// Replaces the items with `titles` (`count` UTF-8 strings), selecting none.
+ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetItems(ActionUIWinUIObject *choice, const char *const *titles, int32_t count);
+// Selects the item at `index` (from 0); -1, or an index past the items, selects none.
+ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetSelectedIndex(ActionUIWinUIObject *choice, int32_t index);
+// The selected item's index, -1 when none is (or on failure).
+ACTIONUI_WINUI_API int32_t actionUIWinUIChoiceGetSelectedIndex(ActionUIWinUIObject *choice);
+// A radio group's number of columns (1: a column; the item count: a row). Ignored by the other kinds.
+ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetColumns(ActionUIWinUIObject *choice, int32_t columns);
+// SelectionChanged: the selected item changed, by the user or by actionUIWinUIChoiceSetSelectedIndex
+// (callers compare the new selection with what they hold).
+ACTIONUI_WINUI_API bool actionUIWinUIChoiceOnSelectionChanged(ActionUIWinUIObject *choice, ActionUIWinUICallback handler,
+                                                             void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - TextBox
 
 // A new TextBox (one line of editable text), empty. NULL on failure.

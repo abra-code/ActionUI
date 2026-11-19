@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 14, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Picker", "id": 2, "properties": { "title": "Size", "options": ["Small", "Medium", "Large"] } },
+    {
+      "type": "Picker",
+      "id": 3,
+      "properties": {
+        "title": "View",
+        "pickerStyle": "segmented",
+        "options": [ { "title": "List", "tag": "list" }, { "title": "Grid", "tag": "grid" }, { "title": "Columns", "tag": "columns" } ]
+      }
+    },
+    { "type": "Picker", "id": 4, "properties": { "title": "Theme", "pickerStyle": "radioGroup", "options": ["Light", "Dark", "System"] } },
+    {
+      "type": "Picker",
+      "id": 5,
+      "properties": { "title": "Align", "pickerStyle": "radioGroup", "horizontalRadioGroupLayout": true, "options": ["Left", "Center", "Right"] }
+    },
+    { "type": "Picker", "id": 6, "properties": { "title": "Hidden title", "labelsHidden": true, "options": ["A menu without its title"] } },
+    { "type": "Picker", "id": 7, "properties": { "title": "Disabled", "disabled": true, "options": ["Dimmed with its title"] } },
+    {
+      "type": "VStack",
+      "id": 8,
+      "properties": { "labelsHidden": true },
+      "children": [ { "type": "Picker", "id": 9, "properties": { "title": "Inherited", "options": ["labelsHidden from its column"] } } ]
+    }
+  ]
+}

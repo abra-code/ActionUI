@@ -18,6 +18,7 @@ extension ActionUIRegistry {
         "HStack": HStack.self,
         "Image": Image.self,
         "Label": Label.self,
+        "Picker": Picker.self,
         "LabeledContent": LabeledContent.self,
         "Rectangle": Rectangle.self,
         "RoundedRectangle": RoundedRectangle.self,
