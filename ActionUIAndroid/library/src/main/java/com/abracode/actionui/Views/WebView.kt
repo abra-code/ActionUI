@@ -25,8 +25,8 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.ViewModel
 import com.abracode.actionui.Helpers.booleanProperty
+import com.abracode.actionui.Helpers.readRegularFileText
 import com.abracode.actionui.Helpers.stringProperty
-import java.io.File
 import java.io.InputStream
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -433,7 +433,8 @@ internal fun resolveScriptSource(
 
     script.filePath?.let { path ->
         return try {
-            File(path).readText()
+            // Only a regular file: a device or a named pipe would block the reading thread.
+            readRegularFileText(path)
         } catch (e: Exception) {
             logger?.log(
                 "WebView userScript: failed to read file at '$path': ${e.message}",

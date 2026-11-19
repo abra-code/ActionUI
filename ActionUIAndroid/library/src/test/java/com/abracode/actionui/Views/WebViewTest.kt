@@ -238,6 +238,24 @@ class WebViewTest {
     }
 
     @Test
+    fun `a filePath that is not a regular file warns and drops the script`() {
+        val folder = kotlin.io.path.createTempDirectory("webview-script").toFile()
+        try {
+            val file = java.io.File(folder, "script.js").apply { writeText("window.z = 3;") }
+            val read = WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, filePath = file.path)
+            assertEquals("window.z = 3;", resolveScriptSource(read, { throw FileNotFoundException() }, null))
+            for (path in listOf("/dev/zero", "/dev/null", folder.path)) {
+                val logger = CapturingLogger()
+                val script = WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, filePath = path)
+                assertNull(path, resolveScriptSource(script, { throw FileNotFoundException() }, logger))
+                assertTrue(logger.warnings.toString(), logger.warnings.single().contains("is not a regular file"))
+            }
+        } finally {
+            folder.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `unreadable filePath warns and drops the script`() {
         val logger = CapturingLogger()
         val script = WebViewUserScript(

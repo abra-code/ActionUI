@@ -41,6 +41,8 @@ class TemplateHelperTest {
     @Test
     fun `out-of-range reference is left literal`() {
         assertEquals("$9", TemplateHelper.substituteString("$9", row))
+        // A reference too large for an Int is out of range too, not a crash.
+        assertEquals("$99999999999", TemplateHelper.substituteString("$99999999999", row))
     }
 
     @Test
