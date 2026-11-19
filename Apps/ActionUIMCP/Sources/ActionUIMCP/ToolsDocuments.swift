@@ -38,7 +38,7 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
             "buttons": ["type": "array", "items": ["type": "string"],
                         "description": "dialog mode: button titles, left to right; the last is the default (Return); \"Cancel\" is bound to Escape. Default [\"Cancel\", \"OK\"]; [] for none (then give close_actions)."],
             "close_actions": ["type": "array", "items": ["type": "string"],
-                              "description": "dialog mode: actionIDs of your own buttons that end the dialog with action \"accept\"."],
+                              "description": "dialog mode: actionIDs of your own buttons that end the dialog with action \"accept\". Not allowed as an action that fires without a click (onAppearActionID, onDisappearActionID, viewDidLoadActionID, navigationActionID, onHoverActionID, onDropTargetedActionID, openURLActionID, a WebView's valueChangeActionID, a Map's actionID)."],
             "width": ["type": "number", "description": "Content width in points. Default: the document's own size."],
             "height": ["type": "number", "description": "Content height in points. With width, fixes the window size."],
             "timeout_s": ["type": "number", "description": "dialog mode: seconds before action \"timeout\". Default 3600."],
@@ -99,6 +99,7 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
         }
 
         let dialog = try DocumentDialog(arguments: arguments)
+        try dialog.checkCloseActions(in: document.root)
         let timeout = min(max(arguments["timeout_s"]?.double ?? defaultDialogTimeout, 1), maxDialogTimeout)
         let opened = try await host.beginDocumentDialog(document: document, dialog: dialog, title: title,
                                                         subtitle: subtitle, size: size, timeout: timeout)
@@ -319,7 +320,7 @@ func screenshotTool(host: WindowHost) -> MCPTool {
     let output: JSONValue = [
         "type": "object",
         "properties": [
-            "path": ["type": "string", "description": "The PNG saved on disk."],
+            "path": ["type": "string", "description": "The PNG saved on disk; removed when the session ends."],
             "width": ["type": "integer"], "height": ["type": "integer"],
             "warnings": ["type": "array", "items": ["type": "string"]],
         ],
@@ -332,7 +333,7 @@ func screenshotTool(host: WindowHost) -> MCPTool {
             Capture a PNG of an open window (window), or render an ActionUI document you wrote \
             (document or path) in a window the user never sees and capture that - to check a layout \
             before showing it. Returns the image and {path, width, height}; the PNG is also saved at \
-            path. A rendered document gets the checks of validate_document first, and its controls \
+            path, until the session ends. A rendered document gets the checks of validate_document first, and its controls \
             draw in their inactive (gray) style; the layout is exact. With window, document and path \
             are ignored, and width and height apply only to a rendered document.
             """,

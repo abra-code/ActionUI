@@ -235,6 +235,24 @@ s.call(36, "update_window", {"window": live, "values": {"1": "Status: busy", "2"
                              "rows": {"5": [["a", 1], ["b", 2]]}, "append_rows": {"5": [["c", 3]]}})
 result = structured(s.response(36)) or {}
 check("update_window", result.get("updated") == 5 and result.get("problems") == ["no element with id 99"], result)
+# An element with no id in the document has an automatic negative id and no known type, so its value
+# is refused: show kind web refuses a file: address, and its web view has no id. Automatic ids count
+# down from -2 per process, so a fresh session puts the web view's among the first few.
+w = Session(binary)
+w.call(1, "show", {"title": "Web", "kind": "web", "text": "<p>Page</p>", "width": 300, "height": 200})
+web_window = (structured(w.response(1)) or {}).get("window", "")
+w.call(2, "update_window", {"window": web_window, "values": {str(-n): "file:///etc/hosts" for n in range(2, 30)}})
+result = structured(w.response(2)) or {}
+problems = result.get("problems", [])
+check("update_window refuses values for elements with no id in the document", bool(web_window)
+      and result.get("updated") == 0 and any("type is unknown" in p for p in problems)
+      and all("type is unknown" in p or p.startswith("no element") for p in problems), result)
+# The session folder, screenshots included, goes when the session ends.
+w.call(3, "screenshot", {"window": web_window})
+shot = (structured(w.response(3)) or {}).get("path", "")
+w.close()
+check("the session folder is removed at the end of the session", bool(shot)
+      and not os.path.exists(shot) and not os.path.exists(os.path.dirname(os.path.dirname(shot))), shot)
 s.call(37, "get_values", {"window": live, "ids": [1, 2, 3]})
 result = structured(s.response(37)) or {}
 check("get_values reads what update_window wrote",
@@ -510,6 +528,29 @@ result = structured(s.response(1)) or {}
 check("document dialog close action", result.get("action") == "accept" and result.get("close_action") == "go", result)
 s.call(2, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": []})
 check("document dialog needs a way out", is_error(s.response(2)))
+# A close action must come from a click: not from an action that fires by itself, and not from a
+# template column reference in one, which a row could fill with a close action.
+appearing = {"type": "VStack", "properties": {"onAppearActionID": "go"}, "children": [FORM]}
+s.call(3, "show_document", {"title": "Edit", "mode": "dialog", "document": appearing, "buttons": [], "close_actions": ["go"]})
+message = s.response(3)
+check("a close action on onAppearActionID is refused", is_error(message) and "no click" in json.dumps(message), message)
+templated = {"type": "List", "id": 9, "template": {"type": "Text", "properties": {"text": "$1", "onAppearActionID": "$1"}}}
+s.call(4, "show_document", {"title": "Edit", "mode": "dialog", "document": templated, "buttons": [], "close_actions": ["go"]})
+message = s.response(4)
+check("a column reference in an automatic action is refused with close actions", is_error(message)
+      and "column reference" in json.dumps(message), message)
+# A Map's actionID fires on each camera change, the first as the map appears.
+mapped = {"type": "Map", "id": 9, "properties": {"coordinate": {"latitude": 52.2, "longitude": 21.0}, "actionID": "go"}}
+s.call(5, "show_document", {"title": "Edit", "mode": "dialog", "document": mapped, "buttons": [], "close_actions": ["go"]})
+message = s.response(5)
+check("a close action on a Map's actionID is refused", is_error(message) and "no click" in json.dumps(message), message)
+s.close()
+# A document cannot press a chrome button by naming its actionID: the ids carry a token per dialog.
+s = Session(binary, action="mcp.dialog.button.1@4")
+s.call(1, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": ["Cancel", "Save"],
+                            "timeout_s": 4})
+result = structured(s.response(1, timeout=10))
+check("a guessed chrome button actionID does not accept", result == {"action": "timeout", "button": None}, result)
 
 # A modern client: server/discover, then a real dialog, with no initialize.
 s.close()

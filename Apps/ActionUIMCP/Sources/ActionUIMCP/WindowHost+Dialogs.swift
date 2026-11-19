@@ -129,10 +129,8 @@ extension WindowHost {
                                         "values": .object(values(windowID: windowUUID, ids: nil))])
             return
         }
-        guard actionID.hasPrefix(DialogSpec.buttonActionPrefix),
-              let index = Int(actionID.dropFirst(DialogSpec.buttonActionPrefix.count)),
-              session.buttons.indices.contains(index) else { return }
-        let button = session.buttons[index]
+        // Only this dialog's own buttons, by their full actionID (prefix, token, index).
+        guard let button = session.buttons.first(where: { $0.actionID == actionID }) else { return }
         if button.isCancel {
             settle(windowUUID, result: ["action": "cancel", "button": .string(button.title)])
             return

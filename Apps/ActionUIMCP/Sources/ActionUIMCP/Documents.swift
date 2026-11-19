@@ -51,6 +51,9 @@ struct DialogSpec {
     let buttons: [DialogButton]
     let width: Double
 
+    /// A dialog button's actionID is this prefix, a token new for each set of buttons, and the
+    /// button's index. The token keeps a document from naming a button's actionID itself (an
+    /// `onAppearActionID`, or a template row, would otherwise press it without a click).
     static let buttonActionPrefix = "mcp.dialog.button."
     /// A slider reports its moves under this prefix plus its view id, so the host can update its readout.
     static let sliderActionPrefix = "mcp.dialog.slider."
@@ -169,10 +172,11 @@ struct DialogSpec {
             throw MCPToolError("button titles must be unique")
         }
         let defaultIndex = titles.count - 1
+        let prefix = buttonActionPrefix + UUID().uuidString + "."
         return titles.enumerated().map { index, title in
             let isCancel = title.lowercased() == "cancel"
             return DialogButton(title: title, isDefault: index == defaultIndex && !isCancel, isCancel: isCancel,
-                                actionID: buttonActionPrefix + String(index))
+                                actionID: prefix + String(index))
         }
     }
 

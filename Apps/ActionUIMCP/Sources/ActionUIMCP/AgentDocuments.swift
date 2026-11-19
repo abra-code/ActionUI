@@ -326,6 +326,58 @@ struct DocumentDialog {
         width = arguments["width"]?.double.map { min(max($0, 240), 3000) }
     }
 
+    /// Action properties that fire with no click: when a view appears or disappears, loads, a web
+    /// page navigates on its own, the pointer passes, a drag passes over, a URL arrives.
+    static let automaticActionKeys: Set<String> = ["onAppearActionID", "onDisappearActionID", "viewDidLoadActionID",
+                                                   "navigationActionID", "onHoverActionID", "onDropTargetedActionID",
+                                                   "openURLActionID"]
+    /// The same, for one element type: a WebView's valueChangeActionID (page script can change the
+    /// address), a Map's actionID (it fires on every camera change, the first as the map appears).
+    static let automaticActionKeysByType: [String: Set<String>] = ["WebView": ["valueChangeActionID"],
+                                                                   "Map": ["actionID"]]
+
+    /// Refuses a document in which a close action can fire with no click, so an "accept" result
+    /// means a person did something: a close action bound to an automatic action property (or to a
+    /// WebView's valueChangeActionID or a Map's actionID), or, with close actions given, an
+    /// automatic action property holding a template column reference ("$1"), which a row could
+    /// fill with a close action.
+    func checkCloseActions(in document: JSONValue) throws {
+        guard !closeActions.isEmpty else { return }
+        var problems: [String] = []
+        func visit(_ value: JSONValue, at location: String) {
+            switch value {
+            case .object(let object):
+                if let properties = object["properties"]?.object {
+                    let typeKeys = object["type"]?.string.flatMap { Self.automaticActionKeysByType[$0] } ?? []
+                    for (key, property) in properties.sorted(by: { $0.key < $1.key }) {
+                        guard Self.automaticActionKeys.contains(key) || typeKeys.contains(key),
+                              let actionID = property.string else { continue }
+                        if closeActions.contains(actionID) {
+                            problems.append("\(location).properties.\(key): close action \"\(actionID)\" would end the dialog with no click")
+                        } else if actionID.contains("$") {
+                            problems.append("\(location).properties.\(key): a column reference in an action that fires with no click could name a close action")
+                        }
+                    }
+                }
+                for (key, child) in object.sorted(by: { $0.key < $1.key }) where key != "properties" {
+                    visit(child, at: "\(location).\(key)")
+                }
+                // A chart description inside properties holds annotation elements.
+                if let chart = object["properties"]?.object?["chart"] {
+                    visit(chart, at: "\(location).properties.chart")
+                }
+            case .array(let items):
+                for (index, item) in items.enumerated() { visit(item, at: "\(location)[\(index)]") }
+            default:
+                break
+            }
+        }
+        visit(document, at: "root")
+        if !problems.isEmpty {
+            throw MCPToolError("the dialog's close actions must come from a click:\n" + problems.joined(separator: "\n"))
+        }
+    }
+
     func wrap(_ document: [String: Any], footer: String) -> [String: Any] {
         var children: [[String: Any]] = [
             document,
