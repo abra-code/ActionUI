@@ -6,10 +6,44 @@
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>  // ButtonBase: Click
 #include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>  // VisualTreeHelper
+
+#include <vector>
 
 namespace automation = winrt::Microsoft::UI::Xaml::Automation;
+namespace media = winrt::Microsoft::UI::Xaml::Media;
 
 using namespace actionui_winui;
+
+namespace {
+
+// The invoke pattern of `element`'s automation peer; null when it has none.
+automation::Provider::IInvokeProvider invokerFor(mux::UIElement const &element) {
+    automation::Peers::AutomationPeer peer = automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(element);
+    if (peer == nullptr) {
+        return nullptr;
+    }
+    wf::IInspectable pattern = peer.GetPattern(automation::Peers::PatternInterface::Invoke);
+    return pattern != nullptr ? pattern.try_as<automation::Provider::IInvokeProvider>() : nullptr;
+}
+
+// The elements under `node` (not itself) that can be invoked, in the visual tree's order, depth first; the
+// inside of one that can is not searched.
+void collectInvokers(mux::DependencyObject const &node, std::vector<automation::Provider::IInvokeProvider> &found) {
+    int32_t count = media::VisualTreeHelper::GetChildrenCount(node);
+    for (int32_t index = 0; index < count; ++index) {
+        mux::DependencyObject child = media::VisualTreeHelper::GetChild(node, index);
+        if (mux::UIElement element = child.try_as<mux::UIElement>()) {
+            if (automation::Provider::IInvokeProvider invoker = invokerFor(element)) {
+                found.push_back(invoker);
+                continue;
+            }
+        }
+        collectInvokers(child, found);
+    }
+}
+
+} // namespace
 
 
 extern "C" {
@@ -61,6 +95,18 @@ bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element) {
             return fail("automation invoke", "the element cannot be invoked");
         }
         invoker.Invoke();
+        return true;
+    });
+}
+
+bool actionUIWinUIAutomationInvokePart(ActionUIWinUIObject *element, int32_t index) {
+    return guarded("automation invoke part", [&]() {
+        std::vector<automation::Provider::IInvokeProvider> found;
+        collectInvokers(objectAs<mux::UIElement>(element, L"UIElement"), found);
+        if (index < 0 || static_cast<size_t>(index) >= found.size()) {
+            return fail("automation invoke part", "no such part can be invoked");
+        }
+        found[static_cast<size_t>(index)].Invoke();
         return true;
     });
 }

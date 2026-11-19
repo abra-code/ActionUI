@@ -28,6 +28,7 @@ extension ActionUIRegistry {
         "ScrollView": ScrollView.self,
         "Slider": Slider.self,
         "Spacer": Spacer.self,
+        "Stepper": Stepper.self,
         "Text": Text.self,
         "TextEditor": TextEditor.self,
         "TextField": TextField.self,

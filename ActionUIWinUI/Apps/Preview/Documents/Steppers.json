@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Stepper", "id": 2, "properties": { "label": "Quantity", "value": 5, "range": { "min": 0, "max": 10 } } },
+    { "type": "Stepper", "id": 3, "properties": { "labelFormat": "Rating: %.1f", "value": 2.5, "step": 0.5 } },
+    { "type": "Stepper", "id": 4, "properties": { "label": "At its top", "value": 10, "range": { "min": 0, "max": 10 } } },
+    { "type": "Stepper", "id": 5, "properties": { "label": "", "value": 1 } },
+    {
+      "type": "Stepper",
+      "id": 6,
+      "properties": { "labelFormat": "Count: %d", "value": 3, "range": { "min": 0, "max": 5 }, "actionID": "count.changed" }
+    },
+    { "type": "Text", "id": 7, "properties": { "text": "Not stepped yet", "foregroundStyle": "secondary" } }
+  ]
+}

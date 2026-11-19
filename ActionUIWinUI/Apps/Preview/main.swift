@@ -9,6 +9,8 @@
 //                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
 //   --invoke-row ID ROW      the same with the element List ID shows in row ROW (from 0; a Button cell)
+//   --invoke-part ID N       the same with the Nth part (from 0) of element ID that can be invoked (a
+//                            Stepper's minus is 0, its plus 1)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed; a
 //                            Slider's position, TEXT read as a number)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
@@ -46,12 +48,12 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), invokeRow(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
+        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
              setProperty(Int, String, String), addRow(Int, String)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .invokeRow(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
+            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
                  .addRow(let id, _):
                 return id
             }
@@ -61,7 +63,7 @@ final class Preview {
         var changesModel: Bool {
             switch self {
             case .setProperty, .addRow: true
-            case .invoke, .invokeRow, .toggle, .setText, .scroll: false
+            case .invoke, .invokeRow, .invokePart, .toggle, .setText, .scroll: false
             }
         }
     }
@@ -183,6 +185,9 @@ final class Preview {
                     worked = false
                 }
                 what = "invoked row \(row) of"
+            case .invokePart(_, let part):
+                worked = actionUIWinUIAutomationInvokePart(view.pointer, Int32(part))
+                what = "invoked part \(part) of"
             case .toggle:
                 worked = actionUIWinUIAutomationToggle(view.pointer)
                 what = "toggled"
@@ -345,7 +350,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -371,6 +376,10 @@ while index < arguments.count {
     } else if option == "--invoke-row", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
               let row = Int(arguments[index + 2]) {
         preview.invocations.append(.invokeRow(viewID, row))
+        index += 3
+    } else if option == "--invoke-part", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let part = Int(arguments[index + 2]) {
+        preview.invocations.append(.invokePart(viewID, part))
         index += 3
     } else if option == "--toggle", index + 1 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.toggle(viewID))

@@ -318,6 +318,9 @@ ACTIONUI_WINUI_API bool actionUIWinUITextBoxOnSubmit(ActionUIWinUIObject *textBo
 // reader or a test drives. Invoke presses a button: its Click handler runs during the call. Fails
 // when the element has no peer or the peer cannot be invoked.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element);
+// Invokes the `index`th element (from 0) inside `element` that can be invoked, in the visual tree's order
+// (a Stepper's minus, then plus); fails when there is none at that index.
+ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvokePart(ActionUIWinUIObject *element, int32_t index);
 // Toggle turns a check box or a toggle switch over (its Click, or Toggled, follows). Fails when
 // the element cannot be toggled.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element);

@@ -40,42 +40,6 @@ struct LocalDay: Equatable {
     var day: Int
 }
 
-/// Two controls side by side, `spacing` apart, centered on each other's middle.
-@MainActor final class ControlRow {
-    static let spacing = 8.0
-
-    let panel: LayoutPanel
-    let first: WinUIObject
-    let second: WinUIObject
-    private var measuredFirst = ActionUIWinUISize(width: 0, height: 0)
-    private var measuredSecond = ActionUIWinUISize(width: 0, height: 0)
-
-    init(_ first: WinUIObject, _ second: WinUIObject) throws(WinUIError) {
-        panel = try LayoutPanel()
-        self.first = first
-        self.second = second
-        try panel.append(first)
-        try panel.append(second)
-        panel.measure = { [unowned self] available in measure(available) }
-        panel.arrange = { [unowned self] finalSize in arrange(finalSize) }
-    }
-
-    private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
-        let unbounded = ActionUIWinUISize(width: .infinity, height: available.height)
-        measuredFirst = first.measure(unbounded)
-        measuredSecond = second.measure(unbounded)
-        return ActionUIWinUISize(width: measuredFirst.width + Self.spacing + measuredSecond.width,
-                                 height: max(measuredFirst.height, measuredSecond.height))
-    }
-
-    private func arrange(_ finalSize: ActionUIWinUISize) {
-        first.arrange(ActionUIWinUIRect(x: 0, y: (finalSize.height - measuredFirst.height) / 2,
-                                        width: measuredFirst.width, height: measuredFirst.height))
-        second.arrange(ActionUIWinUIRect(x: measuredFirst.width + Self.spacing, y: (finalSize.height - measuredSecond.height) / 2,
-                                         width: measuredSecond.width, height: measuredSecond.height))
-    }
-}
-
 /// A DatePicker's layout, its controls and what they show.
 @MainActor final class DatePickerState {
     let layout: TitledControlLayout
