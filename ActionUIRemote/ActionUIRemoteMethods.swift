@@ -388,7 +388,17 @@ enum ActionUIRemoteMethods {
             }
             let data: Data
             do {
-                data = try Data(contentsOf: url)
+                // Only a regular file: a device or a named pipe would never finish (or never
+                // start) reading on the main thread.
+                let resolved = url.resolvingSymlinksInPath().path
+                let type = try FileManager.default.attributesOfItem(atPath: resolved)[.type] as? FileAttributeType
+                guard type == .typeRegular else {
+                    throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
+                                              message: "Cannot read modal resource \(url.path): not a regular file")
+                }
+                data = try Data(contentsOf: URL(fileURLWithPath: resolved))
+            } catch let error as ActionUIRemoteError {
+                throw error
             } catch {
                 #if os(macOS)
                 let reason = error.localizedDescription

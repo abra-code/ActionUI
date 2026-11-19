@@ -38,12 +38,18 @@ private let sharedStorage = SharedServerStorage()
 /// the handler runs the process is on its way out. `nil` when no shared server is running.
 private nonisolated(unsafe) var atexitSocketPath: UnsafeMutablePointer<CChar>?
 private nonisolated(unsafe) var atexitRegistered = false
+/// The process that started the shared server. A child forked without exec inherits the atexit
+/// handler, and its `exit()` must not remove the parent's live socket.
+private nonisolated(unsafe) var atexitOwnerPID: pid_t = 0
 
 /// Last resort: `NSApplication.terminate` ends in libc `exit()`, and so does any host that calls
 /// it directly, which runs neither a Swift `defer` nor a Python `atexit` nor a Node `exit` event.
 /// Only unlinks; closing connections properly is the job of the host's termination hook.
 private func unlinkSharedSocketAtExit() {
-    if let path = atexitSocketPath {
+    guard getpid() == atexitOwnerPID, let path = atexitSocketPath else { return }
+    // Only a socket this user owns: not a file that has taken the name since.
+    var status = stat()
+    if lstat(path, &status) == 0, status.st_mode & S_IFMT == S_IFSOCK, status.st_uid == geteuid() {
         unlink(path)
     }
 }
@@ -223,6 +229,7 @@ public extension ActionUIRemoteServer {
         sharedStorage.starting = false
         free(atexitSocketPath)
         atexitSocketPath = strdup(path)
+        atexitOwnerPID = getpid()
         if !atexitRegistered {
             atexitRegistered = true
             atexit(unlinkSharedSocketAtExit)
