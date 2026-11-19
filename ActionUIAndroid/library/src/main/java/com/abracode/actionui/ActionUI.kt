@@ -54,11 +54,13 @@ object ActionUI {
     private val json: Json = ActionUIJson
 
     /**
-     * Default logger used when callers don't supply one. Swap globally for
-     * tests by assigning a different [ActionUILogger]; per-call overrides are
-     * preferred for non-default behavior.
+     * Default logger used when callers don't supply one: warnings and errors in a
+     * release build of the library, every level in a debug build
+     * ([ConsoleLogger.defaultMaxLevel]). Swap globally for tests by assigning a
+     * different [ActionUILogger]; per-call overrides are preferred for non-default
+     * behavior.
      */
-    var defaultLogger: ActionUILogger = ConsoleLogger()
+    var defaultLogger: ActionUILogger = ConsoleLogger(ConsoleLogger.defaultMaxLevel)
 
     /**
      * Default image registry used when callers don't pass `images` - the asset

@@ -15,7 +15,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * frequently.
  */
 val LocalActionUILogger: ProvidableCompositionLocal<ActionUILogger> =
-    staticCompositionLocalOf { ConsoleLogger() }
+    staticCompositionLocalOf { ConsoleLogger(ConsoleLogger.defaultMaxLevel) }
 
 /**
  * Logger interface for the ActionUI library with leveled messages.
