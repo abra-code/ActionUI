@@ -1,0 +1,11 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "SecureField", "id": 2, "properties": { "title": "Password", "valueChangeActionID": "empty.changed" } },
+    { "type": "SecureField", "id": 3, "properties": { "prompt": "With a prompt", "text": "secret", "valueChangeActionID": "filled.changed" } },
+    { "type": "SecureField", "id": 4, "properties": { "prompt": "Typed into through UI Automation", "valueChangeActionID": "typed.changed" } },
+    { "type": "Text", "id": 5, "properties": { "text": "Nothing typed yet", "foregroundStyle": "secondary" } }
+  ]
+}

@@ -1,5 +1,5 @@
-// Inputs.cpp - the controls that change a value: CheckBox, ToggleSwitch, TextBox; and operating
-// them through UI Automation (toggle, set a value), as accessibility tools and tests do.
+// Inputs.cpp - the controls that change a value: CheckBox, ToggleSwitch, TextBox, PasswordBox; and
+// operating them through UI Automation (toggle, set a value), as accessibility tools and tests do.
 
 #include "ShimInternal.h"
 
@@ -134,11 +134,26 @@ ActionUIWinUIObject *actionUIWinUITextBoxCreate(void) {
     });
 }
 
+ActionUIWinUIObject *actionUIWinUIPasswordBoxCreate(void) {
+    return guardedObject("password box create", []() {
+        muxc::PasswordBox box;
+        // No button to show the text, as macOS's SecureField has none.
+        box.PasswordRevealMode(muxc::PasswordRevealMode::Hidden);
+        return toObject(box);
+    });
+}
+
 bool actionUIWinUITextBoxSetText(ActionUIWinUIObject *textBox, const char *text) {
     return guarded("text box set text", [&]() {
-        muxc::TextBox typed = objectAs<muxc::TextBox>(textBox, L"TextBox");
         winrt::hstring wanted = toHString(text);
         // Only when it differs: setting the text moves the caret.
+        if (muxc::PasswordBox password = objectAs<wf::IInspectable>(textBox, L"IInspectable").try_as<muxc::PasswordBox>()) {
+            if (password.Password() != wanted) {
+                password.Password(wanted);
+            }
+            return true;
+        }
+        muxc::TextBox typed = objectAs<muxc::TextBox>(textBox, L"TextBox or PasswordBox");
         if (typed.Text() != wanted) {
             typed.Text(wanted);
         }
@@ -149,7 +164,10 @@ bool actionUIWinUITextBoxSetText(ActionUIWinUIObject *textBox, const char *text)
 char *actionUIWinUITextBoxCopyText(ActionUIWinUIObject *textBox) {
     char *copy = nullptr;
     guarded("text box copy text", [&]() {
-        std::string utf8 = winrt::to_string(objectAs<muxc::TextBox>(textBox, L"TextBox").Text());
+        wf::IInspectable object = objectAs<wf::IInspectable>(textBox, L"IInspectable");
+        muxc::PasswordBox password = object.try_as<muxc::PasswordBox>();
+        std::string utf8 = winrt::to_string(password != nullptr ? password.Password()
+                                                                : objectAs<muxc::TextBox>(textBox, L"TextBox or PasswordBox").Text());
         copy = static_cast<char *>(malloc(utf8.size() + 1));
         if (copy == nullptr) {
             return fail("text box copy text", "out of memory");
@@ -166,7 +184,11 @@ void actionUIWinUIFreeString(char *string) {
 
 bool actionUIWinUITextBoxSetPlaceholder(ActionUIWinUIObject *textBox, const char *placeholder) {
     return guarded("text box set placeholder", [&]() {
-        objectAs<muxc::TextBox>(textBox, L"TextBox").PlaceholderText(toHString(placeholder));
+        if (muxc::PasswordBox password = objectAs<wf::IInspectable>(textBox, L"IInspectable").try_as<muxc::PasswordBox>()) {
+            password.PlaceholderText(toHString(placeholder));
+            return true;
+        }
+        objectAs<muxc::TextBox>(textBox, L"TextBox or PasswordBox").PlaceholderText(toHString(placeholder));
         return true;
     });
 }
@@ -195,7 +217,12 @@ bool actionUIWinUITextBoxOnTextChanged(ActionUIWinUIObject *textBox, ActionUIWin
                                        ActionUIWinUICallback destroyContext) {
     return registerHandler("text box on text changed", handler, context, destroyContext,
                            [&](std::shared_ptr<EventHandler> const &holder) {
-                               objectAs<muxc::TextBox>(textBox, L"TextBox")
+                               if (muxc::PasswordBox password =
+                                       objectAs<wf::IInspectable>(textBox, L"IInspectable").try_as<muxc::PasswordBox>()) {
+                                   password.PasswordChanged([holder](auto &&, auto &&) { holder->fire(); });
+                                   return;
+                               }
+                               objectAs<muxc::TextBox>(textBox, L"TextBox or PasswordBox")
                                    .TextChanged([holder](auto &&, auto &&) { holder->fire(); });
                            });
 }
@@ -204,7 +231,8 @@ bool actionUIWinUITextBoxOnSubmit(ActionUIWinUIObject *textBox, ActionUIWinUICal
                                   ActionUIWinUICallback destroyContext) {
     return registerHandler("text box on submit", handler, context, destroyContext,
                            [&](std::shared_ptr<EventHandler> const &holder) {
-                               muxc::TextBox typed = objectAs<muxc::TextBox>(textBox, L"TextBox");
+                               // A TextBox or a PasswordBox: both are Controls with these events.
+                               muxc::Control typed = objectAs<muxc::Control>(textBox, L"TextBox or PasswordBox");
                                typed.KeyDown([holder](auto &&, mux::Input::KeyRoutedEventArgs const &args) {
                                    if (args.Key() == winrt::Windows::System::VirtualKey::Enter) {
                                        holder->fire();
@@ -253,6 +281,12 @@ bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *v
                 return fail("automation set value", "the value is not a number");
             }
             ranger.SetValue(number);
+            return true;
+        }
+        // A PasswordBox whose peer offers no Value pattern (a password is not read out) is set as typing
+        // replaces it, through Password, which raises PasswordChanged as typing does.
+        if (muxc::PasswordBox password = typed.try_as<muxc::PasswordBox>()) {
+            password.Password(toHString(value));
             return true;
         }
         // WinUI 2.7's TextBox peer offers no Value pattern (measured on a Windows runner): its text

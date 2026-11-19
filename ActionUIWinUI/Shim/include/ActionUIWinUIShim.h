@@ -310,10 +310,14 @@ ACTIONUI_WINUI_API bool actionUIWinUIListOnSelectionChanged(ActionUIWinUIObject 
 ACTIONUI_WINUI_API bool actionUIWinUIListOnActivated(ActionUIWinUIObject *list, ActionUIWinUICallback handler,
                                                     void *context, ActionUIWinUICallback destroyContext);
 
-// MARK: - TextBox
+// MARK: - TextBox and PasswordBox
 
 // A new TextBox (one line of editable text), empty. NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUITextBoxCreate(void);
+// A new PasswordBox (one line of text shown as dots, without a button that shows it), empty. The
+// TextBox calls below take it too (its password for the text), except SetMultiline and SetReadOnly.
+// NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIPasswordBoxCreate(void);
 // Replaces the text, only when it differs (setting it moves the caret).
 ACTIONUI_WINUI_API bool actionUIWinUITextBoxSetText(ActionUIWinUIObject *textBox, const char *text);
 // The text now, as a new UTF-8 string the caller frees with actionUIWinUIFreeString; NULL on
@@ -351,7 +355,7 @@ ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *eleme
 // SetValue replaces an element's value through UI Automation's Value pattern (its change event
 // follows); one with a RangeValue pattern instead (a Slider) gets `value` read as a number. A TextBox,
 // whose peer has no Value pattern in WinUI 2.7, gets its text set directly, which raises TextChanged as
-// typing does. Fails when the element takes no value.
+// typing does, and a PasswordBox without one its password. Fails when the element takes no value.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *value);
 
 // MARK: - Layout
