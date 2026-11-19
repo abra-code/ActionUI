@@ -359,11 +359,15 @@ final class StackLayout {
 /// Makes a stack node's children match its element's (RenderNode.syncChildren) and puts their
 /// boxes (RenderNode.outerView) in the stack, with how each expands (RenderNode.expansion, caps).
 @MainActor func syncStackContent(_ node: RenderNode, _ stack: StackLayout) {
-    let children = node.syncChildren(node.subviews("children"))
-    stack.setItems(children.compactMap { child in
+    stack.setItems(stackItems(node.syncChildren(node.subviews("children"))))
+}
+
+/// A stack's items for its child nodes, in order (a child with no object has none).
+@MainActor func stackItems(_ children: [RenderNode]) -> [StackLayout.Item] {
+    children.compactMap { child in
         guard let view = child.outerView else { return nil }
         let spacerMinimum = child.element.type == "Spacer" ? (Spacer.Props(child.properties).minLength ?? Spacer.defaultMinLength) : nil
         return StackLayout.Item(view: view, spacerMinimum: spacerMinimum, expansion: child.expansion, cap: child.caps,
                                 compressible: child.compression)
-    })
+    }
 }

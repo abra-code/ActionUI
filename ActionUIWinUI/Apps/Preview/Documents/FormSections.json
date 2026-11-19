@@ -1,0 +1,51 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 16, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "Form",
+      "id": 2,
+      "children": [
+        { "type": "Text", "id": 3, "properties": { "text": "A row of the Form" } },
+        {
+          "type": "Section",
+          "id": 4,
+          "properties": { "header": "Account" },
+          "children": [
+            { "type": "TextField", "id": 5, "properties": { "prompt": "Name", "frame": { "width": 220 } } },
+            { "type": "Toggle", "id": 6, "properties": { "title": "Remember me", "isOn": true } }
+          ]
+        },
+        {
+          "type": "Section",
+          "id": 7,
+          "properties": { "header": "Notifications" },
+          "children": [
+            { "type": "Toggle", "id": 8, "properties": { "title": "Sounds", "style": "switch" } }
+          ]
+        },
+        {
+          "type": "Section",
+          "id": 9,
+          "children": [ { "type": "Button", "id": 10, "properties": { "title": "A Section without a header" } } ]
+        }
+      ]
+    },
+    { "type": "Divider", "id": 11 },
+    {
+      "type": "VStack",
+      "id": 12,
+      "properties": { "spacing": 12, "alignment": "leading" },
+      "children": [
+        { "type": "Text", "id": 13, "properties": { "text": "A VStack 12 apart" } },
+        {
+          "type": "Section",
+          "id": 14,
+          "properties": { "header": "A Section in it" },
+          "children": [ { "type": "Text", "id": 15, "properties": { "text": "Its row" } } ]
+        }
+      ]
+    }
+  ]
+}
