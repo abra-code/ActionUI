@@ -105,8 +105,15 @@ tarball="$work/swift.tar.gz"
 for pair in "$url|$tarball" "$url.sig|$tarball.sig" "$keys_url|$work/all-keys.asc"; do
     source_url="${pair%%|*}"
     target="${pair#*|}"
+    # www.swift.org sends the key file gzip-encoded even to a client that did not ask for it;
+    # --compressed decodes it. Only for the keys: the toolchain and its signature are kept byte for
+    # byte, as the signature covers the bytes served.
+    decode=""
+    if [ "$source_url" = "$keys_url" ]; then
+        decode="--compressed"
+    fi
     printf 'install-swift: downloading %s\n' "$source_url"
-    /usr/bin/curl --fail --silent --show-error --location --retry 3 -o "$target" "$source_url"
+    /usr/bin/curl --fail --silent --show-error --location --retry 3 $decode -o "$target" "$source_url"
     status=$?
     if [ "$status" -ne 0 ]; then
         printf 'install-swift: downloading %s failed (curl status %s); is %s a swift.org platform with a %s release?\n' \
