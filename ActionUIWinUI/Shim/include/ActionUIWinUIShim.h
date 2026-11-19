@@ -107,6 +107,13 @@ ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetText(ActionUIWinUIObject *textB
 // Whether the text wraps onto more lines when it is offered less width than one line needs (at
 // word boundaries, and inside a word that does not fit). A new TextBlock does not wrap.
 ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *textBlock, bool wraps);
+typedef enum ActionUIWinUITextAlignment {
+    ActionUIWinUITextLeading = 0,
+    ActionUIWinUITextCenter = 1,
+    ActionUIWinUITextTrailing = 2,
+} ActionUIWinUITextAlignment;
+// How the lines of a wrapping text line up in its width (left to right only: leading is the left).
+ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetAlignment(ActionUIWinUIObject *textBlock, ActionUIWinUITextAlignment alignment);
 
 // MARK: - Events
 

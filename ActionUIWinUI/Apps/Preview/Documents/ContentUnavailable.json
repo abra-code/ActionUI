@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "padding": 16 },
+  "children": [
+    {
+      "type": "ContentUnavailableView",
+      "id": 2,
+      "properties": { "title": "No Messages", "systemImage": "tray", "description": "Messages you receive show here." }
+    },
+    { "type": "Divider", "id": 3 },
+    { "type": "ContentUnavailableView", "id": 4, "properties": { "search": true, "query": "planets" } },
+    { "type": "Divider", "id": 5 },
+    { "type": "ContentUnavailableView", "id": 6, "properties": { "title": "A title alone" } },
+    { "type": "Divider", "id": 7 },
+    {
+      "type": "HStack",
+      "id": 8,
+      "properties": { "frame": { "width": 260 } },
+      "children": [
+        { "type": "ContentUnavailableView", "id": 9, "properties": { "title": "In a narrow row, the title wraps" } },
+        { "type": "Text", "id": 10, "properties": { "text": "Beside it" } }
+      ]
+    }
+  ]
+}

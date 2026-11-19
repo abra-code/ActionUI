@@ -29,4 +29,14 @@ bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *textBlock, bool wraps) 
     });
 }
 
+bool actionUIWinUITextBlockSetAlignment(ActionUIWinUIObject *textBlock, ActionUIWinUITextAlignment alignment) {
+    return guarded("text block set alignment", [&]() {
+        mux::TextAlignment wanted = alignment == ActionUIWinUITextCenter   ? mux::TextAlignment::Center
+                                    : alignment == ActionUIWinUITextTrailing ? mux::TextAlignment::Right
+                                                                             : mux::TextAlignment::Left;
+        objectAs<muxc::TextBlock>(textBlock, L"TextBlock").TextAlignment(wanted);
+        return true;
+    });
+}
+
 } // extern "C"
