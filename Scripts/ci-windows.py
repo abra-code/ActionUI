@@ -68,6 +68,7 @@ SMOKE_TIMEOUT_SECONDS = 180
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
 PREVIEW_OPTIONS = {
     "Floors": ["420", "380"],
+    "NestedFloors": ["420", "420"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
     "Shapes": ["420", "340"],

@@ -24,10 +24,12 @@
    a control fill, "background" the window's), fills the frame behind the element.
 
  Not yet: overlay, border, cornerRadius, opacity, offset, hidden, background views, and the other
- base modifiers the GTK ModifierBox applies. A frame larger than the room its parent has (a
- 220-wide frame in a 150-wide stack) is cut off at that room, where SwiftUI lets it overflow,
- centered: WinUI clips a child arranged larger than the size it measured to (measured on a Windows
- runner).
+ base modifiers the GTK ModifierBox applies.
+
+ Content larger than its frame (a 220-wide column in a frame 150 wide) overflows it, centered or by
+ the frame's alignment, as in SwiftUI: the group reports at most the room it was offered to WinUI
+ (LayoutPanel), so WinUI arranges it at the frame's size, not at its content's size aligned to the
+ top leading corner and clipped.
 */
 
 import CWinUI

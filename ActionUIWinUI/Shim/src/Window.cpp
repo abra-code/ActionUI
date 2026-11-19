@@ -45,7 +45,11 @@ mux::Media::Brush pageBackground() {
     return mux::Media::SolidColorBrush(winrt::Windows::UI::Color{255, 255, 255, 255});
 }
 
-// The window's host Grid, made and set as its content the first time.
+// The window's host Grid, made and set as its content the first time. It holds one Grid, the content
+// area, which holds the element and is clipped to its own size, as the window's edge clips it: content
+// larger than the window overflows it centered, as in SwiftUI. The clip is on the inner Grid because
+// RenderTargetBitmap sizes its picture by everything under the element it renders, ignoring that
+// element's own clip: clipped there, the window's PNG would grow by the overflow.
 muxc::Grid windowHost(mux::Window const &window) {
     muxc::Grid host = window.Content().try_as<muxc::Grid>();
     if (host != nullptr && host.Name() == hostName) {
@@ -54,8 +58,20 @@ muxc::Grid windowHost(mux::Window const &window) {
     host = muxc::Grid();
     host.Name(hostName);
     host.Background(pageBackground());
+    muxc::Grid area;
+    area.SizeChanged([](wf::IInspectable const &sender, mux::SizeChangedEventArgs const &args) {
+        mux::Media::RectangleGeometry clip;
+        clip.Rect(wf::Rect{0, 0, args.NewSize().Width, args.NewSize().Height});
+        sender.as<mux::UIElement>().Clip(clip);
+    });
+    host.Children().Append(area);
     window.Content(host);
     return host;
+}
+
+// The Grid inside the host that holds the window's element (windowHost).
+muxc::Grid windowContentArea(mux::Window const &window) {
+    return windowHost(window).Children().GetAt(0).as<muxc::Grid>();
 }
 
 
@@ -197,10 +213,10 @@ bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObj
         if (element != nullptr) {
             typed = objectAs<mux::UIElement>(element, L"UIElement");
         }
-        muxc::Grid host = windowHost(windowFrom(window));
-        host.Children().Clear();
+        muxc::Grid area = windowContentArea(windowFrom(window));
+        area.Children().Clear();
         if (typed != nullptr) {
-            host.Children().Append(typed);
+            area.Children().Append(typed);
         }
         return true;
     });

@@ -4,7 +4,11 @@
  renderer's ZStackLayout: each child is offered the ZStack's room; the ZStack is as large as its
  largest child in each axis; each child is placed by the ZStack's alignment, and a child that
  expands in an axis (a Color, a frame with a maximum) takes the ZStack's whole size in it, up to
- its cap.
+ its cap and at least what it asks for.
+
+ Each child's size is what it asks for even beyond the room (WinUIObject.measureRequested), so a
+ ZStack measured with nothing offered has its largest child's padding and frame minimum, its
+ smallest size for a stack that squeezes it.
 */
 
 import CWinUI
@@ -58,7 +62,7 @@ final class ZStackLayout {
         var height = 0
         self.desired = [:]
         for item in items {
-            let desired = item.view.measure(available)
+            let desired = item.view.measureRequested(available)
             self.desired[ObjectIdentifier(item.view)] = desired
             width = max(width, StackSolver.length(desired.width, rounding: .up))
             height = max(height, StackSolver.length(desired.height, rounding: .up))
@@ -67,19 +71,18 @@ final class ZStackLayout {
     }
 
     /// A child's size in one axis of the ZStack's `size`: all of it (up to its cap) when it expands
-    /// there, else what it asked for, at most the ZStack's size.
+    /// there, and at least what it asked for, even beyond the ZStack's size (placed by the
+    /// alignment, overflowing the ZStack as in SwiftUI).
     private func length(desired: Double, size: Int, expands: Bool, cap: Int?) -> Int {
-        if expands {
-            return min(size, cap ?? size)
-        }
-        return min(StackSolver.length(desired, rounding: .up), size)
+        let asked = StackSolver.length(desired, rounding: .up)
+        return expands ? max(min(size, cap ?? size), asked) : asked
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
         let width = StackSolver.length(finalSize.width)
         let height = StackSolver.length(finalSize.height)
         for item in items {
-            let desired = self.desired[ObjectIdentifier(item.view)] ?? item.view.measure(finalSize)
+            let desired = self.desired[ObjectIdentifier(item.view)] ?? item.view.measureRequested(finalSize)
             let childWidth = length(desired: desired.width, size: width, expands: item.expansion.contains(.horizontal),
                                     cap: item.cap.horizontal)
             let childHeight = length(desired: desired.height, size: height, expands: item.expansion.contains(.vertical),

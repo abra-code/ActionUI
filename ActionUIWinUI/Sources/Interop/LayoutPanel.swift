@@ -29,7 +29,12 @@ private let measurePanel: ActionUIWinUIMeasureCallback = { context, _, available
         guard let panel = box?.panel else { return ActionUIWinUISize(width: 0, height: 0) }
         let size = panel.measure(available)
         panel.requested = size
-        return size
+        // WinUI gets no more than it offered: its desired size is capped there anyway, but an
+        // element whose measure asked for more is arranged at least that large, aligned to its
+        // slot's top leading corner and clipped to the slot. ActionUI's parents read the full
+        // answer (requested) and place a larger child themselves, centered or by its alignment, as
+        // SwiftUI lets it overflow.
+        return ActionUIWinUISize(width: min(size.width, available.width), height: min(size.height, available.height))
     }
 }
 
@@ -57,8 +62,8 @@ private let releaseBox: ActionUIWinUICallback = { context in
 
     /// Given the size offered, measures the children and returns the size the panel wants.
     package var measure: (ActionUIWinUISize) -> ActionUIWinUISize = { _ in ActionUIWinUISize(width: 0, height: 0) }
-    /// What `measure` last returned, before WinUI capped it at the size offered (its desired size
-    /// is never larger): WinUIObject.measureRequested.
+    /// What `measure` last returned, which can be larger than the size offered; WinUI gets it
+    /// capped there (measurePanel): WinUIObject.measureRequested.
     package fileprivate(set) var requested = ActionUIWinUISize(width: 0, height: 0)
     /// Places every child inside the final size.
     package var arrange: (ActionUIWinUISize) -> Void = { _ in }

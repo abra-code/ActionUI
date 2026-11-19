@@ -1,0 +1,172 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "spacing": 12,
+    "alignment": "leading",
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "id": 3,
+          "properties": {
+            "alignment": "leading",
+            "background": "fill.secondary"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "id": 4,
+              "properties": {
+                "text": "Column 130",
+                "frame": {
+                  "minWidth": 130,
+                  "alignment": "leading"
+                }
+              }
+            },
+            {
+              "type": "Text",
+              "id": 5,
+              "properties": {
+                "text": "and a line"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Text",
+          "id": 6,
+          "properties": {
+            "text": "A column's smallest width is its widest child's: this text wraps beside it."
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 7,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "ZStack",
+          "id": 8,
+          "properties": {
+            "background": "fill.secondary"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "id": 9,
+              "properties": {
+                "text": "ZStack 130",
+                "frame": {
+                  "minWidth": 130
+                },
+                "padding": 8
+              }
+            }
+          ]
+        },
+        {
+          "type": "Text",
+          "id": 10,
+          "properties": {
+            "text": "A ZStack keeps its child's minimum and padding beside this text."
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 11,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "id": 12,
+          "properties": {
+            "background": "fill.secondary"
+          },
+          "children": [
+            {
+              "type": "HStack",
+              "id": 13,
+              "children": [
+                {
+                  "type": "Text",
+                  "id": 14,
+                  "properties": {
+                    "text": "Row 110",
+                    "frame": {
+                      "minWidth": 110
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Text",
+          "id": 15,
+          "properties": {
+            "text": "A row in a column keeps its minimum beside this text."
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 16,
+      "properties": {
+        "alignment": "leading",
+        "frame": {
+          "width": 150
+        },
+        "background": "blue.opacity(0.15)"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 17,
+          "properties": {
+            "text": "Leading"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 18,
+          "properties": {
+            "text": "220 in a 150 column",
+            "frame": {
+              "width": 220
+            },
+            "background": "orange.opacity(0.3)"
+          }
+        }
+      ]
+    }
+  ]
+}
