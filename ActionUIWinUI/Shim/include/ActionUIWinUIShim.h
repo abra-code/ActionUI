@@ -228,6 +228,23 @@ ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIProgressCreate(ActionUIWinU
 // unknown progress (not determinate: value and total are ignored).
 ACTIONUI_WINUI_API bool actionUIWinUIProgressSet(ActionUIWinUIObject *progress, bool determinate, double value, double total);
 
+// MARK: - Gauge drawings (a Gauge's forms WinUI has no control for)
+
+typedef enum ActionUIWinUIGaugeShape {
+    // A bar across the width with a dot at the value (4 px line, 8 px dot), centered in the height.
+    ActionUIWinUIGaugeBar = 0,
+    // An open arc of three quarters, its gap at the bottom, with a dot at the value (6 px line).
+    ActionUIWinUIGaugeArc = 1,
+    // A full ring filled clockwise from the top (6 px line).
+    ActionUIWinUIGaugeRing = 2,
+} ActionUIWinUIGaugeShape;
+
+// A new gauge drawing at a fraction of 0, in the accent color over a faint track; it draws itself for
+// the size it is arranged at (the arc and the ring as large as fit, centered). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIGaugeDrawingCreate(ActionUIWinUIGaugeShape shape);
+// Shows `fraction` (0...1; outside is clamped, not a number is 0) of the gauge filled.
+ACTIONUI_WINUI_API bool actionUIWinUIGaugeDrawingSetFraction(ActionUIWinUIObject *drawing, double fraction);
+
 // MARK: - Date and time controls (a DatePicker's)
 
 // Days are local calendar days (Gregorian, the system's time zone); times are minutes after midnight.

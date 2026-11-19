@@ -16,6 +16,7 @@ extension ActionUIRegistry {
         "DatePicker": DatePicker.self,
         "Divider": Divider.self,
         "Ellipse": Ellipse.self,
+        "Gauge": Gauge.self,
         "GroupBox": GroupBox.self,
         "HStack": HStack.self,
         "Image": Image.self,

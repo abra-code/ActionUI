@@ -96,6 +96,7 @@ PREVIEW_OPTIONS = {
     "Steppers": ["420", "320", "--invoke-part", "6", "1", "--invoke-part", "6", "1", "--invoke-part", "6", "1",
                  "--expect-action", "count.changed", "--on-action", "count.changed", "7", "Stepped up three times"],
     "ContentUnavailable": ["460", "640"],
+    "Gauges": ["420", "360", "--set-value", "7", "80"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

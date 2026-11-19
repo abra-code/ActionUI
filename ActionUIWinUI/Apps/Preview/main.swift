@@ -18,6 +18,8 @@
 //                            does (a List's rows), its columns TEXT split at "|"; repeatable, in order.
 //                            An operation on an element after rows or properties changed waits for
 //                            the change to reach the screen (a template row's controls are made then)
+//   --set-value ID VALUE     sets element ID's value through the model, as an adapter does (VALUE a
+//                            number when it reads as one, else a string)
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
 //                            does (VALUE a number when it reads as one, else a string)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
@@ -49,11 +51,11 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
-             setProperty(Int, String, String), addRow(Int, String)
+             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
+            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
                  .addRow(let id, _):
                 return id
             }
@@ -62,7 +64,7 @@ final class Preview {
         /// Whether it changes the model rather than operating an element on screen.
         var changesModel: Bool {
             switch self {
-            case .setProperty, .addRow: true
+            case .setProperty, .setValue, .addRow: true
             case .invoke, .invokeRow, .invokePart, .toggle, .setText, .scroll: false
             }
         }
@@ -207,6 +209,11 @@ final class Preview {
                 ActionUIModel.shared.setElementProperty(windowUUID: "preview", viewID: viewID, propertyName: name, value: value)
                 worked = true
                 what = "set \(name) to \(text) on"
+            case .setValue(_, let text):
+                let value: Any = Double(text) ?? text
+                ActionUIModel.shared.setElementValue(windowUUID: "preview", viewID: viewID, value: value)
+                worked = true
+                what = "set the value to \(text) of"
             case .addRow(_, let text):
                 let columns = text.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
                 ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: [columns])
@@ -350,7 +357,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -394,6 +401,9 @@ while index < arguments.count {
     } else if option == "--set-property", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.setProperty(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4
+    } else if option == "--set-value", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
+        preview.invocations.append(.setValue(viewID, arguments[index + 2]))
+        index += 3
     } else if option == "--add-row", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.addRow(viewID, arguments[index + 2]))
         index += 3

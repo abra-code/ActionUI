@@ -1,0 +1,20 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 16, "padding": 16 },
+  "children": [
+    { "type": "Gauge", "id": 2, "properties": { "title": "No style", "value": 0.4 } },
+    { "type": "Gauge", "id": 3, "properties": { "title": "Linear capacity", "value": 30, "range": { "min": 0, "max": 100 }, "style": "accessoryLinearCapacity" } },
+    { "type": "Gauge", "id": 4, "properties": { "title": "Linear", "value": 0.7, "style": "accessoryLinear" } },
+    {
+      "type": "HStack",
+      "id": 5,
+      "properties": { "spacing": 24 },
+      "children": [
+        { "type": "Gauge", "id": 6, "properties": { "title": "72", "value": 0.72, "style": "accessoryCircular" } },
+        { "type": "Gauge", "id": 7, "properties": { "title": "Cap", "value": 45, "range": { "min": 0, "max": 100 }, "style": "accessoryCircularCapacity" } },
+        { "type": "Gauge", "id": 8, "properties": { "title": "Past", "value": 2, "style": "accessoryCircular" } }
+      ]
+    }
+  ]
+}
