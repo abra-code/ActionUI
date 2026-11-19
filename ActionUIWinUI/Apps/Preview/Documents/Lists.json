@@ -1,0 +1,28 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Rows a host sets", "font": "headline" } },
+    { "type": "List", "id": 3, "properties": { "actionID": "list.selected", "frame": { "height": 130 } } },
+    { "type": "Text", "id": 4, "properties": { "text": "Child elements", "font": "headline" } },
+    {
+      "type": "List",
+      "id": 5,
+      "properties": { "actionID": "children.selected", "frame": { "height": 130 } },
+      "children": [
+        { "type": "Text", "id": 6, "properties": { "text": "A text" } },
+        { "type": "Label", "id": 7, "properties": { "title": "A label with a symbol", "systemImage": "star.fill" } },
+        {
+          "type": "HStack",
+          "id": 8,
+          "children": [
+            { "type": "Text", "id": 9, "properties": { "text": "A row" } },
+            { "type": "Spacer", "id": 10 },
+            { "type": "Text", "id": 11, "properties": { "text": "split by a Spacer", "foregroundStyle": "secondary" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

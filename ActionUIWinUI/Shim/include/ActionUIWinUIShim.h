@@ -190,6 +190,30 @@ ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetColumns(ActionUIWinUIObject *choic
 ACTIONUI_WINUI_API bool actionUIWinUIChoiceOnSelectionChanged(ActionUIWinUIObject *choice, ActionUIWinUICallback handler,
                                                              void *context, ActionUIWinUICallback destroyContext);
 
+// MARK: - ListView (a List's rows)
+
+// A new ListView with no items and single selection. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIListCreate(void);
+// Removes every item.
+ACTIONUI_WINUI_API bool actionUIWinUIListClear(ActionUIWinUIObject *list);
+// Adds an item showing `text` (one line in the theme's body font).
+ACTIONUI_WINUI_API bool actionUIWinUIListAppendText(ActionUIWinUIObject *list, const char *text);
+// Adds an item showing `element` (a child element's box).
+ACTIONUI_WINUI_API bool actionUIWinUIListAppendElement(ActionUIWinUIObject *list, ActionUIWinUIObject *element);
+// Whether the user can select a row (false: rows show their content and take no selection).
+ACTIONUI_WINUI_API bool actionUIWinUIListSetSelectable(ActionUIWinUIObject *list, bool selectable);
+// Selects the item at `index` (from 0); -1, or an index past the items, selects none.
+ACTIONUI_WINUI_API bool actionUIWinUIListSetSelectedIndex(ActionUIWinUIObject *list, int32_t index);
+// The selected item's index, -1 when none is (or on failure).
+ACTIONUI_WINUI_API int32_t actionUIWinUIListGetSelectedIndex(ActionUIWinUIObject *list);
+// SelectionChanged: the selected row changed, by the user or by actionUIWinUIListSetSelectedIndex (callers
+// compare the new selection with what they hold).
+ACTIONUI_WINUI_API bool actionUIWinUIListOnSelectionChanged(ActionUIWinUIObject *list, ActionUIWinUICallback handler,
+                                                           void *context, ActionUIWinUICallback destroyContext);
+// Activated: the user double-clicked a row or pressed Return on it (the selected row is the one).
+ACTIONUI_WINUI_API bool actionUIWinUIListOnActivated(ActionUIWinUIObject *list, ActionUIWinUICallback handler,
+                                                    void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - TextBox
 
 // A new TextBox (one line of editable text), empty. NULL on failure.

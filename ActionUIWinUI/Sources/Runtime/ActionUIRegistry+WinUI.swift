@@ -20,6 +20,7 @@ extension ActionUIRegistry {
         "Label": Label.self,
         "Picker": Picker.self,
         "LabeledContent": LabeledContent.self,
+        "List": List.self,
         "Rectangle": Rectangle.self,
         "RoundedRectangle": RoundedRectangle.self,
         "ScrollView": ScrollView.self,

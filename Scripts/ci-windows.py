@@ -74,6 +74,7 @@ PREVIEW_OPTIONS = {
     "States": ["420", "320"],
     "Forms": ["420", "370"],
     "Pickers": ["460", "470"],
+    "Lists": ["420", "400", "--add-row", "3", "Apples", "--add-row", "3", "Bananas", "--add-row", "3", "Cherries"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

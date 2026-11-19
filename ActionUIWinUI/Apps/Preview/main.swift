@@ -10,6 +10,8 @@
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
+//   --add-row ID TEXT        appends a row of one column, TEXT, to element ID's content through the
+//                            model, as an adapter does (a List's rows); repeatable, in order
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
 //                            does (VALUE a number when it reads as one, else a string)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
@@ -38,11 +40,13 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), setProperty(Int, String, String)
+        case invoke(Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), setProperty(Int, String, String),
+             addRow(Int, String)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _):
+            case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
+                 .addRow(let id, _):
                 return id
             }
         }
@@ -160,6 +164,10 @@ final class Preview {
                 ActionUIModel.shared.setElementProperty(windowUUID: "preview", viewID: viewID, propertyName: name, value: value)
                 worked = true
                 what = "set \(name) to \(text) on"
+            case .addRow(_, let text):
+                ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: [[text]])
+                worked = true
+                what = "added the row \(text) to"
             }
             if worked {
                 say("\(what) \(node.element.type) \(viewID)")
@@ -297,7 +305,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -333,6 +341,9 @@ while index < arguments.count {
     } else if option == "--set-property", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.setProperty(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4
+    } else if option == "--add-row", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
+        preview.invocations.append(.addRow(viewID, arguments[index + 2]))
+        index += 3
     } else if option == "--expect-action", index + 1 < arguments.count {
         preview.expectedActions.append(arguments[index + 1])
         index += 2
