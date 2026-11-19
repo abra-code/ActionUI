@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Continuous, 0 to 1", "font": "headline" } },
+    { "type": "Slider", "id": 3, "properties": { "value": 0.25, "valueChangeActionID": "plain.changed" } },
+    { "type": "Text", "id": 4, "properties": { "text": "Steps of 10, 0 to 100", "font": "headline" } },
+    {
+      "type": "Slider",
+      "id": 5,
+      "properties": { "value": 40, "range": { "min": 0, "max": 100 }, "step": 10, "valueChangeActionID": "stepped.changed" }
+    },
+    { "type": "Text", "id": 6, "properties": { "text": "A value past its range", "font": "headline" } },
+    {
+      "type": "Slider",
+      "id": 7,
+      "properties": { "value": 15, "range": { "min": 0, "max": 10 }, "valueChangeActionID": "outside.changed" }
+    },
+    {
+      "type": "HStack",
+      "id": 8,
+      "children": [
+        { "type": "Text", "id": 9, "properties": { "text": "Moved" } },
+        { "type": "Slider", "id": 10, "properties": { "value": 0.1, "valueChangeActionID": "moved.changed" } },
+        { "type": "Color", "id": 11, "properties": { "color": "orange", "frame": { "height": 20 } } }
+      ]
+    },
+    { "type": "Text", "id": 12, "properties": { "text": "Not moved yet", "foregroundStyle": "secondary" } }
+  ]
+}

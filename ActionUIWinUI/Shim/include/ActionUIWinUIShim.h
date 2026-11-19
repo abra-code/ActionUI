@@ -190,6 +190,22 @@ ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetColumns(ActionUIWinUIObject *choic
 ACTIONUI_WINUI_API bool actionUIWinUIChoiceOnSelectionChanged(ActionUIWinUIObject *choice, ActionUIWinUICallback handler,
                                                              void *context, ActionUIWinUICallback destroyContext);
 
+// MARK: - Slider
+
+// A new horizontal Slider over 0...1, continuous, without the value shown beside its thumb. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUISliderCreate(void);
+// The range, and the step a dragged thumb snaps to from the minimum (0: continuous), with a tick below
+// for each step up to 200 steps; the arrow keys move by the step, else a hundredth of the range. Fails
+// when minimum is past maximum.
+ACTIONUI_WINUI_API bool actionUIWinUISliderSetRange(ActionUIWinUIObject *slider, double minimum, double maximum, double step);
+// Sets the position, when it differs. WinUI keeps it in the range and on a step, and reports the change.
+ACTIONUI_WINUI_API bool actionUIWinUISliderSetValue(ActionUIWinUIObject *slider, double value);
+// The position; 0 on failure.
+ACTIONUI_WINUI_API double actionUIWinUISliderGetValue(ActionUIWinUIObject *slider);
+// ValueChanged: the position changed, by the user and also by the setters above, during the call.
+ACTIONUI_WINUI_API bool actionUIWinUISliderOnValueChanged(ActionUIWinUIObject *slider, ActionUIWinUICallback handler,
+                                                          void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - Date and time controls (a DatePicker's)
 
 // Days are local calendar days (Gregorian, the system's time zone); times are minutes after midnight.
@@ -291,8 +307,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *eleme
 // the element cannot be toggled.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element);
 // SetValue replaces an element's value through UI Automation's Value pattern (its change event
-// follows). A TextBox, whose peer has no Value pattern in WinUI 2.7, gets its text set directly,
-// which raises TextChanged as typing does. Fails when the element takes no value.
+// follows); one with a RangeValue pattern instead (a Slider) gets `value` read as a number. A TextBox,
+// whose peer has no Value pattern in WinUI 2.7, gets its text set directly, which raises TextChanged as
+// typing does. Fails when the element takes no value.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *value);
 
 // MARK: - Layout

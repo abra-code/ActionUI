@@ -25,6 +25,7 @@ extension ActionUIRegistry {
         "Rectangle": Rectangle.self,
         "RoundedRectangle": RoundedRectangle.self,
         "ScrollView": ScrollView.self,
+        "Slider": Slider.self,
         "Spacer": Spacer.self,
         "Text": Text.self,
         "TextEditor": TextEditor.self,

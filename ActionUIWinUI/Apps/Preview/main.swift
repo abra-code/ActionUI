@@ -9,7 +9,8 @@
 //                            does (UI Automation's Invoke: a Button is pressed); repeatable, in order
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
 //   --invoke-row ID ROW      the same with the element List ID shows in row ROW (from 0; a Button cell)
-//   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed)
+//   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed; a
+//                            Slider's position, TEXT read as a number)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --add-row ID TEXT        appends a row to element ID's content through the model, as an adapter
 //                            does (a List's rows), its columns TEXT split at "|"; repeatable, in order.

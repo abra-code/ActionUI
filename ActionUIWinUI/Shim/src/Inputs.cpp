@@ -239,6 +239,22 @@ bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *v
             setter.SetValue(toHString(value));
             return true;
         }
+        // A Slider's peer offers RangeValue instead: the value read as a number.
+        wf::IInspectable rangePattern = peer.GetPattern(automation::Peers::PatternInterface::RangeValue);
+        automation::Provider::IRangeValueProvider ranger =
+            rangePattern != nullptr ? rangePattern.try_as<automation::Provider::IRangeValueProvider>() : nullptr;
+        if (ranger != nullptr) {
+            if (value == nullptr) {
+                return fail("automation set value", "no number for a range value");
+            }
+            char *end = nullptr;
+            double number = std::strtod(value, &end);
+            if (end == value) {
+                return fail("automation set value", "the value is not a number");
+            }
+            ranger.SetValue(number);
+            return true;
+        }
         // WinUI 2.7's TextBox peer offers no Value pattern (measured on a Windows runner): its text
         // is set as typing replaces it, through Text, which raises TextChanged as typing does.
         muxc::TextBox box = typed.try_as<muxc::TextBox>();
