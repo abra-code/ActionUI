@@ -58,12 +58,13 @@ extension VStack: ActionUIWinUIRenderer {
         node.orderedChildren.reduce(into: Expansion()) { $0.formUnion($1.compression) }
     }
 
-    /// The axis of the stack `node` is in: vertical in a VStack, horizontal in an HStack; nil in
-    /// anything else.
+    /// The axis of the stack `node` is in: vertical in a VStack or a GroupBox (its content is a
+    /// column), horizontal in an HStack or a LabeledContent (its content is a row); nil in anything
+    /// else.
     static func parentAxis(_ node: RenderNode) -> StackLayout.Axis? {
         switch node.parent?.element.type {
-        case "VStack", "LazyVStack": return .vertical
-        case "HStack", "LazyHStack": return .horizontal
+        case "VStack", "LazyVStack", "GroupBox": return .vertical
+        case "HStack", "LazyHStack", "LabeledContent": return .horizontal
         default: return nil
         }
     }

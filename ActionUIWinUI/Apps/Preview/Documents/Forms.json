@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "GroupBox",
+      "id": 2,
+      "properties": { "title": "Account" },
+      "children": [
+        {
+          "type": "LabeledContent",
+          "id": 3,
+          "properties": { "title": "Name" },
+          "children": [ { "type": "TextField", "id": 4, "properties": { "prompt": "Your name", "frame": { "width": 180 } } } ]
+        },
+        {
+          "type": "LabeledContent",
+          "id": 5,
+          "properties": { "title": "Notifications" },
+          "children": [ { "type": "Toggle", "id": 6, "properties": { "title": "On" } } ]
+        },
+        {
+          "type": "LabeledContent",
+          "id": 7,
+          "properties": { "title": "Plan" },
+          "children": [ { "type": "Text", "id": 8, "properties": { "text": "Free", "foregroundStyle": "secondary" } } ]
+        }
+      ]
+    },
+    {
+      "type": "GroupBox",
+      "id": 9,
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "A GroupBox without a title" } },
+        { "type": "Text", "id": 11, "properties": { "text": "holds its children centered", "font": "caption" } }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "id": 12,
+      "properties": { "title": "" },
+      "children": [ { "type": "Text", "id": 13, "properties": { "text": "An empty title keeps its 8-point gap" } } ]
+    },
+    {
+      "type": "LabeledContent",
+      "id": 14,
+      "properties": { "title": "Status", "background": "fill.secondary" },
+      "children": [
+        { "type": "Spacer", "id": 15 },
+        { "type": "Text", "id": 16, "properties": { "text": "a Spacer fills the row" } }
+      ]
+    }
+  ]
+}
