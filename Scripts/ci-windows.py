@@ -71,6 +71,7 @@ PREVIEW_OPTIONS = {
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
     "Shapes": ["420", "340"],
     "GreedyRows": ["420", "220"],
+    "NestedStacks": ["420", "260"],
     "ScrollShare": ["280", "260", "--scroll", "3", "0", "40"],
     "Controls": ["240", "220", "--invoke", "3", "--expect-action", "button.pressed",
                  "--on-action", "button.pressed", "2", "Pressed through UI Automation"],

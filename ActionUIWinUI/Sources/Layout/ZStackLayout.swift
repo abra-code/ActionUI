@@ -92,6 +92,10 @@ final class ZStackLayout {
 }
 
 extension ZStack: ActionUIWinUIRenderer {
+    static func expansion(_ node: RenderNode) -> Expansion { StackViews.childrenExpansion(node) }
+
+    static func compression(_ node: RenderNode) -> Expansion { StackViews.childrenCompression(node) }
+
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
         let stack = try ZStackLayout()
         node.state = stack

@@ -3,8 +3,8 @@
  Text on WinUI: a TextBlock showing the value (a String or an AttributedString set at run time),
  else the markdown property's text, else the text property, as on Apple and Linux. It wraps as
  SwiftUI's Text does, at word boundaries and inside a word that does not fit, when offered less
- width than one line needs (in a VStack narrower than the line; an HStack does not yet compress
- its children).
+ width than one line needs (in a VStack narrower than the line, or in a row that cannot give it its
+ one line: StackLayout).
 
  The font and foregroundStyle, its own or inherited, are drawn as TextAppearance describes (WinUI's
  type ramp, the theme's text colors).
@@ -22,6 +22,9 @@ import Foundation
 import CWinUI
 
 extension Text: ActionUIWinUIRenderer {
+    /// A Text wraps, so a row can make it narrower than its one line, as SwiftUI's.
+    static func compression(_ node: RenderNode) -> Expansion { .horizontal }
+
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
         guard let text = WinUIObject(adopting: actionUIWinUITextBlockCreate()) else {
             throw WinUIError.last("creating a TextBlock")

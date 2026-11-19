@@ -5,7 +5,11 @@
  (ActionUIRendererShared/Sources/Layout/StackSolver.swift).
 
  - Each child is measured with the stack's cross size and an unbounded length along the axis; what
-   it asks for is its size along the axis (StackChild.fixed). A Spacer expands, at least its
+   it asks for is its size along the axis (StackChild.fixed). A child that can be made smaller
+   along the axis (RenderNode.compression: a Text in a row, which wraps, or a stack holding one)
+   is also measured with nothing offered for its smallest length, then once more for the length
+   the stack gives it, so a wrapping Text gets taller in a narrow row; arrange gives it that
+   length again (layoutChildren). A Spacer expands, at least its
    minLength long (StackChild.spacer), and so does a child whose renderer expands along the axis
    (a TextField in an HStack: StackChild.expanding, at least what it asked for). A child that
    expands across takes the stack's whole cross size (a TextField in a VStack), so the stack takes
@@ -23,9 +27,13 @@
    their sizes (as on Linux); its children are aligned across inside the stack's own cross size
    (alignment: leading, center or trailing for a VStack; top, center or bottom for an HStack).
 
- Not yet: compressing children that do not fit (a Text that would wrap in an HStack), baselines,
- expansion through a nested stack (an HStack holding an HStack with a TextField keeps the inner
- stack at its own width; a stack's expansion is its renderer's, not yet its children's).
+ A stack expands as its children do (StackViews.childrenExpansion): a row holding a Color or a
+ TextField takes the room its own stack gives it, as in SwiftUI.
+
+ Not yet: baselines; a compressed child's frame minimum and padding (WinUI reports no minimum
+ size, so a squeezed child can go below them; a fixed frame is kept). A compressed Text leaves what it does not use of its share to the others in
+ one more sharing; SwiftUI offers each child in turn what the ones before it left, so the shares can
+ differ by a few points when several Texts wrap in one row.
 */
 
 import CWinUI
@@ -47,9 +55,11 @@ final class StackLayout {
         var expansion: Expansion = []
         /// How far it grows when it expands (RenderNode.caps): a frame's finite maximum.
         var cap: (horizontal: Int?, vertical: Int?) = (nil, nil)
-        /// The axes along which, when it expands, it can be made smaller than it asks for: a
-        /// ScrollView along its scroll axes, whose smallest size is its box measured with nothing
-        /// offered (its padding and frame minimum), as SwiftUI's ScrollView shrinks to nothing.
+        /// The axes along which it can be made smaller than it asks for (RenderNode.compression):
+        /// a ScrollView along its scroll axes, as SwiftUI's ScrollView shrinks to nothing; a Text
+        /// across a row. Its smallest size is its box measured with nothing offered, which is 0:
+        /// WinUI reports no desired size above the size offered, so a frame's minimum and padding
+        /// are not kept yet (a fixed frame turns compression off: RenderNode.compression).
         var compressible: Expansion = []
     }
 
@@ -142,6 +152,12 @@ final class StackLayout {
     /// for arrange, which must not measure it with another size (layoutChildren): its ideal length
     /// after a measure unbounded along the axis.
     private var compressedMinimums: [ObjectIdentifier: Int] = [:]
+    /// The length each compressible child that does not expand (a Text in a row) was given in the
+    /// last measure pass, and the length along the axis it was last measured for there: arrange
+    /// gives it that length and measures it for the same size again, a no-op for WinUI. Measured
+    /// for another length its desired size would change (a wrapped Text's height), which
+    /// invalidates the stack's measure, and the stack, measured again, would never settle.
+    private var measuredLengths: [ObjectIdentifier: (length: Int, offer: Double)] = [:]
     /// The size across the children were measured for in the last measure pass. Arrange measures
     /// them for it again, not for its own size across: a child whose desired size follows the
     /// offer (a Color, a shape, a Divider) would ask for another size, which invalidates the
@@ -167,8 +183,8 @@ final class StackLayout {
     /// arranges an element at least as large as it last measured (clipping the rest), so one
     /// measured unbounded would be as long as its content and never scroll, and a measure during
     /// arrange that changes its desired size invalidates the stack's measure, which would then never
-    /// settle. Its smallest length is what it asks for with nothing offered (its padding and frame
-    /// minimum: WinUI gives no desired size above the size offered), measured in the measure pass
+    /// settle. Its smallest length is what it asks for with nothing offered (0: WinUI gives no
+    /// desired size above the size offered), measured in the measure pass
     /// only. After a measure unbounded along the axis it is the child's ideal length instead: the
     /// stack asked for every child's ideal and is arranged in at least that (WinUI does not arrange
     /// an element smaller than it measured), so arrange keeps each compressible child at its ideal
@@ -180,6 +196,7 @@ final class StackLayout {
         var compressed: [Int] = []
         if isMeasurePass {
             compressedMinimums = [:]
+            measuredLengths = [:]
             measuredCrossOffer = crossOffer
         }
         let measureCross = measuredCrossOffer
@@ -204,6 +221,27 @@ final class StackLayout {
                 compressed.append(index)
                 continue
             }
+            if compressibleAlong(item) {
+                // A Text in a row: its one line is its natural length; it can wrap down to what it
+                // asks for with nothing offered. Arrange keeps the length the measure pass gave it.
+                let key = ObjectIdentifier(item.view)
+                if isMeasurePass {
+                    let natural = item.view.measure(size(main: .infinity, cross: measureCross))
+                    let naturalLength = StackSolver.length(main(natural), rounding: .up)
+                    var smallestLength = naturalLength
+                    if mainOffer.isFinite {
+                        let smallest = item.view.measure(size(main: 0, cross: measureCross))
+                        smallestLength = min(StackSolver.length(main(smallest), rounding: .up), naturalLength)
+                    }
+                    children.append(.fixed(minimum: smallestLength, natural: naturalLength))
+                } else {
+                    let length = measuredLengths[key]?.length ?? 0
+                    children.append(.fixed(minimum: length, natural: length))
+                }
+                crossSizes.append(0)
+                compressed.append(index)
+                continue
+            }
             let desired = item.view.measure(size(main: .infinity, cross: measureCross))
             let length = StackSolver.length(main(desired), rounding: .up)
             children.append(expandsAlong ? .expanding(minimum: length, cap: capAlong) : .fixed(minimum: length, natural: length))
@@ -212,12 +250,37 @@ final class StackLayout {
         let gaps = gaps(children)
         var sizes: [Int]
         let hasExpanding = items.contains { $0.spacerMinimum != nil || expands($0).main }
-        if mainOffer.isFinite && (hasExpanding || !isMeasurePass) {
+        if mainOffer.isFinite && (hasExpanding || !compressed.isEmpty || !isMeasurePass) {
             sizes = StackSolver.mainSizes(children, available: StackSolver.length(mainOffer), gaps: gaps)
         } else {
             sizes = children.map(\.minimum)
         }
-        for index in compressed {
+        // A compressible child that does not expand (a Text in a row) is measured for the length it
+        // is offered (unbounded: its one line), which arrange repeats, and takes what it asks for of
+        // it, as SwiftUI's Text takes its widest wrapped line: the room it leaves goes to the children
+        // that can use it, shared out once more.
+        var leftRoom = false
+        for index in compressed where !expands(items[index]).main {
+            let item = items[index]
+            let key = ObjectIdentifier(item.view)
+            let offer = isMeasurePass ? (mainOffer.isFinite ? Double(sizes[index]) : .infinity)
+                                      : (measuredLengths[key]?.offer ?? .infinity)
+            let desired = item.view.measure(size(main: offer, cross: measureCross))
+            if isMeasurePass {
+                let taken = StackSolver.length(main(desired), rounding: .up)
+                if !mainOffer.isFinite || taken < sizes[index] {
+                    leftRoom = leftRoom || mainOffer.isFinite
+                    sizes[index] = taken
+                }
+                measuredLengths[key] = (sizes[index], offer)
+                children[index] = .fixed(minimum: sizes[index], natural: sizes[index])
+            }
+            crossSizes[index] = crossSize(desired, expandsAcross: expands(item).cross, cap: caps(item).cross, crossOffer: crossOffer)
+        }
+        if leftRoom {
+            sizes = StackSolver.mainSizes(children, available: StackSolver.length(mainOffer), gaps: gaps)
+        }
+        for index in compressed where expands(items[index]).main {
             let item = items[index]
             // Unbounded: its ideal length, a ScrollView its content's (SwiftUI's ideal size).
             let desired = item.view.measure(size(main: mainOffer.isFinite ? Double(sizes[index]) : .infinity, cross: measureCross))
@@ -270,8 +333,7 @@ final class StackLayout {
     stack.setItems(children.compactMap { child in
         guard let view = child.outerView else { return nil }
         let spacerMinimum = child.element.type == "Spacer" ? (Spacer.Props(child.properties).minLength ?? Spacer.defaultMinLength) : nil
-        let compressible = child.element.type == "ScrollView" ? ScrollView.scrollAxes(ScrollView.Props(child.properties).axis) : []
         return StackLayout.Item(view: view, spacerMinimum: spacerMinimum, expansion: child.expansion, cap: child.caps,
-                                compressible: compressible)
+                                compressible: child.compression)
     })
 }

@@ -35,6 +35,9 @@ package final class RenderNode {
     /// How the element grows in a stack: the renderer's expansion, overridden per axis by a
     /// frame (one with a maximum expands, a fixed one does not).
     private(set) var expansion: Expansion = []
+    /// The axes along which a stack can make the element smaller than it asks for (the renderer's
+    /// compression).
+    private(set) var compression: Expansion = []
     /// The font and foreground of the element's text: its own modifiers over its parent's
     /// appearance, which descendants inherit (as SwiftUI's environment passes them down).
     private(set) var textAppearance = TextAppearance()
@@ -100,6 +103,7 @@ package final class RenderNode {
         let initial = UntrackedReads.perform { geometry }
         expansion = Self.expansion(UntrackedReads.perform { renderer.expansion(self) }, geometry: initial)
         caps = (initial.frame.horizontal.cap, initial.frame.vertical.cap)
+        compression = Self.compression(UntrackedReads.perform { renderer.compression(self) }, geometry: initial)
     }
 
     /// The base modifiers the box and the text appearance read, from the current properties. A
@@ -129,6 +133,16 @@ package final class RenderNode {
         return expansion
     }
 
+    /// The renderer's compression, without the axes a fixed frame sizes: SwiftUI's fixed frame
+    /// keeps its size in a stack. A stack cannot see it: WinUI caps a desired size at the size
+    /// offered, so the box measured with nothing offered asks for nothing.
+    private static func compression(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
+        var compression = renderer
+        if geometry.frame.horizontal.fixed != nil { compression.remove(.horizontal) }
+        if geometry.frame.vertical.fixed != nil { compression.remove(.vertical) }
+        return compression
+    }
+
     // MARK: Syncing
 
     /// Makes the WinUI object show the model, and watches what that read.
@@ -146,9 +160,11 @@ package final class RenderNode {
             box?.update(geometry)
             let newExpansion = Self.expansion(renderer.expansion(self), geometry: geometry)
             let newCaps = (geometry.frame.horizontal.cap, geometry.frame.vertical.cap)
-            expansionChanged = newExpansion != expansion || newCaps != caps
+            let newCompression = Self.compression(renderer.compression(self), geometry: geometry)
+            expansionChanged = newExpansion != expansion || newCaps != caps || newCompression != compression
             expansion = newExpansion
             caps = newCaps
+            compression = newCompression
         } onChange: { [weak self] in
             // The model is main-actor isolated, so changes, and this call, happen on the main
             // thread, before the new value is stored.
@@ -157,7 +173,8 @@ package final class RenderNode {
                 SyncScheduler.shared.markDirty(self)
             }
         }
-        // The parent laid this node out with its old expansion or caps.
+        // The parent laid this node out with its old expansion, caps or compression (and a stack's
+        // own come from its children's).
         if expansionChanged, let parent {
             SyncScheduler.shared.markDirty(parent)
         }

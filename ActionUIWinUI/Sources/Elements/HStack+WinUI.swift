@@ -10,6 +10,10 @@ extension HStack: ActionUIWinUIRenderer {
         try StackViews.make(node, axis: .horizontal)
     }
 
+    static func expansion(_ node: RenderNode) -> Expansion { StackViews.childrenExpansion(node) }
+
+    static func compression(_ node: RenderNode) -> Expansion { StackViews.childrenCompression(node) }
+
     static func update(_ view: WinUIObject, _ node: RenderNode) {
         guard let stack = StackViews.stack(of: node) else { return }
         let props = Props(node.properties)

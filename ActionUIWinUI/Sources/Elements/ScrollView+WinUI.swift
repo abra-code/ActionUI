@@ -34,6 +34,12 @@ extension ScrollView: ActionUIWinUIRenderer {
         }
     }
 
+    /// Along its scroll axes a stack can make it smaller than its content, down to nothing (WinUI
+    /// reports no minimum: a frame's minimum and padding are not kept yet).
+    static func compression(_ node: RenderNode) -> Expansion {
+        scrollAxes(Props(node.properties).axis)
+    }
+
     static func expansion(_ node: RenderNode) -> Expansion {
         var expansion = scrollAxes(Props(node.properties).axis)
         // Across, as its content when that expands without a limit (a TextField: the ScrollView takes

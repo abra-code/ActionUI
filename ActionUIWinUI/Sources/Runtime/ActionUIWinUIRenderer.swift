@@ -34,10 +34,18 @@ protocol ActionUIWinUIRenderer {
     /// scroll axes). Read during the node's sync, tracked, and once at its creation, untracked.
     /// Default: defaultExpansion.
     static func expansion(_ node: RenderNode) -> Expansion
+
+    /// The axes along which a stack can make the element smaller than it asks for, as SwiftUI
+    /// shares a stack's room: a Text across a row (it wraps), a ScrollView along its scroll axes, a
+    /// stack along the axes its children can be made smaller in. Read as `expansion` is. Default:
+    /// none.
+    static func compression(_ node: RenderNode) -> Expansion
 }
 
 extension ActionUIWinUIRenderer {
     static var defaultExpansion: Expansion { [] }
 
     static func expansion(_ node: RenderNode) -> Expansion { defaultExpansion }
+
+    static func compression(_ node: RenderNode) -> Expansion { [] }
 }

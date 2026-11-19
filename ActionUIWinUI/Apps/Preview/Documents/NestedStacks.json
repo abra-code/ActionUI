@@ -1,0 +1,43 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": { "background": "fill.secondary" },
+      "children": [
+        { "type": "Text", "id": 3, "properties": { "text": "Name" } },
+        { "type": "TextField", "id": 4, "properties": { "prompt": "A TextField makes its row full width" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 5,
+      "properties": { "background": "fill.secondary" },
+      "children": [
+        { "type": "Text", "id": 6, "properties": { "text": "Leading" } },
+        { "type": "Spacer", "id": 7 },
+        { "type": "Text", "id": 8, "properties": { "text": "Trailing" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 9,
+      "properties": { "alignment": "top" },
+      "children": [
+        {
+          "type": "VStack",
+          "id": 10,
+          "properties": { "alignment": "leading", "spacing": 4 },
+          "children": [
+            { "type": "Text", "id": 11, "properties": { "text": "Title", "font": "headline" } },
+            { "type": "Text", "id": 12, "properties": { "text": "A long text in a column in a row wraps to share the row with the square beside it." } }
+          ]
+        },
+        { "type": "RoundedRectangle", "id": 13, "properties": { "cornerRadius": 8, "fill": "orange", "frame": { "width": 60, "height": 60 } } }
+      ]
+    }
+  ]
+}
