@@ -31,7 +31,11 @@
  - Resources: the app's bundle (resourceFolder, AppBundle) and each window's document folder, where
    LoadableView names and image resources are found.
  - A WindowGroup document (a SwiftUI app's window scene on Apple): its content is the window's
-   document, its title the window's, and its commands join the primary menu (windowGroup).
+   document, its title the window's, and its commands join the primary menu (windowGroup) when
+   the document is the app's own: JSON the host passes, or a file in its resource folder. On
+   Apple a document cannot add menu commands at all (an app's scenes are compiled in), so the
+   commands of a document from an address or from a file elsewhere are dropped with a warning:
+   they would add items and shortcuts to every window for the life of the process.
  - Commands: the CommandMenu and CommandGroup elements loaded (loadMenuBar) in a primary menu at
    the end of the window's header bar, their shortcuts working in every window (AppCommands).
  - Presentations: each window shows its model's modal, alert, confirmation dialog and toast
@@ -729,7 +733,7 @@ public final class AdwaitaApplication {
             let document = windowGroup(data, format: format)
             do {
                 try loadDocument(document, format: format, windowUUID: windowUUID)
-                return (nil, document.title ?? title, document.commands)
+                return (nil, document.title ?? title, ownCommands(document, from: text, isAppResource: false))
             } catch {
                 logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
                 return ("\(text) could not be loaded: \(error)", document.title ?? title, nil)
@@ -748,7 +752,7 @@ public final class AdwaitaApplication {
                 title = document.title ?? title
                 AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
                 try loadDocument(document, format: format, windowUUID: windowUUID)
-                return (nil, title, document.commands)
+                return (nil, title, ownCommands(document, from: url.path, isAppResource: Self.isInResourceFolder(url)))
             } catch {
                 logger.log("Window \(windowUUID): \(url.path) could not be loaded: \(error)", .error)
                 return ("\(url.path) could not be loaded: \(error)", title, nil)
@@ -786,6 +790,31 @@ public final class AdwaitaApplication {
         }
         document.data = Data(json.utf8)
         return document
+    }
+
+    /// A WindowGroup's commands when its document is the app's own (`isAppResource`), else none, with
+    /// a warning naming where the document came from. Host JSON does not come through here: the
+    /// host passed it, so its commands are the host's.
+    private func ownCommands(_ document: WindowDocument, from source: String, isAppResource: Bool) -> (json: String, key: String)? {
+        guard let commands = document.commands else { return nil }
+        if isAppResource { return commands }
+        ActionUIModel.shared.logger.log("WindowGroup commands from \(source) are ignored: only a document in the app's resource folder, or JSON the host passes, adds menu commands", .warning)
+        return nil
+    }
+
+    /// Whether `url` names a file inside the app's resource folder (AppBundle.folder), after
+    /// symbolic links in both are resolved, so a link placed there cannot point elsewhere.
+    static func isInResourceFolder(_ url: URL) -> Bool {
+        guard let folder = AppBundle.folder, !folder.isEmpty else { return false }
+        let root = URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path
+        // An app's resource folder is never the root of the file system, which would trust every file.
+        guard root != "/" else { return false }
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        // By bytes, as the file system compares names: String's hasPrefix takes an accented letter
+        // and the same letter followed by a combining accent as equal, so a sibling folder spelled
+        // the other way would pass.
+        return path.utf8.starts(with: prefix.utf8)
     }
 
     /// A window's document as windowGroup leaves it: what to load, its default title, the commands
