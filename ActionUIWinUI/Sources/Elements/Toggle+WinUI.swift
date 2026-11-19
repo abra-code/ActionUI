@@ -7,10 +7,13 @@
  - The user's change runs Core's Toggle.userSetValue (the value, then actionID with the new state),
    as on Linux. A CheckBox reports only the user's clicks; a ToggleSwitch also reports the
    renderer's own changes, which userSetValue ignores (the value already holds them).
+ - In a template row (a List's), the row holds the state, as on Apple and Linux: the user's change
+   is written into the row's column that isOn names ("$1") and actionID fires with the row's index
+   (Core TemplateHelper); the container then shows the row again. Without a single column the
+   Toggle only shows the row, and turns back.
  - The style is read when the element is made (a later change of style keeps the first control).
 
- Not yet: style "button", the title hidden by labelsHidden, controlSize, a Toggle in a template
- row (Linux writes the row's column).
+ Not yet: style "button", the title hidden by labelsHidden, controlSize.
 */
 
 import CWinUI
@@ -77,8 +80,25 @@ extension Toggle: ActionUIWinUIRenderer {
     }
 
     private static func userToggled(_ node: RenderNode, on: Bool) {
-        Toggle.userSetValue(on, element: node.element, model: node.model, windowUUID: node.windowModel.windowUUID,
-                            props: Props(node.properties))
+        let props = Props(node.properties)
+        let windowUUID = node.windowModel.windowUUID
+        guard let context = node.model.templateContext else {
+            Toggle.userSetValue(on, element: node.element, model: node.model, windowUUID: windowUUID, props: props)
+            return
+        }
+        // A ToggleSwitch also reports the renderer's own change (a new row's control set to the row's
+        // state, or one turned back): the state the row already shows, not the user's toggle.
+        guard on != (Toggle.initialValue(node.model) as? Bool ?? false) else { return }
+        let column = TemplateHelper.singleColumnIndex(node.element.properties["isOn"])
+        if column == nil {
+            TemplateHelper.warnOnce("Toggle isOn in a template must be a single column reference such as \"$1\" to keep its state; this Toggle is display-only", logger: ActionUIModel.shared.logger)
+        }
+        let taken = TemplateHelper.commitRowToggle(on, context: context, column: column, actionID: props.actionID,
+                                                   windowUUID: windowUUID)
+        if !taken {
+            // The control shows the row's state again.
+            SyncScheduler.shared.markDirty(node)
+        }
     }
 }
 

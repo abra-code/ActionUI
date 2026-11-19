@@ -11,12 +11,15 @@
  - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
    the selected child's id as text, and actionID fires with the id as its context; without one, the
    rows are not selectable and the children handle their own input.
+ - Template (Form 3): one row per content row, the template element shown with the row's data ($1
+   is its first column; RenderNode.templateRowNode), selected and activated as rows are. A row whose
+   data or place changes is made again; the others keep their objects, as on Linux.
 
  The value selects its row when a host sets it; the ListView reports that selection as it reports
  the user's, and the renderer ignores the one it made (ListState.shownIndex), so actionID fires only
  for the user's.
 
- Not yet: the template form (shows the rows' first column as text for now); itemType's Button,
+ Not yet: itemType's Button,
  Image and AsyncImage cells (text for now); listStyle and the row styling (listRowBackground,
  listRowSeparator, listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none).
 */
@@ -26,7 +29,7 @@ import CWinUI
 /// What a List shows, kept in its node's state.
 @MainActor final class ListState {
     enum Mode {
-        case rows, children
+        case rows, children, template
     }
 
     var mode = Mode.rows
@@ -38,6 +41,8 @@ import CWinUI
     /// replaced under the same id has a new node and box.
     var childIDs: [Int]?
     var shownBoxes: [WinUIObject]?
+    /// Each row's template instance, in row order (template mode).
+    var rowNodes: [RenderNode] = []
     /// The row the renderer last selected: a selection event reporting it is the renderer's own.
     var shownIndex: Int32 = -1
 }
@@ -70,25 +75,50 @@ extension List: ActionUIWinUIRenderer {
         guard let state = node.state as? ListState else { return }
         let props = Props(node.properties)
         let children = node.subviews("children")
-        let mode: ListState.Mode = children.isEmpty ? .rows : .children
+        let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase
+        let mode: ListState.Mode = template != nil ? .template : children.isEmpty ? .rows : .children
         if mode != state.mode {
-            if state.mode == .children {
-                // The child nodes leave the tree (as on Linux); a later children update makes them again.
-                _ = node.syncChildren([])
-            }
+            leave(view, node, state)
             state.mode = mode
-            state.shownTexts = nil
-            state.childIDs = nil
-            state.shownBoxes = nil
         }
         switch mode {
         case .rows:
             setSelectable(view, state, true)
             updateRows(view, node, state)
+        case .template:
+            setSelectable(view, state, true)
+            if let template {
+                updateTemplateRows(view, node, state, template)
+            }
         case .children:
             setSelectable(view, state, props.actionID != nil)
             updateChildren(view, node, state, children)
         }
+    }
+
+    /// Empties the list when it changes form: the child nodes or the template rows leave the tree
+    /// (as on Linux); the new form makes its rows again.
+    private static func leave(_ view: WinUIObject, _ node: RenderNode, _ state: ListState) {
+        switch state.mode {
+        case .rows:
+            break
+        case .children:
+            _ = node.syncChildren([])
+        case .template:
+            for rowNode in state.rowNodes {
+                node.releaseTemplateNode(rowNode)
+            }
+            state.rowNodes = []
+        }
+        state.shownIndex = -1
+        if !actionUIWinUIListClear(view.pointer) {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("clearing the rows"))", .error)
+        }
+        state.drawnRows = []
+        state.shownIndices = []
+        state.shownTexts = nil
+        state.childIDs = nil
+        state.shownBoxes = nil
     }
 
     private static func setSelectable(_ view: WinUIObject, _ state: ListState, _ selectable: Bool) {
@@ -140,11 +170,7 @@ extension List: ActionUIWinUIRenderer {
             state.shownIndex = -1
             var filled = actionUIWinUIListClear(view.pointer)
             for box in boxes where filled {
-                // At the row's leading edge, as SwiftUI's rows put their content (a box given the
-                // whole row would center it); a child that fills still spans the row.
-                if !actionUIWinUIElementSetAlignment(box.pointer, ActionUIWinUIAlignStart, ActionUIWinUIAlignCenter) {
-                    ActionUIModel.shared.logger.log("List: \(WinUIError.last("placing a row"))", .error)
-                }
+                placeInRow(box)
                 filled = actionUIWinUIListAppendElement(view.pointer, box.pointer)
             }
             if !filled {
@@ -153,6 +179,66 @@ extension List: ActionUIWinUIRenderer {
             }
         }
         let position = RowSelection.selectedChildID(value: node.model.value).flatMap { ids.firstIndex(of: $0) }
+        select(view, state, position)
+    }
+
+    /// At the row's leading edge, as SwiftUI's rows put their content (a box given the whole row would
+    /// center it); an element that fills still spans the row.
+    private static func placeInRow(_ box: WinUIObject) {
+        if !actionUIWinUIElementSetAlignment(box.pointer, ActionUIWinUIAlignStart, ActionUIWinUIAlignCenter) {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("placing a row"))", .error)
+        }
+    }
+
+    // MARK: Template rows
+
+    private static func updateTemplateRows(_ view: WinUIObject, _ node: RenderNode, _ state: ListState,
+                                           _ template: any ActionUIElementBase) {
+        let rows = node.model.states["content"] as? [[String]] ?? []
+        state.drawnRows = rows
+        state.shownIndices = Array(rows.indices)
+        for (index, row) in rows.enumerated() {
+            // A row shown with the same data at the same place keeps its instance (and its objects'
+            // state); its index is in the instance's TemplateContext, the one its actions report.
+            if index < state.rowNodes.count, state.rowNodes[index].model.templateContext?.row == row { continue }
+            let rowNode = node.templateRowNode(template, row: row, rowIndex: index)
+            // Replacing the selected row drops its selection: the renderer's change, not the user's.
+            state.shownIndex = -1
+            let shown: Bool
+            if let box = rowNode.outerView {
+                placeInRow(box)
+                shown = index < state.rowNodes.count
+                    ? actionUIWinUIListReplaceElement(view.pointer, Int32(index), box.pointer)
+                    : actionUIWinUIListAppendElement(view.pointer, box.pointer)
+            } else {
+                shown = false
+            }
+            guard shown else {
+                // The rows shown keep their instances; the next update tries again from here.
+                ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing a template row"))", .error)
+                node.releaseTemplateNode(rowNode)
+                break
+            }
+            if index < state.rowNodes.count {
+                node.releaseTemplateNode(state.rowNodes[index])
+                state.rowNodes[index] = rowNode
+            } else {
+                state.rowNodes.append(rowNode)
+            }
+        }
+        if state.rowNodes.count > rows.count {
+            state.shownIndex = -1
+            if actionUIWinUIListTruncate(view.pointer, Int32(rows.count)) {
+                for rowNode in state.rowNodes[rows.count...] {
+                    node.releaseTemplateNode(rowNode)
+                }
+                state.rowNodes.removeLast(state.rowNodes.count - rows.count)
+            } else {
+                ActionUIModel.shared.logger.log("List: \(WinUIError.last("removing template rows"))", .error)
+            }
+        }
+        // A row not shown (it failed above) takes no selection.
+        let position = RowSelection.selectedIndex(value: node.model.value, in: rows).flatMap { $0 < state.rowNodes.count ? $0 : nil }
         select(view, state, position)
     }
 
@@ -173,7 +259,7 @@ extension List: ActionUIWinUIRenderer {
     private static func userSelected(_ node: RenderNode, _ state: ListState, position: Int?) {
         let props = Props(node.properties)
         switch state.mode {
-        case .rows:
+        case .rows, .template:
             let index = position.flatMap { state.shownIndices.indices.contains($0) ? state.shownIndices[$0] : nil }
             guard let clicked = RowSelection.clickedRow(index: index, in: state.drawnRows) else { return }
             RowSelection.commitRowSelection(clicked, drawnRows: state.drawnRows, model: node.model, actionID: props.actionID,
@@ -191,7 +277,7 @@ extension List: ActionUIWinUIRenderer {
     /// actionID fires first, as the first click of a double click fires it (as on Linux).
     private static func userActivated(_ node: RenderNode, _ state: ListState, position: Int?) {
         let props = Props(node.properties)
-        guard state.mode == .rows, let doubleClickActionID = props.doubleClickActionID, let position,
+        guard state.mode != .children, let doubleClickActionID = props.doubleClickActionID, let position,
               state.shownIndices.indices.contains(position) else { return }
         let index = state.shownIndices[position]
         let current = node.model.states["content"] as? [[String]] ?? []

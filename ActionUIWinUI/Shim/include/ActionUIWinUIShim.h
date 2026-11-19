@@ -200,6 +200,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIListClear(ActionUIWinUIObject *list);
 ACTIONUI_WINUI_API bool actionUIWinUIListAppendText(ActionUIWinUIObject *list, const char *text);
 // Adds an item showing `element` (a child element's box).
 ACTIONUI_WINUI_API bool actionUIWinUIListAppendElement(ActionUIWinUIObject *list, ActionUIWinUIObject *element);
+// Shows `element` in the item at `index` (from 0) instead of what it showed; an index past the items
+// fails. A selected item loses its selection.
+ACTIONUI_WINUI_API bool actionUIWinUIListReplaceElement(ActionUIWinUIObject *list, int32_t index, ActionUIWinUIObject *element);
+// Removes the items from `count` on, keeping the first `count`.
+ACTIONUI_WINUI_API bool actionUIWinUIListTruncate(ActionUIWinUIObject *list, int32_t count);
 // Whether the user can select a row (false: rows show their content and take no selection).
 ACTIONUI_WINUI_API bool actionUIWinUIListSetSelectable(ActionUIWinUIObject *list, bool selectable);
 // Selects the item at `index` (from 0); -1, or an index past the items, selects none.

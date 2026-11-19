@@ -43,6 +43,28 @@ bool actionUIWinUIListAppendElement(ActionUIWinUIObject *list, ActionUIWinUIObje
     });
 }
 
+bool actionUIWinUIListReplaceElement(ActionUIWinUIObject *list, int32_t index, ActionUIWinUIObject *element) {
+    return guarded("list replace element", [&]() {
+        auto items = objectAs<muxc::ListView>(list, L"ListView").Items();
+        if (index < 0 || static_cast<uint32_t>(index) >= items.Size()) {
+            return fail("list replace element", "no item at that index");
+        }
+        items.SetAt(static_cast<uint32_t>(index), objectAs<mux::UIElement>(element, L"UIElement"));
+        return true;
+    });
+}
+
+bool actionUIWinUIListTruncate(ActionUIWinUIObject *list, int32_t count) {
+    return guarded("list truncate", [&]() {
+        auto items = objectAs<muxc::ListView>(list, L"ListView").Items();
+        uint32_t kept = count > 0 ? static_cast<uint32_t>(count) : 0;
+        while (items.Size() > kept) {
+            items.RemoveAtEnd();
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIListSetSelectable(ActionUIWinUIObject *list, bool selectable) {
     return guarded("list set selectable", [&]() {
         muxc::ListView typed = objectAs<muxc::ListView>(list, L"ListView");

@@ -70,6 +70,10 @@ package final class RenderNode {
     private(set) var childNodes: [Int: RenderNode] = [:]
     /// The child nodes in their elements' order, as the last syncChildren left them.
     package private(set) var orderedChildren: [RenderNode] = []
+    /// The template instances this node shows (a List's rows), in the order they were made: not
+    /// child nodes, since every row has the template's ids. The container keeps them in its rows'
+    /// order and releases them (releaseTemplateNode).
+    package private(set) var templateNodes: [RenderNode] = []
     /// Children made since the last sync, synced at the end of it.
     private var unsyncedChildren: [RenderNode] = []
 
@@ -230,7 +234,7 @@ package final class RenderNode {
         // not marked, as the GTK renderer skips them).
         if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden) != previousStates) {
             let new = Set(created.map(ObjectIdentifier.init))
-            for child in childNodes.values where !new.contains(ObjectIdentifier(child)) {
+            for child in Array(childNodes.values) + templateNodes where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
             }
         }
@@ -266,16 +270,50 @@ package final class RenderNode {
         return child
     }
 
+    /// The view model of a child made for `element`: its registered one, or inside a template row one
+    /// of its own.
     private func childModel(for element: any ActionUIElementBase) -> ViewModel {
-        if let registered = windowModel.viewModels[element.id] {
+        if let context = model.templateContext {
+            // Inside a template row the child is a blueprint too, shown with the row's data in a view
+            // model of its own, as on Apple (TemplateHelper) and Linux.
+            return Self.templateModel(element, context)
+        } else if let registered = windowModel.viewModels[element.id] {
             return registered
         }
         ActionUIModel.shared.logger.log("RenderNode: no view model for element \(element.id) (\(element.type)) in window \(windowModel.windowUUID); rendering it with an empty one", .warning)
         return ViewModel()
     }
 
+    /// A node for one row of a template container: `template` shown with the row's data, in a view
+    /// model of its own whose TemplateContext names this node as the parent (the id its actions
+    /// report) and the row's index and data. Synced at the end of this node's sync, like a new child.
+    /// The container releases it (releaseTemplateNode) when its row goes or changes.
+    func templateRowNode(_ template: any ActionUIElementBase, row: [String], rowIndex: Int) -> RenderNode {
+        let context = TemplateContext(parentID: element.id, rowIndex: rowIndex, row: row)
+        let node = RenderNode(element: template, model: Self.templateModel(template, context), windowModel: windowModel, parent: self)
+        templateNodes.append(node)
+        unsyncedChildren.append(node)
+        return node
+    }
+
+    /// Takes a template instance out of the tree.
+    func releaseTemplateNode(_ node: RenderNode) {
+        node.detach()
+        templateNodes.removeAll { $0 === node }
+    }
+
+    /// A template instance's view model: the element's properties with the row's data substituted.
+    private static func templateModel(_ element: any ActionUIElementBase, _ context: TemplateContext) -> ViewModel {
+        let model = ViewModel()
+        model.templateContext = context
+        model.seedProperties(TemplateHelper.instanceProperties(of: element, row: context.row, logger: ActionUIModel.shared.logger))
+        return model
+    }
+
     /// True when the window has another view model for this node's element id.
     private var isReplaced: Bool {
+        // A template instance's model is its own; the id may name the blueprint's registered one.
+        guard model.templateContext == nil else { return false }
         guard let registered = windowModel.viewModels[element.id] else { return false }
         return registered !== model
     }
@@ -287,5 +325,9 @@ package final class RenderNode {
         for child in childNodes.values {
             child.detach()
         }
+        for node in templateNodes {
+            node.detach()
+        }
+        templateNodes = []
     }
 }

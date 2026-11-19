@@ -10,8 +10,10 @@
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
-//   --add-row ID TEXT        appends a row of one column, TEXT, to element ID's content through the
-//                            model, as an adapter does (a List's rows); repeatable, in order
+//   --add-row ID TEXT        appends a row to element ID's content through the model, as an adapter
+//                            does (a List's rows), its columns TEXT split at "|"; repeatable, in order.
+//                            An operation on an element after rows or properties changed waits for
+//                            the change to reach the screen (a template row's controls are made then)
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
 //                            does (VALUE a number when it reads as one, else a string)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
@@ -48,6 +50,14 @@ final class Preview {
             case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _),
                  .addRow(let id, _):
                 return id
+            }
+        }
+
+        /// Whether it changes the model rather than operating an element on screen.
+        var changesModel: Bool {
+            switch self {
+            case .setProperty, .addRow: true
+            case .invoke, .toggle, .setText, .scroll: false
             }
         }
     }
@@ -132,7 +142,20 @@ final class Preview {
             reportAndRender()
             return
         }
-        for operation in invocations {
+        runOperations(from: 0)
+    }
+
+    /// Runs the operations from `start` on, in order. One that operates an element on screen after
+    /// one that changed the model waits for the change to be shown first.
+    func runOperations(from start: Int) {
+        for position in start..<invocations.count {
+            let operation = invocations[position]
+            if position > start, !operation.changesModel, invocations[position - 1].changesModel {
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
+                    MainActor.assumeIsolated { Preview.shared.runOperations(from: position) }
+                }
+                return
+            }
             let viewID = operation.viewID
             guard let node = tree?.root.flatMap({ find(viewID, in: $0) }), let view = node.view else {
                 say("element \(viewID): no such element on screen")
@@ -165,7 +188,8 @@ final class Preview {
                 worked = true
                 what = "set \(name) to \(text) on"
             case .addRow(_, let text):
-                ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: [[text]])
+                let columns = text.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+                ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: [columns])
                 worked = true
                 what = "added the row \(text) to"
             }
@@ -186,7 +210,8 @@ final class Preview {
         if node.element.id == viewID {
             return node
         }
-        for child in node.orderedChildren {
+        // A template's ids repeat in every row: the first row's.
+        for child in node.orderedChildren + node.templateNodes {
             if let found = find(viewID, in: child) {
                 return found
             }
@@ -217,7 +242,7 @@ final class Preview {
         // The box's frame in its parent: the element with its padding and frame, as SwiftUI reports one.
         let frame = node.outerView?.layoutFrame ?? ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
         say("\(indent)\(node.element.type) \(node.element.id): (\(frame.x), \(frame.y), \(frame.width), \(frame.height))")
-        for child in node.orderedChildren {
+        for child in node.orderedChildren + node.templateNodes {
             report(child, indent: indent + "  ")
         }
     }

@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A row template", "font": "headline" } },
+    {
+      "type": "List",
+      "id": 3,
+      "properties": { "actionID": "folder.selected", "frame": { "height": 130 } },
+      "template": {
+        "type": "HStack",
+        "id": 4,
+        "children": [
+          { "type": "Image", "id": 5, "properties": { "systemName": "$1" } },
+          { "type": "Text", "id": 6, "properties": { "text": "$2" } },
+          { "type": "Spacer", "id": 7 },
+          { "type": "Text", "id": 8, "properties": { "text": "$3", "foregroundStyle": "secondary" } }
+        ]
+      }
+    },
+    { "type": "Text", "id": 9, "properties": { "text": "A checklist", "font": "headline" } },
+    {
+      "type": "List",
+      "id": 10,
+      "properties": { "frame": { "height": 130 } },
+      "template": {
+        "type": "Toggle",
+        "id": 11,
+        "properties": { "isOn": "$1", "title": "$2", "actionID": "item.toggled" }
+      }
+    },
+    { "type": "Text", "id": 12, "properties": { "text": "Nothing toggled yet", "foregroundStyle": "secondary" } }
+  ]
+}
