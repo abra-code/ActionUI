@@ -94,6 +94,29 @@ enum ActionUIDocumentLoader {
         var description: String { "\(path) is not a regular file" }
     }
 
+    /// How deep LoadableViews may nest: one whose LoadableViews around it already number this many
+    /// is refused.
+    nonisolated static var maxNestingDepth: Int { 16 }
+
+    /// The text a LoadableView's source is known by when the nesting rule compares sources: a remote
+    /// URL as written, a file with symbolic links resolved and the path standardized.
+    nonisolated static func nestingKey(for source: Source) -> String {
+        switch source {
+        case .remote(let url): return url.absoluteString
+        case .file(let url): return url.resolvingSymlinksInPath().standardizedFileURL.absoluteString
+        }
+    }
+
+    /// Why the source known as `key` (`nestingKey`) must not load inside LoadableViews showing
+    /// `enclosing` (the outermost first), or nil when it may. A document that loads itself, directly
+    /// or through others, would load without end; file sources load while the view is built.
+    /// Siblings showing the same source are not in `enclosing`, so they stay allowed.
+    nonisolated static func nestingRefusal(_ key: String, inside enclosing: [String]) -> String? {
+        if enclosing.contains(key) { return "it includes itself" }
+        if enclosing.count >= maxNestingDepth { return "LoadableViews are nested more than \(maxNestingDepth) deep" }
+        return nil
+    }
+
     /// "plist" for a file or URL whose name ends in ".plist" (any case), else "json".
     static func format(of url: URL) -> String {
         url.pathExtension.lowercased() == "plist" ? "plist" : "json"

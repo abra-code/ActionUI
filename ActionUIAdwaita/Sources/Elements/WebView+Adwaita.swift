@@ -114,8 +114,9 @@ extension WebView: ActionUIAdwaitaRenderer {
     /// the Apple backing reads them); nil, logged, when it cannot be read.
     static func scriptSource(_ script: Props.UserScript) -> String? {
         let logger = ActionUIModel.shared.logger
+        // Only a regular file: a device or a named pipe the document names would block the window.
         func read(_ path: String) -> String? {
-            (try? Data(contentsOf: URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
+            (try? ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
         }
         if let source = script.source {
             return source

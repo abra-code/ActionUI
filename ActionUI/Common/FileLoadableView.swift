@@ -114,12 +114,10 @@ extension EnvironmentValues {
 
 /// Shows a LoadableView's content unless its source is already being shown by a LoadableView
 /// around it (a document that loads itself, directly or through others, would load without end)
-/// or the LoadableViews are nested more than `maxDepth` deep. The content view is made only when
-/// it may show, so a refused file is never read.
+/// or the LoadableViews are nested too deep (the rule is Core's `ActionUIDocumentLoader.nestingRefusal`).
+/// The content view is made only when it may show, so a refused file is never read.
 @MainActor
 struct LoadableNestingGuard<Content: SwiftUI.View>: SwiftUI.View {
-    nonisolated static var maxDepth: Int { 16 }
-
     @Environment(\.actionUILoadableSources) private var sources
     let source: String
     let logger: any ActionUILogger
@@ -132,19 +130,12 @@ struct LoadableNestingGuard<Content: SwiftUI.View>: SwiftUI.View {
     }
 
     var body: some SwiftUI.View {
-        if let refusal = Self.refusal(source: source, inside: sources) {
+        if let refusal = ActionUIDocumentLoader.nestingRefusal(source, inside: sources) {
             SwiftUI.Text("Failed to load view: \(refusal)")
                 .foregroundStyle(.red)
                 .onAppear { logger.log("LoadableView: not loading \(source): \(refusal)", .error) }
         } else {
             content().environment(\.actionUILoadableSources, sources + [source])
         }
-    }
-
-    /// Why `source` must not load inside LoadableViews showing `sources`, or nil when it may.
-    nonisolated static func refusal(source: String, inside sources: [String]) -> String? {
-        if sources.contains(source) { return "it includes itself" }
-        if sources.count >= maxDepth { return "LoadableViews are nested more than \(maxDepth) deep" }
-        return nil
     }
 }

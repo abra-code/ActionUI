@@ -125,14 +125,6 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         XCTAssertLessThanOrEqual(loads, 4, "the document loaded \(loads) times")
     }
 
-    func testTheNestingRuleRefusesARepeatAndADeepChain() {
-        XCTAssertNil(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "b", inside: ["a"]))
-        XCTAssertEqual(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "a", inside: ["a", "b"]), "it includes itself")
-        let deep = (0..<16).map { "doc\($0)" }
-        XCTAssertEqual(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "next", inside: deep), "LoadableViews are nested more than 16 deep")
-        XCTAssertNil(LoadableNestingGuard<SwiftUI.EmptyView>.refusal(source: "next", inside: Array(deep.dropLast())))
-    }
-
     func testRowsSurviveWhenTheHostLoadsTheDocumentInItsWindowContent() throws {
         try checkRowsSurvive(isContentView: true)
     }

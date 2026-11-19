@@ -1,13 +1,17 @@
 // Tests/Runtime/URLLoaderTests.swift
 /*
  Tests for URLLoader and RemoteImages: file, http and data URLs load their bytes after fetch
- returns; a missing file, an http error status, a malformed URL and another scheme give nil; an
+ returns; a missing file, a device, a named pipe or a folder, an http error status, a malformed URL
+ and another scheme give nil; an
  image decodes into a texture kept by URL, loaded once for several waiters; bytes that are no image
  give no texture; the textures kept stay within the budget, the least recently used going first.
 */
 
 import XCTest
 import CAdwaita
+#if canImport(Glibc)
+import Glibc
+#endif
 @testable import ActionUI
 
 @MainActor
@@ -65,6 +69,38 @@ final class URLLoaderTests: XCTestCase {
 
     func testAMissingFileGivesNil() throws {
         XCTAssertNil(try fetch("file:///no/such/file.png"))
+    }
+
+    func testOnlyARegularFileLoads() throws {
+        let png = TestImages.png(width: 4, height: 2)
+        let path = try TestImages.file(png, name: "loader-target.png")
+        files.append(path)
+        let link = path + "-link.png"
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: path)
+        files.append(link)
+        XCTAssertEqual(try fetch(TestImages.fileURL(link)), png, "a link to a regular file loads")
+        let pipe = path + ".pipe"
+        XCTAssertEqual(mkfifo(pipe, 0o600), 0)
+        files.append(pipe)
+        let folder = URL(fileURLWithPath: path).deletingLastPathComponent().absoluteString
+        // Before the check, /dev/zero read until memory ran out and the pipe never completed.
+        for url in ["file:///dev/zero", TestImages.fileURL(pipe), folder] {
+            XCTAssertNil(try fetch(url), url)
+        }
+    }
+
+    func testAFileWhoseNameIsNotUTF8Loads() throws {
+        let png = TestImages.png(width: 4, height: 2)
+        let path = try TestImages.file(png, name: "loader-latin1.png")
+        files.append(path)
+        // The same folder, an e-acute in the name in Latin-1: byte 0xE9, not UTF-8.
+        let folder = URL(fileURLWithPath: path).deletingLastPathComponent().path
+        let renamed = Array((folder + "/actionui-\(getpid())-loader-").utf8) + [0xE9] + Array(".png".utf8)
+        let cRenamed = renamed.map { CChar(bitPattern: $0) } + [0]
+        XCTAssertEqual(rename(path, cRenamed), 0)
+        defer { _ = unlink(cRenamed) }
+        let url = URL(fileURLWithPath: folder, isDirectory: true).absoluteString + "actionui-\(getpid())-loader-%E9.png"
+        XCTAssertEqual(try fetch(url), png)
     }
 
     func testAnHTTPURLLoadsItsBytes() throws {

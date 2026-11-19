@@ -1,8 +1,8 @@
 // Sources/Runtime/URLLoader.swift
 /*
  Loads the bytes a URL names without blocking the GLib main loop: http and https with libsoup 3
- (one shared session), file URLs with GIO, data URLs (base64 or percent-encoded) with libsoup's
- decoder. The completion runs on the main thread, always after fetch returns, with the bytes, or
+ (one shared session), file URLs with GIO (regular files only), data URLs (base64 or
+ percent-encoded) with libsoup's decoder. The completion runs on the main thread, always after fetch returns, with the bytes, or
  nil for a URL that names nothing loadable: another scheme, a malformed URL, an http status outside
  200-299, a read or network error. https needs glib-networking, which GNOME desktops install. No
  FoundationNetworking: it needs full Foundation and libcurl on Linux.
@@ -113,7 +113,17 @@ package enum URLLoader {
     }
 
     private static func fetchFile(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
+        // Only a regular file: a document names the address, and GIO would read a device such as
+        // /dev/zero until memory runs out, or hold a worker thread on a named pipe for good.
+        // GIO checks the file it will read (symbolic links followed): a path through Swift's String
+        // would lose a file name that is not UTF-8.
         let file = g_file_new_for_uri(url)!
+        guard g_file_query_file_type(file, GFileQueryInfoFlags(rawValue: 0), nil) == G_FILE_TYPE_REGULAR else {
+            g_object_unref(UnsafeMutableRawPointer(file))
+            ActionUIModel.shared.logger.log("Not loading \(url): it names no regular file", .warning)
+            _ = runAfter(milliseconds: 0) { completion(nil) }
+            return
+        }
         let run: ReadyRun = { result in
             var error: UnsafeMutablePointer<GError>?
             let bytes = g_file_load_bytes_finish(file, result, nil, &error)

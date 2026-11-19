@@ -4,7 +4,8 @@
  its elements' view models in the window; viewDidLoadActionID once per source; an http URL loading
  behind a spinner; a new source replacing the sub-view and its view models; messages for no source,
  a missing file (in the error color), a description that does not parse, a URL that fails, and a
- bundle name (Linux has no bundle).
+ bundle name (Linux has no bundle); a document that loads itself, directly or through another,
+ refused at the repeat while siblings showing one document both load it; a device refused.
 */
 
 import XCTest
@@ -156,6 +157,56 @@ final class LoadableViewRendererTests: XCTestCase {
         files.append(path)
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)"}}"#)
         XCTAssertEqual(child(node).map { Gtk.Label($0).text }, "Failed to load view: The data couldn't be read because it isn't in the correct format.")
+    }
+
+    func testADocumentThatLoadsItselfIsRefusedAtTheRepeat() throws {
+        let path = NSTemporaryDirectory() + "actionui-\(ProcessInfo.processInfo.processIdentifier)-loadable-self.json"
+        let json = #"{"type": "VStack", "id": 20, "children": [{"type": "LoadableView", "id": 21, "properties": {"filePath": "\#(path)"}}]}"#
+        try Data(json.utf8).write(to: URL(fileURLWithPath: path))
+        files.append(path)
+        let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)"}}"#)
+        let inner = try XCTUnwrap(node.childNodes[20]?.childNodes[21], "the document loads once")
+        let label = try XCTUnwrap(child(inner))
+        XCTAssertEqual(Gtk.Label(label).text, "Failed to load view: it includes itself")
+        XCTAssertTrue(Gtk.Widget(label).hasCSSClass("error"))
+    }
+
+    func testDocumentsThatLoadEachOtherAreRefusedAtTheRepeatAndSiblingsLoad() throws {
+        let prefix = NSTemporaryDirectory() + "actionui-\(ProcessInfo.processInfo.processIdentifier)-loadable-"
+        let a = prefix + "cycle-a.json", b = prefix + "cycle-b.json"
+        try Data(#"{"type": "LoadableView", "id": 30, "properties": {"filePath": "\#(b)"}}"#.utf8).write(to: URL(fileURLWithPath: a))
+        try Data(#"{"type": "LoadableView", "id": 31, "properties": {"filePath": "\#(a)"}}"#.utf8).write(to: URL(fileURLWithPath: b))
+        files += [a, b]
+        let text = try document("loadable-sibling.json", id: 40, text: "Sibling")
+        let node = try render(#"{"type": "VStack", "id": 1, "children": ["#
+            + #"{"type": "LoadableView", "id": 2, "properties": {"filePath": "\#(a)"}},"#
+            + #"{"type": "LoadableView", "id": 3, "properties": {"filePath": "\#(text)"}},"#
+            + #"{"type": "LoadableView", "id": 4, "properties": {"filePath": "\#(text)"}}]}"#)
+        // a shows b, b shows a again: refused there.
+        let repeated = try XCTUnwrap(node.childNodes[2]?.childNodes[30]?.childNodes[31])
+        XCTAssertEqual(child(repeated).map { Gtk.Label($0).text }, "Failed to load view: it includes itself")
+        // Two siblings showing the same document both load it.
+        for id in [3, 4] {
+            let sibling = try XCTUnwrap(node.childNodes[id])
+            XCTAssertNotNil(sibling.childNodes[40], "sibling \(id) loads the shared document")
+        }
+    }
+
+    func testAnOverlayOnALoadableViewMayShowTheSameDocument() throws {
+        // SwiftUI applies the overlay around LoadableNestingGuard, so it is not inside the LoadableView.
+        let text = try document("loadable-overlay.json", id: 50, text: "Shared")
+        let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(text)"}, "#
+            + #""overlay": {"type": "LoadableView", "id": 2, "properties": {"filePath": "\#(text)"}}}"#)
+        XCTAssertNotNil(node.childNodes[50], "the LoadableView loads the document")
+        let overlay = try XCTUnwrap(node.decorations?.overlay)
+        XCTAssertNotNil(overlay.childNodes[50], "the overlay loads it too")
+    }
+
+    func testOnlyARegularFileIsLoaded() throws {
+        let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "/dev/zero"}}"#)
+        let label = try XCTUnwrap(child(node))
+        XCTAssertEqual(Gtk.Label(label).text, "Failed to load view: /dev/zero is not a regular file")
+        XCTAssertTrue(Gtk.Widget(label).hasCSSClass("error"))
     }
 
     func testNoSourceAndABundleNameShowMessages() throws {

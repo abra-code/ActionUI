@@ -17,6 +17,12 @@
  - name is a file of that name in the folder of the document holding the LoadableView (the file an
    enclosing LoadableView loaded, else the window's document), then in the app's bundle (AppBundle);
    found nowhere, it shows Core's "not found" message.
+ - A source that a LoadableView around this one already shows (a document that loads itself,
+   directly or through others), or one nested more than 16 deep, is refused with "Failed to load
+   view: ..." in the error color, by Core's nesting rule (ActionUIDocumentLoader.nestingRefusal), as
+   SwiftUI's LoadableNestingGuard refuses it. Siblings showing the same source stay allowed.
+ - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile), so a
+   document cannot name a device or a named pipe and hang the window.
 */
 
 #if canImport(FoundationEssentials)
@@ -40,6 +46,9 @@ private let loadableStateKey = AttachKey<LoadableState>("actionui-loadable-state
     var generation = 0
     /// The folder of the file loaded, where a LoadableView inside it finds its `name`.
     var loadedFolder: String?
+    /// The source being shown, as Core's nesting rule knows it (ActionUIDocumentLoader.nestingKey):
+    /// a LoadableView inside this one may not load it again.
+    var nestingKey: String?
 }
 
 extension LoadableView: ActionUIAdwaitaRenderer {
@@ -67,6 +76,7 @@ extension LoadableView: ActionUIAdwaitaRenderer {
         state.generation &+= 1
         state.element = nil
         state.loadedFolder = nil
+        state.nestingKey = nil
         guard !value.isEmpty else {
             logger.log("No valid source for LoadableView, displaying error text", .warning)
             return showStatus(message("No valid source provided", error: false), widget, state)
@@ -79,13 +89,21 @@ extension LoadableView: ActionUIAdwaitaRenderer {
         let windowUUID = node.windowUUID
         let parentID = node.element.id
         let actionID = Props(node.properties).viewDidLoadActionID
+        if case .success(let found) = source {
+            let key = ActionUIDocumentLoader.nestingKey(for: found)
+            if let refusal = ActionUIDocumentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
+                logger.log("LoadableView: not loading \(key): \(refusal)", .error)
+                return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
+            }
+            state.nestingKey = key
+        }
         switch source {
         case .failure(let error):
             showStatus(message(error.message, error: false), widget, state)
         case .success(.file(let url)):
             let format = ActionUIDocumentLoader.format(of: url)
             do {
-                let data = try Data(contentsOf: url)
+                let data = try ActionUIDocumentLoader.readRegularFile(url)
                 state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID,
                                                                isContentView: false, parentID: parentID)
                 state.loadedFolder = url.deletingLastPathComponent().path
@@ -190,5 +208,21 @@ extension LoadableView {
             ancestor = current.parent
         }
         return AppBundle.documentFolder(window: node.windowUUID)
+    }
+
+    /// The sources the LoadableViews around `node` show, the outermost first. Only a LoadableView
+    /// whose loaded sub-view (its child node) holds `node` counts: its background, overlay or toolbar
+    /// items have it as their parent too, but SwiftUI applies those around LoadableNestingGuard.
+    fileprivate static func enclosingNestingKeys(of node: RenderNode) -> [String] {
+        var keys: [String] = []
+        var inner = node
+        while let current = inner.parent {
+            if current.childNodes[inner.element.id] === inner, let widget = current.widget,
+               let state = attached(on: widget, key: loadableStateKey), let key = state.nestingKey {
+                keys.append(key)
+            }
+            inner = current
+        }
+        return keys.reversed()
     }
 }

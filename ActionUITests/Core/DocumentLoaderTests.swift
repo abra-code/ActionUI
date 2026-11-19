@@ -61,6 +61,31 @@ final class DocumentLoaderTests: XCTestCase {
         }
     }
 
+    func testTheNestingRuleRefusesARepeatAndADeepChain() {
+        XCTAssertNil(ActionUIDocumentLoader.nestingRefusal("b", inside: ["a"]))
+        XCTAssertEqual(ActionUIDocumentLoader.nestingRefusal("a", inside: ["a", "b"]), "it includes itself")
+        let deep = (0..<16).map { "doc\($0)" }
+        XCTAssertEqual(ActionUIDocumentLoader.nestingRefusal("next", inside: deep), "LoadableViews are nested more than 16 deep")
+        XCTAssertNil(ActionUIDocumentLoader.nestingRefusal("next", inside: Array(deep.dropLast())))
+    }
+
+    func testANestingKeyNamesAFileByItsResolvedPath() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("nesting-key-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("a.json")
+        try Data("{}".utf8).write(to: file)
+        let link = folder.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        let dotted = URL(fileURLWithPath: folder.path + "/./sub/../a.json")
+        let key = ActionUIDocumentLoader.nestingKey(for: .file(file))
+        XCTAssertEqual(ActionUIDocumentLoader.nestingKey(for: .file(link)), key)
+        XCTAssertEqual(ActionUIDocumentLoader.nestingKey(for: .file(dotted)), key)
+        let remote = URL(string: "https://example.com/a.json?x=1")!
+        XCTAssertEqual(ActionUIDocumentLoader.nestingKey(for: .remote(remote)), remote.absoluteString)
+    }
+
     func testRemoteURLs() {
         XCTAssertEqual(source("https://example.com/a.json"), .success(.remote(URL(string: "https://example.com/a.json")!)))
         XCTAssertEqual(source("HTTP://example.com/a"), .success(.remote(URL(string: "HTTP://example.com/a")!)))
