@@ -8,9 +8,17 @@
  The shim holds a context for the callbacks: a box with a weak reference to the LayoutPanel, so
  the panel object (which the box lives as long as) does not keep the LayoutPanel alive. The shim
  frees the box when the panel object goes away.
+
+ WinUI lays a parent out again only when a child's desired size changes, and that is capped at
+ the size offered: a child squeezed below its floor (a label in a tight row) whose floor changes
+ while running (a bound minWidth or padding, a nested stack gaining a child) keeps the same
+ desired size, and its parent would keep the old floor. So a panel measured again for the size
+ it was last offered whose answer (requested) changed asks its ActionUI parent for a new layout,
+ after the current one.
 */
 
 import CWinUI
+import Dispatch
 
 @MainActor private final class PanelBox {
     weak var panel: LayoutPanel?
@@ -28,6 +36,11 @@ private let measurePanel: ActionUIWinUIMeasureCallback = { context, _, available
     return MainActor.assumeIsolated {
         guard let panel = box?.panel else { return ActionUIWinUISize(width: 0, height: 0) }
         let size = panel.measure(available)
+        let sameOffer = available.width == panel.lastOffer.width && available.height == panel.lastOffer.height
+        if sameOffer && (size.width != panel.requested.width || size.height != panel.requested.height) {
+            panel.parentPanel?.invalidateLayoutLater()
+        }
+        panel.lastOffer = available
         panel.requested = size
         // WinUI gets no more than it offered: its desired size is capped there anyway, but an
         // element whose measure asked for more is arranged at least that large, aligned to its
@@ -65,6 +78,13 @@ private let releaseBox: ActionUIWinUICallback = { context in
     /// What `measure` last returned, which can be larger than the size offered; WinUI gets it
     /// capped there (measurePanel): WinUIObject.measureRequested.
     package fileprivate(set) var requested = ActionUIWinUISize(width: 0, height: 0)
+    /// The size offered to the last measure. Not a number before the first, so that no offer
+    /// matches it: a first measure offered unbounded room is not one "for the same size".
+    fileprivate var lastOffer = ActionUIWinUISize(width: .nan, height: .nan)
+    /// The ActionUI panel holding this one, when there is one (set by its insert).
+    fileprivate weak var parentPanel: LayoutPanel?
+    /// Whether a new layout is already asked for after the current one (invalidateLayoutLater).
+    private var layoutPending = false
     /// Places every child inside the final size.
     package var arrange: (ActionUIWinUISize) -> Void = { _ in }
 
@@ -89,6 +109,7 @@ private let releaseBox: ActionUIWinUICallback = { context in
             throw WinUIError.last("adding a child to a layout panel")
         }
         children.insert(child, at: index)
+        child.layoutPanel?.parentPanel = self
     }
 
     package func append(_ child: WinUIObject) throws(WinUIError) {
@@ -99,11 +120,29 @@ private let releaseBox: ActionUIWinUICallback = { context in
         guard actionUIWinUIPanelRemoveChild(object.pointer, Int32(index)) else {
             throw WinUIError.last("removing a child from a layout panel")
         }
-        children.remove(at: index)
+        let child = children.remove(at: index)
+        if child.layoutPanel?.parentPanel === self {
+            child.layoutPanel?.parentPanel = nil
+        }
     }
 
     /// Asks WinUI to lay the panel out again.
     package func invalidateLayout() {
         object.invalidateMeasure()
+    }
+
+    /// Asks for a new layout once the current layout pass is over (once, however often asked):
+    /// invalidating a parent from inside its child's measure would change the tree WinUI is
+    /// walking.
+    fileprivate func invalidateLayoutLater() {
+        guard !layoutPending else { return }
+        layoutPending = true
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.layoutPending = false
+                self.invalidateLayout()
+            }
+        }
     }
 }

@@ -9,6 +9,8 @@
 //   --toggle ID              the same with UI Automation's Toggle (a Toggle turns over)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
+//   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
+//                            does (VALUE a number when it reads as one, else a string)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
@@ -31,15 +33,16 @@ final class Preview {
     var window: WinUIObject?
     var tree: WinUIWindow?
     var rendered = false
-    /// The --invoke, --toggle and --set-text operations, in order.
+    /// The --invoke, --toggle, --set-text, --scroll and --set-property operations, in order.
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double)
+        case invoke(Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), setProperty(Int, String, String)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _): return id
+            case .invoke(let id), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _):
+                return id
             }
         }
     }
@@ -138,6 +141,16 @@ final class Preview {
             case .scroll(_, let x, let y):
                 worked = actionUIWinUIScrollViewerScrollTo(view.pointer, x, y)
                 what = "scrolled"
+            case .setProperty(_, let name, let text):
+                let value: Any
+                if let number = Double(text) {
+                    value = number
+                } else {
+                    value = text
+                }
+                ActionUIModel.shared.setElementProperty(windowUUID: "preview", viewID: viewID, propertyName: name, value: value)
+                worked = true
+                what = "set \(name) to \(text) on"
             }
             if worked {
                 say("\(what) \(node.element.type) \(viewID)")
@@ -257,7 +270,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT | --scroll ID X Y]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-property ID NAME VALUE]... [--expect-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -288,6 +301,9 @@ while index < arguments.count {
     } else if option == "--scroll", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]),
               let x = Double(arguments[index + 2]), let y = Double(arguments[index + 3]) {
         preview.invocations.append(.scroll(viewID, x, y))
+        index += 4
+    } else if option == "--set-property", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
+        preview.invocations.append(.setProperty(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4
     } else if option == "--expect-action", index + 1 < arguments.count {
         preview.expectedActions.append(arguments[index + 1])

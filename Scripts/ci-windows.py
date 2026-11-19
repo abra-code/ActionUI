@@ -69,6 +69,7 @@ SMOKE_TIMEOUT_SECONDS = 180
 PREVIEW_OPTIONS = {
     "Floors": ["420", "380"],
     "NestedFloors": ["420", "420"],
+    "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
     "Shapes": ["420", "340"],

@@ -38,9 +38,9 @@
  as large, centered in the room it is given, overflowing it as a SwiftUI stack does (WinUI is told
  no more than the room: LayoutPanel).
 
- Not yet: a floor that changes while running (a bound minWidth, a nested stack gaining a child)
- reaches the parent only at its next layout, as WinUI invalidates a parent only when a child's
- capped size changes.
+ A floor that changes while running (a bound minWidth or padding, a nested stack gaining a child)
+ reaches the stack although WinUI's capped size of the child stays the same: the child's panel asks
+ its parent for a new layout (LayoutPanel).
 
  Not yet: baselines. A compressed Text leaves what it does not use of its share to the others in
  one more sharing; SwiftUI offers each child in turn what the ones before it left, so the shares can

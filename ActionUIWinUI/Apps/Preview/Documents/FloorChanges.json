@@ -1,0 +1,75 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "spacing": 12,
+    "alignment": "leading",
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 3,
+          "properties": {
+            "text": "Padded",
+            "padding": 4,
+            "background": "fill.secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 4,
+          "properties": {
+            "text": "The label's padding grows while running, and this text makes room for it."
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 5,
+      "properties": {
+        "alignment": "top",
+        "frame": {
+          "width": 220
+        }
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "id": 6,
+          "properties": {
+            "background": "fill.secondary"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "id": 7,
+              "properties": {
+                "text": "In a column",
+                "padding": 4
+              }
+            }
+          ]
+        },
+        {
+          "type": "Text",
+          "id": 8,
+          "properties": {
+            "text": "The same change one level down, in a column inside the row."
+          }
+        }
+      ]
+    }
+  ]
+}
