@@ -300,6 +300,9 @@ package final class RenderNode {
     func releaseTemplateNode(_ node: RenderNode) {
         node.detach()
         templateNodes.removeAll { $0 === node }
+        // Made outside this node's sync (a lazy stack's row, in a layout pass), it would otherwise stay
+        // here until that sync, however many rows came and went meanwhile.
+        unsyncedChildren.removeAll { $0 === node }
     }
 
     /// A template instance's view model: the element's properties with the row's data substituted.

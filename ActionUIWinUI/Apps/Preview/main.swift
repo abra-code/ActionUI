@@ -20,6 +20,8 @@
 //                            does (a List's rows), its columns TEXT split at "|"; repeatable, in order.
 //                            An operation on an element after rows or properties changed waits for
 //                            the change to reach the screen (a template row's controls are made then)
+//   --add-rows ID N TEXT     appends N rows at once, as --add-row, each TEXT with "#" replaced by the
+//                            row's number from 1 (a long lazy stack)
 //   --set-value ID VALUE     sets element ID's value through the model, as an adapter does (VALUE a
 //                            number when it reads as one, else a string)
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
@@ -29,13 +31,16 @@
 //   --wait                   lets the changes the operations before it made reach the screen before
 //                            the next operation on screen (a screen pushed by an invoke, then its
 //                            back button)
+//   --max-instances ID N     fails when element ID holds more than N template instances when the
+//                            window is rendered (a lazy stack made rows out of view)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
 //   --forbid-action ACTION   fails if the action ACTION fired (a renderer's own change taken for the
 //                            user's); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
-// loaded and rendered, the PNG is not empty, every operation worked and every expected action
-// fired at least once. Built and run by
+// loaded and rendered, the PNG is not empty, every operation worked, every expected action fired
+// at least once and no element held more template instances than --max-instances allows. Built and
+// run by
 // Scripts/ci-windows.py winui.
 
 import ActionUI
@@ -58,12 +63,12 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
-             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), setPath(Int, [Int]), wait
+             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
-                 .addRow(let id, _), .setPath(let id, _):
+                 .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
                 return id
             case .wait:
                 return 0
@@ -73,7 +78,7 @@ final class Preview {
         /// Whether it changes the model rather than operating an element on screen.
         var changesModel: Bool {
             switch self {
-            case .setProperty, .setValue, .addRow, .setPath, .wait: true
+            case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait: true
             case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll: false
             }
         }
@@ -84,6 +89,10 @@ final class Preview {
     var firedActions: [String] = []
     /// False once an --invoke found no element or the shim refused it.
     var invocationsWorked = true
+    /// --max-instances: element id to the most template instances it may hold.
+    var maxInstances: [Int: Int] = [:]
+    /// False once an element held more template instances than --max-instances allows.
+    var instancesWithinLimit = true
 
     func say(_ line: String) {
         print("preview: \(line)")
@@ -240,6 +249,14 @@ final class Preview {
                 ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: [columns])
                 worked = true
                 what = "added the row \(text) to"
+            case .addRows(_, let count, let text):
+                let rows = (1...max(count, 1)).map { number in
+                    text.split(separator: "#", omittingEmptySubsequences: false).joined(separator: String(number))
+                        .split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+                }
+                ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: count > 0 ? rows : [])
+                worked = true
+                what = "added \(count) rows (\(text)) to"
             }
             if worked {
                 say("\(what) \(node.element.type) \(viewID)")
@@ -290,7 +307,12 @@ final class Preview {
     func report(_ node: RenderNode, indent: String) {
         // The box's frame in its parent: the element with its padding and frame, as SwiftUI reports one.
         let frame = node.outerView?.layoutFrame ?? ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0)
-        say("\(indent)\(node.element.type) \(node.element.id): (\(frame.x), \(frame.y), \(frame.width), \(frame.height))")
+        say("\(indent)\(node.element.type) \(node.element.id): (\(frame.x), \(frame.y), \(frame.width), \(frame.height))"
+            + (node.templateNodes.isEmpty ? "" : ", \(node.templateNodes.count) template instances"))
+        if let limit = maxInstances[node.element.id], node.templateNodes.count > limit {
+            say("element \(node.element.id) holds \(node.templateNodes.count) template instances, more than \(limit)")
+            instancesWithinLimit = false
+        }
         for child in node.orderedChildren + node.templateNodes {
             report(child, indent: indent + "  ")
         }
@@ -386,7 +408,7 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --wait]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -444,8 +466,16 @@ while index < arguments.count {
     } else if option == "--wait" {
         preview.invocations.append(.wait)
         index += 1
+    } else if option == "--add-rows", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let count = Int(arguments[index + 2]), count >= 0 {
+        preview.invocations.append(.addRows(viewID, count, arguments[index + 3]))
+        index += 4
     } else if option == "--add-row", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.addRow(viewID, arguments[index + 2]))
+        index += 3
+    } else if option == "--max-instances", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let limit = Int(arguments[index + 2]) {
+        preview.maxInstances[viewID] = limit
         index += 3
     } else if option == "--expect-action", index + 1 < arguments.count {
         preview.expectedActions.append(arguments[index + 1])
@@ -486,4 +516,5 @@ if !forbidden.isEmpty {
     print("preview: actions that must not fire fired: \(forbidden)")
 }
 print("preview: run \(ran ? "ok" : "failed"), rendered \(preview.rendered ? "yes" : "no"), PNG \(size) bytes, actions fired \(preview.firedActions.count)")
-exit(ran && preview.rendered && size > 0 && missing.isEmpty && forbidden.isEmpty && preview.invocationsWorked ? 0 : 1)
+exit(ran && preview.rendered && size > 0 && missing.isEmpty && forbidden.isEmpty && preview.invocationsWorked
+     && preview.instancesWithinLimit ? 0 : 1)

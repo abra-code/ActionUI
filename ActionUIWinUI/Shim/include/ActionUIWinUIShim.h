@@ -519,6 +519,44 @@ typedef struct ActionUIWinUIScrollState {
 // failure.
 ACTIONUI_WINUI_API ActionUIWinUIScrollState actionUIWinUIScrollViewerState(ActionUIWinUIObject *scroll);
 
+// MARK: - Repeater
+
+// An ItemsRepeater: WinUI's virtualizing control, which makes elements only for the items in or near
+// the part of it its scroll viewers show (all of them when none bounds it), estimates the others'
+// sizes and keeps the scroll position anchored as they change. Its items are numbered rows (0, 1,
+// ...); the caller makes each row's element and lets it go when the repeater no longer shows it.
+
+// Makes the element for row `index` and lends it for the call (the repeater takes its own
+// reference); NULL when it cannot (an empty element stands for the row). Called during a layout pass,
+// on the UI thread.
+typedef ActionUIWinUIObject *(*ActionUIWinUIRepeaterMake)(void *context, int32_t index);
+// The repeater no longer shows `element` (lent for the call), one make returned: the caller can let
+// it go. The element is already out of the repeater.
+typedef void (*ActionUIWinUIRepeaterRecycle)(void *context, ActionUIWinUIObject *element);
+
+// A new repeater stacking its rows along the vertical (else horizontal) axis, each given the
+// repeater's whole size across, with no rows and no spacing. destroyContext(context), when not NULL,
+// is called once the repeater's factory is gone (on the UI thread). NULL on failure (destroyContext
+// then called at once).
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIRepeaterCreate(bool vertical, ActionUIWinUIRepeaterMake make,
+                                                                    ActionUIWinUIRepeaterRecycle recycle, void *context,
+                                                                    ActionUIWinUICallback destroyContext);
+// The space between rows, in effective pixels.
+ACTIONUI_WINUI_API bool actionUIWinUIRepeaterSetSpacing(ActionUIWinUIObject *repeater, double spacing);
+// How many rows the repeater has; -1 on failure.
+ACTIONUI_WINUI_API int32_t actionUIWinUIRepeaterCount(ActionUIWinUIObject *repeater);
+// Adds a row at the end.
+ACTIONUI_WINUI_API bool actionUIWinUIRepeaterAppend(ActionUIWinUIObject *repeater);
+// Row `index` changed: its element, when it has one, is recycled and made again.
+ACTIONUI_WINUI_API bool actionUIWinUIRepeaterReplace(ActionUIWinUIObject *repeater, int32_t index);
+// Removes the rows from `count` on (their elements are recycled).
+ACTIONUI_WINUI_API bool actionUIWinUIRepeaterTruncate(ActionUIWinUIObject *repeater, int32_t count);
+// Row `index`'s element when the repeater shows it (a new reference); NULL (with an error) when it does not.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIRepeaterCopyElement(ActionUIWinUIObject *repeater, int32_t index);
+// Whether `a` and `b` are the same WinUI object, seen through any of its interfaces (a recycled
+// element and the one make returned). False when either is NULL.
+ACTIONUI_WINUI_API bool actionUIWinUIObjectIsSame(ActionUIWinUIObject *a, ActionUIWinUIObject *b);
+
 // MARK: - Shapes
 
 typedef enum ActionUIWinUIShapeKind {

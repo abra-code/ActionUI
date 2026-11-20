@@ -1,0 +1,38 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "2000 rows, made as they come into view", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 3,
+      "properties": { "frame": { "height": 260 } },
+      "content": {
+        "type": "LazyVStack",
+        "id": 4,
+        "properties": { "spacing": 4, "alignment": "leading" },
+        "template": {
+          "type": "HStack",
+          "id": 5,
+          "children": [
+            { "type": "Text", "id": 6, "properties": { "text": "$1" } },
+            { "type": "Text", "id": 7, "properties": { "text": "$2", "foregroundStyle": "secondary" } }
+          ]
+        }
+      }
+    },
+    { "type": "Text", "id": 8, "properties": { "text": "500 columns", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 9,
+      "properties": { "axis": "horizontal", "frame": { "height": 44 } },
+      "content": {
+        "type": "LazyHStack",
+        "id": 10,
+        "properties": { "spacing": 6 },
+        "template": { "type": "Text", "id": 11, "properties": { "text": "$1", "padding": 6, "background": "yellow" } }
+      }
+    }
+  ]
+}
