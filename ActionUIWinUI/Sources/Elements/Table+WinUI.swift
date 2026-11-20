@@ -17,8 +17,24 @@
  - Rows are made as they come into view (the ListView's element source, as the List's), so a Table
    of thousands of rows makes tens; each row is named for accessibility tools by its columns.
 
- Not yet: the Button, Image, AsyncImage and Toggle cells (their text is shown, logged once per kind);
- resizing a column by dragging its header's edge; scrollContentBackground.
+ Cells, by the column's columnTypes entry (Text when none), as on Linux:
+ - Text: one line at the leading edge, cut short with an ellipsis.
+ - Button: the text as its title, or an image read as dataInterpretation says when that is set; a
+   click fires the entry's actionID with the column as viewPartID and the context actionContext names
+   (the title, the row's index, the column's index, or {"row", "column"}). A click does not select
+   the row.
+ - Image: the text read as dataInterpretation says, as a List's Image cell shows it.
+ - AsyncImage: the image the text names, loaded without blocking and scaled to fit the cell (24
+   points tall); nothing until it has loaded, and when it cannot be.
+ - Toggle: a checkbox (or a switch, by style) showing the text as a Bool; a user toggle writes "true"
+   or "false" into the cell, keeps the selection where it was, and fires the entry's actionID with the
+   column as viewPartID and the row's index as context (Core Table.commitCellToggle); disabledColumn's
+   text, read the same way, disables it.
+
+ Not yet: the toggle button style (a checkbox for now); a toggled row is made again, so its toggle
+ loses the keyboard focus; WinUI's CheckBox keeps its 120 point minimum width, so a click beside the
+ box in a wide column toggles it; a spinner in an AsyncImage cell while it loads; the inherited buttonStyle on Button cells; resizing a column by dragging its header's edge;
+ scrollContentBackground.
 */
 
 import Dispatch
@@ -73,41 +89,63 @@ import CWinUI
 
 /// A row of cells (a content row's, or the header's) placed at the columns' widths.
 @MainActor final class TableRowLayout {
+    /// A cell, and whether it fills its column (a text) or keeps its own size at the column's leading
+    /// edge, centered in the row (a button, an image, a toggle).
+    struct Cell {
+        let view: WinUIObject
+        var fills: Bool
+        /// The most height it is given (an AsyncImage cell's image, scaled to fit); nil: what it asks.
+        var height: Double?
+    }
+
     let panel: LayoutPanel
     let columns: TableColumns
-    private(set) var cells: [WinUIObject] = []
+    private(set) var cells: [Cell] = []
+    /// Each cell's size from the last measure pass, for arrange.
+    private var desired: [ActionUIWinUISize] = []
     /// The header's: its cells start at the rows' inset.
     let isHeader: Bool
 
-    init(columns: TableColumns, texts: [String], isHeader: Bool) throws(WinUIError) {
+    init(columns: TableColumns, cells: [Cell], isHeader: Bool) throws(WinUIError) {
         self.columns = columns
         self.isHeader = isHeader
         panel = try LayoutPanel()
         panel.measure = { [unowned self] available in measure(available) }
         panel.arrange = { [unowned self] finalSize in arrange(finalSize) }
-        for text in texts {
-            guard let cell = WinUIObject(adopting: actionUIWinUITextBlockCreate()) else {
-                throw WinUIError.last("making a Table cell")
-            }
-            var shown = actionUIWinUITextBlockSetText(cell.pointer, text) && actionUIWinUITextBlockSetTrimmed(cell.pointer, true)
-            if isHeader {
-                shown = shown && actionUIWinUIElementSetFont(cell.pointer, nil, 0, 600)
-            }
-            if !shown {
-                ActionUIModel.shared.logger.log("Table: \(WinUIError.last("showing a cell"))", .error)
-            }
-            try panel.append(cell)
-            cells.append(cell)
+        for cell in cells {
+            try panel.append(cell.view)
         }
+        self.cells = cells
+    }
+
+    /// A one-line text cell, cut short with an ellipsis (semibold in the header).
+    static func textCell(_ text: String, header: Bool = false) throws(WinUIError) -> Cell {
+        guard let cell = WinUIObject(adopting: actionUIWinUITextBlockCreate()) else {
+            throw WinUIError.last("making a Table cell")
+        }
+        var shown = actionUIWinUITextBlockSetText(cell.pointer, text) && actionUIWinUITextBlockSetTrimmed(cell.pointer, true)
+        if header {
+            shown = shown && actionUIWinUIElementSetFont(cell.pointer, nil, 0, 600)
+        }
+        if !shown {
+            ActionUIModel.shared.logger.log("Table: \(WinUIError.last("showing a cell"))", .error)
+        }
+        return Cell(view: cell, fills: true)
     }
 
     private var offset: Double { isHeader ? columns.inset : 0 }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         var height = 0.0
+        desired = []
         for (index, cell) in cells.enumerated() {
             let width = Double(columns.span(index).width)
-            height = max(height, cell.measure(ActionUIWinUISize(width: width, height: .infinity)).height)
+            var size = cell.view.measure(ActionUIWinUISize(width: width, height: cell.height ?? .infinity))
+            if let cap = cell.height {
+                size.height = min(size.height, cap)
+            }
+            desired.append(size)
+            height = max(height, size.height)
         }
         let width = Double(columns.span(max(columns.count - 1, 0)).start + columns.span(max(columns.count - 1, 0)).width) + offset
         return ActionUIWinUISize(width: available.width.isFinite ? min(width, available.width) : width, height: height)
@@ -116,7 +154,16 @@ import CWinUI
     private func arrange(_ finalSize: ActionUIWinUISize) {
         for (index, cell) in cells.enumerated() {
             let span = columns.span(index)
-            cell.arrange(ActionUIWinUIRect(x: offset + Double(span.start), y: 0, width: Double(span.width), height: finalSize.height))
+            if !desired.indices.contains(index) {
+                cell.view.arrange(ActionUIWinUIRect(x: offset + Double(span.start), y: 0, width: Double(span.width), height: finalSize.height))
+            } else {
+                // Every cell at its own height, centered in the row: a TextBlock given more height
+                // draws its line at the top, above a taller Button's or CheckBox's center.
+                let size = desired[index]
+                let width = cell.fills ? Double(span.width) : min(size.width, Double(span.width))
+                let height = min(size.height, finalSize.height)
+                cell.view.arrange(ActionUIWinUIRect(x: offset + Double(span.start), y: (finalSize.height - height) / 2, width: width, height: height))
+            }
         }
     }
 }
@@ -155,7 +202,11 @@ import CWinUI
                 self.header = nil
             }
             if shown {
-                let made = try TableRowLayout(columns: columns, texts: columns.titles, isHeader: true)
+                var cells: [TableRowLayout.Cell] = []
+                for title in columns.titles {
+                    cells.append(try TableRowLayout.textCell(title, header: true))
+                }
+                let made = try TableRowLayout(columns: columns, cells: cells, isHeader: true)
                 try panel.append(made.panel.object)
                 header = made
             }
@@ -244,8 +295,11 @@ import CWinUI
     var made: [TableRowLayout] = []
     /// The row the renderer last selected: a selection event reporting it is the renderer's own.
     var shownIndex: Int32 = -1
-    /// The cell kinds shown as text for now, logged once each.
-    var reportedTypes: Set<String> = []
+    /// The columns' cell types the rows were made with: a change makes them again.
+    var shownCellKinds: [String]?
+    /// Rows a user toggled: made again at the next update even when their data did not change (a host
+    /// that put the cell back shows its value again).
+    var staleRows: Set<Int> = []
 
     init(layout: TableLayout) {
         self.layout = layout
@@ -321,9 +375,17 @@ extension Table: ActionUIWinUIRenderer {
             }
             layout.panel.invalidateLayout()
         }
-        for (index, type) in props.columnTypes.enumerated() where index < titles.count && type.viewType != .text {
-            if state.reportedTypes.insert(type.viewType.rawValue).inserted {
-                ActionUIModel.shared.logger.log("Table: \(type.viewType.rawValue) cells are shown as their text on Windows for now", .warning)
+        // A change of the columns' types (or of an Image cell's symbol size) makes every row again.
+        let cellKinds = props.columnTypes.map { "\($0.viewType.rawValue) \($0.dataInterpretation?.rawValue ?? "") \($0.toggleStyle.rawValue) \($0.actionID ?? "") \($0.actionContext.rawValue) \($0.disabledColumn ?? 0)" }
+            + ["\(ImageLayout.symbolSide(node, scale: nil))"]
+        if cellKinds != state.shownCellKinds {
+            let remake = state.shownCellKinds != nil
+            state.shownCellKinds = cellKinds
+            for index in state.sourceRows.indices where remake {
+                state.shownIndex = -1
+                if !actionUIWinUIListSourceReplace(list.pointer, Int32(index), rowLabel(state.sourceRows[index])) {
+                    ActionUIModel.shared.logger.log("Table: \(WinUIError.last("changing a row"))", .error)
+                }
             }
         }
         let rows = node.model.states["content"] as? [[String]] ?? []
@@ -338,7 +400,9 @@ extension Table: ActionUIWinUIRenderer {
         let old = state.sourceRows
         // The rows first: the ListView may ask for an element as soon as they change.
         state.sourceRows = rows
-        for index in 0..<min(old.count, rows.count) where old[index] != rows[index] {
+        let stale = state.staleRows
+        state.staleRows = []
+        for index in 0..<min(old.count, rows.count) where old[index] != rows[index] || stale.contains(index) {
             state.shownIndex = -1
             if !actionUIWinUIListSourceReplace(list.pointer, Int32(index), rowLabel(rows[index])) {
                 ActionUIModel.shared.logger.log("Table: \(WinUIError.last("changing a row"))", .error)
@@ -358,6 +422,135 @@ extension Table: ActionUIWinUIRenderer {
         }
     }
 
+    // MARK: Cells
+
+    /// The cell of `type` showing `text` (row `rowIndex`'s column `column`): a text, a Button, an
+    /// Image, an AsyncImage or a Toggle, as on Linux and Apple.
+    private static func cell(_ type: Props.ColumnType, text: String, row: [String], rowIndex: Int, column: Int,
+                             _ node: RenderNode, _ state: TableState) throws(WinUIError) -> TableRowLayout.Cell {
+        switch type.viewType {
+        case .text:
+            return try TableRowLayout.textCell(text)
+        case .button:
+            guard let button = WinUIObject(adopting: actionUIWinUIButtonCreate()) else {
+                throw WinUIError.last("making a Button cell")
+            }
+            // The text as its title, or an image read as dataInterpretation says when that is set.
+            var shown: Bool
+            if let interpretation = type.dataInterpretation, let image = imageCell(text, interpretation, node) {
+                shown = actionUIWinUIButtonSetContent(button.pointer, image.pointer)
+            } else {
+                shown = actionUIWinUIButtonSetTitle(button.pointer, text)
+            }
+            if !shown {
+                ActionUIModel.shared.logger.log("Table: \(WinUIError.last("showing a Button cell"))", .error)
+            }
+            // A row whose data changes is made again: the row index and text stay this button's.
+            WinUIEvents.connect(button, actionUIWinUIButtonOnClick, "a Table's Button cell") { [weak node] in
+                guard let node, node.isAttached, let actionID = type.actionID else { return }
+                let context: Any
+                switch type.actionContext {
+                case .title: context = text
+                case .rowIndex: context = rowIndex
+                case .columnIndex: context = column
+                case .rowColumnIndex: context = ["row": rowIndex, "column": column]
+                }
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id,
+                                                   viewPartID: column, context: context)
+            }
+            return TableRowLayout.Cell(view: button, fills: false)
+        case .image:
+            guard let image = imageCell(text, type.dataInterpretation ?? .systemName, node) else {
+                // An image the shim has no symbol for shows nothing, as Image does.
+                return try TableRowLayout.textCell("")
+            }
+            return TableRowLayout.Cell(view: image, fills: false)
+        case .asyncImage:
+            return try asyncImageCell(text)
+        case .toggle:
+            return try toggleCell(type, text: text, row: row, rowIndex: rowIndex, column: column, node, state)
+        }
+    }
+
+    /// An Image cell: the text read as `interpretation` says, as a List's Image cell shows it.
+    private static func imageCell(_ text: String, _ interpretation: Props.DataInterpretation, _ node: RenderNode) -> WinUIObject? {
+        let listInterpretation = List.Props.DataInterpretation(rawValue: interpretation.rawValue) ?? .systemName
+        return List.imageCell(text, ListState.RowCell(type: .image, interpretation: listInterpretation,
+                                                      symbolSide: ImageLayout.symbolSide(node, scale: nil)))
+    }
+
+    /// An AsyncImage cell: the image the text names, loaded without blocking and scaled to fit the cell
+    /// (WinUI's Image, as AsyncImage loads it); nothing until it loads, and when it cannot.
+    private static func asyncImageCell(_ text: String) throws(WinUIError) -> TableRowLayout.Cell {
+        guard let image = WinUIObject(adopting: actionUIWinUIImageCreate()) else {
+            throw WinUIError.last("making an AsyncImage cell")
+        }
+        if Link.destination(text) == .absolute {
+            if !actionUIWinUIImageSetURL(image.pointer, text) || !actionUIWinUIImageSetStretch(image.pointer, ActionUIWinUIImageStretchFit) {
+                ActionUIModel.shared.logger.log("Table: \(WinUIError.last("loading \(text)"))", .warning)
+            }
+        }
+        // As tall as a text row, scaled to fit (the row layout measures it within 24 points).
+        return TableRowLayout.Cell(view: image, fills: false, height: 24)
+    }
+
+    /// A Toggle cell: a checkbox (or a switch, by style; a toggle button is a checkbox for now) showing
+    /// the text as a Bool; a user toggle writes "true" or "false" into the cell and fires the entry's
+    /// actionID (Core Table.commitCellToggle); disabledColumn's text, read the same way, disables it.
+    private static func toggleCell(_ type: Props.ColumnType, text: String, row: [String], rowIndex: Int, column: Int,
+                                   _ node: RenderNode, _ state: TableState) throws(WinUIError) -> TableRowLayout.Cell {
+        let isOn = TemplateHelper.rowBool(text) ?? false
+        let enabled = !isCellDisabled(disabledColumn: type.disabledColumn, row: row)
+        let toggled: @MainActor (Bool) -> Void = { [weak node, weak state] on in
+            guard let node, let state, node.isAttached, state.drawnRows.indices.contains(rowIndex) else { return }
+            // Made again at the next update from what the rows hold then.
+            state.staleRows.insert(rowIndex)
+            let taken = commitCellToggle(on, drawnRow: state.drawnRows[rowIndex], rowIndex: rowIndex, column: column,
+                                         actionID: type.actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id)
+            if !taken {
+                // The row is gone: the next update shows the rows' state again.
+                SyncScheduler.shared.markDirty(node)
+            }
+        }
+        let view: WinUIObject
+        if type.toggleStyle == .switch {
+            guard let toggle = WinUIObject(adopting: actionUIWinUIToggleSwitchCreate()) else {
+                throw WinUIError.last("making a Toggle cell")
+            }
+            // Set before the handler: the switch reports a setter's change as it reports the user's.
+            if !actionUIWinUIToggleSwitchSetTitle(toggle.pointer, nil) || !actionUIWinUIToggleSwitchSetOn(toggle.pointer, isOn) {
+                ActionUIModel.shared.logger.log("Table: \(WinUIError.last("showing a Toggle cell"))", .error)
+            }
+            // The value last shown or reported, not the made one: a second user toggle back to it before
+            // the row is made again (or when a handler put the rows back) is the user's too.
+            var shownOn = isOn
+            WinUIEvents.connect(toggle, actionUIWinUIToggleSwitchOnToggled, "a Table's Toggle cell") { [weak toggle] in
+                guard let toggle else { return }
+                let on = actionUIWinUIToggleSwitchIsOn(toggle.pointer)
+                guard on != shownOn else { return }
+                shownOn = on
+                toggled(on)
+            }
+            view = toggle
+        } else {
+            guard let box = WinUIObject(adopting: actionUIWinUICheckBoxCreate()) else {
+                throw WinUIError.last("making a Toggle cell")
+            }
+            if !actionUIWinUICheckBoxSetChecked(box.pointer, isOn) {
+                ActionUIModel.shared.logger.log("Table: \(WinUIError.last("showing a Toggle cell"))", .error)
+            }
+            WinUIEvents.connect(box, actionUIWinUICheckBoxOnClick, "a Table's Toggle cell") { [weak box] in
+                guard let box else { return }
+                toggled(actionUIWinUICheckBoxIsChecked(box.pointer))
+            }
+            view = box
+        }
+        if !actionUIWinUIElementSetEnabled(view.pointer, enabled) {
+            ActionUIModel.shared.logger.log("Table: \(WinUIError.last("enabling a Toggle cell"))", .error)
+        }
+        return TableRowLayout.Cell(view: view, fills: false)
+    }
+
     /// What accessibility tools name a row by: its columns in order, as VoiceOver reads a row's cells.
     private static func rowLabel(_ row: [String]) -> String {
         row.filter { !$0.isEmpty }.joined(separator: ", ")
@@ -368,9 +561,15 @@ extension Table: ActionUIWinUIRenderer {
         guard node.isAttached, let state = node.state as? TableState, state.sourceRows.indices.contains(index) else { return nil }
         let row = state.sourceRows[index]
         let columns = state.layout.columns
-        let texts = (0..<columns.count).map { $0 < row.count ? row[$0] : "" }
+        let types = Props(node.properties).columnTypes
         do {
-            let made = try TableRowLayout(columns: columns, texts: texts, isHeader: false)
+            var cells: [TableRowLayout.Cell] = []
+            for column in 0..<columns.count {
+                let text = column < row.count ? row[column] : ""
+                let type = column < types.count ? types[column] : Props.ColumnType([:])
+                cells.append(try cell(type, text: text, row: row, rowIndex: index, column: column, node, state))
+            }
+            let made = try TableRowLayout(columns: columns, cells: cells, isHeader: false)
             if !actionUIWinUIElementSetAlignment(made.panel.object.pointer, ActionUIWinUIAlignStart, ActionUIWinUIAlignCenter) {
                 ActionUIModel.shared.logger.log("Table: \(WinUIError.last("placing a row"))", .error)
             }

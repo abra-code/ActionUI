@@ -1,0 +1,76 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "Table",
+   "id": 2,
+   "properties": {
+    "columns": [
+     "Task",
+     "Done",
+     "Icon",
+     "Locked",
+     "Picture",
+     "Open"
+    ],
+    "widths": [
+     90,
+     50,
+     40,
+     50,
+     60,
+     70
+    ],
+    "columnTypes": [
+     {
+      "viewType": "Text"
+     },
+     {
+      "viewType": "Toggle",
+      "actionID": "task.toggled",
+      "disabledColumn": 4
+     },
+     {
+      "viewType": "Image",
+      "dataInterpretation": "systemName"
+     },
+     {
+      "viewType": "Text"
+     },
+     {
+      "viewType": "AsyncImage"
+     },
+     {
+      "viewType": "Button",
+      "actionID": "open.pressed",
+      "actionContext": "rowIndex"
+     }
+    ],
+    "frame": {
+     "height": 150
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "text": "Nothing pressed yet"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 4,
+   "properties": {
+    "text": "A checkbox (the second row locked), a symbol, a picture, a button; the first button pressed",
+    "font": "caption"
+   }
+  }
+ ]
+}

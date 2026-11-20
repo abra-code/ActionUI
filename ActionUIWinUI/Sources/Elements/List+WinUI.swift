@@ -246,7 +246,7 @@ extension List: ActionUIWinUIRenderer {
     /// An Image cell: the text read as itemType.dataInterpretation says (ImageSource, as SwiftUI's cell
     /// reads it), shown as Image shows it unresized: a symbol at the font's medium symbol size, in the
     /// color WinUI gives the row's content (as a text row's); a file at its own size. Nil when the shim has no symbol for the name.
-    private static func imageCell(_ text: String, _ cell: ListState.RowCell) -> WinUIObject? {
+    static func imageCell(_ text: String, _ cell: ListState.RowCell) -> WinUIObject? {
         // As Image reads its value: the "mixed" rules take a path by its "/"; a Windows path has
         // backslashes ("C:\pics\a.png").
         let interpretation = cell.interpretation == .mixed && text.contains("\\") ? "path" : cell.interpretation.rawValue
