@@ -17,7 +17,9 @@
    at the average of the rows known. The stack is as long as all of them with the spacing between.
  - Anchoring: making rows changes the known lengths and the estimate, so the rows above the visible
    part may become longer or shorter. The scroll position moves by the same amount, so the row at
-   the top of the visible part stays where it is; GTK does not do this itself.
+   the top of the visible part stays where it is; GTK does not do this itself. A change of the
+   stack's width changes every row's length (a LazyVStack's rows are measured for its width): the
+   row at the top and how far into it the visible part started are kept across it too.
  - Rows are made and let go outside GTK's measuring and allocation (GTK forbids changing its
    widget tree there), on a main loop source scheduled by the adjustment's signals, by the stack's
    allocation and by its update; the stack's size is then queued again.
@@ -68,6 +70,12 @@ final class LazyRows {
     private var adjustment: UnsafeMutablePointer<GtkAdjustment>?
     private var handlers: [gulong] = []
     private var refreshPending = false
+    /// Where the visible part started at the last refresh, in the stack along its axis: what a
+    /// change of width keeps in view.
+    private var lastTop: Double?
+    /// The row at the top of the visible part before a change of width, and how far into it the
+    /// visible part started, to be put back by the next refresh.
+    private var pendingAnchor: (index: Int, inside: Int)?
 
     private init(widget: WidgetPointer, node: RenderNode, axis: StackAxis) {
         self.widget = widget
@@ -182,8 +190,13 @@ final class LazyRows {
         // Before the scrolled window is laid out its page is 0: a window's height is assumed.
         let pageSize = gtk_adjustment_get_page_size(adjustment)
         let page = pageSize > 0 ? pageSize : Self.fallbackPage
+        if let pending = pendingAnchor {
+            pendingAnchor = nil
+            restore(pending, cross: cross, adjustment: adjustment)
+        }
         // The visible part in the stack's coordinates along its axis.
         let top = gtk_adjustment_get_value(adjustment) - (contentOffset ?? 0)
+        lastTop = top
         let anchor = top > 0 ? row(at: Int(top), cross: cross) : nil
         let anchorOffset = anchor.map { offset(of: $0, cross: cross) }
         var changed = false
@@ -206,15 +219,34 @@ final class LazyRows {
         if let anchor, let anchorOffset {
             let shift = Double(offset(of: anchor, cross: cross) - anchorOffset)
             if shift != 0 {
-                let value = gtk_adjustment_get_value(adjustment) + shift
-                let upper = max(gtk_adjustment_get_upper(adjustment), value + gtk_adjustment_get_page_size(adjustment))
-                gtk_adjustment_configure(adjustment, value, gtk_adjustment_get_lower(adjustment), upper,
-                                         gtk_adjustment_get_step_increment(adjustment),
-                                         gtk_adjustment_get_page_increment(adjustment),
-                                         gtk_adjustment_get_page_size(adjustment))
+                scroll(adjustment, to: gtk_adjustment_get_value(adjustment) + shift)
+                lastTop = gtk_adjustment_get_value(adjustment) - (contentOffset ?? 0)
             }
         }
         gtk_widget_queue_resize(widget)
+    }
+
+    /// Scrolls to `value`, raising the adjustment's upper bound when it is below what that needs:
+    /// the viewport sets it only at its next allocation, and GTK would clamp the value to it.
+    private func scroll(_ adjustment: UnsafeMutablePointer<GtkAdjustment>, to value: Double) {
+        let upper = max(gtk_adjustment_get_upper(adjustment), value + gtk_adjustment_get_page_size(adjustment))
+        gtk_adjustment_configure(adjustment, value, gtk_adjustment_get_lower(adjustment), upper,
+                                 gtk_adjustment_get_step_increment(adjustment),
+                                 gtk_adjustment_get_page_increment(adjustment),
+                                 gtk_adjustment_get_page_size(adjustment))
+    }
+
+    /// Scrolls so the visible part starts in row `anchor.index` as far into it as before a change
+    /// of width (at most to the end of the row and the gap after it, which row(at:) counts as the
+    /// row's).
+    private func restore(_ anchor: (index: Int, inside: Int), cross: Int, adjustment: UnsafeMutablePointer<GtkAdjustment>) {
+        guard rows.indices.contains(anchor.index) else { return }
+        let starts = offsets(cross: cross)
+        let inside = min(anchor.inside, max(starts[anchor.index + 1] - starts[anchor.index] - 1, 0))
+        let value = (contentOffset ?? 0) + Double(starts[anchor.index] + inside)
+        if value != gtk_adjustment_get_value(adjustment) {
+            scroll(adjustment, to: value)
+        }
     }
 
     /// Makes row `index`'s instance, places its box among the made rows in row order, syncs it and
@@ -405,7 +437,11 @@ final class LazyRows {
     /// The row at `position` along the axis (the last one past the end); nil without rows.
     func row(at position: Int, cross: Int) -> Int? {
         guard !rows.isEmpty else { return nil }
-        let starts = offsets(cross: cross)
+        return row(at: position, starts: offsets(cross: cross))
+    }
+
+    /// The row at `position` among rows starting at `starts` (offsets), of at least one row.
+    private func row(at position: Int, starts: [Int]) -> Int {
         var index = 0
         while index + 1 < rows.count && starts[index + 1] <= position {
             index += 1
@@ -486,6 +522,14 @@ final class LazyRows {
         let cross = axis == .vertical ? width : height
         let key = lengthKey(cross)
         if key != knownCross {
+            // The row at the top before the change, from the lengths for the old width; the next
+            // refresh puts it back (the scroll position cannot change during allocation). Kept
+            // when an earlier change was not put back yet.
+            if pendingAnchor == nil, adjustment != nil, knownCross >= 0, let top = lastTop, top > 0, !rows.isEmpty {
+                let starts = offsets(cross: knownCross)
+                let index = row(at: Int(top), starts: starts)
+                pendingAnchor = (index, Int(top) - starts[index])
+            }
             known = [:]
             knownCross = key
         }

@@ -264,4 +264,61 @@ final class LazyRowsRendererTests: XCTestCase {
         XCTAssertEqual(shown.index, anchor, "the same row at the top")
         XCTAssertEqual(value - header - shown.start, inside, accuracy: 1, "at the same place")
     }
+
+    func testTheTopVisibleRowStaysInPlaceWhenTheWidthChanges() throws {
+        // Every third row wraps more lines in a narrower stack: the lengths above change unevenly.
+        let long = "a row long enough to wrap onto more lines when the scroll view becomes narrower than before"
+        let root = try present(#"""
+            {"type": "ScrollView", "id": 1, "properties": {"frame": {"width": 440, "height": 300}}, "content":
+              {"type": "LazyVStack", "id": 2, "properties": {"alignment": "leading", "spacing": 2}, "template":
+                {"type": "Text", "properties": {"text": "$1"}}}}
+            """#)
+        setRows(2, (0..<2000).map { $0 % 3 == 0 ? ["\($0) \(long)"] : ["\($0)"] })
+        let rows = try lazyRows(2, in: root)
+        let vertical = try adjustment(1, in: root, vertical: true)
+        gtk_adjustment_set_value(vertical, 6000)
+        settle()
+        let valueBefore = gtk_adjustment_get_value(vertical)
+        let before = try XCTUnwrap(madeRow(at: valueBefore, in: rows, vertical: true))
+        let stack = try XCTUnwrap(node(2, in: root)).widget!
+        let heightBefore = gtk_widget_get_height(stack)
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "frame",
+                                                value: ["width": 240, "height": 300])
+        settle()
+        XCTAssertGreaterThan(gtk_widget_get_height(stack), heightBefore, "the rows wrap onto more lines")
+        let value = gtk_adjustment_get_value(vertical)
+        let after = try XCTUnwrap(madeRow(at: value, in: rows, vertical: true))
+        XCTAssertEqual(after.index, before.index, "the same row at the top")
+        XCTAssertEqual(value - after.start, valueBefore - before.start, accuracy: 1, "at the same place in it")
+    }
+
+    func testTheTopVisibleRowStaysInPlaceWhenAWiderStackIsShorterThanTheScrollPosition() throws {
+        // The rows but the last 100 wrap; the short last rows are shown. In a wider stack the rows
+        // above are estimated at the short rows' length, so the stack becomes shorter than the scroll
+        // position and the viewport moves it back before the stack is laid out at its new width.
+        let long = "a row long enough to wrap onto more lines when the scroll view becomes narrower than before"
+        let root = try present(#"""
+            {"type": "ScrollView", "id": 1, "properties": {"frame": {"width": 240, "height": 300}}, "content":
+              {"type": "LazyVStack", "id": 2, "properties": {"alignment": "leading", "spacing": 2}, "template":
+                {"type": "Text", "properties": {"text": "$1"}}}}
+            """#)
+        setRows(2, (0..<2000).map { $0 < 1900 ? ["\($0) \(long)"] : ["\($0)"] })
+        let rows = try lazyRows(2, in: root)
+        let vertical = try adjustment(1, in: root, vertical: true)
+        gtk_adjustment_set_value(vertical, gtk_adjustment_get_upper(vertical))
+        settle()
+        gtk_adjustment_set_value(vertical, gtk_adjustment_get_value(vertical) - 1000)
+        settle()
+        let valueBefore = gtk_adjustment_get_value(vertical)
+        let before = try XCTUnwrap(madeRow(at: valueBefore, in: rows, vertical: true))
+        XCTAssertGreaterThanOrEqual(before.index, 1900, "a short row at the top")
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "frame",
+                                                value: ["width": 440, "height": 300])
+        settle()
+        let value = gtk_adjustment_get_value(vertical)
+        XCTAssertLessThan(value, valueBefore, "the stack became shorter")
+        let after = try XCTUnwrap(madeRow(at: value, in: rows, vertical: true))
+        XCTAssertEqual(after.index, before.index, "the same row at the top")
+        XCTAssertEqual(value - after.start, valueBefore - before.start, accuracy: 1, "at the same place in it")
+    }
 }
