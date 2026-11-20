@@ -43,6 +43,15 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
     #expect(try issues(document) == [])
 }
 
+@Test func everyTemplateContainerTakesATemplate() throws {
+    // Core takes a data-driven "template" on these (ZStack's layers too); the schemas must not warn.
+    for type in ["VStack", "HStack", "ZStack", "LazyVStack", "LazyHStack", "LazyVGrid", "LazyHGrid", "GroupBox", "Section",
+                 "Group", "DisclosureGroup", "List"] {
+        let document: JSONValue = ["type": .string(type), "id": 1, "template": ["type": "Text", "properties": ["text": "$1"]]]
+        #expect(try issues(document) == [], "\(type)")
+    }
+}
+
 @Test func typoAndWrongTypeAreReported() throws {
     let document: JSONValue = ["type": "Text", "properties": ["txt": "hi", "font": ["size": "big"]]]
     let found = try issues(document)

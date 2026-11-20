@@ -3,8 +3,9 @@
   "description": "Depth stack — children overlap in z-order",
   "id": { "policy": "optional" },
   "inheritsViewProperties": true,
-  "topLevelKeys": ["children"],
+  "topLevelKeys": ["children", "template"],
   "children": { "required": false, "description": "Array of child view elements; later children render on top" },
+  "template": { "required": false, "description": "Data-driven template, one layer per row; rows set via setElementRows" },
   "ownProperties": {
     "alignment": { "types": ["string"], "required": false, "enum": ["topLeading","top","topTrailing","leading","center","trailing","bottomLeading","bottom","bottomTrailing"] }
   },

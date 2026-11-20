@@ -32,6 +32,9 @@ struct AgentDocument {
     /// Keys that hold child elements. They belong next to "properties", never inside it.
     private static let containerKeys = ["children", "content", "destinations", "template", "rows",
                                         "sheet", "popover", "fullScreenCover", "overlay", "toolbar"]
+    /// Container keys that are also a property of one element type: LazyHGrid's "rows" (its row
+    /// definitions) is a property, where Grid's "rows" holds child elements.
+    private static let propertyContainerKeys: [String: Set<String>] = ["LazyHGrid": ["rows"]]
     /// Every key ActionUI reads child elements from (ActionUIElement's decoder), so the safety
     /// rules reach elements nested anywhere. Some of these ("label", "background") are also
     /// property names, so they are not in `containerKeys`.
@@ -79,7 +82,8 @@ struct AgentDocument {
         if name == "userScripts" {
             return ("\(here): userScripts is refused; user scripts from an agent are not injected", [], value)
         }
-        if containerKeys.contains(name) || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
+        if (containerKeys.contains(name) && propertyContainerKeys[type]?.contains(name) != true)
+            || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
             return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [], value)
         }
         if name == "placement", isSecondaryActionItem(type: type, placement: value) {
@@ -226,7 +230,7 @@ struct AgentDocument {
             }
         }
         if var properties = object["properties"]?.object {
-            for key in containerKeys where properties[key] != nil {
+            for key in containerKeys where properties[key] != nil && propertyContainerKeys[type]?.contains(key) != true {
                 errors.append("\(here): \"\(key)\" must be a key of the element, next to \"properties\", not inside it")
             }
             if type == "WebView", properties["userScripts"] != nil {
