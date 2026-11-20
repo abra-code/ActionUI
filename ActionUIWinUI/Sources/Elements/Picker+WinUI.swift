@@ -215,7 +215,7 @@ extension Picker: ActionUIWinUIRenderer {
     }
 
     /// Calls `body` with `strings` as an array of C strings, valid during the call.
-    private static func withCStrings<Result>(_ strings: [String], _ body: (UnsafePointer<UnsafePointer<CChar>?>?) -> Result) -> Result {
+    static func withCStrings<Result>(_ strings: [String], _ body: (UnsafePointer<UnsafePointer<CChar>?>?) -> Result) -> Result {
         let copies: [UnsafeMutablePointer<CChar>] = strings.map { string in
             let utf8 = Array(string.utf8CString)
             let copy = UnsafeMutablePointer<CChar>.allocate(capacity: utf8.count)

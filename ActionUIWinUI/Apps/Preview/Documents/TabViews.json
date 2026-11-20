@@ -1,0 +1,59 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 16, "padding": 16 },
+  "children": [
+    {
+      "type": "TabView",
+      "id": 2,
+      "properties": { "selection": 1, "actionID": "tabs.changed", "frame": { "height": 120 } },
+      "children": [
+        {
+          "type": "Tab",
+          "id": 3,
+          "properties": { "title": "General", "systemImage": "gearshape" },
+          "content": { "type": "Text", "id": 4, "properties": { "text": "General settings" } }
+        },
+        {
+          "type": "Tab",
+          "id": 5,
+          "properties": { "title": "Accounts", "systemImage": "person.crop.circle", "badge": 3 },
+          "content": {
+            "type": "VStack",
+            "id": 6,
+            "properties": { "spacing": 8 },
+            "children": [
+              { "type": "Text", "id": 7, "properties": { "text": "Three accounts" } },
+              { "type": "Button", "id": 8, "properties": { "title": "Add Account" } }
+            ]
+          }
+        },
+        {
+          "type": "Tab",
+          "id": 9,
+          "properties": { "title": "Advanced", "systemImage": "wrench.and.screwdriver" },
+          "content": { "type": "Text", "id": 10, "properties": { "text": "Advanced settings" } }
+        }
+      ]
+    },
+    {
+      "type": "TabView",
+      "id": 11,
+      "properties": { "frame": { "height": 100 } },
+      "children": [
+        {
+          "type": "Tab",
+          "id": 12,
+          "properties": { "title": "Summary" },
+          "content": { "type": "Color", "id": 13, "properties": { "color": "teal" } }
+        },
+        {
+          "type": "Tab",
+          "id": 14,
+          "properties": { "title": "Details" },
+          "content": { "type": "Text", "id": 15, "properties": { "text": "Details" } }
+        }
+      ]
+    }
+  ]
+}

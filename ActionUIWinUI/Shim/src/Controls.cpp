@@ -43,6 +43,33 @@ void collectInvokers(mux::DependencyObject const &node, std::vector<automation::
     }
 }
 
+// The selection item pattern of `element`'s automation peer (an item of a list or a selector bar); null
+// when it has none.
+automation::Provider::ISelectionItemProvider selectionItemFor(mux::UIElement const &element) {
+    automation::Peers::AutomationPeer peer = automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(element);
+    if (peer == nullptr) {
+        return nullptr;
+    }
+    wf::IInspectable pattern = peer.GetPattern(automation::Peers::PatternInterface::SelectionItem);
+    return pattern != nullptr ? pattern.try_as<automation::Provider::ISelectionItemProvider>() : nullptr;
+}
+
+// The elements under `node` (not itself) that can be selected, in the visual tree's order, depth first;
+// the inside of one that can is not searched.
+void collectSelectionItems(mux::DependencyObject const &node, std::vector<automation::Provider::ISelectionItemProvider> &found) {
+    int32_t count = media::VisualTreeHelper::GetChildrenCount(node);
+    for (int32_t index = 0; index < count; ++index) {
+        mux::DependencyObject child = media::VisualTreeHelper::GetChild(node, index);
+        if (mux::UIElement element = child.try_as<mux::UIElement>()) {
+            if (automation::Provider::ISelectionItemProvider item = selectionItemFor(element)) {
+                found.push_back(item);
+                continue;
+            }
+        }
+        collectSelectionItems(child, found);
+    }
+}
+
 } // namespace
 
 
@@ -107,6 +134,18 @@ bool actionUIWinUIAutomationInvokePart(ActionUIWinUIObject *element, int32_t ind
             return fail("automation invoke part", "no such part can be invoked");
         }
         found[static_cast<size_t>(index)].Invoke();
+        return true;
+    });
+}
+
+bool actionUIWinUIAutomationSelectPart(ActionUIWinUIObject *element, int32_t index) {
+    return guarded("automation select part", [&]() {
+        std::vector<automation::Provider::ISelectionItemProvider> found;
+        collectSelectionItems(objectAs<mux::UIElement>(element, L"UIElement"), found);
+        if (index < 0 || static_cast<size_t>(index) >= found.size()) {
+            return fail("automation select part", "no such part can be selected");
+        }
+        found[static_cast<size_t>(index)].Select();
         return true;
     });
 }

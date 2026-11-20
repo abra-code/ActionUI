@@ -50,12 +50,12 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
+        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String)
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
+            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
                  .addRow(let id, _):
                 return id
             }
@@ -65,7 +65,7 @@ final class Preview {
         var changesModel: Bool {
             switch self {
             case .setProperty, .setValue, .addRow: true
-            case .invoke, .invokeRow, .invokePart, .toggle, .setText, .scroll: false
+            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll: false
             }
         }
     }
@@ -190,6 +190,9 @@ final class Preview {
             case .invokePart(_, let part):
                 worked = actionUIWinUIAutomationInvokePart(view.pointer, Int32(part))
                 what = "invoked part \(part) of"
+            case .selectPart(_, let part):
+                worked = actionUIWinUIAutomationSelectPart(view.pointer, Int32(part))
+                what = "selected part \(part) of"
             case .toggle:
                 worked = actionUIWinUIAutomationToggle(view.pointer)
                 what = "toggled"
@@ -357,7 +360,7 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -387,6 +390,10 @@ while index < arguments.count {
     } else if option == "--invoke-part", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
               let part = Int(arguments[index + 2]) {
         preview.invocations.append(.invokePart(viewID, part))
+        index += 3
+    } else if option == "--select-part", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let part = Int(arguments[index + 2]) {
+        preview.invocations.append(.selectPart(viewID, part))
         index += 3
     } else if option == "--toggle", index + 1 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.toggle(viewID))

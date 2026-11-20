@@ -193,6 +193,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetSelectedIndex(ActionUIWinUIObject 
 ACTIONUI_WINUI_API int32_t actionUIWinUIChoiceGetSelectedIndex(ActionUIWinUIObject *choice);
 // A radio group's number of columns (1: a column; the item count: a row). Ignored by the other kinds.
 ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetColumns(ActionUIWinUIObject *choice, int32_t columns);
+// A SelectorBar item's icon (an icon element, such as actionUIWinUISymbolCreate's), shown before its
+// title; NULL removes it. Fails for the other kinds and for an index past the items.
+ACTIONUI_WINUI_API bool actionUIWinUIChoiceSetItemIcon(ActionUIWinUIObject *choice, int32_t index, ActionUIWinUIObject *icon);
 // SelectionChanged: the selected item changed, by the user or by actionUIWinUIChoiceSetSelectedIndex
 // (callers compare the new selection with what they hold).
 ACTIONUI_WINUI_API bool actionUIWinUIChoiceOnSelectionChanged(ActionUIWinUIObject *choice, ActionUIWinUICallback handler,
@@ -350,6 +353,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *eleme
 // Invokes the `index`th element (from 0) inside `element` that can be invoked, in the visual tree's order
 // (a Stepper's minus, then plus); fails when there is none at that index.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvokePart(ActionUIWinUIObject *element, int32_t index);
+// Selects the `index`th element (from 0) inside `element` that can be selected (UI Automation's
+// SelectionItem pattern: a selector bar's items, in the visual tree's order), as a user's click does: the
+// control's selection event follows. Fails when there is none at that index.
+ACTIONUI_WINUI_API bool actionUIWinUIAutomationSelectPart(ActionUIWinUIObject *element, int32_t index);
 // Toggle turns a check box or a toggle switch over (its Click, or Toggled, follows). Fails when
 // the element cannot be toggled.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element);

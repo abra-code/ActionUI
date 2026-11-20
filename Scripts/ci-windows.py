@@ -103,6 +103,8 @@ PREVIEW_OPTIONS = {
     "FormSections": ["420", "460"],
     "FormColumns": ["460", "520"],
     "Grids": ["420", "400"],
+    "TabViews": ["420", "300", "--select-part", "2", "2", "--expect-action", "tabs.changed",
+                 "--on-action", "tabs.changed", "10", "Chose Advanced", "--set-value", "11", "1"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

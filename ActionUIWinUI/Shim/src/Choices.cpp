@@ -140,6 +140,21 @@ bool actionUIWinUIChoiceSetColumns(ActionUIWinUIObject *choice, int32_t columns)
     });
 }
 
+bool actionUIWinUIChoiceSetItemIcon(ActionUIWinUIObject *choice, int32_t index, ActionUIWinUIObject *icon) {
+    return guarded("choice set item icon", [&]() {
+        muxc::SelectorBar bar = objectAs<muxc::SelectorBar>(choice, L"SelectorBar");
+        if (index < 0 || static_cast<uint32_t>(index) >= bar.Items().Size()) {
+            return fail("choice set item icon", "no item at that index");
+        }
+        muxc::IconElement element = icon != nullptr ? objectAs<muxc::IconElement>(icon, L"IconElement") : nullptr;
+        muxc::SelectorBarItem item = bar.Items().GetAt(static_cast<uint32_t>(index));
+        if (item.Icon() != element) {
+            item.Icon(element);
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIChoiceOnSelectionChanged(ActionUIWinUIObject *choice, ActionUIWinUICallback handler, void *context,
                                            ActionUIWinUICallback destroyContext) {
     return registerHandler("choice on selection changed", handler, context, destroyContext,
