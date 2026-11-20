@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <d2d1_1.h>
+#include <dwrite.h>
 #include <wincodec.h>
 
 #include <winrt/Microsoft.UI.Xaml.Input.h>
@@ -18,6 +19,7 @@
 #include <winrt/Windows.Storage.Streams.h>
 
 #pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "windowscodecs.lib")
 
 namespace media = winrt::Microsoft::UI::Xaml::Media;
@@ -59,6 +61,15 @@ IWICImagingFactory *imagingFactory() {
     static winrt::com_ptr<IWICImagingFactory> shared;
     if (!shared) {
         shared = winrt::create_instance<IWICImagingFactory>(CLSID_WICImagingFactory, CLSCTX_INPROC_SERVER);
+    }
+    return shared.get();
+}
+
+IDWriteFactory *writeFactory() {
+    static winrt::com_ptr<IDWriteFactory> shared;
+    if (!shared) {
+        winrt::check_hresult(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                                                 reinterpret_cast<IUnknown **>(shared.put())));
     }
     return shared.get();
 }
@@ -110,6 +121,24 @@ ID2D1GeometrySink *figureSink(ActionUIWinUIDrawing *drawing) {
         drawing->figureOpen = true;
     }
     return sink;
+}
+
+// `count` stops (at least one; offsets 0...1 in order) as Direct2D's, the colors past the ends
+// extended.
+winrt::com_ptr<ID2D1GradientStopCollection> stopsOf(ID2D1RenderTarget *target, const ActionUIWinUIColor *colors,
+                                                    const double *offsets, int32_t count) {
+    if (colors == nullptr || offsets == nullptr || count < 1) {
+        throw winrt::hresult_invalid_argument(L"a gradient needs at least one color");
+    }
+    std::vector<D2D1_GRADIENT_STOP> stops;
+    for (int32_t index = 0; index < count; ++index) {
+        double offset = std::isfinite(offsets[index]) ? std::fmin(std::fmax(offsets[index], 0.0), 1.0) : 0.0;
+        stops.push_back(D2D1::GradientStop(static_cast<float>(offset), colorOf(colors[index])));
+    }
+    winrt::com_ptr<ID2D1GradientStopCollection> collection;
+    winrt::check_hresult(target->CreateGradientStopCollection(stops.data(), static_cast<UINT32>(stops.size()), D2D1_GAMMA_2_2,
+                                                             D2D1_EXTEND_MODE_CLAMP, collection.put()));
+    return collection;
 }
 
 ActionUIWinUIDrawing *drawingOf(ActionUIWinUIDrawing *drawing) {
@@ -244,6 +273,78 @@ bool actionUIWinUIDrawingFill(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor 
         winrt::com_ptr<ID2D1SolidColorBrush> brush;
         winrt::check_hresult(typed->target->CreateSolidColorBrush(colorOf(color), brush.put()));
         typed->target->FillGeometry(path.get(), brush.get());
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingFillLinearGradient(ActionUIWinUIDrawing *drawing, double x0, double y0, double x1, double y1,
+                                            const ActionUIWinUIColor *colors, const double *offsets, int32_t count) {
+    return guarded("drawing fill linear gradient", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        winrt::com_ptr<ID2D1PathGeometry> path = takePath(typed);
+        if (!path) {
+            return true;
+        }
+        winrt::com_ptr<ID2D1GradientStopCollection> stops = stopsOf(typed->target.get(), colors, offsets, count);
+        winrt::com_ptr<ID2D1LinearGradientBrush> brush;
+        winrt::check_hresult(typed->target->CreateLinearGradientBrush(
+            D2D1::LinearGradientBrushProperties(D2D1::Point2F(static_cast<float>(x0), static_cast<float>(y0)),
+                                                D2D1::Point2F(static_cast<float>(x1), static_cast<float>(y1))),
+            stops.get(), brush.put()));
+        typed->target->FillGeometry(path.get(), brush.get());
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingFillRadialGradient(ActionUIWinUIDrawing *drawing, double cx, double cy, double radius,
+                                            const ActionUIWinUIColor *colors, const double *offsets, int32_t count) {
+    return guarded("drawing fill radial gradient", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        winrt::com_ptr<ID2D1PathGeometry> path = takePath(typed);
+        if (!path) {
+            return true;
+        }
+        winrt::com_ptr<ID2D1GradientStopCollection> stops = stopsOf(typed->target.get(), colors, offsets, count);
+        winrt::com_ptr<ID2D1RadialGradientBrush> brush;
+        float r = static_cast<float>(radius);
+        winrt::check_hresult(typed->target->CreateRadialGradientBrush(
+            D2D1::RadialGradientBrushProperties(D2D1::Point2F(static_cast<float>(cx), static_cast<float>(cy)), D2D1::Point2F(0, 0), r, r),
+            stops.get(), brush.put()));
+        typed->target->FillGeometry(path.get(), brush.get());
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingText(ActionUIWinUIDrawing *drawing, const char *text, double x, double y, double width, double fontSize,
+                              int32_t weight, ActionUIWinUIColor color) {
+    return guarded("drawing text", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        takePath(typed);
+        if (!(fontSize > 0) || !std::isfinite(fontSize) || !std::isfinite(x) || !std::isfinite(y)) {
+            return true;
+        }
+        winrt::hstring wide = toHString(text);
+        if (wide.empty()) {
+            return true;
+        }
+        DWRITE_FONT_WEIGHT fontWeight = static_cast<DWRITE_FONT_WEIGHT>(weight >= 1 && weight <= 999 ? weight : 400);
+        winrt::com_ptr<IDWriteTextFormat> format;
+        // WinUI's text font on Windows 11 (Segoe UI Variable); a family the system lacks falls back to
+        // its default.
+        winrt::check_hresult(writeFactory()->CreateTextFormat(L"Segoe UI Variable Text", nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL,
+                                                              DWRITE_FONT_STRETCH_NORMAL, static_cast<float>(fontSize), L"",
+                                                              format.put()));
+        // Wrapped at the frame's width, a long word broken where it must be; none past an empty frame.
+        bool wraps = width > 0 && std::isfinite(width);
+        winrt::check_hresult(format->SetWordWrapping(wraps ? DWRITE_WORD_WRAPPING_EMERGENCY_BREAK : DWRITE_WORD_WRAPPING_NO_WRAP));
+        winrt::com_ptr<IDWriteTextLayout> layout;
+        winrt::check_hresult(writeFactory()->CreateTextLayout(wide.c_str(), static_cast<UINT32>(wide.size()), format.get(),
+                                                              wraps ? static_cast<float>(width) : 1.0e6f, 1.0e6f, layout.put()));
+        winrt::com_ptr<ID2D1SolidColorBrush> brush;
+        winrt::check_hresult(typed->target->CreateSolidColorBrush(colorOf(color), brush.put()));
+        // Color emoji in color, as Apple draws them.
+        typed->target->DrawTextLayout(D2D1::Point2F(static_cast<float>(x), static_cast<float>(y)), layout.get(), brush.get(),
+                                      D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
         return true;
     });
 }

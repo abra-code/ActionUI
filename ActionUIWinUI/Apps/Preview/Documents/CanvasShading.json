@@ -1,0 +1,42 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "children": [
+        {
+          "type": "Canvas",
+          "id": 3,
+          "properties": {
+            "frame": { "width": 180, "height": 120 },
+            "operations": [
+              { "type": "fill", "path": { "type": "rect", "x": 0, "y": 0, "width": 1, "height": 0.45 }, "gradient": { "type": "linear", "start": [0, 0], "end": [1, 0], "colors": ["#FF0000", "#FFD000", "#0040FF"] } },
+              { "type": "fill", "path": { "type": "circle", "center": [0.25, 0.75], "radius": 0.2 }, "gradient": { "type": "radial", "center": [0.25, 0.75], "startRadius": 0, "endRadius": 0.2, "colors": ["white", "#008040"] } },
+              { "type": "fill", "path": { "type": "circle", "center": [0.6, 0.75], "radius": 0.2 }, "gradient": { "type": "radial", "center": [0.6, 0.75], "startRadius": 0.1, "endRadius": 0.2, "colors": ["#FFD000", "#C00060"] } },
+              { "type": "fill", "path": { "type": "rect", "x": 0.85, "y": 0.55, "width": 0.12, "height": 0.4 }, "gradient": { "type": "linear", "start": [0.5, 0.5], "end": [0.5, 0.5], "colors": ["red", "blue"] } }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "id": 4,
+          "properties": {
+            "frame": { "width": 160, "height": 120 },
+            "coordinateMode": "points",
+            "backgroundColor": "#F4F4F4",
+            "operations": [
+              { "type": "fill", "path": { "type": "rect", "x": 0, "y": 0, "width": 160, "height": 30 }, "gradient": { "type": "linear", "start": [0, 0], "end": [0, 1], "colors": ["#202060", "#8080FF"] } },
+              { "type": "text", "text": "Title", "frame": [8, 6, 140, 20], "fontSize": 16, "fontWeight": "bold", "color": "white" },
+              { "type": "text", "text": "A longer line of text that wraps inside its frame", "frame": [8, 40, 144, 60] },
+              { "type": "text", "text": "small, red", "frame": [8, 98, 140, 16], "fontSize": 11, "color": "#C00000" }
+            ]
+          }
+        }
+      ]
+    },
+    { "type": "Text", "id": 5, "properties": { "text": "Linear, radial, radial from a start radius, one point; text sizes, weight, wrapping", "font": "caption" } }
+  ]
+}

@@ -790,6 +790,20 @@ ACTIONUI_WINUI_API bool actionUIWinUIDrawingCubicTo(ActionUIWinUIDrawing *drawin
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingClose(ActionUIWinUIDrawing *drawing);
 // Fills the path with `color` (its components 0...1, straight alpha).
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingFill(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color);
+// Fills the path with a linear gradient from (x0, y0) to (x1, y1), or a radial one around (cx, cy)
+// out to `radius`, in the coordinates of the path: `count` colors (at least one) at `offsets` (0 to
+// 1, in order), the end colors extended past them.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingFillLinearGradient(ActionUIWinUIDrawing *drawing, double x0, double y0, double x1,
+                                                               double y1, const ActionUIWinUIColor *colors, const double *offsets,
+                                                               int32_t count);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingFillRadialGradient(ActionUIWinUIDrawing *drawing, double cx, double cy, double radius,
+                                                               const ActionUIWinUIColor *colors, const double *offsets,
+                                                               int32_t count);
+// Draws `text` (UTF-8) with its top leading corner at (x, y), wrapped at `width` points (0 or less:
+// not wrapped), in WinUI's text font (Segoe UI Variable) at `fontSize` points and `weight` (100 to 900; 400
+// regular), under the transform set. Drops a path not used yet.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingText(ActionUIWinUIDrawing *drawing, const char *text, double x, double y, double width,
+                                                 double fontSize, int32_t weight, ActionUIWinUIColor color);
 // Strokes the path `width` points wide (0 or less draws nothing). `dashes` (`dashCount` lengths in
 // points, or NULL) dash it from `dashPhase` points in; a pattern of only zeros is solid.
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingStroke(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color, double width,

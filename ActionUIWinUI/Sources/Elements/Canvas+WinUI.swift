@@ -10,7 +10,12 @@
  As Apple's code draws, and the Linux renderer:
  - Coordinates: normalized values are fractions of the canvas, x of its width, y of its height, radii
    of the shorter side; line widths and dashes are points in both modes.
- - A fill without a valid color draws nothing.
+ - A fill without a valid color or gradient draws nothing; a gradient's points are always fractions
+   of the canvas (radii of its shorter side), its colors evenly spaced (its locations ignored); a
+   linear gradient with one point, or a radial one with no extent (an end radius of 0, or a start
+   radius at or past the end), fills with its last color.
+ - Text is drawn in its frame from the top leading corner, wrapped at the frame's width, black and in
+   WinUI's text font (Segoe UI Variable) at the body size (14) unless given; color emoji in color; its alignment is ignored.
  - An arc's clockwise flag is SwiftUI's (1 runs with decreasing angles on the screen); angles whole
    turns apart draw a circle with either flag; an arc after a point is joined to it by a line. A
    path's lines and curves before any moveTo are left out.
@@ -22,7 +27,7 @@
  - A tap is the canvas's own, with or without an actionID, as Apple's tap gesture is: an element
    around it does not see it.
 
- Not yet (skipped, logged once per kind): gradients, text, images, shadow, blur and layers. Not
+ Not yet (skipped, logged once per kind): images, shadow, blur and layers. Not
  drawn again when the window moves to a monitor with another scale until its size or properties
  change.
 */
@@ -332,12 +337,9 @@ final class CanvasPath {
             switch type.lowercased() {
             case "fill":
                 guard let path = makePath(operation["path"] as? [String: Any], size: size) else { continue }
-                // A valid gradient is not drawn yet; an invalid one falls back to the color, as on
-                // Linux and Apple.
-                if let gradient = operation["gradient"] as? [String: Any], gradient["type"] is String,
-                   ((gradient["colors"] as? [String]) ?? []).compactMap(ColorSpec.parse).count >= 1,
-                   ((gradient["colors"] as? [String]) ?? []).count >= 2 {
-                    skip("gradient")
+                // An invalid gradient falls back to the color, as on Linux and Apple.
+                if let gradient = operation["gradient"] as? [String: Any], let shading = shading(gradient, size: size) {
+                    fill(path, shading, transform: transform)
                 } else if let color = (operation["color"] as? String).flatMap(ColorSpec.parse) {
                     fill(path, ColorRGBA.resolve(color), transform: transform)
                 } else {
@@ -370,7 +372,11 @@ final class CanvasPath {
                     transform = transform.rotated(degrees)
                 }
 
-            case "text", "image", "shadow", "blur", "layer":
+            case "text":
+                guard let text = operation["text"] as? String, let frame = rect(operation.doubleArray(forKey: "frame"), size: size) else { continue }
+                drawText(text, operation, in: frame, transform: transform)
+
+            case "image", "shadow", "blur", "layer":
                 skip(type.lowercased())
 
             default:
@@ -439,6 +445,133 @@ final class CanvasPath {
         }
         if !drawn {
             logger.log("Canvas: \(WinUIError.last("stroking a path"))", .error)
+        }
+    }
+
+    // MARK: Values
+
+    struct Rect {
+        var x, y, width, height: Double
+    }
+
+    private func rect(_ values: [Double]?, size: CanvasSize) -> Rect? {
+        guard let values, values.count == 4 else { return nil }
+        let rect = points ? Rect(x: values[0], y: values[1], width: values[2], height: values[3])
+            : Rect(x: values[0] * size.width, y: values[1] * size.height, width: values[2] * size.width, height: values[3] * size.height)
+        // An infinite frame ("inf" in a document) draws nothing.
+        guard [rect.x, rect.y, rect.width, rect.height].allSatisfy({ Float($0).isFinite }) else { return nil }
+        return rect
+    }
+
+    // MARK: Gradients
+
+    enum Shading {
+        case linear(x0: Double, y0: Double, x1: Double, y1: Double, colors: [ActionUIWinUIColor], offsets: [Double])
+        case radial(cx: Double, cy: Double, radius: Double, colors: [ActionUIWinUIColor], offsets: [Double])
+        /// What SwiftUI draws for a gradient with no extent: its last color.
+        case color(ActionUIWinUIColor)
+    }
+
+    /// A gradient as Apple's code reads it: its points always fractions of the canvas (also in points
+    /// mode), radii fractions of its shorter side, its colors evenly spaced (its locations ignored).
+    /// Nil when it is not a gradient (no type, fewer than two colors, no color that parses, a point
+    /// that is missing or not finite), which falls back to the fill's color.
+    private func shading(_ dict: [String: Any], size: CanvasSize) -> Shading? {
+        guard let type = dict["type"] as? String, let names = dict["colors"] as? [String], names.count >= 2 else {
+            logger.log("Invalid gradient: missing type or colors", .warning)
+            return nil
+        }
+        let colors = names.compactMap(ColorSpec.parse).map(ColorRGBA.resolve)
+        guard let last = colors.last else { return nil }
+        // Evenly spaced, as SwiftUI's Gradient(colors:); one color is a plain fill.
+        let spaced = colors.count == 1 ? [colors[0], colors[0]] : colors
+        let offsets = spaced.indices.map { Double($0) / Double(spaced.count - 1) }
+        let shorter = min(size.width, size.height)
+        switch type.lowercased() {
+        case "linear":
+            guard let start = dict.doubleArray(forKey: "start"), start.count == 2,
+                  let end = dict.doubleArray(forKey: "end"), end.count == 2 else { return nil }
+            let (x0, y0, x1, y1) = (start[0] * size.width, start[1] * size.height, end[0] * size.width, end[1] * size.height)
+            guard [x0, y0, x1, y1].allSatisfy({ Float($0).isFinite }) else { return nil }
+            // Two points are needed; SwiftUI fills with the last color.
+            if Float(x0) == Float(x1) && Float(y0) == Float(y1) {
+                return .color(last)
+            }
+            return .linear(x0: x0, y0: y0, x1: x1, y1: y1, colors: spaced, offsets: offsets)
+        case "radial":
+            guard let center = dict.doubleArray(forKey: "center"), center.count == 2,
+                  let endRadius = dict.double(forKey: "endRadius") else { return nil }
+            let (cx, cy) = (center[0] * size.width, center[1] * size.height)
+            let startRadius = (dict.double(forKey: "startRadius") ?? 0) * shorter
+            let radius = endRadius * shorter
+            guard [cx, cy, startRadius, radius].allSatisfy({ Float($0).isFinite }) else { return nil }
+            // A radius of 0, or a start at or past the end: the last color, as on Linux.
+            let start = Float(startRadius / radius)
+            guard Float(radius) > 0, start >= 0, start < 1 else { return .color(last) }
+            // Direct2D's gradient starts at the center: the colors run from the start radius out, the
+            // first color inside it.
+            var stopColors = spaced
+            var stopOffsets = offsets.map { Double(start) + $0 * (1 - Double(start)) }
+            if start > 0 {
+                stopColors.insert(spaced[0], at: 0)
+                stopOffsets.insert(0, at: 0)
+            }
+            return .radial(cx: cx, cy: cy, radius: radius, colors: stopColors, offsets: stopOffsets)
+        default:
+            logger.log("Unsupported gradient type: \(type)", .warning)
+            return nil
+        }
+    }
+
+    private func fill(_ path: CanvasPath, _ shading: Shading, transform: CanvasAffine) {
+        guard send(path, transform: transform) else { return }
+        let drawn: Bool
+        switch shading {
+        case let .color(color):
+            drawn = actionUIWinUIDrawingFill(drawing, color)
+        case let .linear(x0, y0, x1, y1, colors, offsets):
+            drawn = colors.withUnsafeBufferPointer { colorBuffer in
+                offsets.withUnsafeBufferPointer { offsetBuffer in
+                    actionUIWinUIDrawingFillLinearGradient(drawing, x0, y0, x1, y1, colorBuffer.baseAddress, offsetBuffer.baseAddress,
+                                                           Int32(colors.count))
+                }
+            }
+        case let .radial(cx, cy, radius, colors, offsets):
+            drawn = colors.withUnsafeBufferPointer { colorBuffer in
+                offsets.withUnsafeBufferPointer { offsetBuffer in
+                    actionUIWinUIDrawingFillRadialGradient(drawing, cx, cy, radius, colorBuffer.baseAddress, offsetBuffer.baseAddress,
+                                                           Int32(colors.count))
+                }
+            }
+        }
+        if !drawn {
+            logger.log("Canvas: \(WinUIError.last("filling a path with a gradient"))", .error)
+        }
+    }
+
+    // MARK: Text
+
+    /// WinUI's body text size, for a text with no fontSize (Apple's code then uses the system font).
+    static let defaultFontSize = 14.0
+
+    /// Draws `text` from the frame's top leading corner, wrapped at its width, black and in the
+    /// default font unless given; its alignment is ignored, as Apple's code ignores it (logged).
+    private func drawText(_ text: String, _ operation: [String: Any], in frame: Rect, transform: CanvasAffine) {
+        guard transform.isFinite else { return }
+        if operation["alignment"] as? String != nil {
+            logger.log("Text alignment currently not supported in Canvas - default alignment used", .info)
+        }
+        // At most 4096 points, as on Linux (FontCSS.maximumSize): a document's size could be any number.
+        let size = operation.double(forKey: "fontSize").flatMap { $0 > 0 && $0.isFinite ? min($0, 4096) : nil } ?? Self.defaultFontSize
+        let weight = (operation["fontWeight"] as? String).flatMap { name in
+            FontWeight.allCases.first { $0.rawValue.lowercased() == name.lowercased() }
+        }.map(TextAppearance.numericWeight) ?? 400
+        let color = (operation["color"] as? String).flatMap(ColorSpec.parse).map(ColorRGBA.resolve)
+            ?? ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 1)
+        guard actionUIWinUIDrawingSetTransform(drawing, transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
+              actionUIWinUIDrawingText(drawing, text, frame.x, frame.y, frame.width, size, weight, color) else {
+            logger.log("Canvas: \(WinUIError.last("drawing text"))", .error)
+            return
         }
     }
 
