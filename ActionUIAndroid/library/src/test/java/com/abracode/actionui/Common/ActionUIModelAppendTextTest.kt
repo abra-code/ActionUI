@@ -10,7 +10,9 @@ import org.junit.Test
 
 /**
  * Unit tests for [ActionUIModel.appendElementText]: appends to a String value, seeds an
- * unset String-typed value, and refuses a non-text element or an unknown view.
+ * unset String-typed value, and refuses a non-text element or an unknown view. Loading gives
+ * every element its default value, so the "unset" cases clear it first, as Apple's
+ * ActionUIModelTests.testAppendElementTextToAnUnsetValue does.
  */
 class ActionUIModelAppendTextTest {
 
@@ -58,9 +60,15 @@ class ActionUIModelAppendTextTest {
         assertEquals("abcd", ActionUIModel.getElementValue(viewID = 2))
     }
 
+    /** Loading seeds a text element with "" (as on Apple), so the value is cleared here first. */
+    private fun clearValue(viewID: Int) {
+        ActionUIModel.windowModels[""]!!.viewModels[viewID]!!.value = null
+        assertNull(ActionUIModel.getElementValue(viewID = viewID))
+    }
+
     @Test
     fun `an unset String value becomes the text`() {
-        assertNull(ActionUIModel.getElementValue(viewID = 1))
+        clearValue(1)
         assertTrue(ActionUIModel.appendElementText(viewID = 1, text = "first"))
         assertEquals("first", ActionUIModel.getElementValue(viewID = 1))
     }
@@ -75,6 +83,7 @@ class ActionUIModelAppendTextTest {
 
     @Test
     fun `refused for an unset non-text element`() {
+        clearValue(3)
         assertFalse(ActionUIModel.appendElementText(viewID = 3, text = "x"))
         assertNull(ActionUIModel.getElementValue(viewID = 3))
     }
