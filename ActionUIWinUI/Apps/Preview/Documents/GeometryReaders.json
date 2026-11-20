@@ -1,0 +1,117 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 8
+   },
+   "children": [
+    {
+     "type": "GeometryReader",
+     "id": 3,
+     "properties": {
+      "frame": {
+       "width": 120,
+       "height": 60
+      },
+      "background": "fill.secondary"
+     },
+     "content": {
+      "type": "Text",
+      "id": 4,
+      "properties": {
+       "text": "top leading"
+      }
+     }
+    },
+    {
+     "type": "GeometryReader",
+     "id": 5,
+     "properties": {
+      "alignment": "center",
+      "frame": {
+       "width": 120,
+       "height": 60
+      },
+      "background": "fill.secondary"
+     },
+     "content": {
+      "type": "Text",
+      "id": 6,
+      "properties": {
+       "text": "center"
+      }
+     }
+    },
+    {
+     "type": "GeometryReader",
+     "id": 7,
+     "properties": {
+      "alignment": "center",
+      "frame": {
+       "width": 60,
+       "height": 30
+      },
+      "background": "fill.secondary"
+     },
+     "content": {
+      "type": "Color",
+      "id": 8,
+      "properties": {
+       "color": "#4080F0",
+       "frame": {
+        "width": 100,
+        "height": 20
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 9,
+   "properties": {
+    "frame": {
+     "height": 40
+    }
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 10,
+     "properties": {
+      "text": "Beside a text:"
+     }
+    },
+    {
+     "type": "GeometryReader",
+     "id": 11,
+     "content": {
+      "type": "Color",
+      "id": 12,
+      "properties": {
+       "color": "#4080F0"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 13,
+   "properties": {
+    "text": "Top leading, centered, wider content from the leading edge; greedy beside a text",
+    "font": "caption"
+   }
+  }
+ ]
+}

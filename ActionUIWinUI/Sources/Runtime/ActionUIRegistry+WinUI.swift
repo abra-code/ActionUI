@@ -24,8 +24,10 @@ extension ActionUIRegistry {
         "Ellipse": Ellipse.self,
         "Form": Form.self,
         "Gauge": Gauge.self,
+        "GeometryReader": GeometryReader.self,
         "Grid": Grid.self,
         "GroupBox": GroupBox.self,
+        "HSplitView": HSplitView.self,
         "HStack": HStack.self,
         "Image": Image.self,
         "Label": Label.self,
@@ -55,6 +57,7 @@ extension ActionUIRegistry {
         "TextEditor": TextEditor.self,
         "TextField": TextField.self,
         "Toggle": Toggle.self,
+        "VSplitView": VSplitView.self,
         "VStack": VStack.self,
         "ZStack": ZStack.self,
     ]

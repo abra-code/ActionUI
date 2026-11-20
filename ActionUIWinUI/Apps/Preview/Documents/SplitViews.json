@@ -1,0 +1,81 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "HSplitView",
+   "id": 2,
+   "properties": {
+    "frame": {
+     "width": 388,
+     "height": 90
+    }
+   },
+   "children": [
+    {
+     "type": "Color",
+     "id": 3,
+     "properties": {
+      "color": "#E06060",
+      "frame": {
+       "idealWidth": 120
+      }
+     }
+    },
+    {
+     "type": "Color",
+     "id": 4,
+     "properties": {
+      "color": "#6090E0"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 5,
+     "properties": {
+      "text": "A text pane"
+     }
+    }
+   ]
+  },
+  {
+   "type": "VSplitView",
+   "id": 6,
+   "properties": {
+    "frame": {
+     "width": 388,
+     "height": 90
+    }
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 7,
+     "properties": {
+      "text": "A text above"
+     }
+    },
+    {
+     "type": "Color",
+     "id": 8,
+     "properties": {
+      "color": "#60C080"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 9,
+   "properties": {
+    "text": "First pane 120 wide (idealWidth), a flexible pane, a text pane; a text over a color",
+    "font": "caption"
+   }
+  }
+ ]
+}

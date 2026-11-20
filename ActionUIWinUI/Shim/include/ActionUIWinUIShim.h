@@ -498,6 +498,32 @@ ACTIONUI_WINUI_API ActionUIWinUIRect actionUIWinUIElementLayoutFrame(ActionUIWin
 // height removes the clip.
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetClipSize(ActionUIWinUIObject *element, double width, double height);
 
+// The resize cursor (west-east when `horizontal`, else north-south) while the pointer is over
+// `panel`, one of actionUIWinUIPanelCreate's, or the default cursor when not `resizes` (only the
+// panel's own class may set its cursor in WinUI 3). Fails for any other element.
+ACTIONUI_WINUI_API bool actionUIWinUIPanelSetResizeCursor(ActionUIWinUIObject *panel, bool resizes, bool horizontal);
+
+typedef enum ActionUIWinUIPointerEventKind {
+    // The primary button, a pen or a finger went down on the element.
+    ActionUIWinUIPointerPressed = 0,
+    ActionUIWinUIPointerMoved = 1,
+    ActionUIWinUIPointerReleased = 2,
+    // The drag ended without a release (the capture was lost, the input canceled).
+    ActionUIWinUIPointerCanceled = 3,
+} ActionUIWinUIPointerEventKind;
+
+// Called on the UI thread with the pointer's position in `relativeTo`'s coordinates (0, 0 for a
+// cancel, or once `relativeTo` is gone); returns whether the element takes the event: a press it takes captures the pointer, so the
+// moves and the release that follow come to it wherever the pointer goes.
+typedef bool (*ActionUIWinUIPointerCallback)(void *context, ActionUIWinUIPointerEventKind kind, double x, double y);
+
+// Reports `element`'s pointer presses, moves, releases and cancels to `handler` until the element is
+// gone (destroyContext then, on the UI thread; at once when this fails). `relativeTo` (usually an
+// element around it, held weakly) gives the coordinates.
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerDrag(ActionUIWinUIObject *element, ActionUIWinUIObject *relativeTo,
+                                                          ActionUIWinUIPointerCallback handler, void *context,
+                                                          ActionUIWinUICallback destroyContext);
+
 // MARK: - Styling
 
 // A color: red, green, blue and alpha, each from 0 to 1 (sRGB).
