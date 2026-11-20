@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "children": [
+        { "type": "AsyncImage", "id": 3, "properties": { "url": "https://raw.githubusercontent.com/abra-code/ActionUI/main/ActionUIAndroid/demoApp/src/main/assets/sample_image.png", "frame": { "width": 80, "height": 80 }, "background": "fill.secondary" } },
+        { "type": "AsyncImage", "id": 4, "properties": { "url": "https://raw.githubusercontent.com/abra-code/ActionUI/main/ActionUIAndroid/demoApp/src/main/assets/sample_image.png", "contentMode": "fill", "frame": { "width": 80, "height": 40 }, "background": "fill.secondary" } },
+        { "type": "Text", "id": 5, "properties": { "text": "https: fit, fill" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 6,
+      "children": [
+        { "type": "AsyncImage", "id": 7, "properties": { "url": "", "resizable": false } },
+        { "type": "AsyncImage", "id": 8, "properties": { "url": "", "frame": { "width": 64, "height": 64 } } },
+        { "type": "Text", "id": 9, "properties": { "text": "file: own size, SVG fit" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 10,
+      "children": [
+        { "type": "AsyncImage", "id": 11, "properties": { "url": "" } },
+        { "type": "AsyncImage", "id": 12, "properties": { "url": "photo.png", "placeholder": "star" } },
+        { "type": "AsyncImage", "id": 13, "properties": { "url": "https://invalid.invalid/missing.png", "placeholder": "exclamationmark.triangle", "foregroundStyle": "red" } },
+        { "type": "Text", "id": 14, "properties": { "text": "no URL, no scheme, not found" } }
+      ]
+    }
+  ]
+}

@@ -732,6 +732,18 @@ ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIImageCreate(void);
 // has loaded, and a file that cannot be decoded shows nothing.
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetFile(ActionUIWinUIObject *image, const char *path);
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetStretch(ActionUIWinUIObject *image, ActionUIWinUIImageStretch stretch);
+// Shows the image `url` (UTF-8, an absolute URI: http, https, file) names: one whose path ends in .svg
+// as a vector image, anything else through WinUI's bitmap decoders, loaded without blocking (WinUI
+// downloads it while the image is in the window). WinUI's image cache is used: a URL shown before
+// may not be read again. Fails for text that is no absolute URI; whether the image loads is told
+// by actionUIWinUIImageOnOpened or actionUIWinUIImageOnFailed.
+ACTIONUI_WINUI_API bool actionUIWinUIImageSetURL(ActionUIWinUIObject *image, const char *url);
+// ImageOpened: the image's source was loaded and decoded (it has its size).
+ACTIONUI_WINUI_API bool actionUIWinUIImageOnOpened(ActionUIWinUIObject *image, ActionUIWinUICallback handler, void *context,
+                                                   ActionUIWinUICallback destroyContext);
+// ImageFailed: the image's source could not be loaded or decoded.
+ACTIONUI_WINUI_API bool actionUIWinUIImageOnFailed(ActionUIWinUIObject *image, ActionUIWinUICallback handler, void *context,
+                                                   ActionUIWinUICallback destroyContext);
 // Whether `path` (absolute, or relative to the current folder) names a file that exists and is not a
 // folder. False for NULL. Any thread; sets no error.
 ACTIONUI_WINUI_API bool actionUIWinUIFileExists(const char *path);

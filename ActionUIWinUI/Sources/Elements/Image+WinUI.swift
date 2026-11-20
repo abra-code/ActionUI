@@ -37,7 +37,7 @@ enum ImageContent: Equatable {
 }
 
 /// An Image's panel: its one child (a WinUI Image or a symbol's icon) at the image's size, centered in
-/// the room it is given.
+/// the room it is given. An AsyncImage's also holds the image it is loading, behind the child.
 @MainActor
 final class ImageLayout {
     /// SwiftUI's symbol box over its font size (measured on macOS; ActionUIAndroid's factor).
@@ -46,6 +46,11 @@ final class ImageLayout {
     let panel: LayoutPanel
     private(set) var child: WinUIObject?
     private(set) var content: ImageContent?
+    /// A WinUI Image loading a URL (AsyncImage's) while the child shows its placeholder: in the panel,
+    /// as WinUI loads only an image in the window, laid out as a file's child but not counted in the
+    /// panel's size (it has none until it has loaded).
+    private(set) var loading: WinUIObject?
+    private var loadingMeasured = ActionUIWinUISize(width: 0, height: 0)
     /// The mutation token the file was last loaded at (a file is read again when it changes).
     var loadedToken: Int?
     /// Whether a symbol scales to its frame, and how a file does.
@@ -97,13 +102,20 @@ final class ImageLayout {
 
     private static var reportedMissing: Set<String> = []
 
-    /// Shows `newChild` for `newContent`, replacing the child shown before.
+    /// Shows `newChild` for `newContent`, replacing the child shown before. The loading image stays,
+    /// unless it is `newChild` (it has loaded), which is then shown where it is.
     func show(_ newChild: WinUIObject?, for newContent: ImageContent) {
+        if let newChild, newChild === loading {
+            loading = nil
+        }
         do {
-            while !panel.children.isEmpty {
-                try panel.remove(at: panel.children.count - 1)
+            for index in panel.children.indices.reversed() {
+                let kept = panel.children[index]
+                if kept !== newChild, kept !== loading {
+                    try panel.remove(at: index)
+                }
             }
-            if let newChild {
+            if let newChild, !panel.children.contains(where: { $0 === newChild }) {
                 try panel.append(newChild)
             }
         } catch {
@@ -112,6 +124,24 @@ final class ImageLayout {
         child = newChild
         content = newContent
         appliedSide = -1
+        panel.invalidateLayout()
+    }
+
+    /// Holds `image` (nil: none) as the image loading behind the child, replacing the one before.
+    func setLoading(_ image: WinUIObject?) {
+        guard image !== loading else { return }
+        do {
+            if let old = loading, old !== child, let index = panel.children.firstIndex(where: { $0 === old }) {
+                try panel.remove(at: index)
+            }
+            if let image, image !== child {
+                try panel.insert(image, at: 0)
+            }
+        } catch {
+            ActionUIModel.shared.logger.log("Image: \(error)", .error)
+        }
+        loading = image
+        loadingMeasured = ActionUIWinUISize(width: 0, height: 0)
         panel.invalidateLayout()
     }
 
@@ -127,6 +157,9 @@ final class ImageLayout {
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
+        if let loading {
+            loadingMeasured = loading.measure(available)
+        }
         guard let child, let content else {
             measured = ActionUIWinUISize(width: 0, height: 0)
             return measured
@@ -149,6 +182,14 @@ final class ImageLayout {
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
+        if let loading {
+            // Where it will show once loaded: as a file's child (below).
+            let fills = stretch == ActionUIWinUIImageStretchFill
+            let width = fills ? finalSize.width : loadingMeasured.width
+            let height = fills ? finalSize.height : loadingMeasured.height
+            loading.arrange(ActionUIWinUIRect(x: (finalSize.width - width) / 2, y: (finalSize.height - height) / 2,
+                                              width: width, height: height))
+        }
         guard let child else { return }
         // Centered at its measured size; a covering image fills the whole room (clipped to it).
         let fills = content.map { if case .file = $0 { return stretch == ActionUIWinUIImageStretchFill } else { return false } } ?? false

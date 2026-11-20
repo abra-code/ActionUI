@@ -8,6 +8,7 @@
 extension ActionUIRegistry {
     // The WinUI renderers of the built-in element types; the others render as the placeholder.
     static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
+        "AsyncImage": AsyncImage.self,
         "Button": Button.self,
         "Capsule": Capsule.self,
         "Circle": Circle.self,

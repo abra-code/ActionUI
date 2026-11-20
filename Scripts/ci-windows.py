@@ -66,6 +66,7 @@ WINUI_RUNTIME_MSIX = [
 SMOKE_TIMEOUT_SECONDS = 180
 # Options for ActionUIWinUIPreview by document name (ActionUIWinUI/Apps/Preview/Documents), beside
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
+# "{documents_url}" in an option is the documents folder's file URL (an AsyncImage's file URLs).
 PREVIEW_OPTIONS = {
     "Floors": ["420", "380"],
     "NestedFloors": ["420", "420"],
@@ -134,6 +135,8 @@ PREVIEW_OPTIONS = {
                      "--expect-action", "color.picked", "--forbid-action", "color.renderer",
                      "--on-action", "color.picked", "8", "Picked"],
     "ControlGroups": ["420", "200", "--invoke", "4", "--expect-action", "group.italic"],
+    "AsyncImages": ["460", "340", "--set-value", "7", "{documents_url}/Images/sample_image.png",
+                    "--set-value", "8", "{documents_url}/Images/ActionUIDemo.svg"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
               "--expect-action", "menu.copy", "--expect-action", "menu.grid",
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
@@ -553,7 +556,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"
-        options = PREVIEW_OPTIONS.get(document.stem, [])
+        options = [option.replace("{documents_url}", document.parent.as_uri())
+                   for option in PREVIEW_OPTIONS.get(document.stem, [])]
         step = run_step(f"preview-{document.stem}", [preview, document, png] + options, results, env, cwd=bin_path,
                         timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)

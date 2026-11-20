@@ -1,8 +1,9 @@
-// Images.cpp - WinUI's Image control for ActionUI's Image with a file: a bitmap or an SVG file, at its
-// own size or scaled to fit or cover the size it is arranged in.
+// Images.cpp - WinUI's Image control for ActionUI's Image with a file and AsyncImage with a URL: a
+// bitmap or an SVG image, at its own size or scaled to fit or cover the size it is arranged in.
 
 #include "ShimInternal.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -89,6 +90,41 @@ bool actionUIWinUIImageSetFile(ActionUIWinUIObject *image, const char *path) {
         }
         return true;
     });
+}
+
+bool actionUIWinUIImageSetURL(ActionUIWinUIObject *image, const char *url) {
+    return guarded("image set URL", [&]() {
+        muxc::Image typed = objectAs<muxc::Image>(image, L"Image");
+        // Throws for text that is no absolute URI.
+        wf::Uri uri(toHString(url));
+        if (isSVG(std::wstring(uri.Path()))) {
+            imaging::SvgImageSource source;
+            source.UriSource(uri);
+            typed.Source(source);
+        } else {
+            // WinUI's image cache is kept: the same URL shown in several places loads once.
+            imaging::BitmapImage source;
+            source.UriSource(uri);
+            typed.Source(source);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIImageOnOpened(ActionUIWinUIObject *image, ActionUIWinUICallback handler, void *context,
+                                ActionUIWinUICallback destroyContext) {
+    return registerHandler("image on opened", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               objectAs<muxc::Image>(image, L"Image").ImageOpened([holder](auto &&, auto &&) { holder->fire(); });
+                           });
+}
+
+bool actionUIWinUIImageOnFailed(ActionUIWinUIObject *image, ActionUIWinUICallback handler, void *context,
+                                ActionUIWinUICallback destroyContext) {
+    return registerHandler("image on failed", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               objectAs<muxc::Image>(image, L"Image").ImageFailed([holder](auto &&, auto &&) { holder->fire(); });
+                           });
 }
 
 bool actionUIWinUIImageSetStretch(ActionUIWinUIObject *image, ActionUIWinUIImageStretch stretch) {
