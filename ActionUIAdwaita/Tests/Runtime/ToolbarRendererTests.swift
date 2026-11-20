@@ -151,7 +151,10 @@ final class ToolbarRendererTests: XCTestCase {
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 2, rows: [["Apple"]])
         AdwaitaTestHost.drainMainLoop()
         let list = try XCTUnwrap(stack.childNodes[2])
-        let row = try XCTUnwrap(attached(on: list.widget, key: listStateKey)?.rowNodes.first)
+        // The List's list view makes the row once it lays it out.
+        let rows = try XCTUnwrap(attached(on: list.widget, key: listStateKey)?.lazy)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { rows.made[0] != nil }), "the row is made")
+        let row = try XCTUnwrap(rows.made[0])
         let item = try XCTUnwrap(row.toolbar?.nodes.first)
         XCTAssertEqual(item.model.templateContext?.rowIndex, 0, "a template row's item is a blueprint too, as its children are")
         XCTAssertEqual(swiftString(gtk_button_get_label(typed(item.widget))), "Apple")

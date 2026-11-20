@@ -338,10 +338,18 @@ public final class RenderNode {
     /// container keeps it, not childNodes (every row has the template's ids), and detaches it when
     /// its row goes.
     func templateRowNode(_ template: any ActionUIElementBase, row: [String], rowIndex: Int) -> RenderNode {
-        let context = TemplateContext(parentID: element.id, rowIndex: rowIndex, row: row)
-        let node = RenderNode(element: template, model: Self.templateModel(template, context), windowModel: windowModel, parent: self)
+        let node = lazyTemplateRowNode(template, row: row, rowIndex: rowIndex)
         unsyncedChildren.append(node)
         return node
+    }
+
+    /// A node for one row of a lazy stack's template (LazyRows), made outside this node's sync as
+    /// the row comes into view: as templateRowNode's, but not queued to sync after this node's sync
+    /// (it may be let go before that sync comes, and the queue would keep it); the caller places its
+    /// box and syncs it at once.
+    func lazyTemplateRowNode(_ template: any ActionUIElementBase, row: [String], rowIndex: Int) -> RenderNode {
+        let context = TemplateContext(parentID: element.id, rowIndex: rowIndex, row: row)
+        return RenderNode(element: template, model: Self.templateModel(template, context), windowModel: windowModel, parent: self)
     }
 
     /// A template instance's view model: the element's properties with the row's data substituted.

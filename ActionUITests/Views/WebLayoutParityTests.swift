@@ -104,7 +104,8 @@ final class WebLayoutParityTests: XCTestCase {
     /// - grid: a Grid's tracks are sized by their content, so a flexible cell (an unframed Color) is not drawn and the Grid does not share its stack, where SwiftUI shares the Grid's size among its columns and rows like a stack and the flexible cell fills its column and row; a Spacer or Divider in a Grid is such a cell, and an EmptyView keeps a cell (and a row of only EmptyViews a row and its spacing), where SwiftUI gives it none
     /// - geometry: a GeometryReader's share in a stack grows with its content, and flexible content in it is not drawn, where SwiftUI shares the stack like a Color and gives the content the reader's size; in a ScrollView it takes its content's length and centers it, where SwiftUI's is its ideal 10 with the content at its top leading corner
     /// - group: a Group's padding or frame goes on one box around the whole Group, which lays its children out in a column, where SwiftUI applies them to each child in the parent stack
-    /// - lazygrid: the web's LazyVGrid and LazyHGrid do not lay out as SwiftUI's: a cell without a width in a LazyVGrid (a height in a LazyHGrid), such as an unframed Color, is not drawn, where SwiftUI fills its column (row) with it; the tracks are not 8 points apart and their block starts at the leading (top) edge instead of at the grid's alignment; a cell sits at the start of its line instead of centered in it; and the cells' content-visibility: auto (with a 44 point placeholder size) leaves every cell of some grids undrawn (lazyvgrid-two-flexible)
+    /// - lazygrid: the web's LazyVGrid and LazyHGrid do not lay out as SwiftUI's: a cell without a width in a LazyVGrid (a height in a LazyHGrid), such as an unframed Color, is not drawn, where SwiftUI fills its column (row) with it; the tracks are not 8 points apart and their block starts at the leading (top) edge instead of at the grid's alignment; and a cell sits at the start of its line instead of centered in it
+    /// - lazystack: the web's LazyVStack lays out as a VStack: a child that expands along its axis (an unframed Color) shares the stack's height with the stack's siblings, where SwiftUI gives it its ideal length (10) and the LazyVStack does not grow
     /// - ideal: a stack offered its ideal length or a little more gives each child its ideal size (flex items keep their basis), where SwiftUI offers each child an even share of what is left and can leave one short
     /// - minimum: an expanding child's minimum is added to its share of the remainder (CSS flex-basis auto) instead of being sized first; basis 0 would do that but collapses a greedy child (a List with padding) to nothing in a stack sized by its content
     /// - safearea: a safeAreaInset view and its content are not laid out along the edge: filling content is not drawn, and a bar beside fixed content is drawn over it at the same place, where SwiftUI puts the bar along the edge, safeAreaSpacing (8 by default) away and aligned by safeAreaAlignment, and gives the content the rest of the room
@@ -163,6 +164,7 @@ final class WebLayoutParityTests: XCTestCase {
         "lazyvgrid-flexible-cells": "lazygrid",
         "lazyvgrid-in-vstack-hugs": "lazygrid",
         "lazyvgrid-two-flexible": "lazygrid",
+        "lazyvstack-expanding-child": "lazystack",
         "nested-unbounded-spacer": "minimum",
         "safearea-bottom-filling": "safearea",
         "safearea-bottom-fixed": "safearea",
@@ -178,9 +180,11 @@ final class WebLayoutParityTests: XCTestCase {
         "safearea-unframed-bar": "safearea",
         "scrollview-horizontal-content": "scrollview",
         "scrollview-horizontal-in-hstack": "scrollview",
+        "scrollview-horizontal-lazyhstack-in-vstack": "scrollview",
         "scrollview-vertical-content": "scrollview",
         "scrollview-vertical-expanding-content": "scrollview",
         "scrollview-vertical-in-vstack": "scrollview",
+        "scrollview-vertical-lazyvstack-in-hstack": "scrollview",
         "vstack-ideal-exact-height-top": "ideal",
     ]
 
@@ -275,10 +279,19 @@ final class WebLayoutParityTests: XCTestCase {
         let document = try JSONSerialization.jsonObject(with: data)
         let (width, height) = try LayoutParityPixels.rootSize(of: document, fixture: fixture.lastPathComponent)
         // Rendered, its layout forced, then a turn of the page's event loop. (Animation frames do
-        // not run for a window WebKit thinks is hidden.)
+        // not run for a window WebKit thinks is hidden.) The children of a lazy stack or grid and
+        // a List's rows have content-visibility: auto, which skips drawing them until the browser
+        // has found them on screen in a rendering update that may not come before the snapshot:
+        // they are drawn here as on screen.
         let json = String(decoding: data, as: UTF8.self)
         try await withDeadline(30, "rendering \(fixture.lastPathComponent)") {
             _ = try await webView.callAsyncJavaScript("""
+                if (!document.getElementById("parity-visible")) {
+                    const style = document.createElement("style");
+                    style.id = "parity-visible";
+                    style.textContent = ".aui-lazyvstack > *, .aui-lazyhstack > *, .aui-lazyvgrid > *, .aui-lazyhgrid > *, .aui-list-row { content-visibility: visible !important; }";
+                    document.head.appendChild(style);
+                }
                 renderFixture(json);
                 document.body.getBoundingClientRect();
                 await new Promise(done => setTimeout(done, 0));
