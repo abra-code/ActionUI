@@ -60,13 +60,15 @@ final class LazyGridRendererTests: XCTestCase {
         let node = try render(#"{"type": "LazyVGrid", "id": 1, "properties": {"columns": [{"flexible": true}, {"flexible": true}]}, "template": {"type": "Text", "properties": {"text": "$1"}}}"#)
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["A"], ["B"], ["C"]])
         AdwaitaTestHost.drainMainLoop()
-        let first = try state(node).templateRows.nodes
+        // The template form's rows (LazyRows): outside a ScrollView every one is made.
+        let rows = try XCTUnwrap(attached(on: node.widget, key: lazyRowsKey))
+        let first = rows.made.sorted { $0.key < $1.key }.map(\.value)
         XCTAssertEqual(first.map { Gtk.Label($0.widget).text }, ["A", "B", "C"])
         gtk_widget_allocate(node.outerWidget, 400, 300, -1, nil)
         XCTAssertEqual(origin(first[2].outerWidget, in: node)[1], origin(first[0].outerWidget, in: node)[1] + Float(gtk_widget_get_height(first[0].outerWidget)), "the third in the second row")
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["A"], ["X"]])
         AdwaitaTestHost.drainMainLoop()
-        let second = try state(node).templateRows.nodes
+        let second = rows.made.sorted { $0.key < $1.key }.map(\.value)
         XCTAssertTrue(second[0] === first[0], "the unchanged row keeps its instance")
         XCTAssertEqual(second.map { Gtk.Label($0.widget).text }, ["A", "X"])
         XCTAssertFalse(first[2].isAttached, "the row that went is detached")

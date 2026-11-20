@@ -1,7 +1,8 @@
 // Tests/Elements/LazyRowsRendererTests.swift
 /*
- Tests for the template form of LazyVStack and LazyHStack (LazyRows): in a ScrollView a row is made
- only when it comes in or near view and let go when far from it; outside one every row is made;
+ Tests for the template form of LazyVStack, LazyHStack, LazyVGrid and LazyHGrid (LazyRows): in a
+ ScrollView a row (a grid's line of cells) is made only when it comes in or near view and let go when
+ far from it; outside one every row is made;
  rows are kept by index (a changed row is made again, rows are added and removed at the end); and
  the row at the top of the visible part stays in place when rows made above it turn out longer than
  estimated. The document and numbers follow the Windows preview's LazyRows.json (2000 rows scrolled
@@ -320,5 +321,71 @@ final class LazyRowsRendererTests: XCTestCase {
         let after = try XCTUnwrap(madeRow(at: value, in: rows, vertical: true))
         XCTAssertEqual(after.index, before.index, "the same row at the top")
         XCTAssertEqual(value - after.start, valueBefore - before.start, accuracy: 1, "at the same place in it")
+    }
+
+    func testALazyVGridMakesOnlyTheLinesNearView() throws {
+        let root = try present(#"""
+            {"type": "ScrollView", "id": 1, "properties": {"frame": {"height": 300}}, "content":
+              {"type": "LazyVGrid", "id": 2, "properties": {"columns": [{"flexible": true}, {"flexible": true}, {"flexible": true}], "spacing": 4},
+               "template": {"type": "Text", "properties": {"text": "$1", "padding": 6}}}}
+            """#)
+        setRows(2, (0..<3000).map { ["Cell \($0)"] })
+        let rows = try lazyRows(2, in: root)
+        XCTAssertGreaterThan(rows.made.count, 0)
+        XCTAssertLessThan(rows.made.count, 300, "made: \(rows.made.count) of 3000")
+        XCTAssertEqual(rows.made.count % 3, 0, "whole lines")
+        let vertical = try adjustment(1, in: root, vertical: true)
+        gtk_adjustment_set_value(vertical, 10000)
+        settle()
+        let value = gtk_adjustment_get_value(vertical)
+        XCTAssertLessThan(rows.made.count, 300, "made: \(rows.made.count) of 3000")
+        XCTAssertNil(rows.made[0], "the first line is let go")
+        let top = try XCTUnwrap(madeRow(at: value, in: rows, vertical: true), "a made cell at the top of the visible part")
+        let line = top.index / 3
+        // The three cells of the line at the top, side by side.
+        let cells = try (0..<3).map { try XCTUnwrap(rows.made[line * 3 + $0]) }
+        XCTAssertEqual(cells.map { texts($0.outerWidget) }, (0..<3).map { ["Cell \(line * 3 + $0)"] })
+        var bounds = cells.map { _ in graphene_rect_t() }
+        for index in 0..<3 {
+            XCTAssertNotEqual(gtk_widget_compute_bounds(cells[index].outerWidget, gtk_widget_get_parent(cells[index].outerWidget), &bounds[index]), 0)
+        }
+        XCTAssertEqual(Set(bounds.map { $0.origin.y }).count, 1, "one line")
+        XCTAssertLessThan(bounds[0].origin.x, bounds[1].origin.x)
+        XCTAssertLessThan(bounds[1].origin.x, bounds[2].origin.x)
+        print("[lazy rows] LazyVGrid: \(rows.made.count) of 3000 made, line \(line) shown at \(value)")
+    }
+
+    func testALazyHGridMakesOnlyTheColumnsNearView() throws {
+        let root = try present(#"""
+            {"type": "ScrollView", "id": 1, "properties": {"axis": "horizontal", "frame": {"width": 400, "height": 120}}, "content":
+              {"type": "LazyHGrid", "id": 2, "properties": {"rows": [{"flexible": true}, {"flexible": true}], "spacing": 6},
+               "template": {"type": "Text", "properties": {"text": "$1", "padding": 4}}}}
+            """#)
+        setRows(2, (0..<1000).map { ["\($0)"] })
+        let columns = try lazyRows(2, in: root)
+        XCTAssertGreaterThan(columns.made.count, 0)
+        XCTAssertLessThan(columns.made.count, 300, "made: \(columns.made.count) of 1000")
+        let horizontal = try adjustment(1, in: root, vertical: false)
+        gtk_adjustment_set_value(horizontal, 4000)
+        settle()
+        XCTAssertLessThan(columns.made.count, 300, "made: \(columns.made.count) of 1000")
+        XCTAssertNil(columns.made[0])
+        let first = try XCTUnwrap(madeRow(at: gtk_adjustment_get_value(horizontal), in: columns, vertical: false))
+        XCTAssertEqual(texts(try XCTUnwrap(columns.made[first.index]).outerWidget), ["\(first.index)"])
+        XCTAssertGreaterThan(first.index, 100)
+    }
+
+    func testALazyGridWithoutColumnsShowsNoRow() throws {
+        // As the eager grid: GTK warns about drawing a child that was never allocated.
+        let root = try present(#"""
+            {"type": "VStack", "id": 1, "children": [
+              {"type": "LazyVGrid", "id": 2, "properties": {"columns": [{"flexible": false}]}, "template": {"type": "Text", "properties": {"text": "$1"}}}]}
+            """#)
+        setRows(2, [["A"], ["B"]])
+        let rows = try lazyRows(2, in: root)
+        XCTAssertEqual(rows.made.count, 2)
+        for row in rows.made.values {
+            XCTAssertEqual(gtk_widget_get_child_visible(row.outerWidget), 0)
+        }
     }
 }
