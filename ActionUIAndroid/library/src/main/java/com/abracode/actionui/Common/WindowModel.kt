@@ -55,6 +55,15 @@ class WindowModel(
     private val dynamicallyInsertedIDs: MutableMap<Int, MutableSet<Int>> = mutableMapOf()
 
     /**
+     * Maps a LoadableView's id to the ids its loaded content merged into [viewModels].
+     * Mirrors Swift's `loadedSubViewIDs`: a reload removes the content's own models
+     * first, so a new document reusing an id gets a fresh model of its own type, and
+     * an id that collided with another element's is not recorded, so a reload never
+     * removes that element's model.
+     */
+    private val loadedSubViewIDs: MutableMap<Int, Set<Int>> = mutableMapOf()
+
+    /**
      * Whether [id] belongs to a subtree inserted at runtime (via [insertElement] /
      * [insertRow]) and not yet removed. Gates the `transition` entrance
      * (`TransitionHelper.kt`) so only freshly-inserted views animate in, not
@@ -125,6 +134,7 @@ class WindowModel(
     fun loadDescription(root: ActionUIElement): ActionUIElement {
         element = root
         viewModels.clear()
+        loadedSubViewIDs.clear()
         populateViewModels(root, into = viewModels)
         logger.log(
             "Loaded description for windowUUID: $windowUUID, element id: ${root.id}, " +
@@ -142,18 +152,45 @@ class WindowModel(
      * Mirrors the Swift `loadSubViewDescription`.
      *
      * Ids must be unique across the combined tree (Apple documents the same
-     * assumption); a collision overwrites the existing entry - last one wins, as in
-     * [populateViewModels]. Unlike [loadDescription] it does not touch [element]
-     * (the window root stays the originally-loaded document). Returns [subRoot].
+     * assumption). As on Apple, an id that is already in the pool keeps its existing
+     * model and is skipped with a warning, so loaded content cannot reset or replace
+     * a parent control's value. When [parentID] (the LoadableView's own id) is not 0,
+     * the models its previous content merged are removed first and the ids merged
+     * now are recorded as its own. Unlike [loadDescription] it does not touch
+     * [element] (the window root stays the originally-loaded document). Returns
+     * [subRoot].
      */
-    fun loadSubDescription(subRoot: ActionUIElement): ActionUIElement {
-        populateViewModels(subRoot, into = viewModels)
+    fun loadSubDescription(subRoot: ActionUIElement, parentID: Int = 0): ActionUIElement {
+        if (parentID != 0) {
+            val oldIDs = collectAndRemoveSubViewIDs(parentID)
+            for (id in oldIDs) viewModels.remove(id)
+        }
+        val subViewModels = mutableMapOf<Int, ViewModel>()
+        populateViewModels(subRoot, into = subViewModels)
+        val mergedIDs = mutableSetOf<Int>()
+        for ((id, viewModel) in subViewModels) {
+            if (viewModels.containsKey(id)) {
+                logger.log("ID conflict for sub-view $id in windowUUID: $windowUUID; skipping merge", LoggerLevel.warning)
+            } else {
+                viewModels[id] = viewModel
+                mergedIDs += id
+            }
+        }
+        if (parentID != 0) loadedSubViewIDs[parentID] = mergedIDs
         logger.log(
             "Merged sub-description into windowUUID: $windowUUID, sub-root id: ${subRoot.id}, " +
                 "pool now ${viewModels.size} view model(s)",
             LoggerLevel.verbose
         )
         return subRoot
+    }
+
+    /** The ids [parentID]'s loaded content owns, and those of LoadableViews inside it, removed from the record. */
+    internal fun collectAndRemoveSubViewIDs(parentID: Int): Set<Int> {
+        val direct = loadedSubViewIDs.remove(parentID) ?: return emptySet()
+        val all = direct.toMutableSet()
+        for (childID in direct) all += collectAndRemoveSubViewIDs(childID)
+        return all
     }
 
     /**
@@ -361,7 +398,11 @@ class WindowModel(
             }
         }
 
-        val descendantIDs = collectAllElementIDs(location.removedElement)
+        // A LoadableView inside the removed subtree takes the content it loaded along,
+        // and its ownership record goes too, as on Apple: a record left behind would let
+        // a later LoadableView with the same id remove models that now belong to others.
+        val descendantIDs = collectAllElementIDs(location.removedElement).toMutableSet()
+        for (id in descendantIDs.toList()) descendantIDs += collectAndRemoveSubViewIDs(id)
         for (id in descendantIDs) viewModels.remove(id)
         transitionPlayedIDs.removeAll(descendantIDs)
         dynamicallyInsertedIDs[location.parentID]?.removeAll(descendantIDs)
