@@ -107,6 +107,9 @@ ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetText(ActionUIWinUIObject *textB
 // Whether the text wraps onto more lines when it is offered less width than one line needs (at
 // word boundaries, and inside a word that does not fit). A new TextBlock does not wrap.
 ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *textBlock, bool wraps);
+// Whether a text that does not fit its width is cut short with an ellipsis (a character boundary), as
+// a macOS Table cell's; a new TextBlock is not.
+ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetTrimmed(ActionUIWinUIObject *textBlock, bool trimmed);
 typedef enum ActionUIWinUITextAlignment {
     ActionUIWinUITextLeading = 0,
     ActionUIWinUITextCenter = 1,

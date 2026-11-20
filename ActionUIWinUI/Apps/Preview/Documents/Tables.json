@@ -1,0 +1,70 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "Table",
+   "id": 2,
+   "properties": {
+    "columns": [
+     "Name",
+     "Kind",
+     "Size"
+    ],
+    "widths": [
+     140,
+     80,
+     60
+    ],
+    "actionID": "table.selected",
+    "doubleClickActionID": "table.open",
+    "frame": {
+     "height": 150
+    }
+   }
+  },
+  {
+   "type": "Table",
+   "id": 3,
+   "properties": {
+    "columns": [
+     "Command",
+     "Run"
+    ],
+    "columnHeadersVisibility": "hidden",
+    "columnTypes": [
+     {
+      "viewType": "Text"
+     },
+     {
+      "viewType": "Button",
+      "actionID": "run.pressed"
+     }
+    ],
+    "frame": {
+     "height": 70
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 4,
+   "properties": {
+    "text": "Nothing selected yet"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 5,
+   "properties": {
+    "text": "A header and 100 rows, the third selected; no header, a Button column shown as text",
+    "font": "caption"
+   }
+  }
+ ]
+}

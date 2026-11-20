@@ -29,6 +29,14 @@ bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *textBlock, bool wraps) 
     });
 }
 
+bool actionUIWinUITextBlockSetTrimmed(ActionUIWinUIObject *textBlock, bool trimmed) {
+    return guarded("text block set trimmed", [&]() {
+        objectAs<muxc::TextBlock>(textBlock, L"TextBlock")
+            .TextTrimming(trimmed ? mux::TextTrimming::CharacterEllipsis : mux::TextTrimming::None);
+        return true;
+    });
+}
+
 bool actionUIWinUITextBlockSetAlignment(ActionUIWinUIObject *textBlock, ActionUIWinUITextAlignment alignment) {
     return guarded("text block set alignment", [&]() {
         mux::TextAlignment wanted = alignment == ActionUIWinUITextCenter   ? mux::TextAlignment::Center
