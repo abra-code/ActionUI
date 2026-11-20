@@ -2,6 +2,13 @@
 // window's scale, shown by a WinUI Image through a WriteableBitmap. Direct2D ships with Windows: no
 // package or DLL to deploy. The caller builds each path (move, line, curves, close), then fills,
 // strokes or clips with it under the transform it set; finishing shows the bitmap.
+//
+// As SwiftUI's GraphicsContext (and the Linux renderer's GSK snapshots): the canvas and each layer is a
+// context drawing into its own bitmap, with its clips, filters (shadow, blur), opacity and blend mode.
+// An operation with none of them draws straight into the context's bitmap, inside its clips; one with
+// any is drawn alone, its filters applied (the first given first) with Direct2D's effects, then its
+// opacity, then it is put over the context's bitmap inside the clips, blended with what the context
+// drew before. A finished layer is put over its parent the same way, as one operation.
 
 #include "ShimInternal.h"
 
@@ -11,6 +18,9 @@
 #include <vector>
 
 #include <d2d1_1.h>
+#include <d2d1effects.h>
+// The Opacity effect (CLSID_D2D1Opacity, Windows 10) is declared here, not in d2d1effects.h.
+#include <d2d1effects_2.h>
 #include <dwrite.h>
 #include <wincodec.h>
 
@@ -20,6 +30,7 @@
 #include <winrt/Windows.Storage.Streams.h>
 
 #pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "windowscodecs.lib")
 
@@ -28,10 +39,40 @@ namespace imaging = winrt::Microsoft::UI::Xaml::Media::Imaging;
 
 using namespace actionui_winui;
 
+namespace {
+
+// A filter of a context: it applies to each drawing operation after it.
+struct DrawingFilter {
+    ActionUIWinUIDrawingFilterKind kind = ActionUIWinUIDrawingFilterBlur;
+    D2D1_COLOR_F color{};
+    float radius = 0;
+    float x = 0;
+    float y = 0;
+};
+
+// The canvas or a layer: what it drew so far, and what applies to its next operations.
+struct DrawingContext {
+    winrt::com_ptr<ID2D1Bitmap1> content;
+    // In canvas coordinates (the transform at each clip applied).
+    std::vector<winrt::com_ptr<ID2D1Geometry>> clips;
+    std::vector<DrawingFilter> filters;
+    float opacity = 1;
+    ActionUIWinUIBlendMode blend = ActionUIWinUIBlendModeNormal;
+};
+
+} // namespace
+
 // One drawing, from actionUIWinUIDrawingBegin to actionUIWinUIDrawingFinish.
 struct ActionUIWinUIDrawing {
     winrt::com_ptr<IWICBitmap> bitmap;
     winrt::com_ptr<ID2D1RenderTarget> target;
+    // The target as a device context (bitmaps, effects), and its WIC bitmap as an image.
+    winrt::com_ptr<ID2D1DeviceContext> device;
+    winrt::com_ptr<ID2D1Image> output;
+    // What the device context draws into now (between BeginDraw and EndDraw), nullptr for nothing.
+    ID2D1Image *drawingInto = nullptr;
+    float dpi = 96;
+    std::vector<DrawingContext> contexts;
     UINT pixelWidth = 0;
     UINT pixelHeight = 0;
     D2D1_MATRIX_3X2_F transform = D2D1::Matrix3x2F::Identity();
@@ -42,8 +83,6 @@ struct ActionUIWinUIDrawing {
     bool hasPoint = false;
     D2D1_POINT_2F current{};
     D2D1_POINT_2F start{};
-    // Clip layers pushed, popped at the end.
-    int layers = 0;
 };
 
 namespace {
@@ -300,12 +339,185 @@ float opacityOf(double opacity) {
     return static_cast<float>(std::isfinite(opacity) ? std::fmin(std::fmax(opacity, 0.0), 1.0) : 1.0);
 }
 
+// Draws into `target` from now on (ending the drawing into the one before: its deferred errors throw
+// here). Each drawing call goes through it, so consecutive plain operations share one BeginDraw.
+void drawInto(ActionUIWinUIDrawing *drawing, ID2D1Image *target) {
+    if (drawing->drawingInto == target) {
+        return;
+    }
+    if (drawing->drawingInto != nullptr) {
+        drawing->drawingInto = nullptr;
+        winrt::check_hresult(drawing->device->EndDraw());
+    }
+    drawing->device->SetTarget(target);
+    drawing->device->BeginDraw();
+    drawing->device->SetTransform(D2D1::Matrix3x2F::Identity());
+    drawing->drawingInto = target;
+}
+
+// Ends the drawing into the current target, if any.
+void stopDrawing(ActionUIWinUIDrawing *drawing) {
+    if (drawing->drawingInto != nullptr) {
+        drawing->drawingInto = nullptr;
+        winrt::check_hresult(drawing->device->EndDraw());
+    }
+}
+
+// A transparent bitmap of the canvas's size to draw into.
+winrt::com_ptr<ID2D1Bitmap1> newBitmap(ActionUIWinUIDrawing *drawing) {
+    winrt::com_ptr<ID2D1Bitmap1> bitmap;
+    D2D1_BITMAP_PROPERTIES1 properties = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET, D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), drawing->dpi,
+        drawing->dpi);
+    winrt::check_hresult(
+        drawing->device->CreateBitmap(D2D1::SizeU(drawing->pixelWidth, drawing->pixelHeight), nullptr, 0, properties, bitmap.put()));
+    drawInto(drawing, bitmap.get());
+    drawing->device->Clear(D2D1::ColorF(0, 0, 0, 0));
+    return bitmap;
+}
+
+DrawingContext newContext(ActionUIWinUIDrawing *drawing) {
+    DrawingContext context;
+    context.content = newBitmap(drawing);
+    return context;
+}
+
+// Pushes the context's clips (in canvas coordinates) on the device context, which draws into its
+// target; popClips takes them off again.
+void pushClips(ActionUIWinUIDrawing *drawing, DrawingContext const &context) {
+    drawing->device->SetTransform(D2D1::Matrix3x2F::Identity());
+    for (winrt::com_ptr<ID2D1Geometry> const &clip : context.clips) {
+        drawing->device->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), clip.get()), nullptr);
+    }
+}
+
+void popClips(ActionUIWinUIDrawing *drawing, DrawingContext const &context) {
+    for (size_t index = 0; index < context.clips.size(); ++index) {
+        drawing->device->PopLayer();
+    }
+}
+
+winrt::com_ptr<ID2D1Effect> effect(ActionUIWinUIDrawing *drawing, REFCLSID kind) {
+    winrt::com_ptr<ID2D1Effect> made;
+    winrt::check_hresult(drawing->device->CreateEffect(kind, made.put()));
+    return made;
+}
+
+winrt::com_ptr<ID2D1Image> outputOf(ID2D1Effect *made) {
+    winrt::com_ptr<ID2D1Image> image;
+    made->GetOutput(image.put());
+    return image;
+}
+
+// The largest deviation Direct2D's blur takes.
+float deviation(float value) {
+    return std::isfinite(value) && value > 0 ? std::fmin(value, 250.0f) : 0.0f;
+}
+
+// `image` with `filter` applied: a blur of SwiftUI's radius (its deviation, as Core Graphics reads
+// it); a shadow (SwiftUI's radius is twice its deviation, measured on macOS 27 by the Linux renderer)
+// of the color, offset by (x, y), under the image.
+winrt::com_ptr<ID2D1Image> filtered(ActionUIWinUIDrawing *drawing, DrawingFilter const &filter, ID2D1Image *image) {
+    if (filter.kind == ActionUIWinUIDrawingFilterBlur) {
+        winrt::com_ptr<ID2D1Effect> blur = effect(drawing, CLSID_D2D1GaussianBlur);
+        blur->SetInput(0, image);
+        winrt::check_hresult(blur->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, deviation(filter.radius)));
+        return outputOf(blur.get());
+    }
+    winrt::com_ptr<ID2D1Effect> shadow = effect(drawing, CLSID_D2D1Shadow);
+    shadow->SetInput(0, image);
+    winrt::check_hresult(shadow->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, deviation(filter.radius / 2)));
+    winrt::check_hresult(
+        shadow->SetValue(D2D1_SHADOW_PROP_COLOR, D2D1::Vector4F(filter.color.r, filter.color.g, filter.color.b, filter.color.a)));
+    winrt::com_ptr<ID2D1Effect> offset = effect(drawing, CLSID_D2D12DAffineTransform);
+    offset->SetInputEffect(0, shadow.get());
+    float x = std::isfinite(filter.x) ? filter.x : 0;
+    float y = std::isfinite(filter.y) ? filter.y : 0;
+    winrt::check_hresult(offset->SetValue(D2D1_2DAFFINETRANSFORM_PROP_TRANSFORM_MATRIX, D2D1::Matrix3x2F::Translation(x, y)));
+    winrt::com_ptr<ID2D1Effect> composite = effect(drawing, CLSID_D2D1Composite);
+    composite->SetInputEffect(0, offset.get());
+    composite->SetInput(1, image);
+    return outputOf(composite.get());
+}
+
+// Puts `image` (canvas coordinates) over the top context's bitmap, inside its clips, blended with
+// what the context drew before when its blend mode is not normal.
+void compose(ActionUIWinUIDrawing *drawing, ID2D1Image *image) {
+    DrawingContext &context = drawing->contexts.back();
+    if (context.blend == ActionUIWinUIBlendModeNormal) {
+        drawInto(drawing, context.content.get());
+        pushClips(drawing, context);
+        drawing->device->DrawImage(image);
+        popClips(drawing, context);
+        return;
+    }
+    winrt::com_ptr<ID2D1Bitmap1> top = newBitmap(drawing);
+    pushClips(drawing, context);
+    drawing->device->DrawImage(image);
+    popClips(drawing, context);
+    winrt::com_ptr<ID2D1Bitmap1> bottom = newBitmap(drawing);
+    stopDrawing(drawing);
+    winrt::check_hresult(bottom->CopyFromBitmap(nullptr, context.content.get(), nullptr));
+    winrt::com_ptr<ID2D1Effect> blend = effect(drawing, CLSID_D2D1Blend);
+    // Input 0 is the destination (what is there), input 1 the source (what is put over it).
+    blend->SetInput(0, bottom.get());
+    blend->SetInput(1, top.get());
+    D2D1_BLEND_MODE mode = context.blend == ActionUIWinUIBlendModeMultiply ? D2D1_BLEND_MODE_MULTIPLY
+                           : context.blend == ActionUIWinUIBlendModeScreen ? D2D1_BLEND_MODE_SCREEN
+                                                                           : D2D1_BLEND_MODE_OVERLAY;
+    winrt::check_hresult(blend->SetValue(D2D1_BLEND_PROP_MODE, mode));
+    drawInto(drawing, context.content.get());
+    drawing->device->Clear(D2D1::ColorF(0, 0, 0, 0));
+    drawing->device->DrawImage(outputOf(blend.get()).get());
+}
+
+// Puts `image`, an operation's drawing alone, over the top context with its filters and opacity.
+void composeOperation(ActionUIWinUIDrawing *drawing, ID2D1Image *image) {
+    DrawingContext const &context = drawing->contexts.back();
+    winrt::com_ptr<ID2D1Image> result;
+    result.copy_from(image);
+    for (DrawingFilter const &filter : context.filters) {
+        result = filtered(drawing, filter, result.get());
+    }
+    if (context.opacity < 1) {
+        winrt::com_ptr<ID2D1Effect> opacity = effect(drawing, CLSID_D2D1Opacity);
+        opacity->SetInput(0, result.get());
+        winrt::check_hresult(opacity->SetValue(D2D1_OPACITY_PROP_OPACITY, context.opacity));
+        result = outputOf(opacity.get());
+    }
+    compose(drawing, result.get());
+}
+
+// Draws one operation: `paint` draws it under the drawing's transform on the device context; the top
+// context's clips, filters, opacity and blend mode apply to it.
+template <typename Paint>
+void drawOperation(ActionUIWinUIDrawing *drawing, Paint &&paint) {
+    DrawingContext const &context = drawing->contexts.back();
+    if (context.filters.empty() && context.opacity >= 1 && context.blend == ActionUIWinUIBlendModeNormal) {
+        drawInto(drawing, context.content.get());
+        pushClips(drawing, context);
+        drawing->device->SetTransform(drawing->transform);
+        paint(drawing->device.get());
+        drawing->device->SetTransform(D2D1::Matrix3x2F::Identity());
+        popClips(drawing, context);
+        return;
+    }
+    winrt::com_ptr<ID2D1Bitmap1> alone = newBitmap(drawing);
+    drawing->device->SetTransform(drawing->transform);
+    paint(drawing->device.get());
+    drawing->device->SetTransform(D2D1::Matrix3x2F::Identity());
+    composeOperation(drawing, alone.get());
+}
+
 ActionUIWinUIDrawing *drawingOf(ActionUIWinUIDrawing *drawing) {
     if (drawing == nullptr) {
         throw winrt::hresult_invalid_argument(L"the drawing is NULL");
     }
     if (!drawing->target) {
         throw winrt::hresult_illegal_method_call(L"the drawing has ended");
+    }
+    if (drawing->contexts.empty()) {
+        throw winrt::hresult_illegal_method_call(L"the drawing has no context");
     }
     return drawing;
 }
@@ -336,8 +548,14 @@ ActionUIWinUIDrawing *actionUIWinUIDrawingBegin(double width, double height, dou
         D2D1_RENDER_TARGET_PROPERTIES properties = D2D1::RenderTargetProperties(
             D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), dpi, dpi);
         winrt::check_hresult(factory()->CreateWicBitmapRenderTarget(drawing->bitmap.get(), properties, drawing->target.put()));
-        drawing->target->BeginDraw();
-        drawing->target->Clear(D2D1::ColorF(0, 0, 0, 0));
+        drawing->device = drawing->target.as<ID2D1DeviceContext>();
+        drawing->device->GetTarget(drawing->output.put());
+        // drawInto treats a null target as "not drawing": the finish would draw nothing, silently.
+        if (!drawing->output) {
+            return fail("drawing begin", "the render target has no target bitmap");
+        }
+        drawing->dpi = dpi;
+        drawing->contexts.push_back(newContext(drawing.get()));
         made = drawing.release();
         return true;
     });
@@ -351,7 +569,6 @@ bool actionUIWinUIDrawingSetTransform(ActionUIWinUIDrawing *drawing, double a, d
         takePath(typed);
         typed->transform = D2D1::Matrix3x2F(static_cast<float>(a), static_cast<float>(b), static_cast<float>(c), static_cast<float>(d),
                                             static_cast<float>(tx), static_cast<float>(ty));
-        typed->target->SetTransform(typed->transform);
         return true;
     });
 }
@@ -431,7 +648,7 @@ bool actionUIWinUIDrawingFill(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor 
         }
         winrt::com_ptr<ID2D1SolidColorBrush> brush;
         winrt::check_hresult(typed->target->CreateSolidColorBrush(colorOf(color), brush.put()));
-        typed->target->FillGeometry(path.get(), brush.get());
+        drawOperation(typed, [&](ID2D1DeviceContext *device) { device->FillGeometry(path.get(), brush.get()); });
         return true;
     });
 }
@@ -450,7 +667,7 @@ bool actionUIWinUIDrawingFillLinearGradient(ActionUIWinUIDrawing *drawing, doubl
             D2D1::LinearGradientBrushProperties(D2D1::Point2F(static_cast<float>(x0), static_cast<float>(y0)),
                                                 D2D1::Point2F(static_cast<float>(x1), static_cast<float>(y1))),
             stops.get(), brush.put()));
-        typed->target->FillGeometry(path.get(), brush.get());
+        drawOperation(typed, [&](ID2D1DeviceContext *device) { device->FillGeometry(path.get(), brush.get()); });
         return true;
     });
 }
@@ -469,7 +686,7 @@ bool actionUIWinUIDrawingFillRadialGradient(ActionUIWinUIDrawing *drawing, doubl
         winrt::check_hresult(typed->target->CreateRadialGradientBrush(
             D2D1::RadialGradientBrushProperties(D2D1::Point2F(static_cast<float>(cx), static_cast<float>(cy)), D2D1::Point2F(0, 0), r, r),
             stops.get(), brush.put()));
-        typed->target->FillGeometry(path.get(), brush.get());
+        drawOperation(typed, [&](ID2D1DeviceContext *device) { device->FillGeometry(path.get(), brush.get()); });
         return true;
     });
 }
@@ -502,8 +719,10 @@ bool actionUIWinUIDrawingText(ActionUIWinUIDrawing *drawing, const char *text, d
         winrt::com_ptr<ID2D1SolidColorBrush> brush;
         winrt::check_hresult(typed->target->CreateSolidColorBrush(colorOf(color), brush.put()));
         // Color emoji in color, as Apple draws them.
-        typed->target->DrawTextLayout(D2D1::Point2F(static_cast<float>(x), static_cast<float>(y)), layout.get(), brush.get(),
-                                      D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+        drawOperation(typed, [&](ID2D1DeviceContext *device) {
+            device->DrawTextLayout(D2D1::Point2F(static_cast<float>(x), static_cast<float>(y)), layout.get(), brush.get(),
+                                   D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+        });
         return true;
     });
 }
@@ -530,10 +749,11 @@ bool actionUIWinUIDrawingImageFile(ActionUIWinUIDrawing *drawing, const char *pa
         winrt::com_ptr<ID2D1Bitmap> bitmap;
         winrt::check_hresult(typed->target->CreateBitmapFromWicBitmap(converter.get(), nullptr, bitmap.put()));
         // Stretched to the frame.
-        typed->target->DrawBitmap(bitmap.get(),
-                                  D2D1::RectF(static_cast<float>(x), static_cast<float>(y), static_cast<float>(x + width),
-                                              static_cast<float>(y + height)),
-                                  opacityOf(opacity), D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+        D2D1_RECT_F frameRect = D2D1::RectF(static_cast<float>(x), static_cast<float>(y), static_cast<float>(x + width),
+                                            static_cast<float>(y + height));
+        drawOperation(typed, [&](ID2D1DeviceContext *device) {
+            device->DrawBitmap(bitmap.get(), frameRect, opacityOf(opacity), D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+        });
         return true;
     });
 }
@@ -566,9 +786,10 @@ bool actionUIWinUIDrawingSymbol(ActionUIWinUIDrawing *drawing, const char *name,
         double units = symbolUnits();
         D2D1_MATRIX_3X2_F place = D2D1::Matrix3x2F::Scale(static_cast<float>(width / units), static_cast<float>(height / units)) *
                                   D2D1::Matrix3x2F::Translation(static_cast<float>(x), static_cast<float>(y));
-        typed->target->SetTransform(place * typed->transform);
-        typed->target->FillGeometry(geometry.get(), brush.get());
-        typed->target->SetTransform(typed->transform);
+        D2D1_MATRIX_3X2_F transform = typed->transform;
+        typed->transform = place * transform;
+        drawOperation(typed, [&](ID2D1DeviceContext *device) { device->FillGeometry(geometry.get(), brush.get()); });
+        typed->transform = transform;
         return true;
     });
 }
@@ -615,7 +836,9 @@ bool actionUIWinUIDrawingStroke(ActionUIWinUIDrawing *drawing, ActionUIWinUIColo
                                                           dashed ? static_cast<UINT32>(pattern.size()) : 0, style.put()));
         winrt::com_ptr<ID2D1SolidColorBrush> brush;
         winrt::check_hresult(typed->target->CreateSolidColorBrush(colorOf(color), brush.put()));
-        typed->target->DrawGeometry(path.get(), brush.get(), static_cast<float>(width), style.get());
+        drawOperation(typed, [&](ID2D1DeviceContext *device) {
+            device->DrawGeometry(path.get(), brush.get(), static_cast<float>(width), style.get());
+        });
         return true;
     });
 }
@@ -633,9 +856,69 @@ bool actionUIWinUIDrawingClip(ActionUIWinUIDrawing *drawing) {
             winrt::check_hresult(factory()->CreateRectangleGeometry(D2D1::RectF(0, 0, 0, 0), nothing.put()));
             mask = nothing;
         }
-        // The mask is in the transform set now; the drawings after it are clipped where it lies.
-        typed->target->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(), mask.get()), nullptr);
-        typed->layers += 1;
+        // Where the path lies under the transform set now; the drawings after it in this context are
+        // clipped there.
+        winrt::com_ptr<ID2D1TransformedGeometry> placed;
+        winrt::check_hresult(factory()->CreateTransformedGeometry(mask.get(), typed->transform, placed.put()));
+        typed->contexts.back().clips.push_back(placed);
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingSetFilters(ActionUIWinUIDrawing *drawing, const ActionUIWinUIDrawingFilter *filters, int32_t count) {
+    return guarded("drawing set filters", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        std::vector<DrawingFilter> list;
+        for (int32_t index = 0; filters != nullptr && index < count; ++index) {
+            DrawingFilter filter;
+            filter.kind = filters[index].kind;
+            filter.color = colorOf(filters[index].color);
+            filter.radius = static_cast<float>(filters[index].radius);
+            filter.x = static_cast<float>(filters[index].x);
+            filter.y = static_cast<float>(filters[index].y);
+            list.push_back(filter);
+        }
+        typed->contexts.back().filters = list;
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingSetOpacity(ActionUIWinUIDrawing *drawing, double opacity) {
+    return guarded("drawing set opacity", [&]() {
+        drawingOf(drawing)->contexts.back().opacity = opacityOf(opacity);
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingSetBlendMode(ActionUIWinUIDrawing *drawing, ActionUIWinUIBlendMode mode) {
+    return guarded("drawing set blend mode", [&]() {
+        bool known = mode == ActionUIWinUIBlendModeNormal || mode == ActionUIWinUIBlendModeMultiply ||
+                     mode == ActionUIWinUIBlendModeScreen || mode == ActionUIWinUIBlendModeOverlay;
+        drawingOf(drawing)->contexts.back().blend = known ? mode : ActionUIWinUIBlendModeNormal;
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingBeginLayer(ActionUIWinUIDrawing *drawing) {
+    return guarded("drawing begin layer", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        takePath(typed);
+        typed->contexts.push_back(newContext(typed));
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingEndLayer(ActionUIWinUIDrawing *drawing) {
+    return guarded("drawing end layer", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        if (typed->contexts.size() < 2) {
+            return fail("drawing end layer", "no layer was begun");
+        }
+        takePath(typed);
+        winrt::com_ptr<ID2D1Bitmap1> layer = typed->contexts.back().content;
+        typed->contexts.pop_back();
+        // Over the parent as one operation, with the parent's clips, filters, opacity and blend mode.
+        composeOperation(typed, layer.get());
         return true;
     });
 }
@@ -644,13 +927,14 @@ bool actionUIWinUIDrawingFinish(ActionUIWinUIDrawing *drawing, ActionUIWinUIObje
     bool shown = guarded("drawing finish", [&]() {
         ActionUIWinUIDrawing *typed = drawingOf(drawing);
         takePath(typed);
-        for (; typed->layers > 0; --typed->layers) {
-            typed->target->PopLayer();
-        }
-        typed->target->SetTransform(D2D1::Matrix3x2F::Identity());
-        HRESULT ended = typed->target->EndDraw();
+        // The canvas's bitmap (a layer not ended is left out) into the WIC bitmap.
+        winrt::com_ptr<ID2D1Bitmap1> canvas = typed->contexts.front().content;
+        drawInto(typed, typed->output.get());
+        typed->device->Clear(D2D1::ColorF(0, 0, 0, 0));
+        typed->device->DrawImage(canvas.get());
+        stopDrawing(typed);
+        typed->contexts.clear();
         typed->target = nullptr;
-        winrt::check_hresult(ended);
         muxc::Image shownImage = objectAs<muxc::Image>(image, L"Image");
         imaging::WriteableBitmap pixels(static_cast<int32_t>(typed->pixelWidth), static_cast<int32_t>(typed->pixelHeight));
         winrt::Windows::Storage::Streams::IBuffer buffer = pixels.PixelBuffer();
@@ -691,13 +975,8 @@ void actionUIWinUIDrawingDiscard(ActionUIWinUIDrawing *drawing) {
         return;
     }
     try {
-        if (drawing->target) {
-            takePath(drawing);
-            for (; drawing->layers > 0; --drawing->layers) {
-                drawing->target->PopLayer();
-            }
-            drawing->target->EndDraw();
-        }
+        takePath(drawing);
+        stopDrawing(drawing);
     } catch (...) {
     }
     delete drawing;

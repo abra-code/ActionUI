@@ -31,10 +31,16 @@
    the photo symbol when it cannot be read (an SVG file among them: the system's decoders have no
    SVG); a symbol in the theme's text color; an asset draws nothing (Windows apps have none), as a
    missing asset draws nothing on Apple. Drawn again when the theme turns light or dark.
+ - shadow and blur apply to each drawing operation after them in their context, in the order given;
+   a shadow's blend mode is not drawn and it is always under the drawing, as Apple's code draws it. A
+   blur's radius is its deviation; a shadow's radius is twice its deviation (measured by the Linux
+   renderer on macOS 27).
+ - A layer draws its operations into its own bitmap, each at the layer's opacity and with its blend
+   mode (multiply, screen, overlay) over what the layer drew before, and puts the layer over the canvas
+   like one drawing operation; it does not clip to its frame.
 
- Not yet (skipped, logged once per kind): shadow, blur and layers. Not
- drawn again when the window moves to a monitor with another scale until its size or properties
- change; an image file is read again at each drawing (no cache); an SVG file draws the photo symbol;
+ Not yet: not drawn again when the window moves to a monitor with another scale until its size or
+ properties change; an image file is read again at each drawing (no cache); an SVG file draws the photo symbol;
  a symbol takes the app's theme, not a subtree's own (RequestedTheme).
 */
 
@@ -61,8 +67,6 @@ import CWinUI
     var drawnScale: Double?
     /// The properties changed since the last drawing.
     var needsDrawing = true
-    /// The operation kinds not drawn yet, logged once each.
-    var reportedSkipped: Set<String> = []
 
     init(fill: FillLayout, image: WinUIObject) {
         self.fill = fill
@@ -344,6 +348,8 @@ final class CanvasPath {
     }
 
     func draw(_ operations: [[String: Any]], size: CanvasSize, transform: inout CanvasAffine) {
+        // This context's filters (a new layer has none): the shim keeps them; each change sends all.
+        var filters: [ActionUIWinUIDrawingFilter] = []
         for operation in operations {
             guard let type = operation["type"] as? String else { continue }
             switch type.lowercased() {
@@ -389,13 +395,54 @@ final class CanvasPath {
                 drawText(text, operation, in: frame, transform: transform)
 
             case "image":
-                guard let frame = rect(operation.doubleArray(forKey: "frame"), size: size) else { continue }
+                // Apple's code sets the context's opacity for the image and then sets it to 1, also for
+                // an infinite frame, which draws nothing (inside a layer too, whose opacity is then lost).
+                guard let frame = rect(operation.doubleArray(forKey: "frame"), size: size) else {
+                    setOpacity(1)
+                    continue
+                }
+                setOpacity(operation.double(forKey: "opacity") ?? 1)
                 if !drawImage(operation, in: frame, transform: transform) {
                     logger.log("Failed to resolve image", .warning)
                 }
+                setOpacity(1)
 
-            case "shadow", "blur", "layer":
-                skip(type.lowercased())
+            case "shadow":
+                // SwiftUI's default shadow color: black at 33% opacity.
+                let color = (operation["color"] as? String).flatMap(ColorSpec.parse).map(ColorRGBA.resolve)
+                    ?? ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 0.33)
+                filters.append(ActionUIWinUIDrawingFilter(kind: ActionUIWinUIDrawingFilterShadow, color: color,
+                                                          radius: operation.double(forKey: "radius") ?? 0.005,
+                                                          x: operation.double(forKey: "x") ?? 0.002, y: operation.double(forKey: "y") ?? 0.004))
+                setFilters(filters)
+
+            case "blur":
+                if let radius = operation.double(forKey: "radius") {
+                    filters.append(ActionUIWinUIDrawingFilter(kind: ActionUIWinUIDrawingFilterBlur,
+                                                              color: ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 0),
+                                                              radius: radius, x: 0, y: 0))
+                    setFilters(filters)
+                } else {
+                    logger.log("Blur missing radius", .warning)
+                }
+
+            case "layer":
+                guard let frame = rect(operation.doubleArray(forKey: "frame"), size: size),
+                      let operations = operation["operations"] as? [[String: Any]] else { continue }
+                guard actionUIWinUIDrawingBeginLayer(drawing) else {
+                    logger.log("Canvas: \(WinUIError.last("beginning a layer"))", .error)
+                    continue
+                }
+                setOpacity(operation.double(forKey: "opacity") ?? 1)
+                if !actionUIWinUIDrawingSetBlendMode(drawing, Self.blendMode(operation["blendMode"] as? String)) {
+                    logger.log("Canvas: \(WinUIError.last("setting a blend mode"))", .error)
+                }
+                // At the layer's frame; the layer does not clip to it.
+                var layerTransform = transform.translated(frame.x, frame.y)
+                draw(operations, size: CanvasSize(width: frame.width, height: frame.height), transform: &layerTransform)
+                if !actionUIWinUIDrawingEndLayer(drawing) {
+                    logger.log("Canvas: \(WinUIError.last("ending a layer"))", .error)
+                }
 
             default:
                 logger.log("Unknown operation type: \(type)", .warning)
@@ -403,10 +450,28 @@ final class CanvasPath {
         }
     }
 
-    /// Logs once per canvas that an operation kind is not drawn on Windows yet.
-    private func skip(_ kind: String) {
-        guard state.reportedSkipped.insert(kind).inserted else { return }
-        logger.log("Canvas: \(kind) is not drawn on Windows yet; skipped", .warning)
+    static func blendMode(_ name: String?) -> ActionUIWinUIBlendMode {
+        switch name?.lowercased() {
+        case "multiply": return ActionUIWinUIBlendModeMultiply
+        case "screen": return ActionUIWinUIBlendModeScreen
+        case "overlay": return ActionUIWinUIBlendModeOverlay
+        default: return ActionUIWinUIBlendModeNormal
+        }
+    }
+
+    private func setOpacity(_ opacity: Double) {
+        if !actionUIWinUIDrawingSetOpacity(drawing, opacity) {
+            logger.log("Canvas: \(WinUIError.last("setting the opacity"))", .error)
+        }
+    }
+
+    private func setFilters(_ filters: [ActionUIWinUIDrawingFilter]) {
+        let set = filters.withUnsafeBufferPointer { buffer in
+            actionUIWinUIDrawingSetFilters(drawing, buffer.baseAddress, Int32(buffer.count))
+        }
+        if !set {
+            logger.log("Canvas: \(WinUIError.last("setting the filters"))", .error)
+        }
     }
 
     /// Gives the shim `path` under `transform`; false when there is nothing to draw.
@@ -595,8 +660,8 @@ final class CanvasPath {
 
     // MARK: Images
 
-    /// Draws the image an operation names, stretched to `frame`, at the operation's opacity (Apple's
-    /// code sets the context's opacity for the image, then 1 again). False when it names none that can
+    /// Draws the image an operation names, stretched to `frame` (at the context's opacity, which the
+    /// caller sets to the image's). False when it names none that can
     /// be drawn: a missing asset (Windows apps have no asset catalogs), a symbol with no outline.
     private func drawImage(_ operation: [String: Any], in frame: Rect, transform: CanvasAffine) -> Bool {
         let source: ImageSource
@@ -620,27 +685,27 @@ final class CanvasPath {
             logger.log("Canvas: \(WinUIError.last("placing an image"))", .error)
             return true
         }
-        let opacity = operation.double(forKey: "opacity") ?? 1
+        // The image's opacity is the context's, set by the caller.
         switch Image.content(source) {
         case .file(let path):
-            if actionUIWinUIDrawingImageFile(drawing, path, frame.x, frame.y, frame.width, frame.height, opacity) {
+            if actionUIWinUIDrawingImageFile(drawing, path, frame.x, frame.y, frame.width, frame.height, 1) {
                 return true
             }
             // A file that cannot be read is the photo symbol, as SwiftUI's Image draws it.
             logger.log("Canvas: \(WinUIError.last("drawing \(path)")); drawing the photo symbol", .warning)
-            return drawSymbol(ImageSource.placeholderSymbol, in: frame, opacity: opacity)
+            return drawSymbol(ImageSource.placeholderSymbol, in: frame)
         case .symbol(let name):
-            return drawSymbol(name, in: frame, opacity: opacity)
+            return drawSymbol(name, in: frame)
         }
     }
 
     /// Draws symbol `name` stretched to `frame` in the theme's text color (an Image's symbol color).
-    private func drawSymbol(_ name: String, in frame: Rect, opacity: Double) -> Bool {
+    private func drawSymbol(_ name: String, in frame: Rect) -> Bool {
         guard actionUIWinUISymbolExists(name) else {
             logger.log("Canvas: no Windows symbol for \"\(name)\"", .warning)
             return false
         }
-        if !actionUIWinUIDrawingSymbol(drawing, name, frame.x, frame.y, frame.width, frame.height, nil, opacity) {
+        if !actionUIWinUIDrawingSymbol(drawing, name, frame.x, frame.y, frame.width, frame.height, nil, 1) {
             logger.log("Canvas: \(WinUIError.last("drawing the symbol \(name)"))", .error)
         }
         return true

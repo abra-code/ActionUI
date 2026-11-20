@@ -1,0 +1,316 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "leading",
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 2,
+      "children": [
+        {
+          "type": "Canvas",
+          "id": 3,
+          "properties": {
+            "frame": {
+              "width": 180,
+              "height": 140
+            },
+            "coordinateMode": "points",
+            "backgroundColor": "white",
+            "operations": [
+              {
+                "type": "layer",
+                "frame": [
+                  0,
+                  0,
+                  180,
+                  70
+                ],
+                "operations": [
+                  {
+                    "type": "shadow",
+                    "color": "#00000080",
+                    "radius": 8,
+                    "x": 4,
+                    "y": 4
+                  },
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "circle",
+                      "center": [
+                        35,
+                        35
+                      ],
+                      "radius": 22
+                    },
+                    "color": "#E04040"
+                  }
+                ]
+              },
+              {
+                "type": "layer",
+                "frame": [
+                  0,
+                  0,
+                  180,
+                  70
+                ],
+                "operations": [
+                  {
+                    "type": "blur",
+                    "radius": 4
+                  },
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 75,
+                      "y": 15,
+                      "width": 40,
+                      "height": 40
+                    },
+                    "color": "#2060FF"
+                  }
+                ]
+              },
+              {
+                "type": "layer",
+                "frame": [
+                  0,
+                  0,
+                  180,
+                  70
+                ],
+                "operations": [
+                  {
+                    "type": "blur",
+                    "radius": 2
+                  },
+                  {
+                    "type": "shadow",
+                    "color": "#008000",
+                    "radius": 6,
+                    "x": 0,
+                    "y": 6
+                  },
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 130,
+                      "y": 15,
+                      "width": 35,
+                      "height": 30
+                    },
+                    "color": "#F0A000"
+                  }
+                ]
+              },
+              {
+                "type": "clip",
+                "path": {
+                  "type": "rect",
+                  "x": 0,
+                  "y": 75,
+                  "width": 90,
+                  "height": 65
+                }
+              },
+              {
+                "type": "shadow",
+                "color": "#000000",
+                "radius": 10,
+                "x": 0,
+                "y": 0
+              },
+              {
+                "type": "fill",
+                "path": {
+                  "type": "roundedRect",
+                  "x": 20,
+                  "y": 85,
+                  "width": 140,
+                  "height": 40,
+                  "cornerRadius": 10
+                },
+                "color": "#40B080"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "id": 4,
+          "properties": {
+            "frame": {
+              "width": 180,
+              "height": 140
+            },
+            "coordinateMode": "points",
+            "operations": [
+              {
+                "type": "fill",
+                "path": {
+                  "type": "rect",
+                  "x": 0,
+                  "y": 0,
+                  "width": 90,
+                  "height": 140
+                },
+                "color": "#3070D0"
+              },
+              {
+                "type": "fill",
+                "path": {
+                  "type": "rect",
+                  "x": 90,
+                  "y": 0,
+                  "width": 90,
+                  "height": 140
+                },
+                "color": "#F0D040"
+              },
+              {
+                "type": "layer",
+                "frame": [
+                  10,
+                  5,
+                  160,
+                  30
+                ],
+                "opacity": 0.5,
+                "operations": [
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 160,
+                      "height": 30
+                    },
+                    "color": "#E02020"
+                  }
+                ]
+              },
+              {
+                "type": "layer",
+                "frame": [
+                  10,
+                  40,
+                  160,
+                  30
+                ],
+                "blendMode": "multiply",
+                "operations": [
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 80,
+                      "height": 30
+                    },
+                    "color": "#40C0F0"
+                  },
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 160,
+                      "height": 30
+                    },
+                    "color": "#E02020"
+                  }
+                ]
+              },
+              {
+                "type": "layer",
+                "frame": [
+                  10,
+                  75,
+                  160,
+                  30
+                ],
+                "blendMode": "screen",
+                "operations": [
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 80,
+                      "height": 30
+                    },
+                    "color": "#40C0F0"
+                  },
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 160,
+                      "height": 30
+                    },
+                    "color": "#E02020"
+                  }
+                ]
+              },
+              {
+                "type": "layer",
+                "frame": [
+                  10,
+                  110,
+                  160,
+                  25
+                ],
+                "blendMode": "overlay",
+                "operations": [
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 80,
+                      "height": 25
+                    },
+                    "color": "#40C0F0"
+                  },
+                  {
+                    "type": "fill",
+                    "path": {
+                      "type": "rect",
+                      "x": 0,
+                      "y": 0,
+                      "width": 160,
+                      "height": 25
+                    },
+                    "color": "#E02020"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "id": 5,
+      "properties": {
+        "text": "Shadow, blur, blur then shadow, a clipped shadow; a layer at 50%; red over cyan in multiply, screen, overlay layers",
+        "font": "caption"
+      }
+    }
+  ]
+}

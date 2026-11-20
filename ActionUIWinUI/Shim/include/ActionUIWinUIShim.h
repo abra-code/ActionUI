@@ -775,6 +775,30 @@ typedef enum ActionUIWinUILineJoin {
     ActionUIWinUILineJoinBevel = 2,
 } ActionUIWinUILineJoin;
 
+// How a context's operations are put over what it drew before (SwiftUI's blend modes the canvas
+// knows; any other is normal).
+typedef enum ActionUIWinUIBlendMode {
+    ActionUIWinUIBlendModeNormal = 0,
+    ActionUIWinUIBlendModeMultiply = 1,
+    ActionUIWinUIBlendModeScreen = 2,
+    ActionUIWinUIBlendModeOverlay = 3,
+} ActionUIWinUIBlendMode;
+
+typedef enum ActionUIWinUIDrawingFilterKind {
+    // A drop shadow of `color` offset by (x, y) points, `radius` SwiftUI's (twice its deviation).
+    ActionUIWinUIDrawingFilterShadow = 0,
+    // A Gaussian blur of `radius` points (its deviation, as SwiftUI's).
+    ActionUIWinUIDrawingFilterBlur = 1,
+} ActionUIWinUIDrawingFilterKind;
+
+typedef struct ActionUIWinUIDrawingFilter {
+    ActionUIWinUIDrawingFilterKind kind;
+    ActionUIWinUIColor color;
+    double radius;
+    double x;
+    double y;
+} ActionUIWinUIDrawingFilter;
+
 // A new drawing; NULL on failure (a size or scale that is not a positive number, more than 16384
 // pixels a side). Each drawing ends with actionUIWinUIDrawingFinish or actionUIWinUIDrawingDiscard.
 ACTIONUI_WINUI_API ActionUIWinUIDrawing *actionUIWinUIDrawingBegin(double width, double height, double scale);
@@ -820,9 +844,25 @@ ACTIONUI_WINUI_API bool actionUIWinUIDrawingSymbol(ActionUIWinUIDrawing *drawing
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingStroke(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color, double width,
                                                    ActionUIWinUILineCap cap, ActionUIWinUILineJoin join, double miterLimit,
                                                    const double *dashes, int32_t dashCount, double dashPhase);
-// Clips everything drawn after it to the path, where it lies under the transform set now (with
-// the clips before it); a drawing with no path clips everything away.
+// Clips everything drawn after it in the current context to the path, where it lies under the
+// transform set now (with the context's clips before it); a drawing with no path clips everything
+// away.
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingClip(ActionUIWinUIDrawing *drawing);
+// The canvas and each layer is a context: its clips (actionUIWinUIDrawingClip), filters, opacity and
+// blend mode apply to each operation drawn in it after they are set, as in SwiftUI's GraphicsContext.
+// The filters apply in the order given (the first innermost), then the opacity, then the clips; the
+// result is blended over what the context drew before. Radii and offsets are in points.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingSetFilters(ActionUIWinUIDrawing *drawing, const ActionUIWinUIDrawingFilter *filters,
+                                                       int32_t count);
+// Opacity 0 to 1 (1 at first).
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingSetOpacity(ActionUIWinUIDrawing *drawing, double opacity);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingSetBlendMode(ActionUIWinUIDrawing *drawing, ActionUIWinUIBlendMode mode);
+// Begins a layer: a new context drawn into its own bitmap of the canvas's size, with no clips or
+// filters, opacity 1 and the normal blend mode. actionUIWinUIDrawingEndLayer ends it and puts what
+// it drew over the context around it as one operation (that context's clips, filters, opacity and
+// blend mode apply); the context around it is current again, as it was.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingBeginLayer(ActionUIWinUIDrawing *drawing);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingEndLayer(ActionUIWinUIDrawing *drawing);
 // Ends the drawing and shows it in `image` (a WinUI Image), stretched to the image's size. Frees
 // the drawing, also on failure.
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingFinish(ActionUIWinUIDrawing *drawing, ActionUIWinUIObject *image);
