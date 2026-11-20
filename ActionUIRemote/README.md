@@ -49,8 +49,9 @@ ActionUIRemoteServer.stopShared()
 ```
 
 `startShared` throws `UnixSocketServerError.alreadyStarted` if one is already running, and
-`ActionUIRemoteServer.sharedEndpoint` reports the path of the running one. Anything already at
-the socket path is unlinked before binding, so pass a path of your own making.
+`ActionUIRemoteServer.sharedEndpoint` reports the path of the running one. A socket of this
+user's already at the socket path (left by a server that did not stop) is replaced; anything else
+there makes `startShared` throw `UnixSocketServerError.pathOccupied` and is left alone.
 
 A host that needs something else - two servers, a path it manages itself, no environment export -
 constructs `ActionUIRemoteServer(host:)` directly and calls `start(socketPath:)` and `stop()` on

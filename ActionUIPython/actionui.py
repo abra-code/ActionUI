@@ -443,9 +443,9 @@ class Application:
 
         Args:
             path: Socket path.  Defaults to one per process in the user's temporary
-                  directory.  A Unix socket path is capped at 103 bytes.  Anything already
-                  at *path* is unlinked before binding, so pass a path of your own making,
-                  not a file that matters.
+                  directory.  A Unix socket path is capped at 103 bytes.  A socket of this
+                  user's already at *path* (left by a server that did not stop) is
+                  replaced; anything else there makes the start fail and is left alone.
 
         Returns:
             The socket path the server bound.  It is also exported as

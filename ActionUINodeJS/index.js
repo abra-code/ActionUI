@@ -455,8 +455,8 @@ class Application {
     //
     // Returns the socket path, which is also exported as ACTIONUI_REMOTE_ENDPOINT so processes
     // spawned afterwards inherit it. Throws if a server is already running or the socket could
-    // not be created. Anything already at the path is unlinked before binding, so pass a path
-    // of your own making.
+    // not be created. A socket of this user's already at the path (left by a server that did
+    // not stop) is replaced; anything else there makes the start fail and is left alone.
     //
     // A server started this way always requires a token - there is no way through this addon to
     // turn that off - and it is exported the same way, as ACTIONUI_REMOTE_TOKEN.

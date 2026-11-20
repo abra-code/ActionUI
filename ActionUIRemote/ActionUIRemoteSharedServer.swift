@@ -30,6 +30,8 @@ private final class SharedServerStorage: @unchecked Sendable {
     let lock = Lock()
     var server: ActionUIRemoteServer?       // guarded by lock
     var starting = false                    // guarded by lock
+    /// The random-name folder made for the default socket path, removed at stop.
+    var madeFolder: String?                 // guarded by lock
 }
 
 private let sharedStorage = SharedServerStorage()
@@ -37,6 +39,8 @@ private let sharedStorage = SharedServerStorage()
 /// The path the atexit handler unlinks. Written under the lock, read without one: by the time
 /// the handler runs the process is on its way out. `nil` when no shared server is running.
 private nonisolated(unsafe) var atexitSocketPath: UnsafeMutablePointer<CChar>?
+/// The random-name folder made for the default path, removed after the socket. Same rules.
+private nonisolated(unsafe) var atexitFolderPath: UnsafeMutablePointer<CChar>?
 private nonisolated(unsafe) var atexitRegistered = false
 /// The process that started the shared server. A child forked without exec inherits the atexit
 /// handler, and its `exit()` must not remove the parent's live socket.
@@ -51,6 +55,10 @@ private func unlinkSharedSocketAtExit() {
     var status = stat()
     if lstat(path, &status) == 0, status.st_mode & S_IFMT == S_IFSOCK, status.st_uid == geteuid() {
         unlink(path)
+    }
+    // rmdir removes only an empty folder, so anything else put there survives.
+    if let folder = atexitFolderPath {
+        rmdir(folder)
     }
 }
 
@@ -88,12 +96,18 @@ public extension ActionUIRemoteServer {
     /// nobody else can rename entries in, and the socket path still fits), else inside `/tmp`,
     /// which every user shares: `actionui-<uid>`, created with mode 0700 and used only when it is
     /// a real directory (not a link) that this user owns and nobody else can enter. When another user has taken that name, a new directory with a random name is made
-    /// instead (`mkdtemp`). The server unlinks whatever is at its path before binding, which is
-    /// safe only in a directory nobody else can write.
+    /// instead (`mkdtemp`); `startShared` removes that one at `stopShared`, but a caller of this
+    /// function gets the folder to remove itself.
     static func defaultSocketPath() -> String {
+        return defaultSocketLocation().path
+    }
+
+    /// `defaultSocketPath()`, and the folder made for it with a random name, when one was: that
+    /// folder belongs to this process alone, so it is removed with the socket.
+    internal static func defaultSocketLocation() -> (path: String, madeFolder: String?) {
         let name = "actionui-\(getpid()).sock"
         #if os(macOS)
-        return (NSTemporaryDirectory() as NSString).appendingPathComponent(name)
+        return ((NSTemporaryDirectory() as NSString).appendingPathComponent(name), nil)
         #else
         func directory(_ variable: String) -> (path: String, status: stat)? {
             guard let raw = getenv(variable) else { return nil }
@@ -112,7 +126,7 @@ public extension ActionUIRemoteServer {
         }
         if let runtime = directory("XDG_RUNTIME_DIR"), runtime.status.st_uid == getuid(),
            runtime.status.st_mode & 0o077 == 0 {
-            return join(runtime.path, name)
+            return (join(runtime.path, name), nil)
         }
         // TMPDIR only when nobody else can rename what is in it (else another user could swap the
         // checked directory for their own after the check): owned by this user or root, and
@@ -125,16 +139,18 @@ public extension ActionUIRemoteServer {
            temporary.path.utf8.count + 1 + folderName + 1 + name.utf8.count <= UnixSocketServer.maxPathLength {
             base = temporary.path
         }
+        // The per-user folder is shared by this user's processes, so it stays after a stop.
         if let own = privateDirectory(join(base, "actionui-\(getuid())")) {
-            return join(own, name)
+            return (join(own, name), nil)
         }
         var template = Array(join(base, "actionui-XXXXXX").utf8CString)
         if mkdtemp(&template) != nil {
-            return join(String(decoding: template.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self), name)
+            let folder = String(decoding: template.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            return (join(folder, name), folder)
         }
         // No directory could be made: the socket is still 0600 and checks each peer's uid, but
         // another user could take the name first, and the start would fail.
-        return join(base, name)
+        return (join(base, name), nil)
         #endif
     }
 
@@ -171,9 +187,9 @@ public extension ActionUIRemoteServer {
     /// processes spawned afterwards inherit it and a client finds the host with no configuration.
     ///
     /// - Parameters:
-    ///   - socketPath: where to bind; `nil` takes `defaultSocketPath()`. **Anything already at
-    ///     the path is unlinked first**, so give a path of your own making, not a file that
-    ///     matters.
+    ///   - socketPath: where to bind; `nil` takes `defaultSocketPath()`. A socket of this user's
+    ///     already at the path (left by a server that did not stop) is replaced; anything else
+    ///     there makes the start throw `UnixSocketServerError.pathOccupied` and is left alone.
     ///   - host: how to answer `actionui.hello`. Defaults to the running process.
     ///   - logger: where the server's diagnostics go. Nil is silent.
     /// - Returns: the path that was bound, which is what a caller who passed nil wants to know.
@@ -190,8 +206,6 @@ public extension ActionUIRemoteServer {
                             host: HostInfo = currentProcessHost(),
                             logger: (any ActionUILogger)? = nil,
                             requireToken: Bool = true) throws -> String {
-        let path = socketPath ?? defaultSocketPath()
-
         // Claim the start under the lock, then build and bind outside it: `start` logs, and a
         // host's logger callback may well ask this type a question (`sharedEndpoint`), which a
         // non-recursive lock held across the call-out would deadlock. Same discipline as
@@ -205,6 +219,9 @@ public extension ActionUIRemoteServer {
         guard claimed else {
             throw UnixSocketServerError.alreadyStarted
         }
+        // After the claim: the default path may make a folder, which a refused start would leave.
+        let location: (path: String, madeFolder: String?) = socketPath.map { ($0, nil) } ?? defaultSocketLocation()
+        let path = location.path
 
         let server = ActionUIRemoteServer(host: host)
         server.logger = logger
@@ -218,6 +235,9 @@ public extension ActionUIRemoteServer {
         do {
             try server.start(socketPath: path)
         } catch {
+            if let folder = location.madeFolder {
+                rmdir(folder)
+            }
             sharedStorage.lock.lock()
             sharedStorage.starting = false
             sharedStorage.lock.unlock()
@@ -227,8 +247,11 @@ public extension ActionUIRemoteServer {
         sharedStorage.lock.lock()
         sharedStorage.server = server
         sharedStorage.starting = false
+        sharedStorage.madeFolder = location.madeFolder
         free(atexitSocketPath)
         atexitSocketPath = strdup(path)
+        free(atexitFolderPath)
+        atexitFolderPath = location.madeFolder.map { strdup($0) }
         atexitOwnerPID = getpid()
         if !atexitRegistered {
             atexitRegistered = true
@@ -247,19 +270,27 @@ public extension ActionUIRemoteServer {
         return path
     }
 
-    /// Stop the process-wide server, close its connections, remove its socket file, and unset
+    /// Stop the process-wide server, close its connections, remove its socket file (and the
+    /// random-name folder made for a default path, when one was), and unset
     /// `ACTIONUI_REMOTE_ENDPOINT`. Does nothing when none is running, and never unsets a
     /// variable this process did not set. Safe to call from any thread.
     static func stopShared() {
         sharedStorage.lock.lock()
         let server = sharedStorage.server
         sharedStorage.server = nil
+        let folder = sharedStorage.madeFolder
+        sharedStorage.madeFolder = nil
         free(atexitSocketPath)
         atexitSocketPath = nil
+        free(atexitFolderPath)
+        atexitFolderPath = nil
         sharedStorage.lock.unlock()
 
         guard let server else { return }        // nothing of ours is running: leave the environment alone
         server.stop()                           // outside the lock: stop logs
+        if let folder {
+            rmdir(folder)                       // empty once the socket is gone; anything else keeps it
+        }
         unsetenv(ActionUIRemoteEnvironment.endpoint)
         unsetenv(ActionUIRemoteEnvironment.token)
     }

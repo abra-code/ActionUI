@@ -203,10 +203,9 @@ final class UnixSocketServerTests: XCTestCase {
         XCTAssertEqual(echo.connectionCount, 0, "the connection must not outlive the linger window")
     }
 
-    func testStaleSocketFileIsReplaced() throws {
-        // A leftover regular file at the path (a crashed server would leave a socket; a regular
-        // file is the harder case) must not prevent starting.
-        FileManager.default.createFile(atPath: socketPath, contents: Data("stale".utf8))
+    func testStaleSocketIsReplaced() throws {
+        // A crashed server leaves its socket file behind; it must not prevent starting.
+        XCTAssertEqual(leaveStaleSocket(at: socketPath), 0)
         _ = try startEchoServer()
         var info = stat()
         XCTAssertEqual(stat(socketPath, &info), 0)
@@ -215,6 +214,37 @@ final class UnixSocketServerTests: XCTestCase {
         let client = try RawClient(path: socketPath)
         client.write("alive\n")
         XCTAssertEqual(client.readLine(), "alive")
+    }
+
+    func testAnythingButASocketAtThePathIsRefusedAndKept() throws {
+        // The path may come from a setting or a command line: a file of the user's there must
+        // survive a start, and so must a link and what it points to.
+        FileManager.default.createFile(atPath: socketPath, contents: Data("a file that matters".utf8))
+        XCTAssertThrowsError(try startEchoServer()) { error in
+            guard case UnixSocketServerError.pathOccupied = error else {
+                return XCTFail("expected pathOccupied, got \(error)")
+            }
+        }
+        XCTAssertEqual(try? String(contentsOfFile: socketPath, encoding: .utf8), "a file that matters")
+
+        XCTAssertEqual(unlink(socketPath), 0)
+        let target = socketPath + ".target"
+        defer { unlink(target) }
+        XCTAssertEqual(leaveStaleSocket(at: target), 0)
+        XCTAssertEqual(symlink(target, socketPath), 0)
+        XCTAssertThrowsError(try startEchoServer(), "a link is refused even when it points at a socket")
+        var info = stat()
+        XCTAssertEqual(lstat(socketPath, &info), 0)
+        XCTAssertEqual(info.st_mode & S_IFMT, S_IFLNK, "the link is left alone")
+        XCTAssertEqual(lstat(target, &info), 0)
+        XCTAssertEqual(info.st_mode & S_IFMT, S_IFSOCK, "and so is its target")
+
+        XCTAssertEqual(unlink(socketPath), 0)
+        XCTAssertEqual(mkdir(socketPath, 0o700), 0)
+        defer { rmdir(socketPath) }
+        XCTAssertThrowsError(try startEchoServer(), "a folder is refused")
+        XCTAssertEqual(lstat(socketPath, &info), 0)
+        XCTAssertEqual(info.st_mode & S_IFMT, S_IFDIR)
     }
 
     func testStopRemovesOnlyTheSocketItBound() throws {

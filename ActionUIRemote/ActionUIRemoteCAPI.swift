@@ -89,8 +89,8 @@ private func logToEngine(_ message: String, _ level: LoggerLevel) {
 ///
 /// - Parameters:
 ///   - socketPath: where to bind; NULL takes a per-process default in the user's temporary
-///     directory. **Anything already at the path is unlinked first**, so pass a path of your own
-///     making, not a file that matters.
+///     directory. A socket of this user's already at the path (left by a server that did not
+///     stop) is replaced; anything else there makes the start fail and is left alone.
 ///   - hostName: how to answer `actionui.hello`; NULL takes the running process's name.
 ///   - hostVersion: likewise; NULL takes the bundle's version, or "0".
 /// - Returns: false if a server is already running or the socket could not be created. The
@@ -123,7 +123,7 @@ public func actionUIRemoteStartServer(_ socketPath: UnsafePointer<CChar>?,
         return true
     } catch {
         logToEngine("actionUIRemoteStartServer: could not start on "
-                    + "'\(path ?? ActionUIRemoteServer.defaultSocketPath())': \(error)", .error)
+                    + "\(path.map { "'\($0)'" } ?? "the default path"): \(error)", .error)
         return false
     }
 }
