@@ -31,6 +31,21 @@ struct JSONParseError: Error, CustomStringConvertible {
     var description: String { "\(message) at byte \(offset)" }
 }
 
+#if !canImport(FoundationEssentials)
+/// On Apple, a JSONParseError's localizedDescription is the sentence JSONDecoder's DecodingError
+/// gave, the error this parser replaces, so a document that does not parse still reads "Failed to
+/// load view: The data couldn't be read because it isn't in the correct format." in a
+/// LoadableView. The description above, with the byte offset, is for logs and the adapters' last
+/// error. LocalizedError is Foundation's, which Core imports only on Apple.
+///
+/// Here and not in a file of its own: a host links ActionUI as a static library, and the linker
+/// drops an object file nothing refers to by name. A conformance alone is found only by a cast at
+/// run time, so in a file of its own it was missing from the Xcode tests, the test apps and the Node prebuilds.
+extension JSONParseError: LocalizedError {
+    var errorDescription: String? { "The data couldn't be read because it isn't in the correct format." }
+}
+#endif
+
 struct JSONParser {
     /// The deepest nesting accepted, JSONDecoder's limit.
     static let maximumDepth = 512

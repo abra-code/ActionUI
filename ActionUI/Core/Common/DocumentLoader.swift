@@ -174,3 +174,13 @@ enum ActionUIDocumentLoader {
         }
     }
 }
+
+#if !canImport(FoundationEssentials)
+/// On Apple, the message a LoadableView shows for a path that is not a regular file, through
+/// localizedDescription. LocalizedError is Foundation's, which Core imports only on Apple. Next to
+/// the type, as ActionUIError's conformance is: a conformance is found only by a cast at run time,
+/// and the linker may drop a file that holds nothing else a host refers to.
+extension ActionUIDocumentLoader.NotARegularFile: LocalizedError {
+    var errorDescription: String? { description }
+}
+#endif
