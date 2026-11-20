@@ -263,7 +263,8 @@ extension List: ActionUIWinUIRenderer {
 
     private static func updateChildren(_ view: WinUIObject, _ node: RenderNode, _ state: ListState, _ elements: [any ActionUIElementBase]) {
         // A child with no object (its placeholder failed too) has no row: the ids stay in step with the rows.
-        let childNodes = node.syncChildren(elements).filter { $0.outerView != nil }
+        // An EmptyView has none either, as in SwiftUI (measured on macOS 27).
+        let childNodes = node.syncChildren(elements).filter { $0.outerView != nil && $0.element.type != "EmptyView" }
         let ids = childNodes.map(\.element.id)
         let boxes = childNodes.map { $0.outerView! }
         state.childIDs = ids

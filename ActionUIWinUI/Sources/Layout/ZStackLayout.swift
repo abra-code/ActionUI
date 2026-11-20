@@ -115,7 +115,8 @@ extension ZStack: ActionUIWinUIRenderer {
         }
         let children = node.syncChildren(node.subviews("children"))
         stack.setItems(children.compactMap { child in
-            guard let view = child.outerView else { return nil }
+            // An EmptyView is no layer: its padding would size the ZStack and its background show.
+            guard child.element.type != "EmptyView", let view = child.outerView else { return nil }
             return ZStackLayout.Item(view: view, expansion: child.expansion, cap: child.caps)
         })
     }

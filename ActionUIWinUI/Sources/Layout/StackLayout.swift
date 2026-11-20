@@ -25,7 +25,8 @@
  - Arranged in more room than it asked for (the root of a window), the stack is centered in it, as
    SwiftUI centers a window's content, and in less room around the middle, its children keeping
    their sizes (as on Linux); its children are aligned across inside the stack's own cross size
-   (alignment: leading, center or trailing for a VStack; top, center or bottom for an HStack).
+   (alignment: leading, center or trailing for a VStack; top, center or bottom for an HStack), or
+   inside all it is given across when it fills across (fillsAcross: a LazyVStack, a LazyHStack).
 
  A stack expands as its children do (StackViews.childrenExpansion): a row holding a Color or a
  TextField takes the room its own stack gives it, as in SwiftUI.
@@ -79,6 +80,9 @@ final class StackLayout {
     let panel: LayoutPanel
     var spacing: Double?
     var alignment = StackSolver.Alignment.center
+    /// Whether the children are aligned across the stack's whole size when it is given more than its
+    /// widest (tallest) child: a LazyVStack and a LazyHStack, which take all the room across.
+    var fillsAcross = false
     private(set) var items: [Item] = []
     /// Room before some children across the axis, by their view: a Form's rows without a title start
     /// in its content column (FormColumn). A child is offered and given the stack's size across less
@@ -370,7 +374,7 @@ final class StackLayout {
         let (sizes, crossSizes, gaps) = layoutChildren(mainOffer: Double(available), crossOffer: cross(finalSize), isMeasurePass: false)
         let length = StackSolver.length(of: sizes, gaps: gaps)
         let finalCross = StackSolver.length(cross(finalSize))
-        let block = crossSizes.max() ?? 0
+        let block = max(crossSizes.max() ?? 0, fillsAcross ? finalCross : 0)
         // Centered in the room it was given, as SwiftUI centers a window's content: in more room
         // than it asked for, and around the middle in less (each child keeps its size), as the GTK
         // renderer places it too.
@@ -394,10 +398,11 @@ final class StackLayout {
     stack.setItems(stackItems(node.syncChildren(node.subviews("children"))))
 }
 
-/// A stack's items for its child nodes, in order (a child with no object has none).
+/// A stack's items for its child nodes, in order (a child with no object has none, and an EmptyView
+/// none: it takes no place and no spacing).
 @MainActor func stackItems(_ children: [RenderNode]) -> [StackLayout.Item] {
     children.compactMap { child in
-        guard let view = child.outerView else { return nil }
+        guard child.element.type != "EmptyView", let view = child.outerView else { return nil }
         let spacerMinimum = child.element.type == "Spacer" ? (Spacer.Props(child.properties).minLength ?? Spacer.defaultMinLength) : nil
         return StackLayout.Item(view: view, spacerMinimum: spacerMinimum, expansion: child.expansion, cap: child.caps,
                                 compressible: child.compression)

@@ -6,8 +6,8 @@
 
  Not yet: a Group in a row, whose children SwiftUI makes separate columns; a Spacer's minimum, which
  SwiftUI does not set aside in a Grid (it overflows by it; on Linux the other lines make room for
- it; here a Spacer cell has none, its empty panel asking for nothing); an EmptyView taking no cell; a
- ScrollView in a cell (measured at its whole content, it does not scroll; the stacks let it shrink).
+ it; here a Spacer cell has none, its empty panel asking for nothing); a ScrollView in a cell (measured
+ at its whole content, it does not scroll; the stacks let it shrink).
 */
 
 import CWinUI
@@ -41,8 +41,9 @@ extension Grid: ActionUIWinUIRenderer {
         var start = 0
         for row in rows {
             let end = min(start + row.count, nodes.count)
+            // An EmptyView takes no cell.
             cells.append(nodes[start..<end].compactMap { child in
-                guard let view = child.outerView else { return nil }
+                guard child.element.type != "EmptyView", let view = child.outerView else { return nil }
                 return GridLayout.Cell(view: view, expansion: child.expansion, cap: child.caps, isSpacer: child.element.type == "Spacer")
             })
             start = end
