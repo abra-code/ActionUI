@@ -361,11 +361,34 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
         case remoteURL(url: String)
     }
     
-    public init(jsSource: JavaScriptSource) {
+    /// Whether the hidden web view can be inspected with Safari's Web Inspector when the host does
+    /// not say: in a debug build of this adapter, yes; in a release build, no, so a shipped app's
+    /// web view, the script it runs and the values it handles cannot be read by anyone with Safari.
+    public static var isInspectableByDefault: Bool {
+#if DEBUG
+        return true
+#else
+        return false
+#endif
+    }
+
+    /// As `init(jsSource:isInspectable:)` with `isInspectableByDefault`. Kept as its own entry
+    /// point: the framework is built for distribution, and an app built against an earlier copy
+    /// calls this symbol.
+    public convenience init(jsSource: JavaScriptSource) {
+        self.init(jsSource: jsSource, isInspectable: ActionUIWebKitJS.isInspectableByDefault)
+    }
+
+    /// - Parameters:
+    ///   - jsSource: where the JavaScript comes from.
+    ///   - isInspectable: whether Safari's Web Inspector can attach to the hidden web view
+    ///     (`WKWebView.isInspectable`). Defaults to `isInspectableByDefault`; a host may turn it on
+    ///     in a release build for support, or change `webView.isInspectable` later.
+    public init(jsSource: JavaScriptSource, isInspectable: Bool = ActionUIWebKitJS.isInspectableByDefault) {
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
-        config.preferences.setValue(true, forKey: "developerExtrasEnabled") // Enable Web Inspector
         webView = WKWebView(frame: .zero, configuration: config)
+        webView.isInspectable = isInspectable
         webView.isHidden = true
         
         super.init()
