@@ -147,6 +147,12 @@ ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, 
 // style, the same glyph on a borderless button of that size; named "Back" for accessibility tools and
 // with a "Back" tooltip. Its click is a Button's (actionUIWinUIButtonOnClick). NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void);
+// A new "see more" button, as a command bar shows one: the More glyph (three dots) of the system's symbol
+// font on a button with no fill until the pointer is over it, named "More options" for accessibility
+// tools and with a tooltip of the same. A click opens its flyout, which shows `content` (an element: a
+// panel of the overflowing items), lent for the call; a tap, Enter or Space in it closes it, as choosing a
+// menu item does. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIOverflowButtonCreate(ActionUIWinUIObject *content);
 
 // MARK: - Menu (a DropDownButton and its MenuFlyout)
 

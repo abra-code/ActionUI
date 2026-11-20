@@ -20,8 +20,13 @@ package final class WinUIWindow {
 
     package var windowUUID: String { windowModel.windowUUID }
 
-    /// The root element's box (its WinUI object with its padding and frame): the window's content.
-    package var view: WinUIObject? { root?.outerView }
+    /// The command rows around the root, when the document declares a toolbar outside a navigation
+    /// container (WindowCommandBar).
+    private var commandBar: WindowCommandBar?
+
+    /// The window's content: the command bar holding the root's box, or the root's box (its WinUI
+    /// object with its padding and frame).
+    package var view: WinUIObject? { commandBar?.panel.object ?? root?.outerView }
 
     /// Loads `json` (an ActionUI document) into the window model `windowUUID` and builds its tree.
     package static func load(json: String, windowUUID: String) throws -> WinUIWindow {
@@ -45,12 +50,45 @@ package final class WinUIWindow {
         }
         let root = RenderNode(element: element, model: model, windowModel: windowModel, parent: nil)
         self.root = root
+        // Before the first sync, in which the toolbars show their items.
+        if Self.declaresWindowToolbar(element), let content = root.outerView {
+            do {
+                let bar = try WindowCommandBar(content: content)
+                commandBar = bar
+                WindowCommandBar.register(bar, windowUUID: windowModel.windowUUID)
+            } catch {
+                ActionUIModel.shared.logger.log("WinUIWindow: \(error); the toolbars are not shown", .error)
+            }
+        }
         root.sync()
+    }
+
+    /// Whether `element` or an element under it, outside a navigation container, declares a toolbar.
+    private static func declaresWindowToolbar(_ element: any ActionUIElementBase) -> Bool {
+        if !ToolbarHelper.screenToolbarItems(of: element).isEmpty { return true }
+        guard !ToolbarHelper.isNavigationContainer(element.type) else { return false }
+        for value in (element.subviews ?? [:]).values {
+            switch value {
+            case let one as any ActionUIElementBase:
+                if declaresWindowToolbar(one) { return true }
+            case let list as [any ActionUIElementBase]:
+                if list.contains(where: declaresWindowToolbar) { return true }
+            case let rows as [[any ActionUIElementBase]]:
+                if rows.joined().contains(where: declaresWindowToolbar) { return true }
+            default:
+                break
+            }
+        }
+        return false
     }
 
     /// The window is going away: its nodes leave the tree.
     package func detach() {
         root?.detach()
+        // Only its own: another window may have taken the id since.
+        if let commandBar, WindowCommandBar.of(windowUUID: windowModel.windowUUID) === commandBar {
+            WindowCommandBar.register(nil, windowUUID: windowModel.windowUUID)
+        }
     }
 
     isolated deinit {

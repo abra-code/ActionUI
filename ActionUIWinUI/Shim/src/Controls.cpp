@@ -8,7 +8,9 @@
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>  // ButtonBase: Click
 #include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
+#include <winrt/Microsoft.UI.Xaml.Input.h>  // Tapped, KeyUp
 #include <winrt/Microsoft.UI.Xaml.Media.h>  // VisualTreeHelper
+#include <winrt/Windows.System.h>          // VirtualKey
 
 #include <vector>
 
@@ -166,6 +168,47 @@ ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void) {
         }
         automation::AutomationProperties::SetName(button, L"Back");
         muxc::ToolTipService::SetToolTip(button, winrt::box_value(L"Back"));
+        return toObject(button);
+    });
+}
+
+ActionUIWinUIObject *actionUIWinUIOverflowButtonCreate(ActionUIWinUIObject *content) {
+    return guardedObject("overflow button create", [&]() {
+        muxc::Button button;
+        muxc::FontIcon glyph;
+        glyph.Glyph(L"\uE712");  // More
+        glyph.FontSize(16);
+        button.Content(glyph);
+        button.Background(media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+        button.BorderThickness(mux::Thickness{0, 0, 0, 0});
+        automation::AutomationProperties::SetName(button, L"More options");
+        muxc::ToolTipService::SetToolTip(button, winrt::box_value(L"More options"));
+        muxc::Flyout flyout;
+        mux::UIElement panel = objectAs<mux::UIElement>(content, L"UIElement");
+        flyout.Content(panel);
+        // Chosen an item, the flyout closes, as a menu does: a tap, or Enter or Space, in it (also when
+        // the item handled the event itself, as a Button does).
+        winrt::weak_ref<muxc::Flyout> weakFlyout = flyout;
+        panel.AddHandler(mux::UIElement::TappedEvent(),
+                         winrt::box_value(mux::Input::TappedEventHandler([weakFlyout](auto &&, auto &&) {
+                             if (muxc::Flyout shown = weakFlyout.get()) {
+                                 shown.Hide();
+                             }
+                         })),
+                         true);
+        panel.AddHandler(mux::UIElement::KeyUpEvent(),
+                         winrt::box_value(mux::Input::KeyEventHandler([weakFlyout](wf::IInspectable const &,
+                                                                                  mux::Input::KeyRoutedEventArgs const &args) {
+                             winrt::Windows::System::VirtualKey key = args.Key();
+                             if (key != winrt::Windows::System::VirtualKey::Enter && key != winrt::Windows::System::VirtualKey::Space) {
+                                 return;
+                             }
+                             if (muxc::Flyout shown = weakFlyout.get()) {
+                                 shown.Hide();
+                             }
+                         })),
+                         true);
+        button.Flyout(flyout);
         return toObject(button);
     });
 }

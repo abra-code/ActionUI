@@ -74,6 +74,11 @@ package final class RenderNode {
     /// child nodes, since every row has the template's ids. The container keeps them in its rows'
     /// order and releases them (releaseTemplateNode).
     package private(set) var templateNodes: [RenderNode] = []
+    /// Nodes of elements this node shows elsewhere than among its children (its toolbar items'
+    /// contents): made like children, so they inherit its environment, and synced as they are.
+    package private(set) var auxiliaryNodes: [RenderNode] = []
+    /// The toolbar the element declares (its "toolbar" items), shown in the window's command row.
+    private(set) var toolbar: NodeToolbar?
     /// Children made since the last sync, synced at the end of it.
     private var unsyncedChildren: [RenderNode] = []
 
@@ -120,6 +125,7 @@ package final class RenderNode {
         expansion = Self.expansion(UntrackedReads.perform { renderer.expansion(self) }, geometry: initial)
         caps = (initial.frame.horizontal.cap, initial.frame.vertical.cap)
         compression = Self.compression(UntrackedReads.perform { renderer.compression(self) }, geometry: initial)
+        toolbar = NodeToolbar.make(for: self)
     }
 
     /// The base modifiers the box and the text appearance read, from the current properties. A
@@ -204,6 +210,7 @@ package final class RenderNode {
             isAccessibilityHidden = isHidden || (parent?.isAccessibilityHidden ?? false) || modifiers.accessibilityHidden == true
             isLabelsHidden = (parent?.isLabelsHidden ?? false) || modifiers.labelsHidden
             renderer.update(view, self)
+            toolbar?.update()
             applyStates(to: view)
             let geometry = BoxGeometry(modifiers)
             box?.contentExpansion = renderer.expansion(self)
@@ -234,7 +241,7 @@ package final class RenderNode {
         // not marked, as the GTK renderer skips them).
         if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden) != previousStates) {
             let new = Set(created.map(ObjectIdentifier.init))
-            for child in Array(childNodes.values) + templateNodes where !new.contains(ObjectIdentifier(child)) {
+            for child in Array(childNodes.values) + templateNodes + auxiliaryNodes where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
             }
         }
@@ -296,6 +303,23 @@ package final class RenderNode {
         return node
     }
 
+    /// A node for `element` shown outside this node's children (a toolbar item's content), with the
+    /// element's registered view model; synced at the end of this node's sync, like a new child. The
+    /// caller releases it (releaseAuxiliaryNode) when it no longer shows it.
+    func auxiliaryNode(for element: any ActionUIElementBase) -> RenderNode {
+        let node = RenderNode(element: element, model: childModel(for: element), windowModel: windowModel, parent: self)
+        auxiliaryNodes.append(node)
+        unsyncedChildren.append(node)
+        return node
+    }
+
+    /// Takes an auxiliary node out of the tree.
+    func releaseAuxiliaryNode(_ node: RenderNode) {
+        node.detach()
+        auxiliaryNodes.removeAll { $0 === node }
+        unsyncedChildren.removeAll { $0 === node }
+    }
+
     /// Takes a template instance out of the tree.
     func releaseTemplateNode(_ node: RenderNode) {
         node.detach()
@@ -332,5 +356,10 @@ package final class RenderNode {
             node.detach()
         }
         templateNodes = []
+        toolbar?.detach()
+        for node in auxiliaryNodes {
+            node.detach()
+        }
+        auxiliaryNodes = []
     }
 }

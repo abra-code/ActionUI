@@ -130,6 +130,8 @@ PREVIEW_OPTIONS = {
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
               "--expect-action", "menu.copy", "--expect-action", "menu.grid",
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
+    "Toolbars": ["420", "300", "--invoke", "15", "--invoke", "20", "--expect-action", "toolbar.add",
+                 "--expect-action", "toolbar.export", "--on-action", "toolbar.export", "3", "Added, then exported"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

@@ -311,7 +311,7 @@ final class Preview {
         }
         // A template's ids repeat in every row: the instance made first (the first row's until a row is
         // replaced).
-        for child in node.orderedChildren + node.templateNodes {
+        for child in node.orderedChildren + node.templateNodes + node.auxiliaryNodes {
             if let found = find(viewID, in: child) {
                 return found
             }
@@ -347,7 +347,7 @@ final class Preview {
             say("element \(node.element.id) holds \(node.templateNodes.count) template instances, more than \(limit)")
             instancesWithinLimit = false
         }
-        for child in node.orderedChildren + node.templateNodes {
+        for child in node.orderedChildren + node.templateNodes + node.auxiliaryNodes {
             report(child, indent: indent + "  ")
         }
     }
