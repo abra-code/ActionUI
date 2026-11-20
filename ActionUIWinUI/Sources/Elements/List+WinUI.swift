@@ -21,15 +21,24 @@
    is its first column; RenderNode.templateRowNode), selected and activated as rows are. A row whose
    data or place changes is made again; the others keep their objects, as on Linux.
 
+ Rows are made as they come into view: the ListView makes containers only for the rows in or near
+ view, and the rows that are elements (Button and Image cells, template instances) come from an
+ element source (the shim's ListView element source): an element is made when the ListView shows its
+ row and let go when it recycles the row, so a List of thousands of rows makes tens. A row let go loses
+ only transient state (keyboard focus); its data is in the content rows. Text rows are the ListView's
+ own items (plain text, which it shows in view only); the children form adds every child's box.
+
  The value selects its row when a host sets it; the ListView reports that selection as it reports
  the user's, and the renderer ignores the one it made (ListState.shownIndex), so actionID fires only
  for the user's.
 
  Not yet: itemType's AsyncImage cell (text for now); the inherited buttonStyle on Button cells (WinUI's
  Button has no styles yet); listStyle and the row styling (listRowBackground, listRowSeparator,
- listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none). A change of any row's
- text makes every row again (a Button cell loses keyboard focus); an Image cell reads its file only
- then (a file rewritten under the same name shows the old picture until the rows change).
+ listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none). A change of any text row
+ makes every text row again; an Image cell reads its file when its row is made (a file rewritten
+ under the same name shows the old picture until the row is made again). A row from the element source
+ that shows no text (an Image cell, a row not made yet) is named by its row number for accessibility
+ tools, where SwiftUI names it after its content.
 */
 
 import CWinUI
@@ -51,10 +60,22 @@ import CWinUI
     /// replaced under the same id has a new node and box.
     var childIDs: [Int]?
     var shownBoxes: [WinUIObject]?
-    /// Each row's template instance, in row order (template mode).
-    var rowNodes: [RenderNode] = []
+    /// What the element source's rows are (nil: the ListView shows its own items), the rows as given
+    /// to it (a cell row's text, or a template row's columns), and the template.
+    var sourceKind: SourceKind?
+    var sourceRows: [[String]] = []
+    var template: (any ActionUIElementBase)?
+    /// The source's rows made (in or near view): each one's element, and its template instance.
+    var made: [(element: WinUIObject, instance: RenderNode?)] = []
     /// The row the renderer last selected: a selection event reporting it is the renderer's own.
     var shownIndex: Int32 = -1
+
+    /// The rows an element source shows: element cells (Button or Image) of the content's texts, or
+    /// the template's instances of the content rows. Text rows and children are the ListView's own items.
+    enum SourceKind: Equatable {
+        case cells(RowCell)
+        case template
+    }
 
     /// A rows-mode cell: its type, how an Image cell reads its text, and an Image symbol's side (its
     /// font's), each 0 or the default when the type does not use it.
@@ -85,6 +106,12 @@ extension List: ActionUIWinUIRenderer {
             guard let node, let state, let list, node.isAttached else { return }
             let index = actionUIWinUIListGetSelectedIndex(list.pointer)
             userActivated(node, state, position: index >= 0 ? Int(index) : nil)
+        }
+        let box = ListSourceBox()
+        box.node = node
+        if !actionUIWinUIListSetElementSource(list.pointer, makeListRow, recycleListRow, Unmanaged.passRetained(box).toOpaque(),
+                                              releaseListSourceBox) {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("registering the rows' source"))", .error)
         }
         return list
     }
@@ -123,11 +150,9 @@ extension List: ActionUIWinUIRenderer {
         case .children:
             _ = node.syncChildren([])
         case .template:
-            for rowNode in state.rowNodes {
-                node.releaseTemplateNode(rowNode)
-            }
-            state.rowNodes = []
+            break
         }
+        leaveSource(view, node, state)
         state.shownIndex = -1
         if !actionUIWinUIListClear(view.pointer) {
             ActionUIModel.shared.logger.log("List: \(WinUIError.last("clearing the rows"))", .error)
@@ -160,18 +185,27 @@ extension List: ActionUIWinUIRenderer {
         state.shownIndices = shown
         let texts = shown.map { items[$0][0] }
         let cell = rowCell(node)
-        if texts != state.shownTexts || cell != state.shownCell {
-            state.shownTexts = texts
+        if cell.type == .button || cell.type == .image {
+            // Element cells, made as their rows come into view.
+            state.shownTexts = nil
             state.shownCell = cell
-            // The rows change: the selection is shown again below.
-            state.shownIndex = -1
-            var filled = actionUIWinUIListClear(view.pointer)
-            for (position, text) in texts.enumerated() where filled {
-                filled = appendCell(view, node, state, text, position: position, cell)
-            }
-            if !filled {
-                ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing the rows"))", .error)
-                state.shownTexts = nil
+            showSourceRows(view, node, state, kind: .cells(cell), rows: texts.map { [$0] })
+        } else {
+            // Text rows: the ListView's own items, which it shows in view only (plain text costs little).
+            leaveSource(view, node, state)
+            if texts != state.shownTexts || cell != state.shownCell {
+                state.shownTexts = texts
+                state.shownCell = cell
+                // The rows change: the selection is shown again below.
+                state.shownIndex = -1
+                var filled = actionUIWinUIListClear(view.pointer)
+                for text in texts where filled {
+                    filled = actionUIWinUIListAppendText(view.pointer, text)
+                }
+                if !filled {
+                    ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing the rows"))", .error)
+                    state.shownTexts = nil
+                }
             }
         }
         let position = RowSelection.selectedIndex(value: node.model.value, in: items).flatMap { shown.firstIndex(of: $0) }
@@ -192,27 +226,6 @@ extension List: ActionUIWinUIRenderer {
         }
     }
 
-    /// Adds the row at `position` showing `text` in `cell`.
-    private static func appendCell(_ view: WinUIObject, _ node: RenderNode, _ state: ListState, _ text: String,
-                                   position: Int, _ cell: ListState.RowCell) -> Bool {
-        let object: WinUIObject?
-        switch cell.type {
-        case .button:
-            object = buttonCell(text, node, state, position: position)
-        case .image:
-            object = imageCell(text, cell)
-        case .text, .asyncImage:
-            object = nil
-        }
-        guard let object else {
-            // A text row; also the row of a cell that could not be made (an image the shim has no
-            // symbol for shows nothing, as Image does), so the rows stay in step with the content.
-            return actionUIWinUIListAppendText(view.pointer, cell.type == .text ? text : "")
-        }
-        placeInRow(object)
-        return actionUIWinUIListAppendElement(view.pointer, object.pointer)
-    }
-
     /// A Button cell titled `text`; its click fires itemType.actionID.
     private static func buttonCell(_ text: String, _ node: RenderNode, _ state: ListState, position: Int) -> WinUIObject? {
         guard let button = WinUIObject(adopting: actionUIWinUIButtonCreate()),
@@ -220,7 +233,7 @@ extension List: ActionUIWinUIRenderer {
             ActionUIModel.shared.logger.log("List: \(WinUIError.last("making a Button cell"))", .error)
             return nil
         }
-        // The rows are made again when any changes, so the position stays this button's.
+        // A row whose text changes is made again, so the position stays this button's.
         WinUIEvents.connect(button, actionUIWinUIButtonOnClick, "a List's Button cell") { [weak node, weak state] in
             guard let node, let state, node.isAttached else { return }
             buttonClicked(node, state, position: position)
@@ -264,6 +277,7 @@ extension List: ActionUIWinUIRenderer {
     // MARK: Children
 
     private static func updateChildren(_ view: WinUIObject, _ node: RenderNode, _ state: ListState, _ elements: [any ActionUIElementBase]) {
+        leaveSource(view, node, state)
         // A child with no object (its placeholder failed too) has no row: the ids stay in step with the rows.
         // An EmptyView has none either, as in SwiftUI (measured on macOS 27).
         let childNodes = node.syncChildren(elements).filter { $0.outerView != nil && $0.element.type != "EmptyView" }
@@ -302,49 +316,114 @@ extension List: ActionUIWinUIRenderer {
         let rows = node.model.states["content"] as? [[String]] ?? []
         state.drawnRows = rows
         state.shownIndices = Array(rows.indices)
-        for (index, row) in rows.enumerated() {
-            // A row shown with the same data at the same place keeps its instance (and its objects'
-            // state); its index is in the instance's TemplateContext, the one its actions report.
-            if index < state.rowNodes.count, state.rowNodes[index].model.templateContext?.row == row { continue }
-            let rowNode = node.templateRowNode(template, row: row, rowIndex: index)
+        state.template = template
+        // One instance per row, made as the row comes into view (its index and data in the instance's
+        // TemplateContext, the ones its actions report).
+        showSourceRows(view, node, state, kind: .template, rows: rows)
+        // A row not shown (it could not be added) takes no selection.
+        let position = RowSelection.selectedIndex(value: node.model.value, in: rows).flatMap { $0 < state.sourceRows.count ? $0 : nil }
+        select(view, state, position)
+    }
+
+    // MARK: Rows made as they come into view
+
+    /// Makes the element source show `rows` as `kind`: a row whose data changes is made again, rows
+    /// are added at and removed from the end, as the eager template form keeps its instances; a new
+    /// kind starts over.
+    private static func showSourceRows(_ view: WinUIObject, _ node: RenderNode, _ state: ListState,
+                                       kind: ListState.SourceKind, rows: [[String]]) {
+        if state.sourceKind != kind {
+            leaveSource(view, node, state)
+            // Clearing the own items drops their selection, reported at once: the renderer's change.
+            state.shownIndex = -1
+            guard actionUIWinUIListUseElementSource(view.pointer, true) else {
+                ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing rows as they come into view"))", .error)
+                return
+            }
+            state.sourceKind = kind
+            state.sourceRows = []
+        }
+        let old = state.sourceRows
+        // The rows first: the ListView may ask for an element as soon as they change.
+        state.sourceRows = rows
+        for index in 0..<min(old.count, rows.count) where old[index] != rows[index] {
             // Replacing the selected row drops its selection: the renderer's change, not the user's.
             state.shownIndex = -1
-            let shown: Bool
-            if let box = rowNode.outerView {
-                placeInRow(box)
-                shown = index < state.rowNodes.count
-                    ? actionUIWinUIListReplaceElement(view.pointer, Int32(index), box.pointer)
-                    : actionUIWinUIListAppendElement(view.pointer, box.pointer)
-            } else {
-                shown = false
-            }
-            guard shown else {
-                // The rows shown keep their instances; the next update tries again from here.
-                ActionUIModel.shared.logger.log("List: \(WinUIError.last("showing a template row"))", .error)
-                node.releaseTemplateNode(rowNode)
-                break
-            }
-            if index < state.rowNodes.count {
-                node.releaseTemplateNode(state.rowNodes[index])
-                state.rowNodes[index] = rowNode
-            } else {
-                state.rowNodes.append(rowNode)
+            if !actionUIWinUIListSourceReplace(view.pointer, Int32(index)) {
+                ActionUIModel.shared.logger.log("List: \(WinUIError.last("changing a row"))", .error)
             }
         }
-        if state.rowNodes.count > rows.count {
+        if rows.count < old.count {
             state.shownIndex = -1
-            if actionUIWinUIListTruncate(view.pointer, Int32(rows.count)) {
-                for rowNode in state.rowNodes[rows.count...] {
-                    node.releaseTemplateNode(rowNode)
-                }
-                state.rowNodes.removeLast(state.rowNodes.count - rows.count)
-            } else {
-                ActionUIModel.shared.logger.log("List: \(WinUIError.last("removing template rows"))", .error)
+            if !actionUIWinUIListSourceTruncate(view.pointer, Int32(rows.count)) {
+                ActionUIModel.shared.logger.log("List: \(WinUIError.last("removing rows"))", .error)
+            }
+        } else if rows.count > old.count, !actionUIWinUIListSourceAppend(view.pointer, Int32(rows.count - old.count)) {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("adding rows"))", .error)
+            // The rows the ListView has: the next update adds the others.
+            state.sourceRows = Array(rows.prefix(max(Int(actionUIWinUIListSourceCount(view.pointer)), 0)))
+        }
+    }
+
+    /// The ListView shows its own items again (empty); the rows made are let go.
+    private static func leaveSource(_ view: WinUIObject, _ node: RenderNode, _ state: ListState) {
+        guard state.sourceKind != nil else { return }
+        // Leaving the source drops its selection, reported at once: the renderer's change, not the user's.
+        state.shownIndex = -1
+        if !actionUIWinUIListUseElementSource(view.pointer, false) {
+            ActionUIModel.shared.logger.log("List: \(WinUIError.last("leaving the rows' source"))", .error)
+        }
+        for row in state.made {
+            if let instance = row.instance {
+                node.releaseTemplateNode(instance)
             }
         }
-        // A row not shown (it failed above) takes no selection.
-        let position = RowSelection.selectedIndex(value: node.model.value, in: rows).flatMap { $0 < state.rowNodes.count ? $0 : nil }
-        select(view, state, position)
+        state.made = []
+        state.sourceKind = nil
+        state.sourceRows = []
+        state.shownTexts = nil
+        state.shownBoxes = nil
+    }
+
+    /// The ListView shows row `index`: its element (a cell, or the template's instance, made and synced
+    /// now: a layout pass is under way), placed at the row's leading edge. Nil when it cannot be made
+    /// (an image the shim has no symbol for shows nothing, as Image does).
+    fileprivate static func makeRow(_ node: RenderNode, _ index: Int) -> OpaquePointer? {
+        guard node.isAttached, let state = node.state as? ListState, let kind = state.sourceKind,
+              state.sourceRows.indices.contains(index) else { return nil }
+        let row = state.sourceRows[index]
+        let element: WinUIObject?
+        var instance: RenderNode?
+        switch kind {
+        case .cells(let cell):
+            let text = row.first ?? ""
+            element = cell.type == .button ? buttonCell(text, node, state, position: index) : imageCell(text, cell)
+        case .template:
+            guard let template = state.template else { return nil }
+            let made = node.templateRowNode(template, row: row, rowIndex: index)
+            made.sync()
+            instance = made
+            element = made.outerView
+        }
+        guard let element else {
+            if let instance {
+                node.releaseTemplateNode(instance)
+            }
+            return nil
+        }
+        placeInRow(element)
+        state.made.append((element, instance))
+        return element.pointer
+    }
+
+    /// The ListView recycled a row's container: its element is let go (a template instance leaves the tree).
+    fileprivate static func recycleRow(_ node: RenderNode, _ element: OpaquePointer) {
+        guard let state = node.state as? ListState,
+              let position = state.made.firstIndex(where: { actionUIWinUIObjectIsSame($0.element.pointer, element) }) else { return }
+        let row = state.made.remove(at: position)
+        if let instance = row.instance {
+            node.releaseTemplateNode(instance)
+        }
     }
 
     /// Shows `position` (nil: none) as the selected row, remembering it as the renderer's own.
@@ -398,4 +477,38 @@ extension List: ActionUIWinUIRenderer {
         ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0,
                                            context: index)
     }
+}
+
+/// The element source's callback context: a box with a weak reference to the List's node, so the
+/// ListView (which holds the box) does not keep it alive.
+@MainActor private final class ListSourceBox {
+    weak var node: RenderNode?
+}
+
+private func listSourceBox(_ context: UnsafeMutableRawPointer?) -> ListSourceBox? {
+    context.map { Unmanaged<ListSourceBox>.fromOpaque($0).takeUnretainedValue() }
+}
+
+// The element's address crosses the main actor's closure as a number (a pointer is not Sendable).
+private let makeListRow: ActionUIWinUIRepeaterMake = { context, index in
+    let box = listSourceBox(context)
+    let address = MainActor.assumeIsolated {
+        UInt(bitPattern: box?.node.flatMap { List.makeRow($0, Int(index)) })
+    }
+    return OpaquePointer(bitPattern: address)
+}
+
+private let recycleListRow: ActionUIWinUIRepeaterRecycle = { context, element in
+    let box = listSourceBox(context)
+    let address = UInt(bitPattern: element)
+    MainActor.assumeIsolated {
+        guard let node = box?.node, let element = OpaquePointer(bitPattern: address) else { return }
+        List.recycleRow(node, element)
+    }
+}
+
+// Gives back the reference passRetained took, once the ListView lets go of the source.
+private let releaseListSourceBox: ActionUIWinUICallback = { context in
+    guard let context else { return }
+    Unmanaged<ListSourceBox>.fromOpaque(context).release()
 }

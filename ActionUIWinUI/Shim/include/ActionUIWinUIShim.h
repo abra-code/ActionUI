@@ -301,7 +301,8 @@ ACTIONUI_WINUI_API bool actionUIWinUIListAppendElement(ActionUIWinUIObject *list
 // fails. A selected item loses its selection.
 ACTIONUI_WINUI_API bool actionUIWinUIListReplaceElement(ActionUIWinUIObject *list, int32_t index, ActionUIWinUIObject *element);
 // The element the item at `index` (from 0) shows, a new reference; NULL when there is no such item
-// or it shows text.
+// or it shows text. With an element source, the element of row `index` when it is made (in or near
+// view) and in the window (NULL when its container does not show it).
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIListCopyItemElement(ActionUIWinUIObject *list, int32_t index);
 // Removes the items from `count` on, keeping the first `count`.
 ACTIONUI_WINUI_API bool actionUIWinUIListTruncate(ActionUIWinUIObject *list, int32_t count);
@@ -556,6 +557,32 @@ ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIRepeaterCopyElement(ActionU
 // Whether `a` and `b` are the same WinUI object, seen through any of its interfaces (a recycled
 // element and the one make returned). False when either is NULL.
 ACTIONUI_WINUI_API bool actionUIWinUIObjectIsSame(ActionUIWinUIObject *a, ActionUIWinUIObject *b);
+
+// MARK: - ListView element source (a List's rows made as they come into view)
+
+// A ListView can take its rows from an element source instead of its own items: its items are then
+// numbered rows (0, 1, ...), and the ListView, which makes containers only for the rows in or near
+// view, asks the caller for a row's element when it shows the row (make) and gives it back when it
+// recycles the row's container (recycle), as the repeater does. Selection, keyboard and activation
+// work on the rows as on items.
+
+// Registers the callbacks; once per ListView, before using the source. destroyContext(context), when
+// not NULL, is called once the ListView lets go of them (on the UI thread); on failure at once.
+ACTIONUI_WINUI_API bool actionUIWinUIListSetElementSource(ActionUIWinUIObject *list, ActionUIWinUIRepeaterMake make,
+                                                          ActionUIWinUIRepeaterRecycle recycle, void *context,
+                                                          ActionUIWinUICallback destroyContext);
+// Whether the ListView shows the source's rows (true: its items are cleared and the rows start empty;
+// false: the rows are gone, without recycle calls, and the items are its own again, empty).
+ACTIONUI_WINUI_API bool actionUIWinUIListUseElementSource(ActionUIWinUIObject *list, bool use);
+// The source's rows: how many there are (-1 on failure, or when the source is not in use), `count`
+// rows added at the end, row `index` changed (its element, when it has one, is recycled and made
+// again), the rows from `count` on removed.
+ACTIONUI_WINUI_API int32_t actionUIWinUIListSourceCount(ActionUIWinUIObject *list);
+ACTIONUI_WINUI_API bool actionUIWinUIListSourceAppend(ActionUIWinUIObject *list, int32_t count);
+ACTIONUI_WINUI_API bool actionUIWinUIListSourceReplace(ActionUIWinUIObject *list, int32_t index);
+ACTIONUI_WINUI_API bool actionUIWinUIListSourceTruncate(ActionUIWinUIObject *list, int32_t count);
+// Scrolls the ListView so that row `index` is in view (rows or items).
+ACTIONUI_WINUI_API bool actionUIWinUIListScrollIntoView(ActionUIWinUIObject *list, int32_t index);
 
 // MARK: - Shapes
 
