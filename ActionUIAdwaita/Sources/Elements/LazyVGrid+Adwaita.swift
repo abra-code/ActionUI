@@ -4,14 +4,24 @@
  content row (setElementRows; the template shown with the row's data, as on Apple), flowing into
  the declared columns (rows for LazyHGrid): a column with a numeric "minimum" is that wide, one with
  "flexible": true shares the rest. spacing is the space between rows (columns for LazyHGrid);
- alignment places the block of tracks in the grid and each child in its cell.
+ alignment places the block of tracks in the grid and each child in its cell. The template form is
+ made lazily, a line of cells at a time, as lines come near the part its ScrollView shows (LazyRows);
+ the children form lays every child out.
 */
 
 import CAdwaita
 
 extension LazyVGrid: ActionUIAdwaitaRenderer {
+    /// 1 for the template form (LazyRows), 0 for the children form.
+    static func widgetKind(_ node: RenderNode) -> Int {
+        LazyRows.showsTemplate(node) ? 1 : 0
+    }
+
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        LazyGridLayout.makeGrid(vertical: true)
+        if node.widgetKind == 1 {
+            return LazyRows.makeWidget(node, axis: .vertical, grid: LazyGridState(vertical: true))
+        }
+        return LazyGridLayout.makeGrid(vertical: true)
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
@@ -28,8 +38,16 @@ extension LazyVGrid: ActionUIAdwaitaRenderer {
 }
 
 extension LazyHGrid: ActionUIAdwaitaRenderer {
+    /// 1 for the template form (LazyRows), 0 for the children form.
+    static func widgetKind(_ node: RenderNode) -> Int {
+        LazyRows.showsTemplate(node) ? 1 : 0
+    }
+
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        LazyGridLayout.makeGrid(vertical: false)
+        if node.widgetKind == 1 {
+            return LazyRows.makeWidget(node, axis: .horizontal, grid: LazyGridState(vertical: false))
+        }
+        return LazyGridLayout.makeGrid(vertical: false)
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {
@@ -59,7 +77,8 @@ enum LazyGridItems {
         }
     }
 
-    /// Applies the configuration and syncs the children or the template instances into the grid.
+    /// Applies the configuration and syncs the children into the grid, or hands the template form to
+    /// its LazyRows.
     static func update(_ widget: WidgetPointer, _ node: RenderNode, tracks: [LazyGridTrack],
                        alignment: StackSolver.Alignment, spacing: Double) {
         guard let state = attached(on: widget, key: lazyGridStateKey) else { return }
@@ -70,20 +89,18 @@ enum LazyGridItems {
             state.lineSpacing = lineSpacing
             gtk_widget_queue_resize(widget)
         }
-        let remove: (RenderNode) -> Void = { gtk_widget_unparent($0.outerWidget) }
-        if let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase {
-            node.syncChildren([], insert: { _, _ in }, remove: remove)
-            let rows = node.model.states["content"] as? [[String]] ?? []
-            state.templateRows.sync(node, template: template, rows: rows, insert: { _, _ in }, remove: remove)
-            state.items = state.templateRows.nodes.map(\.outerWidget)
-        } else {
-            state.templateRows.removeAll(remove: remove)
-            var items: [WidgetPointer] = []
-            node.syncChildren(node.subviews("children"), insert: { child, _ in
-                items.append(child.outerWidget)
-            }, remove: remove)
-            state.items = items
+        // The template form: its rows are made lazily, a line of cells at a time.
+        if let rows = attached(on: widget, key: lazyRowsKey) {
+            rows.update(node, spacing: spacing, alignment: alignment)
+            return
         }
+        // The children form (a template makes the other widget kind).
+        let remove: (RenderNode) -> Void = { gtk_widget_unparent($0.outerWidget) }
+        var items: [WidgetPointer] = []
+        node.syncChildren(node.subviews("children"), insert: { child, _ in
+            items.append(child.outerWidget)
+        }, remove: remove)
+        state.items = items
         // In order, so focus moves through the cells as they are read.
         var previous: WidgetPointer?
         for item in state.items {

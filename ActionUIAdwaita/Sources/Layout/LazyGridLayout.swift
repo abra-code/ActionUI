@@ -13,7 +13,9 @@
    its column and centered in its row. A row is as tall as its tallest child at its natural height;
    a child that expands vertically then fills the row, up to its cap. Rows are `spacing` apart, and
    the grid is as tall as its rows.
- - Every child is laid out, none lazily: GTK lays out a thousand rows quickly (the List's check).
+ - The children form lays every child out. The template form makes its rows lazily, a line of
+   cells at a time, as they come near the part its ScrollView shows (LazyRows, which places each
+   line through lineLength and allocateLine here).
 */
 
 import CAdwaita
@@ -37,8 +39,6 @@ final class LazyGridState {
     var lineSpacing = 0
     /// The children's boxes, in order.
     var items: [WidgetPointer] = []
-    /// The template instances, in template mode.
-    let templateRows = TemplateRows()
 
     init(vertical: Bool) {
         self.vertical = vertical
@@ -149,12 +149,17 @@ enum LazyGridLayout {
     }
 
     private static func plan(_ state: LazyGridState, trackLength: Int) -> Plan {
+        plan(state, items: shownItems(state), trackLength: trackLength)
+    }
+
+    /// The plan for `items` (shown ones), filling the tracks line by line from the first.
+    private static func plan(_ state: LazyGridState, items: [WidgetPointer], trackLength: Int) -> Plan {
         let sizes = trackSizes(state.tracks, available: trackLength)
         let block = sizes.reduce(trackSpacing * max(0, sizes.count - 1), +)
         let blockStart = max(0, StackSolver.alignedOffset(size: block, block: trackLength, alignment: state.alignment))
         var plan = Plan(trackSizes: sizes, blockStart: blockStart, lineSizes: [], cells: [])
         guard !sizes.isEmpty else { return plan }
-        for (index, item) in shownItems(state).enumerated() {
+        for (index, item) in items.enumerated() {
             let track = index % sizes.count
             let line = index / sizes.count
             let measured = Gtk.Widget(item).measure(state.trackAxis)
@@ -189,9 +194,15 @@ enum LazyGridLayout {
 
     /// The tracks' length when each flexible track is as long as its widest child.
     private static func naturalTrackLength(_ state: LazyGridState) -> Int {
+        naturalTrackLength(state, items: shownItems(state))
+    }
+
+    /// The tracks' length when each flexible track is as long as its widest of `items`, which fill
+    /// the tracks from the first.
+    static func naturalTrackLength(_ state: LazyGridState, items: [WidgetPointer]) -> Int {
         guard !state.tracks.isEmpty else { return 0 }
         var widest = [Int](repeating: flexibleMinimum, count: state.tracks.count)
-        for (index, item) in shownItems(state).enumerated() {
+        for (index, item) in items.enumerated() {
             let track = index % state.tracks.count
             widest[track] = max(widest[track], Gtk.Widget(item).measure(state.trackAxis).natural)
         }
@@ -201,12 +212,42 @@ enum LazyGridLayout {
         }
     }
 
+    // MARK: One line (the lazy template form, LazyRows)
+
+    /// The length across the tracks of one line of `items` (at most one per track) in a grid
+    /// `trackLength` long: its tallest cell's (a LazyVGrid's) at the cell's track width.
+    static func lineLength(_ state: LazyGridState, items: [WidgetPointer], trackLength: Int) -> Int {
+        let shown = items.filter { gtk_widget_should_layout($0) != 0 }
+        let length = trackLength >= 0 ? trackLength : naturalTrackLength(state, items: shown)
+        return plan(state, items: shown, trackLength: length).lineSizes.first ?? 0
+    }
+
+    /// Places one line of `items` in a grid `trackLength` long, the line starting at `lineStart`
+    /// across the tracks and `lineLength` long. Without tracks no item is placed (place hides them).
+    static func allocateLine(_ state: LazyGridState, items: [WidgetPointer], trackLength: Int, lineStart: Int, lineLength: Int) {
+        let shown = items.filter { gtk_widget_should_layout($0) != 0 }
+        var plan = plan(state, items: shown, trackLength: trackLength)
+        plan.lineSizes = [lineLength]
+        place(plan, state, items: shown, lineStarts: [lineStart])
+    }
+
     private static func allocate(_ widget: WidgetPointer, width: Int, height: Int) {
         guard let state = attached(on: widget, key: lazyGridStateKey) else { return }
         let trackLength = state.vertical ? width : height
         let plan = plan(state, trackLength: trackLength)
+        var lineStarts: [Int] = []
+        var position = 0
+        for size in plan.lineSizes {
+            lineStarts.append(position)
+            position += size + state.lineSpacing
+        }
+        place(plan, state, items: shownItems(state), lineStarts: lineStarts)
+    }
+
+    /// Allocates the plan's cells, its lines starting at `lineStarts` across the tracks.
+    private static func place(_ plan: Plan, _ state: LazyGridState, items: [WidgetPointer], lineStarts: [Int]) {
         // A grid without tracks places no child, and GTK refuses to draw one never allocated.
-        for item in shownItems(state) {
+        for item in items {
             gtk_widget_set_child_visible(item, plan.trackSizes.isEmpty ? 0 : 1)
         }
         var trackStarts: [Int] = []
@@ -214,12 +255,6 @@ enum LazyGridLayout {
         for size in plan.trackSizes {
             trackStarts.append(position)
             position += size + trackSpacing
-        }
-        var lineStarts: [Int] = []
-        position = 0
-        for size in plan.lineSizes {
-            lineStarts.append(position)
-            position += size + state.lineSpacing
         }
         for cell in plan.cells {
             // Offered its line's size: one that expands across fills it, up to its cap.

@@ -1,31 +1,36 @@
 // Sources/Layout/LazyRows.swift
 /*
- The template form of LazyVStack and LazyHStack on GTK, made lazily: a row's template instance (the
- template with the row's data, RenderNode.lazyTemplateRowNode) is made only when the row comes in
- or near the part of the stack its ScrollView shows, and let go when it is far out of view, as
- SwiftUI's lazy stacks make their rows. A ScrollView of 2000 rows opens and scrolls with tens of
- rows made.
+ The template form of LazyVStack, LazyHStack, LazyVGrid and LazyHGrid on GTK, made lazily: a row's
+ template instance (the template with the row's data, RenderNode.lazyTemplateRowNode) is made only
+ when the row comes in or near the part of the container its ScrollView shows, and let go when it
+ is far out of view, as SwiftUI's lazy stacks and grids make their rows. A ScrollView of 2000 rows
+ opens and scrolls with tens of rows made.
 
- - What is shown: the stack follows the nearest GtkScrolledWindow above it that scrolls along its
-   axis, through the scrolled window's adjustment (its position and page size) and the stack's
-   place in the scrolled content. Rows within a page before and after the visible part are made;
-   rows more than two pages away are let go, so small scrolls do not make and let go the same rows.
-   Outside any such scrolled window every row is made, in the stack's sync as the eager form makes
-   them.
- - Sizes: a made row is measured (a LazyVStack's row for the stack's width: its height for that
-   width); the length of a row let go is remembered for that width; a row never made is estimated
-   at the average of the rows known. The stack is as long as all of them with the spacing between.
- - Anchoring: making rows changes the known lengths and the estimate, so the rows above the visible
-   part may become longer or shorter. The scroll position moves by the same amount, so the row at
-   the top of the visible part stays where it is; GTK does not do this itself. A change of the
-   stack's width changes every row's length (a LazyVStack's rows are measured for its width): the
-   row at the top and how far into it the visible part started are kept across it too.
+ - Lines: a lazy stack places one row per line along its axis; a lazy grid places as many rows as
+   it has tracks (columns of a LazyVGrid, rows of a LazyHGrid) per line, laid out by
+   LazyGridLayout. A line is made and let go whole.
+ - What is shown: the container follows the nearest GtkScrolledWindow above it that scrolls along
+   its axis, through the scrolled window's adjustment (its position and page size) and the
+   container's place in the scrolled content. Lines within a page before and after the visible part
+   are made; lines more than two pages away are let go, so small scrolls do not make and let go the
+   same rows. Outside any such scrolled window every row is made, in the container's sync as the
+   eager form makes them.
+ - Sizes: a made line is measured (a LazyVStack's row for the stack's width: its height for that
+   width; a grid's line as tall as its tallest cell for the tracks' widths); the length of a line
+   let go is remembered for that width; a line never made is estimated at the average of the lines
+   known. The container is as long as all of them with the spacing between.
+ - Anchoring: making lines changes the known lengths and the estimate, so the lines above the
+   visible part may become longer or shorter. The scroll position moves by the same amount, so the
+   line at the top of the visible part stays where it is; GTK does not do this itself. A change of
+   the container's width changes every line's length (a LazyVStack's rows are measured for its
+   width): the line at the top and how far into it the visible part started are kept across it too.
  - Rows are made and let go outside GTK's measuring and allocation (GTK forbids changing its
-   widget tree there), on a main loop source scheduled by the adjustment's signals, by the stack's
-   allocation and by its update; the stack's size is then queued again.
- - Across its axis the stack takes all the room it is offered and aligns each row in it by its
-   alignment; it does not expand along it (StackLayout.setLazy's flags). The rows made at a moment
-   decide neither: only its natural size across is its widest made row's.
+   widget tree there), on a main loop source scheduled by the adjustment's signals, by the
+   container's allocation and by its update; the container's size is then queued again.
+ - Across its axis the container takes all the room it is offered: a stack aligns each row in it by
+   its alignment, a grid shares it among its tracks. It does not expand along its axis (the expand
+   flags set here). The rows made at a moment decide neither: only its natural size across is its
+   made rows'.
  - Rows are kept by index, as in the eager form (TemplateRows): a row whose data changes is made
    again, rows added at the end are added, rows removed from the end are removed. A row let go
    loses only transient state (keyboard focus, a text selection): its data lives in the content
@@ -38,16 +43,18 @@ let lazyRowsKey = AttachKey<LazyRows>("actionui-lazy-rows")
 
 nonisolated(unsafe) private var lazyRowsLayoutType: GType = 0
 
-/// A lazy stack's rows in its template form, attached to its container widget (laid out by
-/// LazyRows.layoutType).
+/// A lazy stack's or lazy grid's rows in its template form, attached to its container widget (laid
+/// out by LazyRows.layoutType).
 @MainActor
 final class LazyRows {
-    /// A row's length along the axis before any row has been measured.
+    /// A line's length along the axis before any line has been measured.
     static let initialEstimate = 20
     /// The page assumed before the scrolled window is laid out.
     static let fallbackPage = 600.0
 
     let axis: StackAxis
+    /// A lazy grid's tracks and alignment (its tracks are across the axis); nil for a lazy stack.
+    let grid: LazyGridState?
     /// The container widget, which keeps this object.
     private let widget: WidgetPointer
     private weak var node: RenderNode?
@@ -56,10 +63,12 @@ final class LazyRows {
     private(set) var rows: [[String]] = []
     private(set) var spacing = 0
     private(set) var alignment = StackSolver.Alignment.center
+    /// The grid's tracks when the lines were last measured: other tracks give other lines.
+    private var gridTracks: [LazyGridTrack] = []
     /// The rows made, by index.
     private(set) var made: [Int: RenderNode] = [:]
-    /// Rows' lengths along the axis, by index, measured for `knownCross` across: the made rows' and
-    /// those let go since.
+    /// Lines' lengths along the axis, by line, measured for `knownCross` across: the made lines'
+    /// and those let go since.
     private var known: [Int: Int] = [:]
     private var knownCross = -1
     /// The container's environment when the rows were last updated.
@@ -70,17 +79,18 @@ final class LazyRows {
     private var adjustment: UnsafeMutablePointer<GtkAdjustment>?
     private var handlers: [gulong] = []
     private var refreshPending = false
-    /// Where the visible part started at the last refresh, in the stack along its axis: what a
+    /// Where the visible part started at the last refresh, in the container along its axis: what a
     /// change of width keeps in view.
     private var lastTop: Double?
-    /// The row at the top of the visible part before a change of width, and how far into it the
+    /// The line at the top of the visible part before a change of width, and how far into it the
     /// visible part started, to be put back by the next refresh.
     private var pendingAnchor: (index: Int, inside: Int)?
 
-    private init(widget: WidgetPointer, node: RenderNode, axis: StackAxis) {
+    private init(widget: WidgetPointer, node: RenderNode, axis: StackAxis, grid: LazyGridState?) {
         self.widget = widget
         self.node = node
         self.axis = axis
+        self.grid = grid
     }
 
     isolated deinit {
@@ -95,11 +105,15 @@ final class LazyRows {
         node.effectiveElement.subviews?["template"] is any ActionUIElementBase
     }
 
-    /// A new container for a lazy stack's template form, empty until update.
-    static func makeWidget(_ node: RenderNode, axis: StackAxis) -> WidgetPointer {
+    /// A new container for a lazy stack's template form, or a lazy grid's with `grid` (attached to
+    /// the container too, where the grid's renderer sets its tracks), empty until update.
+    static func makeWidget(_ node: RenderNode, axis: StackAxis, grid: LazyGridState? = nil) -> WidgetPointer {
         let widget = makeContainer(layoutType: layoutType())
-        let rows = LazyRows(widget: widget, node: node, axis: axis)
+        let rows = LazyRows(widget: widget, node: node, axis: axis, grid: grid)
         attach(rows, to: widget, key: lazyRowsKey)
+        if let grid {
+            attach(grid, to: widget, key: lazyGridStateKey)
+        }
         // Across the axis it expands whatever its rows do, along it not.
         gtk_widget_set_hexpand(widget, axis == .vertical ? 1 : 0)
         gtk_widget_set_vexpand(widget, axis == .vertical ? 0 : 1)
@@ -114,9 +128,9 @@ final class LazyRows {
 
     // MARK: Updating
 
-    /// Takes `node`'s template, content rows, spacing and alignment. Runs in the node's sync: rows
-    /// whose data changed or that went are let go here, rows are made later (refresh), outside the
-    /// sync's observation.
+    /// Takes `node`'s template, content rows, spacing (between lines) and alignment (a stack's; a
+    /// grid's is in its state). Runs in the node's sync: rows whose data changed or that went are let
+    /// go here, rows are made later (refresh), outside the sync's observation.
     func update(_ node: RenderNode, spacing: Double, alignment: StackSolver.Alignment) {
         self.node = node
         node.syncChildren([], insert: { _, _ in }, remove: { gtk_widget_unparent($0.outerWidget) })
@@ -129,6 +143,15 @@ final class LazyRows {
             self.alignment = alignment
             changed = true
         }
+        if let grid, grid.tracks != gridTracks {
+            // Other tracks put the rows on other lines, of other lengths: every line again.
+            gridTracks = grid.tracks
+            for (index, row) in made {
+                release(index, row)
+            }
+            known = [:]
+            changed = true
+        }
         if node.environment != environment {
             environment = node.environment
             for row in made.values {
@@ -139,11 +162,19 @@ final class LazyRows {
             for (index, row) in made where index >= newRows.count || newRows[index] != rows[index] {
                 release(index, row)
             }
-            // A changed row keeps its remembered length until it is made again and measured: closer
-            // than the estimate, so new data that changes no length keeps the same rows in view
-            // (forgotten, the rows above would all take the estimate and the view would move).
-            for index in known.keys where index >= newRows.count {
-                known[index] = nil
+            // A changed row's line keeps its remembered length until it is made again and
+            // measured: closer than the estimate, so new data that changes no length keeps the
+            // same rows in view (forgotten, the lines above would all take the estimate and the
+            // view would move). Lines past the new end go, and a grid's line holding the old or the
+            // new end has other rows now: it is measured again.
+            let newLineCount = (newRows.count + perLine - 1) / perLine
+            for line in known.keys where line >= newLineCount {
+                known[line] = nil
+            }
+            if newRows.count != rows.count {
+                for end in [rows.count, newRows.count] where end % perLine != 0 {
+                    known[end / perLine] = nil
+                }
             }
             rows = newRows
             changed = true
@@ -170,8 +201,8 @@ final class LazyRows {
         }
     }
 
-    /// Makes the rows in or near the visible part of the stack and lets go of those far from it
-    /// (every row outside a scrolled window), keeping the top visible row in place.
+    /// Makes the lines in or near the visible part of the container and lets go of those far from
+    /// it (every row outside a scrolled window), keeping the top visible line in place.
     func refresh() {
         refreshPending = false
         guard let node, node.isAttached, template != nil else { return }
@@ -194,24 +225,24 @@ final class LazyRows {
             pendingAnchor = nil
             restore(pending, cross: cross, adjustment: adjustment)
         }
-        // The visible part in the stack's coordinates along its axis.
+        // The visible part in the container's coordinates along its axis.
         let top = gtk_adjustment_get_value(adjustment) - (contentOffset ?? 0)
         lastTop = top
         let anchor = top > 0 ? row(at: Int(top), cross: cross) : nil
         let anchorOffset = anchor.map { offset(of: $0, cross: cross) }
         var changed = false
-        // Made rows change the estimate, and so which rows are near: a few rounds settle it.
+        // Made lines change the estimate, and so which lines are near: a few rounds settle it.
         for _ in 0..<4 {
-            let wanted = rowRange(from: top - page, to: top + 2 * page, cross: cross)
+            let wanted = lineRange(from: top - page, to: top + 2 * page, cross: cross)
             var added = false
-            for index in wanted where made[index] == nil {
-                added = make(index) || added
+            for line in wanted where !isMade(line) {
+                added = makeLine(line) || added
             }
             changed = changed || added
             if !added { break }
         }
-        let kept = rowRange(from: top - 2 * page, to: top + 3 * page, cross: cross)
-        for (index, row) in made where !kept.contains(index) {
+        let kept = lineRange(from: top - 2 * page, to: top + 3 * page, cross: cross)
+        for (index, row) in made where !kept.contains(index / perLine) {
             release(index, row)
             changed = true
         }
@@ -236,11 +267,11 @@ final class LazyRows {
                                  gtk_adjustment_get_page_size(adjustment))
     }
 
-    /// Scrolls so the visible part starts in row `anchor.index` as far into it as before a change
-    /// of width (at most to the end of the row and the gap after it, which row(at:) counts as the
-    /// row's).
+    /// Scrolls so the visible part starts in line `anchor.index` as far into it as before a change
+    /// of width (at most to the end of the line and the gap after it, which row(at:) counts as the
+    /// line's).
     private func restore(_ anchor: (index: Int, inside: Int), cross: Int, adjustment: UnsafeMutablePointer<GtkAdjustment>) {
-        guard rows.indices.contains(anchor.index) else { return }
+        guard anchor.index < lineCount else { return }
         let starts = offsets(cross: cross)
         let inside = min(anchor.inside, max(starts[anchor.index + 1] - starts[anchor.index] - 1, 0))
         let value = (contentOffset ?? 0) + Double(starts[anchor.index] + inside)
@@ -249,10 +280,27 @@ final class LazyRows {
         }
     }
 
-    /// Makes row `index`'s instance, places its box among the made rows in row order, syncs it and
-    /// remembers its length. In the node's sync (`inSync`) the instance is synced right after that
-    /// sync instead, as a new child is, and its length is found at the next allocation. False when
-    /// it cannot be made.
+    /// Makes line `line`'s rows not made yet and remembers the line's length. False when none
+    /// could be made.
+    private func makeLine(_ line: Int) -> Bool {
+        var added = false
+        for index in rowIndices(of: line) where made[index] == nil {
+            added = make(index) || added
+        }
+        guard added else { return false }
+        let cross = allocatedCross
+        let key = lengthKey(cross)
+        if key != knownCross {
+            known = [:]
+            knownCross = key
+        }
+        known[line] = lineLength(line, cross: trackLength(cross))
+        return true
+    }
+
+    /// Makes row `index`'s instance, places its box among the made rows in row order and syncs it.
+    /// In the node's sync (`inSync`) the instance is synced right after that sync instead, as a new
+    /// child is. False when it cannot be made.
     private func make(_ index: Int, inSync: Bool = false) -> Bool {
         guard let node, let template, rows.indices.contains(index) else { return false }
         let instance = inSync ? node.templateRowNode(template, row: rows[index], rowIndex: index)
@@ -264,28 +312,52 @@ final class LazyRows {
             gtk_widget_insert_before(instance.outerWidget, widget, nil)
         }
         made[index] = instance
-        if inSync { return true }
-        instance.sync()
-        let cross = allocatedCross
-        let key = lengthKey(cross)
-        if key != knownCross {
-            known = [:]
-            knownCross = key
+        if !inSync {
+            instance.sync()
         }
-        known[index] = length(of: instance.outerWidget, cross: cross)
         return true
     }
 
-    /// Takes row `index`'s instance out and lets it go; its length stays known.
+    /// Takes row `index`'s instance out and lets it go; its line's length stays known.
     private func release(_ index: Int, _ row: RenderNode) {
         gtk_widget_unparent(row.outerWidget)
         row.detach()
         made[index] = nil
     }
 
+    // MARK: Lines
+
+    /// The rows per line: 1 in a stack, a grid's tracks.
+    private var perLine: Int {
+        grid.map { max($0.tracks.count, 1) } ?? 1
+    }
+
+    private var lineCount: Int {
+        (rows.count + perLine - 1) / perLine
+    }
+
+    private func rowIndices(of line: Int) -> Range<Int> {
+        (line * perLine)..<min((line + 1) * perLine, rows.count)
+    }
+
+    private func isMade(_ line: Int) -> Bool {
+        rowIndices(of: line).allSatisfy { made[$0] != nil }
+    }
+
+    /// The boxes of line `line`'s made rows, in row order.
+    private func madeBoxes(of line: Int) -> [WidgetPointer] {
+        rowIndices(of: line).compactMap { made[$0]?.outerWidget }
+    }
+
+    /// The made lines, by line.
+    private var madeLines: Set<Int> {
+        Set(made.keys.map { $0 / perLine })
+    }
+
     // MARK: Following the scrolled window
 
-    /// The nearest scrolled window above the stack that scrolls along its axis through a viewport.
+    /// The nearest scrolled window above the container that scrolls along its axis through a
+    /// viewport.
     private func nearestScroller() -> WidgetPointer? {
         let orientation = mainOrientation
         var current = gtk_widget_get_parent(widget)
@@ -306,9 +378,9 @@ final class LazyRows {
         return nil
     }
 
-    /// Follows `scroller`'s adjustment along the axis (none: stops following). Also while the stack
-    /// is not shown (a tab not selected): it then makes the rows of the scrolled window's first
-    /// pages, not all of them.
+    /// Follows `scroller`'s adjustment along the axis (none: stops following). Also while the
+    /// container is not shown (a tab not selected): it then makes the rows of the scrolled window's
+    /// first pages, not all of them.
     private func follow(_ scroller: WidgetPointer?) {
         guard let scroller else {
             stopFollowing()
@@ -346,8 +418,8 @@ final class LazyRows {
         scroller = nil
     }
 
-    /// Where the stack starts along its axis in the scrolled content (the viewport's child), nil
-    /// when it is not laid out there.
+    /// Where the container starts along its axis in the scrolled content (the viewport's child),
+    /// nil when it is not laid out there.
     var contentOffset: Double? {
         guard let scroller, let viewport = gtk_scrolled_window_get_child(OpaquePointer(scroller)),
               let content = gtk_viewport_get_child(OpaquePointer(viewport)) else { return nil }
@@ -367,21 +439,21 @@ final class LazyRows {
         axis == .vertical ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL
     }
 
-    /// The stack's allocated size across its axis; -1 before it is allocated.
+    /// The container's allocated size across its axis; -1 before it is allocated.
     var allocatedCross: Int {
         let size = Int(axis == .vertical ? gtk_widget_get_width(widget) : gtk_widget_get_height(widget))
         return size > 0 ? size : -1
     }
 
-    /// What a row's length along the axis depends on across it: a LazyVStack's row's height depends
-    /// on its width, a LazyHStack's column's width on nothing.
+    /// What a line's length along the axis depends on across it: a LazyVStack's row's height depends
+    /// on its width and a grid's line on its tracks' sizes; a LazyHStack's column's width on nothing.
     private func lengthKey(_ cross: Int) -> Int {
-        axis == .vertical ? cross : -1
+        axis == .vertical || grid != nil ? cross : -1
     }
 
-    /// A row's size across a stack `cross` across (-1: not given): what a stack's child takes when
-    /// offered that (all of it, to its cap, when it expands); a LazyHStack's column's height for its
-    /// width `length`.
+    /// A stack's row's size across a stack `cross` across (-1: not given): what a stack's child
+    /// takes when offered that (all of it, to its cap, when it expands); a LazyHStack's column's
+    /// height for its width `length`.
     private func crossSize(of row: WidgetPointer, cross: Int, length: Int = -1) -> Int {
         let forSize = axis == .vertical ? -1 : length
         let size = Gtk.Widget(row).measure(crossOrientation, forSize: forSize)
@@ -395,71 +467,101 @@ final class LazyRows {
         return child.size(offered: cross)
     }
 
-    /// A row's natural length along the axis in a stack `cross` across (a LazyVStack's row's height
-    /// for the width it gets there).
+    /// A stack's row's natural length along the axis in a stack `cross` across (a LazyVStack's
+    /// row's height for the width it gets there).
     private func length(of row: WidgetPointer, cross: Int) -> Int {
         let forSize = axis == .vertical ? crossSize(of: row, cross: cross) : -1
         let size = Gtk.Widget(row).measure(mainOrientation, forSize: forSize)
         return max(size.natural, size.minimum)
     }
 
-    /// The rows' lengths known in a stack `cross` across, by index (the made rows measured now, the
-    /// others remembered for that size), and the estimate for the rest: their average.
+    /// What a grid's lines are measured for in a container `cross` across: `cross`, or without one
+    /// (-1) the tracks' natural length for all the made rows, as the eager grid takes for all its
+    /// children (not each line's own). A stack's: `cross`.
+    private func trackLength(_ cross: Int) -> Int {
+        guard let grid, cross < 0 else { return cross }
+        return LazyGridLayout.naturalTrackLength(grid, items: madeGridBoxes)
+    }
+
+    /// The made rows' boxes in row order, those laid out only, as the eager grid's items.
+    private var madeGridBoxes: [WidgetPointer] {
+        made.sorted { $0.key < $1.key }.map { $0.value.outerWidget! }.filter { gtk_widget_should_layout($0) != 0 }
+    }
+
+    /// Line `line`'s length along the axis in a container `cross` across (for a grid, trackLength's
+    /// result), from its made rows: a stack's row's natural length, a grid line's tallest cell
+    /// (LazyGridLayout).
+    private func lineLength(_ line: Int, cross: Int) -> Int {
+        let boxes = madeBoxes(of: line)
+        if let grid {
+            return LazyGridLayout.lineLength(grid, items: boxes, trackLength: cross)
+        }
+        return boxes.first.map { length(of: $0, cross: cross) } ?? 0
+    }
+
+    /// The lines' lengths known in a container `cross` across, by line (the made lines measured
+    /// now, the others remembered for that size), and the estimate for the rest: their average.
     private func lengths(cross: Int) -> (known: [Int: Int], estimate: Int) {
         var lengths = lengthKey(cross) == knownCross ? known : [:]
-        for (index, row) in made {
-            lengths[index] = length(of: row.outerWidget, cross: cross)
+        let across = trackLength(cross)
+        for line in madeLines {
+            lengths[line] = lineLength(line, cross: across)
         }
         guard !lengths.isEmpty else { return (lengths, Self.initialEstimate) }
         let total = lengths.values.reduce(0, +)
         return (lengths, (total + lengths.count / 2) / lengths.count)
     }
 
-    /// Where each row starts along the axis in a stack `cross` across, and the stack's whole
-    /// length (the last element).
+    /// Where each line starts along the axis in a container `cross` across, and the container's
+    /// whole length (the last element).
     private func offsets(cross: Int) -> [Int] {
         let (lengths, estimate) = self.lengths(cross: cross)
+        let count = lineCount
         var result: [Int] = []
-        result.reserveCapacity(rows.count + 1)
+        result.reserveCapacity(count + 1)
         var position = 0
-        for index in rows.indices {
+        for line in 0..<count {
             result.append(position)
-            position += (lengths[index] ?? estimate) + (index + 1 < rows.count ? spacing : 0)
+            position += (lengths[line] ?? estimate) + (line + 1 < count ? spacing : 0)
         }
         result.append(position)
         return result
     }
 
+    /// Where line `index` starts (a stack's row) in a container `cross` across.
     func offset(of index: Int, cross: Int) -> Int {
         offsets(cross: cross)[index]
     }
 
-    /// The row at `position` along the axis (the last one past the end); nil without rows.
+    /// The line at `position` along the axis (the last one past the end; a stack's row); nil
+    /// without rows.
     func row(at position: Int, cross: Int) -> Int? {
-        guard !rows.isEmpty else { return nil }
-        return row(at: position, starts: offsets(cross: cross))
+        guard lineCount > 0 else { return nil }
+        return line(at: position, starts: offsets(cross: cross))
     }
 
-    /// The row at `position` among rows starting at `starts` (offsets), of at least one row.
-    private func row(at position: Int, starts: [Int]) -> Int {
+    /// The line at `position` among lines starting at `starts` (offsets), of at least one line.
+    private func line(at position: Int, starts: [Int]) -> Int {
+        let count = lineCount
         var index = 0
-        while index + 1 < rows.count && starts[index + 1] <= position {
+        while index + 1 < count && starts[index + 1] <= position {
             index += 1
         }
         return index
     }
 
-    /// The rows that reach into [from, to) along the axis.
-    private func rowRange(from: Double, to: Double, cross: Int) -> Range<Int> {
+    /// The lines that reach into [from, to) along the axis.
+    private func lineRange(from: Double, to: Double, cross: Int) -> Range<Int> {
         let starts = offsets(cross: cross)
-        var first = rows.count
-        var last = rows.count
-        for index in rows.indices {
-            if first == rows.count, Double(starts[index + 1]) > from {
-                first = index
+        let count = lineCount
+        var first = count
+        var last = count
+        for line in 0..<count {
+            if first == count, Double(starts[line + 1]) > from {
+                first = line
             }
-            if Double(starts[index]) >= to {
-                last = index
+            if Double(starts[line]) >= to {
+                last = line
                 break
             }
         }
@@ -476,7 +578,13 @@ final class LazyRows {
         info.class_init = { klass, _ in
             guard let klass else { return }
             let layoutClass = klass.assumingMemoryBound(to: GtkLayoutManagerClass.self)
-            layoutClass.pointee.get_request_mode = { _, _ in GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH }
+            // A LazyHGrid's lines are widths for its height, as the eager grid's.
+            layoutClass.pointee.get_request_mode = { _, widget in
+                MainActor.assumeIsolated {
+                    let rows = widget.flatMap { attached(on: $0, key: lazyRowsKey) }
+                    return rows?.grid != nil && rows?.axis == .horizontal ? GTK_SIZE_REQUEST_WIDTH_FOR_HEIGHT : GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH
+                }
+            }
             layoutClass.pointee.measure = { _, widget, orientation, forSize, minimum, natural, minimumBaseline, naturalBaseline in
                 guard let widget else { return }
                 let size = MainActor.assumeIsolated {
@@ -498,15 +606,20 @@ final class LazyRows {
         return lazyRowsLayoutType
     }
 
-    /// Along the axis: every row's length and the spacing, known or estimated; it cannot be made
-    /// smaller. Across: nothing at least (it takes what it is offered), its widest made row at
-    /// best.
+    /// Along the axis: every line's length and the spacing, known or estimated; it cannot be made
+    /// smaller. Across: a stack's nothing at least (it takes what it is offered), its widest made
+    /// row at best; a grid's its tracks' smallest length at least, at best the length its made rows
+    /// give its flexible tracks.
     private func measure(_ orientation: GtkOrientation, forSize: Int) -> (minimum: Int, natural: Int) {
         if orientation == mainOrientation {
-            // A LazyVStack's height is for a width; a LazyHStack's width is for no height.
-            let cross = axis == .vertical ? forSize : -1
+            // A LazyVStack's height and a grid's line length are for a size across; a LazyHStack's
+            // width is for none.
+            let cross = lengthKey(forSize)
             let length = offsets(cross: cross).last ?? 0
             return (length, length)
+        }
+        if let grid {
+            return (LazyGridLayout.minimumLength(grid.tracks), LazyGridLayout.naturalTrackLength(grid, items: madeGridBoxes))
         }
         var widest = 0
         for row in made.values {
@@ -516,34 +629,40 @@ final class LazyRows {
         return (0, widest)
     }
 
-    /// Places the made rows at their offsets, each aligned across the stack, and remembers their
-    /// lengths for this size. A change of size or place may bring other rows into view: refresh.
+    /// Places the made lines at their offsets (a stack's row aligned across the stack, a grid's
+    /// cells in their tracks), and remembers their lengths for this size. A change of size or place
+    /// may bring other lines into view: refresh.
     private func allocate(width: Int, height: Int) {
         let cross = axis == .vertical ? width : height
         let key = lengthKey(cross)
         if key != knownCross {
-            // The row at the top before the change, from the lengths for the old width; the next
+            // The line at the top before the change, from the lengths for the old width; the next
             // refresh puts it back (the scroll position cannot change during allocation). Kept
             // when an earlier change was not put back yet.
-            if pendingAnchor == nil, adjustment != nil, knownCross >= 0, let top = lastTop, top > 0, !rows.isEmpty {
+            if pendingAnchor == nil, adjustment != nil, knownCross >= 0, let top = lastTop, top > 0, lineCount > 0 {
                 let starts = offsets(cross: knownCross)
-                let index = row(at: Int(top), starts: starts)
+                let index = line(at: Int(top), starts: starts)
                 pendingAnchor = (index, Int(top) - starts[index])
             }
             known = [:]
             knownCross = key
         }
         let starts = offsets(cross: cross)
-        for (index, row) in made.sorted(by: { $0.key < $1.key }) {
-            let box = row.outerWidget!
-            let length = self.length(of: box, cross: cross)
-            known[index] = length
+        for line in madeLines.sorted() {
+            let length = lineLength(line, cross: cross)
+            known[line] = length
+            if let grid {
+                LazyGridLayout.allocateLine(grid, items: madeBoxes(of: line), trackLength: cross,
+                                            lineStart: starts[line], lineLength: length)
+                continue
+            }
+            guard let box = madeBoxes(of: line).first else { continue }
             let across = crossSize(of: box, cross: cross, length: length)
             let block = max(across, cross)
             let place = StackSolver.centeredStart(length: block, available: cross)
                 + StackSolver.alignedOffset(size: across, block: block, alignment: alignment)
-            let x = axis == .vertical ? place : starts[index]
-            let y = axis == .vertical ? starts[index] : place
+            let x = axis == .vertical ? place : starts[line]
+            let y = axis == .vertical ? starts[line] : place
             var origin = graphene_point_t(x: Float(x), y: Float(y))
             let size = axis == .vertical ? (across, length) : (length, across)
             gtk_widget_allocate(box, Int32(clamping: size.0), Int32(clamping: size.1), -1, gsk_transform_translate(nil, &origin))
