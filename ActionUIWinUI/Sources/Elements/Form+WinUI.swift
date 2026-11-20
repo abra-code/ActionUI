@@ -4,16 +4,17 @@
  Linux renderer): a column of its rows, 8 points apart and aligned to its leading edge, as large as its
  rows unless one of them fills, and centered in its parent like a VStack. A Section's rows are laid out
  as the Form's own (Section+WinUI).
- The titles of its LabeledContent, Picker, DatePicker and Stepper rows (a Section's too) end at a label
- column as wide as the widest title, and every row's content starts 8 points after it: a titled row's
- control, and the whole of a row without a title (a Text, a Button, a Section's header). With no titled
- row there is no column and the rows start at the Form's leading edge; an empty title makes a column of
- 0; a Picker's, DatePicker's or Stepper's title labelsHidden hides makes its row one without a title
- (FormColumn, as on Linux; LabeledContent has no labelsHidden yet). A row's title change, and a
+ The titles of its LabeledContent, Picker, DatePicker, Stepper, switch Toggle, TextField and SecureField
+ rows (a Section's too) end at a label column as wide as the widest title, and every row's content starts
+ 8 points after it: a titled row is moved so its title ends at the column (its own title, gap and
+ control kept: a frame on it holds all three, as on macOS), and a row without a title (a Text, a Button,
+ a checkbox Toggle, a Section's header) starts 8 after it (FormColumn, as the Linux renderer's
+ offsets). With no titled row there is no column and the rows start at the Form's leading edge; an empty title makes a column of
+ 0; a Picker's, DatePicker's, Stepper's, switch's, TextField's or SecureField's title labelsHidden hides
+ makes its row one without a title (FormColumn, as on Linux; LabeledContent has no labelsHidden yet). A row's title change, and a
  Section's rows changing, lay the Form out again, as neither need change the size of what holds them.
 
- Not yet: the titles of a switch Toggle, a TextField and a SecureField in the column (they show none
- yet); 5 points instead of 8 above a row with text below a row without (measured on macOS); a row's
+ Not yet: 5 points instead of 8 above a row with text below a row without (measured on macOS); a row's
  padding or frame moving its title, and a stack row's titles (Linux takes them into the column).
 */
 
@@ -47,19 +48,18 @@ extension Form: ActionUIWinUIRenderer {
     }
 }
 
-/// A row layout whose title a Form lines up in its label column.
+/// A row layout whose title a Form lines up in its label column: the title first, at the row's leading
+/// edge.
 @MainActor protocol FormLabeledLayout: AnyObject {
     /// The title's width as the row shows it; nil when it shows none (labelsHidden).
     func formTitleWidth() -> Double?
-    /// In a Form, the label column's width: the title ends there, the content starts 8 after it.
-    var formColumn: Double? { get set }
     /// Asks the Form to lay its rows out again, after the title changed.
     var formChanged: (() -> Void)? { get set }
 }
 
 /// A Form's label column (as the Linux renderer's FormLayout): the widest title among its rows, its
-/// Sections' rows included, sets the column; a titled row's title ends at it, and a row without a title
-/// starts 8 after it (its stack's leading inset).
+/// Sections' rows included, sets the column; a titled row is set in by the column less its title, so the
+/// title ends at the column, and a row without a title by the column and 8 (its stack's leading inset).
 @MainActor enum FormColumn {
     private struct Row {
         let view: WinUIObject
@@ -71,18 +71,18 @@ extension Form: ActionUIWinUIRenderer {
         var rows: [Row] = []
         collect(form, stack, into: &rows)
         let widths = rows.map { $0.labeled?.formTitleWidth() }
-        // In whole points: a titled row's content starts at column + 8 as its own layout places it, a
-        // row without a title at its stack's inset, which is whole; a fractional column would set them
-        // a pixel apart.
+        // In whole points, as the insets are: a titled row's content then lands within half a point of
+        // column + 8, the same edge as the rows without a title.
         let column = widths.compactMap { $0 }.max().map { $0.rounded(.up) }
         var stacks: [ObjectIdentifier: StackLayout] = [ObjectIdentifier(stack): stack]
         var insets: [ObjectIdentifier: [ObjectIdentifier: Int]] = [:]
         for (row, width) in zip(rows, widths) {
             let key = ObjectIdentifier(row.stack)
             stacks[key] = row.stack
-            row.labeled?.formColumn = width == nil ? nil : column
             row.labeled?.formChanged = { [weak panel = stack.panel] in panel?.invalidateLayout() }
-            let inset = column.map { width == nil ? Int(($0 + StackLayout.defaultSpacing).rounded(.up)) : 0 } ?? 0
+            let inset = column.map { column in
+                width.map { Int((column - $0).rounded()) } ?? Int((column + StackLayout.defaultSpacing).rounded(.up))
+            } ?? 0
             insets[key, default: [:]][ObjectIdentifier(row.view)] = inset
         }
         for (key, rowStack) in stacks {
@@ -113,7 +113,19 @@ extension Form: ActionUIWinUIRenderer {
         case let state as DatePickerState: return state.layout
         case let state as StepperState: return state.layout
         case let layout as LabeledContentLayout: return layout
+        case let state as ToggleState: return state.layout
+        case let state as TextFieldState: return state.layout
         default: return nil
         }
+    }
+
+    /// Whether `node` is a row of a Form (of the Form or of its Sections): a switch, a TextField and a
+    /// SecureField then show their title in its label column. Read when the element is made.
+    static func isRow(_ node: RenderNode) -> Bool {
+        var parent = node.parent
+        while let current = parent, current.element.type == "Section" {
+            parent = current.parent
+        }
+        return parent?.element.type == "Form"
     }
 }

@@ -13,7 +13,8 @@
           "id": 4,
           "properties": { "header": "Account" },
           "children": [
-            { "type": "TextField", "id": 5, "properties": { "prompt": "Name", "frame": { "width": 220 } } },
+            { "type": "TextField", "id": 5, "properties": { "title": "Name", "prompt": "Full name", "frame": { "width": 220 } } },
+            { "type": "SecureField", "id": 16, "properties": { "title": "Password", "frame": { "width": 220 } } },
             { "type": "Toggle", "id": 6, "properties": { "title": "Remember me", "isOn": true } }
           ]
         },

@@ -7,12 +7,12 @@
  - the text is the value, else the text property (SecureField.initialValue), set only when it differs,
    since setting it moves the caret; WinUI also reports the renderer's own change, a moment later, and
    the report matching the text an update set is skipped, as TextField's is;
- - the placeholder is the prompt, else the title;
+ - the placeholder is the prompt, else the title; in a Form the title stands before the field in the
+   label column and the placeholder is the prompt alone, as TextField's (TextField.inFormLayout);
  - typing runs Core's TextField.userEditedText (the value, then valueChangeActionID); Return and leaving
    the field run TextField.userSubmitted (actionID), as on macOS and Linux.
 
- Not yet: textContentType (ignored on macOS too); a title in a Form's label column; an accessible name
- from the title.
+ Not yet: textContentType (ignored on macOS too); an accessible name from the title.
 */
 
 import CWinUI
@@ -42,15 +42,21 @@ extension SecureField: ActionUIWinUIRenderer {
             TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id,
                                     windowUUID: node.windowModel.windowUUID)
         }
-        return box
+        return try TextField.inFormLayout(node, box)
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
-        node.applyTextAppearance(to: view, what: "a SecureField")
         let props = Props(node.properties)
-        let text = SecureField.initialValue(node.model) as? String ?? props.text
-        let placeholder = props.prompt ?? props.title
         let state = node.state as? TextFieldState
+        // In a Form the view is the layout; the field is its control.
+        let view = state?.layout?.control ?? view
+        node.applyTextAppearance(to: view, what: "a SecureField")
+        let text = SecureField.initialValue(node.model) as? String ?? props.text
+        var placeholder = props.prompt ?? props.title
+        if let layout = state?.layout {
+            TextField.showFormTitle(layout, props.title, node)
+            placeholder = props.prompt ?? ""
+        }
         var ok = true
         if TextField.currentText(view) != text {
             ok = actionUIWinUITextBoxSetText(view.pointer, text)

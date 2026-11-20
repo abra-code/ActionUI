@@ -35,17 +35,23 @@ final class TitledControlLayout: FormLabeledLayout {
     let control: WinUIObject
     /// labelsHidden: no title and no gap.
     var titleHidden = false {
-        didSet { if titleHidden != oldValue { panel.invalidateLayout() } }
+        didSet {
+            if titleHidden != oldValue {
+                panel.invalidateLayout()
+                // In a Form the column may change without this row's size.
+                formChanged?()
+            }
+        }
     }
     /// The control's rows of equal height (a radio group's buttons in a column), for the title to sit
     /// centered on the first; 1 centers it on the whole control.
     var rows = 1 {
         didSet { if rows != oldValue { panel.invalidateLayout() } }
     }
-    /// In a Form, its label column's width (FormColumn): the title ends there and the control starts
-    /// `spacing` after it, at the row's leading edge rather than centered in a wider frame.
-    var formColumn: Double? {
-        didSet { if formColumn != oldValue { panel.invalidateLayout() } }
+    /// The control takes the width the row has after the title (a text field in a Form, as wide as
+    /// it is offered), rather than its own.
+    var controlFills = false {
+        didSet { if controlFills != oldValue { panel.invalidateLayout() } }
     }
     private var shownTitle: String?
     private var measuredTitle = ActionUIWinUISize(width: 0, height: 0)
@@ -84,12 +90,7 @@ final class TitledControlLayout: FormLabeledLayout {
     /// Asks the Form this row is in to lay its rows out again (FormColumn sets it).
     var formChanged: (() -> Void)?
 
-    private var leading: Double {
-        if let formColumn, !titleHidden {
-            return formColumn + Self.spacing
-        }
-        return titleHidden ? 0 : measuredTitle.width + Self.spacing
-    }
+    private var leading: Double { titleHidden ? 0 : measuredTitle.width + Self.spacing }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         let titleSize = title.measure(ActionUIWinUISize(width: .infinity, height: .infinity))
@@ -97,20 +98,23 @@ final class TitledControlLayout: FormLabeledLayout {
         let offer = ActionUIWinUISize(width: available.width.isFinite ? max(available.width - leading, 0) : .infinity,
                                       height: available.height)
         measuredControl = control.measure(offer)
+        if controlFills && offer.width.isFinite {
+            measuredControl.width = max(measuredControl.width, offer.width)
+        }
         return ActionUIWinUISize(width: leading + measuredControl.width, height: max(measuredTitle.height, measuredControl.height))
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
         // At their own sizes, centered in a wider frame (macOS centers its pop-up button there, as the
         // Linux renderer does); in a narrower one the control gets what is left.
-        let start = formColumn != nil ? 0 : max((finalSize.width - leading - measuredControl.width) / 2, 0)
-        let controlWidth = min(measuredControl.width, max(finalSize.width - leading, 0))
+        // A control that fills starts after the title.
+        let start = controlFills ? 0 : max((finalSize.width - leading - measuredControl.width) / 2, 0)
+        let room = max(finalSize.width - leading, 0)
+        let controlWidth = controlFills ? room : min(measuredControl.width, room)
         let controlY = (finalSize.height - measuredControl.height) / 2
         let firstRow = measuredControl.height / Double(max(rows, 1))
         let titleY = controlY + (firstRow - measuredTitle.height) / 2
-        // In a Form the title ends at the label column.
-        let titleX = formColumn.map { $0 - measuredTitle.width } ?? start
-        title.arrange(ActionUIWinUIRect(x: titleX, y: titleY, width: measuredTitle.width, height: measuredTitle.height))
+        title.arrange(ActionUIWinUIRect(x: start, y: titleY, width: measuredTitle.width, height: measuredTitle.height))
         control.arrange(ActionUIWinUIRect(x: start + leading, y: controlY, width: controlWidth, height: measuredControl.height))
     }
 }

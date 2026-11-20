@@ -13,10 +13,16 @@
    update set is skipped, so a late one cannot write an older text over a newer value (the program
    setting the value again before WinUI reported the first change).
 
- Not yet: axis vertical (several lines), number formats, textContentType, a title in a Form's label
- column. Leaving the field is WinUI's LostFocus; whether it also comes when the window is
- deactivated or a context menu opens (Linux submits only when the focus moves to another control)
- is to be measured on a desktop.
+ - In a Form (a row of it or of its Sections), the title stands before the field in the Form's label
+   column (FormColumn) and the field fills the rest of the row, as macOS and Linux lay it out; the
+   placeholder is then the prompt alone. An empty title makes a column of 0 (the field starts 8 in), as
+   on Linux (measured on macOS); a title labelsHidden hides makes it a row without a title. Being in a
+   Form is read when the element is made.
+
+ Not yet: axis vertical (several lines), number formats, textContentType; Preview's UI Automation
+ operations reach a field in a Form only through its layout (none does yet). Leaving the field is
+ WinUI's LostFocus; whether it also comes when the window is deactivated or a context menu opens
+ (Linux submits only when the focus moves to another control) is to be measured on a desktop.
 */
 
 #if canImport(FoundationEssentials)
@@ -51,15 +57,46 @@ extension TextField: ActionUIWinUIRenderer {
             guard let node, node.isAttached else { return }
             TextField.userSubmitted(element: node.element, windowUUID: node.windowModel.windowUUID, props: Props(node.properties))
         }
-        return box
+        return try inFormLayout(node, box)
+    }
+
+    /// The field in a Form: its title before it, in the label column (TextFieldState.layout); else the
+    /// field itself.
+    static func inFormLayout(_ node: RenderNode, _ box: WinUIObject) throws(WinUIError) -> WinUIObject {
+        guard FormColumn.isRow(node) else { return box }
+        let layout = try TitledControlLayout(control: box)
+        layout.controlFills = true
+        (node.state as? TextFieldState)?.layout = layout
+        return layout.panel.object
+    }
+
+    /// The title of a field in a Form (`layout`): shown in the label column (an empty one 0 wide), none
+    /// when labelsHidden hides it.
+    static func showFormTitle(_ layout: TitledControlLayout, _ title: String, _ node: RenderNode) {
+        layout.setTitle(title)
+        layout.titleHidden = node.isLabelsHidden
+        node.textAppearance.apply(to: layout.title, what: "a field's title")
+        node.applyAccessibilityHidden(to: layout.title)
+        // RenderNode applies both to the view, which is the layout's panel (no Control, no
+        // automation peer): the field gets them here.
+        node.applyAccessibilityHidden(to: layout.control)
+        if !actionUIWinUIElementSetEnabled(layout.control.pointer, !(node.isDisabled || node.isHidden)) {
+            ActionUIModel.shared.logger.log("TextField: \(WinUIError.last("enabling a field"))", .error)
+        }
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
-        node.applyTextAppearance(to: view, what: "a TextField")
         let props = Props(node.properties)
-        let text = node.model.value as? String ?? props.initialValue
-        let placeholder = props.prompt ?? props.title
         let state = node.state as? TextFieldState
+        // In a Form the view is the layout; the field is its control.
+        let view = state?.layout?.control ?? view
+        node.applyTextAppearance(to: view, what: "a TextField")
+        let text = node.model.value as? String ?? props.initialValue
+        var placeholder = props.prompt ?? props.title
+        if let layout = state?.layout {
+            showFormTitle(layout, props.title, node)
+            placeholder = props.prompt ?? ""
+        }
         // Set only when it differs (the shim compares too): setting it moves the caret, and WinUI
         // reports the change, which the handler then knows to skip.
         var ok = true
@@ -91,4 +128,6 @@ extension TextField: ActionUIWinUIRenderer {
 @MainActor final class TextFieldState {
     var placeholder: String?
     var pendingSet: String?
+    /// A TextField or SecureField in a Form: its title before it, in the Form's label column.
+    var layout: TitledControlLayout?
 }

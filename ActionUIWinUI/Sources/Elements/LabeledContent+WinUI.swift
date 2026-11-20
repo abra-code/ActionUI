@@ -19,11 +19,6 @@ final class LabeledContentLayout: FormLabeledLayout {
     let title: WinUIObject
     let content: StackLayout
     private var shownTitle: String?
-    /// In a Form, its label column's width (FormColumn): the title ends there, the content starts
-    /// `spacing` after it.
-    var formColumn: Double? {
-        didSet { if formColumn != oldValue { panel.invalidateLayout() } }
-    }
     /// The title and the content's sizes from the last measure pass, for arrange.
     private var measuredTitle = ActionUIWinUISize(width: 0, height: 0)
     private var measuredContent = ActionUIWinUISize(width: 0, height: 0)
@@ -61,7 +56,7 @@ final class LabeledContentLayout: FormLabeledLayout {
         title.measure(ActionUIWinUISize(width: .infinity, height: .infinity)).width
     }
 
-    private var left: Double { (formColumn ?? measuredTitle.width) + Self.spacing }
+    private var left: Double { measuredTitle.width + Self.spacing }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         // Unbounded: its one line, even when its stack probes the row's smallest height with nothing
@@ -74,9 +69,7 @@ final class LabeledContentLayout: FormLabeledLayout {
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
-        // In a Form the title ends at the label column.
-        let titleX = formColumn.map { $0 - measuredTitle.width } ?? 0
-        title.arrange(ActionUIWinUIRect(x: titleX, y: (finalSize.height - measuredTitle.height) / 2,
+        title.arrange(ActionUIWinUIRect(x: 0, y: (finalSize.height - measuredTitle.height) / 2,
                                         width: measuredTitle.width, height: measuredTitle.height))
         content.panel.object.arrange(ActionUIWinUIRect(x: left, y: 0, width: max(finalSize.width - left, 0), height: finalSize.height))
     }

@@ -161,7 +161,8 @@ ACTIONUI_WINUI_API bool actionUIWinUICheckBoxOnClick(ActionUIWinUIObject *checkB
 
 // A new ToggleSwitch, off. NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIToggleSwitchCreate(void);
-// Shows `title` beside the switch, on and off (in place of WinUI's own "On" and "Off").
+// Shows `title` beside the switch, on and off (in place of WinUI's own "On" and "Off"); NULL: no text,
+// and no room kept for one (a switch whose title a Form shows in its label column).
 ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchSetTitle(ActionUIWinUIObject *toggleSwitch, const char *title);
 ACTIONUI_WINUI_API bool actionUIWinUIToggleSwitchSetOn(ActionUIWinUIObject *toggleSwitch, bool on);
 // Whether it is on now; false on failure.

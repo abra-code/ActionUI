@@ -89,6 +89,14 @@ ActionUIWinUIObject *actionUIWinUIToggleSwitchCreate(void) {
 bool actionUIWinUIToggleSwitchSetTitle(ActionUIWinUIObject *toggleSwitch, const char *title) {
     return guarded("toggle switch set title", [&]() {
         muxc::ToggleSwitch typed = objectAs<muxc::ToggleSwitch>(toggleSwitch, L"ToggleSwitch");
+        if (title == nullptr) {
+            // No text, and no room kept for one (the style's minimum width is the text's).
+            typed.OnContent(nullptr);
+            typed.OffContent(nullptr);
+            typed.MinWidth(0);
+            return true;
+        }
+        typed.ClearValue(mux::FrameworkElement::MinWidthProperty());
         wf::IInspectable content = winrt::box_value(toHString(title));
         // The same text on and off, in place of WinUI's own "On" and "Off".
         typed.OnContent(content);
