@@ -1,7 +1,8 @@
 # macOS: builds ActionUI's root package (the SwiftUI renderer, the menu bar builder, the language
-# adapters, the remote server and the verifier) with Xcode 27 on an Apple silicon runner, and runs
-# its tests. The steps are in Scripts/ci-macos.sh, which also runs by hand on a Mac. The job uploads
-# its logs and summary as an artifact and adds the summary to the run page.
+# adapters, the remote server and the verifier) with Xcode 27 on an Apple silicon runner and runs
+# its tests, builds the Xcode project, and tests or builds the packages in Apps and Add-ons. The
+# steps are in Scripts/ci-macos.sh, which also runs by hand on a Mac. The job uploads its logs and
+# summary as an artifact and adds the summary to the run page.
 #
 # Runs on pushes to main and on pull requests into main, except when only documentation changed;
 # other branches (WinUI, which merges main) do not run it, but can start it by hand.
@@ -47,10 +48,21 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Build
+        id: build
         run: Scripts/ci-macos.sh build
 
       - name: Test
         run: Scripts/ci-macos.sh test
+
+      # The next two run when the root package's tests failed too, but not when it did not build:
+      # they compile it again, and would only repeat its errors.
+      - name: Build the Xcode project
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: Scripts/ci-macos.sh xcode
+
+      - name: Test or build the packages in Apps and Add-ons
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: Scripts/ci-macos.sh packages
 
       - name: Upload results
         if: always()
