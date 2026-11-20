@@ -1,0 +1,61 @@
+# macOS: builds ActionUI's root package (the SwiftUI renderer, the menu bar builder, the language
+# adapters, the remote server and the verifier) with Xcode 27 on an Apple silicon runner, and runs
+# its tests. The steps are in Scripts/ci-macos.sh, which also runs by hand on a Mac. The job uploads
+# its logs and summary as an artifact and adds the summary to the run page.
+#
+# Runs on pushes to main and on pull requests into main, except when only documentation changed;
+# other branches (WinUI, which merges main) do not run it, but can start it by hand.
+
+name: macOS
+
+on:
+  # Branches only: a tag push would run it too, and GitHub applies no path filter to tags.
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'Documentation/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'Documentation/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run still going, except on main,
+# where every commit keeps its result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build-and-test:
+    name: Build and test
+    # macOS 27 with Xcode 27 (a preview image until GitHub names a macos-27 one): the tests' measured
+    # values come from macOS 27, and the macos-26 images have only Xcode 26.
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      # The image's default Xcode moves with each image update; pin the one the code is built with.
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      ACTIONUI_CI_RESULTS: ${{ github.workspace }}/ci-results
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7.0.1
+
+      - name: Build
+        run: Scripts/ci-macos.sh build
+
+      - name: Test
+        run: Scripts/ci-macos.sh test
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: macos-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-results
+          if-no-files-found: warn
