@@ -1,0 +1,62 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 10, "properties": { "text": "A fixed column and two flexible ones", "font": "headline" } },
+    {
+      "type": "LazyVGrid",
+      "id": 2,
+      "properties": { "columns": [ { "minimum": 60 }, { "flexible": true }, { "flexible": true } ], "spacing": 6, "alignment": "leading" },
+      "children": [
+        { "type": "Text", "id": 3, "properties": { "text": "One", "padding": 4, "background": "yellow" } },
+        { "type": "Text", "id": 4, "properties": { "text": "Two", "padding": 4, "background": "yellow" } },
+        { "type": "Text", "id": 5, "properties": { "text": "Three", "padding": 4, "background": "yellow" } },
+        { "type": "Color", "id": 6, "properties": { "color": "teal", "frame": { "height": 30 } } },
+        { "type": "Text", "id": 7, "properties": { "text": "Five, a longer one", "padding": 4, "background": "yellow" } },
+        { "type": "Text", "id": 8, "properties": { "text": "Six", "padding": 4, "background": "yellow" } },
+        { "type": "Text", "id": 9, "properties": { "text": "Seven", "padding": 4, "background": "yellow" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 40,
+      "children": [
+        { "type": "Text", "id": 41, "properties": { "text": "In a row:" } },
+        {
+          "type": "LazyVGrid",
+          "id": 42,
+          "properties": { "columns": [ { "flexible": true }, { "flexible": true } ], "spacing": 4 },
+          "children": [
+            { "type": "Color", "id": 43, "properties": { "color": "teal", "frame": { "height": 16 } } },
+            { "type": "Color", "id": 44, "properties": { "color": "orange", "frame": { "height": 16 } } }
+          ]
+        }
+      ]
+    },
+    { "type": "Text", "id": 11, "properties": { "text": "2000 cells in 4 columns", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 20,
+      "properties": { "frame": { "height": 140 } },
+      "content": {
+        "type": "LazyVGrid",
+        "id": 21,
+        "properties": { "columns": [ { "flexible": true }, { "flexible": true }, { "flexible": true }, { "flexible": true } ], "spacing": 4 },
+        "template": { "type": "Text", "id": 22, "properties": { "text": "$1", "padding": 4, "background": "yellow" } }
+      }
+    },
+    { "type": "Text", "id": 12, "properties": { "text": "300 cells in 2 rows", "font": "headline" } },
+    {
+      "type": "ScrollView",
+      "id": 30,
+      "properties": { "axis": "horizontal", "frame": { "height": 70 } },
+      "content": {
+        "type": "LazyHGrid",
+        "id": 31,
+        "properties": { "rows": [ { "flexible": true }, { "flexible": true } ], "spacing": 6 },
+        "template": { "type": "Text", "id": 32, "properties": { "text": "$1", "padding": 4, "background": "yellow" } }
+      }
+    }
+  ]
+}

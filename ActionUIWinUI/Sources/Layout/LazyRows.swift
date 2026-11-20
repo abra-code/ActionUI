@@ -22,9 +22,32 @@
 
 import CWinUI
 
+/// What gives a repeater its elements: a lazy stack's rows (LazyRows), a lazy grid's lines
+/// (LazyGridLines).
+@MainActor
+protocol RepeaterSource: AnyObject {
+    /// The element for item `index`, lent to the repeater; nil when it cannot be made.
+    func make(_ index: Int) -> OpaquePointer?
+    /// The repeater no longer shows `element`.
+    func recycle(_ element: OpaquePointer)
+}
+
+/// A repeater (the shim's ItemsRepeater) whose elements come from `source`, held weakly.
+@MainActor
+func makeRepeater(vertical: Bool, source: any RepeaterSource, what: String) throws(WinUIError) -> WinUIObject {
+    let box = RepeaterSourceBox()
+    let context = Unmanaged.passRetained(box).toOpaque()
+    guard let repeater = WinUIObject(adopting: actionUIWinUIRepeaterCreate(vertical, makeRepeaterElement, recycleRepeaterElement,
+                                                                           context, releaseRepeaterSourceBox)) else {
+        throw WinUIError.last("creating \(what)'s repeater")
+    }
+    box.source = source
+    return repeater
+}
+
 /// What a lazy stack in its template form keeps: its repeater, the rows it shows and the rows made.
 @MainActor
-final class LazyRows {
+final class LazyRows: RepeaterSource {
     let axis: StackLayout.Axis
     private(set) var repeater: WinUIObject!
     private weak var node: RenderNode?
@@ -40,14 +63,7 @@ final class LazyRows {
     init(node: RenderNode, axis: StackLayout.Axis) throws(WinUIError) {
         self.node = node
         self.axis = axis
-        let box = LazyRowsBox()
-        let context = Unmanaged.passRetained(box).toOpaque()
-        guard let repeater = WinUIObject(adopting: actionUIWinUIRepeaterCreate(axis == .vertical, makeRow, recycleRow,
-                                                                               context, releaseRowsBox)) else {
-            throw WinUIError.last("creating a lazy stack's repeater")
-        }
-        self.repeater = repeater
-        box.rows = self
+        repeater = try makeRepeater(vertical: axis == .vertical, source: self, what: "a lazy stack")
     }
 
     /// Makes the repeater's items the content rows of `node`'s template, and its spacing and the
@@ -92,7 +108,7 @@ final class LazyRows {
 
     /// The repeater asks for row `index`'s element: its instance, made and synced now (a layout pass
     /// is under way), in a cell. Nil when it cannot be made.
-    fileprivate func make(_ index: Int) -> OpaquePointer? {
+    func make(_ index: Int) -> OpaquePointer? {
         guard let node, node.isAttached, let template, rows.indices.contains(index) else { return nil }
         let instance = node.templateRowNode(template, row: rows[index], rowIndex: index)
         instance.sync()
@@ -112,7 +128,7 @@ final class LazyRows {
     }
 
     /// The repeater no longer shows `element`: its row's instance leaves the tree.
-    fileprivate func recycle(_ element: OpaquePointer) {
+    func recycle(_ element: OpaquePointer) {
         guard let position = made.firstIndex(where: { actionUIWinUIObjectIsSame($0.cell.panel.object.pointer, element) }) else { return }
         let row = made.remove(at: position)
         node?.releaseTemplateNode(row.instance)
@@ -164,36 +180,36 @@ final class LazyRowCell {
     }
 }
 
-/// The repeater's callback context: a box with a weak reference to the LazyRows, so the repeater
-/// (which holds the box) does not keep it alive.
-@MainActor private final class LazyRowsBox {
-    weak var rows: LazyRows?
+/// The repeater's callback context: a box with a weak reference to its source, so the repeater (which
+/// holds the box) does not keep it alive.
+@MainActor private final class RepeaterSourceBox {
+    weak var source: (any RepeaterSource)?
 }
 
-private func lazyRowsBox(_ context: UnsafeMutableRawPointer?) -> LazyRowsBox? {
-    context.map { Unmanaged<LazyRowsBox>.fromOpaque($0).takeUnretainedValue() }
+private func repeaterSourceBox(_ context: UnsafeMutableRawPointer?) -> RepeaterSourceBox? {
+    context.map { Unmanaged<RepeaterSourceBox>.fromOpaque($0).takeUnretainedValue() }
 }
 
 // The element's address crosses the main actor's closure as a number (a pointer is not Sendable).
-private let makeRow: ActionUIWinUIRepeaterMake = { context, index in
-    let box = lazyRowsBox(context)
+private let makeRepeaterElement: ActionUIWinUIRepeaterMake = { context, index in
+    let box = repeaterSourceBox(context)
     let address = MainActor.assumeIsolated {
-        UInt(bitPattern: box?.rows?.make(Int(index)))
+        UInt(bitPattern: box?.source?.make(Int(index)))
     }
     return OpaquePointer(bitPattern: address)
 }
 
-private let recycleRow: ActionUIWinUIRepeaterRecycle = { context, element in
-    let box = lazyRowsBox(context)
+private let recycleRepeaterElement: ActionUIWinUIRepeaterRecycle = { context, element in
+    let box = repeaterSourceBox(context)
     let address = UInt(bitPattern: element)
     MainActor.assumeIsolated {
         guard let element = OpaquePointer(bitPattern: address) else { return }
-        box?.rows?.recycle(element)
+        box?.source?.recycle(element)
     }
 }
 
 // Gives back the reference passRetained took, once the repeater's factory is gone.
-private let releaseRowsBox: ActionUIWinUICallback = { context in
+private let releaseRepeaterSourceBox: ActionUIWinUICallback = { context in
     guard let context else { return }
-    Unmanaged<LazyRowsBox>.fromOpaque(context).release()
+    Unmanaged<RepeaterSourceBox>.fromOpaque(context).release()
 }
