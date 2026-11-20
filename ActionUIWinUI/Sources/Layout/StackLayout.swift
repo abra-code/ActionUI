@@ -401,11 +401,11 @@ final class StackLayout {
     stack.setItems(stackItems(stack.templateRows.contentNodes(of: node)))
 }
 
-/// A stack's items for its child nodes, in order (a child with no object has none, and an EmptyView
-/// none: it takes no place and no spacing).
+/// A stack's items for its child nodes, in order (a child with no object has none, and one that takes
+/// no place, as an EmptyView or a Link with no URL, none: no place and no spacing).
 @MainActor func stackItems(_ children: [RenderNode]) -> [StackLayout.Item] {
     children.compactMap { child in
-        guard child.element.type != "EmptyView", let view = child.outerView else { return nil }
+        guard !child.takesNoPlace, let view = child.outerView else { return nil }
         let spacerMinimum = child.element.type == "Spacer" ? (Spacer.Props(child.properties).minLength ?? Spacer.defaultMinLength) : nil
         return StackLayout.Item(view: view, spacerMinimum: spacerMinimum, expansion: child.expansion, cap: child.caps,
                                 compressible: child.compression)

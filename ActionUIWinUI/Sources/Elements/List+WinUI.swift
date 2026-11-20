@@ -282,7 +282,7 @@ extension List: ActionUIWinUIRenderer {
         leaveSource(view, node, state)
         // A child with no object (its placeholder failed too) has no row: the ids stay in step with the rows.
         // An EmptyView has none either, as in SwiftUI (measured on macOS 27).
-        let childNodes = node.syncChildren(elements).filter { $0.outerView != nil && $0.element.type != "EmptyView" }
+        let childNodes = node.syncChildren(elements).filter { $0.outerView != nil && !$0.takesNoPlace }
         let ids = childNodes.map(\.element.id)
         let boxes = childNodes.map { $0.outerView! }
         state.childIDs = ids

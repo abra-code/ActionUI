@@ -60,6 +60,8 @@ package final class RenderNode {
     private(set) var hasSynced = false
     /// How far it grows in each axis when it expands: its frame's finite maximum, nil for no limit.
     private(set) var caps: (horizontal: Int?, vertical: Int?) = (nil, nil)
+    /// Whether the element takes no place in its container (ActionUIWinUIRenderer.takesNoPlace).
+    private(set) var takesNoPlace = false
 
     /// What the renderer keeps for this element instance beside its WinUI object (a stack's
     /// StackLayout), as on Linux.
@@ -125,6 +127,7 @@ package final class RenderNode {
         expansion = Self.expansion(UntrackedReads.perform { renderer.expansion(self) }, geometry: initial)
         caps = (initial.frame.horizontal.cap, initial.frame.vertical.cap)
         compression = Self.compression(UntrackedReads.perform { renderer.compression(self) }, geometry: initial)
+        takesNoPlace = UntrackedReads.perform { renderer.takesNoPlace(self) }
         toolbar = NodeToolbar.make(for: self)
     }
 
@@ -218,10 +221,13 @@ package final class RenderNode {
             let newExpansion = Self.expansion(renderer.expansion(self), geometry: geometry)
             let newCaps = (geometry.frame.horizontal.cap, geometry.frame.vertical.cap)
             let newCompression = Self.compression(renderer.compression(self), geometry: geometry)
+            let newTakesNoPlace = renderer.takesNoPlace(self)
             expansionChanged = newExpansion != expansion || newCaps != caps || newCompression != compression
+                || newTakesNoPlace != takesNoPlace
             expansion = newExpansion
             caps = newCaps
             compression = newCompression
+            takesNoPlace = newTakesNoPlace
         } onChange: { [weak self] in
             // The model is main-actor isolated, so changes, and this call, happen on the main
             // thread, before the new value is stored.

@@ -189,6 +189,18 @@ ACTIONUI_WINUI_API bool actionUIWinUIMenuItemOnClick(ActionUIWinUIObject *item, 
 // The item at `index` (from 0) of `menu` (a menu or a submenu), a new reference; NULL when there is none.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuCopyItem(ActionUIWinUIObject *menu, int32_t index);
 
+// MARK: - HyperlinkButton (a Link)
+
+// A new HyperlinkButton (text in the accent color that opens a URL) with no padding, so its text lines
+// up with the text around it, as SwiftUI's Link shows only its text. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIHyperlinkCreate(void);
+// Shows `title` (UTF-8) as the link's text.
+ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkSetTitle(ActionUIWinUIObject *link, const char *title);
+// The URL a click opens with the system (the user's browser, or the app registered for its scheme): an
+// absolute URL (UTF-8), or NULL for none (a click opens nothing). Fails for text WinUI cannot read as an
+// absolute URL.
+ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkSetURL(ActionUIWinUIObject *link, const char *url);
+
 // MARK: - CheckBox
 
 // A new CheckBox, unchecked, showing no title. NULL on failure.
@@ -505,6 +517,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetFont(ActionUIWinUIObject *element
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetOpacity(ActionUIWinUIObject *element, double opacity);
 // Whether the pointer reaches `element` and everything in it (false: clicks and hovering pass through).
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetHitTestVisible(ActionUIWinUIObject *element, bool visible);
+// Whether `element` is collapsed (Visibility.Collapsed: not drawn, no keyboard focus, not seen by
+// accessibility tools, and measured as no size), as an element that shows nothing.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetCollapsed(ActionUIWinUIObject *element, bool collapsed);
 // Whether a control can be used (false: drawn disabled, no pointer or keyboard focus). Does nothing for an
 // element that is not a control (a text block, a panel); WinUI passes a control's state to the controls
 // in its content.

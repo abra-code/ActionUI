@@ -213,6 +213,34 @@ ActionUIWinUIObject *actionUIWinUIOverflowButtonCreate(ActionUIWinUIObject *cont
     });
 }
 
+ActionUIWinUIObject *actionUIWinUIHyperlinkCreate(void) {
+    return guardedObject("hyperlink create", []() {
+        muxc::HyperlinkButton link;
+        // The default style also has a transparent border of 1 (HyperlinkButtonBorderThemeThickness), which
+        // would set the text 1 in from the text around it.
+        link.Padding(mux::Thickness{0, 0, 0, 0});
+        link.BorderThickness(mux::Thickness{0, 0, 0, 0});
+        link.MinWidth(0);
+        link.MinHeight(0);
+        return toObject(link);
+    });
+}
+
+bool actionUIWinUIHyperlinkSetTitle(ActionUIWinUIObject *link, const char *title) {
+    return guarded("hyperlink set title", [&]() {
+        objectAs<muxc::HyperlinkButton>(link, L"HyperlinkButton").Content(winrt::box_value(toHString(title)));
+        return true;
+    });
+}
+
+bool actionUIWinUIHyperlinkSetURL(ActionUIWinUIObject *link, const char *url) {
+    return guarded("hyperlink set url", [&]() {
+        muxc::HyperlinkButton typed = objectAs<muxc::HyperlinkButton>(link, L"HyperlinkButton");
+        typed.NavigateUri(url != nullptr ? wf::Uri(toHString(url)) : nullptr);
+        return true;
+    });
+}
+
 bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element) {
     return guarded("automation invoke", [&]() {
         mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");

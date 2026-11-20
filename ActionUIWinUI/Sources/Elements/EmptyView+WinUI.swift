@@ -17,4 +17,6 @@ extension EmptyView: ActionUIWinUIRenderer {
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {}
+
+    static func takesNoPlace(_ node: RenderNode) -> Bool { true }
 }

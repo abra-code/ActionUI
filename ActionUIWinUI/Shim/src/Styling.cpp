@@ -206,6 +206,17 @@ bool actionUIWinUIElementSetHitTestVisible(ActionUIWinUIObject *element, bool vi
     });
 }
 
+bool actionUIWinUIElementSetCollapsed(ActionUIWinUIObject *element, bool collapsed) {
+    return guarded("element set collapsed", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        mux::Visibility wanted = collapsed ? mux::Visibility::Collapsed : mux::Visibility::Visible;
+        if (typed.Visibility() != wanted) {
+            typed.Visibility(wanted);
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIElementSetEnabled(ActionUIWinUIObject *element, bool enabled) {
     return guarded("element set enabled", [&]() {
         mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");

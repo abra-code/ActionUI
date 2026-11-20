@@ -40,6 +40,11 @@ protocol ActionUIWinUIRenderer {
     /// stack along the axes its children can be made smaller in. Read as `expansion` is. Default:
     /// none.
     static func compression(_ node: RenderNode) -> Expansion
+
+    /// Whether the element takes no place in its container (no size, no spacing, no cell, no row),
+    /// as SwiftUI's EmptyView: an EmptyView, a Link with no URL. Read during the node's sync, tracked.
+    /// Default: false.
+    static func takesNoPlace(_ node: RenderNode) -> Bool
 }
 
 extension ActionUIWinUIRenderer {
@@ -48,4 +53,6 @@ extension ActionUIWinUIRenderer {
     static func expansion(_ node: RenderNode) -> Expansion { defaultExpansion }
 
     static func compression(_ node: RenderNode) -> Expansion { [] }
+
+    static func takesNoPlace(_ node: RenderNode) -> Bool { false }
 }

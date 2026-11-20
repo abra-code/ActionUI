@@ -41,9 +41,9 @@ extension Grid: ActionUIWinUIRenderer {
         var start = 0
         for row in rows {
             let end = min(start + row.count, nodes.count)
-            // An EmptyView takes no cell.
+            // One that takes no place (an EmptyView, a Link with no URL) takes no cell.
             cells.append(nodes[start..<end].compactMap { child in
-                guard child.element.type != "EmptyView", let view = child.outerView else { return nil }
+                guard !child.takesNoPlace, let view = child.outerView else { return nil }
                 return GridLayout.Cell(view: view, expansion: child.expansion, cap: child.caps, isSpacer: child.element.type == "Spacer")
             })
             start = end

@@ -46,9 +46,9 @@ extension VStack: ActionUIWinUIRenderer {
     /// nodes mark this one dirty when their expansion changes, and it is read after its update.
     static func childrenExpansion(_ node: RenderNode) -> Expansion {
         var expansion: Expansion = []
-        // An EmptyView takes no place (stackItems), so its frame makes nothing expand.
+        // One that takes no place (an EmptyView, a Link with no URL) takes no place (stackItems), so its frame makes nothing expand.
         // The children, or the template instances (one or the other is empty).
-        for child in node.orderedChildren + node.templateNodes where child.element.type != "EmptyView" {
+        for child in node.orderedChildren + node.templateNodes where !child.takesNoPlace {
             if child.expansion.contains(.horizontal) && child.caps.horizontal == nil { expansion.insert(.horizontal) }
             if child.expansion.contains(.vertical) && child.caps.vertical == nil { expansion.insert(.vertical) }
         }

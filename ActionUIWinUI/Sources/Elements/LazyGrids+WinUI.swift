@@ -155,9 +155,9 @@ enum LazyGrids {
                          configuration: configuration)
         } else if let cells = node.state as? GridCellsLayout {
             cells.setConfiguration(configuration)
-            // An EmptyView takes no cell, as in SwiftUI's grids (measured on macOS 27 for Grid).
+            // One that takes no place (an EmptyView, a Link with no URL) takes no cell, as in SwiftUI's grids (measured on macOS 27 for Grid).
             cells.setItems(node.syncChildren(node.subviews("children")).compactMap { child in
-                guard child.element.type != "EmptyView", let view = child.outerView else { return nil }
+                guard !child.takesNoPlace, let view = child.outerView else { return nil }
                 return GridCellsLayout.Item(view: view, expansion: child.expansion, cap: child.caps)
             })
         }

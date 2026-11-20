@@ -1,0 +1,22 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Above the links" } },
+    { "type": "Link", "id": 3, "properties": { "title": "ActionUI on GitHub", "url": "https://github.com/abra-code/ActionUI" } },
+    { "type": "Link", "id": 4, "properties": { "title": "No scheme: opens nothing", "url": "example.com" } },
+    { "type": "Link", "id": 5, "properties": { "title": "No URL: not shown" } },
+    { "type": "Text", "id": 6, "properties": { "text": "8 below the last shown link: the URL-less one takes no place" } },
+    {
+      "type": "HStack",
+      "id": 7,
+      "properties": { "spacing": 4 },
+      "children": [
+        { "type": "Text", "id": 8, "properties": { "text": "Read the" } },
+        { "type": "Link", "id": 9, "properties": { "title": "documentation", "url": "https://github.com/abra-code/ActionUI#readme" } },
+        { "type": "Text", "id": 10, "properties": { "text": "first." } }
+      ]
+    }
+  ]
+}

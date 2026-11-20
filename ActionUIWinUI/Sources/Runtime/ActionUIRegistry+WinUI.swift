@@ -28,6 +28,7 @@ extension ActionUIRegistry {
         "LazyHStack": LazyHStack.self,
         "LazyVGrid": LazyVGrid.self,
         "LazyVStack": LazyVStack.self,
+        "Link": Link.self,
         "Picker": Picker.self,
         "LabeledContent": LabeledContent.self,
         "List": List.self,
