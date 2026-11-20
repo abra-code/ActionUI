@@ -201,6 +201,23 @@ ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkSetTitle(ActionUIWinUIObject *link
 // absolute URL.
 ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkSetURL(ActionUIWinUIObject *link, const char *url);
 
+// MARK: - Expander (a DisclosureGroup)
+
+// A new Expander (a header with a chevron over a content area that opens and closes), collapsed,
+// stretched to the width it is given, showing `content` (an element, lent for the call) when expanded.
+// NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIExpanderCreate(ActionUIWinUIObject *content);
+// Shows `title` (UTF-8) as the header, and names the expander after it for accessibility tools.
+ACTIONUI_WINUI_API bool actionUIWinUIExpanderSetTitle(ActionUIWinUIObject *expander, const char *title);
+// Expands or collapses it (its ExpandedChanged event follows, as for the user's).
+ACTIONUI_WINUI_API bool actionUIWinUIExpanderSetExpanded(ActionUIWinUIObject *expander, bool expanded);
+// Whether it is expanded; false on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIExpanderIsExpanded(ActionUIWinUIObject *expander);
+// ExpandedChanged: it was expanded or collapsed, by the user (pointer, keyboard, an accessibility tool) or
+// by actionUIWinUIExpanderSetExpanded (callers compare the state with what they hold).
+ACTIONUI_WINUI_API bool actionUIWinUIExpanderOnExpandedChanged(ActionUIWinUIObject *expander, ActionUIWinUICallback handler,
+                                                               void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - CheckBox
 
 // A new CheckBox, unchecked, showing no title. NULL on failure.
@@ -416,8 +433,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvokePart(ActionUIWinUIObject *e
 // SelectionItem pattern: a selector bar's items, a list's rows, in the visual tree's order), as a user's
 // click does: the control's selection event follows. Fails when there is none at that index.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationSelectPart(ActionUIWinUIObject *element, int32_t index);
-// Toggle turns a check box or a toggle switch over (its Click, or Toggled, follows). Fails when
-// the element cannot be toggled.
+// Toggle turns a check box or a toggle switch over (its Click, or Toggled, follows); an expander is
+// expanded when collapsed and collapsed when expanded (UI Automation's ExpandCollapse pattern). Fails
+// when the element can be neither.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element);
 // SetValue replaces an element's value through UI Automation's Value pattern (its change event
 // follows); one with a RangeValue pattern instead (a Slider) gets `value` read as a number. A TextBox,

@@ -8,6 +8,7 @@
 #include <memory>
 
 #include <winrt/Windows.System.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.h>  // ExpandCollapseState
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
@@ -257,10 +258,22 @@ bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element) {
         automation::Peers::AutomationPeer peer = peerFor(objectAs<mux::UIElement>(element, L"UIElement"));
         wf::IInspectable pattern = peer.GetPattern(automation::Peers::PatternInterface::Toggle);
         automation::Provider::IToggleProvider toggler = pattern != nullptr ? pattern.try_as<automation::Provider::IToggleProvider>() : nullptr;
-        if (toggler == nullptr) {
-            return fail("automation toggle", "the element cannot be toggled");
+        if (toggler != nullptr) {
+            toggler.Toggle();
+            return true;
         }
-        toggler.Toggle();
+        // An expander: expanded if collapsed, collapsed if expanded.
+        wf::IInspectable expandPattern = peer.GetPattern(automation::Peers::PatternInterface::ExpandCollapse);
+        automation::Provider::IExpandCollapseProvider expander =
+            expandPattern != nullptr ? expandPattern.try_as<automation::Provider::IExpandCollapseProvider>() : nullptr;
+        if (expander == nullptr) {
+            return fail("automation toggle", "the element cannot be toggled, expanded or collapsed");
+        }
+        if (expander.ExpandCollapseState() == automation::ExpandCollapseState::Collapsed) {
+            expander.Expand();
+        } else {
+            expander.Collapse();
+        }
         return true;
     });
 }

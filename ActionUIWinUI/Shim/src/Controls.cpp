@@ -241,6 +241,56 @@ bool actionUIWinUIHyperlinkSetURL(ActionUIWinUIObject *link, const char *url) {
     });
 }
 
+ActionUIWinUIObject *actionUIWinUIExpanderCreate(ActionUIWinUIObject *content) {
+    return guardedObject("expander create", [&]() {
+        muxc::Expander expander;
+        expander.HorizontalAlignment(mux::HorizontalAlignment::Stretch);
+        expander.HorizontalContentAlignment(mux::HorizontalAlignment::Stretch);
+        expander.Content(objectAs<mux::UIElement>(content, L"UIElement"));
+        return toObject(expander);
+    });
+}
+
+bool actionUIWinUIExpanderSetTitle(ActionUIWinUIObject *expander, const char *title) {
+    return guarded("expander set title", [&]() {
+        muxc::Expander typed = objectAs<muxc::Expander>(expander, L"Expander");
+        winrt::hstring text = toHString(title);
+        typed.Header(winrt::box_value(text));
+        // The Expander's peer takes no name from its header: accessibility tools read it by the title.
+        automation::AutomationProperties::SetName(typed, text);
+        return true;
+    });
+}
+
+bool actionUIWinUIExpanderSetExpanded(ActionUIWinUIObject *expander, bool expanded) {
+    return guarded("expander set expanded", [&]() {
+        muxc::Expander typed = objectAs<muxc::Expander>(expander, L"Expander");
+        if (typed.IsExpanded() != expanded) {
+            typed.IsExpanded(expanded);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIExpanderIsExpanded(ActionUIWinUIObject *expander) {
+    bool expanded = false;
+    guarded("expander is expanded", [&]() {
+        expanded = objectAs<muxc::Expander>(expander, L"Expander").IsExpanded();
+        return true;
+    });
+    return expanded;
+}
+
+bool actionUIWinUIExpanderOnExpandedChanged(ActionUIWinUIObject *expander, ActionUIWinUICallback handler, void *context,
+                                            ActionUIWinUICallback destroyContext) {
+    return registerHandler("expander on expanded changed", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               muxc::Expander typed = objectAs<muxc::Expander>(expander, L"Expander");
+                               typed.Expanding([holder](auto &&, auto &&) { holder->fire(); });
+                               typed.Collapsed([holder](auto &&, auto &&) { holder->fire(); });
+                           });
+}
+
 bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element) {
     return guarded("automation invoke", [&]() {
         mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");

@@ -127,6 +127,8 @@ PREVIEW_OPTIONS = {
     "LazyGrids": ["420", "460", "--add-rows", "21", "2000", "Cell #", "--add-rows", "31", "300", "#", "--wait",
                   "--scroll", "20", "0", "5000", "--scroll", "30", "3000", "0",
                   "--max-instances", "21", "300", "--max-instances", "31", "150"],
+    "DisclosureGroups": ["420", "380", "--add-row", "7", "Row one", "--add-row", "7", "Row two", "--toggle", "2",
+                         "--expect-action", "details.toggled", "--on-action", "details.toggled", "9", "Details collapsed"],
     "Links": ["420", "220"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
               "--expect-action", "menu.copy", "--expect-action", "menu.grid",

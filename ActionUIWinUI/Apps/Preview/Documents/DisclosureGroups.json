@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "DisclosureGroup",
+      "id": 2,
+      "properties": { "title": "Details", "isExpanded": true, "valueChangeActionID": "details.toggled" },
+      "children": [
+        { "type": "Text", "id": 3, "properties": { "text": "First line" } },
+        { "type": "Text", "id": 4, "properties": { "text": "Second line" } }
+      ]
+    },
+    {
+      "type": "DisclosureGroup",
+      "id": 5,
+      "properties": { "title": "Advanced" },
+      "children": [ { "type": "Toggle", "id": 6, "properties": { "title": "Verbose" } } ]
+    },
+    {
+      "type": "DisclosureGroup",
+      "id": 7,
+      "properties": { "title": "Rows", "isExpanded": true },
+      "template": { "type": "Text", "id": 8, "properties": { "text": "$1" } }
+    },
+    { "type": "Text", "id": 9, "properties": { "text": "Nothing toggled yet", "foregroundStyle": "secondary" } }
+  ]
+}
