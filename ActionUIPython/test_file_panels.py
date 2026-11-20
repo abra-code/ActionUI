@@ -2,10 +2,16 @@
 """
 Smoke tests for NSOpenPanel / NSSavePanel Python bridge.
 
-Exercises the file panel API at the Python / C binding layer without
-starting a real NSApplication run loop.  Panels are not displayed —
-these tests verify that the functions exist, handle edge cases
-gracefully, and don't crash on invalid input.
+By default, runs only what needs no person: the functions exist, the Python
+wrapper's signatures, and the config it builds. No panel is shown.
+
+app_run_open_panel and app_run_save_panel always show a real modal panel and
+wait for it to be answered, even without an application run loop and with an
+invalid or empty config. The checks that call them (None, invalid JSON, empty
+and full config) run only with --interactive: click Cancel on each of the 8
+panels.
+
+Run with: python3 test_file_panels.py [--interactive]
 """
 
 import sys
@@ -18,8 +24,11 @@ import actionui
 # -------------------------------------------------------------------------
 
 _failures = []
+_checks_run = 0
 
 def check(label: str, condition: bool) -> bool:
+    global _checks_run
+    _checks_run += 1
     status = "PASS" if condition else "FAIL"
     print(f"  [{status}] {label}")
     if not condition:
@@ -245,17 +254,22 @@ def test_build_panel_config():
 def main():
     print("ActionUI File Panel Smoke Tests")
     print("=" * 50)
-    print("(No panel display — tests the API surface and edge cases only)")
+    interactive = "--interactive" in sys.argv[1:]
+    if interactive:
+        print("(--interactive: 8 panels will open; click Cancel on each)")
+    else:
+        print("(No panel is shown; --interactive also runs the 8 checks that open panels)")
 
     # Ensure an Application exists (may already exist from prior import)
     if actionui.Application.instance() is None:
         actionui.Application()
 
     test_c_api_surface()
-    test_none_config()
-    test_invalid_json()
-    test_empty_config()
-    test_full_config()
+    if interactive:
+        test_none_config()
+        test_invalid_json()
+        test_empty_config()
+        test_full_config()
     test_python_api_exists()
     test_build_panel_config()
 
@@ -267,7 +281,7 @@ def main():
             print(f"  - {f}")
         sys.exit(1)
     else:
-        print(f"All {sum(1 for line in open(__file__) if 'check(' in line)} checks PASSED.")
+        print(f"All {_checks_run} checks PASSED.")
 
 
 if __name__ == "__main__":
