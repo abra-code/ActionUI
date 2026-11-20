@@ -59,6 +59,28 @@ final class DocumentLoaderTests: XCTestCase {
                 XCTAssertTrue(error is ActionUIDocumentLoader.NotARegularFile, "\(path): \(error)")
             }
         }
+        // A missing file keeps the system's own error (LoadableView shows "no such file").
+        XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(folder.appendingPathComponent("missing.json"))) { error in
+            XCTAssertFalse(error is ActionUIDocumentLoader.NotARegularFile, "\(error)")
+            XCTAssertEqual((error as? CocoaError)?.code, .fileReadNoSuchFile, "\(error)")
+        }
+    }
+
+    func testRegularFilePathFollowsLinksAndRefusesEverythingElse() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("regular-path-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("a.png")
+        try Data([0]).write(to: file)
+        let link = folder.appendingPathComponent("link.png")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+
+        XCTAssertEqual(ActionUIDocumentLoader.regularFilePath(file), file.resolvingSymlinksInPath().path)
+        XCTAssertEqual(ActionUIDocumentLoader.regularFilePath(link), file.resolvingSymlinksInPath().path,
+                       "a link gives the path of the file it names")
+        for path in ["/dev/zero", "/dev/null", folder.path, folder.appendingPathComponent("missing.png").path] {
+            XCTAssertNil(ActionUIDocumentLoader.regularFilePath(URL(fileURLWithPath: path)), path)
+        }
     }
 
     func testTheNestingRuleRefusesARepeatAndADeepChain() {

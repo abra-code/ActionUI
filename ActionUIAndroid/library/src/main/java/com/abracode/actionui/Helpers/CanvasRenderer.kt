@@ -1032,13 +1032,15 @@ private fun decodeCanvasBitmap(source: CanvasImageSpec, env: CanvasDrawEnv): Ima
         )
         null
     }
-    is CanvasImageSpec.FilePath -> BitmapFactory.decodeFile(source.path)?.asImageBitmap().also {
-        if (it == null) {
-            env.logger?.log(
-                "Canvas image: filePath '${source.path}' missing or undecodable. Nothing rendered.",
-                LoggerLevel.warning,
-            )
+    // Only a regular file: opening a named pipe never returns, on the main thread.
+    is CanvasImageSpec.FilePath -> (if (isRegularFile(source.path)) BitmapFactory.decodeFile(source.path) else null)
+        ?.asImageBitmap().also {
+            if (it == null) {
+                env.logger?.log(
+                    "Canvas image: filePath '${source.path}' missing, not a regular file, or undecodable. Nothing rendered.",
+                    LoggerLevel.warning,
+                )
+            }
         }
-    }
     is CanvasImageSpec.SystemName, is CanvasImageSpec.MaterialName -> null
 }

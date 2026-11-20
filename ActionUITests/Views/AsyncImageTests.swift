@@ -170,3 +170,23 @@ final class AsyncImageTests: XCTestCase {
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
     }
 }
+
+// A file: URL a document names could be a device or a named pipe; URLSession would read /dev/zero
+// until memory runs out, or hold a thread on a pipe for good. Only a regular file is loaded.
+extension AsyncImageTests {
+    func testAFileURLThatIsNotARegularFileIsNotLoaded() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("async-image-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("a.png")
+        try Data([0]).write(to: file)
+        let pipe = folder.appendingPathComponent("pipe.png")
+        XCTAssertEqual(mkfifo(pipe.path, 0o600), 0)
+
+        XCTAssertTrue(AsyncImage.isLoadable(URL(string: "https://example.com/a.png")!))
+        XCTAssertTrue(AsyncImage.isLoadable(file))
+        for url in [URL(string: "file:///dev/zero")!, pipe, folder, folder.appendingPathComponent("missing.png")] {
+            XCTAssertFalse(AsyncImage.isLoadable(url), url.path)
+        }
+    }
+}

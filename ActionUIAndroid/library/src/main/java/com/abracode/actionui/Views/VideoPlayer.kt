@@ -33,6 +33,7 @@ import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
+import java.io.File
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -178,8 +179,18 @@ object VideoPlayer : ActionUIViewConstruction {
                     if (view.tag != urlString) {
                         view.tag = urlString
                         isAudioOnly = false // re-detect on prepare for the new source
-                        view.setVideoURI(Uri.parse(urlString))
-                        if (config.autoplay != true) view.seekTo(1) // show the first frame, not black
+                        // A document names the address: a file: one must be a regular file.
+                        // MediaPlayer opens it in this process on the main thread, and a named
+                        // pipe nobody writes to never opens. A missing file goes on to
+                        // MediaPlayer, which reports it.
+                        val file = if (urlString.startsWith("file://", ignoreCase = true)) Uri.parse(urlString).path?.let(::File) else null
+                        if (file != null && file.exists() && !file.isFile) {
+                            logger.log("VideoPlayer not playing '$urlString': ${file.path} is not a regular file", LoggerLevel.error)
+                            view.stopPlayback()
+                        } else {
+                            view.setVideoURI(Uri.parse(urlString))
+                            if (config.autoplay != true) view.seekTo(1) // show the first frame, not black
+                        }
                     }
                 },
                 onRelease = { viewRef.value = null; it.stopPlayback() },

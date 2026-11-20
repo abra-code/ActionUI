@@ -160,7 +160,7 @@ extension Table: ActionUISwiftUIRenderer {
                         case .image:
                             SwiftUI.Image(from: value, interpretation: (dataInterpretation ?? .systemName).rawValue)
                         case .asyncImage:
-                            SwiftUI.AsyncImage(url: URL(string: value)) { image in
+                            SwiftUI.AsyncImage(url: URL(string: value).flatMap { AsyncImage.isLoadable($0) ? $0 : nil }) { image in
                                 image.resizable().scaledToFit()
                             } placeholder: {
                                 SwiftUI.ProgressView()
