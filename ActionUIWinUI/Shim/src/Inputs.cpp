@@ -3,6 +3,7 @@
 
 #include "ShimInternal.h"
 
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -13,6 +14,8 @@
 #include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Microsoft.UI.Xaml.Input.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>  // VisualTreeHelper
+#include <winrt/Windows.UI.h>  // Color
 
 namespace automation = winrt::Microsoft::UI::Xaml::Automation;
 
@@ -27,6 +30,45 @@ automation::Peers::AutomationPeer peerFor(mux::UIElement const &element) {
         throw winrt::hresult_error(E_NOINTERFACE, L"the element has no automation peer");
     }
     return peer;
+}
+
+// The ColorPicker in the flyout of the first color button at or under `node`; null when there is none.
+muxc::ColorPicker colorPickerInside(mux::DependencyObject const &node) {
+    if (muxc::Button button = node.try_as<muxc::Button>()) {
+        muxc::Flyout flyout = button.Flyout() != nullptr ? button.Flyout().try_as<muxc::Flyout>() : nullptr;
+        if (muxc::ColorPicker picker = flyout != nullptr ? flyout.Content().try_as<muxc::ColorPicker>() : nullptr) {
+            return picker;
+        }
+    }
+    int32_t count = winrt::Microsoft::UI::Xaml::Media::VisualTreeHelper::GetChildrenCount(node);
+    for (int32_t index = 0; index < count; ++index) {
+        if (muxc::ColorPicker picker = colorPickerInside(winrt::Microsoft::UI::Xaml::Media::VisualTreeHelper::GetChild(node, index))) {
+            return picker;
+        }
+    }
+    return nullptr;
+}
+
+// "#RRGGBB" or "#RRGGBBAA" into `color`; false for anything else.
+bool parseHexColor(const char *text, winrt::Windows::UI::Color &color) {
+    if (text == nullptr || text[0] != '#') {
+        return false;
+    }
+    size_t length = std::strlen(text + 1);
+    if (length != 6 && length != 8) {
+        return false;
+    }
+    uint8_t parts[4] = {0, 0, 0, 255};
+    for (size_t part = 0; part < length / 2; ++part) {
+        char pair[3] = {text[1 + part * 2], text[2 + part * 2], '\0'};
+        // Two hex digits only: strtoul alone would take " 1", "+1" and "-1".
+        if (!std::isxdigit(static_cast<unsigned char>(pair[0])) || !std::isxdigit(static_cast<unsigned char>(pair[1]))) {
+            return false;
+        }
+        parts[part] = static_cast<uint8_t>(std::strtoul(pair, nullptr, 16));
+    }
+    color = winrt::Windows::UI::Color{parts[3], parts[0], parts[1], parts[2]};
+    return true;
 }
 
 } // namespace
@@ -281,6 +323,16 @@ bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element) {
 bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *value) {
     return guarded("automation set value", [&]() {
         mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        // A ColorPicker's view (its title and its color button): the button's picker takes the color, as a
+        // pick in its flyout does.
+        if (muxc::ColorPicker picker = colorPickerInside(typed)) {
+            winrt::Windows::UI::Color color{};
+            if (!parseHexColor(value, color)) {
+                return fail("automation set value", "the value is not a color (#RRGGBB or #RRGGBBAA)");
+            }
+            picker.Color(color);
+            return true;
+        }
         automation::Peers::AutomationPeer peer = peerFor(typed);
         wf::IInspectable pattern = peer.GetPattern(automation::Peers::PatternInterface::Value);
         automation::Provider::IValueProvider setter = pattern != nullptr ? pattern.try_as<automation::Provider::IValueProvider>() : nullptr;

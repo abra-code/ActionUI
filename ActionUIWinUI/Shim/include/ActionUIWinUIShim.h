@@ -438,7 +438,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIAutomationSelectPart(ActionUIWinUIObject *e
 // when the element can be neither.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationToggle(ActionUIWinUIObject *element);
 // SetValue replaces an element's value through UI Automation's Value pattern (its change event
-// follows); one with a RangeValue pattern instead (a Slider) gets `value` read as a number. A TextBox,
+// follows); one with a RangeValue pattern instead (a Slider) gets `value` read as a number; one holding a
+// color button (a ColorPicker) gets `value` ("#RRGGBB" or "#RRGGBBAA") as its picker's color, as a pick
+// in its flyout (ColorChanged follows). A TextBox,
 // whose peer has no Value pattern in WinUI 2.7, gets its text set directly, which raises TextChanged as
 // typing does, and a PasswordBox without one its password. Fails when the element takes no value.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationSetValue(ActionUIWinUIObject *element, const char *value);
@@ -506,6 +508,22 @@ typedef struct ActionUIWinUIColor {
     double alpha;
 } ActionUIWinUIColor;
 
+// MARK: - Color button (a ColorPicker)
+
+// A new color button: a Button showing a swatch of its color that opens a flyout with WinUI's
+// ColorPicker (a spectrum, sliders and an opacity slider), as macOS's color well opens the color panel.
+// Clear (transparent black) at first. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIColorButtonCreate(void);
+// Shows `color` in the swatch and in the picker (the picker's ColorChanged follows when it changes, as
+// for the user's pick: callers compare it with what they set).
+ACTIONUI_WINUI_API bool actionUIWinUIColorButtonSetColor(ActionUIWinUIObject *button, ActionUIWinUIColor color);
+// The picker's color into `color` (each part 0...1, in steps of 1/255).
+ACTIONUI_WINUI_API bool actionUIWinUIColorButtonGetColor(ActionUIWinUIObject *button, ActionUIWinUIColor *color);
+// ColorChanged: the picker's color changed, picked by the user or set by actionUIWinUIColorButtonSetColor.
+// The swatch follows by itself.
+ACTIONUI_WINUI_API bool actionUIWinUIColorButtonOnColorChanged(ActionUIWinUIObject *button, ActionUIWinUICallback handler,
+                                                               void *context, ActionUIWinUICallback destroyContext);
+
 typedef enum ActionUIWinUIBrushProperty {
     // What fills a panel's or a control's area behind its content.
     ActionUIWinUIBrushBackground = 0,
@@ -549,6 +567,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIControlSetPadding(ActionUIWinUIObject *cont
 // Whether accessibility tools (UI Automation clients: screen readers) skip `element` (its children are
 // not skipped with it: hide each).
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUIObject *element, bool hidden);
+// The name accessibility tools read for `element` (UTF-8; NULL or empty: the control's own, from its
+// content).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibleName(ActionUIWinUIObject *element, const char *name);
 
 // MARK: - Placement
 

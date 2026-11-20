@@ -1,0 +1,15 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "ColorPicker", "id": 2, "properties": { "title": "Accent", "selectedColor": "#FF6A00", "actionID": "color.picked" } },
+    { "type": "ColorPicker", "id": 3, "properties": { "title": "Hidden title", "selectedColor": "blue", "labelsHidden": true, "actionID": "color.renderer" } },
+    { "type": "ColorPicker", "id": 4, "properties": { "title": "Clear" } },
+    { "type": "Form", "id": 5, "children": [
+      { "type": "ColorPicker", "id": 6, "properties": { "title": "Background", "selectedColor": "#33996680" } },
+      { "type": "TextField", "id": 7, "properties": { "title": "Name", "text": "Theme" } }
+    ] },
+    { "type": "Text", "id": 8, "properties": { "text": "Nothing picked yet", "foregroundStyle": "secondary" } }
+  ]
+}

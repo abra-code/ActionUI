@@ -13,6 +13,7 @@ extension ActionUIRegistry {
         "Circle": Circle.self,
         "Color": Color.self,
         "ContentUnavailableView": ContentUnavailableView.self,
+        "ColorPicker": ColorPicker.self,
         "DatePicker": DatePicker.self,
         "DisclosureGroup": DisclosureGroup.self,
         "Divider": Divider.self,

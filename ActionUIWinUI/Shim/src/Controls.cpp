@@ -12,6 +12,7 @@
 #include <winrt/Microsoft.UI.Xaml.Media.h>  // VisualTreeHelper
 #include <winrt/Windows.System.h>          // VirtualKey
 
+#include <cmath>
 #include <vector>
 
 namespace automation = winrt::Microsoft::UI::Xaml::Automation;
@@ -102,10 +103,96 @@ void collectSelectionItems(mux::DependencyObject const &node, std::vector<automa
     }
 }
 
+// The swatch's outline: the theme's control stroke, else a light gray.
+media::Brush swatchStroke() {
+    try {
+        wf::IInspectable found = mux::Application::Current().Resources().Lookup(winrt::box_value(L"ControlStrokeColorDefaultBrush"));
+        if (media::Brush brush = found.try_as<media::Brush>()) {
+            return brush;
+        }
+    } catch (winrt::hresult_error const &) {
+    }
+    return media::SolidColorBrush(winrt::Windows::UI::Color{0x40, 0, 0, 0});
+}
+
+// A color button's picker, in its flyout.
+muxc::ColorPicker pickerOf(muxc::Button const &button) {
+    muxc::Flyout flyout = button.Flyout().try_as<muxc::Flyout>();
+    muxc::ColorPicker picker = flyout != nullptr ? flyout.Content().try_as<muxc::ColorPicker>() : nullptr;
+    if (picker == nullptr) {
+        throw winrt::hresult_invalid_argument(L"not a color button");
+    }
+    return picker;
+}
+
+uint8_t colorChannel(double value) {
+    double clamped = std::isfinite(value) ? (value < 0 ? 0.0 : (value > 1 ? 1.0 : value)) : 0.0;
+    return static_cast<uint8_t>(clamped * 255.0 + 0.5);
+}
+
 } // namespace
 
 
 extern "C" {
+
+ActionUIWinUIObject *actionUIWinUIColorButtonCreate(void) {
+    return guardedObject("color button create", [&]() {
+        muxc::Button button;
+        // A swatch 32 x 16 with the button's corners, the button a little tighter than a text button.
+        button.Padding(mux::Thickness{6, 5, 6, 5});
+        muxc::Border swatch;
+        swatch.Width(32);
+        swatch.Height(16);
+        swatch.CornerRadius(mux::CornerRadius{2, 2, 2, 2});
+        swatch.BorderThickness(mux::Thickness{1, 1, 1, 1});
+        swatch.BorderBrush(swatchStroke());
+        media::SolidColorBrush fill(winrt::Windows::UI::Color{0, 0, 0, 0});
+        swatch.Background(fill);
+        button.Content(swatch);
+        automation::AutomationProperties::SetName(button, L"Color");
+        muxc::ColorPicker picker;
+        picker.IsAlphaEnabled(true);
+        picker.Color(winrt::Windows::UI::Color{0, 0, 0, 0});
+        // The swatch follows the picker, whoever changed it.
+        picker.ColorChanged([fill](auto &&, muxc::ColorChangedEventArgs const &args) { fill.Color(args.NewColor()); });
+        muxc::Flyout flyout;
+        flyout.Content(picker);
+        button.Flyout(flyout);
+        return toObject(button);
+    });
+}
+
+bool actionUIWinUIColorButtonSetColor(ActionUIWinUIObject *button, ActionUIWinUIColor color) {
+    return guarded("color button set color", [&]() {
+        muxc::ColorPicker picker = pickerOf(objectAs<muxc::Button>(button, L"Button"));
+        winrt::Windows::UI::Color wanted{colorChannel(color.alpha), colorChannel(color.red), colorChannel(color.green),
+                                         colorChannel(color.blue)};
+        if (picker.Color() != wanted) {
+            picker.Color(wanted);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIColorButtonGetColor(ActionUIWinUIObject *button, ActionUIWinUIColor *color) {
+    return guarded("color button get color", [&]() {
+        if (color == nullptr) {
+            return fail("color button get color", "no place for the color");
+        }
+        winrt::Windows::UI::Color shown = pickerOf(objectAs<muxc::Button>(button, L"Button")).Color();
+        *color = ActionUIWinUIColor{shown.R / 255.0, shown.G / 255.0, shown.B / 255.0, shown.A / 255.0};
+        return true;
+    });
+}
+
+bool actionUIWinUIColorButtonOnColorChanged(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
+                                            ActionUIWinUICallback destroyContext) {
+    return registerHandler("color button on color changed", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               pickerOf(objectAs<muxc::Button>(button, L"Button"))
+                                   .ColorChanged([holder](auto &&, auto &&) { holder->fire(); });
+                           });
+}
 
 ActionUIWinUIObject *actionUIWinUIButtonCreate(void) {
     return guardedObject("button create", []() {

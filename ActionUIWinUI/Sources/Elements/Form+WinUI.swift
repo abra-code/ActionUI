@@ -117,6 +117,7 @@ extension Form: ActionUIWinUIRenderer {
         case let layout as LabeledContentLayout: return layout
         case let state as ToggleState: return state.layout
         case let state as TextFieldState: return state.layout
+        case let state as ColorPickerState: return state.layout
         default: return nil
         }
     }

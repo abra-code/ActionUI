@@ -258,4 +258,15 @@ bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUIObject *element, bo
     });
 }
 
+bool actionUIWinUIElementSetAccessibleName(ActionUIWinUIObject *element, const char *name) {
+    return guarded("element set accessible name", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        winrt::hstring wanted = name != nullptr ? toHString(name) : winrt::hstring{};
+        if (mux::Automation::AutomationProperties::GetName(typed) != wanted) {
+            mux::Automation::AutomationProperties::SetName(typed, wanted);
+        }
+        return true;
+    });
+}
+
 } // extern "C"

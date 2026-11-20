@@ -14,7 +14,8 @@
 //   --select-part ID N       the same with UI Automation's SelectionItem and the Nth part (from 0) of
 //                            element ID that can be selected (a TabView's tab, a List's row)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed; a
-//                            Slider's position, TEXT read as a number)
+//                            Slider's position, TEXT read as a number; a ColorPicker's color, TEXT
+//                            "#RRGGBB" or "#RRGGBBAA", as picked in its flyout)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --scroll-row ID ROW      scrolls List ID so that row ROW (from 0) is in view
 //   --expect-row-name ID ROW NAME  fails unless accessibility tools name List ID's row ROW (from 0) NAME
