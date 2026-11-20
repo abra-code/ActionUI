@@ -22,6 +22,7 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { isOpenedURL } from "../Helpers/URLPolicy.js";
 
 register("ShareLink", {
     valueType: "none",
@@ -55,7 +56,7 @@ register("ShareLink", {
 
     buildView: (element, properties, ctx) => {
         const item = typeof properties.item === "string" ? properties.item.trim() : "";
-        if (item.length === 0) {
+        if (item.length === 0 || !isOpenedURL(item)) {
             ctx.logger.log("ShareLink missing valid URL, returning EmptyView", "warning");
             const empty = document.createElement("div");
             empty.className = "aui-empty";

@@ -62,7 +62,13 @@ enum WebViewSupport {
 
         if let filePath = script.filePath {
             do {
-                return try String(contentsOfFile: filePath, encoding: .utf8)
+                // Only a regular file: a device or a pipe named by the document would block.
+                let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: filePath))
+                guard let text = String(data: data, encoding: .utf8) else {
+                    logger.log("WebView userScript: the file at '\(filePath)' is not UTF-8 text", .warning)
+                    return nil
+                }
+                return text
             } catch {
                 logger.log("WebView userScript: failed to read file at '\(filePath)': \(error.localizedDescription)", .warning)
                 return nil

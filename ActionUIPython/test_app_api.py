@@ -192,10 +192,10 @@ def test_url_conversion():
     """load_and_present_window must convert bare paths to file:// URLs."""
     print("\n=== URL conversion logic ===")
 
-    # Replicate the guard from Application.load_and_present_window
+    # The guard from Application.load_and_present_window, with the module's own path conversion
     def convert(url: str) -> str:
         if not url.startswith(("file://", "http://", "https://")):
-            url = "file://" + os.path.abspath(url)
+            url = actionui._file_url(url)
         return url
 
     check("bare /abs/path → file:///abs/path",
@@ -212,6 +212,10 @@ def test_url_conversion():
 
     check("https:// URL unchanged",
           convert("https://example.com/ui.json") == "https://example.com/ui.json")
+
+    # Joined as text, "#" and "?" ended the path and "%41" was decoded, so another file loaded.
+    check("'#', '?', '%' and a space in a file name are percent-encoded",
+          convert("/tmp/a b#c?d%41.json") == "file:///tmp/a%20b%23c%3Fd%2541.json")
 
 
 def test_menu_bar_api(app: actionui.Application):
@@ -502,6 +506,29 @@ def test_remote_server(app: actionui.Application):
         shutil.rmtree(directory, ignore_errors=True)
 
 
+def test_default_logger_prints_warnings_and_errors_only(app):
+    print("\n--- default logger ---")
+    import contextlib
+    import io
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        for level in actionui.LogLevel:
+            app.logger._log_callback(f"message at {level.name}", int(level))
+    text = printed.getvalue()
+    check("an error is printed", "message at ERROR" in text)
+    check("a warning is printed", "message at WARNING" in text)
+    check("info, debug and verbose are not printed",
+          not any(f"message at {name}" in text for name in ("INFO", "DEBUG", "VERBOSE")))
+    received = []
+    app.logger.set_callback(lambda message, level: received.append(level))
+    try:
+        for level in actionui.LogLevel:
+            app.logger._log_callback("message", int(level))
+    finally:
+        app.logger.set_callback(None)
+    check("a callback receives every level", received == list(actionui.LogLevel))
+
+
 # -------------------------------------------------------------------------
 
 
@@ -523,6 +550,7 @@ def main():
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
     test_remote_server(app)
+    test_default_logger_prints_warnings_and_errors_only(app)
 
     print()
     print("=" * 50)

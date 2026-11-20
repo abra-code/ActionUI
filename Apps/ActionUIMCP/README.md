@@ -28,7 +28,7 @@ Everything the user enters in a window goes back to the agent, and the agent, no
 - `WindowGroup` is refused: it is an application's scene, and its commands would stay in the application's menu after its window closes. Give its content as the document.
 - `popover` is refused on any element: a popover is placed by the system, can open over the window's title bar from an element anywhere, whatever its size, and could show a "Requested by" line of its own there. A sheet keeps the line in view.
 - A `ToolbarItem` or `ToolbarItemGroup` with placement `secondaryAction` is refused, in the document and from `update_window`: on Linux its items open in the header bar's "More" popover, which opens over the "Requested by" line when it does not fit below the bar.
-- WebView `userScripts` are removed, with a warning: scripts from an agent are not run.
+- WebView `userScripts` are removed, with a warning: the server injects no user scripts an agent names. A page's own scripts still run, including those in a WebView's `html` (see What these rules do not cover).
 - Platform overrides (`"<key>:macos"`, repeated suffixes such as `"type:macos:macos"` included) are resolved before these checks, and the window loads the resolved document, so a suffixed key cannot carry a refused element past them.
 - The rules reach elements nested anywhere, a Chart's annotation views included (the `content` of a mark's `annotation` in its `chart` description).
 - The document is a JSON object (never a string) or an absolute `.json` path, at most 4 MB. Ids are unique positive integers, and container keys such as `children` sit next to `properties`, not inside it. Verifier errors and ActionUI load errors also refuse the document.
@@ -37,6 +37,17 @@ Everything the user enters in a window goes back to the agent, and the agent, no
 
 - `properties`: no null value, no `userScripts`, no child-element key such as `children` or `content`, no `id` or `type`, and no `:<platform>` suffix (not resolved here); no property of a SecureField or LoadableView. A Chart's `chart` description is resolved and its annotation views checked as a document's elements are, and the window gets the resolved description. Each entry is then checked by the verifier as a one-element document.
 - `values`: strings, numbers or booleans; a LoadableView's value (its source) cannot be set.
+
+### What these rules do not cover
+
+The rules decide what an agent's document may contain; they do not make it harmless. A client that asks the user before a tool call should know what a call can still do:
+
+- Read files. `show` (kinds `diff`, `image`, `pdf`, `file`, `video`) and the Diff, Image and QuickLook elements in a document draw any file the user can read. `screenshot` of a document draws it in a window that never appears on screen and returns the picture, so a file can be read with nothing shown.
+- Reach the network. AsyncImage, CachedImage, VideoPlayer and WebView addresses in a document, and remote images in markdown passed to `show`, are fetched when the window or the hidden render loads, so the server at that address learns when, and can receive anything the agent puts in the address.
+- Run page scripts. A WebView runs the scripts of the page it shows, and of its `html` (as a page at its `baseURL` when one is given); `show` kind `web` runs the scripts of the HTML it is given.
+- Open links. A Link, and a link in markdown, opens any URL scheme on one click, a file the agent wrote included.
+
+So `show`, `show_document`, `screenshot` and `validate_document` are annotated `openWorldHint: true`. `validate_document` shows no window, but it loads the document to measure it, and whether that fetches anything has not been checked.
 
 ## Kept windows
 
@@ -187,7 +198,7 @@ Most clients take a JSON entry of this shape, in a file of their own:
 
 - `ACTIONUI_MCP_LABEL` - text shown after the client name in every title bar.
 - `ACTIONUI_MCP_LOG_LEVEL` - `error`, `warning` (default), `info`, or `debug`; the log goes to stderr.
-- `ACTIONUI_MCP_KEEP_DOCUMENTS=1` - keep each generated window document in the temporary folder (the path is logged), so it can be inspected or rendered with ActionUIViewer.
+- `ACTIONUI_MCP_KEEP_DOCUMENTS=1` - keep each generated window document in the temporary folder (the path is logged), so it can be inspected or rendered with ActionUIViewer, and keep the folder when the session ends. Without it the session folder, screenshots included, is removed at the end of the session.
 - `ACTIONUI_MCP_SCHEMA_DIR` - another element schemas directory to validate against. By default the server uses the schemas in `ActionUI_ActionUIVerifier.bundle` next to the executable (on Linux, `share/actionui/schemas/` in its package, else the checkout's), plus add-on schemas from that folder's `add-ons/<AddOn>/` or the ActionUI checkout. A Linux package reads only the add-on schemas it ships. Without schemas, only the property checks are skipped.
 - `ACTIONUI_MCP_ALLOW_SECURE_FIELDS=1` - lets `show_document` use SecureField. Off by default, because everything the user enters is sent to the agent.
 - `ACTIONUI_MCP_TEST_PRESS=<button title>` and `ACTIONUI_MCP_TEST_ACTION=<actionID>@<viewID>` - debug builds only: 1.5 seconds after a window opens, press that dialog button or fire that action. For the live test.

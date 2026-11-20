@@ -139,13 +139,19 @@ object TemplateHelper {
         return JsonObject(substituted)
     }
 
+    /** How many empty cells [writeRowCell] adds at most to reach the column it writes. */
+    const val MAX_ROW_PADDING = 64
+
     /**
      * Writes [text] into one cell of the rows held by [container] (the owning
      * container's view model) after a user edit of a row-bound control. The row is the
      * one drawn at [rowIndex] when it is still [drawnRow], else the first equal row; a
-     * row shorter than [column] is padded with empty strings. A selection resting on
+     * row shorter than [column] is padded with empty strings, by at most
+     * [MAX_ROW_PADDING] cells: the column comes from the document (`"$2000000000"` would
+     * otherwise pad one row by billions of cells on one tap). A selection resting on
      * that row follows it, so the write loses no highlight and fires no selection
-     * action. Returns the index of the row written, or `null` when the row is gone.
+     * action. Returns the index of the row written, or `null` when the row is gone or
+     * the column lies beyond the padding limit.
      */
     fun writeRowCell(container: ViewModel, drawnRow: List<String>, rowIndex: Int, column: Int, text: String): Int? {
         if (column < 0) return null
@@ -154,6 +160,13 @@ object TemplateHelper {
         val index = if (rows.getOrNull(rowIndex) == drawnRow) rowIndex else rows.indexOf(drawnRow)
         if (index < 0) return null
         val oldRow = rows[index]
+        if (column >= oldRow.size + MAX_ROW_PADDING) {
+            ActionUIModel.logger.log(
+                "A row-bound control names column ${column + 1}, beyond the row's ${oldRow.size} cells plus $MAX_ROW_PADDING; not written",
+                LoggerLevel.warning,
+            )
+            return null
+        }
         val newRow = oldRow.toMutableList()
         while (newRow.size <= column) newRow.add("")
         newRow[column] = text
@@ -192,7 +205,9 @@ object TemplateHelper {
      */
     fun substituteString(template: String, row: List<String>): String =
         COLUMN_REF.replace(template) { match ->
-            when (val n = match.groupValues[1].toInt()) {
+            // A reference too large for an Int ("$99999999999") is out of range, not a crash.
+            when (val n = match.groupValues[1].toIntOrNull()) {
+                null -> match.value
                 0 -> row.joinToString(", ")
                 else -> row.getOrNull(n - 1) ?: match.value
             }

@@ -138,6 +138,9 @@ final class UnixSocketServer: @unchecked Sendable {
     // Guarded by `lock`.
     private var started = false
     private var listenFD: Int32 = -1
+    /// The device and inode of the socket file this server bound, so `stop` removes that file and
+    /// not whatever has taken its name since (a new server's socket, another user's file).
+    private var boundFile: (device: UInt64, inode: UInt64)?
     private var acceptSource: DispatchSourceRead?
     private var connections: [ConnectionID: Connection] = [:]
     private var nextConnectionID: ConnectionID = 1
@@ -242,6 +245,7 @@ final class UnixSocketServer: @unchecked Sendable {
                 unlink(path)
                 throw UnixSocketServerError.systemCall("listen", errno: code)
             }
+            boundFile = UnixSocketServer.fileIdentity(path)
         } catch {
             systemClose(fd)
             throw error
@@ -260,8 +264,8 @@ final class UnixSocketServer: @unchecked Sendable {
         source.resume()
     }
 
-    /// Stop accepting, close every connection, and unlink the socket file. Safe to call more than
-    /// once and from any thread.
+    /// Stop accepting, close every connection, and unlink the socket file this server bound (not
+    /// a file that has taken its name since). Safe to call more than once and from any thread.
     func stop() {
         lock.lock()
         guard started else {
@@ -272,6 +276,10 @@ final class UnixSocketServer: @unchecked Sendable {
         let source = acceptSource
         acceptSource = nil
         listenFD = -1
+        // Taken with `started`: once the lock is released a concurrent `start` may bind the path
+        // again, and its socket is not this stop's to remove.
+        let bound = boundFile
+        boundFile = nil
         // Snapshot only: each connection removes itself (and reports onClose) as it closes.
         let open = Array(connections.values)
         lock.unlock()
@@ -282,8 +290,20 @@ final class UnixSocketServer: @unchecked Sendable {
                 connection.closeOnQueue(reason: "server stopped")
             }
         }
-        unlink(path)
+        // Only the file this server bound: a name in a directory others can write may have been
+        // replaced since, and a second server may have bound the same path after this one.
+        if let bound, let current = UnixSocketServer.fileIdentity(path), current == bound {
+            unlink(path)
+        }
         log("UnixSocketServer stopped at \(path)")
+    }
+
+    /// The device and inode of the socket at `path`, not following a link, or nil when there is
+    /// no socket there.
+    static func fileIdentity(_ path: String) -> (device: UInt64, inode: UInt64)? {
+        var status = stat()
+        guard lstat(path, &status) == 0, status.st_mode & S_IFMT == S_IFSOCK else { return nil }
+        return (UInt64(status.st_dev), UInt64(status.st_ino))
     }
 
     var isRunning: Bool {

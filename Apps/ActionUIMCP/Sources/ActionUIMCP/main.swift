@@ -141,6 +141,7 @@ func shutDown(reason: String) {
     logger.log("session ended (\(reason))", .info)
     server.cancelAll()
     host.handOffKeptWindows()
+    HostSupport.removeSessionFolder()
     HostPlatform.terminateApplication()
 }
 

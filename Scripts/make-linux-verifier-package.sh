@@ -51,6 +51,14 @@ if [ -z "$version" ]; then
     printf 'make-linux-verifier-package: could not read the version from ActionUI/Core/Common/ActionUIVersion.swift\n' >&2
     exit 1
 fi
+# The version names the folder and the tarball, and the folder is removed and replaced: only letters,
+# digits, dots, plus signs and hyphens, so a "/" or ".." in it cannot move what is removed.
+case "$version" in
+    *[!A-Za-z0-9.+-]*|.*)
+        printf 'make-linux-verifier-package: the version "%s" has characters a file name must not have\n' "$version" >&2
+        exit 1
+        ;;
+esac
 arch="$(/usr/bin/uname -m)"
 name="actionui-verify-$version-linux-$arch"
 package="$output/$name"
@@ -81,7 +89,7 @@ if [ "$icu_mentions" != 0 ]; then
     exit 1
 fi
 
-for old in "$package" "$tarball"; do
+for old in "$package" "$tarball" "$tarball.sha256"; do
     if [ -e "$old" ]; then
         /bin/rm -rf "$old"
         status=$?
@@ -93,7 +101,7 @@ for old in "$package" "$tarball"; do
 done
 # A step that fails after this leaves no partial folder or tarball behind.
 discard_package() {
-    /bin/rm -rf "$package" "$tarball"
+    /bin/rm -rf "$package" "$tarball" "$tarball.sha256"
     status=$?
     if [ "$status" -ne 0 ]; then
         printf 'make-linux-verifier-package: could not remove the partial %s\n' "$package" >&2
@@ -158,8 +166,8 @@ else
     printf 'make-linux-verifier-package: note: no llvm-objcopy, objcopy or strip found; the tool keeps its symbols\n'
 fi
 
-# Owned by root in the archive, whoever packed it (GNU tar).
-/usr/bin/tar --owner=0 --group=0 --numeric-owner -czf "$tarball" -C "$output" "$name"
+# Owned by root in the archive, whoever packed it, and readable by all whatever the umask was (GNU tar).
+/usr/bin/tar --owner=0 --group=0 --numeric-owner --mode='u+rwX,go+rX,go-w' -czf "$tarball" -C "$output" "$name"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-verifier-package: could not pack %s\n' "$tarball" >&2
@@ -167,4 +175,21 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 
-printf 'make-linux-verifier-package: made %s and %s\n' "$package" "$tarball"
+# A checksum beside the tarball, in the form `sha256sum -c` reads, for whoever takes the tarball
+# over a channel that could alter it.
+digest="$(/usr/bin/sha256sum "$tarball")"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-verifier-package: could not checksum %s\n' "$tarball" >&2
+    discard_package
+    exit 1
+fi
+printf '%s  %s\n' "${digest%% *}" "$name.tar.gz" > "$tarball.sha256"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-verifier-package: could not write %s\n' "$tarball.sha256" >&2
+    discard_package
+    exit 1
+fi
+
+printf 'make-linux-verifier-package: made %s, %s and %s\n' "$package" "$tarball" "$tarball.sha256"

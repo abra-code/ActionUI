@@ -453,6 +453,13 @@ final class WindowHost {
         }
         for (key, value) in values.sorted(by: { $0.key < $1.key }) {
             guard let id = element(key) else { continue }
+            // Only an element with an id in the document, whose type is known: an element without
+            // one has an automatic negative id that the type rules below cannot see (the web view
+            // of show kind web, which show refuses to point at a file: address, is one).
+            guard types[id] != nil else {
+                problems.append("id \(key): the element's type is unknown; values can be set only on elements with an id in the document")
+                continue
+            }
             // A LoadableView's value is its source. Agent documents cannot contain one; this keeps
             // any other window's from loading a document the checks never saw.
             if types[id] == "LoadableView" {

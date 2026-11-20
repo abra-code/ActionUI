@@ -35,7 +35,8 @@
 # loader finds that copy; a host that loads the library by path (ctypes) needs no link flags.
 # Self-contained, as an app bundle is on macOS, with no system-wide installation and no clash
 # between versions. (The library's RUNPATH is $ORIGIN too, so a dependency placed beside it is
-# found first; its dependencies are system libraries.)
+# found first; its dependencies are system libraries. The packed copy is checked for exactly that.)
+# The tarball gets a .sha256 file beside it, in the form `sha256sum -c` reads.
 # Programs written in Swift do not use this library: they depend on the ActionUI package and build
 # it with their own toolchain. Loading this library into a Swift program would bring a second,
 # private Swift runtime and libdispatch, so the program's main queue and ActionUI's would differ.
@@ -74,6 +75,14 @@ if [ -z "$version" ]; then
     printf 'make-linux-library-package: could not read the version from ActionUI/Core/Common/ActionUIVersion.swift\n' >&2
     exit 1
 fi
+# The version names the folder and the tarball, and the folder is removed and replaced: only letters,
+# digits, dots, plus signs and hyphens, so a "/" or ".." in it cannot move what is removed.
+case "$version" in
+    *[!A-Za-z0-9.+-]*|.*)
+        printf 'make-linux-library-package: the version "%s" has characters a file name must not have\n' "$version" >&2
+        exit 1
+        ;;
+esac
 arch="$(/usr/bin/uname -m)"
 name="actionui-$version-linux-$arch"
 package="$output/$name"
@@ -120,7 +129,7 @@ case "$sections" in
         ;;
 esac
 
-for old in "$package" "$tarball"; do
+for old in "$package" "$tarball" "$tarball.sha256"; do
     if [ -e "$old" ]; then
         /bin/rm -rf "$old"
         status=$?
@@ -132,7 +141,7 @@ for old in "$package" "$tarball"; do
 done
 # A step that fails after this leaves no partial folder or tarball behind.
 discard_package() {
-    /bin/rm -rf "$package" "$tarball"
+    /bin/rm -rf "$package" "$tarball" "$tarball.sha256"
     status=$?
     if [ "$status" -ne 0 ]; then
         printf 'make-linux-library-package: could not remove the partial %s\n' "$package" >&2
@@ -203,6 +212,32 @@ else
     printf 'make-linux-library-package: note: no llvm-objcopy, objcopy or strip found; the library keeps its symbols\n'
 fi
 
+# The search path the header promises: RUNPATH exactly $ORIGIN (a dependency placed beside the
+# library is found first) and no RPATH. A folder from the build machine, or one another local user
+# could create, would be searched on the user's machine for the library's dependencies. The count
+# of exported symbols is printed, so growth is visible from one release to the next.
+if [ -x /usr/bin/readelf ]; then
+    dynamic="$(/usr/bin/readelf -d "$package/lib/libActionUI.so" 2>&1)"
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        printf 'make-linux-library-package: readelf could not read %s: %s\n' "$package/lib/libActionUI.so" "$dynamic" >&2
+        discard_package
+        exit 1
+    fi
+    runpath="$(printf '%s\n' "$dynamic" | /usr/bin/sed -n 's/.*(RUNPATH).*\[\(.*\)\]$/\1/p')"
+    rpath="$(printf '%s\n' "$dynamic" | /usr/bin/sed -n 's/.*(RPATH).*\[\(.*\)\]$/\1/p')"
+    if [ "$runpath" != '$ORIGIN' ] || [ -n "$rpath" ]; then
+        printf 'make-linux-library-package: %s has RUNPATH "%s" and RPATH "%s"; expected RUNPATH "$ORIGIN" and no RPATH\n' \
+            "$package/lib/libActionUI.so" "$runpath" "$rpath" >&2
+        discard_package
+        exit 1
+    fi
+    exported="$(/usr/bin/readelf --dyn-syms -W "$package/lib/libActionUI.so" | /usr/bin/awk '$5 == "GLOBAL" && $7 != "UND"' | /usr/bin/wc -l)"
+    printf 'make-linux-library-package: RUNPATH is $ORIGIN; %s global symbols exported\n' "${exported##* }"
+else
+    printf 'make-linux-library-package: note: no readelf; the RUNPATH of the library was not checked\n'
+fi
+
 # pkg-config finds the folder from the file's own place (${pcfiledir}), so the folder can be
 # unpacked anywhere. The system libraries the library uses are its own dependencies, not the
 # linking program's, so they are not listed.
@@ -225,8 +260,8 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 
-# Owned by root in the archive, whoever packed it (GNU tar).
-/usr/bin/tar --owner=0 --group=0 --numeric-owner -czf "$tarball" -C "$output" "$name"
+# Owned by root in the archive, whoever packed it, and readable by all whatever the umask was (GNU tar).
+/usr/bin/tar --owner=0 --group=0 --numeric-owner --mode='u+rwX,go+rX,go-w' -czf "$tarball" -C "$output" "$name"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf 'make-linux-library-package: could not pack %s\n' "$tarball" >&2
@@ -234,4 +269,21 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 
-printf 'make-linux-library-package: made %s and %s\n' "$package" "$tarball"
+# A checksum beside the tarball, in the form `sha256sum -c` reads, for whoever takes the tarball
+# over a channel that could alter it.
+digest="$(/usr/bin/sha256sum "$tarball")"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-library-package: could not checksum %s\n' "$tarball" >&2
+    discard_package
+    exit 1
+fi
+printf '%s  %s\n' "${digest%% *}" "$name.tar.gz" > "$tarball.sha256"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'make-linux-library-package: could not write %s\n' "$tarball.sha256" >&2
+    discard_package
+    exit 1
+fi
+
+printf 'make-linux-library-package: made %s, %s and %s\n' "$package" "$tarball" "$tarball.sha256"

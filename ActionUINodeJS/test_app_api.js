@@ -408,10 +408,10 @@ function testSingletonEnforcement() {
 // ---------------------------------------------------------------------------
 function testURLConversion() {
     console.log('\n=== URL conversion (JS layer) ===');
-    const path = require('path');
+    // The guard from loadAndPresentWindow, with the module's own path conversion
     function convert(url) {
         if (!url.startsWith('file://') && !url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'file://' + path.resolve(url);
+            url = actionui._fileURL(url);
         }
         return url;
     }
@@ -420,6 +420,9 @@ function testURLConversion() {
     check('file:// URL unchanged',                   convert('file:///tmp/ui.json') === 'file:///tmp/ui.json');
     check('http:// URL unchanged',                   convert('http://example.com/ui.json') === 'http://example.com/ui.json');
     check('https:// URL unchanged',                  convert('https://example.com/ui.json') === 'https://example.com/ui.json');
+    // Joined as text, '#' and '?' ended the path and '%41' was decoded, so another file loaded.
+    check("'#', '?', '%' and a space in a file name are percent-encoded",
+          convert('/tmp/a b#c?d%41.json') === 'file:///tmp/a%20b%23c%3Fd%2541.json');
 }
 
 // ---------------------------------------------------------------------------

@@ -292,8 +292,8 @@ const d = win.getDouble(viewId)   // number or null
 const b = win.getBool(viewId)     // boolean or null
 const s = win.getString(viewId)   // string or null
 
-// Optional partId (default 0):
-win.setInt(viewId, 42, partId)
+// Optional partId (default 0) goes before the value:
+win.setInt(viewId, partId, 42)
 win.getInt(viewId, partId)
 ```
 
@@ -769,3 +769,4 @@ internally, so calling them from a worker thread is safe.
 - **test_app_lifecycle.js** — full lifecycle integration test (real NSApplication run loop)
 - **test_menu_bar.js** — menu bar integration test (custom menus, action dispatch)
 - **test_worker_guard.js** - callback setters and appRun throw in a worker; the main thread keeps working (no run loop)
+- **test_action_id_lookup.js** - document action ids such as `constructor` and `__proto__` reach the host's handlers, never a built-in function (real NSApplication run loop)

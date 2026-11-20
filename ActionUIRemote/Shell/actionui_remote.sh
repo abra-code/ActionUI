@@ -651,6 +651,16 @@ _aui_request() {
         _aui_envelope="$_aui_envelope,\"params\":{$_aui_members}"
     fi
     _aui_envelope="$_aui_envelope}"
+    # Arguments typed as JSON are placed as given. A raw newline ends the request line, and what
+    # follows it would go to the host as a request of its own, carrying this script's token: a
+    # script that builds such an argument from outside text could be made to send any request.
+    # JSON allows a raw newline or carriage return only as whitespace between tokens (never inside
+    # a string), so folding both into spaces leaves every valid request as it was.
+    case $_aui_envelope in
+        *"$_AUI_NL"*|*"$_AUI_CR"*)
+            _aui_envelope=$(printf '%s' "$_aui_envelope" | /usr/bin/tr '\r\n' '  ')
+            ;;
+    esac
     if [ "$_AUI_BATCH_ACTIVE" -eq 1 ]; then
         if [ -n "$_AUI_BATCH" ]; then
             _AUI_BATCH="$_AUI_BATCH,$_aui_envelope"

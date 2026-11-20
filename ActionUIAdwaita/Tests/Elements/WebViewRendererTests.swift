@@ -92,6 +92,15 @@ final class WebViewRendererTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
     }
 
+    func testAUserScriptFileIsReadOnlyWhenItIsARegularFile() throws {
+        let path = try TestImages.file(Array("window.answer = 42".utf8), name: "webview-script.js")
+        files.append(path)
+        XCTAssertEqual(WebView.scriptSource(.init(["filePath": path])), "window.answer = 42")
+        for device in ["/dev/zero", "/dev/null", NSTemporaryDirectory()] {
+            XCTAssertNil(WebView.scriptSource(.init(["filePath": device])), device)
+        }
+    }
+
     func testAnHTMLPageLoadsAndTheStatesFollowIt() throws {
         try requireWebKit()
         let node = try render(#""html": "<title>Hello</title><p>Hi</p>", "valueChangeActionID": "test.url", "navigationActionID": "test.navigation""#)

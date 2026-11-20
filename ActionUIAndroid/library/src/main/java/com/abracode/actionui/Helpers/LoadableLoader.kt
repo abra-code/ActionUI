@@ -34,6 +34,44 @@ import java.net.URL
 internal const val LOADABLE_REMOTE_TIMEOUT_MS = 15_000
 
 /**
+ * How deep LoadableViews may nest: one whose LoadableViews around it already number this
+ * many is refused (Apple's `ActionUIDocumentLoader.maxNestingDepth`).
+ */
+internal const val LOADABLE_MAX_NESTING_DEPTH = 16
+
+/**
+ * The text a LoadableView's [source] is known by when the nesting rule compares sources,
+ * or null for no source: a remote URL as written, a file by its canonical path (symbolic
+ * links resolved, `.` and `..` removed), an asset by the path it is opened with.
+ */
+internal fun loadableNestingKey(source: LoadableSource): String? = when (source) {
+    is LoadableSource.None -> null
+    is LoadableSource.Remote -> source.url
+    is LoadableSource.FilePath -> "file:" + try {
+        File(source.path).canonicalPath
+    } catch (e: IOException) {
+        File(source.path).absolutePath
+    }
+    is LoadableSource.BundleName -> "asset:" + loadableAssetPath(source.name)
+}
+
+/**
+ * Why the source known as [key] ([loadableNestingKey]) must not load inside LoadableViews
+ * showing [enclosing] (the outermost first), or null when it may. A document that loads
+ * itself, directly or through others, would load without end: file and asset sources load
+ * while the view is composed. Siblings showing the same source are not in [enclosing], so
+ * they stay allowed. The same rule and words as Apple's `ActionUIDocumentLoader.nestingRefusal`.
+ */
+internal fun loadableNestingRefusal(key: String, enclosing: List<String>): String? = when {
+    key in enclosing -> "it includes itself"
+    enclosing.size >= LOADABLE_MAX_NESTING_DEPTH -> "LoadableViews are nested more than $LOADABLE_MAX_NESTING_DEPTH deep"
+    else -> null
+}
+
+/** The `assets/` path a bundle [name] is opened with: `.json` appended when it has no extension. */
+internal fun loadableAssetPath(name: String): String = if (name.contains('.')) name else "$name.json"
+
+/**
  * The result of reading + decoding a source, independent of how the caller
  * registers it. ([DescriptionLoad.Loaded] carries the decoded root but has *not*
  * been added to any window.)
@@ -88,7 +126,7 @@ internal fun loadLocalDescription(
     is LoadableSource.BundleName -> {
         if (source.format == LoadableFormat.PLIST) deferredPlist(source.name, logger)
         else {
-            val path = if (source.name.contains('.')) source.name else "${source.name}.json"
+            val path = loadableAssetPath(source.name)
             try {
                 val text = assets.open(path).bufferedReader().use { it.readText() }
                 decodeDescription(text, json, logger)
@@ -102,8 +140,13 @@ internal fun loadLocalDescription(
     is LoadableSource.FilePath -> {
         if (source.format == LoadableFormat.PLIST) deferredPlist(source.path, logger)
         else try {
-            val text = File(source.path).readText()
+            // Only a regular file: a device or a named pipe the document names would never
+            // finish (or never start) reading on the main thread.
+            val text = readRegularFileText(source.path)
             decodeDescription(text, json, logger)
+        } catch (e: NotARegularFileException) {
+            logger.log("LoadableLoader: not reading '${source.path}': ${e.message}", LoggerLevel.error)
+            DescriptionLoad.Failed(e.message ?: "Cannot read file: ${source.path}")
         } catch (e: IOException) {
             logger.log("LoadableLoader: cannot read file '${source.path}': ${e.message}", LoggerLevel.error)
             DescriptionLoad.Failed("Cannot read file: ${source.path}")

@@ -62,6 +62,30 @@ static inline ActionUIModuleState* get_state(PyObject* module) {
     return (ActionUIModuleState*)PyModule_GetState(module);
 }
 
+// MARK: - Calls into the library without the interpreter lock
+
+/* Runs `call` (a statement) with the GIL released. From a thread other than the main one, most
+ * library calls wait for the main thread to do the work, and the main thread needs the GIL for
+ * every callback into Python, the logger included: held across the wait, the GIL deadlocks the
+ * process as soon as that work logs (a getter for a closed window does) or a click is waiting to
+ * run a handler. String and buffer arguments stay valid: the objects they point into belong to
+ * the call's argument tuple, which outlives the call. */
+#define WITHOUT_GIL(call) do { Py_BEGIN_ALLOW_THREADS call; Py_END_ALLOW_THREADS } while (0)
+
+// MARK: - Callback errors
+
+/* After a callback into Python: report an exception it raised and clear it. Left set, the error
+ * indicator outlives the callback, and a later call fails with a SystemError that names nothing.
+ * Prints the traceback as Python does for an uncaught exception; for SystemExit that ends the
+ * process with its code, as sys.exit() does in a script. Ctrl-C (KeyboardInterrupt) asks the
+ * application to quit. Call with the GIL held. */
+static void report_callback_error(void) {
+    if (!PyErr_Occurred()) return;
+    bool interrupted = PyErr_ExceptionMatches(PyExc_KeyboardInterrupt) != 0;
+    PyErr_PrintEx(0);  /* 0: no sys.last_traceback, whose frames would keep objects alive */
+    if (interrupted) actionUIAppTerminate();
+}
+
 // MARK: - Logger Bridge
 
 static void logger_callback_bridge(const char* message, ActionUILogLevel level) {
@@ -77,6 +101,7 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
     PyObject* result = PyObject_CallFunction(state->logger_callback, "si",
                                              message, (int)level);
     Py_XDECREF(result);
+    report_callback_error();
     PyGILState_Release(gstate);
 }
 
@@ -99,6 +124,11 @@ static void action_handler_bridge(const char* actionID,
 
     /* Look up handler for this actionID, fall back to default. */
     PyObject* py_actionID = PyUnicode_FromString(actionID);
+    if (py_actionID == NULL) {  /* not valid UTF-8: PyDict_GetItem and Py_DECREF would take NULL */
+        report_callback_error();
+        PyGILState_Release(gstate);
+        return;
+    }
     PyObject* handler     = NULL;
     if (state->action_handlers != NULL)
         handler = PyDict_GetItem(state->action_handlers, py_actionID);
@@ -113,13 +143,16 @@ static void action_handler_bridge(const char* actionID,
             py_context = Py_None;
             Py_INCREF(Py_None);
         }
-        PyObject* result = PyObject_CallFunction(handler, "ssLLO",
-                                                 actionID, windowUUID,
-                                                 (long long)viewID,
-                                                 (long long)viewPartID,
-                                                 py_context);
-        Py_XDECREF(result);
-        Py_DECREF(py_context);
+        if (py_context != NULL) {
+            PyObject* result = PyObject_CallFunction(handler, "ssLLO",
+                                                     actionID, windowUUID,
+                                                     (long long)viewID,
+                                                     (long long)viewPartID,
+                                                     py_context);
+            Py_XDECREF(result);
+            Py_DECREF(py_context);
+        }
+        report_callback_error();
     }
 
     Py_DECREF(py_actionID);
@@ -142,6 +175,7 @@ static void func_name(void) { \
         if (state != NULL && state->state_field != NULL) { \
             PyObject* r = PyObject_CallObject(state->state_field, NULL); \
             Py_XDECREF(r); \
+            report_callback_error(); \
         } \
     } \
     PyGILState_Release(gstate); \
@@ -168,6 +202,7 @@ static bool app_should_terminate_bridge(void) {
                 result = (PyObject_IsTrue(py_result) != 0);
                 Py_DECREF(py_result);
             }
+            report_callback_error();
         }
     }
     PyGILState_Release(gstate);
@@ -183,6 +218,7 @@ static void app_window_will_close_bridge(const char* windowUUID) {
         if (state != NULL && state->app_window_will_close != NULL) {
             PyObject* r = PyObject_CallFunction(state->app_window_will_close, "s", windowUUID);
             Py_XDECREF(r);
+            report_callback_error();
         }
     }
     PyGILState_Release(gstate);
@@ -197,6 +233,7 @@ static void app_window_will_present_bridge(const char* windowUUID) {
         if (state != NULL && state->app_window_will_present != NULL) {
             PyObject* r = PyObject_CallFunction(state->app_window_will_present, "s", windowUUID);
             Py_XDECREF(r);
+            report_callback_error();
         }
     }
     PyGILState_Release(gstate);
@@ -206,7 +243,9 @@ static void app_window_will_present_bridge(const char* windowUUID) {
 
 /*
  * Setter factory for void lifecycle handlers.
- * Stores callback in module state (keeping a Python reference) and wires the C bridge.
+ * Stores callback in module state (keeping a Python reference) and wires the C bridge. The C
+ * setter runs without the GIL: on Linux it waits for the main thread. The bridge reads the module
+ * state under the GIL and does nothing when it is empty, so the brief gap is harmless.
  */
 #define APP_LIFECYCLE_SETTER(py_func, state_field, c_setter, bridge) \
 static PyObject* py_func(PyObject* self, PyObject* args) { \
@@ -215,7 +254,7 @@ static PyObject* py_func(PyObject* self, PyObject* args) { \
     ActionUIModuleState* state = get_state(self); \
     if (callback == Py_None) { \
         Py_CLEAR(state->state_field); \
-        c_setter(NULL); \
+        WITHOUT_GIL(c_setter(NULL)); \
     } else { \
         if (PyCallable_Check(callback) == 0) { \
             PyErr_SetString(PyExc_TypeError, "callback must be callable"); \
@@ -224,7 +263,7 @@ static PyObject* py_func(PyObject* self, PyObject* args) { \
         Py_XDECREF(state->state_field); \
         Py_INCREF(callback); \
         state->state_field = callback; \
-        c_setter(bridge); \
+        WITHOUT_GIL(c_setter(bridge)); \
     } \
     Py_RETURN_NONE; \
 }
@@ -250,7 +289,7 @@ static PyObject* py_app_set_should_terminate(PyObject* self, PyObject* args) {
     ActionUIModuleState* state = get_state(self);
     if (callback == Py_None) {
         Py_CLEAR(state->app_should_terminate);
-        actionUIAppSetShouldTerminateHandler(NULL);
+        WITHOUT_GIL(actionUIAppSetShouldTerminateHandler(NULL));
     } else {
         if (PyCallable_Check(callback) == 0) {
             PyErr_SetString(PyExc_TypeError, "callback must be callable");
@@ -259,7 +298,7 @@ static PyObject* py_app_set_should_terminate(PyObject* self, PyObject* args) {
         Py_XDECREF(state->app_should_terminate);
         Py_INCREF(callback);
         state->app_should_terminate = callback;
-        actionUIAppSetShouldTerminateHandler(app_should_terminate_bridge);
+        WITHOUT_GIL(actionUIAppSetShouldTerminateHandler(app_should_terminate_bridge));
     }
     Py_RETURN_NONE;
 }
@@ -270,7 +309,7 @@ static PyObject* py_app_set_window_will_close(PyObject* self, PyObject* args) {
     ActionUIModuleState* state = get_state(self);
     if (callback == Py_None) {
         Py_CLEAR(state->app_window_will_close);
-        actionUIAppSetWindowWillCloseHandler(NULL);
+        WITHOUT_GIL(actionUIAppSetWindowWillCloseHandler(NULL));
     } else {
         if (PyCallable_Check(callback) == 0) {
             PyErr_SetString(PyExc_TypeError, "callback must be callable");
@@ -279,7 +318,7 @@ static PyObject* py_app_set_window_will_close(PyObject* self, PyObject* args) {
         Py_XDECREF(state->app_window_will_close);
         Py_INCREF(callback);
         state->app_window_will_close = callback;
-        actionUIAppSetWindowWillCloseHandler(app_window_will_close_bridge);
+        WITHOUT_GIL(actionUIAppSetWindowWillCloseHandler(app_window_will_close_bridge));
     }
     Py_RETURN_NONE;
 }
@@ -290,7 +329,7 @@ static PyObject* py_app_set_window_will_present(PyObject* self, PyObject* args) 
     ActionUIModuleState* state = get_state(self);
     if (callback == Py_None) {
         Py_CLEAR(state->app_window_will_present);
-        actionUIAppSetWindowWillPresentHandler(NULL);
+        WITHOUT_GIL(actionUIAppSetWindowWillPresentHandler(NULL));
     } else {
         if (PyCallable_Check(callback) == 0) {
             PyErr_SetString(PyExc_TypeError, "callback must be callable");
@@ -299,7 +338,7 @@ static PyObject* py_app_set_window_will_present(PyObject* self, PyObject* args) 
         Py_XDECREF(state->app_window_will_present);
         Py_INCREF(callback);
         state->app_window_will_present = callback;
-        actionUIAppSetWindowWillPresentHandler(app_window_will_present_bridge);
+        WITHOUT_GIL(actionUIAppSetWindowWillPresentHandler(app_window_will_present_bridge));
     }
     Py_RETURN_NONE;
 }
@@ -307,28 +346,28 @@ static PyObject* py_app_set_window_will_present(PyObject* self, PyObject* args) 
 static PyObject* py_app_set_name(PyObject* self, PyObject* args) {
     const char* name;
     if (PyArg_ParseTuple(args, "s", &name) == 0) return NULL;
-    actionUIAppSetName(name);
+    WITHOUT_GIL(actionUIAppSetName(name));
     Py_RETURN_NONE;
 }
 
 static PyObject* py_app_set_application_id(PyObject* self, PyObject* args) {
     const char* application_id;
     if (PyArg_ParseTuple(args, "s", &application_id) == 0) return NULL;
-    actionUIAppSetApplicationID(application_id);
+    WITHOUT_GIL(actionUIAppSetApplicationID(application_id));
     Py_RETURN_NONE;
 }
 
 static PyObject* py_app_set_icon(PyObject* self, PyObject* args) {
     const char* path;
     if (PyArg_ParseTuple(args, "s", &path) == 0) return NULL;
-    actionUIAppSetIcon(path);
+    WITHOUT_GIL(actionUIAppSetIcon(path));
     Py_RETURN_NONE;
 }
 
 static PyObject* py_app_set_resource_folder(PyObject* self, PyObject* args) {
     const char* path;
     if (PyArg_ParseTuple(args, "z", &path) == 0) return NULL;
-    actionUIAppSetResourceFolder(path);
+    WITHOUT_GIL(actionUIAppSetResourceFolder(path));
     Py_RETURN_NONE;
 }
 
@@ -375,6 +414,8 @@ static PyObject* py_app_start_remote_server(PyObject* self, PyObject* args) {
                         "socket could not be created); see the log for the reason");
         return NULL;
     }
+    // With the GIL held, not WITHOUT_GIL: it only takes a lock, and the pointer it returns is freed
+    // by a stop, which another thread could run while this one waited for the GIL back.
     const char* endpoint = actionUIAppRemoteServerEndpoint();
     if (endpoint == NULL) {
         PyErr_SetString(PyExc_RuntimeError, "the ActionUI remote server reported no endpoint");
@@ -391,6 +432,7 @@ static PyObject* py_app_stop_remote_server(PyObject* self, PyObject* args) {
 }
 
 static PyObject* py_app_remote_server_endpoint(PyObject* self, PyObject* args) {
+    // With the GIL held; see py_app_start_remote_server.
     const char* endpoint = actionUIAppRemoteServerEndpoint();
     if (endpoint == NULL) Py_RETURN_NONE;
     return PyUnicode_FromString(endpoint);
@@ -410,14 +452,18 @@ static PyObject* py_app_remote_server_endpoint(PyObject* self, PyObject* args) {
 // PyUnicode_FromString reading through it. The copy is made under the framework's own lock.
 static PyObject* py_app_remote_server_token(PyObject* self, PyObject* args) {
     char token[128];        // the token is 65 bytes; 128 is what the framework documents as enough
-    if (actionUIAppRemoteCopyServerToken(token, sizeof(token)) == false) Py_RETURN_NONE;
+    bool answered;
+    WITHOUT_GIL(answered = actionUIAppRemoteCopyServerToken(token, sizeof(token)));
+    if (answered == false) Py_RETURN_NONE;
     return PyUnicode_FromString(token);
 }
 
 // Turns on the running server's actionui.performAction (a test harness's click); False when no
 // server runs.
 static PyObject* py_app_remote_enable_perform_action(PyObject* self, PyObject* args) {
-    if (actionUIAppRemoteEnablePerformAction()) Py_RETURN_TRUE;
+    bool answered;
+    WITHOUT_GIL(answered = actionUIAppRemoteEnablePerformAction());
+    if (answered) Py_RETURN_TRUE;
     Py_RETURN_FALSE;
 }
 
@@ -426,28 +472,29 @@ static PyObject* py_app_load_and_present_window(PyObject* self, PyObject* args) 
     const char* windowUUID;
     const char* title = NULL;
     if (PyArg_ParseTuple(args, "ss|z", &urlString, &windowUUID, &title) == 0) return NULL;
-    actionUIAppLoadAndPresentWindow(urlString, windowUUID, title);
+    WITHOUT_GIL(actionUIAppLoadAndPresentWindow(urlString, windowUUID, title));
     Py_RETURN_NONE;
 }
 
 static PyObject* py_app_close_window(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
-    actionUIAppCloseWindow(windowUUID);
+    WITHOUT_GIL(actionUIAppCloseWindow(windowUUID));
     Py_RETURN_NONE;
 }
 
 static PyObject* py_app_load_menu_bar(PyObject* self, PyObject* args) {
     const char* jsonString = NULL;
     if (PyArg_ParseTuple(args, "|z", &jsonString) == 0) return NULL;
-    actionUIAppLoadMenuBar(jsonString);
+    WITHOUT_GIL(actionUIAppLoadMenuBar(jsonString));
     Py_RETURN_NONE;
 }
 
 static PyObject* py_app_run_open_panel(PyObject* self, PyObject* args) {
     const char* configJSON = NULL;
     if (PyArg_ParseTuple(args, "|z", &configJSON) == 0) return NULL;
-    char* result = actionUIAppRunOpenPanel(configJSON);
+    char* result;
+    WITHOUT_GIL(result = actionUIAppRunOpenPanel(configJSON));
     if (result == NULL) Py_RETURN_NONE;
     PyObject* py_result = PyUnicode_FromString(result);
     actionUIFreeString(result);
@@ -457,7 +504,8 @@ static PyObject* py_app_run_open_panel(PyObject* self, PyObject* args) {
 static PyObject* py_app_run_save_panel(PyObject* self, PyObject* args) {
     const char* configJSON = NULL;
     if (PyArg_ParseTuple(args, "|z", &configJSON) == 0) return NULL;
-    char* result = actionUIAppRunSavePanel(configJSON);
+    char* result;
+    WITHOUT_GIL(result = actionUIAppRunSavePanel(configJSON));
     if (result == NULL) Py_RETURN_NONE;
     PyObject* py_result = PyUnicode_FromString(result);
     actionUIFreeString(result);
@@ -467,7 +515,8 @@ static PyObject* py_app_run_save_panel(PyObject* self, PyObject* args) {
 static PyObject* py_app_run_alert(PyObject* self, PyObject* args) {
     const char* configJSON = NULL;
     if (PyArg_ParseTuple(args, "|z", &configJSON) == 0) return NULL;
-    char* result = actionUIAppRunAlert(configJSON);
+    char* result;
+    WITHOUT_GIL(result = actionUIAppRunAlert(configJSON));
     if (result == NULL) Py_RETURN_NONE;
     PyObject* py_result = PyUnicode_FromString(result);
     actionUIFreeString(result);
@@ -513,7 +562,7 @@ static PyObject* py_log(PyObject* self, PyObject* args) {
     const char* message;
     int level;
     if (PyArg_ParseTuple(args, "si", &message, &level) == 0) return NULL;
-    actionUILog(message, (ActionUILogLevel)level);
+    WITHOUT_GIL(actionUILog(message, (ActionUILogLevel)level));
     Py_RETURN_NONE;
 }
 
@@ -598,7 +647,9 @@ static PyObject* py_set_int_value(PyObject* self, PyObject* args) {
     long long viewID, value;
     if (PyArg_ParseTuple(args, "sLLL", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetIntValue(windowUUID, viewID, viewPartID, value));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetIntValue(windowUUID, viewID, viewPartID, value));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_set_double_value(PyObject* self, PyObject* args) {
@@ -608,7 +659,9 @@ static PyObject* py_set_double_value(PyObject* self, PyObject* args) {
     double value;
     if (PyArg_ParseTuple(args, "sLLd", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetDoubleValue(windowUUID, viewID, viewPartID, value));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetDoubleValue(windowUUID, viewID, viewPartID, value));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_set_bool_value(PyObject* self, PyObject* args) {
@@ -618,7 +671,9 @@ static PyObject* py_set_bool_value(PyObject* self, PyObject* args) {
     int value;
     if (PyArg_ParseTuple(args, "sLLp", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetBoolValue(windowUUID, viewID, viewPartID, value != 0));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetBoolValue(windowUUID, viewID, viewPartID, value != 0));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_set_string_value(PyObject* self, PyObject* args) {
@@ -628,7 +683,9 @@ static PyObject* py_set_string_value(PyObject* self, PyObject* args) {
     const char* value;
     if (PyArg_ParseTuple(args, "sLLs", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetStringValue(windowUUID, viewID, viewPartID, value));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetStringValue(windowUUID, viewID, viewPartID, value));
+    return PyBool_FromLong(succeeded);
 }
 
 // MARK: - Python API: Element Values — Type-specific Getters
@@ -640,7 +697,9 @@ static PyObject* py_get_int_value(PyObject* self, PyObject* args) {
     if (PyArg_ParseTuple(args, "sL|L", &windowUUID, &viewID, &viewPartID) == 0)
         return NULL;
     int64_t out;
-    if (actionUIGetIntValue(windowUUID, viewID, viewPartID, &out))
+    bool answered;
+    WITHOUT_GIL(answered = actionUIGetIntValue(windowUUID, viewID, viewPartID, &out));
+    if (answered)
         return PyLong_FromLongLong(out);
     Py_RETURN_NONE;
 }
@@ -652,7 +711,9 @@ static PyObject* py_get_double_value(PyObject* self, PyObject* args) {
     if (PyArg_ParseTuple(args, "sL|L", &windowUUID, &viewID, &viewPartID) == 0)
         return NULL;
     double out;
-    if (actionUIGetDoubleValue(windowUUID, viewID, viewPartID, &out))
+    bool answered;
+    WITHOUT_GIL(answered = actionUIGetDoubleValue(windowUUID, viewID, viewPartID, &out));
+    if (answered)
         return PyFloat_FromDouble(out);
     Py_RETURN_NONE;
 }
@@ -664,7 +725,9 @@ static PyObject* py_get_bool_value(PyObject* self, PyObject* args) {
     if (PyArg_ParseTuple(args, "sL|L", &windowUUID, &viewID, &viewPartID) == 0)
         return NULL;
     bool out;
-    if (actionUIGetBoolValue(windowUUID, viewID, viewPartID, &out))
+    bool answered;
+    WITHOUT_GIL(answered = actionUIGetBoolValue(windowUUID, viewID, viewPartID, &out));
+    if (answered)
         return PyBool_FromLong(out);
     Py_RETURN_NONE;
 }
@@ -675,7 +738,8 @@ static PyObject* py_get_string_value(PyObject* self, PyObject* args) {
     long long viewPartID = 0;
     if (PyArg_ParseTuple(args, "sL|L", &windowUUID, &viewID, &viewPartID) == 0)
         return NULL;
-    char* val = actionUIGetStringValue(windowUUID, viewID, viewPartID);
+    char* val;
+    WITHOUT_GIL(val = actionUIGetStringValue(windowUUID, viewID, viewPartID));
     if (val == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(val);
     actionUIFreeString(val);
@@ -693,7 +757,9 @@ static PyObject* py_set_value_from_string(PyObject* self, PyObject* args) {
     // sLLs|z — windowUUID, viewID, viewPartID, valueString, contentType (optional, defaults to NULL)
     if (PyArg_ParseTuple(args, "sLLs|z", &windowUUID, &viewID, &viewPartID, &valueString, &contentType) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementValueString(windowUUID, viewID, viewPartID, valueString, contentType));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetElementValueString(windowUUID, viewID, viewPartID, valueString, contentType));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_get_value_as_string(PyObject* self, PyObject* args) {
@@ -703,7 +769,8 @@ static PyObject* py_get_value_as_string(PyObject* self, PyObject* args) {
     const char* contentType = NULL;
     if (PyArg_ParseTuple(args, "sL|Lz", &windowUUID, &viewID, &viewPartID, &contentType) == 0)
         return NULL;
-    char* val = actionUIGetElementValueString(windowUUID, viewID, viewPartID, contentType);
+    char* val;
+    WITHOUT_GIL(val = actionUIGetElementValueString(windowUUID, viewID, viewPartID, contentType));
     if (val == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(val);
     actionUIFreeString(val);
@@ -717,7 +784,9 @@ static PyObject* py_set_value_from_json(PyObject* self, PyObject* args) {
     long long viewPartID = 0;
     if (PyArg_ParseTuple(args, "sLLs", &windowUUID, &viewID, &viewPartID, &jsonString) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementValueJSON(windowUUID, viewID, viewPartID, jsonString));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetElementValueJSON(windowUUID, viewID, viewPartID, jsonString));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_get_value_as_json(PyObject* self, PyObject* args) {
@@ -726,7 +795,8 @@ static PyObject* py_get_value_as_json(PyObject* self, PyObject* args) {
     long long viewPartID = 0;
     if (PyArg_ParseTuple(args, "sL|L", &windowUUID, &viewID, &viewPartID) == 0)
         return NULL;
-    char* val = actionUIGetElementValueJSON(windowUUID, viewID, viewPartID);
+    char* val;
+    WITHOUT_GIL(val = actionUIGetElementValueJSON(windowUUID, viewID, viewPartID));
     if (val == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(val);
     actionUIFreeString(val);
@@ -740,7 +810,8 @@ static PyObject* py_get_element_column_count(PyObject* self, PyObject* args) {
     long long viewID;
     if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0)
         return NULL;
-    int64_t count = actionUIGetElementColumnCount(windowUUID, viewID);
+    int64_t count;
+    WITHOUT_GIL(count = actionUIGetElementColumnCount(windowUUID, viewID));
     return PyLong_FromLongLong(count);
 }
 
@@ -751,7 +822,8 @@ static PyObject* py_get_element_rows_json(PyObject* self, PyObject* args) {
     long long viewID;
     if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0)
         return NULL;
-    char* json = actionUIGetElementRowsJSON(windowUUID, viewID);
+    char* json;
+    WITHOUT_GIL(json = actionUIGetElementRowsJSON(windowUUID, viewID));
     if (json == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(json);
     actionUIFreeString(json);
@@ -763,7 +835,7 @@ static PyObject* py_clear_element_rows(PyObject* self, PyObject* args) {
     long long viewID;
     if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0)
         return NULL;
-    actionUIClearElementRows(windowUUID, viewID);
+    WITHOUT_GIL(actionUIClearElementRows(windowUUID, viewID));
     Py_RETURN_NONE;
 }
 
@@ -773,7 +845,9 @@ static PyObject* py_set_element_rows_json(PyObject* self, PyObject* args) {
     const char* rowsJSON;
     if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &rowsJSON) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementRowsJSON(windowUUID, viewID, rowsJSON));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetElementRowsJSON(windowUUID, viewID, rowsJSON));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_append_element_rows_json(PyObject* self, PyObject* args) {
@@ -782,7 +856,9 @@ static PyObject* py_append_element_rows_json(PyObject* self, PyObject* args) {
     const char* rowsJSON;
     if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &rowsJSON) == 0)
         return NULL;
-    return PyBool_FromLong(actionUIAppendElementRowsJSON(windowUUID, viewID, rowsJSON));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUIAppendElementRowsJSON(windowUUID, viewID, rowsJSON));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_append_element_text(PyObject* self, PyObject* args) {
@@ -791,7 +867,9 @@ static PyObject* py_append_element_text(PyObject* self, PyObject* args) {
     const char* text;
     if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &text) == 0)
         return NULL;
-    return PyBool_FromLong(actionUIAppendElementText(windowUUID, viewID, text));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUIAppendElementText(windowUUID, viewID, text));
+    return PyBool_FromLong(succeeded);
 }
 
 // MARK: - Python API: Element Selection
@@ -802,7 +880,9 @@ static PyObject* py_select_element_row_by_index(PyObject* self, PyObject* args) 
     long long index;
     if (PyArg_ParseTuple(args, "sLL", &windowUUID, &viewID, &index) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISelectElementRowByIndex(windowUUID, viewID, index));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISelectElementRowByIndex(windowUUID, viewID, index));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_select_element_row_with_content(PyObject* self, PyObject* args) {
@@ -812,7 +892,9 @@ static PyObject* py_select_element_row_with_content(PyObject* self, PyObject* ar
     long long column;
     if (PyArg_ParseTuple(args, "sLsL", &windowUUID, &viewID, &text, &column) == 0)
         return NULL;
-    return PyLong_FromLongLong(actionUISelectElementRowWithContent(windowUUID, viewID, text, column));
+    int64_t matched;
+    WITHOUT_GIL(matched = actionUISelectElementRowWithContent(windowUUID, viewID, text, column));
+    return PyLong_FromLongLong(matched);
 }
 
 static PyObject* py_clear_element_selection(PyObject* self, PyObject* args) {
@@ -820,7 +902,7 @@ static PyObject* py_clear_element_selection(PyObject* self, PyObject* args) {
     long long viewID;
     if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0)
         return NULL;
-    actionUIClearElementSelection(windowUUID, viewID);
+    WITHOUT_GIL(actionUIClearElementSelection(windowUUID, viewID));
     Py_RETURN_NONE;
 }
 
@@ -832,7 +914,8 @@ static PyObject* py_get_element_property_json(PyObject* self, PyObject* args) {
     const char* propertyName;
     if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &propertyName) == 0)
         return NULL;
-    char* json = actionUIGetElementPropertyJSON(windowUUID, viewID, propertyName);
+    char* json;
+    WITHOUT_GIL(json = actionUIGetElementPropertyJSON(windowUUID, viewID, propertyName));
     if (json == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(json);
     actionUIFreeString(json);
@@ -846,7 +929,9 @@ static PyObject* py_set_element_property_json(PyObject* self, PyObject* args) {
     const char* valueJSON;
     if (PyArg_ParseTuple(args, "sLss", &windowUUID, &viewID, &propertyName, &valueJSON) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementPropertyJSON(windowUUID, viewID, propertyName, valueJSON));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetElementPropertyJSON(windowUUID, viewID, propertyName, valueJSON));
+    return PyBool_FromLong(succeeded);
 }
 
 // MARK: - Python API: Element State
@@ -857,7 +942,8 @@ static PyObject* py_get_element_state_json(PyObject* self, PyObject* args) {
     const char* key;
     if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &key) == 0)
         return NULL;
-    char* json = actionUIGetElementStateJSON(windowUUID, viewID, key);
+    char* json;
+    WITHOUT_GIL(json = actionUIGetElementStateJSON(windowUUID, viewID, key));
     if (json == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(json);
     actionUIFreeString(json);
@@ -870,7 +956,8 @@ static PyObject* py_get_element_state_string(PyObject* self, PyObject* args) {
     const char* key;
     if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &key) == 0)
         return NULL;
-    char* val = actionUIGetElementStateString(windowUUID, viewID, key);
+    char* val;
+    WITHOUT_GIL(val = actionUIGetElementStateString(windowUUID, viewID, key));
     if (val == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(val);
     actionUIFreeString(val);
@@ -884,7 +971,9 @@ static PyObject* py_set_element_state_json(PyObject* self, PyObject* args) {
     const char* valueJSON;
     if (PyArg_ParseTuple(args, "sLss", &windowUUID, &viewID, &key, &valueJSON) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementStateJSON(windowUUID, viewID, key, valueJSON));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetElementStateJSON(windowUUID, viewID, key, valueJSON));
+    return PyBool_FromLong(succeeded);
 }
 
 static PyObject* py_set_element_state_from_string(PyObject* self, PyObject* args) {
@@ -894,7 +983,9 @@ static PyObject* py_set_element_state_from_string(PyObject* self, PyObject* args
     const char* value;
     if (PyArg_ParseTuple(args, "sLss", &windowUUID, &viewID, &key, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementStateFromString(windowUUID, viewID, key, value));
+    bool succeeded;
+    WITHOUT_GIL(succeeded = actionUISetElementStateFromString(windowUUID, viewID, key, value));
+    return PyBool_FromLong(succeeded);
 }
 
 // MARK: - Python API: Element Info
@@ -903,7 +994,8 @@ static PyObject* py_get_element_info_json(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0)
         return NULL;
-    char* json = actionUIGetElementInfoJSON(windowUUID);
+    char* json;
+    WITHOUT_GIL(json = actionUIGetElementInfoJSON(windowUUID));
     if (json == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(json);
     actionUIFreeString(json);
@@ -933,8 +1025,9 @@ static PyObject* py_insert_element(PyObject* self, PyObject* args) {
                          &container, &position, &positionParam) == 0)
         return NULL;
 
-    int64_t inserted_id = actionUIInsertElement(windowUUID, (int64_t)parentID, json, container,
-                                                (ActionUIInsertPosition)position, (int64_t)positionParam);
+    int64_t inserted_id;
+    WITHOUT_GIL(inserted_id = actionUIInsertElement(windowUUID, (int64_t)parentID, json, container,
+                                                (ActionUIInsertPosition)position, (int64_t)positionParam));
     // Only -1 is a failure: an element without an "id" gets an auto-assigned id of -2 or below.
     if (inserted_id == -1) {
         char* err = actionUIGetLastError();
@@ -966,8 +1059,9 @@ static PyObject* py_insert_row(PyObject* self, PyObject* args) {
                          &container, &position, &positionIndex) == 0)
         return NULL;
 
-    char* ids_json = actionUIInsertRow(windowUUID, (int64_t)parentID, json, container,
-                                       (ActionUIInsertPosition)position, (int64_t)positionIndex);
+    char* ids_json;
+    WITHOUT_GIL(ids_json = actionUIInsertRow(windowUUID, (int64_t)parentID, json, container,
+                                       (ActionUIInsertPosition)position, (int64_t)positionIndex));
     if (ids_json == NULL) {
         char* err = actionUIGetLastError();
         if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
@@ -1000,7 +1094,8 @@ static PyObject* py_remove_element(PyObject* self, PyObject* args) {
     long long viewID;
     if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0) return NULL;
 
-    bool ok = actionUIRemoveElement(windowUUID, (int64_t)viewID);
+    bool ok;
+    WITHOUT_GIL(ok = actionUIRemoveElement(windowUUID, (int64_t)viewID));
     if (!ok) {
         char* err = actionUIGetLastError();
         if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
@@ -1036,8 +1131,9 @@ static PyObject* py_present_modal(PyObject* self, PyObject* args) {
         ? ActionUIModalStyleFullScreenCover
         : ActionUIModalStyleSheet;
 
-    bool ok = actionUIPresentModal(windowUUID, jsonString, format,
-                                   modalStyle, onDismissActionID);
+    bool ok;
+    WITHOUT_GIL(ok = actionUIPresentModal(windowUUID, jsonString, format,
+                                   modalStyle, onDismissActionID));
     if (!ok) {
         char* err = actionUIGetLastError();
         if (err != NULL) {
@@ -1055,7 +1151,7 @@ static PyObject* py_present_modal(PyObject* self, PyObject* args) {
 static PyObject* py_dismiss_modal(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
-    actionUIDismissModal(windowUUID);
+    WITHOUT_GIL(actionUIDismissModal(windowUUID));
     Py_RETURN_NONE;
 }
 
@@ -1073,7 +1169,7 @@ static PyObject* py_present_alert(PyObject* self, PyObject* args) {
     if (PyArg_ParseTuple(args, "ss|zz",
                          &windowUUID, &title, &message, &buttonsJSON) == 0)
         return NULL;
-    (void)actionUIPresentAlert(windowUUID, title, message, buttonsJSON);
+    WITHOUT_GIL((void)actionUIPresentAlert(windowUUID, title, message, buttonsJSON));
     Py_RETURN_TRUE;
 }
 
@@ -1094,7 +1190,7 @@ static PyObject* py_present_confirmation_dialog(PyObject* self, PyObject* args) 
     /* actionUIPresentConfirmationDialog requires a non-NULL buttonsJSON;
        pass an empty array if the caller provided nothing. */
     const char* effectiveButtons = (buttonsJSON != NULL) ? buttonsJSON : "[]";
-    (void)actionUIPresentConfirmationDialog(windowUUID, title, message, effectiveButtons);
+    WITHOUT_GIL((void)actionUIPresentConfirmationDialog(windowUUID, title, message, effectiveButtons));
     Py_RETURN_TRUE;
 }
 
@@ -1102,7 +1198,7 @@ static PyObject* py_present_confirmation_dialog(PyObject* self, PyObject* args) 
 static PyObject* py_dismiss_dialog(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
-    actionUIDismissDialog(windowUUID);
+    WITHOUT_GIL(actionUIDismissDialog(windowUUID));
     Py_RETURN_NONE;
 }
 
@@ -1123,7 +1219,7 @@ static PyObject* py_present_toast(PyObject* self, PyObject* args) {
     if (PyArg_ParseTuple(args, "ss|dzz",
                          &windowUUID, &message, &duration, &actionTitle, &actionID) == 0)
         return NULL;
-    (void)actionUIPresentToast(windowUUID, message, duration, actionTitle, actionID);
+    WITHOUT_GIL((void)actionUIPresentToast(windowUUID, message, duration, actionTitle, actionID));
     Py_RETURN_TRUE;
 }
 
@@ -1131,7 +1227,7 @@ static PyObject* py_present_toast(PyObject* self, PyObject* args) {
 static PyObject* py_dismiss_toast(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
-    actionUIDismissToast(windowUUID);
+    WITHOUT_GIL(actionUIDismissToast(windowUUID));
     Py_RETURN_NONE;
 }
 
@@ -1152,7 +1248,8 @@ static PyObject* py_load_hosting_controller(PyObject* self, PyObject* args) {
     if (PyArg_ParseTuple(args, "ssp", &urlString, &windowUUID, &isContentView) == 0)
         return NULL;
 
-    void* ptr = actionUILoadHostingControllerFromURL(urlString, windowUUID, isContentView != 0);
+    void* ptr;
+    WITHOUT_GIL(ptr = actionUILoadHostingControllerFromURL(urlString, windowUUID, isContentView != 0));
     if (ptr != NULL)
         return PyLong_FromVoidPtr(ptr);
 
@@ -1183,7 +1280,9 @@ static PyObject* py_get_content_size_limits(PyObject* self, PyObject* args) {
         return NULL;
 
     double minW = 0, minH = 0, maxW = 0, maxH = 0;
-    if (actionUIGetContentSizeLimits(windowUUID, &minW, &minH, &maxW, &maxH))
+    bool answered;
+    WITHOUT_GIL(answered = actionUIGetContentSizeLimits(windowUUID, &minW, &minH, &maxW, &maxH));
+    if (answered)
         return Py_BuildValue("(dddd)", minW, minH, maxW, maxH);
 
     char* err = actionUIGetLastError();
@@ -1206,7 +1305,7 @@ static PyObject* py_remove_window(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0)
         return NULL;
-    actionUIRemoveWindow(windowUUID);
+    WITHOUT_GIL(actionUIRemoveWindow(windowUUID));
     Py_RETURN_NONE;
 }
 
@@ -1299,15 +1398,13 @@ static void host_surface_call(void* user_data, const char* kind, uint64_t surfac
     }
     s_host_surface_depth += 1;
     if (payload == NULL) {
-        PyErr_PrintEx(0);  /* 0: no sys.last_traceback, whose frames would keep delegates alive */
+        report_callback_error();
     } else {
         PyObject* result = PyObject_CallFunction(client->bridge, "sKsLO", kind, (unsigned long long)surface_id,
                                                  window_uuid != NULL ? window_uuid : "", (long long)view_id, payload);
-        if (result == NULL) {
-            PyErr_PrintEx(0);
-        }
         Py_XDECREF(result);
         Py_DECREF(payload);
+        report_callback_error();
     }
     s_host_surface_depth -= 1;
     if (s_host_surface_depth == 0) {

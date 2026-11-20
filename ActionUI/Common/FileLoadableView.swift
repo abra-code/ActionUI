@@ -27,7 +27,7 @@ public struct FileLoadableView: SwiftUI.View {
         let format = ActionUIDocumentLoader.format(of: fileURL)
         logger.log("Determined format '\(format)' for file URL \(fileURL)", .debug)
         self.init(source: fileURL.absoluteString, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
-            try Data(contentsOf: fileURL)
+            try ActionUIDocumentLoader.readRegularFile(fileURL)
         }
     }
 
@@ -89,6 +89,53 @@ public struct FileLoadableView: SwiftUI.View {
             }
         } else {
             SwiftUI.Text("No content loaded")
+        }
+    }
+}
+
+// The message FileLoadableView shows for a path that is not a regular file.
+extension ActionUIDocumentLoader.NotARegularFile: LocalizedError {
+    var errorDescription: String? { description }
+}
+
+// MARK: - Nesting
+
+private struct ActionUILoadableSourcesKey: EnvironmentKey {
+    static let defaultValue: [String] = []
+}
+
+extension EnvironmentValues {
+    /// The sources of the LoadableViews this view is inside, outermost first.
+    var actionUILoadableSources: [String] {
+        get { self[ActionUILoadableSourcesKey.self] }
+        set { self[ActionUILoadableSourcesKey.self] = newValue }
+    }
+}
+
+/// Shows a LoadableView's content unless its source is already being shown by a LoadableView
+/// around it (a document that loads itself, directly or through others, would load without end)
+/// or the LoadableViews are nested too deep (the rule is Core's `ActionUIDocumentLoader.nestingRefusal`).
+/// The content view is made only when it may show, so a refused file is never read.
+@MainActor
+struct LoadableNestingGuard<Content: SwiftUI.View>: SwiftUI.View {
+    @Environment(\.actionUILoadableSources) private var sources
+    let source: String
+    let logger: any ActionUILogger
+    let content: () -> Content
+
+    init(source: String, logger: any ActionUILogger, @ViewBuilder content: @escaping () -> Content) {
+        self.source = source
+        self.logger = logger
+        self.content = content
+    }
+
+    var body: some SwiftUI.View {
+        if let refusal = ActionUIDocumentLoader.nestingRefusal(source, inside: sources) {
+            SwiftUI.Text("Failed to load view: \(refusal)")
+                .foregroundStyle(.red)
+                .onAppear { logger.log("LoadableView: not loading \(source): \(refusal)", .error) }
+        } else {
+            content().environment(\.actionUILoadableSources, sources + [source])
         }
     }
 }

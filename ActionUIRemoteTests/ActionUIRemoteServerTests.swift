@@ -396,6 +396,8 @@ final class ActionUIRemoteServerTests: XCTestCase {
         assertFailure("actionui.presentModal", windowParams(["element": ["type": "Text"], "style": "popover"]), code: -32602)
         assertFailure("actionui.presentModal", windowParams(["path": "relative.json"]), code: -32602)
         assertFailure("actionui.presentModal", windowParams(["path": "/nonexistent/modal.json"]), code: 1003)
+        // Only a regular file: /dev/zero would never finish reading on the main thread.
+        assertFailure("actionui.presentModal", windowParams(["path": "/dev/zero"]), code: 1003)
     }
 
     func testContentSizeLimitsReturnsNullOrAnObject() throws {

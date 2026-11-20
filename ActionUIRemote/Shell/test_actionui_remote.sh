@@ -271,6 +271,21 @@ t_eq "set_value exits 0" 0 "$_t_rc"
 t_run actionui_get_value 2
 t_eq "get_value returns the JSON string" '"plain"' "$_t_out"
 
+# A raw newline in a JSON-typed argument used to end the request line, and the rest went to the
+# host as a second request carrying the script's token. It is now folded into a space: the
+# injected text stays in the first request, which the host refuses, and nothing else is sent.
+_t_injected='"x"'"$_t_nl"'{"jsonrpc":"2.0","id":99,"method":"actionui.setElementValue","params":{"windowUUID":"W-1","viewID":2,"value":"injected"}}'
+t_run actionui_set_value 2 "$_t_injected"
+t_eq "a JSON argument with a newline and a second request is refused" 1 "$_t_rc"
+t_run actionui_get_value 2
+t_eq "the second request was not sent" '"plain"' "$_t_out"
+# Valid JSON spread over lines (newlines between tokens) still works.
+t_run actionui_set_value 2 "${_t_nl}\"multi\"${_t_nl}"
+t_eq "a JSON argument spread over lines is accepted" 0 "$_t_rc"
+t_run actionui_get_value 2
+t_eq "and sets its value" '"multi"' "$_t_out"
+t_run actionui_set_value 2 '"plain"'
+
 t_run actionui_set_int 2 42
 t_run actionui_get_int 2
 t_eq "set_int / get_int" "42" "$_t_out"

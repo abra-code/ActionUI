@@ -34,6 +34,7 @@
 //     caveat shared with WebView/Canvas).
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { isOpenedURL } from "../Helpers/URLPolicy.js";
 import {
     resolveMapConfig,
     mapInitialCoordinate,
@@ -64,12 +65,15 @@ register("Map", {
         frame.setAttribute("referrerpolicy", "no-referrer");
         frame.setAttribute("loading", "lazy");
         frame.setAttribute("title", "Map");
+        // The embed is a fixed OpenStreetMap page: its own origin and script, nothing more (it
+        // may not navigate the host page).
+        frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox");
         node.appendChild(frame);
 
         const open = document.createElement("a");
         open.className = "aui-map-open";
         open.target = "_blank";
-        open.rel = "noopener";
+        open.rel = "noopener noreferrer";
         open.textContent = "Open in Maps";
         node.appendChild(open);
 
@@ -84,7 +88,16 @@ register("Map", {
 
         const render = (coordinate) => {
             frame.src = embedURL(coordinate, firstAnnotation?.coordinate ?? null);
-            open.href = openInMapsURL(coordinate, label, openURLTemplate);
+            const href = openInMapsURL(coordinate, label, openURLTemplate);
+            if (isOpenedURL(href)) {
+                open.href = href;
+                open.hidden = false;
+            } else {
+                // The same rule as Link: a template must not become a javascript: or data: link.
+                ctx.logger.log(`Map openInMapsURL "${href}" opens nothing; hiding "Open in Maps"`, "warning");
+                open.removeAttribute("href");
+                open.hidden = true;
+            }
         };
         render(center);
 

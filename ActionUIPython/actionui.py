@@ -15,6 +15,15 @@ from enum import IntEnum, Enum
 from dataclasses import dataclass, field
 
 
+def _file_url(path: str) -> str:
+    """The file:// URL of a filesystem path, made absolute and percent-encoded. Joined as text, a
+    '#' or '?' in a file name would end the path and '%41' would be decoded, so the file loaded
+    would not be the file named."""
+    import os
+    from pathlib import Path
+    return Path(os.path.abspath(path)).as_uri()
+
+
 # The remote bridge's environment contract (ActionUIRemote/PROTOCOL.md section 9). A child
 # process reads these two to find the host and the window it was started for.
 REMOTE_ENDPOINT_ENV = "ACTIONUI_REMOTE_ENDPOINT"
@@ -116,7 +125,10 @@ class Logger:
     def _log_callback(self, message: str, level: int):
         if self._callback:
             self._callback(message, LogLevel(level))
-        else:
+        elif level <= LogLevel.WARNING:
+            # Without a callback, warnings and errors only, as the library's own default logger:
+            # the detailed levels carry ids, titles and addresses into standard output, which a
+            # script's caller often captures. A callback receives every level.
             print(f"[ActionUI][{LogLevel(level).name}] {message}")
 
     def set_callback(self, callback: Optional[Callable[[str, LogLevel], None]]):
@@ -532,8 +544,7 @@ class Application:
         if window_uuid is None:
             window_uuid = str(uuid.uuid4())
         if not url.startswith(('file://', 'http://', 'https://')):
-            import os
-            url = 'file://' + os.path.abspath(url)
+            url = _file_url(url)
         # Create and register the Window before calling into C so that it is
         # available inside the window_will_present callback, which fires
         # synchronously before makeKeyAndOrderFront.
@@ -806,8 +817,7 @@ class Window:
         """
         window = cls(window_uuid)
         if not filepath.startswith('file://'):
-            import os
-            filepath = 'file://' + os.path.abspath(filepath)
+            filepath = _file_url(filepath)
         try:
             window._view_ptr = _actionui.load_hosting_controller(
                 filepath, window.uuid, is_content_view)

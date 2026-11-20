@@ -150,12 +150,24 @@ def _report_issues(path: Path, issues: list) -> tuple[int, int]:
 
 
 def validate_file(path: Path, validator: ElementValidator, strict: bool) -> tuple[int, int]:
-    """Returns (error_count, warning_count)."""
+    """Returns (error_count, warning_count). A file that cannot be checked counts as one error and
+    the run goes on to the next file."""
+    # Only a regular file: a named pipe or a device named *.json in a folder would block the run
+    # or never end it.
+    if not path.is_file():
+        print(f"[ERROR] {path}: not a regular file", file=sys.stderr)
+        return 1, 0
     try:
         with open(path, encoding="utf-8") as f:
             data = json.loads(_strip_jsonc(f.read()))
     except json.JSONDecodeError as e:
         print(f"[ERROR] {path}: invalid JSON — {e}", file=sys.stderr)
+        return 1, 0
+    except UnicodeDecodeError as e:
+        print(f"[ERROR] {path}: not UTF-8 text - {e}", file=sys.stderr)
+        return 1, 0
+    except RecursionError:
+        print(f"[ERROR] {path}: nested too deeply to check", file=sys.stderr)
         return 1, 0
     except OSError as e:
         print(f"[ERROR] {path}: cannot read file — {e}", file=sys.stderr)
@@ -164,7 +176,11 @@ def validate_file(path: Path, validator: ElementValidator, strict: bool) -> tupl
     # A top-level JSON array is a menu-bar document (MainMenu.json) — an array of
     # CommandMenu / CommandGroup elements.  A view document has an object root.
     if isinstance(data, list):
-        return _report_issues(path, validate_menubar(data, str(path), validator))
+        try:
+            return _report_issues(path, validate_menubar(data, str(path), validator))
+        except RecursionError:
+            print(f"[ERROR] {path}: nested too deeply to check", file=sys.stderr)
+            return 1, 0
 
     if not isinstance(data, dict):
         print(f"[ERROR] {path}: root must be a JSON object (a view) or array (a menu bar)",
@@ -172,7 +188,11 @@ def validate_file(path: Path, validator: ElementValidator, strict: bool) -> tupl
         return 1, 0
 
     seen_ids: set = set()
-    return _report_issues(path, validator.validate(data, str(path), seen_ids))
+    try:
+        return _report_issues(path, validator.validate(data, str(path), seen_ids))
+    except RecursionError:
+        print(f"[ERROR] {path}: nested too deeply to check", file=sys.stderr)
+        return 1, 0
 
 
 def validate_path(

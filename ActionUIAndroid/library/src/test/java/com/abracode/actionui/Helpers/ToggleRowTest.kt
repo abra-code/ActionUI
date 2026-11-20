@@ -176,6 +176,22 @@ class ToggleRowTest {
     }
 
     @Test
+    fun `a column far beyond the row is not written and fires nothing`() {
+        val container = container(listOf(listOf("Alpha")))
+        val short = TemplateContext(parentID = 600, rowIndex = 0, row = listOf("Alpha"))
+        var fired = 0
+        ActionUIModel.registerActionHandler("packs.toggled") { _, _, _, _, _ -> fired += 1 }
+        // "$2000000000" in a template: one tap padded the row by that many cells.
+        assertFalse(TemplateHelper.commitRowToggle(true, container, short, column = 1_999_999_999, actionID = "packs.toggled"))
+        assertEquals(listOf(listOf("Alpha")), rowsOf(container))
+        assertEquals(0, fired)
+        // The last column within the limit is still written.
+        val limit = TemplateHelper.MAX_ROW_PADDING
+        assertTrue(TemplateHelper.commitRowToggle(true, container, short, column = limit, actionID = null))
+        assertEquals(limit + 1, rowsOf(container)[0].size)
+    }
+
+    @Test
     fun `a row the host moved is followed, a row that is gone is dropped`() {
         val moved = container(listOf(listOf("false", "New", "new", "false")) + packRows)
         val parts = mutableListOf<Int>()

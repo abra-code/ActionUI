@@ -258,6 +258,18 @@ final class ToggleTemplateTests: XCTestCase {
         XCTAssertEqual(rows(), [["Alpha", "", "true"]])
     }
 
+    func testCommitRowToggle_aColumnFarBeyondTheRowIsNotWritten() throws {
+        // The column comes from the document: "$4000000000" would pad one row by billions of cells.
+        _ = try loadPackList()
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 600, rows: [["Alpha"]])
+        let short = TemplateContext(parentID: 600, rowIndex: 0, row: ["Alpha"])
+        XCTAssertFalse(TemplateHelper.commitRowToggle(true, context: short, column: 3_999_999_999, actionID: nil, windowUUID: windowUUID))
+        XCTAssertFalse(TemplateHelper.commitRowToggle(true, context: short, column: 1 + TemplateHelper.maxRowPadding, actionID: nil, windowUUID: windowUUID))
+        XCTAssertEqual(rows(), [["Alpha"]], "nothing padded")
+        XCTAssertTrue(TemplateHelper.commitRowToggle(true, context: short, column: TemplateHelper.maxRowPadding, actionID: nil, windowUUID: windowUUID))
+        XCTAssertEqual(rows().first?.count, 1 + TemplateHelper.maxRowPadding, "padding up to the limit still works")
+    }
+
     func testCommitRowToggle_followsARowTheHostMoved() throws {
         // The host replaced the rows between the render and the click: the row drawn at
         // index 1 is now at index 2.

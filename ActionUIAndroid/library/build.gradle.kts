@@ -20,6 +20,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG picks the default log level (Common/ConsoleLogger.kt).
+        buildConfig = true
     }
 }
 

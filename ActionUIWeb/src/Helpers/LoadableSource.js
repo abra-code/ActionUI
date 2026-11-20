@@ -15,6 +15,8 @@
 // with `.json` appended when it has no extension — alongside the `kind` (kept for
 // parity/diagnostics) and `format`.
 
+import { pageBaseURL } from "./URLPolicy.js";
+
 // The effective source string: the runtime [value] when set and non-blank, else
 // the first present and non-blank of url > filePath > name. Null when none.
 export function resolveLoadableSource(value, properties) {
@@ -36,17 +38,36 @@ export function classifyLoadableSource(source) {
     if (lower.startsWith("http://") || lower.startsWith("https://")) {
         return { kind: "remote", fetchURL: trimmed, format: formatOf(trimmed) };
     }
+    // A path or name is fetched from the page's own server. "//host/path" is a path on other
+    // platforms, but a browser fetches it (and spellings such as "\\host/path",
+    // "file:////host/path" or "https:host/path") from another server; a document that means a
+    // remote address names its scheme.
+    let local;
     if (lower.startsWith("file://")) {
         const path = trimmed.slice("file://".length);
-        return { kind: "filePath", fetchURL: path, format: formatOf(path) };
+        local = { kind: "filePath", fetchURL: path, format: formatOf(path) };
+    } else if (trimmed.includes("/")) {
+        local = { kind: "filePath", fetchURL: trimmed, format: formatOf(trimmed) };
+    } else {
+        // Bundle/resource name - on the web, fetched relative to the page; append
+        // `.json` when the name carries no extension (Android appends it too).
+        const fetchURL = trimmed.includes(".") ? trimmed : `${trimmed}.json`;
+        local = { kind: "bundle", fetchURL, format: formatOf(fetchURL) };
     }
-    if (trimmed.includes("/")) {
-        return { kind: "filePath", fetchURL: trimmed, format: formatOf(trimmed) };
+    return isPageServerAddress(local.fetchURL) ? local : { kind: "none", fetchURL: "", format: "json" };
+}
+
+// False when the browser would fetch `path` from a server other than the page's own. A path the
+// URL parser rejects counts as the page's: the fetch fails on its own, as before.
+function isPageServerAddress(path) {
+    const base = pageBaseURL();
+    try {
+        const page = new URL(base);
+        const target = new URL(path, base);
+        return target.protocol === page.protocol && target.host === page.host;
+    } catch {
+        return true;
     }
-    // Bundle/resource name — on the web, fetched relative to the page; append
-    // `.json` when the name carries no extension (Android appends it too).
-    const fetchURL = trimmed.includes(".") ? trimmed : `${trimmed}.json`;
-    return { kind: "bundle", fetchURL, format: formatOf(fetchURL) };
 }
 
 // The serialized format from a source's trailing extension; defaults to "json".

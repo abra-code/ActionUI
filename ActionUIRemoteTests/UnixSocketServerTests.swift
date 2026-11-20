@@ -217,6 +217,22 @@ final class UnixSocketServerTests: XCTestCase {
         XCTAssertEqual(client.readLine(), "alive")
     }
 
+    func testStopRemovesOnlyTheSocketItBound() throws {
+        // A file that has taken the socket's name since the start (a new server's socket, another
+        // user's file in a shared directory) is not this server's to remove.
+        let echo = try startEchoServer()
+        XCTAssertEqual(unlink(socketPath), 0)
+        FileManager.default.createFile(atPath: socketPath, contents: Data("someone else's".utf8))
+        echo.stop()
+        XCTAssertEqual(try? String(contentsOfFile: socketPath, encoding: .utf8), "someone else's")
+
+        // Its own socket it does remove.
+        unlink(socketPath)
+        let again = try startEchoServer()
+        again.stop()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: socketPath))
+    }
+
     func testPathTooLongThrowsWithoutLeavingAFile() {
         let longPath = FileManager.default.temporaryDirectory
             .appendingPathComponent(String(repeating: "p", count: 120) + ".sock").path

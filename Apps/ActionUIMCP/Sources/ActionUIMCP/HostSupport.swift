@@ -64,11 +64,11 @@ enum HostSupport {
 
     // MARK: Paths
 
-    /// The folder for this session's staged documents and screenshots. The temporary folder on macOS
-    /// is the user's own. On Linux it is /tmp, open to every user of the machine, so the folder is
-    /// made private there, under a name nobody can take first: a staged document replaced in a
-    /// folder someone else owns would load past the document checks, and a screenshot shows what
-    /// the user has on screen.
+    /// The folder for this session's staged documents and screenshots, removed when the session
+    /// ends (`removeSessionFolder`). The temporary folder on macOS is the user's own. On Linux it is
+    /// /tmp, open to every user of the machine, so the folder is made private there, under a name
+    /// nobody can take first: a staged document replaced in a folder someone else owns would load
+    /// past the document checks, and a screenshot shows what the user has on screen.
     static let sessionFolder: URL = {
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
@@ -77,9 +77,23 @@ enum HostSupport {
         if mkdtemp(&template) != nil {
             return URL(fileURLWithPath: String(cString: template), isDirectory: true)
         }
-        #endif
+        // Never a name another user could guess and create first in /tmp, and private as mkdtemp's:
+        // the later createDirectory calls would make it with the umask's mode, readable by all.
+        let fallback = folder.path + "-" + UUID().uuidString
+        _ = mkdir(fallback, 0o700)
+        return URL(fileURLWithPath: fallback, isDirectory: true)
+        #else
         return folder
+        #endif
     }()
+
+    /// Removes the session folder and what is left in it (screenshots, kept windows' documents
+    /// that were not handed to a keeper). Called once, at shutdown, after the hand-off has moved
+    /// the kept windows' documents out. ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves it, for inspection.
+    static func removeSessionFolder() {
+        guard ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] != "1" else { return }
+        try? FileManager.default.removeItem(at: sessionFolder)
+    }
 
     /// The running program's path, symbolic links resolved: a client launching the bare name
     /// through PATH passes just that in argv[0].

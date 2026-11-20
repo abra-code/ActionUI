@@ -20,6 +20,7 @@
 //     app for them, and in a page they would run script or replace the page.
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { isOpenedURL } from "../Helpers/URLPolicy.js";
 
 register("Link", {
     valueType: "none",
@@ -52,7 +53,7 @@ register("Link", {
         const node = document.createElement("a");
         node.className = "aui-link";
         node.textContent = typeof properties.title === "string" ? properties.title : "Link";
-        if (destination === "absolute" && !NOT_OPENED_SCHEMES.test(url)) {
+        if (destination === "absolute" && isOpenedURL(url)) {
             node.href = url;
             node.target = "_blank";
             node.rel = "noopener noreferrer";
@@ -69,9 +70,6 @@ register("Link", {
         return node;
     },
 });
-
-// Schemes a page never opens from a Link (Apple has no app for them either).
-const NOT_OPENED_SCHEMES = /^(javascript|vbscript|data):/i;
 
 // URLs tapped that open nothing, each logged once.
 const reportedUnopenedURLs = new Set();

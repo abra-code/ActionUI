@@ -10,7 +10,15 @@
 const _actionui = require('node-gyp-build')(__dirname);
 const { randomUUID } = require('crypto');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const fs = require('fs');
+
+// The file:// URL of a filesystem path, made absolute and percent-encoded. Joined as text, a '#' or
+// '?' in a file name would end the path and '%41' would be decoded, so the file loaded would not be
+// the file named.
+function fileURL(filePath) {
+    return pathToFileURL(path.resolve(filePath)).href;
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -65,6 +73,12 @@ class ActionContext {
 // Window
 // ---------------------------------------------------------------------------
 
+// The setters take (viewId, value) for part 0, as documented, or (viewId, partId, value). Reading a
+// two-argument call as (viewId, partId) would send no value at all.
+function partAndValue(rest) {
+    return rest.length >= 2 ? [rest[0] ?? 0, rest[1]] : [0, rest[0]];
+}
+
 class Window {
     constructor(uuid) {
         this.uuid = uuid || randomUUID();
@@ -75,7 +89,7 @@ class Window {
         const win = new Window(uuid);
         let url = filePath;
         if (!url.startsWith('file://')) {
-            url = 'file://' + path.resolve(filePath);
+            url = fileURL(filePath);
         }
         try {
             win._viewPtr = _actionui.loadHostingController(url, win.uuid, isContentView);
@@ -113,11 +127,11 @@ class Window {
         }
     }
 
-    // Type-specific setters
-    setInt(viewId, partId = 0, value)    { _actionui.setIntValue(this.uuid, viewId, partId, value); }
-    setDouble(viewId, partId = 0, value) { _actionui.setDoubleValue(this.uuid, viewId, partId, value); }
-    setBool(viewId, partId = 0, value)   { _actionui.setBoolValue(this.uuid, viewId, partId, value); }
-    setString(viewId, partId = 0, value) { _actionui.setStringValue(this.uuid, viewId, partId, value); }
+    // Type-specific setters: (viewId, value) sets part 0, (viewId, partId, value) a given part.
+    setInt(viewId, ...rest)    { const [partId, value] = partAndValue(rest); _actionui.setIntValue(this.uuid, viewId, partId, value); }
+    setDouble(viewId, ...rest) { const [partId, value] = partAndValue(rest); _actionui.setDoubleValue(this.uuid, viewId, partId, value); }
+    setBool(viewId, ...rest)   { const [partId, value] = partAndValue(rest); _actionui.setBoolValue(this.uuid, viewId, partId, value); }
+    setString(viewId, ...rest) { const [partId, value] = partAndValue(rest); _actionui.setStringValue(this.uuid, viewId, partId, value); }
 
     // Type-specific getters
     getInt(viewId, partId = 0)    { return _actionui.getIntValue(this.uuid, viewId, partId); }
@@ -125,8 +139,9 @@ class Window {
     getBool(viewId, partId = 0)   { return _actionui.getBoolValue(this.uuid, viewId, partId); }
     getString(viewId, partId = 0) { return _actionui.getStringValue(this.uuid, viewId, partId); }
 
-    // Generic value access (JSON round-trip)
-    setValue(viewId, partId = 0, value) {
+    // Generic value access (JSON round-trip): (viewId, value) or (viewId, partId, value)
+    setValue(viewId, ...rest) {
+        const [partId, value] = partAndValue(rest);
         if (typeof value === 'boolean') {
             _actionui.setBoolValue(this.uuid, viewId, partId, value);
         } else if (typeof value === 'number') {
@@ -520,7 +535,7 @@ class Application {
     loadAndPresentWindow(url, uuid, title) {
         if (uuid == null) uuid = randomUUID();
         if (!url.startsWith('file://') && !url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'file://' + path.resolve(url);
+            url = fileURL(url);
         }
         const window = new Window(uuid);
         this._windows.set(uuid, window);
@@ -753,4 +768,6 @@ module.exports = {
     presentPixels,
     // Expose raw native module for advanced use
     _native: _actionui,
+    // The path-to-URL conversion of loadAndPresentWindow and Window.fromFile, for the tests
+    _fileURL: fileURL,
 };

@@ -383,6 +383,73 @@ final class AppCommandsTests: XCTestCase {
         XCTAssertFalse(shown.joined().contains("Failed Tools"), "\(shown)")
     }
 
+    /// Shows the WindowGroup at `path` and returns the primary menu's outline while it is on screen.
+    private func menuWhileShowing(path: String, windowUUID: String) -> [String] {
+        let app = AdwaitaApplication()
+        var shown: [String] = []
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(url: path, windowUUID: windowUUID, title: nil)
+            shown = self.outline(AppCommands.shared.menu.opaquePointer)
+            app.closeWindow(windowUUID)
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        return shown
+    }
+
+    private func windowGroupFile(_ folder: URL, name: String, menu: String) throws -> URL {
+        let document = """
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "\(menu)", "windowGroupID": "\(menu)"},
+             "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
+             "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "\(menu)"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
+            """
+        let file = folder.appendingPathComponent(name)
+        try Data(document.utf8).write(to: file)
+        return file
+    }
+
+    func testOnlyAWindowGroupInTheResourceFolderAddsCommands() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-commands-\(UUID().uuidString)")
+        let resources = base.appendingPathComponent("Resources")
+        let elsewhere = base.appendingPathComponent("Downloads")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        let savedFolder = ActionUIResourceFolder.path
+        defer {
+            ActionUIResourceFolder.path = savedFolder
+            try? FileManager.default.removeItem(at: base)
+        }
+        ActionUIResourceFolder.path = resources.path
+
+        let own = try windowGroupFile(resources, name: "Main.json", menu: "Own Tools")
+        let outside = try windowGroupFile(elsewhere, name: "Other.json", menu: "Outside Tools")
+        let linked = try windowGroupFile(elsewhere, name: "Target.json", menu: "Linked Tools")
+        let link = resources.appendingPathComponent("Link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: linked)
+
+        XCTAssertTrue(menuWhileShowing(path: own.path, windowUUID: "commands-own").joined().contains("Own Tools"),
+                      "a document in the app's resource folder is the app's own")
+        XCTAssertFalse(menuWhileShowing(path: outside.path, windowUUID: "commands-outside").joined().contains("Outside Tools"),
+                       "a document elsewhere adds no menu commands")
+        XCTAssertFalse(menuWhileShowing(path: link.path, windowUUID: "commands-link").joined().contains("Linked Tools"),
+                       "a link in the resource folder to a file elsewhere is elsewhere")
+        XCTAssertTrue(AdwaitaApplication.isInResourceFolder(own))
+        XCTAssertFalse(AdwaitaApplication.isInResourceFolder(resources.appendingPathComponent("../Downloads/Other.json")))
+
+        // Two folders whose names differ only in how the accent is encoded are two folders.
+        let composed = base.appendingPathComponent("R\u{E9}sum\u{E9}")
+        let decomposed = base.appendingPathComponent("Re\u{301}sume\u{301}")
+        try FileManager.default.createDirectory(at: composed, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: decomposed, withIntermediateDirectories: true)
+        let sibling = try windowGroupFile(decomposed, name: "Main.json", menu: "Sibling Tools")
+        ActionUIResourceFolder.path = composed.path
+        XCTAssertFalse(AdwaitaApplication.isInResourceFolder(sibling), "a folder spelled with a combining accent is elsewhere")
+        ActionUIResourceFolder.path = "/"
+        XCTAssertFalse(AdwaitaApplication.isInResourceFolder(own), "a resource folder of / trusts nothing")
+    }
+
     func testAWindowGroupWithoutContentCannotBeLoaded() {
         let group = AdwaitaApplication.shared.windowGroup(Data(#"{"type": "WindowGroup", "properties": {"title": "Empty"}}"#.utf8), format: "json")
         XCTAssertEqual(group.error, "the WindowGroup has no content", "as Apple shows \"No content provided\"")

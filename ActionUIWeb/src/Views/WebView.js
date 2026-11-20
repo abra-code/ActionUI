@@ -14,6 +14,16 @@
 // Observable state (getElementState): isLoading, title, canGoBack, canGoForward,
 // estimatedProgress - seeded like Apple/Android.
 //
+// Isolation: the iframe carries a sandbox attribute set before every load
+// (Helpers/URLPolicy.js). Inline html runs in an opaque origin of its own, as on
+// Apple, so its script cannot reach the host page; a url page on another server keeps
+// its own origin, and one on the host page's own origin gets an opaque one. None may
+// navigate the host page. The flags take effect at the frame's next load, whatever
+// starts it, so a change of flags gets a fresh frame (see setValue).
+// `url` and value writes accept only http and https addresses (relative ones
+// included, also on a page an app serves from its own scheme); javascript:, file:
+// and other schemes are refused with a warning.
+//
 // Divergences from WKWebView, all consequences of the
 // iframe being a sandboxed, cross-origin-restricted frame rather than an in-app
 // browser engine:
@@ -32,6 +42,10 @@
 //     policy, not ours), the iframe analog of a page that fails to load.
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { isFramedURL, webViewSandboxFor, WEBVIEW_HTML_SANDBOX } from "../Helpers/URLPolicy.js";
+
+// Value writes that act on the current page rather than name a new one.
+const NAVIGATION_COMMANDS = new Set(["#reload", "#goBack", "#goForward", "#stop"]);
 
 const BOOL_PROPS = [
     "backForwardNavigationGestures", "magnificationGestures", "linkPreviews",
@@ -116,16 +130,11 @@ register("WebView", {
         const node = document.createElement("div");
         node.className = "aui-webview";
 
-        const frame = document.createElement("iframe");
-        frame.className = "aui-webview-frame";
-        frame.setAttribute("referrerpolicy", "no-referrer");
-        node.appendChild(frame);
-
         // Live observable state (same-origin only where noted in the header).
         const state = { isLoading: false, estimatedProgress: 0.0, canGoBack: false, canGoForward: false, title: undefined };
         let currentURL = typeof properties.url === "string" ? properties.url : "";
 
-        frame.addEventListener("load", () => {
+        const onLoad = () => {
             state.isLoading = false;
             state.estimatedProgress = 1.0;
             try { state.title = frame.contentDocument?.title || undefined; } catch { /* cross-origin */ }
@@ -135,12 +144,23 @@ register("WebView", {
             if (typeof properties.valueChangeActionID === "string" && currentURL) {
                 ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null);
             }
-        });
+        };
+        const makeFrame = () => {
+            const made = document.createElement("iframe");
+            made.className = "aui-webview-frame";
+            made.setAttribute("referrerpolicy", "no-referrer");
+            made.addEventListener("load", onLoad);
+            return made;
+        };
+        let frame = makeFrame();
+        node.appendChild(frame);
 
         // Initial content: a url wins over inline html (Apple's precedence).
         if (currentURL) {
-            navigate(frame, currentURL, state, ctx.logger);
+            // A refused address loads nothing and is not reported as the value.
+            if (navigate(frame, currentURL, state, ctx.logger) === null) currentURL = "";
         } else if (typeof properties.html === "string") {
+            frame.setAttribute("sandbox", WEBVIEW_HTML_SANDBOX);
             frame.srcdoc = withBase(properties.html, properties.baseURL);
         }
 
@@ -150,6 +170,19 @@ register("WebView", {
                 setValue: (value) => {
                     const command = String(value ?? "");
                     if (command.length === 0 || command === currentURL && !command.startsWith("#")) return;
+                    // A new page whose sandbox differs from the frame's gets a fresh frame. Flags
+                    // changed in place would apply to whatever loads next, including a reload the
+                    // current page starts itself, which would then run with flags meant for
+                    // another origin (allow-same-origin on the host page's origin). Inline html
+                    // always needs a fresh frame too: srcdoc outranks src, so the url would never load.
+                    if (!NAVIGATION_COMMANDS.has(command) && isFramedURL(command)) {
+                        const current = frame.getAttribute("sandbox");
+                        if (frame.getAttribute("srcdoc") !== null ||
+                            (current !== null && current !== webViewSandboxFor(command))) {
+                            frame = makeFrame();
+                            node.replaceChildren(frame);
+                        }
+                    }
                     const next = navigate(frame, command, state, ctx.logger);
                     if (next !== null) currentURL = next;
                 },
@@ -183,8 +216,14 @@ function navigate(frame, command, state, logger) {
             logger.log("WebView '#stop' is not supported on the iframe backing; ignoring", "warning");
             return null;
         default:
+            if (!isFramedURL(command)) {
+                logger.log(`WebView url "${command}" is not an http or https address; ignoring`, "warning");
+                return null;
+            }
             state.isLoading = true;
             state.estimatedProgress = 0.0;
+            // The sandbox applies from the next load, so it is set before src.
+            frame.setAttribute("sandbox", webViewSandboxFor(command));
             frame.src = command;
             return command;
     }

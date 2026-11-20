@@ -110,11 +110,12 @@ object ActionUIModel {
     private var defaultActionHandler: ActionUIActionHandler? = null
 
     /**
-     * Logger for action-dispatch diagnostics. Defaults to [ConsoleLogger];
+     * Logger for action-dispatch diagnostics. Defaults to a [ConsoleLogger] that prints
+     * warnings and errors in a release build ([ConsoleLogger.defaultMaxLevel]);
      * client code may assign a different [ActionUILogger]. Matches the public
      * `logger` property on the Swift `ActionUIModel`.
      */
-    var logger: ActionUILogger = ConsoleLogger()
+    var logger: ActionUILogger = ConsoleLogger(ConsoleLogger.defaultMaxLevel)
 
     /** Decoder for modal sub-documents passed to [presentModal] (shared config; see [ActionUIJson]). */
     private val json: Json = ActionUIJson

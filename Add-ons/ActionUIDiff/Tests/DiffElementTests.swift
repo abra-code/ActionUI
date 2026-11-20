@@ -11,6 +11,11 @@ import FoundationEssentials
 import Foundation
 #endif
 import XCTest
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import ActionUIDiff
 import ActionUI
 
@@ -77,6 +82,21 @@ final class DiffInputResolutionTests: XCTestCase {
         XCTAssertTrue(path.hasPrefix(home + "/actionui-diff-"), "~root is root's home, \(home); got \(path)")
     }
 
+    func testOnlyARegularFileIsRead() throws {
+        // A device or a named pipe reports a size of 0, which passed the 4 MB cap, and reading one
+        // never ends (/dev/zero) or never starts (a pipe with no writer).
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-diff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let pipe = folder.appendingPathComponent("pipe.txt").path
+        XCTAssertEqual(mkfifo(pipe, 0o600), 0)
+        for path in ["/dev/zero", pipe, folder.path] {
+            let logger = RecordingLogger()
+            XCTAssertEqual(Diff.resolveInput(text: nil, file: path, side: "old", logger: logger), .unreadable(path: path), path)
+            XCTAssertTrue(logger.warnings.contains { $0.contains("not a regular file") }, path)
+        }
+    }
+
     func testExistingFileIsReadAsText() throws {
         let logger = RecordingLogger()
         let fileURL = FileManager.default.temporaryDirectory
@@ -129,7 +149,7 @@ final class DiffInputResolutionTests: XCTestCase {
         let link = folder.appendingPathComponent("dangling.txt").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: folder.appendingPathComponent("gone.txt").path)
         XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger), .unreadable(path: link))
-        XCTAssertTrue(logger.warnings.contains { $0.contains("missing or over 4 MB") }, "refused as a missing file")
+        XCTAssertTrue(logger.warnings.contains { $0.contains("missing, not a regular file, or over 4 MB") }, "refused as a missing file")
     }
 
     func testNonexistentFileYieldsUnreadableAndWarns() {

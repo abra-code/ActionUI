@@ -25,8 +25,10 @@ extension Diff {
 
     /// Resolves one side of the diff from its text and file properties.
     /// - text wins over file: if `text` is a string it is used (warning if `file` is also set).
-    /// - otherwise `file` is tilde-expanded and read as UTF-8; missing, over 4 MB, or non-UTF-8
-    ///   yields `.unreadable`.
+    /// - otherwise `file` is tilde-expanded and read as UTF-8; missing, not a regular file, over
+    ///   4 MB, or non-UTF-8 yields `.unreadable`. Only a regular file: a device or a named pipe
+    ///   reports a size of 0, passes the cap, and would never finish (or never start) reading on the
+    ///   main thread.
     /// - neither given yields `.text("")` (a legitimate empty side: pure addition / removal).
     static func resolveInput(text: Any?, file: Any?, side: String, logger: any ActionUILogger) -> ResolvedInput {
         if let text = text as? String {
@@ -44,7 +46,7 @@ extension Diff {
         let fileManager = FileManager.default
 
         guard let size = fileSize(atPath: expanded), size <= 4_194_304 else {
-            logger.log("Diff \(side): cannot read '\(expanded)' (missing or over 4 MB); rendering a note", .warning)
+            logger.log("Diff \(side): cannot read '\(expanded)' (missing, not a regular file, or over 4 MB); rendering a note", .warning)
             return .unreadable(path: expanded)
         }
 
@@ -107,9 +109,10 @@ extension Diff {
     /// is read; nil when there is none (also for a link to nothing). stat(2) rather than FileManager's attributes:
     /// those describe a link itself, not the file it leads to, and on Linux the size's type depends on which
     /// Foundation is loaded (an NSNumber in the test process, where full Foundation is).
+    /// The size of the regular file at `path` (symbolic links followed), or nil when there is none.
     private static func fileSize(atPath path: String) -> Int? {
         var info = stat()
-        guard stat(path, &info) == 0 else {
+        guard stat(path, &info) == 0, info.st_mode & S_IFMT == S_IFREG else {
             return nil
         }
         return Int(info.st_size)

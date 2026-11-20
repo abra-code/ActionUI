@@ -357,24 +357,27 @@ public class ActionUIJavaScriptCore {
     private func setupElementValueMethods(actionUIObject: JSValue) {
         // setElementValue(windowUUID, viewID, viewPartID, value)
         let setElementValue: @convention(block) (String, Double, Double, JSValue) -> Void = { windowUUID, viewID, viewPartID, jsValue in
+            guard let viewID = self.scriptInt(viewID, "viewID", "setElementValue"), let viewPartID = self.scriptInt(viewPartID, "viewPartID", "setElementValue") else { return }
             // Design decision: Use JSValue.toObject() to convert JavaScript values to Swift objects (e.g., String, Double, NSDictionary).
             // Avoid toObjectOf(_:) as it requires an Objective-C class type, not suitable for generic Any conversion.
             let value = FoundationBridge.native(jsValue.toObject() ?? NSNull())
-            ActionUIJavaScriptCore.model.setElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value)
+            ActionUIJavaScriptCore.model.setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value)
         }
         actionUIObject.setValue(setElementValue, forProperty: "setElementValue")
         
         // setElementValueFromString(windowUUID, viewID, viewPartID, value, contentType)
         // contentType may be null/undefined; JSValue handles nullable strings
         let setElementValueFromString: @convention(block) (String, Double, Double, String, JSValue) -> Void = { windowUUID, viewID, viewPartID, value, jsContentType in
+            guard let viewID = self.scriptInt(viewID, "viewID", "setElementValueFromString"), let viewPartID = self.scriptInt(viewPartID, "viewPartID", "setElementValueFromString") else { return }
             let contentType: String? = jsContentType.isNull || jsContentType.isUndefined ? nil : jsContentType.toString()
-            ActionUIJavaScriptCore.model.setElementValueFromString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value, contentType: contentType)
+            ActionUIJavaScriptCore.model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value, contentType: contentType)
         }
         actionUIObject.setValue(setElementValueFromString, forProperty: "setElementValueFromString")
 
         // getElementValue(windowUUID, viewID, viewPartID) -> value
         let getElementValue: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, viewPartID in
-            let value = ActionUIJavaScriptCore.model.getElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementValue"), let viewPartID = self.scriptInt(viewPartID, "viewPartID", "getElementValue") else { return JSValue(undefinedIn: self.context) }
+            let value = ActionUIJavaScriptCore.model.getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
             return JSValue(object: value.map(FoundationBridge.foundation), in: self.context)
         }
         actionUIObject.setValue(getElementValue, forProperty: "getElementValue")
@@ -382,20 +385,23 @@ public class ActionUIJavaScriptCore {
         // getElementValueAsString(windowUUID, viewID, viewPartID, contentType) -> string
         // contentType may be null/undefined; JSValue handles nullable strings
         let getElementValueAsString: @convention(block) (String, Double, Double, JSValue) -> String? = { windowUUID, viewID, viewPartID, jsContentType in
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementValueAsString"), let viewPartID = self.scriptInt(viewPartID, "viewPartID", "getElementValueAsString") else { return nil }
             let contentType: String? = jsContentType.isNull || jsContentType.isUndefined ? nil : jsContentType.toString()
-            return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), contentType: contentType)
+            return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, contentType: contentType)
         }
         actionUIObject.setValue(getElementValueAsString, forProperty: "getElementValueAsString")
 
         // getElementColumnCount(windowUUID, viewID) -> number
         let getElementColumnCount: @convention(block) (String, Double) -> Int = { windowUUID, viewID in
-            return ActionUIJavaScriptCore.model.getElementColumnCount(windowUUID: windowUUID, viewID: Int(viewID))
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementColumnCount") else { return 0 }
+            return ActionUIJavaScriptCore.model.getElementColumnCount(windowUUID: windowUUID, viewID: viewID)
         }
         actionUIObject.setValue(getElementColumnCount, forProperty: "getElementColumnCount")
 
         // getElementRows(windowUUID, viewID) -> [[String]] or undefined
         let getElementRows: @convention(block) (String, Double) -> JSValue = { windowUUID, viewID in
-            if let rows = ActionUIJavaScriptCore.model.getElementRows(windowUUID: windowUUID, viewID: Int(viewID)) {
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementRows") else { return JSValue(undefinedIn: self.context) }
+            if let rows = ActionUIJavaScriptCore.model.getElementRows(windowUUID: windowUUID, viewID: viewID) {
                 return JSValue(object: rows, in: self.context)
             }
             return JSValue(undefinedIn: self.context)
@@ -404,35 +410,40 @@ public class ActionUIJavaScriptCore {
 
         // clearElementRows(windowUUID, viewID)
         let clearElementRows: @convention(block) (String, Double) -> Void = { windowUUID, viewID in
-            ActionUIJavaScriptCore.model.clearElementRows(windowUUID: windowUUID, viewID: Int(viewID))
+            guard let viewID = self.scriptInt(viewID, "viewID", "clearElementRows") else { return }
+            ActionUIJavaScriptCore.model.clearElementRows(windowUUID: windowUUID, viewID: viewID)
         }
         actionUIObject.setValue(clearElementRows, forProperty: "clearElementRows")
 
         // setElementRows(windowUUID, viewID, rows)
         let setElementRows: @convention(block) (String, Double, JSValue) -> Void = { windowUUID, viewID, jsRows in
+            guard let viewID = self.scriptInt(viewID, "viewID", "setElementRows") else { return }
             if let rows = jsRows.toObject() as? [[String]] {
-                ActionUIJavaScriptCore.model.setElementRows(windowUUID: windowUUID, viewID: Int(viewID), rows: rows)
+                ActionUIJavaScriptCore.model.setElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
             }
         }
         actionUIObject.setValue(setElementRows, forProperty: "setElementRows")
 
         // appendElementRows(windowUUID, viewID, rows)
         let appendElementRows: @convention(block) (String, Double, JSValue) -> Void = { windowUUID, viewID, jsRows in
+            guard let viewID = self.scriptInt(viewID, "viewID", "appendElementRows") else { return }
             if let rows = jsRows.toObject() as? [[String]] {
-                ActionUIJavaScriptCore.model.appendElementRows(windowUUID: windowUUID, viewID: Int(viewID), rows: rows)
+                ActionUIJavaScriptCore.model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
             }
         }
         actionUIObject.setValue(appendElementRows, forProperty: "appendElementRows")
 
         // appendElementText(windowUUID, viewID, text) -> Bool
         let appendElementText: @convention(block) (String, Double, String) -> Bool = { windowUUID, viewID, text in
-            return ActionUIJavaScriptCore.model.appendElementText(windowUUID: windowUUID, viewID: Int(viewID), text: text)
+            guard let viewID = self.scriptInt(viewID, "viewID", "appendElementText") else { return false }
+            return ActionUIJavaScriptCore.model.appendElementText(windowUUID: windowUUID, viewID: viewID, text: text)
         }
         actionUIObject.setValue(appendElementText, forProperty: "appendElementText")
 
         // selectElementRow(windowUUID, viewID, index) -> selected row values, or null
         let selectElementRow: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, index in
-            let selected = ActionUIJavaScriptCore.model.selectElementRow(windowUUID: windowUUID, viewID: Int(viewID), index: Int(index))
+            guard let viewID = self.scriptInt(viewID, "viewID", "selectElementRow"), let index = self.scriptInt(index, "index", "selectElementRow") else { return JSValue(undefinedIn: self.context) }
+            let selected = ActionUIJavaScriptCore.model.selectElementRow(windowUUID: windowUUID, viewID: viewID, index: index)
             return JSValue(object: selected ?? NSNull(), in: self.context)
         }
         actionUIObject.setValue(selectElementRow, forProperty: "selectElementRow")
@@ -440,28 +451,38 @@ public class ActionUIJavaScriptCore {
         // selectElementRowWithContent(windowUUID, viewID, text, column) -> matched 0-based index, or -1.
         // A negative column matches any column; otherwise matches the given 0-based column only.
         let selectElementRowWithContent: @convention(block) (String, Double, String, Double) -> Int = { windowUUID, viewID, text, column in
-            let col: Int? = (column >= 0) ? Int(column) : nil
-            return ActionUIJavaScriptCore.model.selectElementRow(windowUUID: windowUUID, viewID: Int(viewID), matching: text, column: col) ?? -1
+            // A missing column (NaN) or a negative one matches any column, as the other adapters
+            // default it to -1; only a column that is used is checked.
+            guard let viewID = self.scriptInt(viewID, "viewID", "selectElementRowWithContent") else { return -1 }
+            var col: Int? = nil
+            if !column.isNaN && column >= 0 {
+                guard let column = self.scriptInt(column, "column", "selectElementRowWithContent") else { return -1 }
+                col = column
+            }
+            return ActionUIJavaScriptCore.model.selectElementRow(windowUUID: windowUUID, viewID: viewID, matching: text, column: col) ?? -1
         }
         actionUIObject.setValue(selectElementRowWithContent, forProperty: "selectElementRowWithContent")
 
         // clearElementSelection(windowUUID, viewID)
         let clearElementSelection: @convention(block) (String, Double) -> Void = { windowUUID, viewID in
-            ActionUIJavaScriptCore.model.clearElementSelection(windowUUID: windowUUID, viewID: Int(viewID))
+            guard let viewID = self.scriptInt(viewID, "viewID", "clearElementSelection") else { return }
+            ActionUIJavaScriptCore.model.clearElementSelection(windowUUID: windowUUID, viewID: viewID)
         }
         actionUIObject.setValue(clearElementSelection, forProperty: "clearElementSelection")
 
         // getElementProperty(windowUUID, viewID, propertyName) -> value
         let getElementProperty: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, propertyName in
-            let value = ActionUIJavaScriptCore.model.getElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName)
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementProperty") else { return JSValue(undefinedIn: self.context) }
+            let value = ActionUIJavaScriptCore.model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName)
             return JSValue(object: value.map(FoundationBridge.foundation), in: self.context)
         }
         actionUIObject.setValue(getElementProperty, forProperty: "getElementProperty")
 
         // setElementProperty(windowUUID, viewID, propertyName, value)
         let setElementProperty: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, propertyName, jsValue in
+            guard let viewID = self.scriptInt(viewID, "viewID", "setElementProperty") else { return }
             let value = FoundationBridge.native(jsValue.toObject() ?? NSNull())
-            ActionUIJavaScriptCore.model.setElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName, value: value)
+            ActionUIJavaScriptCore.model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
         }
         actionUIObject.setValue(setElementProperty, forProperty: "setElementProperty")
 
@@ -484,27 +505,31 @@ public class ActionUIJavaScriptCore {
 
         // getElementState(windowUUID, viewID, key) -> value or undefined
         let getElementState: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, key in
-            let value = ActionUIJavaScriptCore.model.getElementState(windowUUID: windowUUID, viewID: Int(viewID), key: key)
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementState") else { return JSValue(undefinedIn: self.context) }
+            let value = ActionUIJavaScriptCore.model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key)
             return JSValue(object: value.map(FoundationBridge.foundation), in: self.context)
         }
         actionUIObject.setValue(getElementState, forProperty: "getElementState")
 
         // getElementStateAsString(windowUUID, viewID, key) -> string or undefined
         let getElementStateAsString: @convention(block) (String, Double, String) -> String? = { windowUUID, viewID, key in
-            return ActionUIJavaScriptCore.model.getElementStateAsString(windowUUID: windowUUID, viewID: Int(viewID), key: key)
+            guard let viewID = self.scriptInt(viewID, "viewID", "getElementStateAsString") else { return nil }
+            return ActionUIJavaScriptCore.model.getElementStateAsString(windowUUID: windowUUID, viewID: viewID, key: key)
         }
         actionUIObject.setValue(getElementStateAsString, forProperty: "getElementStateAsString")
 
         // setElementState(windowUUID, viewID, key, value)
         let setElementState: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, key, jsValue in
+            guard let viewID = self.scriptInt(viewID, "viewID", "setElementState") else { return }
             let value = FoundationBridge.native(jsValue.toObject() ?? NSNull())
-            ActionUIJavaScriptCore.model.setElementState(windowUUID: windowUUID, viewID: Int(viewID), key: key, value: value)
+            ActionUIJavaScriptCore.model.setElementState(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
         }
         actionUIObject.setValue(setElementState, forProperty: "setElementState")
 
         // setElementStateFromString(windowUUID, viewID, key, value)
         let setElementStateFromString: @convention(block) (String, Double, String, String) -> Void = { windowUUID, viewID, key, value in
-            ActionUIJavaScriptCore.model.setElementStateFromString(windowUUID: windowUUID, viewID: Int(viewID), key: key, value: value)
+            guard let viewID = self.scriptInt(viewID, "viewID", "setElementStateFromString") else { return }
+            ActionUIJavaScriptCore.model.setElementStateFromString(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
         }
         actionUIObject.setValue(setElementStateFromString, forProperty: "setElementStateFromString")
     }
@@ -641,9 +666,12 @@ public class ActionUIJavaScriptCore {
         // positionParam: index for position=2; siblingID for position=3/4; ignored for 0/1
         let insertElement: @convention(block) (String, Double, String, JSValue, Double, Double) -> Int = { windowUUID, parentID, json, jsContainer, position, positionParam in
             let container: String? = (!jsContainer.isNull && !jsContainer.isUndefined) ? jsContainer.toString() : nil
-            let swiftPosition = Self.swiftInsertPosition(Int(position), param: Int(positionParam))
+            guard let parentID = self.scriptInt(parentID, "parentID", "insertElement"),
+                  let position = self.scriptInt(position, "position", "insertElement"),
+                  let positionParam = self.positionParameter(positionParam, position: position, "insertElement") else { return -1 }
+            let swiftPosition = Self.swiftInsertPosition(position, param: positionParam)
             do {
-                return try ActionUIJavaScriptCore.model.insertElement(windowUUID: windowUUID, parentID: Int(parentID), json: json, container: container, position: swiftPosition)
+                return try ActionUIJavaScriptCore.model.insertElement(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: swiftPosition)
             } catch {
                 return -1
             }
@@ -654,9 +682,14 @@ public class ActionUIJavaScriptCore {
         // position: 0=append, 1=prepend, 2=at(index). 3/4 are invalid for rows.
         let insertRow: @convention(block) (String, Double, String, JSValue, Double, Double) -> JSValue = { windowUUID, parentID, json, jsContainer, position, positionIndex in
             let container: String? = (!jsContainer.isNull && !jsContainer.isUndefined) ? jsContainer.toString() : nil
-            let swiftPosition = Self.swiftInsertPosition(Int(position), param: Int(positionIndex))
+            guard let parentID = self.scriptInt(parentID, "parentID", "insertRow"),
+                  let position = self.scriptInt(position, "position", "insertRow"),
+                  let positionIndex = self.positionParameter(positionIndex, position: position, "insertRow") else {
+                return JSValue(undefinedIn: self.context)
+            }
+            let swiftPosition = Self.swiftInsertPosition(position, param: positionIndex)
             do {
-                let ids = try ActionUIJavaScriptCore.model.insertRow(windowUUID: windowUUID, parentID: Int(parentID), json: json, container: container, position: swiftPosition)
+                let ids = try ActionUIJavaScriptCore.model.insertRow(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: swiftPosition)
                 return JSValue(object: ids, in: self.context)
             } catch {
                 return JSValue(undefinedIn: self.context)
@@ -666,13 +699,29 @@ public class ActionUIJavaScriptCore {
 
         // removeElement(windowUUID, viewID)
         let removeElement: @convention(block) (String, Double) -> Void = { windowUUID, viewID in
+            guard let viewID = self.scriptInt(viewID, "viewID", "removeElement") else { return }
             do {
-                try ActionUIJavaScriptCore.model.removeElement(windowUUID: windowUUID, viewID: Int(viewID))
+                try ActionUIJavaScriptCore.model.removeElement(windowUUID: windowUUID, viewID: viewID)
             } catch {
                 print("ActionUI.removeElement error: \(error)")
             }
         }
         actionUIObject.setValue(removeElement, forProperty: "removeElement")
+    }
+
+    /// A number from script as an Int, or nil after raising a script error that names the argument.
+    /// Every number arrives as a Double, a missing argument as NaN, and `Int(Double)` stops the
+    /// process for NaN, an infinity or a value out of range: a script mistake must not end the host.
+    private func scriptInt(_ value: Double, _ name: String, _ function: String) -> Int? {
+        if let int = Int(exactly: value) { return int }
+        context.exception = JSValue(newErrorFromMessage: "ActionUI.\(function): \(name) must be a whole number, not \(value)", in: context)
+        return nil
+    }
+
+    /// An insert position's parameter: checked as `scriptInt` does for positions that use it (2 at
+    /// an index, 3 and 4 by a sibling), 0 for append and prepend, which ignore it and may leave it out.
+    private func positionParameter(_ value: Double, position: Int, _ function: String) -> Int? {
+        [2, 3, 4].contains(position) ? scriptInt(value, "the position parameter", function) : 0
     }
 
     private static func swiftInsertPosition(_ positionInt: Int, param: Int) -> ActionUI.InsertPosition {

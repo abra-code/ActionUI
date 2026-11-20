@@ -636,6 +636,8 @@ See `ActionUIRemote/README.md` and `ActionUIRemote/PROTOCOL.md`.
 
 ### Logger
 
+Without a callback, the logger prints warnings and errors to standard output. A callback receives every level:
+
 ```python
 app.logger.set_callback(lambda msg, lvl: print(f"[{lvl.name}] {msg}"))
 ```

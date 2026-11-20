@@ -7,9 +7,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,6 +24,7 @@ import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
+import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.WindowModel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.DescriptionLoad
@@ -30,6 +33,8 @@ import com.abracode.actionui.Helpers.LoadableSource
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.classifyLoadableSource
 import com.abracode.actionui.Helpers.loadLocalDescription
+import com.abracode.actionui.Helpers.loadableNestingKey
+import com.abracode.actionui.Helpers.loadableNestingRefusal
 import com.abracode.actionui.Helpers.loadRemoteDescription
 import com.abracode.actionui.Helpers.resolveLoadableSource
 import com.abracode.actionui.Helpers.stringProperty
@@ -69,6 +74,13 @@ import kotlinx.serialization.json.Json
  * to the source, so a recomposition for the same source does not re-fire), matching
  * Apple's dedup.
  *
+ * **Nesting:** a source that a LoadableView around this one already shows (a document
+ * that loads itself, directly or through others), or one nested more than 16 deep, is
+ * refused with "Failed to load view: ..." in the error color, by the same rule as Apple's
+ * `LoadableNestingGuard` ([loadableNestingRefusal]). The sources of the LoadableViews
+ * around one travel in [LocalLoadableSources]; siblings showing the same source stay
+ * allowed. A refused source is never read.
+ *
  * **Deferred vs. Apple:** `.plist` sources (no Android property-list parser -
  * [LoadableFormat.PLIST] warn-and-skips).
  */
@@ -94,6 +106,19 @@ object LoadableView : ActionUIViewConstruction {
         val runtimeValue = windowModel?.viewModels?.get(element.id)?.value as? String
         val source = resolveLoadableSource(runtimeValue, props)
         val classified = remember(source) { classifyLoadableSource(source) }
+
+        // Refuse a source a LoadableView around this one shows, or a chain too deep, before
+        // anything is read: a file or asset source loads during composition.
+        val enclosing = LocalLoadableSources.current
+        val nestingKey = remember(classified) { loadableNestingKey(classified) }
+        val refusal = nestingKey?.let { loadableNestingRefusal(it, enclosing) }
+        if (refusal != null) {
+            LaunchedEffect(nestingKey, refusal) {
+                logger.log("LoadableView: not loading $nestingKey: $refusal", LoggerLevel.error)
+            }
+            ErrorText("Failed to load view: $refusal", modifier)
+            return
+        }
 
         // Remote loads async (spinner -> content/error); local loads synchronously
         // in `remember` (matching Apple's FileLoadableView init-time load, no flash).
@@ -139,8 +164,12 @@ object LoadableView : ActionUIViewConstruction {
                     return
                 }
                 // BuildViewWithModifiers resolves the loaded element's common properties.
-                ProvideTextStyleEnvironment(loaded.properties, logger) {
-                    builder.BuildViewWithModifiers(loaded, modifier)
+                // LoadableViews inside the loaded tree see this source among those around them.
+                val inside = if (nestingKey != null) enclosing + nestingKey else enclosing
+                CompositionLocalProvider(LocalLoadableSources provides inside) {
+                    ProvideTextStyleEnvironment(loaded.properties, logger) {
+                        builder.BuildViewWithModifiers(loaded, modifier)
+                    }
                 }
             }
 
@@ -164,3 +193,9 @@ object LoadableView : ActionUIViewConstruction {
         M3Text(message, color = MaterialTheme.colorScheme.error, modifier = modifier.padding(16.dp))
     }
 }
+
+/**
+ * The sources of the LoadableViews around a composable, as the nesting rule knows them
+ * ([loadableNestingKey]), the outermost first. Empty outside any LoadableView.
+ */
+internal val LocalLoadableSources = staticCompositionLocalOf<List<String>> { emptyList() }
