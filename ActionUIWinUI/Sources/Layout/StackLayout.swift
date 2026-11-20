@@ -83,6 +83,8 @@ final class StackLayout {
     /// Whether the children are aligned across the stack's whole size when it is given more than its
     /// widest (tallest) child: a LazyVStack and a LazyHStack, which take all the room across.
     var fillsAcross = false
+    /// The template instances of the container this lays out, in row order (its template form).
+    let templateRows = TemplateRows()
     private(set) var items: [Item] = []
     /// Room before some children across the axis, by their view: a Form's rows without a title start
     /// in its content column (FormColumn). A child is offered and given the stack's size across less
@@ -392,10 +394,11 @@ final class StackLayout {
     }
 }
 
-/// Makes a stack node's children match its element's (RenderNode.syncChildren) and puts their
-/// boxes (RenderNode.outerView) in the stack, with how each expands (RenderNode.expansion, caps).
+/// Makes `stack` show what `node` shows: its children (RenderNode.syncChildren), or one template
+/// instance per content row (TemplateRows); puts their boxes (RenderNode.outerView) in the stack, with
+/// how each expands (RenderNode.expansion, caps).
 @MainActor func syncStackContent(_ node: RenderNode, _ stack: StackLayout) {
-    stack.setItems(stackItems(node.syncChildren(node.subviews("children"))))
+    stack.setItems(stackItems(stack.templateRows.contentNodes(of: node)))
 }
 
 /// A stack's items for its child nodes, in order (a child with no object has none, and an EmptyView

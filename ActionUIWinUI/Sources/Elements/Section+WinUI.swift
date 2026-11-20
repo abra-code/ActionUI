@@ -7,10 +7,13 @@
  own, a GroupBox's, an enclosing Section's), and elsewhere no spacing, centered, as on Linux; without a
  header the column holds only the rows.
 
- Not yet: the template form (one row per content row after the header); a Section in a List is one
- row (header and rows), where SwiftUI shows its rows as the List's under a header; a Section in an HStack (Linux
- lays its rows out as the row's own); the Section's modifiers apply to the whole column, where the Linux
- renderer applies them to each row, as SwiftUI does.
+ The rows are the children, or one template instance per content row (TemplateRows), also in a Form's
+ column.
+
+ Not yet: a Section in a List is one row (header and rows), where SwiftUI shows its rows as the List's
+ under a header; a Section in an HStack (Linux lays its rows out as the row's own); the Section's
+ modifiers apply to the whole column, where the Linux renderer applies them to each row, as SwiftUI
+ does.
 */
 
 import CWinUI
@@ -83,7 +86,7 @@ extension Section: ActionUIWinUIRenderer {
         node.applyTextAppearance(to: state.header, what: "a Section's header")
         node.applyAccessibilityHidden(to: state.header)
         let headerItem = header.isEmpty ? [] : [StackLayout.Item(view: state.header, spacerMinimum: nil)]
-        state.stack.setItems(headerItem + stackItems(node.syncChildren(node.subviews("children"))))
+        state.stack.setItems(headerItem + stackItems(state.stack.templateRows.contentNodes(of: node)))
         // In a Form its rows may have changed without its size: the Form works its column out again.
         var ancestor = node.parent
         while let current = ancestor, current.element.type == "Section" {

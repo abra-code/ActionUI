@@ -1,6 +1,7 @@
 // Sources/Elements/HStack+WinUI.swift
 /*
- HStack on WinUI: a StackLayout along the horizontal axis, holding the element's children.
+ HStack on WinUI: a StackLayout along the horizontal axis, holding the element's children, or one
+ template instance per content row (TemplateRows).
  Without a spacing it uses the default (8, 0 next to a Spacer), as on Apple and Linux. The
  baseline alignments are placed as center until baselines come.
 */

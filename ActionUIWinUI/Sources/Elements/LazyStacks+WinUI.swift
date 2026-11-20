@@ -7,7 +7,8 @@
  once, not as they scroll into view. Their spacing is the element's (Core's Props: 0 when it gives
  none).
 
- Not yet: the template form (one instance per content row), as for VStack and HStack.
+ Their template form (one instance per content row, TemplateRows) is VStack's and HStack's: every
+ row's instance is made when the row arrives, as on Linux.
 */
 
 extension LazyVStack: ActionUIWinUIRenderer {

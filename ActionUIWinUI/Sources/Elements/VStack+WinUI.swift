@@ -1,7 +1,7 @@
 // Sources/Elements/VStack+WinUI.swift
 /*
- VStack on WinUI: a StackLayout along the vertical axis, holding the element's children.
- Templates (a content row per instance) come later.
+ VStack on WinUI: a StackLayout along the vertical axis, holding the element's children, or one
+ template instance per content row (TemplateRows).
 */
 
 extension VStack: ActionUIWinUIRenderer {
@@ -47,7 +47,8 @@ extension VStack: ActionUIWinUIRenderer {
     static func childrenExpansion(_ node: RenderNode) -> Expansion {
         var expansion: Expansion = []
         // An EmptyView takes no place (stackItems), so its frame makes nothing expand.
-        for child in node.orderedChildren where child.element.type != "EmptyView" {
+        // The children, or the template instances (one or the other is empty).
+        for child in node.orderedChildren + node.templateNodes where child.element.type != "EmptyView" {
             if child.expansion.contains(.horizontal) && child.caps.horizontal == nil { expansion.insert(.horizontal) }
             if child.expansion.contains(.vertical) && child.caps.vertical == nil { expansion.insert(.vertical) }
         }
@@ -56,7 +57,7 @@ extension VStack: ActionUIWinUIRenderer {
 
     /// The axes along which a container can be made smaller: those along which any child can.
     static func childrenCompression(_ node: RenderNode) -> Expansion {
-        node.orderedChildren.reduce(into: Expansion()) { $0.formUnion($1.compression) }
+        (node.orderedChildren + node.templateNodes).reduce(into: Expansion()) { $0.formUnion($1.compression) }
     }
 
     /// The axis of the stack `node` is in: vertical in a VStack, a GroupBox, a Form or a Section (their

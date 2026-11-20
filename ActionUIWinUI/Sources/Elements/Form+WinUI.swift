@@ -93,7 +93,9 @@ extension Form: ActionUIWinUIRenderer {
 
     /// The rows of `node` (a Form or a Section) in `stack`: a Section's header and rows are the Form's.
     private static func collect(_ node: RenderNode, _ stack: StackLayout, into rows: inout [Row]) {
-        for child in node.orderedChildren {
+        // A Section's rows: its children, or its template instances.
+        let children = node.orderedChildren + ((node.state as? SectionState)?.stack.templateRows.nodes ?? [])
+        for child in children {
             guard let view = child.outerView else { continue }
             if let section = child.state as? SectionState {
                 if !(section.shownHeader ?? "").isEmpty {

@@ -9,6 +9,8 @@
  Each child's size is what it asks for even beyond the room (WinUIObject.measureRequested), so a
  ZStack measured with nothing offered has its largest child's padding and frame minimum, its
  smallest size for a stack that squeezes it.
+
+ The layers are the children, or one template instance per content row (TemplateRows).
 */
 
 import CWinUI
@@ -22,6 +24,8 @@ final class ZStackLayout {
     }
 
     let panel: LayoutPanel
+    /// The ZStack's template instances, in row order (its template form: one layer per content row).
+    let templateRows = TemplateRows()
     var alignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
     private(set) var items: [Item] = []
     /// Each child's desired size from the last measure pass, for arrange, which must not measure it
@@ -113,7 +117,7 @@ extension ZStack: ActionUIWinUIRenderer {
             stack.alignment = alignment
             stack.panel.invalidateLayout()
         }
-        let children = node.syncChildren(node.subviews("children"))
+        let children = stack.templateRows.contentNodes(of: node)
         stack.setItems(children.compactMap { child in
             // An EmptyView is no layer: its padding would size the ZStack and its background show.
             guard child.element.type != "EmptyView", let view = child.outerView else { return nil }

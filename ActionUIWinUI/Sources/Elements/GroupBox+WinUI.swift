@@ -9,7 +9,7 @@
  unless the element or an ancestor sets a font (as SwiftUI's environment font reaches the title), 4
  points above the card.
 
- Not yet: the template form (one instance per content row).
+ The content is the children, or one template instance per content row (TemplateRows).
 */
 
 import CWinUI

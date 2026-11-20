@@ -258,7 +258,8 @@ final class Preview {
         if node.element.id == viewID {
             return node
         }
-        // A template's ids repeat in every row: the first row's.
+        // A template's ids repeat in every row: the instance made first (the first row's until a row is
+        // replaced).
         for child in node.orderedChildren + node.templateNodes {
             if let found = find(viewID, in: child) {
                 return found

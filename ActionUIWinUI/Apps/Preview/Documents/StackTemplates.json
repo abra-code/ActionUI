@@ -1,0 +1,56 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 10, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "VStack",
+      "id": 2,
+      "properties": { "spacing": 4, "alignment": "leading" },
+      "template": {
+        "type": "HStack",
+        "id": 3,
+        "children": [
+          { "type": "Image", "id": 4, "properties": { "systemName": "$1" } },
+          { "type": "Text", "id": 5, "properties": { "text": "$2" } }
+        ]
+      }
+    },
+    {
+      "type": "HStack",
+      "id": 6,
+      "properties": { "spacing": 6 },
+      "template": { "type": "Text", "id": 7, "properties": { "text": "$1", "padding": 6, "background": "yellow" } }
+    },
+    {
+      "type": "LazyVStack",
+      "id": 8,
+      "properties": { "spacing": 2 },
+      "template": { "type": "Text", "id": 9, "properties": { "text": "$1" } }
+    },
+    {
+      "type": "GroupBox",
+      "id": 10,
+      "properties": { "title": "Grouped rows" },
+      "template": { "type": "Toggle", "id": 11, "properties": { "isOn": "$1", "title": "$2", "actionID": "row.toggled" } }
+    },
+    {
+      "type": "Form",
+      "id": 12,
+      "children": [
+        {
+          "type": "Section",
+          "id": 13,
+          "properties": { "header": "Section rows" },
+          "template": { "type": "Toggle", "id": 14, "properties": { "isOn": "$2", "title": "$1" } }
+        }
+      ]
+    },
+    {
+      "type": "ZStack",
+      "id": 15,
+      "properties": { "alignment": "leading" },
+      "template": { "type": "Text", "id": 16, "properties": { "text": "$1" } }
+    }
+  ]
+}
