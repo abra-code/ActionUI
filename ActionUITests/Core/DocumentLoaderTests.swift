@@ -54,7 +54,14 @@ final class DocumentLoaderTests: XCTestCase {
 
         XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(file), Data("{}".utf8))
         XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(link), Data("{}".utf8), "a link to a regular file is read")
-        for path in ["/dev/zero", "/dev/null", folder.path, deviceLink.path] {
+        // Devices are /dev's on Unix; Windows has no /dev (there the paths do not exist, and reading them
+        // fails as a missing file), so it checks the folder and the link.
+#if os(Windows)
+        let refused = [folder.path, deviceLink.path]
+#else
+        let refused = ["/dev/zero", "/dev/null", folder.path, deviceLink.path]
+#endif
+        for path in refused {
             XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path)), path) { error in
                 XCTAssertTrue(error is ActionUIDocumentLoader.NotARegularFile, "\(path): \(error)")
             }
