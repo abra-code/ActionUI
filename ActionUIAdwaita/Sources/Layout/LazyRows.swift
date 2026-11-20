@@ -82,8 +82,11 @@ final class LazyRows {
     /// Where the visible part started at the last refresh, in the container along its axis: what a
     /// change of width keeps in view.
     private var lastTop: Double?
-    /// The line at the top of the visible part before a change of width, and how far into it the
-    /// visible part started, to be put back by the next refresh.
+    /// The line at the top of the visible part at the last refresh and how far into it the visible
+    /// part started: what a change of a grid's tracks keeps in view. Nil at the very top.
+    private var topLine: (index: Int, inside: Int)?
+    /// The line at the top of the visible part before a change of width or of a grid's tracks, and
+    /// how far into it the visible part started, to be put back by the next refresh.
     private var pendingAnchor: (index: Int, inside: Int)?
 
     private init(widget: WidgetPointer, node: RenderNode, axis: StackAxis, grid: LazyGridState?) {
@@ -144,8 +147,14 @@ final class LazyRows {
             changed = true
         }
         if let grid, grid.tracks != gridTracks {
-            // Other tracks put the rows on other lines, of other lengths: every line again.
+            // Other tracks put the rows on other lines, of other lengths: every line again. The
+            // next refresh brings the line holding the top line's first row to the top (or the line
+            // a change of width had kept, not put back yet).
+            let oldPerLine = perLine
+            let anchor = pendingAnchor ?? topLine
             gridTracks = grid.tracks
+            pendingAnchor = adjustment == nil ? nil : anchor.map { ($0.index * oldPerLine / perLine, $0.inside) }
+            topLine = nil
             for (index, row) in made {
                 release(index, row)
             }
@@ -221,8 +230,14 @@ final class LazyRows {
         // Before the scrolled window is laid out its page is 0: a window's height is assumed.
         let pageSize = gtk_adjustment_get_page_size(adjustment)
         let page = pageSize > 0 ? pageSize : Self.fallbackPage
+        var changed = false
         if let pending = pendingAnchor {
             pendingAnchor = nil
+            // Made first (after a change of tracks no line is), so restore keeps the visible part
+            // within the line's own length, not the estimate's.
+            if pending.index < lineCount, !isMade(pending.index) {
+                changed = makeLine(pending.index)
+            }
             restore(pending, cross: cross, adjustment: adjustment)
         }
         // The visible part in the container's coordinates along its axis.
@@ -230,7 +245,8 @@ final class LazyRows {
         lastTop = top
         let anchor = top > 0 ? row(at: Int(top), cross: cross) : nil
         let anchorOffset = anchor.map { offset(of: $0, cross: cross) }
-        var changed = false
+        // The shift below keeps the anchor line where it is, so this stays true after it.
+        topLine = anchor.flatMap { line in anchorOffset.map { (line, Int(top) - $0) } }
         // Made lines change the estimate, and so which lines are near: a few rounds settle it.
         for _ in 0..<4 {
             let wanted = lineRange(from: top - page, to: top + 2 * page, cross: cross)
@@ -268,7 +284,7 @@ final class LazyRows {
     }
 
     /// Scrolls so the visible part starts in line `anchor.index` as far into it as before a change
-    /// of width (at most to the end of the line and the gap after it, which row(at:) counts as the
+    /// of width or tracks (at most to the end of the line and the gap after it, which row(at:) counts as the
     /// line's).
     private func restore(_ anchor: (index: Int, inside: Int), cross: Int, adjustment: UnsafeMutablePointer<GtkAdjustment>) {
         guard anchor.index < lineCount else { return }
@@ -327,9 +343,10 @@ final class LazyRows {
 
     // MARK: Lines
 
-    /// The rows per line: 1 in a stack, a grid's tracks.
+    /// The rows per line: 1 in a stack, a grid's tracks (those the made rows' lines were laid out
+    /// for: update takes the new tracks only after it has found the top line on the old ones).
     private var perLine: Int {
-        grid.map { max($0.tracks.count, 1) } ?? 1
+        grid == nil ? 1 : max(gridTracks.count, 1)
     }
 
     private var lineCount: Int {
