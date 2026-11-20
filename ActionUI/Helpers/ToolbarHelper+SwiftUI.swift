@@ -156,12 +156,16 @@ enum PersistentToolbar {
     /// that stack's screens would then apply the PRESENTER's persistent items into the sheet's
     /// bar. A modal is its own presentation context with its own bar; the container behind it
     /// does not own that bar.
+    ///
+    /// For the same reason a modal starts outside any NavigationSplitView: a split view in a sheet
+    /// is not nested in the presenter's (NavigationSplitViewNestingGuard).
     @ViewBuilder
     static func acrossPresentation<Content: SwiftUI.View>(_ content: Content) -> some SwiftUI.View {
 #if os(macOS)
-        content
+        content.environment(\.actionUIInsideNavigationSplitView, false)
 #else
         content.environment(\.inheritedPersistentToolbar, [])
+            .environment(\.actionUIInsideNavigationSplitView, false)
 #endif
     }
 

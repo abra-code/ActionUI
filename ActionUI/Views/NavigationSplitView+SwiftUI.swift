@@ -244,7 +244,7 @@ extension NavigationSplitView: ActionUISwiftUIRenderer {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
         let props = Props(properties)
         switch props.style {
@@ -257,6 +257,49 @@ extension NavigationSplitView: ActionUISwiftUIRenderer {
         case nil:
             break
         }
-        return modifiedView
+        // Here, around every build path: a split view inside another one is refused.
+        return NavigationSplitViewNestingGuard(elementID: element.id, windowUUID: windowUUID, logger: logger,
+                                               content: AnyView(modifiedView))
+    }
+}
+
+// MARK: - Nesting
+
+private struct ActionUIInsideNavigationSplitViewKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Whether this view is inside a NavigationSplitView. A sheet, cover or popover starts outside
+    /// again (PersistentToolbar.acrossPresentation): it is a presentation of its own.
+    var actionUIInsideNavigationSplitView: Bool {
+        get { self[ActionUIInsideNavigationSplitViewKey.self] }
+        set { self[ActionUIInsideNavigationSplitViewKey.self] = newValue }
+    }
+}
+
+/// Shows a NavigationSplitView unless it is inside another one, directly or through a
+/// LoadableView. Two nested split views in one window crash the host in AppKit during toolbar
+/// updates, so a document alone could stop its host; the inner one shows an error instead.
+@MainActor
+struct NavigationSplitViewNestingGuard: SwiftUI.View {
+    @Environment(\.actionUIInsideNavigationSplitView) private var inside
+    let elementID: Int
+    let windowUUID: String
+    let logger: any ActionUILogger
+    let content: AnyView
+
+    static let refusal = "A NavigationSplitView inside another NavigationSplitView is not supported"
+
+    var body: some SwiftUI.View {
+        if inside {
+            SwiftUI.Text(Self.refusal)
+                .foregroundStyle(.red)
+                .onAppear {
+                    logger.log("NavigationSplitView \(elementID) in window \(windowUUID): \(Self.refusal)", .error)
+                }
+        } else {
+            content.environment(\.actionUIInsideNavigationSplitView, true)
+        }
     }
 }
