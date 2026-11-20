@@ -1,14 +1,19 @@
 // Sources/Elements/LazyHStack+Adwaita.swift
 /*
- LazyHStack on GTK: laid out as an HStack. Its children are all made at once, not as they scroll
- into view.
+ LazyHStack on GTK: laid out by StackLayout as an HStack, but as measured on macOS 27 it is as tall
+ as all it is offered (beside a Spacer in a VStack it takes all but the Spacer's minimum), its
+ children aligned in that height, and it does not expand horizontally, each child taking its
+ natural width (StackLayout.setLazy). Its children are all made at once, not as they scroll into
+ view.
 */
 
 import CAdwaita
 
 extension LazyHStack: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        StackLayout.makeStack(axis: .horizontal)
+        let widget = StackLayout.makeStack(axis: .horizontal)
+        StackLayout.setLazy(widget)
+        return widget
     }
 
     static func update(_ widget: WidgetPointer, _ node: RenderNode) {

@@ -241,7 +241,11 @@ space differently from SwiftUI's stacks:
   shares the space equally), the content is not offered the ScrollView's size across the axis,
   and an unframed Color in it is not drawn in a vertical ScrollView and fills the rest of a
   horizontal one, where SwiftUI makes it 10 long (`scrollview-vertical-content`,
-  `scrollview-vertical-expanding-content`, `scrollview-horizontal-content`).
+  `scrollview-vertical-expanding-content`, `scrollview-horizontal-content`). Holding a lazy stack,
+  SwiftUI's ScrollView takes all the room across its axis, as the stack does: a horizontal one
+  takes the height its VStack has left, a vertical one the width its HStack has left, the stack's
+  children aligned in it; on the web it takes its content's size there
+  (`scrollview-horizontal-lazyhstack-in-vstack`, `scrollview-vertical-lazyvstack-in-hstack`).
 - **A GeometryReader sizes like a flex box.** SwiftUI's GeometryReader shares a stack like a Color
   and offers its content its whole size; on the web its share grows with its content (250 of 400
   beside a Color in `geometry-in-hstack-shares`, 175 of 300 in `geometry-in-vstack-shares`, where
@@ -253,9 +257,12 @@ space differently from SwiftUI's stacks:
   LazyHGrid) their width, shares the rest among flexible ones 8 points apart, makes a flexible cell
   fill its column and its row and centers each cell in its row (column of a LazyHGrid). On the
   web a cell without a width (height in a LazyHGrid), such as an unframed Color, is not drawn, the
-  tracks are not 8 points apart and their block starts at the leading (top) edge, a cell sits at
-  the start of its row, and the cells' `content-visibility: auto` (44 point placeholder size)
-  leaves every cell of some grids undrawn (`lazyvgrid-*`, `lazyhgrid-*`).
+  tracks are not 8 points apart and their block starts at the leading (top) edge, and a cell sits
+  at the start of its row (`lazyvgrid-*`, `lazyhgrid-*`).
+- **A LazyVStack's expanding child shares its height.** SwiftUI's LazyVStack gives each child
+  its ideal height (an unframed Color is 10) and does not grow along its axis. On the web a child
+  that expands along the axis grows as in a VStack, sharing the height with the stack's siblings
+  (150 of 300 beside a Color in `lazyvstack-expanding-child`, where SwiftUI gives it 10).
 - **A Grid's flexible cells collapse.** SwiftUI shares a Grid's width among its columns and its
   height among its rows as a stack shares its length, and a flexible cell (a Color without a
   frame) fills its column and row; a Grid with one shares its parent stack like a Color. On the

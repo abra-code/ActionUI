@@ -18,6 +18,11 @@
  - A child expands where GTK's computed expand flag says so (set by its renderer, or by its frame
    through its modifier box, and propagated from its own children as in SwiftUI), up to the cap
    LayoutCaps finds for it: its frame's maximum, or what its own children take at most.
+ - A lazy stack (LazyVStack, LazyHStack; StackConfiguration.isLazy) lays out as measured on macOS
+   27: it takes all the room it is offered across its axis, its children aligned in that whole
+   size (a LazyVStack is as wide as its column, in an HStack it takes the rest of the width), and
+   does not expand along it, each child taking its natural length there (a Color is 10 long, not
+   stretched). Its renderer sets its expand flags (setLazy).
 */
 
 import CAdwaita
@@ -38,6 +43,9 @@ final class StackConfiguration {
     /// An HStack lines up its children's first text baselines (firstTextBaseline and
     /// lastTextBaseline; Baselines) instead of aligning them by `alignment`.
     var alignsBaselines = false
+    /// A LazyVStack or LazyHStack: it fills across its axis and gives each child its natural
+    /// length along it (setLazy).
+    var isLazy = false
 
     init(axis: StackAxis, spacing: Int, isDefaultSpacing: Bool, alignment: StackSolver.Alignment) {
         self.axis = axis
@@ -68,6 +76,16 @@ enum StackLayout {
         attach(StackConfiguration(axis: axis, spacing: 0, isDefaultSpacing: false, alignment: .center),
                to: widget, key: stackConfigurationKey)
         return widget
+    }
+
+    /// Makes a stack lay out as a LazyVStack or LazyHStack: it expands across its axis whatever its
+    /// children do, and not along it, where each child takes its natural length.
+    static func setLazy(_ widget: WidgetPointer) {
+        guard let configuration = attached(on: widget, key: stackConfigurationKey) else { return }
+        configuration.isLazy = true
+        let fillsWidth = configuration.axis == .vertical
+        gtk_widget_set_hexpand(widget, fillsWidth ? 1 : 0)
+        gtk_widget_set_vexpand(widget, fillsWidth ? 0 : 1)
     }
 
     /// Sets a stack's spacing (nil: SwiftUI's default, none next to a Spacer) and alignment (an
@@ -124,11 +142,16 @@ enum StackLayout {
         return Measured(minimum: size.minimum, natural: size.natural)
     }
 
-    /// A child as StackSolver sees it in one axis, measured for `forSize` in the other.
-    private static func stackChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1) -> StackChild {
+    /// A child as StackSolver sees it in one axis, measured for `forSize` in the other. Along a
+    /// lazy stack's axis (`natural`) it takes its natural length, neither more nor less.
+    private static func stackChild(_ child: WidgetPointer, _ orientation: GtkOrientation, forSize: Int = -1,
+                                   natural: Bool = false) -> StackChild {
         let size = measureChild(child, orientation, forSize: forSize)
         var result: StackChild
-        if Gtk.Widget(child).expands(orientation) {
+        if natural {
+            let length = max(size.natural, size.minimum)
+            result = .fixed(minimum: length, natural: length)
+        } else if Gtk.Widget(child).expands(orientation) {
             result = .expanding(minimum: size.minimum, cap: LayoutCaps.cap(child, orientation, forSize: forSize))
         } else {
             result = .fixed(minimum: size.minimum, natural: size.natural)
@@ -173,7 +196,7 @@ enum StackLayout {
         if stack.axis == .vertical {
             return verticalChildWidths(children, offsets: leadingOffsets(widget, children), width: width)
         }
-        let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }
+        let widths = children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL, natural: stack.isLazy) }
         return StackSolver.mainSizes(widths, available: width, gaps: gaps(widget, children, stack),
                                      proposal: exactProposal(widget, GTK_ORIENTATION_HORIZONTAL)?.size)
     }
@@ -220,14 +243,16 @@ enum StackLayout {
 
     /// Where each of `children` starts across a stack `width` wide, and its width, as allocate
     /// places it: an HStack's one after another, centered as a group; a VStack's in a block as
-    /// wide as the widest of them (from its offset in a Form), centered, each aligned in the block
-    /// by the stack's alignment. FormLayout reads it to find the titles inside a row.
+    /// wide as the widest of them (from its offset in a Form; a LazyVStack's as wide as the stack),
+    /// centered, each aligned in the block by the stack's alignment. FormLayout reads it to find
+    /// the titles inside a row.
     static func horizontalPlacements(_ widget: WidgetPointer, _ children: [WidgetPointer], width: Int) -> [(x: Int, width: Int)] {
         let stack = configuration(widget)
         if stack.axis == .horizontal {
             let gaps = Self.gaps(widget, children, stack)
             let proposal = exactProposal(widget, GTK_ORIENTATION_HORIZONTAL)
-            let widths = StackSolver.mainSizes(children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL) }, available: width, gaps: gaps,
+            let widths = StackSolver.mainSizes(children.map { stackChild($0, GTK_ORIENTATION_HORIZONTAL, natural: stack.isLazy) },
+                                               available: width, gaps: gaps,
                                                proposal: proposal?.size)
             var x = groupStart(length: StackSolver.length(of: widths, gaps: gaps), available: width, proposal: proposal)
             return widths.enumerated().map { index, size in
@@ -237,7 +262,9 @@ enum StackLayout {
         }
         let offsets = leadingOffsets(widget, children)
         let widths = verticalChildWidths(children, offsets: offsets, width: width)
-        let block = zip(offsets, widths).map(+).max() ?? 0
+        // A lazy stack's children are aligned in its whole width.
+        let widest = zip(offsets, widths).map(+).max() ?? 0
+        let block = stack.isLazy ? max(widest, width) : widest
         let blockStart = StackSolver.centeredStart(length: block, available: width)
         return widths.indices.map { index in
             let aligned = StackSolver.alignedOffset(size: widths[index], block: block - offsets[index], alignment: stack.alignment)
@@ -274,7 +301,8 @@ enum StackLayout {
             var total = Measured(minimum: spacing, natural: spacing)
             for (index, child) in children.enumerated() {
                 let size = measureChild(child, main, forSize: forSizes[index])
-                total.minimum += size.minimum
+                // A lazy stack's children keep their natural length: it cannot be made shorter.
+                total.minimum += stack.isLazy ? max(size.natural, size.minimum) : size.minimum
                 total.natural += size.natural
             }
             return total
@@ -343,7 +371,9 @@ enum StackLayout {
         var heights: [Int]
         var ys: [Int]
         if stack.axis == .vertical {
-            let rows = children.enumerated().map { stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: across[$0].width) }
+            let rows = children.enumerated().map {
+                stackChild($1, GTK_ORIENTATION_VERTICAL, forSize: across[$0].width, natural: stack.isLazy)
+            }
             let proposal = exactProposal(widget, GTK_ORIENTATION_VERTICAL)
             heights = StackSolver.mainSizes(rows, available: height, gaps: gaps, proposal: proposal?.size)
             var position = groupStart(length: StackSolver.length(of: heights, gaps: gaps), available: height, proposal: proposal)
@@ -364,7 +394,9 @@ enum StackLayout {
                 let blockStart = StackSolver.centeredStart(length: above + below, available: height)
                 ys = baselines.map { blockStart + above - $0 }
             } else {
-                let block = heights.max() ?? 0
+                // A LazyHStack's children are aligned in its whole height.
+                let tallest = heights.max() ?? 0
+                let block = stack.isLazy ? max(tallest, height) : tallest
                 let blockStart = StackSolver.centeredStart(length: block, available: height)
                 ys = heights.map { blockStart + StackSolver.alignedOffset(size: $0, block: block, alignment: stack.alignment) }
             }
