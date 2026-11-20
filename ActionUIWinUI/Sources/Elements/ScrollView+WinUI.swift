@@ -11,7 +11,9 @@
  showsIndicators false keeps scrolling without scroll bars. WinUI shows its scroll bars only while
  the pointer is over the view, as macOS and libadwaita draw overlay scrollers.
 
- Not yet: onRefreshActionID (pull to refresh, which desktops do not have), ScrollViewReader.
+ A ScrollViewReader around it scrolls it to an element (ScrollViewReader+WinUI.swift).
+
+ Not yet: onRefreshActionID (pull to refresh, which desktops do not have).
 */
 
 import CWinUI

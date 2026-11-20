@@ -31,7 +31,8 @@
 //   --set-value ID VALUE     sets element ID's value through the model, as an adapter does (VALUE a
 //                            number when it reads as one, else a string)
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
-//                            does (VALUE a number when it reads as one, else a string)
+//                            does (VALUE an Int when it reads as a whole number, else a number when
+//                            it reads as one, else a string)
 //   --set-path ID IDS        sets NavigationStack ID's navigationPath state through the model, as an
 //                            adapter does (IDS the destination ids, comma separated; "-" for none)
 //   --wait                   lets the changes the operations before it made reach the screen before
@@ -260,8 +261,11 @@ final class Preview {
                 }
                 what = "\(toggles ? "toggled" : "invoked") menu item \(index) of"
             case .setProperty(_, let name, let text):
+                // A whole number as an Int, as a host's JSON gives it (scrollTo is read as an Int).
                 let value: Any
-                if let number = Double(text) {
+                if let integer = Int(text) {
+                    value = integer
+                } else if let number = Double(text) {
                     value = number
                 } else {
                     value = text

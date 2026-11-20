@@ -1,10 +1,11 @@
-// Scrolling.cpp - ScrollViewer, and placing an element within the slot its parent arranges it in
-// (FrameworkElement's alignments).
+// Scrolling.cpp - ScrollViewer, placing an element within the slot its parent arranges it in
+// (FrameworkElement's alignments), and where an element lies (a ScrollViewReader's scrolling).
 
 #include "ShimInternal.h"
 
 #include <cmath>
 
+#include <winrt/Microsoft.UI.Xaml.Media.h>  // GeneralTransform
 #include <winrt/Windows.Foundation.h>
 
 using namespace actionui_winui;
@@ -131,6 +132,59 @@ ActionUIWinUIScrollState actionUIWinUIScrollViewerState(ActionUIWinUIObject *scr
         return true;
     });
     return state;
+}
+
+bool actionUIWinUIScrollViewerChangeView(ActionUIWinUIObject *scroll, double x, double y, bool animated) {
+    return guarded("scroll viewer change view", [&]() {
+        if (!(std::isfinite(x) && std::isfinite(y))) {
+            return fail("scroll viewer change view", "the offset is not finite");
+        }
+        bool changed = scrollFrom(scroll).ChangeView(winrt::box_value(x).as<wf::IReference<double>>(),
+                                                     winrt::box_value(y).as<wf::IReference<double>>(), nullptr, !animated);
+        if (!changed) {
+            return fail("scroll viewer change view", "the ScrollViewer refused the offset");
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementBoundsIn(ActionUIWinUIObject *element, ActionUIWinUIObject *ancestor, ActionUIWinUIRect *bounds) {
+    return guarded("element bounds in", [&]() {
+        if (bounds == nullptr) {
+            return fail("element bounds in", "no rectangle to write to");
+        }
+        mux::FrameworkElement typed = objectAs<mux::FrameworkElement>(element, L"FrameworkElement");
+        mux::UIElement other = objectAs<mux::UIElement>(ancestor, L"UIElement");
+        // Throws (an invalid argument) when `ancestor` is not around `element`.
+        wf::Rect placed = typed.TransformToVisual(other).TransformBounds(
+            wf::Rect{0, 0, static_cast<float>(typed.ActualWidth()), static_cast<float>(typed.ActualHeight())});
+        *bounds = ActionUIWinUIRect{placed.X, placed.Y, placed.Width, placed.Height};
+        return true;
+    });
+}
+
+bool actionUIWinUIElementUpdateLayout(ActionUIWinUIObject *element) {
+    return guarded("element update layout", [&]() {
+        objectAs<mux::UIElement>(element, L"UIElement").UpdateLayout();
+        return true;
+    });
+}
+
+bool actionUIWinUIElementOnLoaded(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                  ActionUIWinUICallback destroyContext) {
+    return registerHandler("element on loaded", handler, context, destroyContext, [&](std::shared_ptr<EventHandler> const &holder) {
+        objectAs<mux::FrameworkElement>(element, L"FrameworkElement").Loaded([holder](auto &&, auto &&) { holder->fire(); });
+    });
+}
+
+bool actionUIWinUIElementOnSizeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                       ActionUIWinUICallback destroyContext) {
+    return registerHandler("element on size changed", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               objectAs<mux::FrameworkElement>(element, L"FrameworkElement").SizeChanged([holder](auto &&, auto &&) {
+                                   holder->fire();
+                               });
+                           });
 }
 
 } // extern "C"

@@ -619,6 +619,23 @@ typedef struct ActionUIWinUIScrollState {
 // Where the viewer is scrolled to, how much it shows and how large its content is; zeros on
 // failure.
 ACTIONUI_WINUI_API ActionUIWinUIScrollState actionUIWinUIScrollViewerState(ActionUIWinUIObject *scroll);
+// Scrolls to the offset (from the content's top left), with WinUI's own animation when `animated`;
+// a new call takes over from a running one.
+ACTIONUI_WINUI_API bool actionUIWinUIScrollViewerChangeView(ActionUIWinUIObject *scroll, double x, double y, bool animated);
+// Where `element` lies (its laid-out size) in the coordinates of `ancestor`, an element around it.
+// Fails when `ancestor` is not around `element`.
+ACTIONUI_WINUI_API bool actionUIWinUIElementBoundsIn(ActionUIWinUIObject *element, ActionUIWinUIObject *ancestor,
+                                                     ActionUIWinUIRect *bounds);
+// Lays out what changed in `element`'s window now (WinUI's UpdateLayout), instead of before the next
+// frame.
+ACTIONUI_WINUI_API bool actionUIWinUIElementUpdateLayout(ActionUIWinUIObject *element);
+// SizeChanged: `element` was laid out at a new size (the first layout too: once shown after being
+// collapsed).
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnSizeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                                          ActionUIWinUICallback destroyContext);
+// Loaded: `element` was added to the window (again: a tab or a page returning).
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnLoaded(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                                     ActionUIWinUICallback destroyContext);
 
 // MARK: - Repeater
 

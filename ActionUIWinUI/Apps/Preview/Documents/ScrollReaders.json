@@ -1,0 +1,660 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 16
+   },
+   "children": [
+    {
+     "type": "ScrollViewReader",
+     "id": 3,
+     "properties": {
+      "scrollTo": 125,
+      "anchor": "top"
+     },
+     "content": {
+      "type": "ScrollView",
+      "id": 100,
+      "properties": {
+       "frame": {
+        "width": 160,
+        "height": 120
+       },
+       "background": "fill.secondary"
+      },
+      "content": {
+       "type": "VStack",
+       "id": 150,
+       "properties": {
+        "alignment": "leading",
+        "spacing": 4
+       },
+       "children": [
+        {
+         "type": "Text",
+         "id": 101,
+         "properties": {
+          "text": "Top row 1"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 102,
+         "properties": {
+          "text": "Top row 2"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 103,
+         "properties": {
+          "text": "Top row 3"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 104,
+         "properties": {
+          "text": "Top row 4"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 105,
+         "properties": {
+          "text": "Top row 5"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 106,
+         "properties": {
+          "text": "Top row 6"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 107,
+         "properties": {
+          "text": "Top row 7"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 108,
+         "properties": {
+          "text": "Top row 8"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 109,
+         "properties": {
+          "text": "Top row 9"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 110,
+         "properties": {
+          "text": "Top row 10"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 111,
+         "properties": {
+          "text": "Top row 11"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 112,
+         "properties": {
+          "text": "Top row 12"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 113,
+         "properties": {
+          "text": "Top row 13"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 114,
+         "properties": {
+          "text": "Top row 14"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 115,
+         "properties": {
+          "text": "Top row 15"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 116,
+         "properties": {
+          "text": "Top row 16"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 117,
+         "properties": {
+          "text": "Top row 17"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 118,
+         "properties": {
+          "text": "Top row 18"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 119,
+         "properties": {
+          "text": "Top row 19"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 120,
+         "properties": {
+          "text": "Top row 20"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 121,
+         "properties": {
+          "text": "Top row 21"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 122,
+         "properties": {
+          "text": "Top row 22"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 123,
+         "properties": {
+          "text": "Top row 23"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 124,
+         "properties": {
+          "text": "Top row 24"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 125,
+         "properties": {
+          "text": "Top row 25"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 126,
+         "properties": {
+          "text": "Top row 26"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 127,
+         "properties": {
+          "text": "Top row 27"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 128,
+         "properties": {
+          "text": "Top row 28"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 129,
+         "properties": {
+          "text": "Top row 29"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 130,
+         "properties": {
+          "text": "Top row 30"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 131,
+         "properties": {
+          "text": "Top row 31"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 132,
+         "properties": {
+          "text": "Top row 32"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 133,
+         "properties": {
+          "text": "Top row 33"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 134,
+         "properties": {
+          "text": "Top row 34"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 135,
+         "properties": {
+          "text": "Top row 35"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 136,
+         "properties": {
+          "text": "Top row 36"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 137,
+         "properties": {
+          "text": "Top row 37"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 138,
+         "properties": {
+          "text": "Top row 38"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 139,
+         "properties": {
+          "text": "Top row 39"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 140,
+         "properties": {
+          "text": "Top row 40"
+         }
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "ScrollViewReader",
+     "id": 4,
+     "properties": {
+      "scrollTo": 205,
+      "anchor": "center"
+     },
+     "content": {
+      "type": "ScrollView",
+      "id": 200,
+      "properties": {
+       "frame": {
+        "width": 160,
+        "height": 120
+       },
+       "background": "fill.secondary"
+      },
+      "content": {
+       "type": "VStack",
+       "id": 250,
+       "properties": {
+        "alignment": "leading",
+        "spacing": 4
+       },
+       "children": [
+        {
+         "type": "Text",
+         "id": 201,
+         "properties": {
+          "text": "Center row 1"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 202,
+         "properties": {
+          "text": "Center row 2"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 203,
+         "properties": {
+          "text": "Center row 3"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 204,
+         "properties": {
+          "text": "Center row 4"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 205,
+         "properties": {
+          "text": "Center row 5"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 206,
+         "properties": {
+          "text": "Center row 6"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 207,
+         "properties": {
+          "text": "Center row 7"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 208,
+         "properties": {
+          "text": "Center row 8"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 209,
+         "properties": {
+          "text": "Center row 9"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 210,
+         "properties": {
+          "text": "Center row 10"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 211,
+         "properties": {
+          "text": "Center row 11"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 212,
+         "properties": {
+          "text": "Center row 12"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 213,
+         "properties": {
+          "text": "Center row 13"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 214,
+         "properties": {
+          "text": "Center row 14"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 215,
+         "properties": {
+          "text": "Center row 15"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 216,
+         "properties": {
+          "text": "Center row 16"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 217,
+         "properties": {
+          "text": "Center row 17"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 218,
+         "properties": {
+          "text": "Center row 18"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 219,
+         "properties": {
+          "text": "Center row 19"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 220,
+         "properties": {
+          "text": "Center row 20"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 221,
+         "properties": {
+          "text": "Center row 21"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 222,
+         "properties": {
+          "text": "Center row 22"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 223,
+         "properties": {
+          "text": "Center row 23"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 224,
+         "properties": {
+          "text": "Center row 24"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 225,
+         "properties": {
+          "text": "Center row 25"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 226,
+         "properties": {
+          "text": "Center row 26"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 227,
+         "properties": {
+          "text": "Center row 27"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 228,
+         "properties": {
+          "text": "Center row 28"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 229,
+         "properties": {
+          "text": "Center row 29"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 230,
+         "properties": {
+          "text": "Center row 30"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 231,
+         "properties": {
+          "text": "Center row 31"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 232,
+         "properties": {
+          "text": "Center row 32"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 233,
+         "properties": {
+          "text": "Center row 33"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 234,
+         "properties": {
+          "text": "Center row 34"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 235,
+         "properties": {
+          "text": "Center row 35"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 236,
+         "properties": {
+          "text": "Center row 36"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 237,
+         "properties": {
+          "text": "Center row 37"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 238,
+         "properties": {
+          "text": "Center row 38"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 239,
+         "properties": {
+          "text": "Center row 39"
+         }
+        },
+        {
+         "type": "Text",
+         "id": 240,
+         "properties": {
+          "text": "Center row 40"
+         }
+        }
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "ScrollViewReader",
+   "id": 5,
+   "properties": {
+    "scrollTo": 999
+   },
+   "content": {
+    "type": "Text",
+    "id": 6,
+    "properties": {
+     "text": "A reader whose scrollTo is no element of its own: nothing scrolls"
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 7,
+   "properties": {
+    "text": "Row 25 at the top at load; row 30 centered after a write",
+    "font": "caption"
+   }
+  }
+ ]
+}
