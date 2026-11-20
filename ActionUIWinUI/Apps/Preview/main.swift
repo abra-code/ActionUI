@@ -18,6 +18,9 @@
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --scroll-row ID ROW      scrolls List ID so that row ROW (from 0) is in view
 //   --expect-row-name ID ROW NAME  fails unless accessibility tools name List ID's row ROW (from 0) NAME
+//   --invoke-menu-item ID N  the same as --invoke with the Nth item (from 0) of Menu ID's menu (separators
+//                            and headers count), as a click on it does
+//   --toggle-menu-item ID N  the same with UI Automation's Toggle (a Toggle's check item turns over)
 //   --add-row ID TEXT        appends a row to element ID's content through the model, as an adapter
 //                            does (a List's rows), its columns TEXT split at "|"; repeatable, in order.
 //                            An operation on an element after rows or properties changed waits for
@@ -64,12 +67,12 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String),
+        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
+            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .invokeMenuItem(let id, _), .toggleMenuItem(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
                 return id
             case .wait:
@@ -81,7 +84,7 @@ final class Preview {
         var changesModel: Bool {
             switch self {
             case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait: true
-            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName: false
+            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem: false
             }
         }
     }
@@ -245,6 +248,16 @@ final class Preview {
                 }
                 worked = true
                 what = "found row \(row) named \"\(name)\" in"
+            case .invokeMenuItem(_, let index), .toggleMenuItem(_, let index):
+                let toggles: Bool
+                if case .toggleMenuItem = operation { toggles = true } else { toggles = false }
+                if let menu = WinUIObject(adopting: actionUIWinUIMenuButtonCopyMenu(view.pointer)),
+                   let item = WinUIObject(adopting: actionUIWinUIMenuCopyItem(menu.pointer, Int32(index))) {
+                    worked = toggles ? actionUIWinUIAutomationToggle(item.pointer) : actionUIWinUIAutomationInvoke(item.pointer)
+                } else {
+                    worked = false
+                }
+                what = "\(toggles ? "toggled" : "invoked") menu item \(index) of"
             case .setProperty(_, let name, let text):
                 let value: Any
                 if let number = Double(text) {
@@ -429,7 +442,7 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -482,6 +495,14 @@ while index < arguments.count {
               let row = Int(arguments[index + 2]) {
         preview.invocations.append(.expectRowName(viewID, row, arguments[index + 3]))
         index += 4
+    } else if option == "--invoke-menu-item", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let item = Int(arguments[index + 2]) {
+        preview.invocations.append(.invokeMenuItem(viewID, item))
+        index += 3
+    } else if option == "--toggle-menu-item", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let item = Int(arguments[index + 2]) {
+        preview.invocations.append(.toggleMenuItem(viewID, item))
+        index += 3
     } else if option == "--set-property", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.setProperty(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4

@@ -1,0 +1,41 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "Menu",
+      "id": 2,
+      "properties": { "title": "Actions" },
+      "children": [
+        { "type": "Button", "id": 3, "properties": { "title": "Copy", "actionID": "menu.copy" } },
+        { "type": "Button", "id": 4, "properties": { "title": "Paste", "disabled": true } },
+        { "type": "Divider", "id": 5 },
+        { "type": "Toggle", "id": 6, "properties": { "title": "Show grid", "actionID": "menu.grid" } },
+        { "type": "Picker", "id": 7, "properties": { "title": "Sort by", "options": ["Name", "Date", "Size"] } },
+        {
+          "type": "Section",
+          "id": 8,
+          "properties": { "header": "More" },
+          "children": [
+            { "type": "Button", "id": 9, "properties": { "title": "Archive" } },
+            {
+              "type": "Menu",
+              "id": 10,
+              "properties": { "title": "Share" },
+              "children": [ { "type": "Button", "id": 11, "properties": { "title": "Email" } } ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Menu",
+      "id": 13,
+      "label": { "type": "Image", "id": 14, "properties": { "systemName": "ellipsis.circle" } },
+      "children": [ { "type": "Button", "id": 15, "properties": { "title": "Rename" } } ]
+    },
+    { "type": "Menu", "id": 16, "children": [ { "type": "Button", "id": 17, "properties": { "title": "Only an arrow" } } ] },
+    { "type": "Text", "id": 12, "properties": { "text": "Nothing chosen yet", "foregroundStyle": "secondary" } }
+  ]
+}

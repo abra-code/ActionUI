@@ -148,6 +148,41 @@ ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, 
 // with a "Back" tooltip. Its click is a Button's (actionUIWinUIButtonOnClick). NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void);
 
+// MARK: - Menu (a DropDownButton and its MenuFlyout)
+
+typedef enum ActionUIWinUIMenuItemKind {
+    ActionUIWinUIMenuItem = 0,          // an item that runs something when chosen (MenuFlyoutItem)
+    ActionUIWinUIMenuItemToggle = 1,    // a check item (ToggleMenuFlyoutItem)
+    ActionUIWinUIMenuItemRadio = 2,     // one of a group's radio items (RadioMenuFlyoutItem)
+    ActionUIWinUIMenuItemSeparator = 3, // a line between items
+    ActionUIWinUIMenuItemSubmenu = 4,   // a submenu (MenuFlyoutSubItem), its items appended to it
+    ActionUIWinUIMenuItemHeader = 5,    // a dimmed title that cannot be chosen (Windows menus have no header)
+} ActionUIWinUIMenuItemKind;
+
+// A new DropDownButton (a button with a down arrow that opens its menu), its menu empty. Its title or
+// content is set as a Button's (actionUIWinUIButtonSetTitle, actionUIWinUIButtonSetContent). NULL on
+// failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuButtonCreate(void);
+// The button's menu (a MenuFlyout), a new reference; NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuButtonCopyMenu(ActionUIWinUIObject *button);
+// Removes every item of `menu` (a menu or a submenu).
+ACTIONUI_WINUI_API bool actionUIWinUIMenuClear(ActionUIWinUIObject *menu);
+// Appends an item of `kind` to `menu` (a menu or a submenu) and returns it (a new reference): `title`
+// (UTF-8; unused for a separator), whether it can be chosen (`enabled`; a header never can), a check or
+// radio item's `checked`, and a radio item's `group` (the radio items of one group exclude each other).
+// NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuAppend(ActionUIWinUIObject *menu, ActionUIWinUIMenuItemKind kind,
+                                                                const char *title, bool enabled, bool checked,
+                                                                const char *group);
+// Shows a check or radio item checked or not.
+ACTIONUI_WINUI_API bool actionUIWinUIMenuItemSetChecked(ActionUIWinUIObject *item, bool checked);
+// Click: the user chose the item (an item, a check item, which WinUI turns over first, or a radio item,
+// which WinUI checks first), with the pointer, the keyboard or an accessibility tool. Never from a setter.
+ACTIONUI_WINUI_API bool actionUIWinUIMenuItemOnClick(ActionUIWinUIObject *item, ActionUIWinUICallback handler, void *context,
+                                                     ActionUIWinUICallback destroyContext);
+// The item at `index` (from 0) of `menu` (a menu or a submenu), a new reference; NULL when there is none.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuCopyItem(ActionUIWinUIObject *menu, int32_t index);
+
 // MARK: - CheckBox
 
 // A new CheckBox, unchecked, showing no title. NULL on failure.
