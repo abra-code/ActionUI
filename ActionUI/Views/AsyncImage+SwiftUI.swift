@@ -21,6 +21,10 @@ extension AsyncImage: ActionUISwiftUIRenderer {
             logger.log("AsyncImage missing valid url, using placeholder '\(placeholder)'", .warning)
             return SwiftUI.Image(systemName: placeholder)
         }
+        guard isLoadable(url) else {
+            logger.log("AsyncImage not loading '\(urlString)': it names no regular file, using placeholder '\(placeholder)'", .warning)
+            return SwiftUI.Image(systemName: placeholder)
+        }
 
         return SwiftUI.AsyncImage(url: url) { phase in
             switch phase {
@@ -36,5 +40,13 @@ extension AsyncImage: ActionUISwiftUIRenderer {
                 SwiftUI.Image(systemName: placeholder)
             }
         }
+    }
+
+    /// Whether SwiftUI.AsyncImage may load `url`: any but a file: URL, which must name a regular file
+    /// (symbolic links followed). A document names the address, and URLSession would read a device
+    /// such as /dev/zero until memory runs out, or hold a thread on a named pipe for good. A missing
+    /// file is refused too; it would only fail to load. Also for List and Table asyncImage cells.
+    nonisolated static func isLoadable(_ url: URL) -> Bool {
+        !url.isFileURL || ActionUIDocumentLoader.regularFilePath(url) != nil
     }
 }

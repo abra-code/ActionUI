@@ -21,3 +21,22 @@ internal fun readRegularFileText(path: String): String {
     if (file.exists() && !file.isFile) throw NotARegularFileException(path)
     return file.readText()
 }
+
+/**
+ * The bytes of the file at [path], with the same rule as [readRegularFileText]: for an
+ * AsyncImage `file://` URL, where `/dev/zero` would be read until memory runs out (an
+ * OutOfMemoryError, which no `catch (e: Exception)` stops) and a named pipe would hold an
+ * IO thread for good.
+ */
+internal fun readRegularFileBytes(path: String): ByteArray {
+    val file = File(path)
+    if (file.exists() && !file.isFile) throw NotARegularFileException(path)
+    return file.readBytes()
+}
+
+/**
+ * Whether [path] names a regular file once symbolic links are followed. For readers that
+ * open the path themselves, such as `BitmapFactory.decodeFile` for an Image or Canvas
+ * `filePath`: opening a named pipe nobody writes to never returns, on the main thread.
+ */
+internal fun isRegularFile(path: String): Boolean = File(path).isFile

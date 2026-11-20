@@ -53,6 +53,15 @@ enum WebViewSupport {
         resolveJSSource(from: WebView.Props.UserScript(descriptor), logger: logger)
     }
 
+    /// The UTF-8 text of the regular file at `path` (symbolic links followed), for a resourceName:
+    /// Bundle.main.path(forResource:) keeps a name's "..", so a document can name a device or a pipe
+    /// outside the bundle, which would never finish (or never begin) reading on the main thread.
+    private static func regularFileText(_ path: String) throws -> String {
+        let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))
+        guard let text = String(data: data, encoding: .utf8) else { throw CocoaError(.fileReadInapplicableStringEncoding) }
+        return text
+    }
+
     /// Resolves the JavaScript source string from a parsed script.
     /// Mirrors the Image.swift resourceName / filePath / source pattern.
     static func resolveJSSource(from script: WebView.Props.UserScript, logger: any ActionUILogger) -> String? {
@@ -82,7 +91,7 @@ enum WebViewSupport {
             if let path = ActionUIResourceFolder.file(nameWithoutExt + ".js") ?? ActionUIResourceFolder.file(resourceName)
                 ?? Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
                 do {
-                    return try String(contentsOfFile: path, encoding: .utf8)
+                    return try regularFileText(path)
                 } catch {
                     logger.log("WebView userScript: failed to read bundle resource '\(resourceName)': \(error.localizedDescription)", .warning)
                     return nil
@@ -91,7 +100,7 @@ enum WebViewSupport {
             // Fallback: try the name as-is (e.g. "MyScript" without extension, or unusual extension)
             if let path = Bundle.main.path(forResource: resourceName, ofType: nil) {
                 do {
-                    return try String(contentsOfFile: path, encoding: .utf8)
+                    return try regularFileText(path)
                 } catch {
                     logger.log("WebView userScript: failed to read bundle resource '\(resourceName)': \(error.localizedDescription)", .warning)
                     return nil

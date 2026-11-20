@@ -20,6 +20,7 @@ import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TIMEOUT_MS
 import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
+import com.abracode.actionui.Helpers.readRegularFileBytes
 import com.abracode.actionui.Helpers.stringProperty
 import java.io.File
 import java.io.IOException
@@ -333,7 +334,8 @@ private fun fetchImageBytes(url: String): ByteArray = when {
         }
     }
 
-    url.startsWith("file://") -> File(URI(url)).readBytes()
+    // Only a regular file: a device or a named pipe would never finish (or never begin).
+    url.startsWith("file://") -> readRegularFileBytes(File(URI(url)).path)
 
     else -> throw IOException("unsupported URL (expected http(s):// or file://)")
 }

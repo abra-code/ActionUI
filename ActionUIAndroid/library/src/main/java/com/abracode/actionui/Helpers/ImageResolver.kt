@@ -448,6 +448,13 @@ private fun decodeFile(path: String, logger: ActionUILogger?): Painter? {
         )
         return null
     }
+    if (!isRegularFile(path)) {
+        logger?.log(
+            "Image: filePath '$path' is not a regular file. Nothing rendered.",
+            LoggerLevel.warning
+        )
+        return null
+    }
     val bitmap = BitmapFactory.decodeFile(path)
     if (bitmap == null) {
         logger?.log(

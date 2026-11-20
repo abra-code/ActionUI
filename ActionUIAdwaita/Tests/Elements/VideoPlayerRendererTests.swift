@@ -3,7 +3,8 @@
  Tests for the VideoPlayer renderer on GTK: no URL shows the warning Label; a URL plays in a
  GtkVideo with no size of its own that expands in both axes; autoplay plays or pauses each time the
  player is shown, and without it nothing changes; a new URL pauses and keeps the volume and mute; a
- video that cannot be played sets the stream's error. The videos play Media/one-second.mp4 (64 x 48
+ video that cannot be played sets the stream's error; a file: address that is not a regular file is
+ not opened. The videos play Media/one-second.mp4 (64 x 48
  H.264, written with AVAssetWriter on macOS), so they need GTK's GStreamer media backend and an
  H.264 decoder; GTK loads a video only once its player is shown, so each test shows it first.
 */
@@ -251,5 +252,14 @@ final class VideoPlayerRendererTests: XCTestCase {
         present(node)
         let stream = try stream(try video(node))
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_media_stream_get_error(stream) != nil }, timeoutMilliseconds: 10_000))
+    }
+
+    func testAFileAddressThatIsNotARegularFileIsNotOpened() throws {
+        // A device (or a named pipe) GStreamer would read without end or wait on for good.
+        let node = try render(#""url": "file:///dev/zero""#)
+        present(node)
+        let video = try video(node)
+        XCTAssertNil(gtk_video_get_file(opaque(video)), "nothing is opened")
+        XCTAssertNil(gtk_video_get_media_stream(opaque(video)))
     }
 }

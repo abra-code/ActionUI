@@ -208,3 +208,24 @@ final class ImageTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 5.0, "padding should be 5.0")
     }
 }
+
+// A filePath a document names could be a device or a named pipe; reading one on the main thread
+// would never finish (/dev/zero) or never begin (a pipe nobody writes to). Only a regular file is
+// opened; anything else shows the placeholder, at once.
+extension ImageTests {
+    func testAFilePathThatIsNotARegularFileShowsThePlaceholder() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("image-path-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let pipe = folder.appendingPathComponent("pipe.png")
+        XCTAssertEqual(mkfifo(pipe.path, 0o600), 0)
+        let deviceLink = folder.appendingPathComponent("zero.png")
+        try FileManager.default.createSymbolicLink(at: deviceLink, withDestinationURL: URL(fileURLWithPath: "/dev/zero"))
+
+        let placeholder = SwiftUI.Image(systemName: "photo")
+        for path in ["/dev/zero", pipe.path, deviceLink.path, folder.path] {
+            XCTAssertEqual(SwiftUI.Image(contentsOfFile: path), placeholder, path)
+            XCTAssertEqual(SwiftUI.Image(from: path, interpretation: "path"), placeholder, path)
+        }
+    }
+}

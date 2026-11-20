@@ -17,6 +17,8 @@
    as 0 (and keeps 0 after unmuting), so the volume carried is the last one set while not muted.
  - A video that cannot be played shows GTK's error icon, the reason in its tooltip, and the reason
    is logged (a missing GStreamer plug-in or media module, a file not found, a network error).
+ - A file: address that names something other than a regular file (a device, a named pipe) is not
+   opened, and that is logged as an error: the document names the address.
 */
 
 #if canImport(FoundationEssentials)
@@ -107,6 +109,15 @@ extension VideoPlayer: ActionUIAdwaitaRenderer {
     private static func show(_ url: URL, in video: WidgetPointer, _ state: VideoPlayerState) {
         if let previous = gtk_video_get_media_stream(opaque(video)) {
             gtk_media_stream_pause(previous)
+        }
+        // A document names the address: a file: one must be a regular file, not a device or a named
+        // pipe, which GStreamer would read without end or wait on for good. A missing file goes on
+        // to GStreamer, which reports it.
+        if url.isFileURL, FileManager.default.fileExists(atPath: url.path),
+           ActionUIDocumentLoader.regularFilePath(url) == nil {
+            ActionUIModel.shared.logger.log("VideoPlayer not playing '\(url.absoluteString)': \(url.path) is not a regular file", .error)
+            gtk_video_set_file(opaque(video), nil)
+            return
         }
         let file = g_file_new_for_uri(url.absoluteString)
         gtk_video_set_file(opaque(video), file)

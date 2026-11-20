@@ -82,10 +82,21 @@ enum ActionUIDocumentLoader {
     /// are followed. A document names the path, so it could name a device such as /dev/zero or a
     /// named pipe, and reading one would never end (or never begin) on the main thread.
     nonisolated static func readRegularFile(_ url: URL) throws -> Data {
+        // Not regularFilePath: a missing file keeps the system's own "no such file" error here.
         let path = url.resolvingSymlinksInPath().path
         let type = try FileManager.default.attributesOfItem(atPath: path)[.type] as? FileAttributeType
         guard type == .typeRegular else { throw NotARegularFile(path: url.path) }
         return try Data(contentsOf: URL(fileURLWithPath: path))
+    }
+
+    /// The path of `url` with symbolic links followed, when it names a regular file; nil for a
+    /// folder, a device, a pipe, a socket or nothing. For readers that open the file themselves,
+    /// such as an image decoder given a path a document named.
+    nonisolated static func regularFilePath(_ url: URL) -> String? {
+        let path = url.resolvingSymlinksInPath().path
+        guard let type = (try? FileManager.default.attributesOfItem(atPath: path))?[.type] as? FileAttributeType,
+              type == .typeRegular else { return nil }
+        return path
     }
 
     /// A path that names something other than a regular file: a folder, a device, a pipe or a socket.

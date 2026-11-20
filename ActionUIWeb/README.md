@@ -103,7 +103,10 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
   collapse responsively on narrow viewports), and
   LoadableView (a dynamic include - fetches a JSON sub-document by `url` /
   `filePath` / `name` and renders it inline, so a UI can be split across files),
-  WebView (the web's own native `<iframe>`; `url` or inline `html`),
+  WebView (the web's own native `<iframe>`; `url` or inline `html`; a `url` page from
+  another server keeps its own cookies and storage, as an embedded site expects, while a
+  page on the host page's own server and inline `html` run in an opaque origin, with no
+  cookies or storage, so they cannot reach the host page),
   VideoPlayer (a native `<video>`),
   Canvas (a native `<canvas>` driving the shared JSON `operations` draw-command
   list - fill/stroke/text/image, paths, gradients, transforms, clips, shadow/blur,

@@ -34,6 +34,10 @@
  known, is Ctrl), disabled or no actionID greying it out, as AppKit does. Choosing one fires its
  actionID for the active window's document, with the element's id as viewID.
 
+ A WindowGroup's commands (load(json:once:)) join under the group's key, once for all its windows,
+ and leave with its last window (removeWindowGroup); a CommandGroup of theirs that replaces
+ appTermination is ignored, so a document cannot take Quit away. The host's own commands
+ (load(json:)) may replace it.
  Each item is an action of the application, so its shortcut works in every window, as a menu bar
  shortcut does. The application is the one start() gave (ActionUI's own, AdwaitaApplication), else
  the process's default GApplication once it is registered: a host that runs its own application
@@ -206,15 +210,44 @@ package final class AppCommands {
         return true
     }
 
-    /// The keys of the command sets loaded with `once`.
+    /// The keys of the WindowGroups whose commands are in the menu.
     private var loadedKeys: Set<String> = []
 
-    /// As load(json:), unless commands with `key` were loaded already (a WindowGroup's, for each
-    /// window of the group).
+    /// The key a WindowGroup's commands are loaded under, apart from any key a host uses.
+    private static func windowGroupKey(_ key: String) -> String { "\u{1}WindowGroup:" + key }
+
+    /// A WindowGroup's commands (its document's `commands` array), unless that group's are in the
+    /// menu already (each window of the group brings them). A CommandGroup that replaces
+    /// appTermination is left out, with a warning: a document must not take Quit away, even an
+    /// app's own. They stay until `removeWindowGroup` takes them away, when the group's last window
+    /// closes. Returns false, logging why and changing nothing, for JSON that is not an array.
     @discardableResult
     package func load(json: String, once key: String) -> Bool {
-        guard loadedKeys.insert(key).inserted else { return true }
-        return load(json: json)
+        guard !loadedKeys.contains(key) else { return true }
+        guard let parsed = try? ActionUIJSON.value(from: json), let array = parsed as? [Any] else {
+            ActionUIModel.shared.logger.log("Menu commands: the JSON is not an array", .error)
+            return false
+        }
+        let kept = array.compactMap { $0 as? [String: Any] }.filter { element in
+            let properties = element["properties"] as? [String: Any] ?? [:]
+            guard element["type"] as? String == "CommandGroup", properties["placement"] as? String == "replacing",
+                  Self.target(properties["placementTarget"] as? String) == "appTermination" else { return true }
+            ActionUIModel.shared.logger.log("WindowGroup \(key): a CommandGroup replacing appTermination (Quit) is ignored", .warning)
+            return false
+        }
+        loadedKeys.insert(key)
+        let replacement = kept.map { (key: Optional(Self.windowGroupKey(key)), element: $0) }
+        commands = commands.filter { $0.key != Self.windowGroupKey(key) } + replacement
+        rebuild()
+        return true
+    }
+
+    /// Takes the commands of the WindowGroup `key` out of the menu, when its last window has closed.
+    /// Nothing happens for a group whose commands are not in the menu.
+    package func removeWindowGroup(_ key: String) {
+        guard loadedKeys.remove(key) != nil else { return }
+        commands = commands.filter { $0.key != Self.windowGroupKey(key) }
+        rebuild()
     }
 
     /// ActionUI's own application started: its actions can be installed.

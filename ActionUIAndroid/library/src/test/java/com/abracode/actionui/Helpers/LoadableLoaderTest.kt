@@ -101,7 +101,14 @@ class LoadableLoaderTest {
                 } catch (e: NotARegularFileException) {
                     assertEquals("$path is not a regular file", e.message)
                 }
+                try {
+                    readRegularFileBytes(path)
+                    fail("$path was read as bytes")
+                } catch (e: NotARegularFileException) {
+                    assertEquals("$path is not a regular file", e.message)
+                }
             }
+            assertEquals(file.readBytes().toList(), readRegularFileBytes(link.toString()).toList())
             // A missing file keeps its own read error.
             try {
                 readRegularFileText(File(folder, "missing.json").path)

@@ -48,6 +48,8 @@ enum TestImages {
 nonisolated(unsafe) private var servedPNG: [UInt8] = []
 nonisolated(unsafe) private var servedDocument = ""
 nonisolated(unsafe) private var servedRequests = 0
+/// The size of the body "/big.bin" serves (zero bytes).
+nonisolated(unsafe) var servedBigSize = 0
 
 private let handleRequest: @convention(c) (UnsafeMutablePointer<SoupServer>?, OpaquePointer?, UnsafePointer<CChar>?, OpaquePointer?, gpointer?) -> Void = { _, message, path, _, _ in
     guard let message else { return }
@@ -67,6 +69,15 @@ private let handleRequest: @convention(c) (UnsafeMutablePointer<SoupServer>?, Op
         bytes.withUnsafeBufferPointer { buffer in
             soup_server_message_set_response(message, "application/json", SOUP_MEMORY_COPY, buffer.baseAddress, gsize(buffer.count))
         }
+    case "/big.bin":
+        soup_server_message_set_status(message, 200, nil)
+        let bytes = [UInt8](repeating: 0, count: servedBigSize)
+        bytes.withUnsafeBufferPointer { buffer in
+            soup_server_message_set_response(message, "application/octet-stream", SOUP_MEMORY_COPY, buffer.baseAddress, gsize(buffer.count))
+        }
+    case "/never.json":
+        // Never answered: the request waits until the client gives up or the server stops.
+        soup_server_message_pause(message)
     default:
         soup_server_message_set_status(message, 404, nil)
     }

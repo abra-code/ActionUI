@@ -110,6 +110,38 @@ final class URLLoaderTests: XCTestCase {
         XCTAssertEqual(try fetch(server.base + "/image.png"), png)
     }
 
+    func testABodyLargerThanTheCapIsRefused() throws {
+        let saved = URLLoader.maximumSize
+        defer { URLLoader.maximumSize = saved }
+        URLLoader.maximumSize = 100_000
+        let server = try TestImageServer(png: [])
+        self.server = server
+        servedBigSize = 100_001
+        XCTAssertNil(try fetch(server.base + "/big.bin"), "one byte over the cap")
+        servedBigSize = 100_000
+        XCTAssertEqual(try fetch(server.base + "/big.bin")?.count, 100_000, "exactly the cap loads")
+    }
+
+    func testALoadThatTakesTooLongIsRefused() throws {
+        let saved = URLLoader.totalTimeout
+        defer { URLLoader.totalTimeout = saved }
+        URLLoader.totalTimeout = 300
+        let server = try TestImageServer(png: [])
+        self.server = server
+        let start = Date()
+        XCTAssertNil(try fetch(server.base + "/never.json"))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 10, "given up after the total time, not the 30 s step timeout")
+    }
+
+    func testOnlyHTTPSToHTTPIsADowngrade() {
+        XCTAssertTrue(URLLoader.isDowngrade(from: "https", to: "http"))
+        XCTAssertTrue(URLLoader.isDowngrade(from: "HTTPS", to: "Http"))
+        XCTAssertFalse(URLLoader.isDowngrade(from: "https", to: "https"))
+        XCTAssertFalse(URLLoader.isDowngrade(from: "http", to: "http"))
+        XCTAssertFalse(URLLoader.isDowngrade(from: "http", to: "https"))
+        XCTAssertFalse(URLLoader.isDowngrade(from: nil, to: "http"))
+    }
+
     func testAnHTTPErrorStatusGivesNil() throws {
         let server = try TestImageServer(png: [])
         self.server = server
