@@ -135,6 +135,7 @@ PREVIEW_OPTIONS = {
                      "--expect-action", "color.picked", "--forbid-action", "color.renderer",
                      "--on-action", "color.picked", "8", "Picked"],
     "ControlGroups": ["420", "200", "--invoke", "4", "--expect-action", "group.italic"],
+    "Canvases": ["420", "320"],
     "AsyncImages": ["460", "340", "--set-value", "7", "{documents_url}/Images/sample_image.png",
                     "--set-value", "8", "{documents_url}/Images/ActionUIDemo.svg"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",

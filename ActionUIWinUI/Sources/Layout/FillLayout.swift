@@ -6,7 +6,8 @@
  (a shape, or none for a Color, which paints the panel's background) fills the panel.
 
  Divider uses it too, with a thickness of 1 along its parent stack's axis instead of the ideal. A
- Circle's ellipse is placed in the largest square of the panel, centered (squareChild).
+ Circle's ellipse is placed in the largest square of the panel, centered (squareChild). A Canvas's
+ image of its drawing fills it, drawn again for each new size (arranged).
 
  For a shape, two of SwiftUI's rules WinUI does not have: a stroke is centered on the outline, half
  of it outside the frame, where a WinUI shape draws it inside its bounds (so the shape reaches half
@@ -33,6 +34,8 @@ final class FillLayout {
     /// The child rectangle's corner radius before clamping: nil leaves it alone; infinite for a
     /// Capsule. Arrange sets it to at most half the shorter side of the shape's frame.
     var cornerRadius: Double?
+    /// Called at the end of each arrange with the panel's final size (a Canvas draws for it).
+    var arranged: ((ActionUIWinUISize) -> Void)?
 
     init(child: WinUIObject? = nil) throws(WinUIError) {
         panel = try LayoutPanel()
@@ -73,5 +76,6 @@ final class FillLayout {
             child.arrange(ActionUIWinUIRect(x: rect.x - childOutset, y: rect.y - childOutset,
                                             width: rect.width + 2 * childOutset, height: rect.height + 2 * childOutset))
         }
+        arranged?(finalSize)
     }
 }

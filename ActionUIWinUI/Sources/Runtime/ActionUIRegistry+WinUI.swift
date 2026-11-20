@@ -10,6 +10,7 @@ extension ActionUIRegistry {
     static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
         "AsyncImage": AsyncImage.self,
         "Button": Button.self,
+        "Canvas": Canvas.self,
         "Capsule": Capsule.self,
         "Circle": Circle.self,
         "Color": Color.self,

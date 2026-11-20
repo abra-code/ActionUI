@@ -752,6 +752,65 @@ ACTIONUI_WINUI_API bool actionUIWinUIImageOnFailed(ActionUIWinUIObject *image, A
 // NULL. Any thread; sets no error.
 ACTIONUI_WINUI_API bool actionUIWinUIIsRegularFile(const char *path);
 
+// MARK: - Drawing (a Canvas)
+
+// One drawing: Direct2D into a bitmap of `width` x `height` points at `scale` pixels a point
+// (actionUIWinUIElementRasterizationScale), transparent at first, then shown by a WinUI Image
+// (actionUIWinUIImageCreate) with actionUIWinUIDrawingFinish. Coordinates are points, y down, under
+// the transform last set (the identity at first). A path is built with MoveTo, LineTo, QuadTo, CubicTo
+// and Close (a segment before any move fails; after Close, the next segment starts where the closed
+// figure started) and used up by the Fill, Stroke or Clip after it (the nonzero winding rule).
+typedef struct ActionUIWinUIDrawing ActionUIWinUIDrawing;
+
+typedef enum ActionUIWinUILineCap {
+    ActionUIWinUILineCapButt = 0,
+    ActionUIWinUILineCapRound = 1,
+    ActionUIWinUILineCapSquare = 2,
+} ActionUIWinUILineCap;
+
+typedef enum ActionUIWinUILineJoin {
+    // Beveled past the miter limit.
+    ActionUIWinUILineJoinMiter = 0,
+    ActionUIWinUILineJoinRound = 1,
+    ActionUIWinUILineJoinBevel = 2,
+} ActionUIWinUILineJoin;
+
+// A new drawing; NULL on failure (a size or scale that is not a positive number, more than 16384
+// pixels a side). Each drawing ends with actionUIWinUIDrawingFinish or actionUIWinUIDrawingDiscard.
+ACTIONUI_WINUI_API ActionUIWinUIDrawing *actionUIWinUIDrawingBegin(double width, double height, double scale);
+// The transform of what is drawn after it: x' = a x + c y + tx, y' = b x + d y + ty. Drops a path
+// not used yet (each path starts by setting its transform).
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingSetTransform(ActionUIWinUIDrawing *drawing, double a, double b, double c, double d,
+                                                         double tx, double ty);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingMoveTo(ActionUIWinUIDrawing *drawing, double x, double y);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingLineTo(ActionUIWinUIDrawing *drawing, double x, double y);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingQuadTo(ActionUIWinUIDrawing *drawing, double cx, double cy, double x, double y);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingCubicTo(ActionUIWinUIDrawing *drawing, double c1x, double c1y, double c2x, double c2y,
+                                                    double x, double y);
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingClose(ActionUIWinUIDrawing *drawing);
+// Fills the path with `color` (its components 0...1, straight alpha).
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingFill(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color);
+// Strokes the path `width` points wide (0 or less draws nothing). `dashes` (`dashCount` lengths in
+// points, or NULL) dash it from `dashPhase` points in; a pattern of only zeros is solid.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingStroke(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color, double width,
+                                                   ActionUIWinUILineCap cap, ActionUIWinUILineJoin join, double miterLimit,
+                                                   const double *dashes, int32_t dashCount, double dashPhase);
+// Clips everything drawn after it to the path, where it lies under the transform set now (with
+// the clips before it); a drawing with no path clips everything away.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingClip(ActionUIWinUIDrawing *drawing);
+// Ends the drawing and shows it in `image` (a WinUI Image), stretched to the image's size. Frees
+// the drawing, also on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingFinish(ActionUIWinUIDrawing *drawing, ActionUIWinUIObject *image);
+// Ends the drawing without showing it, and frees it. NULL does nothing.
+ACTIONUI_WINUI_API void actionUIWinUIDrawingDiscard(ActionUIWinUIDrawing *drawing);
+// The pixels a point of `element`'s window has (its XamlRoot's RasterizationScale: 1.5 at 150%); 1
+// when it is in no window yet.
+ACTIONUI_WINUI_API double actionUIWinUIElementRasterizationScale(ActionUIWinUIObject *element);
+// Tapped: a press and release on `element` (pointer, pen or touch). The event is handled there, so
+// an element around it does not see it.
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                                     ActionUIWinUICallback destroyContext);
+
 // MARK: - Symbols
 
 // The SF Symbol names ActionUI can draw on Windows are those of its SF Symbols -> Material Symbols
