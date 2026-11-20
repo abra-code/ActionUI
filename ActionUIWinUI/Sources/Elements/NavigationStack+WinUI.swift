@@ -4,7 +4,8 @@
  row, as a Windows app shows a page under its back button and title: WinUI's back button (the one
  NavigationView shows) when a screen is pushed, and the screen's title in the type ramp's Subtitle
  (20 semibold). The title is the screen's navigationTitle, from any of its views (ScreenTitle, shared
- with Linux); the root's falls back to the stack's own. A root screen without a title has no header.
+ with Linux); the root's falls back to the stack's own. A root screen without a title or toolbar items
+ has no header.
  The stack fills what it is offered, as SwiftUI's does; its page is clipped to its area, so a screen
  taller than its room is cut at the header rather than drawn over the back button.
 
@@ -21,9 +22,19 @@
  The screens below the top keep their WinUI objects (their text, their scroll position) out of the
  window until shown again, as SwiftUI keeps them; a screen popped leaves the tree.
 
- Not yet: the toolbars (persistentToolbar and the screens' own); the window's title; the slide of a
- push and a pop (the screens switch at once); going back with Alt+Left or the mouse's back button;
- the title as a heading for accessibility tools.
+ Toolbars: the toolbar items of the views on the top screen show in the header row (NodeToolbar):
+ leading items after the back button, principal items in the title's place, trailing items at the
+ row's trailing edge, secondaryAction items in a "see more" button's flyout after them, bottomBar
+ items in a row below the page. The stack's persistentToolbar (and its toolbar, the deprecated alias)
+ shows on every screen at the outer edge: its leading items first, its trailing ones last. A screen
+ below the top keeps its items for when it is shown again. A header with items but no title or back
+ button shows the items alone.
+
+ Not yet: the window's title; the slide of a push and a pop (the screens switch at once); going back
+ with Alt+Left or the mouse's back button; the title as a heading for accessibility tools; searchable;
+ persistentToolbar items inserted or removed at run time (the persistent toolbar is made from the
+ stack's first sync); a screen's toolbar items appear one main-queue turn after the screen is first
+ shown (its views sync after the stack).
 */
 
 import CWinUI
@@ -35,20 +46,40 @@ struct NavigationEntry {
     let destinationID: Int?
 }
 
-/// A NavigationStack's header row (its back button and title) above its page.
+/// What the header row and the bottom row show besides the back button and the title: the top screen's
+/// toolbar items and the stack's persistent ones, by place.
+struct NavigationBarItems {
+    var leading: [WinUIObject] = []
+    var principal: [WinUIObject] = []
+    var trailing: [WinUIObject] = []
+    var overflow: [WinUIObject] = []
+    var bottom: [WinUIObject] = []
+}
+
+/// A NavigationStack's header row (its back button, title and toolbar items) above its page, and a
+/// bottom row of bottomBar items below it.
 @MainActor
 final class NavigationStackLayout {
     let panel: LayoutPanel
     let back: WinUIObject
     let title: WinUIObject
     let page: ZStackLayout
-    /// Whether the back button and the title are in the panel.
-    private(set) var showsBack = false
-    private(set) var showsTitle = false
-    /// The parts' sizes from the last measure pass, for arrange.
-    private var measuredBack = ActionUIWinUISize(width: 0, height: 0)
-    private var measuredTitle = ActionUIWinUISize(width: 0, height: 0)
+    private let bottom: CommandRow
+    /// The overflow items' panel, the flyout's content, and the button that opens it.
+    private let overflow: StackLayout
+    private(set) var overflowButton: WinUIObject?
+    /// The header's parts from its leading edge (the back button, leading items, the title or the
+    /// principal items) and those at its trailing edge (trailing items, the overflow button).
+    private(set) var leadingParts: [WinUIObject] = []
+    private(set) var trailingParts: [WinUIObject] = []
+    private var overflowItems: [WinUIObject] = []
+    /// Whether the header starts with principal items (no back button, no leading items before them).
+    private var principalFirstFlag = false
+    private var bottomItems: [WinUIObject] = []
+    /// The parts' sizes and the page's and the bottom row's from the last measure pass, for arrange.
+    private var sizes: [ObjectIdentifier: ActionUIWinUISize] = [:]
     private var measuredPage = ActionUIWinUISize(width: 0, height: 0)
+    private var measuredBottom = ActionUIWinUISize(width: 0, height: 0)
     /// The page's clip as last set: a screen taller than its room is cut at the header, as a
     /// Windows page is cut to its area, rather than drawn over the back button.
     private var clippedPage = ActionUIWinUISize(width: -1, height: -1)
@@ -56,80 +87,147 @@ final class NavigationStackLayout {
     /// Around the header's parts, and between the back button and the title.
     static let headerInset = 4.0
     static let titleGap = 8.0
-    /// The title's leading edge when there is no back button.
+    /// The title's leading edge when there is nothing before it.
     static let titleInset = 12.0
+    /// Between toolbar items, and from the row's sides to the first one.
+    static let itemSpacing = 8.0
 
     init(back: WinUIObject, title: WinUIObject) throws(WinUIError) {
         panel = try LayoutPanel()
         self.back = back
         self.title = title
         page = try ZStackLayout()
+        bottom = try CommandRow()
+        overflow = try StackLayout(axis: .vertical)
+        overflow.alignment = .start
         try panel.append(page.panel.object)
         panel.measure = { [unowned self] available in measure(available) }
         panel.arrange = { [unowned self] finalSize in arrange(finalSize) }
     }
 
-    /// Puts the back button and the title in the panel, or takes them out (out of the panel, they
-    /// take no keyboard focus and accessibility tools do not see them).
-    func setHeader(back showsBack: Bool, title showsTitle: Bool) throws(WinUIError) {
-        if showsBack != self.showsBack {
-            if showsBack {
-                try panel.insert(back, at: 0)
-            } else if let index = panel.children.firstIndex(where: { $0 === back }) {
+    /// Shows the back button, the title and `items` (out of the panel, a part takes no keyboard focus
+    /// and accessibility tools do not see it). Principal items take the title's place.
+    func setHeader(back showsBack: Bool, title showsTitle: Bool, items: NavigationBarItems) throws(WinUIError) {
+        if !items.overflow.isEmpty, overflowButton == nil {
+            overflowButton = WinUIObject(adopting: actionUIWinUIOverflowButtonCreate(overflow.panel.object.pointer))
+            if overflowButton == nil {
+                ActionUIModel.shared.logger.log("NavigationStack: \(WinUIError.last("making the overflow button"))", .error)
+            }
+        }
+        let leading = (showsBack ? [back] : []) + items.leading + (items.principal.isEmpty ? (showsTitle ? [title] : []) : items.principal)
+        principalFirstFlag = !showsBack && items.leading.isEmpty && !items.principal.isEmpty
+        let trailing = items.trailing + (items.overflow.isEmpty ? [] : overflowButton.map { [$0] } ?? [])
+        let headerChanged = !leading.elementsEqual(leadingParts, by: ===) || !trailing.elementsEqual(trailingParts, by: ===)
+        let overflowChanged = !items.overflow.elementsEqual(overflowItems, by: ===)
+        let bottomChanged = !items.bottom.elementsEqual(bottomItems, by: ===)
+        guard headerChanged || overflowChanged || bottomChanged else { return }
+        // The parts the old and the new header start with stay in the panel: a part taken out loses
+        // keyboard focus, and the back button keeps it across a push or a pop to a screen with other
+        // toolbar items. Those after them are taken out and put back.
+        let oldParts = leadingParts + trailingParts
+        let newParts = leading + trailing
+        let keptParts = zip(oldParts, newParts).prefix { $0 === $1 }.count
+        // An item whose place changed moves to another panel, and WinUI refuses an element that is
+        // still another panel's child: every place whose items change is emptied before any is filled.
+        if overflowChanged {
+            overflow.setItems([])
+        }
+        if bottomChanged {
+            bottom.setItems(leading: [], principal: [], trailing: [])
+            if let index = panel.children.firstIndex(where: { $0 === bottom.panel.object }) {
                 try panel.remove(at: index)
             }
-            self.showsBack = showsBack
-            panel.invalidateLayout()
         }
-        if showsTitle != self.showsTitle {
-            if showsTitle {
-                try panel.insert(title, at: self.showsBack ? 1 : 0)
-            } else if let index = panel.children.firstIndex(where: { $0 === title }) {
-                try panel.remove(at: index)
+        if headerChanged {
+            for part in oldParts[keptParts...] {
+                if let index = panel.children.firstIndex(where: { $0 === part }) {
+                    try panel.remove(at: index)
+                }
             }
-            self.showsTitle = showsTitle
-            panel.invalidateLayout()
         }
+        leadingParts = leading
+        trailingParts = trailing
+        overflowItems = items.overflow
+        bottomItems = items.bottom
+        if overflowChanged {
+            overflow.setItems(items.overflow.map { StackLayout.Item(view: $0, spacerMinimum: nil) })
+        }
+        if headerChanged {
+            // Before the page, in reading order, so keyboard focus reaches the header first.
+            for (offset, part) in newParts[keptParts...].enumerated() {
+                try panel.insert(part, at: keptParts + offset)
+            }
+        }
+        if bottomChanged, !items.bottom.isEmpty {
+            bottom.setItems(leading: [], principal: items.bottom, trailing: [])
+            try panel.append(bottom.panel.object)
+        }
+        panel.invalidateLayout()
+    }
+
+    private var showsBack: Bool { leadingParts.first === back }
+    private var showsBottom: Bool { !bottomItems.isEmpty }
+
+    private func size(_ part: WinUIObject) -> ActionUIWinUISize {
+        sizes[ObjectIdentifier(part)] ?? ActionUIWinUISize(width: 0, height: 0)
     }
 
     /// The header row's height: its tallest part and the insets, 0 without a header.
     private var headerHeight: Double {
-        guard showsBack || showsTitle else { return 0 }
-        return max(showsBack ? measuredBack.height : 0, showsTitle ? measuredTitle.height : 0) + 2 * Self.headerInset
-    }
-
-    private var titleX: Double {
-        showsBack ? Self.headerInset + measuredBack.width + Self.titleGap : Self.titleInset
+        let parts = leadingParts + trailingParts
+        guard !parts.isEmpty else { return 0 }
+        return parts.reduce(0) { max($0, size($1).height) } + 2 * Self.headerInset
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         let unbounded = ActionUIWinUISize(width: .infinity, height: .infinity)
-        measuredBack = showsBack ? back.measure(unbounded) : ActionUIWinUISize(width: 0, height: 0)
-        measuredTitle = showsTitle ? title.measure(unbounded) : ActionUIWinUISize(width: 0, height: 0)
+        sizes = [:]
+        for part in leadingParts + trailingParts {
+            sizes[ObjectIdentifier(part)] = part === title ? part.measure(unbounded) : part.measureRequested(unbounded)
+        }
         let header = headerHeight
-        // The title does not widen the stack (it is cut at the trailing edge), as SwiftUI's navigation
-        // title does not; the back button does.
-        let headerWidth = showsBack ? measuredBack.width + 2 * Self.headerInset : 0
+        measuredBottom = showsBottom ? bottom.panel.object.measureRequested(ActionUIWinUISize(width: available.width, height: .infinity))
+                                     : ActionUIWinUISize(width: 0, height: 0)
+        // The title and the toolbar items do not widen the stack (the title is cut before the trailing
+        // items), as SwiftUI's navigation bar does not; the back button does.
+        let headerWidth = showsBack ? size(back).width + 2 * Self.headerInset : 0
+        let rows = header + measuredBottom.height
         let room = ActionUIWinUISize(width: available.width,
-                                     height: available.height.isFinite ? max(available.height - header, 0) : .infinity)
+                                     height: available.height.isFinite ? max(available.height - rows, 0) : .infinity)
         measuredPage = page.panel.object.measureRequested(room)
-        return ActionUIWinUISize(width: max(headerWidth, measuredPage.width), height: header + measuredPage.height)
+        return ActionUIWinUISize(width: max(headerWidth, measuredPage.width), height: rows + measuredPage.height)
     }
 
     private func arrange(_ finalSize: ActionUIWinUISize) {
         let header = headerHeight
-        if showsBack {
-            back.arrange(ActionUIWinUIRect(x: Self.headerInset, y: ((header - measuredBack.height) / 2).rounded(.down),
-                                           width: measuredBack.width, height: measuredBack.height))
+        func place(_ part: WinUIObject, x: Double, width: Double? = nil) {
+            let size = size(part)
+            part.arrange(ActionUIWinUIRect(x: x.rounded(.down), y: ((header - size.height) / 2).rounded(.down),
+                                           width: width ?? size.width, height: size.height))
         }
-        if showsTitle {
-            // Cut at the stack's trailing edge when it is narrower than the title.
-            let x = titleX
-            title.arrange(ActionUIWinUIRect(x: x, y: ((header - measuredTitle.height) / 2).rounded(.down),
-                                            width: max(min(measuredTitle.width, finalSize.width - x - Self.headerInset), 0),
-                                            height: measuredTitle.height))
+        // The trailing parts from the trailing edge.
+        let trailingWidth = trailingParts.reduce(0) { $0 + size($1).width } + Self.itemSpacing * Double(max(trailingParts.count - 1, 0))
+        let trailingStart = finalSize.width - Self.itemSpacing - trailingWidth
+        var x = trailingStart
+        for part in trailingParts {
+            place(part, x: x)
+            x += size(part).width + Self.itemSpacing
         }
-        let pageSize = ActionUIWinUISize(width: finalSize.width, height: max(finalSize.height - header, 0))
+        // The leading parts from the leading edge: the back button 4 in, a title alone 12 in, items 8 in.
+        let limit = trailingParts.isEmpty ? finalSize.width - Self.headerInset : trailingStart - Self.itemSpacing
+        // A title or principal items with nothing before them start 12 in.
+        let principalFirst = leadingParts.first === title || (!leadingParts.isEmpty && leadingParts.first !== back && principalFirstFlag)
+        x = leadingParts.first === back ? Self.headerInset : principalFirst ? Self.titleInset : Self.itemSpacing
+        for part in leadingParts {
+            if part === title {
+                // Cut before the trailing items when the row is narrower than the title.
+                place(part, x: x, width: max(min(size(part).width, limit - x), 0))
+            } else {
+                place(part, x: x)
+            }
+            x += size(part).width + (part === back ? Self.titleGap : Self.itemSpacing)
+        }
+        let pageSize = ActionUIWinUISize(width: finalSize.width, height: max(finalSize.height - header - measuredBottom.height, 0))
         page.panel.object.arrange(ActionUIWinUIRect(x: 0, y: header, width: pageSize.width, height: pageSize.height))
         if pageSize.width != clippedPage.width || pageSize.height != clippedPage.height {
             if actionUIWinUIElementSetClipSize(page.panel.object.pointer, pageSize.width, pageSize.height) {
@@ -138,6 +236,50 @@ final class NavigationStackLayout {
                 ActionUIModel.shared.logger.log("NavigationStack: \(WinUIError.last("clipping the page"))", .error)
             }
         }
+        if showsBottom {
+            bottom.panel.object.arrange(ActionUIWinUIRect(x: 0, y: header + pageSize.height, width: finalSize.width,
+                                                          height: measuredBottom.height))
+        }
+    }
+}
+
+/// The toolbar items of one screen of a NavigationStack (the views on it), or the stack's persistent
+/// ones: each toolbar's, in the order the toolbars registered. A change asks the stack to show its
+/// header again.
+@MainActor
+final class NavigationScreenBar: ToolbarBar {
+    private weak var stack: RenderNode?
+    private var owners: [(owner: ObjectIdentifier, items: [(slot: ToolbarSlot, view: WinUIObject)])] = []
+
+    init(stack: RenderNode) {
+        self.stack = stack
+    }
+
+    func set(owner: ObjectIdentifier, items: [(slot: ToolbarSlot, view: WinUIObject)]) {
+        if let index = owners.firstIndex(where: { $0.owner == owner }) {
+            guard !owners[index].items.elementsEqual(items, by: { $0.slot == $1.slot && $0.view === $1.view }) else { return }
+            owners[index].items = items
+        } else {
+            owners.append((owner, items))
+        }
+        changed()
+    }
+
+    func remove(owner: ObjectIdentifier) {
+        guard owners.contains(where: { $0.owner == owner }) else { return }
+        owners.removeAll { $0.owner == owner }
+        changed()
+    }
+
+    private func changed() {
+        if let stack, stack.isAttached {
+            SyncScheduler.shared.markDirty(stack)
+        }
+    }
+
+    /// The items in `slot`, in order.
+    func views(_ slot: ToolbarSlot) -> [WinUIObject] {
+        owners.flatMap(\.items).filter { $0.slot == slot }.map(\.view)
     }
 }
 
@@ -149,9 +291,43 @@ final class NavigationStackState {
     var entries: [NavigationEntry] = []
     /// The title last given to the title block.
     var shownTitle: String?
+    /// Each screen's toolbar items, by the screen's node; the stack's persistent toolbar and its items.
+    private var screenBars: [ObjectIdentifier: (screen: RenderNode, bar: NavigationScreenBar)] = [:]
+    private(set) var persistentBar: NavigationScreenBar?
+    var persistentToolbar: NodeToolbar?
 
     init(layout: NavigationStackLayout) {
         self.layout = layout
+    }
+
+    /// The bar of `screen` (the content's node or a pushed screen's) of the stack `stack`.
+    func screenBar(for screen: RenderNode, stack: RenderNode) -> NavigationScreenBar {
+        if let existing = screenBars[ObjectIdentifier(screen)] {
+            return existing.bar
+        }
+        let bar = NavigationScreenBar(stack: stack)
+        screenBars[ObjectIdentifier(screen)] = (screen, bar)
+        return bar
+    }
+
+    func persistentBar(stack: RenderNode) -> NavigationScreenBar {
+        if let persistentBar {
+            return persistentBar
+        }
+        let bar = NavigationScreenBar(stack: stack)
+        persistentBar = bar
+        return bar
+    }
+
+    /// The bar of the screen `screen` shows, nil when none of its views declares a toolbar.
+    func existingBar(for screen: RenderNode) -> NavigationScreenBar? {
+        screenBars[ObjectIdentifier(screen)]?.bar
+    }
+
+    /// Lets go of the bars of screens that left the stack.
+    func dropBars(keeping screens: [RenderNode]) {
+        let kept = Set(screens.map(ObjectIdentifier.init))
+        screenBars = screenBars.filter { kept.contains($0.key) && $0.value.screen.isAttached }
     }
 
     /// The destination ids of the entries: what the path should hold.
@@ -222,6 +398,26 @@ extension NavigationStack: ActionUIWinUIRenderer {
         screens += state.entries.map(\.element)
         let nodes = node.syncChildren(screens)
         let top = nodes.last
+        state.dropBars(keeping: nodes)
+
+        // The stack's persistent toolbar (and its toolbar, the deprecated alias): on every screen, at
+        // the outer edge of the bar.
+        let persistentItems = ToolbarHelper.persistentToolbarItems(of: element)
+        if state.persistentToolbar == nil, !persistentItems.isEmpty {
+            state.persistentToolbar = NodeToolbar.persistent(for: node, items: persistentItems)
+        }
+        state.persistentToolbar?.update()
+        let screenBar = top.flatMap { state.existingBar(for: $0) }
+        let persistent = state.persistentBar
+        var items = NavigationBarItems()
+        items.leading = (persistent?.views(.leading) ?? []) + (screenBar?.views(.leading) ?? [])
+        items.principal = screenBar?.views(.principal) ?? []
+        if items.principal.isEmpty {
+            items.principal = persistent?.views(.principal) ?? []
+        }
+        items.trailing = (screenBar?.views(.trailing) ?? []) + (persistent?.views(.trailing) ?? [])
+        items.overflow = (screenBar?.views(.overflow) ?? []) + (persistent?.views(.overflow) ?? [])
+        items.bottom = (screenBar?.views(.bottom) ?? []) + (persistent?.views(.bottom) ?? [])
 
         // The top screen's title; the root's falls back to the stack's own. An empty title is none.
         var title = top.flatMap { ScreenTitle.find(in: $0.element, windowModel: node.windowModel) }
@@ -237,7 +433,7 @@ extension NavigationStack: ActionUIWinUIRenderer {
             }
         }
         do {
-            try layout.setHeader(back: !state.entries.isEmpty, title: title != nil)
+            try layout.setHeader(back: !state.entries.isEmpty, title: title != nil, items: items)
         } catch {
             ActionUIModel.shared.logger.log("NavigationStack: \(error)", .error)
         }
@@ -247,6 +443,13 @@ extension NavigationStack: ActionUIWinUIRenderer {
         }
         node.applyAccessibilityHidden(to: layout.back)
         node.applyAccessibilityHidden(to: layout.title)
+        // The overflow button too, as the back button (the items in its flyout follow their own nodes).
+        if let overflowButton = layout.overflowButton {
+            if !actionUIWinUIElementSetEnabled(overflowButton.pointer, !(node.isDisabled || node.isHidden)) {
+                ActionUIModel.shared.logger.log("NavigationStack: \(WinUIError.last("enabling the overflow button"))", .error)
+            }
+            node.applyAccessibilityHidden(to: overflowButton)
+        }
 
         layout.page.setItems(top.flatMap { screen in
             screen.outerView.map { [ZStackLayout.Item(view: $0, expansion: screen.expansion, cap: screen.caps)] }

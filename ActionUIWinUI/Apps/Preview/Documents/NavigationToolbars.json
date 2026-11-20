@@ -1,0 +1,40 @@
+{
+  "type": "NavigationStack",
+  "id": 1,
+  "persistentToolbar": [
+    { "type": "ToolbarItem", "id": 30, "content": { "type": "Button", "id": 31, "properties": { "title": "Refresh", "actionID": "nav.refresh" } } }
+  ],
+  "content": {
+    "type": "VStack",
+    "id": 2,
+    "properties": { "navigationTitle": "Inbox", "spacing": 8 },
+    "toolbar": [
+      { "type": "ToolbarItem", "id": 3, "properties": { "placement": "topBarLeading" },
+        "content": { "type": "Button", "id": 4, "properties": { "title": "Edit" } } },
+      { "type": "ToolbarItem", "id": 5,
+        "content": { "type": "Button", "id": 6, "properties": { "title": "Compose", "actionID": "nav.compose" } } },
+      { "type": "ToolbarItem", "id": 7, "properties": { "placement": "secondaryAction" },
+        "content": { "type": "Button", "id": 8, "properties": { "title": "Archive all" } } },
+      { "type": "ToolbarItem", "id": 9, "properties": { "placement": "bottomBar" },
+        "content": { "type": "Text", "id": 10, "properties": { "text": "12 messages" } } }
+    ],
+    "children": [
+      { "type": "Text", "id": 11, "properties": { "text": "Messages" } },
+      { "type": "NavigationLink", "id": 12, "properties": { "title": "Open the first", "destinationViewId": 20 } }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 20,
+      "properties": { "navigationTitle": "Message" },
+      "toolbar": [
+        { "type": "ToolbarItem", "id": 21, "properties": { "placement": "principal" },
+          "content": { "type": "Text", "id": 22, "properties": { "text": "From Ada", "font": "headline" } } },
+        { "type": "ToolbarItem", "id": 23,
+          "content": { "type": "Button", "id": 24, "properties": { "title": "Reply", "actionID": "nav.reply" } } }
+      ],
+      "children": [ { "type": "Text", "id": 25, "properties": { "text": "Hello from the message screen" } } ]
+    }
+  ]
+}

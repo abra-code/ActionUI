@@ -132,6 +132,8 @@ PREVIEW_OPTIONS = {
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
     "Toolbars": ["420", "300", "--invoke", "15", "--invoke", "20", "--expect-action", "toolbar.add",
                  "--expect-action", "toolbar.export", "--on-action", "toolbar.export", "3", "Added, then exported"],
+    "NavigationToolbars": ["420", "300", "--invoke", "6", "--invoke", "31", "--invoke", "12", "--wait", "--invoke", "24",
+                           "--expect-action", "nav.compose", "--expect-action", "nav.refresh", "--expect-action", "nav.reply"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

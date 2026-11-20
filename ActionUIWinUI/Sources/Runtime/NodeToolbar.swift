@@ -1,9 +1,10 @@
 // Sources/Runtime/NodeToolbar.swift
 /*
  The toolbar a view declares ("toolbar": ToolbarItem and ToolbarItemGroup elements) on WinUI, shown in
- its window's command bar (WindowCommandBar), as SwiftUI on macOS shows a view's toolbar items in the
- window's toolbar and as the Linux renderer shows them in the screen's header bar (NodeToolbar.swift
- there). A ToolbarItem shows its content, a ToolbarItemGroup each of its children, at the item's
+ its NavigationStack screen's header (the stack's header row, while the screen is on top), else in its
+ window's command bar (WindowCommandBar), as SwiftUI shows a view's toolbar items in its navigation
+ bar or the window's toolbar and as the Linux renderer shows them in the screen's header bar
+ (NodeToolbar.swift there). A ToolbarItem shows its content, a ToolbarItemGroup each of its children, at the item's
  placement:
 
  - leading: topBarLeading, cancellationAction, navigation;
@@ -16,10 +17,11 @@
 
  The contents are auxiliary nodes of the view (RenderNode.auxiliaryNode: made like its children, not
  among them), so they inherit its environment. A navigation container's own toolbar is its
- persistent toolbar (ToolbarHelper.screenToolbarItems leaves it out).
+ persistent toolbar (ToolbarHelper.screenToolbarItems leaves it out): the NavigationStack makes it
+ (persistent(for:items:)) and shows it on every screen.
 
- Not yet: the toolbars of views inside a NavigationStack (the stack's header row); persistentToolbar;
- searchable; a toolbar inserted at run time into a window whose document had none (logged once).
+ Not yet: searchable; a NavigationSplitView's toolbars (it has no renderer yet); a toolbar inserted at
+ run time into a window whose document had none (logged once).
 */
 
 @MainActor
@@ -29,20 +31,49 @@ final class NodeToolbar {
     private let items: [any ActionUIElementBase]
     /// The content nodes, by element id.
     private var itemNodes: [Int: RenderNode] = [:]
-    private weak var bar: WindowCommandBar?
-    private static var reportedInNavigation = false
+    private weak var bar: (any ToolbarBar)?
+    /// The bar the items go to, for the toolbar's node.
+    private let barOf: @MainActor (RenderNode) -> (any ToolbarBar)?
     private static var reportedWithoutBar = false
 
     /// A node's toolbar, or nil when its element declares none. Called while the node is made, which
     /// may be in its parent's sync: it reads nothing from the model.
     static func make(for node: RenderNode) -> NodeToolbar? {
         let items = ToolbarHelper.screenToolbarItems(of: node.element)
-        return items.isEmpty ? nil : NodeToolbar(node, items: items)
+        return items.isEmpty ? nil : NodeToolbar(node, items: items, barOf: nearestBar)
     }
 
-    private init(_ node: RenderNode, items: [any ActionUIElementBase]) {
+    /// A NavigationStack's persistent toolbar (`items`), shown on every screen through the stack's
+    /// persistent bar.
+    static func persistent(for stack: RenderNode, items: [any ActionUIElementBase]) -> NodeToolbar {
+        NodeToolbar(stack, items: items) { stack in
+            (stack.state as? NavigationStackState)?.persistentBar(stack: stack)
+        }
+    }
+
+    private init(_ node: RenderNode, items: [any ActionUIElementBase], barOf: @escaping @MainActor (RenderNode) -> (any ToolbarBar)?) {
         self.node = node
         self.items = items
+        self.barOf = barOf
+    }
+
+    /// The bar of `node`'s screen: the screen's in the NavigationStack it is in (the stack's child it
+    /// is under), else its window's command bar; none in another navigation container (a
+    /// NavigationSplitView, not rendered yet).
+    private static func nearestBar(_ node: RenderNode) -> (any ToolbarBar)? {
+        var screen = node
+        var current = node.parent
+        while let candidate = current {
+            if candidate.element.type == "NavigationStack" {
+                return (candidate.state as? NavigationStackState)?.screenBar(for: screen, stack: candidate)
+            }
+            if ToolbarHelper.isNavigationContainer(candidate.element.type) {
+                return nil
+            }
+            screen = candidate
+            current = candidate.parent
+        }
+        return WindowCommandBar.of(windowUUID: node.windowModel.windowUUID)
     }
 
     /// The bar slot of a placement name, nil for one not shown.
@@ -57,27 +88,10 @@ final class NodeToolbar {
         }
     }
 
-    /// Whether `node` is inside a navigation container, whose screens' toolbars belong to its header.
-    private static func inNavigation(_ node: RenderNode) -> Bool {
-        var current = node.parent
-        while let candidate = current {
-            if ToolbarHelper.isNavigationContainer(candidate.element.type) { return true }
-            current = candidate.parent
-        }
-        return false
-    }
-
-    /// Makes the content nodes of the items and shows them in the window's command bar. Runs in the
+    /// Makes the content nodes of the items and shows them in its bar (its screen's or the window's). Runs in the
     /// node's sync: the placements it reads mark the node dirty, and new content nodes sync after it.
     func update() {
         guard let node else { return }
-        guard !Self.inNavigation(node) else {
-            if !Self.reportedInNavigation {
-                Self.reportedInNavigation = true
-                ActionUIModel.shared.logger.log("Toolbar: the toolbar of a view inside a NavigationStack is not shown on Windows yet", .warning)
-            }
-            return
-        }
         var shown: [(slot: ToolbarSlot, view: WinUIObject)] = []
         var kept: [Int: RenderNode] = [:]
         for item in items {
@@ -100,17 +114,17 @@ final class NodeToolbar {
         }
         let gone = itemNodes.filter { kept[$0.key] == nil }
         itemNodes = kept
-        let bar = WindowCommandBar.of(windowUUID: node.windowModel.windowUUID)
+        let bar = barOf(node)
         if bar !== self.bar {
             self.bar?.remove(owner: ObjectIdentifier(self))
             self.bar = bar
         }
         bar?.set(owner: ObjectIdentifier(self), items: shown)
-        // The window makes its bar when its document is loaded: a toolbar inserted later into a document
-        // that had none has no bar to show in.
+        // No bar: a toolbar inserted into a window whose document had none (the window makes its bar
+        // when the document is loaded), or one in a NavigationSplitView.
         if bar == nil, !shown.isEmpty, !Self.reportedWithoutBar {
             Self.reportedWithoutBar = true
-            ActionUIModel.shared.logger.log("Toolbar: a toolbar added after the window was made is not shown on Windows yet", .warning)
+            ActionUIModel.shared.logger.log("Toolbar: a toolbar with no bar to show in (added after the window was made, or in a NavigationSplitView) is not shown on Windows yet", .warning)
         }
         // After the bar let their boxes go.
         for gone in gone.values {

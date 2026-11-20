@@ -26,9 +26,18 @@ enum ToolbarSlot {
     case leading, principal, trailing, overflow, bottom
 }
 
+/// What shows toolbars' items: a window's command bar, or a NavigationStack screen's header.
+@MainActor
+protocol ToolbarBar: AnyObject {
+    /// Shows `items` as `owner`'s (a toolbar's), replacing what it showed.
+    func set(owner: ObjectIdentifier, items: [(slot: ToolbarSlot, view: WinUIObject)])
+    /// `owner`'s items leave the bar.
+    func remove(owner: ObjectIdentifier)
+}
+
 /// A window's command rows around its content.
 @MainActor
-final class WindowCommandBar {
+final class WindowCommandBar: ToolbarBar {
     let panel: LayoutPanel
     private let content: WinUIObject
     private let top: CommandRow
