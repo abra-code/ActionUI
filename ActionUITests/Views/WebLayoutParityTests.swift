@@ -162,6 +162,8 @@ final class WebLayoutParityTests: XCTestCase {
         "lazyvgrid-fixed-and-flexible": "lazygrid",
         "lazyvgrid-fixed-only": "lazygrid",
         "lazyvgrid-flexible-cells": "lazygrid",
+        "lazyvgrid-in-hstack-beside-fixed": "lazygrid",
+        "lazyvgrid-in-hstack-beside-flexible": "lazygrid",
         "lazyvgrid-in-vstack-hugs": "lazygrid",
         "lazyvgrid-two-flexible": "lazygrid",
         "lazyvstack-expanding-child": "lazystack",

@@ -24,9 +24,17 @@ final class LayoutParityTests: XCTestCase {
     /// test until it is removed here.
     private static let knownDifferences: [String: String] = [
         "ignoressafearea-child-under-inset": ignoredSafeAreaReason,
+        "lazyvgrid-in-hstack-beside-flexible": lazyGridInRowReason,
         "safearea-fixed-filling-bar": insetExpansionReason,
         "safearea-unframed-bar": insetExpansionReason,
     ]
+
+    /// SwiftUI's HStack offers a LazyVGrid its share before a sibling that can shrink, though the
+    /// grid takes all it is offered (likely because its ideal width is small; not probed): it keeps
+    /// an even share and the sibling takes only what it needs of the rest, the pair centered (of 392
+    /// points the grid keeps 196, the sibling takes 50). Beside a fixed sibling the grid gets the
+    /// rest, as GTK's does. GTK's grid expands, so it is offered the rest last.
+    private static let lazyGridInRowReason = "SwiftUI's HStack offers a LazyVGrid its share before a sibling that can shrink (likely because its ideal width is small), and the grid keeps all of it; the sibling takes only what it needs of the rest and the pair is centered; GTK's grid expands and gets the rest"
 
     /// A safe area inset view that expands makes SwiftUI's view of a fixed size expand with it: a
     /// bar that fills across its edge widens the view to the width offered, and one that fills
