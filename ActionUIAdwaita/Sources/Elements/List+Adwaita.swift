@@ -1,7 +1,7 @@
 // Sources/Elements/List+Adwaita.swift
 /*
- List on GTK: a GtkListBox in a GtkScrolledWindow (a GtkListView for the lazy template form), as
- greedy as SwiftUI's List (it shares a stack like a Color, measured: the list-in-hstack-shares and
+ List on GTK: a GtkListBox in a GtkScrolledWindow (a GtkListView for the lazy forms), as greedy
+ as SwiftUI's List (it shares a stack like a Color, measured: the list-in-hstack-shares and
  list-in-vstack-shares layout parity fixtures). Its three forms:
 
  - Rows (Form 1): one row per content row (setElementRows) whose first column is not empty,
@@ -14,15 +14,16 @@
    cell: resizable, scaledToFit, a ProgressView placeholder). Selectable whether or not an
    actionID is set: a selection the user makes becomes the value (the row's columns) and fires
    actionID (Core RowSelection); a double click (or Return) fires doubleClickActionID with the
-   row's index in the content.
+   row's index in the content. Made lazily, in a GtkListView, as rows come into view
+   (List+LazyRows.swift), except in the grouped and insetGrouped styles (below).
  - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
    the selected child's id as text, and actionID fires with the id as its context; without one,
    the rows are not selectable and the children handle their own input.
  - Template (Form 3): one row per content row, the template element shown with the row's data
    ($1 is its first column), selected and activated as rows are. A row whose data or place changes
-   is made again; the others keep their widgets. Made lazily, in a GtkListView, as rows come into
-   view (List+LazyRows.swift), except in the grouped and insetGrouped styles, whose cards
-   libadwaita draws for a GtkListBox only: there every row is made (RenderNode.templateRowNode).
+   is made again; the others keep their widgets. Made lazily as the rows form is, except in the
+   grouped and insetGrouped styles, whose cards libadwaita draws for a GtkListBox only: there every
+   row is made (RenderNode.templateRowNode), and every cell in the rows form.
 
  The value selects its row when a host sets it; a rows change keeps the selection on its row
  (Core). Styles: automatic, inset and plain show rows separated by lines (none below the last
@@ -67,8 +68,8 @@ final class ListState {
     var rowEnvironment = Environment()
     /// Whether a selection is the user's: GTK also selects the row focus moves onto.
     let input: UserInputWatch
-    /// The lazy template form's rows (then `box` is their list view, not a GtkListBox); nil in the
-    /// other forms.
+    /// The lazy forms' rows, template or content rows (then `box` is their list view, not a
+    /// GtkListBox); nil in the children form and the grouped styles.
     var lazy: LazyListRows?
 
     init(box: WidgetPointer) {
@@ -91,11 +92,13 @@ extension List: ActionUIAdwaitaRenderer {
     /// An Image cell's symbol: Image's medium size.
     static let cellRules = "image.actionui-list-icon { -gtk-icon-size: 1.1em; }"
 
-    /// 1 for the lazy template form (a GtkListView), 0 for the others (a GtkListBox).
+    /// 1 for the lazy template and content-rows forms (a GtkListView), 0 for the children form and
+    /// the grouped styles (a GtkListBox).
     static func widgetKind(_ node: RenderNode) -> Int {
-        guard node.effectiveElement.subviews?["template"] is any ActionUIElementBase else { return 0 }
         let style = Props(node.properties).listStyle
-        return style == .grouped || style == .insetGrouped ? 0 : 1
+        guard style != .grouped && style != .insetGrouped else { return 0 }
+        if node.effectiveElement.subviews?["template"] is any ActionUIElementBase { return 1 }
+        return node.subviews("children").isEmpty ? 1 : 0
     }
 
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
@@ -136,16 +139,31 @@ extension List: ActionUIAdwaitaRenderer {
         return scroller
     }
 
-    /// The lazy template form: a list view in the scrolled window, which virtualizes it.
+    /// The lazy forms: a list view in the scrolled window, which virtualizes it.
     private static func makeLazyWidget(_ node: RenderNode, _ scroller: WidgetPointer) -> WidgetPointer {
-        let lazy = LazyListRows(node: node)
+        let showsTemplate = node.effectiveElement.subviews?["template"] is any ActionUIElementBase
+        // The cells of the content-rows form, made as GTK binds their rows.
+        weak var cellState: ListState?
+        let lazy = LazyListRows(node: node, makeCell: showsTemplate ? nil : { [weak node] text, _ in
+            guard let node, let state = cellState else { return rowLabel(text) }
+            let cell = makeCell(text, state, node)
+            if state.cellType == .button {
+                Button.applyStyle(cell, node.environment.buttonStyle, role: nil)
+            }
+            return cell
+        })
         let view = lazy.view
         // A double click (or Return) activates a row; a single click selects it.
         gtk_list_view_set_single_click_activate(OpaquePointer(view), 0)
+        // Rows at their natural heights, as SwiftUI gives them (and as the list box's viewport is
+        // set): by default the list view gives each row its minimum height, and a row that can
+        // shrink (an AsyncImage cell's picture, a resizable image) is cut down to it.
+        gtk_scrollable_set_vscroll_policy(OpaquePointer(view), GTK_SCROLL_NATURAL)
         gtk_scrolled_window_set_child(OpaquePointer(scroller), view)
         let state = ListState(box: view)
-        state.mode = .template
+        state.mode = showsTemplate ? .template : .rows
         state.lazy = lazy
+        cellState = state
         attach(state, to: scroller, key: listStateKey)
         connectUserSignal(UnsafeMutableRawPointer(lazy.selection), "notify::selected", .instanceAndArgument) { [weak node] in
             guard let node else { return }
@@ -164,14 +182,41 @@ extension List: ActionUIAdwaitaRenderer {
         return scroller
     }
 
-    /// The lazy template form's update: the style, the rows and the selection.
+    /// The lazy forms' update: the style, the rows and the selection. The content-rows form shows
+    /// the rows whose first column is not empty, a new cell type making every row again.
     private static func updateLazy(_ state: ListState, _ lazy: LazyListRows, _ node: RenderNode, _ props: Props) {
         applyStyle(state.box, props)
-        guard let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase else { return }
-        lazy.update(node, template: template)
-        state.drawnRows = lazy.rows
-        state.shownIndices = Array(lazy.rows.indices)
-        select(state, position: RowSelection.selectedIndex(value: node.model.value, in: lazy.rows))
+        // The children went (the list box showed them, and replacing it took their boxes out): their
+        // nodes leave the tree, as the list box's switch to the rows form takes them out.
+        if !node.childNodes.isEmpty {
+            node.syncChildren([], insert: { _, _ in }, remove: { _ in })
+        }
+        if state.mode == .template {
+            guard let template = node.effectiveElement.subviews?["template"] as? any ActionUIElementBase else { return }
+            lazy.update(node, template: template)
+            state.drawnRows = lazy.rows
+            state.shownIndices = Array(lazy.rows.indices)
+            select(state, position: RowSelection.selectedIndex(value: node.model.value, in: lazy.rows))
+            return
+        }
+        let items = node.model.states["content"] as? [[String]] ?? []
+        let shown = shownRowIndices(items)
+        state.drawnRows = items
+        state.shownIndices = shown
+        let cellType = props.viewType
+        let remake = cellType != state.cellType || (cellType == .image && props.dataInterpretation != state.cellInterpretation)
+        state.cellType = cellType
+        state.cellInterpretation = props.dataInterpretation
+        state.cellTexts = shown.map { items[$0][0] }
+        lazy.update(node, texts: state.cellTexts, remake: remake)
+        if cellType == .button {
+            // The inherited buttonStyle, as SwiftUI's Button cells take it; new cells take it when made.
+            for bound in lazy.cells.values {
+                Button.applyStyle(bound.cell, node.environment.buttonStyle, role: nil)
+            }
+        }
+        let selected = RowSelection.selectedIndex(value: node.model.value, in: items).flatMap { shown.firstIndex(of: $0) }
+        select(state, position: selected)
     }
 
     /// The node shown in row `index`: a child's or a template's row; nil for a content row.
@@ -351,6 +396,13 @@ extension List: ActionUIAdwaitaRenderer {
             guard loaded, let state, state.cellType == .asyncImage,
                   let texture = RemoteImages.shared.texture(text) else { return }
             // Every row still showing this text and waiting, wherever it is now.
+            if let lazy = state.lazy {
+                for (position, bound) in lazy.cells where state.cellTexts.indices.contains(position)
+                    && state.cellTexts[position] == text && !Gtk.Widget(bound.cell).isA(gtk_picture_get_type()) {
+                    lazy.replaceCell(at: position, with: pictureCell(texture))
+                }
+                return
+            }
             let box = OpaquePointer(state.box)
             for (position, shown) in state.cellTexts.enumerated() where shown == text {
                 guard let row = gtk_list_box_get_row_at_index(box, Int32(position)),
@@ -373,8 +425,14 @@ extension List: ActionUIAdwaitaRenderer {
     /// A Button cell's click: itemType.actionID fires with the row's text, or its index in the
     /// content when actionContext is rowIndex, as SwiftUI's cell fires it.
     private static func buttonClicked(_ button: WidgetPointer, _ node: RenderNode, _ state: ListState) {
-        guard let row = gtk_widget_get_parent(button) else { return }
-        let position = Int(gtk_list_box_row_get_index(typed(row)))
+        let position: Int
+        if state.lazy != nil {
+            guard let bound = LazyListRows.position(of: button) else { return }
+            position = bound
+        } else {
+            guard let row = gtk_widget_get_parent(button) else { return }
+            position = Int(gtk_list_box_row_get_index(typed(row)))
+        }
         guard state.shownIndices.indices.contains(position) else { return }
         let index = state.shownIndices[position]
         let props = Props(node.properties)

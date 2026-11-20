@@ -21,6 +21,7 @@ import CAdwaita
 final class ListRendererTests: XCTestCase {
     private var windowUUID = ""
     private var windows: [AdwaitaWindow] = []
+    private var gtkWindows: [UnsafeMutablePointer<GtkWindow>] = []
     private var fired: [(actionID: String, context: Any?)] = []
     private let actionIDs = ["test.pick", "test.open"]
 
@@ -39,6 +40,10 @@ final class ListRendererTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        for window in gtkWindows {
+            gtk_window_destroy(window)
+        }
+        gtkWindows = []
         windows = []
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
@@ -52,14 +57,35 @@ final class ListRendererTests: XCTestCase {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         windows.append(window)
+        // On screen: the list view of the content-rows and template forms makes its rows only when
+        // it lays them out there.
+        let gtkWindow: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        gtkWindows.append(gtkWindow)
+        gtk_window_set_default_size(gtkWindow, 300, 400)
+        adw_window_set_content(typed(gtkWindow), window.contentWidget)
+        gtk_window_present(gtkWindow)
+        settle()
         return try XCTUnwrap(window.root)
+    }
+
+    /// Runs the main loop long enough for the window to lay the List out, which binds its rows.
+    private func settle() {
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 300)
+        AdwaitaTestHost.drainMainLoop()
     }
 
     private func box(_ node: RenderNode) throws -> OpaquePointer {
         OpaquePointer(try XCTUnwrap(attached(on: node.widget, key: listStateKey)).box)
     }
 
+    private func lazy(_ node: RenderNode) throws -> LazyListRows? {
+        try XCTUnwrap(attached(on: node.widget, key: listStateKey)).lazy
+    }
+
     private func rowTexts(_ node: RenderNode) throws -> [String] {
+        if let lazy = try lazy(node) {
+            return lazy.cells.sorted { $0.key < $1.key }.map { Gtk.Label($0.value.cell).text }
+        }
         let box = try box(node)
         var texts: [String] = []
         var index: Int32 = 0
@@ -71,15 +97,37 @@ final class ListRendererTests: XCTestCase {
     }
 
     private func selectedPosition(_ node: RenderNode) throws -> Int? {
-        gtk_list_box_get_selected_row(try box(node)).map { Int(gtk_list_box_row_get_index($0)) }
+        if let lazy = try lazy(node) {
+            return lazy.selectedPosition
+        }
+        return gtk_list_box_get_selected_row(try box(node)).map { Int(gtk_list_box_row_get_index($0)) }
     }
 
     /// Selects the row at `position` as the user's click would (its press marks user input).
     private func click(_ node: RenderNode, _ position: Int32) throws {
-        let box = try box(node)
         try XCTUnwrap(attached(on: node.widget, key: listStateKey)).input.isActive = true
-        gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, position)))
+        try selectRow(node, position)
         AdwaitaTestHost.drainMainLoop()
+    }
+
+    /// Selects the row at `position` in the list view or list box, as GTK does for input.
+    private func selectRow(_ node: RenderNode, _ position: Int32) throws {
+        if let lazy = try lazy(node) {
+            gtk_single_selection_set_selected(lazy.selection, guint(position))
+            return
+        }
+        let box = try box(node)
+        gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, position)))
+    }
+
+    /// Activates the row at `position`, as a double click or Return does.
+    private func activate(_ node: RenderNode, _ position: Int32) throws {
+        if let lazy = try lazy(node) {
+            gtk_widget_activate_action_variant(lazy.view, "list.activate-item", g_variant_new_uint32(guint32(position)))
+            return
+        }
+        let box = try box(node)
+        activate(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, position)))
     }
 
     /// Emits "row-activated" for `row`, as a double click does.
@@ -98,7 +146,7 @@ final class ListRendererTests: XCTestCase {
 
     private func setRows(_ rows: [[String]]) {
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: rows)
-        AdwaitaTestHost.drainMainLoop()
+        settle()
     }
 
     func testEachContentRowWithAFirstColumnIsARow() throws {
@@ -142,11 +190,9 @@ final class ListRendererTests: XCTestCase {
         let node = try render(rowsList)
         setRows([["Apple"], ["Cherry"]])
         // Return on a row reached with Tab: GTK selects it and activates it in the same press.
-        let box = try box(node)
         try XCTUnwrap(attached(on: node.widget, key: listStateKey)).input.isActive = true
-        let row = try XCTUnwrap(gtk_list_box_get_row_at_index(box, 1))
-        gtk_list_box_select_row(box, row)
-        activate(box, row)
+        try selectRow(node, 1)
+        try activate(node, 1)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(fired.map(\.actionID), ["test.pick", "test.open"], "the selection change once, then the activation")
         XCTAssertEqual(node.model.value as? [String], ["Cherry"])
@@ -157,8 +203,7 @@ final class ListRendererTests: XCTestCase {
         setRows([["", "hidden"], ["Apple"], ["Cherry"]])
         try click(node, 1)
         fired = []
-        let box = try box(node)
-        activate(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, 1)))
+        try activate(node, 1)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(fired.map(\.actionID), ["test.open"])
         XCTAssertEqual(fired.first?.context as? Int, 2, "the index in the content, hidden rows counted")
@@ -212,7 +257,6 @@ final class ListRendererTests: XCTestCase {
     func testAClickHeldPastTheDoubleClickTimeStillSelects() throws {
         let node = try render(rowsList)
         setRows([["Apple"], ["Cherry"]])
-        let box = try box(node)
         let click = try inputWatch(node, gtk_gesture_click_get_type())
         press(click)
         // GTK's double-click timer (started by the press) stops the click count while the button
@@ -220,7 +264,7 @@ final class ListRendererTests: XCTestCase {
         AdwaitaTestHost.emit("stopped", on: click)
         AdwaitaTestHost.drainMainLoop()
         // The release: the list selects the row under the pointer.
-        gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, 1)))
+        try selectRow(node, 1)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(node.model.value as? [String], ["Cherry"])
         XCTAssertEqual(fired.map(\.actionID), ["test.pick"])
@@ -232,7 +276,7 @@ final class ListRendererTests: XCTestCase {
         g_signal_emitv(&values, g_signal_lookup("end", gtk_gesture_get_type()), 0, nil)
         for index in values.indices { g_value_unset(&values[index]) }
         AdwaitaTestHost.drainMainLoop()
-        gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, 0)))
+        try selectRow(node, 0)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(try selectedPosition(node), 1, "the model's selection again")
         XCTAssertEqual(fired.count, 1)
@@ -241,18 +285,17 @@ final class ListRendererTests: XCTestCase {
     func testAKeyPressSelectsButLeavesNoUserInputBehind() throws {
         let node = try render(rowsList)
         setRows([["Apple"], ["Cherry"]])
-        let box = try box(node)
         let keys = try inputWatch(node, gtk_event_controller_key_get_type())
         // An arrow key: the list selects the next row while the press is handled.
         pressKey(keys, GDK_KEY_Down)
-        gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, 1)))
+        try selectRow(node, 1)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(node.model.value as? [String], ["Cherry"])
         // Tab moves the focus out of the list, so its release reaches another widget; focus
         // coming back (Shift+Tab) selects the row it lands on, which is not the user's selection.
         pressKey(keys, GDK_KEY_Tab)
         AdwaitaTestHost.drainMainLoop()
-        gtk_list_box_select_row(box, try XCTUnwrap(gtk_list_box_get_row_at_index(box, 0)))
+        try selectRow(node, 0)
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(try selectedPosition(node), 1, "the model's selection again")
         XCTAssertEqual(node.model.value as? [String], ["Cherry"])
@@ -323,16 +366,38 @@ final class ListRendererTests: XCTestCase {
         XCTAssertNil(gtk_list_box_get_row_at_index(box, 2), "two rows left")
     }
 
-    func testStylesMapToListBoxLooks() throws {
+    func testChildrenThatComeAndGoLeaveTheRowsFormAgain() throws {
         let node = try render(rowsList)
-        let box: WidgetPointer = typed(try box(node))
-        XCTAssertNotEqual(gtk_list_box_get_show_separators(OpaquePointer(box)), 0)
+        setRows([["Apple"], ["Cherry"]])
+        XCTAssertNotNil(try lazy(node), "the content rows in a list view")
+        _ = try ActionUIModel.shared.insertElement(windowUUID: windowUUID, parentID: 1,
+                                                   json: #"{"type": "Text", "id": 4, "properties": {"text": "Third"}}"#)
+        settle()
+        XCTAssertNil(try lazy(node), "a list box for the children")
+        weak var child = node.childNodes[4]
+        XCTAssertNotNil(child)
+        try ActionUIModel.shared.removeElement(windowUUID: windowUUID, viewID: 4)
+        settle()
+        XCTAssertNotNil(try lazy(node), "the list view again")
+        XCTAssertTrue(node.childNodes.isEmpty, "the removed child's node is gone")
+        XCTAssertFalse(child?.isAttached ?? false, "the removed child left the tree")
+        XCTAssertEqual(try rowTexts(node), ["Apple", "Cherry"])
+    }
+
+    func testStylesMapToListLooks() throws {
+        let node = try render(rowsList)
+        let view: WidgetPointer = typed(try box(node))
+        XCTAssertTrue(Gtk.Widget(view).isA(gtk_list_view_get_type()), "the content rows in a list view")
+        XCTAssertNotEqual(gtk_list_view_get_show_separators(OpaquePointer(view)), 0)
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "listStyle", value: "sidebar")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertTrue(Gtk.Widget(box).hasCSSClass("navigation-sidebar"))
-        XCTAssertEqual(gtk_list_box_get_show_separators(OpaquePointer(box)), 0)
+        XCTAssertTrue(Gtk.Widget(view).hasCSSClass("navigation-sidebar"))
+        XCTAssertEqual(gtk_list_view_get_show_separators(OpaquePointer(view)), 0)
+        // The cards are libadwaita's for a list box: the List makes one.
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "listStyle", value: "insetGrouped")
         AdwaitaTestHost.drainMainLoop()
+        let box: WidgetPointer = typed(try box(node))
+        XCTAssertTrue(Gtk.Widget(box).isA(gtk_list_box_get_type()))
         XCTAssertTrue(Gtk.Widget(box).hasCSSClass("boxed-list"))
         XCTAssertEqual(gtk_list_box_get_show_separators(OpaquePointer(box)), 0)
     }
