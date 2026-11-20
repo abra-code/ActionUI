@@ -79,9 +79,11 @@
         { "type": "Image", "id": 33, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "contentMode": "fit", "frame": { "width": 80, "height": 80 }, "background": "fill.secondary" } },
         { "type": "Image", "id": 34, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "contentMode": "fill", "frame": { "width": 80, "height": 80 }, "background": "fill.secondary" } },
         { "type": "Image", "id": 35, "properties": { "filePath": "Images/ActionUIDemo.svg", "resizable": true, "contentMode": "fit", "frame": { "width": 64, "height": 64 } } },
-        { "type": "Image", "id": 36, "properties": { "filePath": "Images/missing.png" } }
+        { "type": "Image", "id": 36, "properties": { "filePath": "Images/missing.png" } },
+        { "type": "Image", "id": 40, "properties": { "filePath": "\\\\.\\pipe\\lsass" } },
+        { "type": "Image", "id": 41, "properties": { "filePath": "C:\\NUL" } }
       ]
     },
-    { "type": "Text", "id": 37, "properties": { "text": "A PNG at its size, fitted and filled in 80 x 80, an SVG fitted in 64 x 64, a missing file", "font": "caption" } }
+    { "type": "Text", "id": 37, "properties": { "text": "A PNG at its size, fitted and filled in 80 x 80, an SVG fitted in 64 x 64, a missing file, a pipe, NUL", "font": "caption" } }
   ]
 }

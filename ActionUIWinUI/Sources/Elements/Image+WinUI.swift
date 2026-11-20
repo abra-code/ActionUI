@@ -16,8 +16,9 @@
  - A file is WinUI's Image: an .svg file as a vector image, others through the system's bitmap
    decoders, at its own size, never scaled up; resizable with a contentMode it scales to its frame
    keeping its aspect ratio (fit: contained; fill: covered, clipped to the frame, where SwiftUI draws
-   past it, as on Linux). A file that does not exist shows the photo symbol, as on Apple; one that
-   cannot be decoded shows nothing. A bitmap file is read again when the value or a property is set
+   past it, as on Linux). A file that does not exist, or that is no regular file (a folder, a device
+   such as NUL or COM1, a pipe: never opened), shows the photo symbol, as on Apple; one that cannot be
+   decoded shows nothing. A bitmap file is read again when the value or a property is set
    again, so a host that rewrites an image under the same name and sets it again sees the new image.
 
  Not yet: assetName (Windows apps have no asset catalogs; shows the photo symbol) and resourceName
@@ -310,11 +311,12 @@ extension Image: ActionUIWinUIRenderer {
         }
     }
 
-    /// What a resolved source shows: a file that does not exist is the photo symbol.
+    /// What a resolved source shows: a file that does not exist, or is no regular file, is the photo
+    /// symbol.
     static func content(_ source: ImageSource) -> ImageContent {
         switch source {
         case .filePath(let path):
-            return fileExists(path) ? .file(path) : .symbol(ImageSource.placeholderSymbol)
+            return isRegularFile(path) ? .file(path) : .symbol(ImageSource.placeholderSymbol)
         case .systemName(let name):
             return .symbol(name)
         case .assetName:
@@ -347,7 +349,9 @@ extension Image: ActionUIWinUIRenderer {
         return ext.isEmpty ? nil : ext
     }
 
-    static func fileExists(_ path: String) -> Bool {
-        actionUIWinUIFileExists(path)
+    /// Whether `path` names a regular file (not a folder, a device such as NUL or COM1, or a pipe),
+    /// links followed: a document names the path, and WinUI would read a device or a pipe forever.
+    static func isRegularFile(_ path: String) -> Bool {
+        actionUIWinUIIsRegularFile(path)
     }
 }

@@ -3,6 +3,7 @@
 
 #include "ShimInternal.h"
 
+#include <cwctype>
 #include <memory>
 #include <string>
 #include <vector>
@@ -60,6 +61,107 @@ bool isSVG(std::wstring const &path) {
     return extension == L"svg";
 }
 
+bool startsWith(std::wstring const &text, std::wstring_view prefix) {
+    return text.size() >= prefix.size() && std::wstring_view(text).substr(0, prefix.size()) == prefix;
+}
+
+std::wstring lowercased(std::wstring text) {
+    for (wchar_t &character : text) {
+        character = static_cast<wchar_t>(towlower(character));
+    }
+    return text;
+}
+
+// Whether `path` (absolute, or relative to the current folder) names a regular file, symbolic links
+// and junctions followed: not missing, not a folder, not a device (NUL, CON, COM1, \\.\...), not a
+// pipe. A document names the path, and WinUI would read a device or a pipe forever, or wait on it.
+// The name rules come first, so a device or a pipe the path names directly is never opened; one
+// reached through a link is opened for its attributes only, and refused.
+bool isRegularFile(std::wstring const &path) {
+    if (path.empty()) {
+        return false;
+    }
+    DWORD needed = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
+    if (needed == 0) {
+        return false;
+    }
+    std::vector<wchar_t> buffer(needed);
+    DWORD written = GetFullPathNameW(path.c_str(), needed, buffer.data(), nullptr);
+    if (written == 0 || written >= needed) {
+        return false;
+    }
+    std::wstring full(buffer.data(), written);
+    // The device namespace: "\\.\pipe\name", "\\.\COM1", and a reserved name anywhere ("NUL",
+    // "C:\folder\CON"), which GetFullPathName turns into "\\.\NUL".
+    if (startsWith(full, L"\\\\.\\")) {
+        return false;
+    }
+    // "\\?\" is a device path too, except a long path on a drive ("\\?\C:\...") or a share
+    // ("\\?\UNC\server\share\...").
+    std::wstring server;
+    if (startsWith(full, L"\\\\?\\")) {
+        std::wstring rest = full.substr(4);
+        bool drive = rest.size() >= 3 && iswalpha(rest[0]) && rest[1] == L':' && rest[2] == L'\\';
+        bool share = startsWith(lowercased(rest.substr(0, 4)), L"unc\\");
+        if (!drive && !share) {
+            return false;
+        }
+        if (share) {
+            server = rest.substr(4);
+        }
+    } else if (startsWith(full, L"\\\\")) {
+        server = full.substr(2);
+    }
+    // A pipe or a mailslot on a server: "\\server\pipe\name", "\\server\mailslot\name".
+    if (!server.empty()) {
+        size_t slash = server.find(L'\\');
+        std::wstring share = slash == std::wstring::npos ? std::wstring() : server.substr(slash + 1, server.find(L'\\', slash + 1) - slash - 1);
+        if (lowercased(share) == L"pipe" || lowercased(share) == L"mailslot") {
+            return false;
+        }
+    }
+    DWORD attributes = GetFileAttributesW(full.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_DEVICE)) != 0) {
+        return false;
+    }
+    // What the path leads to must be a regular file on a disk. Asked of a handle for every path, not
+    // only a link: a link or a drive letter earlier in the path (not only its last name) can lead into
+    // the pipe or device namespace, where the attributes above look like a file's (a pipe reports
+    // FILE_ATTRIBUTE_NORMAL). Opened for its attributes only, never read.
+    HANDLE file = CreateFileW(full.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                              OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    BY_HANDLE_FILE_INFORMATION information{};
+    bool onDisk = GetFileType(file) == FILE_TYPE_DISK;
+    bool read = GetFileInformationByHandle(file, &information) != 0;
+    CloseHandle(file);
+    return onDisk && read && (information.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_DEVICE)) == 0;
+}
+
+// The path a file URI names ("file:///C:/folder/a%20b.png" is "C:\folder\a b.png", "file://server/
+// share/a.png" is "\\server\share\a.png").
+std::wstring filePathOf(wf::Uri const &uri) {
+    std::wstring path(wf::Uri::UnescapeComponent(uri.Path()));
+    for (wchar_t &character : path) {
+        if (character == L'/') {
+            character = L'\\';
+        }
+    }
+    bool drive = path.size() >= 3 && path[0] == L'\\' && iswalpha(path[1]) && path[2] == L':';
+    std::wstring host(uri.Host());
+    // "file://localhost/C:/a.png" is a local path; "file://localhost/pipe/x" is read as the share it may
+    // be ("\\localhost\pipe\x"), so the pipe rule sees what Windows could open.
+    if (!host.empty() && (!drive || lowercased(host) != L"localhost")) {
+        return L"\\\\" + host + path;
+    }
+    if (drive) {
+        path.erase(0, 1);
+    }
+    return path;
+}
+
 } // namespace
 
 extern "C" {
@@ -76,6 +178,9 @@ bool actionUIWinUIImageSetFile(ActionUIWinUIObject *image, const char *path) {
     return guarded("image set file", [&]() {
         muxc::Image typed = objectAs<muxc::Image>(image, L"Image");
         std::wstring wide(toHString(path));
+        if (!isRegularFile(wide)) {
+            return fail("image set file", "the path names no regular file (a missing file, a folder, a device or a pipe)");
+        }
         wf::Uri uri = fileUri(wide);
         if (isSVG(wide)) {
             imaging::SvgImageSource source;
@@ -97,6 +202,9 @@ bool actionUIWinUIImageSetURL(ActionUIWinUIObject *image, const char *url) {
         muxc::Image typed = objectAs<muxc::Image>(image, L"Image");
         // Throws for text that is no absolute URI.
         wf::Uri uri(toHString(url));
+        if (lowercased(std::wstring(uri.SchemeName())) == L"file" && !isRegularFile(filePathOf(uri))) {
+            return fail("image set URL", "the file URL names no regular file (a missing file, a folder, a device or a pipe)");
+        }
         if (isSVG(std::wstring(uri.Path()))) {
             imaging::SvgImageSource source;
             source.UriSource(uri);
@@ -145,14 +253,12 @@ bool actionUIWinUIImageSetStretch(ActionUIWinUIObject *image, ActionUIWinUIImage
     });
 }
 
-bool actionUIWinUIFileExists(const char *path) {
+bool actionUIWinUIIsRegularFile(const char *path) {
     if (path == nullptr) {
         return false;
     }
     try {
-        std::wstring wide(toHString(path));
-        DWORD attributes = GetFileAttributesW(wide.c_str());
-        return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+        return isRegularFile(std::wstring(toHString(path)));
     } catch (...) {
         return false;
     }

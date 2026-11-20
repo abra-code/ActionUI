@@ -8,7 +8,8 @@
 
  - The URL is read as Apple's URL(string:) reads it (Core's Link.destination): with none, or text that
    is no URL, the placeholder shows (logged once per text, as on Apple); a URL without a scheme
-   ("photo.png") cannot be loaded, as on Apple.
+   ("photo.png") cannot be loaded, as on Apple. A file URL loads only a regular file: a missing file, a
+   folder, a device (NUL, COM1) or a pipe shows the placeholder (logged), and is never opened.
  - resizable (true unless set false) scales the image to its frame keeping its aspect ratio, fit
    (contained) or fill (covered, clipped to the frame where SwiftUI draws past it, as Image and Linux);
    not resizable, it shows at its own size, never scaled up. The placeholder is never scaled.
@@ -161,7 +162,8 @@ extension AsyncImage: ActionUIWinUIRenderer {
         }
         state.image = image
         guard actionUIWinUIImageSetURL(image.pointer, url) else {
-            // Text Apple's URL(string:) takes that Windows' URI parser refuses.
+            // Text Apple's URL(string:) takes that Windows' URI parser refuses, or a file URL that names
+            // no regular file (a missing file, a folder, a device, a pipe: never opened), as on Apple.
             ActionUIModel.shared.logger.log("AsyncImage: \(WinUIError.last("loading \(url)")); showing the placeholder", .warning)
             fail(url, state)
             return

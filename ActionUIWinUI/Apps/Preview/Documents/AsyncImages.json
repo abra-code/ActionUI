@@ -28,7 +28,9 @@
         { "type": "AsyncImage", "id": 11, "properties": { "url": "" } },
         { "type": "AsyncImage", "id": 12, "properties": { "url": "photo.png", "placeholder": "star" } },
         { "type": "AsyncImage", "id": 13, "properties": { "url": "https://invalid.invalid/missing.png", "placeholder": "exclamationmark.triangle", "foregroundStyle": "red" } },
-        { "type": "Text", "id": 14, "properties": { "text": "no URL, no scheme, not found" } }
+        { "type": "AsyncImage", "id": 15, "properties": { "url": "file:///C:/NUL", "placeholder": "xmark" } },
+        { "type": "AsyncImage", "id": 16, "properties": { "url": "file:///C:/Windows", "placeholder": "folder" } },
+        { "type": "Text", "id": 14, "properties": { "text": "no URL, no scheme, not found, NUL, a folder" } }
       ]
     }
   ]

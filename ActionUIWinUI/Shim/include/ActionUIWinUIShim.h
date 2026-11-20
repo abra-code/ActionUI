@@ -729,14 +729,16 @@ ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIImageCreate(void);
 // what the system's codecs add). A bitmap file is read again at every call, not taken from WinUI's
 // cache, so a file rewritten under the same name shows its new image; an SVG file may come from the
 // cache (SvgImageSource has no such option). Loading is asynchronous: the image has its size once it
-// has loaded, and a file that cannot be decoded shows nothing.
+// has loaded, and a file that cannot be decoded shows nothing. Fails for a path that names no regular
+// file (actionUIWinUIIsRegularFile).
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetFile(ActionUIWinUIObject *image, const char *path);
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetStretch(ActionUIWinUIObject *image, ActionUIWinUIImageStretch stretch);
 // Shows the image `url` (UTF-8, an absolute URI: http, https, file) names: one whose path ends in .svg
 // as a vector image, anything else through WinUI's bitmap decoders, loaded without blocking (WinUI
 // downloads it while the image is in the window). WinUI's image cache is used: a URL shown before
-// may not be read again. Fails for text that is no absolute URI; whether the image loads is told
-// by actionUIWinUIImageOnOpened or actionUIWinUIImageOnFailed.
+// may not be read again. Fails for text that is no absolute URI, and for a file URL that names no
+// regular file (actionUIWinUIIsRegularFile); whether the image loads is told by
+// actionUIWinUIImageOnOpened or actionUIWinUIImageOnFailed.
 ACTIONUI_WINUI_API bool actionUIWinUIImageSetURL(ActionUIWinUIObject *image, const char *url);
 // ImageOpened: the image's source was loaded and decoded (it has its size).
 ACTIONUI_WINUI_API bool actionUIWinUIImageOnOpened(ActionUIWinUIObject *image, ActionUIWinUICallback handler, void *context,
@@ -744,9 +746,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIImageOnOpened(ActionUIWinUIObject *image, A
 // ImageFailed: the image's source could not be loaded or decoded.
 ACTIONUI_WINUI_API bool actionUIWinUIImageOnFailed(ActionUIWinUIObject *image, ActionUIWinUICallback handler, void *context,
                                                    ActionUIWinUICallback destroyContext);
-// Whether `path` (absolute, or relative to the current folder) names a file that exists and is not a
-// folder. False for NULL. Any thread; sets no error.
-ACTIONUI_WINUI_API bool actionUIWinUIFileExists(const char *path);
+// Whether `path` (absolute, or relative to the current folder) names a regular file, symbolic links
+// followed: false for a missing file, a folder, a device (NUL, CON, COM1, anything under \\.\) and a
+// pipe, which an image decoder would read forever or wait on (a document names the path). False for
+// NULL. Any thread; sets no error.
+ACTIONUI_WINUI_API bool actionUIWinUIIsRegularFile(const char *path);
 
 // MARK: - Symbols
 
