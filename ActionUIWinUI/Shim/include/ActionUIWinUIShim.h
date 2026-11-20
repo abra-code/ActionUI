@@ -570,6 +570,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUI
 // The name accessibility tools read for `element` (UTF-8; NULL or empty: the control's own, from its
 // content).
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibleName(ActionUIWinUIObject *element, const char *name);
+// Joins a control (a button) to its neighbors in a row, as a ControlGroup's: its leading corners are
+// rounded only when it is `first`, its trailing ones only when it is `last` (the theme's control corner
+// radius), and its leading border is left out unless it is `first`, so neighbors share one border.
+// Fails for an element that is no Control.
+ACTIONUI_WINUI_API bool actionUIWinUIControlSetJoined(ActionUIWinUIObject *control, bool first, bool last);
 
 // MARK: - Placement
 

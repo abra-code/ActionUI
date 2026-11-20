@@ -139,7 +139,21 @@ package final class RenderNode {
 
     /// The element's padding, frame and background, from its current properties. A tracked read.
     private var geometry: BoxGeometry {
-        BoxGeometry(baseModifiers)
+        boxGeometry(baseModifiers)
+    }
+
+    /// The box geometry for `base`, the element's base modifiers: without its padding and frame in a
+    /// ControlGroup.
+    private func boxGeometry(_ base: BaseModifiers) -> BoxGeometry {
+        var modifiers = base
+        // In a ControlGroup a child's padding and frame do not apply: macOS draws the group from its
+        // buttons' titles (measured on macOS 27: padded buttons are as wide as without, a button framed
+        // 100 wide keeps its own width), so the buttons stay joined.
+        if parent?.element.type == "ControlGroup" {
+            modifiers.padding = nil
+            modifiers.frame = nil
+        }
+        return BoxGeometry(modifiers)
     }
 
     /// Applies the inherited states to the WinUI object, only when they changed: a control under a
@@ -215,7 +229,7 @@ package final class RenderNode {
             renderer.update(view, self)
             toolbar?.update()
             applyStates(to: view)
-            let geometry = BoxGeometry(modifiers)
+            let geometry = boxGeometry(modifiers)
             box?.contentExpansion = renderer.expansion(self)
             box?.update(geometry)
             let newExpansion = Self.expansion(renderer.expansion(self), geometry: geometry)

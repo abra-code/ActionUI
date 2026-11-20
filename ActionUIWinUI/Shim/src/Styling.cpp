@@ -269,4 +269,29 @@ bool actionUIWinUIElementSetAccessibleName(ActionUIWinUIObject *element, const c
     });
 }
 
+bool actionUIWinUIControlSetJoined(ActionUIWinUIObject *control, bool first, bool last) {
+    return guarded("control set joined", [&]() {
+        muxc::Control typed = objectAs<muxc::Control>(control, L"Control");
+        // The theme's radius and border, else WinUI's defaults (4 and 1).
+        mux::CornerRadius radius{4, 4, 4, 4};
+        mux::Thickness border{1, 1, 1, 1};
+        try {
+            mux::ResourceDictionary resources = mux::Application::Current().Resources();
+            if (auto found = resources.Lookup(winrt::box_value(L"ControlCornerRadius")).try_as<mux::CornerRadius>()) {
+                radius = *found;
+            }
+            if (auto found = resources.Lookup(winrt::box_value(L"ButtonBorderThemeThickness")).try_as<mux::Thickness>()) {
+                border = *found;
+            }
+        } catch (winrt::hresult_error const &) {
+        }
+        mux::CornerRadius corners{first ? radius.TopLeft : 0, last ? radius.TopRight : 0, last ? radius.BottomRight : 0,
+                                  first ? radius.BottomLeft : 0};
+        mux::Thickness edges{first ? border.Left : 0, border.Top, border.Right, border.Bottom};
+        typed.CornerRadius(corners);
+        typed.BorderThickness(edges);
+        return true;
+    });
+}
+
 } // extern "C"

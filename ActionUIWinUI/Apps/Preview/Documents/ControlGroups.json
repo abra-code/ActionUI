@@ -1,0 +1,37 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 12, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "ControlGroup",
+      "id": 2,
+      "properties": { "title": "Text style" },
+      "children": [
+        { "type": "Button", "id": 3, "properties": { "title": "Bold", "actionID": "group.bold" } },
+        { "type": "Button", "id": 4, "properties": { "title": "Italic", "actionID": "group.italic" } },
+        { "type": "Button", "id": 5, "properties": { "title": "Underline", "actionID": "group.underline" } }
+      ]
+    },
+    {
+      "type": "ControlGroup",
+      "id": 6,
+      "children": [
+        { "type": "Button", "id": 7, "properties": { "title": "Padded", "padding": 10 } },
+        { "type": "Button", "id": 8, "properties": { "title": "Framed", "frame": { "width": 100 } } },
+        { "type": "EmptyView", "id": 14 }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 9,
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "Zoom" } },
+        { "type": "ControlGroup", "id": 11, "children": [
+          { "type": "Button", "id": 12, "properties": { "title": "-" } },
+          { "type": "Button", "id": 13, "properties": { "title": "+" } }
+        ] }
+      ]
+    }
+  ]
+}

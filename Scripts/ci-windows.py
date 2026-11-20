@@ -133,6 +133,7 @@ PREVIEW_OPTIONS = {
     "ColorPickers": ["420", "300", "--set-text", "2", "#2060FF",
                      "--expect-action", "color.picked", "--forbid-action", "color.renderer",
                      "--on-action", "color.picked", "8", "Picked"],
+    "ControlGroups": ["420", "200", "--invoke", "4", "--expect-action", "group.italic"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
               "--expect-action", "menu.copy", "--expect-action", "menu.grid",
               "--on-action", "menu.grid", "12", "Copied, then the grid turned on"],
