@@ -17,6 +17,7 @@
 //                            Slider's position, TEXT read as a number)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --scroll-row ID ROW      scrolls List ID so that row ROW (from 0) is in view
+//   --expect-row-name ID ROW NAME  fails unless accessibility tools name List ID's row ROW (from 0) NAME
 //   --add-row ID TEXT        appends a row to element ID's content through the model, as an adapter
 //                            does (a List's rows), its columns TEXT split at "|"; repeatable, in order.
 //                            An operation on an element after rows or properties changed waits for
@@ -63,12 +64,12 @@ final class Preview {
     var invocations: [Operation] = []
 
     enum Operation {
-        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int),
+        case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
             switch self {
-            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
+            case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
                 return id
             case .wait:
@@ -80,7 +81,7 @@ final class Preview {
         var changesModel: Bool {
             switch self {
             case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait: true
-            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow: false
+            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName: false
             }
         }
     }
@@ -228,6 +229,22 @@ final class Preview {
             case .scrollRow(_, let row):
                 worked = actionUIWinUIListScrollIntoView(view.pointer, Int32(row))
                 what = "scrolled to row \(row) of"
+            case .expectRowName(_, let row, let expected):
+                guard let copy = actionUIWinUIListCopyRowName(view.pointer, Int32(row)) else {
+                    worked = false
+                    what = "reading the name of row \(row) of"
+                    break
+                }
+                let name = String(cString: copy)
+                actionUIWinUIFreeString(copy)
+                // A wrong name is reported here: the shim has no error for it.
+                guard name == expected else {
+                    say("element \(viewID): row \(row) is named \"\(name)\", not \"\(expected)\"")
+                    invocationsWorked = false
+                    continue
+                }
+                worked = true
+                what = "found row \(row) named \"\(name)\" in"
             case .setProperty(_, let name, let text):
                 let value: Any
                 if let number = Double(text) {
@@ -412,7 +429,7 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -461,6 +478,10 @@ while index < arguments.count {
               let row = Int(arguments[index + 2]) {
         preview.invocations.append(.scrollRow(viewID, row))
         index += 3
+    } else if option == "--expect-row-name", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let row = Int(arguments[index + 2]) {
+        preview.invocations.append(.expectRowName(viewID, row, arguments[index + 3]))
+        index += 4
     } else if option == "--set-property", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.setProperty(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4

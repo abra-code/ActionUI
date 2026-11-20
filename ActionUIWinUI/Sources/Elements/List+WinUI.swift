@@ -25,8 +25,10 @@
  view, and the rows that are elements (Button and Image cells, template instances) come from an
  element source (the shim's ListView element source): an element is made when the ListView shows its
  row and let go when it recycles the row, so a List of thousands of rows makes tens. A row let go loses
- only transient state (keyboard focus); its data is in the content rows. Text rows are the ListView's
- own items (plain text, which it shows in view only); the children form adds every child's box.
+ only transient state (keyboard focus); its data is in the content rows. A source row is named for
+ accessibility tools by its label, made or not: a cell's text (an Image cell's file by its name), or a
+ template row's columns joined. Text rows are the ListView's own items (plain text, which it shows in
+ view only); the children form adds every child's box.
 
  The value selects its row when a host sets it; the ListView reports that selection as it reports
  the user's, and the renderer ignores the one it made (ListState.shownIndex), so actionID fires only
@@ -36,9 +38,9 @@
  Button has no styles yet); listStyle and the row styling (listRowBackground, listRowSeparator,
  listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none). A change of any text row
  makes every text row again; an Image cell reads its file when its row is made (a file rewritten
- under the same name shows the old picture until the row is made again). A row from the element source
- that shows no text (an Image cell, a row not made yet) is named by its row number for accessibility
- tools, where SwiftUI names it after its content.
+ under the same name shows the old picture until the row is made again). A template row's name for
+ accessibility tools includes an Image's symbol name as written, where VoiceOver reads the symbol's own
+ description.
 */
 
 import CWinUI
@@ -349,7 +351,7 @@ extension List: ActionUIWinUIRenderer {
         for index in 0..<min(old.count, rows.count) where old[index] != rows[index] {
             // Replacing the selected row drops its selection: the renderer's change, not the user's.
             state.shownIndex = -1
-            if !actionUIWinUIListSourceReplace(view.pointer, Int32(index)) {
+            if !actionUIWinUIListSourceReplace(view.pointer, Int32(index), rowLabel(rows[index], kind)) {
                 ActionUIModel.shared.logger.log("List: \(WinUIError.last("changing a row"))", .error)
             }
         }
@@ -358,11 +360,27 @@ extension List: ActionUIWinUIRenderer {
             if !actionUIWinUIListSourceTruncate(view.pointer, Int32(rows.count)) {
                 ActionUIModel.shared.logger.log("List: \(WinUIError.last("removing rows"))", .error)
             }
-        } else if rows.count > old.count, !actionUIWinUIListSourceAppend(view.pointer, Int32(rows.count - old.count)) {
-            ActionUIModel.shared.logger.log("List: \(WinUIError.last("adding rows"))", .error)
-            // The rows the ListView has: the next update adds the others.
-            state.sourceRows = Array(rows.prefix(max(Int(actionUIWinUIListSourceCount(view.pointer)), 0)))
+        } else if rows.count > old.count {
+            for row in rows[old.count...] {
+                if !actionUIWinUIListSourceAppend(view.pointer, rowLabel(row, kind)) {
+                    ActionUIModel.shared.logger.log("List: \(WinUIError.last("adding rows"))", .error)
+                    // The rows the ListView has: the next update adds the others.
+                    state.sourceRows = Array(rows.prefix(max(Int(actionUIWinUIListSourceCount(view.pointer)), 0)))
+                    break
+                }
+            }
         }
+    }
+
+    /// What accessibility tools name a source row by, made or not: a cell's text (an Image cell's file by
+    /// its name, without its folder), or a template row's columns in order (the template's $0), as
+    /// VoiceOver reads a row's parts one after another.
+    private static func rowLabel(_ row: [String], _ kind: ListState.SourceKind) -> String {
+        if case .cells(let cell) = kind, cell.type == .image, let text = row.first,
+           let slash = text.lastIndex(where: { $0 == "/" || $0 == "\\" }), text.index(after: slash) < text.endIndex {
+            return String(text[text.index(after: slash)...])
+        }
+        return row.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
     /// The ListView shows its own items again (empty); the rows made are let go.

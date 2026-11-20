@@ -3,9 +3,14 @@
 
 #include "ShimInternal.h"
 
+#include <cstdlib>  // malloc
+#include <cstring>  // memcpy
+
 // ListView's SelectedIndex and SelectionChanged come from its Primitives::Selector base: without this
 // header MSVC cannot use them (C3779).
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.h>  // AutomationProperties
+#include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>  // VisualTreeHelper
 #include <winrt/Windows.System.h>
@@ -45,7 +50,25 @@ struct ListElementSource {
     dispatching::DispatcherQueue queue;
 };
 
-// The ListView's rows when it shows an element source: one boxed index per row.
+// One row of an element source: its index, and its label, which it gives as its text: what accessibility
+// tools name the row by, made or not (WinUI names an item it has no element for by the item's text).
+struct SourceRow : winrt::implements<SourceRow, wf::IStringable> {
+    SourceRow(int32_t index, winrt::hstring label) : index(index), label(std::move(label)) {}
+    winrt::hstring ToString() const { return label; }
+
+    int32_t index;
+    winrt::hstring label;
+};
+
+// The SourceRow `item` is; nullptr for an item that is not an IStringable. Called only while the ListView
+// shows an element source, whose every item is a SourceRow (get_self on another IStringable would be
+// undefined).
+SourceRow *sourceRow(wf::IInspectable const &item) {
+    wf::IStringable stringable = item != nullptr ? item.try_as<wf::IStringable>() : nullptr;
+    return stringable != nullptr ? winrt::get_self<SourceRow>(stringable) : nullptr;
+}
+
+// The ListView's rows when it shows an element source: one SourceRow per row.
 wf::Collections::IObservableVector<wf::IInspectable> sourceRows(muxc::ListView const &list) {
     wf::Collections::IObservableVector<wf::IInspectable> rows =
         list.ItemsSource() != nullptr ? list.ItemsSource().try_as<wf::Collections::IObservableVector<wf::IInspectable>>() : nullptr;
@@ -222,10 +245,16 @@ bool actionUIWinUIListSetElementSource(ActionUIWinUIObject *list, ActionUIWinUIR
                 }
                 if (args.InRecycleQueue()) {
                     source->giveBack(container);
+                    container.ClearValue(mux::Automation::AutomationProperties::NameProperty());
                 } else {
                     // A container reused without a recycle still holds its last row's element.
                     source->giveBack(container);
-                    int32_t index = winrt::unbox_value_or<int32_t>(args.Item(), -1);
+                    SourceRow *row = sourceRow(args.Item());
+                    int32_t index = row != nullptr ? row->index : -1;
+                    // Named as the row is named before it is made.
+                    if (row != nullptr) {
+                        mux::Automation::AutomationProperties::SetName(container, row->label);
+                    }
                     ActionUIWinUIObject *made = index >= 0 ? source->make(source->context, index) : nullptr;
                     // The prepare before this event gave the container the default template for an item that
                     // is not an element (a TextBlock bound to it), which a ContentPresenter expands instead of
@@ -269,26 +298,55 @@ int32_t actionUIWinUIListSourceCount(ActionUIWinUIObject *list) {
     return count;
 }
 
-bool actionUIWinUIListSourceAppend(ActionUIWinUIObject *list, int32_t count) {
+bool actionUIWinUIListSourceAppend(ActionUIWinUIObject *list, const char *label) {
     return guarded("list source append", [&]() {
         wf::Collections::IObservableVector<wf::IInspectable> rows = sourceRows(objectAs<muxc::ListView>(list, L"ListView"));
-        for (int32_t added = 0; added < count; ++added) {
-            rows.Append(winrt::box_value(static_cast<int32_t>(rows.Size())));
-        }
+        rows.Append(winrt::make<SourceRow>(static_cast<int32_t>(rows.Size()), toHString(label)));
         return true;
     });
 }
 
-bool actionUIWinUIListSourceReplace(ActionUIWinUIObject *list, int32_t index) {
+bool actionUIWinUIListSourceReplace(ActionUIWinUIObject *list, int32_t index, const char *label) {
     return guarded("list source replace", [&]() {
         wf::Collections::IObservableVector<wf::IInspectable> rows = sourceRows(objectAs<muxc::ListView>(list, L"ListView"));
         if (index < 0 || static_cast<uint32_t>(index) >= rows.Size()) {
             return fail("list source replace", "no such row");
         }
-        // A new box: the ListView recycles the row's container and prepares it again.
-        rows.SetAt(static_cast<uint32_t>(index), winrt::box_value(index));
+        // A new item: the ListView recycles the row's container and prepares it again.
+        rows.SetAt(static_cast<uint32_t>(index), winrt::make<SourceRow>(index, toHString(label)));
         return true;
     });
+}
+
+char *actionUIWinUIListCopyRowName(ActionUIWinUIObject *list, int32_t index) {
+    char *copy = nullptr;
+    guarded("list copy row name", [&]() {
+        namespace peers = winrt::Microsoft::UI::Xaml::Automation::Peers;
+        muxc::ListView typed = objectAs<muxc::ListView>(list, L"ListView");
+        if (index < 0 || static_cast<uint32_t>(index) >= typed.Items().Size()) {
+            return fail("list copy row name", "no such row");
+        }
+        winrt::hstring name;
+        // A row with a container: what its automation peer names it (the row on screen, or near it).
+        mux::UIElement container = typed.ContainerFromIndex(index).try_as<mux::UIElement>();
+        peers::AutomationPeer peer = container != nullptr ? peers::FrameworkElementAutomationPeer::CreatePeerForElement(container) : nullptr;
+        if (peer != nullptr) {
+            name = peer.GetName();
+        } else {
+            // A row without one: its item's text, which WinUI names a source row (a SourceRow, an IStringable)
+            // without a container by (ItemAutomationPeer's name falls back to the item's string).
+            wf::IStringable item = typed.Items().GetAt(static_cast<uint32_t>(index)).try_as<wf::IStringable>();
+            name = item != nullptr ? item.ToString() : winrt::hstring();
+        }
+        std::string utf8 = winrt::to_string(name);
+        copy = static_cast<char *>(malloc(utf8.size() + 1));
+        if (copy == nullptr) {
+            return fail("list copy row name", "out of memory");
+        }
+        memcpy(copy, utf8.c_str(), utf8.size() + 1);
+        return true;
+    });
+    return copy;
 }
 
 bool actionUIWinUIListSourceTruncate(ActionUIWinUIObject *list, int32_t count) {

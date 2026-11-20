@@ -121,6 +121,8 @@ PREVIEW_OPTIONS = {
     "LazyLists": ["420", "440", "--add-rows", "2", "2000", "star|Row #", "--add-rows", "7", "1000", "Button #", "--wait",
                   "--scroll-row", "2", "1000", "--scroll-row", "7", "500", "--wait", "--invoke-row", "7", "500",
                   "--expect-action", "cell.pressed", "--on-action", "cell.pressed", "9", "Pressed row 500",
+                  "--expect-row-name", "2", "1000", "star, Row 1001", "--expect-row-name", "2", "1900", "star, Row 1901",
+                  "--expect-row-name", "7", "500", "Button 501",
                   "--max-instances", "2", "200"],
     "LazyGrids": ["420", "460", "--add-rows", "21", "2000", "Cell #", "--add-rows", "31", "300", "#", "--wait",
                   "--scroll", "20", "0", "5000", "--scroll", "30", "3000", "0",

@@ -574,13 +574,18 @@ ACTIONUI_WINUI_API bool actionUIWinUIListSetElementSource(ActionUIWinUIObject *l
 // Whether the ListView shows the source's rows (true: its items are cleared and the rows start empty;
 // false: the rows are gone, without recycle calls, and the items are its own again, empty).
 ACTIONUI_WINUI_API bool actionUIWinUIListUseElementSource(ActionUIWinUIObject *list, bool use);
-// The source's rows: how many there are (-1 on failure, or when the source is not in use), `count`
-// rows added at the end, row `index` changed (its element, when it has one, is recycled and made
-// again), the rows from `count` on removed.
+// The source's rows: how many there are (-1 on failure, or when the source is not in use), a row added
+// at the end, row `index` changed (its element, when it has one, is recycled and made again), the rows
+// from `count` on removed. A row's `label` (UTF-8) is what accessibility tools name it by, made or not.
 ACTIONUI_WINUI_API int32_t actionUIWinUIListSourceCount(ActionUIWinUIObject *list);
-ACTIONUI_WINUI_API bool actionUIWinUIListSourceAppend(ActionUIWinUIObject *list, int32_t count);
-ACTIONUI_WINUI_API bool actionUIWinUIListSourceReplace(ActionUIWinUIObject *list, int32_t index);
+ACTIONUI_WINUI_API bool actionUIWinUIListSourceAppend(ActionUIWinUIObject *list, const char *label);
+ACTIONUI_WINUI_API bool actionUIWinUIListSourceReplace(ActionUIWinUIObject *list, int32_t index, const char *label);
 ACTIONUI_WINUI_API bool actionUIWinUIListSourceTruncate(ActionUIWinUIObject *list, int32_t count);
+// The name accessibility tools read for row `index` (from 0; rows or items): its container's automation
+// peer's name when the row has a container (in or near view), else its item's text (what WinUI names an
+// item without a container by). A new UTF-8 string the caller frees with actionUIWinUIFreeString; NULL on
+// failure.
+ACTIONUI_WINUI_API char *actionUIWinUIListCopyRowName(ActionUIWinUIObject *list, int32_t index);
 // Scrolls the ListView so that row `index` is in view (rows or items).
 ACTIONUI_WINUI_API bool actionUIWinUIListScrollIntoView(ActionUIWinUIObject *list, int32_t index);
 
