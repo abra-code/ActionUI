@@ -476,6 +476,66 @@ final class AppCommandsTests: XCTestCase {
         XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Go]]", "[About \(commands.appName)]"])
     }
 
+    func testAGroupsCommandsLeaveWithRemoveAndCanComeBack() {
+        let commands = AppCommands()
+        let json = #"[{"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [{"type": "Button", "properties": {"title": "Go"}}]}]"#
+        commands.load(json: json, once: "group")
+        commands.removeWindowGroup("group")
+        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[About \(commands.appName)]"])
+        commands.removeWindowGroup("group")
+        commands.removeWindowGroup("never loaded")
+        commands.load(json: json, once: "group")
+        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Go]]", "[About \(commands.appName)]"],
+                       "a group opened again brings its commands again")
+    }
+
+    func testAWindowGroupCannotReplaceQuitButTheHostCan() {
+        let commands = AppCommands()
+        let replacingQuit = #"""
+            [{"type": "CommandGroup", "properties": {"placement": "replacing", "placementTarget": "quit"}, "children": [
+                {"type": "Button", "properties": {"title": "Not Quit"}}]},
+             {"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [{"type": "Button", "properties": {"title": "Go"}}]}]
+            """#
+        commands.load(json: replacingQuit, once: "group")
+        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Go]]", "[About \(commands.appName)]"],
+                       "the group's other commands load; the one replacing appTermination does not")
+        let host = AppCommands()
+        host.load(json: replacingQuit)
+        XCTAssertTrue(outline(host.menu.opaquePointer).contains("[Not Quit]"), "the host's own menu may replace Quit")
+    }
+
+    func testAGroupsCommandsLeaveTheMenuWithItsLastWindow() throws {
+        let resources = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-last-window-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        let savedFolder = ActionUIResourceFolder.path
+        defer {
+            ActionUIResourceFolder.path = savedFolder
+            try? FileManager.default.removeItem(at: resources)
+        }
+        ActionUIResourceFolder.path = resources.path
+        let file = try windowGroupFile(resources, name: "Main.json", menu: "Group Tools")
+
+        let app = AdwaitaApplication()
+        var withTwo = "", withOne = "", withNone = ""
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(url: file.path, windowUUID: "last-window-1", title: nil)
+            app.presentWindow(url: file.path, windowUUID: "last-window-2", title: nil)
+            withTwo = self.outline(AppCommands.shared.menu.opaquePointer).joined()
+            app.closeWindow("last-window-1")
+            AdwaitaTestHost.drainMainLoop()
+            withOne = self.outline(AppCommands.shared.menu.opaquePointer).joined()
+            app.closeWindow("last-window-2")
+            AdwaitaTestHost.drainMainLoop()
+            withNone = self.outline(AppCommands.shared.menu.opaquePointer).joined()
+            app.terminate()
+        }
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertTrue(withTwo.contains("Group Tools"), withTwo)
+        XCTAssertTrue(withOne.contains("Group Tools"), "one window of the group is still open: \(withOne)")
+        XCTAssertFalse(withNone.contains("Group Tools"), "the last window closed: \(withNone)")
+    }
+
     func testShortcutsBecomeGTKAccelerators() {
         XCTAssertEqual(AppCommands.accelerator(["key": "N", "modifiers": ["command", "shift"]]), "<Control><Shift>n")
         XCTAssertEqual(AppCommands.accelerator(["key": "s"]), "<Control>s", "no modifiers given: command")

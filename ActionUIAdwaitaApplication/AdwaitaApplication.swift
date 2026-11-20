@@ -35,7 +35,9 @@
    the document is the app's own: JSON the host passes, or a file in its resource folder. On
    Apple a document cannot add menu commands at all (an app's scenes are compiled in), so the
    commands of a document from an address or from a file elsewhere are dropped with a warning:
-   they would add items and shortcuts to every window for the life of the process.
+   they would add items and shortcuts to every window for the life of the process. A group's
+   commands leave the menu when its last window closes, and a CommandGroup replacing
+   appTermination (Quit) is ignored, with a warning, even in the app's own document.
  - Commands: the CommandMenu and CommandGroup elements loaded (loadMenuBar) in a primary menu at
    the end of the window's header bar, their shortcuts working in every window (AppCommands).
  - Presentations: each window shows its model's modal, alert, confirmation dialog and toast
@@ -235,6 +237,9 @@ public final class AdwaitaApplication {
         let renderTree: AdwaitaWindow?
         /// Set while the host closes the window, which then asks no handler.
         var closingByHost = false
+        /// The WindowGroup whose commands this window brought to the menu, if any: they go when the
+        /// group's last window closes.
+        var commandsKey: String?
 
         init(window: UnsafeMutablePointer<GtkWindow>, renderTree: AdwaitaWindow?) {
             self.window = window
@@ -567,6 +572,7 @@ public final class AdwaitaApplication {
         gtk_window_set_resizable(window, options.isResizable ? 1 : 0)
 
         let presented = PresentedWindow(window: window, renderTree: renderTree)
+        presented.commandsKey = loaded.commands?.key
         windows[windowUUID] = presented
         WindowRegistry.shared.register(windowUUID, window: window, renderTree: renderTree, barsHeight: size.barsHeight)
         connectBooleanSignal(window, "close-request") { [weak self, weak presented] in
@@ -579,6 +585,7 @@ public final class AdwaitaApplication {
             self.windows[windowUUID] = nil
             WindowRegistry.shared.unregister(windowUUID, window: presented.window)
             AppBundle.setDocumentFolder(nil, window: windowUUID)
+            self.removeCommandsIfLast(presented)
         }
         connectSignal(window, "notify::is-active", .instanceAndArgument) { [weak self] in
             self?.queueActiveCheck()
@@ -668,6 +675,13 @@ public final class AdwaitaApplication {
         }
     }
 
+    /// A window that has left `windows`: its WindowGroup's commands leave the menu with the group's
+    /// last window.
+    private func removeCommandsIfLast(_ presented: PresentedWindow) {
+        guard let key = presented.commandsKey, !windows.values.contains(where: { $0.commandsKey == key }) else { return }
+        AppCommands.shared.removeWindowGroup(key)
+    }
+
     /// "close-request": whether the window closes. The user's close of the last window (no other
     /// window loading either) asks shouldTerminate first, and ends the application; the host's
     /// close of the last window, and the user's with keepsRunningWithoutWindows, hold the application
@@ -686,6 +700,7 @@ public final class AdwaitaApplication {
             WindowRegistry.shared.unregister(windowUUID, window: presented.window)
             dropRemoteLoad(windowUUID)
             AppBundle.setDocumentFolder(nil, window: windowUUID)
+            removeCommandsIfLast(presented)
         }
         handlers.windowWillClose?(windowUUID)
         presented.renderTree?.detach()
