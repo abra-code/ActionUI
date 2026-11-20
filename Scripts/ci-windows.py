@@ -106,6 +106,8 @@ PREVIEW_OPTIONS = {
     "TabViews": ["420", "300", "--select-part", "2", "2", "--expect-action", "tabs.changed",
                  "--on-action", "tabs.changed", "10", "Chose Advanced", "--set-value", "11", "1"],
     "LazyStacks": ["420", "400"],
+    "NavigationStacks": ["420", "440", "--invoke", "4", "--wait", "--invoke-part", "1", "0", "--wait", "--invoke", "5",
+                         "--set-path", "20", "30", "--select-part", "40", "1", "--expect-action", "places.chosen"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],

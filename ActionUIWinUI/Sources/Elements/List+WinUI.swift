@@ -14,7 +14,9 @@
    Linux.
  - Children (Form 2): one row per child element's box. With an actionID, selectable: the value is
    the selected child's id as text, and actionID fires with the id as its context; without one, the
-   rows are not selectable and the children handle their own input.
+   rows are not selectable and the children handle their own input. As a NavigationStack's content
+   with destinations, choosing a child pushes the one its destinationViewId names (after the
+   selection and its action).
  - Template (Form 3): one row per content row, the template element shown with the row's data ($1
    is its first column; RenderNode.templateRowNode), selected and activated as rows are. A row whose
    data or place changes is made again; the others keep their objects, as on Linux.
@@ -372,6 +374,8 @@ extension List: ActionUIWinUIRenderer {
             let childID = position.flatMap { ids.indices.contains($0) ? ids[$0] : nil }
             RowSelection.commitChildSelection(childID, model: node.model, actionID: props.actionID,
                                               windowUUID: node.windowModel.windowUUID, viewID: node.element.id)
+            // The content of a NavigationStack with destinations pushes the chosen child's.
+            NavigationStack.contentListChose(node, childID: childID)
         }
     }
 

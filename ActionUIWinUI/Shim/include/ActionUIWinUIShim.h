@@ -142,6 +142,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIButtonSetContent(ActionUIWinUIObject *butto
 // it. Never from a setter.
 ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
                                                    ActionUIWinUICallback destroyContext);
+// A new back button, as NavigationView shows one: WinUI's NavigationBackButtonNormalStyle (the Back
+// glyph on a button with no fill until the pointer is over it, 40 by 36), or, when the theme has no such
+// style, the same glyph on a borderless button of that size; named "Back" for accessibility tools and
+// with a "Back" tooltip. Its click is a Button's (actionUIWinUIButtonOnClick). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void);
 
 // MARK: - CheckBox
 
@@ -354,8 +359,8 @@ ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *eleme
 // (a Stepper's minus, then plus); fails when there is none at that index.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationInvokePart(ActionUIWinUIObject *element, int32_t index);
 // Selects the `index`th element (from 0) inside `element` that can be selected (UI Automation's
-// SelectionItem pattern: a selector bar's items, in the visual tree's order), as a user's click does: the
-// control's selection event follows. Fails when there is none at that index.
+// SelectionItem pattern: a selector bar's items, a list's rows, in the visual tree's order), as a user's
+// click does: the control's selection event follows. Fails when there is none at that index.
 ACTIONUI_WINUI_API bool actionUIWinUIAutomationSelectPart(ActionUIWinUIObject *element, int32_t index);
 // Toggle turns a check box or a toggle switch over (its Click, or Toggled, follows). Fails when
 // the element cannot be toggled.
@@ -414,6 +419,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementArrange(ActionUIWinUIObject *element
 ACTIONUI_WINUI_API bool actionUIWinUIElementInvalidateMeasure(ActionUIWinUIObject *element);
 // Where `element` was last placed: its offset in its parent and its size. {0, 0, 0, 0} on failure.
 ACTIONUI_WINUI_API ActionUIWinUIRect actionUIWinUIElementLayoutFrame(ActionUIWinUIObject *element);
+// Clips `element` and everything in it to the rectangle from its top leading corner of `width` by
+// `height` (its own coordinates), as a page is clipped to its area; a negative or not finite width or
+// height removes the clip.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetClipSize(ActionUIWinUIObject *element, double width, double height);
 
 // MARK: - Styling
 

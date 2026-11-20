@@ -11,6 +11,8 @@
 //   --invoke-row ID ROW      the same with the element List ID shows in row ROW (from 0; a Button cell)
 //   --invoke-part ID N       the same with the Nth part (from 0) of element ID that can be invoked (a
 //                            Stepper's minus is 0, its plus 1)
+//   --select-part ID N       the same with UI Automation's SelectionItem and the Nth part (from 0) of
+//                            element ID that can be selected (a TabView's tab, a List's row)
 //   --set-text ID TEXT       the same with UI Automation's SetValue (a TextField's text, as typed; a
 //                            Slider's position, TEXT read as a number)
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
@@ -22,6 +24,11 @@
 //                            number when it reads as one, else a string)
 //   --set-property ID NAME VALUE  sets element ID's property NAME through the model, as an adapter
 //                            does (VALUE a number when it reads as one, else a string)
+//   --set-path ID IDS        sets NavigationStack ID's navigationPath state through the model, as an
+//                            adapter does (IDS the destination ids, comma separated; "-" for none)
+//   --wait                   lets the changes the operations before it made reach the screen before
+//                            the next operation on screen (a screen pushed by an invoke, then its
+//                            back button)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
 //   --forbid-action ACTION   fails if the action ACTION fired (a renderer's own change taken for the
 //                            user's); repeatable
@@ -51,20 +58,22 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double),
-             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String)
+             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .setProperty(let id, _, _), .setValue(let id, _),
-                 .addRow(let id, _):
+                 .addRow(let id, _), .setPath(let id, _):
                 return id
+            case .wait:
+                return 0
             }
         }
 
         /// Whether it changes the model rather than operating an element on screen.
         var changesModel: Bool {
             switch self {
-            case .setProperty, .setValue, .addRow: true
+            case .setProperty, .setValue, .addRow, .setPath, .wait: true
             case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll: false
             }
         }
@@ -168,6 +177,10 @@ final class Preview {
                 }
                 return
             }
+            if case .wait = operation {
+                say("waiting for the changes to be shown")
+                continue
+            }
             let viewID = operation.viewID
             guard let node = tree?.root.flatMap({ find(viewID, in: $0) }), let view = node.view else {
                 say("element \(viewID): no such element on screen")
@@ -217,6 +230,11 @@ final class Preview {
                 ActionUIModel.shared.setElementValue(windowUUID: "preview", viewID: viewID, value: value)
                 worked = true
                 what = "set the value to \(text) of"
+            case .setPath(_, let ids):
+                worked = ActionUIModel.shared.setElementState(windowUUID: "preview", viewID: viewID, key: "navigationPath", value: ids)
+                what = "set the path to \(ids) of"
+            case .wait:
+                continue
             case .addRow(_, let text):
                 let columns = text.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
                 ActionUIModel.shared.appendElementRows(windowUUID: "preview", viewID: viewID, rows: [columns])
@@ -360,7 +378,14 @@ func fileSize(_ path: String) -> Int {
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --add-row ID TEXT]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+/// The destination ids of --set-path's IDS ("-": none), or nil when one is not a number.
+func pathIDs(_ text: String) -> [Int]? {
+    guard text != "-" else { return [] }
+    let ids = text.split(separator: ",").compactMap { Int($0) }
+    return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
+}
+
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --wait]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -411,6 +436,13 @@ while index < arguments.count {
     } else if option == "--set-value", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.setValue(viewID, arguments[index + 2]))
         index += 3
+    } else if option == "--set-path", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let ids = pathIDs(arguments[index + 2]) {
+        preview.invocations.append(.setPath(viewID, ids))
+        index += 3
+    } else if option == "--wait" {
+        preview.invocations.append(.wait)
+        index += 1
     } else if option == "--add-row", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.addRow(viewID, arguments[index + 2]))
         index += 3

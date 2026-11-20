@@ -1,8 +1,10 @@
-// Controls.cpp - Button, and operating elements through UI Automation (what an accessibility tool,
-// or a test, does).
+// Controls.cpp - Button and the back button, and operating elements through UI Automation (what an
+// accessibility tool, or a test, does).
 
 #include "ShimInternal.h"
 
+#include <winrt/Windows.UI.h>  // Color
+#include <winrt/Microsoft.UI.Xaml.Automation.h>  // AutomationProperties
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>  // ButtonBase: Click
 #include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
@@ -54,8 +56,33 @@ automation::Provider::ISelectionItemProvider selectionItemFor(mux::UIElement con
     return pattern != nullptr ? pattern.try_as<automation::Provider::ISelectionItemProvider>() : nullptr;
 }
 
-// The elements under `node` (not itself) that can be selected, in the visual tree's order, depth first;
-// the inside of one that can is not searched.
+// When `element` is a selection container (its peer has the Selection pattern: a ListView), adds its
+// items' selection item patterns, in order, from its peer's children, and returns true when it added
+// any. A ListView's items are found only this way: the peer of an item's container (ListViewItem) has
+// no SelectionItem pattern, the item's peer among the list's children has.
+bool collectContainerSelectionItems(mux::UIElement const &element,
+                                    std::vector<automation::Provider::ISelectionItemProvider> &found) {
+    automation::Peers::AutomationPeer peer = automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(element);
+    if (peer == nullptr || peer.GetPattern(automation::Peers::PatternInterface::Selection) == nullptr) {
+        return false;
+    }
+    wf::Collections::IVector<automation::Peers::AutomationPeer> children = peer.GetChildren();
+    if (children == nullptr) {
+        return false;
+    }
+    size_t before = found.size();
+    for (automation::Peers::AutomationPeer const &child : children) {
+        wf::IInspectable pattern = child.GetPattern(automation::Peers::PatternInterface::SelectionItem);
+        if (automation::Provider::ISelectionItemProvider item =
+                pattern != nullptr ? pattern.try_as<automation::Provider::ISelectionItemProvider>() : nullptr) {
+            found.push_back(item);
+        }
+    }
+    return found.size() > before;
+}
+
+// The elements under `node` (not itself) that can be selected, in the visual tree's order, depth first
+// (a selection container's items in its own order); the inside of one that can is not searched.
 void collectSelectionItems(mux::DependencyObject const &node, std::vector<automation::Provider::ISelectionItemProvider> &found) {
     int32_t count = media::VisualTreeHelper::GetChildrenCount(node);
     for (int32_t index = 0; index < count; ++index) {
@@ -63,6 +90,9 @@ void collectSelectionItems(mux::DependencyObject const &node, std::vector<automa
         if (mux::UIElement element = child.try_as<mux::UIElement>()) {
             if (automation::Provider::ISelectionItemProvider item = selectionItemFor(element)) {
                 found.push_back(item);
+                continue;
+            }
+            if (collectContainerSelectionItems(element, found)) {
                 continue;
             }
         }
@@ -107,6 +137,37 @@ bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallba
                            [&](std::shared_ptr<EventHandler> const &holder) {
                                objectAs<muxc::Button>(button, L"Button").Click([holder](auto &&, auto &&) { holder->fire(); });
                            });
+}
+
+ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void) {
+    return guardedObject("back button create", []() {
+        muxc::Button button;
+        wf::IInspectable found{nullptr};
+        try {
+            found = mux::Application::Current().Resources().Lookup(winrt::box_value(L"NavigationBackButtonNormalStyle"));
+        } catch (winrt::hresult_error const &) {
+            // Not in this theme: drawn by hand below.
+        }
+        mux::Style style = found != nullptr ? found.try_as<mux::Style>() : nullptr;
+        if (style != nullptr) {
+            button.Style(style);
+        } else {
+            // The Back glyph of the system's symbol font (Segoe Fluent Icons), as the style draws it; the
+            // button's pointer-over and pressed fills still come from its template.
+            muxc::FontIcon glyph;
+            glyph.Glyph(L"\uE72B");
+            glyph.FontSize(16);
+            button.Content(glyph);
+            button.Background(media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+            button.BorderThickness(mux::Thickness{0, 0, 0, 0});
+            button.Padding(mux::Thickness{0, 0, 0, 0});
+            button.Width(40);
+            button.Height(36);
+        }
+        automation::AutomationProperties::SetName(button, L"Back");
+        muxc::ToolTipService::SetToolTip(button, winrt::box_value(L"Back"));
+        return toObject(button);
+    });
 }
 
 bool actionUIWinUIAutomationInvoke(ActionUIWinUIObject *element) {

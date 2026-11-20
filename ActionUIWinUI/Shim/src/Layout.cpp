@@ -1,5 +1,5 @@
 // Layout.cpp - a Panel whose measure and arrange passes are the caller's (C callbacks), and the
-// element calls those passes use: measure, arrange, invalidate, the last placed frame.
+// element calls those passes use: measure, arrange, invalidate, the last placed frame, a clip.
 
 #include "ShimInternal.h"
 
@@ -8,6 +8,7 @@
 #include <limits>
 
 #include <winrt/Windows.Foundation.Numerics.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>  // RectangleGeometry
 
 namespace actionui_winui {
 
@@ -179,6 +180,20 @@ ActionUIWinUIRect actionUIWinUIElementLayoutFrame(ActionUIWinUIObject *element) 
         return true;
     });
     return frame;
+}
+
+bool actionUIWinUIElementSetClipSize(ActionUIWinUIObject *element, double width, double height) {
+    return guarded("element set clip size", [&]() {
+        mux::UIElement typed = elementFrom(element);
+        if (!(std::isfinite(width) && width >= 0 && std::isfinite(height) && height >= 0)) {
+            typed.Clip(nullptr);
+            return true;
+        }
+        mux::Media::RectangleGeometry clip;
+        clip.Rect(wf::Rect{0, 0, layoutLength(width), layoutLength(height)});
+        typed.Clip(clip);
+        return true;
+    });
 }
 
 } // extern "C"

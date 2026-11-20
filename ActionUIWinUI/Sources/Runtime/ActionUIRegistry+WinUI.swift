@@ -29,6 +29,8 @@ extension ActionUIRegistry {
         "Picker": Picker.self,
         "LabeledContent": LabeledContent.self,
         "List": List.self,
+        "NavigationLink": NavigationLink.self,
+        "NavigationStack": NavigationStack.self,
         "ProgressView": ProgressView.self,
         "Rectangle": Rectangle.self,
         "RoundedRectangle": RoundedRectangle.self,

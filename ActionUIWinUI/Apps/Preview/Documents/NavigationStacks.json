@@ -1,0 +1,58 @@
+{
+  "type": "VStack",
+  "id": 100,
+  "properties": { "spacing": 0 },
+  "children": [
+    {
+      "type": "NavigationStack",
+      "id": 1,
+      "properties": { "frame": { "height": 150 } },
+      "content": {
+        "type": "VStack",
+        "id": 2,
+        "properties": { "navigationTitle": "Home", "alignment": "leading", "spacing": 8 },
+        "children": [
+          { "type": "Text", "id": 3, "properties": { "text": "The root screen" } },
+          { "type": "NavigationLink", "id": 4, "properties": { "title": "Show details", "destinationViewId": 10 } },
+          {
+            "type": "NavigationLink",
+            "id": 5,
+            "properties": { "title": "Inline destination" },
+            "destination": { "type": "Text", "id": 6, "properties": { "text": "Pushed by an inline link", "navigationTitle": "Inline" } }
+          }
+        ]
+      },
+      "destinations": [
+        { "type": "Text", "id": 10, "properties": { "text": "Details", "navigationTitle": "Details" } }
+      ]
+    },
+    { "type": "Divider", "id": 101 },
+    {
+      "type": "NavigationStack",
+      "id": 20,
+      "properties": { "navigationTitle": "Second", "frame": { "height": 110 } },
+      "content": { "type": "Text", "id": 21, "properties": { "text": "Titled by the stack" } },
+      "destinations": [
+        { "type": "Text", "id": 30, "properties": { "text": "Pushed by the host, no title" } }
+      ]
+    },
+    { "type": "Divider", "id": 102 },
+    {
+      "type": "NavigationStack",
+      "id": 40,
+      "content": {
+        "type": "List",
+        "id": 41,
+        "properties": { "actionID": "places.chosen", "navigationTitle": "Places" },
+        "children": [
+          { "type": "Label", "id": 42, "properties": { "title": "Garden", "systemImage": "leaf", "destinationViewId": 50 } },
+          { "type": "Label", "id": 43, "properties": { "title": "Home", "systemImage": "house", "destinationViewId": 51 } }
+        ]
+      },
+      "destinations": [
+        { "type": "Text", "id": 50, "properties": { "text": "The garden", "navigationTitle": "Garden" } },
+        { "type": "Text", "id": 51, "properties": { "text": "The house", "navigationTitle": "House" } }
+      ]
+    }
+  ]
+}
