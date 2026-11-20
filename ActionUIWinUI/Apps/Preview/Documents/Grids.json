@@ -1,0 +1,38 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 16, "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "Grid",
+      "id": 2,
+      "properties": { "alignment": "leading" },
+      "rows": [
+        [ { "type": "Text", "id": 3, "properties": { "text": "Name", "font": "headline" } },
+          { "type": "Text", "id": 4, "properties": { "text": "Ada Lovelace" } } ],
+        [ { "type": "Text", "id": 5, "properties": { "text": "Born", "font": "headline" } },
+          { "type": "Text", "id": 6, "properties": { "text": "1815" } } ],
+        [ { "type": "Text", "id": 7, "properties": { "text": "Known for", "font": "headline" } },
+          { "type": "Text", "id": 8, "properties": { "text": "The first published program" } } ],
+        [ { "type": "Text", "id": 9, "properties": { "text": "A short row" } } ],
+        [ { "type": "Text", "id": 18, "properties": { "text": "Apart" } },
+          { "type": "Spacer", "id": 19 },
+          { "type": "Text", "id": 20, "properties": { "text": "by a Spacer" } } ]
+      ]
+    },
+    { "type": "Divider", "id": 10 },
+    {
+      "type": "Grid",
+      "id": 11,
+      "properties": { "horizontalSpacing": 4, "verticalSpacing": 4, "frame": { "height": 120 } },
+      "rows": [
+        [ { "type": "Color", "id": 12, "properties": { "color": "red" } },
+          { "type": "Color", "id": 13, "properties": { "color": "blue" } },
+          { "type": "Color", "id": 14, "properties": { "color": "green", "frame": { "width": 40 } } } ],
+        [ { "type": "Color", "id": 15, "properties": { "color": "orange" } },
+          { "type": "Text", "id": 16, "properties": { "text": "Centered" } },
+          { "type": "Color", "id": 17, "properties": { "color": "purple" } } ]
+      ]
+    }
+  ]
+}

@@ -3,7 +3,8 @@
  Spacer on WinUI: an empty panel. Its stack gives it its length (StackLayout: it expands along
  the stack's axis, at least minLength long, 8 when not given, as SwiftUI's Spacer(minLength:)), and
  the stack expands along its axis for it (a row with a Spacer takes the width it is offered).
- Outside a stack it takes no room yet.
+ In a Grid it expands in both axes, as on Linux (GridLayout gives its column and row the room).
+ Outside a stack or a Grid it takes no room yet.
 */
 
 extension Spacer: ActionUIWinUIRenderer {
@@ -19,7 +20,7 @@ extension Spacer: ActionUIWinUIRenderer {
         switch StackViews.parentAxis(node) {
         case .vertical?: return .vertical
         case .horizontal?: return .horizontal
-        case nil: return []
+        case nil: return node.parent?.element.type == "Grid" ? [.horizontal, .vertical] : []
         }
     }
 

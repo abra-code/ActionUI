@@ -102,6 +102,7 @@ PREVIEW_OPTIONS = {
                      "--forbid-action", "empty.changed", "--forbid-action", "filled.changed"],
     "FormSections": ["420", "460"],
     "FormColumns": ["460", "520"],
+    "Grids": ["420", "400"],
     "FloorChanges": ["420", "300", "--set-property", "3", "padding", "40", "--set-property", "7", "padding", "40"],
     "Fonts": ["480", "480"],
     "Scroll": ["360", "300", "--scroll", "3", "0", "50"],
