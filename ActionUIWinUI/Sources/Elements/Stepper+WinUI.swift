@@ -1,11 +1,12 @@
 // Sources/Elements/Stepper+WinUI.swift
 /*
- Stepper on WinUI: its label, 8, then two small Buttons 2 apart, minus and plus (the SF Symbols' Windows
- outlines), as macOS shows a stepper's label before its arrows and the Linux renderer its buttons. The
- buttons have less padding than WinUI's (5, 2, 5, 3, not 11, 5, 11, 6), about 28 x 24 each, the size
- of the spin buttons on WinUI's own NumberBox: macOS's stepper is one narrow control, and a pair of
- full-size buttons looked twice as heavy (the Linux renderer makes its buttons smaller for the same
- reason).
+ Stepper on WinUI: its label, 8, then minus and plus (the SF Symbols' Windows outlines) joined into one
+ control, [-|+], as a ControlGroup joins its buttons (actionUIWinUIControlSetJoined: rounded only at the
+ outer ends, one border between them), as macOS shows a stepper's label before its two arrows in one
+ control and the Linux renderer its linked buttons. The buttons have less padding than WinUI's (5, 2, 5, 3, not
+ 11, 5, 11, 6), about 28 x 24 each, the size of the spin buttons on WinUI's own NumberBox: macOS's
+ stepper is one narrow control, and a pair of full-size buttons looked twice as heavy (the Linux
+ renderer makes its buttons smaller for the same reason).
  WinUI's NumberBox is not used: it shows the value in an editable field, which SwiftUI's Stepper has
  not, and labelFormat usually shows the value already. As large as it is (measured on macOS 27: it does
  not grow; an empty label keeps its gap).
@@ -42,8 +43,9 @@ import CWinUI
 }
 
 extension Stepper: ActionUIWinUIRenderer {
-    /// The gap between the two buttons, and their padding (WinUI's Button has 11, 5, 11, 6).
-    static let buttonSpacing = 2.0
+    /// The gap between the two buttons (none: they are joined), and their padding (WinUI's Button has
+    /// 11, 5, 11, 6).
+    static let buttonSpacing = 0.0
     static let buttonPadding = (leading: 5.0, top: 2.0, trailing: 5.0, bottom: 3.0)
 
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
@@ -56,6 +58,10 @@ extension Stepper: ActionUIWinUIRenderer {
             let padding = buttonPadding
             if !actionUIWinUIControlSetPadding(button.pointer, padding.leading, padding.top, padding.trailing, padding.bottom) {
                 ActionUIModel.shared.logger.log("Stepper: \(WinUIError.last("setting a button's padding"))", .error)
+            }
+            // Joined: minus rounded at its leading end, plus at its trailing end, one border between them.
+            if !actionUIWinUIControlSetJoined(button.pointer, direction < 0, direction > 0) {
+                ActionUIModel.shared.logger.log("Stepper: \(WinUIError.last("joining the buttons"))", .error)
             }
             // The symbol, else (no outline for it, or the shim refused it) "-" or "+".
             var showsSymbol = false
