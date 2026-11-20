@@ -27,6 +27,7 @@ Exit status: 0 the include is ready (or, with --check, the outlines were drawn),
 
 import platform
 import sys
+import time
 from pathlib import Path
 
 COMPRESS_ALGORITHM_LZMS = 5
@@ -59,11 +60,20 @@ def download_font():
         return f"{ACCEPTED_COMMIT} does not hold a commit hash"
     FONT.parent.mkdir(parents=True, exist_ok=True)
     partial = FONT.with_suffix(".download")
-    try:
-        with urllib.request.urlopen(FONT_URL.format(commit=commit), timeout=120) as response:
-            partial.write_bytes(response.read())
-    except OSError as error:
-        return f"could not download the font of {commit}: {error}"
+    # Three tries, 5 and 15 seconds apart: a CI runner's connection to GitHub is dropped now and then
+    # ("An existing connection was forcibly closed by the remote host").
+    delays = [5, 15]
+    for attempt in range(len(delays) + 1):
+        try:
+            with urllib.request.urlopen(FONT_URL.format(commit=commit), timeout=120) as response:
+                partial.write_bytes(response.read())
+            break
+        except OSError as error:
+            if attempt == len(delays):
+                return f"could not download the font of {commit}: {error}"
+            print(f"prepare-windows-symbols: the download failed ({error}); trying again in {delays[attempt]} seconds",
+                  flush=True)
+            time.sleep(delays[attempt])
     partial.replace(FONT)
     COMMIT.write_text(commit + "\n", encoding="utf-8")
     return None
