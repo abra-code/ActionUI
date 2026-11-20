@@ -355,6 +355,50 @@ final class LazyRowsRendererTests: XCTestCase {
         print("[lazy rows] LazyVGrid: \(rows.made.count) of 3000 made, line \(line) shown at \(value)")
     }
 
+    func testTheTopVisibleLineStaysInPlaceWhenAGridsColumnsChange() throws {
+        // Every seventh cell wraps onto more lines, so the lines' lengths change with the columns
+        // (and a short cell is centered in a taller line: a line starts where its first cell's
+        // block does, found from its highest cell).
+        let long = "a cell long enough to wrap onto more lines in its column"
+        let root = try present(#"""
+            {"type": "ScrollView", "id": 1, "properties": {"frame": {"width": 400, "height": 300}}, "content":
+              {"type": "LazyVGrid", "id": 2, "properties": {"columns": [{"flexible": true}, {"flexible": true}, {"flexible": true}], "spacing": 4},
+               "template": {"type": "Text", "properties": {"text": "$1", "padding": 6}}}}
+            """#)
+        setRows(2, (0..<3000).map { $0 % 7 == 0 ? ["\($0) \(long)"] : ["Cell \($0)"] })
+        let rows = try lazyRows(2, in: root)
+        let vertical = try adjustment(1, in: root, vertical: true)
+        // Deep in a tall line (44 of its 83 points), farther than an estimated line's length: the
+        // line at the top is measured before the place in it is put back.
+        gtk_adjustment_set_value(vertical, 10027)
+        settle()
+        func topLine(columns: Int) throws -> (line: Int, inside: Double) {
+            let value = gtk_adjustment_get_value(vertical)
+            let line = try XCTUnwrap(madeRow(at: value, in: rows, vertical: true)).index / columns
+            var start = Double.infinity
+            for index in line * columns..<(line + 1) * columns {
+                let box = try XCTUnwrap(rows.made[index]).outerWidget!
+                var bounds = graphene_rect_t()
+                XCTAssertNotEqual(gtk_widget_compute_bounds(box, gtk_widget_get_parent(box), &bounds), 0)
+                start = min(start, Double(bounds.origin.y))
+            }
+            return (line, value - start)
+        }
+        var before = try topLine(columns: 3)
+        var perLine = 3
+        for columns in [2, 4] {
+            let firstRow = before.line * perLine
+            ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 2, propertyName: "columns",
+                                                    value: Array(repeating: ["flexible": true], count: columns))
+            settle()
+            let after = try topLine(columns: columns)
+            XCTAssertEqual(after.line, firstRow / columns, "\(columns) columns: the line holding row \(firstRow) at the top")
+            XCTAssertEqual(after.inside, before.inside, accuracy: 1, "\(columns) columns: at the same place in it")
+            before = after
+            perLine = columns
+        }
+    }
+
     func testALazyHGridMakesOnlyTheColumnsNearView() throws {
         let root = try present(#"""
             {"type": "ScrollView", "id": 1, "properties": {"axis": "horizontal", "frame": {"width": 400, "height": 120}}, "content":
