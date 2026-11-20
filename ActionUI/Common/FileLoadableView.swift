@@ -93,11 +93,6 @@ public struct FileLoadableView: SwiftUI.View {
     }
 }
 
-// The message FileLoadableView shows for a path that is not a regular file.
-extension ActionUIDocumentLoader.NotARegularFile: LocalizedError {
-    var errorDescription: String? { description }
-}
-
 // MARK: - Nesting
 
 private struct ActionUILoadableSourcesKey: EnvironmentKey {

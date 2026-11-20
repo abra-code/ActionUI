@@ -201,6 +201,24 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
             XCTAssertLessThanOrEqual(path.utf8.count, 103, path)
         }
     }
+
+    func testOnLinuxARandomNameFolderIsRemovedAtStop() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("remote-stop-\(UUID().uuidString)").path
+        XCTAssertEqual(mkdir(base, 0o755), 0)
+        defer { try? FileManager.default.removeItem(atPath: base) }
+        // The per-user folder is taken (others can enter it), so the start makes a random one.
+        XCTAssertEqual(mkdir(base + "/actionui-\(getuid())", 0o755), 0)
+        try withEnvironment(runtime: nil, temporary: base) {
+            let path = try ActionUIRemoteServer.startShared()
+            let folder = (path as NSString).deletingLastPathComponent
+            XCTAssertTrue(folder.hasPrefix(base + "/actionui-"), path)
+            XCTAssertNotEqual(folder, base + "/actionui-\(getuid())", path)
+            ActionUIRemoteServer.stopShared()
+            XCTAssertFalse(FileManager.default.fileExists(atPath: folder), "the random-name folder goes with the socket")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: base + "/actionui-\(getuid())"),
+                          "a folder it did not make stays")
+        }
+    }
     #endif
 
     func testTheDefaultPathIsOnePerProcessAndFitsSunPath() throws {

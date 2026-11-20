@@ -3,6 +3,7 @@ package com.abracode.actionui.Common
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -340,6 +341,84 @@ class WindowModelTest {
         assertEquals("loaded", window.viewModels[11]?.value)
         // The window root is unchanged (still the original document).
         assertEquals(1, window.element?.id)
+    }
+
+    private fun textField(id: Int, text: String) =
+        ActionUIElement(id = id, type = "TextField", properties = buildJsonObject { put("text", text) })
+
+    private fun windowWithFieldAndLoadable(): WindowModel {
+        val window = model()
+        window.loadDescription(
+            ActionUIElement(
+                id = 1, type = "VStack",
+                children = listOf(
+                    textField(3, "parent's"),
+                    ActionUIElement(id = 2, type = "LoadableView",
+                        properties = buildJsonObject { put("name", "Sub.json") }),
+                ),
+            )
+        )
+        return window
+    }
+
+    @Test
+    fun `a sub-document cannot replace a parent control's model`() {
+        // As on Apple: an id already in the pool keeps its model; the colliding one is skipped.
+        val window = windowWithFieldAndLoadable()
+        val parentModel = window.viewModels[3]
+        window.loadSubDescription(
+            ActionUIElement(id = 10, type = "VStack", children = listOf(textField(3, "loaded"), textField(11, "own"))),
+            parentID = 2,
+        )
+        assertSame(parentModel, window.viewModels[3])
+        assertEquals("parent's", window.viewModels[3]?.value)
+        assertEquals("own", window.viewModels[11]?.value)
+    }
+
+    @Test
+    fun `a reload replaces the content's own models and keeps the parent's`() {
+        val window = windowWithFieldAndLoadable()
+        window.loadSubDescription(
+            ActionUIElement(id = 10, type = "VStack", children = listOf(textField(3, "loaded"), textField(11, "first"))),
+            parentID = 2,
+        )
+        window.viewModels[11]?.value = "typed"
+        // The new content reuses id 11 for another type: it gets a fresh model of its own.
+        window.loadSubDescription(
+            ActionUIElement(id = 10, type = "VStack", children = listOf(
+                ActionUIElement(id = 11, type = "Slider", properties = buildJsonObject { put("value", 0.25) }),
+            )),
+            parentID = 2,
+        )
+        assertEquals("Slider", window.viewModels[11]?.elementType)
+        assertEquals(0.25, window.viewModels[11]?.value)
+        // Id 3 collided the first time, so it was never the content's: the reload leaves it.
+        assertEquals("TextField", window.viewModels[3]?.elementType)
+        assertEquals("parent's", window.viewModels[3]?.value)
+    }
+
+    @Test
+    fun `removing a LoadableView removes its content and its ownership record`() {
+        // As on Apple: the loaded content goes with the LoadableView, and the record goes
+        // too, so a later LoadableView with the same id cannot remove another element's model.
+        val window = windowWithFieldAndLoadable()
+        window.loadSubDescription(
+            ActionUIElement(id = 10, type = "VStack", children = listOf(textField(11, "loaded"))),
+            parentID = 2,
+        )
+        window.removeElement(2)
+        assertNull(window.viewModels[2])
+        assertNull(window.viewModels[10])
+        assertNull(window.viewModels[11])
+
+        // Id 11 now belongs to an element inserted at runtime, and a new LoadableView 2 loads.
+        window.insertElement(textField(11, "inserted"), parentID = 1, container = "children", position = InsertPosition.Append)
+        window.insertElement(
+            ActionUIElement(id = 2, type = "LoadableView", properties = buildJsonObject { put("name", "Other.json") }),
+            parentID = 1, container = "children", position = InsertPosition.Append,
+        )
+        window.loadSubDescription(ActionUIElement(id = 20, type = "Text"), parentID = 2)
+        assertEquals("inserted", window.viewModels[11]?.value)
     }
 
     @Test

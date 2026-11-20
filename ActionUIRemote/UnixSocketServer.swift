@@ -37,6 +37,8 @@ import Dispatch
 public enum UnixSocketServerError: Error, CustomStringConvertible {
     case alreadyStarted
     case pathTooLong(path: String, limit: Int)
+    /// Something other than a socket of this user's is at the path; it is left alone.
+    case pathOccupied(path: String)
     case systemCall(String, errno: Int32)
 
     public var description: String {
@@ -45,6 +47,8 @@ public enum UnixSocketServerError: Error, CustomStringConvertible {
             return "UnixSocketServer is already started"
         case .pathTooLong(let path, let limit):
             return "socket path is \(path.utf8.count) bytes; the limit is \(limit) (sun_path): \(path)"
+        case .pathOccupied(let path):
+            return "something other than a socket of this user's is at \(path); it is not replaced"
         case .systemCall(let call, let code):
             return "\(call) failed: \(String(cString: strerror(code))) (errno \(code))"
         }
@@ -151,7 +155,9 @@ final class UnixSocketServer: @unchecked Sendable {
     }
 
     /// - Parameters:
-    ///   - path: Socket file path. Any existing file there is unlinked on start.
+    ///   - path: Socket file path. A socket of this user's already there (left by a server that
+    ///     did not stop) is replaced on start; anything else there makes `start` throw
+    ///     `pathOccupied` and is left alone.
     ///   - maxLineLength: Lines longer than this (without a newline) close the connection.
     ///   - onLine: Called on the connection's queue with each complete line, newline stripped.
     ///   - onClose: Called once when a connection has been closed, for any reason.
@@ -209,10 +215,20 @@ final class UnixSocketServer: @unchecked Sendable {
         do {
             try UnixSocketServer.configure(fd: fd)
 
-            // Whatever is at the path is ours by construction (a pid-suffixed name in a private
-            // directory); a leftover from a crashed process must not block a new start.
-            if unlink(path) != 0 && errno != ENOENT {
-                throw UnixSocketServerError.systemCall("unlink", errno: errno)
+            // A socket of this user's at the path is a leftover from a server that did not stop
+            // (a crash) and must not block a new start. Anything else (a regular file, a folder,
+            // a link, another user's socket) is not ours to remove: the path may have come from a
+            // setting or a command line.
+            var existing = stat()
+            if lstat(path, &existing) == 0 {
+                guard existing.st_mode & S_IFMT == S_IFSOCK, existing.st_uid == geteuid() else {
+                    throw UnixSocketServerError.pathOccupied(path: path)
+                }
+                if unlink(path) != 0 && errno != ENOENT {
+                    throw UnixSocketServerError.systemCall("unlink", errno: errno)
+                }
+            } else if errno != ENOENT {
+                throw UnixSocketServerError.systemCall("lstat", errno: errno)
             }
 
             var address = sockaddr_un()

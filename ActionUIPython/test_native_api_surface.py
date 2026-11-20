@@ -76,8 +76,15 @@ def test_error_lifecycle():
 def test_action_handler_lifecycle():
     def handler(aid, wid, vid, vpid, ctx):
         pass
-    _actionui.register_action_handler("test.action", handler)
+    before = sys.getrefcount(handler)
+    for _ in range(10):
+        _actionui.register_action_handler("test.action", handler)
+    # The handler table holds one reference, however often the id is registered.
+    assert sys.getrefcount(handler) == before + 1, (before, sys.getrefcount(handler))
     _actionui.unregister_action_handler("test.action")
+    assert sys.getrefcount(handler) == before, (before, sys.getrefcount(handler))
+    # An id that was never registered is no error (it used to raise SystemError).
+    _actionui.unregister_action_handler("never.registered")
     _actionui.set_default_action_handler(handler)
     _actionui.set_default_action_handler(None)
     print("  action_handler_lifecycle: OK")

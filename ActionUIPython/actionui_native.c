@@ -38,6 +38,16 @@ static bool is_main_thread(void) {
 #endif
 }
 
+/* Calls that store a callback belong to the main thread, as in the Node and Rust bindings: the C
+ * adapter's handler tables are read on the main thread without a lock, and two threads setting
+ * one lifecycle handler could leave the C side with no bridge while Python holds a callback.
+ * False, with RuntimeError set, on any other thread. */
+static bool require_main_thread(const char* name) {
+    if (is_main_thread()) return true;
+    PyErr_Format(PyExc_RuntimeError, "%s must be called on the main thread", name);
+    return false;
+}
+
 // MARK: - Module State
 
 typedef struct {
@@ -98,10 +108,13 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
     ActionUIModuleState* state = get_state(module);
     if (state == NULL || state->logger_callback == NULL) { PyGILState_Release(gstate); return; }
 
-    PyObject* result = PyObject_CallFunction(state->logger_callback, "si",
-                                             message, (int)level);
+    /* Held across the call: a callback that sets another logger would drop the stored one. */
+    PyObject* callback = state->logger_callback;
+    Py_INCREF(callback);
+    PyObject* result = PyObject_CallFunction(callback, "si", message, (int)level);
     Py_XDECREF(result);
     report_callback_error();
+    Py_DECREF(callback);
     PyGILState_Release(gstate);
 }
 
@@ -136,6 +149,9 @@ static void action_handler_bridge(const char* actionID,
         handler = state->default_handler;
 
     if (handler != NULL) {
+        /* Borrowed from the table: a handler that unregisters or replaces itself (or the default
+         * handler) would drop the only reference while it runs. */
+        Py_INCREF(handler);
         PyObject* py_context;
         if (contextJSON != NULL) {
             py_context = PyUnicode_FromString(contextJSON);
@@ -153,6 +169,7 @@ static void action_handler_bridge(const char* actionID,
             Py_DECREF(py_context);
         }
         report_callback_error();
+        Py_DECREF(handler);
     }
 
     Py_DECREF(py_actionID);
@@ -173,9 +190,12 @@ static void func_name(void) { \
     if (module != NULL) { \
         ActionUIModuleState* state = get_state(module); \
         if (state != NULL && state->state_field != NULL) { \
-            PyObject* r = PyObject_CallObject(state->state_field, NULL); \
+            PyObject* callback = state->state_field; \
+            Py_INCREF(callback);    /* held: the callback may clear or replace itself */ \
+            PyObject* r = PyObject_CallObject(callback, NULL); \
             Py_XDECREF(r); \
             report_callback_error(); \
+            Py_DECREF(callback); \
         } \
     } \
     PyGILState_Release(gstate); \
@@ -197,12 +217,15 @@ static bool app_should_terminate_bridge(void) {
     if (module != NULL) {
         ActionUIModuleState* state = get_state(module);
         if (state != NULL && state->app_should_terminate != NULL) {
-            PyObject* py_result = PyObject_CallObject(state->app_should_terminate, NULL);
+            PyObject* callback = state->app_should_terminate;
+            Py_INCREF(callback);    /* held: the callback may clear or replace itself */
+            PyObject* py_result = PyObject_CallObject(callback, NULL);
             if (py_result != NULL) {
                 result = (PyObject_IsTrue(py_result) != 0);
                 Py_DECREF(py_result);
             }
             report_callback_error();
+            Py_DECREF(callback);
         }
     }
     PyGILState_Release(gstate);
@@ -216,9 +239,12 @@ static void app_window_will_close_bridge(const char* windowUUID) {
     if (module != NULL) {
         ActionUIModuleState* state = get_state(module);
         if (state != NULL && state->app_window_will_close != NULL) {
-            PyObject* r = PyObject_CallFunction(state->app_window_will_close, "s", windowUUID);
+            PyObject* callback = state->app_window_will_close;
+            Py_INCREF(callback);    /* held: the callback may clear or replace itself */
+            PyObject* r = PyObject_CallFunction(callback, "s", windowUUID);
             Py_XDECREF(r);
             report_callback_error();
+            Py_DECREF(callback);
         }
     }
     PyGILState_Release(gstate);
@@ -231,9 +257,12 @@ static void app_window_will_present_bridge(const char* windowUUID) {
     if (module != NULL) {
         ActionUIModuleState* state = get_state(module);
         if (state != NULL && state->app_window_will_present != NULL) {
-            PyObject* r = PyObject_CallFunction(state->app_window_will_present, "s", windowUUID);
+            PyObject* callback = state->app_window_will_present;
+            Py_INCREF(callback);    /* held: the callback may clear or replace itself */
+            PyObject* r = PyObject_CallFunction(callback, "s", windowUUID);
             Py_XDECREF(r);
             report_callback_error();
+            Py_DECREF(callback);
         }
     }
     PyGILState_Release(gstate);
@@ -243,14 +272,16 @@ static void app_window_will_present_bridge(const char* windowUUID) {
 
 /*
  * Setter factory for void lifecycle handlers.
- * Stores callback in module state (keeping a Python reference) and wires the C bridge. The C
- * setter runs without the GIL: on Linux it waits for the main thread. The bridge reads the module
- * state under the GIL and does nothing when it is empty, so the brief gap is harmless.
+ * Stores callback in module state (keeping a Python reference) and wires the C bridge. Main
+ * thread only (require_main_thread). The C setter still runs without the GIL, as every call into
+ * the library does. The bridge reads the module state under the GIL and does nothing when it is
+ * empty, so the brief gap is harmless.
  */
 #define APP_LIFECYCLE_SETTER(py_func, state_field, c_setter, bridge) \
 static PyObject* py_func(PyObject* self, PyObject* args) { \
     PyObject* callback; \
     if (PyArg_ParseTuple(args, "O", &callback) == 0) return NULL; \
+    if (!require_main_thread(&(#py_func)[3])) return NULL; /* the name without "py_" */ \
     ActionUIModuleState* state = get_state(self); \
     if (callback == Py_None) { \
         Py_CLEAR(state->state_field); \
@@ -286,6 +317,7 @@ APP_LIFECYCLE_SETTER(py_app_set_will_terminate,        app_will_terminate,
 static PyObject* py_app_set_should_terminate(PyObject* self, PyObject* args) {
     PyObject* callback;
     if (PyArg_ParseTuple(args, "O", &callback) == 0) return NULL;
+    if (!require_main_thread("app_set_should_terminate")) return NULL;
     ActionUIModuleState* state = get_state(self);
     if (callback == Py_None) {
         Py_CLEAR(state->app_should_terminate);
@@ -306,6 +338,7 @@ static PyObject* py_app_set_should_terminate(PyObject* self, PyObject* args) {
 static PyObject* py_app_set_window_will_close(PyObject* self, PyObject* args) {
     PyObject* callback;
     if (PyArg_ParseTuple(args, "O", &callback) == 0) return NULL;
+    if (!require_main_thread("app_set_window_will_close")) return NULL;
     ActionUIModuleState* state = get_state(self);
     if (callback == Py_None) {
         Py_CLEAR(state->app_window_will_close);
@@ -326,6 +359,7 @@ static PyObject* py_app_set_window_will_close(PyObject* self, PyObject* args) {
 static PyObject* py_app_set_window_will_present(PyObject* self, PyObject* args) {
     PyObject* callback;
     if (PyArg_ParseTuple(args, "O", &callback) == 0) return NULL;
+    if (!require_main_thread("app_set_window_will_present")) return NULL;
     ActionUIModuleState* state = get_state(self);
     if (callback == Py_None) {
         Py_CLEAR(state->app_window_will_present);
@@ -538,6 +572,7 @@ static PyObject* py_get_version(PyObject* self, PyObject* args) {
 static PyObject* py_set_logger(PyObject* self, PyObject* args) {
     PyObject* callback;
     if (PyArg_ParseTuple(args, "O", &callback) == 0) return NULL;
+    if (!require_main_thread("set_logger")) return NULL;
 
     ActionUIModuleState* state = get_state(self);
 
@@ -572,6 +607,7 @@ static PyObject* py_register_action_handler(PyObject* self, PyObject* args) {
     const char* actionID;
     PyObject*   callback;
     if (PyArg_ParseTuple(args, "sO", &actionID, &callback) == 0) return NULL;
+    if (!require_main_thread("register_action_handler")) return NULL;
 
     if (PyCallable_Check(callback) == 0) {
         PyErr_SetString(PyExc_TypeError, "callback must be callable");
@@ -580,9 +616,11 @@ static PyObject* py_register_action_handler(PyObject* self, PyObject* args) {
 
     ActionUIModuleState* state    = get_state(self);
     PyObject*            py_aid   = PyUnicode_FromString(actionID);
-    Py_INCREF(callback);
-    PyDict_SetItem(state->action_handlers, py_aid, callback);
+    if (py_aid == NULL) return NULL;
+    // PyDict_SetItem takes its own reference to the key and the value.
+    int stored = PyDict_SetItem(state->action_handlers, py_aid, callback);
     Py_DECREF(py_aid);
+    if (stored != 0) return NULL;
 
     bool ok = actionUIRegisterActionHandler(actionID, action_handler_bridge);
     return PyBool_FromLong(ok);
@@ -591,11 +629,18 @@ static PyObject* py_register_action_handler(PyObject* self, PyObject* args) {
 static PyObject* py_unregister_action_handler(PyObject* self, PyObject* args) {
     const char* actionID;
     if (PyArg_ParseTuple(args, "s", &actionID) == 0) return NULL;
+    if (!require_main_thread("unregister_action_handler")) return NULL;
 
     ActionUIModuleState* state  = get_state(self);
     PyObject*            py_aid = PyUnicode_FromString(actionID);
-    PyDict_DelItem(state->action_handlers, py_aid);
+    if (py_aid == NULL) return NULL;
+    int removed = PyDict_DelItem(state->action_handlers, py_aid);
     Py_DECREF(py_aid);
+    // An id that was never registered is not an error: the C side answers False for it.
+    if (removed != 0) {
+        if (PyErr_ExceptionMatches(PyExc_KeyError) == 0) return NULL;
+        PyErr_Clear();
+    }
 
     bool ok = actionUIUnregisterActionHandler(actionID);
     return PyBool_FromLong(ok);
@@ -604,6 +649,7 @@ static PyObject* py_unregister_action_handler(PyObject* self, PyObject* args) {
 static PyObject* py_set_default_action_handler(PyObject* self, PyObject* args) {
     PyObject* callback;
     if (PyArg_ParseTuple(args, "O", &callback) == 0) return NULL;
+    if (!require_main_thread("set_default_action_handler")) return NULL;
 
     ActionUIModuleState* state = get_state(self);
 
@@ -1068,16 +1114,31 @@ static PyObject* py_insert_row(PyObject* self, PyObject* args) {
         else              { PyErr_SetString(PyExc_RuntimeError, "actionUIInsertRow failed"); }
         return NULL;
     }
-    /* Parse the JSON array "[5,6,...]" into a Python list of ints */
+    /* Parse the JSON array "[5,-6,...]" into a Python list of ints. A cell without an id of its
+     * own gets an automatic negative one, so the sign belongs to the number. */
     PyObject* result = PyList_New(0);
-    /* Simple parse: scan for numbers between '[', ',', ']' */
+    if (result == NULL) {
+        actionUIFreeString(ids_json);
+        return NULL;
+    }
     char* p = ids_json;
     while (*p) {
-        if (*p >= '0' && *p <= '9') {
-            char* end; long long v = strtoll(p, &end, 10);
-            PyList_Append(result, PyLong_FromLongLong(v));
-            p = end;
-        } else { p++; }
+        bool starts_number = (*p >= '0' && *p <= '9') || (*p == '-' && p[1] >= '0' && p[1] <= '9');
+        if (starts_number == false) {
+            p++;
+            continue;
+        }
+        char* end;
+        long long v = strtoll(p, &end, 10);
+        p = end;
+        PyObject* item = PyLong_FromLongLong(v);
+        int appended = item != NULL ? PyList_Append(result, item) : -1;
+        Py_XDECREF(item);       // the list holds its own reference
+        if (appended != 0) {
+            Py_DECREF(result);
+            actionUIFreeString(ids_json);
+            return NULL;
+        }
     }
     actionUIFreeString(ids_json);
     return result;

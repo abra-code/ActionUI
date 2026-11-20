@@ -3,8 +3,9 @@
  Tests for the cells of a List's data rows on GTK (itemType.viewType): a Button cell at its natural
  width at the leading edge, whose click fires itemType.actionID with the row's text or its index in
  the content, taking the inherited buttonStyle; an Image cell showing a symbol or a file as
- dataInterpretation reads the text; a changed text updates the row's cell in place (an image's
- widget is made again); a new viewType makes the rows again; an AsyncImage cell showing a spinner
+ dataInterpretation reads the text; a changed text is shown in a new cell, an unchanged row keeping
+ its cell (the rows are made as they come into view, in a GtkListView); a new viewType makes the
+ rows again; an AsyncImage cell showing a spinner
  until its image has loaded, and when it cannot be, then the image across the row.
 */
 
@@ -16,6 +17,7 @@ import CAdwaita
 final class ListCellRendererTests: XCTestCase {
     private var windowUUID = ""
     private var windows: [AdwaitaWindow] = []
+    private var gtkWindows: [UnsafeMutablePointer<GtkWindow>] = []
     private var files: [String] = []
     private var fired: [(actionID: String, viewID: Int, context: Any?)] = []
     private let actionIDs = ["test.cell", "test.pick"]
@@ -36,6 +38,10 @@ final class ListCellRendererTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        for window in gtkWindows {
+            gtk_window_destroy(window)
+        }
+        gtkWindows = []
         windows = []
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
@@ -54,24 +60,35 @@ final class ListCellRendererTests: XCTestCase {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
         let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         windows.append(window)
+        // On screen: the list view of the content-rows and template forms makes its rows only when
+        // it lays them out there.
+        let gtkWindow: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        gtkWindows.append(gtkWindow)
+        gtk_window_set_default_size(gtkWindow, 300, 400)
+        adw_window_set_content(typed(gtkWindow), window.contentWidget)
+        gtk_window_present(gtkWindow)
+        settle()
         return try XCTUnwrap(window.root)
+    }
+
+    /// Runs the main loop long enough for the window to lay the List out, which binds its rows.
+    private func settle() {
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 300)
+        AdwaitaTestHost.drainMainLoop()
     }
 
     private func setRows(_ rows: [[String]]) {
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: rows)
-        AdwaitaTestHost.drainMainLoop()
+        settle()
     }
 
-    /// The cell widget of each row.
+    private func lazy(_ node: RenderNode) throws -> LazyListRows {
+        try XCTUnwrap(try XCTUnwrap(attached(on: node.widget, key: listStateKey)).lazy, "the lazy content-rows form")
+    }
+
+    /// The cell widget of each row (all of them are in view).
     private func cells(_ node: RenderNode) throws -> [WidgetPointer] {
-        let box = OpaquePointer(try XCTUnwrap(attached(on: node.widget, key: listStateKey)).box)
-        var cells: [WidgetPointer] = []
-        var index: Int32 = 0
-        while let row = gtk_list_box_get_row_at_index(box, index) {
-            cells.append(try XCTUnwrap(gtk_list_box_row_get_child(row)))
-            index += 1
-        }
-        return cells
+        try lazy(node).cells.sorted { $0.key < $1.key }.map(\.value.cell)
     }
 
     private func typeName(_ widget: WidgetPointer) -> String? {
@@ -126,13 +143,13 @@ final class ListCellRendererTests: XCTestCase {
         XCTAssertEqual(fired.first?.context as? Int, 2, "the index in the content, past the row not shown")
     }
 
-    func testAChangedTextUpdatesTheButtonInPlace() throws {
+    func testAChangedTextIsShownAndAnUnchangedCellIsKept() throws {
         let node = try render(#"{"type": "List", "id": 1, "properties": {"itemType": {"viewType": "Button", "actionID": "test.cell"}}}"#)
         setRows([["Open"], ["Save"]])
         let before = try cells(node)
         setRows([["Open"], ["Save As"], ["Close"]])
         let after = try cells(node)
-        XCTAssertEqual(after.prefix(2).map { UInt(bitPattern: $0) }, before.map { UInt(bitPattern: $0) })
+        XCTAssertEqual(UInt(bitPattern: after[0]), UInt(bitPattern: before[0]), "an unchanged row keeps its cell")
         XCTAssertEqual(after.map { swiftString(gtk_button_get_label(typed($0))) }, ["Open", "Save As", "Close"])
         click(after[2])
         XCTAssertEqual(fired.first?.context as? String, "Close")
@@ -183,25 +200,27 @@ final class ListCellRendererTests: XCTestCase {
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "itemType", value: ["viewType": "Button"])
         AdwaitaTestHost.drainMainLoop()
         XCTAssertEqual(try cells(node).map { typeName($0) }, ["GtkButton", "GtkButton"])
-        let box = OpaquePointer(try XCTUnwrap(attached(on: node.widget, key: listStateKey)).box)
-        XCTAssertEqual(gtk_list_box_get_selected_row(box).map { gtk_list_box_row_get_index($0) }, 1, "the selection is shown again")
+        XCTAssertEqual(try lazy(node).selectedPosition, 1, "the selection is shown again")
         XCTAssertTrue(fired.isEmpty)
     }
 
     func testAnAsyncImageCellShowsASpinnerThenTheImageAcrossTheRow() throws {
         let url = TestImages.fileURL(try pngFile())
         let node = try render(#"{"type": "List", "id": 1, "properties": {"itemType": {"viewType": "AsyncImage"}}}"#)
+        // A local file loads before the rows are first laid out: the spinner it shows meanwhile is
+        // the next tests' (one that cannot load keeps it, a new text shows it again).
         setRows([[url], [url], [url]])
-        XCTAssertEqual(try cells(node).map { typeName($0) }, Array(repeating: "AdwSpinner", count: 3))
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { (try? self.cells(node).allSatisfy { self.typeName($0) == "GtkPicture" }) == true }))
-        // Shorter than the rows: they keep their heights and the list scrolls.
-        gtk_widget_allocate(node.outerWidget, 300, 100, -1, nil)
+        XCTAssertEqual(try cells(node).count, 3)
+        settle()
+        // The 20 x 10 image across the row's content (the List's width less 16 at each side), half
+        // as tall: the row's natural height, not its minimum.
+        let content = Float(gtk_widget_get_width(node.outerWidget) - 32)
         for picture in try cells(node) {
             var bounds = graphene_rect_t()
             XCTAssertNotEqual(gtk_widget_compute_bounds(picture, node.outerWidget, &bounds), 0)
-            // The 20 x 10 image across the row's content (300 less 16 at each side), half as tall.
-            XCTAssertEqual(bounds.size.width, 268)
-            XCTAssertEqual(bounds.size.height, 134)
+            XCTAssertEqual(bounds.size.width, content)
+            XCTAssertEqual(bounds.size.height, content / 2)
         }
     }
 
@@ -226,5 +245,80 @@ final class ListCellRendererTests: XCTestCase {
         XCTAssertEqual(typeName(try XCTUnwrap(try cells(node).first)), "GtkPicture", "no spinner first")
         setRows([["file:///no/such/image.png"]])
         XCTAssertEqual(typeName(try XCTUnwrap(try cells(node).first)), "AdwSpinner", "a new text loads again")
+    }
+
+    /// A label's or button's text.
+    private func cellText(_ cell: WidgetPointer) -> String {
+        if Gtk.Widget(cell).isA(gtk_button_get_type()) {
+            return swiftString(gtk_button_get_label(typed(cell))) ?? ""
+        }
+        return Gtk.Widget(cell).isA(gtk_label_get_type()) ? Gtk.Label(cell).text : "?"
+    }
+
+    /// Each bound cell is its list item's child, at its item's position, showing that row's text,
+    /// and every row shown holds a bound cell.
+    private func checkBoundCells(_ node: RenderNode, _ texts: [String], _ step: String) throws {
+        let lazy = try lazy(node)
+        XCTAssertFalse(lazy.cells.isEmpty, step)
+        XCTAssertLessThan(lazy.cells.count, 600, "\(step): only the rows near the view")
+        for (position, bound) in lazy.cells {
+            XCTAssertEqual(Int(gtk_list_item_get_position(bound.item)), position, "\(step): the item's position")
+            XCTAssertEqual(gtk_list_item_get_child(bound.item).map { UInt(bitPattern: $0) }, UInt(bitPattern: bound.cell), "\(step): the item's child")
+            XCTAssertEqual(LazyListRows.position(of: bound.cell), position, "\(step): the cell's position")
+            XCTAssertEqual(cellText(bound.cell), texts[position], "\(step): the text at \(position)")
+        }
+        let known = Set(lazy.cells.values.map { UInt(bitPattern: $0.cell) })
+        var child = gtk_widget_get_first_child(lazy.view)
+        var shown = 0
+        while let row = child {
+            if let cell = gtk_widget_get_first_child(row), gtk_widget_get_mapped(row) != 0 {
+                shown += 1
+                XCTAssertTrue(known.contains(UInt(bitPattern: cell)), "\(step): a row shows a cell not bound")
+            }
+            child = gtk_widget_get_next_sibling(row)
+        }
+        XCTAssertGreaterThan(shown, 0, step)
+    }
+
+    /// Scrolls the List to `fraction` of its scrollable height.
+    private func scroll(_ node: RenderNode, to fraction: Double) {
+        let adjustment = gtk_scrolled_window_get_vadjustment(OpaquePointer(node.widget))
+        let range = gtk_adjustment_get_upper(adjustment) - gtk_adjustment_get_page_size(adjustment)
+        gtk_adjustment_set_value(adjustment, range * fraction)
+        settle()
+    }
+
+    func testBoundCellsFollowScrollingChangesAndANewViewType() throws {
+        let node = try render(#"{"type": "List", "id": 1, "properties": {"itemType": {"viewType": "Text", "actionID": "test.cell"}}}"#)
+        var texts = (0..<3000).map { "Row \($0)" }
+        setRows(texts.map { [$0] })
+        try checkBoundCells(node, texts, "first")
+        scroll(node, to: 0.5)
+        try checkBoundCells(node, texts, "scrolled")
+        let lazy = try lazy(node)
+        let middle = try XCTUnwrap(lazy.cells.keys.sorted().dropFirst(lazy.cells.count / 2).first)
+        for index in (middle - 5)..<(middle + 5) {
+            texts[index] = "Changed \(index)"
+        }
+        // A hidden row above changes nothing shown.
+        var withHidden = texts.map { [$0] }
+        withHidden.insert([""], at: 10)
+        setRows(withHidden)
+        try checkBoundCells(node, texts, "changed")
+        // A row taken out: those below move up one, their cells made again.
+        texts.remove(at: middle + 20)
+        setRows(texts.map { [$0] })
+        try checkBoundCells(node, texts, "removed")
+        ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "itemType",
+                                                value: ["viewType": "Button", "actionID": "test.cell"])
+        settle()
+        try checkBoundCells(node, texts, "buttons")
+        scroll(node, to: 0.9)
+        try checkBoundCells(node, texts, "near the end")
+        let first = try XCTUnwrap(lazy.cells.min { $0.key < $1.key })
+        click(first.value.cell)
+        XCTAssertEqual(fired.first?.context as? String, texts[first.key], "the clicked row's text")
+        scroll(node, to: 0)
+        try checkBoundCells(node, texts, "back at the top")
     }
 }

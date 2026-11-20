@@ -154,12 +154,42 @@ internal fun loadLocalDescription(
     }
 }
 
+/** The deepest nesting of arrays and objects a description may have: Apple's `JSONParser.maximumDepth`. */
+internal const val DESCRIPTION_MAX_NESTING_DEPTH = 512
+
+/**
+ * Whether [text]'s arrays and objects nest deeper than [limit], counted outside strings
+ * without parsing. The JSON parser and the platform filter recurse once per level, so
+ * deeper text would end in a StackOverflowError, which no caller catches.
+ */
+internal fun jsonNestsDeeperThan(text: String, limit: Int): Boolean {
+    var depth = 0
+    var inString = false
+    var escaped = false
+    for (c in text) {
+        if (inString) {
+            if (escaped) escaped = false
+            else if (c == '\\') escaped = true
+            else if (c == '"') inString = false
+        } else when (c) {
+            '"' -> inString = true
+            '[', '{' -> if (++depth > limit) return true
+            ']', '}' -> depth--
+        }
+    }
+    return false
+}
+
 /** Decodes [text] through the Android [PlatformFilter] (same as the window root). */
 internal fun decodeDescription(
     text: String,
     json: Json,
     logger: ActionUILogger,
 ): DescriptionLoad {
+    if (jsonNestsDeeperThan(text, DESCRIPTION_MAX_NESTING_DEPTH)) {
+        logger.log("LoadableLoader: description nested deeper than $DESCRIPTION_MAX_NESTING_DEPTH levels", LoggerLevel.error)
+        return DescriptionLoad.Failed("Nested deeper than $DESCRIPTION_MAX_NESTING_DEPTH levels")
+    }
     val element = try {
         val raw = json.parseToJsonElement(text)
         val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)

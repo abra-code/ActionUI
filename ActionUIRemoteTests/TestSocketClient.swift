@@ -112,4 +112,27 @@ final class TestSocketClient: @unchecked Sendable {
     }
 }
 
+/// Bind a socket at `path` and close it without removing the file, as a crashed server leaves
+/// it. Returns the errno of a failed call, or 0.
+func leaveStaleSocket(at path: String) -> Int32 {
+    let fd = socket(AF_UNIX, streamSocketType, 0)
+    guard fd >= 0 else { return errno }
+    defer { close(fd) }
+    var address = sockaddr_un()
+    address.sun_family = sa_family_t(AF_UNIX)
+    let capacity = MemoryLayout.size(ofValue: address.sun_path)
+    withUnsafeMutablePointer(to: &address.sun_path) { sunPath in
+        sunPath.withMemoryRebound(to: CChar.self, capacity: capacity) { buffer in
+            _ = path.withCString { strncpy(buffer, $0, capacity) }
+            buffer[capacity - 1] = 0
+        }
+    }
+    let result: Int32 = withUnsafePointer(to: &address) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+        }
+    }
+    return result == 0 ? 0 : errno
+}
+
 #endif

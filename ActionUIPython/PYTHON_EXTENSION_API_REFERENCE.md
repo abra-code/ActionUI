@@ -449,6 +449,13 @@ app = actionui.Application(name="My App", application_id="org.example.MyApp")
 # identifier serves.
 ```
 
+Create the Application, and register or change every handler (actions, the default
+handler, the logger callback, lifecycle decorators), on the main thread, as in the Node
+and Rust bindings. Off it, the constructor, `register_handler`, `unregister_handler` and
+the lifecycle decorators other than `window_will_close` and `window_will_present` raise
+RuntimeError and change nothing, as do the `_actionui` calls that store a callback.
+Calls that only read or set values work from any thread.
+
 #### Lifecycle decorators
 
 ```python

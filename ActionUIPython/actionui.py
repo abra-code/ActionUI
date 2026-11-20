@@ -168,7 +168,6 @@ class Application:
         if Application._instance is not None:
             raise RuntimeError("Only one Application instance can exist")
 
-        Application._instance = self
         self._action_handlers: Dict[str, Callable[[ActionContext], None]] = {}
         self._default_handler: Optional[Callable[[ActionContext], None]] = None
         self.logger = Logger()
@@ -211,6 +210,8 @@ class Application:
         # events regardless of whether the user registers their own handlers.
         _actionui.app_set_window_will_close(self._on_window_will_close)
         _actionui.app_set_window_will_present(self._on_window_will_present)
+        # Last: a constructor that raised (off the main thread, say) leaves no instance behind.
+        Application._instance = self
 
     @classmethod
     def instance(cls) -> Optional['Application']:
@@ -265,12 +266,14 @@ class Application:
         return decorator
 
     def register_handler(self, action_id: str, handler: Callable[[ActionContext], None]):
-        self._action_handlers[action_id] = handler
+        """Main thread only: raises RuntimeError on another thread, and nothing changes."""
         _actionui.register_action_handler(action_id, self._action_bridge)
+        self._action_handlers[action_id] = handler
 
     def unregister_handler(self, action_id: str):
-        self._action_handlers.pop(action_id, None)
+        """Main thread only: raises RuntimeError on another thread, and nothing changes."""
         _actionui.unregister_action_handler(action_id)
+        self._action_handlers.pop(action_id, None)
 
     def set_default_handler(self, handler: Optional[Callable[[ActionContext], None]]):
         self._default_handler = handler
@@ -280,9 +283,12 @@ class Application:
     # ------------------------------------------------------------------
 
     def _register_lifecycle(self, name: str, setter, func: Optional[Callable]):
-        """Store *func* in Python (preventing GC) and register with the C layer."""
-        self._lifecycle_callbacks[name] = func
+        """Register with the C layer, then store *func* in Python (preventing GC).
+
+        Main thread only: the setter raises RuntimeError on another thread, and nothing changes.
+        """
         setter(func)
+        self._lifecycle_callbacks[name] = func
 
     def _on_window_will_close(self, window_uuid: str):
         """Internal bridge: clean up tracked window, then call user handler."""
@@ -443,9 +449,9 @@ class Application:
 
         Args:
             path: Socket path.  Defaults to one per process in the user's temporary
-                  directory.  A Unix socket path is capped at 103 bytes.  Anything already
-                  at *path* is unlinked before binding, so pass a path of your own making,
-                  not a file that matters.
+                  directory.  A Unix socket path is capped at 103 bytes.  A socket of this
+                  user's already at *path* (left by a server that did not stop) is
+                  replaced; anything else there makes the start fail and is left alone.
 
         Returns:
             The socket path the server bound.  It is also exported as

@@ -407,7 +407,10 @@ object ActionUIModel {
     fun dismissModal(windowUUID: String = "") {
         val windowModel = windowModels[windowUUID] ?: return
         val modal = windowModel.windowModal ?: return
-        windowModel.viewModels.keys.removeAll(modal.loadedViewIDs)
+        // A LoadableView in the modal takes the content it loaded along (as on Apple).
+        val removedIDs = modal.loadedViewIDs.toMutableSet()
+        for (id in modal.loadedViewIDs) removedIDs += windowModel.collectAndRemoveSubViewIDs(id)
+        windowModel.viewModels.keys.removeAll(removedIDs)
         windowModel.windowModal = null
         modal.onDismissActionID?.let {
             actionHandler(actionID = it, windowUUID = windowUUID, viewID = 0, viewPartID = 0, context = null)

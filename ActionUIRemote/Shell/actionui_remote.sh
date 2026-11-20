@@ -1082,7 +1082,7 @@ actionui_append_rows() {
 actionui_append_text() {
     if [ "$#" -lt 2 ]; then _aui_need 0 "actionui_append_text VIEWID TEXT"; return $?; fi
     _aui_json_string "$2"
-    _aui_element_set "actionui.appendText" "$1" "" "\"text\":$_aui_json"
+    _aui_element_call "actionui.appendText" "$1" "" "\"text\":$_aui_json"
 }
 
 actionui_clear_rows() {

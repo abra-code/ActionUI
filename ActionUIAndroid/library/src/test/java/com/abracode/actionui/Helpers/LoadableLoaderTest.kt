@@ -40,6 +40,20 @@ class LoadableLoaderTest {
     }
 
     @Test
+    fun `decodeDescription refuses text nested deeper than 512 levels instead of overflowing the stack`() {
+        // Before the limit, 10000 levels threw StackOverflowError out of the parser or the filter.
+        for (text in listOf(
+            "[".repeat(100_000) + "]".repeat(100_000),
+            """{"type":"VStack","content":""".repeat(10_000) + """{"type":"Text"}""" + "}".repeat(10_000),
+        )) {
+            assertEquals(DescriptionLoad.Failed("Nested deeper than 512 levels"), decodeDescription(text, json, logger))
+        }
+        // 512 levels decode, and brackets inside strings do not count.
+        val deepest = """{"type":"VStack","content":""".repeat(510) + """{"type":"Text","properties":{"text":"[[{{\"["}}""" + "}".repeat(510)
+        assertTrue(decodeDescription(deepest, json, logger) is DescriptionLoad.Loaded)
+    }
+
+    @Test
     fun `the nesting rule refuses a repeat and a deep chain`() {
         assertNull(loadableNestingRefusal("b", listOf("a")))
         assertEquals("it includes itself", loadableNestingRefusal("a", listOf("a", "b")))

@@ -16,6 +16,7 @@ import ActionUIAdwaitaAddOnFixture
 final class AdwaitaElementTests: XCTestCase {
     private var windowUUID = ""
     private var window: AdwaitaWindow?
+    private var gtkWindow: UnsafeMutablePointer<GtkWindow>?
 
     override func setUp() async throws {
         // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
@@ -32,6 +33,10 @@ final class AdwaitaElementTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        if let gtkWindow {
+            gtk_window_destroy(gtkWindow)
+        }
+        gtkWindow = nil
         window = nil
         FixtureBadge.node = nil
         AdwaitaTestHost.drainMainLoop()
@@ -146,7 +151,13 @@ final class AdwaitaElementTests: XCTestCase {
         _ = try render("""
             {"type": "List", "id": 1, "template": {"type": "FixtureBadge", "properties": {"text": "$1"}}}
             """)
+        // The List's list view makes its rows once it is laid out on screen.
+        let shown: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        gtkWindow = shown
+        adw_window_set_content(typed(shown), try XCTUnwrap(window).contentWidget)
+        gtk_window_present(shown)
         ActionUIModel.shared.setElementValue(windowUUID: windowUUID, viewID: 1, value: [["a"], ["b"]])
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { FixtureBadge.node != nil }), "a row is made")
         assertTheHeldNodeStopsUpdatingWhenTheWindowCloses()
     }
 

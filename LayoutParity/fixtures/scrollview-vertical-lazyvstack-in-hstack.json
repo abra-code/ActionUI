@@ -1,0 +1,8 @@
+{"type": "HStack", "id": 1, "properties": {"spacing": 0, "frame": {"width": 400, "height": 300}}, "children": [
+  {"type": "Color", "id": 2, "properties": {"color": "#0000FF", "frame": {"width": 100}}},
+  {"type": "ScrollView", "id": 3, "content": {
+    "type": "LazyVStack", "id": 4, "properties": {"alignment": "trailing", "spacing": 4}, "children": [
+      {"type": "Color", "id": 5, "properties": {"color": "#FF0000", "frame": {"width": 50, "height": 20}}},
+      {"type": "Color", "id": 6, "properties": {"color": "#00FF00", "frame": {"width": 30, "height": 20}}}
+    ]}}
+]}

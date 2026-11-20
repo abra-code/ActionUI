@@ -17,8 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import java.io.IOException
 import com.abracode.actionui.Common.ActionUIElement
-import com.abracode.actionui.Common.droppingUntypedElements
 import com.abracode.actionui.Common.ActionUIImageRegistry
 import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUILogger
@@ -29,7 +29,7 @@ import com.abracode.actionui.Common.ConsoleLogger
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
-import com.abracode.actionui.Common.PlatformFilter
+import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.rootSafeAreaModifier
 import com.abracode.actionui.Helpers.DescriptionLoad
@@ -41,6 +41,7 @@ import com.abracode.actionui.Helpers.WindowDialogHost
 import com.abracode.actionui.Helpers.WindowModalHost
 import com.abracode.actionui.Helpers.WindowToastHost
 import com.abracode.actionui.Helpers.classifyLoadableSource
+import com.abracode.actionui.Helpers.decodeDescription
 import com.abracode.actionui.Helpers.hasRootToolbarChrome
 import com.abracode.actionui.Helpers.loadLocalDescription
 import com.abracode.actionui.Helpers.loadRemoteDescription
@@ -85,6 +86,10 @@ object ActionUI {
      * [windowUUID] defaults to the empty string: Android is single-window today,
      * and the value/state API uses the same default, so a single rendered
      * document needs no explicit id.
+     *
+     * Text that does not parse or decode shows "Failed to load view: ..." and is
+     * logged as an error, as [RenderSource] does; it no longer throws during
+     * composition, which stopped the app.
      */
     @Composable
     fun Render(
@@ -94,15 +99,24 @@ object ActionUI {
         windowUUID: String = "",
         images: ActionUIImageRegistry? = defaultImageRegistry,
     ) {
-        val raw = json.parseToJsonElement(jsonString)
-        val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
-        val element = json.decodeFromJsonElement(ActionUIElement.serializer(), filtered).droppingUntypedElements(logger)
-        // Key the window model on the source text: the element is re-decoded each
-        // recomposition (a fresh but structurally identical instance), so it is not
-        // a stable remember key.
-        RenderWindow(element, windowKey = jsonString, modifier, logger, windowUUID, images)
+        // Decoded once per text (the shared loader catches parse and decode
+        // failures), and the window model keyed on the text too: a decoded element
+        // is a fresh instance, not a stable remember key.
+        val loaded = remember(jsonString, logger) { decodeDescription(jsonString, json, logger) }
+        when (loaded) {
+            is DescriptionLoad.Loaded ->
+                RenderWindow(loaded.element, windowKey = jsonString, modifier, logger, windowUUID, images)
+            is DescriptionLoad.Failed -> SourceError("Failed to load view: ${loaded.message}", modifier)
+            // decodeDescription answers only Loaded or Failed.
+            else -> SourceError("Failed to load view", modifier)
+        }
     }
 
+    /**
+     * Renders the JSON file at [assetPath] in the app's assets, as [Render] does.
+     * A missing or unreadable asset shows "Failed to load view: ..." and is logged
+     * as an error instead of throwing during composition.
+     */
     @Composable
     fun RenderAsset(
         assetPath: String,
@@ -111,8 +125,19 @@ object ActionUI {
         windowUUID: String = "",
         images: ActionUIImageRegistry? = defaultImageRegistry,
     ) {
-        val context = LocalContext.current
-        val jsonString = context.assets.open(assetPath).bufferedReader().use { it.readText() }
+        val assets = LocalContext.current.assets
+        val jsonString = remember(assetPath) {
+            try {
+                assets.open(assetPath).bufferedReader().use { it.readText() }
+            } catch (e: IOException) {
+                logger.log("ActionUI.RenderAsset: cannot read asset '$assetPath': ${e.message}", LoggerLevel.error)
+                null
+            }
+        }
+        if (jsonString == null) {
+            SourceError("Failed to load view: Resource '$assetPath' not found", modifier)
+            return
+        }
         Render(jsonString, modifier, logger, windowUUID, images)
     }
 

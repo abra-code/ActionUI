@@ -9,7 +9,8 @@
    least the frame's minimum. A safe area inset view adds its length and spacing along its edge;
    across it, the box takes the larger of the frame's and the view's (ModifierBox.cap).
  - A VStack or HStack: along its axis, the sum of its children's largest sizes plus the spacing
-   between them; across it, the largest of its children's.
+   between them; across it, the largest of its children's. A LazyVStack or LazyHStack is
+   unbounded across its axis (it takes all the room it is offered there).
  - A ZStack: the largest of its children's, in each axis.
  - A GroupBox: its card's (its children's, as a VStack's, plus the padding) and its title's, one
    above the other (GroupBox.cap).
@@ -110,6 +111,7 @@ enum LayoutCaps {
         let widths = forSize >= 0 ? StackLayout.childWidths(widget, children, width: forSize) : nil
         let main = stack.axis == .vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL
         guard orientation == main else {
+            if stack.isLazy { return nil }
             // Across a VStack: the widest child, from its offset in a Form (FormLayout).
             let offsets = orientation == GTK_ORIENTATION_HORIZONTAL ? StackLayout.leadingOffsets(widget, children) : nil
             return largestOfChildren(children, orientation, widths: widths, offsets: offsets)

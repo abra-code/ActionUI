@@ -76,6 +76,25 @@ class ActionUIModelModalTest {
     }
 
     @Test
+    fun `dismissModal removes the content a LoadableView in the modal loaded`() {
+        registerWindow("w")
+        ActionUIModel.presentModal(
+            "w",
+            """{"type":"VStack","id":50,"children":[{"type":"LoadableView","id":52,"properties":{"name":"Sub.json"}}]}""",
+            ModalStyle.SHEET,
+        )
+        val window = ActionUIModel.windowModels.getValue("w")
+        window.loadSubDescription(
+            json.decodeFromString(ActionUIElement.serializer(), """{"type":"TextField","id":70,"properties":{"text":"x"}}"""),
+            parentID = 52,
+        )
+        assertTrue(window.viewModels.containsKey(70))
+        ActionUIModel.dismissModal("w")
+        assertFalse(window.viewModels.containsKey(70))
+        assertTrue(window.collectAndRemoveSubViewIDs(52).isEmpty())
+    }
+
+    @Test
     fun `presentModal skips ids that collide with the existing pool`() {
         registerWindow("w")
         // The window root is id 1; a modal also using id 1 must not overwrite or

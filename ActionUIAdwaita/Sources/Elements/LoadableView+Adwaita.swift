@@ -168,7 +168,7 @@ extension LoadableView: ActionUIAdwaitaRenderer {
             }
         }
         // A description that does not parse: JSONParser's error for JSON text, JSONDecoder's or
-        // PropertyListDecoder's for the rest, as Apple words both (Common/JSONParseError+Foundation.swift).
+        // PropertyListDecoder's for the rest, as Apple words both (Core/Helpers/JSONParser.swift).
         if error is JSONParseError || error is DecodingError {
             return "The data couldn't be read because it isn't in the correct format."
         }

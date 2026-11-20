@@ -103,7 +103,8 @@ object LoadableView : ActionUIViewConstruction {
         val props = element.properties
 
         // The live source: the runtime value when a host has set one, else authored.
-        val runtimeValue = windowModel?.viewModels?.get(element.id)?.value as? String
+        val ownModel = windowModel?.viewModels?.get(element.id)
+        val runtimeValue = ownModel?.value as? String
         val source = resolveLoadableSource(runtimeValue, props)
         val classified = remember(source) { classifyLoadableSource(source) }
 
@@ -124,15 +125,17 @@ object LoadableView : ActionUIViewConstruction {
         // in `remember` (matching Apple's FileLoadableView init-time load, no flash).
         // `null` is the in-flight state. The loaded sub-tree is merged into the
         // current window as it arrives (off the render path), so the value/state
-        // API reaches it by id.
+        // API reaches it by id. Keyed on this view's own model too: a reload of the
+        // content around it (or a window reload) removes the models this view's
+        // content merged and gives this view a fresh model, so it merges again.
         val outcome: DescriptionLoad? = if (classified is LoadableSource.Remote) {
-            produceState<DescriptionLoad?>(null, classified, windowModel) {
+            produceState<DescriptionLoad?>(null, classified, windowModel, ownModel) {
                 value = null
-                value = loadRemoteDescription(classified, json, logger).also { mergeIntoWindow(it, windowModel) }
+                value = loadRemoteDescription(classified, json, logger).also { mergeIntoWindow(it, windowModel, element.id) }
             }.value
         } else {
-            remember(windowModel, classified) {
-                loadLocalDescription(classified, assets, json, logger).also { mergeIntoWindow(it, windowModel) }
+            remember(windowModel, classified, ownModel) {
+                loadLocalDescription(classified, assets, json, logger).also { mergeIntoWindow(it, windowModel, element.id) }
             }
         }
 
@@ -183,9 +186,14 @@ object LoadableView : ActionUIViewConstruction {
         }
     }
 
-    /** Merges a successfully loaded sub-tree into [windowModel] (no-op otherwise). */
-    private fun mergeIntoWindow(outcome: DescriptionLoad, windowModel: WindowModel?) {
-        if (outcome is DescriptionLoad.Loaded) windowModel?.loadSubDescription(outcome.element)
+    /**
+     * Merges a successfully loaded sub-tree into [windowModel] (no-op otherwise). A
+     * LoadableView with an id owns what its content merged, so a reload replaces it.
+     */
+    private fun mergeIntoWindow(outcome: DescriptionLoad, windowModel: WindowModel?, ownerID: Int) {
+        if (outcome is DescriptionLoad.Loaded) {
+            windowModel?.loadSubDescription(outcome.element, parentID = if (ownerID > 0) ownerID else 0)
+        }
     }
 
     @Composable

@@ -16,6 +16,7 @@ import CAdwaita
 final class ListRowStyleRendererTests: XCTestCase {
     private var windowUUID = ""
     private var windows: [AdwaitaWindow] = []
+    private var gtkWindows: [UnsafeMutablePointer<GtkWindow>] = []
 
     override func setUp() async throws {
         // No super.setUp(): XCTestCase's does nothing, and on Linux calling it from the main actor
@@ -26,6 +27,10 @@ final class ListRowStyleRendererTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        for window in gtkWindows {
+            gtk_window_destroy(window)
+        }
+        gtkWindows = []
         windows = []
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
@@ -43,21 +48,44 @@ final class ListRowStyleRendererTests: XCTestCase {
         try XCTUnwrap(attached(on: node.widget, key: listStateKey)).box
     }
 
-    /// A rows list with these properties, showing two rows, laid out 300 wide.
+    /// Whether the List's list view or list box draws lines between its rows.
+    private func showsSeparators(_ node: RenderNode) throws -> Bool {
+        let box = try box(node)
+        if Gtk.Widget(box).isA(gtk_list_view_get_type()) {
+            return gtk_list_view_get_show_separators(OpaquePointer(box)) != 0
+        }
+        return gtk_list_box_get_show_separators(OpaquePointer(box)) != 0
+    }
+
+    /// A rows list with these properties, showing two rows, laid out 300 wide in a window on screen
+    /// (its list view binds its rows there).
     private func rowsList(_ properties: String) throws -> RenderNode {
         let node = try render(#"{"type": "List", "id": 1, "properties": {\#(properties)}}"#)
+        let gtkWindow: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        gtkWindows.append(gtkWindow)
+        gtk_window_set_default_size(gtkWindow, 300, 300)
+        adw_window_set_content(typed(gtkWindow), try XCTUnwrap(windows.last).contentWidget)
+        gtk_window_present(gtkWindow)
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Apple"], ["Cherry"]])
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 300)
         AdwaitaTestHost.drainMainLoop()
-        gtk_widget_allocate(node.outerWidget, 300, 300, -1, nil)
         return node
     }
 
-    /// The first row's bounds and its content's, in the scrolled window's coordinates (the list box's own
+    /// Row `position` and its content: a list view's cell and the row holding it, or a list box's.
+    private func row(_ node: RenderNode, _ position: Int) throws -> (row: WidgetPointer, content: WidgetPointer) {
+        if let lazy = try XCTUnwrap(attached(on: node.widget, key: listStateKey)).lazy {
+            let cell = try XCTUnwrap(lazy.cells[position]?.cell)
+            return (try XCTUnwrap(gtk_widget_get_parent(cell)), cell)
+        }
+        let row: WidgetPointer = typed(try XCTUnwrap(gtk_list_box_get_row_at_index(OpaquePointer(try box(node)), Int32(position))))
+        return (row, try XCTUnwrap(gtk_list_box_row_get_child(typed(row))))
+    }
+
+    /// The first row's bounds and its content's, in the scrolled window's coordinates (the list's own
     /// start inside its padding).
     private func firstRow(_ node: RenderNode) throws -> (row: graphene_rect_t, content: graphene_rect_t) {
-        let box = try box(node)
-        let row: WidgetPointer = typed(try XCTUnwrap(gtk_list_box_get_row_at_index(OpaquePointer(box), 0)))
-        let content = try XCTUnwrap(gtk_list_box_row_get_child(typed(row)))
+        let (row, content) = try self.row(node, 0)
         var rowBounds = graphene_rect_t()
         var contentBounds = graphene_rect_t()
         XCTAssertNotEqual(gtk_widget_compute_bounds(row, node.outerWidget, &rowBounds), 0)
@@ -83,8 +111,7 @@ final class ListRowStyleRendererTests: XCTestCase {
 
     func testTheLastRowHasNoLineBelow() throws {
         let node = try rowsList("")
-        let last: WidgetPointer = typed(try XCTUnwrap(gtk_list_box_get_row_at_index(OpaquePointer(try box(node)), 1)))
-        let content = try XCTUnwrap(gtk_list_box_row_get_child(typed(last)))
+        let (last, content) = try self.row(node, 1)
         var row = graphene_rect_t()
         var text = graphene_rect_t()
         XCTAssertNotEqual(gtk_widget_compute_bounds(last, node.outerWidget, &row), 0)
@@ -109,19 +136,19 @@ final class ListRowStyleRendererTests: XCTestCase {
 
     func testHiddenSeparatorsTakeTheLinesAway() throws {
         let node = try rowsList(#""listRowSeparator": "hidden", "listStyle": "insetGrouped""#)
-        XCTAssertEqual(gtk_list_box_get_show_separators(OpaquePointer(try box(node))), 0)
+        XCTAssertFalse(try showsSeparators(node))
         XCTAssertTrue(StyleSheet.shared.css.contains("> row { border-bottom-width: 0; }"), "the cards' lines too")
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "listStyle", value: "plain")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertEqual(gtk_list_box_get_show_separators(OpaquePointer(try box(node))), 0)
+        XCTAssertFalse(try showsSeparators(node))
     }
 
     func testVisibleSeparatorsShowInTheSidebar() throws {
         let node = try rowsList(#""listStyle": "sidebar""#)
-        XCTAssertEqual(gtk_list_box_get_show_separators(OpaquePointer(try box(node))), 0)
+        XCTAssertFalse(try showsSeparators(node))
         ActionUIModel.shared.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "listRowSeparator", value: "visible")
         AdwaitaTestHost.drainMainLoop()
-        XCTAssertNotEqual(gtk_list_box_get_show_separators(OpaquePointer(try box(node))), 0)
+        XCTAssertTrue(try showsSeparators(node))
     }
 
     func testATintColorsTheLines() throws {

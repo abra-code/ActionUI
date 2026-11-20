@@ -9,8 +9,33 @@ import Foundation
 import XCTest
 @testable import ActionUI
 
+/// Records what the loads log: the failures here are expected, and the shared logger another test
+/// class left behind (an XCTestLogger fails a test on any error) is not this class's to rely on.
+private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
+    private(set) var errors: [String] = []
+    func log(_ message: String, _ level: LoggerLevel) {
+        if level == .error { errors.append(message) }
+    }
+}
+
 @MainActor
 final class ActionUIErrorTests: XCTestCase {
+    private var savedLogger: (any ActionUILogger)!
+    private var logger: RecordingLogger!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        savedLogger = ActionUIModel.shared.logger
+        logger = RecordingLogger()
+        ActionUIModel.shared.logger = logger
+    }
+
+    override func tearDown() async throws {
+        ActionUIModel.shared.logger = savedLogger
+        savedLogger = nil
+        logger = nil
+        try await super.tearDown()
+    }
 
     func testEveryReadingOfTheTextIsTheMessage() {
         let error: any Error = ActionUIError("Unsupported format: yaml")
@@ -28,6 +53,7 @@ final class ActionUIErrorTests: XCTestCase {
             XCTAssertEqual((error as? ActionUIError)?.message, "Unsupported format: yaml")
             XCTAssertEqual(error.localizedDescription, "Unsupported format: yaml")
         }
+        XCTAssertEqual(logger.errors, ["Unsupported format: yaml"])
     }
 
     // A document that does not parse reads as it did when JSONDecoder parsed it, in a
