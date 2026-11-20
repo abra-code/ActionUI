@@ -226,22 +226,23 @@ final class NodeContextMenuTests: XCTestCase {
             """#)
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["One"], ["Two"]])
         AdwaitaTestHost.drainMainLoop()
-        let rows = try XCTUnwrap(attached(on: root.widget, key: listStateKey)).rowNodes
-        XCTAssertEqual(rows.count, 2)
+        // The list view makes its rows when it lays them out.
+        let lazy = try XCTUnwrap(try XCTUnwrap(attached(on: root.widget, key: listStateKey)).lazy)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { lazy.made.count == 2 }), "made: \(lazy.made.count)")
+        let rows = lazy.made.sorted { $0.key < $1.key }.map(\.value)
         XCTAssertEqual(labels(try openMenu(try XCTUnwrap(rows.last))), [["Delete"]])
         gtk_popover_popdown(typed(try XCTUnwrap(rows.last?.contextMenu?.menuWidget)))
         AdwaitaTestHost.drainMainLoop()
-        // A right click beside the first row's content opens that row's menu, once the new rows
-        // are laid out.
-        let listBox = try XCTUnwrap(attached(on: root.widget, key: listStateKey)).box
-        let firstRow: WidgetPointer = typed(try XCTUnwrap(gtk_list_box_get_row_at_index(OpaquePointer(listBox), 0)))
+        // A right click beside the first row's content opens that row's menu.
+        let listView = lazy.view
+        // The instance's box is in a holder, the list item's child, in the row.
+        let firstRow = try XCTUnwrap(gtk_widget_get_parent(try XCTUnwrap(gtk_widget_get_parent(rows[0].outerWidget))))
         var bounds = graphene_rect_t()
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: {
-            gtk_widget_compute_bounds(firstRow, listBox, &bounds) != 0
-                && gtk_list_box_get_row_at_y(OpaquePointer(listBox), Int32(bounds.origin.y + 2)).map { typed($0) } == firstRow
+            gtk_widget_compute_bounds(firstRow, listView, &bounds) != 0 && bounds.size.height > 0
         }), "laid out")
         XCTAssertNil(rows[0].contextMenu?.menuWidget)
-        press(try XCTUnwrap(rightClickGesture(listBox)), x: Double(bounds.size.width) - 2, y: Double(bounds.origin.y) + 2)
+        press(try XCTUnwrap(rightClickGesture(listView)), x: Double(bounds.size.width) - 2, y: Double(bounds.origin.y) + 2)
         XCTAssertNotNil(rows[0].contextMenu?.menuWidget, "the first row's menu")
     }
 
