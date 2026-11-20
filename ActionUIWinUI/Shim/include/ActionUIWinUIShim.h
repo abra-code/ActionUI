@@ -804,6 +804,17 @@ ACTIONUI_WINUI_API bool actionUIWinUIDrawingFillRadialGradient(ActionUIWinUIDraw
 // regular), under the transform set. Drops a path not used yet.
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingText(ActionUIWinUIDrawing *drawing, const char *text, double x, double y, double width,
                                                  double fontSize, int32_t weight, ActionUIWinUIColor color);
+// Draws the image file at `path` (absolute, or relative to the current folder) stretched to the
+// frame (x, y, width, height) at `opacity` (0 to 1), under the transform set. Fails, drawing nothing,
+// for a path that names no regular file (actionUIWinUIIsRegularFile) and for a file the system's
+// decoders cannot read (an SVG file among them). Drops a path not used yet.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingImageFile(ActionUIWinUIDrawing *drawing, const char *path, double x, double y,
+                                                      double width, double height, double opacity);
+// Draws SF Symbol `name` (the shim's outline for it, as actionUIWinUISymbolCreate) stretched to the
+// frame, filled with `color` (NULL: the theme's primary text color) at `opacity`. Fails, drawing
+// nothing, when the shim has no outline for the name. Drops a path not used yet.
+ACTIONUI_WINUI_API bool actionUIWinUIDrawingSymbol(ActionUIWinUIDrawing *drawing, const char *name, double x, double y, double width,
+                                                   double height, const ActionUIWinUIColor *color, double opacity);
 // Strokes the path `width` points wide (0 or less draws nothing). `dashes` (`dashCount` lengths in
 // points, or NULL) dash it from `dashPhase` points in; a pattern of only zeros is solid.
 ACTIONUI_WINUI_API bool actionUIWinUIDrawingStroke(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color, double width,
@@ -820,6 +831,10 @@ ACTIONUI_WINUI_API void actionUIWinUIDrawingDiscard(ActionUIWinUIDrawing *drawin
 // The pixels a point of `element`'s window has (its XamlRoot's RasterizationScale: 1.5 at 150%); 1
 // when it is in no window yet.
 ACTIONUI_WINUI_API double actionUIWinUIElementRasterizationScale(ActionUIWinUIObject *element);
+// ActualThemeChanged: `element`'s theme turned light or dark (the system's, the app's or an ancestor's
+// changed); what it drew from the theme is to be drawn again.
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
+                                                                 void *context, ActionUIWinUICallback destroyContext);
 // Tapped: a press and release on `element` (pointer, pen or touch). The event is handled there, so
 // an element around it does not see it.
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,

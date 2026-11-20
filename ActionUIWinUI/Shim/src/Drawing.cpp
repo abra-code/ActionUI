@@ -5,6 +5,7 @@
 
 #include "ShimInternal.h"
 
+#include <charconv>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -139,6 +140,164 @@ winrt::com_ptr<ID2D1GradientStopCollection> stopsOf(ID2D1RenderTarget *target, c
     winrt::check_hresult(target->CreateGradientStopCollection(stops.data(), static_cast<UINT32>(stops.size()), D2D1_GAMMA_2_2,
                                                              D2D1_EXTEND_MODE_CLAMP, collection.put()));
     return collection;
+}
+
+// Adds SVG path text (M, L, H, V, Q, C, Z, absolute or relative; the symbols' outlines) to `sink`.
+// False at anything else, or a command short of numbers.
+bool addSVGPath(const char *text, ID2D1GeometrySink *sink) {
+    const char *cursor = text;
+    const char *end = text + std::strlen(text);
+    char command = 0;
+    bool figureOpen = false;
+    D2D1_POINT_2F current{0, 0};
+    D2D1_POINT_2F start{0, 0};
+    auto skip = [&]() {
+        while (cursor < end && (*cursor == ' ' || *cursor == ',' || *cursor == '\t' || *cursor == '\n' || *cursor == '\r')) {
+            ++cursor;
+        }
+    };
+    auto number = [&](float &value) {
+        skip();
+        double parsed = 0;
+        std::from_chars_result result = std::from_chars(cursor, end, parsed);
+        if (result.ec != std::errc() || !std::isfinite(parsed)) {
+            return false;
+        }
+        cursor = result.ptr;
+        value = static_cast<float>(parsed);
+        return true;
+    };
+    auto begin = [&]() {
+        if (!figureOpen) {
+            sink->BeginFigure(current, D2D1_FIGURE_BEGIN_FILLED);
+            start = current;
+            figureOpen = true;
+        }
+    };
+    while (true) {
+        skip();
+        if (cursor >= end) {
+            break;
+        }
+        char next = *cursor;
+        if ((next >= 'A' && next <= 'Z') || (next >= 'a' && next <= 'z')) {
+            command = next;
+            ++cursor;
+        } else if (command == 0) {
+            return false;
+        }
+        bool relative = command >= 'a' && command <= 'z';
+        float dx = relative ? current.x : 0;
+        float dy = relative ? current.y : 0;
+        switch (command) {
+        case 'M':
+        case 'm': {
+            float x = 0, y = 0;
+            if (!number(x) || !number(y)) {
+                return false;
+            }
+            if (figureOpen) {
+                sink->EndFigure(D2D1_FIGURE_END_OPEN);
+                figureOpen = false;
+            }
+            current = D2D1::Point2F(x + dx, y + dy);
+            // More pairs after a move are lines.
+            command = relative ? 'l' : 'L';
+            break;
+        }
+        case 'L':
+        case 'l': {
+            float x = 0, y = 0;
+            if (!number(x) || !number(y)) {
+                return false;
+            }
+            begin();
+            current = D2D1::Point2F(x + dx, y + dy);
+            sink->AddLine(current);
+            break;
+        }
+        case 'H':
+        case 'h': {
+            float x = 0;
+            if (!number(x)) {
+                return false;
+            }
+            begin();
+            current = D2D1::Point2F(x + dx, current.y);
+            sink->AddLine(current);
+            break;
+        }
+        case 'V':
+        case 'v': {
+            float y = 0;
+            if (!number(y)) {
+                return false;
+            }
+            begin();
+            current = D2D1::Point2F(current.x, y + dy);
+            sink->AddLine(current);
+            break;
+        }
+        case 'Q':
+        case 'q': {
+            float cx = 0, cy = 0, x = 0, y = 0;
+            if (!number(cx) || !number(cy) || !number(x) || !number(y)) {
+                return false;
+            }
+            begin();
+            D2D1_POINT_2F control = D2D1::Point2F(cx + dx, cy + dy);
+            current = D2D1::Point2F(x + dx, y + dy);
+            sink->AddQuadraticBezier(D2D1::QuadraticBezierSegment(control, current));
+            break;
+        }
+        case 'C':
+        case 'c': {
+            float c1x = 0, c1y = 0, c2x = 0, c2y = 0, x = 0, y = 0;
+            if (!number(c1x) || !number(c1y) || !number(c2x) || !number(c2y) || !number(x) || !number(y)) {
+                return false;
+            }
+            begin();
+            D2D1_POINT_2F first = D2D1::Point2F(c1x + dx, c1y + dy);
+            D2D1_POINT_2F second = D2D1::Point2F(c2x + dx, c2y + dy);
+            current = D2D1::Point2F(x + dx, y + dy);
+            sink->AddBezier(D2D1::BezierSegment(first, second, current));
+            break;
+        }
+        case 'Z':
+        case 'z':
+            if (figureOpen) {
+                sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+                figureOpen = false;
+            }
+            current = start;
+            // A number after Z is no command's.
+            command = 0;
+            break;
+        default:
+            return false;
+        }
+    }
+    if (figureOpen) {
+        sink->EndFigure(D2D1_FIGURE_END_OPEN);
+    }
+    return true;
+}
+
+// The theme's primary text color (what an Image's symbol draws in), black when the theme has none.
+D2D1_COLOR_F themeTextColor() {
+    try {
+        wf::IInspectable found = mux::Application::Current().Resources().Lookup(winrt::box_value(L"TextFillColorPrimaryBrush"));
+        if (media::SolidColorBrush brush = found != nullptr ? found.try_as<media::SolidColorBrush>() : nullptr) {
+            winrt::Windows::UI::Color color = brush.Color();
+            return D2D1::ColorF(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f * static_cast<float>(brush.Opacity()));
+        }
+    } catch (winrt::hresult_error const &) {
+    }
+    return D2D1::ColorF(0, 0, 0, 1);
+}
+
+float opacityOf(double opacity) {
+    return static_cast<float>(std::isfinite(opacity) ? std::fmin(std::fmax(opacity, 0.0), 1.0) : 1.0);
 }
 
 ActionUIWinUIDrawing *drawingOf(ActionUIWinUIDrawing *drawing) {
@@ -349,6 +508,71 @@ bool actionUIWinUIDrawingText(ActionUIWinUIDrawing *drawing, const char *text, d
     });
 }
 
+bool actionUIWinUIDrawingImageFile(ActionUIWinUIDrawing *drawing, const char *path, double x, double y, double width,
+                                   double height, double opacity) {
+    return guarded("drawing image file", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        takePath(typed);
+        // A document names the path: a device or a pipe is never opened (Images.cpp).
+        if (!actionUIWinUIIsRegularFile(path)) {
+            return fail("drawing image file", "the path names no regular file");
+        }
+        std::wstring wide(toHString(path));
+        winrt::com_ptr<IWICBitmapDecoder> decoder;
+        winrt::check_hresult(imagingFactory()->CreateDecoderFromFilename(wide.c_str(), nullptr, GENERIC_READ,
+                                                                         WICDecodeMetadataCacheOnDemand, decoder.put()));
+        winrt::com_ptr<IWICBitmapFrameDecode> frame;
+        winrt::check_hresult(decoder->GetFrame(0, frame.put()));
+        winrt::com_ptr<IWICFormatConverter> converter;
+        winrt::check_hresult(imagingFactory()->CreateFormatConverter(converter.put()));
+        winrt::check_hresult(converter->Initialize(frame.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0,
+                                                   WICBitmapPaletteTypeMedianCut));
+        winrt::com_ptr<ID2D1Bitmap> bitmap;
+        winrt::check_hresult(typed->target->CreateBitmapFromWicBitmap(converter.get(), nullptr, bitmap.put()));
+        // Stretched to the frame.
+        typed->target->DrawBitmap(bitmap.get(),
+                                  D2D1::RectF(static_cast<float>(x), static_cast<float>(y), static_cast<float>(x + width),
+                                              static_cast<float>(y + height)),
+                                  opacityOf(opacity), D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+        return true;
+    });
+}
+
+bool actionUIWinUIDrawingSymbol(ActionUIWinUIDrawing *drawing, const char *name, double x, double y, double width, double height,
+                                const ActionUIWinUIColor *color, double opacity) {
+    return guarded("drawing symbol", [&]() {
+        ActionUIWinUIDrawing *typed = drawingOf(drawing);
+        takePath(typed);
+        const char *outline = symbolOutline(name);
+        if (outline == nullptr) {
+            return fail("drawing symbol", "no outline for that symbol name");
+        }
+        winrt::com_ptr<ID2D1PathGeometry> geometry;
+        winrt::check_hresult(factory()->CreatePathGeometry(geometry.put()));
+        winrt::com_ptr<ID2D1GeometrySink> sink;
+        winrt::check_hresult(geometry->Open(sink.put()));
+        // The nonzero rule fonts use (even-odd would hollow out overlapping contours).
+        sink->SetFillMode(D2D1_FILL_MODE_WINDING);
+        bool parsed = addSVGPath(outline, sink.get());
+        winrt::check_hresult(sink->Close());
+        if (!parsed) {
+            return fail("drawing symbol", "the symbol's outline cannot be read");
+        }
+        D2D1_COLOR_F fill = color != nullptr ? colorOf(*color) : themeTextColor();
+        fill.a *= opacityOf(opacity);
+        winrt::com_ptr<ID2D1SolidColorBrush> brush;
+        winrt::check_hresult(typed->target->CreateSolidColorBrush(fill, brush.put()));
+        // The symbol's box stretched to the frame, under the transform set.
+        double units = symbolUnits();
+        D2D1_MATRIX_3X2_F place = D2D1::Matrix3x2F::Scale(static_cast<float>(width / units), static_cast<float>(height / units)) *
+                                  D2D1::Matrix3x2F::Translation(static_cast<float>(x), static_cast<float>(y));
+        typed->target->SetTransform(place * typed->transform);
+        typed->target->FillGeometry(geometry.get(), brush.get());
+        typed->target->SetTransform(typed->transform);
+        return true;
+    });
+}
+
 bool actionUIWinUIDrawingStroke(ActionUIWinUIDrawing *drawing, ActionUIWinUIColor color, double width, ActionUIWinUILineCap cap,
                                 ActionUIWinUILineJoin join, double miterLimit, const double *dashes, int32_t dashCount, double dashPhase) {
     return guarded("drawing stroke", [&]() {
@@ -504,6 +728,15 @@ bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICal
                 holder->fire();
             });
     });
+}
+
+bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                              ActionUIWinUICallback destroyContext) {
+    return registerHandler("element on actual theme changed", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               objectAs<mux::FrameworkElement>(element, L"FrameworkElement")
+                                   .ActualThemeChanged([holder](auto &&, auto &&) { holder->fire(); });
+                           });
 }
 
 } // extern "C"

@@ -95,6 +95,19 @@ media::Geometry geometry(const char *path) {
 
 } // namespace
 
+namespace actionui_winui {
+
+const char *symbolOutline(const char *name) {
+    const SymbolRow *row = name != nullptr ? findRow(name) : nullptr;
+    return row != nullptr ? symbolPath(row->path) : nullptr;
+}
+
+double symbolUnits() {
+    return ACTIONUI_SYMBOL_UNITS;
+}
+
+} // namespace actionui_winui
+
 extern "C" {
 
 bool actionUIWinUISymbolsAvailable(void) {

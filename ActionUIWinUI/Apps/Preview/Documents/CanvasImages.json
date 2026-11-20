@@ -1,0 +1,28 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "alignment": "leading", "padding": 16 },
+  "children": [
+    {
+      "type": "Canvas",
+      "id": 2,
+      "properties": {
+        "frame": { "width": 380, "height": 120 },
+        "coordinateMode": "points",
+        "backgroundColor": "#F4F4F4",
+        "operations": [
+          { "type": "image", "frame": [8, 8, 96, 48], "systemName": "star.fill" },
+          { "type": "image", "frame": [112, 8, 80, 50], "filePath": "Images/sample_image.png" },
+          { "type": "image", "frame": [200, 8, 80, 50], "filePath": "Images/sample_image.png", "opacity": 0.4 },
+          { "type": "image", "frame": [288, 8, 32, 32], "filePath": "Images/missing.png" },
+          { "type": "image", "frame": [328, 8, 32, 32], "filePath": "Images/ActionUIDemo.svg" },
+          { "type": "image", "frame": [8, 70, 40, 40], "assetName": "NoSuchAsset" },
+          { "type": "translate", "x": 140, "y": 90 },
+          { "type": "rotate", "angle": 30 },
+          { "type": "image", "frame": [-20, -20, 40, 40], "systemName": "heart.fill", "opacity": 0.7 }
+        ]
+      }
+    },
+    { "type": "Text", "id": 3, "properties": { "text": "A wide symbol, a PNG, at 40%, a missing file, an SVG, an asset (nothing), a rotated symbol", "font": "caption" } }
+  ]
+}

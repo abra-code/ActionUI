@@ -27,9 +27,15 @@
  - A tap is the canvas's own, with or without an actionID, as Apple's tap gesture is: an element
    around it does not see it.
 
- Not yet (skipped, logged once per kind): images, shadow, blur and layers. Not
+ - An image is stretched to its frame, at its opacity: a file (only a regular file is opened), else
+   the photo symbol when it cannot be read (an SVG file among them: the system's decoders have no
+   SVG); a symbol in the theme's text color; an asset draws nothing (Windows apps have none), as a
+   missing asset draws nothing on Apple. Drawn again when the theme turns light or dark.
+
+ Not yet (skipped, logged once per kind): shadow, blur and layers. Not
  drawn again when the window moves to a monitor with another scale until its size or properties
- change.
+ change; an image file is read again at each drawing (no cache); an SVG file draws the photo symbol;
+ a symbol takes the app's theme, not a subtree's own (RequestedTheme).
 */
 
 #if canImport(FoundationEssentials)
@@ -81,6 +87,12 @@ extension Canvas: ActionUIWinUIRenderer {
         // Hit-testable everywhere, also where nothing is drawn.
         Paint.apply(.color(ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 0)), ActionUIWinUIBrushBackground,
                     to: fill.panel.object, what: "a Canvas")
+        // A symbol's color is the theme's text color: drawn again in the new theme.
+        WinUIEvents.connect(fill.panel.object, actionUIWinUIElementOnActualThemeChanged, "a Canvas's theme") { [weak state] in
+            guard let state else { return }
+            state.needsDrawing = true
+            state.fill.panel.invalidateLayout()
+        }
         WinUIEvents.connect(fill.panel.object, actionUIWinUIElementOnTapped, "a Canvas's tap") { [weak node] in
             guard let node, node.isAttached, let actionID = Props(node.properties).actionID else { return }
             ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0)
@@ -376,7 +388,13 @@ final class CanvasPath {
                 guard let text = operation["text"] as? String, let frame = rect(operation.doubleArray(forKey: "frame"), size: size) else { continue }
                 drawText(text, operation, in: frame, transform: transform)
 
-            case "image", "shadow", "blur", "layer":
+            case "image":
+                guard let frame = rect(operation.doubleArray(forKey: "frame"), size: size) else { continue }
+                if !drawImage(operation, in: frame, transform: transform) {
+                    logger.log("Failed to resolve image", .warning)
+                }
+
+            case "shadow", "blur", "layer":
                 skip(type.lowercased())
 
             default:
@@ -573,6 +591,59 @@ final class CanvasPath {
             logger.log("Canvas: \(WinUIError.last("drawing text"))", .error)
             return
         }
+    }
+
+    // MARK: Images
+
+    /// Draws the image an operation names, stretched to `frame`, at the operation's opacity (Apple's
+    /// code sets the context's opacity for the image, then 1 again). False when it names none that can
+    /// be drawn: a missing asset (Windows apps have no asset catalogs), a symbol with no outline.
+    private func drawImage(_ operation: [String: Any], in frame: Rect, transform: CanvasAffine) -> Bool {
+        let source: ImageSource
+        if let name = operation["systemName"] as? String {
+            source = .systemName(name)
+        } else if operation["assetName"] is String {
+            // An asset that does not exist draws nothing, as SwiftUI's Image(name) draws it.
+            return false
+        } else if let name = operation["resourceName"] as? String {
+            source = ImageSource.resolve(name, interpretation: "resourceName", lookup: Image.lookup)
+        } else if let path = operation["filePath"] as? String {
+            source = ImageSource.resolve(path, interpretation: "path", lookup: Image.lookup)
+        } else {
+            return false
+        }
+        // A resource Windows does not find (it has none yet) is read as an asset, as on Apple: nothing.
+        if case .assetName = source { return false }
+        guard frame.width != 0, frame.height != 0 else { return true }
+        guard transform.isFinite else { return true }
+        guard actionUIWinUIDrawingSetTransform(drawing, transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty) else {
+            logger.log("Canvas: \(WinUIError.last("placing an image"))", .error)
+            return true
+        }
+        let opacity = operation.double(forKey: "opacity") ?? 1
+        switch Image.content(source) {
+        case .file(let path):
+            if actionUIWinUIDrawingImageFile(drawing, path, frame.x, frame.y, frame.width, frame.height, opacity) {
+                return true
+            }
+            // A file that cannot be read is the photo symbol, as SwiftUI's Image draws it.
+            logger.log("Canvas: \(WinUIError.last("drawing \(path)")); drawing the photo symbol", .warning)
+            return drawSymbol(ImageSource.placeholderSymbol, in: frame, opacity: opacity)
+        case .symbol(let name):
+            return drawSymbol(name, in: frame, opacity: opacity)
+        }
+    }
+
+    /// Draws symbol `name` stretched to `frame` in the theme's text color (an Image's symbol color).
+    private func drawSymbol(_ name: String, in frame: Rect, opacity: Double) -> Bool {
+        guard actionUIWinUISymbolExists(name) else {
+            logger.log("Canvas: no Windows symbol for \"\(name)\"", .warning)
+            return false
+        }
+        if !actionUIWinUIDrawingSymbol(drawing, name, frame.x, frame.y, frame.width, frame.height, nil, opacity) {
+            logger.log("Canvas: \(WinUIError.last("drawing the symbol \(name)"))", .error)
+        }
+        return true
     }
 
     // MARK: Paths

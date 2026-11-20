@@ -143,4 +143,9 @@ T objectAs(ActionUIWinUIObject *object, const wchar_t *typeName) {
     return typed;
 }
 
+// The outline of SF Symbol `name` as SVG path text (absolute M, L, H, V, Q, C, Z; y down) in a box
+// symbolUnits() a side, or nullptr when the shim has none for it (Symbols.cpp).
+const char *symbolOutline(const char *name);
+double symbolUnits();
+
 } // namespace actionui_winui
