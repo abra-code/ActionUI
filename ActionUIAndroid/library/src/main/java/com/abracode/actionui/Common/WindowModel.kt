@@ -129,13 +129,14 @@ class WindowModel(
     /**
      * Adopts [root] as the window's element and (re)builds the [ViewModel] pool
      * from it, seeding each value-bearing element's initial value. Mirrors the
-     * Swift `loadDescription`, minus the decoding (the caller decodes).
+     * Swift `loadDescription`, minus the decoding (the caller decodes). [origin] is where
+     * the document came from; null for the host's own.
      */
-    fun loadDescription(root: ActionUIElement): ActionUIElement {
+    fun loadDescription(root: ActionUIElement, origin: JSONContentOrigin? = null): ActionUIElement {
         element = root
         viewModels.clear()
         loadedSubViewIDs.clear()
-        populateViewModels(root, into = viewModels)
+        populateViewModels(root, into = viewModels, origin = origin)
         logger.log(
             "Loaded description for windowUUID: $windowUUID, element id: ${root.id}, " +
                 "${viewModels.size} view model(s)",
@@ -157,16 +158,16 @@ class WindowModel(
      * a parent control's value. When [parentID] (the LoadableView's own id) is not 0,
      * the models its previous content merged are removed first and the ids merged
      * now are recorded as its own. Unlike [loadDescription] it does not touch
-     * [element] (the window root stays the originally-loaded document). Returns
-     * [subRoot].
+     * [element] (the window root stays the originally-loaded document). [origin] is where
+     * the sub-tree came from (null: the host's). Returns [subRoot].
      */
-    fun loadSubDescription(subRoot: ActionUIElement, parentID: Int = 0): ActionUIElement {
+    fun loadSubDescription(subRoot: ActionUIElement, parentID: Int = 0, origin: JSONContentOrigin? = null): ActionUIElement {
         if (parentID != 0) {
             val oldIDs = collectAndRemoveSubViewIDs(parentID)
             for (id in oldIDs) viewModels.remove(id)
         }
         val subViewModels = mutableMapOf<Int, ViewModel>()
-        populateViewModels(subRoot, into = subViewModels)
+        populateViewModels(subRoot, into = subViewModels, origin = origin)
         val mergedIDs = mutableSetOf<Int>()
         for ((id, viewModel) in subViewModels) {
             if (viewModels.containsKey(id)) {
@@ -234,7 +235,7 @@ class WindowModel(
      * meaningful for elements that carry a positive, unique id, as on the
      * Apple side.
      */
-    private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>) {
+    private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>, origin: JSONContentOrigin? = null) {
         // Only positive ids register - Apple's documented contract ("non-zero
         // positive integer for runtime programmatic interaction"). Elements
         // without an id default to 0 and would all collide on one map key,
@@ -244,6 +245,7 @@ class WindowModel(
         // controls instead take their local-state fallback path.
         if (element.id > 0) {
             val viewModel = ViewModel()
+            viewModel.origin = origin
             viewModel.elementType = element.type
             viewModel.authoredProperties = element.properties
             val builder = ActionUIRegistry.lookup(element.type)
@@ -282,7 +284,7 @@ class WindowModel(
             )
         }
 
-        element.subElements().forEach { populateViewModels(it, into) }
+        element.subElements().forEach { populateViewModels(it, into, origin) }
     }
 
     // MARK: - Runtime structural mutations (insertElement / insertRow / removeElement)

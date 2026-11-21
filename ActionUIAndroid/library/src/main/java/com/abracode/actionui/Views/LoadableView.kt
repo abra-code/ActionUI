@@ -21,6 +21,9 @@ import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.classifyOrigin
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -107,6 +110,11 @@ object LoadableView : ActionUIViewConstruction {
         val runtimeValue = ownModel?.value as? String
         val source = resolveLoadableSource(runtimeValue, props)
         val classified = remember(source) { classifyLoadableSource(source) }
+        // The loaded content's origin: its source's, no more trusted than the content around it.
+        val around = LocalJSONContentOrigin.current
+        val origin = remember(classified, around) {
+            classifyOrigin(classified, around, element.id.takeIf { it > 0 }, ActionUIModel.resourceFolders)
+        }
 
         // Refuse a source a LoadableView around this one shows, or a chain too deep, before
         // anything is read: a file or asset source loads during composition.
@@ -131,11 +139,11 @@ object LoadableView : ActionUIViewConstruction {
         val outcome: DescriptionLoad? = if (classified is LoadableSource.Remote) {
             produceState<DescriptionLoad?>(null, classified, windowModel, ownModel) {
                 value = null
-                value = loadRemoteDescription(classified, json, logger).also { mergeIntoWindow(it, windowModel, element.id) }
+                value = loadRemoteDescription(classified, json, logger).also { mergeIntoWindow(it, windowModel, element.id, origin) }
             }.value
         } else {
             remember(windowModel, classified, ownModel) {
-                loadLocalDescription(classified, assets, json, logger).also { mergeIntoWindow(it, windowModel, element.id) }
+                loadLocalDescription(classified, assets, json, logger).also { mergeIntoWindow(it, windowModel, element.id, origin) }
             }
         }
 
@@ -169,7 +177,7 @@ object LoadableView : ActionUIViewConstruction {
                 // BuildViewWithModifiers resolves the loaded element's common properties.
                 // LoadableViews inside the loaded tree see this source among those around them.
                 val inside = if (nestingKey != null) enclosing + nestingKey else enclosing
-                CompositionLocalProvider(LocalLoadableSources provides inside) {
+                CompositionLocalProvider(LocalLoadableSources provides inside, LocalJSONContentOrigin provides (origin ?: around)) {
                     ProvideTextStyleEnvironment(loaded.properties, logger) {
                         builder.BuildViewWithModifiers(loaded, modifier)
                     }
@@ -190,9 +198,9 @@ object LoadableView : ActionUIViewConstruction {
      * Merges a successfully loaded sub-tree into [windowModel] (no-op otherwise). A
      * LoadableView with an id owns what its content merged, so a reload replaces it.
      */
-    private fun mergeIntoWindow(outcome: DescriptionLoad, windowModel: WindowModel?, ownerID: Int) {
+    private fun mergeIntoWindow(outcome: DescriptionLoad, windowModel: WindowModel?, ownerID: Int, origin: JSONContentOrigin?) {
         if (outcome is DescriptionLoad.Loaded) {
-            windowModel?.loadSubDescription(outcome.element, parentID = if (ownerID > 0) ownerID else 0)
+            windowModel?.loadSubDescription(outcome.element, parentID = if (ownerID > 0) ownerID else 0, origin = origin)
         }
     }
 

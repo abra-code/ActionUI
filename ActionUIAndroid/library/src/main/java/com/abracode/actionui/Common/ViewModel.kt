@@ -67,6 +67,14 @@ import kotlinx.serialization.json.JsonObject
  */
 class ViewModel {
     /**
+     * Where this element's content came from (see [JSONContentOrigin]); null for the host's own
+     * content: a document the host passed in, or an element it inserted at run time. Set
+     * when the model is made, by the load that brought the element in.
+     */
+    var origin: JSONContentOrigin? = null
+        internal set
+
+    /**
      * The element's current value (e.g. a text field's string). Backed by
      * Compose snapshot state so reads inside composition subscribe and host-side
      * writes through [ActionUIModel.setElementValue] trigger recomposition.

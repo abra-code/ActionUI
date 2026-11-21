@@ -271,6 +271,22 @@ object ActionUIModel {
     internal val windowModels = mutableMapOf<String, WindowModel>()
 
     /**
+     * Folders whose files count as the app's own resources, as its assets do: documents
+     * there are trusted (see [JSONContentOrigin]). Empty by default; a host that ships documents
+     * as files (unpacked into its files folder, say) adds that folder. Set before loading.
+     */
+    var resourceFolders: List<String> = emptyList()
+
+    /**
+     * Where element [viewID]'s content in window [windowUUID] came from, and how far it is
+     * trusted; [JSONContentOrigin.HOST] for the host's own content; null when the window has no
+     * such element (only elements with a positive id have one). An action handler can ask
+     * this before acting on what less-trusted content sent.
+     */
+    fun origin(windowUUID: String, viewID: Int): JSONContentOrigin? =
+        windowModels[windowUUID]?.viewModels?.get(viewID)?.let { it.origin ?: JSONContentOrigin.HOST }
+
+    /**
      * Adopts [root] as the description for [windowUUID]: builds (or rebuilds) the
      * window's [WindowModel] and [ViewModel] pool and registers it so the value /
      * state API can resolve element ids. Mirrors the Swift
@@ -281,9 +297,10 @@ object ActionUIModel {
         root: ActionUIElement,
         windowUUID: String = "",
         logger: ActionUILogger = this.logger,
+        origin: JSONContentOrigin? = null,
     ): WindowModel {
         val windowModel = WindowModel(windowUUID, logger)
-        windowModel.loadDescription(root)
+        windowModel.loadDescription(root, origin)
         windowModels[windowUUID] = windowModel
         return windowModel
     }

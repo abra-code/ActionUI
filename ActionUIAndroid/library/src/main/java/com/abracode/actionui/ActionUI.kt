@@ -26,6 +26,9 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.ConsoleLogger
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.classifyOrigin
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -175,6 +178,9 @@ object ActionUI {
     ) {
         val assets = LocalContext.current.assets
         val classified = remember(source) { classifyLoadableSource(source) }
+        // The window's own document is classified as a LoadableView's is: an asset, or a file
+        // in a resource folder, is trusted; a file elsewhere or a remote address is not.
+        val origin = remember(classified) { classifyOrigin(classified, null, null, ActionUIModel.resourceFolders) }
 
         // Remote loads async (spinner -> root/error); local loads synchronously.
         // `null` is the in-flight state. Nothing is registered until a Loaded result
@@ -195,7 +201,7 @@ object ActionUI {
             ) { CircularProgressIndicator() }
 
             is DescriptionLoad.Loaded ->
-                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images)
+                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images, origin)
 
             is DescriptionLoad.Failed -> SourceError("Failed to load view: ${loaded.message}", modifier)
             is DescriptionLoad.NoSource -> SourceError("No valid source provided", modifier)
@@ -226,9 +232,10 @@ object ActionUI {
         logger: ActionUILogger,
         windowUUID: String,
         images: ActionUIImageRegistry?,
+        origin: JSONContentOrigin? = null,
     ) {
         val windowModel = remember(windowUUID, windowKey) {
-            ActionUIModel.loadDescription(element, windowUUID, logger)
+            ActionUIModel.loadDescription(element, windowUUID, logger, origin)
         }
         DisposableEffect(windowModel) {
             onDispose { ActionUIModel.unregisterWindow(windowUUID, expected = windowModel) }
@@ -239,6 +246,7 @@ object ActionUI {
             LocalActionUILogger provides logger,
             LocalWindowModel provides windowModel,
             LocalActionUIImageRegistry provides images,
+            LocalJSONContentOrigin provides (origin ?: JSONContentOrigin.HOST),
         ) {
             RenderRoot(element, builder, modifier, logger)
             // Window-level overlays (the Android counterpart of Apple wrapping a
