@@ -92,6 +92,9 @@ package final class RenderNode {
     /// Nodes of elements this node shows elsewhere than among its children (its toolbar items'
     /// contents): made like children, so they inherit its environment, and synced as they are.
     package private(set) var auxiliaryNodes: [RenderNode] = []
+    /// True for a background or overlay view's node: in its element's box, not among its children,
+    /// so the element is not the stack it is in (StackViews.parentAxis, parentArrangement).
+    private(set) var isDecoration = false
     /// The toolbar the element declares (its "toolbar" items), shown in the window's command row.
     private(set) var toolbar: NodeToolbar?
     /// Children made since the last sync, synced at the end of it.
@@ -143,6 +146,23 @@ package final class RenderNode {
         takesNoPlace = UntrackedReads.perform { renderer.takesNoPlace(self) }
         toolbar = NodeToolbar.make(for: self)
         appearance = NodeAppearance.watch(self)
+        makeDecorations()
+    }
+
+    /// The element's background and overlay views (its "background" and "overlay" subviews), made as
+    /// auxiliary nodes and placed in its box; none on a Group or a Section, whose modifiers SwiftUI
+    /// applies to each child. They inherit this node's environment (the Linux renderer gives them
+    /// the parent's, with the element's font and colors left out, as SwiftUI applies those first).
+    private func makeDecorations() {
+        guard let box, element.type != "Group", element.type != "Section" else { return }
+        func decoration(_ key: String) -> ModifierBox.Decoration? {
+            guard let subview = element.subviews?[key] as? any ActionUIElementBase else { return nil }
+            let node = auxiliaryNode(for: subview)
+            node.isDecoration = true
+            guard let view = node.outerView else { return nil }
+            return ModifierBox.Decoration(view: view, expansion: { [weak node] in node?.expansion ?? [] })
+        }
+        box.setDecorations(background: decoration("background"), overlay: decoration("overlay"))
     }
 
     /// The base modifiers the box and the text appearance read, from the current properties. A
@@ -167,7 +187,7 @@ package final class RenderNode {
         // In a ControlGroup a child's padding and frame do not apply: macOS draws the group from its
         // buttons' titles (measured on macOS 27: padded buttons are as wide as without, a button framed
         // 100 wide keeps its own width), so the buttons stay joined.
-        if parent?.element.type == "ControlGroup" {
+        if parent?.element.type == "ControlGroup", !isDecoration {
             modifiers.padding = nil
             modifiers.frame = nil
         }

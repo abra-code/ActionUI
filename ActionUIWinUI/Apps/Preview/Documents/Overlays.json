@@ -1,0 +1,108 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 20,
+  "spacing": 18
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 28
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 3,
+     "properties": {
+      "text": "Inbox",
+      "padding": 10,
+      "background": "gray.opacity(0.2)",
+      "overlayAlignment": "topTrailing"
+     },
+     "overlay": {
+      "type": "Text",
+      "id": 4,
+      "properties": {
+       "text": "3",
+       "font": "caption",
+       "padding": 4,
+       "background": "red",
+       "foregroundStyle": "white",
+       "cornerRadius": 8,
+       "offset": {
+        "x": 8,
+        "y": -8
+       }
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 5,
+     "properties": {
+      "text": "Card",
+      "padding": 14,
+      "cornerRadius": 12
+     },
+     "background": {
+      "type": "Color",
+      "id": 6,
+      "properties": {
+       "color": "mint"
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 7,
+     "properties": {
+      "text": "Bar below",
+      "frame": {
+       "width": 110,
+       "height": 40
+      },
+      "backgroundAlignment": "bottom"
+     },
+     "background": {
+      "type": "Rectangle",
+      "id": 8,
+      "properties": {
+       "fill": "orange",
+       "frame": {
+        "height": 6
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 9,
+   "properties": {
+    "text": "Cover",
+    "padding": 12,
+    "background": "yellow"
+   },
+   "overlay": {
+    "type": "Color",
+    "id": 10,
+    "properties": {
+     "color": "blue.opacity(0.3)"
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 11,
+   "properties": {
+    "font": "caption",
+    "text": "overlay and background views: a badge at the top trailing corner (offset 8, -8), a mint Color behind a rounded card, an orange bar background 6 high at the bottom of a 110 by 40 frame, a translucent blue Color over a yellow label."
+   }
+  }
+ ]
+}

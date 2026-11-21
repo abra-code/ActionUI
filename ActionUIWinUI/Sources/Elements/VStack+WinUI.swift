@@ -64,6 +64,8 @@ extension VStack: ActionUIWinUIRenderer {
     /// content is a column), horizontal in an HStack or a LabeledContent (its content is a row); in a
     /// Group, the Group's own (that of the stack it is in, else a column); nil in anything else.
     static func parentAxis(_ node: RenderNode) -> StackLayout.Axis? {
+        // A background or overlay view is in no stack.
+        guard !node.isDecoration else { return nil }
         switch node.parent?.element.type {
         case "VStack", "LazyVStack", "GroupBox", "Form", "Section": return .vertical
         case "HStack", "LazyHStack", "LabeledContent": return .horizontal
@@ -77,7 +79,7 @@ extension VStack: ActionUIWinUIRenderer {
     /// column or a LabeledContent's row (the default spacing, centered), an enclosing Section's or
     /// Group's; elsewhere no spacing, centered.
     static func parentArrangement(_ node: RenderNode) -> (spacing: Double?, alignment: StackSolver.Alignment) {
-        guard let parent = node.parent else { return (0, .center) }
+        guard let parent = node.parent, !node.isDecoration else { return (0, .center) }
         switch parent.element.type {
         case "VStack", "LazyVStack":
             let props = VStack.Props(parent.properties)
