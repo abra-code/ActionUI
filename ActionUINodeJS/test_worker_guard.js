@@ -18,6 +18,7 @@ const { isMainThread, Worker, workerData, parentPort } = require('worker_threads
 const fn = () => {};
 const GUARDED = [
     ['setLogger', [fn]],
+    ['setTrustPolicy', [fn, fn]],
     ['registerActionHandler', ['worker.action', fn]],
     ['unregisterActionHandler', ['worker.action']],
     ['setDefaultActionHandler', [fn]],
