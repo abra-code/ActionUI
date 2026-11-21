@@ -74,10 +74,43 @@ guard let documentPath else {
     exit(64)
 }
 
+/// The Viewer shows the document the user names, wherever it is: that local file is trusted (no
+/// less than the bundle's would be), and so is a local file it names, though never above the
+/// content around it, so a remote document that names a local file keeps that file less trusted.
+/// Remote documents and any other local file with no known parent (one a LoadableView in a
+/// template row names) keep ActionUI's default.
+struct ViewerTrustPolicy: ActionUITrustPolicy {
+    /// The resolved path of the local document the user named, as DocumentOrigin.Source.file
+    /// gives it; nil for a remote document.
+    let documentPath: String?
+
+    func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
+               byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+        guard case .file(let path) = source else { return byDefault }
+        if let parent { return parent.trust }
+        return path == documentPath ? .trusted : byDefault
+    }
+}
+
+/// The named document's path as presentWindow(url:) reads it: a file URL or a path; nil for an
+/// http or https address.
+let localDocumentPath: String? = {
+    let lowered = documentPath.lowercased()
+    if lowered.hasPrefix("http://") || lowered.hasPrefix("https://") { return nil }
+    let url: URL
+    if lowered.hasPrefix("file://"), let fileURL = URL(string: documentPath) {
+        url = fileURL
+    } else {
+        url = URL(fileURLWithPath: documentPath)
+    }
+    return url.resolvingSymlinksInPath().standardizedFileURL.path
+}()
+
 var status: Int32 = 0
 /// Set when the screenshot was tried; the window can close before then, ending the application.
 var screenshotTried = false
 MainActor.assumeIsolated {
+    ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(documentPath: localDocumentPath)
     ActionUIRichText.register()
     ActionUICachedImage.register()
     ActionUIDiff.register()

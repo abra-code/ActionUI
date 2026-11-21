@@ -70,6 +70,70 @@ public final class DocumentOrigin: Sendable, Equatable, CustomStringConvertible 
     }
 }
 
+/// Something a part of a window's content may do, which the trust policy is asked about
+/// (ActionUIModel.allows). The renderers ask before each.
+public enum ActionUICapability: Sendable, Equatable {
+    /// A LoadableView loading this source (the load budget and size caps apply whatever the answer).
+    case load(DocumentOrigin.Source)
+    /// Opening an address: a Link, or openURL.
+    case openLink(URL)
+    /// A WebView showing this address; nil for inline html.
+    case webView(URL?)
+    /// A WebView user script read from this file.
+    case webViewScriptFile(String)
+    /// An Image, Canvas image, VideoPlayer or AsyncImage reading this local file.
+    case readLocalFile(String)
+    /// Setting the window's title (navigationTitle on a window root, a WindowGroup title).
+    case windowTitle
+    /// Presenting a sheet, full-screen cover, popover, alert or confirmation dialog.
+    case presentModal
+    /// Adding menu commands (CommandMenu, CommandGroup).
+    case menuCommands
+    /// Firing this action.
+    case action(String)
+}
+
+/// The host's say over how far content is trusted and what it may do (Trust_Origin_Design.md),
+/// set on ActionUIModel.shared.trustPolicy before loading. One object serves every window; a host
+/// that wants rules per window switches on the origin's parentID or keeps its own map.
+public protocol ActionUITrustPolicy: Sendable {
+    /// The trust of content loaded from `source` inside content of origin `parent` (nil for a
+    /// window's root, or for a LoadableView whose own trust is unknown), given what ActionUI
+    /// decides `byDefault`. The default implementation keeps that.
+    @MainActor func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
+                          byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust
+    /// Whether content of `origin` may do `capability`. The default implementation is
+    /// DefaultTrustPolicy's.
+    @MainActor func allows(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool
+}
+
+extension ActionUITrustPolicy {
+    @MainActor public func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
+                                 byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+        byDefault
+    }
+
+    @MainActor public func allows(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
+        DefaultTrustPolicy.allowsByDefault(capability, for: origin)
+    }
+}
+
+/// ActionUI's own policy: trust as classified, and the default refusals for less-trusted content.
+public struct DefaultTrustPolicy: ActionUITrustPolicy {
+    public init() {}
+
+    /// What content of `origin` may do when the host does not say: trusted content anything; less
+    /// trusted content, for now, anything too (each refusal of the design's table comes with the
+    /// renderer change that enforces it).
+    public static func allowsByDefault(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
+        if origin.trust == .trusted { return true }
+        switch capability {
+        case .load, .openLink, .webView, .webViewScriptFile, .readLocalFile, .windowTitle, .presentModal, .menuCommands, .action:
+            return true
+        }
+    }
+}
+
 @MainActor
 enum ActionUIDocumentLoader {
 
@@ -230,21 +294,29 @@ enum ActionUIDocumentLoader {
         parentID: Int,
         source: Source?
     ) throws -> ActionUIElement {
-        let origin = source.map { source in
-            // A sub-view's parent is the LoadableView, an element of the content around it.
-            let parentModel = isContentView ? nil : ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID]
-            let classified = Self.origin(for: source, inside: parentModel?.origin, parentID: isContentView ? nil : parentID,
-                                         resourceFolders: ActionUIRendererHooks.resourceFolders())
-            // A LoadableView with no view model of its own (one in a template row, a blueprint
-            // the window has no model for) has no known trust: less trusted, so a miss cannot make
-            // remote content's choice of file read as the host's. Id 0 is the host's own loader.
-            guard !isContentView, parentID != 0, parentModel == nil, classified.trust == .trusted else { return classified }
-            return DocumentOrigin(source: classified.source, trust: .lessTrusted, parentID: classified.parentID)
-        }
+        let origin = source.map { resolvedOrigin(for: $0, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID) }
         if isContentView {
             return try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
         }
         return try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID, origin: origin)
+    }
+
+    /// The origin of content loaded from `source` into the window: as a root (`isContentView`), or
+    /// into its LoadableView `parentID`. Classified (origin(for:)), then the host's trust policy
+    /// has the last word.
+    static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int) -> DocumentOrigin {
+        // A sub-view's parent is the LoadableView, an element of the content around it.
+        let parentModel = isContentView ? nil : ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID]
+        // A LoadableView with no view model of its own (one in a template row, a blueprint the
+        // window has no model for) has no known trust: less trusted, so a miss cannot make remote
+        // content's choice of file read as the host's. Id 0 is the host's own loader.
+        let unknownParent = !isContentView && parentID != 0 && parentModel == nil
+        let parent: DocumentOrigin? = isContentView || unknownParent ? nil : (parentModel?.origin ?? .host)
+        let classified = Self.origin(for: source, inside: parent, parentID: isContentView ? nil : parentID,
+                                     resourceFolders: ActionUIRendererHooks.resourceFolders())
+        let byDefault: DocumentOrigin.Trust = unknownParent ? .lessTrusted : classified.trust
+        let trust = ActionUIModel.shared.trustPolicy.trust(for: classified.source, inside: parent, byDefault: byDefault)
+        return trust == classified.trust ? classified : DocumentOrigin(source: classified.source, trust: trust, parentID: classified.parentID)
     }
 
     /// Fetches `url` with `fetch`, then loads it as `load` does, with the format of the URL.

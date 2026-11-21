@@ -87,8 +87,8 @@ extension ActionUIModel {
     /// passed.
     package func loadWindowDocument(_ data: Data, format: String, windowUUID: String, from url: URL? = nil) throws {
         let origin = url.map { url in
-            ActionUIDocumentLoader.origin(for: url.isFileURL ? .file(url) : .remote(url), inside: nil, parentID: nil,
-                                          resourceFolders: ActionUIRendererHooks.resourceFolders())
+            ActionUIDocumentLoader.resolvedOrigin(for: url.isFileURL ? .file(url) : .remote(url), windowUUID: windowUUID,
+                                                  isContentView: true, parentID: 0)
         }
         _ = try loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
     }

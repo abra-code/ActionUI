@@ -222,6 +222,22 @@ public class ActionUIModel {
         return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID, origin: origin)
     }
 
+    /// The host's say over trust and what content may do (ActionUITrustPolicy); set it before
+    /// loading. DefaultTrustPolicy unless the host sets one.
+    public var trustPolicy: any ActionUITrustPolicy = DefaultTrustPolicy()
+
+    /// Whether the element `viewID` of the window may do `capability`, by the trust policy and the
+    /// element's origin (the host's for an element with no recorded origin). An element with no view
+    /// model at all (in a template row, or not in the window) counts as less trusted: host content
+    /// always has one, so a miss cannot make remote content read as the host's. A template row asks
+    /// with its container's id.
+    public func allows(_ capability: ActionUICapability, windowUUID: String, viewID: Int) -> Bool {
+        trustPolicy.allows(capability, for: origin(windowUUID: windowUUID, viewID: viewID) ?? Self.unknownOrigin)
+    }
+
+    /// The origin `allows` uses for an element with no view model.
+    private static let unknownOrigin = DocumentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
+
     /// Where the element `viewID` of the window came from and how far it is trusted: `.host` for
     /// content the host passed in itself, nil when the window has no such element. For an action
     /// handler that wants to treat less-trusted content's actions differently.

@@ -10,6 +10,28 @@
 import XCTest
 @testable import ActionUI
 
+/// A policy that trusts every local file, lowers the app's resources, and refuses links to less-
+/// trusted content, recording what it was asked.
+private final class TestPolicy: ActionUITrustPolicy, @unchecked Sendable {
+    var asked: [(source: DocumentOrigin.Source, parent: DocumentOrigin?, byDefault: DocumentOrigin.Trust)] = []
+    var capabilities: [(ActionUICapability, DocumentOrigin)] = []
+
+    func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?, byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+        asked.append((source, parent, byDefault))
+        switch source {
+        case .file: return .trusted
+        case .resource: return .lessTrusted
+        default: return byDefault
+        }
+    }
+
+    func allows(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
+        capabilities.append((capability, origin))
+        if case .openLink = capability { return origin.trust == .trusted }
+        return true
+    }
+}
+
 // Records messages without failing the test, for a load that logs an id conflict on purpose.
 private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
     private(set) var errors: [String] = []
@@ -332,6 +354,60 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertEqual(origin.trust, .lessTrusted, "a parent with no known trust is not the host's")
         XCTAssertEqual(origin.parentID, 600)
         guard case .resource = origin.source else { return XCTFail("\(origin)") }
+    }
+
+    func testTheHostsTrustPolicyHasTheLastWord() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [resources.path] }
+        let policy = TestPolicy()
+        ActionUIModel.shared.trustPolicy = policy
+
+        // A file outside the resources, as the window's root: the policy raises it.
+        _ = try ActionUIDocumentLoader.load(data: self.root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .file(root.appendingPathComponent("outside.json")))
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1)?.trust, .trusted)
+        XCTAssertEqual(policy.asked.count, 1)
+        XCTAssertNil(policy.asked[0].parent, "a window's root has no parent")
+        XCTAssertEqual(policy.asked[0].byDefault, .lessTrusted, "what ActionUI would decide")
+
+        // A resource file in the LoadableView 100: the policy lowers it, and is told the parent.
+        _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+                                            source: .file(resources.appendingPathComponent("inside.json")))
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200)?.trust, .lessTrusted)
+        XCTAssertEqual(policy.asked.last?.parent?.trust, .trusted)
+        XCTAssertEqual(policy.asked.last?.byDefault, .trusted)
+
+        // allows: the element's origin goes to the policy; an element with no view model (a
+        // template row's, or none) is less trusted.
+        XCTAssertFalse(ActionUIModel.shared.allows(.openLink(URL(string: "https://example.com")!), windowUUID: windowUUID, viewID: 200))
+        XCTAssertTrue(ActionUIModel.shared.allows(.openLink(URL(string: "https://example.com")!), windowUUID: windowUUID, viewID: 1))
+        XCTAssertFalse(ActionUIModel.shared.allows(.openLink(URL(string: "https://example.com")!), windowUUID: windowUUID, viewID: 999))
+        XCTAssertEqual(policy.capabilities.last?.1.trust, .lessTrusted)
+
+        // A LoadableView with no view model (a template row's, id 999): no parent, and less trusted
+        // by default, so a policy that keeps the default stays safe.
+        _ = try ActionUIDocumentLoader.load(data: Data(#"{ "id": 700, "type": "Text", "properties": {} }"#.utf8), format: "json",
+                                            windowUUID: windowUUID, isContentView: false, parentID: 999,
+                                            source: .remote(URL(string: "https://example.com/row.json")!))
+        XCTAssertNil(policy.asked.last?.parent)
+        XCTAssertEqual(policy.asked.last?.byDefault, .lessTrusted)
+    }
+
+    func testTheDefaultPolicyAllowsEverythingForNow() {
+        let lessTrusted = DocumentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
+        let capabilities: [ActionUICapability] = [
+            .load(.remote(URL(string: "https://example.com/b.json")!)), .openLink(URL(string: "https://example.com")!),
+            .webView(nil), .webViewScriptFile("/tmp/a.js"), .readLocalFile("/tmp/a.png"), .windowTitle, .presentModal,
+            .menuCommands, .action("a"),
+        ]
+        for capability in capabilities {
+            XCTAssertTrue(DefaultTrustPolicy().allows(capability, for: lessTrusted), "\(capability)")
+            XCTAssertTrue(DefaultTrustPolicy().allows(capability, for: .host), "\(capability)")
+        }
+        XCTAssertEqual(DefaultTrustPolicy().trust(for: .file("/tmp/a.json"), inside: nil, byDefault: .lessTrusted), .lessTrusted)
     }
 
     func testViewDidLoadFiresOncePerSource() throws {

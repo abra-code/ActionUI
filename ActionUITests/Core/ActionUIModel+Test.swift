@@ -6,5 +6,6 @@ extension ActionUIModel {
         shared.windowModels.removeAll()
         shared.actionHandlers.removeAll()
         shared.removeDefaultActionHandler()
+        shared.trustPolicy = DefaultTrustPolicy()
     }
 }
