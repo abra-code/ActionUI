@@ -62,11 +62,17 @@ enum LinkTrust {
         reads(.readLocalFile(path), path: path, node)
     }
 
+    /// Whether the node's content is trusted: its element's origin (or its template row's
+    /// container's) is; content whose element cannot be told is not.
+    static func isTrusted(_ node: RenderNode) -> Bool {
+        guard let viewID = originElementID(node) else { return false }
+        return ActionUIModel.shared.origin(windowUUID: node.windowUUID, viewID: viewID)?.trust == .trusted
+    }
+
     /// Whether the node's content may do `capability`, a read of the file at `path`, as
     /// readsLocalFile decides (for a WebView script file, .webViewScriptFile).
     static func reads(_ capability: ActionUICapability, path: String, _ node: RenderNode?) -> Bool {
-        if let node, let viewID = originElementID(node),
-           ActionUIModel.shared.origin(windowUUID: node.windowUUID, viewID: viewID)?.trust == .trusted {
+        if let node, isTrusted(node) {
             return true
         }
         let allowed = node.map { allows(capability, $0) }

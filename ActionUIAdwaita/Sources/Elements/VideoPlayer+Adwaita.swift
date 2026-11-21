@@ -95,8 +95,19 @@ extension VideoPlayer: ActionUIAdwaitaRenderer {
             gtk_video_set_file(opaque(video), nil)
             return
         }
+        // Nor, for less-trusted content, an address of another scheme: GIO hands trash:, recent:,
+        // smb:, sftp: and the like to the desktop's virtual file system, which reads the user's
+        // files or other computers. Apple's player plays only file and web addresses.
+        if !url.isFileURL, !webSchemes.contains(url.scheme?.lowercased() ?? ""), !LinkTrust.isTrusted(node) {
+            ActionUIModel.shared.logger.log("VideoPlayer not playing '\(url.absoluteString)': less-trusted content plays only file, http and https addresses", .warning)
+            gtk_video_set_file(opaque(video), nil)
+            return
+        }
         show(url, in: video, state)
     }
+
+    /// The schemes besides file: less-trusted content's VideoPlayer plays.
+    private static let webSchemes: Set<String> = ["http", "https"]
 
     static var defaultExpansion: Expansion { .both }
 
