@@ -33,6 +33,7 @@
 //     its height with a frame in an unbounded scroll column (the bounded-height
 //     caveat shared with WebView/Canvas).
 
+import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { isOpenedURL } from "../Helpers/URLPolicy.js";
 import {
@@ -89,7 +90,7 @@ register("Map", {
         const render = (coordinate) => {
             frame.src = embedURL(coordinate, firstAnnotation?.coordinate ?? null);
             const href = openInMapsURL(coordinate, label, openURLTemplate);
-            if (isOpenedURL(href)) {
+            if (isOpenedURL(href) && allows({ capability: "openLink", url: href }, ctx.origin, ctx.logger)) {
                 open.href = href;
                 open.hidden = false;
             } else {

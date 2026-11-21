@@ -41,6 +41,7 @@
 //     entirely - a runtime failure that shows as a blank frame (the browser's
 //     policy, not ours), the iframe analog of a page that fails to load.
 
+import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { isFramedURL, webViewSandboxFor, WEBVIEW_HTML_SANDBOX } from "../Helpers/URLPolicy.js";
 
@@ -158,10 +159,14 @@ register("WebView", {
         // Initial content: a url wins over inline html (Apple's precedence).
         if (currentURL) {
             // A refused address loads nothing and is not reported as the value.
-            if (navigate(frame, currentURL, state, ctx.logger) === null) currentURL = "";
+            if (navigate(frame, currentURL, state, ctx.logger, ctx.origin) === null) currentURL = "";
         } else if (typeof properties.html === "string") {
             frame.setAttribute("sandbox", WEBVIEW_HTML_SANDBOX);
-            frame.srcdoc = withBase(properties.html, properties.baseURL);
+            if (allows({ capability: "webView", url: null }, ctx.origin, ctx.logger)) {
+                frame.srcdoc = withBase(properties.html, allowedBase(properties.baseURL, ctx));
+            } else {
+                ctx.logger.log("WebView not showing its inline html: the trust policy refuses it", "warning");
+            }
         }
 
         if (element.id > 0) {
@@ -183,7 +188,7 @@ register("WebView", {
                             node.replaceChildren(frame);
                         }
                     }
-                    const next = navigate(frame, command, state, ctx.logger);
+                    const next = navigate(frame, command, state, ctx.logger, ctx.origin);
                     if (next !== null) currentURL = next;
                 },
             });
@@ -199,7 +204,7 @@ register("WebView", {
 // Applies a navigation command to the frame. Returns the new current URL, or null
 // when the command was a non-URL action (reload/back/forward/stop) that leaves the
 // tracked URL unchanged. Mirrors WebView.swift's handleCommand.
-function navigate(frame, command, state, logger) {
+function navigate(frame, command, state, logger, origin) {
     switch (command) {
         case "#reload":
             // Re-assigning src reloads the frame (cross-origin safe).
@@ -220,6 +225,10 @@ function navigate(frame, command, state, logger) {
                 logger.log(`WebView url "${command}" is not an http or https address; ignoring`, "warning");
                 return null;
             }
+            if (!allows({ capability: "webView", url: command }, origin, logger)) {
+                logger.log(`WebView not showing ${command}: the trust policy refuses it`, "warning");
+                return null;
+            }
             state.isLoading = true;
             state.estimatedProgress = 0.0;
             // The sandbox applies from the next load, so it is set before src.
@@ -236,6 +245,17 @@ function historyGo(frame, delta, logger) {
     } catch {
         logger.log("WebView back/forward is only available for a same-origin page; ignoring", "warning");
     }
+}
+
+// The base address inline html may have: `baseURL` when the trust policy allows it (for
+// less-trusted content, only its own document's origin), else none. The html runs in an
+// opaque-origin sandbox either way, so a base resolves its relative addresses and gives it no
+// site's cookies or storage.
+function allowedBase(baseURL, ctx) {
+    if (typeof baseURL !== "string" || baseURL.length === 0) return baseURL;
+    if (allows({ capability: "webViewBaseURL", url: baseURL }, ctx.origin, ctx.logger)) return baseURL;
+    ctx.logger.log(`WebView html not given the base ${baseURL}: the trust policy refuses it`, "warning");
+    return null;
 }
 
 // Injects a <base href> into inline html so relative links resolve, the srcdoc

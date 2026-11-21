@@ -26,6 +26,7 @@
 //     inlineLarge): large modes render the title on its own large row beneath the
 //     action bar; automatic/inline keep it compact inline (titleDisplayMode).
 
+import { allows } from "../Common/TrustPolicy.js";
 import { selectLabelIcon, labelIcon, systemSymbolGlyph } from "./SymbolIcon.js";
 import { makeFloatingPanel } from "./PopoverPlacement.js";
 
@@ -283,7 +284,12 @@ export function wrapWithToolbar(bodyNode, element, properties, ctx) {
     if (isNavigationContainer(element.type)) return bodyNode;
 
     const hasToolbar = element.toolbar().length > 0;
-    const title = typeof properties.navigationTitle === "string" ? properties.navigationTitle : null;
+    let title = typeof properties.navigationTitle === "string" ? properties.navigationTitle : null;
+    // Less-trusted content does not title the screen: it could pass itself off as the app.
+    if (title !== null && !allows({ capability: "windowTitle" }, ctx.origin, ctx.logger)) {
+        ctx.logger.log(`Not setting the title for element ${element.id}: the trust policy refuses it`, "warning");
+        title = null;
+    }
     if (!hasToolbar && title === null) return bodyNode;
 
     const buckets = hasToolbar

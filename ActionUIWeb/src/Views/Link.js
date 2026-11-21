@@ -19,6 +19,7 @@
 //   * javascript:, vbscript: and data: urls open nothing either: Apple has no
 //     app for them, and in a page they would run script or replace the page.
 
+import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { isOpenedURL } from "../Helpers/URLPolicy.js";
 
@@ -53,7 +54,10 @@ register("Link", {
         const node = document.createElement("a");
         node.className = "aui-link";
         node.textContent = typeof properties.title === "string" ? properties.title : "Link";
-        if (destination === "absolute" && isOpenedURL(url)) {
+        // Less-trusted content opens only what the trust policy allows (web and mail by default).
+        const permitted = allows({ capability: "openLink", url }, ctx.origin, ctx.logger);
+        if (!permitted) ctx.logger.log(`Link not opening ${url}: the trust policy refuses it`, "warning");
+        if (destination === "absolute" && isOpenedURL(url) && permitted) {
             node.href = url;
             node.target = "_blank";
             node.rel = "noopener noreferrer";

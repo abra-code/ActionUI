@@ -153,6 +153,31 @@ test("a LoadableView's document larger than 16 MB is refused", async () => {
     assert.ok(logger.messages.some((m) => m.message.includes("Larger than 16 MB")), JSON.stringify(logger.messages.map((m) => m.message)));
 });
 
+test("less-trusted content opens only web and mail links, titles nothing and presents nothing", async () => {
+    const document = { type: "VStack", id: 20, properties: { navigationTitle: "Bank sign-in" }, children: [
+        { type: "Link", id: 21, properties: { title: "Call", url: "tel:123" } },
+        { type: "Link", id: 22, properties: { title: "Site", url: "https://example.com/" } },
+        { type: "ShareLink", id: 23, properties: { item: "tel:123" } },
+        { type: "Button", id: 24, properties: { title: "More" }, sheet: { type: "Text", id: 25, properties: { text: "Password?" } } },
+        { type: "WebView", id: 26, properties: { html: "<p>hi</p>", baseURL: "https://bank.example/" } }] };
+    const { logger } = await render({ type: "LoadableView", id: 2, properties: { url: "https://example.com/v.json" } }, () => document);
+    const said = (text) => logger.messages.some((m) => m.message === text);
+    assert.ok(said("Link not opening tel:123: the trust policy refuses it"), JSON.stringify(logger.messages.map((m) => m.message)));
+    assert.ok(!said("Link not opening https://example.com/: the trust policy refuses it"));
+    assert.ok(said("ShareLink not sharing tel:123: the trust policy refuses it"));
+    assert.ok(said("Not setting the title for element 20: the trust policy refuses it"));
+    assert.ok(said("Not presenting a sheet, cover or popover for element 24: the trust policy refuses it"));
+    assert.ok(said("WebView html not given the base https://bank.example/: the trust policy refuses it"));
+});
+
+test("the host's own content is not held to those rules", async () => {
+    const { logger } = await render({ type: "VStack", id: 20, properties: { navigationTitle: "Host" }, children: [
+        { type: "Link", id: 21, properties: { title: "Call", url: "tel:123" } },
+        { type: "Button", id: 24, properties: { title: "More" }, sheet: { type: "Text", id: 25, properties: { text: "Sheet" } } },
+        { type: "WebView", id: 26, properties: { html: "<p>hi</p>", baseURL: "https://bank.example/" } }] }, () => null);
+    assert.ok(!logger.messages.some((m) => m.message.includes("the trust policy refuses it")), JSON.stringify(logger.messages.map((m) => m.message)));
+});
+
 test("an id keeps its first record: trusted content reusing a less-trusted id does not relabel it", async () => {
     const { win } = await render(
         { type: "VStack", id: 1, children: [

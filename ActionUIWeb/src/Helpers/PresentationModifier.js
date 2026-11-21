@@ -34,6 +34,7 @@
 //     content (the content is its own subtree); SwiftUI attaches the presentation
 //     to the carrier but renders the content independently too.
 
+import { allows } from "../Common/TrustPolicy.js";
 import { makeFloatingPanel } from "./PopoverPlacement.js";
 // At phone width Apple presents a popover as a sheet (and the bottom-sheet theme
 // rules for .sheet apply at the same 480px breakpoint).
@@ -56,6 +57,12 @@ export function popoverSide(arrowEdge) {
 export function applyPresentationModifiers(node, element, properties, ctx) {
     const subs = element.subviews;
     if (!subs || (!subs.sheet && !subs.fullScreenCover && !subs.popover)) return;
+    // Less-trusted content presents no sheet, cover or popover of its own over the page: none
+    // is wired, so its button or state opens nothing.
+    if (!allows({ capability: "presentModal" }, ctx.origin, ctx.logger)) {
+        ctx.logger.log(`Not presenting a sheet, cover or popover for element ${element.id}: the trust policy refuses it`, "warning");
+        return;
+    }
 
     // Compose every presentation visibility key into one state binding that
     // delegates unknown keys to the element's own state binding (if it registered
