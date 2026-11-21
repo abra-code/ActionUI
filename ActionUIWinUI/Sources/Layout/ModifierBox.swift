@@ -43,8 +43,12 @@
  - hidden keeps the element's space, as SwiftUI's .hidden() does: the box draws nothing and lets the
    pointer through. Its controls lose keyboard focus and accessibility tools skip it (RenderNode).
 
- Not yet: shadow, overlay and background views, and the other base modifiers the GTK ModifierBox
- applies. A rounded corner clips where the pointer is taken
+ - shadow: a drop shadow in the shape of what the frame draws (background and content), not of the
+   box, as SwiftUI's: its color (else black at 0.33, SwiftUI's), blurred by its radius, moved by its x
+   and y; drawn by an empty element behind the frame from a live capture of the frame's visual, and
+   moved with the frame's transform. Unlike SwiftUI's (applied last), it leaves out the border.
+
+ Not yet: overlay and background views, and the other base modifiers the GTK ModifierBox applies. A rounded corner clips where the pointer is taken
  too: WinUI hit-tests a rounded Border's children inside its rounded shape.
 
  Content larger than its frame (a 220-wide column in a frame 150 wide) overflows it, centered or by
@@ -78,6 +82,21 @@ struct BoxGeometry: Equatable {
     var scaleAnchor = (x: 0.5, y: 0.5)
     /// The shape the frame is clipped to; nil: none.
     var clipShape: BaseModifiers.ClipShape?
+    /// The drop shadow under what the frame draws; nil: none.
+    var shadow: Shadow?
+
+    /// A drop shadow's color, blur and offset.
+    struct Shadow: Equatable {
+        var color: ActionUIWinUIColor
+        var radius: Double
+        var x: Double
+        var y: Double
+
+        static func == (left: Shadow, right: Shadow) -> Bool {
+            left.color.red == right.color.red && left.color.green == right.color.green && left.color.blue == right.color.blue
+                && left.color.alpha == right.color.alpha && left.radius == right.radius && left.x == right.x && left.y == right.y
+        }
+    }
     /// A border stroked inside the frame.
     var border: Stroke?
     /// The whole box's opacity, 0 to 1.
@@ -92,7 +111,7 @@ struct BoxGeometry: Equatable {
             && left.background == right.background && left.opacity == right.opacity && left.hidden == right.hidden
             && left.cornerRadius == right.cornerRadius && left.offset == right.offset && left.border == right.border
             && left.rotation == right.rotation && left.scale == right.scale && left.scaleAnchor == right.scaleAnchor
-            && left.clipShape == right.clipShape
+            && left.clipShape == right.clipShape && left.shadow == right.shadow
     }
 
     /// Whether the frame draws moved at all.
@@ -131,6 +150,14 @@ struct BoxGeometry: Equatable {
             scaleAnchor = Self.unitPoint(value.anchor)
         }
         clipShape = modifiers.clipShape
+        if let value = modifiers.shadow, value.radius.isFinite, value.x.isFinite, value.y.isFinite {
+            // Its color when it is one, else SwiftUI's default shadow color.
+            var color = ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 0.33)
+            if case let .color(given)? = Paint.parse(value.color, role: .foreground) {
+                color = given
+            }
+            shadow = Shadow(color: color, radius: max(value.radius, 0), x: value.x, y: value.y)
+        }
         if let value = modifiers.border, value.width.isFinite, value.width > 0 {
             // No color, or one that does not parse: black, as on Apple (resolveColor ?? .black).
             border = Stroke(paint: Paint.parse(value.color, role: .foreground) ?? Paint.parse("black", role: .foreground),
@@ -150,6 +177,7 @@ struct BoxGeometry: Equatable {
         drawn.scale = scale
         drawn.scaleAnchor = scaleAnchor
         drawn.clipShape = clipShape
+        drawn.shadow = shadow
         drawn.border = border
         return drawn == self
     }
@@ -226,6 +254,8 @@ final class ModifierBox {
     private var frameSize = (width: 0.0, height: 0.0)
     /// The clip shape last given to the frame view and its size, so an arrange does not set it again.
     private var appliedClip: (shape: BaseModifiers.ClipShape, width: Double, height: Double)?
+    /// The empty element behind the frame that draws its shadow, made at the first shadow and kept.
+    private var shadowHost: WinUIObject?
 
     init(content: WinUIObject) throws(WinUIError) {
         self.content = content
@@ -254,7 +284,7 @@ final class ModifierBox {
         }
         let effectsChanged = newGeometry.offset != geometry.offset || newGeometry.rotation != geometry.rotation
             || newGeometry.scale != geometry.scale || newGeometry.scaleAnchor != geometry.scaleAnchor
-            || newGeometry.clipShape != geometry.clipShape
+            || newGeometry.clipShape != geometry.clipShape || newGeometry.shadow != geometry.shadow
         if newGeometry.border != geometry.border {
             updateBorder(newGeometry.border)
         }
@@ -285,8 +315,10 @@ final class ModifierBox {
     /// (the background and the offset then move to it).
     private func makeRounded() -> Bool {
         let logger = ActionUIModel.shared.logger
+        // Not always the first child: a shadow's host lies behind it.
+        guard let index = panel.children.firstIndex(where: { $0 === group.object }) else { return false }
         do {
-            try panel.remove(at: 0)
+            try panel.remove(at: index)
         } catch {
             logger.log("ModifierBox: \(error)", .error)
             return false
@@ -294,14 +326,14 @@ final class ModifierBox {
         guard let box = WinUIObject(adopting: actionUIWinUIRoundedBoxCreate(group.object.pointer)) else {
             logger.log("ModifierBox: \(WinUIError.last("rounding an element's corners"))", .error)
             do {
-                try panel.insert(group.object, at: 0)
+                try panel.insert(group.object, at: index)
             } catch {
                 logger.log("ModifierBox: \(error)", .error)
             }
             return false
         }
         do {
-            try panel.insert(box, at: 0)
+            try panel.insert(box, at: index)
         } catch {
             logger.log("ModifierBox: \(error)", .error)
             return false
@@ -319,7 +351,7 @@ final class ModifierBox {
         return true
     }
 
-    /// Gives the frame view its transform and clip shape for the frame's last size.
+    /// Gives the frame view its transform and clip shape for the frame's last size, and its shadow.
     private func applyEffects() {
         let logger = ActionUIModel.shared.logger
         let (width, height) = frameSize
@@ -327,6 +359,7 @@ final class ModifierBox {
         if !actionUIWinUIElementSetRenderMatrix(frameView.pointer, m.m11, m.m12, m.m21, m.m22, m.dx, m.dy) {
             logger.log("ModifierBox: \(WinUIError.last("moving an element"))", .error)
         }
+        applyShadow(m)
         guard let shape = geometry.clipShape else {
             if appliedClip != nil {
                 appliedClip = nil
@@ -359,6 +392,53 @@ final class ModifierBox {
         }
         if !actionUIWinUIElementSetClipShape(frameView.pointer, kind, width, height, radius.x, radius.y) {
             logger.log("ModifierBox: \(WinUIError.last("clipping an element"))", .error)
+        }
+    }
+
+    /// Makes the shadow's host behind the frame at the first shadow, and draws or removes the shadow.
+    /// The host is not moved: the capture of the frame already carries the frame's transform (`m`), so
+    /// the shadow covers the bounds of the frame moved by it.
+    private func applyShadow(_ m: (m11: Double, m12: Double, m21: Double, m22: Double, dx: Double, dy: Double)) {
+        let logger = ActionUIModel.shared.logger
+        if geometry.shadow != nil, shadowHost == nil {
+            do {
+                let host = try LayoutPanel()
+                try panel.insert(host.object, at: 0)
+                if !actionUIWinUIElementSetHitTestVisible(host.object.pointer, false) {
+                    logger.log("ModifierBox: \(WinUIError.last("drawing a shadow"))", .error)
+                }
+                shadowHost = host.object
+                // The outer box lays it out at the frame.
+                panel.invalidateLayout()
+            } catch {
+                logger.log("ModifierBox: \(error)", .error)
+                return
+            }
+        }
+        guard let host = shadowHost else { return }
+        let shown: Bool
+        if let shadow = geometry.shadow {
+            // Not before the frame has a size: WinUI draws no surface under half a pixel; the arrange
+            // that gives it one draws the shadow.
+            guard frameSize.width > 0, frameSize.height > 0 else { return }
+            var color = shadow.color
+            // The frame's corners moved by the transform, and the rectangle around them.
+            let (width, height) = frameSize
+            let corners = [(0.0, 0.0), (width, 0.0), (0.0, height), (width, height)].map { x, y in
+                (x: x * m.m11 + y * m.m21 + m.dx, y: x * m.m12 + y * m.m22 + m.dy)
+            }
+            let left = corners.map(\.x).min() ?? 0
+            let top = corners.map(\.y).min() ?? 0
+            let right = corners.map(\.x).max() ?? 0
+            let bottom = corners.map(\.y).max() ?? 0
+            // SwiftUI's radius is the blur's deviation; Composition's blur radius is about twice it.
+            shown = actionUIWinUIElementSetShadow(host.pointer, frameView.pointer, &color, shadow.radius * 2, shadow.x, shadow.y,
+                                                  left, top, right - left, bottom - top)
+        } else {
+            shown = actionUIWinUIElementSetShadow(host.pointer, frameView.pointer, nil, 0, 0, 0, 0, 0, 0, 0)
+        }
+        if !shown {
+            logger.log("ModifierBox: \(WinUIError.last("drawing a shadow"))", .error)
         }
     }
 
@@ -444,6 +524,7 @@ final class ModifierBox {
         let offer = ActionUIWinUISize(width: groupOffer(available.width, frame: geometry.frame.horizontal),
                                       height: groupOffer(available.height, frame: geometry.frame.vertical))
         _ = frameView.measure(offer)
+        shadowHost.map { _ = $0.measure(offer) }
         borderShape.map { _ = $0.measure(offer) }
         let width = frameSize(available.width, padded: padded.width, frame: geometry.frame.horizontal)
         let height = frameSize(available.height, padded: padded.height, frame: geometry.frame.vertical)
@@ -485,11 +566,12 @@ final class ModifierBox {
             }
         }
         frameView.arrange(frame)
+        shadowHost?.arrange(frame)
         borderShape?.arrange(frame)
-        // The transform's center and anchor, and the clip shape, follow the frame's size.
+        // The transform's center and anchor, the clip shape and the shadow follow the frame's size.
         if frameSize != (frame.width, frame.height) {
             frameSize = (frame.width, frame.height)
-            if geometry.hasTransform || geometry.clipShape != nil {
+            if geometry.hasTransform || geometry.clipShape != nil || geometry.shadow != nil {
                 applyEffects()
             }
         }

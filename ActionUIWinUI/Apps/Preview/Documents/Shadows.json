@@ -1,0 +1,116 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 20,
+  "spacing": 20,
+  "background": "white"
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 24
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 3,
+     "properties": {
+      "text": "Text shadow",
+      "font": "title2",
+      "shadow": {
+       "radius": 2,
+       "x": 2,
+       "y": 2
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 4,
+     "properties": {
+      "text": "On yellow",
+      "padding": 8,
+      "background": "yellow",
+      "shadow": {
+       "radius": 4,
+       "y": 3
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 5,
+   "properties": {
+    "spacing": 24
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 6,
+     "properties": {
+      "text": "Card",
+      "padding": 14,
+      "background": "white",
+      "cornerRadius": 10,
+      "shadow": {
+       "color": "black",
+       "radius": 8,
+       "y": 4
+      }
+     }
+    },
+    {
+     "type": "Color",
+     "id": 7,
+     "properties": {
+      "color": "blue",
+      "frame": {
+       "width": 50,
+       "height": 50
+      },
+      "clipShape": "circle",
+      "shadow": {
+       "color": "red",
+       "radius": 3,
+       "x": 6,
+       "y": 6
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 8,
+     "properties": {
+      "text": "Turned",
+      "padding": 6,
+      "background": "mint",
+      "rotationEffect": 10,
+      "border": {
+       "color": "purple",
+       "width": 2
+      },
+      "shadow": {
+       "radius": 3,
+       "x": 4,
+       "y": 4
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 9,
+   "properties": {
+    "font": "caption",
+    "text": "shadow follows what is drawn: the text's letters, a yellow background, a rounded white card (radius 8, y 4), a clipped blue circle with a red shadow (6, 6), and a turned mint label whose shadow turns with it (its purple border casts none on Windows)."
+   }
+  }
+ ]
+}
