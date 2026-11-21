@@ -1,0 +1,193 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 14
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 24
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 3,
+     "properties": {
+      "text": "Rotated 15",
+      "padding": 4,
+      "background": "yellow",
+      "rotationEffect": 15
+     }
+    },
+    {
+     "type": "Text",
+     "id": 4,
+     "properties": {
+      "text": "Scaled 1.5",
+      "background": "orange",
+      "scaleEffect": {
+       "x": 1.5,
+       "y": 1.5,
+       "anchor": "topLeading"
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 5,
+     "properties": {
+      "text": "Next"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 6,
+   "properties": {
+    "spacing": 10
+   },
+   "children": [
+    {
+     "type": "Color",
+     "id": 7,
+     "properties": {
+      "color": "blue",
+      "frame": {
+       "width": 64,
+       "height": 40
+      },
+      "clipShape": "circle"
+     }
+    },
+    {
+     "type": "Color",
+     "id": 8,
+     "properties": {
+      "color": "green",
+      "frame": {
+       "width": 64,
+       "height": 40
+      },
+      "clipShape": "ellipse"
+     }
+    },
+    {
+     "type": "Color",
+     "id": 9,
+     "properties": {
+      "color": "red",
+      "frame": {
+       "width": 64,
+       "height": 40
+      },
+      "clipShape": "capsule"
+     }
+    },
+    {
+     "type": "Color",
+     "id": 10,
+     "properties": {
+      "color": "purple",
+      "frame": {
+       "width": 64,
+       "height": 40
+      },
+      "clipShape": {
+       "type": "roundedRectangle",
+       "cornerRadiusX": 20,
+       "cornerRadiusY": 8
+      }
+     }
+    },
+    {
+     "type": "HStack",
+     "id": 11,
+     "properties": {
+      "spacing": 0,
+      "frame": {
+       "width": 70,
+       "height": 40
+      },
+      "clipShape": "rectangle"
+     },
+     "children": [
+      {
+       "type": "Color",
+       "id": 100,
+       "properties": {
+        "color": "mint",
+        "frame": {
+         "width": 50,
+         "height": 40
+        }
+       }
+      },
+      {
+       "type": "Color",
+       "id": 101,
+       "properties": {
+        "color": "teal",
+        "frame": {
+         "width": 50,
+         "height": 40
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 12,
+   "properties": {
+    "spacing": 24
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 13,
+     "properties": {
+      "text": "All moved",
+      "padding": 6,
+      "background": "cyan",
+      "offset": {
+       "x": 10,
+       "y": 4
+      },
+      "rotationEffect": -10,
+      "scaleEffect": {
+       "x": 1.2,
+       "y": 1.2
+      },
+      "border": {
+       "color": "purple",
+       "width": 2
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 14,
+     "properties": {
+      "text": "Next"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 15,
+   "properties": {
+    "font": "caption",
+    "text": "rotationEffect turns around the center, scaleEffect grows from its anchor (top leading), neither moves the layout (Next stays); clipShape: circle, ellipse, capsule, rounded rectangle 20 by 8 on 64 by 40 colors, and a rectangle clipping two 50-wide colors in a 70-wide row. All moved: offset, rotation and scale, the purple border square at the layout frame."
+   }
+  }
+ ]
+}

@@ -1,0 +1,145 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 12
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 3,
+     "properties": {
+      "text": "Rounded",
+      "padding": 8,
+      "background": "yellow",
+      "cornerRadius": 8
+     }
+    },
+    {
+     "type": "Color",
+     "id": 4,
+     "properties": {
+      "color": "blue",
+      "frame": {
+       "width": 80,
+       "height": 40
+      },
+      "cornerRadius": 12
+     }
+    },
+    {
+     "type": "Text",
+     "id": 5,
+     "properties": {
+      "text": "Capsule",
+      "padding": 6,
+      "background": "green",
+      "foregroundStyle": "white",
+      "cornerRadius": 100
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 6,
+   "properties": {
+    "spacing": 8,
+    "background": "gray.opacity(0.2)"
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 7,
+     "properties": {
+      "text": "In place"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 8,
+     "properties": {
+      "text": "Offset 20, 6",
+      "offset": {
+       "x": 20,
+       "y": 6
+      },
+      "background": "orange"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 9,
+     "properties": {
+      "text": "Next"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 10,
+   "properties": {
+    "spacing": 16
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 11,
+     "properties": {
+      "text": "Black border",
+      "padding": 6,
+      "border": {}
+     }
+    },
+    {
+     "type": "Text",
+     "id": 12,
+     "properties": {
+      "text": "Red 3",
+      "padding": 6,
+      "border": {
+       "color": "red",
+       "width": 3
+      }
+     }
+    },
+    {
+     "type": "Text",
+     "id": 13,
+     "properties": {
+      "text": "All three",
+      "padding": 8,
+      "background": "mint",
+      "cornerRadius": 10,
+      "offset": {
+       "x": 6,
+       "y": 4
+      },
+      "border": {
+       "color": "purple",
+       "width": 2
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 14,
+   "properties": {
+    "text": "cornerRadius rounds and clips the frame (the blue Color has no background of its own); a radius past half the height is a capsule. offset moves what is drawn, not the layout (Next stays). border is square at the layout frame, after cornerRadius and offset (All three: the purple square stays where the layout put it).",
+    "font": "caption"
+   }
+  }
+ ]
+}

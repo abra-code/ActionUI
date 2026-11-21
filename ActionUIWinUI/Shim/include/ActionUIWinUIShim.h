@@ -813,6 +813,39 @@ ACTIONUI_WINUI_API char *actionUIWinUIListCopyRowName(ActionUIWinUIObject *list,
 // Scrolls the ListView so that row `index` is in view (rows or items).
 ACTIONUI_WINUI_API bool actionUIWinUIListScrollIntoView(ActionUIWinUIObject *list, int32_t index);
 
+// MARK: - Decoration (Decoration.cpp, Effects.cpp)
+
+// A new rounded box holding `child`, which fills it: its corners (actionUIWinUIRoundedBoxSetCornerRadius)
+// clip what it holds and its background (actionUIWinUIElementSetBrush, Background). `child` must have
+// no parent. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIRoundedBoxCreate(ActionUIWinUIObject *child);
+// The box's corner radius (0: square corners), the same in both axes: WinUI clamps it to half the width
+// and half the height separately, so the caller keeps it within half the shorter side for round corners.
+ACTIONUI_WINUI_API bool actionUIWinUIRoundedBoxSetCornerRadius(ActionUIWinUIObject *box, double radius);
+// Moves what `element` draws, and where it takes pointer input, by the 2D matrix (M11, M12, M21, M22,
+// OffsetX, OffsetY: x' = x M11 + y M21 + OffsetX, y' = x M12 + y M22 + OffsetY) without moving its
+// layout (a render transform); the identity removes it.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetRenderMatrix(ActionUIWinUIObject *element, double m11, double m12, double m21,
+                                                            double m22, double offsetX, double offsetY);
+
+typedef enum ActionUIWinUIClipShapeKind {
+    ActionUIWinUIClipShapeNone = 0,
+    ActionUIWinUIClipShapeRectangle = 1,
+    // The largest circle in the size, centered.
+    ActionUIWinUIClipShapeCircle = 2,
+    ActionUIWinUIClipShapeEllipse = 3,
+    // Corners of radiusX by radiusY; a corner wider than half the width or taller than half the height
+    // shrinks keeping its proportions, as SwiftUI's RoundedRectangle.
+    ActionUIWinUIClipShapeRoundedRectangle = 4,
+} ActionUIWinUIClipShapeKind;
+
+// Clips what `element` draws (not where it takes the pointer) to a shape of `width` by `height` from its
+// top leading corner, on its composition visual, in its own coordinates (its render transform moves the
+// clip with it); ActionUIWinUIClipShapeNone removes the clip. A new clip at every call: set it when the
+// shape or the size changed.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetClipShape(ActionUIWinUIObject *element, ActionUIWinUIClipShapeKind kind,
+                                                         double width, double height, double radiusX, double radiusY);
+
 // MARK: - Shapes
 
 typedef enum ActionUIWinUIShapeKind {
