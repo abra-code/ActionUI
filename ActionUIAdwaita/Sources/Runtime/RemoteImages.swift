@@ -82,6 +82,13 @@ final class RemoteImages {
 
     /// The image the bytes hold, nil when GTK cannot decode them. Runs off the main thread.
     nonisolated private static func decode(_ bytes: LoadedBytes) -> LoadedTexture? {
+        // An image that declares more pixels than the decode cap is not decoded (ImagePixels).
+        guard !ImagePixels.bytesAreTooLarge(bytes.bytes) else {
+            Task { @MainActor in
+                ActionUIModel.shared.logger.log("Image not shown: it has more than \(ImageSource.maximumPixelCount) pixels", .warning)
+            }
+            return nil
+        }
         var error: UnsafeMutablePointer<GError>?
         let texture = gdk_texture_new_from_bytes(bytes.bytes, &error)
         if let error { g_error_free(error) }

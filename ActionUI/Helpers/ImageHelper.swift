@@ -5,6 +5,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import ImageIO
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -22,7 +23,8 @@ extension SwiftUI.Image {
     // the path, and a device such as /dev/zero or a named pipe would never finish (or never begin)
     // reading on the main thread.
     init(contentsOfFile requestedPath: String) {
-        guard let contentsOfFile = ActionUIDocumentLoader.regularFilePath(URL(fileURLWithPath: requestedPath)) else {
+        guard let contentsOfFile = ActionUIDocumentLoader.regularFilePath(URL(fileURLWithPath: requestedPath)),
+              !ImageHelper.declaresTooManyPixels(contentsOfFile) else {
             self.init(systemName: "photo")
             return
         }
@@ -61,6 +63,29 @@ extension SwiftUI.Image {
 }
 
 class ImageHelper {
+    /// Whether the image file at `path` declares more pixels than ImageSource.maximumPixelCount, read
+    /// from its header without decoding it (ImageIO). A file ImageIO cannot size (a vector PDF, an
+    /// unknown format) goes on to the decoder. Logged.
+    static func declaresTooManyPixels(_ path: String) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+              ImageSource.isTooLarge(width: width, height: height) else { return false }
+        // Once per path: a view body, and a Canvas on every draw, asks again each time.
+        guard loggedLock.withLock({ loggedTooLarge.insert(path).inserted }) else { return true }
+        // Images are built off the main actor too; the model's logger is the main actor's.
+        Task { @MainActor in
+            ActionUIModel.shared.logger.log("Image not shown: \(path) is \(width) x \(height) pixels, more than \(ImageSource.maximumPixelCount)", .warning)
+        }
+        return true
+    }
+
+    /// The paths already logged as over the decode cap, behind loggedLock (images are built on
+    /// more than one thread).
+    nonisolated(unsafe) private static var loggedTooLarge: Set<String> = []
+    private static let loggedLock = Lock()
+
     /// The platform checks of ImageSource.resolve: file types by UTType, resources in the host's
     /// resource folder (ActionUIResourceFolder) then the main bundle, assets by UIImage(named:) or
     /// NSImage(named:).

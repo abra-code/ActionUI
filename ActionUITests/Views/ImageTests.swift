@@ -7,6 +7,7 @@
 */
 
 import XCTest
+import ImageIO
 import SwiftUI
 @testable import ActionUI
 
@@ -227,5 +228,35 @@ extension ImageTests {
             XCTAssertEqual(SwiftUI.Image(contentsOfFile: path), placeholder, path)
             XCTAssertEqual(SwiftUI.Image(from: path, interpretation: "path"), placeholder, path)
         }
+    }
+
+    /// A real PNG of `width` x `height` pixels, written by ImageIO.
+    static func png(width: Int, height: Int) -> Data {
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let data = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+        CGImageDestinationFinalize(destination)
+        return data as Data
+    }
+
+    func testAnImageWithMorePixelsThanTheCapIsNotDecoded() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-pixels-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let saved = ImageSource.maximumPixelCount
+        defer {
+            ImageSource.maximumPixelCount = saved
+            try? FileManager.default.removeItem(at: folder)
+        }
+        XCTAssertEqual(saved, 8192 * 8192, "64 megapixels")
+        let file = folder.appendingPathComponent("image.png")
+        try Self.png(width: 100, height: 100).write(to: file)
+        ImageSource.maximumPixelCount = 100 * 100
+        XCTAssertFalse(ImageHelper.declaresTooManyPixels(file.path), "exactly the cap")
+        ImageSource.maximumPixelCount = 100 * 100 - 1
+        XCTAssertTrue(ImageHelper.declaresTooManyPixels(file.path), "one pixel over")
+        XCTAssertFalse(ImageHelper.declaresTooManyPixels(folder.appendingPathComponent("missing.png").path), "no size: goes on")
+        XCTAssertTrue(ImageSource.isTooLarge(width: Int(Int32.max), height: Int(Int32.max)), "no overflow")
     }
 }

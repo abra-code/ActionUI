@@ -27,6 +27,17 @@ enum ImageSource: Equatable, Sendable {
     /// The symbol shown for a path that is not an image file.
     static let placeholderSymbol = "photo"
 
+    /// The most pixels an image file or download may have to be decoded (8192 x 8192): its size is
+    /// read from its header first, so a small file that declares a huge image is shown as the
+    /// placeholder instead of taking gigabytes to decode. Settable for tests (before images load).
+    nonisolated(unsafe) static var maximumPixelCount = 64 * 1024 * 1024
+
+    /// Whether an image of `width` x `height` pixels is over maximumPixelCount (in 64 bits, so a
+    /// header's largest sizes cannot overflow).
+    nonisolated static func isTooLarge(width: Int, height: Int) -> Bool {
+        Int64(max(width, 0)) * Int64(max(height, 0)) > Int64(maximumPixelCount)
+    }
+
     /// What `text` names under `interpretation`:
     ///  - "systemName": the symbol `text`;
     ///  - "assetName": the asset `text`;
