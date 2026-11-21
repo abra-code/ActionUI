@@ -17,6 +17,7 @@
 
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.Graphics.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>  // Popup
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
@@ -104,8 +105,75 @@ void writeFile(std::wstring const &path, std::vector<uint8_t> const &bytes) {
     }
 }
 
+// Draws the XAML root's open popups (a dialog, a flyout, a menu) over `bgra`, the rendering of `element`
+// at `scale` pixels per effective pixel, at their places: RenderTargetBitmap draws an element's own
+// tree, and a popup is in a layer of its own. A popup that cannot be drawn is left out.
+winrt::Windows::Foundation::IAsyncAction drawPopups(mux::UIElement element, std::vector<uint8_t> &bgra, uint32_t width,
+                                                    uint32_t height, double scale) {
+    mux::XamlRoot root = element.XamlRoot();
+    if (root == nullptr) {
+        co_return;
+    }
+    auto popups = mux::Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(root);
+    // Oldest first, as they are stacked: WinUI lists the newest first (a dialog before the smoke layer
+    // it opened under itself).
+    for (uint32_t index = popups.Size(); index-- > 0;) {
+        mux::UIElement child = popups.GetAt(index).Child();
+        if (child == nullptr) {
+            continue;
+        }
+        try {
+            // A flyout's presenter renders to nothing (its acrylic background): the first element down
+            // its tree that renders stands for it.
+            mux::Media::Imaging::RenderTargetBitmap layer;
+            streams::IBuffer pixels{nullptr};
+            uint32_t layerWidth = 0;
+            uint32_t layerHeight = 0;
+            for (int depth = 0; depth < 8 && child != nullptr; ++depth) {
+                co_await layer.RenderAsync(child);
+                pixels = co_await layer.GetPixelsAsync();
+                layerWidth = static_cast<uint32_t>(layer.PixelWidth());
+                layerHeight = static_cast<uint32_t>(layer.PixelHeight());
+                if (layerWidth > 0 && layerHeight > 0) {
+                    break;
+                }
+                child = mux::Media::VisualTreeHelper::GetChildrenCount(child) > 0
+                            ? mux::Media::VisualTreeHelper::GetChild(child, 0).try_as<mux::UIElement>()
+                            : nullptr;
+            }
+            if (child == nullptr || pixels == nullptr || pixels.Length() < static_cast<uint64_t>(layerWidth) * layerHeight * 4) {
+                continue;
+            }
+            wf::Point origin = child.TransformToVisual(element).TransformPoint(wf::Point{0, 0});
+            int64_t left = std::llround(origin.X * scale);
+            int64_t top = std::llround(origin.Y * scale);
+            uint8_t const *source = pixels.data();
+            // Premultiplied BGRA: the popup over what is under it.
+            for (uint32_t y = 0; y < layerHeight; ++y) {
+                int64_t row = top + y;
+                if (row < 0 || row >= static_cast<int64_t>(height)) {
+                    continue;
+                }
+                for (uint32_t x = 0; x < layerWidth; ++x) {
+                    int64_t column = left + x;
+                    if (column < 0 || column >= static_cast<int64_t>(width)) {
+                        continue;
+                    }
+                    uint8_t const *from = source + (static_cast<size_t>(y) * layerWidth + x) * 4;
+                    uint8_t *to = bgra.data() + (static_cast<size_t>(row) * width + static_cast<size_t>(column)) * 4;
+                    uint32_t keep = 255u - from[3];
+                    for (int channel = 0; channel < 4; ++channel) {
+                        to[channel] = static_cast<uint8_t>(from[channel] + (to[channel] * keep + 127u) / 255u);
+                    }
+                }
+            }
+        } catch (winrt::hresult_error const &) {
+        }
+    }
+}
+
 winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, ActionUIWinUICompletion completion,
-                                   void *context) {
+                                   void *context, bool withPopups) {
     bool succeeded = false;
     try {
         mux::Media::Imaging::RenderTargetBitmap bitmap;
@@ -117,6 +185,10 @@ winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, Ac
             throw winrt::hresult_error(E_FAIL, L"the element rendered to an empty bitmap (not laid out yet?)");
         }
         std::vector<uint8_t> bgra(pixels.data(), pixels.data() + pixels.Length());
+        if (withPopups && bgra.size() >= static_cast<size_t>(width) * height * 4) {
+            float elementWidth = element.ActualSize().x;
+            co_await drawPopups(element, bgra, width, height, elementWidth > 0 ? width / elementWidth : 1.0);
+        }
         double dpi = 96.0;
         mux::XamlRoot root = element.XamlRoot();
         if (root != nullptr) {
@@ -152,7 +224,7 @@ winrt::fire_and_forget renderToPNG(mux::UIElement element, std::wstring path, Ac
 // Renders `element` into the PNG at `path` from the UI thread's queue, so completion never runs
 // before the caller returns.
 bool startRender(const char *where, mux::UIElement const &element, const char *path, ActionUIWinUICompletion completion,
-                 void *context) {
+                 void *context, bool withPopups = false) {
     if (path == nullptr || path[0] == '\0') {
         return fail(where, "the path is empty");
     }
@@ -164,8 +236,8 @@ bool startRender(const char *where, mux::UIElement const &element, const char *p
     if (queue == nullptr) {
         return fail(where, "not on the UI thread (no DispatcherQueue)");
     }
-    bool queued = queue.TryEnqueue([element, widePath, completion, context]() {
-        renderToPNG(element, widePath, completion, context);
+    bool queued = queue.TryEnqueue([element, widePath, completion, context, withPopups]() {
+        renderToPNG(element, widePath, completion, context, withPopups);
     });
     if (!queued) {
         return fail(where, "the UI thread's queue refused the call (shutting down?)");
@@ -237,7 +309,8 @@ bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *pat
         if (typed.Content() == nullptr) {
             return fail("window render to PNG", "the window has no content");
         }
-        return startRender("window render to PNG", windowHost(typed), path, completion, context);
+        // With what the window shows over its content: a dialog, a flyout, an open menu.
+        return startRender("window render to PNG", windowHost(typed), path, completion, context, true);
     });
 }
 

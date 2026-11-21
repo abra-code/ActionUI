@@ -1,0 +1,79 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 20,
+  "spacing": 16
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 16
+   },
+   "children": [
+    {
+     "type": "Button",
+     "id": 3,
+     "properties": {
+      "title": "Show popover",
+      "popoverArrowEdge": "bottom",
+      "popoverActionID": "popover.shown"
+     },
+     "popover": {
+      "type": "VStack",
+      "id": 20,
+      "properties": {
+       "padding": 12,
+       "spacing": 6,
+       "alignment": "leading"
+      },
+      "children": [
+       {
+        "type": "Text",
+        "id": 21,
+        "properties": {
+         "text": "A popover",
+         "font": "headline"
+        }
+       },
+       {
+        "type": "Text",
+        "id": 22,
+        "properties": {
+         "text": "Below its button."
+        }
+       }
+      ]
+     }
+    },
+    {
+     "type": "Button",
+     "id": 4,
+     "properties": {
+      "title": "Sheet",
+      "sheetOnDismissActionID": "sheet.dismissed"
+     },
+     "sheet": {
+      "type": "Text",
+      "id": 40,
+      "properties": {
+       "text": "A sheet the host closes",
+       "padding": 20
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 5,
+   "properties": {
+    "font": "caption",
+    "text": "popover and a sheet's dismissal: the run opens the sheet, closes it through its state (sheetOnDismissActionID fires), then opens the popover below its button."
+   }
+  }
+ ]
+}

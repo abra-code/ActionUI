@@ -102,6 +102,8 @@ package final class RenderNode {
     private(set) var isDecoration = false
     /// The toolbar the element declares (its "toolbar" items), shown in the window's command row.
     private(set) var toolbar: NodeToolbar?
+    /// The element's sheet, full-screen cover and popover (NodePresentations).
+    package private(set) var presentations: NodePresentations?
     /// Children made since the last sync, synced at the end of it.
     private var unsyncedChildren: [RenderNode] = []
 
@@ -152,6 +154,7 @@ package final class RenderNode {
         toolbar = NodeToolbar.make(for: self)
         appearance = NodeAppearance.watch(self)
         makeDecorations()
+        presentations = NodePresentations.make(for: self)
     }
 
     /// The element's background and overlay views (its "background" and "overlay" subviews), made as
@@ -320,7 +323,9 @@ package final class RenderNode {
         var expansionChanged = false
         let previousAppearance = textAppearance
         let previousStates = (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle, controlSize)
+        var requestedPresentations: Set<NodePresentations.Kind> = []
         withObservationTracking {
+            requestedPresentations = presentations?.requested() ?? []
             let modifiers = baseModifiers
             // Before the renderer's update, which draws the text with it.
             textAppearance = (parent?.textAppearance ?? TextAppearance()).applying(modifiers)
@@ -385,6 +390,8 @@ package final class RenderNode {
         for child in created {
             child.sync()
         }
+        // After the children, outside the observation: the presentations' trees track their own reads.
+        presentations?.apply(requestedPresentations)
     }
 
     // MARK: Children
@@ -487,6 +494,7 @@ package final class RenderNode {
             NodeAppearance.left(self, appearance)
         }
         isAttached = false
+        presentations?.detach()
         orderedChildren = []
         for child in childNodes.values {
             child.detach()

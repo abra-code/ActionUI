@@ -825,6 +825,40 @@ ACTIONUI_WINUI_API char *actionUIWinUIListCopyRowName(ActionUIWinUIObject *list,
 // Scrolls the ListView so that row `index` is in view (rows or items).
 ACTIONUI_WINUI_API bool actionUIWinUIListScrollIntoView(ActionUIWinUIObject *list, int32_t index);
 
+// MARK: - Presentations (Presentations.cpp)
+
+// A new dialog over a window showing `content` (a ContentDialog with no title or buttons, as large as
+// its content and the window allow), for a sheet. `content` must have no parent. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIDialogCreate(ActionUIWinUIObject *content);
+// Shows `dialog` over the window `anchor` is in. Fails when `anchor` is in no window, or another dialog
+// is open in it (WinUI shows one at a time).
+ACTIONUI_WINUI_API bool actionUIWinUIDialogShow(ActionUIWinUIObject *dialog, ActionUIWinUIObject *anchor);
+// Closes `dialog` (Closed follows).
+ACTIONUI_WINUI_API bool actionUIWinUIDialogHide(ActionUIWinUIObject *dialog);
+// Closed: `dialog` closed, by the user (Escape) or by actionUIWinUIDialogHide.
+ACTIONUI_WINUI_API bool actionUIWinUIDialogOnClosed(ActionUIWinUIObject *dialog, ActionUIWinUICallback handler, void *context,
+                                                    ActionUIWinUICallback destroyContext);
+
+// The side of its element a flyout shows on.
+typedef enum ActionUIWinUIFlyoutPlacement {
+    ActionUIWinUIFlyoutPlacementTop = 0,
+    ActionUIWinUIFlyoutPlacementBottom = 1,
+    ActionUIWinUIFlyoutPlacementLeft = 2,
+    ActionUIWinUIFlyoutPlacementRight = 3,
+} ActionUIWinUIFlyoutPlacement;
+// A new flyout showing `content` (a Flyout, as large as its content and the window allow, kept inside
+// the window), for a popover. `content` must have no parent. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIFlyoutCreate(ActionUIWinUIObject *content);
+// Shows `flyout` on the `placement` side of `anchor` (a FrameworkElement in a window). A click outside
+// it or Escape closes it.
+ACTIONUI_WINUI_API bool actionUIWinUIFlyoutShow(ActionUIWinUIObject *flyout, ActionUIWinUIObject *anchor,
+                                                ActionUIWinUIFlyoutPlacement placement);
+// Closes `flyout` (Closed follows).
+ACTIONUI_WINUI_API bool actionUIWinUIFlyoutHide(ActionUIWinUIObject *flyout);
+// Closed: `flyout` closed, by the user (a click outside, Escape) or by actionUIWinUIFlyoutHide.
+ACTIONUI_WINUI_API bool actionUIWinUIFlyoutOnClosed(ActionUIWinUIObject *flyout, ActionUIWinUICallback handler, void *context,
+                                                    ActionUIWinUICallback destroyContext);
+
 // MARK: - Decoration (Decoration.cpp, Effects.cpp)
 
 // A new rounded box holding `child`, which fills it: its corners (actionUIWinUIRoundedBoxSetCornerRadius)
@@ -1231,7 +1265,7 @@ ACTIONUI_WINUI_API bool actionUIWinUIRenderToPNG(ActionUIWinUIObject *element, c
                                                  ActionUIWinUICompletion completion, void *context);
 // The same for the window's whole content area (its content on the page background), at the
 // window's content size: what the window shows below its title bar, the system's own title bar not
-// included. Fails when the window has no content yet; the rendering holds a reference to the host
+// included, with the popups open over it (a dialog, a flyout, a menu) drawn at their places. Fails when the window has no content yet; the rendering holds a reference to the host
 // (the window's content) until it completes.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowRenderToPNG(ActionUIWinUIObject *window, const char *path,
                                                        ActionUIWinUICompletion completion, void *context);

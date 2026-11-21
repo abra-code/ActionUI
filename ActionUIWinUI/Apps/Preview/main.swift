@@ -39,6 +39,9 @@
 //                            it reads as one, else a string)
 //   --set-path ID IDS        sets NavigationStack ID's navigationPath state through the model, as an
 //                            adapter does (IDS the destination ids, comma separated; "-" for none)
+//   --set-state ID KEY VALUE sets element ID's state KEY through the model, as an adapter does
+//                            (VALUE "true" or "false" a Bool, a number a Double, else the text):
+//                            sheetVisible false closes a sheet
 //   --expect-state ID KEY VALUE  fails unless element ID's state KEY reads VALUE (as text: "true",
 //                            "0.5", a string) at that point (a WebView's title after a --delay)
 //   --expect-automation ID FIELD TEXT  fails unless an accessibility tool reads TEXT as element ID's
@@ -87,13 +90,13 @@ final class Preview {
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
              drag(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int), expectState(Int, String, String), expectAutomation(Int, String, String),
-             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
+             setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), setState(Int, String, String), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .invokeMenuItem(let id, _), .toggleMenuItem(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
                  .drag(let id, _, _, _, _), .expectWidth(let id, _), .expectState(let id, _, _), .expectAutomation(let id, _, _),
-                 .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
+                 .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _), .setState(let id, _, _):
                 return id
             case .wait, .delay:
                 return 0
@@ -104,7 +107,7 @@ final class Preview {
         /// input as the UI thread takes it), so an operation on screen after it waits.
         var showsLater: Bool {
             switch self {
-            case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait, .drag, .delay: true
+            case .setProperty, .setValue, .addRow, .addRows, .setPath, .setState, .wait, .drag, .delay: true
             case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth, .expectState, .expectAutomation: false
             }
         }
@@ -376,6 +379,10 @@ final class Preview {
             case .setPath(_, let ids):
                 worked = ActionUIModel.shared.setElementState(windowUUID: "preview", viewID: viewID, key: "navigationPath", value: ids)
                 what = "set the path to \(ids) of"
+            case .setState(_, let key, let text):
+                let value: Any = text == "true" ? true : text == "false" ? false : (Double(text).map { $0 as Any } ?? text)
+                worked = ActionUIModel.shared.setElementState(windowUUID: "preview", viewID: viewID, key: key, value: value)
+                what = "set the state \(key) to \(text) of"
             case .wait, .delay:
                 continue
             case .addRow(_, let text):
@@ -411,7 +418,8 @@ final class Preview {
         }
         // A template's ids repeat in every row: the instance made first (the first row's until a row is
         // replaced).
-        for child in node.orderedChildren + node.templateNodes + node.auxiliaryNodes {
+        // A sheet's or popover's tree too, while it is shown.
+        for child in node.orderedChildren + node.templateNodes + node.auxiliaryNodes + (node.presentations?.roots ?? []) {
             if let found = find(viewID, in: child) {
                 return found
             }
@@ -449,6 +457,11 @@ final class Preview {
         }
         for child in node.orderedChildren + node.templateNodes + node.auxiliaryNodes {
             report(child, indent: indent + "  ")
+        }
+        // A shown sheet's or popover's tree, its frames in its own content.
+        for root in node.presentations?.roots ?? [] {
+            say("\(indent)  presented:")
+            report(root, indent: indent + "    ")
         }
     }
 
@@ -559,7 +572,7 @@ final class RecordingLogger: ActionUILogger {
     }
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -641,6 +654,9 @@ while index < arguments.count {
               let ids = pathIDs(arguments[index + 2]) {
         preview.invocations.append(.setPath(viewID, ids))
         index += 3
+    } else if option == "--set-state", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
+        preview.invocations.append(.setState(viewID, arguments[index + 2], arguments[index + 3]))
+        index += 4
     } else if option == "--expect-state", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.expectState(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4

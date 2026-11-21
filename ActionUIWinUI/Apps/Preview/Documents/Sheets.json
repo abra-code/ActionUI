@@ -1,0 +1,61 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 20,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "Button",
+   "id": 2,
+   "properties": {
+    "title": "Show sheet",
+    "sheetOnDismissActionID": "sheet.dismissed"
+   },
+   "sheet": {
+    "type": "VStack",
+    "id": 10,
+    "properties": {
+     "padding": 20,
+     "spacing": 12
+    },
+    "children": [
+     {
+      "type": "Text",
+      "id": 11,
+      "properties": {
+       "text": "A sheet",
+       "font": "title2"
+      }
+     },
+     {
+      "type": "Text",
+      "id": 12,
+      "properties": {
+       "text": "Its content sizes it."
+      }
+     },
+     {
+      "type": "Button",
+      "id": 13,
+      "properties": {
+       "title": "Done",
+       "actionID": "sheet.done",
+       "buttonStyle": "borderedProminent"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "font": "caption",
+    "text": "sheet: the run clicks Show sheet, then the sheet's Done button; the sheet stays shown over the dimmed window."
+   }
+  }
+ ]
+}
