@@ -67,7 +67,70 @@ bool samePaint(media::Brush const &current, media::Brush const &wanted) {
 
 } // namespace
 
+// The theme resources a control takes its accent from, and the share of the accent's opacity each
+// has (WinUI's accent fills: the default, the secondary at 90 percent when pointed at, the tertiary at
+// 80 percent when pressed). Read from microsoft-ui-xaml's theme resources; the disabled ones and the
+// text drawn on the accent stay the theme's.
+struct AccentKey {
+    const wchar_t *key;
+    double opacity;
+};
+const AccentKey accentKeys[] = {
+    {L"AccentFillColorDefaultBrush", 1.0}, {L"AccentFillColorSecondaryBrush", 0.9}, {L"AccentFillColorTertiaryBrush", 0.8},
+    {L"AccentTextFillColorPrimaryBrush", 1.0}, {L"AccentTextFillColorSecondaryBrush", 0.9}, {L"AccentTextFillColorTertiaryBrush", 0.8},
+    {L"ToggleSwitchFillOn", 1.0}, {L"ToggleSwitchFillOnPointerOver", 0.9}, {L"ToggleSwitchFillOnPressed", 0.8},
+    {L"ToggleSwitchStrokeOn", 1.0}, {L"ToggleSwitchStrokeOnPointerOver", 0.9}, {L"ToggleSwitchStrokeOnPressed", 0.8},
+    {L"CheckBoxCheckBackgroundFillChecked", 1.0}, {L"CheckBoxCheckBackgroundFillCheckedPointerOver", 0.9},
+    {L"CheckBoxCheckBackgroundFillCheckedPressed", 0.8},
+    {L"CheckBoxCheckBackgroundStrokeChecked", 1.0}, {L"CheckBoxCheckBackgroundStrokeCheckedPointerOver", 0.9},
+    {L"CheckBoxCheckBackgroundStrokeCheckedPressed", 0.8},
+    {L"CheckBoxCheckBackgroundFillIndeterminate", 1.0}, {L"CheckBoxCheckBackgroundFillIndeterminatePointerOver", 0.9},
+    {L"CheckBoxCheckBackgroundFillIndeterminatePressed", 0.8},
+    {L"CheckBoxCheckBackgroundStrokeIndeterminate", 1.0}, {L"CheckBoxCheckBackgroundStrokeIndeterminatePointerOver", 0.9},
+    {L"CheckBoxCheckBackgroundStrokeIndeterminatePressed", 0.8},
+    {L"RadioButtonOuterEllipseCheckedFill", 1.0}, {L"RadioButtonOuterEllipseCheckedFillPointerOver", 0.9},
+    {L"RadioButtonOuterEllipseCheckedFillPressed", 0.8},
+    {L"RadioButtonOuterEllipseCheckedStroke", 1.0}, {L"RadioButtonOuterEllipseCheckedStrokePointerOver", 0.9},
+    {L"RadioButtonOuterEllipseCheckedStrokePressed", 0.8},
+    {L"SliderThumbBackground", 1.0}, {L"SliderThumbBackgroundPointerOver", 0.9}, {L"SliderThumbBackgroundPressed", 0.8},
+    {L"SliderTrackValueFill", 1.0}, {L"SliderTrackValueFillPointerOver", 0.9}, {L"SliderTrackValueFillPressed", 0.8},
+    {L"AccentButtonBackground", 1.0}, {L"AccentButtonBackgroundPointerOver", 0.9}, {L"AccentButtonBackgroundPressed", 0.8},
+    {L"HyperlinkButtonForeground", 1.0}, {L"HyperlinkButtonForegroundPointerOver", 0.9}, {L"HyperlinkButtonForegroundPressed", 0.8},
+    {L"ProgressBarForeground", 1.0}, {L"ProgressRingForegroundThemeBrush", 1.0},
+    {L"SelectorBarItemPillFill", 1.0},
+    // A menu Picker's selected item, a List's selection (WinUI keeps it opaque when pointed at and
+    // pressed), and the graphical DatePicker's calendar.
+    {L"ComboBoxItemPillFillBrush", 1.0},
+    {L"ListViewItemSelectionIndicatorBrush", 1.0}, {L"ListViewItemSelectionIndicatorPointerOverBrush", 1.0},
+    {L"ListViewItemSelectionIndicatorPressedBrush", 1.0},
+    {L"ListViewItemCheckBoxSelectedBrush", 1.0}, {L"ListViewItemCheckBoxSelectedPointerOverBrush", 0.9},
+    {L"ListViewItemCheckBoxSelectedPressedBrush", 0.8},
+    {L"CalendarViewSelectedBorderBrush", 1.0}, {L"CalendarViewSelectedHoverBorderBrush", 0.9},
+    {L"CalendarViewSelectedForeground", 1.0},
+    {L"CalendarViewTodayBackground", 1.0}, {L"CalendarViewTodayHoverBackground", 0.9},
+    {L"CalendarViewTodayPressedBackground", 0.8},
+};
+
 extern "C" {
+
+bool actionUIWinUIElementSetAccent(ActionUIWinUIObject *element, const ActionUIWinUIColor *color) {
+    return guarded("element set accent", [&]() {
+        mux::FrameworkElement typed = objectAs<mux::FrameworkElement>(element, L"FrameworkElement");
+        mux::ResourceDictionary resources = typed.Resources();
+        for (AccentKey const &entry : accentKeys) {
+            wf::IInspectable key = winrt::box_value(entry.key);
+            if (resources.HasKey(key)) {
+                resources.Remove(key);
+            }
+            if (color != nullptr) {
+                winrt::Windows::UI::Color value{channel(color->alpha * entry.opacity), channel(color->red),
+                                                channel(color->green), channel(color->blue)};
+                resources.Insert(key, media::SolidColorBrush(value));
+            }
+        }
+        return true;
+    });
+}
 
 bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBrushProperty property,
                                   const ActionUIWinUIColor *color, const char *themeBrush) {

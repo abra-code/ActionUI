@@ -61,6 +61,8 @@ package final class RenderNode {
     /// controlSize, as SwiftUI's environment passes it down: the element's own, else its nearest
     /// ancestor's (ControlSizing).
     private(set) var controlSize: BaseModifiers.ControlSizeName?
+    /// The element's own tint last given to its WinUI object's resources (applyTint); nil: none.
+    private var appliedTint: ActionUIWinUIColor?
     /// The accessibility texts and tooltip last applied (applyAccessibility), the name with the
     /// renderer's default; each nil: none applied.
     private var appliedAccessibility = AccessibilityTexts()
@@ -266,6 +268,32 @@ package final class RenderNode {
         textAppearance.apply(to: view, what: what)
     }
 
+    /// The element's own tint as the accent of its WinUI object and what it holds: the brushes
+    /// WinUI's controls take their accent from, in the object's resources, which the controls in
+    /// it look up when their templates are applied (WinUI's lightweight styling). A tint that is no
+    /// color (a semantic style) is the system accent. Descendants need none of their own: WinUI
+    /// looks the brushes up through the tree.
+    private func applyTint(_ tint: String?, to view: WinUIObject) {
+        var color: ActionUIWinUIColor?
+        if case let .color(value)? = Paint.parse(tint, role: .background) {
+            color = value
+        }
+        let same: Bool
+        switch (color, appliedTint) {
+        case (nil, nil): same = true
+        case let (a?, b?): same = a.red == b.red && a.green == b.green && a.blue == b.blue && a.alpha == b.alpha
+        default: same = false
+        }
+        guard !same else { return }
+        appliedTint = color
+        let set = withUnsafePointer(to: color ?? ActionUIWinUIColor()) { pointer in
+            actionUIWinUIElementSetAccent(view.pointer, color == nil ? nil : pointer)
+        }
+        if !set {
+            ActionUIModel.shared.logger.log("tint: \(WinUIError.last("setting the accent of a \(element.type)"))", .error)
+        }
+    }
+
     static func expansion(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
         let frame = geometry.frameExpansion
         var expansion: Expansion = []
@@ -306,6 +334,10 @@ package final class RenderNode {
                 buttonStyle = parent?.buttonStyle
             }
             controlSize = modifiers.controlSize ?? parent?.controlSize
+            // Before the renderer's update, which puts the children in the object: in a shown window
+            // a control takes its built-in style, and that style's setters their brushes, as it is
+            // put in.
+            applyTint(modifiers.tint, to: view)
             renderer.update(view, self)
             toolbar?.update()
             applyStates(to: view)

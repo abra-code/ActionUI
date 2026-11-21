@@ -62,16 +62,17 @@ extension Color: ActionUIWinUIRenderer {
         guard let state = node.state as? ShapeState else { return }
         let shape = state.shape
         var strokeWidth = 0.0
-        if let paint = Paint.parse(fill, role: .background) {
+        let tint = node.textAppearance.tint
+        if let paint = Paint.parse(fill, role: .background, tint: tint) {
             Paint.apply(paint, ActionUIWinUIBrushFill, to: shape, what: "a shape's fill")
             Paint.apply(nil, ActionUIWinUIBrushStroke, to: shape, what: "a shape's stroke")
-        } else if let paint = Paint.parse(stroke, role: .foreground) {
+        } else if let paint = Paint.parse(stroke, role: .foreground, tint: tint) {
             Paint.apply(nil, ActionUIWinUIBrushFill, to: shape, what: "a shape's fill")
             Paint.apply(paint, ActionUIWinUIBrushStroke, to: shape, what: "a shape's stroke")
             // As the shim takes it: a width that is not a positive number draws no stroke.
             strokeWidth = lineWidth.isFinite && lineWidth > 0 ? lineWidth : 0
         } else {
-            let foreground = Paint.parse(node.textAppearance.foreground, role: .foreground) ?? .theme("TextFillColorPrimaryBrush")
+            let foreground = Paint.parse(node.textAppearance.foreground, role: .foreground, tint: tint) ?? .theme("TextFillColorPrimaryBrush")
             Paint.apply(foreground, ActionUIWinUIBrushFill, to: shape, what: "a shape's fill")
             Paint.apply(nil, ActionUIWinUIBrushStroke, to: shape, what: "a shape's stroke")
         }

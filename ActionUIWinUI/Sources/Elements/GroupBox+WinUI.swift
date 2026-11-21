@@ -114,7 +114,7 @@ extension GroupBox: ActionUIWinUIRenderer {
         if !actionUIWinUIElementSetFont(layout.title.pointer, family, size, node.textAppearance.font == nil ? 600 : weight) {
             ActionUIModel.shared.logger.log("GroupBox: \(WinUIError.last("setting the title's font"))", .error)
         }
-        Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground), ActionUIWinUIBrushForeground,
+        Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground, tint: node.textAppearance.tint), ActionUIWinUIBrushForeground,
                     to: layout.title, what: "a GroupBox's title")
         node.applyAccessibilityHidden(to: layout.title)
         StackViews.configure(layout.content, spacing: nil, alignment: .center)

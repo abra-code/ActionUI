@@ -32,7 +32,7 @@ extension Label: ActionUIWinUIRenderer {
             layout.setIcon(symbol.flatMap(ImageLayout.makeSymbol))
         }
         if let icon = layout.icon {
-            Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground), ActionUIWinUIBrushForeground,
+            Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground, tint: node.textAppearance.tint), ActionUIWinUIBrushForeground,
                         to: icon, what: "a Label's symbol")
         }
         layout.setIconSide(ImageLayout.symbolSide(node, scale: nil))

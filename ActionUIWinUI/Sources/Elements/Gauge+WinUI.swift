@@ -18,7 +18,7 @@
  drawn forms keep the accent color of the theme they were made in (a later light or dark, or accent,
  change is not followed); a long
  title in a circular form is clipped, where SwiftUI cuts it with an ellipsis; an accessible name and
- value (a meter with the title as its name); controlSize.
+ value (a meter with the title as its name); controlSize; tint (the drawn forms take the theme's accent).
 */
 
 import CWinUI
@@ -172,7 +172,7 @@ extension Gauge: ActionUIWinUIRenderer {
             case .circular, .circularCapacity:
                 let (size, weight): (Double, Int32) = layout.kind == .circular ? (12, 0) : (20, 600)
                 ok = actionUIWinUIElementSetFont(title.pointer, nil, size, weight) && ok
-                Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground), ActionUIWinUIBrushForeground,
+                Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground, tint: node.textAppearance.tint), ActionUIWinUIBrushForeground,
                             to: title, what: "a Gauge's title")
             case .levelBar, .linear:
                 node.textAppearance.apply(to: title, what: "a Gauge's title")

@@ -35,10 +35,14 @@ enum Paint: Equatable {
     }
 
     /// The paint `text` names for `role`; nil when it names none (or a style WinUI has no brush for).
-    static func parse(_ text: String?, role: Role) -> Paint? {
+    /// The tint and link styles paint with `tint` (the element's, TextAppearance) when it is a color.
+    static func parse(_ text: String?, role: Role, tint: String? = nil) -> Paint? {
         guard let text, let spec = ShapeStyleSpec.parse(text) else { return nil }
         switch spec {
         case let .style(name):
+            if name == .tint || name == .link, let tint, case let .color(color)? = parse(tint, role: role) {
+                return .color(color)
+            }
             return theme(name, role: role).map { .theme($0) }
         case let .color(color):
             return paint(color, role: role)

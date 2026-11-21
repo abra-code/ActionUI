@@ -613,6 +613,13 @@ typedef enum ActionUIWinUIBrushProperty {
 // Fails when the element has no such property or the theme no such brush.
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBrushProperty property,
                                                      const ActionUIWinUIColor *color, const char *themeBrush);
+// Makes `color` the accent of `element` (a FrameworkElement) and the controls in it: brushes for the
+// theme resources WinUI's controls take their accent from (the accent fills and text, a switch's,
+// check box's, radio button's, slider's, accent button's, hyperlink button's, progress bar's and
+// selector bar's), at rest, pointed at (90 percent opaque) and pressed (80 percent), in the element's
+// resources. Controls look them up when their templates are applied, so set it before they are
+// shown. NULL takes them away (the system accent again).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccent(ActionUIWinUIObject *element, const ActionUIWinUIColor *color);
 
 // The font of a text block's or a control's text: `family` (NULL: the theme's, Segoe UI), `size` in
 // effective pixels (0 or less: the theme's) and `weight` from 1 to 999 (400 regular, 600 semibold,

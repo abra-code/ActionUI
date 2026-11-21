@@ -110,7 +110,7 @@ extension AsyncImage: ActionUIWinUIRenderer {
             }
             if let child = layout.child {
                 // The foregroundStyle in effect, else the inherited text color, as Image's symbols.
-                Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground), ActionUIWinUIBrushForeground,
+                Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground, tint: node.textAppearance.tint), ActionUIWinUIBrushForeground,
                             to: child, what: "a placeholder symbol")
             }
         }

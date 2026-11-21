@@ -1,0 +1,320 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "alignment": "top",
+    "spacing": 24
+   },
+   "children": [
+    {
+     "type": "VStack",
+     "id": 10,
+     "properties": {
+      "alignment": "leading",
+      "spacing": 8
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 11,
+       "properties": {
+        "text": "No tint",
+        "font": "headline"
+       }
+      },
+      {
+       "type": "Toggle",
+       "id": 12,
+       "properties": {
+        "title": "Switch",
+        "style": "switch",
+        "isOn": true
+       }
+      },
+      {
+       "type": "Toggle",
+       "id": 13,
+       "properties": {
+        "title": "Check box",
+        "isOn": true
+       }
+      },
+      {
+       "type": "Slider",
+       "id": 14,
+       "properties": {
+        "value": 0.6,
+        "frame": {
+         "width": 140
+        }
+       }
+      },
+      {
+       "type": "ProgressView",
+       "id": 15,
+       "properties": {
+        "value": 0.7,
+        "frame": {
+         "width": 140
+        }
+       }
+      },
+      {
+       "type": "Button",
+       "id": 16,
+       "properties": {
+        "title": "Prominent",
+        "buttonStyle": "borderedProminent"
+       }
+      },
+      {
+       "type": "Text",
+       "id": 17,
+       "properties": {
+        "text": "foregroundStyle tint",
+        "foregroundStyle": "tint"
+       }
+      },
+      {
+       "type": "Circle",
+       "id": 18,
+       "properties": {
+        "fill": "tint",
+        "frame": {
+         "width": 16,
+         "height": 16
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "VStack",
+     "id": 20,
+     "properties": {
+      "alignment": "leading",
+      "spacing": 8,
+      "tint": "purple"
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 21,
+       "properties": {
+        "text": "Purple",
+        "font": "headline"
+       }
+      },
+      {
+       "type": "Toggle",
+       "id": 22,
+       "properties": {
+        "title": "Switch",
+        "style": "switch",
+        "isOn": true
+       }
+      },
+      {
+       "type": "Toggle",
+       "id": 23,
+       "properties": {
+        "title": "Check box",
+        "isOn": true
+       }
+      },
+      {
+       "type": "Slider",
+       "id": 24,
+       "properties": {
+        "value": 0.6,
+        "frame": {
+         "width": 140
+        }
+       }
+      },
+      {
+       "type": "ProgressView",
+       "id": 25,
+       "properties": {
+        "value": 0.7,
+        "frame": {
+         "width": 140
+        }
+       }
+      },
+      {
+       "type": "Button",
+       "id": 26,
+       "properties": {
+        "title": "Prominent",
+        "buttonStyle": "borderedProminent"
+       }
+      },
+      {
+       "type": "Text",
+       "id": 27,
+       "properties": {
+        "text": "foregroundStyle tint",
+        "foregroundStyle": "tint"
+       }
+      },
+      {
+       "type": "Circle",
+       "id": 28,
+       "properties": {
+        "fill": "tint",
+        "frame": {
+         "width": 16,
+         "height": 16
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "VStack",
+     "id": 30,
+     "properties": {
+      "alignment": "leading",
+      "spacing": 8,
+      "tint": "orange"
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 31,
+       "properties": {
+        "text": "Orange",
+        "font": "headline"
+       }
+      },
+      {
+       "type": "Toggle",
+       "id": 32,
+       "properties": {
+        "title": "Switch",
+        "style": "switch",
+        "isOn": true
+       }
+      },
+      {
+       "type": "Toggle",
+       "id": 33,
+       "properties": {
+        "title": "Check box",
+        "isOn": true
+       }
+      },
+      {
+       "type": "Slider",
+       "id": 34,
+       "properties": {
+        "value": 0.6,
+        "frame": {
+         "width": 140
+        }
+       }
+      },
+      {
+       "type": "ProgressView",
+       "id": 35,
+       "properties": {
+        "value": 0.7,
+        "frame": {
+         "width": 140
+        }
+       }
+      },
+      {
+       "type": "Button",
+       "id": 36,
+       "properties": {
+        "title": "Prominent",
+        "buttonStyle": "borderedProminent"
+       }
+      },
+      {
+       "type": "Text",
+       "id": 37,
+       "properties": {
+        "text": "foregroundStyle tint",
+        "foregroundStyle": "tint"
+       }
+      },
+      {
+       "type": "Circle",
+       "id": 38,
+       "properties": {
+        "fill": "tint",
+        "frame": {
+         "width": 16,
+         "height": 16
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 4,
+   "properties": {
+    "spacing": 20,
+    "tint": "purple"
+   },
+   "children": [
+    {
+     "type": "Picker",
+     "id": 40,
+     "properties": {
+      "title": "Segmented",
+      "options": [
+       "One",
+       "Two"
+      ],
+      "pickerStyle": "segmented"
+     }
+    },
+    {
+     "type": "Picker",
+     "id": 41,
+     "properties": {
+      "title": "Radio",
+      "options": [
+       "A",
+       "B"
+      ],
+      "pickerStyle": "radioGroup",
+      "horizontalRadioGroupLayout": true
+     }
+    },
+    {
+     "type": "Link",
+     "id": 42,
+     "properties": {
+      "title": "A link",
+      "url": "https://example.com"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "font": "caption",
+    "text": "tint: the system accent, a purple column and an orange column (each control, the tint text style and a tint-filled circle); a purple row with a segmented Picker, radio buttons and a Link."
+   }
+  }
+ ]
+}

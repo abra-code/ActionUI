@@ -183,7 +183,7 @@ extension VideoPlayer: ActionUIWinUIRenderer {
         guard let label = state.label else { return }
         node.applyTextAppearance(to: label.title, what: "a VideoPlayer's Label")
         if let icon = label.icon {
-            Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground), ActionUIWinUIBrushForeground,
+            Paint.apply(Paint.parse(node.textAppearance.foreground, role: .foreground, tint: node.textAppearance.tint), ActionUIWinUIBrushForeground,
                         to: icon, what: "a VideoPlayer's Label symbol")
         }
         label.setIconSide(ImageLayout.symbolSide(node, scale: nil))

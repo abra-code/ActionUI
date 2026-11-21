@@ -165,14 +165,14 @@ extension ContentUnavailableView: ActionUIWinUIRenderer {
         let titleSize = 18.0
         let fonts: [(WinUIObject, Double, Int32)] = [(layout.title, titleSize, alone ? 400 : 600), (layout.description, 14, 400)]
         for (text, size, weight) in fonts {
-            Paint.apply(Paint.parse(appearance.foreground, role: .foreground), ActionUIWinUIBrushForeground, to: text, what: "a ContentUnavailableView's text")
+            Paint.apply(Paint.parse(appearance.foreground, role: .foreground, tint: appearance.tint), ActionUIWinUIBrushForeground, to: text, what: "a ContentUnavailableView's text")
             if !actionUIWinUIElementSetFont(text.pointer, nil, size, weight) {
                 ok = false
             }
             node.applyAccessibilityHidden(to: text)
         }
         if let icon = layout.icon {
-            Paint.apply(Paint.parse(appearance.foreground, role: .foreground), ActionUIWinUIBrushForeground, to: icon, what: "a ContentUnavailableView's icon")
+            Paint.apply(Paint.parse(appearance.foreground, role: .foreground, tint: appearance.tint), ActionUIWinUIBrushForeground, to: icon, what: "a ContentUnavailableView's icon")
         }
         if !ok {
             ActionUIModel.shared.logger.log("ContentUnavailableView: \(WinUIError.last("showing the texts"))", .error)

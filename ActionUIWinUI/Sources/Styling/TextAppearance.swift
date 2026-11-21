@@ -11,6 +11,10 @@
  a sized font keeps its size and weight; monospaced is Cascadia Mono (Consolas where it is
  missing), serif Cambria; a named font is that family at the body size.
 
+ The tint (SwiftUI's tint) passes down the same way: the tint and link styles paint with it (Paint),
+ as Linux's accent variables do. The controls' accent comes from the tinted element's resources,
+ which WinUI looks up through its subtree (RenderNode.applyTint).
+
    largeTitle  Title 28 semibold        headline     Body Strong 14 semibold
    title       Subtitle 20 semibold     body, callout  Body 14
    title2      Body Large 18 semibold   subheadline, footnote, caption, caption2  Caption 12
@@ -23,6 +27,8 @@ struct TextAppearance: Equatable {
     var font: FontSpec?
     /// A style string (a color or a semantic style), read as a foreground.
     var foreground: String?
+    /// The tint, a style string: what the tint and link styles paint with (nil: the system accent).
+    var tint: String?
 
     /// This appearance with an element's own font and foregroundStyle over it.
     @MainActor
@@ -33,6 +39,9 @@ struct TextAppearance: Equatable {
         }
         if let foreground = modifiers.foregroundStyle {
             appearance.foreground = foreground
+        }
+        if let tint = modifiers.tint {
+            appearance.tint = tint
         }
         return appearance
     }
@@ -90,6 +99,6 @@ struct TextAppearance: Equatable {
         if !actionUIWinUIElementSetFont(view.pointer, family, size, weight) {
             ActionUIModel.shared.logger.log("TextAppearance: \(WinUIError.last("setting the font of \(what)"))", .error)
         }
-        Paint.apply(Paint.parse(foreground, role: .foreground), ActionUIWinUIBrushForeground, to: view, what: what)
+        Paint.apply(Paint.parse(foreground, role: .foreground, tint: tint), ActionUIWinUIBrushForeground, to: view, what: what)
     }
 }
