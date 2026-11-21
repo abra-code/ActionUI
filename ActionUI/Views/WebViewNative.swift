@@ -54,8 +54,8 @@ enum WebViewSupport {
     }
 
     /// The UTF-8 text of the regular file at `path` (symbolic links followed), for a resourceName:
-    /// Bundle.main.path(forResource:) keeps a name's "..", so a document can name a device or a pipe
-    /// outside the bundle, which would never finish (or never begin) reading on the main thread.
+    /// a link in the bundle could still lead to a device or a pipe, which would never finish (or
+    /// never begin) reading on the main thread.
     private static func regularFileText(_ path: String) throws -> String {
         let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))
         guard let text = String(data: data, encoding: .utf8) else { throw CocoaError(.fileReadInapplicableStringEncoding) }
@@ -89,7 +89,7 @@ enum WebViewSupport {
             let nameWithoutExt = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
             // The host's resource folder (ActionUIResourceFolder) first, then the main bundle.
             if let path = ActionUIResourceFolder.file(nameWithoutExt + ".js") ?? ActionUIResourceFolder.file(resourceName)
-                ?? Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
+                ?? ActionUIResourceFolder.bundlePath(forResource: nameWithoutExt, ofType: "js") {
                 do {
                     return try regularFileText(path)
                 } catch {
@@ -98,7 +98,7 @@ enum WebViewSupport {
                 }
             }
             // Fallback: try the name as-is (e.g. "MyScript" without extension, or unusual extension)
-            if let path = Bundle.main.path(forResource: resourceName, ofType: nil) {
+            if let path = ActionUIResourceFolder.bundlePath(forResource: resourceName, ofType: nil) {
                 do {
                     return try regularFileText(path)
                 } catch {

@@ -619,6 +619,24 @@ final class WebViewTests: XCTestCase {
                        "a name without .js finds the .js file")
     }
 
+    func testAResourceNameWithASlashReachesNoFileOutsideTheBundle() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("webview-outside-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try "var outside = 1;".write(to: folder.appendingPathComponent("Outside.js"), atomically: true, encoding: .utf8)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: folder.appendingPathComponent("Outside.png"))
+        // From the bundle's resources up to the root, then down to the file.
+        let up = String(repeating: "../", count: 40) + folder.path.dropFirst()
+        // What a plain bundle lookup does with it: it keeps the ".." (seen on macOS 27).
+        let plain = Bundle.main.path(forResource: up + "/Outside", ofType: "js")
+        XCTAssertNil(ActionUIResourceFolder.bundlePath(forResource: up + "/Outside", ofType: "js"), "plain lookup gave \(plain ?? "nil")")
+        XCTAssertNil(ActionUIResourceFolder.bundlePath(forResource: "sub/Outside.js", ofType: nil))
+        ActionUIModel.shared.logger = consoleLogger
+        defer { ActionUIModel.shared.logger = logger }
+        XCTAssertNil(WebViewSupport.resolveJSSource(from: ["resourceName": up + "/Outside.js"], logger: consoleLogger))
+        XCTAssertNil(ImageHelper.lookup.resourcePath(up + "/Outside.png"), "an Image resourceName too")
+    }
+
     func testWebViewSupport_ResolveJSSource_MissingFile_ReturnsNil() {
         ActionUIModel.shared.logger = consoleLogger
         let source = WebViewSupport.resolveJSSource(from: ["filePath": "/no/such/file.js"], logger: consoleLogger)

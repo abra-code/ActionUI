@@ -67,7 +67,7 @@ class ImageHelper {
     static var lookup: ImageSource.Lookup {
         ImageSource.Lookup(
             isImageFile: { validateImageFilePath($0) != nil },
-            resourcePath: { ActionUIResourceFolder.file($0) ?? Bundle.main.path(forResource: $0, ofType: nil) },
+            resourcePath: { ActionUIResourceFolder.file($0) ?? ActionUIResourceFolder.bundlePath(forResource: $0, ofType: nil) },
             assetExists: { name in
 #if canImport(UIKit)
                 UIImage(named: name) != nil

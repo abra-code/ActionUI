@@ -19,7 +19,7 @@
          "injectionTime": "documentStart", // Required: "documentStart" or "documentEnd"
          "source": "window.myFlag = true;", // One required source — inline JS string
          // OR "filePath": "/absolute/path/to/script.js"  — absolute path to a .js file on disk
-         // OR "resourceName": "MyScript.js"              — .js file in the app's main bundle
+         // OR "resourceName": "MyScript.js"              - .js file in the app's main bundle (a name with "/" is not found)
          "forMainFrameOnly": false          // Optional Bool; inject into all frames when false; default false
        }
      ],
@@ -39,7 +39,7 @@
  Note: userScripts are injected via WKUserScript on each page load.
  The "resourceName" lookup tries the host's resource folder (ActionUIResourceFolder) first, then strips a
  trailing .js extension and calls Bundle.main.path(forResource:ofType:),
- mirroring Image.swift's resourceName pattern.
+ mirroring Image.swift's resourceName pattern. It is a name, not a path: one with "/" is not found.
 
  Observable state (via getElementValue / getElementState):
    value (String)                     Current page URL.
