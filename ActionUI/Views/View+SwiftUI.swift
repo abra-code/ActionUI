@@ -484,7 +484,9 @@ extension View: ActionUISwiftUIRenderer {
             modifiedView = modifiedView.keyboardShortcut(keyEquivalent, modifiers: eventModifiers)
         }
 
-        if let navigationTitle = mods.navigationTitle {
+        // Less-trusted content does not set the title of the window or of the host's navigation bar.
+        if let navigationTitle = mods.navigationTitle,
+           ActionUIModel.shared.allowsLoggingOnce(.windowTitle, what: "setting the title", windowUUID: windowUUID, viewID: element.id) {
             modifiedView = modifiedView.navigationTitle(navigationTitle)
         }
 
@@ -600,8 +602,13 @@ extension View: ActionUISwiftUIRenderer {
             )
         }
 
+        // Less-trusted content presents no sheet, cover or popover of its own over the window.
+        let hasPresentation = ["sheet", "fullScreenCover", "popover"].contains { element.subviews?[$0] is any ActionUIElementBase }
+        let presents = !hasPresentation
+            || ActionUIModel.shared.allowsLoggingOnce(.presentModal, what: "presenting a sheet, cover or popover", windowUUID: windowUUID, viewID: element.id)
+
         // Apply sheet modifier if the element has a sheet subview
-        if let sheetElement = element.subviews?["sheet"] as? any ActionUIElementBase,
+        if presents, let sheetElement = element.subviews?["sheet"] as? any ActionUIElementBase,
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let parentModel = windowModel.viewModels[element.id],
            let sheetModel = windowModel.viewModels[sheetElement.id] {
@@ -617,7 +624,7 @@ extension View: ActionUISwiftUIRenderer {
         }
 
         // Apply fullScreenCover modifier if the element has a fullScreenCover subview
-        if let coverElement = element.subviews?["fullScreenCover"] as? any ActionUIElementBase,
+        if presents, let coverElement = element.subviews?["fullScreenCover"] as? any ActionUIElementBase,
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let parentModel = windowModel.viewModels[element.id],
            let coverModel = windowModel.viewModels[coverElement.id] {
@@ -645,7 +652,7 @@ extension View: ActionUISwiftUIRenderer {
         }
 
         // Apply popover modifier if the element has a popover subview
-        if let popoverElement = element.subviews?["popover"] as? any ActionUIElementBase,
+        if presents, let popoverElement = element.subviews?["popover"] as? any ActionUIElementBase,
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let parentModel = windowModel.viewModels[element.id],
            let popoverModel = windowModel.viewModels[popoverElement.id] {

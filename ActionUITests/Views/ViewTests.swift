@@ -1456,4 +1456,38 @@ final class ViewTests: XCTestCase {
         let mods = BaseModifiers(["help": 42])
         XCTAssertNil(mods.help)
     }
+
+    /// Records messages without failing the test, for refusals logged on purpose.
+    private final class Recording: ActionUILogger, @unchecked Sendable {
+        var warnings: [String] = []
+        func log(_ message: String, _ level: LoggerLevel) { if level == .warning { warnings.append(message) } }
+    }
+
+    func testLessTrustedContentNeitherTitlesTheWindowNorPresentsItsOwnSheets() throws {
+        let recording = Recording()
+        ActionUIModel.shared.logger = recording
+        defer { ActionUIModel.shared.logger = logger }
+        let document = Data(#"{"id": 7, "type": "Button", "properties": {"title": "Open", "navigationTitle": "Bank"}, "sheet": {"id": 8, "type": "Text", "properties": {"text": "Sheet"}}}"#.utf8)
+        let remote = UUID().uuidString
+        let host = UUID().uuidString
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/v.json")!))
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: host, isContentView: true, parentID: 0, source: nil)
+        func modified(_ window: String) throws -> String {
+            let element = try XCTUnwrap(ActionUIModel.shared.windowModels[window]?.element)
+            let view = View.applyModifiers(SwiftUI.Text("x"), element, window, element.properties, recording)
+            return String(describing: type(of: view))
+        }
+        XCTAssertTrue(try modified(host).contains("SheetModifierView"), "the host's content presents its sheet")
+        XCTAssertFalse(try modified(remote).contains("SheetModifierView"), "less-trusted content does not")
+        XCTAssertFalse(ActionUIModel.shared.allowsLoggingOnce(.windowTitle, what: "setting the title", windowUUID: remote, viewID: 7))
+        XCTAssertTrue(ActionUIModel.shared.allowsLoggingOnce(.windowTitle, what: "setting the title", windowUUID: host, viewID: 7))
+        _ = try modified(remote)
+        XCTAssertEqual(recording.warnings.filter { $0.contains("presenting") }.count, 1, "logged once, however often it draws")
+        XCTAssertEqual(recording.warnings.filter { $0.contains("setting the title") }.count, 1)
+        ActionUIModel.shared.removeWindow(remote)
+        ActionUIModel.shared.removeWindow(host)
+        XCTAssertFalse(ActionUIModel.shared.allowsLoggingOnce(.windowTitle, what: "setting the title", windowUUID: remote, viewID: 7))
+        XCTAssertEqual(recording.warnings.filter { $0.contains("setting the title") }.count, 2, "a removed window's refusals are forgotten")
+    }
 }

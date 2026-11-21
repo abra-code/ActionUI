@@ -62,6 +62,7 @@ public class ActionUIModel {
     /// ignored.
     public func removeWindow(_ windowUUID: String) {
         windowModels[windowUUID] = nil
+        loggedRefusals[windowUUID] = nil
     }
 
     /// True when a window model exists for windowUUID. Unlike getElementInfo, which returns
@@ -246,6 +247,22 @@ public class ActionUIModel {
 
     /// The origin `allows` uses for an element with no view model.
     private static let unknownOrigin = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
+
+    /// Whether the element `viewID` of the window may do `capability`, as `allows` says, with a
+    /// refusal logged once per element, window and kind of capability (`what`): for checks a
+    /// renderer makes each time it draws.
+    public func allowsLoggingOnce(_ capability: ActionUICapability, what: String, windowUUID: String, viewID: Int) -> Bool {
+        guard allows(capability, windowUUID: windowUUID, viewID: viewID) else {
+            if loggedRefusals[windowUUID, default: []].insert("\(viewID)|\(what)").inserted {
+                logger.log("Not \(what) for element \(viewID) of window \(windowUUID): the trust policy refuses it", .warning)
+            }
+            return false
+        }
+        return true
+    }
+
+    /// The refusals allowsLoggingOnce has logged, by window (removeWindow forgets a window's).
+    private var loggedRefusals: [String: Set<String>] = [:]
 
     /// Whether the element `viewID` of the window may read the local file at `path` (an image, a
     /// canvas image, a video, a shared file): trusted content reads anything without asking; other

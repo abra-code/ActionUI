@@ -400,7 +400,7 @@ final class DocumentLoaderTests: XCTestCase {
         let lessTrusted = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
         let capabilities: [ActionUICapability] = [
             .load(.remote(URL(string: "https://example.com/b.json")!)), .openLink(URL(string: "https://example.com")!),
-            .webView(nil), .windowTitle, .presentModal,
+            .webView(nil),
             .menuCommands, .action("a"),
         ]
         for capability in capabilities {
@@ -415,6 +415,10 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertFalse(DefaultTrustPolicy().allows(.readLocalFile("/tmp/a.png"), for: lessTrusted), "a file outside the app's resources")
         XCTAssertFalse(DefaultTrustPolicy().allows(.webViewScriptFile("/tmp/a.js"), for: lessTrusted), "a script file outside them")
         XCTAssertTrue(DefaultTrustPolicy().allows(.webViewScriptFile("/tmp/a.js"), for: .host))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.windowTitle, for: lessTrusted))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.presentModal, for: lessTrusted))
+        XCTAssertTrue(DefaultTrustPolicy().allows(.windowTitle, for: .host))
+        XCTAssertTrue(DefaultTrustPolicy().allows(.presentModal, for: .host))
         XCTAssertTrue(DefaultTrustPolicy().allows(.readLocalFile("/tmp/a.png"), for: .host))
         for address in ["HTTPS://example.com", "mailto:someone@example.com"] {
             XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(URL(string: address)!), for: lessTrusted), address)
