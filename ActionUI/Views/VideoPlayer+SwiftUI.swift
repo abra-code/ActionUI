@@ -18,6 +18,11 @@ extension VideoPlayer: ActionUISwiftUIRenderer {
                 logger.log("VideoPlayer not playing '\(url.absoluteString)': \(url.path) is not a regular file", .error)
                 return SwiftUI.Label("Not a regular file", systemImage: "exclamationmark.triangle")
             }
+            // A file the element may not read (its content is less trusted) is not played. In a
+            // template row the container asks (the row has no view model).
+            if url.isFileURL, !ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id) {
+                return SwiftUI.Label("Not allowed", systemImage: "exclamationmark.triangle")
+            }
             // Hoist autoplay out of the closure: [String: Any] is non-Sendable.
             let autoplay = props.autoplay
             // Construction is delegated to a dedicated SwiftUI view: AVKit's VideoPlayer initializer

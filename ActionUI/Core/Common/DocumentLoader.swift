@@ -94,7 +94,7 @@ public enum ActionUICapability: Sendable, Equatable {
     case webViewBaseURL(URL)
     /// A WebView user script read from this file.
     case webViewScriptFile(String)
-    /// An Image, Canvas image, VideoPlayer or AsyncImage reading this local file.
+    /// An Image, Canvas image, VideoPlayer, AsyncImage or ShareLink reading this local file.
     case readLocalFile(String)
     /// Setting the window's title (navigationTitle on a window root, a WindowGroup title).
     case windowTitle
@@ -141,6 +141,14 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// The schemes a less-trusted WebView may show.
     public static let webViewSchemes: Set<String> = ["http", "https"]
 
+    /// Whether the file at `path` is inside one of the app's resource folders (symbolic links
+    /// followed), the folders whose documents are trusted.
+    @MainActor
+    public static func isInAppResources(_ path: String) -> Bool {
+        let url = URL(fileURLWithPath: path)
+        return ActionUIRendererHooks.resourceFolders().contains { ActionUIResourceFolder.isFile(url, inside: $0) }
+    }
+
     /// Whether two addresses have the same origin: scheme, host and port (the scheme's default
     /// port when none is written).
     public static func haveSameOrigin(_ first: URL, _ second: URL) -> Bool {
@@ -155,9 +163,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
 
     /// What content of `origin` may do when the host does not say: trusted content anything; less
     /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
-    /// WebView (webViewSchemes), and give its inline html a base address only of its own document's
-    /// origin, and for now do anything else (each further refusal comes with the renderer change
+    /// WebView (webViewSchemes), give its inline html a base address only of its own document's
+    /// origin, and read local files only inside the app's resources, and for now do anything else (each further refusal comes with the renderer change
     /// that enforces it).
+    @MainActor
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
         if origin.trust == .trusted { return true }
         switch capability {
@@ -173,7 +182,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
             // whose cookies and storage the html would get, and no local file.
             guard case .remote(let document) = origin.source else { return false }
             return haveSameOrigin(base, document)
-        case .load, .webViewScriptFile, .readLocalFile, .windowTitle, .presentModal, .menuCommands, .action:
+        case .readLocalFile(let path):
+            // The app's own resources only: not the user's files, a device, or a network share.
+            return isInAppResources(path)
+        case .load, .webViewScriptFile, .windowTitle, .presentModal, .menuCommands, .action:
             return true
         }
     }

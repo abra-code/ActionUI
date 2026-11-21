@@ -51,7 +51,12 @@ extension SwiftUI.Image {
     // - interpretation: "path", "systemName", "assetName", "resourceName", or "mixed"
     //   (what the text names is decided by ImageSource.resolve, Core/Helpers/ImageSource.swift)
     init(from text: String, interpretation: String) {
-        switch ImageSource.resolve(text, interpretation: interpretation, lookup: ImageHelper.lookup) {
+        self.init(source: ImageSource.resolve(text, interpretation: interpretation, lookup: ImageHelper.lookup))
+    }
+
+    /// The image a resolved source shows.
+    init(source: ImageSource) {
+        switch source {
         case .filePath(let filePath):
             self.init(contentsOfFile: filePath)
         case .systemName(let systemName):
@@ -63,6 +68,27 @@ extension SwiftUI.Image {
 }
 
 class ImageHelper {
+    /// The image `text` names, as SwiftUI.Image(from:interpretation:) resolves it, for the element
+    /// `viewID` of the window: a file it may not read (ActionUIModel.readsLocalFile) shows the photo
+    /// placeholder instead.
+    @MainActor
+    static func image(from text: String, interpretation: String, windowUUID: String, viewID: Int) -> SwiftUI.Image {
+        let source = ImageSource.resolve(text, interpretation: interpretation, lookup: lookup)
+        if case .filePath(let path) = source, !ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: viewID) {
+            return SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
+        }
+        return SwiftUI.Image(source: source)
+    }
+
+    /// `url` for an AsyncImage of the element `viewID`, nil when it may not load it: a file: one
+    /// must be a regular file (AsyncImage.isLoadable) the element may read.
+    @MainActor
+    static func loadableImageURL(_ url: URL?, windowUUID: String, viewID: Int) -> URL? {
+        guard let url, AsyncImage.isLoadable(url) else { return nil }
+        if url.isFileURL, !ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: viewID) { return nil }
+        return url
+    }
+
     /// Whether the image file at `path` declares more pixels than ImageSource.maximumPixelCount, read
     /// from its header without decoding it (ImageIO). A file ImageIO cannot size (a vector PDF, an
     /// unknown format) goes on to the decoder. Logged.

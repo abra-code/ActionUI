@@ -62,9 +62,9 @@ extension List: ActionUISwiftUIRenderer {
                 }
             }
         case .image:
-            row = SwiftUI.Image(from: item, interpretation: dataInterpretation.rawValue)
+            row = ImageHelper.image(from: item, interpretation: dataInterpretation.rawValue, windowUUID: windowUUID, viewID: elementID)
         case .asyncImage:
-            row = SwiftUI.AsyncImage(url: URL(string: item).flatMap { AsyncImage.isLoadable($0) ? $0 : nil }) { image in
+            row = SwiftUI.AsyncImage(url: ImageHelper.loadableImageURL(URL(string: item), windowUUID: windowUUID, viewID: elementID)) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 SwiftUI.ProgressView()

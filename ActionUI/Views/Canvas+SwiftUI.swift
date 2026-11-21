@@ -11,6 +11,13 @@ extension Canvas: ActionUISwiftUIRenderer {
         let bg = ColorHelper.resolveColor(props.backgroundColor) ?? .clear
         let coord = props.coordinateMode.rawValue
         let actionID = props.actionID
+        // The image files the canvas may read, decided here (the drawing closure is not on the main
+        // actor): nil for trusted content, which reads any. In a template row the container asks
+        // (the row has no view model).
+        let readerID = model.templateContext?.parentID ?? element.id
+        let readableFiles: Set<String>? = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: readerID)?.trust == .trusted
+            ? nil
+            : Set(CanvasRenderer.imageFilePaths(in: ops).filter { ActionUIModel.shared.readsLocalFile($0, windowUUID: windowUUID, viewID: readerID) })
         
         return SwiftUI.Canvas { context, size in
             if bg != .clear {
@@ -18,7 +25,7 @@ extension Canvas: ActionUISwiftUIRenderer {
             }
             
             var mutableContext = context
-            CanvasRenderer.draw(ops, into: &mutableContext, size: size, coordMode: coord, logger: logger)
+            CanvasRenderer.draw(ops, into: &mutableContext, size: size, coordMode: coord, logger: logger, readableFiles: readableFiles)
         }
         .onTapGesture {
             if let id = actionID {

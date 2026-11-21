@@ -247,6 +247,18 @@ public class ActionUIModel {
     /// The origin `allows` uses for an element with no view model.
     private static let unknownOrigin = DocumentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
 
+    /// Whether the element `viewID` of the window may read the local file at `path` (an image, a
+    /// canvas image, a video, a shared file): trusted content reads anything without asking; other
+    /// content asks the trust policy (.readLocalFile), and a refusal is logged.
+    public func readsLocalFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {
+        if origin(windowUUID: windowUUID, viewID: viewID)?.trust == .trusted { return true }
+        guard allows(.readLocalFile(path), windowUUID: windowUUID, viewID: viewID) else {
+            logger.log("Not reading \(path) for element \(viewID) of window \(windowUUID): the trust policy refuses it", .warning)
+            return false
+        }
+        return true
+    }
+
     /// Where the element `viewID` of the window came from and how far it is trusted: `.host` for
     /// content the host passed in itself, nil when the window has no such element. For an action
     /// handler that wants to treat less-trusted content's actions differently.

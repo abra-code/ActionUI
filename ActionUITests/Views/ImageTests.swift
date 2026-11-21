@@ -259,4 +259,71 @@ extension ImageTests {
         XCTAssertFalse(ImageHelper.declaresTooManyPixels(folder.appendingPathComponent("missing.png").path), "no size: goes on")
         XCTAssertTrue(ImageSource.isTooLarge(width: Int(Int32.max), height: Int(Int32.max)), "no overflow")
     }
+
+    func testLessTrustedContentReadsOnlyTheAppsOwnImageFiles() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-reads-\(UUID().uuidString)")
+        let resources = folder.appendingPathComponent("Resources")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        ActionUIResourceFolder.path = resources.path
+        let inside = resources.appendingPathComponent("in.png")
+        let outside = folder.appendingPathComponent("out.png")
+        try Self.png(width: 4, height: 4).write(to: inside)
+        try Self.png(width: 4, height: 4).write(to: outside)
+        let document = Data(#"{"id": 7, "type": "Image", "properties": {"filePath": "x.png"}}"#.utf8)
+        let remote = UUID().uuidString
+        ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
+        defer { ActionUIModel.shared.logger = logger }
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/v.json")!))
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let placeholder = SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
+        XCTAssertFalse(ActionUIModel.shared.readsLocalFile(outside.path, windowUUID: remote, viewID: 7))
+        XCTAssertTrue(ActionUIModel.shared.readsLocalFile(inside.path, windowUUID: remote, viewID: 7), "the app's own resources")
+        XCTAssertTrue(ActionUIModel.shared.readsLocalFile(outside.path, windowUUID: windowUUID, viewID: 7), "the host's content reads anything")
+        XCTAssertEqual(ImageHelper.image(from: outside.path, interpretation: "path", windowUUID: remote, viewID: 7), placeholder)
+        XCTAssertNotEqual(ImageHelper.image(from: inside.path, interpretation: "path", windowUUID: remote, viewID: 7), placeholder)
+        XCTAssertNotEqual(ImageHelper.image(from: outside.path, interpretation: "path", windowUUID: windowUUID, viewID: 7), placeholder)
+        XCTAssertNil(ImageHelper.loadableImageURL(outside, windowUUID: remote, viewID: 7), "a file: AsyncImage")
+        XCTAssertEqual(ImageHelper.loadableImageURL(inside, windowUUID: remote, viewID: 7), inside)
+        XCTAssertEqual(ImageHelper.loadableImageURL(URL(string: "https://example.com/a.png"), windowUUID: remote, viewID: 7)?.absoluteString,
+                       "https://example.com/a.png", "an address is not a local file")
+        // Canvas: the file paths of image operations, nested ones too, are asked about before drawing.
+        let ops: [[String: Any]] = [
+            ["type": "image", "filePath": "/a.png", "frame": [0, 0, 1, 1]],
+            ["type": "layer", "operations": [["type": "image", "filePath": "/b.png", "frame": [0, 0, 1, 1]], ["type": "fill"]]],
+            ["type": "image", "systemName": "star", "frame": [0, 0, 1, 1]],
+        ]
+        XCTAssertEqual(CanvasRenderer.imageFilePaths(in: ops), ["/a.png", "/b.png"])
+    }
+
+    func testATemplateRowImageReadsAsItsContainersContent() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-template-reads-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("photo.png")
+        try Self.png(width: 4, height: 4).write(to: file)
+        let document = Data(#"{"id": 20, "type": "HStack", "template": {"type": "Image", "properties": {"filePath": "$1"}}}"#.utf8)
+        let remote = UUID().uuidString
+        ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
+        defer { ActionUIModel.shared.logger = logger }
+        let hostStack = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let remoteStack = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+                                                          source: .remote(URL(string: "https://example.com/v.json")!))
+        let placeholder = SwiftUI.Image(systemName: ImageSource.placeholderSymbol)
+        // A template row's element has no view model of its own: it asks with its container's id.
+        func rowImage(_ stack: ActionUIElement, window: String) throws -> SwiftUI.Image? {
+            let template = try XCTUnwrap(stack.subviews?["template"] as? ActionUIElement)
+            let properties = TemplateHelper.instanceProperties(of: template, row: [file.path], logger: logger)
+            let model = ViewModel()
+            model.templateContext = TemplateContext(parentID: stack.id, rowIndex: 0, row: [file.path])
+            model.seedProperties(properties)
+            return Image.buildView(template, model, window, properties, logger) as? SwiftUI.Image
+        }
+        XCTAssertNotEqual(try rowImage(hostStack, window: windowUUID), placeholder, "the host's row reads its file")
+        XCTAssertEqual(try rowImage(remoteStack, window: remote), placeholder, "a less-trusted row does not")
+    }
 }

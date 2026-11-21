@@ -15,12 +15,30 @@ struct CanvasRenderer {
         }
     }
     
+    /// The image file paths the operations name (filePath of every image operation, nested ones
+    /// too), for deciding which the canvas may read before drawing.
+    static func imageFilePaths(in operations: [[String: Any]]) -> [String] {
+        operations.flatMap { op -> [String] in
+            var paths: [String] = []
+            if (op["type"] as? String)?.lowercased() == "image", let filePath = op["filePath"] as? String {
+                paths.append(filePath)
+            }
+            if let subOps = op["operations"] as? [[String: Any]] {
+                paths += imageFilePaths(in: subOps)
+            }
+            return paths
+        }
+    }
+
+    /// Draws `operations`. `readableFiles`: the image files the canvas may read (nil: any); an image
+    /// operation whose filePath is not in it draws nothing.
     static func draw(
         _ operations: [[String: Any]],
         into context: inout GraphicsContext,
         size: CGSize,
         coordMode: String,
-        logger: any ActionUILogger
+        logger: any ActionUILogger,
+        readableFiles: Set<String>?
     ) {
         for op in operations {
             guard let type = op["type"] as? String else { continue }
@@ -85,7 +103,7 @@ struct CanvasRenderer {
                 guard let frameArr = op.cgFloatArray(forKey: "frame"), frameArr.count == 4 else { continue }
                 let frame = scaleRect(frameArr, size: size, coordMode: coordMode)
                 
-                if let img = resolveImage(from: op) {
+                if let img = resolveImage(from: op, readableFiles: readableFiles) {
                     let opacity = op.double(forKey: "opacity") ?? 1.0
                     context.opacity = opacity
                     
@@ -154,7 +172,7 @@ struct CanvasRenderer {
                         subCtx.translateBy(x: frame.origin.x, y: frame.origin.y)
                         subCtx.opacity = opacity
                         subCtx.blendMode = blendMode
-                        draw(subOps, into: &subCtx, size: frame.size, coordMode: coordMode, logger: logger)
+                        draw(subOps, into: &subCtx, size: frame.size, coordMode: coordMode, logger: logger, readableFiles: readableFiles)
                     }
                 }
                 
@@ -356,7 +374,7 @@ struct CanvasRenderer {
         }
     }
     
-    private static func resolveImage(from op: [String: Any]) -> SwiftUI.Image? {
+    private static func resolveImage(from op: [String: Any], readableFiles: Set<String>?) -> SwiftUI.Image? {
         if let systemName = op["systemName"] as? String {
             return SwiftUI.Image(from: systemName, interpretation: "systemName")
         }
@@ -370,6 +388,7 @@ struct CanvasRenderer {
         }
         
         if let filePath = op["filePath"] as? String {
+            if let readableFiles, !readableFiles.contains(filePath) { return nil }
             return SwiftUI.Image(from: filePath, interpretation: "path")
         }
         
