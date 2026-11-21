@@ -36,8 +36,9 @@
 
  A WindowGroup's commands (load(json:once:)) join under the group's key, once for all its windows,
  and leave with its last window (removeWindowGroup); a CommandGroup of theirs that replaces
- appTermination is ignored, so a document cannot take Quit away. The host's own commands
- (load(json:)) may replace it.
+ appTermination is ignored, and so is a keyboardShortcut of theirs that is Ctrl+Q (the item
+ stays, with no shortcut), so a document cannot take Quit or its shortcut away. The host's own
+ commands (load(json:)) may do both.
  Each item is an action of the application, so its shortcut works in every window, as a menu bar
  shortcut does. The application is the one start() gave (ActionUI's own, AdwaitaApplication), else
  the process's default GApplication once it is registered: a host that runs its own application
@@ -219,8 +220,9 @@ package final class AppCommands {
     /// A WindowGroup's commands (its document's `commands` array), unless that group's are in the
     /// menu already (each window of the group brings them). A CommandGroup that replaces
     /// appTermination is left out, with a warning: a document must not take Quit away, even an
-    /// app's own. They stay until `removeWindowGroup` takes them away, when the group's last window
-    /// closes. Returns false, logging why and changing nothing, for JSON that is not an array.
+    /// app's own. A Button's keyboardShortcut that is Ctrl+Q is left out too, with a warning (the
+    /// item stays): GTK does not say which of two actions with one accelerator wins. They stay
+    /// until `removeWindowGroup` takes them away, when the group's last window closes. Returns false, logging why and changing nothing, for JSON that is not an array.
     @discardableResult
     package func load(json: String, once key: String) -> Bool {
         guard !loadedKeys.contains(key) else { return true }
@@ -234,12 +236,29 @@ package final class AppCommands {
                   Self.target(properties["placementTarget"] as? String) == "appTermination" else { return true }
             ActionUIModel.shared.logger.log("WindowGroup \(key): a CommandGroup replacing appTermination (Quit) is ignored", .warning)
             return false
-        }
+        }.map { Self.withoutQuitShortcut($0, group: key) }
         loadedKeys.insert(key)
         let replacement = kept.map { (key: Optional(Self.windowGroupKey(key)), element: $0) }
         commands = commands.filter { $0.key != Self.windowGroupKey(key) } + replacement
         rebuild()
         return true
+    }
+
+    /// `element` with no Ctrl+Q keyboardShortcut on any Button in it (logged for each one taken
+    /// off): Ctrl+Q is Quit's.
+    private static func withoutQuitShortcut(_ element: [String: Any], group: String) -> [String: Any] {
+        var element = element
+        if element["type"] as? String == "Button", var properties = element["properties"] as? [String: Any],
+           let shortcut = properties["keyboardShortcut"] as? [String: Any], accelerator(shortcut) == "<Control>q" {
+            properties["keyboardShortcut"] = nil
+            element["properties"] = properties
+            let title = properties["title"] as? String ?? ""
+            ActionUIModel.shared.logger.log("WindowGroup \(group): the Ctrl+Q shortcut of \"\(title)\" is ignored (Ctrl+Q is Quit)", .warning)
+        }
+        if let children = element["children"] as? [[String: Any]] {
+            element["children"] = children.map { withoutQuitShortcut($0, group: group) }
+        }
+        return element
     }
 
     /// Takes the commands of the WindowGroup `key` out of the menu, when its last window has closed.

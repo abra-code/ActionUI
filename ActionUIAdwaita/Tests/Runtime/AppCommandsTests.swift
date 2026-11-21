@@ -504,6 +504,49 @@ final class AppCommandsTests: XCTestCase {
         XCTAssertTrue(outline(host.menu.opaquePointer).contains("[Not Quit]"), "the host's own menu may replace Quit")
     }
 
+    func testAWindowGroupsCtrlQShortcutIsIgnoredButTheHostsIsKept() throws {
+        let application = adw_application_new("com.abracode.actionui.tests.groupquitkey", applicationNonUnique)!
+        defer { g_object_unref(UnsafeMutableRawPointer(application)) }
+        let map = OpaquePointer(application)
+        func accels(_ action: String) -> [String] {
+            var result: [String] = []
+            if let list = gtk_application_get_accels_for_action(typed(map), action) {
+                var index = 0
+                while let accel = list[index] {
+                    result.append(String(cString: accel))
+                    index += 1
+                }
+                g_strfreev(list)
+            }
+            return result
+        }
+        let json = #"""
+            [{"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [
+                {"type": "Button", "properties": {"title": "Close All", "actionID": "test.a", "keyboardShortcut": {"key": "Q"}}},
+                {"type": "Button", "properties": {"title": "Save", "actionID": "test.b", "keyboardShortcut": {"key": "s"}}},
+                {"type": "Menu", "properties": {"title": "More"}, "children": [
+                    {"type": "Button", "properties": {"title": "Leave", "actionID": "test.c", "keyboardShortcut": {"key": "q", "modifiers": ["control"]}}},
+                    {"type": "Button", "properties": {"title": "Quit Shifted", "actionID": "test.d", "keyboardShortcut": {"key": "q", "modifiers": ["command", "shift"]}}}]}]}]
+            """#
+        let commands = AppCommands()
+        commands.start(typed(application), name: "Demo")
+        XCTAssertTrue(commands.load(json: json, once: "group"))
+        XCTAssertEqual(outline(commands.menu.opaquePointer), ["[Tools>[Close All, Save, More>[Leave, Quit Shifted]]]", "[About Demo]"],
+                       "the items stay")
+        XCTAssertEqual(accels(try XCTUnwrap(actionName(commands.menu.opaquePointer, [0, 0, 0]))), [], "Ctrl+Q taken off")
+        XCTAssertEqual(accels(try XCTUnwrap(actionName(commands.menu.opaquePointer, [0, 0, 1]))), ["<Control>s"])
+        XCTAssertEqual(accels(try XCTUnwrap(actionName(commands.menu.opaquePointer, [0, 0, 2, 0]))), [], "in a submenu too")
+        XCTAssertEqual(accels(try XCTUnwrap(actionName(commands.menu.opaquePointer, [0, 0, 2, 1]))), ["<Shift><Control>q"],
+                       "Ctrl+Shift+Q is not Quit's")
+        XCTAssertEqual(accels("app.actionui-quit"), ["<Control>q"], "Quit keeps Ctrl+Q")
+
+        let host = AppCommands()
+        host.start(typed(application), name: "Demo")
+        host.load(json: json)
+        XCTAssertEqual(accels(try XCTUnwrap(actionName(host.menu.opaquePointer, [0, 0, 0]))), ["<Control>q"],
+                       "the host's own menu may give Ctrl+Q to an item")
+    }
+
     func testAGroupsCommandsLeaveTheMenuWithItsLastWindow() throws {
         let resources = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-last-window-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
