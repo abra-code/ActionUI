@@ -262,9 +262,13 @@ object ActionUI {
             // presented: a dialog (alert / confirmationDialog), a host-presented
             // modal (presentModal), or an element-level `sheet` / `fullScreenCover`
             // subview whose carrier's visible state flips true.
-            WindowDialogHost(windowModel)
-            WindowModalHost(windowModel)
-            WindowToastHost(windowModel)
+            // The dialogs, modals and toasts the host presents are the host's own content, also
+            // over a less-trusted window document (as on Apple); the document's own sheets ask.
+            CompositionLocalProvider(LocalJSONContentOrigin provides JSONContentOrigin.HOST, LocalUriHandler provides inheritedLinks) {
+                WindowDialogHost(windowModel)
+                WindowModalHost(windowModel)
+                WindowToastHost(windowModel)
+            }
             ElementModalsHost(element)
         }
     }

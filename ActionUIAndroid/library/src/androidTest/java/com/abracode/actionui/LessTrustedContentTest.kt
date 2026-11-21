@@ -1,5 +1,12 @@
 package com.abracode.actionui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -7,10 +14,14 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.abracode.actionui.Common.ActionUILogger
+import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.ActionUIRegistry
+import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.LoggerLevel
 import java.io.File
+import kotlinx.serialization.json.JsonPrimitive
 import java.util.Collections
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -126,6 +137,48 @@ class LessTrustedContentTest {
     }
 
     @Test
+    fun jsonFromAFileTitlesNoScreenAndPresentsNoPopover() {
+        val document = file("chrome.json", """{ "type": "NavigationStack", "id": 20,
+            "content": { "type": "VStack", "id": 21, "properties": { "navigationTitle": "Bank sign-in" }, "children": [
+                { "type": "Text", "id": 22, "properties": { "text": "Tap for more" },
+                  "popover": { "type": "Text", "id": 23, "properties": { "text": "Enter your password" } } } ] } }""")
+        rule.setContent {
+            ActionUI.Render(
+                """{ "type": "LoadableView", "id": 1, "properties": { "filePath": "${document.path}" } }""",
+                logger = logger,
+                windowUUID = window,
+            )
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Tap for more").assertExists()
+        assertEquals(0, rule.onAllNodesWithText("Bank sign-in").fetchSemanticsNodes().size)
+        rule.onNodeWithText("Tap for more").performClick()
+        rule.waitForIdle()
+        assertEquals(0, rule.onAllNodesWithText("Enter your password").fetchSemanticsNodes().size)
+        assertTrue(logger.warnings.toString(), logger.warnings.any { it == "Not setting the title for element 21: the trust policy refuses it" })
+        assertTrue(logger.warnings.toString(), logger.warnings.any { it == "Not presenting a popover for element 22: the trust policy refuses it" })
+    }
+
+    @Test
+    fun theHostsOwnTitleAndPopoverAreShown() {
+        rule.setContent {
+            ActionUI.Render(
+                """{ "type": "NavigationStack", "id": 20,
+                    "content": { "type": "VStack", "id": 21, "properties": { "navigationTitle": "Host title" }, "children": [
+                        { "type": "Text", "id": 22, "properties": { "text": "Tap for more" },
+                          "popover": { "type": "Text", "id": 23, "properties": { "text": "Host popover" } } } ] } }""",
+                logger = logger,
+                windowUUID = window,
+            )
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Host title").assertExists()
+        rule.onNodeWithText("Tap for more").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Host popover").assertExists()
+    }
+
+    @Test
     fun theHostsOwnLinkIsNotAsked() {
         rule.setContent {
             ActionUI.Render(
@@ -137,5 +190,68 @@ class LessTrustedContentTest {
         rule.onNodeWithText("Host link").performClick()
         rule.waitForIdle()
         assertTrue(logger.warnings.toString(), logger.warnings.none { it.startsWith("Link not opening") })
+    }
+
+    private val sheetJSON = """{ "type": "Button", "id": 30, "properties": { "title": "Open the sheet" },
+        "sheet": { "type": "Text", "id": 31, "properties": { "text": "Sheet content" } } }"""
+
+    @Test
+    fun aWindowJSONFromAFilePresentsNoSheet() {
+        val document = file("sheet.json", sheetJSON)
+        rule.setContent { ActionUI.RenderSource(document.path, logger = logger, windowUUID = window) }
+        rule.waitForIdle()
+        rule.onNodeWithText("Open the sheet").performClick()
+        rule.waitForIdle()
+        assertEquals(0, rule.onAllNodesWithText("Sheet content").fetchSemanticsNodes().size)
+        assertTrue(logger.warnings.toString(), logger.warnings.any { it == "Not presenting a sheet or cover for element 30: the trust policy refuses it" })
+    }
+
+    @Test
+    fun theHostsOwnSheetIsPresented() {
+        rule.setContent { ActionUI.Render(sheetJSON, logger = logger, windowUUID = window) }
+        rule.waitForIdle()
+        rule.onNodeWithText("Open the sheet").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Sheet content").assertExists()
+    }
+
+    /** Opens its `url` through LocalUriHandler on a tap, as Markdown text links do. */
+    private object UriProbe : ActionUIViewConstruction {
+        @Composable
+        override fun BuildView(element: ActionUIElement, modifier: Modifier) {
+            val handler = LocalUriHandler.current
+            val url = (element.properties?.get("url") as? JsonPrimitive)?.content ?: return
+            Text("Probe $url", modifier.clickable { handler.openUri(url) })
+        }
+    }
+
+    @Test
+    fun jsonFromAFileHasAUriHandlerThatOpensOnlyWhatThePolicyAllows() {
+        ActionUIRegistry.register("UriProbe", UriProbe)
+        val opened = Collections.synchronizedList(mutableListOf<String>())
+        val recorder = object : UriHandler {
+            override fun openUri(uri: String) { opened += uri }
+        }
+        val document = file("links.json", """{ "type": "VStack", "id": 20, "children": [
+            { "type": "UriProbe", "properties": { "url": "tel:123" } },
+            { "type": "UriProbe", "properties": { "url": "https://example.com/" } } ] }""")
+        rule.setContent {
+            CompositionLocalProvider(LocalUriHandler provides recorder) {
+                ActionUI.Render(
+                    """{ "type": "VStack", "id": 1, "children": [
+                        { "type": "UriProbe", "properties": { "url": "tel:456" } },
+                        { "type": "LoadableView", "id": 2, "properties": { "filePath": "${document.path}" } } ] }""",
+                    logger = logger,
+                    windowUUID = window,
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Probe tel:123").performClick()
+        rule.onNodeWithText("Probe https://example.com/").performClick()
+        rule.onNodeWithText("Probe tel:456").performClick()
+        rule.waitForIdle()
+        assertEquals(listOf("https://example.com/", "tel:456"), opened.toList())
+        assertTrue(logger.warnings.toString(), logger.warnings.any { it == "Not opening tel:123: the trust policy refuses it" })
     }
 }

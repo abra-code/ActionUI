@@ -1,5 +1,8 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.runtime.LaunchedEffect
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.ActionUICapability
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +74,16 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(
     val logger = LocalActionUILogger.current
     val popoverElement = element.popover ?: run {
         // Defensive: BuildViewWithModifiers only routes here for a popover carrier.
+        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger, animator), animator)
+        return
+    }
+
+    // Less-trusted content presents no popover of its own over the window: the carrier draws
+    // plain, with no tap to show it, as on Apple.
+    if (!ActionUIModel.allows(ActionUICapability.PresentModal, LocalJSONContentOrigin.current)) {
+        LaunchedEffect(element.id) {
+            logger.log("Not presenting a popover for element ${element.id}: the trust policy refuses it", LoggerLevel.warning)
+        }
         BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger, animator), animator)
         return
     }

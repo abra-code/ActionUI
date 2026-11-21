@@ -1,5 +1,8 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.runtime.LaunchedEffect
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.ActionUICapability
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -252,7 +255,17 @@ fun ToolbarHost(
     body: @Composable (PaddingValues) -> Unit,
 ) {
     val buckets = remember(element, persistentItems) { resolveToolbar(element, logger, persistentItems) }
-    val title = element.properties?.stringProperty("navigationTitle")
+    // Less-trusted content (a LoadableView's document from a server or from outside the app's
+    // resources) does not title the screen: it could pass itself off as the app.
+    val declaredTitle = element.properties?.stringProperty("navigationTitle")
+    val origin = LocalJSONContentOrigin.current
+    val titleAllowed = declaredTitle == null || ActionUIModel.allows(ActionUICapability.WindowTitle, origin)
+    if (!titleAllowed) {
+        LaunchedEffect(element.id, declaredTitle) {
+            logger.log("Not setting the title for element ${element.id}: the trust policy refuses it", LoggerLevel.warning)
+        }
+    }
+    val title = declaredTitle.takeIf { titleAllowed }
 
     // Nothing for the top bar to show: no title and no item that lands in it. Rendering it
     // anyway leaves a blank strip above the content, which a screen carrying only
