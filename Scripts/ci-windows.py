@@ -141,7 +141,7 @@ PREVIEW_OPTIONS = {
     "CanvasEffects": ["420", "210"],
     "ScrollReaders": ["420", "230", "--set-property", "4", "scrollTo", "230", "--wait"],
     "GeometryReaders": ["420", "190"],
-    "SplitViews": ["420", "260"],
+    "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
     "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{documents_url}/Images/sample_image.png|Open",
                    "--add-row", "2", "Test|true|heart|true|{documents_url}/Images/sample_image.png|Open", "--wait",
                    "--invoke-part", "2", "0", "--expect-action", "open.pressed", "--on-action", "open.pressed", "3", "Pressed row 0"],
@@ -309,6 +309,26 @@ def check_core(results):
 def windows_arch():
     """'arm64' or 'x64': the names the NuGet packages and vcvarsall.bat use."""
     return "arm64" if platform.machine().upper() == "ARM64" else "x64"
+
+
+# Real mouse input (--drag, and the --expect-width checks that follow one) needs the preview's window in
+# front. On the Arm64 runner a system window (Windows.UI.Core.CoreWindow, in another program) stays in
+# front and Windows refuses to bring another one there, so those options run on x64 only.
+REAL_INPUT_OPTIONS = {"--drag": 5, "--expect-width": 2}
+
+
+def without_real_input(options):
+    """The preview options with --drag and --expect-width (and their values) left out."""
+    kept = []
+    position = 0
+    while position < len(options):
+        count = REAL_INPUT_OPTIONS.get(options[position])
+        if count is None:
+            kept.append(options[position])
+            position += 1
+        else:
+            position += 1 + count
+    return kept
 
 
 def fetch_packages(work, findings):
@@ -571,6 +591,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
         png = results / f"preview-{document.stem}.png"
         options = [option.replace("{documents_url}", document.parent.as_uri())
                    for option in PREVIEW_OPTIONS.get(document.stem, [])]
+        if windows_arch() == "arm64":
+            options = without_real_input(options)
         step = run_step(f"preview-{document.stem}", [preview, document, png] + options, results, env, cwd=bin_path,
                         timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)

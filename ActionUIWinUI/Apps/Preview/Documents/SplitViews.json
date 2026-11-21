@@ -73,7 +73,7 @@
    "type": "Text",
    "id": 9,
    "properties": {
-    "text": "First pane 120 wide (idealWidth), a flexible pane, a text pane; a text over a color",
+    "text": "First pane 120 wide (idealWidth), a flexible pane, a text pane; a text over a color. The Windows run drags the first divider to 180",
     "font": "caption"
    }
   }

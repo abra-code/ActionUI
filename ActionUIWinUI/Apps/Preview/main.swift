@@ -19,6 +19,10 @@
 //   --scroll ID X Y          scrolls ScrollView ID to the offset (X, Y), without animation
 //   --scroll-row ID ROW      scrolls List ID so that row ROW (from 0) is in view
 //   --expect-row-name ID ROW NAME  fails unless accessibility tools name List ID's row ROW (from 0) NAME
+//   --drag ID X1 Y1 X2 Y2    drags with the real mouse from (X1, Y1) to (X2, Y2) in element ID's
+//                            coordinates, as a user does (it moves the pointer of whoever runs it)
+//   --expect-width ID W      fails unless element ID (its frame in its parent) is W wide, within half a
+//                            point (a split view's pane after a drag)
 //   --invoke-menu-item ID N  the same as --invoke with the Nth item (from 0) of Menu ID's menu (separators
 //                            and headers count), as a click on it does
 //   --toggle-menu-item ID N  the same with UI Automation's Toggle (a Toggle's check item turns over)
@@ -70,11 +74,13 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
+             drag(Int, Double, Double, Double, Double), expectWidth(Int, Double),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .invokeMenuItem(let id, _), .toggleMenuItem(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
+                 .drag(let id, _, _, _, _), .expectWidth(let id, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
                 return id
             case .wait:
@@ -82,12 +88,22 @@ final class Preview {
             }
         }
 
-        /// Whether it changes the model rather than operating an element on screen.
-        var changesModel: Bool {
+        /// Whether what it changes reaches the screen later (the model's changes after a sync, a drag's
+        /// input as the UI thread takes it), so an operation on screen after it waits.
+        var showsLater: Bool {
             switch self {
-            case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait: true
-            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem: false
+            case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait, .drag: true
+            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth: false
             }
+        }
+
+        /// Whether it operates an element on screen, so it waits for an earlier change to be shown. A
+        /// drag does both: it reads where the element is now, and its input reaches the screen later.
+        var operatesOnScreen: Bool {
+            if case .drag = self {
+                return true
+            }
+            return !showsLater
         }
     }
     var expectedActions: [String] = []
@@ -183,11 +199,11 @@ final class Preview {
     }
 
     /// Runs the operations from `start` on, in order. One that operates an element on screen after
-    /// one that changed the model waits for the change to be shown first.
+    /// one whose change reaches the screen later waits for it to be shown first.
     func runOperations(from start: Int) {
         for position in start..<invocations.count {
             let operation = invocations[position]
-            if position > start, !operation.changesModel, invocations[position - 1].changesModel {
+            if position > start, operation.operatesOnScreen, invocations[position - 1].showsLater {
                 DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
                     MainActor.assumeIsolated { Preview.shared.runOperations(from: position) }
                 }
@@ -250,6 +266,19 @@ final class Preview {
                 }
                 worked = true
                 what = "found row \(row) named \"\(name)\" in"
+            case .drag(_, let fromX, let fromY, let toX, let toY):
+                worked = window.map { actionUIWinUIWindowSendDrag($0.pointer, view.pointer, fromX, fromY, toX, toY) } ?? false
+                what = "dragged from (\(fromX), \(fromY)) to (\(toX), \(toY)) in"
+            case .expectWidth(_, let expected):
+                let width = node.outerView?.layoutFrame.width ?? 0
+                // A wrong width is reported here: the shim has no error for it.
+                guard abs(width - expected) <= 0.5 else {
+                    say("element \(viewID): \(width) wide, not \(expected)")
+                    invocationsWorked = false
+                    continue
+                }
+                worked = true
+                what = "found \(width) wide"
             case .invokeMenuItem(_, let index), .toggleMenuItem(_, let index):
                 let toggles: Bool
                 if case .toggleMenuItem = operation { toggles = true } else { toggles = false }
@@ -447,7 +476,7 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -500,6 +529,15 @@ while index < arguments.count {
               let row = Int(arguments[index + 2]) {
         preview.invocations.append(.expectRowName(viewID, row, arguments[index + 3]))
         index += 4
+    } else if option == "--drag", index + 5 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let fromX = Double(arguments[index + 2]), let fromY = Double(arguments[index + 3]),
+              let toX = Double(arguments[index + 4]), let toY = Double(arguments[index + 5]) {
+        preview.invocations.append(.drag(viewID, fromX, fromY, toX, toY))
+        index += 6
+    } else if option == "--expect-width", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let width = Double(arguments[index + 2]) {
+        preview.invocations.append(.expectWidth(viewID, width))
+        index += 3
     } else if option == "--invoke-menu-item", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
               let item = Int(arguments[index + 2]) {
         preview.invocations.append(.invokeMenuItem(viewID, item))

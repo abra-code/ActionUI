@@ -98,6 +98,14 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *windo
 // Shows the window and brings it to the front.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
 ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
+// Drags with the real mouse, as a user does, for tests: through Windows' input queue (SendInput),
+// presses the left mouse button (the primary one unless the buttons are swapped) at (fromX, fromY)
+// in `element`'s coordinates, moves the pointer to (toX, toY) in steps and releases it there. It moves the user's pointer. `window`, which shows `element`,
+// is brought to the front (it fails when Windows refuses, or when the program has no interactive
+// desktop) and must have nothing over the points; the element sees the drag as the UI thread runs
+// after this returns.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double fromX,
+                                                    double fromY, double toX, double toY);
 
 // MARK: - Text
 
