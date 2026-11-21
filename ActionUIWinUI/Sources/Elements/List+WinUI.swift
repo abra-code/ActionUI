@@ -35,8 +35,7 @@
  the user's, and the renderer ignores the one it made (ListState.shownIndex), so actionID fires only
  for the user's.
 
- Not yet: itemType's AsyncImage cell (text for now); the inherited buttonStyle on Button cells (WinUI's
- Button has no styles yet); listStyle and the row styling (listRowBackground, listRowSeparator,
+ Not yet: itemType's AsyncImage cell (text for now); the inherited buttonStyle on Button cells; listStyle and the row styling (listRowBackground, listRowSeparator,
  listRowSeparatorTint, listRowInsets); pull to refresh (desktops have none). A change of any text row
  makes every text row again; an Image cell reads its file when its row is made (a file rewritten
  under the same name shows the old picture until the row is made again). A template row's name for

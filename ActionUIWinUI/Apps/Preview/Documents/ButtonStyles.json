@@ -1,0 +1,176 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 14
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 10
+   },
+   "children": [
+    {
+     "type": "Button",
+     "id": 3,
+     "properties": {
+      "title": "Automatic"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 4,
+     "properties": {
+      "title": "Bordered",
+      "buttonStyle": "bordered"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 5,
+     "properties": {
+      "title": "Prominent",
+      "buttonStyle": "borderedProminent"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 6,
+     "properties": {
+      "title": "Borderless",
+      "buttonStyle": "borderless"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 7,
+     "properties": {
+      "title": "Plain",
+      "buttonStyle": "plain"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 8,
+   "properties": {
+    "spacing": 10,
+    "buttonStyle": "borderless"
+   },
+   "children": [
+    {
+     "type": "Button",
+     "id": 9,
+     "properties": {
+      "title": "Inherited",
+      "systemImage": "star"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 10,
+     "properties": {
+      "title": "Too",
+      "systemImage": "heart"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 11,
+     "properties": {
+      "title": "Own prominent",
+      "buttonStyle": "borderedProminent"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 17,
+     "properties": {
+      "title": "Automatic",
+      "buttonStyle": "automatic"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 12,
+   "properties": {
+    "spacing": 4
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 13,
+     "properties": {
+      "text": "Text before"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 14,
+     "properties": {
+      "title": "plain link",
+      "buttonStyle": "plain"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 15,
+     "properties": {
+      "text": "and after"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 18,
+   "properties": {
+    "spacing": 10
+   },
+   "children": [
+    {
+     "type": "Button",
+     "id": 19,
+     "properties": {
+      "title": "Disabled borderless",
+      "buttonStyle": "borderless",
+      "disabled": true
+     }
+    },
+    {
+     "type": "Button",
+     "id": 20,
+     "properties": {
+      "title": "Disabled plain",
+      "buttonStyle": "plain",
+      "disabled": true
+     }
+    },
+    {
+     "type": "Button",
+     "id": 21,
+     "properties": {
+      "title": "Disabled prominent",
+      "buttonStyle": "borderedProminent",
+      "disabled": true
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 16,
+   "properties": {
+    "font": "caption",
+    "text": "Each buttonStyle; a row whose buttonStyle is borderless (its buttons inherit it, automatic keeps it, one overrides it with borderedProminent); a plain button between texts, as large as its title; disabled borderless, plain and prominent buttons."
+   }
+  }
+ ]
+}

@@ -220,6 +220,86 @@ bool actionUIWinUIButtonSetContent(ActionUIWinUIObject *button, ActionUIWinUIObj
     });
 }
 
+bool actionUIWinUIButtonSetStyle(ActionUIWinUIObject *button, ActionUIWinUIButtonStyle style) {
+    return guarded("button set style", [&]() {
+        muxc::Button typed = objectAs<muxc::Button>(button, L"Button");
+        // The resources a plain button replaces (WinUI's lightweight styling keys of its template).
+        static const wchar_t *const plainKeys[] = {
+            L"ButtonBackgroundPointerOver", L"ButtonBackgroundPressed",
+            L"ButtonBorderBrushPointerOver", L"ButtonBorderBrushPressed",
+        };
+        // The resources a borderless or plain button replaces: the template's Disabled state fills the
+        // button (ControlFillColorDisabledBrush) and draws its border, where these draw none.
+        static const wchar_t *const disabledKeys[] = {
+            L"ButtonBackgroundDisabled", L"ButtonBorderBrushDisabled",
+        };
+        // Back to the standard button.
+        typed.ClearValue(mux::FrameworkElement::StyleProperty());
+        typed.ClearValue(muxc::Control::BackgroundProperty());
+        typed.ClearValue(muxc::Control::BorderBrushProperty());
+        typed.ClearValue(muxc::Control::PaddingProperty());
+        typed.ClearValue(mux::FrameworkElement::MinWidthProperty());
+        typed.ClearValue(mux::FrameworkElement::MinHeightProperty());
+        // Plain's no-border width, only that one: a ControlGroup's joined buttons set their own.
+        mux::Thickness border = typed.BorderThickness();
+        if (border.Left == 0 && border.Top == 0 && border.Right == 0 && border.Bottom == 0) {
+            typed.ClearValue(muxc::Control::BorderThicknessProperty());
+        }
+        mux::ResourceDictionary resources = typed.Resources();
+        for (const wchar_t *key : plainKeys) {
+            wf::IInspectable boxed = winrt::box_value(key);
+            if (resources.HasKey(boxed)) {
+                resources.Remove(boxed);
+            }
+        }
+        for (const wchar_t *key : disabledKeys) {
+            wf::IInspectable boxed = winrt::box_value(key);
+            if (resources.HasKey(boxed)) {
+                resources.Remove(boxed);
+            }
+        }
+        switch (style) {
+        case ActionUIWinUIButtonStyleStandard:
+            break;
+        case ActionUIWinUIButtonStyleAccent: {
+            wf::IInspectable found{nullptr};
+            try {
+                found = mux::Application::Current().Resources().Lookup(winrt::box_value(L"AccentButtonStyle"));
+            } catch (winrt::hresult_error const &) {
+            }
+            mux::Style accent = found != nullptr ? found.try_as<mux::Style>() : nullptr;
+            if (accent == nullptr) {
+                return fail("button set style", "the theme has no AccentButtonStyle");
+            }
+            typed.Style(accent);
+            break;
+        }
+        case ActionUIWinUIButtonStyleBorderless:
+        case ActionUIWinUIButtonStylePlain: {
+            media::SolidColorBrush clear(winrt::Windows::UI::Color{0, 0, 0, 0});
+            typed.Background(clear);
+            typed.BorderBrush(clear);
+            for (const wchar_t *key : disabledKeys) {
+                resources.Insert(winrt::box_value(key), clear);
+            }
+            if (style == ActionUIWinUIButtonStylePlain) {
+                typed.Padding(mux::Thickness{0, 0, 0, 0});
+                typed.BorderThickness(mux::Thickness{0, 0, 0, 0});
+                typed.MinWidth(0);
+                typed.MinHeight(0);
+                for (const wchar_t *key : plainKeys) {
+                    resources.Insert(winrt::box_value(key), clear);
+                }
+            }
+            break;
+        }
+        default:
+            return fail("button set style", "unknown button style");
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,
                                 ActionUIWinUICallback destroyContext) {
     return registerHandler("button on click", handler, context, destroyContext,

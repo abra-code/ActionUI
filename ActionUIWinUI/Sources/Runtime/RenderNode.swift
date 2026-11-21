@@ -53,6 +53,9 @@ package final class RenderNode {
     private(set) var isAccessibilityHidden = false
     /// labelsHidden, as SwiftUI's environment passes it down: a container's hides its controls' titles.
     private(set) var isLabelsHidden = false
+    /// buttonStyle, as SwiftUI's environment passes it down: the element's own, else its nearest
+    /// ancestor's (a container's styles the buttons in it); automatic sets none.
+    private(set) var buttonStyle: BaseModifiers.ButtonStyleName?
     /// The states last applied to the WinUI object (applyStates).
     private var appliedEnabled: Bool?
     private var appliedAccessibilityHidden: Bool?
@@ -221,7 +224,7 @@ package final class RenderNode {
         guard isAttached, let view else { return }
         var expansionChanged = false
         let previousAppearance = textAppearance
-        let previousStates = (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden)
+        let previousStates = (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle)
         withObservationTracking {
             let modifiers = baseModifiers
             // Before the renderer's update, which draws the text with it.
@@ -230,6 +233,12 @@ package final class RenderNode {
             isHidden = (parent?.isHidden ?? false) || modifiers.hidden
             isAccessibilityHidden = isHidden || (parent?.isAccessibilityHidden ?? false) || modifiers.accessibilityHidden == true
             isLabelsHidden = (parent?.isLabelsHidden ?? false) || modifiers.labelsHidden
+            // automatic sets none, so one from further up stays (as on Apple and Linux).
+            if let own = modifiers.buttonStyle, own != .automatic {
+                buttonStyle = own
+            } else {
+                buttonStyle = parent?.buttonStyle
+            }
             renderer.update(view, self)
             toolbar?.update()
             applyStates(to: view)
@@ -263,7 +272,7 @@ package final class RenderNode {
         unsyncedChildren = []
         // The children inherit the appearance; new ones read it in their first sync below (and are
         // not marked, as the GTK renderer skips them).
-        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden) != previousStates) {
+        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle) != previousStates) {
             let new = Set(created.map(ObjectIdentifier.init))
             for child in Array(childNodes.values) + templateNodes + auxiliaryNodes where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)
