@@ -47,9 +47,9 @@ final class NodePresentationsTests: XCTestCase {
         ActionUIModel.shared.windowModels[windowUUID] = nil
     }
 
-    /// `json` in a window on screen.
-    private func present(_ json: String) throws -> RenderNode {
-        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+    /// `json` in a window on screen; `origin`: where it came from (nil: the host's).
+    private func present(_ json: String, origin: JSONContentOrigin? = nil) throws -> RenderNode {
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID, origin: origin)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         renderTree = tree
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
@@ -120,6 +120,16 @@ final class NodePresentationsTests: XCTestCase {
              "fullScreenCover": {"type": "Text", "id": 30, "properties": {"text": "In the cover"}}}
         ]}
         """#
+
+    func testALessTrustedButtonsSheetIsNotShown() throws {
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        let root = try present(Self.sheetJSON, origin: remote)
+        let button = try XCTUnwrap(root.childNodes[2])
+        let presentations = try XCTUnwrap(button.presentations)
+        AdwaitaTestHost.emit("clicked", on: button.widget)
+        XCTAssertEqual(state(2, "sheetVisible"), true, "the click still sets the state")
+        XCTAssertFalse(wait { presentations.root(.sheet) != nil }, "nothing is shown over the window")
+    }
 
     func testAButtonsClickShowsItsSheetAndClosingItFiresTheDismissActionOnce() throws {
         let root = try present(Self.sheetJSON)

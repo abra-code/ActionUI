@@ -117,6 +117,8 @@ final class NodePresentations {
         // Attached: an action fired earlier in the same apply may have taken the node out.
         guard let node, node.isAttached,
               let element = node.element.subviews?[kind.subviewKey] as? any ActionUIElementBase else { return }
+        // Less-trusted content presents no sheet, cover or popover of its own over the window.
+        guard LinkTrust.allowsLoggingOnce(.presentModal, what: "presenting a sheet, cover or popover", node) else { return }
         guard gtk_widget_get_root(node.outerWidget) != nil else {
             ActionUIModel.shared.logger.log("NodePresentations: element \(node.element.id) is not in a window; its \(kind.subviewKey) is not shown", .warning)
             return

@@ -8,7 +8,8 @@
  background and overlay (SwiftUI takes titles from these too, measured); of a TabView only the
  selected tab. The search does not enter a nested navigation container (only its own title
  counts; its views' titles are its own screens'), a destination, a sheet or popover, a toolbar,
- or a template (its instances are not in the window's view models). An empty title counts as none.
+ or a template (its instances are not in the window's view models). An empty title counts as none,
+ and so does a title the trust policy refuses (less-trusted content's: .windowTitle).
  Read from the view models, so a changed title titles the screen again; on a screen with no title
  at all, that reads every view, about 1 ms for 2000 views (measured in a debug build).
 */
@@ -34,7 +35,11 @@ enum ScreenTitle {
     private static func ownTitle(_ element: any ActionUIElementBase, _ windowModel: WindowModel) -> String? {
         guard let model = windowModel.viewModels[element.id] else { return nil }
         let title = ActionUIRegistry.shared.currentProperties(element: element, model: model)["navigationTitle"] as? String
-        return title?.isEmpty == false ? title : nil
+        guard title?.isEmpty == false else { return nil }
+        // Less-trusted content does not title the screen, the window or the host's bar.
+        guard ActionUIModel.shared.allowsLoggingOnce(.windowTitle, what: "setting the title",
+                                                     windowUUID: windowModel.windowUUID, viewID: element.id) else { return nil }
+        return title
     }
 
     /// The element's views on its screen, in order: with the views inserted or removed at run time,
