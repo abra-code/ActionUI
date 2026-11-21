@@ -51,10 +51,13 @@
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
 //   --forbid-action ACTION   fails if the action ACTION fired (a renderer's own change taken for the
 //                            user's); repeatable
+//   --expect-log TEXT        fails unless a message ActionUI logged contains TEXT (a VideoPlayer's
+//                            video opened); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
 // loaded and rendered, the PNG is not empty, every operation worked, every expected action fired
-// at least once and no element held more template instances than --max-instances allows. Built and
+// at least once, every expected log message was logged and no element held more template instances
+// than --max-instances allows. Built and
 // run by
 // Scripts/ci-windows.py winui.
 
@@ -62,6 +65,7 @@ import ActionUI
 import CWinUI
 import Dispatch
 import ucrt
+import Synchronization
 
 @MainActor
 final class Preview {
@@ -506,12 +510,31 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --expect-state ID KEY VALUE | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+/// A logger that keeps every message (for --expect-log) and passes it on.
+final class RecordingLogger: ActionUILogger {
+    private let inner: any ActionUILogger
+    private let recorded = Mutex<[String]>([])
+
+    init(forwardingTo inner: any ActionUILogger) {
+        self.inner = inner
+    }
+
+    var messages: [String] { recorded.withLock { $0 } }
+
+    func log(_ message: String, _ level: LoggerLevel) {
+        recorded.withLock { $0.append(message) }
+        inner.log(message, level)
+    }
+}
+
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --expect-state ID KEY VALUE | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
 }
 let preview = Preview.shared
+/// --expect-log: the texts some logged message must contain.
+var expectedLogs: [String] = []
 preview.documentPath = arguments[1]
 // Absolute, since the program changes to the document's folder once it has read it.
 preview.pngPath = absolutePath(arguments[2])
@@ -609,6 +632,9 @@ while index < arguments.count {
     } else if option == "--expect-action", index + 1 < arguments.count {
         preview.expectedActions.append(arguments[index + 1])
         index += 2
+    } else if option == "--expect-log", index + 1 < arguments.count {
+        expectedLogs.append(arguments[index + 1])
+        index += 2
     } else if option == "--forbid-action", index + 1 < arguments.count {
         preview.forbiddenActions.append(arguments[index + 1])
         index += 2
@@ -622,6 +648,10 @@ while index < arguments.count {
     }
 }
 _ = preview.pngPath.withCString(encodedAs: UTF16.self) { _wremove($0) }
+let recordingLogger = RecordingLogger(forwardingTo: ActionUIModel.shared.logger)
+if !expectedLogs.isEmpty {
+    ActionUIModel.shared.logger = recordingLogger
+}
 
 guard actionUIWinUIInitialize() else {
     print("preview: \(WinUIError.last("initializing the Windows App SDK runtime"))")
@@ -640,10 +670,14 @@ let missing = preview.expectedActions.filter { !preview.firedActions.contains($0
 if !missing.isEmpty {
     print("preview: expected actions that did not fire: \(missing)")
 }
+let unlogged = expectedLogs.filter { text in !recordingLogger.messages.contains { $0.contains(text) } }
+if !unlogged.isEmpty {
+    print("preview: expected log messages that were not logged: \(unlogged)")
+}
 let forbidden = preview.forbiddenActions.filter { preview.firedActions.contains($0) }
 if !forbidden.isEmpty {
     print("preview: actions that must not fire fired: \(forbidden)")
 }
 print("preview: run \(ran ? "ok" : "failed"), rendered \(preview.rendered ? "yes" : "no"), PNG \(size) bytes, actions fired \(preview.firedActions.count)")
-exit(ran && preview.rendered && size > 0 && missing.isEmpty && forbidden.isEmpty && preview.invocationsWorked
+exit(ran && preview.rendered && size > 0 && missing.isEmpty && unlogged.isEmpty && forbidden.isEmpty && preview.invocationsWorked
      && preview.instancesWithinLimit ? 0 : 1)

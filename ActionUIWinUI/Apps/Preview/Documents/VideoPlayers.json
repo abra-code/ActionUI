@@ -1,0 +1,53 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "VideoPlayer",
+   "id": 2,
+   "properties": {
+    "autoplay": true,
+    "frame": {
+     "height": 120
+    }
+   }
+  },
+  {
+   "type": "HStack",
+   "id": 3,
+   "properties": {
+    "spacing": 8,
+    "frame": {
+     "height": 70
+    }
+   },
+   "children": [
+    {
+     "type": "VideoPlayer",
+     "id": 4,
+     "properties": {
+      "url": "file:///C:/ActionUI-missing/no-such-video.mp4"
+     }
+    },
+    {
+     "type": "VideoPlayer",
+     "id": 5,
+     "properties": {}
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 6,
+   "properties": {
+    "text": "A one-second H.264 video set at run time (it showed the Label first), autoplaying; a missing file; no URL, the Label. The run checks that the video opened and the missing file failed (a PNG may not capture the video's frame)",
+    "font": "caption"
+   }
+  }
+ ]
+}

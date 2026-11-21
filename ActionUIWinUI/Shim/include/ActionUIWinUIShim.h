@@ -999,6 +999,25 @@ ACTIONUI_WINUI_API char *actionUIWinUIWebViewCopyStatus(ActionUIWinUIObject *web
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewOnChanged(ActionUIWinUIObject *webView, ActionUIWinUICallback handler, void *context,
                                                       ActionUIWinUICallback destroyContext);
 
+// MARK: - Video player (WinUI's MediaPlayerElement)
+
+// A new video player: the video fitted inside it, keeping its aspect ratio, with Windows' transport
+// controls over it, as large as it is given. It plays through one MediaPlayer for its whole life, so
+// a new source keeps the volume and mute chosen. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIVideoPlayerCreate(void);
+// Pauses, and shows the video at `url` (NULL or empty: none), not playing. A text that is no absolute
+// URL shows none, its status "failed: not an absolute URL".
+ACTIONUI_WINUI_API bool actionUIWinUIVideoPlayerSetSource(ActionUIWinUIObject *videoPlayer, const char *url);
+// Plays or pauses (a video still opening plays once it has opened).
+ACTIONUI_WINUI_API bool actionUIWinUIVideoPlayerSetPlaying(ActionUIWinUIObject *videoPlayer, bool playing);
+// Where the source is: "none", "opening", "opened W x H" (the video's own size in pixels) or "failed: "
+// and why, as a new UTF-8 string the caller frees with actionUIWinUIFreeString; NULL on failure.
+ACTIONUI_WINUI_API char *actionUIWinUIVideoPlayerCopyStatus(ActionUIWinUIObject *videoPlayer);
+// `handler` runs on the UI thread when the source shown has opened or could not be played (one handler
+// per player: a new one replaces it).
+ACTIONUI_WINUI_API bool actionUIWinUIVideoPlayerOnChanged(ActionUIWinUIObject *videoPlayer, ActionUIWinUICallback handler,
+                                                          void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - Network
 
 // Called on the UI thread when a fetch ends: the body's `length` bytes (valid only during the call), or

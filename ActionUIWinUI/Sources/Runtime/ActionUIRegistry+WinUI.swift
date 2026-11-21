@@ -63,6 +63,7 @@ extension ActionUIRegistry {
         "TextField": TextField.self,
         "Toggle": Toggle.self,
         "VSplitView": VSplitView.self,
+        "VideoPlayer": VideoPlayer.self,
         "VStack": VStack.self,
         "WebView": WebView.self,
         "ZStack": ZStack.self,

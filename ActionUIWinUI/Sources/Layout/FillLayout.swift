@@ -5,9 +5,10 @@
  size of 10 in that axis (measured on macOS; the GTK renderer's Color.idealLength). Its one child
  (a shape, or none for a Color, which paints the panel's background) fills the panel.
 
- Divider uses it too, with a thickness of 1 along its parent stack's axis instead of the ideal. A
- Circle's ellipse is placed in the largest square of the panel, centered (squareChild). A Canvas's
- image of its drawing fills it, drawn again for each new size (arranged).
+ Divider uses it too, with a thickness of 1 along its parent stack's axis instead of the ideal, and
+ VideoPlayer, with an ideal of 0. A Circle's ellipse is placed in the largest square of the panel,
+ centered (squareChild). A Canvas's image of its drawing fills it, drawn again for each new size
+ (arranged).
 
  For a shape, two of SwiftUI's rules WinUI does not have: a stroke is centered on the outline, half
  of it outside the frame, where a WinUI shape draws it inside its bounds (so the shape reaches half
@@ -24,6 +25,9 @@ final class FillLayout {
     static let idealLength = 10.0
 
     let panel: LayoutPanel
+    /// The length asked for in an axis offered unbounded room: SwiftUI's ideal, 0 for a
+    /// VideoPlayer (AVKit's has no size of its own).
+    var ideal = FillLayout.idealLength
     /// A fixed length per axis instead of filling it (a Divider's thickness); nil fills.
     var fixedWidth: Double?
     var fixedHeight: Double?
@@ -48,7 +52,7 @@ final class FillLayout {
 
     private func length(_ offer: Double, fixed: Double?) -> Double {
         if let fixed { return fixed }
-        return offer.isFinite ? offer : Self.idealLength
+        return offer.isFinite ? offer : ideal
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
