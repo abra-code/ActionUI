@@ -20,8 +20,10 @@
  persistent toolbar (ToolbarHelper.screenToolbarItems leaves it out): the NavigationStack makes it
  (persistent(for:items:)) and shows it on every screen.
 
- Not yet: searchable; a NavigationSplitView's toolbars (it has no renderer yet); a toolbar inserted at
- run time into a window whose document had none (logged once).
+ In a NavigationSplitView the items show in their column's header (NavigationSplitView+WinUI.swift).
+
+ Not yet: searchable; a toolbar inserted at run time into a window whose document had none (logged
+ once).
 */
 
 @MainActor
@@ -51,6 +53,13 @@ final class NodeToolbar {
         }
     }
 
+    /// A navigation container's persistent toolbar (`items`) shown in the bar `bar` gives for it (a
+    /// NavigationSplitView's detail column).
+    static func persistent(for node: RenderNode, items: [any ActionUIElementBase],
+                           bar: @escaping @MainActor (RenderNode) -> (any ToolbarBar)?) -> NodeToolbar {
+        NodeToolbar(node, items: items, barOf: bar)
+    }
+
     private init(_ node: RenderNode, items: [any ActionUIElementBase], barOf: @escaping @MainActor (RenderNode) -> (any ToolbarBar)?) {
         self.node = node
         self.items = items
@@ -58,14 +67,17 @@ final class NodeToolbar {
     }
 
     /// The bar of `node`'s screen: the screen's in the NavigationStack it is in (the stack's child it
-    /// is under), else its window's command bar; none in another navigation container (a
-    /// NavigationSplitView, not rendered yet).
+    /// is under), or its column's in a NavigationSplitView (the split view's child it is under), else
+    /// its window's command bar; none in another navigation container.
     private static func nearestBar(_ node: RenderNode) -> (any ToolbarBar)? {
         var screen = node
         var current = node.parent
         while let candidate = current {
             if candidate.element.type == "NavigationStack" {
                 return (candidate.state as? NavigationStackState)?.screenBar(for: screen, stack: candidate)
+            }
+            if candidate.element.type == "NavigationSplitView" {
+                return (candidate.state as? NavigationSplitViewState)?.bar(for: screen)
             }
             if ToolbarHelper.isNavigationContainer(candidate.element.type) {
                 return nil
@@ -121,10 +133,10 @@ final class NodeToolbar {
         }
         bar?.set(owner: ObjectIdentifier(self), items: shown)
         // No bar: a toolbar inserted into a window whose document had none (the window makes its bar
-        // when the document is loaded), or one in a NavigationSplitView.
+        // when the document is loaded).
         if bar == nil, !shown.isEmpty, !Self.reportedWithoutBar {
             Self.reportedWithoutBar = true
-            ActionUIModel.shared.logger.log("Toolbar: a toolbar with no bar to show in (added after the window was made, or in a NavigationSplitView) is not shown on Windows yet", .warning)
+            ActionUIModel.shared.logger.log("Toolbar: a toolbar with no bar to show in (added after the window was made) is not shown on Windows yet", .warning)
         }
         // After the bar let their boxes go.
         for gone in gone.values {

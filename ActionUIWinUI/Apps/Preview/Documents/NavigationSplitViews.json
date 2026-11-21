@@ -13,7 +13,7 @@
    "properties": {
     "frame": {
      "width": 388,
-     "height": 130
+     "height": 150
     }
    },
    "sidebar": {
@@ -21,6 +21,7 @@
     "id": 3,
     "properties": {
      "actionID": "sidebar.changed",
+     "navigationTitle": "Folders",
      "navigationSplitViewColumnWidth": {
       "min": 100,
       "ideal": 140,
@@ -60,12 +61,34 @@
      "type": "Text",
      "id": 10,
      "properties": {
-      "text": "The inbox"
+      "text": "The inbox",
+      "navigationTitle": "Inbox"
      }
     },
     {
      "type": "VStack",
      "id": 11,
+     "properties": {
+      "navigationTitle": "Archive"
+     },
+     "toolbar": [
+      {
+       "type": "ToolbarItem",
+       "id": 14,
+       "properties": {
+        "placement": "primaryAction"
+       },
+       "content": {
+        "type": "Button",
+        "id": 15,
+        "properties": {
+         "title": "Share",
+         "systemImage": "square.and.arrow.up",
+         "actionID": "archive.share"
+        }
+       }
+      }
+     ],
      "children": [
       {
        "type": "Text",
@@ -92,9 +115,26 @@
    "properties": {
     "frame": {
      "width": 388,
-     "height": 70
+     "height": 100
     }
    },
+   "persistentToolbar": [
+    {
+     "type": "ToolbarItem",
+     "id": 24,
+     "properties": {
+      "placement": "primaryAction"
+     },
+     "content": {
+      "type": "Button",
+      "id": 25,
+      "properties": {
+       "systemImage": "arrow.clockwise",
+       "actionID": "split.refresh"
+      }
+     }
+    }
+   ],
    "sidebar": {
     "type": "Text",
     "id": 21,
@@ -107,7 +147,7 @@
     "id": 22,
     "properties": {
      "text": "Content",
-     "navigationSplitViewColumnWidth": 110
+     "navigationSplitViewColumnWidth": 60
     }
    },
    "detail": {
@@ -119,10 +159,36 @@
    }
   },
   {
+   "type": "NavigationSplitView",
+   "id": 40,
+   "properties": {
+    "valueChangeActionID": "sidebar.toggled",
+    "frame": {
+     "width": 388,
+     "height": 90
+    }
+   },
+   "sidebar": {
+    "type": "Text",
+    "id": 41,
+    "properties": {
+     "text": "Hidden by the run"
+    }
+   },
+   "detail": {
+    "type": "Text",
+    "id": 42,
+    "properties": {
+     "text": "The detail alone",
+     "navigationTitle": "Detail"
+    }
+   }
+  },
+  {
    "type": "Text",
    "id": 30,
    "properties": {
-    "text": "A sidebar List of destinations (140 wide), the run choosing Archive; three columns: a default sidebar, a content column 110 wide, a color detail; the Windows run drags the sidebar's edge 30 right (the detail gives the room)",
+    "text": "Folders and the chosen Archive with its Share item; three columns (the content 60 wide) with a persistent Refresh item, the Windows run dragging the sidebar's edge 30 right; a sidebar the run hides with the sidebar button",
     "font": "caption"
    }
   }

@@ -259,6 +259,37 @@ ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void) {
     });
 }
 
+ActionUIWinUIObject *actionUIWinUIPaneToggleButtonCreate(void) {
+    return guardedObject("pane toggle button create", []() {
+        muxc::Button button;
+        wf::IInspectable found{nullptr};
+        try {
+            found = mux::Application::Current().Resources().Lookup(winrt::box_value(L"PaneToggleButtonStyle"));
+        } catch (winrt::hresult_error const &) {
+            // Not in this theme: drawn by hand below.
+        }
+        mux::Style style = found != nullptr ? found.try_as<mux::Style>() : nullptr;
+        if (style != nullptr) {
+            button.Style(style);
+        } else {
+            // The GlobalNavigationButton glyph (three lines) of the system's symbol font, as the style
+            // draws it.
+            muxc::FontIcon glyph;
+            glyph.Glyph(L"\uE700");
+            glyph.FontSize(16);
+            button.Content(glyph);
+            button.Background(media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+            button.BorderThickness(mux::Thickness{0, 0, 0, 0});
+            button.Padding(mux::Thickness{0, 0, 0, 0});
+            button.Width(40);
+            button.Height(36);
+        }
+        automation::AutomationProperties::SetName(button, L"Show or hide the sidebar");
+        muxc::ToolTipService::SetToolTip(button, winrt::box_value(L"Show or hide the sidebar"));
+        return toObject(button);
+    });
+}
+
 ActionUIWinUIObject *actionUIWinUIOverflowButtonCreate(ActionUIWinUIObject *content) {
     return guardedObject("overflow button create", [&]() {
         muxc::Button button;

@@ -158,6 +158,12 @@ ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, 
 // style, the same glyph on a borderless button of that size; named "Back" for accessibility tools and
 // with a "Back" tooltip. Its click is a Button's (actionUIWinUIButtonOnClick). NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIBackButtonCreate(void);
+// A new button that shows and hides a sidebar, as NavigationView's pane toggle: WinUI's
+// PaneToggleButtonStyle (the GlobalNavigationButton glyph, three lines, on a button with no fill until the
+// pointer is over it), or, when the theme has no such style, the same glyph on a borderless button 40 by
+// 36; named "Show or hide the sidebar" for accessibility tools and with a tooltip of the same. Its click
+// is a Button's (actionUIWinUIButtonOnClick). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIPaneToggleButtonCreate(void);
 // A new "see more" button, as a command bar shows one: the More glyph (three dots) of the system's symbol
 // font on a button with no fill until the pointer is over it, named "More options" for accessibility
 // tools and with a tooltip of the same. A click opens its flyout, which shows `content` (an element: a

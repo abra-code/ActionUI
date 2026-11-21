@@ -83,6 +83,10 @@ final class NavigationStackLayout {
     /// The page's clip as last set: a screen taller than its room is cut at the header, as a
     /// Windows page is cut to its area, rather than drawn over the back button.
     private var clippedPage = ActionUIWinUISize(width: -1, height: -1)
+    /// Whether the whole layout, header included, is cut at its own edges (a NavigationSplitView's
+    /// column: a header too narrow for its items does not draw over the next column).
+    var clipsToBounds = false
+    private var clippedSelf = ActionUIWinUISize(width: -1, height: -1)
 
     /// Around the header's parts, and between the back button and the title.
     static let headerInset = 4.0
@@ -172,11 +176,22 @@ final class NavigationStackLayout {
         sizes[ObjectIdentifier(part)] ?? ActionUIWinUISize(width: 0, height: 0)
     }
 
-    /// The header row's height: its tallest part and the insets, 0 without a header.
+    /// The header row's least height, also when it shows nothing (a NavigationSplitView's columns keep
+    /// one row height); 0: none.
+    var headerMinimum = 0.0 {
+        didSet {
+            if headerMinimum != oldValue {
+                panel.invalidateLayout()
+            }
+        }
+    }
+
+    /// The header row's height: its tallest part and the insets, at least headerMinimum; 0 without a
+    /// header.
     private var headerHeight: Double {
         let parts = leadingParts + trailingParts
-        guard !parts.isEmpty else { return 0 }
-        return parts.reduce(0) { max($0, size($1).height) } + 2 * Self.headerInset
+        guard !parts.isEmpty || headerMinimum > 0 else { return 0 }
+        return max(parts.reduce(0) { max($0, size($1).height) } + 2 * Self.headerInset, headerMinimum)
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
@@ -239,6 +254,13 @@ final class NavigationStackLayout {
         if showsBottom {
             bottom.panel.object.arrange(ActionUIWinUIRect(x: 0, y: header + pageSize.height, width: finalSize.width,
                                                           height: measuredBottom.height))
+        }
+        if clipsToBounds, finalSize.width != clippedSelf.width || finalSize.height != clippedSelf.height {
+            if actionUIWinUIElementSetClipSize(panel.object.pointer, finalSize.width, finalSize.height) {
+                clippedSelf = finalSize
+            } else {
+                ActionUIModel.shared.logger.log("NavigationStack: \(WinUIError.last("clipping a column"))", .error)
+            }
         }
     }
 }
