@@ -133,13 +133,19 @@ extension ActionUITrustPolicy {
 public struct DefaultTrustPolicy: ActionUITrustPolicy {
     public init() {}
 
+    /// The schemes a less-trusted link may open.
+    public static let linkSchemes: Set<String> = ["http", "https", "mailto"]
+
     /// What content of `origin` may do when the host does not say: trusted content anything; less
-    /// trusted content, for now, anything too (each refusal comes with the
-    /// renderer change that enforces it).
+    /// trusted content may open only web and mail links (linkSchemes), and for now do anything else
+    /// (each further refusal comes with the renderer change that enforces it).
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
         if origin.trust == .trusted { return true }
         switch capability {
-        case .load, .openLink, .webView, .webViewScriptFile, .readLocalFile, .windowTitle, .presentModal, .menuCommands, .action:
+        case .openLink(let url):
+            // Web and mail addresses only: not a local file, an app's own scheme or a network share.
+            return linkSchemes.contains(url.scheme?.lowercased() ?? "")
+        case .load, .webView, .webViewScriptFile, .readLocalFile, .windowTitle, .presentModal, .menuCommands, .action:
             return true
         }
     }

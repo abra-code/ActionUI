@@ -396,7 +396,7 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertEqual(policy.asked.last?.byDefault, .lessTrusted)
     }
 
-    func testTheDefaultPolicyAllowsEverythingForNow() {
+    func testTheDefaultPolicyLetsLessTrustedLinksOpenOnlyWebAndMail() {
         let lessTrusted = DocumentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
         let capabilities: [ActionUICapability] = [
             .load(.remote(URL(string: "https://example.com/b.json")!)), .openLink(URL(string: "https://example.com")!),
@@ -406,6 +406,14 @@ final class DocumentLoaderTests: XCTestCase {
         for capability in capabilities {
             XCTAssertTrue(DefaultTrustPolicy().allows(capability, for: lessTrusted), "\(capability)")
             XCTAssertTrue(DefaultTrustPolicy().allows(capability, for: .host), "\(capability)")
+        }
+        for address in ["file:///etc/hosts", "smb://server/share", "someapp://run", "javascript:alert(1)", "example.com"] {
+            let url = try! XCTUnwrap(URL(string: address))
+            XCTAssertFalse(DefaultTrustPolicy().allows(.openLink(url), for: lessTrusted), address)
+            XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(url), for: .host), "\(address): the host's content opens anything")
+        }
+        for address in ["HTTPS://example.com", "mailto:someone@example.com"] {
+            XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(URL(string: address)!), for: lessTrusted), address)
         }
         XCTAssertEqual(DefaultTrustPolicy().trust(for: .file("/tmp/a.json"), inside: nil, byDefault: .lessTrusted), .lessTrusted)
     }

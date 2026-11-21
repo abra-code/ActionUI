@@ -323,4 +323,23 @@ final class TextEditorTests: XCTestCase {
         }
     }
     #endif
+
+    func testALessTrustedEditorShowsRefusedLinksAsPlainText() throws {
+        let document = Data(#"{"id": 7, "type": "TextEditor", "properties": {"markdown": "x"}}"#.utf8)
+        let remote = UUID().uuidString
+        ActionUIModel.shared.logger = ConsoleLogger(maxLevel: .error)
+        defer { ActionUIModel.shared.logger = logger }
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/editor.json")!))
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let text = try AttributedString(markdown: "[file](file:///etc/hosts) and [web](https://example.com)")
+        func links(_ text: AttributedString) -> [String] { text.runs.compactMap { $0.link?.absoluteString } }
+        let lessTrustedModel = try XCTUnwrap(ActionUIModel.shared.windowModels[remote]?.viewModels[7])
+        let shown = TextEditor.withoutRefusedLinks(text, model: lessTrustedModel, windowUUID: remote, viewID: 7)
+        XCTAssertEqual(links(shown), ["https://example.com"], "the file link is plain text")
+        XCTAssertEqual(String(shown.characters), String(text.characters), "the text itself stays")
+        let hostModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[7])
+        XCTAssertEqual(links(TextEditor.withoutRefusedLinks(text, model: hostModel, windowUUID: windowUUID, viewID: 7)),
+                       ["file:///etc/hosts", "https://example.com"], "the host's content keeps every link")
+    }
 }

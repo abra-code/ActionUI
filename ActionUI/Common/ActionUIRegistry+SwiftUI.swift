@@ -155,6 +155,32 @@ extension ActionUIRegistry {
     }
 
 
+    /// The openURL action of a less-trusted element: a link the trust policy allows goes on to the
+    /// action around it (the host's, if it set one, else the system's); a refused one is discarded.
+    private struct LessTrustedLinks: ViewModifier {
+        @Environment(\.openURL) private var inherited
+        let windowUUID: String
+        let viewID: Int
+
+        func body(content: Content) -> some SwiftUI.View {
+            content.environment(\.openURL, OpenURLAction { url in
+                guard ActionUIRegistry.opensLink(url, windowUUID: windowUUID, viewID: viewID) else { return .discarded }
+                inherited(url)
+                return .handled
+            })
+        }
+    }
+
+    /// Whether a link in the element `viewID` may open `url` (ActionUIModel.allows); a refusal is
+    /// logged, and the click does nothing.
+    static func opensLink(_ url: URL, windowUUID: String, viewID: Int) -> Bool {
+        guard ActionUIModel.shared.allows(.openLink(url), windowUUID: windowUUID, viewID: viewID) else {
+            ActionUIModel.shared.logger.log("Not opening \(url.absoluteString) from element \(viewID) of window \(windowUUID): the trust policy refuses it", .warning)
+            return false
+        }
+        return true
+    }
+
     // Applies modifiers to a view, using a ViewModel for dynamic updates
     // Design decision: Uses the current properties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
     // Applies baseline View modifiers first, then view-specific modifiers, per the guide's modifier separation principle
@@ -182,6 +208,13 @@ extension ActionUIRegistry {
         modifiedView = ContainerAction.apply(
             modifiedView, element: element, model: model, windowUUID: windowUUID, properties: properties
         )
+
+        // Less-trusted content opens only the addresses the trust policy allows: Link and links in
+        // Markdown text open through the openURL action, which its elements get here (and the
+        // rows of a template inherit from their container). Trusted content keeps the system's.
+        if model.origin?.trust == .lessTrusted {
+            modifiedView = AnyView(modifiedView).modifier(LessTrustedLinks(windowUUID: windowUUID, viewID: element.id))
+        }
 
         // Inside a ScrollViewReader, the element's id is the identity the reader scrolls to
         // (Views/ScrollViewReader+SwiftUI.swift); outermost, so it names the whole element.

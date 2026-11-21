@@ -466,6 +466,29 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertNil(windowModel.viewModels[parentID], "Old LoadableView ViewModel should be gone after full reload")
     }
 
+    func testALessTrustedLinkOpensOnlyWebAndMailAddresses() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-links-\(UUID().uuidString)")
+        let resources = folder.appendingPathComponent("Resources")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        ActionUIResourceFolder.path = resources.path
+        let inside = resources.appendingPathComponent("Root.json")
+        let outside = folder.appendingPathComponent("Other.json")
+        try Data(#"{"id": 5, "type": "Link", "properties": {"title": "In", "url": "file:///etc/hosts"}}"#.utf8).write(to: inside)
+        try Data(#"{"id": 6, "type": "Link", "properties": {"title": "Out", "url": "file:///etc/hosts"}}"#.utf8).write(to: outside)
+        let other = UUID().uuidString
+        _ = FileLoadableView(fileURL: inside, windowUUID: windowUUID, isContentView: true, logger: logger)
+        _ = FileLoadableView(fileURL: outside, windowUUID: other, isContentView: true, logger: ConsoleLogger(maxLevel: .error))
+        let file = URL(string: "file:///etc/hosts")!
+        XCTAssertTrue(ActionUIRegistry.opensLink(file, windowUUID: windowUUID, viewID: 5), "trusted content opens any link")
+        XCTAssertFalse(ActionUIRegistry.opensLink(file, windowUUID: other, viewID: 6), "less trusted: not a local file")
+        XCTAssertTrue(ActionUIRegistry.opensLink(URL(string: "https://example.com")!, windowUUID: other, viewID: 6))
+        XCTAssertTrue(ActionUIRegistry.opensLink(URL(string: "mailto:a@example.com")!, windowUUID: other, viewID: 6))
+    }
+
     func testANameIsFoundInTheHostsResourceFolderBeforeTheBundle() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-view-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
