@@ -81,8 +81,15 @@ package final class AdwaitaWindow {
 @MainActor
 extension ActionUIModel {
     /// Loads a window's document into the model under `windowUUID` (loadDescription), for the
-    /// application module: Core is also built for Apple, where it takes no package access.
-    package func loadWindowDocument(_ data: Data, format: String, windowUUID: String) throws {
-        _ = try loadDescription(from: data, format: format, windowUUID: windowUUID)
+    /// application module: Core is also built for Apple, where it takes no package access. `url`:
+    /// the file or http address it was read from, which decides its origin (DocumentOrigin), as
+    /// a FileLoadableView or RemoteLoadableView window root's does on Apple; nil for JSON the host
+    /// passed.
+    package func loadWindowDocument(_ data: Data, format: String, windowUUID: String, from url: URL? = nil) throws {
+        let origin = url.map { url in
+            ActionUIDocumentLoader.origin(for: url.isFileURL ? .file(url) : .remote(url), inside: nil, parentID: nil,
+                                          resourceFolders: ActionUIRendererHooks.resourceFolders())
+        }
+        _ = try loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
     }
 }

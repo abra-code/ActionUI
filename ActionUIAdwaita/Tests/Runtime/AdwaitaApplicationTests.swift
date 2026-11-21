@@ -816,6 +816,40 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertNil(folderAfterClose, "dropped when the window closes")
     }
 
+    func testAWindowsDocumentHasTheOriginOfWhereItWasRead() throws {
+        let folder = NSTemporaryDirectory() + "actionui-app-origin-\(UUID().uuidString)"
+        let resources = folder + "/resources"
+        try FileManager.default.createDirectory(atPath: resources, withIntermediateDirectories: true)
+        let savedFolder = ActionUIResourceFolder.path
+        defer {
+            ActionUIResourceFolder.path = savedFolder
+            try? FileManager.default.removeItem(atPath: folder)
+        }
+        ActionUIResourceFolder.path = resources
+        try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
+        try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
+        let app = AdwaitaApplication()
+        var inside: DocumentOrigin?, outside: DocumentOrigin?, host: DocumentOrigin?
+        app.handlers.didFinishLaunching = {
+            app.presentWindow(url: resources + "/Main.json", windowUUID: "origin-inside", title: nil)
+            app.presentWindow(url: folder + "/Other.json", windowUUID: "origin-outside", title: nil)
+            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "origin-host", title: "Host")
+            inside = ActionUIModel.shared.origin(windowUUID: "origin-inside", viewID: 2)
+            outside = ActionUIModel.shared.origin(windowUUID: "origin-outside", viewID: 2)
+            host = ActionUIModel.shared.origin(windowUUID: "origin-host", viewID: 2)
+            app.closeWindow("origin-inside")
+            app.closeWindow("origin-outside")
+            app.closeWindow("origin-host")
+            app.terminate()
+        }
+        app.run()
+        XCTAssertEqual(inside?.trust, .trusted, "\(inside.map(String.init(describing:)) ?? "nil")")
+        if case .resource = inside?.source {} else { XCTFail("a file in the resource folder: \(String(describing: inside))") }
+        XCTAssertNil(inside?.parentID, "a window's root")
+        XCTAssertEqual(outside?.trust, .lessTrusted, "a file outside the resource folder")
+        XCTAssertTrue(host === DocumentOrigin.host, "JSON the host passed")
+    }
+
     func testClosingTheLastWindowAsksAndTerminateEndsTheApplication() throws {
         let app = AdwaitaApplication()
         var allow = false

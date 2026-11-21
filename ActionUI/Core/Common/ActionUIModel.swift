@@ -195,10 +195,11 @@ public class ActionUIModel {
         #endif
     }
 
-    // Load a view description from JSON or plist data for a specific windowUUID
-    internal func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
+    // Load a view description from JSON or plist data for a specific windowUUID. `origin`: where it
+    // came from (nil: the host passed it).
+    internal func loadDescription(from data: Data, format: String, windowUUID: String, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
         let windowModel = windowModelForLoading(windowUUID)
-        let element = try windowModel.loadDescription(from: data, format: format)
+        let element = try windowModel.loadDescription(from: data, format: format, origin: origin)
         windowModels[windowUUID] = windowModel
         return element
     }
@@ -213,12 +214,20 @@ public class ActionUIModel {
 
     // Load a sub-view from JSON or plist data without overwriting the root element.
     // When parentID != 0, cleans up old child models before loading to support dynamic content swapping.
-    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0) throws -> ActionUIElement {
+    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
             throw ActionUIError("No WindowModel for windowUUID")
         }
-        return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID)
+        return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID, origin: origin)
+    }
+
+    /// Where the element `viewID` of the window came from and how far it is trusted: `.host` for
+    /// content the host passed in itself, nil when the window has no such element. For an action
+    /// handler that wants to treat less-trusted content's actions differently.
+    public func origin(windowUUID: String, viewID: Int) -> DocumentOrigin? {
+        guard let model = windowModels[windowUUID]?.viewModels[viewID] else { return nil }
+        return model.origin ?? .host
     }
 
     // Cache a view description as a binary plist to a specified URL

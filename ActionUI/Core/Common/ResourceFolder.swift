@@ -44,4 +44,19 @@ public enum ActionUIResourceFolder {
         return exists && !isFolder ? file : nil
         #endif
     }
+
+    /// Whether `url` names a file inside `folder` (at any depth), both with symbolic links followed
+    /// and standardized. A folder that is the root of the file system holds nothing: it would trust
+    /// every file. The test DocumentOrigin uses for the app's resources, for a host's own folders too.
+    public static func isFile(_ url: URL, inside folder: String) -> Bool {
+        guard !folder.isEmpty else { return false }
+        let root = URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path
+        guard root != "/" else { return false }
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        // By bytes, as the file system compares names: String's hasPrefix takes an accented letter
+        // and the same letter followed by a combining accent as equal, so a sibling folder spelled
+        // the other way would pass.
+        return path.utf8.starts(with: prefix.utf8)
+    }
 }

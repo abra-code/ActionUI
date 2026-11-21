@@ -105,7 +105,7 @@ extension LoadableView: ActionUIAdwaitaRenderer {
             do {
                 let data = try ActionUIDocumentLoader.readRegularFile(url)
                 state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID,
-                                                               isContentView: false, parentID: parentID)
+                                                               isContentView: false, parentID: parentID, source: .file(url))
                 state.loadedFolder = url.deletingLastPathComponent().path
                 logger.log("Successfully loaded \(format) for LoadableView from \(url.absoluteString)", .debug)
                 showStatus(nil, widget, state)

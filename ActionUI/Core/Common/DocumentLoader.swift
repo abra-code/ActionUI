@@ -3,7 +3,9 @@
  Loading a description into a window, without the views: where a LoadableView's text points (a
  remote URL, a file, a bundled resource), the format of a file or URL, loading the data as the
  window's content or as a sub-view of a LoadableView, and firing a LoadableView's viewDidLoadActionID
- once per source.
+ once per source. Where loaded content came from and how far it is trusted (DocumentOrigin): the
+ app's own resources and the host are trusted; a remote document, or a local file outside the
+ resources, is less trusted, and so is everything a less-trusted document loads in turn.
 
  (The SwiftUI views are FileLoadableView and RemoteLoadableView, in Common/.)
 */
@@ -13,6 +15,60 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+
+/// Where a part of a window's content came from, and how far it is trusted: kept on the view model
+/// of each element it loaded (ActionUIModel.origin(windowUUID:viewID:) reads it). Content the host
+/// passed in itself (loadDescription, presentModal, insertElement) is `host`. One object is shared
+/// by all the elements of one load, so a view model holds a single reference.
+public final class DocumentOrigin: Sendable, Equatable, CustomStringConvertible {
+    public enum Source: Sendable, Equatable {
+        /// JSON or data the host passed in itself.
+        case host
+        /// A file in the app's own resources (bundle or resource folder), by its resolved path.
+        case resource(String)
+        /// A local file anywhere else, by its resolved path.
+        case file(String)
+        /// An http or https address.
+        case remote(URL)
+    }
+
+    public enum Trust: Int, Sendable, Comparable {
+        case lessTrusted = 0
+        case trusted = 1
+
+        public static func < (lhs: Trust, rhs: Trust) -> Bool { lhs.rawValue < rhs.rawValue }
+    }
+
+    public let source: Source
+    /// The lower of the source's own trust and that of the content around it.
+    public let trust: Trust
+    /// The LoadableView (its element id) this content was loaded into; nil for a window's root.
+    public let parentID: Int?
+
+    public init(source: Source, trust: Trust, parentID: Int?) {
+        self.source = source
+        self.trust = trust
+        self.parentID = parentID
+    }
+
+    /// The host's own content.
+    public static let host = DocumentOrigin(source: .host, trust: .trusted, parentID: nil)
+
+    public static func == (lhs: DocumentOrigin, rhs: DocumentOrigin) -> Bool {
+        lhs.source == rhs.source && lhs.trust == rhs.trust && lhs.parentID == rhs.parentID
+    }
+
+    public var description: String {
+        let source: String
+        switch self.source {
+        case .host: source = "host"
+        case .resource(let path): source = "resource \(path)"
+        case .file(let path): source = "file \(path)"
+        case .remote(let url): source = "remote \(url.absoluteString)"
+        }
+        return "\(source), \(trust == .trusted ? "trusted" : "less trusted")" + (parentID.map { ", in LoadableView \($0)" } ?? "")
+    }
+}
 
 @MainActor
 enum ActionUIDocumentLoader {
@@ -128,24 +184,67 @@ enum ActionUIDocumentLoader {
         return nil
     }
 
+    /// Where content loaded from `source` came from and how far it is trusted, inside content of
+    /// origin `parent` (nil: the host's), into the LoadableView `parentID` (nil: as a window's root).
+    /// A remote document is less trusted; a file is trusted only inside one of `resourceFolders`
+    /// (symbolic links followed); then the lower of that and the parent's trust, so a bundled file
+    /// that remote content names stays less trusted.
+    nonisolated static func origin(
+        for source: Source,
+        inside parent: DocumentOrigin?,
+        parentID: Int?,
+        resourceFolders: [String]
+    ) -> DocumentOrigin {
+        let kind: DocumentOrigin.Source
+        let own: DocumentOrigin.Trust
+        switch source {
+        case .remote(let url):
+            kind = .remote(url)
+            own = .lessTrusted
+        case .file(let url):
+            let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+            if resourceFolders.contains(where: { ActionUIResourceFolder.isFile(url, inside: $0) }) {
+                kind = .resource(path)
+                own = .trusted
+            } else {
+                kind = .file(path)
+                own = .lessTrusted
+            }
+        }
+        return DocumentOrigin(source: kind, trust: min(own, parent?.trust ?? .trusted), parentID: parentID)
+    }
+
     /// "plist" for a file or URL whose name ends in ".plist" (any case), else "json".
     static func format(of url: URL) -> String {
         url.pathExtension.lowercased() == "plist" ? "plist" : "json"
     }
 
-    /// Loads `data` as the window's content (`isContentView`) or as the sub-view of the LoadableView
-    /// `parentID`, and returns its root element.
+    /// Loads `data`, read from `source` (nil: data the host passed in itself), as the window's
+    /// content (`isContentView`) or as the sub-view of the LoadableView `parentID`, and returns its
+    /// root element. Each element it loads is given the content's origin (see `origin(for:)`).
     static func load(
         data: Data,
         format: String,
         windowUUID: String,
         isContentView: Bool,
-        parentID: Int
+        parentID: Int,
+        source: Source?
     ) throws -> ActionUIElement {
-        if isContentView {
-            return try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
+        let origin = source.map { source in
+            // A sub-view's parent is the LoadableView, an element of the content around it.
+            let parentModel = isContentView ? nil : ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID]
+            let classified = Self.origin(for: source, inside: parentModel?.origin, parentID: isContentView ? nil : parentID,
+                                         resourceFolders: ActionUIRendererHooks.resourceFolders())
+            // A LoadableView with no view model of its own (one in a template row, a blueprint
+            // the window has no model for) has no known trust: less trusted, so a miss cannot make
+            // remote content's choice of file read as the host's. Id 0 is the host's own loader.
+            guard !isContentView, parentID != 0, parentModel == nil, classified.trust == .trusted else { return classified }
+            return DocumentOrigin(source: classified.source, trust: .lessTrusted, parentID: classified.parentID)
         }
-        return try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID)
+        if isContentView {
+            return try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
+        }
+        return try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID, origin: origin)
     }
 
     /// Fetches `url` with `fetch`, then loads it as `load` does, with the format of the URL.
@@ -160,7 +259,8 @@ enum ActionUIDocumentLoader {
         let data = try await fetch(url)
         let format = format(of: url)
         logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
-        let element = try load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID)
+        let element = try load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView,
+                               parentID: parentID, source: .remote(url))
         logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
         return element
     }

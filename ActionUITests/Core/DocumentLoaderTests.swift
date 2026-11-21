@@ -2,11 +2,21 @@
 /*
  Tests for ActionUIDocumentLoader: where a LoadableView's text points (with a stub bundle), the
  format of a file or URL, loading a description as content or as a sub-view (from data, and from a
- stub fetch), and viewDidLoad once per source.
+ stub fetch), viewDidLoad once per source, and the origin each loaded element is given (trusted
+ for the host and the app's resources, less trusted for remote documents, files elsewhere and all
+ they load).
 */
 
 import XCTest
 @testable import ActionUI
+
+// Records messages without failing the test, for a load that logs an id conflict on purpose.
+private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
+    private(set) var errors: [String] = []
+    func log(_ message: String, _ level: LoggerLevel) {
+        if level == .error { errors.append(message) }
+    }
+}
 
 @MainActor
 final class DocumentLoaderTests: XCTestCase {
@@ -145,9 +155,9 @@ final class DocumentLoaderTests: XCTestCase {
     private let panel = Data(#"{ "id": 200, "type": "Text", "properties": { "text": "Panel" } }"#.utf8)
 
     func testLoadAsContentAndAsSubView() throws {
-        let content = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0)
+        let content = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         XCTAssertEqual(content.id, 1)
-        let sub = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100)
+        let sub = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
         XCTAssertEqual(sub.id, 200)
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[200])
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[1], "a sub-view keeps the content")
@@ -179,8 +189,153 @@ final class DocumentLoaderTests: XCTestCase {
         }
     }
 
+    // MARK: Origin
+
+    /// A new folder with a "resources" folder (holding "inside.json"), an "outside.json" beside it,
+    /// a link in the resources to the outside file, and a sibling folder named "resources2".
+    private func originFolders() throws -> (root: URL, resources: URL) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-origin-\(UUID().uuidString)")
+        let resources = root.appendingPathComponent("resources")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("resources2"), withIntermediateDirectories: true)
+        try panel.write(to: resources.appendingPathComponent("inside.json"))
+        try panel.write(to: root.appendingPathComponent("outside.json"))
+        try panel.write(to: root.appendingPathComponent("resources2/sibling.json"))
+        try FileManager.default.createSymbolicLink(at: resources.appendingPathComponent("link.json"),
+                                                   withDestinationURL: root.appendingPathComponent("outside.json"))
+        return (root, resources)
+    }
+
+    func testAFileIsInsideAFolderOnlyBelowIt() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        XCTAssertTrue(ActionUIResourceFolder.isFile(resources.appendingPathComponent("inside.json"), inside: resources.path))
+        XCTAssertTrue(ActionUIResourceFolder.isFile(resources.appendingPathComponent("inside.json"), inside: resources.path + "/"))
+        XCTAssertFalse(ActionUIResourceFolder.isFile(root.appendingPathComponent("outside.json"), inside: resources.path))
+        XCTAssertFalse(ActionUIResourceFolder.isFile(root.appendingPathComponent("resources2/sibling.json"), inside: resources.path),
+                       "a sibling whose name starts with the folder's")
+        XCTAssertFalse(ActionUIResourceFolder.isFile(resources.appendingPathComponent("link.json"), inside: resources.path),
+                       "a link in the folder to a file outside it")
+        XCTAssertFalse(ActionUIResourceFolder.isFile(resources.appendingPathComponent("../outside.json"), inside: resources.path))
+        XCTAssertFalse(ActionUIResourceFolder.isFile(resources.appendingPathComponent("inside.json"), inside: "/"), "the root holds nothing")
+        XCTAssertFalse(ActionUIResourceFolder.isFile(resources.appendingPathComponent("inside.json"), inside: ""))
+    }
+
+    func testTheOriginOfASource() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folders = [resources.path]
+        func origin(_ source: ActionUIDocumentLoader.Source, inside parent: DocumentOrigin? = nil) -> DocumentOrigin {
+            ActionUIDocumentLoader.origin(for: source, inside: parent, parentID: 7, resourceFolders: folders)
+        }
+        let remoteURL = URL(string: "https://example.com/a.json")!
+        let remote = origin(.remote(remoteURL))
+        XCTAssertEqual(remote, DocumentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 7))
+        let inside = origin(.file(resources.appendingPathComponent("inside.json")))
+        XCTAssertEqual(inside.trust, .trusted)
+        guard case .resource(let path) = inside.source else { return XCTFail("\(inside)") }
+        XCTAssertTrue(path.hasSuffix("/resources/inside.json"), path)
+        let outside = origin(.file(root.appendingPathComponent("outside.json")))
+        XCTAssertEqual(outside.trust, .lessTrusted)
+        guard case .file = outside.source else { return XCTFail("\(outside)") }
+        XCTAssertEqual(origin(.file(resources.appendingPathComponent("link.json"))).trust, .lessTrusted, "a link out of the resources")
+        XCTAssertEqual(origin(.file(resources.appendingPathComponent("inside.json")), inside: remote).trust, .lessTrusted,
+                       "a bundled file a remote document names stays less trusted")
+        XCTAssertEqual(origin(.file(resources.appendingPathComponent("inside.json")), inside: .host).trust, .trusted)
+        XCTAssertEqual(ActionUIDocumentLoader.origin(for: .file(resources.appendingPathComponent("inside.json")), inside: nil,
+                                                     parentID: 7, resourceFolders: []).trust,
+                       .lessTrusted, "no resource folders: no file is the app's")
+    }
+
+    func testEachLoadedElementKeepsItsOrigin() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [resources.path] }
+        // The window takes the logger it is made with: the conflicts below are logged as errors.
+        let recording = RecordingLogger()
+        ActionUIModel.shared.logger = recording
+
+        // The window's root, from a file in the resources: trusted, no parent.
+        _ = try ActionUIDocumentLoader.load(data: self.root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .file(resources.appendingPathComponent("inside.json")))
+        let rootOrigin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1))
+        XCTAssertEqual(rootOrigin.trust, .trusted)
+        XCTAssertNil(rootOrigin.parentID)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 100) === rootOrigin, "one object for the whole load")
+
+        // A remote document in the LoadableView 100, with a LoadableView 300 of its own.
+        let remote = Data(#"{ "id": 200, "type": "VStack", "children": [ { "id": 300, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        let remoteURL = URL(string: "https://example.com/panel.json")!
+        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+                                            source: .remote(remoteURL))
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200),
+                       DocumentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 100))
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 300)?.trust, .lessTrusted)
+        XCTAssertTrue(recording.errors.isEmpty, "\(recording.errors)")
+
+        // A less-trusted document that reuses a trusted element's id (1, the root's) is refused
+        // whole: its element would be drawn with the root's view model and read as trusted.
+        let colliding = Data(#"{ "id": 350, "type": "VStack", "children": [ { "id": 1, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: colliding, format: "json", windowUUID: windowUUID, isContentView: false,
+                                                             parentID: 300, source: .remote(remoteURL))) { error in
+            XCTAssertEqual("\(error)", "id conflict: 1 already in the window")
+        }
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === rootOrigin, "the root's element is untouched")
+        XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 350), "nothing of it is loaded")
+        XCTAssertEqual(recording.errors, ["Not loading a less-trusted sub-view for parent 300: id 1 is already in the window"])
+
+        // A bundled file the remote document names: less trusted, as the content around it.
+        let inner = Data(#"{ "id": 400, "type": "Text", "properties": { "text": "Inner" } }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: inner, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 300,
+                                            source: .file(resources.appendingPathComponent("inside.json")))
+        let nested = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 400))
+        XCTAssertEqual(nested.trust, .lessTrusted)
+        XCTAssertEqual(nested.parentID, 300)
+        guard case .resource = nested.source else { return XCTFail("\(nested)") }
+
+        // Data the host holds, loaded in place of the remote document: the host's, and the remote
+        // document's elements (and what they loaded) are gone with their origins.
+        let hostPanel = Data(#"{ "id": 500, "type": "Text", "properties": {} }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: hostPanel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 500) === DocumentOrigin.host)
+        XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200))
+        XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 400))
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === rootOrigin)
+        XCTAssertNil(ActionUIModel.shared.origin(windowUUID: "no-such-window", viewID: 1))
+
+        // A trusted document's conflict is skipped, as before: the rest loads, the id keeps its own.
+        let trustedColliding = Data(#"{ "id": 600, "type": "VStack", "children": [ { "id": 1, "type": "Text", "properties": {} } ] }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: trustedColliding, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+                                            source: .file(resources.appendingPathComponent("inside.json")))
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 600)?.trust, .trusted)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === rootOrigin, "a conflicting id keeps its own origin")
+        XCTAssertEqual(recording.errors.last, "ID conflict for sub-view 1; skipping merge")
+    }
+
+    func testALoadableViewWithNoViewModelLoadsLessTrustedContent() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [resources.path] }
+        // A remote window root whose LoadableView 600 is in a template: a blueprint, with no view
+        // model, as a template row's LoadableView loads into.
+        let remote = Data(#"{ "id": 1, "type": "VStack", "template": { "id": 600, "type": "LoadableView", "properties": {} } }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/list.json")!))
+        XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[600])
+        _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 600,
+                                            source: .file(resources.appendingPathComponent("inside.json")))
+        let origin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200))
+        XCTAssertEqual(origin.trust, .lessTrusted, "a parent with no known trust is not the host's")
+        XCTAssertEqual(origin.parentID, 600)
+        guard case .resource = origin.source else { return XCTFail("\(origin)") }
+    }
+
     func testViewDidLoadFiresOncePerSource() throws {
-        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0)
+        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         var fired: [Int] = []
         ActionUIModel.shared.setDefaultActionHandler { actionID, _, viewID, viewPartID, _ in
             XCTAssertEqual(actionID, "loaded")

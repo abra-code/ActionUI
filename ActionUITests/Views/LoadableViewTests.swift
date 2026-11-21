@@ -454,4 +454,30 @@ final class LoadableViewTests: XCTestCase {
         let source = ActionUIDocumentLoader.source(for: "Panel", bundleURL: LoadableView.resourceURL, logger: logger)
         XCTAssertEqual(try source.get(), .file(URL(fileURLWithPath: file.path)), "a name without an extension finds Panel.json")
     }
+
+    func testAFileInTheHostsResourceFolderIsTrustedAndOneElsewhereIsNot() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-origin-\(UUID().uuidString)")
+        let resources = folder.appendingPathComponent("Resources")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        ActionUIResourceFolder.path = resources.path
+        let inside = resources.appendingPathComponent("Root.json")
+        let outside = folder.appendingPathComponent("Other.json")
+        try Data(#"{"id": 5, "type": "Text", "properties": {"text": "In"}}"#.utf8).write(to: inside)
+        try Data(#"{"id": 6, "type": "Text", "properties": {"text": "Out"}}"#.utf8).write(to: outside)
+        // The SwiftUI renderer's resource folders: the host's, then the bundle's.
+        _ = FileLoadableView(fileURL: inside, windowUUID: windowUUID, isContentView: true, logger: logger)
+        let trusted = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 5))
+        XCTAssertEqual(trusted.trust, .trusted)
+        XCTAssertNil(trusted.parentID, "a window's root")
+        guard case .resource = trusted.source else { return XCTFail("\(trusted)") }
+        _ = FileLoadableView(fileURL: outside, windowUUID: windowUUID, isContentView: true, logger: logger)
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 6)?.trust, .lessTrusted)
+        _ = FileLoadableView(data: Data(#"{"id": 7, "type": "Text", "properties": {}}"#.utf8), sourceName: "memory",
+                             windowUUID: windowUUID, isContentView: true, logger: logger)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 7) === DocumentOrigin.host, "data the host holds")
+    }
 }

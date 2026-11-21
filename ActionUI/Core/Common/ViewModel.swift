@@ -121,6 +121,10 @@ public final class ViewModel: Observable {
 
     var elementType: String // View type name (e.g. "TextField", "Slider")
 
+    // Where the element came from (DocumentOrigin), shared by every element of one load; nil for
+    // content the host passed in itself. Not observed: set once, before the view first renders.
+    var origin: DocumentOrigin?
+
     // Incremented on every external property/state/value mutation.
     private var storedMutationToken = 0
     var mutationToken: Int {

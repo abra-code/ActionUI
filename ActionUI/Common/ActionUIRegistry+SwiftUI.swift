@@ -103,6 +103,8 @@ extension ActionUIRegistry {
     internal func loadRendererBuiltIns() {
         renderers = Self.builtInSwiftUIRenderers
         ActionUIRendererHooks.structuralMutation = Self.swiftUIStructuralMutation
+        // Where LoadableView.resourceURL finds bundled resources: the host's folder, then the bundle's.
+        ActionUIRendererHooks.resourceFolders = { [ActionUIResourceFolder.path, Bundle.main.resourcePath].compactMap { $0 } }
         ActionUIRendererHooks.markdown = { (try? AttributedString(markdown: $0)) ?? AttributedString($0) }
         ActionUIRendererHooks.colorHex = { ColorHelper.colorToHex(ColorHelper.color(for: $0)) }
         ActionUIRendererHooks.hostValue = { value in

@@ -38,20 +38,21 @@ final class WindowModel {
         self.logger = logger
     }
 
-    // Load description from JSON or plist data, populating viewModels
-    func loadDescription(from data: Data, format: String) throws -> ActionUIElement {
+    // Load description from JSON or plist data, populating viewModels. `origin` (nil: the host's)
+    // goes on every view model it makes.
+    func loadDescription(from data: Data, format: String, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
         let filtered = try applyPlatformFilter(data: data, format: format)
         if format == "json" {
             let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
             self.element = element
-            self.viewModels = populateViewModels(from: element)
+            self.viewModels = Self.marked(populateViewModels(from: element), origin)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
             let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
             self.element = element
-            self.viewModels = populateViewModels(from: element)
+            self.viewModels = Self.marked(populateViewModels(from: element), origin)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded plist description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
@@ -59,6 +60,14 @@ final class WindowModel {
             logger.log("Unsupported format: \(format)", .error)
             throw ActionUIError("Unsupported format: \(format)")
         }
+    }
+
+    // `models`, each given `origin` when there is one (nil leaves them the host's).
+    private static func marked(_ models: [Int: ViewModel], _ origin: DocumentOrigin?) -> [Int: ViewModel] {
+        if let origin {
+            for model in models.values { model.origin = origin }
+        }
+        return models
     }
 
     // Applies PlatformFilter to raw JSON or plist data: parse -> filter -> re-serialize.
@@ -105,7 +114,9 @@ final class WindowModel {
     // Load a sub-view from JSON or plist data without overwriting the root element.
     // When parentID != 0, removes old child models owned by that parent before loading,
     // enabling dynamic content swapping without ID conflicts.
-    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0) throws -> ActionUIElement {
+    // `origin` (nil: the host's) goes on the view models merged, not on those of conflicting ids,
+    // which are another element's. Less-trusted content whose id is a trusted element's is refused whole.
+    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
         // Remove old child models if replacing an existing parent's content
         if parentID != 0 {
             let oldIDs = collectAndRemoveSubViewIDs(for: parentID)
@@ -132,12 +143,29 @@ final class WindowModel {
         // Populate new ViewModels; ownership is recorded after the merge
         let subViewModels = populateViewModels(from: subElement)
 
+        // Less-trusted content may not share an id with a trusted element already in the window: its
+        // element would be drawn with that element's view model and read as trusted. Sharing an id
+        // with content as little trusted (two LoadableViews showing one document) gains nothing.
+        if origin?.trust == .lessTrusted {
+            let taken = subViewModels.keys.filter { id in
+                guard let existing = self.viewModels[id] else { return false }
+                return (existing.origin?.trust ?? .trusted) == .trusted
+            }.sorted()
+            if !taken.isEmpty {
+                let list = taken.map(String.init).joined(separator: ", ")
+                let which = taken.count == 1 ? "id \(list) is" : "ids \(list) are"
+                logger.log("Not loading a less-trusted sub-view\(parentID != 0 ? " for parent \(parentID)" : ""): \(which) already in the window", .error)
+                throw ActionUIError("id conflict: \(list) already in the window")
+            }
+        }
+
         // Merge subViewModels into main viewModels, ensuring no ID conflicts.
         // Build the merged dictionary first, then assign once.
         var merged = self.viewModels
         var mergedIDs: Set<Int> = []
         for (id, viewModel) in subViewModels {
             if merged[id] == nil {
+                if let origin { viewModel.origin = origin }
                 merged[id] = viewModel
                 mergedIDs.insert(id)
             } else {

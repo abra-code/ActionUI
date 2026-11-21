@@ -5,7 +5,8 @@
  behind a spinner; a new source replacing the sub-view and its view models; messages for no source,
  a missing file (in the error color), a description that does not parse, a URL that fails, and a
  bundle name (Linux has no bundle); a document that loads itself, directly or through another,
- refused at the repeat while siblings showing one document both load it; a device refused.
+ refused at the repeat while siblings showing one document both load it; a device refused. Each
+ loaded element's origin: a file outside the app's resources and an http URL are less trusted.
 */
 
 import XCTest
@@ -79,6 +80,12 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertEqual(Gtk.Label(loaded.widget).text, "Loaded")
         XCTAssertTrue(child(node) == loaded.outerWidget)
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[10], "the sub-view's model is in the window")
+        let origin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 10))
+        XCTAssertEqual(origin.trust, .lessTrusted, "a temporary file is not one of the app's resources")
+        XCTAssertEqual(origin.parentID, 1)
+        guard case .file(let file) = origin.source else { return XCTFail("\(origin)") }
+        XCTAssertTrue(file.hasSuffix("loadable-a.json"), file)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === DocumentOrigin.host, "the host's root")
     }
 
     func testViewDidLoadFiresOncePerSource() throws {
@@ -118,6 +125,8 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertEqual(node.childNodes[30].map { Gtk.Label($0.widget).text }, "Remote")
         XCTAssertTrue(child(node) == node.childNodes[30]?.outerWidget, "the spinner is gone")
         XCTAssertEqual(fired.map(\.viewID), [1])
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 30),
+                       DocumentOrigin(source: .remote(try XCTUnwrap(URL(string: server.base + "/view.json"))), trust: .lessTrusted, parentID: 1))
     }
 
     func testAURLThatFinishesAfterANewSourceLoadsNothing() throws {
