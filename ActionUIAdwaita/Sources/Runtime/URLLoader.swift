@@ -8,9 +8,11 @@
  it, the first https load logs a warning naming it. No FoundationNetworking: it needs full Foundation
  and libcurl on Linux.
  An http or https load is refused (nil, logged) when a redirect would take an https address to plain
- http, when the body grows past maximumSize, or when the whole load takes longer than totalTimeout;
- the body is read in pieces, so a large one is cut off rather than held whole first. Plain http
- itself stays allowed, as macOS allows it with an App Transport Security exception.
+ http or to another scheme, after more than 20 redirects, when the body grows past maximumSize, or
+ when the whole load takes longer than totalTimeout; the body is read in pieces, so a large one is
+ cut off rather than held whole first. The loader follows redirects itself, dropping a redirect's
+ own body unread (libsoup would read it whole first, outside the cap). Plain http itself stays
+ allowed, as macOS allows it with an App Transport Security exception.
 */
 
 #if canImport(FoundationEssentials)
@@ -151,13 +153,18 @@ package enum URLLoader {
     }
 }
 
-/// One http or https load: sends the request, refuses a redirect from https to http, reads the
-/// body in pieces up to URLLoader.maximumSize, and gives up after URLLoader.totalTimeout. Keeps
-/// itself alive (through the callbacks it registers) until it has called its completion once.
+/// One http or https load: sends the request, follows redirects (301, 302, 303, 307, 308) itself,
+/// refusing one from https to http, reads the body in pieces up to URLLoader.maximumSize, and gives
+/// up after URLLoader.totalTimeout. Keeps itself alive (through the callbacks it registers) until it
+/// has called its completion once.
 @MainActor
 private final class HTTPLoad {
     private let url: String
-    private let message: OpaquePointer
+    /// The request being sent: the first one, then each redirect's.
+    private var message: OpaquePointer
+    /// The address `message` asks for, which a relative redirect is read against.
+    private var current: String
+    private var redirects = 0
     private let session: UnsafeMutablePointer<SoupSession>
     private let completion: @MainActor (LoadedBytes?) -> Void
     private let cancellable = g_cancellable_new()!
@@ -168,34 +175,43 @@ private final class HTTPLoad {
     private var refusal: String?
     private var finished = false
     private static let pieceSize = 64 * 1024
+    /// The most redirects one load follows (libsoup's own limit is 20 too).
+    private static let maximumRedirects = 20
+    /// The statuses that redirect a GET, as libsoup's own following reads them.
+    private static let redirectStatuses: Set<UInt32> = [301, 302, 303, 307, 308]
 
     init(url: String, message: OpaquePointer, session: UnsafeMutablePointer<SoupSession>,
          completion: @escaping @MainActor (LoadedBytes?) -> Void) {
         self.url = url
+        self.current = url
         self.message = message
         self.session = session
         self.completion = completion
     }
 
     func start() {
-        let originalScheme = swiftString(g_uri_peek_scheme(url))
-        // Emitted before a redirect is sent: stop it there, so the plain http request never goes out.
-        connectSignal(UnsafeMutableRawPointer(message), "restarted", .instanceOnly) { [self] in
-            guard let uri = soup_message_get_uri(message) else { return }
-            let next = swiftString(g_uri_get_scheme(uri))
-            if URLLoader.isDowngrade(from: originalScheme, to: next) {
-                stop("a redirect would take it from https to plain http", callInFlight: true)
-            }
-        }
         timer = runAfter(milliseconds: URLLoader.totalTimeout) { [self] in
             timer = 0
             stop("it took longer than \(URLLoader.totalTimeout) ms", callInFlight: true)
         }
+        send()
+    }
+
+    /// Sends `message`, then reads its body, or follows its redirect.
+    private func send() {
+        // libsoup's own following reads a redirect's whole body into memory before going on,
+        // outside the size cap.
+        soup_message_add_flags(message, SOUP_MESSAGE_NO_REDIRECT)
         let run: ReadyRun = { [self] result in
             var error: UnsafeMutablePointer<GError>?
             let opened = soup_session_send_finish(session, result, &error)
             if let error { g_error_free(error) }
             let status = soup_message_get_status(message).rawValue
+            if let opened, Self.redirectStatuses.contains(UInt32(status)) {
+                // The redirect's own body is dropped unread.
+                g_object_unref(UnsafeMutableRawPointer(opened))
+                return followRedirect()
+            }
             guard let opened, (200...299).contains(status) else {
                 if let opened { g_object_unref(UnsafeMutableRawPointer(opened)) }
                 return finish(nil)
@@ -205,6 +221,36 @@ private final class HTTPLoad {
         }
         soup_session_send_async(session, message, G_PRIORITY_DEFAULT, cancellable, readyTrampoline,
                                 Unmanaged.passRetained(CallbackBox(run)).toOpaque())
+    }
+
+    /// Sends a new request to the Location of `message`'s redirect response, unless the load has
+    /// followed too many, or the new address is not http or https, or lowers https to http.
+    private func followRedirect() {
+        guard redirects < Self.maximumRedirects else {
+            return stop("it was redirected more than \(Self.maximumRedirects) times", callInFlight: false)
+        }
+        // The header as GLib holds it, so a Location that is not UTF-8 is resolved as sent.
+        guard let location = soup_message_headers_get_one(soup_message_get_response_headers(message), "Location") else {
+            return finish(nil)
+        }
+        // G_URI_FLAGS_ENCODED (1 << 3): escapes in the Location are kept as they are, for libsoup to read.
+        var error: UnsafeMutablePointer<GError>?
+        let resolved = takeGString(g_uri_resolve_relative(current, location, GUriFlags(rawValue: 1 << 3), &error))
+        if let error { g_error_free(error) }
+        guard let next = resolved else { return finish(nil) }
+        let scheme = swiftString(g_uri_peek_scheme(next))
+        guard scheme == "http" || scheme == "https" else {
+            return stop("a redirect would take it to a \(scheme ?? "malformed") address", callInFlight: false)
+        }
+        if URLLoader.isDowngrade(from: swiftString(g_uri_peek_scheme(url)), to: scheme) {
+            return stop("a redirect would take it from https to plain http", callInFlight: false)
+        }
+        guard let nextMessage = soup_message_new("GET", next) else { return finish(nil) }
+        g_object_unref(UnsafeMutableRawPointer(message))
+        message = nextMessage
+        current = next
+        redirects += 1
+        send()
     }
 
     private func readPiece() {
