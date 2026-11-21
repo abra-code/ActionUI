@@ -70,14 +70,27 @@ import CWinUI
         let view: WinUIObject
         var expansion: Expansion = []
         var cap: (horizontal: Int?, vertical: Int?) = (nil, nil)
+        /// A column's range along the axis (a NavigationSplitView's): the pane takes a share within it
+        /// whatever its view asks for, the view placed in it as in any pane. nil: the view decides.
+        var column: (minimum: Int, maximum: Int?)?
+    }
+
+    /// The size a pane starts at, before the user drags: a length, or a share of the split view's.
+    enum Ideal: Equatable {
+        case length(Int)
+        case share(Double)
     }
 
     let panel: LayoutPanel
     let horizontal: Bool
     private(set) var panes: [Pane] = []
     private(set) var dividers: [SplitDivider] = []
-    /// The first pane's ideal size in the axis, which sets the first divider.
-    var firstIdeal: Int?
+    /// Each pane's ideal size in the axis (nil: none), which sets the dividers around it: an HSplitView's
+    /// first pane's frame, a NavigationSplitView's leading columns' widths.
+    var ideals: [Ideal?] = []
+    /// Whether a drag trades space with the last pane rather than the next (a NavigationSplitView's
+    /// columns: the sidebar's edge leaves the content column its width, the detail takes the change).
+    var dragsAgainstLast = false
     /// The panes' sizes the user set by dragging; nil until then.
     private var userSizes: [Int]?
     /// The panes' sizes when last arranged, where the dividers are.
@@ -98,15 +111,22 @@ import CWinUI
         panel.arrange = { [unowned self] finalSize in arrange(finalSize) }
     }
 
-    /// Makes `newPanes` the panes, in order, with a divider between each pair (drawn above them).
-    func setPanes(_ newPanes: [Pane]) {
+    /// Makes `newPanes` the panes, in order, with a divider between each pair (drawn above them). With
+    /// `keepsUserSizes`, the sizes the user dragged to stay when the panes' views change but not their
+    /// number (a NavigationSplitView's detail showing another destination).
+    func setPanes(_ newPanes: [Pane], keepsUserSizes: Bool = false) {
         let current = panes.map { ObjectIdentifier($0.view) }
         let wanted = newPanes.map { ObjectIdentifier($0.view) }
         let reshaped = panes.map(\.expansion.rawValue) != newPanes.map(\.expansion.rawValue)
-            || !panes.elementsEqual(newPanes) { $0.cap == $1.cap }
+            || !panes.elementsEqual(newPanes) {
+                $0.cap == $1.cap && $0.column?.minimum == $1.column?.minimum && $0.column?.maximum == $1.column?.maximum
+            }
         panes = newPanes
         if current != wanted {
-            userSizes = nil
+            if !keepsUserSizes || current.count != wanted.count {
+                userSizes = nil
+            }
+            // The dividers leave the panel below, and a drag with them.
             drag = nil
             do {
                 while !panel.children.isEmpty {
@@ -134,16 +154,24 @@ import CWinUI
     // MARK: Sizes (as the Linux renderer's SplitLayout)
 
     /// The panes' sizes before the user drags: as a stack with dividers for spacing lays them out,
-    /// the first pane at `firstIdeal` (within its range, leaving the others their minimums where it
-    /// can) when given.
-    static func initialSizes(_ panes: [StackChild], available: Int, firstIdeal: Int?) -> [Int] {
+    /// each pane with an ideal at it, in order (within its range, leaving the others their minimums
+    /// where it can).
+    static func initialSizes(_ panes: [StackChild], available: Int, ideals: [Ideal?]) -> [Int] {
         var children = panes
-        if let ideal = firstIdeal, var first = children.first {
-            let room = available - dividerThickness * (children.count - 1) - children.dropFirst().reduce(0) { $0 + $1.minimum }
-            let size = max(first.minimum, min(first.maximum.map { min(ideal, $0) } ?? ideal, room))
-            first.minimum = size
-            first.maximum = size
-            children[0] = first
+        for index in children.indices {
+            guard index < ideals.count, let given = ideals[index] else { continue }
+            let ideal: Int
+            switch given {
+            case .length(let length): ideal = length
+            case .share(let fraction): ideal = StackSolver.length(Double(available) * fraction)
+            }
+            var pane = children[index]
+            let others = children.indices.filter { $0 != index }.reduce(0) { $0 + children[$1].minimum }
+            let room = available - dividerThickness * (children.count - 1) - others
+            let size = max(pane.minimum, min(pane.maximum.map { min(ideal, $0) } ?? ideal, room))
+            pane.minimum = size
+            pane.maximum = size
+            children[index] = pane
         }
         return StackSolver.mainSizes(children, available: available, spacing: dividerThickness)
     }
@@ -163,21 +191,23 @@ import CWinUI
         return result
     }
 
-    /// The sizes after the divider after pane `index` moved `delta` from where it was at `start`: the
-    /// two panes beside it trade space, each kept within its range.
-    static func dragged(_ start: [Int], _ panes: [StackChild], index: Int, delta: Int) -> [Int] {
-        guard index + 1 < start.count else { return start }
+    /// The sizes after the divider after pane `index` moved `delta` from where it was at `start`: pane
+    /// `index` trades space with `partner` (the pane after the divider unless given), each kept within
+    /// its range.
+    static func dragged(_ start: [Int], _ panes: [StackChild], index: Int, partner: Int? = nil, delta: Int) -> [Int] {
+        let other = partner ?? index + 1
+        guard index + 1 < start.count, other > index, other < start.count else { return start }
         let before = panes[index]
-        let after = panes[index + 1]
+        let after = panes[other]
         var lower = before.minimum - start[index]
         var upper = before.maximum.map { $0 - start[index] } ?? Int.max
-        lower = max(lower, after.maximum.map { start[index + 1] - $0 } ?? Int.min)
-        upper = min(upper, start[index + 1] - after.minimum)
+        lower = max(lower, after.maximum.map { start[other] - $0 } ?? Int.min)
+        upper = min(upper, start[other] - after.minimum)
         guard lower <= upper else { return start }
         let move = min(max(delta, lower), upper)
         var result = start
         result[index] += move
-        result[index + 1] -= move
+        result[other] -= move
         return result
     }
 
@@ -193,6 +223,9 @@ import CWinUI
     private func stackChildren() -> [StackChild] {
         zip(panes, desired).map { pane, desired in
             let length = StackSolver.length(along(desired), rounding: .up)
+            if let column = pane.column {
+                return .expanding(minimum: column.minimum, cap: column.maximum)
+            }
             let expands = pane.expansion.contains(horizontal ? .horizontal : .vertical)
             return expands ? .expanding(minimum: 0, cap: horizontal ? pane.cap.horizontal : pane.cap.vertical)
                            : .fixed(minimum: length, natural: length)
@@ -204,7 +237,7 @@ import CWinUI
         if let user = userSizes, user.count == children.count {
             return Self.fitted(user, children, available: available)
         }
-        return Self.initialSizes(children, available: available, firstIdeal: firstIdeal)
+        return Self.initialSizes(children, available: available, ideals: ideals)
     }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
@@ -256,7 +289,11 @@ import CWinUI
             let share = shares[index]
             // As a one-child ZStack places its child: all of the share where it expands (up to its
             // cap), else its own size; centered.
-            let alongLength = children[index].maximum.map { min(share, $0) } ?? share
+            var alongLength = children[index].maximum.map { min(share, $0) } ?? share
+            // A column whose view does not expand along the axis: the view at its own size in it.
+            if pane.column != nil, !pane.expansion.contains(horizontal ? .horizontal : .vertical) {
+                alongLength = min(alongLength, StackSolver.length(along(desired[index]), rounding: .up))
+            }
             let expandsAcross = pane.expansion.contains(horizontal ? .vertical : .horizontal)
             let asked = StackSolver.length(measuredAcross[index], rounding: .up)
             let capAcross = horizontal ? pane.cap.vertical : pane.cap.horizontal
@@ -302,7 +339,8 @@ import CWinUI
         case ActionUIWinUIPointerMoved:
             guard let drag else { return false }
             let delta = Int((point - drag.origin).rounded())
-            userSizes = Self.dragged(drag.start, stackChildren(), index: drag.index, delta: delta)
+            userSizes = Self.dragged(drag.start, stackChildren(), index: drag.index,
+                                     partner: dragsAgainstLast ? drag.start.count - 1 : nil, delta: delta)
             panel.invalidateLayout()
             return true
         default:
@@ -368,9 +406,9 @@ private let releasePointer: ActionUIWinUICallback = { context in
             guard !child.takesNoPlace, let view = child.outerView else { return nil }
             return SplitLayout.Pane(view: view, expansion: child.expansion, cap: child.caps)
         })
-        let ideal = children.first.flatMap { ideal(BaseModifiers($0.properties).frame) }.map { StackSolver.length($0) }
-        if ideal != layout.firstIdeal {
-            layout.firstIdeal = ideal
+        let ideal = children.first.flatMap { ideal(BaseModifiers($0.properties).frame) }.map { SplitLayout.Ideal.length(StackSolver.length($0)) }
+        if [ideal] != layout.ideals {
+            layout.ideals = [ideal]
             layout.panel.invalidateLayout()
         }
     }

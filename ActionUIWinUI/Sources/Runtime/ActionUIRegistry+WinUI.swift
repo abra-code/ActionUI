@@ -42,6 +42,7 @@ extension ActionUIRegistry {
         "List": List.self,
         "Menu": Menu.self,
         "NavigationLink": NavigationLink.self,
+        "NavigationSplitView": NavigationSplitView.self,
         "NavigationStack": NavigationStack.self,
         "ProgressView": ProgressView.self,
         "Rectangle": Rectangle.self,

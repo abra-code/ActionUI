@@ -142,6 +142,8 @@ PREVIEW_OPTIONS = {
     "ScrollReaders": ["420", "230", "--set-property", "4", "scrollTo", "230", "--wait"],
     "GeometryReaders": ["420", "190"],
     "Groups": ["420", "300", "--add-row", "21", "First", "--add-row", "21", "Second"],
+    "NavigationSplitViews": ["420", "300", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
+                             "--drag", "20", "180.5", "35", "210.5", "35", "--expect-width", "23", "66"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
     "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{documents_url}/Images/sample_image.png|Open",
                    "--add-row", "2", "Test|true|heart|true|{documents_url}/Images/sample_image.png|Open", "--wait",

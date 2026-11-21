@@ -1,0 +1,130 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "NavigationSplitView",
+   "id": 2,
+   "properties": {
+    "frame": {
+     "width": 388,
+     "height": 130
+    }
+   },
+   "sidebar": {
+    "type": "List",
+    "id": 3,
+    "properties": {
+     "actionID": "sidebar.changed",
+     "navigationSplitViewColumnWidth": {
+      "min": 100,
+      "ideal": 140,
+      "max": 200
+     }
+    },
+    "children": [
+     {
+      "type": "Label",
+      "id": 4,
+      "properties": {
+       "title": "Inbox",
+       "systemImage": "tray",
+       "destinationViewId": 10
+      }
+     },
+     {
+      "type": "Label",
+      "id": 5,
+      "properties": {
+       "title": "Archive",
+       "systemImage": "archivebox",
+       "destinationViewId": 11
+      }
+     }
+    ]
+   },
+   "detail": {
+    "type": "Text",
+    "id": 6,
+    "properties": {
+     "text": "Select a folder"
+    }
+   },
+   "destinations": [
+    {
+     "type": "Text",
+     "id": 10,
+     "properties": {
+      "text": "The inbox"
+     }
+    },
+    {
+     "type": "VStack",
+     "id": 11,
+     "children": [
+      {
+       "type": "Text",
+       "id": 12,
+       "properties": {
+        "text": "The archive"
+       }
+      },
+      {
+       "type": "Text",
+       "id": 13,
+       "properties": {
+        "text": "Chosen in the sidebar",
+        "font": "caption"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "NavigationSplitView",
+   "id": 20,
+   "properties": {
+    "frame": {
+     "width": 388,
+     "height": 70
+    }
+   },
+   "sidebar": {
+    "type": "Text",
+    "id": 21,
+    "properties": {
+     "text": "Sidebar"
+    }
+   },
+   "content": {
+    "type": "Text",
+    "id": 22,
+    "properties": {
+     "text": "Content",
+     "navigationSplitViewColumnWidth": 110
+    }
+   },
+   "detail": {
+    "type": "Color",
+    "id": 23,
+    "properties": {
+     "color": "#6090E0"
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 30,
+   "properties": {
+    "text": "A sidebar List of destinations (140 wide), the run choosing Archive; three columns: a default sidebar, a content column 110 wide, a color detail; the Windows run drags the sidebar's edge 30 right (the detail gives the room)",
+    "font": "caption"
+   }
+  }
+ ]
+}
