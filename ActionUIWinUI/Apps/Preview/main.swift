@@ -42,7 +42,8 @@
 //   --expect-state ID KEY VALUE  fails unless element ID's state KEY reads VALUE (as text: "true",
 //                            "0.5", a string) at that point (a WebView's title after a --delay)
 //   --expect-automation ID FIELD TEXT  fails unless an accessibility tool reads TEXT as element ID's
-//                            FIELD ("name", "help" or "id"), through its UI Automation peer
+//                            FIELD ("name", "help", "id" or "accelerator", its keyboard shortcut),
+//                            through its UI Automation peer
 //   --delay MS               waits MS milliseconds before the next operation (or the rendering): a
 //                            LoadableView's remote description loading
 //   --wait                   lets the changes the operations before it made reach the screen before
@@ -307,6 +308,7 @@ final class Preview {
                 switch field {
                 case "name": which = ActionUIWinUIAutomationName
                 case "help": which = ActionUIWinUIAutomationHelpText
+                case "accelerator": which = ActionUIWinUIAutomationAcceleratorKey
                 default: which = ActionUIWinUIAutomationIdentifier
                 }
                 guard let copy = actionUIWinUIElementCopyAutomationText((node.accessibleView ?? view).pointer, which) else {
@@ -636,7 +638,7 @@ while index < arguments.count {
         preview.invocations.append(.expectState(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4
     } else if option == "--expect-automation", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]),
-              ["name", "help", "id"].contains(arguments[index + 2]) {
+              ["name", "help", "id", "accelerator"].contains(arguments[index + 2]) {
         preview.invocations.append(.expectAutomation(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4
     } else if option == "--delay", index + 1 < arguments.count, let milliseconds = Int(arguments[index + 1]), milliseconds >= 0 {

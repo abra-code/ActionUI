@@ -14,7 +14,13 @@
     "title": "Save",
     "accessibilityLabel": "Save the document",
     "accessibilityHint": "Writes it to disk",
-    "accessibilityIdentifier": "save-button"
+    "accessibilityIdentifier": "save-button",
+    "keyboardShortcut": {
+     "key": "s",
+     "modifiers": [
+      "command"
+     ]
+    }
    }
   },
   {
@@ -53,7 +59,7 @@
    "type": "Text",
    "id": 5,
    "properties": {
-    "text": "A Button with an accessibility label, hint and identifier; a Toggle with help (its tooltip, and its hint for accessibility tools); a Button with neither, named by its title; a Toggle in a Form, its label and identifier on the switch. The run reads each through UI Automation.",
+    "text": "A Button with an accessibility label, hint, identifier and the keyboard shortcut Ctrl+S; a Toggle with help (its tooltip, and its hint for accessibility tools); a Button with neither, named by its title; a Toggle in a Form, its label and identifier on the switch. The run reads each through UI Automation.",
     "font": "caption"
    }
   }

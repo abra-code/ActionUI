@@ -14,6 +14,8 @@
 #include <winrt/Microsoft.UI.Xaml.Automation.h>
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.h>  // ToolTipService
+#include <winrt/Microsoft.UI.Xaml.Input.h>     // KeyboardAccelerator
+#include <winrt/Windows.System.h>              // VirtualKey
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
 
@@ -307,6 +309,26 @@ bool actionUIWinUIElementSetToolTip(ActionUIWinUIObject *element, const char *te
     });
 }
 
+bool actionUIWinUIElementSetKeyboardShortcut(ActionUIWinUIObject *element, int32_t key, uint32_t modifiers,
+                                             const char *text) {
+    return guarded("element set keyboard shortcut", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        // ActionUI's only: the element's accelerators are the one this sets.
+        typed.KeyboardAccelerators().Clear();
+        if (key == 0) {
+            typed.ClearValue(mux::Automation::AutomationProperties::AcceleratorKeyProperty());
+            return true;
+        }
+        // A Button's or a switch's automation peer reports only this property as its accelerator key.
+        mux::Automation::AutomationProperties::SetAcceleratorKey(typed, text != nullptr ? toHString(text) : winrt::hstring{});
+        mux::Input::KeyboardAccelerator accelerator;
+        accelerator.Key(static_cast<winrt::Windows::System::VirtualKey>(key));
+        accelerator.Modifiers(static_cast<winrt::Windows::System::VirtualKeyModifiers>(modifiers));
+        typed.KeyboardAccelerators().Append(accelerator);
+        return true;
+    });
+}
+
 char *actionUIWinUIElementCopyAutomationText(ActionUIWinUIObject *element, ActionUIWinUIAutomationText which) {
     char *copy = nullptr;
     guarded("element copy automation text", [&]() {
@@ -326,6 +348,9 @@ char *actionUIWinUIElementCopyAutomationText(ActionUIWinUIObject *element, Actio
             break;
         case ActionUIWinUIAutomationIdentifier:
             text = peer.GetAutomationId();
+            break;
+        case ActionUIWinUIAutomationAcceleratorKey:
+            text = peer.GetAcceleratorKey();
             break;
         default:
             return fail("element copy automation text", "unknown automation text");
