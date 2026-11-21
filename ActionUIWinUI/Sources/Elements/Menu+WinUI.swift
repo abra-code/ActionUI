@@ -22,7 +22,8 @@
 
  Not yet: other children (each type is logged once); a Button's systemImage (Windows' items can show an
  icon) and its destructive role; menu items' keyboard shortcuts; an accessible name for a Menu showing
- only a label element (Linux names a Menu after its title; SwiftUI an image label after its symbol).
+ only a label element (Linux names a Menu after its title; SwiftUI an image label after its symbol);
+ controlSize (ControlSizing sizes Buttons and Pickers).
 */
 
 import CWinUI

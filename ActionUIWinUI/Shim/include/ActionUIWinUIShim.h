@@ -174,6 +174,11 @@ typedef enum ActionUIWinUIButtonStyle {
 // before the button is first shown: a borderless button's disabled look and a plain button's hover and
 // pressed fills are WinUI resources the template reads when it is applied.
 ACTIONUI_WINUI_API bool actionUIWinUIButtonSetStyle(ActionUIWinUIObject *button, ActionUIWinUIButtonStyle style);
+// Gives `control` (a Control) a minimum height and padding, a control size's box; a negative
+// `minHeight` gives it its style's again (both cleared). A ComboBox's dropdown glyph, which keeps the
+// box at least 32 pixels tall, takes the minimum height too.
+ACTIONUI_WINUI_API bool actionUIWinUIControlSetBox(ActionUIWinUIObject *control, double minHeight, double left,
+                                                   double top, double right, double bottom);
 // Click: the user clicked the button, pressed it with the keyboard, or an accessibility tool invoked
 // it. Never from a setter.
 ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,

@@ -1,0 +1,200 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "spacing": 8
+   },
+   "children": [
+    {
+     "type": "Button",
+     "id": 3,
+     "properties": {
+      "title": "mini",
+      "controlSize": "mini"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 4,
+     "properties": {
+      "title": "small",
+      "controlSize": "small"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 5,
+     "properties": {
+      "title": "regular",
+      "controlSize": "regular"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 6,
+     "properties": {
+      "title": "large",
+      "controlSize": "large"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 7,
+     "properties": {
+      "title": "extraLarge",
+      "controlSize": "extraLarge"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 8,
+   "properties": {
+    "spacing": 8,
+    "controlSize": "small"
+   },
+   "children": [
+    {
+     "type": "Button",
+     "id": 9,
+     "properties": {
+      "title": "Inherited",
+      "systemImage": "star"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 10,
+     "properties": {
+      "title": "Prominent",
+      "buttonStyle": "borderedProminent"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 11,
+     "properties": {
+      "title": "Borderless",
+      "buttonStyle": "borderless"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 12,
+     "properties": {
+      "title": "Plain",
+      "buttonStyle": "plain"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 13,
+     "properties": {
+      "title": "Own font",
+      "font": "title3"
+     }
+    },
+    {
+     "type": "Button",
+     "id": 14,
+     "properties": {
+      "systemImage": "gear",
+      "controlSize": "large"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 15,
+   "properties": {
+    "spacing": 12
+   },
+   "children": [
+    {
+     "type": "Picker",
+     "id": 16,
+     "properties": {
+      "title": "mini",
+      "options": [
+       "One",
+       "Two"
+      ],
+      "pickerStyle": "menu",
+      "controlSize": "mini"
+     }
+    },
+    {
+     "type": "Picker",
+     "id": 17,
+     "properties": {
+      "title": "small",
+      "options": [
+       "One",
+       "Two"
+      ],
+      "pickerStyle": "menu",
+      "controlSize": "small"
+     }
+    },
+    {
+     "type": "Picker",
+     "id": 18,
+     "properties": {
+      "title": "regular",
+      "options": [
+       "One",
+       "Two"
+      ],
+      "pickerStyle": "menu",
+      "controlSize": "regular"
+     }
+    },
+    {
+     "type": "Picker",
+     "id": 19,
+     "properties": {
+      "title": "large",
+      "options": [
+       "One",
+       "Two"
+      ],
+      "pickerStyle": "menu",
+      "controlSize": "large"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Picker",
+   "id": 20,
+   "properties": {
+    "title": "small",
+    "options": [
+     "One",
+     "Two"
+    ],
+    "pickerStyle": "segmented",
+    "controlSize": "small"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 21,
+   "properties": {
+    "font": "caption",
+    "text": "controlSize: buttons mini to extraLarge; a small row (inherited: an icon and title, prominent, borderless, plain, one with its own font, a large icon button); menu Pickers mini to large; a small segmented Picker."
+   }
+  }
+ ]
+}

@@ -75,9 +75,10 @@ final class ImageLayout {
 
     /// A symbol's side for `node`'s font: the font size (the theme's body size when none) times
     /// SwiftUI's symbol box factor, times the image scale's factor ("small", "medium", "large"; nil:
-    /// medium). Image, Label and Button's symbols.
-    static func symbolSide(_ node: RenderNode, scale: String?) -> Double {
-        let fontSize = TextAppearance.winUIFont(node.textAppearance.font).size
+    /// medium). Image, Label and Button's symbols; `appearance` in place of the node's (a control's,
+    /// ControlSizing).
+    static func symbolSide(_ node: RenderNode, scale: String?, appearance: TextAppearance? = nil) -> Double {
+        let fontSize = TextAppearance.winUIFont((appearance ?? node.textAppearance).font).size
         let base = (fontSize > 0 ? fontSize : 14) * symbolFontFactor
         switch scale {
         case "small": return (base * 0.8).rounded()

@@ -16,9 +16,12 @@
  no minimum size and no fill at all, as large as its content, as SwiftUI's plain button is. As on
  Linux.
 
+ controlSize, the element's own or its nearest ancestor's: the label's font when it has none, its
+ icon with it, and the box unless the button is plain (ControlSizing).
+
  Not yet: assetImage (a button with one shows its systemImage, where Apple shows the asset); an
  accessible name for a button showing only a symbol (Apple names it after the symbol); role (a
- destructive button is drawn as any other); controlSize; buttonStyle on ShareLink's button; a plain
+ destructive button is drawn as any other); buttonStyle on ShareLink's button; a plain
  or borderless button whose style changes after it was first shown may keep the hover or disabled fill
  of its first style.
 */
@@ -36,6 +39,9 @@ import CWinUI
     var kind: Kind?
     /// The style last given to the button; nil before the first.
     var style: ActionUIWinUIButtonStyle?
+    /// The label's appearance and the control size's box last applied (nil: the button's own).
+    var appearance: TextAppearance?
+    var box: ControlSizing.Box?
     /// The symbol shown alone, and the side it was sized to.
     var icon: WinUIObject?
     var iconSide = -1.0
@@ -58,17 +64,29 @@ extension Button: ActionUIWinUIRenderer {
     }
 
     static func update(_ view: WinUIObject, _ node: RenderNode) {
-        node.applyTextAppearance(to: view, what: "a Button")
         guard let content = node.state as? ButtonContent else { return }
+        let appearance = ControlSizing.appearance(node)
+        if appearance != content.appearance {
+            content.appearance = appearance
+            appearance.apply(to: view, what: "a Button")
+        }
         let style = windowsStyle(node.buttonStyle)
         if style != content.style {
             content.style = style
             if !actionUIWinUIButtonSetStyle(view.pointer, style) {
                 ActionUIModel.shared.logger.log("Button: \(WinUIError.last("styling a Button"))", .error)
             }
+            // The style sets the button's padding and minimum size again.
+            content.box = nil
+        }
+        // A plain button is its label alone: the size changes only its font.
+        let box = style == ActionUIWinUIButtonStylePlain ? nil : ControlSizing.box(ControlSizing.button, node, appearance: appearance)
+        if box != content.box {
+            content.box = box
+            ControlSizing.apply(box, to: view, what: "a Button")
         }
         let props = Props(node.properties)
-        let side = ImageLayout.symbolSide(node, scale: props.imageScale?.rawValue)
+        let side = ImageLayout.symbolSide(node, scale: props.imageScale?.rawValue, appearance: appearance)
         let kind: ButtonContent.Kind
         // An empty name is no image, as on Apple and Linux.
         if let symbol = props.systemImage, !symbol.isEmpty {

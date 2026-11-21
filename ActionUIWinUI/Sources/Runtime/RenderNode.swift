@@ -58,6 +58,9 @@ package final class RenderNode {
     /// buttonStyle, as SwiftUI's environment passes it down: the element's own, else its nearest
     /// ancestor's (a container's styles the buttons in it); automatic sets none.
     private(set) var buttonStyle: BaseModifiers.ButtonStyleName?
+    /// controlSize, as SwiftUI's environment passes it down: the element's own, else its nearest
+    /// ancestor's (ControlSizing).
+    private(set) var controlSize: BaseModifiers.ControlSizeName?
     /// The accessibility texts and tooltip last applied (applyAccessibility), the name with the
     /// renderer's default; each nil: none applied.
     private var appliedAccessibility = AccessibilityTexts()
@@ -287,7 +290,7 @@ package final class RenderNode {
         guard isAttached, let view else { return }
         var expansionChanged = false
         let previousAppearance = textAppearance
-        let previousStates = (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle)
+        let previousStates = (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle, controlSize)
         withObservationTracking {
             let modifiers = baseModifiers
             // Before the renderer's update, which draws the text with it.
@@ -302,6 +305,7 @@ package final class RenderNode {
             } else {
                 buttonStyle = parent?.buttonStyle
             }
+            controlSize = modifiers.controlSize ?? parent?.controlSize
             renderer.update(view, self)
             toolbar?.update()
             applyStates(to: view)
@@ -338,7 +342,7 @@ package final class RenderNode {
         unsyncedChildren = []
         // The children inherit the appearance; new ones read it in their first sync below (and are
         // not marked, as the GTK renderer skips them).
-        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle) != previousStates) {
+        if hasSynced && (textAppearance != previousAppearance || (isDisabled, isHidden, isAccessibilityHidden, isLabelsHidden, buttonStyle, controlSize) != previousStates) {
             let new = Set(created.map(ObjectIdentifier.init))
             for child in Array(childNodes.values) + templateNodes + auxiliaryNodes where !new.contains(ObjectIdentifier(child)) {
                 SyncScheduler.shared.markDirty(child)

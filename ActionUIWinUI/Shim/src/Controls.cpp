@@ -103,6 +103,22 @@ void collectSelectionItems(mux::DependencyObject const &node, std::vector<automa
     }
 }
 
+// The element named `name` under `node` (not itself), depth first; null when there is none (a
+// template not yet applied has no elements).
+mux::FrameworkElement namedDescendant(mux::DependencyObject const &node, wchar_t const *name) {
+    int32_t count = media::VisualTreeHelper::GetChildrenCount(node);
+    for (int32_t index = 0; index < count; ++index) {
+        mux::DependencyObject child = media::VisualTreeHelper::GetChild(node, index);
+        if (mux::FrameworkElement element = child.try_as<mux::FrameworkElement>(); element != nullptr && element.Name() == name) {
+            return element;
+        }
+        if (mux::FrameworkElement found = namedDescendant(child, name)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
 // The swatch's outline: the theme's control stroke, else a light gray.
 media::Brush swatchStroke() {
     try {
@@ -215,6 +231,48 @@ bool actionUIWinUIButtonSetContent(ActionUIWinUIObject *button, ActionUIWinUIObj
             typed.Content(nullptr);
         } else {
             typed.Content(objectAs<mux::UIElement>(content, L"UIElement"));
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIControlSetBox(ActionUIWinUIObject *control, double minHeight, double left, double top,
+                                double right, double bottom) {
+    return guarded("control set box", [&]() {
+        muxc::Control typed = objectAs<muxc::Control>(control, L"Control");
+        bool clear = !(minHeight >= 0);
+        if (clear) {
+            typed.ClearValue(mux::FrameworkElement::MinHeightProperty());
+            typed.ClearValue(muxc::Control::PaddingProperty());
+        } else {
+            typed.MinHeight(minHeight);
+            typed.Padding(mux::Thickness{left, top, right, bottom});
+        }
+        // A ComboBox's own style sets no minimum height: its 32 pixels are its template's dropdown glyph,
+        // whose MinHeight (ComboBoxMinHeight) wins over its Height of 12, so a smaller box needs the glyph
+        // smaller too. The key in the control's resources reaches a template applied later (and a theme
+        // change); an applied template's glyph is set directly.
+        if (muxc::ComboBox combo = typed.try_as<muxc::ComboBox>(); combo != nullptr) {
+            mux::ResourceDictionary resources = combo.Resources();
+            wf::IInspectable key = winrt::box_value(L"ComboBoxMinHeight");
+            if (resources.HasKey(key)) {
+                resources.Remove(key);
+            }
+            double glyphMinHeight = minHeight;
+            if (clear) {
+                glyphMinHeight = 32;
+                try {
+                    if (auto found = mux::Application::Current().Resources().Lookup(key).try_as<double>()) {
+                        glyphMinHeight = *found;
+                    }
+                } catch (winrt::hresult_error const &) {
+                }
+            } else {
+                resources.Insert(key, winrt::box_value(minHeight));
+            }
+            if (mux::FrameworkElement glyph = namedDescendant(combo, L"DropDownGlyph")) {
+                glyph.MinHeight(glyphMinHeight);
+            }
         }
         return true;
     });

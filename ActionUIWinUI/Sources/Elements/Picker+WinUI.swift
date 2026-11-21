@@ -17,6 +17,9 @@
    is the index the renderer last selected; userSelected would not, for a first option shown in
    place of a value that is no String).
  - The style is read when the element is made (a later change of style keeps the first control).
+ - controlSize, the element's own or its nearest ancestor's: the choice's font when it has none,
+   and a menu's combo box sized as a button (ControlSizing); a segmented or radio group Picker takes
+   the font only. The title keeps its font, as on macOS (measured).
 
  Not yet: sections and dividers (a menu's headers and lines); the title as the control's accessible
  name when labelsHidden hides it; the dropdown as wide as its widest item (a ComboBox takes its
@@ -137,6 +140,8 @@ final class TitledControlLayout: FormLabeledLayout {
     /// (which can show a tag that is not the value: the first option for a value that is no String).
     var shownIndex = -1
     var appliedAppearance: TextAppearance?
+    var appliedControlAppearance: TextAppearance?
+    var appliedBox: ControlSizing.Box?
 
     init(layout: TitledControlLayout, kind: ActionUIWinUIChoiceKind) {
         self.layout = layout
@@ -190,7 +195,20 @@ extension Picker: ActionUIWinUIRenderer {
         if state.appliedAppearance != node.textAppearance {
             state.appliedAppearance = node.textAppearance
             node.textAppearance.apply(to: layout.title, what: "a Picker's title")
-            node.textAppearance.apply(to: layout.control, what: "a Picker")
+        }
+        let appearance = ControlSizing.appearance(node)
+        if state.appliedControlAppearance != appearance {
+            state.appliedControlAppearance = appearance
+            appearance.apply(to: layout.control, what: "a Picker")
+            layout.panel.invalidateLayout()
+        }
+        if state.kind == ActionUIWinUIChoiceMenu {
+            let box = ControlSizing.box(ControlSizing.comboBox, node, appearance: appearance)
+            if box != state.appliedBox {
+                state.appliedBox = box
+                ControlSizing.apply(box, to: layout.control, what: "a Picker's menu")
+                layout.panel.invalidateLayout()
+            }
         }
         node.applyAccessibilityHidden(to: layout.title)
         node.applyAccessibilityHidden(to: layout.control)
