@@ -638,6 +638,25 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityHidden(ActionUIWinUI
 // The name accessibility tools read for `element` (UTF-8; NULL or empty: the control's own, from its
 // content).
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibleName(ActionUIWinUIObject *element, const char *name);
+// What accessibility tools read as `element`'s help, after its name (UI Automation's HelpText; UTF-8;
+// NULL or empty: none).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityHint(ActionUIWinUIObject *element, const char *hint);
+// The identifier test and automation tools find `element` by (UI Automation's AutomationId; UTF-8;
+// NULL or empty: none).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityIdentifier(ActionUIWinUIObject *element, const char *identifier);
+// The tooltip `element` shows when the pointer rests on it (UTF-8; NULL or empty: none).
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetToolTip(ActionUIWinUIObject *element, const char *text);
+
+// What accessibility tools read of an element, through its UI Automation peer.
+typedef enum ActionUIWinUIAutomationText {
+    ActionUIWinUIAutomationName = 0,
+    ActionUIWinUIAutomationHelpText = 1,
+    ActionUIWinUIAutomationIdentifier = 2,
+} ActionUIWinUIAutomationText;
+// `element`'s name, help text or automation identifier as an accessibility tool reads it, as a new UTF-8
+// string the caller frees with actionUIWinUIFreeString; NULL (with an error) when the element has no
+// automation peer. For tests.
+ACTIONUI_WINUI_API char *actionUIWinUIElementCopyAutomationText(ActionUIWinUIObject *element, ActionUIWinUIAutomationText which);
 // Joins a control (a button) to its neighbors in a row, as a ControlGroup's: its leading corners are
 // rounded only when it is `first`, its trailing ones only when it is `last` (the theme's control corner
 // radius), and its leading border is left out unless it is `first`, so neighbors share one border.

@@ -1,0 +1,61 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "Button",
+   "id": 2,
+   "properties": {
+    "title": "Save",
+    "accessibilityLabel": "Save the document",
+    "accessibilityHint": "Writes it to disk",
+    "accessibilityIdentifier": "save-button"
+   }
+  },
+  {
+   "type": "Toggle",
+   "id": 3,
+   "properties": {
+    "title": "Alerts",
+    "help": "Turns on alerts"
+   }
+  },
+  {
+   "type": "Button",
+   "id": 4,
+   "properties": {
+    "title": "Plain name"
+   }
+  },
+  {
+   "type": "Form",
+   "id": 6,
+   "properties": {},
+   "children": [
+    {
+     "type": "Toggle",
+     "id": 7,
+     "properties": {
+      "title": "Wi-Fi",
+      "style": "switch",
+      "accessibilityLabel": "Wireless network",
+      "accessibilityIdentifier": "wifi-toggle"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 5,
+   "properties": {
+    "text": "A Button with an accessibility label, hint and identifier; a Toggle with help (its tooltip, and its hint for accessibility tools); a Button with neither, named by its title; a Toggle in a Form, its label and identifier on the switch. The run reads each through UI Automation.",
+    "font": "caption"
+   }
+  }
+ ]
+}

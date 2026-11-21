@@ -45,6 +45,16 @@ protocol ActionUIWinUIRenderer {
     /// as SwiftUI's EmptyView: an EmptyView, a Link with no URL. Read during the node's sync, tracked.
     /// Default: false.
     static func takesNoPlace(_ node: RenderNode) -> Bool
+
+    /// The WinUI object accessibility tools read as the element, which gets its accessibility label,
+    /// hint and identifier: the element's object, or the control a renderer puts in a panel of
+    /// ActionUI's (which accessibility tools do not see). Default: a TitledControlHolder state's
+    /// control, else `view`.
+    static func accessibleObject(_ view: WinUIObject, _ node: RenderNode) -> WinUIObject
+
+    /// The element's name for accessibility tools without an accessibilityLabel: nil for the
+    /// control's own (from its content). Read during the node's sync, tracked. Default: nil.
+    static func defaultAccessibleName(_ node: RenderNode) -> String?
 }
 
 extension ActionUIWinUIRenderer {
@@ -55,4 +65,11 @@ extension ActionUIWinUIRenderer {
     static func compression(_ node: RenderNode) -> Expansion { [] }
 
     static func takesNoPlace(_ node: RenderNode) -> Bool { false }
+
+    /// The control of a state holding one in a titled panel (TitledControlHolder), else `view`.
+    static func accessibleObject(_ view: WinUIObject, _ node: RenderNode) -> WinUIObject {
+        (node.state as? TitledControlHolder)?.titledControl ?? view
+    }
+
+    static func defaultAccessibleName(_ node: RenderNode) -> String? { nil }
 }

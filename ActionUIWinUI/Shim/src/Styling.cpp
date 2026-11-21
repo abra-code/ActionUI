@@ -5,11 +5,15 @@
 #include "ShimInternal.h"
 
 #include <cmath>
+#include <cstdlib>  // malloc
+#include <cstring>
+#include <string>
 
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Text.h>
 #include <winrt/Microsoft.UI.Xaml.Automation.h>
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.h>  // ToolTipService
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
 
@@ -276,6 +280,74 @@ bool actionUIWinUIElementSetAccessibleName(ActionUIWinUIObject *element, const c
         }
         return true;
     });
+}
+
+bool actionUIWinUIElementSetAccessibilityHint(ActionUIWinUIObject *element, const char *hint) {
+    return guarded("element set accessibility hint", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        winrt::hstring wanted = hint != nullptr ? toHString(hint) : winrt::hstring{};
+        if (mux::Automation::AutomationProperties::GetHelpText(typed) != wanted) {
+            mux::Automation::AutomationProperties::SetHelpText(typed, wanted);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetAccessibilityIdentifier(ActionUIWinUIObject *element, const char *identifier) {
+    return guarded("element set accessibility identifier", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        winrt::hstring wanted = identifier != nullptr ? toHString(identifier) : winrt::hstring{};
+        if (mux::Automation::AutomationProperties::GetAutomationId(typed) != wanted) {
+            mux::Automation::AutomationProperties::SetAutomationId(typed, wanted);
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetToolTip(ActionUIWinUIObject *element, const char *text) {
+    return guarded("element set tool tip", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        if (text == nullptr || text[0] == '\0') {
+            typed.ClearValue(muxc::ToolTipService::ToolTipProperty());
+        } else {
+            muxc::ToolTipService::SetToolTip(typed, winrt::box_value(toHString(text)));
+        }
+        return true;
+    });
+}
+
+char *actionUIWinUIElementCopyAutomationText(ActionUIWinUIObject *element, ActionUIWinUIAutomationText which) {
+    char *copy = nullptr;
+    guarded("element copy automation text", [&]() {
+        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+        mux::Automation::Peers::AutomationPeer peer =
+            mux::Automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(typed);
+        if (peer == nullptr) {
+            return fail("element copy automation text", "the element has no automation peer");
+        }
+        winrt::hstring text;
+        switch (which) {
+        case ActionUIWinUIAutomationName:
+            text = peer.GetName();
+            break;
+        case ActionUIWinUIAutomationHelpText:
+            text = peer.GetHelpText();
+            break;
+        case ActionUIWinUIAutomationIdentifier:
+            text = peer.GetAutomationId();
+            break;
+        default:
+            return fail("element copy automation text", "unknown automation text");
+        }
+        std::string utf8 = winrt::to_string(text);
+        copy = static_cast<char *>(malloc(utf8.size() + 1));
+        if (copy == nullptr) {
+            return fail("element copy automation text", "out of memory");
+        }
+        memcpy(copy, utf8.data(), utf8.size() + 1);
+        return true;
+    });
+    return copy;
 }
 
 bool actionUIWinUIControlSetJoined(ActionUIWinUIObject *control, bool first, bool last) {

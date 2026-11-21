@@ -33,6 +33,8 @@ package final class RenderNode {
     private(set) var box: ModifierBox?
     /// What a parent lays out: the box, else the object.
     package var outerView: WinUIObject! { box?.panel.object ?? view }
+    /// The object accessibility tools read as the element (its renderer's accessibleObject).
+    package var accessibleView: WinUIObject? { view.map { renderer.accessibleObject($0, self) } }
     /// How the element grows in a stack: the renderer's expansion, overridden per axis by a
     /// frame (one with a maximum expands, a fixed one does not).
     private(set) var expansion: Expansion = []
@@ -56,6 +58,9 @@ package final class RenderNode {
     /// buttonStyle, as SwiftUI's environment passes it down: the element's own, else its nearest
     /// ancestor's (a container's styles the buttons in it); automatic sets none.
     private(set) var buttonStyle: BaseModifiers.ButtonStyleName?
+    /// The accessibility texts and tooltip last applied (applyAccessibility), the name with the
+    /// renderer's default; each nil: none applied.
+    private var appliedAccessibility = AccessibilityTexts()
     /// The states last applied to the WinUI object (applyStates).
     private var appliedEnabled: Bool?
     private var appliedAccessibilityHidden: Bool?
@@ -183,6 +188,38 @@ package final class RenderNode {
         }
     }
 
+    /// Gives the element's accessible object (the renderer's accessibleObject) its name for
+    /// accessibility tools (accessibilityLabel, else the renderer's default name), hint (else the help
+    /// text, which SwiftUI's help also gives them, as on Linux) and identifier (UI Automation's
+    /// AutomationId, which test tools find it by), and the element's object the help as its tooltip.
+    /// The name is written on every sync while there is one, as on Linux: a control can write its name
+    /// itself (an Expander's title) in the renderer's update before this; WinUI skips a write of the
+    /// name it has. The others only when they changed. With neither a label nor a default name, the
+    /// control's own (from its content) is left, or restored once when one is taken away. Not yet: an
+    /// element drawn in ActionUI's own panels with no single control to read (a Label, a Stepper, a
+    /// DatePicker) gets them on its panel, which accessibility tools do not see (only the tooltip
+    /// shows).
+    private func applyAccessibility(_ texts: AccessibilityTexts, to view: WinUIObject) {
+        let logger = ActionUIModel.shared.logger
+        let target = renderer.accessibleObject(view, self)
+        var texts = texts
+        texts.label = texts.label ?? renderer.defaultAccessibleName(self).flatMap { $0.isEmpty ? nil : $0 }
+        let applied = appliedAccessibility
+        appliedAccessibility = texts
+        if texts.label != nil || applied.label != nil, !actionUIWinUIElementSetAccessibleName(target.pointer, texts.label) {
+            logger.log("RenderNode: \(WinUIError.last("naming an element for accessibility tools"))", .error)
+        }
+        if texts.hint != applied.hint, !actionUIWinUIElementSetAccessibilityHint(target.pointer, texts.hint) {
+            logger.log("RenderNode: \(WinUIError.last("giving an element its accessibility hint"))", .error)
+        }
+        if texts.identifier != applied.identifier, !actionUIWinUIElementSetAccessibilityIdentifier(target.pointer, texts.identifier) {
+            logger.log("RenderNode: \(WinUIError.last("giving an element its accessibility identifier"))", .error)
+        }
+        if texts.help != applied.help, !actionUIWinUIElementSetToolTip(view.pointer, texts.help) {
+            logger.log("RenderNode: \(WinUIError.last("giving an element its tooltip"))", .error)
+        }
+    }
+
     /// Applies the node's accessibility-hidden state to an inner object its renderer made (a label's
     /// title and icon, a button's icon and title, an image): WinUI's accessibility view hides one
     /// element, not its children, and ActionUI's panels are not seen by accessibility tools at all.
@@ -242,6 +279,7 @@ package final class RenderNode {
             renderer.update(view, self)
             toolbar?.update()
             applyStates(to: view)
+            applyAccessibility(AccessibilityTexts(modifiers), to: view)
             let geometry = boxGeometry(modifiers)
             box?.contentExpansion = renderer.expansion(self)
             box?.update(geometry)
@@ -394,5 +432,23 @@ package final class RenderNode {
             node.detach()
         }
         auxiliaryNodes = []
+    }
+}
+
+/// An element's accessibility texts and tooltip from its modifiers: each nil when absent or empty.
+struct AccessibilityTexts: Equatable {
+    var label: String?
+    var hint: String?
+    var identifier: String?
+    var help: String?
+
+    init() {}
+
+    init(_ modifiers: BaseModifiers) {
+        func text(_ value: String?) -> String? { value.flatMap { $0.isEmpty ? nil : $0 } }
+        label = text(modifiers.accessibilityLabel)
+        help = text(modifiers.help)
+        hint = text(modifiers.accessibilityHint) ?? help
+        identifier = text(modifiers.accessibilityIdentifier)
     }
 }
