@@ -145,6 +145,7 @@ PREVIEW_OPTIONS = {
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",
                              "--invoke-part", "40", "0", "--expect-action", "sidebar.toggled"],
+    "Shares": ["420", "200"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
     "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{documents_url}/Images/sample_image.png|Open",
                    "--add-row", "2", "Test|true|heart|true|{documents_url}/Images/sample_image.png|Open", "--wait",

@@ -8,6 +8,12 @@
 #include <vector>
 
 #include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
+#include <shobjidl_core.h>  // IDataTransferManagerInterop: the share sheet of a desktop app's window
+
+#include <winrt/Microsoft.UI.h>
+#include <winrt/Microsoft.UI.Content.h>
+#include <winrt/Microsoft.UI.Interop.h>  // GetWindowFromWindowId
+#include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.Graphics.h>
@@ -330,6 +336,61 @@ bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObjec
                 throw winrt::hresult_error(HRESULT_FROM_WIN32(error));
             }
             return fail("window send drag", "Windows took only part of the pointer's input (another program's input in the way?)");
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIShareLink(ActionUIWinUIObject *element, const char *url, const char *title, const char *text) {
+    return guarded("share link", [&]() {
+        namespace transfer = winrt::Windows::ApplicationModel::DataTransfer;
+        mux::UIElement target = objectAs<mux::UIElement>(element, L"UIElement");
+        if (url == nullptr || title == nullptr) {
+            return fail("share link", "no URL or title to share");
+        }
+        // Not absolute ("example.com"): shared as text alone.
+        wf::Uri link{nullptr};
+        try {
+            link = wf::Uri(toHString(url));
+        } catch (winrt::hresult_error const &) {
+            link = nullptr;
+        }
+        mux::XamlRoot root = target.XamlRoot();
+        if (root == nullptr) {
+            return fail("share link", "the element is in no window");
+        }
+        winrt::Microsoft::UI::Content::ContentIslandEnvironment environment = root.ContentIslandEnvironment();
+        if (environment == nullptr) {
+            return fail("share link", "the element's window is not known");
+        }
+        HWND hwnd = winrt::Microsoft::UI::GetWindowFromWindowId(environment.AppWindowId());
+        if (hwnd == nullptr) {
+            return fail("share link", "the element's window has no handle");
+        }
+        auto interop = winrt::get_activation_factory<transfer::DataTransferManager, IDataTransferManagerInterop>();
+        transfer::DataTransferManager manager{nullptr};
+        winrt::check_hresult(interop->GetForWindow(hwnd, winrt::guid_of<transfer::DataTransferManager>(), winrt::put_abi(manager)));
+        // The sheet asks for the data as it opens: this request's, then the handler goes.
+        winrt::hstring shownTitle = toHString(title);
+        winrt::hstring shownText = toHString(text);
+        auto token = std::make_shared<winrt::event_token>();
+        *token = manager.DataRequested([link, shownTitle, shownText, token](transfer::DataTransferManager const &sender,
+                                                                            transfer::DataRequestedEventArgs const &args) {
+            sender.DataRequested(*token);
+            transfer::DataPackage data = args.Request().Data();
+            // The sheet refuses a package without a title.
+            data.Properties().Title(shownTitle);
+            if (link != nullptr) {
+                data.SetWebLink(link);
+            }
+            if (!shownText.empty()) {
+                data.SetText(shownText);
+            }
+        });
+        HRESULT shown = interop->ShowShareUIForWindow(hwnd);
+        if (FAILED(shown)) {
+            manager.DataRequested(*token);
+            winrt::check_hresult(shown);
         }
         return true;
     });

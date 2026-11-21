@@ -98,6 +98,12 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *windo
 // Shows the window and brings it to the front.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
 ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
+// Opens Windows' share sheet for the window showing `element` (DataTransferManager, as a desktop app
+// shares), with the web link `url` titled `title` (the sheet needs one) and, for targets that take text
+// (a mail's body), `text` (NULL: none); a `url` that is not absolute ("example.com") is no link, so
+// only `text` is shared. The sheet is the system's: this returns once it is asked for. Fails when the
+// element is in no window.
+ACTIONUI_WINUI_API bool actionUIWinUIShareLink(ActionUIWinUIObject *element, const char *url, const char *title, const char *text);
 // Drags with the real mouse, as a user does, for tests: through Windows' input queue (SendInput),
 // presses the left mouse button (the primary one unless the buttons are swapped) at (fromX, fromY)
 // in `element`'s coordinates, moves the pointer to (toX, toY) in steps and releases it there. It moves the user's pointer. `window`, which shows `element`,

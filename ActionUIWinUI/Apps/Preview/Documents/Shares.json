@@ -1,0 +1,49 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "ShareLink",
+   "id": 2,
+   "properties": {
+    "item": "https://github.com/abra-code/ActionUI",
+    "subject": "ActionUI",
+    "message": "Native UI from JSON"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "text": "Above: a ShareLink. Below: one without an item, then one named for accessibility tools"
+   }
+  },
+  {
+   "type": "ShareLink",
+   "id": 4,
+   "properties": {}
+  },
+  {
+   "type": "ShareLink",
+   "id": 5,
+   "properties": {
+    "item": "https://example.com",
+    "accessibilityLabel": "Share the example page",
+    "font": "caption"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 6,
+   "properties": {
+    "text": "The middle ShareLink takes no place, as an EmptyView",
+    "font": "caption"
+   }
+  }
+ ]
+}
