@@ -91,14 +91,15 @@ private struct WebViewContent: SwiftUI.View {
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
-        let viewID = element.id
+        // Whose trust this WebView has: in a template row, the container's (the row has no view model).
+        let viewID = model.templateContext?.parentID ?? element.id
         let configuration = WebViewContent.makeConfiguration(props: props, logger: logger) {
             ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID)
         }
         // Always with the decider: @State keeps this first page while the element's content may
         // be reloaded with another origin, so the decider asks the element's trust each time.
         _page = State(initialValue: WebPage(configuration: configuration,
-                                            navigationDecider: LessTrustedNavigation(windowUUID: windowUUID, viewID: element.id, logger: logger)))
+                                            navigationDecider: LessTrustedNavigation(windowUUID: windowUUID, viewID: viewID, logger: logger)))
         _lastTrackedURL = State(initialValue: "")
     }
 
@@ -190,7 +191,7 @@ private struct WebViewContent: SwiftUI.View {
 
     /// The trust policy's answer for this WebView's element.
     private func allows(_ capability: ActionUICapability) -> Bool {
-        ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: element.id)
+        ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id)
     }
 
     /// Loads `url`, or the "Blocked" page when the trust policy refuses it (false then).

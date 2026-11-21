@@ -172,8 +172,8 @@ struct WKWebViewRepresentable {
 
     /// Creates and configures the WKWebView, attaches the coordinator, and loads initial content.
     private func makeWebView(context: Context) -> WKWebView {
-        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger) { [windowUUID, element] in
-            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: element.id)
+        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger) { [windowUUID, element, model] in
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id)
         }
         let webView = WKWebView(frame: .zero, configuration: config)
 
@@ -243,6 +243,9 @@ extension WKWebViewRepresentable {
         let windowUUID: String
         let logger: any ActionUILogger
 
+        /// Whose trust this WebView has: in a template row, the container's (the row has no view model).
+        private var trustID: Int { model.templateContext?.parentID ?? element.id }
+
         /// The last URL we pushed into model.value ourselves, so handleCommand can distinguish our own
         /// programmatic updates from host-app navigation commands (mirrors WebViewContent.lastTrackedURL).
         private var lastTrackedURL: String = ""
@@ -311,7 +314,7 @@ extension WKWebViewRepresentable {
         /// origin differs.
         func updateNavigationDelegate() {
             guard let webView else { return }
-            let lessTrusted = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: element.id)?.trust != .trusted
+            let lessTrusted = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: trustID)?.trust != .trusted
             if lessTrusted {
                 if webView.navigationDelegate !== self { webView.navigationDelegate = self }
             } else if webView.navigationDelegate === self {
@@ -358,7 +361,7 @@ extension WKWebViewRepresentable {
 
         /// The trust policy's answer for this WebView's element.
         private func allows(_ capability: ActionUICapability) -> Bool {
-            ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: element.id)
+            ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: trustID)
         }
 
         /// Loads a URL, using loadFileURL for file URLs so local resources are granted read access;
