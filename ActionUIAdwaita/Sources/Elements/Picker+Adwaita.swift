@@ -13,8 +13,8 @@
 
  - The options are the items. When the options have sections (a title, or a divider), the menu
    shows each titled section under its title and starts an untitled one with a line, as SwiftUI's
-   Section does in a menu; a radio group does the same with headings (owner decision: SwiftUI draws
-   the headers as radio rows); segments show the items alone.
+   Section does in a menu; a radio group does the same with headings (where SwiftUI draws the
+   headers as radio rows); segments show the items alone.
  - The selected item is the one whose tag is the value, else the first option (Picker's initial
    value). A value that is no option's tag leaves the dropdown on the item it showed (GtkDropDown
    always keeps one selected, where macOS shows an empty pop-up button), and selects no segment and

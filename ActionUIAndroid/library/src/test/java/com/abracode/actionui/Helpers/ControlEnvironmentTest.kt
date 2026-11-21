@@ -178,8 +178,8 @@ class ControlEnvironmentTest {
     @Test
     fun `hidden narrows the enabled local, so a hidden control cannot fire`() {
         assertEquals(false, disabledLocalOverride(buildJsonObject { put("hidden", true) }))
-        // With a title and no `disabled` of its own - the shape of SharedCare's hidden
-        // "Clear filters" Button, which sat over the live feed and used to eat its taps.
+        // With a title and no `disabled` of its own - the shape of a hidden "Clear filters"
+        // Button sitting over a live feed, which used to eat its taps.
         assertEquals(
             false,
             disabledLocalOverride(buildJsonObject { put("title", "Clear filters"); put("hidden", true) }),

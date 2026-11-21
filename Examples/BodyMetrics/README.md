@@ -128,8 +128,8 @@ The headline feature here is **conditional color from data**, and it is identica
 shape on all three hosts: on every recompute the host calls `setElementProperty(id,
 "foregroundStyle", colorName)` on the category Text and both `foregroundStyle` and
 `tint` on the Gauge. `foregroundStyle` / `tint` are runtime-settable on Apple,
-Android, and Web alike, so a tiny applet proves the data-driven-styling path
-SharedCare needs for status coloring before the big app hits it.
+Android, and Web alike, so a tiny applet proves the data-driven-styling path a
+larger app needs for status coloring.
 
 ## Build-status notes
 

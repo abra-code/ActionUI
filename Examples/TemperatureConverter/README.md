@@ -124,8 +124,8 @@ like `TextField`/`Toggle` were), so the host had to fall back to
 `setElementProperty("text")`. Because we own ActionUI, we fixed it in the framework -
 Android `Text`, `Label`, `Image`, `Color`, `NavigationLink`, and `ProgressView` are
 now value-bearing, matching SwiftUI - and the host code is now identical in shape on
-every platform. A cheap converter found and closed a real framework gap before the
-big app (SharedCare) ever hit it.
+every platform. A cheap converter found and closed a real framework gap before a
+larger app hit it.
 
 ## Build-status notes
 

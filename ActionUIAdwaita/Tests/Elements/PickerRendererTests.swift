@@ -210,7 +210,7 @@ final class PickerRendererTests: XCTestCase {
     }
 
     func testRadioButtonsShowTheOptionsUnderHeadings() throws {
-        // Owner decision: section titles are headings, not the radio rows SwiftUI draws.
+        // Section titles are headings, not the radio rows SwiftUI draws.
         let node = try render(#"{"type": "Picker", "id": 1, "properties": {"title": "Size", "options": [{"section": "First"}, {"title": "A", "tag": "a"}, {"title": "B", "tag": "b"}, {"section": "Second"}, {"title": "C", "tag": "c"}], "pickerStyle": "radioGroup", "actionID": "test.chosen"}}"#)
         let column = Picker.accessibleWidget(node.widget)
         let rows = children(column)

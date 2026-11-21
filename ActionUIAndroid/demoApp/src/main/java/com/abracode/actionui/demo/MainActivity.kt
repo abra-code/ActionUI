@@ -658,13 +658,13 @@ class MainActivity : ComponentActivity() {
 
         // List.nestedFillScroll.json (#34) - a template List with maxHeight:infinity nested in
         // fixed-height fill ZStacks. onAppear loads 30 rows so the list overflows its viewport;
-        // the test is whether an upward swipe scrolls it (the SharedCare hub Schedule repro).
+        // the test is whether an upward swipe scrolls it.
         ActionUIModel.registerActionHandler("repro.nested.load") { _, windowUUID, _, _, _ ->
             val rows = (1..30).map { listOf("Row $it", "detail $it") }
             ActionUIModel.setElementRows(windowUUID = windowUUID, viewID = 320, rows = rows)
         }
 
-        // List.overlaidHiddenScroll.json (#34) - the SharedCare section-switcher shape: a visible
+        // List.overlaidHiddenScroll.json (#34) - a section-switcher shape: a visible
         // template List (320) with a HIDDEN sibling List (420) overlaid on top of it in the same
         // ZStack. Both get 30 rows; the test is whether a swipe scrolls the VISIBLE list (it must,
         // once a hidden subtree stops intercepting touch).

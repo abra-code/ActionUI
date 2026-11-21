@@ -63,7 +63,7 @@ package enum URLLoader {
     /// request fails, in seconds.
     static let timeout: guint = 30
 
-    /// The largest body an http or https load reads, in bytes (32 MB, the owner's cap for remote
+    /// The largest body an http or https load reads, in bytes (32 MB, the cap for remote
     /// downloads); a larger one is refused. Settable for tests.
     static var maximumSize = 32 * 1024 * 1024
 

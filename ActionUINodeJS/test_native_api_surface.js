@@ -421,7 +421,7 @@ function testNullClearing() {
 }
 
 // Strings past the old fixed buffers arrive whole: window ids were cut at 127 bytes, text at
-// 4095 and JSON at 65535, so a table above 64 KB never arrived (threat model B-F10).
+// 4095 and JSON at 65535, so a table above 64 KB never arrived.
 function testLongValuesArriveWhole() {
     console.log('\n=== Long values arrive whole ===');
     const fs = require('fs');

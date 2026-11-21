@@ -104,7 +104,7 @@ public enum ActionUICapability: Sendable, Equatable {
     case action(String)
 }
 
-/// The host's say over how far content is trusted and what it may do (Trust_Origin_Design.md),
+/// The host's say over how far content is trusted and what it may do,
 /// set on ActionUIModel.shared.trustPolicy before loading. One object serves every window; a host
 /// that wants rules per window switches on the origin's parentID or keeps its own map.
 public protocol ActionUITrustPolicy: Sendable {
@@ -134,7 +134,7 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     public init() {}
 
     /// What content of `origin` may do when the host does not say: trusted content anything; less
-    /// trusted content, for now, anything too (each refusal of the design's table comes with the
+    /// trusted content, for now, anything too (each refusal comes with the
     /// renderer change that enforces it).
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
         if origin.trust == .trusted { return true }

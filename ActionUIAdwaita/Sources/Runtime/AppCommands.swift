@@ -2,7 +2,7 @@
 /*
  The application's commands on Linux: the CommandMenu and CommandGroup elements a host loads
  (actionUIAppLoadMenuBar, AdwaitaApplication.loadMenuBar), which macOS puts in its menu bar, shown
- in GNOME's primary menu instead (the owner's choice, 2026-10-24): one menu button at the end of
+ in GNOME's primary menu instead: one menu button at the end of
  a window's header bar, opening a menu shared by every window.
 
  The menu, top to bottom, each part a section:

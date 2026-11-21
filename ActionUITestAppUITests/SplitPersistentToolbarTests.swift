@@ -4,14 +4,13 @@
 // discovery run that reported through XCTFail; it now asserts the behavior, so the suite
 // stays green and a future change to these semantics goes red.
 //
-// Fixture: Resources/NavigationSplitView.persistentToolbar.json, which mirrors the shape
-// SharedCare's derived wide shell actually uses (SharedCare-wide.json): a
-// NavigationSplitView whose sidebar is a List carrying the toolbar, and whose detail is an
+// Fixture: Resources/NavigationSplitView.persistentToolbar.json, which mirrors the shape of
+// a common wide layout: a NavigationSplitView whose sidebar is a List carrying the toolbar, and whose detail is an
 // INNER NavigationStack with its own root content and pushed destinations.
 //
 //   Sync    in the NavigationSplitView's `persistentToolbar`  -> the feature
 //   Info    in the NavigationSplitView's `toolbar`            -> the DEPRECATED ALIAS
-//   New     on the sidebar List          <- the slot where SharedCare authors its sync indicator
+//   New     on the sidebar List          <- the slot where an app may put a sync indicator
 //   Edit    on the detail stack's root
 //   Share   on a destination of the inner stack
 //
@@ -27,17 +26,16 @@
 // Info and New were both MEASURED surviving the inner push on macOS 26 on
 // 2026-08-08, before `persistentToolbar` existed: they live in the one window toolbar the
 // split view's columns share, and the sidebar never unmounts. Two consequences worth
-// keeping straight. SharedCare's wide shell authors the sync indicator on the sidebar List,
-// so on macOS that indicator was ALREADY persistent and #36 never affected the wide shell.
+// keeping straight. An item authored on the sidebar List, such as a sync indicator, was
+// ALREADY persistent on macOS, so #36 never affected that layout.
 // And on this platform the new key changes nothing observable - Sync is asserted
 // here so that the key is proven wired on macOS too, not because macOS was broken.
 //
 // iPad is NOT covered. The multi-scene harness opens the fixture as a 320pt side-by-side
 // scene, where SwiftUI collapses NavigationSplitView to a single stack with the sidebar as
 // root - so there is no detail column to push into and the run measures compact width, not
-// wide. Closing the selector scene first would fix it. Left undone deliberately: SharedCare
-// runs the NARROW shell on iPad (App/apple/DateHelpers.swift gates the wide shell on
-// `#if os(macOS)` alone), so this is a framework-completeness gap, not a product one.
+// wide. Closing the selector scene first would fix it. Left undone deliberately: this is a
+// framework-completeness gap, not one a known app hits.
 //
 // UI automation is exclusive. Clicking in the app during a run corrupts it, and the
 // corruption reads as a contradictory result rather than an error.

@@ -4,7 +4,7 @@
 // executing every request on the main actor against ActionUIModel.shared, with a registry that
 // hosts extend with their own namespaced methods (OMC registers `omc.*`).
 //
-// Threading model (see PROTOCOL.md and the design note):
+// Threading model (see PROTOCOL.md):
 // - Lines arrive on the connection's serial queue. They are decoded there, wrapped in a
 //   RequestBox, and handed to the main queue with DispatchQueue.main.async. The connection
 //   queue then waits on the box's semaphore with a timeout, so a main thread that never comes

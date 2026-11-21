@@ -464,7 +464,7 @@ private fun PaneChrome(
     // A pane that is itself a navigation container renders its own screens and merges the
     // published items into each of their bars; a bar here would sit above its NavHost and
     // stack a second one over every screen inside. This is the split fixture's own shape - a
-    // NavigationStack in the detail pane - and SharedCare's wide shell.
+    // NavigationStack in the detail pane - and a common wide layout's.
     if (isNavigationContainer(element.type)) {
         content(Modifier)
         return

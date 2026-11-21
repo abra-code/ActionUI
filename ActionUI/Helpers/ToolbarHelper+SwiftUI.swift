@@ -93,7 +93,7 @@ extension ToolbarHelper {
 // container cannot serve a nested container's screens by wrapping it; it can only announce its
 // items and let the inner container merge them. That happens whenever a NavigationStack sits in a
 // NavigationSplitView's detail column, which is the shape of this project's own split fixture and
-// of SharedCare's wide shell.
+// of a common wide layout.
 @MainActor
 enum PersistentToolbar {
     /// Wrap a navigation container. macOS applies the items outside it; elsewhere they are
