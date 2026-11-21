@@ -126,6 +126,12 @@ private let releaseBox: ActionUIWinUICallback = { context in
         }
     }
 
+    /// Makes `child`, a layout panel's object held through a WinUI element between the two (a rounded
+    /// box), tell this panel of its size changes as a direct child does.
+    package func adoptThroughWrapper(_ child: WinUIObject) {
+        child.layoutPanel?.parentPanel = self
+    }
+
     /// Asks WinUI to lay the panel out again.
     package func invalidateLayout() {
         object.invalidateMeasure()

@@ -87,6 +87,15 @@ bool actionUIWinUIElementSetBrush(ActionUIWinUIObject *element, ActionUIWinUIBru
                 }
                 return true;
             }
+            // A rounded box (actionUIWinUIRoundedBoxCreate), which paints its rounded shape.
+            if (muxc::Border border = typed.try_as<muxc::Border>(); border != nullptr) {
+                if (wanted == nullptr) {
+                    border.ClearValue(muxc::Border::BackgroundProperty());
+                } else if (!samePaint(border.Background(), wanted)) {
+                    border.Background(wanted);
+                }
+                return true;
+            }
             return fail("element set brush", "the element has no background");
         }
         if (property == ActionUIWinUIBrushForeground) {

@@ -756,6 +756,19 @@ ACTIONUI_WINUI_API char *actionUIWinUIListCopyRowName(ActionUIWinUIObject *list,
 // Scrolls the ListView so that row `index` is in view (rows or items).
 ACTIONUI_WINUI_API bool actionUIWinUIListScrollIntoView(ActionUIWinUIObject *list, int32_t index);
 
+// MARK: - Decoration
+
+// A new rounded box holding `child`, which fills it: its corners (actionUIWinUIRoundedBoxSetCornerRadius)
+// clip what it holds and its background (actionUIWinUIElementSetBrush, Background). `child` must have
+// no parent. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIRoundedBoxCreate(ActionUIWinUIObject *child);
+// The box's corner radius (0: square corners), the same in both axes: WinUI clamps it to half the width
+// and half the height separately, so the caller keeps it within half the shorter side for round corners.
+ACTIONUI_WINUI_API bool actionUIWinUIRoundedBoxSetCornerRadius(ActionUIWinUIObject *box, double radius);
+// Moves what `element` draws, and where it takes pointer input, by (x, y) pixels without moving its
+// layout (a render transform); 0, 0 removes it.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetOffset(ActionUIWinUIObject *element, double x, double y);
+
 // MARK: - Shapes
 
 typedef enum ActionUIWinUIShapeKind {
