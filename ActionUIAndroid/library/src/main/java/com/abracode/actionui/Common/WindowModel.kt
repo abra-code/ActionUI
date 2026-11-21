@@ -206,6 +206,25 @@ class WindowModel(
         return subRoot
     }
 
+    /** When this window's LoadableViews loaded, in nanoseconds of [System.nanoTime], within the budget's time. */
+    private val recentLoads = ArrayDeque<Long>()
+
+    /**
+     * True, counting the load, when one more LoadableView load is within [ActionUIModel.loadBudget];
+     * false (logged) when the window has used it up. Asked before anything is read.
+     */
+    fun spendLoad(now: Long = System.nanoTime()): Boolean {
+        val budget = ActionUIModel.loadBudget
+        val window = (budget.seconds * 1_000_000_000).toLong()
+        while (recentLoads.isNotEmpty() && now - recentLoads.first() >= window) recentLoads.removeFirst()
+        if (recentLoads.size >= budget.loads) {
+            logger.log("Not loading a LoadableView in window $windowUUID: ${budget.loads} loads in ${budget.seconds.toInt()} s already", LoggerLevel.error)
+            return false
+        }
+        recentLoads.addLast(now)
+        return true
+    }
+
     /** Why [loadSubDescription] refused a sub-tree (less-trusted content using a trusted element's id). */
     class SubViewRefusedException(message: String) : IllegalStateException(message)
 

@@ -283,6 +283,13 @@ object ActionUIModel {
      */
     var trustPolicy: ActionUITrustPolicy = DefaultTrustPolicy
 
+    /**
+     * How many documents a window's LoadableViews may load in a time: 256 a minute by default,
+     * as on Apple and Linux. A document that reloads itself through its value, or a chain of
+     * them, cannot spin the window. Set before loading.
+     */
+    var loadBudget: LoadBudget = LoadBudget(loads = 256, seconds = 60.0)
+
     /** Whether content of [origin] may do [capability], by [trustPolicy]. */
     fun allows(capability: ActionUICapability, origin: JSONContentOrigin): Boolean = trustPolicy.allows(capability, origin)
 

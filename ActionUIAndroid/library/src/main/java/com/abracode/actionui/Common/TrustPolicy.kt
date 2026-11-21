@@ -115,6 +115,9 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
     }
 }
 
+/** How many loads ([loads]) a window's LoadableViews may make in any [seconds]. */
+data class LoadBudget(val loads: Int, val seconds: Double)
+
 /** The origin of content loaded from [source] inside [parent]: classified ([classifyOrigin]), then the host's policy has the last word. */
 internal fun resolvedOrigin(
     source: com.abracode.actionui.Helpers.LoadableSource,

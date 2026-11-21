@@ -141,11 +141,19 @@ object LoadableView : ActionUIViewConstruction {
         val outcome: DescriptionLoad? = if (classified is LoadableSource.Remote) {
             produceState<DescriptionLoad?>(null, classified, windowModel, ownModel) {
                 value = null
-                value = mergeIntoWindow(loadRemoteDescription(classified, json, logger), windowModel, element.id, origin)
+                value = if (windowModel != null && !windowModel.spendLoad()) {
+                    DescriptionLoad.Failed("too many loads in this window")
+                } else {
+                    mergeIntoWindow(loadRemoteDescription(classified, json, logger), windowModel, element.id, origin)
+                }
             }.value
         } else {
             remember(windowModel, classified, ownModel) {
-                mergeIntoWindow(loadLocalDescription(classified, assets, json, logger), windowModel, element.id, origin)
+                if (windowModel != null && classified !is LoadableSource.None && !windowModel.spendLoad()) {
+                    DescriptionLoad.Failed("too many loads in this window")
+                } else {
+                    mergeIntoWindow(loadLocalDescription(classified, assets, json, logger), windowModel, element.id, origin)
+                }
             }
         }
 

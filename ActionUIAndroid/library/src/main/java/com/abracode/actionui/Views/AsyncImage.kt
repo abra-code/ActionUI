@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TIMEOUT_MS
 import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
+import com.abracode.actionui.Helpers.decodeBytesWithinCap
 import com.abracode.actionui.Helpers.readRegularFileBytes
 import com.abracode.actionui.Helpers.stringProperty
 import java.io.File
@@ -304,7 +305,7 @@ private suspend fun loadAsyncImage(url: String, logger: ActionUILogger?, readsFi
     val bitmap = try {
         withContext(Dispatchers.IO) {
             val bytes = fetchImageBytes(url)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            decodeBytesWithinCap(bytes, url, logger)
         }
     } catch (e: Exception) {
         logger?.log("AsyncImage: failed to load '$url': ${e.message}", LoggerLevel.warning)

@@ -1,7 +1,6 @@
 package com.abracode.actionui.Helpers
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -424,7 +423,7 @@ internal fun loadImagePainter(
 
 private fun decodeAsset(name: String, context: Context, logger: ActionUILogger?): Painter? =
     try {
-        val bitmap = context.assets.open(name).use { BitmapFactory.decodeStream(it) }
+        val bitmap = decodeAssetWithinCap(context.assets, name, logger)
         if (bitmap == null) {
             logger?.log(
                 "Image: asset '$name' could not be decoded (not a raster image?). " +
@@ -458,7 +457,7 @@ private fun decodeFile(path: String, logger: ActionUILogger?): Painter? {
         )
         return null
     }
-    val bitmap = BitmapFactory.decodeFile(path)
+    val bitmap = decodeFileWithinCap(path, logger)
     if (bitmap == null) {
         logger?.log(
             "Image: filePath '$path' could not be decoded as an image. Nothing rendered.",

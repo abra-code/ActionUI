@@ -179,6 +179,29 @@ class LessTrustedContentTest {
     }
 
     @Test
+    fun anImageOverSixtyFourMegapixelsIsNotDecoded() {
+        // A PNG whose header declares 9000 x 9000 pixels (81 million), with only its first row of data.
+        fun chunk(kind: String, data: ByteArray): ByteArray {
+            val body = kind.toByteArray(Charsets.US_ASCII) + data
+            val crc = java.util.zip.CRC32().apply { update(body) }.value.toInt()
+            return java.nio.ByteBuffer.allocate(4).putInt(data.size).array() + body + java.nio.ByteBuffer.allocate(4).putInt(crc).array()
+        }
+        val header = java.nio.ByteBuffer.allocate(13).putInt(9000).putInt(9000).put(byteArrayOf(8, 6, 0, 0, 0)).array()
+        val huge = File(folder, "huge.png").apply {
+            // A first data chunk too (one row's worth): decoders read the size only once the data begins.
+            val row = java.io.ByteArrayOutputStream().also { out ->
+                java.util.zip.DeflaterOutputStream(out).use { it.write(ByteArray(1 + 9000 * 4)) }
+            }.toByteArray()
+            writeBytes(byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a) + chunk("IHDR", header) + chunk("IDAT", row) + chunk("IEND", ByteArray(0)))
+        }
+        rule.setContent {
+            ActionUI.Render("""{ "type": "Image", "id": 1, "properties": { "filePath": "${huge.path}" } }""", logger = logger, windowUUID = window)
+        }
+        rule.waitForIdle()
+        assertTrue(logger.warnings.toString(), logger.warnings.any { it == "Image not shown: ${huge.path} is 9000 x 9000 pixels, more than 67108864" })
+    }
+
+    @Test
     fun theHostsOwnLinkIsNotAsked() {
         rule.setContent {
             ActionUI.Render(
