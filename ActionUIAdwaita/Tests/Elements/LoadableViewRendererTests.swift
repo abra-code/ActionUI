@@ -6,7 +6,8 @@
  a missing file (in the error color), a description that does not parse, a URL that fails, and a
  bundle name (Linux has no bundle); a document that loads itself, directly or through another,
  refused at the repeat while siblings showing one document both load it; a device refused. Each
- loaded element's origin: a file outside the app's resources and an http URL are less trusted.
+ loaded element's origin: a file outside the app's resources and an http URL are less trusted, and
+ links in less-trusted content open only web and mail addresses.
 */
 
 import XCTest
@@ -127,6 +128,43 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertEqual(fired.map(\.viewID), [1])
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 30),
                        DocumentOrigin(source: .remote(try XCTUnwrap(URL(string: server.base + "/view.json"))), trust: .lessTrusted, parentID: 1))
+    }
+
+    func testLinksInARemoteDocumentOpenOnlyWebAndMailAddresses() throws {
+        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 30, "children": [{"type": "Link", "id": 31, "properties": {"title": "Here", "url": "file:///etc/hosts"}}]}"#)
+        self.server = server
+        let node = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Link", "id": 2, "properties": {"title": "Host", "url": "file:///etc/hosts"}}, {"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}]}"#)
+        let loadable = try XCTUnwrap(node.childNodes[3])
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { loadable.childNodes[30] != nil }))
+        let remoteLink = try XCTUnwrap(loadable.childNodes[30]?.childNodes[31])
+        let hostLink = try XCTUnwrap(node.childNodes[2])
+        XCTAssertFalse(LinkTrust.allows("file:///etc/hosts", remoteLink), "less trusted: not a local file")
+        XCTAssertTrue(LinkTrust.allows("https://example.com", remoteLink))
+        XCTAssertTrue(LinkTrust.allows("mailto:a@example.com", remoteLink))
+        XCTAssertFalse(LinkTrust.allows("not a url %%", remoteLink), "an address that does not parse")
+        XCTAssertTrue(LinkTrust.allows("file:///etc/hosts", hostLink), "the host's content opens any link")
+        // The button asks before GTK opens the address.
+        let signal = g_signal_lookup("activate-link", gtk_link_button_get_type())
+        XCTAssertNotEqual(g_signal_has_handler_pending(UnsafeMutableRawPointer(remoteLink.widget), signal, 0, 0), 0)
+        // A template row's node takes its container's origin, even when its template reuses the id
+        // of a trusted element in the window (template elements are not registered, so nothing
+        // refuses the id when the document loads).
+        func rowNode(_ id: Int) -> RenderNode {
+            let model = ViewModel()
+            model.templateContext = TemplateContext(parentID: 31, rowIndex: 0, row: [])
+            return RenderNode(element: ActionUIElement(id: id, type: "Link", properties: [:], subviews: nil), model: model,
+                              windowModel: remoteLink.windowModel, parent: remoteLink)
+        }
+        XCTAssertEqual(LinkTrust.originElementID(rowNode(9999)), 31)
+        XCTAssertFalse(LinkTrust.allows("file:///etc/hosts", rowNode(9999)))
+        XCTAssertEqual(LinkTrust.originElementID(rowNode(2)), 31, "not the host's Link with the same id")
+        XCTAssertFalse(LinkTrust.allows("file:///etc/hosts", rowNode(2)))
+        // A node drawn with a view model that is not the window's one for its id counts as less trusted.
+        let stray = RenderNode(element: ActionUIElement(id: 2, type: "Link", properties: [:], subviews: nil), model: ViewModel(),
+                               windowModel: node.windowModel, parent: node)
+        XCTAssertNil(LinkTrust.originElementID(stray))
+        XCTAssertFalse(LinkTrust.allows("file:///etc/hosts", stray))
+        XCTAssertTrue(LinkTrust.allows("https://example.com", stray))
     }
 
     func testAURLThatFinishesAfterANewSourceLoadsNothing() throws {

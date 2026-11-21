@@ -350,6 +350,23 @@ package func connectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal:
     connectBox(instance, signal, unsafeBitCast(booleanTrampoline, to: GCallback.self), run as BooleanRun)
 }
 
+private typealias LinkRun = @MainActor (String) -> Bool
+
+/// For "activate-link" on a GtkLabel: (instance, uri, user data), returning a gboolean.
+private let linkTrampoline: @convention(c) (gpointer?, UnsafePointer<CChar>?, gpointer?) -> gboolean = { _, uri, data in
+    guard let data, let uri else { return 0 }
+    let box: CallbackBox<LinkRun> = callbackBox(data)
+    let text = String(cString: uri)
+    return MainActor.assumeIsolated { box.run(text) } ? 1 : 0
+}
+
+/// Connects `run` to a GtkLabel's "activate-link", which passes the link's address; true tells
+/// GTK the link was handled, so it does not open it.
+@MainActor @discardableResult
+func connectLinkSignal(_ instance: UnsafeMutableRawPointer, _ run: @escaping @MainActor (String) -> Bool) -> gulong {
+    connectBox(instance, "activate-link", unsafeBitCast(linkTrampoline, to: GCallback.self), run as LinkRun)
+}
+
 // MARK: - Widgets with an accessible role
 
 /// A new widget of `type` with `role` as its accessible role, which can only be set when the
