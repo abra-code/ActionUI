@@ -177,6 +177,32 @@ bool actionUIWinUIElementOnLoaded(ActionUIWinUIObject *element, ActionUIWinUICal
     });
 }
 
+bool actionUIWinUIElementOnUnloaded(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                    ActionUIWinUICallback destroyContext) {
+    return registerHandler("element on unloaded", handler, context, destroyContext, [&](std::shared_ptr<EventHandler> const &holder) {
+        objectAs<mux::FrameworkElement>(element, L"FrameworkElement").Unloaded([holder](auto &&, auto &&) { holder->fire(); });
+    });
+}
+
+bool actionUIWinUIElementIsInWindow(ActionUIWinUIObject *element) {
+    bool inWindow = false;
+    guarded("element is in window", [&]() {
+        // Up the tree to an element that is loaded: a subtree taken out ends at an element with no
+        // parent, none of it loaded; one added back hangs under the window's loaded content again.
+        mux::DependencyObject node = objectAs<mux::FrameworkElement>(element, L"FrameworkElement");
+        while (node != nullptr) {
+            if (mux::FrameworkElement framework = node.try_as<mux::FrameworkElement>();
+                framework != nullptr && framework.IsLoaded()) {
+                inWindow = true;
+                break;
+            }
+            node = mux::Media::VisualTreeHelper::GetParent(node);
+        }
+        return true;
+    });
+    return inWindow;
+}
+
 bool actionUIWinUIElementOnSizeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
                                        ActionUIWinUICallback destroyContext) {
     return registerHandler("element on size changed", handler, context, destroyContext,

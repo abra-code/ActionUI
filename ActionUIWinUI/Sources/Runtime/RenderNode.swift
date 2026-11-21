@@ -61,6 +61,9 @@ package final class RenderNode {
     /// The accessibility texts and tooltip last applied (applyAccessibility), the name with the
     /// renderer's default; each nil: none applied.
     private var appliedAccessibility = AccessibilityTexts()
+    /// Whether the box appeared, when the element declares onAppearActionID or onDisappearActionID
+    /// (NodeAppearance+WinUI.swift).
+    private var appearance: AppearanceWatch?
     /// The keyboard shortcut last given to the accessible object (KeyboardShortcut+WinUI.swift).
     private var appliedShortcut: WindowsShortcut?
     /// The states last applied to the WinUI object (applyStates).
@@ -139,6 +142,7 @@ package final class RenderNode {
         compression = Self.compression(UntrackedReads.perform { renderer.compression(self) }, geometry: initial)
         takesNoPlace = UntrackedReads.perform { renderer.takesNoPlace(self) }
         toolbar = NodeToolbar.make(for: self)
+        appearance = NodeAppearance.watch(self)
     }
 
     /// The base modifiers the box and the text appearance read, from the current properties. A
@@ -422,6 +426,9 @@ package final class RenderNode {
 
     /// Marks this node and its descendants as out of the tree.
     func detach() {
+        if let appearance {
+            NodeAppearance.left(self, appearance)
+        }
         isAttached = false
         orderedChildren = []
         for child in childNodes.values {

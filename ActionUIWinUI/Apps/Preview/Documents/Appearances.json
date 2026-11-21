@@ -1,0 +1,84 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 10
+ },
+ "children": [
+  {
+   "type": "Text",
+   "id": 2,
+   "properties": {
+    "text": "Shown with the window",
+    "onAppearActionID": "page.shown"
+   }
+  },
+  {
+   "type": "TabView",
+   "id": 3,
+   "properties": {
+    "frame": {
+     "height": 100
+    }
+   },
+   "children": [
+    {
+     "type": "Tab",
+     "id": 4,
+     "properties": {
+      "title": "First"
+     },
+     "content": {
+      "type": "Text",
+      "id": 5,
+      "properties": {
+       "text": "First tab",
+       "onAppearActionID": "first.shown",
+       "onDisappearActionID": "first.hidden"
+      }
+     }
+    },
+    {
+     "type": "Tab",
+     "id": 6,
+     "properties": {
+      "title": "Second"
+     },
+     "content": {
+      "type": "Text",
+      "id": 7,
+      "properties": {
+       "text": "Second tab",
+       "onAppearActionID": "second.shown"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "VStack",
+   "id": 9,
+   "properties": {
+    "spacing": 2
+   },
+   "template": {
+    "type": "Text",
+    "properties": {
+     "text": "$1",
+     "onAppearActionID": "row.shown",
+     "onDisappearActionID": "row.hidden"
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 8,
+   "properties": {
+    "font": "caption",
+    "text": "onAppear and onDisappear: the first Text appears with the window, the first tab's text appears and then disappears when the run chooses the second tab, whose text appears; rows added one after the other to a stack appear, and the first does not disappear when the second is added (the stack adds its rows again)."
+   }
+  }
+ ]
+}

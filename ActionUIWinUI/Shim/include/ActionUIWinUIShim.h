@@ -733,6 +733,16 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementOnSizeChanged(ActionUIWinUIObject *e
 // Loaded: `element` was added to the window (again: a tab or a page returning).
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnLoaded(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
                                                      ActionUIWinUICallback destroyContext);
+// Unloaded: `element` was taken out of the window (a tab or a page left, its window closing). WinUI
+// raises it after the removal, so an element removed and added back at once (a stack re-adding its
+// children) gets it when it is in the window again, before or after its new Loaded
+// (actionUIWinUIElementIsInWindow tells).
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnUnloaded(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                                       ActionUIWinUICallback destroyContext);
+// Whether `element` is in a window now: it, or an element it is in, is loaded. Not its own IsLoaded
+// alone, which reads false until its Loaded is raised for an element just added again. False on
+// failure.
+ACTIONUI_WINUI_API bool actionUIWinUIElementIsInWindow(ActionUIWinUIObject *element);
 
 // MARK: - Repeater
 

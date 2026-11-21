@@ -53,7 +53,8 @@
 //                            window is rendered (a lazy stack made rows out of view)
 //   --expect-action ACTION   fails unless the action ACTION fired; repeatable
 //   --forbid-action ACTION   fails if the action ACTION fired (a renderer's own change taken for the
-//                            user's); repeatable
+//                            user's); repeatable. Actions after the rendering, as the window closes,
+//                            count for neither
 //   --expect-log TEXT        fails unless a message ActionUI logged contains TEXT (a VideoPlayer's
 //                            video opened); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
@@ -192,6 +193,12 @@ final class Preview {
     }
 
     func actionFired(_ actionID: String, windowUUID: String, viewID: Int, context: String?) {
+        // After the rendering the window closes: what fires then (an onDisappear) is the closing's,
+        // printed but not counted for --expect-action and --forbid-action.
+        guard !rendered else {
+            say("action \(actionID) from element \(viewID) as the window closes (not counted)")
+            return
+        }
         firedActions.append(actionID)
         say("action \(actionID) from element \(viewID)" + (context.map { " with context \($0)" } ?? ""))
         if let change = valuesOnAction[actionID] {
