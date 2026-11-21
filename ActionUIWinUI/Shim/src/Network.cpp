@@ -27,8 +27,12 @@ winrt::fire_and_forget fetch(wf::Uri uri, ActionUIWinUIDataCompletion completion
         http::HttpClient client;
         http::HttpResponseMessage response = co_await client.GetAsync(uri);
         if (!response.IsSuccessStatusCode()) {
-            error = "the server answered " + std::to_string(static_cast<int32_t>(response.StatusCode())) + " " +
-                    winrt::to_string(response.ReasonPhrase());
+            error = "the server answered " + std::to_string(static_cast<int32_t>(response.StatusCode()));
+            // HTTP/2 answers carry no reason phrase.
+            std::string reason = winrt::to_string(response.ReasonPhrase());
+            if (!reason.empty()) {
+                error += " " + reason;
+            }
         } else {
             body = co_await response.Content().ReadAsBufferAsync();
             // Inside the try: data() and Length() can throw, and an exception leaving a
