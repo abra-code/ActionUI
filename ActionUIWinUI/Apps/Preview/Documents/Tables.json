@@ -62,7 +62,7 @@
    "type": "Text",
    "id": 5,
    "properties": {
-    "text": "A header and 100 rows, the third selected; no header, a Button column shown as text",
+    "text": "A header and 100 rows, the third selected; no header, a Button column. The Windows run narrows Kind to 40",
     "font": "caption"
    }
   }

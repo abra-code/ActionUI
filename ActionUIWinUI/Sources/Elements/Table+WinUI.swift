@@ -8,8 +8,15 @@
  - Columns: widths are the ideal widths (100 when missing); the column with the largest takes the
    room left (each of them, when several have it), as the Apple renderer's columns do; a minWidth
    above the ideal widens the column to it. Short of room, those columns give it back down to their
-   minWidths (default the smaller of 10 and the ideal); past that the row is cut at the table's edge. The header row (the titles, then a 1 point line)
-   lines up with the rows' cells; columnHeadersVisibility hidden hides it.
+   minWidths (default the smaller of 10 and the ideal); past that the row is cut at the table's edge.
+   The header row (the titles, a 1 point line at each column's trailing edge, then a 1 point line
+   under them) lines up with the rows' cells; columnHeadersVisibility hidden hides it.
+ - Resizing: dragging a column's trailing edge in the header (within 4 points of it, where the resize
+   cursor shows) sets its width, as on Linux: no narrower than its minWidth, and no wider than its
+   ideal width unless it fills (Apple gives such a column that maximum). The column then keeps that
+   width, as a Windows list's columns do: it no longer takes the room left or gives it back, and the
+   columns that fill and were not dragged take the difference. A change of the columns forgets the
+   widths set.
  - Selection: a row the user selects becomes the value (its columns) and fires actionID (Core
    RowSelection), a deselect (Ctrl+click) too; a host's value selects its row and fires nothing; a
    rows change keeps the selection on its row (Core). A double click or Return makes the row the
@@ -33,8 +40,9 @@
 
  Not yet: the toggle button style (a checkbox for now); a toggled row is made again, so its toggle
  loses the keyboard focus; WinUI's CheckBox keeps its 120 point minimum width, so a click beside the
- box in a wide column toggles it; a spinner in an AsyncImage cell while it loads; the inherited buttonStyle on Button cells; resizing a column by dragging its header's edge;
- scrollContentBackground.
+ box in a wide column toggles it; a spinner in an AsyncImage cell while it loads; the inherited buttonStyle on Button cells;
+ scrollContentBackground; a double click on a header's edge fitting the column to its cells, as
+ Windows' lists do; the resize cursor while a drag leaves the edge (as a split view's divider).
 */
 
 import Dispatch
@@ -49,6 +57,8 @@ import CWinUI
     var fills: [Bool] = []
     /// The widths for the last width laid out.
     private(set) var widths: [Int] = []
+    /// The widths the user set by dragging, by column: such a column keeps its width.
+    var userWidths: [Int: Int] = [:]
     /// Where the ListView puts a row's content from its edge (its item's padding), measured once rows
     /// exist: the header's cells start there too.
     var inset = 0.0
@@ -59,9 +69,9 @@ import CWinUI
     /// or taken from them down to their minimums.
     @discardableResult
     func layOut(available: Double) -> Bool {
-        var result = ideals
-        let flexible = ideals.indices.filter { fills.indices.contains($0) && fills[$0] }
-        var left = StackSolver.length(available) - ideals.reduce(0, +)
+        var result = ideals.indices.map { userWidths[$0] ?? ideals[$0] }
+        let flexible = ideals.indices.filter { fills.indices.contains($0) && fills[$0] && userWidths[$0] == nil }
+        var left = StackSolver.length(available) - result.reduce(0, +)
         if left > 0 {
             for (position, index) in flexible.enumerated() {
                 // The remainder to the first, so the widths add up.
@@ -78,6 +88,19 @@ import CWinUI
         let changed = result != widths
         widths = result
         return changed
+    }
+
+    /// Sets column `index`'s width to `width` as the user dragged it, within its minimum and, unless it
+    /// fills, its ideal width; whether that changes it.
+    func resize(_ index: Int, to width: Int) -> Bool {
+        guard ideals.indices.contains(index), minimums.indices.contains(index) else { return false }
+        let fills = self.fills.indices.contains(index) && self.fills[index]
+        let allowed = min(max(width, minimums[index]), fills ? StackSolver.maximumLength : ideals[index])
+        // Against the width set, not the one laid out: moves can come faster than layout passes, and a
+        // move back to the laid-out width must still undo the one before it.
+        guard userWidths[index] != allowed else { return false }
+        userWidths[index] = allowed
+        return true
     }
 
     /// Column `index`'s start and width in a row (0 past the columns laid out).
@@ -105,6 +128,9 @@ import CWinUI
     private var desired: [ActionUIWinUISize] = []
     /// The header's: its cells start at the rows' inset.
     let isHeader: Bool
+    /// The header's: at each column's trailing edge, where a drag resizes the column, its 1 point line
+    /// (as a split view's divider, over the cells).
+    private(set) var edges: [SplitDivider] = []
 
     init(columns: TableColumns, cells: [Cell], isHeader: Bool) throws(WinUIError) {
         self.columns = columns
@@ -116,6 +142,13 @@ import CWinUI
             try panel.append(cell.view)
         }
         self.cells = cells
+        if isHeader {
+            for _ in cells {
+                let edge = try SplitDivider(horizontal: true)
+                try panel.append(edge.hitArea.object)
+                edges.append(edge)
+            }
+        }
     }
 
     /// A one-line text cell, cut short with an ellipsis (semibold in the header).
@@ -147,6 +180,10 @@ import CWinUI
             desired.append(size)
             height = max(height, size.height)
         }
+        // Measured all the same: WinUI arranges only children measured in this pass.
+        for edge in edges {
+            _ = edge.hitArea.object.measure(ActionUIWinUISize(width: 0, height: 0))
+        }
         let width = Double(columns.span(max(columns.count - 1, 0)).start + columns.span(max(columns.count - 1, 0)).width) + offset
         return ActionUIWinUISize(width: available.width.isFinite ? min(width, available.width) : width, height: height)
     }
@@ -164,6 +201,13 @@ import CWinUI
                 let height = min(size.height, finalSize.height)
                 cell.view.arrange(ActionUIWinUIRect(x: offset + Double(span.start), y: (finalSize.height - height) / 2, width: width, height: height))
             }
+        }
+        // Each edge's line on its column's last point, the drag's hit area around it.
+        for (index, edge) in edges.enumerated() {
+            let span = columns.span(index)
+            let end = offset + Double(span.start + span.width)
+            edge.hitArea.object.arrange(ActionUIWinUIRect(x: end - 1 - SplitLayout.grabDistance, y: 0,
+                                                          width: 2 * SplitLayout.grabDistance + 1, height: finalSize.height))
         }
     }
 }
@@ -209,6 +253,11 @@ import CWinUI
                 let made = try TableRowLayout(columns: columns, cells: cells, isHeader: true)
                 try panel.append(made.panel.object)
                 header = made
+                for (index, edge) in made.edges.enumerated() {
+                    SplitPointer.connect(edge.hitArea.object, relativeTo: made.panel.object, owner: "Table") { [weak self] kind, x, _ in
+                        self?.edgeDragged(index, kind, x) ?? false
+                    }
+                }
             }
         } catch {
             ActionUIModel.shared.logger.log("Table: \(error)", .error)
@@ -217,6 +266,30 @@ import CWinUI
     }
 
     private var headerHeight = 0.0
+    /// The drag under way: its column, the column's width and the pointer's position when it started.
+    private var drag: (index: Int, start: Int, origin: Double)?
+
+    /// A drag of column `index`'s trailing edge in the header: a press starts it, a move sets the
+    /// column's width.
+    private func edgeDragged(_ index: Int, _ kind: ActionUIWinUIPointerEventKind, _ x: Double) -> Bool {
+        switch kind {
+        case ActionUIWinUIPointerPressed:
+            guard index < columns.count else { return false }
+            drag = (index, columns.span(index).width, x)
+            return true
+        case ActionUIWinUIPointerMoved:
+            guard let drag else { return false }
+            let delta = Int((x - drag.origin).rounded())
+            if columns.resize(drag.index, to: drag.start + delta) {
+                panel.invalidateLayout()
+            }
+            return true
+        default:
+            let dragging = drag != nil
+            drag = nil
+            return dragging
+        }
+    }
 
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         let width = available.width.isFinite ? available.width : 0
@@ -360,6 +433,10 @@ extension Table: ActionUIWinUIRenderer {
         let headerShown = props.columnHeadersVisibility != .hidden
         let columns = (titles, ideals, minimums, fills, headerShown)
         if state.shownColumns.map({ $0 != columns }) ?? true {
+            // Widths the user set stay while only the header's visibility changes.
+            if state.shownColumns.map({ ($0.titles, $0.ideals, $0.minimums, $0.fills) != (titles, ideals, minimums, fills) }) ?? true {
+                layout.columns.userWidths = [:]
+            }
             state.shownColumns = columns
             layout.columns.titles = titles
             layout.columns.ideals = ideals

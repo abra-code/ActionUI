@@ -313,7 +313,7 @@ import CWinUI
     }
 }
 
-/// Swift closures as a split view divider's pointer handler (actionUIWinUIElementOnPointerDrag), held
+/// Swift closures as a divider's pointer handler (actionUIWinUIElementOnPointerDrag; a split view's, a Table header's edge), held
 /// by the shim as WinUIEvents' handlers are.
 @MainActor private final class PointerBox {
     let action: @MainActor (ActionUIWinUIPointerEventKind, Double, Double) -> Bool
@@ -340,12 +340,14 @@ private let releasePointer: ActionUIWinUICallback = { context in
 }
 
 @MainActor enum SplitPointer {
-    static func connect(_ element: WinUIObject, relativeTo: WinUIObject,
+    /// Reports `element`'s drags to `action`, in `relativeTo`'s coordinates; `owner` names the element
+    /// type in the log.
+    static func connect(_ element: WinUIObject, relativeTo: WinUIObject, owner: String = "SplitView",
                         _ action: @escaping @MainActor (ActionUIWinUIPointerEventKind, Double, Double) -> Bool) {
         let context = Unmanaged.passRetained(PointerBox(action)).toOpaque()
         // On failure the shim has already called releasePointer.
         if !actionUIWinUIElementOnPointerDrag(element.pointer, relativeTo.pointer, firePointer, context, releasePointer) {
-            ActionUIModel.shared.logger.log("SplitView: \(WinUIError.last("watching a divider's drags"))", .error)
+            ActionUIModel.shared.logger.log("\(owner): \(WinUIError.last("watching a divider's drags"))", .error)
         }
     }
 }
