@@ -253,6 +253,31 @@ def test_element_info(uuid_str):
     print("  element_info: OK")
 
 
+def test_trust_policy_calls(uuid_str):
+    assert _actionui.get_element_origin_json(uuid_str, 1) is None   # no such element
+    assert _actionui.get_element_origin_json("no-such-window", 1) is None
+    for bad in (("not callable", None), (None, 42)):
+        try:
+            _actionui.set_trust_policy(*bad)
+            raise AssertionError("set_trust_policy accepted %r" % (bad,))
+        except TypeError:
+            pass
+    _actionui.set_trust_policy(lambda s, p, d: d, lambda c, o, d: d)
+    errors = []
+    def off_main():
+        try:
+            _actionui.set_trust_policy(None, None)
+            errors.append("set_trust_policy ran off the main thread")
+        except RuntimeError:
+            pass
+    thread = threading.Thread(target=off_main)
+    thread.start()
+    thread.join()
+    assert not errors, errors
+    _actionui.set_trust_policy(None, None)   # ActionUI's own policy again
+    print("  trust_policy: OK")
+
+
 def test_remove_window(uuid_str):
     assert _actionui.remove_window(uuid_str) is None
     assert _actionui.remove_window(uuid_str) is None   # unknown window is ignored
@@ -348,6 +373,7 @@ def main():
     test_element_property(test_uuid)
     test_element_state(test_uuid)
     test_element_info(test_uuid)
+    test_trust_policy_calls(test_uuid)
     test_remove_window(test_uuid)
     test_noop_calls(test_uuid)
     test_modal_noop(test_uuid)

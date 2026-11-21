@@ -1491,6 +1491,122 @@ public func actionUIDismissToast(_ windowUUID: UnsafePointer<CChar>) {
     }
 }
 
+// MARK: - Origins and Trust Policy
+
+/// The JSON object of an origin's source: "source", with "path" or "url" where it has one.
+private func sourceObject(_ source: JSONContentOrigin.Source) -> [String: Any] {
+    switch source {
+    case .host: return ["source": "host"]
+    case .resource(let path): return ["source": "resource", "path": path]
+    case .file(let path): return ["source": "file", "path": path]
+    case .remote(let url): return ["source": "remote", "url": url.absoluteString]
+    @unknown default: return ["source": "unknown"]  // for a library built with evolution
+    }
+}
+
+/// The JSON object of an origin: its source's keys, "trust", and "parentID" when it has one.
+private func originObject(_ origin: JSONContentOrigin) -> [String: Any] {
+    var object = sourceObject(origin.source)
+    object["trust"] = origin.trust == .trusted ? "trusted" : "lessTrusted"
+    if let parentID = origin.parentID {
+        object["parentID"] = parentID
+    }
+    return object
+}
+
+/// The JSON object of a capability: "capability", its kind, with the kind's own keys.
+private func capabilityObject(_ capability: ActionUICapability) -> [String: Any] {
+    switch capability {
+    case .load(let source): return ["capability": "load", "source": sourceObject(source)]
+    case .openLink(let url): return ["capability": "openLink", "url": url.absoluteString]
+    case .webView(let url): return ["capability": "webView", "url": url.map { $0.absoluteString as Any } ?? ActionUIJSONNull()]
+    case .webViewBaseURL(let url): return ["capability": "webViewBaseURL", "url": url.absoluteString]
+    case .webViewScriptFile(let path): return ["capability": "webViewScriptFile", "path": path]
+    case .readLocalFile(let path): return ["capability": "readLocalFile", "path": path]
+    case .windowTitle: return ["capability": "windowTitle"]
+    case .presentModal: return ["capability": "presentModal"]
+    case .menuCommands: return ["capability": "menuCommands"]
+    case .action(let actionID): return ["capability": "action", "actionID": actionID]
+    @unknown default: return ["capability": "unknown"]  // for a library built with evolution
+    }
+}
+
+/// The trust policy of actionUISetTrustPolicy: each decision ActionUI's own policy makes, passed to
+/// the host's callback (when it gave one) to keep or change. @unchecked Sendable: two C function
+/// pointers, set once, called on the main thread only.
+private final class CTrustPolicy: ActionUITrustPolicy, @unchecked Sendable {
+    private let trustCallback: ActionUITrustCallback?
+    private let capabilityCallback: ActionUICapabilityCallback?
+
+    init(trust: ActionUITrustCallback?, allows: ActionUICapabilityCallback?) {
+        trustCallback = trust
+        capabilityCallback = allows
+    }
+
+    @MainActor func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+                          byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust {
+        guard let trustCallback, let sourceJSON = valueToJSON(sourceObject(source)) else { return byDefault }
+        let parentJSON = parent.flatMap { valueToJSON(originObject($0)) }
+        let cDefault = byDefault == .trusted ? ActionUITrustTrusted : ActionUITrustLessTrusted
+        let result = sourceJSON.withCString { cSource in
+            withOptionalCString(parentJSON) { cParent in trustCallback(cSource, cParent, cDefault) }
+        }
+        // Only the one value means trusted: anything else a callback returns is less trusted.
+        return result == ActionUITrustTrusted ? .trusted : .lessTrusted
+    }
+
+    @MainActor func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+        let byDefault = DefaultTrustPolicy.allowsByDefault(capability, for: origin)
+        guard let capabilityCallback,
+              let capabilityJSON = valueToJSON(capabilityObject(capability)),
+              let originJSON = valueToJSON(originObject(origin)) else { return byDefault }
+        return capabilityJSON.withCString { cCapability in
+            originJSON.withCString { cOrigin in capabilityCallback(cCapability, cOrigin, byDefault) }
+        }
+    }
+}
+
+/// Calls `body` with `string` as a C string, or with NULL when it is nil.
+private func withOptionalCString<T>(_ string: String?, _ body: (UnsafePointer<CChar>?) -> T) -> T {
+    guard let string else { return body(nil) }
+    return string.withCString { body($0) }
+}
+
+/// The origin of element viewID's content in the window, as JSON (see ActionUIC.h). Free with
+/// actionUIFreeString. NULL, with the error set, when the window has no such element.
+@c
+public func actionUIGetElementOrigin(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+    let swiftWindowUUID = String(cString: windowUUID)
+    guard let id = Int(exactly: viewID) else {
+        setError("No element \(viewID) in window \(swiftWindowUUID)")
+        return nil
+    }
+    let origin = runOnMainActorSync {
+        ActionUIModel.shared.origin(windowUUID: swiftWindowUUID, viewID: id)
+    }
+    guard let origin else {
+        setError("No element \(viewID) in window \(swiftWindowUUID)")
+        return nil
+    }
+    guard let json = valueToJSON(originObject(origin)) else { return nil }
+    return actionStrdup(json)
+}
+
+/// Sets the host's trust policy (see ActionUIC.h): each callback may be NULL to keep ActionUI's own
+/// decisions for it; both NULL restore ActionUI's own policy.
+@c
+public func actionUISetTrustPolicy(_ trust: ActionUITrustCallback?, _ allows: ActionUICapabilityCallback?) {
+    runOnMainActorSync {
+        ActionUIModel.shared.trustPolicy = (trust == nil && allows == nil)
+            ? DefaultTrustPolicy()
+            : CTrustPolicy(trust: trust, allows: allows)
+    }
+}
+
 // MARK: - Memory Management
 
 @c

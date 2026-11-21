@@ -86,6 +86,35 @@ typedef enum {
     ActionUIInsertPositionAfter   = 4   ///< Insert after the sibling with positionParam id (flat containers only)
 } ActionUIInsertPosition;
 
+// MARK: - Origins and Trust
+
+/// How far content is trusted. A document the host passes in, or one in the app's resources, is
+/// trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is
+/// anything inside it.
+typedef enum {
+    ActionUITrustLessTrusted = 0,
+    ActionUITrustTrusted     = 1
+} ActionUITrust;
+
+/// Trust callback: the trust of content a LoadableView loads from `sourceJSON` (an origin's
+/// "source" with its "path" or "url", such as {"source":"remote","url":"https://example.com/v.json"})
+/// inside content of origin `parentOriginJSON` (NULL for a window's root, and for a LoadableView whose
+/// own origin is unknown, such as one in a template row, whose content is then less trusted by
+/// default), given ActionUI's own decision `byDefault`. Return byDefault to keep it; any value other than ActionUITrustTrusted
+/// means less trusted.
+typedef ActionUITrust (*ActionUITrustCallback)(const char* sourceJSON,
+                                              const char* parentOriginJSON,
+                                              ActionUITrust byDefault);
+
+/// Capability callback: whether content of origin `originJSON` may do `capabilityJSON`, given
+/// ActionUI's own decision `byDefault`. The capability is {"capability": kind} plus, by kind:
+/// "load" {"source": {...}}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
+/// "webViewBaseURL" {"url"}, "webViewScriptFile" {"path"}, "readLocalFile" {"path"},
+/// "windowTitle", "presentModal", "menuCommands", "action" {"actionID"}.
+typedef bool (*ActionUICapabilityCallback)(const char* capabilityJSON,
+                                           const char* originJSON,
+                                           bool byDefault);
+
 // The Swift-generated declarations are noexcept in C++, so these are too: a C++ or
 // Objective-C++ client that includes both would otherwise see conflicting declarations.
 #ifndef ACTIONUI_NOEXCEPT
@@ -167,6 +196,16 @@ bool actionUIPresentConfirmationDialog(const char *windowUUID, const char *title
 void actionUIDismissDialog(const char *windowUUID) ACTIONUI_NOEXCEPT;
 bool actionUIPresentToast(const char *windowUUID, const char *message, double duration, const char *actionTitle, const char *actionID) ACTIONUI_NOEXCEPT;  // actionTitle and actionID may be NULL
 void actionUIDismissToast(const char *windowUUID) ACTIONUI_NOEXCEPT;
+
+// Origins and trust policy
+// - the origin of element viewID's content as JSON: "source" ("host", "resource" or "file" with "path",
+//   "remote" with "url"), "trust" ("trusted" or "lessTrusted"), and "parentID", the LoadableView it was
+//   loaded into (left out for a window's root); NULL (error set) when the window has no such element;
+char *actionUIGetElementOrigin(const char *windowUUID, int64_t viewID) ACTIONUI_NOEXCEPT;
+// - the host's trust policy, for all windows: either callback may be NULL to keep ActionUI's own decisions
+//   for it, both NULL restore ActionUI's own policy; set it before loading content. The callbacks are
+//   called on the main thread, often (as elements draw), and should return quickly.
+void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallback allows) ACTIONUI_NOEXCEPT;
 
 // Apple only (ActionUIC+Apple.swift): a build for another platform has no such functions.
 #if defined(__APPLE__)

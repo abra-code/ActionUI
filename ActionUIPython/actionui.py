@@ -100,6 +100,14 @@ class DialogButton:
         return d
 
 
+class Trust(str, Enum):
+    """How far content is trusted. A document the host passes in, or one in the app's
+    resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is
+    less trusted, as is anything inside it."""
+    TRUSTED = "trusted"
+    LESS_TRUSTED = "lessTrusted"
+
+
 class ActionUIError(Exception):
     """Base exception for ActionUI errors."""
     pass
@@ -1150,6 +1158,18 @@ class Window:
             return {}
         return {int(k): v for k, v in json.loads(raw).items()}
 
+    def get_element_origin(self, view_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Where element `view_id`'s content came from, such as
+        {"source": "remote", "url": "https://example.com/v.json", "trust": "lessTrusted",
+        "parentID": 3}. "source" is "host" (JSON the host passed in), "resource" or "file"
+        (with "path"), or "remote" (with "url"); "parentID", the LoadableView the content was
+        loaded into, is left out for the window's root. None when the window has no such element.
+        An action handler can ask this before acting on what less-trusted content sent.
+        """
+        raw = _actionui.get_element_origin_json(self.uuid, view_id)
+        return None if raw is None else json.loads(raw)
+
     # ------------------------------------------------------------------
     # Window model
     # ------------------------------------------------------------------
@@ -1649,6 +1669,45 @@ def present_pixels(surface_id: int, pixels, width: Optional[int] = None, height:
     return _actionui.host_surface_present_pixels(surface_id, width, height, stride, int(format), pixels)
 
 
+def set_trust_policy(trust: Optional[Callable[[Dict[str, Any], Optional[Dict[str, Any]], Trust], Trust]] = None,
+                     allows: Optional[Callable[[Dict[str, Any], Dict[str, Any], bool], bool]] = None):
+    """
+    Set the host's trust policy, for all windows; call it before loading content, on the main
+    thread. Each callback receives ActionUI's own decision and returns the one to use, so a
+    callback that returns `by_default` keeps it. None keeps ActionUI's own decisions for that
+    part; both None restore ActionUI's own policy.
+
+    trust(source, parent, by_default) -> Trust: the trust of content a LoadableView loads from
+    `source` ({"source": ..., "path" or "url": ...}) inside content of origin `parent` (None for a
+    window's root, and for a LoadableView of unknown origin, such as one in a template row), as
+    returned by Window.get_element_origin.
+
+    allows(capability, origin, by_default) -> bool: whether content of `origin` may do
+    `capability`, {"capability": kind} with, by kind: "load" {"source"}, "openLink" {"url"},
+    "webView" {"url"} (None for inline html), "webViewBaseURL" {"url"},
+    "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "windowTitle", "presentModal",
+    "menuCommands", "action" {"actionID"}.
+
+    The callbacks are called on the main thread, often (as elements draw), and should return
+    quickly. One that raises is reported and counts as less trusted, or as a refusal.
+    """
+    if trust is not None and not callable(trust):
+        raise TypeError("trust must be callable or None")
+    if allows is not None and not callable(allows):
+        raise TypeError("allows must be callable or None")
+    trust_bridge = None
+    if trust is not None:
+        def trust_bridge(source_json: str, parent_json: Optional[str], by_default: int) -> int:
+            parent = None if parent_json is None else json.loads(parent_json)
+            default = Trust.TRUSTED if by_default == 1 else Trust.LESS_TRUSTED
+            return 1 if trust(json.loads(source_json), parent, default) == Trust.TRUSTED else 0
+    allows_bridge = None
+    if allows is not None:
+        def allows_bridge(capability_json: str, origin_json: str, by_default: bool) -> bool:
+            return allows(json.loads(capability_json), json.loads(origin_json), by_default) is True
+    _actionui.set_trust_policy(trust_bridge, allows_bridge)
+
+
 def get_version() -> str:
     """Return the ActionUI version string."""
     return _actionui.get_version() or "unknown"
@@ -1675,6 +1734,8 @@ __all__ = [
     'ButtonRole',
     'InsertPosition',
     'DialogButton',
+    'Trust',
+    'set_trust_policy',
     'get_version',
     'get_last_error',
     'clear_error',
