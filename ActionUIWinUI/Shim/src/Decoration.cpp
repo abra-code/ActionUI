@@ -1,10 +1,8 @@
 // Decoration.cpp - what an element's box draws around and over it beyond padding, frame and background:
-// a rounded box that clips what it holds to its rounded corners, and an offset that moves what an
-// element draws without moving its layout.
+// a rounded box that clips what it holds to its rounded corners (the transform and the clip shape are in
+// Effects.cpp).
 
 #include "ShimInternal.h"
-
-#include <cmath>
 
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 
@@ -37,29 +35,6 @@ bool actionUIWinUIRoundedBoxSetCornerRadius(ActionUIWinUIObject *box, double rad
             static_cast<float>(current.BottomRight) != wanted || static_cast<float>(current.BottomLeft) != wanted) {
             border.CornerRadius(mux::CornerRadius{radius, radius, radius, radius});
         }
-        return true;
-    });
-}
-
-bool actionUIWinUIElementSetOffset(ActionUIWinUIObject *element, double x, double y) {
-    return guarded("element set offset", [&]() {
-        mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
-        if (!std::isfinite(x) || !std::isfinite(y)) {
-            return fail("element set offset", "the offset is not a number of pixels");
-        }
-        mux::Media::TranslateTransform translate = typed.RenderTransform().try_as<mux::Media::TranslateTransform>();
-        if (x == 0 && y == 0) {
-            if (translate != nullptr) {
-                typed.ClearValue(mux::UIElement::RenderTransformProperty());
-            }
-            return true;
-        }
-        if (translate == nullptr) {
-            translate = mux::Media::TranslateTransform();
-            typed.RenderTransform(translate);
-        }
-        translate.X(x);
-        translate.Y(y);
         return true;
     });
 }
