@@ -1090,6 +1090,14 @@ ACTIONUI_WINUI_API double actionUIWinUIElementRasterizationScale(ActionUIWinUIOb
 // changed); what it drew from the theme is to be drawn again.
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
                                                                  void *context, ActionUIWinUICallback destroyContext);
+// PointerEntered and PointerExited: the pointer came over `element` (or something in it) and left it;
+// a mouse or a pen, not a finger (whose press and release WinUI reports as entering and leaving).
+// A panel with no background gets a transparent one when Entered is connected, so its whole area,
+// not only what is drawn in it, tracks the pointer (a click there no longer reaches what is behind).
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerEntered(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
+                                                             void *context, ActionUIWinUICallback destroyContext);
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerExited(ActionUIWinUIObject *element, ActionUIWinUICallback handler,
+                                                            void *context, ActionUIWinUICallback destroyContext);
 // Tapped: a press and release on `element` (pointer, pen or touch). The event is handled there, so
 // an element around it does not see it.
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,

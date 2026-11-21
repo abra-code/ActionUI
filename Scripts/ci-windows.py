@@ -156,6 +156,7 @@ PREVIEW_OPTIONS = {
     "Tints": ["560", "420"],
     "TextAlignments": ["520", "320"],
     "TextSelections": ["460", "160"],
+    "Hovers": ["420", "160", "--drag", "2", "-30.5", "20.5", "40.5", "20.5", "--drag", "2", "40.5", "20.5", "180.5", "20.5"],
     "Sheets": ["440", "300", "--invoke", "2", "--delay", "500", "--expect-state", "2", "sheetVisible", "true",
                "--expect-automation", "11", "name", "A sheet", "--invoke", "13", "--expect-action", "sheet.done"],
     "Popovers": ["440", "260", "--invoke", "4", "--delay", "500", "--expect-automation", "40", "name", "A sheet the host closes",
@@ -357,6 +358,7 @@ REAL_INPUT_OPTIONS = {"--drag": 5, "--expect-width": 2}
 # What a document's --drag must cause, checked only where the drag runs (x64).
 REAL_INPUT_EXPECTATIONS = {
     "Maps": ["--expect-action", "map.moved", "--expect-action", "map.changed"],
+    "Hovers": ["--expect-action", "hover.changed"],
 }
 
 

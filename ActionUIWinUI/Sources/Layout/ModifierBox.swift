@@ -285,6 +285,16 @@ final class ModifierBox {
     /// outer box; their sizes from the last measure pass.
     private var backgroundView: Decoration?
     private var overlayView: Decoration?
+    /// The overlay view's object, which the element's hover covers too (NodeHover).
+    var overlayObject: WinUIObject? { overlayView?.view }
+    /// Set when the element's hover watches the group (NodeHover): where the group would have no
+    /// background (none is asked for, or the rounded box paints it) it keeps a clear one, since a
+    /// panel with none hit-tests only what is drawn in it.
+    var keepsGroupHitArea = false
+    /// The group's background when it paints none of its own.
+    private var unpaintedGroupBackground: Paint? {
+        keepsGroupHitArea ? .color(ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 0)) : nil
+    }
     private var backgroundDesired = ActionUIWinUISize(width: 0, height: 0)
     private var overlayDesired = ActionUIWinUISize(width: 0, height: 0)
     /// The room the outer box was last offered, from which the group's measure finds the frame's
@@ -356,7 +366,8 @@ final class ModifierBox {
             moved = makeRounded()
         }
         if newGeometry.background != geometry.background || moved {
-            Paint.apply(newGeometry.background, ActionUIWinUIBrushBackground, to: frameView, what: "a background")
+            let paint = newGeometry.background ?? (rounded == nil ? unpaintedGroupBackground : nil)
+            Paint.apply(paint, ActionUIWinUIBrushBackground, to: frameView, what: "a background")
         }
         let effectsChanged = newGeometry.offset != geometry.offset || newGeometry.rotation != geometry.rotation
             || newGeometry.scale != geometry.scale || newGeometry.scaleAnchor != geometry.scaleAnchor
@@ -417,7 +428,7 @@ final class ModifierBox {
         panel.adoptThroughWrapper(group.object)
         rounded = box
         // The group's own background, transform and clip go: the box paints, moves and clips them now.
-        Paint.apply(nil, ActionUIWinUIBrushBackground, to: group.object, what: "a background")
+        Paint.apply(unpaintedGroupBackground, ActionUIWinUIBrushBackground, to: group.object, what: "a background")
         _ = actionUIWinUIElementSetRenderMatrix(group.object.pointer, 1, 0, 0, 1, 0, 0)
         // Only when it had one: asking for the group's composition visual makes WinUI keep it.
         if appliedClip != nil {

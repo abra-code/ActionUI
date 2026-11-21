@@ -1,0 +1,29 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 20,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "Text",
+   "id": 2,
+   "properties": {
+    "text": "Hover over me",
+    "padding": 16,
+    "background": "yellow",
+    "onHoverActionID": "hover.changed"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "font": "caption",
+    "text": "onHoverActionID: on x64 the run drags the mouse from left of the yellow label into it (entering), then out to its right (leaving)."
+   }
+  }
+ ]
+}

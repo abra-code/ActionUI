@@ -156,6 +156,8 @@ package final class RenderNode {
         appearance = NodeAppearance.watch(self)
         makeDecorations()
         presentations = NodePresentations.make(for: self)
+        // After the decorations: the overlay view is tracked too.
+        NodeHover.watch(self)
     }
 
     /// The element's background and overlay views (its "background" and "overlay" subviews), made as

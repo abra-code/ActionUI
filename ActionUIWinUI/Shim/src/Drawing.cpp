@@ -24,8 +24,10 @@
 #include <dwrite.h>
 #include <wincodec.h>
 
+#include <winrt/Microsoft.UI.Input.h>  // PointerDeviceType
 #include <winrt/Microsoft.UI.Xaml.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Windows.UI.h>  // Color
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
 
@@ -1007,6 +1009,38 @@ bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICal
                 holder->fire();
             });
     });
+}
+
+bool actionUIWinUIElementOnPointerEntered(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                          ActionUIWinUICallback destroyContext) {
+    return registerHandler("element on pointer entered", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               mux::UIElement typed = objectAs<mux::UIElement>(element, L"UIElement");
+                               // A panel hit-tests only what is drawn in it unless it has a background.
+                               if (muxc::Panel panel = typed.try_as<muxc::Panel>(); panel != nullptr && panel.Background() == nullptr) {
+                                   panel.Background(media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+                               }
+                               // A finger's press and release enter and leave too; SwiftUI's hover follows
+                               // only a pointer that can hover (a mouse, a pen).
+                               typed.PointerEntered([holder](auto &&, mux::Input::PointerRoutedEventArgs const &arguments) {
+                                   if (arguments.Pointer().PointerDeviceType() != winrt::Microsoft::UI::Input::PointerDeviceType::Touch) {
+                                       holder->fire();
+                                   }
+                               });
+                           });
+}
+
+bool actionUIWinUIElementOnPointerExited(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
+                                         ActionUIWinUICallback destroyContext) {
+    return registerHandler("element on pointer exited", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               objectAs<mux::UIElement>(element, L"UIElement")
+                                   .PointerExited([holder](auto &&, mux::Input::PointerRoutedEventArgs const &arguments) {
+                                       if (arguments.Pointer().PointerDeviceType() != winrt::Microsoft::UI::Input::PointerDeviceType::Touch) {
+                                           holder->fire();
+                                       }
+                                   });
+                           });
 }
 
 bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
