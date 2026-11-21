@@ -90,6 +90,8 @@ public enum ActionUICapability: Sendable, Equatable {
     case openLink(URL)
     /// A WebView showing this address; nil for inline html.
     case webView(URL?)
+    /// The base address a WebView's inline html runs under (its origin, for cookies and storage).
+    case webViewBaseURL(URL)
     /// A WebView user script read from this file.
     case webViewScriptFile(String)
     /// An Image, Canvas image, VideoPlayer or AsyncImage reading this local file.
@@ -136,18 +138,80 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// The schemes a less-trusted link may open.
     public static let linkSchemes: Set<String> = ["http", "https", "mailto"]
 
+    /// The schemes a less-trusted WebView may show.
+    public static let webViewSchemes: Set<String> = ["http", "https"]
+
+    /// Whether two addresses have the same origin: scheme, host and port (the scheme's default
+    /// port when none is written).
+    public static func haveSameOrigin(_ first: URL, _ second: URL) -> Bool {
+        func origin(_ url: URL) -> (String, String, Int?)? {
+            guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased() else { return nil }
+            let port = url.port ?? (scheme == "https" ? 443 : scheme == "http" ? 80 : nil)
+            return (scheme, host, port)
+        }
+        guard let a = origin(first), let b = origin(second) else { return false }
+        return a == b
+    }
+
     /// What content of `origin` may do when the host does not say: trusted content anything; less
-    /// trusted content may open only web and mail links (linkSchemes), and for now do anything else
-    /// (each further refusal comes with the renderer change that enforces it).
+    /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
+    /// WebView (webViewSchemes), and give its inline html a base address only of its own document's
+    /// origin, and for now do anything else (each further refusal comes with the renderer change
+    /// that enforces it).
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
         if origin.trust == .trusted { return true }
         switch capability {
         case .openLink(let url):
             // Web and mail addresses only: not a local file, an app's own scheme or a network share.
             return linkSchemes.contains(url.scheme?.lowercased() ?? "")
-        case .load, .webView, .webViewScriptFile, .readLocalFile, .windowTitle, .presentModal, .menuCommands, .action:
+        case .webView(let url):
+            // Inline html (nil) is allowed; its base is asked about on its own.
+            guard let url else { return true }
+            return webViewSchemes.contains(url.scheme?.lowercased() ?? "")
+        case .webViewBaseURL(let base):
+            // A remote document's own origin, so its relative resources resolve; not another site,
+            // whose cookies and storage the html would get, and no local file.
+            guard case .remote(let document) = origin.source else { return false }
+            return haveSameOrigin(base, document)
+        case .load, .webViewScriptFile, .readLocalFile, .windowTitle, .presentModal, .menuCommands, .action:
             return true
         }
+    }
+}
+
+/// What a WebView loads, by the trust policy: an address it may not show is replaced by a short
+/// "Blocked" page, and a base address its inline html may not run under by about:blank. Both are
+/// logged. `allows` answers for the WebView's element.
+enum WebViewTrust {
+    static let blankBase = URL(string: "about:blank")!
+
+    /// Whether the WebView may show `url`.
+    @MainActor
+    static func showsAddress(_ url: URL, allows: (ActionUICapability) -> Bool, logger: any ActionUILogger) -> Bool {
+        guard allows(.webView(url)) else {
+            logger.log("WebView not showing \(url.absoluteString): the trust policy refuses it", .warning)
+            return false
+        }
+        return true
+    }
+
+    /// The base address for the WebView's inline html: `base` when the policy allows it, else
+    /// about:blank.
+    @MainActor
+    static func base(_ base: URL?, allows: (ActionUICapability) -> Bool, logger: any ActionUILogger) -> URL {
+        guard let base, base != blankBase else { return blankBase }
+        guard allows(.webViewBaseURL(base)) else {
+            logger.log("WebView html not given the base \(base.absoluteString): the trust policy refuses it", .warning)
+            return blankBase
+        }
+        return base
+    }
+
+    /// The page shown in place of an address the policy refuses.
+    static func blockedPage(_ url: URL) -> String {
+        let text = url.absoluteString.replacing("&", with: "&amp;").replacing("<", with: "&lt;")
+            .replacing(">", with: "&gt;").replacing("\"", with: "&quot;")
+        return "<!DOCTYPE html><meta charset=\"utf-8\"><p style=\"font-family: sans-serif\">Blocked: \(text)</p>"
     }
 }
 

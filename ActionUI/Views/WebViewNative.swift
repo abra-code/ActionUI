@@ -296,20 +296,32 @@ extension WKWebViewRepresentable {
                 lastTrackedURL = urlString
                 load(url, into: webView)
             } else if let html = props.html {
-                let baseURL = props.baseURL.flatMap { URL(string: $0) }
-                    ?? URL(string: "about:blank")!
+                // about:blank unless baseURL is set and the trust policy allows it.
+                let baseURL = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: allows, logger: logger)
                 webView.loadHTMLString(html, baseURL: baseURL)
             }
             // If neither url nor html is provided the page stays blank.
         }
 
-        /// Loads a URL, using loadFileURL for file URLs so local resources are granted read access.
-        private func load(_ url: URL, into webView: WKWebView) {
+        /// The trust policy's answer for this WebView's element.
+        private func allows(_ capability: ActionUICapability) -> Bool {
+            ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: element.id)
+        }
+
+        /// Loads a URL, using loadFileURL for file URLs so local resources are granted read access;
+        /// the "Blocked" page instead when the trust policy refuses the address (false then).
+        @discardableResult
+        private func load(_ url: URL, into webView: WKWebView) -> Bool {
+            guard WebViewTrust.showsAddress(url, allows: allows, logger: logger) else {
+                webView.loadHTMLString(WebViewTrust.blockedPage(url), baseURL: WebViewTrust.blankBase)
+                return false
+            }
             if url.isFileURL {
                 webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
             } else {
                 webView.load(URLRequest(url: url))
             }
+            return true
         }
 
         // MARK: State synchronisation
@@ -382,8 +394,12 @@ extension WKWebViewRepresentable {
                 resetModelValueToCurrentURL(after: command)
             default:
                 if let url = URL(string: command) {
-                    load(url, into: webView)
-                    // model.value will be updated by handleURLChange when navigation completes
+                    // model.value will be updated by handleURLChange when navigation completes. A
+                    // refused address leaves the URL where it is when the page already was at
+                    // about:blank, so no change comes, and every update pass would load it again.
+                    if !load(url, into: webView) {
+                        resetModelValueToCurrentURL(after: command)
+                    }
                 } else {
                     logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
                     resetModelValueToCurrentURL(after: command)

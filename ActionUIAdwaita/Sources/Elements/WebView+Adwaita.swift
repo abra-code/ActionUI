@@ -147,11 +147,24 @@ extension WebView: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         if let urlString = node.model.value as? String, !urlString.isEmpty, let url = URL(string: urlString) {
             state.lastTrackedURL = urlString
-            webKit.loadURI(view, url.absoluteString)
+            show(url, webKit, view, node)
         } else if let html = props.html {
-            let baseURL = props.baseURL.flatMap { URL(string: $0) }?.absoluteString ?? "about:blank"
-            webKit.loadHTML(view, html, baseURL)
+            // about:blank unless baseURL is set and the trust policy allows it.
+            let baseURL = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: { LinkTrust.allows($0, node) },
+                                            logger: ActionUIModel.shared.logger)
+            webKit.loadHTML(view, html, baseURL.absoluteString)
         }
+    }
+
+    /// Loads `url`, or the "Blocked" page when the trust policy refuses it (false then).
+    @discardableResult
+    private static func show(_ url: URL, _ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode) -> Bool {
+        guard WebViewTrust.showsAddress(url, allows: { LinkTrust.allows($0, node) }, logger: ActionUIModel.shared.logger) else {
+            webKit.loadHTML(view, WebViewTrust.blockedPage(url), WebViewTrust.blankBase.absoluteString)
+            return false
+        }
+        webKit.loadURI(view, url.absoluteString)
+        return true
     }
 
     private static func handleCommand(_ command: String?, _ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode,
@@ -181,7 +194,11 @@ extension WebView: ActionUIAdwaitaRenderer {
             resetValueToCurrentURL(after: command, webKit, view, node, state)
         default:
             if let url = URL(string: command) {
-                webKit.loadURI(view, url.absoluteString)
+                // A refused address may leave the URL where it is (already about:blank), so no change
+                // would replace the refused value, and every update would load it again.
+                if !show(url, webKit, view, node) {
+                    resetValueToCurrentURL(after: command, webKit, view, node, state)
+                }
             } else {
                 logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
                 resetValueToCurrentURL(after: command, webKit, view, node, state)

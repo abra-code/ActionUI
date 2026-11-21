@@ -480,6 +480,42 @@ final class DocumentLoaderTests: XCTestCase {
         }
     }
 
+    func testALessTrustedWebViewShowsOnlyWebAddressesAndItsOwnOriginAsABase() throws {
+        let document = try XCTUnwrap(URL(string: "https://example.com/app/view.json"))
+        let remote = DocumentOrigin(source: .remote(document), trust: .lessTrusted, parentID: 1)
+        let file = DocumentOrigin(source: .file("/tmp/view.json"), trust: .lessTrusted, parentID: 1)
+        let policy = DefaultTrustPolicy()
+        func url(_ text: String) -> URL { URL(string: text)! }
+        XCTAssertTrue(policy.allows(.webView(url("https://example.com/page")), for: remote))
+        XCTAssertTrue(policy.allows(.webView(url("http://other.example/page")), for: remote))
+        XCTAssertFalse(policy.allows(.webView(url("file:///etc/hosts")), for: remote))
+        XCTAssertFalse(policy.allows(.webView(url("someapp://run")), for: remote))
+        XCTAssertTrue(policy.allows(.webView(nil), for: remote), "inline html")
+        XCTAssertTrue(policy.allows(.webView(url("file:///etc/hosts")), for: .host), "the host's content shows anything")
+        // A base of the document's own origin only.
+        XCTAssertTrue(policy.allows(.webViewBaseURL(url("https://example.com/assets/")), for: remote))
+        XCTAssertTrue(policy.allows(.webViewBaseURL(url("HTTPS://Example.com:443/")), for: remote), "the default port, any case")
+        XCTAssertFalse(policy.allows(.webViewBaseURL(url("https://example.com:8443/")), for: remote), "another port")
+        XCTAssertFalse(policy.allows(.webViewBaseURL(url("http://example.com/")), for: remote), "another scheme")
+        XCTAssertFalse(policy.allows(.webViewBaseURL(url("https://bank.example/")), for: remote), "another site")
+        XCTAssertFalse(policy.allows(.webViewBaseURL(url("file:///Users/")), for: remote))
+        XCTAssertFalse(policy.allows(.webViewBaseURL(url("https://example.com/")), for: file), "a local file has no origin to keep")
+        XCTAssertTrue(policy.allows(.webViewBaseURL(url("file:///Users/")), for: .host))
+
+        let recording = RecordingLogger()
+        let refuseAll: (ActionUICapability) -> Bool = { _ in false }
+        let allowAll: (ActionUICapability) -> Bool = { _ in true }
+        XCTAssertEqual(WebViewTrust.base(url("https://bank.example/"), allows: refuseAll, logger: recording), WebViewTrust.blankBase)
+        XCTAssertEqual(WebViewTrust.base(url("https://example.com/"), allows: allowAll, logger: recording), url("https://example.com/"))
+        XCTAssertEqual(WebViewTrust.base(nil, allows: refuseAll, logger: recording), WebViewTrust.blankBase, "no base: nothing to ask")
+        XCTAssertFalse(WebViewTrust.showsAddress(url("file:///etc/hosts"), allows: refuseAll, logger: recording))
+        XCTAssertTrue(WebViewTrust.showsAddress(url("https://example.com/"), allows: allowAll, logger: recording))
+        XCTAssertEqual(recording.errors, [], "refusals are warnings")
+        let page = WebViewTrust.blockedPage(url("https://example.com/?a=<b>&c=\"d\""))
+        XCTAssertTrue(page.contains("Blocked: https://example.com/?a=%3Cb%3E&amp;c=%22d%22") || page.contains("&lt;b&gt;"), page)
+        XCTAssertFalse(page.contains("<b>"), "the address is escaped")
+    }
+
     func testViewDidLoadFiresOncePerSource() throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         var fired: [Int] = []

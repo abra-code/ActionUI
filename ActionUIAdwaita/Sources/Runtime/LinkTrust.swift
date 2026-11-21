@@ -37,6 +37,15 @@ enum LinkTrust {
         return allowed
     }
 
+    /// Whether the node's content may do `capability` (not logged): asked for its element, or as
+    /// content of unknown origin when its element cannot be told (originElementID).
+    static func allows(_ capability: ActionUICapability, _ node: RenderNode) -> Bool {
+        guard let viewID = originElementID(node) else {
+            return ActionUIModel.shared.trustPolicy.allows(capability, for: unknownOrigin)
+        }
+        return ActionUIModel.shared.allows(capability, windowUUID: node.windowUUID, viewID: viewID)
+    }
+
     /// The id of the element whose origin the node's content has: the node's own, or for a template
     /// row's node the nearest container around it; nil when that node's view model is not the
     /// window's one for its id, so the id would name another element's origin.

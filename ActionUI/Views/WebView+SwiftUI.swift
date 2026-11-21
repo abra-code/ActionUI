@@ -145,15 +145,30 @@ private struct WebViewContent: SwiftUI.View {
         }
     }
 
+    /// The trust policy's answer for this WebView's element.
+    private func allows(_ capability: ActionUICapability) -> Bool {
+        ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: element.id)
+    }
+
+    /// Loads `url`, or the "Blocked" page when the trust policy refuses it (false then).
+    @discardableResult
+    private func show(_ url: URL) -> Bool {
+        guard WebViewTrust.showsAddress(url, allows: allows, logger: logger) else {
+            page.load(html: WebViewTrust.blockedPage(url), baseURL: WebViewTrust.blankBase)
+            return false
+        }
+        page.load(URLRequest(url: url))
+        return true
+    }
+
     private func loadInitialContent() {
         // model.value holds the result of initialValue(model): the properties["url"] string or
         // a previously persisted URL. Prefer it over re-reading properties directly.
         if let urlString = model.value as? String, !urlString.isEmpty, let url = URL(string: urlString) {
-            page.load(URLRequest(url: url))
+            show(url)
         } else if let html = props.html {
-            // baseURL has a default of "about:blank" in the SDK, but we honour the property when set.
-            let baseURL = props.baseURL.flatMap { URL(string: $0) }
-                ?? URL(string: "about:blank")!
+            // about:blank unless baseURL is set and the trust policy allows it.
+            let baseURL = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: allows, logger: logger)
             page.load(html: html, baseURL: baseURL)
         }
         // If neither url nor html is provided the page stays blank.
@@ -214,8 +229,12 @@ private struct WebViewContent: SwiftUI.View {
             resetModelValueToCurrentURL()
         default:
             if let url = URL(string: command) {
-                page.load(URLRequest(url: url))
-                // model.value will be updated by handleURLChange when navigation completes
+                // model.value will be updated by handleURLChange when navigation completes. A
+                // refused address may leave the URL where it is (already about:blank), so no change
+                // would replace the refused value.
+                if !show(url) {
+                    resetModelValueToCurrentURL()
+                }
             } else {
                 logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
                 resetModelValueToCurrentURL()
