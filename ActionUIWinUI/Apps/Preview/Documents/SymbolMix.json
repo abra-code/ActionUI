@@ -1,0 +1,438 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "spacing": 12,
+  "alignment": "leading",
+  "padding": 16
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 20,
+   "properties": {
+    "spacing": 6
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 3,
+     "properties": {
+      "systemName": "star"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 4,
+     "properties": {
+      "systemName": "star.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 5,
+     "properties": {
+      "systemName": "heart"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 6,
+     "properties": {
+      "systemName": "heart.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 7,
+     "properties": {
+      "systemName": "trash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 8,
+     "properties": {
+      "systemName": "trash.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 9,
+     "properties": {
+      "systemName": "bolt"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 10,
+     "properties": {
+      "systemName": "bolt.badge.checkmark"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 11,
+     "properties": {
+      "systemName": "circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 12,
+     "properties": {
+      "systemName": "circle.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 13,
+     "properties": {
+      "systemName": "person"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 14,
+     "properties": {
+      "systemName": "person.badge.clock"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 15,
+     "properties": {
+      "systemName": "chevron.right.circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 16,
+     "properties": {
+      "systemName": "chevron.left.circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 17,
+     "properties": {
+      "systemName": "thermometer.medium"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 18,
+     "properties": {
+      "systemName": "degreesign.celsius"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 19,
+     "properties": {
+      "text": "body"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 38,
+   "properties": {
+    "spacing": 6,
+    "font": "title2"
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 21,
+     "properties": {
+      "systemName": "star"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 22,
+     "properties": {
+      "systemName": "star.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 23,
+     "properties": {
+      "systemName": "heart"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 24,
+     "properties": {
+      "systemName": "heart.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 25,
+     "properties": {
+      "systemName": "trash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 26,
+     "properties": {
+      "systemName": "trash.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 27,
+     "properties": {
+      "systemName": "bolt"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 28,
+     "properties": {
+      "systemName": "bolt.badge.checkmark"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 29,
+     "properties": {
+      "systemName": "circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 30,
+     "properties": {
+      "systemName": "circle.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 31,
+     "properties": {
+      "systemName": "person"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 32,
+     "properties": {
+      "systemName": "person.badge.clock"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 33,
+     "properties": {
+      "systemName": "chevron.right.circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 34,
+     "properties": {
+      "systemName": "chevron.left.circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 35,
+     "properties": {
+      "systemName": "thermometer.medium"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 36,
+     "properties": {
+      "systemName": "degreesign.celsius"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 37,
+     "properties": {
+      "text": "title2"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 56,
+   "properties": {
+    "spacing": 6,
+    "font": "largeTitle"
+   },
+   "children": [
+    {
+     "type": "Image",
+     "id": 39,
+     "properties": {
+      "systemName": "star"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 40,
+     "properties": {
+      "systemName": "star.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 41,
+     "properties": {
+      "systemName": "heart"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 42,
+     "properties": {
+      "systemName": "heart.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 43,
+     "properties": {
+      "systemName": "trash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 44,
+     "properties": {
+      "systemName": "trash.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 45,
+     "properties": {
+      "systemName": "bolt"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 46,
+     "properties": {
+      "systemName": "bolt.badge.checkmark"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 47,
+     "properties": {
+      "systemName": "circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 48,
+     "properties": {
+      "systemName": "circle.slash"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 49,
+     "properties": {
+      "systemName": "person"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 50,
+     "properties": {
+      "systemName": "person.badge.clock"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 51,
+     "properties": {
+      "systemName": "chevron.right.circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 52,
+     "properties": {
+      "systemName": "chevron.left.circle"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 53,
+     "properties": {
+      "systemName": "thermometer.medium"
+     }
+    },
+    {
+     "type": "Image",
+     "id": 54,
+     "properties": {
+      "systemName": "degreesign.celsius"
+     }
+    },
+    {
+     "type": "Text",
+     "id": 55,
+     "properties": {
+      "text": "largeTitle"
+     }
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 57,
+   "properties": {
+    "spacing": 16
+   },
+   "children": [
+    {
+     "type": "Label",
+     "id": 58,
+     "properties": {
+      "title": "Favorite",
+      "systemImage": "star"
+     }
+    },
+    {
+     "type": "Label",
+     "id": 59,
+     "properties": {
+      "title": "Not favorite",
+      "systemImage": "star.slash"
+     }
+    },
+    {
+     "type": "Label",
+     "id": 60,
+     "properties": {
+      "title": "21 C",
+      "systemImage": "degreesign.celsius"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 61,
+   "properties": {
+    "font": "caption",
+    "text": "Pairs: a Material symbol, then a Fluent fill-in (an SF name Material has no glyph for): star, star.slash; heart, heart.slash; trash, trash.slash; bolt, bolt.badge.checkmark; circle, circle.slash; person, person.badge.clock; chevron.right.circle, chevron.left.circle; thermometer.medium, degreesign.celsius"
+   }
+  }
+ ]
+}

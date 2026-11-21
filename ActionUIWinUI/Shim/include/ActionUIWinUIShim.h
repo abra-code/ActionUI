@@ -1091,8 +1091,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, ActionUIWinUIData
 // MARK: - Symbols
 
 // The SF Symbol names ActionUI can draw on Windows are those of its SF Symbols -> Material Symbols
-// map, compiled into the shim with their outlines (Scripts/prepare-windows-symbols.py) at each row's
-// fill and weight; no font ships. A symbol is an icon element (a PathIcon): it draws in the inherited
+// map, at each row's fill and weight, and, for names that map lacks, those of its SF Symbols -> Fluent
+// System Icons map, compiled into the shim with their outlines (Scripts/prepare-windows-symbols.py);
+// no font ships. A symbol is an icon element (a PathIcon): it draws in the inherited
 // text color (a button's changes with its state), as SF Symbols take the text color, or in the brush
 // actionUIWinUIElementSetBrush gives its Foreground.
 
@@ -1101,8 +1102,8 @@ ACTIONUI_WINUI_API bool actionUIWinUISymbolsAvailable(void);
 // Whether `name` (an SF Symbol name, exact) has an outline.
 ACTIONUI_WINUI_API bool actionUIWinUISymbolExists(const char *name);
 // A new icon drawing the symbol `name` in a square of actionUIWinUISymbolSetSize's size (the Material
-// glyph's em box: the glyph sits inside it with the font's margins). NULL (with an error) when the name
-// has no outline.
+// or Fluent glyph's em box: the glyph sits inside it with the font's margins). NULL (with an error)
+// when the name has no outline.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUISymbolCreate(const char *name);
 // The side of the symbol's square, in effective pixels; the outline scales with it.
 ACTIONUI_WINUI_API bool actionUIWinUISymbolSetSize(ActionUIWinUIObject *symbol, double size);

@@ -9,8 +9,10 @@
    Scripts/prepare-windows-symbols.py from the SF -> Material map, at the row's fill and weight, as
    on Linux and Android; no font ships), drawn in the text color in a square of the font size times
    1.18, SwiftUI's symbol box (measured on macOS; Android uses the same factor). Small and large
-   image scales are 0.8 and 1.28 times that. A name the map lacks shows nothing, as SwiftUI's does
-   (logged once per name).
+   image scales are 0.8 and 1.28 times that. A name the Material map lacks is the Microsoft Fluent
+   System Icons outline of the SF -> Fluent map, as Fluent draws it (Windows' own thinner look), its
+   em box the same square (where a Fluent glyph has its Material counterpart's size). A name neither map has shows nothing, as
+   SwiftUI's does (logged once per name).
  - A resizable symbol (resizable with a contentMode) scales to its frame: the largest square it is
    offered, its own size when offered unbounded room.
  - A file is WinUI's Image: an .svg file as a vector image, others through the system's bitmap
@@ -22,7 +24,7 @@
    again, so a host that rewrites an image under the same name and sets it again sees the new image.
 
  Not yet: assetName (Windows apps have no asset catalogs; shows the photo symbol) and resourceName
- (no app bundle on Windows yet; the photo symbol); the SF Symbols that the Material map lacks; an SVG
+ (no app bundle on Windows yet; the photo symbol); the SF Symbols that neither map has; an SVG
  file rewritten under the same name may show the cached picture; an SVG with a viewBox but no width
  or height, not resizable, may have no size; an image larger than its frame, not resizable, is
  cropped inside the frame where SwiftUI and Linux let it overflow, centered (WinUI's Image reports
@@ -88,7 +90,7 @@ final class ImageLayout {
     static func makeSymbol(_ name: String) -> WinUIObject? {
         guard actionUIWinUISymbolExists(name) else {
             if reportedMissing.insert(name).inserted {
-                let why = actionUIWinUISymbolsAvailable() ? "the SF Symbols map has no Material symbol for it"
+                let why = actionUIWinUISymbolsAvailable() ? "neither the Material nor the Fluent SF Symbols map has it"
                                                           : "ActionUI's shim was built without its symbols (Scripts/prepare-windows-symbols.py)"
                 ActionUIModel.shared.logger.log("No Windows symbol for \"\(name)\": \(why); showing nothing", .warning)
             }

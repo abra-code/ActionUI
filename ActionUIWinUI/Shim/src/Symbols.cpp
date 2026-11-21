@@ -1,8 +1,9 @@
 // Symbols.cpp - SF Symbols on Windows: the Material Symbols outline that ActionUI's SF -> Material map gives
-// a name, at the row's fill and weight, compiled into the shim (generated/symbols.inc, written by
-// Scripts/prepare-windows-symbols.py), drawn as a WinUI PathIcon in the glyph's em box. No font ships; the
-// outlines are those of the Linux icons. Their path text is compressed with Windows' Compression API
-// (about 1.7 MB in 0.5 MB) and unpacked once, at the first symbol drawn.
+// a name, at the row's fill and weight, or for a name that map lacks the Fluent System Icons outline of its
+// SF -> Fluent map, compiled into the shim (generated/symbols.inc, written by
+// Scripts/prepare-windows-symbols.py), drawn as a WinUI PathIcon in the Material glyph's em box. No font
+// ships; the Material outlines are those of the Linux icons. Their path text is compressed with Windows'
+// Compression API (about 2.1 MB in 0.6 MB) and unpacked once, at the first symbol drawn.
 
 #include "ShimInternal.h"
 

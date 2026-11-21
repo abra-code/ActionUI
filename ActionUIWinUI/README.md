@@ -26,7 +26,7 @@ From the repository root, on Windows:
 python Scripts\ci-windows.py winui --install-runtime --results ci-results
 ```
 
-It builds the shim (`.build\winui-shim\<arch>\ActionUIWinUIShim.dll`), compiles the SF Symbols' Material Symbols outlines into it (`Scripts/prepare-windows-symbols.py`), runs the shim's C smoke test, builds the Swift package for Windows (`windowsPackage()` in `Package.swift`) in `.build\ci-windows-winui`, runs its smoke test, then renders every document in `Apps/Preview/Documents` with **ActionUIWinUIPreview** into `ci-results\preview-<name>.png`, printing where each element was placed. `--install-runtime` is needed once per user (and on CI machines, which do not have the runtime). `python Scripts\ci-windows.py shim` builds and tests the shim alone.
+It builds the shim (`.build\winui-shim\<arch>\ActionUIWinUIShim.dll`), compiles the SF Symbols' Material Symbols outlines, and Fluent System Icons outlines for the names Material lacks, into it (`Scripts/prepare-windows-symbols.py`), runs the shim's C smoke test, builds the Swift package for Windows (`windowsPackage()` in `Package.swift`) in `.build\ci-windows-winui`, runs its smoke test, then renders every document in `Apps/Preview/Documents` with **ActionUIWinUIPreview** into `ci-results\preview-<name>.png`, printing where each element was placed. `--install-runtime` is needed once per user (and on CI machines, which do not have the runtime). `python Scripts\ci-windows.py shim` builds and tests the shim alone.
 
 ActionUIWinUIPreview renders one document into a PNG of the window's content: `ActionUIWinUIPreview DOCUMENT.json OUT.png [WIDTH HEIGHT] [options]`. Its options operate elements as a user or an accessibility tool would (invoke, toggle, select, type, scroll, drag with the real mouse), change the model as a host does (rows, values, properties), wait for network loads, and check what must follow (actions fired, widths, states); `Apps/Preview/main.swift` lists them. The GitHub workflow `.github/workflows/windows.yml` runs the same script on GitHub's x64 and Arm64 Windows runners.
 
@@ -74,6 +74,15 @@ Look for `<dependency id="Microsoft.Web.WebView2" version="..." />` and use that
 
 - The browser keeps its data (cookies, cache) in `%LOCALAPPDATA%\<program name>\WebView2`, unless the host sets `WEBVIEW2_USER_DATA_FOLDER` before the first WebView is made. By default WebView2 would put it beside the program, where an installed program cannot write.
 - `Microsoft.Web.WebView2.Core.dll` is under the WebView2 SDK's license (the package's `LICENSE.txt`), a BSD-style license from Microsoft: it may be redistributed in binary form provided the copyright notice ("Copyright (C) Microsoft Corporation. All rights reserved."), the license's conditions and its disclaimer are reproduced in the documentation or other materials that ship with it (a third-party notices file is the usual place), and Microsoft's name is not used to endorse or promote the product. A program that ships the DLL, and a distribution of ActionUI that includes it, carries that notice. The WebView2 runtime is not redistributed this way: the program uses the one on the machine.
+
+## Symbols and their licenses
+
+SF Symbols (Apple's) may not be shipped, so `ActionUIWinUIShim.dll` draws other glyphs for their names, compiled into it as outlines by `Scripts/prepare-windows-symbols.py` (no font ships):
+
+- Google's **Material Symbols** (Rounded), through ActionUI's SF Symbols -> Material map (`ActionUIAndroid/library/src/main/assets/symbols/sf_to_material.map`, shared with Android and Linux), at each row's fill and weight. Apache License 2.0.
+- Microsoft's **Fluent System Icons** (the Resizable family), for the SF names the Material map has no usable glyph for, through ActionUI's SF Symbols -> Fluent map (`Tools/fluent_symbols/sf_to_fluent.map`), drawn as Fluent draws them, Windows' own thinner look. MIT License (Copyright (c) 2020 Microsoft Corporation): the copyright notice and the license's permission notice go with copies of the outlines.
+
+A program that ships the shim, and a distribution of ActionUI that includes it, carries both licenses' notices (a third-party notices file is the usual place). Each font is downloaded at a pinned commit, `ActionUIAndroid/library/material-symbols-font.commit` and `Tools/fluent_symbols/fluent-icons-font.commit`, the commit each map was made for.
 
 ## Layout of this folder
 
