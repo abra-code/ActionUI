@@ -647,11 +647,21 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetAccessibilityIdentifier(ActionUIW
 // The tooltip `element` shows when the pointer rests on it (UTF-8; NULL or empty: none).
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetToolTip(ActionUIWinUIObject *element, const char *text);
 
+// A keyboard accelerator for `element`, replacing the one this set before: `key`, a Windows virtual key
+// (0: none), with `modifiers` (VirtualKeyModifiers: Control 1, Menu (Alt) 2, Shift 4), handled wherever
+// the focus is in the element's window; it does what the keyboard does to the control (a Button clicks).
+// `text` (UTF-8, "Ctrl+S") is the accelerator key accessibility tools read, which WinUI does not fill
+// from a keyboard accelerator itself; ignored with no key.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetKeyboardShortcut(ActionUIWinUIObject *element, int32_t key, uint32_t modifiers,
+                                                                const char *text);
+
 // What accessibility tools read of an element, through its UI Automation peer.
 typedef enum ActionUIWinUIAutomationText {
     ActionUIWinUIAutomationName = 0,
     ActionUIWinUIAutomationHelpText = 1,
     ActionUIWinUIAutomationIdentifier = 2,
+    // Its accelerator key (AutomationProperties.AcceleratorKey: "Ctrl+S").
+    ActionUIWinUIAutomationAcceleratorKey = 3,
 } ActionUIWinUIAutomationText;
 // `element`'s name, help text or automation identifier as an accessibility tool reads it, as a new UTF-8
 // string the caller frees with actionUIWinUIFreeString; NULL (with an error) when the element has no

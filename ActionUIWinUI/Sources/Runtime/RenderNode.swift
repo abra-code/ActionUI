@@ -61,6 +61,8 @@ package final class RenderNode {
     /// The accessibility texts and tooltip last applied (applyAccessibility), the name with the
     /// renderer's default; each nil: none applied.
     private var appliedAccessibility = AccessibilityTexts()
+    /// The keyboard shortcut last given to the accessible object (KeyboardShortcut+WinUI.swift).
+    private var appliedShortcut: WindowsShortcut?
     /// The states last applied to the WinUI object (applyStates).
     private var appliedEnabled: Bool?
     private var appliedAccessibilityHidden: Bool?
@@ -280,6 +282,8 @@ package final class RenderNode {
             toolbar?.update()
             applyStates(to: view)
             applyAccessibility(AccessibilityTexts(modifiers), to: view)
+            appliedShortcut = Self.applyShortcut(modifiers.keyboardShortcut, to: renderer.accessibleObject(view, self),
+                                                 applied: appliedShortcut)
             let geometry = boxGeometry(modifiers)
             box?.contentExpansion = renderer.expansion(self)
             box?.update(geometry)
