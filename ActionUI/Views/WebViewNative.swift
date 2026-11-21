@@ -187,6 +187,7 @@ struct WKWebViewRepresentable {
     /// Forwards SwiftUI update passes (triggered when model.value, read here, changes) to the coordinator,
     /// which interprets any new model.value as a navigation command.
     private func updateWebView(context: Context) {
+        context.coordinator.updateNavigationDelegate()
         context.coordinator.handleCommand(model.value as? String)
     }
 }
@@ -222,7 +223,7 @@ extension WKWebViewRepresentable {
     /// KVO is used for all observable values (url, title, loading, progress, back/forward) so the
     /// behaviour matches WebViewContent's onChange-driven SwiftUI backing.
     @MainActor
-    final class Coordinator: NSObject, WKUIDelegate {
+    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
         let model: ViewModel
         let props: WebView.Props
         let element: any ActionUIElementBase
@@ -253,6 +254,7 @@ extension WKWebViewRepresentable {
         func attach(to webView: WKWebView) {
             self.webView = webView
             webView.uiDelegate = self
+            updateNavigationDelegate()
 
             // KVO closures are invoked on the main thread for WKWebView, but the change handler is
             // not statically MainActor-isolated, so we hop onto the MainActor before touching state.
@@ -282,7 +284,45 @@ extension WKWebViewRepresentable {
             observations.forEach { $0.invalidate() }
             observations.removeAll()
             webView?.uiDelegate = nil
+            webView?.navigationDelegate = nil
             webView = nil
+        }
+
+        // MARK: Navigation (less-trusted content only)
+
+        /// Less-trusted content (or content of unknown origin): its page's navigations are decided
+        /// here. Without a navigation delegate WebKit hands an address it cannot load to another
+        /// app, which would let the page open any app's own scheme. Trusted content keeps WebKit's
+        /// default handling, so it has no delegate. Asked again on each update: a LoadableView that
+        /// loads another document can keep this WKWebView for an element of the same id whose
+        /// origin differs.
+        func updateNavigationDelegate() {
+            guard let webView else { return }
+            let lessTrusted = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: element.id)?.trust != .trusted
+            if lessTrusted {
+                if webView.navigationDelegate !== self { webView.navigationDelegate = self }
+            } else if webView.navigationDelegate === self {
+                webView.navigationDelegate = nil
+            }
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+            guard let url = navigationAction.request.url else { return decisionHandler(.cancel) }
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+            switch WebViewTrust.navigation(url, isMainFrame: isMainFrame, allows: allows, logger: logger) {
+            case .load:
+                decisionHandler(.allow)
+            case .open:
+                decisionHandler(.cancel)
+                #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+                NSWorkspace.shared.open(url)
+                #elseif canImport(UIKit)
+                UIApplication.shared.open(url)
+                #endif
+            case .refuse:
+                decisionHandler(.cancel)
+            }
         }
 
         // MARK: Initial content

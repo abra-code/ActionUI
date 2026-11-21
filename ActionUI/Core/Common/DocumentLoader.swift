@@ -207,6 +207,43 @@ enum WebViewTrust {
         return base
     }
 
+    /// What a less-trusted WebView does with a navigation its page starts.
+    enum Navigation: Equatable {
+        /// Load it in the WebView.
+        case load
+        /// Hand it to the system (another app), as WebKit does with an address it cannot load.
+        case open
+        /// Neither (logged).
+        case refuse
+    }
+
+    /// The schemes a page uses inside itself, which stay in the WebView.
+    static let pageSchemes: Set<String> = ["about", "data", "blob"]
+
+    /// What a less-trusted WebView does with a navigation to `url` (`isMainFrame`: the page itself,
+    /// not a frame in it): a web address loads when the policy shows it (a frame's always does, as
+    /// part of the page); the page's own schemes load, and a local file when the policy shows it;
+    /// any other address is opened by the system only when the policy allows a link to it (mailto,
+    /// by default), else refused.
+    @MainActor
+    static func navigation(_ url: URL, isMainFrame: Bool, allows: (ActionUICapability) -> Bool,
+                           logger: any ActionUILogger) -> Navigation {
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme == "http" || scheme == "https" {
+            if !isMainFrame || allows(.webView(url)) { return .load }
+        } else if pageSchemes.contains(scheme) {
+            return .load
+        } else if scheme == "file", allows(.webView(url)) {
+            // A local file the host's policy lets this WebView show (loaded with loadFileURL).
+            return .load
+        } else if isMainFrame, allows(.openLink(url)) {
+            // The page itself only: a frame (which a page can add without end) opens no other app.
+            return .open
+        }
+        logger.log("WebView not going to \(url.absoluteString): the trust policy refuses it", .warning)
+        return .refuse
+    }
+
     /// The page shown in place of an address the policy refuses.
     static func blockedPage(_ url: URL) -> String {
         let text = url.absoluteString.replacing("&", with: "&amp;").replacing("<", with: "&lt;")

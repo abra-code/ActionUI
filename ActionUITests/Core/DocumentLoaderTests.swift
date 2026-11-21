@@ -516,6 +516,40 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertFalse(page.contains("<b>"), "the address is escaped")
     }
 
+    func testALessTrustedWebViewsPageGoesOnlyToWebAddressesOrAllowedLinks() {
+        let lessTrusted = DocumentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: 1)
+        let allows: (ActionUICapability) -> Bool = { DefaultTrustPolicy().allows($0, for: lessTrusted) }
+        let recording = RecordingLogger()
+        func decide(_ text: String, mainFrame: Bool = true) -> WebViewTrust.Navigation {
+            WebViewTrust.navigation(URL(string: text)!, isMainFrame: mainFrame, allows: allows, logger: recording)
+        }
+        XCTAssertEqual(decide("https://example.com/next"), .load)
+        XCTAssertEqual(decide("http://other.example/"), .load)
+        XCTAssertEqual(decide("about:blank"), .load)
+        XCTAssertEqual(decide("data:text/html,hi"), .load)
+        XCTAssertEqual(decide("blob:https://example.com/1234"), .load)
+        XCTAssertEqual(decide("mailto:a@example.com"), .open, "an allowed link goes to the system")
+        XCTAssertEqual(decide("mailto:a@example.com", mainFrame: false), .refuse, "a frame opens no other app")
+        XCTAssertEqual(decide("someapp://run"), .refuse, "an app's own scheme")
+        XCTAssertEqual(decide("file:///etc/hosts"), .refuse)
+        XCTAssertEqual(decide("smb://server/share"), .refuse)
+        // A host policy that keeps a page on its own site: other web addresses are refused for the
+        // page itself, while a frame in it still loads.
+        let ownSiteOnly: (ActionUICapability) -> Bool = { capability in
+            if case .webView(let url?) = capability { return url.host == "example.com" }
+            return allows(capability)
+        }
+        XCTAssertEqual(WebViewTrust.navigation(URL(string: "https://other.example/")!, isMainFrame: true, allows: ownSiteOnly, logger: recording), .refuse)
+        XCTAssertEqual(WebViewTrust.navigation(URL(string: "https://other.example/")!, isMainFrame: false, allows: ownSiteOnly, logger: recording), .load)
+        // A host policy that lets the WebView show a local file: its own load is not refused.
+        let fileAllowed: (ActionUICapability) -> Bool = { capability in
+            if case .webView(let url?) = capability, url.isFileURL { return true }
+            return allows(capability)
+        }
+        XCTAssertEqual(WebViewTrust.navigation(URL(fileURLWithPath: "/tmp/page.html"), isMainFrame: true, allows: fileAllowed, logger: recording), .load)
+        XCTAssertEqual(recording.errors, [], "refusals are warnings")
+    }
+
     func testViewDidLoadFiresOncePerSource() throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         var fired: [Int] = []

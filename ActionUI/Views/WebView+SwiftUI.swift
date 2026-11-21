@@ -38,6 +38,37 @@ extension WebView: ActionUISwiftUIRenderer {
 
 // MARK: - WebViewContent
 
+/// The navigation decider of a WebView page: the trust of its element is asked on each navigation
+/// (the page is kept while its element's content may be reloaded with another origin); trusted
+/// content's navigations are allowed, others are decided by WebViewTrust.navigation.
+@available(iOS 26.0, macOS 26.0, *)
+private struct LessTrustedNavigation: WebPage.NavigationDeciding {
+    let windowUUID: String
+    let viewID: Int
+    let logger: any ActionUILogger
+
+    func decidePolicy(for action: WebPage.NavigationAction, preferences: inout WebPage.NavigationPreferences) async -> WKNavigationActionPolicy {
+        if ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: viewID)?.trust == .trusted { return .allow }
+        guard let url = action.request.url else { return .cancel }
+        let isMainFrame = action.target?.isMainFrame ?? true
+        let allows: (ActionUICapability) -> Bool = { ActionUIModel.shared.allows($0, windowUUID: windowUUID, viewID: viewID) }
+        switch WebViewTrust.navigation(url, isMainFrame: isMainFrame, allows: allows, logger: logger) {
+        case .load:
+            return .allow
+        case .open:
+            #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+            NSWorkspace.shared.open(url)
+            #elseif canImport(UIKit)
+            // The completion-handler form: in this async method a bare open(url) is the async one.
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            #endif
+            return .cancel
+        case .refuse:
+            return .cancel
+        }
+    }
+}
+
 @available(iOS 26.0, macOS 26.0, *)
 private struct WebViewContent: SwiftUI.View {
     @State private var page: WebPage
@@ -56,7 +87,11 @@ private struct WebViewContent: SwiftUI.View {
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
-        _page = State(initialValue: WebPage(configuration: WebViewContent.makeConfiguration(props: props, logger: logger)))
+        let configuration = WebViewContent.makeConfiguration(props: props, logger: logger)
+        // Always with the decider: @State keeps this first page while the element's content may
+        // be reloaded with another origin, so the decider asks the element's trust each time.
+        _page = State(initialValue: WebPage(configuration: configuration,
+                                            navigationDecider: LessTrustedNavigation(windowUUID: windowUUID, viewID: element.id, logger: logger)))
         _lastTrackedURL = State(initialValue: "")
     }
 
