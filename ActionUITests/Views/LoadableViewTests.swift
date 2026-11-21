@@ -10,6 +10,34 @@ import XCTest
 import SwiftUI
 @testable import ActionUI
 
+/// Serves fixed bodies for RemoteDocumentFetch: /big (1001 bytes), /exact (1000), /told (says
+/// 5000 bytes in Content-Length), /stall (headers, then nothing).
+private final class StubDocumentProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else { return }
+        var headers = ["Content-Type": "application/json"]
+        let body: Data?
+        switch url.path {
+        case "/big": body = Data(repeating: 0x20, count: 1001)
+        case "/exact": body = Data(repeating: 0x20, count: 1000)
+        case "/told":
+            headers["Content-Length"] = "5000"
+            body = Data(repeating: 0x20, count: 10)
+        default: body = nil
+        }
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        guard let body else { return }
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
 @MainActor
 final class LoadableViewTests: XCTestCase {
     private var logger: XCTestLogger!
@@ -479,5 +507,38 @@ final class LoadableViewTests: XCTestCase {
         _ = FileLoadableView(data: Data(#"{"id": 7, "type": "Text", "properties": {}}"#.utf8), sourceName: "memory",
                              windowUUID: windowUUID, isContentView: true, logger: logger)
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 7) === DocumentOrigin.host, "data the host holds")
+    }
+
+    func testARemoteDocumentIsCappedInSizeAndTime() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubDocumentProtocol.self]
+        let session = URLSession(configuration: configuration)
+        func fetch(_ path: String, timeout: Double = 10) async throws -> Data {
+            try await RemoteDocumentFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
+                                               timeout: timeout, session: session)
+        }
+        let exact = try await fetch("/exact")
+        XCTAssertEqual(exact.count, 1000, "exactly the cap loads")
+        do {
+            _ = try await fetch("/big")
+            XCTFail("one byte over the cap")
+        } catch {
+            XCTAssertEqual("\(error)", "the document is larger than 0 MB")
+        }
+        do {
+            _ = try await fetch("/told")
+            XCTFail("a Content-Length over the cap is refused before the body")
+        } catch {
+            XCTAssertTrue("\(error)".hasPrefix("the document is larger"), "\(error)")
+        }
+        let start = Date()
+        do {
+            _ = try await fetch("/stall", timeout: 0.3)
+            XCTFail("a server that never sends the body")
+        } catch {
+            XCTAssertEqual("\(error)", "loading it took longer than 0 seconds")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5)
+        XCTAssertEqual(WindowModel.maximumDocumentSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
     }
 }
