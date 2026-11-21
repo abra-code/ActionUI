@@ -295,6 +295,19 @@ object ActionUIModel {
     fun allows(capability: ActionUICapability, windowUUID: String, viewID: Int): Boolean =
         trustPolicy.allows(capability, origin(windowUUID, viewID) ?: unknownOrigin)
 
+    /**
+     * Whether content of [origin] may read the local file at [path] (an image, a canvas image,
+     * a video): trusted content reads anything without asking; other content asks the trust
+     * policy ([ActionUICapability.ReadLocalFile]: by default, only inside [resourceFolders]),
+     * and a refusal is logged to [logger] (the element's, from `LocalActionUILogger`).
+     */
+    fun readsLocalFile(path: String, origin: JSONContentOrigin, logger: ActionUILogger = this.logger): Boolean {
+        if (origin.trust == JSONContentOrigin.Trust.TRUSTED) return true
+        val allowed = trustPolicy.allows(ActionUICapability.ReadLocalFile(path), origin)
+        if (!allowed) logger.log("Not reading $path: the trust policy refuses it", LoggerLevel.warning)
+        return allowed
+    }
+
     /** The origin [allows] uses for an element with no view model. */
     private val unknownOrigin = JSONContentOrigin(JSONContentOrigin.Source.Host, JSONContentOrigin.Trust.LESS_TRUSTED, null)
 

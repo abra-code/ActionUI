@@ -98,6 +98,34 @@ class LessTrustedContentTest {
     }
 
     @Test
+    fun jsonFromAFileReadsNoLocalFileOutsideTheResources() {
+        val picture = File(folder, "pic.png").apply {
+            val bitmap = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
+            outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        val document = file("pictures.json", """{ "type": "VStack", "id": 20, "children": [
+            { "type": "Image", "id": 21, "properties": { "filePath": "${picture.path}" } },
+            { "type": "AsyncImage", "id": 22, "properties": { "url": "file://${picture.path}" } },
+            { "type": "VideoPlayer", "id": 23, "properties": { "url": "content://media/external/video/media/1" } } ] }""")
+        rule.setContent {
+            ActionUI.Render(
+                """{ "type": "VStack", "id": 1, "children": [
+                    { "type": "Image", "id": 2, "properties": { "filePath": "${picture.path}" } },
+                    { "type": "LoadableView", "id": 3, "properties": { "filePath": "${document.path}" } } ] }""",
+                logger = logger,
+                windowUUID = window,
+            )
+        }
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { logger.warnings.count { it == "Not reading ${picture.path}: the trust policy refuses it" } >= 2 }
+        // Once for the Image, once for the AsyncImage; the host's own Image of the same file is not asked.
+        assertEquals(logger.warnings.toString(), 2, logger.warnings.count { it == "Not reading ${picture.path}: the trust policy refuses it" })
+        assertTrue(logger.warnings.toString(), logger.warnings.any {
+            it == "VideoPlayer not playing 'content://media/external/video/media/1': less-trusted content plays only file, http and https addresses"
+        })
+    }
+
+    @Test
     fun theHostsOwnLinkIsNotAsked() {
         rule.setContent {
             ActionUI.Render(

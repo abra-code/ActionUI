@@ -6,6 +6,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.DefaultTrustPolicy
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
@@ -82,15 +86,37 @@ object CachedImageView : ActionUIViewConstruction {
         // The runtime value (a host write) overrides the static `url`, Apple parity.
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val urlString = (viewModel?.value as? String)?.takeIf { it.isNotEmpty() } ?: config.url
+        // Less-trusted content (a LoadableView's document from a server or from outside the app's
+        // resources) shows a local file only when the trust policy lets it read it, and no address
+        // other than web, data and file ones; the image library keeps what it loads by address,
+        // so the check comes before it is asked. A refused address shows the placeholder.
+        val origin = LocalJSONContentOrigin.current
+        val shown = remember(urlString, origin) { urlString?.takeIf { it.isNotEmpty() && shows(it, origin, logger) } }
 
         CachedImage(
-            url = urlString?.takeIf { it.isNotEmpty() },
+            url = shown,
             modifier = modifier,
             intrinsicSize = config.intrinsicSize,
             cornerRadius = config.cornerRadius.dp,
             contentMode = if (config.contentModeFill) ContentMode.Fill else ContentMode.Fit,
             maxPixelWidth = config.maxPixelWidth,
         )
+    }
+}
+
+/** Whether content of [origin] may show the image at [url] (internal for JVM unit tests). */
+internal fun shows(url: String, origin: JSONContentOrigin, logger: ActionUILogger): Boolean {
+    if (origin.trust == JSONContentOrigin.Trust.TRUSTED) return true
+    return when (DefaultTrustPolicy.schemeOf(url)) {
+        "http", "https", "data" -> true
+        "file" -> {
+            val path = try { java.io.File(java.net.URI(url)).path } catch (e: Exception) { null }
+            path != null && ActionUIModel.readsLocalFile(path, origin, logger)
+        }
+        else -> {
+            logger.log("CachedImage not showing $url: less-trusted content shows only web, data and file addresses", LoggerLevel.warning)
+            false
+        }
     }
 }
 

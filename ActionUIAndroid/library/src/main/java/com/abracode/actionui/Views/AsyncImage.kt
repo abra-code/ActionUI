@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
@@ -118,11 +120,13 @@ object AsyncImage : ActionUIViewConstruction {
         // Cached -> render immediately (no placeholder flash); else Empty ->
         // (fetch + decode off the main thread) -> Success / Failure. Keyed on
         // the resolved URL: a host write restarts the load.
+        val origin = LocalJSONContentOrigin.current
         val phase by produceState<AsyncImagePhase>(
             initialValue = asyncImageCache.get(urlString)
                 ?.let { AsyncImagePhase.Success(it) }
                 ?: AsyncImagePhase.Empty,
             urlString,
+            origin,
         ) {
             val cached = asyncImageCache.get(urlString)
             if (cached != null) {
@@ -130,7 +134,7 @@ object AsyncImage : ActionUIViewConstruction {
                 return@produceState
             }
             value = AsyncImagePhase.Empty
-            value = loadAsyncImage(urlString, logger)
+            value = loadAsyncImage(urlString, logger) { ActionUIModel.readsLocalFile(it, origin, logger) }
         }
 
         when (val current = phase) {
@@ -291,7 +295,12 @@ private val asyncImageCache = ByteBudgetLruCache<ImageBitmap>(
  * "invalid URLs are allowed" stance. Successful `http(s)` decodes are stored
  * in [asyncImageCache]; failures are not, so a transient error retries.
  */
-private suspend fun loadAsyncImage(url: String, logger: ActionUILogger?): AsyncImagePhase {
+private suspend fun loadAsyncImage(url: String, logger: ActionUILogger?, readsFile: (String) -> Boolean): AsyncImagePhase {
+    // A local file only when the content may read it (the trust policy; it logs a refusal).
+    if (url.startsWith("file://")) {
+        val path = try { File(URI(url)).path } catch (e: Exception) { null }
+        if (path == null || !readsFile(path)) return AsyncImagePhase.Failure
+    }
     val bitmap = try {
         withContext(Dispatchers.IO) {
             val bytes = fetchImageBytes(url)

@@ -401,15 +401,18 @@ internal fun resolveContentScale(
  * and decode run once per source rather than per recomposition.
  *
  * @return a [BitmapPainter], or `null` if the asset/file is missing or fails to
- *   decode (a warning is emitted).
+ *   decode (a warning is emitted), or [readsFile] refuses the file. A required
+ *   argument, so a new caller cannot leave the check out.
  */
 internal fun loadImagePainter(
     source: ImageSource,
     context: Context,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger?,
+    readsFile: (String) -> Boolean,
 ): Painter? = when (source) {
     is ImageSource.Asset            -> decodeAsset(source.name, context, logger)
-    is ImageSource.FilePath         -> decodeFile(source.path, logger)
+    // The trust policy first, before the file is even looked at (it logs a refusal).
+    is ImageSource.FilePath         -> if (readsFile(source.path)) decodeFile(source.path, logger) else null
     // Symbol sources are glyphs, not raster painters; the Image builder renders
     // them via MaterialSymbolGlyph and never routes them here. A drawable is
     // rendered with the composable painterResource (density/night/vector aware),

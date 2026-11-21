@@ -649,6 +649,8 @@ internal class CanvasDrawEnv(
     val bitmapCache: MutableMap<String, ImageBitmap?>,
     val warnedSources: MutableSet<String>,
     val logger: ActionUILogger?,
+    /** Whether the canvas's content may read a local image file (the trust policy; it logs a refusal). */
+    val readsFile: (String) -> Boolean,
 )
 
 /**
@@ -1033,7 +1035,7 @@ private fun decodeCanvasBitmap(source: CanvasImageSpec, env: CanvasDrawEnv): Ima
         null
     }
     // Only a regular file: opening a named pipe never returns, on the main thread.
-    is CanvasImageSpec.FilePath -> (if (isRegularFile(source.path)) BitmapFactory.decodeFile(source.path) else null)
+    is CanvasImageSpec.FilePath -> (if (env.readsFile(source.path) && isRegularFile(source.path)) BitmapFactory.decodeFile(source.path) else null)
         ?.asImageBitmap().also {
             if (it == null) {
                 env.logger?.log(

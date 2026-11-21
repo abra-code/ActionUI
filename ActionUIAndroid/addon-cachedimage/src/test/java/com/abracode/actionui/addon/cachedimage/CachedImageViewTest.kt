@@ -88,4 +88,19 @@ class CachedImageViewTest {
         assertNull(config.url)
         assertNull(config.maxPixelWidth)
     }
+
+    @Test
+    fun `less-trusted content shows web, data and readable file addresses only`() {
+        val remote = com.abracode.actionui.Common.JSONContentOrigin(
+            com.abracode.actionui.Common.JSONContentOrigin.Source.Remote("https://example.com/v.json"),
+            com.abracode.actionui.Common.JSONContentOrigin.Trust.LESS_TRUSTED, 3)
+        val host = com.abracode.actionui.Common.JSONContentOrigin.HOST
+        val logger = com.abracode.actionui.Common.ConsoleLogger()
+        org.junit.Assert.assertTrue(shows("https://example.com/a.png", remote, logger))
+        org.junit.Assert.assertTrue(shows("data:image/png;base64,AAAA", remote, logger))
+        org.junit.Assert.assertFalse(shows("file:///sdcard/DCIM/photo.jpg", remote, logger))
+        org.junit.Assert.assertFalse(shows("content://media/external/images/1", remote, logger))
+        org.junit.Assert.assertTrue(shows("file:///sdcard/DCIM/photo.jpg", host, logger))
+        org.junit.Assert.assertTrue(shows("content://media/external/images/1", host, logger))
+    }
 }
