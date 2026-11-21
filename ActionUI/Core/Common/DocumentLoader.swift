@@ -164,7 +164,8 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// What content of `origin` may do when the host does not say: trusted content anything; less
     /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
     /// WebView (webViewSchemes), give its inline html a base address only of its own document's
-    /// origin, and read local files only inside the app's resources, and for now do anything else (each further refusal comes with the renderer change
+    /// origin, and read local files (images, videos, WebView script files) only inside the app's
+    /// resources, and for now do anything else (each further refusal comes with the renderer change
     /// that enforces it).
     @MainActor
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
@@ -182,10 +183,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
             // whose cookies and storage the html would get, and no local file.
             guard case .remote(let document) = origin.source else { return false }
             return haveSameOrigin(base, document)
-        case .readLocalFile(let path):
+        case .readLocalFile(let path), .webViewScriptFile(let path):
             // The app's own resources only: not the user's files, a device, or a network share.
             return isInAppResources(path)
-        case .load, .webViewScriptFile, .windowTitle, .presentModal, .menuCommands, .action:
+        case .load, .windowTitle, .presentModal, .menuCommands, .action:
             return true
         }
     }

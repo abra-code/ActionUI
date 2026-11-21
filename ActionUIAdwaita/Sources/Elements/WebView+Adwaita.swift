@@ -73,7 +73,7 @@ extension WebView: ActionUIAdwaitaRenderer {
                 }
             }
         }
-        configure(webKit, view, Props(node.properties))
+        configure(webKit, view, Props(node.properties)) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
         loadInitialContent(webKit, view, node, state)
         return view
     }
@@ -85,7 +85,9 @@ extension WebView: ActionUIAdwaitaRenderer {
     }
 
     /// The settings and the scripts the properties give, before the first page loads.
-    private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props) {
+    /// `readsFile`: whether a user script may be read from a file (the element's trust).
+    private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props,
+                                  readsFile: (String) -> Bool) {
         let settings = webKit.settings(view)
         if let userAgent = props.customUserAgent {
             webKit.setUserAgent(settings, userAgent)
@@ -102,7 +104,7 @@ extension WebView: ActionUIAdwaitaRenderer {
         webKit.setBackForwardGestures(settings, 0)
         let manager = webKit.userContentManager(view)
         for script in props.userScripts {
-            guard let source = scriptSource(script), let userScript = webKit.newScript(
+            guard let source = scriptSource(script, readsFile: readsFile), let userScript = webKit.newScript(
                 source, script.forMainFrameOnly ? WebKitLibrary.topFrame : WebKitLibrary.allFrames,
                 script.injectionTime == .documentStart ? WebKitLibrary.documentStart : WebKitLibrary.documentEnd, nil, nil) else { continue }
             webKit.addScript(manager, userScript)
@@ -110,9 +112,10 @@ extension WebView: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// A user script's JavaScript: its source, else its file, else its resource in the app's bundle (as
-    /// the Apple backing reads them); nil, logged, when it cannot be read.
-    static func scriptSource(_ script: Props.UserScript) -> String? {
+    /// A user script's JavaScript: its source, else its file (when `readsFile` allows it), else its
+    /// resource in the app's bundle (as the Apple backing reads them); nil, logged, when it cannot be
+    /// read.
+    static func scriptSource(_ script: Props.UserScript, readsFile: (String) -> Bool) -> String? {
         let logger = ActionUIModel.shared.logger
         // Only a regular file: a device or a named pipe the document names would block the window.
         func read(_ path: String) -> String? {
@@ -122,6 +125,7 @@ extension WebView: ActionUIAdwaitaRenderer {
             return source
         }
         if let filePath = script.filePath {
+            guard readsFile(filePath) else { return nil }
             guard let source = read(filePath) else {
                 logger.log("WebView userScript: failed to read file at '\(filePath)'", .warning)
                 return nil

@@ -251,8 +251,18 @@ public class ActionUIModel {
     /// canvas image, a video, a shared file): trusted content reads anything without asking; other
     /// content asks the trust policy (.readLocalFile), and a refusal is logged.
     public func readsLocalFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {
+        reads(.readLocalFile(path), path: path, windowUUID: windowUUID, viewID: viewID)
+    }
+
+    /// Whether the WebView `viewID` of the window may read its user script from the file at `path`,
+    /// as readsLocalFile decides for other files (.webViewScriptFile).
+    public func readsScriptFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {
+        reads(.webViewScriptFile(path), path: path, windowUUID: windowUUID, viewID: viewID)
+    }
+
+    private func reads(_ capability: ActionUICapability, path: String, windowUUID: String, viewID: Int) -> Bool {
         if origin(windowUUID: windowUUID, viewID: viewID)?.trust == .trusted { return true }
-        guard allows(.readLocalFile(path), windowUUID: windowUUID, viewID: viewID) else {
+        guard allows(capability, windowUUID: windowUUID, viewID: viewID) else {
             logger.log("Not reading \(path) for element \(viewID) of window \(windowUUID): the trust policy refuses it", .warning)
             return false
         }

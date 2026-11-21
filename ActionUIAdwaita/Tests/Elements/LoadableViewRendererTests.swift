@@ -183,6 +183,11 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertFalse(LinkTrust.readsLocalFile(png, remoteImage))
         XCTAssertTrue(LinkTrust.readsLocalFile(png, hostImage))
         XCTAssertFalse(LinkTrust.readsLocalFile(png, nil), "no node: unknown origin")
+        // A WebView user script file follows the same rule (.webViewScriptFile); it needs no WebKitGTK.
+        XCTAssertFalse(LinkTrust.reads(.webViewScriptFile(png), path: png, remoteImage))
+        XCTAssertTrue(LinkTrust.reads(.webViewScriptFile(png), path: png, hostImage))
+        XCTAssertNil(WebView.scriptSource(.init(["filePath": png]), readsFile: { LinkTrust.reads(.webViewScriptFile($0), path: $0, remoteImage) }),
+                     "less trusted: a script file outside the app's resources is not read")
     }
 
     func testAnAsyncImageInRemoteJSONShowsNoLocalFileAnotherElementLoaded() throws {

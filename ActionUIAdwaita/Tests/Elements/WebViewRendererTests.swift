@@ -95,9 +95,9 @@ final class WebViewRendererTests: XCTestCase {
     func testAUserScriptFileIsReadOnlyWhenItIsARegularFile() throws {
         let path = try TestImages.file(Array("window.answer = 42".utf8), name: "webview-script.js")
         files.append(path)
-        XCTAssertEqual(WebView.scriptSource(.init(["filePath": path])), "window.answer = 42")
+        XCTAssertEqual(WebView.scriptSource(.init(["filePath": path]), readsFile: { _ in true }), "window.answer = 42")
         for device in ["/dev/zero", "/dev/null", NSTemporaryDirectory()] {
-            XCTAssertNil(WebView.scriptSource(.init(["filePath": device])), device)
+            XCTAssertNil(WebView.scriptSource(.init(["filePath": device]), readsFile: { _ in true }), device)
         }
     }
 

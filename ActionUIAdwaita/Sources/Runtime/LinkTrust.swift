@@ -50,12 +50,18 @@ enum LinkTrust {
     /// video): trusted content reads anything without asking; other content asks the trust policy
     /// (.readLocalFile), and a refusal is logged. Without a node, the content's origin is unknown.
     static func readsLocalFile(_ path: String, _ node: RenderNode?) -> Bool {
+        reads(.readLocalFile(path), path: path, node)
+    }
+
+    /// Whether the node's content may do `capability`, a read of the file at `path`, as
+    /// readsLocalFile decides (for a WebView script file, .webViewScriptFile).
+    static func reads(_ capability: ActionUICapability, path: String, _ node: RenderNode?) -> Bool {
         if let node, let viewID = originElementID(node),
            ActionUIModel.shared.origin(windowUUID: node.windowUUID, viewID: viewID)?.trust == .trusted {
             return true
         }
-        let allowed = node.map { allows(.readLocalFile(path), $0) }
-            ?? ActionUIModel.shared.trustPolicy.allows(.readLocalFile(path), for: unknownOrigin)
+        let allowed = node.map { allows(capability, $0) }
+            ?? ActionUIModel.shared.trustPolicy.allows(capability, for: unknownOrigin)
         if !allowed {
             ActionUIModel.shared.logger.log("Not reading \(path) for element \(node.map { String($0.element.id) } ?? "?"): the trust policy refuses it", .warning)
         }

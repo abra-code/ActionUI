@@ -8,6 +8,10 @@ extension WebView: ActionUISwiftUIRenderer {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
+        // The WebView is made again when its content is loaded again (a LoadableView's new
+        // document has a new origin): its configuration, user scripts included, is made once, for
+        // the content and trust it was made for.
+        let contentIdentity = model.origin.map(ObjectIdentifier.init)
         let native = WKWebViewRepresentable(
             model: model,
             props: props,
@@ -18,7 +22,7 @@ extension WebView: ActionUISwiftUIRenderer {
 
         switch ActionUIRegistry.shared.webViewImplementation {
         case .native:
-            return native
+            return native.id(contentIdentity)
         case .swiftUI:
             if #available(iOS 26.0, macOS 26.0, *) {
                 return WebViewContent(
@@ -27,10 +31,10 @@ extension WebView: ActionUISwiftUIRenderer {
                     element: element,
                     windowUUID: windowUUID,
                     logger: logger
-                )
+                ).id(contentIdentity)
             } else {
                 logger.log("WebView .swiftUI backing requires iOS 26 / macOS 26; falling back to .native", .warning)
-                return native
+                return native.id(contentIdentity)
             }
         }
     }
@@ -87,7 +91,10 @@ private struct WebViewContent: SwiftUI.View {
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
-        let configuration = WebViewContent.makeConfiguration(props: props, logger: logger)
+        let viewID = element.id
+        let configuration = WebViewContent.makeConfiguration(props: props, logger: logger) {
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID)
+        }
         // Always with the decider: @State keeps this first page while the element's content may
         // be reloaded with another origin, so the decider asks the element's trust each time.
         _page = State(initialValue: WebPage(configuration: configuration,
@@ -149,7 +156,8 @@ private struct WebViewContent: SwiftUI.View {
 
     /// Builds a WebPage.Configuration from the parsed properties.
     /// Called once at init time so user scripts survive page reloads within the same view lifetime.
-    private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger) -> WebPage.Configuration {
+    private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger,
+                                          readsFile: (String) -> Bool) -> WebPage.Configuration {
         var config = WebPage.Configuration()
 
         if let limits = props.limitsNavigationsToAppBoundDomains {
@@ -160,7 +168,7 @@ private struct WebViewContent: SwiftUI.View {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = WebViewSupport.buildUserScripts(props.userScripts, logger: logger)
+        let scripts = WebViewSupport.buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile)
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {

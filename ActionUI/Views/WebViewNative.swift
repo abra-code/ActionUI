@@ -29,15 +29,19 @@ import WebKit
 enum WebViewSupport {
     /// Builds WKUserScript objects from the raw properties' `userScripts` array.
     /// Returns an empty array when no (valid) scripts are present.
-    static func buildUserScripts(from properties: [String: Any], logger: any ActionUILogger) -> [WKUserScript] {
-        buildUserScripts(WebView.Props(properties).userScripts, logger: logger)
+    /// `readsFile`: whether a script file may be read (the element's trust); the host's own
+    /// properties read any.
+    static func buildUserScripts(from properties: [String: Any], logger: any ActionUILogger,
+                                 readsFile: (String) -> Bool = { _ in true }) -> [WKUserScript] {
+        buildUserScripts(WebView.Props(properties).userScripts, logger: logger, readsFile: readsFile)
     }
 
     /// Builds WKUserScript objects from the parsed scripts.
-    static func buildUserScripts(_ scripts: [WebView.Props.UserScript], logger: any ActionUILogger) -> [WKUserScript] {
+    static func buildUserScripts(_ scripts: [WebView.Props.UserScript], logger: any ActionUILogger,
+                                 readsFile: (String) -> Bool) -> [WKUserScript] {
         var result: [WKUserScript] = []
         for script in scripts {
-            guard let source = resolveJSSource(from: script, logger: logger) else { continue }
+            guard let source = resolveJSSource(from: script, logger: logger, readsFile: readsFile) else { continue }
             let injectionTime: WKUserScriptInjectionTime
             switch script.injectionTime {
             case .documentStart: injectionTime = .atDocumentStart
@@ -49,8 +53,9 @@ enum WebViewSupport {
     }
 
     /// Resolves the JavaScript source string from a script descriptor dictionary.
-    static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger) -> String? {
-        resolveJSSource(from: WebView.Props.UserScript(descriptor), logger: logger)
+    static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger,
+                                readsFile: (String) -> Bool = { _ in true }) -> String? {
+        resolveJSSource(from: WebView.Props.UserScript(descriptor), logger: logger, readsFile: readsFile)
     }
 
     /// The UTF-8 text of the regular file at `path` (symbolic links followed), for a resourceName:
@@ -64,12 +69,16 @@ enum WebViewSupport {
 
     /// Resolves the JavaScript source string from a parsed script.
     /// Mirrors the Image.swift resourceName / filePath / source pattern.
-    static func resolveJSSource(from script: WebView.Props.UserScript, logger: any ActionUILogger) -> String? {
+    /// A filePath script is read only when `readsFile` allows it (the element's trust; a refusal
+    /// is logged by the check). A resourceName is the app's own and is not asked about.
+    static func resolveJSSource(from script: WebView.Props.UserScript, logger: any ActionUILogger,
+                                readsFile: (String) -> Bool) -> String? {
         if let source = script.source {
             return source
         }
 
         if let filePath = script.filePath {
+            guard readsFile(filePath) else { return nil }
             do {
                 // Only a regular file: a device or a pipe named by the document would block.
                 let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: filePath))
@@ -114,12 +123,14 @@ enum WebViewSupport {
     }
 
     /// Builds a WKWebViewConfiguration for the native backing from raw properties.
-    static func makeWKConfiguration(properties: [String: Any], logger: any ActionUILogger) -> WKWebViewConfiguration {
-        makeWKConfiguration(props: WebView.Props(properties), logger: logger)
+    static func makeWKConfiguration(properties: [String: Any], logger: any ActionUILogger,
+                                    readsFile: (String) -> Bool = { _ in true }) -> WKWebViewConfiguration {
+        makeWKConfiguration(props: WebView.Props(properties), logger: logger, readsFile: readsFile)
     }
 
     /// Builds a WKWebViewConfiguration for the native backing from parsed properties.
-    static func makeWKConfiguration(props: WebView.Props, logger: any ActionUILogger) -> WKWebViewConfiguration {
+    static func makeWKConfiguration(props: WebView.Props, logger: any ActionUILogger,
+                                    readsFile: (String) -> Bool) -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
 
         if let limits = props.limitsNavigationsToAppBoundDomains {
@@ -129,7 +140,7 @@ enum WebViewSupport {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = buildUserScripts(props.userScripts, logger: logger)
+        let scripts = buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile)
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {
@@ -161,7 +172,9 @@ struct WKWebViewRepresentable {
 
     /// Creates and configures the WKWebView, attaches the coordinator, and loads initial content.
     private func makeWebView(context: Context) -> WKWebView {
-        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger)
+        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger) { [windowUUID, element] in
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: element.id)
+        }
         let webView = WKWebView(frame: .zero, configuration: config)
 
         if let userAgent = props.customUserAgent {

@@ -637,6 +637,28 @@ final class WebViewTests: XCTestCase {
         XCTAssertNil(ImageHelper.lookup.resourcePath(up + "/Outside.png"), "an Image resourceName too")
     }
 
+    func testALessTrustedWebViewReadsNoScriptFileOutsideTheResources() throws {
+        let tmp = NSTemporaryDirectory() + "actionui-webview-trust-\(UUID().uuidString).js"
+        try "var fromFile = 1;".write(toFile: tmp, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+        let document = Data(#"{"id": 7, "type": "WebView", "properties": {}}"#.utf8)
+        let remote = UUID().uuidString
+        ActionUIModel.shared.logger = consoleLogger
+        defer { ActionUIModel.shared.logger = logger }
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/v.json")!))
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let script = WebView.Props.UserScript(["filePath": tmp])
+        XCTAssertNil(WebViewSupport.resolveJSSource(from: script, logger: consoleLogger) {
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: remote, viewID: 7)
+        }, "less trusted: a script file outside the app's resources")
+        XCTAssertEqual(WebViewSupport.resolveJSSource(from: script, logger: consoleLogger) {
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: self.windowUUID, viewID: 7)
+        }, "var fromFile = 1;", "the host's content reads it")
+        XCTAssertEqual(WebViewSupport.resolveJSSource(from: WebView.Props.UserScript(["source": "inline();"]), logger: consoleLogger) { _ in false },
+                       "inline();", "an inline script is part of the document")
+    }
+
     func testWebViewSupport_ResolveJSSource_MissingFile_ReturnsNil() {
         ActionUIModel.shared.logger = consoleLogger
         let source = WebViewSupport.resolveJSSource(from: ["filePath": "/no/such/file.js"], logger: consoleLogger)
