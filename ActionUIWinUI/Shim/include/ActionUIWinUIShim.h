@@ -106,10 +106,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
 ACTIONUI_WINUI_API bool actionUIWinUIShareLink(ActionUIWinUIObject *element, const char *url, const char *title, const char *text);
 // Drags with the real mouse, as a user does, for tests: through Windows' input queue (SendInput),
 // presses the left mouse button (the primary one unless the buttons are swapped) at (fromX, fromY)
-// in `element`'s coordinates, moves the pointer to (toX, toY) in steps and releases it there. It moves the user's pointer. `window`, which shows `element`,
-// is brought to the front (it fails when Windows refuses, or when the program has no interactive
-// desktop) and must have nothing over the points; the element sees the drag as the UI thread runs
-// after this returns.
+// in `element`'s coordinates, moves the pointer to (toX, toY) in steps 15 ms apart, as a hand moves
+// (the call takes about 150 ms; sent at once, a drag reads as a far faster flick), and releases it
+// there. It moves the user's pointer. `window`, which shows `element`, is brought to the front (it
+// fails when Windows refuses, or when the program has no interactive desktop) and must have nothing
+// over the points; the element sees the drag as the UI thread runs after this returns.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double fromX,
                                                     double fromY, double toX, double toY);
 
@@ -1017,6 +1018,39 @@ ACTIONUI_WINUI_API char *actionUIWinUIVideoPlayerCopyStatus(ActionUIWinUIObject 
 // per player: a new one replaces it).
 ACTIONUI_WINUI_API bool actionUIWinUIVideoPlayerOnChanged(ActionUIWinUIObject *videoPlayer, ActionUIWinUICallback handler,
                                                           void *context, ActionUIWinUICallback destroyContext);
+
+// MARK: - Map (OpenStreetMap's tiles)
+
+// Where a map looks: its center and zoom level (0 shows the world in one 256-pixel tile, each level
+// doubles it), and whether a finger, pen or button is on it or a flick is still moving it.
+typedef struct ActionUIWinUIMapCamera {
+    double latitude;
+    double longitude;
+    double zoom;
+    bool interacting;
+} ActionUIWinUIMapCamera;
+
+// A new map of OpenStreetMap's standard tiles, as large as it is given, opening at 0, 0 and zoom 1.
+// The tiles in view are fetched with Windows' HTTP client (whose cache honors the server's cache
+// headers), with `userAgent` naming the program, as OpenStreetMap's tile usage policy asks. A drag
+// (and a flick) pans; the wheel, a pinch, a double tap and its zoom buttons (top right) zoom;
+// OpenStreetMap's attribution, a link to its copyright page, sits bottom right. NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMapCreate(const char *userAgent);
+// Moves the map to look at latitude, longitude at `zoom` (negative or not a number: the zoom stays),
+// at once; the moved handler runs before this returns.
+ACTIONUI_WINUI_API bool actionUIWinUIMapSetCamera(ActionUIWinUIObject *map, double latitude, double longitude, double zoom);
+ACTIONUI_WINUI_API bool actionUIWinUIMapGetCamera(ActionUIWinUIObject *map, ActionUIWinUIMapCamera *camera);
+// What the user may do: pan (drag, flick) and zoom (wheel, pinch, double tap, the zoom buttons, shown
+// only then).
+ACTIONUI_WINUI_API bool actionUIWinUIMapSetInteraction(ActionUIWinUIObject *map, bool pan, bool zoom);
+// How the tiles went: "N tiles loaded, M failed", and the first failure's reason in parentheses, as a
+// new UTF-8 string the caller frees with actionUIWinUIFreeString; NULL on failure.
+ACTIONUI_WINUI_API char *actionUIWinUIMapCopyStatus(ActionUIWinUIObject *map);
+// `handler` runs on the UI thread at every change of the camera (each step of a drag or a zoom, and
+// actionUIWinUIMapSetCamera), and when a press or a flick on the map ends (one handler per map: a new
+// one replaces it).
+ACTIONUI_WINUI_API bool actionUIWinUIMapOnMoved(ActionUIWinUIObject *map, ActionUIWinUICallback handler, void *context,
+                                                ActionUIWinUICallback destroyContext);
 
 // MARK: - Network
 

@@ -152,6 +152,7 @@ PREVIEW_OPTIONS = {
     "Shares": ["420", "200"],
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
+    "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],
     "VideoPlayers": ["420", "300", "--set-value", "2", "{documents_url}/Media/one-second.mp4", "--delay", "4000",
                      "--expect-log", "VideoPlayer 2 opened", "--expect-log", "VideoPlayer 4 could not play"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
@@ -329,6 +330,10 @@ def windows_arch():
 # front. On the Arm64 runner a system window (Windows.UI.Core.CoreWindow, in another program) stays in
 # front and Windows refuses to bring another one there, so those options run on x64 only.
 REAL_INPUT_OPTIONS = {"--drag": 5, "--expect-width": 2}
+# What a document's --drag must cause, checked only where the drag runs (x64).
+REAL_INPUT_EXPECTATIONS = {
+    "Maps": ["--expect-action", "map.moved", "--expect-action", "map.changed"],
+}
 
 
 def without_real_input(options):
@@ -658,6 +663,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
                    for option in PREVIEW_OPTIONS.get(document.stem, [])]
         if windows_arch() == "arm64":
             options = without_real_input(options)
+        else:
+            options += REAL_INPUT_EXPECTATIONS.get(document.stem, [])
         step = run_step(f"preview-{document.stem}", [preview, document, png] + options, results, env, cwd=bin_path,
                         timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)

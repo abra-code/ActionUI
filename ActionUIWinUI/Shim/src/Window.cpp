@@ -317,25 +317,37 @@ bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObjec
             std::string message = "Windows did not bring the window to the front (in front: " + winrt::to_string(name) + ")";
             return fail("window send drag", message.c_str());
         }
-        // Pressed at the start, moved there in steps (as a hand moves it), released at the end.
-        std::vector<INPUT> inputs;
-        inputs.push_back(inputAt(fromX, fromY, 0));
-        inputs.push_back(inputAt(fromX, fromY, MOUSEEVENTF_LEFTDOWN));
+        // Pressed at the start, moved there in steps, released at the end, each step sent apart from
+        // the one before as a hand moves (Windows stamps each with the time it is sent): sent at once,
+        // the drag would read as a flick far faster than a hand's, and a map would glide away.
+        std::vector<std::vector<INPUT>> batches;
+        batches.push_back({inputAt(fromX, fromY, 0), inputAt(fromX, fromY, MOUSEEVENTF_LEFTDOWN)});
         constexpr int steps = 8;
         for (int step = 1; step <= steps; step++) {
             double fraction = static_cast<double>(step) / steps;
-            inputs.push_back(inputAt(fromX + (toX - fromX) * fraction, fromY + (toY - fromY) * fraction, 0));
+            batches.push_back({inputAt(fromX + (toX - fromX) * fraction, fromY + (toY - fromY) * fraction, 0)});
         }
-        inputs.push_back(inputAt(toX, toY, MOUSEEVENTF_LEFTUP));
-        // Cleared first: SendInput does not always set it, and an earlier call's error would be reported.
-        ::SetLastError(0);
-        UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
-        if (sent != inputs.size()) {
-            DWORD error = GetLastError();
-            if (error != 0) {
-                throw winrt::hresult_error(HRESULT_FROM_WIN32(error));
+        batches.push_back({inputAt(toX, toY, MOUSEEVENTF_LEFTUP)});
+        for (size_t index = 0; index < batches.size(); index++) {
+            if (index > 0) {
+                Sleep(15);
             }
-            return fail("window send drag", "Windows took only part of the pointer's input (another program's input in the way?)");
+            std::vector<INPUT> &inputs = batches[index];
+            // Cleared first: SendInput does not always set it, and an earlier call's error would be reported.
+            ::SetLastError(0);
+            UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+            if (sent != inputs.size()) {
+                DWORD error = GetLastError();
+                // The button is not left down.
+                if (index > 0) {
+                    INPUT up = inputAt(toX, toY, MOUSEEVENTF_LEFTUP);
+                    SendInput(1, &up, sizeof(INPUT));
+                }
+                if (error != 0) {
+                    throw winrt::hresult_error(HRESULT_FROM_WIN32(error));
+                }
+                return fail("window send drag", "Windows took only part of the pointer's input (another program's input in the way?)");
+            }
         }
         return true;
     });

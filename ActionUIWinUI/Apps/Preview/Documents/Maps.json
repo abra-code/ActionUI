@@ -1,0 +1,48 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "Map",
+   "id": 2,
+   "properties": {
+    "coordinate": {
+     "latitude": 37.33233141,
+     "longitude": -122.0312186
+    },
+    "valueChangeActionID": "map.moved",
+    "actionID": "map.changed",
+    "frame": {
+     "height": 200
+    }
+   }
+  },
+  {
+   "type": "Map",
+   "id": 3,
+   "properties": {
+    "coordinate": {
+     "latitude": 51.5007,
+     "longitude": -0.1246
+    },
+    "interactionModes": [],
+    "frame": {
+     "height": 60
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 4,
+   "properties": {
+    "text": "OpenStreetMap tiles around Cupertino, dragged by the run (x64); Westminster with no interaction (no zoom buttons). The run checks that tiles loaded and, on x64, that the drag moved the value",
+    "font": "caption"
+   }
+  }
+ ]
+}

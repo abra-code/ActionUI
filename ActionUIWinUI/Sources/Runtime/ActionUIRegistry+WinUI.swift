@@ -41,6 +41,7 @@ extension ActionUIRegistry {
         "LabeledContent": LabeledContent.self,
         "List": List.self,
         "LoadableView": LoadableView.self,
+        "Map": Map.self,
         "Menu": Menu.self,
         "NavigationLink": NavigationLink.self,
         "NavigationSplitView": NavigationSplitView.self,
