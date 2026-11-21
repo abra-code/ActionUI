@@ -1,0 +1,8 @@
+{
+ "type": "Text",
+ "id": 110,
+ "properties": {
+  "text": "and Grandchild.json beside it, by name",
+  "foregroundStyle": "secondary"
+ }
+}

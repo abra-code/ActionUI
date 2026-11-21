@@ -40,6 +40,7 @@ extension ActionUIRegistry {
         "Picker": Picker.self,
         "LabeledContent": LabeledContent.self,
         "List": List.self,
+        "LoadableView": LoadableView.self,
         "Menu": Menu.self,
         "NavigationLink": NavigationLink.self,
         "NavigationSplitView": NavigationSplitView.self,

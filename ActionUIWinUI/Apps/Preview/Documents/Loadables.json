@@ -1,0 +1,56 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "LoadableView",
+   "id": 2,
+   "properties": {
+    "filePath": "Loadable/Child.json",
+    "viewDidLoadActionID": "child.loaded"
+   }
+  },
+  {
+   "type": "LoadableView",
+   "id": 3,
+   "properties": {
+    "name": "Missing"
+   }
+  },
+  {
+   "type": "LoadableView",
+   "id": 4,
+   "properties": {
+    "filePath": "Loadable/Loop.json"
+   }
+  },
+  {
+   "type": "LoadableView",
+   "id": 5,
+   "properties": {
+    "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json",
+    "viewDidLoadActionID": "remote.loaded"
+   }
+  },
+  {
+   "type": "LoadableView",
+   "id": 6,
+   "properties": {
+    "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/NoSuchFile.json"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 7,
+   "properties": {
+    "text": "A file and a name found beside it; a name not found; a file that loads itself; a description over HTTPS; one the server does not have",
+    "font": "caption"
+   }
+  }
+ ]
+}

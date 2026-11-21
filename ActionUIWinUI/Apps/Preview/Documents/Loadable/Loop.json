@@ -1,0 +1,23 @@
+{
+ "type": "VStack",
+ "id": 120,
+ "properties": {
+  "alignment": "leading"
+ },
+ "children": [
+  {
+   "type": "Text",
+   "id": 121,
+   "properties": {
+    "text": "Loop.json, loading itself:"
+   }
+  },
+  {
+   "type": "LoadableView",
+   "id": 122,
+   "properties": {
+    "filePath": "Loadable/Loop.json"
+   }
+  }
+ ]
+}

@@ -1,0 +1,25 @@
+{
+ "type": "VStack",
+ "id": 100,
+ "properties": {
+  "alignment": "leading",
+  "spacing": 4
+ },
+ "children": [
+  {
+   "type": "Text",
+   "id": 101,
+   "properties": {
+    "text": "Loaded from Loadable/Child.json"
+   }
+  },
+  {
+   "type": "LoadableView",
+   "id": 102,
+   "properties": {
+    "name": "Grandchild",
+    "viewDidLoadActionID": "grandchild.loaded"
+   }
+  }
+ ]
+}

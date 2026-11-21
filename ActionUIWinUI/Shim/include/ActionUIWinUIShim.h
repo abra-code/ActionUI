@@ -946,6 +946,16 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIOb
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
                                                      ActionUIWinUICallback destroyContext);
 
+// MARK: - Network
+
+// Called on the UI thread when a fetch ends: the body's `length` bytes (valid only during the call), or
+// NULL and `error`, why not (an HTTP status that is not success, a network failure).
+typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes, size_t length, const char *error);
+// Fetches the http or https `url` with Windows' HTTP client (its cache and proxy settings), without
+// blocking: completion(context, ...) is called on the UI thread, always after this returns. False (and
+// no completion) when it could not start: not an http or https URL, not on the UI thread.
+ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, ActionUIWinUIDataCompletion completion, void *context);
+
 // MARK: - Symbols
 
 // The SF Symbol names ActionUI can draw on Windows are those of its SF Symbols -> Material Symbols

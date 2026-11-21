@@ -141,6 +141,8 @@ PREVIEW_OPTIONS = {
     "CanvasEffects": ["420", "210"],
     "ScrollReaders": ["420", "230", "--set-property", "4", "scrollTo", "230", "--wait"],
     "GeometryReaders": ["420", "190"],
+    "Loadables": ["420", "330", "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
+                  "--expect-action", "remote.loaded"],
     "Groups": ["420", "300", "--add-row", "21", "First", "--add-row", "21", "Second"],
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",

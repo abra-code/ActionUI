@@ -39,6 +39,8 @@
 //                            it reads as one, else a string)
 //   --set-path ID IDS        sets NavigationStack ID's navigationPath state through the model, as an
 //                            adapter does (IDS the destination ids, comma separated; "-" for none)
+//   --delay MS               waits MS milliseconds before the next operation (or the rendering): a
+//                            LoadableView's remote description loading
 //   --wait                   lets the changes the operations before it made reach the screen before
 //                            the next operation on screen (a screen pushed by an invoke, then its
 //                            back button)
@@ -74,7 +76,7 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
-             drag(Int, Double, Double, Double, Double), expectWidth(Int, Double),
+             drag(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
@@ -83,7 +85,7 @@ final class Preview {
                  .drag(let id, _, _, _, _), .expectWidth(let id, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
                 return id
-            case .wait:
+            case .wait, .delay:
                 return 0
             }
         }
@@ -92,7 +94,7 @@ final class Preview {
         /// input as the UI thread takes it), so an operation on screen after it waits.
         var showsLater: Bool {
             switch self {
-            case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait, .drag: true
+            case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait, .drag, .delay: true
             case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth: false
             }
         }
@@ -213,6 +215,22 @@ final class Preview {
                 say("waiting for the changes to be shown")
                 continue
             }
+            if case .delay(let milliseconds) = operation {
+                say("waiting \(milliseconds) ms")
+                let next = position + 1
+                // Last: the rendering after the usual settling time too.
+                let settle = next < invocations.count ? 0 : 500
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(milliseconds + settle)) {
+                    MainActor.assumeIsolated {
+                        if next < Preview.shared.invocations.count {
+                            Preview.shared.runOperations(from: next)
+                        } else {
+                            Preview.shared.reportAndRender()
+                        }
+                    }
+                }
+                return
+            }
             let viewID = operation.viewID
             guard let node = tree?.root.flatMap({ find(viewID, in: $0) }), let view = node.view else {
                 say("element \(viewID): no such element on screen")
@@ -310,7 +328,7 @@ final class Preview {
             case .setPath(_, let ids):
                 worked = ActionUIModel.shared.setElementState(windowUUID: "preview", viewID: viewID, key: "navigationPath", value: ids)
                 what = "set the path to \(ids) of"
-            case .wait:
+            case .wait, .delay:
                 continue
             case .addRow(_, let text):
                 let columns = text.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
@@ -476,7 +494,7 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -556,6 +574,9 @@ while index < arguments.count {
               let ids = pathIDs(arguments[index + 2]) {
         preview.invocations.append(.setPath(viewID, ids))
         index += 3
+    } else if option == "--delay", index + 1 < arguments.count, let milliseconds = Int(arguments[index + 1]), milliseconds >= 0 {
+        preview.invocations.append(.delay(milliseconds))
+        index += 2
     } else if option == "--wait" {
         preview.invocations.append(.wait)
         index += 1
