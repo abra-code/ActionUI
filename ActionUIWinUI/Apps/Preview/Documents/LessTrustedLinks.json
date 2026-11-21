@@ -1,0 +1,22 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "The app's own JSON: any link opens" } },
+    { "type": "Link", "id": 3, "properties": { "title": "Windows' display settings", "url": "ms-settings:display" } },
+    { "type": "Link", "id": 4, "properties": { "title": "ActionUI on GitHub", "url": "https://github.com/abra-code/ActionUI" } },
+    { "type": "Divider", "id": 5 },
+    { "type": "Text", "id": 6, "properties": { "text": "JSON from a server: only web and mail links open" } },
+    {
+      "type": "LoadableView",
+      "id": 7,
+      "properties": {
+        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/RemoteLinks.json"
+      }
+    },
+    { "type": "Divider", "id": 8 },
+    { "type": "Text", "id": 9, "properties": { "text": "A file outside the app's resources: the same" } },
+    { "type": "LoadableView", "id": 10, "properties": { "filePath": "Loadable/LocalLinks.json" } }
+  ]
+}

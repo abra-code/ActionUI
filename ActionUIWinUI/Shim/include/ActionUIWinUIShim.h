@@ -65,6 +65,16 @@ ACTIONUI_WINUI_API bool actionUIWinUIRun(ActionUIWinUICallback onLaunched, void 
 // Ends the application: actionUIWinUIRun returns once the current work is done.
 ACTIONUI_WINUI_API void actionUIWinUIQuit(void);
 
+// The folder of the running program (its .exe), as a new UTF-8 string the caller frees with
+// actionUIWinUIFreeString; NULL on failure.
+ACTIONUI_WINUI_API char *actionUIWinUICopyProgramFolder(void);
+
+// Opens `url` (UTF-8, an absolute URL) with the system: the user's browser, or the app registered for
+// its scheme, with the rules XAML applies to a HyperlinkButton's NavigateUri: http and https open at
+// once, another app's scheme after Windows' warning, and file: and res: not at all (fails). Returns
+// once the request is made, not when the app opens. Fails for text WinUI cannot read as an absolute URL.
+ACTIONUI_WINUI_API bool actionUIWinUILaunchURL(const char *url);
+
 // Calls callback(context) on the UI thread after `milliseconds` (0: as soon as the UI thread is
 // free). Once.
 ACTIONUI_WINUI_API bool actionUIWinUIPostDelayed(int32_t milliseconds, ActionUIWinUICallback callback,
@@ -245,10 +255,10 @@ ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMenuCopyItem(ActionUIWinUIO
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIHyperlinkCreate(void);
 // Shows `title` (UTF-8) as the link's text.
 ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkSetTitle(ActionUIWinUIObject *link, const char *title);
-// The URL a click opens with the system (the user's browser, or the app registered for its scheme): an
-// absolute URL (UTF-8), or NULL for none (a click opens nothing). Fails for text WinUI cannot read as an
-// absolute URL.
-ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkSetURL(ActionUIWinUIObject *link, const char *url);
+// Calls handler(context) on each click (a press, Enter or Space, or UI Automation's Invoke). The link
+// opens nothing itself: the handler opens its URL (actionUIWinUILaunchURL), so the app decides first.
+ACTIONUI_WINUI_API bool actionUIWinUIHyperlinkOnClick(ActionUIWinUIObject *link, ActionUIWinUICallback handler, void *context,
+                                                    ActionUIWinUICallback destroyContext);
 
 // MARK: - Expander (a DisclosureGroup)
 

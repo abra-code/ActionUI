@@ -75,10 +75,13 @@ extension ActionUIRegistry {
     private static var winUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [:]
     private static var typesReportedMissing: Set<String> = []
 
-    // The WinUI built-ins, after loadBuiltIns has filled `specs`. Core's default hooks stay.
+    // The WinUI built-ins, after loadBuiltIns has filled `specs`. Core's other default hooks stay.
     internal func loadRendererBuiltIns() {
         Self.winUIRenderers = Self.builtInWinUIRenderers
         Self.typesReportedMissing = []
+        // The app's own resources, whose ActionUI JSON is trusted: the host's folder, else the
+        // program's.
+        ActionUIRendererHooks.resourceFolders = LinkTrust.resourceFolders
     }
 
     /// The renderer for an element type, or the placeholder (logged once per type) when the type

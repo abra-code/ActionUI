@@ -1,0 +1,11 @@
+{
+  "type": "VStack",
+  "id": 100,
+  "properties": { "spacing": 8, "alignment": "leading" },
+  "children": [
+    { "type": "Link", "id": 101, "properties": { "title": "Windows' display settings (refused)", "url": "ms-settings:display" } },
+    { "type": "Link", "id": 102, "properties": { "title": "A file share (refused)", "url": "file://server/share/report.txt" } },
+    { "type": "Link", "id": 103, "properties": { "title": "example.com (opens)", "url": "https://example.com/" } },
+    { "type": "Link", "id": 104, "properties": { "title": "Mail (opens)", "url": "mailto:someone@example.com" } }
+  ]
+}

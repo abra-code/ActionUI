@@ -9,12 +9,14 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <cwctype>  // towlower
 #include <memory>
 #include <vector>
 
 #include <MddBootstrap.h>
 #include <WindowsAppSDK-VersionInfo.h>
 
+#include <winrt/Windows.System.h>  // Launcher
 #include <winrt/Windows.UI.Xaml.Interop.h>
 #include <winrt/Microsoft.UI.Xaml.Markup.h>
 #include <winrt/Microsoft.UI.Xaml.XamlTypeInfo.h>
@@ -221,6 +223,74 @@ bool actionUIWinUIRun(ActionUIWinUICallback onLaunched, void *context) {
 void actionUIWinUIQuit(void) {
     guarded("quit", []() {
         mux::Application::Current().Exit();
+        return true;
+    });
+}
+
+char *actionUIWinUICopyProgramFolder(void) {
+    char *copy = nullptr;
+    guarded("copy program folder", [&]() {
+        // Longer paths than MAX_PATH: grow until the name fits (GetModuleFileNameW cuts it to the buffer).
+        std::wstring path(MAX_PATH, L'\0');
+        DWORD length = 0;
+        while (true) {
+            length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+            if (length == 0) {
+                return fail("copy program folder", "GetModuleFileNameW failed");
+            }
+            if (length < path.size()) {
+                break;
+            }
+            if (path.size() >= 32768) {
+                return fail("copy program folder", "the program's path is too long");
+            }
+            path.resize(path.size() * 2);
+        }
+        path.resize(length);
+        size_t slash = path.find_last_of(L"\\/");
+        if (slash == std::wstring::npos) {
+            return fail("copy program folder", "the program's path has no folder");
+        }
+        // "C:\app.exe" or "\\?\C:\app.exe": a drive's root would hold every file on the drive.
+        size_t start = path.rfind(L"\\\\?\\", 0) == 0 ? 4 : 0;
+        if (slash <= start + 2) {
+            return fail("copy program folder", "the program is at the root of a drive");
+        }
+        std::string utf8 = winrt::to_string(std::wstring_view(path.data(), slash));
+        copy = static_cast<char *>(malloc(utf8.size() + 1));
+        if (copy == nullptr) {
+            return fail("copy program folder", "out of memory");
+        }
+        memcpy(copy, utf8.c_str(), utf8.size() + 1);
+        return true;
+    });
+    return copy;
+}
+
+bool actionUIWinUILaunchURL(const char *url) {
+    return guarded("launch url", [&]() {
+        if (url == nullptr) {
+            return fail("launch url", "the URL is NULL");
+        }
+        wf::Uri uri(toHString(url));
+        // XAML's own rules for a HyperlinkButton's NavigateUri (microsoft-ui-xaml's
+        // Launcher::TryInvokeLauncher): file: and res: are not opened; http and https open at once;
+        // any other scheme (another app's) opens with Windows' warning before switching apps.
+        std::wstring scheme(uri.SchemeName());
+        for (wchar_t &character : scheme) {
+            character = towlower(character);
+        }
+        if (scheme == L"file" || scheme == L"res") {
+            return fail("launch url", "Windows does not open file: or res: links");
+        }
+        // Not awaited: the app opens on its own time, as NavigateUri opens it.
+        if (scheme == L"http" || scheme == L"https") {
+            winrt::Windows::System::Launcher::LaunchUriAsync(uri);
+        } else {
+            winrt::Windows::System::LauncherOptions options;
+            options.TreatAsUntrusted(true);
+            winrt::Windows::System::Launcher::LaunchUriAsync(uri, options);
+        }
         return true;
     });
 }

@@ -489,12 +489,14 @@ bool actionUIWinUIHyperlinkSetTitle(ActionUIWinUIObject *link, const char *title
     });
 }
 
-bool actionUIWinUIHyperlinkSetURL(ActionUIWinUIObject *link, const char *url) {
-    return guarded("hyperlink set url", [&]() {
-        muxc::HyperlinkButton typed = objectAs<muxc::HyperlinkButton>(link, L"HyperlinkButton");
-        typed.NavigateUri(url != nullptr ? wf::Uri(toHString(url)) : nullptr);
-        return true;
-    });
+bool actionUIWinUIHyperlinkOnClick(ActionUIWinUIObject *link, ActionUIWinUICallback handler, void *context,
+                                   ActionUIWinUICallback destroyContext) {
+    return registerHandler("hyperlink on click", handler, context, destroyContext,
+                           [&](std::shared_ptr<EventHandler> const &holder) {
+                               objectAs<muxc::HyperlinkButton>(link, L"HyperlinkButton").Click([holder](auto &&, auto &&) {
+                                   holder->fire();
+                               });
+                           });
 }
 
 ActionUIWinUIObject *actionUIWinUIExpanderCreate(ActionUIWinUIObject *content) {
