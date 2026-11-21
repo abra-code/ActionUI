@@ -19,8 +19,12 @@
  - interactionModes: without "pan", dragging and flicking do nothing; without "zoom", the wheel,
    pinching, double-tapping and the zoom buttons (hidden) do nothing. "rotate" is ignored: the map
    always points north.
+ - Each annotation is a red pin (mappin.circle.fill) with its tip on the coordinate and the title
+   (semibold) and subtitle centered under it on a light plate, as a pin-based map app draws a place
+   and as on Linux. Map tiles are light in dark mode too, so the text is dark whatever the theme. The
+   pins take no input: dragging over one moves the map.
 
- Not yet (logged once): annotations and showsUserLocation.
+ Not yet (logged once): showsUserLocation.
 */
 
 #if canImport(FoundationEssentials)
@@ -37,7 +41,6 @@ import ucrt
 import CWinUI
 import Dispatch
 
-@MainActor private var reportedAnnotations = false
 @MainActor private var reportedUserLocation = false
 
 /// What a Map's handlers share, kept in its node's state.
@@ -51,6 +54,8 @@ import Dispatch
     var tracking = false
     /// Counts the map's changes; a settle check scheduled for an older count is dropped.
     var moveCount = 0
+    /// The annotations shown.
+    var annotations: [Map.Props.Annotation] = []
     /// The camera when the last move ended (or the map opened): the shim also reports a press or a
     /// flick that ends, so one that left the camera where it was (a click) fires nothing, as on Apple
     /// and Linux.
@@ -102,6 +107,10 @@ extension Map: ActionUIWinUIRenderer {
             ActionUIModel.shared.logger.log("Map: \(WinUIError.last("setting its interaction modes"))", .error)
         }
         reportNotYet(props)
+        if props.annotations != state.annotations {
+            state.annotations = props.annotations
+            showAnnotations(props.annotations, state)
+        }
         guard let center = initialValue(node.model) as? ActionUICoordinate, center != state.lastTracked else { return }
         state.lastTracked = center
         // Before the first layout the opening zoom comes with it (open).
@@ -207,13 +216,55 @@ extension Map: ActionUIWinUIRenderer {
         }
     }
 
+    // MARK: Annotations
+
+    /// The pin's square, in pixels, as on Linux.
+    static let pinSide = 32.0
+    /// The pin glyph's point sits a twelfth of its square above the square's bottom.
+    static let pinTip = pinSide / 12
+
+    /// Replaces the pins with one per annotation.
+    private static func showAnnotations(_ annotations: [Props.Annotation], _ state: MapState) {
+        let logger = ActionUIModel.shared.logger
+        // The texts as C strings for the call, freed after it.
+        var texts: [UnsafeMutablePointer<CChar>] = []
+        defer { texts.forEach { $0.deallocate() } }
+        func cString(_ text: String?) -> UnsafePointer<CChar>? {
+            guard let text, !text.isEmpty else { return nil }
+            let utf8 = Array(text.utf8CString)
+            let copy = UnsafeMutablePointer<CChar>.allocate(capacity: utf8.count)
+            copy.initialize(from: utf8, count: utf8.count)
+            texts.append(copy)
+            return UnsafePointer(copy)
+        }
+        var pins: [WinUIObject] = []
+        var items: [ActionUIWinUIMapAnnotation] = []
+        for annotation in annotations {
+            let pin = ImageLayout.makeSymbol("mappin.circle.fill")
+            if let pin {
+                pins.append(pin)
+                if !actionUIWinUISymbolSetSize(pin.pointer, pinSide) {
+                    logger.log("Map: \(WinUIError.last("sizing a pin"))", .error)
+                }
+                Paint.apply(Paint.parse("red", role: .foreground), ActionUIWinUIBrushForeground, to: pin, what: "a Map pin")
+            }
+            items.append(ActionUIWinUIMapAnnotation(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude,
+                                                    title: cString(annotation.title), subtitle: cString(annotation.subtitle),
+                                                    pin: pin?.pointer, pinSide: pinSide, pinTip: pinTip))
+        }
+        let shown = items.withUnsafeBufferPointer { buffer in
+            actionUIWinUIMapSetAnnotations(state.map.pointer, buffer.baseAddress, buffer.count)
+        }
+        if !shown {
+            logger.log("Map: \(WinUIError.last("showing its annotations"))", .error)
+        }
+        // The map holds the pins now.
+        withExtendedLifetime(pins) {}
+    }
+
     /// Logs, once per process each, what the Windows map does not show.
     private static func reportNotYet(_ props: Props) {
         let logger = ActionUIModel.shared.logger
-        if !props.annotations.isEmpty, !reportedAnnotations {
-            reportedAnnotations = true
-            logger.log("Map: annotations are not shown on Windows yet", .warning)
-        }
         if props.showsUserLocation, !reportedUserLocation {
             reportedUserLocation = true
             logger.log("Map: showsUserLocation is not shown on Windows yet", .warning)

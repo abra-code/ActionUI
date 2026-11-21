@@ -1036,6 +1036,25 @@ typedef struct ActionUIWinUIMapCamera {
 // (and a flick) pans; the wheel, a pinch, a double tap and its zoom buttons (top right) zoom;
 // OpenStreetMap's attribution, a link to its copyright page, sits bottom right. NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIMapCreate(const char *userAgent);
+// An annotation: a pin (an icon the caller made, a symbol in its color, or NULL for none) with its
+// tip on the coordinate, and the title (semibold) and subtitle (NULL or empty: none) centered under
+// it, wrapped, on a light plate, dark whatever the theme (the tiles stay light). `pinSide` is the
+// side of the pin's square and `pinTip` how far its tip is above the square's bottom.
+typedef struct ActionUIWinUIMapAnnotation {
+    double latitude;
+    double longitude;
+    const char *title;
+    const char *subtitle;
+    ActionUIWinUIObject *pin;
+    double pinSide;
+    double pinTip;
+} ActionUIWinUIMapAnnotation;
+
+// Replaces the map's annotations (`count` of them; one whose coordinate is not a number is skipped).
+// They take no input: a drag or a click on one goes to the map; a screen reader reads their text. The
+// pins are the map's from then on (the caller may release its references).
+ACTIONUI_WINUI_API bool actionUIWinUIMapSetAnnotations(ActionUIWinUIObject *map, const ActionUIWinUIMapAnnotation *annotations,
+                                                       size_t count);
 // Moves the map to look at latitude, longitude at `zoom` (negative or not a number: the zoom stays),
 // at once; the moved handler runs before this returns.
 ACTIONUI_WINUI_API bool actionUIWinUIMapSetCamera(ActionUIWinUIObject *map, double latitude, double longitude, double zoom);

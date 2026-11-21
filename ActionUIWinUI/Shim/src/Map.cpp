@@ -1,8 +1,8 @@
 // Map.cpp - a map of OpenStreetMap's standard tiles (Web Mercator, 256-pixel tiles, zoom levels 0 to
 // 19): the tiles in view are fetched with Windows' HTTP client (its cache honors the server's cache
-// headers, as OpenStreetMap's tile usage policy asks), decoded and placed as images. A drag pans, the
-// wheel, a pinch, a double tap and the zoom buttons zoom; OpenStreetMap's attribution sits in the
-// bottom right corner.
+// headers, as OpenStreetMap's tile usage policy asks), decoded and placed as images, with the
+// annotations' pins and text over them. A drag pans, the wheel, a pinch, a double tap and the zoom
+// buttons zoom; OpenStreetMap's attribution sits in the bottom right corner.
 
 #include "ShimInternal.h"
 
@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <winrt/Microsoft.UI.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Automation.h>  // AutomationProperties
@@ -25,6 +26,7 @@
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.UI.h>  // Color
+#include <winrt/Windows.UI.Text.h>  // FontWeight
 #include <winrt/Windows.Web.Http.h>
 #include <winrt/Windows.Web.Http.Headers.h>
 
@@ -57,6 +59,20 @@ uint64_t placeKey(int z, int64_t x, int64_t y) {
     return (static_cast<uint64_t>(z) << 56) | (static_cast<uint64_t>(x + (int64_t(1) << 26)) << 28) | static_cast<uint64_t>(y);
 }
 
+// An annotation's view, placed so that its pin's tip (tipY below the view's top, at its horizontal
+// middle) is on the coordinate.
+struct Marker {
+    mux::FrameworkElement view{nullptr};
+    double latitude;
+    double longitude;
+    double tipY;
+};
+
+// An annotation's view is this wide, its text wrapped and centered in it.
+constexpr double markerWidth = 160;
+// Room between the pin's tip and the text under it.
+constexpr double pinTextGap = 2;
+
 struct Placed {
     muxc::Image image{nullptr};
     int level;
@@ -70,6 +86,8 @@ struct MapData {
     winrt::weak_ref<muxc::Grid> root;
     muxc::Canvas backdrop{nullptr};
     muxc::Canvas tiles{nullptr};
+    muxc::Canvas markerLayer{nullptr};
+    std::vector<Marker> markers;
     muxc::StackPanel zoomButtons{nullptr};
     http::HttpClient client{nullptr};
     double latitude = 0;
@@ -291,6 +309,25 @@ void place(std::shared_ptr<MapData> const &data, Placed const &placed, double le
     muxc::Canvas::SetTop(placed.image, placed.y * side - top);
 }
 
+// Places the annotations' views over the map at the camera; one whose place is out of view is placed
+// there too (the layer clips nothing, the map does). Where the world repeats across, the copy nearest
+// the center is the one shown.
+void layoutMarkers(std::shared_ptr<MapData> const &data) {
+    double world = worldSize(data->zoom);
+    double centerX = longitudeToX(data->longitude, world);
+    double left = centerX - data->width / 2;
+    double top = latitudeToY(data->latitude, world) - data->height / 2;
+    for (Marker const &marker : data->markers) {
+        // The degrees east of the center, -180 to 180, in one step: a host's longitude far outside
+        // -180 to 180 (1e20) would take a loop of world widths forever.
+        double east = std::remainder(marker.longitude - data->longitude, 360.0);
+        double x = centerX + east / 360.0 * world;
+        double y = latitudeToY(marker.latitude, world);
+        muxc::Canvas::SetLeft(marker.view, x - left - markerWidth / 2);
+        muxc::Canvas::SetTop(marker.view, y - top - marker.tipY);
+    }
+}
+
 // Shows the tiles that cover the view at the camera, fetching the missing ones.
 void layoutTiles(std::shared_ptr<MapData> const &data) {
     if (data->width <= 0 || data->height <= 0) {
@@ -381,6 +418,7 @@ void layoutTiles(std::shared_ptr<MapData> const &data) {
             place(data, entry.second, left, top);
         }
     }
+    layoutMarkers(data);
     startFetches(data);
 }
 
@@ -506,6 +544,10 @@ ActionUIWinUIObject *actionUIWinUIMapCreate(const char *userAgent) {
         data->tiles.IsHitTestVisible(false);
         root.Children().Append(data->backdrop);
         root.Children().Append(data->tiles);
+        // The annotations take no input: a drag or a click that starts on one goes to the map.
+        data->markerLayer = muxc::Canvas();
+        data->markerLayer.IsHitTestVisible(false);
+        root.Children().Append(data->markerLayer);
         root.Children().Append(attribution());
 
         data->zoomButtons = muxc::StackPanel();
@@ -612,6 +654,80 @@ ActionUIWinUIObject *actionUIWinUIMapCreate(const char *userAgent) {
         applyInteraction(data);
         maps()[identity(root)] = data;
         return toObject(root);
+    });
+}
+
+bool actionUIWinUIMapSetAnnotations(ActionUIWinUIObject *map, const ActionUIWinUIMapAnnotation *annotations, size_t count) {
+    return guarded("map set annotations", [&]() {
+        std::shared_ptr<MapData> data = dataOf(map);
+        if (annotations == nullptr && count > 0) {
+            return fail("map set annotations", "no annotations to read");
+        }
+        // Built first, so a failure leaves the old ones shown.
+        std::vector<Marker> markers;
+        for (size_t index = 0; index < count; index++) {
+            ActionUIWinUIMapAnnotation const &annotation = annotations[index];
+            if (!std::isfinite(annotation.latitude) || !std::isfinite(annotation.longitude)) {
+                continue;
+            }
+            muxc::StackPanel view;
+            view.Width(markerWidth);
+            view.IsHitTestVisible(false);
+            double tipY = 0;
+            if (annotation.pin != nullptr) {
+                mux::FrameworkElement pin = objectAs<mux::FrameworkElement>(annotation.pin, L"FrameworkElement");
+                // An element has one parent: a pin shown before leaves its old view.
+                if (auto parent = winrt::Microsoft::UI::Xaml::Media::VisualTreeHelper::GetParent(pin).try_as<muxc::Panel>()) {
+                    uint32_t at = 0;
+                    if (parent.Children().IndexOf(pin, at)) {
+                        parent.Children().RemoveAt(at);
+                    }
+                }
+                pin.HorizontalAlignment(mux::HorizontalAlignment::Center);
+                pin.Width(annotation.pinSide);
+                pin.Height(annotation.pinSide);
+                view.Children().Append(pin);
+                tipY = annotation.pinSide - annotation.pinTip;
+            }
+            muxc::StackPanel lines;
+            for (int line = 0; line < 2; line++) {
+                const char *text = line == 0 ? annotation.title : annotation.subtitle;
+                if (text == nullptr || text[0] == '\0') {
+                    continue;
+                }
+                muxc::TextBlock block;
+                block.Text(toHString(text));
+                block.FontSize(12);
+                if (line == 0) {
+                    block.FontWeight(winrt::Windows::UI::Text::FontWeight{600});  // semibold
+                }
+                block.TextWrapping(mux::TextWrapping::Wrap);
+                block.TextAlignment(mux::TextAlignment::Center);
+                block.HorizontalAlignment(mux::HorizontalAlignment::Center);
+                // Dark on the light tiles in either theme, as the tiles stay light.
+                block.Foreground(mux::Media::SolidColorBrush(winrt::Windows::UI::Color{0xD9, 0, 0, 0}));
+                lines.Children().Append(block);
+            }
+            if (lines.Children().Size() > 0) {
+                // A light plate under the text, so it reads over roads and labels.
+                muxc::Border plate;
+                plate.Background(mux::Media::SolidColorBrush(winrt::Windows::UI::Color{0xBF, 0xFF, 0xFF, 0xFF}));
+                plate.CornerRadius(mux::CornerRadius{4, 4, 4, 4});
+                plate.Padding(mux::Thickness{4, 1, 4, 1});
+                plate.HorizontalAlignment(mux::HorizontalAlignment::Center);
+                plate.Margin(mux::Thickness{0, pinTextGap - (annotation.pin != nullptr ? annotation.pinTip : 0), 0, 0});
+                plate.Child(lines);
+                view.Children().Append(plate);
+            }
+            markers.push_back(Marker{view, annotation.latitude, annotation.longitude, tipY});
+        }
+        data->markerLayer.Children().Clear();
+        data->markers = std::move(markers);
+        for (Marker const &marker : data->markers) {
+            data->markerLayer.Children().Append(marker.view);
+        }
+        layoutMarkers(data);
+        return true;
     });
 }
 

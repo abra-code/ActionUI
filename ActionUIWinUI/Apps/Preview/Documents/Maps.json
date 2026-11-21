@@ -19,7 +19,30 @@
     "actionID": "map.changed",
     "frame": {
      "height": 200
-    }
+    },
+    "annotations": [
+     {
+      "coordinate": {
+       "latitude": 37.3349,
+       "longitude": -122.009
+      },
+      "title": "Apple Park",
+      "subtitle": "One Apple Park Way"
+     },
+     {
+      "coordinate": {
+       "latitude": 37.3237,
+       "longitude": -122.0412
+      },
+      "title": "Library"
+     },
+     {
+      "coordinate": {
+       "latitude": 37.339,
+       "longitude": -122.033
+      }
+     }
+    ]
    }
   },
   {
@@ -40,7 +63,7 @@
    "type": "Text",
    "id": 4,
    "properties": {
-    "text": "OpenStreetMap tiles around Cupertino, dragged by the run (x64); Westminster with no interaction (no zoom buttons). The run checks that tiles loaded and, on x64, that the drag moved the value",
+    "text": "OpenStreetMap tiles around Cupertino with three pins (title and subtitle, a title, none), dragged by the run (x64); Westminster with no interaction (no zoom buttons). The run checks that tiles loaded and, on x64, that the drag moved the value",
     "font": "caption"
    }
   }
