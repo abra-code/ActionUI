@@ -33,6 +33,12 @@ import Foundation
 import CWinUI
 
 extension TextField: ActionUIWinUIRenderer {
+    /// The title, as SwiftUI names the control after it (the control has no title of its own: in a
+    /// Form it is the separate text in the label column).
+    static func defaultAccessibleName(_ node: RenderNode) -> String? {
+        Props(node.properties).title
+    }
+
     static var defaultExpansion: Expansion { .horizontal }
 
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
@@ -125,9 +131,10 @@ extension TextField: ActionUIWinUIRenderer {
 
 /// What a TextField node keeps: the placeholder shown (nil before the first update) and the text an
 /// update set whose change WinUI has not reported yet.
-@MainActor final class TextFieldState {
+@MainActor final class TextFieldState: TitledControlHolder {
     var placeholder: String?
     var pendingSet: String?
     /// A TextField or SecureField in a Form: its title before it, in the Form's label column.
     var layout: TitledControlLayout?
+    var titledControl: WinUIObject? { layout?.control }
 }

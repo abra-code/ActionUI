@@ -34,6 +34,11 @@ import CWinUI
 }
 
 extension DisclosureGroup: ActionUIWinUIRenderer {
+    /// The title, which the Expander is named after (actionUIWinUIExpanderSetTitle).
+    static func defaultAccessibleName(_ node: RenderNode) -> String? {
+        Props(node.properties).title
+    }
+
     /// As wide as it is offered, as tall as it needs, whatever its children do (measured on macOS 27).
     static var defaultExpansion: Expansion { .horizontal }
 

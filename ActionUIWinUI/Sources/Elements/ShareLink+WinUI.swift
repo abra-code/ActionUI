@@ -14,7 +14,7 @@
  - The item is a URL string (ShareLink.Props); without one the button takes no place and no spacing,
    as SwiftUI shows an EmptyView (logged once), and is collapsed wherever it is (a ScrollView's
    content, a tab), as Link is.
- - Its accessible name is accessibilityLabel, else "Share".
+ - Its accessible name is accessibilityLabel, else "Share" (defaultAccessibleName).
 
  Not yet: controlSize and buttonStyle, as for a Button.
 */
@@ -26,7 +26,6 @@ import CWinUI
 /// A ShareLink's button content.
 @MainActor final class ShareLinkState {
     let layout: IconTitleLayout
-    var shownName: String?
     /// Whether the button is collapsed (no item), nil before the first update.
     var collapsed: Bool?
 
@@ -38,6 +37,8 @@ import CWinUI
 extension ShareLink: ActionUIWinUIRenderer {
     static let title = "Share"
     static let symbol = "square.and.arrow.up"
+
+    static func defaultAccessibleName(_ node: RenderNode) -> String? { title }
 
     static func takesNoPlace(_ node: RenderNode) -> Bool {
         Props(node.properties).item == nil
@@ -80,14 +81,6 @@ extension ShareLink: ActionUIWinUIRenderer {
         }
         node.applyTextAppearance(to: view, what: "a ShareLink")
         state.layout.setIconSide(ImageLayout.symbolSide(node, scale: nil))
-        let name = BaseModifiers(node.properties).accessibilityLabel ?? title
-        if name != state.shownName {
-            if actionUIWinUIElementSetAccessibleName(view.pointer, name) {
-                state.shownName = name
-            } else {
-                ActionUIModel.shared.logger.log("ShareLink: \(WinUIError.last("naming the button"))", .error)
-            }
-        }
         node.applyAccessibilityHidden(to: state.layout.title)
         if let icon = state.layout.icon {
             node.applyAccessibilityHidden(to: icon)

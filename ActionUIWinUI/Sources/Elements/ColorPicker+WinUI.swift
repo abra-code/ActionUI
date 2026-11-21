@@ -19,12 +19,12 @@
 import CWinUI
 
 /// What a ColorPicker node keeps: its layout and the color it last showed.
-@MainActor final class ColorPickerState {
+@MainActor final class ColorPickerState: TitledControlHolder {
     let layout: TitledControlLayout
+    var titledControl: WinUIObject? { layout.control }
     /// The color the renderer last set, in the picker's steps of 1/255: a change event reporting it is
     /// the renderer's own.
     var shownColor: [Int]?
-    var accessibleName: String?
     var appliedAppearance: TextAppearance?
 
     init(layout: TitledControlLayout) {
@@ -33,6 +33,12 @@ import CWinUI
 }
 
 extension ColorPicker: ActionUIWinUIRenderer {
+    /// The title, also when labelsHidden hides it, as in SwiftUI; with no title, "Color".
+    static func defaultAccessibleName(_ node: RenderNode) -> String? {
+        let title = Props(node.properties).title
+        return title.isEmpty ? "Color" : title
+    }
+
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
         guard let button = WinUIObject(adopting: actionUIWinUIColorButtonCreate()) else {
             throw WinUIError.last("creating a ColorPicker's button")
@@ -66,16 +72,6 @@ extension ColorPicker: ActionUIWinUIRenderer {
         if state.appliedAppearance != node.textAppearance {
             state.appliedAppearance = node.textAppearance
             node.textAppearance.apply(to: layout.title, what: "a ColorPicker's title")
-        }
-        // The button is named after the title, also when labelsHidden hides it, as in SwiftUI; with no
-        // title, the button's own name ("Color").
-        let name = props.title.isEmpty ? "Color" : props.title
-        if state.accessibleName != name {
-            if actionUIWinUIElementSetAccessibleName(layout.control.pointer, name) {
-                state.accessibleName = name
-            } else {
-                ActionUIModel.shared.logger.log("ColorPicker: \(WinUIError.last("naming the button"))", .error)
-            }
         }
         // Read by the button; the title beside it is not read again.
         if !actionUIWinUIElementSetAccessibilityHidden(layout.title.pointer, true) {

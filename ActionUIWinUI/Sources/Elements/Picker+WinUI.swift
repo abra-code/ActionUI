@@ -25,6 +25,12 @@
 
 import CWinUI
 
+/// A node state whose element is a WinUI control in a TitledControlLayout: accessibility tools read
+/// the control, not the panel around it and its title (ActionUIWinUIRenderer.accessibleObject).
+@MainActor protocol TitledControlHolder: AnyObject {
+    var titledControl: WinUIObject? { get }
+}
+
 /// A title beside a control, `spacing` apart: a Picker's.
 @MainActor
 final class TitledControlLayout: FormLabeledLayout {
@@ -120,8 +126,9 @@ final class TitledControlLayout: FormLabeledLayout {
 }
 
 /// A Picker's layout and what its control shows.
-@MainActor final class PickerState {
+@MainActor final class PickerState: TitledControlHolder {
     let layout: TitledControlLayout
+    var titledControl: WinUIObject? { layout.control }
     let kind: ActionUIWinUIChoiceKind
     /// The items' titles and tags, in the control's order.
     var titles: [String]?
@@ -138,6 +145,12 @@ final class TitledControlLayout: FormLabeledLayout {
 }
 
 extension Picker: ActionUIWinUIRenderer {
+    /// The title, as SwiftUI names the control after it (the control has no title of its own: in a
+    /// Form it is the separate text in the label column).
+    static func defaultAccessibleName(_ node: RenderNode) -> String? {
+        Props(node.properties).title
+    }
+
     /// The control for the element's style; read without tracking, at creation.
     static func kind(_ node: RenderNode) -> ActionUIWinUIChoiceKind {
         switch UntrackedReads.perform({ Props(node.properties).style }) {

@@ -41,6 +41,8 @@
 //                            adapter does (IDS the destination ids, comma separated; "-" for none)
 //   --expect-state ID KEY VALUE  fails unless element ID's state KEY reads VALUE (as text: "true",
 //                            "0.5", a string) at that point (a WebView's title after a --delay)
+//   --expect-automation ID FIELD TEXT  fails unless an accessibility tool reads TEXT as element ID's
+//                            FIELD ("name", "help" or "id"), through its UI Automation peer
 //   --delay MS               waits MS milliseconds before the next operation (or the rendering): a
 //                            LoadableView's remote description loading
 //   --wait                   lets the changes the operations before it made reach the screen before
@@ -82,13 +84,13 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
-             drag(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int), expectState(Int, String, String),
+             drag(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int), expectState(Int, String, String), expectAutomation(Int, String, String),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .invokeMenuItem(let id, _), .toggleMenuItem(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
-                 .drag(let id, _, _, _, _), .expectWidth(let id, _), .expectState(let id, _, _),
+                 .drag(let id, _, _, _, _), .expectWidth(let id, _), .expectState(let id, _, _), .expectAutomation(let id, _, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _):
                 return id
             case .wait, .delay:
@@ -101,7 +103,7 @@ final class Preview {
         var showsLater: Bool {
             switch self {
             case .setProperty, .setValue, .addRow, .addRows, .setPath, .wait, .drag, .delay: true
-            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth, .expectState: false
+            case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth, .expectState, .expectAutomation: false
             }
         }
 
@@ -300,6 +302,27 @@ final class Preview {
                 }
                 worked = true
                 what = "found state \(key) \"\(shown)\" in"
+            case .expectAutomation(_, let field, let expected):
+                let which: ActionUIWinUIAutomationText
+                switch field {
+                case "name": which = ActionUIWinUIAutomationName
+                case "help": which = ActionUIWinUIAutomationHelpText
+                default: which = ActionUIWinUIAutomationIdentifier
+                }
+                guard let copy = actionUIWinUIElementCopyAutomationText((node.accessibleView ?? view).pointer, which) else {
+                    say("element \(viewID): \(WinUIError.last("reading its \(field)"))")
+                    invocationsWorked = false
+                    continue
+                }
+                let shown = String(cString: copy)
+                actionUIWinUIFreeString(copy)
+                guard shown == expected else {
+                    say("element \(viewID): accessibility \(field) is \"\(shown)\", not \"\(expected)\"")
+                    invocationsWorked = false
+                    continue
+                }
+                worked = true
+                what = "found accessibility \(field) \"\(shown)\" in"
             case .drag(_, let fromX, let fromY, let toX, let toY):
                 worked = window.map { actionUIWinUIWindowSendDrag($0.pointer, view.pointer, fromX, fromY, toX, toY) } ?? false
                 what = "dragged from (\(fromX), \(fromY)) to (\(toX), \(toY)) in"
@@ -527,7 +550,7 @@ final class RecordingLogger: ActionUILogger {
     }
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --expect-state ID KEY VALUE | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]..."
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -611,6 +634,10 @@ while index < arguments.count {
         index += 3
     } else if option == "--expect-state", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]) {
         preview.invocations.append(.expectState(viewID, arguments[index + 2], arguments[index + 3]))
+        index += 4
+    } else if option == "--expect-automation", index + 3 < arguments.count, let viewID = Int(arguments[index + 1]),
+              ["name", "help", "id"].contains(arguments[index + 2]) {
+        preview.invocations.append(.expectAutomation(viewID, arguments[index + 2], arguments[index + 3]))
         index += 4
     } else if option == "--delay", index + 1 < arguments.count, let milliseconds = Int(arguments[index + 1]), milliseconds >= 0 {
         preview.invocations.append(.delay(milliseconds))

@@ -25,6 +25,12 @@
 import CWinUI
 
 extension Toggle: ActionUIWinUIRenderer {
+    /// The title, as SwiftUI names the control after it (the control has no title of its own: in a
+    /// Form it is the separate text in the label column).
+    static func defaultAccessibleName(_ node: RenderNode) -> String? {
+        Props(node.properties).title
+    }
+
     /// The control each style is shown with.
     enum Kind {
         case checkBox, toggleSwitch
@@ -135,11 +141,12 @@ extension Toggle: ActionUIWinUIRenderer {
 }
 
 /// What a Toggle node keeps: its control's kind and the title it shows (nil before the first update).
-@MainActor final class ToggleState {
+@MainActor final class ToggleState: TitledControlHolder {
     let kind: Toggle.Kind
     var title: String?
     /// A switch in a Form: its title before it, in the Form's label column.
     var layout: TitledControlLayout?
+    var titledControl: WinUIObject? { layout?.control }
 
     init(kind: Toggle.Kind) {
         self.kind = kind
