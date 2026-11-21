@@ -28,7 +28,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.ConsoleLogger
 import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.LocalJSONContentOrigin
-import com.abracode.actionui.Common.classifyOrigin
+import com.abracode.actionui.Common.resolvedOrigin
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -180,7 +180,7 @@ object ActionUI {
         val classified = remember(source) { classifyLoadableSource(source) }
         // The window's own document is classified as a LoadableView's is: an asset, or a file
         // in a resource folder, is trusted; a file elsewhere or a remote address is not.
-        val origin = remember(classified) { classifyOrigin(classified, null, null, ActionUIModel.resourceFolders) }
+        val origin = remember(classified) { resolvedOrigin(classified, null, null) }
 
         // Remote loads async (spinner -> root/error); local loads synchronously.
         // `null` is the in-flight state. Nothing is registered until a Loaded result

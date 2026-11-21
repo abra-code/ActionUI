@@ -159,7 +159,9 @@ class WindowModel(
      * the models its previous content merged are removed first and the ids merged
      * now are recorded as its own. Unlike [loadDescription] it does not touch
      * [element] (the window root stays the originally-loaded document). [origin] is where
-     * the sub-tree came from (null: the host's). Returns [subRoot].
+     * the sub-tree came from (null: the host's). Returns [subRoot]. Throws
+     * [SubViewRefusedException], merging nothing, when less-trusted content uses the id of a
+     * trusted element already in the window.
      */
     fun loadSubDescription(subRoot: ActionUIElement, parentID: Int = 0, origin: JSONContentOrigin? = null): ActionUIElement {
         if (parentID != 0) {
@@ -168,6 +170,24 @@ class WindowModel(
         }
         val subViewModels = mutableMapOf<Int, ViewModel>()
         populateViewModels(subRoot, into = subViewModels, origin = origin)
+        // Less-trusted content may not share an id with a trusted element already in the window:
+        // its element would be drawn with that element's view model and read as trusted. Sharing
+        // an id with content as little trusted (two LoadableViews showing one document) gains nothing.
+        if (origin?.trust == JSONContentOrigin.Trust.LESS_TRUSTED) {
+            val taken = subViewModels.keys.filter { id ->
+                val existing = viewModels[id] ?: return@filter false
+                (existing.origin?.trust ?: JSONContentOrigin.Trust.TRUSTED) == JSONContentOrigin.Trust.TRUSTED
+            }.sorted()
+            if (taken.isNotEmpty()) {
+                val list = taken.joinToString(", ")
+                val which = if (taken.size == 1) "id $list is" else "ids $list are"
+                logger.log(
+                    "Not loading a less-trusted sub-view${if (parentID != 0) " for parent $parentID" else ""}: $which already in the window",
+                    LoggerLevel.error,
+                )
+                throw SubViewRefusedException("id conflict: $list already in the window")
+            }
+        }
         val mergedIDs = mutableSetOf<Int>()
         for ((id, viewModel) in subViewModels) {
             if (viewModels.containsKey(id)) {
@@ -185,6 +205,9 @@ class WindowModel(
         )
         return subRoot
     }
+
+    /** Why [loadSubDescription] refused a sub-tree (less-trusted content using a trusted element's id). */
+    class SubViewRefusedException(message: String) : IllegalStateException(message)
 
     /** The ids [parentID]'s loaded content owns, and those of LoadableViews inside it, removed from the record. */
     internal fun collectAndRemoveSubViewIDs(parentID: Int): Set<Int> {

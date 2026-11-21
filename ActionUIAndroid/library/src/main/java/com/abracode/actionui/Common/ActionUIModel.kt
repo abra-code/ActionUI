@@ -278,6 +278,27 @@ object ActionUIModel {
     var resourceFolders: List<String> = emptyList()
 
     /**
+     * The host's trust policy, for all windows ([DefaultTrustPolicy] unless set): how far
+     * loaded content is trusted, and what each part of it may do. Set before loading.
+     */
+    var trustPolicy: ActionUITrustPolicy = DefaultTrustPolicy
+
+    /** Whether content of [origin] may do [capability], by [trustPolicy]. */
+    fun allows(capability: ActionUICapability, origin: JSONContentOrigin): Boolean = trustPolicy.allows(capability, origin)
+
+    /**
+     * Whether element [viewID] of window [windowUUID] may do [capability]: by its origin, the
+     * host's for an element with none recorded. An element with no view model (no positive id,
+     * or not in the window) counts as less trusted, so a miss cannot make other content read
+     * as the host's; renderers ask with [LocalJSONContentOrigin] instead.
+     */
+    fun allows(capability: ActionUICapability, windowUUID: String, viewID: Int): Boolean =
+        trustPolicy.allows(capability, origin(windowUUID, viewID) ?: unknownOrigin)
+
+    /** The origin [allows] uses for an element with no view model. */
+    private val unknownOrigin = JSONContentOrigin(JSONContentOrigin.Source.Host, JSONContentOrigin.Trust.LESS_TRUSTED, null)
+
+    /**
      * Where element [viewID]'s content in window [windowUUID] came from, and how far it is
      * trusted; [JSONContentOrigin.HOST] for the host's own content; null when the window has no
      * such element (only elements with a positive id have one). An action handler can ask
