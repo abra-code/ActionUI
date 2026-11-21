@@ -6,8 +6,8 @@
  skipped, one without an extension shows the photo symbol).
 
  - A symbol (an SF Symbol name) is the Material Symbols outline the shim has for it (compiled in by
-   Scripts/prepare-windows-symbols.py from the SF -> Material map, at the row's fill and weight, as
-   on Linux and Android; no font ships), drawn in the text color in a square of the font size times
+   Scripts/prepare-windows-symbols.py from the SF -> Material map, at the row's fill and weight as on
+   Linux and Android, but at most weight 300, Windows' own thinner look; no font ships), drawn in the text color in a square of the font size times
    1.18, SwiftUI's symbol box (measured on macOS; Android uses the same factor). Small and large
    image scales are 0.8 and 1.28 times that. A name the Material map lacks is the Microsoft Fluent
    System Icons outline of the SF -> Fluent map, as Fluent draws it (Windows' own thinner look), its

@@ -79,7 +79,7 @@ Look for `<dependency id="Microsoft.Web.WebView2" version="..." />` and use that
 
 SF Symbols (Apple's) may not be shipped, so `ActionUIWinUIShim.dll` draws other glyphs for their names, compiled into it as outlines by `Scripts/prepare-windows-symbols.py` (no font ships):
 
-- Google's **Material Symbols** (Rounded), through ActionUI's SF Symbols -> Material map (`ActionUIAndroid/library/src/main/assets/symbols/sf_to_material.map`, shared with Android and Linux), at each row's fill and weight. Apache License 2.0.
+- Google's **Material Symbols** (Rounded), through ActionUI's SF Symbols -> Material map (`ActionUIAndroid/library/src/main/assets/symbols/sf_to_material.map`, shared with Android and Linux), at each row's fill and weight, but at most weight 300: Windows' own icons are thinner than SF Symbols, which the map's weights match. Apache License 2.0.
 - Microsoft's **Fluent System Icons** (the Resizable family), for the SF names the Material map has no usable glyph for, through ActionUI's SF Symbols -> Fluent map (`Tools/fluent_symbols/sf_to_fluent.map`), drawn as Fluent draws them, Windows' own thinner look. MIT License (Copyright (c) 2020 Microsoft Corporation): the copyright notice and the license's permission notice go with copies of the outlines.
 
 A program that ships the shim, and a distribution of ActionUI that includes it, carries both licenses' notices (a third-party notices file is the usual place). Each font is downloaded at a pinned commit, `ActionUIAndroid/library/material-symbols-font.commit` and `Tools/fluent_symbols/fluent-icons-font.commit`, the commit each map was made for.
