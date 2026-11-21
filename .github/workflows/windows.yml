@@ -2,6 +2,9 @@
 # runs by hand on a Windows machine): builds ActionUI's portable core and runs its tests, and
 # builds the WinUI shim and the Swift package for Windows and runs their smoke tests (C and Swift).
 # Each job uploads its logs and summary as an artifact and adds the summary to the run page.
+# On WinUI-CI, the branch pre-commit checks run on (rewritten for every check), a failing job is shown
+# as failed but does not fail the run, so it sends no failed-run notification; the check reads each
+# job's own result.
 
 name: windows
 
@@ -37,6 +40,7 @@ jobs:
             swift_arch: arm64
     name: core (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ github.ref_name == 'WinUI-CI' }}
     timeout-minutes: 60
     steps:
       # Test fixtures are compared byte for byte: no CRLF conversion. SwiftPM build paths are deep.
@@ -80,6 +84,7 @@ jobs:
             swift_arch: arm64
     name: winui (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ github.ref_name == 'WinUI-CI' }}
     timeout-minutes: 45
     steps:
       - name: Git settings
