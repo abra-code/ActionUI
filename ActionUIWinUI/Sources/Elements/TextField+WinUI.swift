@@ -19,7 +19,8 @@
    on Linux (measured on macOS); a title labelsHidden hides makes it a row without a title. Being in a
    Form is read when the element is made.
 
- Not yet: axis vertical (several lines), number formats, textContentType; Preview's UI Automation
+ Not yet: axis vertical (several lines), number formats, textContentType, multilineTextAlignment
+ (SwiftUI lines up a field's text with it; Linux neither); Preview's UI Automation
  operations reach a field in a Form only through its layout (none does yet). Leaving the field is
  WinUI's LostFocus; whether it also comes when the window is deactivated or a context menu opens
  (Linux submits only when the focus moves to another control) is to be measured on a desktop.

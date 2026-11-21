@@ -9,9 +9,12 @@
  The font and foregroundStyle, its own or inherited, are drawn as TextAppearance describes (WinUI's
  type ramp, the theme's text colors).
 
- Not yet: multilineTextAlignment. Markdown shows its
- source as is (asterisks included): Core's default markdown hook makes no styles, and the Markdown
- parser the GTK renderer uses has not moved to the shared code yet.
+ multilineTextAlignment, its own or inherited, lines up the wrapped lines (leading, center, trailing),
+ as on Apple and Linux. The TextBlock is as wide as its widest line, as SwiftUI's Text box is, so its
+ parent places the box and the alignment places the lines in it.
+
+ Not yet: Markdown shows its source as is (asterisks included): Core's default markdown hook makes
+ no styles, and the Markdown parser the GTK renderer uses has not moved to the shared code yet.
 */
 
 #if canImport(FoundationEssentials)
@@ -40,6 +43,19 @@ extension Text: ActionUIWinUIRenderer {
         let shown = displayedText(node.model.value, node.properties)
         let state = node.state as? ShownText ?? ShownText()
         node.state = state
+        let alignment: ActionUIWinUITextAlignment
+        switch node.textAppearance.multilineAlignment {
+        case .center?: alignment = ActionUIWinUITextCenter
+        case .trailing?: alignment = ActionUIWinUITextTrailing
+        case .leading?, nil: alignment = ActionUIWinUITextLeading
+        }
+        if alignment != state.alignment {
+            if actionUIWinUITextBlockSetAlignment(view.pointer, alignment) {
+                state.alignment = alignment
+            } else {
+                ActionUIModel.shared.logger.log("Text: \(WinUIError.last("aligning a TextBlock's lines"))", .error)
+            }
+        }
         // Set only when it changed: a new text changes the TextBlock's size, and WinUI lays its
         // parents out again.
         if state.text != shown {
@@ -72,4 +88,6 @@ extension Text: ActionUIWinUIRenderer {
 /// The text a Text node's TextBlock shows (nil before the first update).
 @MainActor final class ShownText {
     var text: String?
+    /// The line alignment last given to the TextBlock; nil before the first.
+    var alignment: ActionUIWinUITextAlignment?
 }

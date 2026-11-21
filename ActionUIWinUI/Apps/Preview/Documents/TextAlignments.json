@@ -1,0 +1,131 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 12
+ },
+ "children": [
+  {
+   "type": "HStack",
+   "id": 2,
+   "properties": {
+    "alignment": "top",
+    "spacing": 12
+   },
+   "children": [
+    {
+     "type": "VStack",
+     "id": 3,
+     "properties": {
+      "frame": {
+       "width": 150
+      }
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 4,
+       "properties": {
+        "text": "A longer text that wraps onto a few lines in its narrow column.",
+        "background": "gray.opacity(0.15)",
+        "multilineTextAlignment": "leading"
+       }
+      }
+     ]
+    },
+    {
+     "type": "VStack",
+     "id": 5,
+     "properties": {
+      "frame": {
+       "width": 150
+      }
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 6,
+       "properties": {
+        "text": "A longer text that wraps onto a few lines in its narrow column.",
+        "background": "gray.opacity(0.15)",
+        "multilineTextAlignment": "center"
+       }
+      }
+     ]
+    },
+    {
+     "type": "VStack",
+     "id": 7,
+     "properties": {
+      "frame": {
+       "width": 150
+      }
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 8,
+       "properties": {
+        "text": "A longer text that wraps onto a few lines in its narrow column.",
+        "background": "gray.opacity(0.15)",
+        "multilineTextAlignment": "trailing"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "HStack",
+   "id": 9,
+   "properties": {
+    "alignment": "top",
+    "spacing": 12
+   },
+   "children": [
+    {
+     "type": "VStack",
+     "id": 10,
+     "properties": {
+      "frame": {
+       "width": 150
+      },
+      "multilineTextAlignment": "center"
+     },
+     "children": [
+      {
+       "type": "Text",
+       "id": 11,
+       "properties": {
+        "text": "A longer text that wraps onto a few lines in its narrow column.",
+        "background": "gray.opacity(0.15)"
+       }
+      }
+     ]
+    },
+    {
+     "type": "Text",
+     "id": 12,
+     "properties": {
+      "text": "A longer text that wraps onto a few lines in its narrow column.",
+      "background": "gray.opacity(0.15)",
+      "multilineTextAlignment": "trailing",
+      "frame": {
+       "width": 312
+      }
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 13,
+   "properties": {
+    "font": "caption",
+    "text": "multilineTextAlignment: leading, center and trailing in 150-wide columns; center inherited from a VStack; trailing in a 312-wide frame (its lines trailing within their own width, which the frame centers)."
+   }
+  }
+ ]
+}

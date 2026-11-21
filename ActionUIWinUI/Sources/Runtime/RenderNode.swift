@@ -41,8 +41,8 @@ package final class RenderNode {
     /// The axes along which a stack can make the element smaller than it asks for (the renderer's
     /// compression).
     private(set) var compression: Expansion = []
-    /// The font and foreground of the element's text: its own modifiers over its parent's
-    /// appearance, which descendants inherit (as SwiftUI's environment passes them down).
+    /// The font, foreground, tint and line alignment of the element's text: its own modifiers over
+    /// its parent's appearance, which descendants inherit (as SwiftUI's environment passes them down).
     private(set) var textAppearance = TextAppearance()
     /// The appearance last applied to the WinUI object (applyTextAppearance), to set it only on a
     /// change.
@@ -157,7 +157,8 @@ package final class RenderNode {
     /// The element's background and overlay views (its "background" and "overlay" subviews), made as
     /// auxiliary nodes and placed in its box; none on a Group or a Section, whose modifiers SwiftUI
     /// applies to each child. They inherit this node's environment (the Linux renderer gives them
-    /// the parent's, with the element's font and colors left out, as SwiftUI applies those first).
+    /// the parent's, with the element's font, colors and multilineTextAlignment left out, as SwiftUI
+    /// applies those first).
     private func makeDecorations() {
         guard let box, element.type != "Group", element.type != "Section" else { return }
         func decoration(_ key: String) -> ModifierBox.Decoration? {

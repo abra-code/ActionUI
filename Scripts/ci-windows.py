@@ -154,6 +154,7 @@ PREVIEW_OPTIONS = {
     "Overlays": ["440", "240"],
     "ControlSizes": ["560", "300"],
     "Tints": ["560", "420"],
+    "TextAlignments": ["520", "320"],
     "Appearances": ["420", "260", "--select-part", "3", "1", "--add-row", "9", "Row a", "--delay", "300",
                     "--add-row", "9", "Row b", "--delay", "300", "--expect-action", "page.shown",
                     "--expect-action", "first.shown", "--expect-action", "first.hidden", "--expect-action", "second.shown",
