@@ -11,6 +11,7 @@
 #undef GetCurrentTime
 
 #include <exception>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <string>
@@ -147,5 +148,14 @@ T objectAs(ActionUIWinUIObject *object, const wchar_t *typeName) {
 // symbolUnits() a side, or nullptr when the shim has none for it (Symbols.cpp).
 const char *symbolOutline(const char *name);
 double symbolUnits();
+
+// The user's location from Windows' location service (Location.cpp), on the UI thread: each position
+// goes to every listener. The service runs while there is a listener; a new one gets the known
+// position at once. locationStatus says where it is: "off", "asking Windows", "waiting for a
+// position", "running", or why there is no position ("denied: ...", "off: ...", "not available...").
+using LocationListener = std::function<void(double latitude, double longitude)>;
+int locationListen(LocationListener listener);
+void locationStop(int token);
+std::string locationStatus();
 
 } // namespace actionui_winui

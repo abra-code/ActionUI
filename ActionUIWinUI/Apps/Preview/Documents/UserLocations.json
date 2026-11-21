@@ -1,0 +1,33 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "Map",
+   "id": 2,
+   "properties": {
+    "coordinate": {
+     "latitude": 51.5007,
+     "longitude": -0.1246
+    },
+    "showsUserLocation": true,
+    "frame": {
+     "height": 120
+    }
+   }
+  },
+  {
+   "type": "Text",
+   "id": 3,
+   "properties": {
+    "text": "Westminster, showing the user's location when Windows gives it (Windows asks the user first). The run checks that the location's status was reported; its own document, after the documents that drag, as Windows' question can cover the window",
+    "font": "caption"
+   }
+  }
+ ]
+}

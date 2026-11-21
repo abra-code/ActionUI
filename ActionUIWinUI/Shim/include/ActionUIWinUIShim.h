@@ -1055,6 +1055,11 @@ typedef struct ActionUIWinUIMapAnnotation {
 // pins are the map's from then on (the caller may release its references).
 ACTIONUI_WINUI_API bool actionUIWinUIMapSetAnnotations(ActionUIWinUIObject *map, const ActionUIWinUIMapAnnotation *annotations,
                                                        size_t count);
+// Shows the user's location from Windows' location service as a dot in the accent color, over the
+// annotations, while the map is in a window (Windows asks the user the first time a program wants the
+// location). It never moves the map. No position (the location turned off in Windows' Settings, or
+// refused): no dot; actionUIWinUIMapCopyStatus says why.
+ACTIONUI_WINUI_API bool actionUIWinUIMapSetShowsUserLocation(ActionUIWinUIObject *map, bool shows);
 // Moves the map to look at latitude, longitude at `zoom` (negative or not a number: the zoom stays),
 // at once; the moved handler runs before this returns.
 ACTIONUI_WINUI_API bool actionUIWinUIMapSetCamera(ActionUIWinUIObject *map, double latitude, double longitude, double zoom);
@@ -1062,8 +1067,10 @@ ACTIONUI_WINUI_API bool actionUIWinUIMapGetCamera(ActionUIWinUIObject *map, Acti
 // What the user may do: pan (drag, flick) and zoom (wheel, pinch, double tap, the zoom buttons, shown
 // only then).
 ACTIONUI_WINUI_API bool actionUIWinUIMapSetInteraction(ActionUIWinUIObject *map, bool pan, bool zoom);
-// How the tiles went: "N tiles loaded, M failed", and the first failure's reason in parentheses, as a
-// new UTF-8 string the caller frees with actionUIWinUIFreeString; NULL on failure.
+// How the tiles went: "N tiles loaded, M failed", and the first failure's reason in parentheses, then
+// when the map shows the user's location "; user location: " and "shown" or where the location
+// service is (why there is no position), as a new UTF-8 string the caller frees with
+// actionUIWinUIFreeString; NULL on failure.
 ACTIONUI_WINUI_API char *actionUIWinUIMapCopyStatus(ActionUIWinUIObject *map);
 // `handler` runs on the UI thread at every change of the camera (each step of a drag or a zoom, and
 // actionUIWinUIMapSetCamera), and when a press or a flick on the map ends (one handler per map: a new

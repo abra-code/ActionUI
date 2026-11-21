@@ -1,7 +1,8 @@
 // Map.cpp - a map of OpenStreetMap's standard tiles (Web Mercator, 256-pixel tiles, zoom levels 0 to
 // 19): the tiles in view are fetched with Windows' HTTP client (its cache honors the server's cache
 // headers, as OpenStreetMap's tile usage policy asks), decoded and placed as images, with the
-// annotations' pins and text over them. A drag pans, the wheel, a pinch, a double tap and the zoom
+// annotations' pins and text over them, and the user's location (Location.cpp) as a dot over those
+// while the map is on screen. A drag pans, the wheel, a pinch, a double tap and the zoom
 // buttons zoom; OpenStreetMap's attribution sits in the bottom right corner.
 
 #include "ShimInternal.h"
@@ -24,6 +25,7 @@
 #include <winrt/Microsoft.UI.Xaml.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Microsoft.UI.Xaml.Shapes.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.UI.h>  // Color
 #include <winrt/Windows.UI.Text.h>  // FontWeight
@@ -72,6 +74,8 @@ struct Marker {
 constexpr double markerWidth = 160;
 // Room between the pin's tip and the text under it.
 constexpr double pinTextGap = 2;
+// The user's location: a dot in the accent color with a white ring, as Windows' maps draw it.
+constexpr double userDotSize = 16;
 
 struct Placed {
     muxc::Image image{nullptr};
@@ -116,6 +120,26 @@ struct MapData {
     std::string firstFailure;
     int loaded = 0;
     std::shared_ptr<EventHandler> moved;
+    // showsUserLocation, and whether the map is in a window (Loaded, not Unloaded): the location is
+    // listened to only while both are true (locationToken), and its dot shown once it has a position.
+    bool showsUserLocation = false;
+    bool onScreen = false;
+    int locationToken = 0;
+    muxc::Canvas userLayer{nullptr};
+    mux::Shapes::Ellipse userDot{nullptr};
+    bool hasUserLocation = false;
+    double userLatitude = 0;
+    double userLongitude = 0;
+
+    ~MapData() {
+        // A map let go while listening (its window closed before it was unloaded).
+        try {
+            if (locationToken != 0) {
+                locationStop(locationToken);
+            }
+        } catch (...) {
+        }
+    }
 };
 
 std::unordered_map<void *, std::weak_ptr<MapData>> &maps() {
@@ -326,6 +350,55 @@ void layoutMarkers(std::shared_ptr<MapData> const &data) {
         muxc::Canvas::SetLeft(marker.view, x - left - markerWidth / 2);
         muxc::Canvas::SetTop(marker.view, y - top - marker.tipY);
     }
+    if (data->hasUserLocation && data->userDot != nullptr) {
+        double east = std::remainder(data->userLongitude - data->longitude, 360.0);
+        double x = centerX + east / 360.0 * world;
+        double y = latitudeToY(data->userLatitude, world);
+        muxc::Canvas::SetLeft(data->userDot, x - left - userDotSize / 2);
+        muxc::Canvas::SetTop(data->userDot, y - top - userDotSize / 2);
+    }
+}
+
+// Listens to the user's location while the map shows it and is on screen; otherwise stops and hides
+// the dot, so a map shown again has no dot until a position comes (the location may have been turned
+// off meanwhile). It never moves the map.
+void followUserLocation(std::shared_ptr<MapData> const &data) {
+    bool wanted = data->showsUserLocation && data->onScreen;
+    if (wanted && data->locationToken == 0) {
+        std::weak_ptr<MapData> weak = data;
+        data->locationToken = locationListen([weak](double latitude, double longitude) {
+            std::shared_ptr<MapData> held = weak.lock();
+            if (held == nullptr || held->userDot == nullptr) {
+                return;
+            }
+            held->hasUserLocation = true;
+            held->userLatitude = latitude;
+            held->userLongitude = longitude;
+            held->userDot.Visibility(mux::Visibility::Visible);
+            layoutMarkers(held);
+        });
+    } else if (!wanted && data->locationToken != 0) {
+        int token = data->locationToken;
+        data->locationToken = 0;
+        locationStop(token);
+        data->hasUserLocation = false;
+        if (data->userDot != nullptr) {
+            data->userDot.Visibility(mux::Visibility::Collapsed);
+        }
+    }
+}
+
+// The theme's accent brush (a fixed blue when the theme has none).
+mux::Media::Brush accentBrush() {
+    wf::IInspectable found{nullptr};
+    try {
+        found = mux::Application::Current().Resources().Lookup(winrt::box_value(L"AccentFillColorDefaultBrush"));
+    } catch (winrt::hresult_error const &) {
+    }
+    if (mux::Media::Brush brush = found != nullptr ? found.try_as<mux::Media::Brush>() : nullptr) {
+        return brush;
+    }
+    return mux::Media::SolidColorBrush(winrt::Windows::UI::Color{255, 0, 103, 192});
 }
 
 // Shows the tiles that cover the view at the camera, fetching the missing ones.
@@ -548,6 +621,17 @@ ActionUIWinUIObject *actionUIWinUIMapCreate(const char *userAgent) {
         data->markerLayer = muxc::Canvas();
         data->markerLayer.IsHitTestVisible(false);
         root.Children().Append(data->markerLayer);
+        data->userLayer = muxc::Canvas();
+        data->userLayer.IsHitTestVisible(false);
+        data->userDot = mux::Shapes::Ellipse();
+        data->userDot.Width(userDotSize);
+        data->userDot.Height(userDotSize);
+        data->userDot.Fill(accentBrush());
+        data->userDot.Stroke(mux::Media::SolidColorBrush(winrt::Windows::UI::Color{0xFF, 0xFF, 0xFF, 0xFF}));
+        data->userDot.StrokeThickness(3);
+        data->userDot.Visibility(mux::Visibility::Collapsed);
+        data->userLayer.Children().Append(data->userDot);
+        root.Children().Append(data->userLayer);
         root.Children().Append(attribution());
 
         data->zoomButtons = muxc::StackPanel();
@@ -583,6 +667,20 @@ ActionUIWinUIObject *actionUIWinUIMapCreate(const char *userAgent) {
                 if (std::shared_ptr<MapData> held = weak.lock()) {
                     zoomAround(held, std::round(held->zoom) - 1, held->width / 2, held->height / 2);
                 }
+            });
+        });
+        root.Loaded([data](auto &&, auto &&) {
+            handling([&]() {
+                data->onScreen = true;
+                followUserLocation(data);
+            });
+        });
+        root.Unloaded([data](wf::IInspectable const &sender, auto &&) {
+            handling([&]() {
+                // Unloaded comes later than the removal: a map removed and added back at once (a
+                // stack re-adding its children) gets it after its new Loaded, still loaded.
+                data->onScreen = sender.as<mux::FrameworkElement>().IsLoaded();
+                followUserLocation(data);
             });
         });
         root.SizeChanged([data](wf::IInspectable const &sender, mux::SizeChangedEventArgs const &args) {
@@ -731,6 +829,17 @@ bool actionUIWinUIMapSetAnnotations(ActionUIWinUIObject *map, const ActionUIWinU
     });
 }
 
+bool actionUIWinUIMapSetShowsUserLocation(ActionUIWinUIObject *map, bool shows) {
+    return guarded("map set shows user location", [&]() {
+        std::shared_ptr<MapData> data = dataOf(map);
+        if (data->showsUserLocation != shows) {
+            data->showsUserLocation = shows;
+            followUserLocation(data);
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUIMapSetCamera(ActionUIWinUIObject *map, double latitude, double longitude, double zoom) {
     return guarded("map set camera", [&]() {
         std::shared_ptr<MapData> data = dataOf(map);
@@ -772,6 +881,9 @@ char *actionUIWinUIMapCopyStatus(ActionUIWinUIObject *map) {
         std::string status = std::to_string(data->loaded) + " tiles loaded, " + std::to_string(data->failed.size()) + " failed";
         if (!data->firstFailure.empty()) {
             status += " (" + data->firstFailure + ")";
+        }
+        if (data->showsUserLocation) {
+            status += "; user location: " + (data->hasUserLocation ? std::string("shown") : locationStatus());
         }
         copy = copyString(status);
         return true;

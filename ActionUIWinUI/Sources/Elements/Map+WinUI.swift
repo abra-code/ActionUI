@@ -23,8 +23,11 @@
    (semibold) and subtitle centered under it on a light plate, as a pin-based map app draws a place
    and as on Linux. Map tiles are light in dark mode too, so the text is dark whatever the theme. The
    pins take no input: dragging over one moves the map.
-
- Not yet (logged once): showsUserLocation.
+ - showsUserLocation: the user's location from Windows' location service, a dot in the accent color
+   with a white ring over the pins, while the map is in a window (one location service for every
+   map, running only while one shows it). Like Apple's UserAnnotation it never moves the map, sets the
+   value or fires an action. No position (the location turned off for the program in Windows'
+   Settings, or refused when Windows asked): no dot; the tiles' report says why.
 */
 
 #if canImport(FoundationEssentials)
@@ -41,8 +44,6 @@ import ucrt
 import CWinUI
 import Dispatch
 
-@MainActor private var reportedUserLocation = false
-
 /// What a Map's handlers share, kept in its node's state.
 @MainActor final class MapState {
     let map: WinUIObject
@@ -56,6 +57,8 @@ import Dispatch
     var moveCount = 0
     /// The annotations shown.
     var annotations: [Map.Props.Annotation] = []
+    /// showsUserLocation as last rendered.
+    var showsUserLocation = false
     /// The camera when the last move ended (or the map opened): the shim also reports a press or a
     /// flick that ends, so one that left the camera where it was (a click) fires nothing, as on Apple
     /// and Linux.
@@ -106,7 +109,12 @@ extension Map: ActionUIWinUIRenderer {
         if !actionUIWinUIMapSetInteraction(state.map.pointer, modes.contains(.pan), modes.contains(.zoom)) {
             ActionUIModel.shared.logger.log("Map: \(WinUIError.last("setting its interaction modes"))", .error)
         }
-        reportNotYet(props)
+        if props.showsUserLocation != state.showsUserLocation {
+            state.showsUserLocation = props.showsUserLocation
+            if !actionUIWinUIMapSetShowsUserLocation(state.map.pointer, props.showsUserLocation) {
+                ActionUIModel.shared.logger.log("Map: \(WinUIError.last("showing the user's location"))", .error)
+            }
+        }
         if props.annotations != state.annotations {
             state.annotations = props.annotations
             showAnnotations(props.annotations, state)
@@ -260,14 +268,5 @@ extension Map: ActionUIWinUIRenderer {
         }
         // The map holds the pins now.
         withExtendedLifetime(pins) {}
-    }
-
-    /// Logs, once per process each, what the Windows map does not show.
-    private static func reportNotYet(_ props: Props) {
-        let logger = ActionUIModel.shared.logger
-        if props.showsUserLocation, !reportedUserLocation {
-            reportedUserLocation = true
-            logger.log("Map: showsUserLocation is not shown on Windows yet", .warning)
-        }
     }
 }

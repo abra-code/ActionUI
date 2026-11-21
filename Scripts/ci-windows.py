@@ -153,6 +153,7 @@ PREVIEW_OPTIONS = {
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
     "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],
+    "UserLocations": ["420", "200", "--delay", "6000", "--expect-log", "; user location: "],
     "VideoPlayers": ["420", "300", "--set-value", "2", "{documents_url}/Media/one-second.mp4", "--delay", "4000",
                      "--expect-log", "VideoPlayer 2 opened", "--expect-log", "VideoPlayer 4 could not play"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
