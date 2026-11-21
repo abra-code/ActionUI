@@ -70,6 +70,12 @@ extension Section: ActionUIWinUIRenderer {
             let outer = (node.parent?.state as? SectionState)?.stack
             spacing = outer?.spacing ?? 0
             alignment = outer?.alignment ?? .center
+        case "Group":
+            // The Group's column's: its children are the stack's around it. Worked out as the Group
+            // does, so the read is tracked (a change to that stack re-syncs the Section too).
+            let arrangement = node.parent.map { StackViews.parentArrangement($0) } ?? (spacing: 0, alignment: .center)
+            spacing = arrangement.spacing
+            alignment = arrangement.alignment
         default:
             spacing = 0
             alignment = .center

@@ -12,10 +12,7 @@ extension Divider: ActionUIWinUIRenderer {
     /// Whether the element's parent lays it out in a row (an HStack, a LabeledContent's content),
     /// where it is a vertical line.
     static func inRow(_ node: RenderNode) -> Bool {
-        switch node.parent?.element.type {
-        case "HStack", "LazyHStack", "LabeledContent": return true
-        default: return false
-        }
+        StackViews.parentAxis(node) == .horizontal
     }
 
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {

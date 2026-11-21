@@ -18,7 +18,7 @@
    again.
  - A pane that takes no place (an EmptyView) is no pane and gets no divider.
 
- Not yet: a Group's children as panes of their own (Windows has no Group yet; a Group is one pane);
+ Not yet: a Group's children as panes of their own (a Group is one pane);
  a pane's frame minimum (an expanding pane can be dragged down to nothing); the resize cursor while a
  drag leaves the divider's hit area (WinUI may show the default one there); a drag follows any
  pointer, not only the one that pressed.

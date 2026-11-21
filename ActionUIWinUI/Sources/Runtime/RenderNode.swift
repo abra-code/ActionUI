@@ -143,8 +143,12 @@ package final class RenderNode {
     }
 
     /// The box geometry for `base`, the element's base modifiers: without its padding and frame in a
-    /// ControlGroup.
+    /// ControlGroup, none for a Group.
     private func boxGeometry(_ base: BaseModifiers) -> BoxGeometry {
+        // A Group's modifiers apply to each child, in the boxes it puts them in (Group+WinUI.swift).
+        if element.type == "Group" {
+            return BoxGeometry()
+        }
         var modifiers = base
         // In a ControlGroup a child's padding and frame do not apply: macOS draws the group from its
         // buttons' titles (measured on macOS 27: padded buttons are as wide as without, a button framed
@@ -193,7 +197,7 @@ package final class RenderNode {
         textAppearance.apply(to: view, what: what)
     }
 
-    private static func expansion(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
+    static func expansion(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
         let frame = geometry.frameExpansion
         var expansion: Expansion = []
         if frame.horizontal ?? renderer.contains(.horizontal) { expansion.insert(.horizontal) }
@@ -203,7 +207,7 @@ package final class RenderNode {
 
     /// The renderer's compression, without the axes a fixed frame sizes: SwiftUI's fixed frame
     /// keeps its size in a stack, so the stack need not measure it for its smallest size.
-    private static func compression(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
+    static func compression(_ renderer: Expansion, geometry: BoxGeometry) -> Expansion {
         var compression = renderer
         if geometry.frame.horizontal.fixed != nil { compression.remove(.horizontal) }
         if geometry.frame.vertical.fixed != nil { compression.remove(.vertical) }

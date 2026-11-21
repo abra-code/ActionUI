@@ -61,13 +61,48 @@ extension VStack: ActionUIWinUIRenderer {
     }
 
     /// The axis of the stack `node` is in: vertical in a VStack, a GroupBox, a Form or a Section (their
-    /// content is a column), horizontal in an HStack or a LabeledContent (its content is a row); nil in
-    /// anything else.
+    /// content is a column), horizontal in an HStack or a LabeledContent (its content is a row); in a
+    /// Group, the Group's own (that of the stack it is in, else a column); nil in anything else.
     static func parentAxis(_ node: RenderNode) -> StackLayout.Axis? {
         switch node.parent?.element.type {
         case "VStack", "LazyVStack", "GroupBox", "Form", "Section": return .vertical
         case "HStack", "LazyHStack", "LabeledContent": return .horizontal
+        case "Group": return node.parent.flatMap { parentAxis($0) } ?? .vertical
         default: return nil
+        }
+    }
+
+    /// The spacing and alignment of the stack `node` is in, for content laid out as that stack's own
+    /// children (a Group's): a VStack's or an HStack's own, a Form's rows (8, leading), a GroupBox's
+    /// column or a LabeledContent's row (the default spacing, centered), an enclosing Section's or
+    /// Group's; elsewhere no spacing, centered.
+    static func parentArrangement(_ node: RenderNode) -> (spacing: Double?, alignment: StackSolver.Alignment) {
+        guard let parent = node.parent else { return (0, .center) }
+        switch parent.element.type {
+        case "VStack", "LazyVStack":
+            let props = VStack.Props(parent.properties)
+            switch props.alignment {
+            case .leading: return (props.spacing, .start)
+            case .center: return (props.spacing, .center)
+            case .trailing: return (props.spacing, .end)
+            }
+        case "HStack", "LazyHStack":
+            let props = HStack.Props(parent.properties)
+            switch props.alignment {
+            case .top: return (props.spacing, .start)
+            case .center, .firstTextBaseline, .lastTextBaseline: return (props.spacing, .center)
+            case .bottom: return (props.spacing, .end)
+            }
+        case "Form": return (Form.rowSpacing, .start)
+        case "GroupBox", "LabeledContent": return (nil, .center)
+        case "Section":
+            let outer = (parent.state as? SectionState)?.stack
+            return (outer?.spacing ?? 0, outer?.alignment ?? .center)
+        case "Group":
+            // The enclosing Group's, worked out again rather than read from its column, so this read
+            // is tracked: a change to the stack around both re-syncs this node too.
+            return parentArrangement(parent)
+        default: return (0, .center)
         }
     }
 

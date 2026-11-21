@@ -26,6 +26,7 @@ extension ActionUIRegistry {
         "Gauge": Gauge.self,
         "GeometryReader": GeometryReader.self,
         "Grid": Grid.self,
+        "Group": Group.self,
         "GroupBox": GroupBox.self,
         "HSplitView": HSplitView.self,
         "HStack": HStack.self,

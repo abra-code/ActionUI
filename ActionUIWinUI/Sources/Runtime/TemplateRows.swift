@@ -1,7 +1,7 @@
 // Sources/Runtime/TemplateRows.swift
 /*
  The template form of a container (VStack, HStack, LazyVStack, LazyHStack, ZStack, GroupBox,
- Section, DisclosureGroup), as on Apple and Linux: one instance of the "template" element per content row
+ Section, DisclosureGroup, Group), as on Apple and Linux: one instance of the "template" element per content row
  (states["content"], set by setElementRows or appendElementRows), the template shown with the row's
  data ($1 is its first column; RenderNode.templateRowNode). A row shown with the same data at the
  same place keeps its instance (its objects' state, its text's selection); a row whose data or place
@@ -18,7 +18,7 @@ final class TemplateRows {
     private(set) var nodes: [RenderNode] = []
 
     /// The container types that take a template, as Core's specs do.
-    static let containerTypes: Set<String> = ["VStack", "HStack", "LazyVStack", "LazyHStack", "ZStack", "GroupBox", "Section", "DisclosureGroup"]
+    static let containerTypes: Set<String> = ["VStack", "HStack", "LazyVStack", "LazyHStack", "ZStack", "GroupBox", "Section", "DisclosureGroup", "Group"]
 
     /// What `node` shows: with a template (on a container that takes one), one instance per content
     /// row, and no children; else its children, and no instances. In order.
