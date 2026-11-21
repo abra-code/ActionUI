@@ -3,7 +3,7 @@
  Loading a description into a window, without the views: where a LoadableView's text points (a
  remote URL, a file, a bundled resource), the format of a file or URL, loading the data as the
  window's content or as a sub-view of a LoadableView, and firing a LoadableView's viewDidLoadActionID
- once per source. Where loaded content came from and how far it is trusted (DocumentOrigin): the
+ once per source. Where loaded content came from and how far it is trusted (JSONContentOrigin): the
  app's own resources and the host are trusted; a remote document, or a local file outside the
  resources, is less trusted, and so is everything a less-trusted document loads in turn.
 
@@ -20,7 +20,7 @@ import Foundation
 /// of each element it loaded (ActionUIModel.origin(windowUUID:viewID:) reads it). Content the host
 /// passed in itself (loadDescription, presentModal, insertElement) is `host`. One object is shared
 /// by all the elements of one load, so a view model holds a single reference.
-public final class DocumentOrigin: Sendable, Equatable, CustomStringConvertible {
+public final class JSONContentOrigin: Sendable, Equatable, CustomStringConvertible {
     public enum Source: Sendable, Equatable {
         /// JSON or data the host passed in itself.
         case host
@@ -52,9 +52,9 @@ public final class DocumentOrigin: Sendable, Equatable, CustomStringConvertible 
     }
 
     /// The host's own content.
-    public static let host = DocumentOrigin(source: .host, trust: .trusted, parentID: nil)
+    public static let host = JSONContentOrigin(source: .host, trust: .trusted, parentID: nil)
 
-    public static func == (lhs: DocumentOrigin, rhs: DocumentOrigin) -> Bool {
+    public static func == (lhs: JSONContentOrigin, rhs: JSONContentOrigin) -> Bool {
         lhs.source == rhs.source && lhs.trust == rhs.trust && lhs.parentID == rhs.parentID
     }
 
@@ -85,7 +85,7 @@ public struct ActionUILoadBudget: Sendable, Equatable {
 /// (ActionUIModel.allows). The renderers ask before each.
 public enum ActionUICapability: Sendable, Equatable {
     /// A LoadableView loading this source (the load budget and size caps apply whatever the answer).
-    case load(DocumentOrigin.Source)
+    case load(JSONContentOrigin.Source)
     /// Opening an address: a Link, or openURL.
     case openLink(URL)
     /// A WebView showing this address; nil for inline html.
@@ -113,20 +113,20 @@ public protocol ActionUITrustPolicy: Sendable {
     /// The trust of content loaded from `source` inside content of origin `parent` (nil for a
     /// window's root, or for a LoadableView whose own trust is unknown), given what ActionUI
     /// decides `byDefault`. The default implementation keeps that.
-    @MainActor func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
-                          byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust
+    @MainActor func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+                          byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust
     /// Whether content of `origin` may do `capability`. The default implementation is
     /// DefaultTrustPolicy's.
-    @MainActor func allows(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool
+    @MainActor func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool
 }
 
 extension ActionUITrustPolicy {
-    @MainActor public func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
-                                 byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+    @MainActor public func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+                                 byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust {
         byDefault
     }
 
-    @MainActor public func allows(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
+    @MainActor public func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
         DefaultTrustPolicy.allowsByDefault(capability, for: origin)
     }
 }
@@ -167,7 +167,7 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// origin, and read local files only inside the app's resources, and for now do anything else (each further refusal comes with the renderer change
     /// that enforces it).
     @MainActor
-    public static func allowsByDefault(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
+    public static func allowsByDefault(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
         if origin.trust == .trusted { return true }
         switch capability {
         case .openLink(let url):
@@ -332,7 +332,7 @@ enum ActionUIDocumentLoader {
     /// are followed. A document names the path, so it could name a device such as /dev/zero or a
     /// named pipe, and reading one would never end (or never begin) on the main thread.
     /// A file larger than `maximumFileSize` is refused before it is read: a document is refused at
-    /// 16 MB when it loads anyway (WindowModel.maximumDocumentSize), so reading more only costs memory.
+    /// 16 MB when it loads anyway (WindowModel.maximumJSONSize), so reading more only costs memory.
     nonisolated static func readRegularFile(_ url: URL) throws -> Data {
         // Not regularFilePath: a missing file keeps the system's own "no such file" error here.
         let path = url.resolvingSymlinksInPath().path
@@ -395,12 +395,12 @@ enum ActionUIDocumentLoader {
     /// that remote content names stays less trusted.
     nonisolated static func origin(
         for source: Source,
-        inside parent: DocumentOrigin?,
+        inside parent: JSONContentOrigin?,
         parentID: Int?,
         resourceFolders: [String]
-    ) -> DocumentOrigin {
-        let kind: DocumentOrigin.Source
-        let own: DocumentOrigin.Trust
+    ) -> JSONContentOrigin {
+        let kind: JSONContentOrigin.Source
+        let own: JSONContentOrigin.Trust
         switch source {
         case .remote(let url):
             kind = .remote(url)
@@ -415,7 +415,7 @@ enum ActionUIDocumentLoader {
                 own = .lessTrusted
             }
         }
-        return DocumentOrigin(source: kind, trust: min(own, parent?.trust ?? .trusted), parentID: parentID)
+        return JSONContentOrigin(source: kind, trust: min(own, parent?.trust ?? .trusted), parentID: parentID)
     }
 
     /// "plist" for a file or URL whose name ends in ".plist" (any case), else "json".
@@ -444,19 +444,19 @@ enum ActionUIDocumentLoader {
     /// The origin of content loaded from `source` into the window: as a root (`isContentView`), or
     /// into its LoadableView `parentID`. Classified (origin(for:)), then the host's trust policy
     /// has the last word.
-    static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int) -> DocumentOrigin {
+    static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int) -> JSONContentOrigin {
         // A sub-view's parent is the LoadableView, an element of the content around it.
         let parentModel = isContentView ? nil : ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID]
         // A LoadableView with no view model of its own (one in a template row, a blueprint the
         // window has no model for) has no known trust: less trusted, so a miss cannot make remote
         // content's choice of file read as the host's. Id 0 is the host's own loader.
         let unknownParent = !isContentView && parentID != 0 && parentModel == nil
-        let parent: DocumentOrigin? = isContentView || unknownParent ? nil : (parentModel?.origin ?? .host)
+        let parent: JSONContentOrigin? = isContentView || unknownParent ? nil : (parentModel?.origin ?? .host)
         let classified = Self.origin(for: source, inside: parent, parentID: isContentView ? nil : parentID,
                                      resourceFolders: ActionUIRendererHooks.resourceFolders())
-        let byDefault: DocumentOrigin.Trust = unknownParent ? .lessTrusted : classified.trust
+        let byDefault: JSONContentOrigin.Trust = unknownParent ? .lessTrusted : classified.trust
         let trust = ActionUIModel.shared.trustPolicy.trust(for: classified.source, inside: parent, byDefault: byDefault)
-        return trust == classified.trust ? classified : DocumentOrigin(source: classified.source, trust: trust, parentID: classified.parentID)
+        return trust == classified.trust ? classified : JSONContentOrigin(source: classified.source, trust: trust, parentID: classified.parentID)
     }
 
     /// Fetches `url` with `fetch`, then loads it as `load` does, with the format of the URL.

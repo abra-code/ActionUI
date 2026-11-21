@@ -9,7 +9,7 @@ import SwiftUI
 /// it arrives and refused once it grows past `limit` bytes (the document cap: a larger document is
 /// refused when it loads anyway), and the whole fetch is given up after `timeout` seconds, however
 /// slowly the server sends. URLSession's own timeout only covers a pause between pieces.
-enum RemoteDocumentFetch {
+enum RemoteJSONFetch {
     /// The longest a whole fetch may take, in seconds (the Linux loader's 120 s).
     static let defaultTimeout: Double = 120
 
@@ -41,7 +41,7 @@ enum RemoteDocumentFetch {
     }
 
     private static func tooLarge(_ limit: Int) -> ActionUIError {
-        ActionUIError("the document is larger than \(limit / (1024 * 1024)) MB")
+        ActionUIError("the ActionUI JSON is larger than \(limit / (1024 * 1024)) MB")
     }
 }
 
@@ -91,14 +91,14 @@ public struct RemoteLoadableView: SwiftUI.View {
             SwiftUI.ProgressView()
                 .onAppear {
                     Task { @MainActor in
-                        let limit = WindowModel.maximumDocumentSize
+                        let limit = WindowModel.maximumJSONSize
                         do {
                             element = try await ActionUIDocumentLoader.loadRemote(
                                 url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, logger: logger
                             ) { url in
                                 var request = URLRequest(url: url)
                                 request.cachePolicy = .reloadRevalidatingCacheData // Balances freshness and performance
-                                return try await RemoteDocumentFetch.data(for: request, limit: limit)
+                                return try await RemoteJSONFetch.data(for: request, limit: limit)
                             }
                             Self.viewDidLoad.fire(source: url.absoluteString, windowUUID: windowUUID, parentID: parentID, actionID: viewDidLoadActionID)
                         } catch {

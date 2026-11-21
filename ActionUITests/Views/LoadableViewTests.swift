@@ -10,9 +10,9 @@ import XCTest
 import SwiftUI
 @testable import ActionUI
 
-/// Serves fixed bodies for RemoteDocumentFetch: /big (1001 bytes), /exact (1000), /told (says
+/// Serves fixed bodies for RemoteJSONFetch: /big (1001 bytes), /exact (1000), /told (says
 /// 5000 bytes in Content-Length), /stall (headers, then nothing).
-private final class StubDocumentProtocol: URLProtocol, @unchecked Sendable {
+private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
@@ -529,15 +529,15 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 6)?.trust, .lessTrusted)
         _ = FileLoadableView(data: Data(#"{"id": 7, "type": "Text", "properties": {}}"#.utf8), sourceName: "memory",
                              windowUUID: windowUUID, isContentView: true, logger: logger)
-        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 7) === DocumentOrigin.host, "data the host holds")
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 7) === JSONContentOrigin.host, "data the host holds")
     }
 
-    func testARemoteDocumentIsCappedInSizeAndTime() async throws {
+    func testRemoteJSONIsCappedInSizeAndTime() async throws {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [StubDocumentProtocol.self]
+        configuration.protocolClasses = [StubJSONProtocol.self]
         let session = URLSession(configuration: configuration)
         func fetch(_ path: String, timeout: Double = 10) async throws -> Data {
-            try await RemoteDocumentFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
+            try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
                                                timeout: timeout, session: session)
         }
         let exact = try await fetch("/exact")
@@ -546,13 +546,13 @@ final class LoadableViewTests: XCTestCase {
             _ = try await fetch("/big")
             XCTFail("one byte over the cap")
         } catch {
-            XCTAssertEqual("\(error)", "the document is larger than 0 MB")
+            XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
         do {
             _ = try await fetch("/told")
             XCTFail("a Content-Length over the cap is refused before the body")
         } catch {
-            XCTAssertTrue("\(error)".hasPrefix("the document is larger"), "\(error)")
+            XCTAssertTrue("\(error)".hasPrefix("the ActionUI JSON is larger"), "\(error)")
         }
         let start = Date()
         do {
@@ -562,6 +562,6 @@ final class LoadableViewTests: XCTestCase {
             XCTAssertEqual("\(error)", "loading it took longer than 0 seconds")
         }
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
-        XCTAssertEqual(WindowModel.maximumDocumentSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
+        XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
     }
 }

@@ -60,5 +60,5 @@ enum LinkTrust {
 
     /// The origin of content whose element cannot be told: less trusted, as ActionUIModel.allows
     /// treats an element with no view model.
-    private static let unknownOrigin = DocumentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
+    private static let unknownOrigin = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
 }

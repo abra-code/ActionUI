@@ -816,7 +816,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         XCTAssertNil(folderAfterClose, "dropped when the window closes")
     }
 
-    func testAWindowsDocumentHasTheOriginOfWhereItWasRead() throws {
+    func testAWindowsJSONHasTheOriginOfWhereItWasRead() throws {
         let folder = NSTemporaryDirectory() + "actionui-app-origin-\(UUID().uuidString)"
         let resources = folder + "/resources"
         try FileManager.default.createDirectory(atPath: resources, withIntermediateDirectories: true)
@@ -829,7 +829,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
         try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
         let app = AdwaitaApplication()
-        var inside: DocumentOrigin?, outside: DocumentOrigin?, host: DocumentOrigin?
+        var inside: JSONContentOrigin?, outside: JSONContentOrigin?, host: JSONContentOrigin?
         app.handlers.didFinishLaunching = {
             app.presentWindow(url: resources + "/Main.json", windowUUID: "origin-inside", title: nil)
             app.presentWindow(url: folder + "/Other.json", windowUUID: "origin-outside", title: nil)
@@ -847,7 +847,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         if case .resource = inside?.source {} else { XCTFail("a file in the resource folder: \(String(describing: inside))") }
         XCTAssertNil(inside?.parentID, "a window's root")
         XCTAssertEqual(outside?.trust, .lessTrusted, "a file outside the resource folder")
-        XCTAssertTrue(host === DocumentOrigin.host, "JSON the host passed")
+        XCTAssertTrue(host === JSONContentOrigin.host, "JSON the host passed")
     }
 
     func testClosingTheLastWindowAsksAndTerminateEndsTheApplication() throws {

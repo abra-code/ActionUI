@@ -197,7 +197,7 @@ public class ActionUIModel {
 
     // Load a view description from JSON or plist data for a specific windowUUID. `origin`: where it
     // came from (nil: the host passed it).
-    internal func loadDescription(from data: Data, format: String, windowUUID: String, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
+    internal func loadDescription(from data: Data, format: String, windowUUID: String, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
         let windowModel = windowModelForLoading(windowUUID)
         let element = try windowModel.loadDescription(from: data, format: format, origin: origin)
         windowModels[windowUUID] = windowModel
@@ -214,7 +214,7 @@ public class ActionUIModel {
 
     // Load a sub-view from JSON or plist data without overwriting the root element.
     // When parentID != 0, cleans up old child models before loading to support dynamic content swapping.
-    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
+    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
             throw ActionUIError("No WindowModel for windowUUID")
@@ -245,7 +245,7 @@ public class ActionUIModel {
     }
 
     /// The origin `allows` uses for an element with no view model.
-    private static let unknownOrigin = DocumentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
+    private static let unknownOrigin = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
 
     /// Whether the element `viewID` of the window may read the local file at `path` (an image, a
     /// canvas image, a video, a shared file): trusted content reads anything without asking; other
@@ -262,7 +262,7 @@ public class ActionUIModel {
     /// Where the element `viewID` of the window came from and how far it is trusted: `.host` for
     /// content the host passed in itself, nil when the window has no such element. For an action
     /// handler that wants to treat less-trusted content's actions differently.
-    public func origin(windowUUID: String, viewID: Int) -> DocumentOrigin? {
+    public func origin(windowUUID: String, viewID: Int) -> JSONContentOrigin? {
         guard let model = windowModels[windowUUID]?.viewModels[viewID] else { return nil }
         return model.origin ?? .host
     }

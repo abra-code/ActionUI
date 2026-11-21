@@ -142,7 +142,7 @@ struct AgentDocument {
                 throw MCPToolError("'document' must be an ActionUI element object such as {\"type\": \"VStack\", ...}, not a string")
             }
             guard document.serialized().utf8.count <= Self.maxBytes else {
-                throw MCPToolError("the document is larger than \(Self.maxBytes / 1024 / 1024) MB")
+                throw MCPToolError("the ActionUI JSON is larger than \(Self.maxBytes / 1024 / 1024) MB")
             }
             value = document
         } else if let path = arguments["path"]?.string {

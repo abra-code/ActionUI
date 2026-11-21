@@ -23,7 +23,7 @@ enum ActionUIRendererHooks {
     /// inside `shared`'s one-time initializer, so an add-on using either there would hang.
     static var registerLinkedAddOns: () -> Void = {}
 
-    /// The folders of the app's own resources, whose documents are trusted (DocumentOrigin): the
+    /// The folders of the app's own resources, whose documents are trusted (JSONContentOrigin): the
     /// host's resource folder, and the renderer's bundle folder. The default knows only the first.
     static var resourceFolders: () -> [String] = { ActionUIResourceFolder.path.map { [$0] } ?? [] }
 

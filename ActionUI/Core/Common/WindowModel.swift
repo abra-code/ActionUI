@@ -39,7 +39,7 @@ final class WindowModel {
 
     /// The largest document any load takes, in bytes (16 MB, for every document, whoever loads it).
     /// Settable for tests.
-    static var maximumDocumentSize = 16 * 1024 * 1024
+    static var maximumJSONSize = 16 * 1024 * 1024
 
     init(windowUUID: String, logger: any ActionUILogger) {
         self.windowUUID = windowUUID
@@ -48,7 +48,7 @@ final class WindowModel {
 
     // Load description from JSON or plist data, populating viewModels. `origin` (nil: the host's)
     // goes on every view model it makes.
-    func loadDescription(from data: Data, format: String, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
+    func loadDescription(from data: Data, format: String, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
         try checkSize(data)
         let filtered = try applyPlatformFilter(data: data, format: format)
         if format == "json" {
@@ -71,11 +71,11 @@ final class WindowModel {
         }
     }
 
-    // Refuses a document larger than maximumDocumentSize before anything parses it.
+    // Refuses a document larger than maximumJSONSize before anything parses it.
     private func checkSize(_ data: Data) throws {
-        guard data.count > Self.maximumDocumentSize else { return }
-        logger.log("Not loading a document of \(data.count) bytes in window \(windowUUID): the most is \(Self.maximumDocumentSize)", .error)
-        throw ActionUIError("the document is larger than \(Self.maximumDocumentSize / (1024 * 1024)) MB")
+        guard data.count > Self.maximumJSONSize else { return }
+        logger.log("Not loading ActionUI JSON of \(data.count) bytes in window \(windowUUID): the most is \(Self.maximumJSONSize)", .error)
+        throw ActionUIError("the ActionUI JSON is larger than \(Self.maximumJSONSize / (1024 * 1024)) MB")
     }
 
     // Counts one LoadableView load against ActionUIModel.loadBudget, or refuses it when the window has
@@ -92,7 +92,7 @@ final class WindowModel {
     }
 
     // `models`, each given `origin` when there is one (nil leaves them the host's).
-    private static func marked(_ models: [Int: ViewModel], _ origin: DocumentOrigin?) -> [Int: ViewModel] {
+    private static func marked(_ models: [Int: ViewModel], _ origin: JSONContentOrigin?) -> [Int: ViewModel] {
         if let origin {
             for model in models.values { model.origin = origin }
         }
@@ -145,7 +145,7 @@ final class WindowModel {
     // enabling dynamic content swapping without ID conflicts.
     // `origin` (nil: the host's) goes on the view models merged, not on those of conflicting ids,
     // which are another element's. Less-trusted content whose id is a trusted element's is refused whole.
-    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
+    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
         try checkSize(data)
         try spendLoad()
         // Remove old child models if replacing an existing parent's content

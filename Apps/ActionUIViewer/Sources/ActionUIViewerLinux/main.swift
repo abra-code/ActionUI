@@ -35,7 +35,7 @@ let windowUUID = "viewer"
 /// How long the window has to draw before a screenshot is taken.
 let screenshotDelay = DispatchTimeInterval.milliseconds(600)
 
-var documentPath: String?
+var jsonPath: String?
 var screenshotPath: String?
 var dark = false
 var elementRows: [(id: Int, rows: [[String]])] = []
@@ -62,14 +62,14 @@ while let argument = arguments.popFirst() {
         }
         elementRows.append((id, rows))
     default:
-        guard documentPath == nil, !argument.hasPrefix("--") else {
+        guard jsonPath == nil, !argument.hasPrefix("--") else {
             print(usage)
             exit(64)
         }
-        documentPath = argument
+        jsonPath = argument
     }
 }
-guard let documentPath else {
+guard let jsonPath else {
     print(usage)
     exit(64)
 }
@@ -80,28 +80,28 @@ guard let documentPath else {
 /// Remote documents and any other local file with no known parent (one a LoadableView in a
 /// template row names) keep ActionUI's default.
 struct ViewerTrustPolicy: ActionUITrustPolicy {
-    /// The resolved path of the local document the user named, as DocumentOrigin.Source.file
+    /// The resolved path of the local document the user named, as JSONContentOrigin.Source.file
     /// gives it; nil for a remote document.
-    let documentPath: String?
+    let jsonPath: String?
 
-    func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
-               byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+    func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+               byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust {
         guard case .file(let path) = source else { return byDefault }
         if let parent { return parent.trust }
-        return path == documentPath ? .trusted : byDefault
+        return path == jsonPath ? .trusted : byDefault
     }
 }
 
 /// The named document's path as presentWindow(url:) reads it: a file URL or a path; nil for an
 /// http or https address.
-let localDocumentPath: String? = {
-    let lowered = documentPath.lowercased()
+let localJSONPath: String? = {
+    let lowered = jsonPath.lowercased()
     if lowered.hasPrefix("http://") || lowered.hasPrefix("https://") { return nil }
     let url: URL
-    if lowered.hasPrefix("file://"), let fileURL = URL(string: documentPath) {
+    if lowered.hasPrefix("file://"), let fileURL = URL(string: jsonPath) {
         url = fileURL
     } else {
-        url = URL(fileURLWithPath: documentPath)
+        url = URL(fileURLWithPath: jsonPath)
     }
     return url.resolvingSymlinksInPath().standardizedFileURL.path
 }()
@@ -110,7 +110,7 @@ var status: Int32 = 0
 /// Set when the screenshot was tried; the window can close before then, ending the application.
 var screenshotTried = false
 MainActor.assumeIsolated {
-    ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(documentPath: localDocumentPath)
+    ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(jsonPath: localJSONPath)
     ActionUIRichText.register()
     ActionUICachedImage.register()
     ActionUIDiff.register()
@@ -127,7 +127,7 @@ MainActor.assumeIsolated {
     app.handlers.windowWillPresent = { _ in
         // A document that could not be loaded shows its error in the window; the run still fails.
         if !app.showsDocument(windowUUID) {
-            print("ActionUIViewer: \(documentPath) could not be loaded")
+            print("ActionUIViewer: \(jsonPath) could not be loaded")
             status = 65
         }
         for (id, rows) in elementRows {
@@ -146,7 +146,7 @@ MainActor.assumeIsolated {
             }
         }
     }
-    app.presentWindow(url: documentPath, windowUUID: windowUUID, title: nil)
+    app.presentWindow(url: jsonPath, windowUUID: windowUUID, title: nil)
     let runStatus = app.run()
     if let screenshotPath, !screenshotTried {
         print("ActionUIViewer: the window closed before \(screenshotPath) was saved")

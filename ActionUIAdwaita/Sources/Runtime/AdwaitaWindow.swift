@@ -82,7 +82,7 @@ package final class AdwaitaWindow {
 extension ActionUIModel {
     /// Loads a window's document into the model under `windowUUID` (loadDescription), for the
     /// application module: Core is also built for Apple, where it takes no package access. `url`:
-    /// the file or http address it was read from, which decides its origin (DocumentOrigin), as
+    /// the file or http address it was read from, which decides its origin (JSONContentOrigin), as
     /// a FileLoadableView or RemoteLoadableView window root's does on Apple; nil for JSON the host
     /// passed.
     package func loadWindowDocument(_ data: Data, format: String, windowUUID: String, from url: URL? = nil) throws {
@@ -93,7 +93,7 @@ extension ActionUIModel {
         _ = try loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
     }
 
-    /// The largest document any load takes, in bytes (WindowModel.maximumDocumentSize), for the
+    /// The largest document any load takes, in bytes (WindowModel.maximumJSONSize), for the
     /// application module, which reads a WindowGroup document before loading its content.
-    package static var maximumDocumentSize: Int { WindowModel.maximumDocumentSize }
+    package static var maximumJSONSize: Int { WindowModel.maximumJSONSize }
 }

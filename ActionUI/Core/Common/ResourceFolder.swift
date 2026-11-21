@@ -47,7 +47,7 @@ public enum ActionUIResourceFolder {
 
     /// Whether `url` names a file inside `folder` (at any depth), both with symbolic links followed
     /// and standardized. A folder that is the root of the file system holds nothing: it would trust
-    /// every file. The test DocumentOrigin uses for the app's resources, for a host's own folders too.
+    /// every file. The test JSONContentOrigin uses for the app's resources, for a host's own folders too.
     public static func isFile(_ url: URL, inside folder: String) -> Bool {
         guard !folder.isEmpty else { return false }
         let root = URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path

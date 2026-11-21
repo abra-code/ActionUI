@@ -40,7 +40,7 @@ public struct FileLoadableView: SwiftUI.View {
         }
     }
 
-    // `origin`: where the data is read from (DocumentOrigin), nil for data the host holds.
+    // `origin`: where the data is read from (JSONContentOrigin), nil for data the host holds.
     private init(source: String, origin: ActionUIDocumentLoader.Source?, format: String, windowUUID: String, isContentView: Bool, parentID: Int, viewDidLoadActionID: String?, logger: any ActionUILogger, loadData: () throws -> Data) {
         self.source = source
         self.windowUUID = windowUUID

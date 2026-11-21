@@ -98,7 +98,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         func log(_ message: String, _ level: LoggerLevel) { messages.append(message) }
     }
 
-    func testADocumentThatLoadsItselfIsRefusedAtTheRepeat() throws {
+    func testAJSONFileThatLoadsItselfIsRefusedAtTheRepeat() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("self-loading-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -127,7 +127,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
 
     /// Documents that each list all the others multiply their loads past the depth limit (about 2000
     /// loads in 4 seconds before the load budget); the budget stops them at its count.
-    func testDocumentsThatListEachOtherStopAtTheLoadBudget() throws {
+    func testJSONFilesThatListEachOtherStopAtTheLoadBudget() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("measure-loop-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }

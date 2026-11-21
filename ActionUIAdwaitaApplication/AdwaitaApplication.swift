@@ -785,7 +785,7 @@ public final class AdwaitaApplication {
     /// WindowGroup scene. One larger than the cap comes back unread, for the load to refuse: its
     /// content alone could be under the cap.
     func windowGroup(_ data: Data, format: String) -> WindowDocument {
-        guard format == "json", data.count <= ActionUIModel.maximumDocumentSize,
+        guard format == "json", data.count <= ActionUIModel.maximumJSONSize,
               let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
               parsed["type"] as? String == "WindowGroup" else { return WindowDocument(data: data) }
         // Its platform overrides ("title:linux" and the like) resolved first, as Core resolves them

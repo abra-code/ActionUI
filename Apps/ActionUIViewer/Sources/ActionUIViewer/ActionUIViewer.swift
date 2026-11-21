@@ -147,15 +147,15 @@ func printUsage() {
 /// Remote documents (here, the downloaded copy of one) and any other local file with no known
 /// parent (one a LoadableView in a template row names) keep ActionUI's default.
 struct ViewerTrustPolicy: ActionUITrustPolicy {
-    /// The resolved path of the local document the user named, as DocumentOrigin.Source.file
+    /// The resolved path of the local document the user named, as JSONContentOrigin.Source.file
     /// gives it; nil for a remote document.
-    let documentPath: String?
+    let jsonPath: String?
 
-    func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?,
-               byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+    func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+               byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust {
         guard case .file(let path) = source else { return byDefault }
         if let parent { return parent.trust }
-        return path == documentPath ? .trusted : byDefault
+        return path == jsonPath ? .trusted : byDefault
     }
 }
 
@@ -170,7 +170,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     /// Cmd-Q, the Window menu listing the window, Services, and the Help menu's search field.
     /// Before launch finishes, so the first window opens with the menu bar in place.
     func applicationWillFinishLaunching(_ notification: Notification) {
-        ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(documentPath: nil)
+        ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(jsonPath: nil)
         ActionUIMenuBarBuilder.installDefaultMenuBar(appName: Self.appName, aboutTarget: self,
                                                      aboutAction: #selector(showAboutPanel(_:)))
         // Items that can never work here go: the viewer shows the one file named on its command
@@ -375,7 +375,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         
         // Only the file the user named is trusted as a root, not the downloaded copy of a remote one.
         ActionUIModel.shared.trustPolicy = ViewerTrustPolicy(
-            documentPath: downloadedFile == nil ? url.resolvingSymlinksInPath().standardizedFileURL.path : nil)
+            jsonPath: downloadedFile == nil ? url.resolvingSymlinksInPath().standardizedFileURL.path : nil)
         let hostingController = ActionUISwift.loadHostingController(from: url, windowUUID: windowUUID, isContentView: true)
         // The document was read when the view was made (FileLoadableView reads in its init), so
         // the downloaded copy is not needed any more; left in place it collected one per run.

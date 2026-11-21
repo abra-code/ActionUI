@@ -13,10 +13,10 @@ import XCTest
 /// A policy that trusts every local file, lowers the app's resources, and refuses links to less-
 /// trusted content, recording what it was asked.
 private final class TestPolicy: ActionUITrustPolicy, @unchecked Sendable {
-    var asked: [(source: DocumentOrigin.Source, parent: DocumentOrigin?, byDefault: DocumentOrigin.Trust)] = []
-    var capabilities: [(ActionUICapability, DocumentOrigin)] = []
+    var asked: [(source: JSONContentOrigin.Source, parent: JSONContentOrigin?, byDefault: JSONContentOrigin.Trust)] = []
+    var capabilities: [(ActionUICapability, JSONContentOrigin)] = []
 
-    func trust(for source: DocumentOrigin.Source, inside parent: DocumentOrigin?, byDefault: DocumentOrigin.Trust) -> DocumentOrigin.Trust {
+    func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?, byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust {
         asked.append((source, parent, byDefault))
         switch source {
         case .file: return .trusted
@@ -25,7 +25,7 @@ private final class TestPolicy: ActionUITrustPolicy, @unchecked Sendable {
         }
     }
 
-    func allows(_ capability: ActionUICapability, for origin: DocumentOrigin) -> Bool {
+    func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
         capabilities.append((capability, origin))
         if case .openLink = capability { return origin.trust == .trusted }
         return true
@@ -247,12 +247,12 @@ final class DocumentLoaderTests: XCTestCase {
         let (root, resources) = try originFolders()
         defer { try? FileManager.default.removeItem(at: root) }
         let folders = [resources.path]
-        func origin(_ source: ActionUIDocumentLoader.Source, inside parent: DocumentOrigin? = nil) -> DocumentOrigin {
+        func origin(_ source: ActionUIDocumentLoader.Source, inside parent: JSONContentOrigin? = nil) -> JSONContentOrigin {
             ActionUIDocumentLoader.origin(for: source, inside: parent, parentID: 7, resourceFolders: folders)
         }
         let remoteURL = URL(string: "https://example.com/a.json")!
         let remote = origin(.remote(remoteURL))
-        XCTAssertEqual(remote, DocumentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 7))
+        XCTAssertEqual(remote, JSONContentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 7))
         let inside = origin(.file(resources.appendingPathComponent("inside.json")))
         XCTAssertEqual(inside.trust, .trusted)
         guard case .resource(let path) = inside.source else { return XCTFail("\(inside)") }
@@ -293,7 +293,7 @@ final class DocumentLoaderTests: XCTestCase {
         _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
                                             source: .remote(remoteURL))
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200),
-                       DocumentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 100))
+                       JSONContentOrigin(source: .remote(remoteURL), trust: .lessTrusted, parentID: 100))
         XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 300)?.trust, .lessTrusted)
         XCTAssertTrue(recording.errors.isEmpty, "\(recording.errors)")
 
@@ -321,7 +321,7 @@ final class DocumentLoaderTests: XCTestCase {
         // document's elements (and what they loaded) are gone with their origins.
         let hostPanel = Data(#"{ "id": 500, "type": "Text", "properties": {} }"#.utf8)
         _ = try ActionUIDocumentLoader.load(data: hostPanel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
-        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 500) === DocumentOrigin.host)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 500) === JSONContentOrigin.host)
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 200))
         XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 400))
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 1) === rootOrigin)
@@ -397,7 +397,7 @@ final class DocumentLoaderTests: XCTestCase {
     }
 
     func testTheDefaultPolicyLetsLessTrustedLinksOpenOnlyWebAndMail() {
-        let lessTrusted = DocumentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
+        let lessTrusted = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
         let capabilities: [ActionUICapability] = [
             .load(.remote(URL(string: "https://example.com/b.json")!)), .openLink(URL(string: "https://example.com")!),
             .webView(nil), .webViewScriptFile("/tmp/a.js"), .windowTitle, .presentModal,
@@ -448,19 +448,19 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil))
     }
 
-    func testADocumentLargerThanTheCapIsRefused() throws {
+    func testJSONLargerThanTheCapIsRefused() throws {
         let recording = RecordingLogger()
         ActionUIModel.shared.logger = recording
-        let saved = WindowModel.maximumDocumentSize
-        defer { WindowModel.maximumDocumentSize = saved }
-        WindowModel.maximumDocumentSize = root.count
+        let saved = WindowModel.maximumJSONSize
+        defer { WindowModel.maximumJSONSize = saved }
+        WindowModel.maximumJSONSize = root.count
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        WindowModel.maximumDocumentSize = root.count - 1
+        WindowModel.maximumJSONSize = root.count - 1
         XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true,
                                                              parentID: 0, source: nil)) { error in
-            XCTAssertEqual("\(error)", "the document is larger than 0 MB")
+            XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
-        WindowModel.maximumDocumentSize = panel.count - 1
+        WindowModel.maximumJSONSize = panel.count - 1
         XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
                                                              parentID: 100, source: nil))
         XCTAssertThrowsError(try ActionUIModel.shared.windowModels[windowUUID]?.loadModalDescription(from: panel, format: "json"))
@@ -484,8 +484,8 @@ final class DocumentLoaderTests: XCTestCase {
 
     func testALessTrustedWebViewShowsOnlyWebAddressesAndItsOwnOriginAsABase() throws {
         let document = try XCTUnwrap(URL(string: "https://example.com/app/view.json"))
-        let remote = DocumentOrigin(source: .remote(document), trust: .lessTrusted, parentID: 1)
-        let file = DocumentOrigin(source: .file("/tmp/view.json"), trust: .lessTrusted, parentID: 1)
+        let remote = JSONContentOrigin(source: .remote(document), trust: .lessTrusted, parentID: 1)
+        let file = JSONContentOrigin(source: .file("/tmp/view.json"), trust: .lessTrusted, parentID: 1)
         let policy = DefaultTrustPolicy()
         func url(_ text: String) -> URL { URL(string: text)! }
         XCTAssertTrue(policy.allows(.webView(url("https://example.com/page")), for: remote))
@@ -519,7 +519,7 @@ final class DocumentLoaderTests: XCTestCase {
     }
 
     func testALessTrustedWebViewsPageGoesOnlyToWebAddressesOrAllowedLinks() {
-        let lessTrusted = DocumentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: 1)
+        let lessTrusted = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: 1)
         let allows: (ActionUICapability) -> Bool = { DefaultTrustPolicy().allows($0, for: lessTrusted) }
         let recording = RecordingLogger()
         func decide(_ text: String, mainFrame: Bool = true) -> WebViewTrust.Navigation {

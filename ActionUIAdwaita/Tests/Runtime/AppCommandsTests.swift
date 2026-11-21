@@ -452,14 +452,14 @@ final class AppCommandsTests: XCTestCase {
 
     func testAWindowGroupLargerThanTheCapIsLeftForTheLoadToRefuse() throws {
         let document = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
-        let saved = WindowModel.maximumDocumentSize
-        defer { WindowModel.maximumDocumentSize = saved }
-        WindowModel.maximumDocumentSize = document.count - 1
+        let saved = WindowModel.maximumJSONSize
+        defer { WindowModel.maximumJSONSize = saved }
+        WindowModel.maximumJSONSize = document.count - 1
         let group = AdwaitaApplication.shared.windowGroup(document, format: "json")
         XCTAssertEqual(group.data, document, "not parsed, so its smaller content cannot slip under the cap")
         XCTAssertNil(group.title)
         XCTAssertThrowsError(try ActionUIModel.shared.loadWindowDocument(group.data, format: "json", windowUUID: UUID().uuidString)) { error in
-            XCTAssertEqual("\(error)", "the document is larger than 0 MB")
+            XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
     }
 
