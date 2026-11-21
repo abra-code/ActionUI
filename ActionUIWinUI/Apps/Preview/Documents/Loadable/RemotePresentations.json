@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "id": 300,
+  "properties": { "spacing": 8, "alignment": "leading" },
+  "children": [
+    {
+      "type": "Button",
+      "id": 301,
+      "properties": { "title": "Show a sheet (nothing appears)" },
+      "sheet": { "type": "Text", "id": 302, "properties": { "text": "A sheet from a server", "padding": 20 } }
+    },
+    {
+      "type": "Text",
+      "id": 303,
+      "properties": { "text": "Tap for a popover (nothing appears)", "popoverActionID": "remote.popover" },
+      "popover": { "type": "Text", "id": 304, "properties": { "text": "A popover from a server", "padding": 12 } }
+    },
+    {
+      "type": "NavigationStack",
+      "id": 310,
+      "properties": { "navigationTitle": "The stack's own title (not shown)", "frame": { "height": 60 } },
+      "content": { "type": "Text", "id": 311, "properties": { "text": "A stack with its own title" } }
+    },
+    {
+      "type": "NavigationStack",
+      "id": 320,
+      "properties": { "frame": { "height": 60 } },
+      "content": { "type": "Text", "id": 321, "properties": { "text": "A screen with a title", "navigationTitle": "The screen's title (not shown)" } }
+    }
+  ]
+}

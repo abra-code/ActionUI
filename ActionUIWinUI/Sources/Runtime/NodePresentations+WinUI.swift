@@ -18,6 +18,11 @@
    Escape) sets the state false. An element other than a Button shows or hides it on a tap, firing
    popoverActionID when it shows, as PopoverHelper's tap gesture does.
 
+ Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources, by
+ the host's trust policy: .presentModal) presents no sheet, cover or popover of its own, as on Apple
+ and Linux, so it cannot cover the window with a dialog that looks like the app's; its states still
+ change, nothing is shown, and a tap toggles no popover (as on Apple). Logged once per element.
+
  The node reads the states while it syncs (so a change re-syncs it) and applies them after, when
  the subview nodes it makes can sync outside its observation. The subview's element is shown in a
  tree of its own, its root without a parent node, as a presentation is its own context on Apple.
@@ -71,10 +76,15 @@ package final class NodePresentations {
         }
     }
 
-    /// The presentations `node`'s element declares; nil when it declares none.
+    /// The presentations `node`'s element declares; nil when it declares none, or when its content
+    /// may not present them.
     static func make(for node: RenderNode) -> NodePresentations? {
         let kinds = Kind.allCases.filter { node.element.subviews?[$0.subviewKey] is any ActionUIElementBase }
-        return kinds.isEmpty ? nil : NodePresentations(node: node, kinds: kinds)
+        guard !kinds.isEmpty else { return nil }
+        // Less-trusted content presents no sheet, cover or popover of its own over the window, and a
+        // tap on it toggles no popover, as on Apple: its states change, nothing is shown.
+        guard LinkTrust.allowsLoggingOnce(.presentModal, what: "presenting a sheet, cover or popover", node) else { return nil }
+        return NodePresentations(node: node, kinds: kinds)
     }
 
     private init(node: RenderNode, kinds: [Kind]) {

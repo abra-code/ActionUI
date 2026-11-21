@@ -172,6 +172,14 @@ PREVIEW_OPTIONS = {
     "Hovers": ["420", "160", "--drag", "2", "-30.5", "20.5", "40.5", "20.5", "--drag", "2", "40.5", "20.5", "180.5", "20.5"],
     "Sheets": ["440", "300", "--invoke", "2", "--delay", "500", "--expect-state", "2", "sheetVisible", "true",
                "--expect-automation", "11", "name", "A sheet", "--invoke", "13", "--expect-action", "sheet.done"],
+    # JSON from a server presents no sheet or popover and titles no screen: the sheet's state changes, nothing
+    # is shown.
+    "LessTrustedPresentations": ["440", "300", "--delay", "4000", "--invoke", "301", "--delay", "500",
+                                 "--expect-state", "301", "sheetVisible", "true",
+                                 "--expect-log", "Not presenting a sheet, cover or popover for element 301 ",
+                                 "--expect-log", "Not presenting a sheet, cover or popover for element 303 ",
+                                 "--expect-log", "Not setting the title for element 310 ",
+                                 "--expect-log", "Not setting the title for element 321 "],
     "Popovers": ["440", "260", "--invoke", "4", "--delay", "500", "--expect-automation", "40", "name", "A sheet the host closes",
                  "--set-state", "4", "sheetVisible", "false", "--delay", "500", "--invoke", "3", "--delay", "500",
                  "--expect-automation", "21", "name", "A popover", "--expect-action", "sheet.dismissed",

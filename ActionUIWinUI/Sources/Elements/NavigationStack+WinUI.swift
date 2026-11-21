@@ -5,7 +5,8 @@
  NavigationView shows) when a screen is pushed, and the screen's title in the type ramp's Subtitle
  (20 semibold). The title is the screen's navigationTitle, from any of its views (ScreenTitle, shared
  with Linux); the root's falls back to the stack's own. A root screen without a title or toolbar items
- has no header.
+ has no header. Less-trusted content titles nothing (the trust policy's .windowTitle, as on Apple and
+ Linux): its screens' titles and its stack's own are left out, as if the screen had none.
  The stack fills what it is offered, as SwiftUI's does; its page is clipped to its area, so a screen
  taller than its room is cut at the header rather than drawn over the back button.
 
@@ -443,7 +444,9 @@ extension NavigationStack: ActionUIWinUIRenderer {
 
         // The top screen's title; the root's falls back to the stack's own. An empty title is none.
         var title = top.flatMap { ScreenTitle.find(in: $0.element, windowModel: node.windowModel) }
-        if title == nil, state.entries.isEmpty, let own = BaseModifiers(node.properties).navigationTitle, !own.isEmpty {
+        // Less-trusted content's stack does not title its screens, as ScreenTitle refuses its views'.
+        if title == nil, state.entries.isEmpty, let own = BaseModifiers(node.properties).navigationTitle, !own.isEmpty,
+           LinkTrust.allowsLoggingOnce(.windowTitle, what: "setting the title", node) {
             title = own
         }
         if let title, title != state.shownTitle {
