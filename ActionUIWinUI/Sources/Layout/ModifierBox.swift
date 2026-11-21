@@ -48,7 +48,19 @@
    and y; drawn by an empty element behind the frame from a live capture of the frame's visual, and
    moved with the frame's transform. Unlike SwiftUI's (applied last), it leaves out the border.
 
- Not yet: overlay and background views, and the other base modifiers the GTK ModifierBox applies. A rounded corner clips where the pointer is taken
+ - A background view (SwiftUI's background(alignment:) { view }) lies behind the element in the
+   content group, applied before cornerRadius, clipShape and the transforms as on Apple: rounded and
+   clipped with the frame, moved with it. An overlay view (overlay(alignment:) { view }) lies over
+   the element and its border in the outer box, at the frame's place in the layout, not moved or
+   clipped. Each is offered the frame: one that expands (a Color, a shape) fills it, another takes
+   its own size (up to it where it can shrink, past it where it cannot: a fixed frame overflows),
+   placed by backgroundAlignment or overlayAlignment (center by default);
+   neither changes the element's size. A click goes to the overlay, then the element, then the
+   background. (RenderNode makes their nodes, as the Linux renderer's NodeDecorations.) As on Linux,
+   a background view covers the element's background color, where on Apple the color, applied
+   first, covers the view; the element's opacity also fades its overlay (on Apple, applied after).
+
+ Not yet: the other base modifiers the GTK ModifierBox applies. A rounded corner clips where the pointer is taken
  too: WinUI hit-tests a rounded Border's children inside its rounded shape.
 
  Content larger than its frame (a 220-wide column in a frame 150 wide) overflows it, centered or by
@@ -84,6 +96,9 @@ struct BoxGeometry: Equatable {
     var clipShape: BaseModifiers.ClipShape?
     /// The drop shadow under what the frame draws; nil: none.
     var shadow: Shadow?
+    /// Where a background view and an overlay view smaller than the frame lie in it.
+    var backgroundAlignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
+    var overlayAlignment = (horizontal: StackSolver.Alignment.center, vertical: StackSolver.Alignment.center)
 
     /// A drop shadow's color, blur and offset.
     struct Shadow: Equatable {
@@ -112,6 +127,7 @@ struct BoxGeometry: Equatable {
             && left.cornerRadius == right.cornerRadius && left.offset == right.offset && left.border == right.border
             && left.rotation == right.rotation && left.scale == right.scale && left.scaleAnchor == right.scaleAnchor
             && left.clipShape == right.clipShape && left.shadow == right.shadow
+            && left.backgroundAlignment == right.backgroundAlignment && left.overlayAlignment == right.overlayAlignment
     }
 
     /// Whether the frame draws moved at all.
@@ -150,6 +166,8 @@ struct BoxGeometry: Equatable {
             scaleAnchor = Self.unitPoint(value.anchor)
         }
         clipShape = modifiers.clipShape
+        backgroundAlignment = ModifierBox.alignmentAxes(modifiers.backgroundAlignment)
+        overlayAlignment = ModifierBox.alignmentAxes(modifiers.overlayAlignment)
         if let value = modifiers.shadow, value.radius.isFinite, value.x.isFinite, value.y.isFinite {
             // Its color when it is one, else SwiftUI's default shadow color.
             var color = ActionUIWinUIColor(red: 0, green: 0, blue: 0, alpha: 0.33)
@@ -256,6 +274,64 @@ final class ModifierBox {
     private var appliedClip: (shape: BaseModifiers.ClipShape, width: Double, height: Double)?
     /// The empty element behind the frame that draws its shadow, made at the first shadow and kept.
     private var shadowHost: WinUIObject?
+
+    /// A background or overlay view: its box, and its node's expansion (it fills the frame in the
+    /// axes it expands in).
+    struct Decoration {
+        let view: WinUIObject
+        let expansion: () -> Expansion
+    }
+    /// The background view, behind the content in the group, and the overlay view, last in the
+    /// outer box; their sizes from the last measure pass.
+    private var backgroundView: Decoration?
+    private var overlayView: Decoration?
+    private var backgroundDesired = ActionUIWinUISize(width: 0, height: 0)
+    private var overlayDesired = ActionUIWinUISize(width: 0, height: 0)
+    /// The room the outer box was last offered, from which the group's measure finds the frame's
+    /// size to offer the background view (the group itself is offered the frame's bounds).
+    private var boxOffer = ActionUIWinUISize(width: .infinity, height: .infinity)
+
+    /// Puts the element's background and overlay views in place, once, as its node is made.
+    func setDecorations(background: Decoration?, overlay: Decoration?) {
+        let logger = ActionUIModel.shared.logger
+        if let background {
+            do {
+                try group.insert(background.view, at: 0)
+                backgroundView = background
+            } catch {
+                logger.log("ModifierBox: \(error)", .error)
+            }
+        }
+        if let overlay {
+            do {
+                try panel.append(overlay.view)
+                overlayView = overlay
+            } catch {
+                logger.log("ModifierBox: \(error)", .error)
+            }
+        }
+        if backgroundView != nil || overlayView != nil {
+            panel.invalidateLayout()
+            group.invalidateLayout()
+        }
+    }
+
+    /// Where a decoration whose box asks for `desired` (measured for the frame's size) lies in
+    /// `frame`: the frame's size in the axes it expands in, else what it asked for, placed by
+    /// `alignment`. What it asked for is at most the frame where it can shrink (a Text wraps), and
+    /// more where it cannot (a fixed frame wider than the element overflows it, centered by default,
+    /// as on Apple, measured, and Linux).
+    private func decorationRect(_ decoration: Decoration, desired: ActionUIWinUISize, in frame: ActionUIWinUIRect,
+                                alignment: (horizontal: StackSolver.Alignment, vertical: StackSolver.Alignment)) -> ActionUIWinUIRect {
+        let expansion = decoration.expansion()
+        let frameWidth = StackSolver.length(frame.width)
+        let frameHeight = StackSolver.length(frame.height)
+        let width = expansion.contains(.horizontal) ? frameWidth : StackSolver.length(desired.width, rounding: .up)
+        let height = expansion.contains(.vertical) ? frameHeight : StackSolver.length(desired.height, rounding: .up)
+        return ActionUIWinUIRect(x: frame.x + Double(StackSolver.alignedOffset(size: width, block: frameWidth, alignment: alignment.horizontal)),
+                                 y: frame.y + Double(StackSolver.alignedOffset(size: height, block: frameHeight, alignment: alignment.vertical)),
+                                 width: Double(width), height: Double(height))
+    }
 
     init(content: WinUIObject) throws(WinUIError) {
         self.content = content
@@ -466,7 +542,12 @@ final class ModifierBox {
                 logger.log("ModifierBox: \(WinUIError.last("drawing a border"))", .error)
             }
             do {
-                try panel.append(shape)
+                // Under an overlay view, which SwiftUI applies after the border.
+                if let overlay = overlayView, let index = panel.children.firstIndex(where: { $0 === overlay.view }) {
+                    try panel.insert(shape, at: index)
+                } else {
+                    try panel.append(shape)
+                }
             } catch {
                 logger.log("ModifierBox: \(error)", .error)
                 return
@@ -523,11 +604,16 @@ final class ModifierBox {
     private func measure(_ available: ActionUIWinUISize) -> ActionUIWinUISize {
         let offer = ActionUIWinUISize(width: groupOffer(available.width, frame: geometry.frame.horizontal),
                                       height: groupOffer(available.height, frame: geometry.frame.vertical))
+        boxOffer = available
         _ = frameView.measure(offer)
         shadowHost.map { _ = $0.measure(offer) }
         borderShape.map { _ = $0.measure(offer) }
         let width = frameSize(available.width, padded: padded.width, frame: geometry.frame.horizontal)
         let height = frameSize(available.height, padded: padded.height, frame: geometry.frame.vertical)
+        // The overlay view, offered the frame.
+        if let overlay = overlayView {
+            overlayDesired = overlay.view.measureRequested(ActionUIWinUISize(width: Double(width), height: Double(height)))
+        }
         return ActionUIWinUISize(width: Double(width), height: Double(height))
     }
 
@@ -543,6 +629,14 @@ final class ModifierBox {
                                                         height: inner(available.height, geometry.padding.vertical)))
         padded = (StackSolver.length(desired.width, rounding: .up) + geometry.padding.horizontal.total,
                   StackSolver.length(desired.height, rounding: .up) + geometry.padding.vertical.total)
+        // The background view, offered the frame's size (as the outer measure computes it), not the
+        // group's room, which can be wider or unbounded: a Text measured wider than the frame it is
+        // arranged in would overflow it instead of wrapping.
+        if let background = backgroundView {
+            let frame = ActionUIWinUISize(width: Double(frameSize(boxOffer.width, padded: padded.width, frame: geometry.frame.horizontal)),
+                                          height: Double(frameSize(boxOffer.height, padded: padded.height, frame: geometry.frame.vertical)))
+            backgroundDesired = background.view.measureRequested(frame)
+        }
         return ActionUIWinUISize(width: Double(max(padded.width, 0)), height: Double(max(padded.height, 0)))
     }
 
@@ -568,6 +662,9 @@ final class ModifierBox {
         frameView.arrange(frame)
         shadowHost?.arrange(frame)
         borderShape?.arrange(frame)
+        if let overlay = overlayView {
+            overlay.view.arrange(decorationRect(overlay, desired: overlayDesired, in: frame, alignment: geometry.overlayAlignment))
+        }
         // The transform's center and anchor, the clip shape and the shadow follow the frame's size.
         if frameSize != (frame.width, frame.height) {
             frameSize = (frame.width, frame.height)
@@ -597,6 +694,11 @@ final class ModifierBox {
                              expands: contentExpansion.contains(.vertical), alignment: geometry.alignment.vertical)
         content.arrange(ActionUIWinUIRect(x: Double(horizontal.offset), y: Double(vertical.offset),
                                           width: Double(horizontal.size), height: Double(vertical.size)))
+        if let background = backgroundView {
+            background.view.arrange(decorationRect(background, desired: backgroundDesired,
+                                                   in: ActionUIWinUIRect(x: 0, y: 0, width: Double(width), height: Double(height)),
+                                                   alignment: geometry.backgroundAlignment))
+        }
     }
 
     // MARK: From the document's modifiers (as the GTK renderer's ModifierBox reads them)
