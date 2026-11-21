@@ -1,6 +1,6 @@
 // Effects.cpp - what an element's box does to what it draws without changing its layout: a 2D transform
-// (an offset, a rotation and a scale, composed by the caller) and a clip to a shape (clipShape), on the
-// element's composition visual.
+// (an offset, a rotation and a scale, composed by the caller), a clip to a shape (clipShape), on the
+// element's composition visual, and a drop shadow in the shape of what an element draws.
 
 #include "ShimInternal.h"
 
@@ -10,6 +10,7 @@
 #include <winrt/Microsoft.UI.Xaml.Hosting.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Windows.Foundation.Numerics.h>
+#include <winrt/Windows.UI.h>  // Color
 
 using namespace actionui_winui;
 
@@ -64,6 +65,63 @@ bool actionUIWinUIElementSetRenderMatrix(ActionUIWinUIObject *element, double m1
             current.OffsetX != offsetX || current.OffsetY != offsetY) {
             transform.Matrix(wanted);
         }
+        return true;
+    });
+}
+
+bool actionUIWinUIElementSetShadow(ActionUIWinUIObject *host, ActionUIWinUIObject *source, const ActionUIWinUIColor *color,
+                                   double blurRadius, double x, double y, double left, double top, double width,
+                                   double height) {
+    return guarded("element set shadow", [&]() {
+        mux::UIElement hostElement = objectAs<mux::UIElement>(host, L"UIElement");
+        if (color == nullptr) {
+            if (mux::Hosting::ElementCompositionPreview::GetElementChildVisual(hostElement) != nullptr) {
+                mux::Hosting::ElementCompositionPreview::SetElementChildVisual(hostElement, nullptr);
+            }
+            return true;
+        }
+        mux::UIElement sourceElement = objectAs<mux::UIElement>(source, L"UIElement");
+        if (!finite({blurRadius, x, y, left, top, width, height}) || width < 0 || height < 0) {
+            return fail("element set shadow", "the shadow is not made of numbers of pixels");
+        }
+        composition::Visual sourceVisual = mux::Hosting::ElementCompositionPreview::GetElementVisual(sourceElement);
+        composition::Compositor compositor = sourceVisual.Compositor();
+        // The sprite on the host, its shadow and the capture of the source it is masked by, made once.
+        composition::SpriteVisual sprite =
+            mux::Hosting::ElementCompositionPreview::GetElementChildVisual(hostElement).try_as<composition::SpriteVisual>();
+        composition::DropShadow shadow = sprite != nullptr ? sprite.Shadow().try_as<composition::DropShadow>() : nullptr;
+        composition::CompositionSurfaceBrush mask =
+            shadow != nullptr ? shadow.Mask().try_as<composition::CompositionSurfaceBrush>() : nullptr;
+        composition::CompositionVisualSurface surface =
+            mask != nullptr ? mask.Surface().try_as<composition::CompositionVisualSurface>() : nullptr;
+        if (surface == nullptr) {
+            surface = compositor.CreateVisualSurface();
+            surface.SourceVisual(sourceVisual);
+            mask = compositor.CreateSurfaceBrush(surface);
+            mask.Stretch(composition::CompositionStretch::None);
+            shadow = compositor.CreateDropShadow();
+            shadow.Mask(mask);
+            sprite = compositor.CreateSpriteVisual();
+            sprite.Shadow(shadow);
+            mux::Hosting::ElementCompositionPreview::SetElementChildVisual(hostElement, sprite);
+        }
+        // The source changes when the frame moves into a rounded box made after the shadow.
+        if (surface.SourceVisual() != sourceVisual) {
+            surface.SourceVisual(sourceVisual);
+        }
+        // The capture renders the source's own transform (XAML's RenderTransform, on its visual's
+        // TransformMatrix) but not its offset in its parent, as XAML's connected animation counts on
+        // (ConnectedAnimation.cpp CreateSnapshotBrush): the sprite covers the transformed bounds.
+        numerics::float2 origin{static_cast<float>(left), static_cast<float>(top)};
+        numerics::float2 size{static_cast<float>(width), static_cast<float>(height)};
+        surface.SourceOffset(origin);
+        surface.SourceSize(size);
+        sprite.Offset(numerics::float3{origin.x, origin.y, 0});
+        sprite.Size(size);
+        shadow.BlurRadius(static_cast<float>(blurRadius));
+        shadow.Offset(numerics::float3{static_cast<float>(x), static_cast<float>(y), 0});
+        auto channel = [](double value) { return static_cast<uint8_t>(std::lround(std::fmin(std::fmax(value, 0.0), 1.0) * 255)); };
+        shadow.Color(winrt::Windows::UI::Color{channel(color->alpha), channel(color->red), channel(color->green), channel(color->blue)});
         return true;
     });
 }

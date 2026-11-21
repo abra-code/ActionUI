@@ -846,6 +846,16 @@ typedef enum ActionUIWinUIClipShapeKind {
 ACTIONUI_WINUI_API bool actionUIWinUIElementSetClipShape(ActionUIWinUIObject *element, ActionUIWinUIClipShapeKind kind,
                                                          double width, double height, double radiusX, double radiusY);
 
+// Draws on `host` (an element behind `source`, laid out at the same place, with no transform of its
+// own) the drop shadow of what `source` draws in the rectangle at (left, top), `width` by `height`, of
+// its own coordinates after its render transform (the transformed frame's bounds), in `color`, blurred
+// by `blurRadius` and moved by (x, y): a shadow in the shape of what is drawn, not of the box, from a
+// live capture of `source`'s visual, which includes that transform. NULL `color` removes it. Call it
+// again when the rectangle or the source changes.
+ACTIONUI_WINUI_API bool actionUIWinUIElementSetShadow(ActionUIWinUIObject *host, ActionUIWinUIObject *source,
+                                                      const ActionUIWinUIColor *color, double blurRadius, double x,
+                                                      double y, double left, double top, double width, double height);
+
 // MARK: - Shapes
 
 typedef enum ActionUIWinUIShapeKind {
