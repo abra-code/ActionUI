@@ -131,7 +131,7 @@ extension LoadableView: ActionUIWinUIRenderer {
             do {
                 let data = try readFile(url)
                 state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID,
-                                                               isContentView: false, parentID: parentID)
+                                                               isContentView: false, parentID: parentID, source: .file(url))
                 state.loadedFolder = url.deletingLastPathComponent()
                 logger.log("Successfully loaded \(format) for LoadableView from \(url.absoluteString)", .debug)
                 // After this sync, as SwiftUI fires it after the body that loaded.
@@ -170,7 +170,7 @@ extension LoadableView: ActionUIWinUIRenderer {
             let format = ActionUIDocumentLoader.format(of: url)
             do {
                 state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: node.windowModel.windowUUID,
-                                                               isContentView: false, parentID: node.element.id)
+                                                               isContentView: false, parentID: node.element.id, source: .remote(url))
                 logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
                 viewDidLoad.fire(source: url.absoluteString, windowUUID: node.windowModel.windowUUID, parentID: node.element.id,
                                  actionID: box.actionID)
