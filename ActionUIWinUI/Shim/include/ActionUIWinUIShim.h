@@ -156,6 +156,24 @@ ACTIONUI_WINUI_API bool actionUIWinUIButtonSetTitle(ActionUIWinUIObject *button,
 // shows nothing. The content's text and icons take the button's text color, which changes with its
 // state (pointer over, pressed, disabled).
 ACTIONUI_WINUI_API bool actionUIWinUIButtonSetContent(ActionUIWinUIObject *button, ActionUIWinUIObject *content);
+
+// How a button is drawn (SwiftUI's buttonStyle).
+typedef enum ActionUIWinUIButtonStyle {
+    // WinUI's standard button (bordered, automatic).
+    ActionUIWinUIButtonStyleStandard = 0,
+    // No background or border at rest or disabled; the standard button's fill when the pointer is over it
+    // or it is pressed (borderless: Windows' subtle button).
+    ActionUIWinUIButtonStyleBorderless = 1,
+    // As borderless, with no padding, no minimum size and no fill at all: as large as its content
+    // (plain).
+    ActionUIWinUIButtonStylePlain = 2,
+    // WinUI's accent button, filled with the accent color (borderedProminent).
+    ActionUIWinUIButtonStyleAccent = 3,
+} ActionUIWinUIButtonStyle;
+// Draws `button` in `style`, from the standard button (what an earlier style set is undone). Set it
+// before the button is first shown: a borderless button's disabled look and a plain button's hover and
+// pressed fills are WinUI resources the template reads when it is applied.
+ACTIONUI_WINUI_API bool actionUIWinUIButtonSetStyle(ActionUIWinUIObject *button, ActionUIWinUIButtonStyle style);
 // Click: the user clicked the button, pressed it with the keyboard, or an accessibility tool invoked
 // it. Never from a setter.
 ACTIONUI_WINUI_API bool actionUIWinUIButtonOnClick(ActionUIWinUIObject *button, ActionUIWinUICallback handler, void *context,

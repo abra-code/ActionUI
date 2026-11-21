@@ -8,9 +8,19 @@
  Button.userTapped (popover, sheet, cover, actionID), as a tap does on Apple and a click on Linux; an
  update never fires it (WinUI's Click comes from the user only).
 
+ buttonStyle, the element's own or its nearest ancestor's (as SwiftUI's environment passes it down;
+ automatic keeps an ancestor's): bordered and automatic are WinUI's standard button; borderedProminent
+ its accent button (filled with the accent color); borderless no background or border at rest or
+ disabled, the standard fill when the
+ pointer is over it or it is pressed (Windows' subtle button); plain as borderless with no padding,
+ no minimum size and no fill at all, as large as its content, as SwiftUI's plain button is. As on
+ Linux.
+
  Not yet: assetImage (a button with one shows its systemImage, where Apple shows the asset); an
- accessible name for a button showing only a symbol (Apple names it after the symbol); role and
- buttonStyle, controlSize.
+ accessible name for a button showing only a symbol (Apple names it after the symbol); role (a
+ destructive button is drawn as any other); controlSize; buttonStyle on ShareLink's button; a plain
+ or borderless button whose style changes after it was first shown may keep the hover or disabled fill
+ of its first style.
 */
 
 import CWinUI
@@ -24,6 +34,8 @@ import CWinUI
     }
 
     var kind: Kind?
+    /// The style last given to the button; nil before the first.
+    var style: ActionUIWinUIButtonStyle?
     /// The symbol shown alone, and the side it was sized to.
     var icon: WinUIObject?
     var iconSide = -1.0
@@ -48,6 +60,13 @@ extension Button: ActionUIWinUIRenderer {
     static func update(_ view: WinUIObject, _ node: RenderNode) {
         node.applyTextAppearance(to: view, what: "a Button")
         guard let content = node.state as? ButtonContent else { return }
+        let style = windowsStyle(node.buttonStyle)
+        if style != content.style {
+            content.style = style
+            if !actionUIWinUIButtonSetStyle(view.pointer, style) {
+                ActionUIModel.shared.logger.log("Button: \(WinUIError.last("styling a Button"))", .error)
+            }
+        }
         let props = Props(node.properties)
         let side = ImageLayout.symbolSide(node, scale: props.imageScale?.rawValue)
         let kind: ButtonContent.Kind
@@ -79,6 +98,16 @@ extension Button: ActionUIWinUIRenderer {
             if !actionUIWinUISymbolSetSize(icon.pointer, side) {
                 ActionUIModel.shared.logger.log("Button: \(WinUIError.last("sizing a symbol"))", .error)
             }
+        }
+    }
+
+    /// WinUI's style for SwiftUI's buttonStyle.
+    static func windowsStyle(_ style: BaseModifiers.ButtonStyleName?) -> ActionUIWinUIButtonStyle {
+        switch style {
+        case .borderedProminent?: return ActionUIWinUIButtonStyleAccent
+        case .borderless?: return ActionUIWinUIButtonStyleBorderless
+        case .plain?: return ActionUIWinUIButtonStylePlain
+        case .bordered?, .automatic?, nil: return ActionUIWinUIButtonStyleStandard
         }
     }
 

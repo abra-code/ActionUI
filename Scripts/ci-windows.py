@@ -149,6 +149,7 @@ PREVIEW_OPTIONS = {
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",
                              "--invoke-part", "40", "0", "--expect-action", "sidebar.toggled"],
+    "ButtonStyles": ["480", "240"],
     "Shares": ["420", "200"],
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
