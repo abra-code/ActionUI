@@ -56,6 +56,8 @@ WINUI_PACKAGES = {
     "microsoft.windowsappsdk.runtime": "2.7.0",
     "microsoft.web.webview2": "1.0.3719.77",
 }
+# WebView2's WinRT component, beside the programs (a WebView's browser cannot start without it).
+WEBVIEW2_CORE = "Microsoft.Web.WebView2.Core.dll"
 # Installed in this order: the framework package first, the others depend on it.
 WINUI_RUNTIME_MSIX = [
     "Microsoft.WindowsAppRuntime.2.msix",
@@ -148,6 +150,8 @@ PREVIEW_OPTIONS = {
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",
                              "--invoke-part", "40", "0", "--expect-action", "sidebar.toggled"],
     "Shares": ["420", "200"],
+    "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
+                 "--expect-action", "web.loaded", "--expect-action", "web.url"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
     "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{documents_url}/Images/sample_image.png|Open",
                    "--add-row", "2", "Test|true|heart|true|{documents_url}/Images/sample_image.png|Open", "--wait",
@@ -455,6 +459,49 @@ def install_runtime(folders, arch, results):
                     results, dict(os.environ), cwd=results, timeout=600)
 
 
+# The WebView2 runtime's registration (its EdgeUpdate client), and Microsoft's installer for it (the
+# evergreen bootstrapper). Windows 11 ships the runtime; Windows Server does not.
+WEBVIEW2_RUNTIME_KEY = r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+WEBVIEW2_BOOTSTRAPPER = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+
+
+def webview2_runtime_version():
+    """The installed WebView2 runtime's version, from the registry (per machine or per user), or None."""
+    import winreg
+    places = [(winreg.HKEY_LOCAL_MACHINE, winreg.KEY_WOW64_32KEY), (winreg.HKEY_LOCAL_MACHINE, winreg.KEY_WOW64_64KEY),
+              (winreg.HKEY_CURRENT_USER, 0)]
+    for root, view in places:
+        try:
+            with winreg.OpenKey(root, WEBVIEW2_RUNTIME_KEY, 0, winreg.KEY_READ | view) as key:
+                version, _ = winreg.QueryValueEx(key, "pv")
+        except OSError:
+            continue
+        if version and version != "0.0.0.0":
+            return version
+    return None
+
+
+def ensure_webview2_runtime(work, results, findings):
+    """Installs the WebView2 runtime when it is missing (the WebView previews need it). Returns the
+    installer's step, or None when the runtime was there."""
+    version = webview2_runtime_version()
+    if version:
+        findings.append(f"WebView2 runtime {version}")
+        return None
+    installer = work / "MicrosoftEdgeWebview2Setup.exe"
+    started = time.monotonic()
+    try:
+        urllib.request.urlretrieve(WEBVIEW2_BOOTSTRAPPER, installer)
+    except Exception as error:  # the download failed
+        findings.append(f"no WebView2 runtime, and its installer did not download: {error}")
+        return {"step": "webview2-runtime", "status": 1, "seconds": round(time.monotonic() - started, 1),
+                "note": "download failed", "log": ""}
+    step = run_step("webview2-runtime", [installer, "/silent", "/install"], results, dict(os.environ), cwd=work,
+                    timeout=600)
+    findings.append(f"WebView2 runtime installed: {webview2_runtime_version() or 'not found after installing'}")
+    return step
+
+
 def check_shim(results, install, swift=False):
     """The shim and its C smoke test; with `swift`, then the Swift package (windowsPackage) and its
     smoke test, ActionUIWinUISmoke, linked against the shim just built."""
@@ -539,12 +586,20 @@ def check_shim(results, install, swift=False):
         return failed_step(step)
     bootstrap = foundation / "runtimes" / f"win-{arch}" / "native" / "Microsoft.WindowsAppRuntime.Bootstrap.dll"
     shutil.copy2(bootstrap, out / bootstrap.name)
+    # WinUI's WebView2 loads WebView2's WinRT component (the loader linked in) from the program's
+    # folder, where an app's build puts it.
+    webview_core = folders["microsoft.web.webview2"] / "runtimes" / f"win-{arch}" / "native_uap" / WEBVIEW2_CORE
+    shutil.copy2(webview_core, out / WEBVIEW2_CORE)
 
     if install:
         step = install_runtime(folders, arch, results)
         summary["steps"].append(step)
         if step["status"] != 0:
             return failed_step(step)
+        # Not fatal: without it only the WebView previews fail, and say why.
+        step = ensure_webview2_runtime(work, results, findings)
+        if step is not None:
+            summary["steps"].append(step)
 
     png = results / "shim-smoke.png"
     step = run_step("smoke-test", [out / "ShimSmokeTest.exe", png], results, dict(os.environ), cwd=out,
@@ -582,7 +637,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
         if not expected.is_file():
             summary["findings"].append(f"no {expected.name} in {bin_path}")
             return False
-    for source in [shim_out / "ActionUIWinUIShim.dll", bootstrap]:
+    for source in [shim_out / "ActionUIWinUIShim.dll", bootstrap, shim_out / WEBVIEW2_CORE]:
         shutil.copy2(source, bin_path / source.name)
     # One manifest for both programs (supported OS, per-monitor DPI).
     manifest = REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest"

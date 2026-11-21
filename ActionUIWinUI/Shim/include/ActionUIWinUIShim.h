@@ -946,6 +946,59 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementOnActualThemeChanged(ActionUIWinUIOb
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnTapped(ActionUIWinUIObject *element, ActionUIWinUICallback handler, void *context,
                                                      ActionUIWinUICallback destroyContext);
 
+// MARK: - Web view (WinUI's WebView2)
+
+// What a web view's command does to its page.
+typedef enum ActionUIWinUIWebViewCommand {
+    // Back or forward in its history (nothing when there is nowhere to go).
+    ActionUIWinUIWebViewGoBack = 0,
+    ActionUIWinUIWebViewGoForward = 1,
+    ActionUIWinUIWebViewReload = 2,
+    ActionUIWinUIWebViewStop = 3,
+} ActionUIWinUIWebViewCommand;
+
+// A web view's page as it stands.
+typedef struct ActionUIWinUIWebViewState {
+    // Between a navigation's start and its end.
+    bool loading;
+    // 0.1 once a navigation starts, 1 when it ends (WebView2 reports no progress between).
+    double progress;
+    bool canGoBack;
+    bool canGoForward;
+} ActionUIWinUIWebViewState;
+
+// A new web view (WebView2, on the WebView2 runtime Windows ships), as large as it is given. It starts
+// its browser asynchronously: what is asked of it before then (the calls below) waits, in order, and
+// runs once it has started; a script waits until added, so a page after it gets it. The browser keeps
+// its data (cookies, cache) in WEBVIEW2_USER_DATA_FOLDER, set when the host has not to
+// %LOCALAPPDATA%\<program name>\WebView2 (by default it would go beside the program, which an
+// installed one may not write to). NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIWebViewCreate(void);
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewSetUserAgent(ActionUIWinUIObject *webView, const char *userAgent);
+// Runs `source` (JavaScript) in every document from then on: as it is created, before its own scripts,
+// or when it has been parsed (`atDocumentEnd`, its DOMContentLoaded, as the browser runs a page's own
+// script: no eval, which a page's security policy may refuse); in the main frame only, or in it and its
+// frames (a document-created script in every frame, a parsed one in the main frame's frames).
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewAddScript(ActionUIWinUIObject *webView, const char *source, bool atDocumentEnd,
+                                                      bool mainFrameOnly);
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewNavigate(ActionUIWinUIObject *webView, const char *url);
+// Shows `html` as the page (its URL about:blank; relative links resolve against nothing).
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewNavigateToString(ActionUIWinUIObject *webView, const char *html);
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewRun(ActionUIWinUIObject *webView, ActionUIWinUIWebViewCommand command);
+// False, with the error, once the browser could not start.
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewGetState(ActionUIWinUIObject *webView, ActionUIWinUIWebViewState *state);
+// The page's URL and title, as new UTF-8 strings the caller frees with actionUIWinUIFreeString (empty
+// before the browser has started); NULL on failure.
+ACTIONUI_WINUI_API char *actionUIWinUIWebViewCopyURL(ActionUIWinUIObject *webView);
+ACTIONUI_WINUI_API char *actionUIWinUIWebViewCopyTitle(ActionUIWinUIObject *webView);
+// Where the browser's start is: "starting", "started", or "failed: " and why, as a new UTF-8 string
+// the caller frees with actionUIWinUIFreeString; NULL on failure.
+ACTIONUI_WINUI_API char *actionUIWinUIWebViewCopyStatus(ActionUIWinUIObject *webView);
+// `handler` runs on the UI thread whenever the page's URL, title, history or loading changes, or the
+// browser could not start (one handler per web view: a new one replaces it).
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewOnChanged(ActionUIWinUIObject *webView, ActionUIWinUICallback handler, void *context,
+                                                      ActionUIWinUICallback destroyContext);
+
 // MARK: - Network
 
 // Called on the UI thread when a fetch ends: the body's `length` bytes (valid only during the call), or

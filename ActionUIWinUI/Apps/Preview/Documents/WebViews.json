@@ -1,0 +1,48 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 8
+ },
+ "children": [
+  {
+   "type": "WebView",
+   "id": 2,
+   "properties": {
+    "frame": {
+     "height": 110
+    },
+    "html": "<html><head><title>Hello Windows</title></head><body style=\"font-family: sans-serif\"><h2>Hello from HTML</h2><p>An HTML string in a WebView.</p></body></html>",
+    "navigationActionID": "web.loaded",
+    "userScripts": [
+     {
+      "injectionTime": "documentEnd",
+      "source": "document.title = document.title + ' (script ran)';",
+      "forMainFrameOnly": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "WebView",
+   "id": 3,
+   "properties": {
+    "frame": {
+     "height": 90
+    },
+    "url": "https://example.com",
+    "valueChangeActionID": "web.url"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 4,
+   "properties": {
+    "text": "An HTML string whose title a user script changes; example.com over HTTPS. The run checks the title and the URL's action (a PNG does not capture web content)",
+    "font": "caption"
+   }
+  }
+ ]
+}
