@@ -73,6 +73,21 @@ pub type ActionUILoggerCallback = Option<unsafe extern "C" fn(*const c_char, Act
 pub type ActionUIActionHandler =
     Option<unsafe extern "C" fn(*const c_char, *const c_char, i64, i64, *const c_char)>;
 
+/// One of the `ACTIONUI_TRUST_*` values: how far content is trusted.
+pub type ActionUITrust = c_int;
+pub const ACTIONUI_TRUST_LESS_TRUSTED: ActionUITrust = 0;
+pub const ACTIONUI_TRUST_TRUSTED: ActionUITrust = 1;
+
+/// The trust of content a LoadableView loads: `(sourceJSON, parentOriginJSON, byDefault)`,
+/// returning the trust to use. `parentOriginJSON` is null for a window's root, and for a
+/// LoadableView of unknown origin (one in a template row). Only
+/// [`ACTIONUI_TRUST_TRUSTED`] means trusted. The strings are valid only for the call.
+pub type ActionUITrustCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, ActionUITrust) -> ActionUITrust>;
+
+/// Whether content may do something: `(capabilityJSON, originJSON, byDefault)`, returning
+/// the decision to use. The strings are valid only for the call.
+pub type ActionUICapabilityCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, bool) -> bool>;
+
 // MARK: - Types (ActionUIApp.h)
 
 pub type ActionUIAppLifecycleHandler = Option<unsafe extern "C" fn()>;
@@ -135,6 +150,12 @@ unsafe extern "C" {
     pub fn actionUISetElementStateFromString(windowUUID: *const c_char, viewID: i64, key: *const c_char, value: *const c_char) -> bool;
 
     pub fn actionUIGetElementInfoJSON(windowUUID: *const c_char) -> *mut c_char;
+
+    /// The origin of an element's content as JSON; null (error set) for no such element.
+    pub fn actionUIGetElementOrigin(windowUUID: *const c_char, viewID: i64) -> *mut c_char;
+    /// The host's trust policy, for all windows; either callback may be None to keep
+    /// ActionUI's own decisions for it. The callbacks run on the main thread.
+    pub fn actionUISetTrustPolicy(trust: ActionUITrustCallback, allows: ActionUICapabilityCallback);
 
     /// Forgets a window's model once the host is done with it. An unknown window is ignored.
     pub fn actionUIRemoveWindow(windowUUID: *const c_char);
