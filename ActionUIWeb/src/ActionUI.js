@@ -14,12 +14,14 @@ import { ActionUIModel } from "./Common/ActionUIModel.js";
 import { buildElementView } from "./Common/ActionUIRegistry.js";
 import { ConsoleLogger } from "./Common/ConsoleLogger.js";
 import { PlatformFilter } from "./Common/PlatformFilter.js";
-import { InsertPosition } from "./Common/ActionUIInsertion.js";
+import { InsertPosition, collectElementIds } from "./Common/ActionUIInsertion.js";
 import { presentDialog, dismissActiveDialog } from "./Scenes/DialogHost.js";
 import { presentModal, dismissActiveModal, ModalStyle } from "./Scenes/ModalHost.js";
 import { presentToast, dismissActiveToast } from "./Scenes/ToastHost.js";
 import { parseMenuBar, buildAppShell } from "./Scenes/MenuBar.js";
 import { installLifecycleHooks } from "./Helpers/LifecycleHooks.js";
+import { HOST_ORIGIN, resolvedOrigin, setTrustPolicy, DefaultTrustPolicy, TRUSTED, LESS_TRUSTED } from "./Common/TrustPolicy.js";
+import { jsonRefusal, readJSONText } from "./Helpers/JSONLimits.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -90,7 +92,7 @@ import "./Views/Chart.js";
 
 // Re-export so hosts can `import { Window, InsertPosition, ModalStyle } from
 // ".../ActionUI.js"` (mirrors the Node.js adapter exposing these alongside Window).
-export { InsertPosition, ModalStyle };
+export { InsertPosition, ModalStyle, setTrustPolicy, DefaultTrustPolicy, TRUSTED, LESS_TRUSTED };
 
 // A UUID for the window/element key space. `crypto.randomUUID()` is the ideal source,
 // but it is SECURE-CONTEXT-ONLY: it is `undefined` on a plain-http origin that is not
@@ -125,10 +127,13 @@ export class ActionContext {
 }
 
 export class Window {
-    constructor(rootElement, uuid, logger) {
+    constructor(rootElement, uuid, logger, origin = HOST_ORIGIN) {
         this.uuid = uuid ?? generateUUID();
         this.logger = logger ?? new ConsoleLogger();
         this.rootElement = rootElement;
+        // Where the window's own document came from: the host's (fromJSON), or as a
+        // LoadableView's source is classified (fromURL).
+        this.origin = origin;
         this.model = new ActionUIModel(this.uuid, this.logger);
         this.rootNode = null; // built on present()
     }
@@ -137,9 +142,14 @@ export class Window {
     // its own ActionUILogger to capture parse + runtime messages; it defaults to
     // a ConsoleLogger. The same instance is used for parsing and handed to the
     // Window, so every message flows through one sink.
-    static fromJSON(json, uuid, logger = new ConsoleLogger()) {
+    static fromJSON(json, uuid, logger = new ConsoleLogger(), origin = HOST_ORIGIN) {
         let raw;
         if (typeof json === "string") {
+            const refusal = jsonRefusal(json);
+            if (refusal !== null) {
+                logger.log(`Not loading the window's description: ${refusal}`, "error");
+                throw new Error("ActionUI: failed to parse window JSON");
+            }
             try {
                 raw = JSON.parse(json);
             } catch (error) {
@@ -154,13 +164,25 @@ export class Window {
         const normalized = PlatformFilter.WEB.withLogger(logger).filter(raw);
         const root = ActionUIElement.fromObject(normalized, logger);
         if (!root) throw new Error("ActionUI: failed to parse window JSON");
-        return new Window(root, uuid, logger);
+        return new Window(root, uuid, logger, origin);
     }
 
+    // The document at `url` (read up to 16 MB), its origin classified as a LoadableView's source
+    // is: a URL on the page's origin is a resource, another origin less trusted (unless the trust
+    // policy says otherwise).
     static async fromURL(url, uuid, logger) {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`ActionUI: failed to load ${url}: ${response.status}`);
-        return Window.fromJSON(await response.text(), uuid, logger);
+        // Judged by where the address leads once resolved against the page: its origin or not.
+        const origin = resolvedOrigin({ kind: "remote", fetchURL: url }, null, null, logger ?? null) ?? HOST_ORIGIN;
+        return Window.fromJSON(await readJSONText(response), uuid, logger, origin);
+    }
+
+    // Where element viewID's content came from ({ source, path or url, trust, parentID }), or
+    // null when the window has no such element. An action handler can ask this before acting
+    // on what less-trusted content sent.
+    getElementOrigin(viewID) {
+        return this.model.getElementOrigin(viewID);
     }
 
     present(container) {
@@ -168,13 +190,21 @@ export class Window {
             model: this.model,
             windowUUID: this.uuid,
             logger: this.logger,
+            origin: this.origin,
         };
         ctx.build = (element) => buildElementView(element, ctx);
+        // Every id of the window's document is the document's from the start, also those of
+        // elements built later (a destination, a sheet), so loaded content cannot take one first.
+        for (const id of collectElementIds(this.rootElement)) this.model.origins.set(id, this.origin);
         this.rootNode = ctx.build(this.rootElement);
         this.rootNode.classList.add("aui-window");
         // Hand the render context to the model so the insertion API can render
-        // inserted subtrees and query the live tree by id.
-        this.model.setRenderContext(this.rootNode, ctx.build, this.rootElement.id);
+        // inserted subtrees and query the live tree by id. What the host adds itself
+        // (insertElement, insertRow, presentModal) is the host's, whatever the window's
+        // document is.
+        const hostCtx = { ...ctx, origin: HOST_ORIGIN };
+        hostCtx.build = (element) => buildElementView(element, hostCtx);
+        this.model.setRenderContext(this.rootNode, hostCtx.build, this.rootElement.id);
         container.replaceChildren(this.rootNode);
         // Page-lifecycle action hooks declared on the document root
         // (onForeground/onBackground/onTerminateActionID:web). Re-installed on each
@@ -373,6 +403,11 @@ export class Application {
     setMenuBar(menu, logger = this.logger) {
         let raw = menu;
         if (typeof menu === "string") {
+            const refusal = jsonRefusal(menu);
+            if (refusal !== null) {
+                logger.log(`Not loading the menu bar: ${refusal}`, "error");
+                return this;
+            }
             try {
                 raw = JSON.parse(menu);
             } catch (error) {
@@ -390,7 +425,14 @@ export class Application {
             logger.log(`Failed to load menu bar ${url}: ${response.status}`, "error");
             return this;
         }
-        return this.setMenuBar(await response.text(), logger);
+        let text;
+        try {
+            text = await readJSONText(response);
+        } catch (error) {
+            logger.log(`Failed to load menu bar ${url}: ${error.message}`, "error");
+            return this;
+        }
+        return this.setMenuBar(text, logger);
     }
 
     // Presents a window into a DOM container and tracks it (by uuid) so the host can

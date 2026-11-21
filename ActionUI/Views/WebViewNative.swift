@@ -29,15 +29,19 @@ import WebKit
 enum WebViewSupport {
     /// Builds WKUserScript objects from the raw properties' `userScripts` array.
     /// Returns an empty array when no (valid) scripts are present.
-    static func buildUserScripts(from properties: [String: Any], logger: any ActionUILogger) -> [WKUserScript] {
-        buildUserScripts(WebView.Props(properties).userScripts, logger: logger)
+    /// `readsFile`: whether a script file may be read (the element's trust); the host's own
+    /// properties read any.
+    static func buildUserScripts(from properties: [String: Any], logger: any ActionUILogger,
+                                 readsFile: (String) -> Bool = { _ in true }) -> [WKUserScript] {
+        buildUserScripts(WebView.Props(properties).userScripts, logger: logger, readsFile: readsFile)
     }
 
     /// Builds WKUserScript objects from the parsed scripts.
-    static func buildUserScripts(_ scripts: [WebView.Props.UserScript], logger: any ActionUILogger) -> [WKUserScript] {
+    static func buildUserScripts(_ scripts: [WebView.Props.UserScript], logger: any ActionUILogger,
+                                 readsFile: (String) -> Bool) -> [WKUserScript] {
         var result: [WKUserScript] = []
         for script in scripts {
-            guard let source = resolveJSSource(from: script, logger: logger) else { continue }
+            guard let source = resolveJSSource(from: script, logger: logger, readsFile: readsFile) else { continue }
             let injectionTime: WKUserScriptInjectionTime
             switch script.injectionTime {
             case .documentStart: injectionTime = .atDocumentStart
@@ -49,13 +53,14 @@ enum WebViewSupport {
     }
 
     /// Resolves the JavaScript source string from a script descriptor dictionary.
-    static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger) -> String? {
-        resolveJSSource(from: WebView.Props.UserScript(descriptor), logger: logger)
+    static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger,
+                                readsFile: (String) -> Bool = { _ in true }) -> String? {
+        resolveJSSource(from: WebView.Props.UserScript(descriptor), logger: logger, readsFile: readsFile)
     }
 
     /// The UTF-8 text of the regular file at `path` (symbolic links followed), for a resourceName:
-    /// Bundle.main.path(forResource:) keeps a name's "..", so a document can name a device or a pipe
-    /// outside the bundle, which would never finish (or never begin) reading on the main thread.
+    /// a link in the bundle could still lead to a device or a pipe, which would never finish (or
+    /// never begin) reading on the main thread.
     private static func regularFileText(_ path: String) throws -> String {
         let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))
         guard let text = String(data: data, encoding: .utf8) else { throw CocoaError(.fileReadInapplicableStringEncoding) }
@@ -64,12 +69,16 @@ enum WebViewSupport {
 
     /// Resolves the JavaScript source string from a parsed script.
     /// Mirrors the Image.swift resourceName / filePath / source pattern.
-    static func resolveJSSource(from script: WebView.Props.UserScript, logger: any ActionUILogger) -> String? {
+    /// A filePath script is read only when `readsFile` allows it (the element's trust; a refusal
+    /// is logged by the check). A resourceName is the app's own and is not asked about.
+    static func resolveJSSource(from script: WebView.Props.UserScript, logger: any ActionUILogger,
+                                readsFile: (String) -> Bool) -> String? {
         if let source = script.source {
             return source
         }
 
         if let filePath = script.filePath {
+            guard readsFile(filePath) else { return nil }
             do {
                 // Only a regular file: a device or a pipe named by the document would block.
                 let data = try ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: filePath))
@@ -89,7 +98,7 @@ enum WebViewSupport {
             let nameWithoutExt = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
             // The host's resource folder (ActionUIResourceFolder) first, then the main bundle.
             if let path = ActionUIResourceFolder.file(nameWithoutExt + ".js") ?? ActionUIResourceFolder.file(resourceName)
-                ?? Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
+                ?? ActionUIResourceFolder.bundlePath(forResource: nameWithoutExt, ofType: "js") {
                 do {
                     return try regularFileText(path)
                 } catch {
@@ -98,7 +107,7 @@ enum WebViewSupport {
                 }
             }
             // Fallback: try the name as-is (e.g. "MyScript" without extension, or unusual extension)
-            if let path = Bundle.main.path(forResource: resourceName, ofType: nil) {
+            if let path = ActionUIResourceFolder.bundlePath(forResource: resourceName, ofType: nil) {
                 do {
                     return try regularFileText(path)
                 } catch {
@@ -114,12 +123,14 @@ enum WebViewSupport {
     }
 
     /// Builds a WKWebViewConfiguration for the native backing from raw properties.
-    static func makeWKConfiguration(properties: [String: Any], logger: any ActionUILogger) -> WKWebViewConfiguration {
-        makeWKConfiguration(props: WebView.Props(properties), logger: logger)
+    static func makeWKConfiguration(properties: [String: Any], logger: any ActionUILogger,
+                                    readsFile: (String) -> Bool = { _ in true }) -> WKWebViewConfiguration {
+        makeWKConfiguration(props: WebView.Props(properties), logger: logger, readsFile: readsFile)
     }
 
     /// Builds a WKWebViewConfiguration for the native backing from parsed properties.
-    static func makeWKConfiguration(props: WebView.Props, logger: any ActionUILogger) -> WKWebViewConfiguration {
+    static func makeWKConfiguration(props: WebView.Props, logger: any ActionUILogger,
+                                    readsFile: (String) -> Bool) -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
 
         if let limits = props.limitsNavigationsToAppBoundDomains {
@@ -129,7 +140,7 @@ enum WebViewSupport {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = buildUserScripts(props.userScripts, logger: logger)
+        let scripts = buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile)
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {
@@ -161,7 +172,9 @@ struct WKWebViewRepresentable {
 
     /// Creates and configures the WKWebView, attaches the coordinator, and loads initial content.
     private func makeWebView(context: Context) -> WKWebView {
-        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger)
+        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger) { [windowUUID, element, model] in
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id)
+        }
         let webView = WKWebView(frame: .zero, configuration: config)
 
         if let userAgent = props.customUserAgent {
@@ -187,6 +200,7 @@ struct WKWebViewRepresentable {
     /// Forwards SwiftUI update passes (triggered when model.value, read here, changes) to the coordinator,
     /// which interprets any new model.value as a navigation command.
     private func updateWebView(context: Context) {
+        context.coordinator.updateNavigationDelegate()
         context.coordinator.handleCommand(model.value as? String)
     }
 }
@@ -222,12 +236,15 @@ extension WKWebViewRepresentable {
     /// KVO is used for all observable values (url, title, loading, progress, back/forward) so the
     /// behaviour matches WebViewContent's onChange-driven SwiftUI backing.
     @MainActor
-    final class Coordinator: NSObject, WKUIDelegate {
+    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
         let model: ViewModel
         let props: WebView.Props
         let element: any ActionUIElementBase
         let windowUUID: String
         let logger: any ActionUILogger
+
+        /// Whose trust this WebView has: in a template row, the container's (the row has no view model).
+        private var trustID: Int { model.templateContext?.parentID ?? element.id }
 
         /// The last URL we pushed into model.value ourselves, so handleCommand can distinguish our own
         /// programmatic updates from host-app navigation commands (mirrors WebViewContent.lastTrackedURL).
@@ -253,6 +270,7 @@ extension WKWebViewRepresentable {
         func attach(to webView: WKWebView) {
             self.webView = webView
             webView.uiDelegate = self
+            updateNavigationDelegate()
 
             // KVO closures are invoked on the main thread for WKWebView, but the change handler is
             // not statically MainActor-isolated, so we hop onto the MainActor before touching state.
@@ -282,7 +300,45 @@ extension WKWebViewRepresentable {
             observations.forEach { $0.invalidate() }
             observations.removeAll()
             webView?.uiDelegate = nil
+            webView?.navigationDelegate = nil
             webView = nil
+        }
+
+        // MARK: Navigation (less-trusted content only)
+
+        /// Less-trusted content (or content of unknown origin): its page's navigations are decided
+        /// here. Without a navigation delegate WebKit hands an address it cannot load to another
+        /// app, which would let the page open any app's own scheme. Trusted content keeps WebKit's
+        /// default handling, so it has no delegate. Asked again on each update: a LoadableView that
+        /// loads another document can keep this WKWebView for an element of the same id whose
+        /// origin differs.
+        func updateNavigationDelegate() {
+            guard let webView else { return }
+            let lessTrusted = ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: trustID)?.trust != .trusted
+            if lessTrusted {
+                if webView.navigationDelegate !== self { webView.navigationDelegate = self }
+            } else if webView.navigationDelegate === self {
+                webView.navigationDelegate = nil
+            }
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+            guard let url = navigationAction.request.url else { return decisionHandler(.cancel) }
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+            switch WebViewTrust.navigation(url, isMainFrame: isMainFrame, allows: allows, logger: logger) {
+            case .load:
+                decisionHandler(.allow)
+            case .open:
+                decisionHandler(.cancel)
+                #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+                NSWorkspace.shared.open(url)
+                #elseif canImport(UIKit)
+                UIApplication.shared.open(url)
+                #endif
+            case .refuse:
+                decisionHandler(.cancel)
+            }
         }
 
         // MARK: Initial content
@@ -296,20 +352,32 @@ extension WKWebViewRepresentable {
                 lastTrackedURL = urlString
                 load(url, into: webView)
             } else if let html = props.html {
-                let baseURL = props.baseURL.flatMap { URL(string: $0) }
-                    ?? URL(string: "about:blank")!
+                // about:blank unless baseURL is set and the trust policy allows it.
+                let baseURL = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: allows, logger: logger)
                 webView.loadHTMLString(html, baseURL: baseURL)
             }
             // If neither url nor html is provided the page stays blank.
         }
 
-        /// Loads a URL, using loadFileURL for file URLs so local resources are granted read access.
-        private func load(_ url: URL, into webView: WKWebView) {
+        /// The trust policy's answer for this WebView's element.
+        private func allows(_ capability: ActionUICapability) -> Bool {
+            ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: trustID)
+        }
+
+        /// Loads a URL, using loadFileURL for file URLs so local resources are granted read access;
+        /// the "Blocked" page instead when the trust policy refuses the address (false then).
+        @discardableResult
+        private func load(_ url: URL, into webView: WKWebView) -> Bool {
+            guard WebViewTrust.showsAddress(url, allows: allows, logger: logger) else {
+                webView.loadHTMLString(WebViewTrust.blockedPage(url), baseURL: WebViewTrust.blankBase)
+                return false
+            }
             if url.isFileURL {
                 webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
             } else {
                 webView.load(URLRequest(url: url))
             }
+            return true
         }
 
         // MARK: State synchronisation
@@ -382,8 +450,12 @@ extension WKWebViewRepresentable {
                 resetModelValueToCurrentURL(after: command)
             default:
                 if let url = URL(string: command) {
-                    load(url, into: webView)
-                    // model.value will be updated by handleURLChange when navigation completes
+                    // model.value will be updated by handleURLChange when navigation completes. A
+                    // refused address leaves the URL where it is when the page already was at
+                    // about:blank, so no change comes, and every update pass would load it again.
+                    if !load(url, into: webView) {
+                        resetModelValueToCurrentURL(after: command)
+                    }
                 } else {
                     logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
                     resetModelValueToCurrentURL(after: command)

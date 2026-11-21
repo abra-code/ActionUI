@@ -411,6 +411,19 @@ impl Window {
         let by_text: BTreeMap<String, String> = serde_json::from_str(&json)?;
         Ok(by_text.into_iter().filter_map(|(id, element_type)| Some((id.parse().ok()?, element_type))).collect())
     }
+
+    /// Where element `view_id`'s content came from: the host, the app's resources, a file
+    /// elsewhere or a server, and how far it is trusted (see [`crate::trust`]). None when the
+    /// window has no such element. An action handler can ask this before acting on what
+    /// less-trusted content sent.
+    pub fn element_origin(&self, view_id: i64) -> Result<Option<crate::Origin>> {
+        let uuid = self.uuid_c()?;
+        let json = unsafe { ffi::take_string(sys::actionUIGetElementOrigin(uuid.as_ptr(), view_id)) };
+        let Some(json) = json else {
+            return Ok(None);
+        };
+        Ok(Some(serde_json::from_str(&json)?))
+    }
 }
 
 // Changing the structure, and what is presented over the window.

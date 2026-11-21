@@ -36,9 +36,9 @@ final class VideoPlayerRendererTests: XCTestCase {
         }
     }
 
-    private func render(_ properties: String) throws -> RenderNode {
+    private func render(_ properties: String, origin: JSONContentOrigin? = nil) throws -> RenderNode {
         let json = #"{"type": "VideoPlayer", "id": 1, "properties": {"# + properties + "}}"
-        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID, origin: origin)
         let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         windows.append(window)
         return try XCTUnwrap(window.root)
@@ -252,6 +252,19 @@ final class VideoPlayerRendererTests: XCTestCase {
         present(node)
         let stream = try stream(try video(node))
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { gtk_media_stream_get_error(stream) != nil }, timeoutMilliseconds: 10_000))
+    }
+
+    func testLessTrustedContentPlaysOnlyFileAndWebAddresses() throws {
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        for address in ["trash:///movie.mp4", "smb://server/share/movie.mp4", "recent:///movie.mp4"] {
+            let node = try render(#""url": "\#(address)""#, origin: remote)
+            present(node)
+            XCTAssertNil(gtk_video_get_file(opaque(try video(node))), "\(address): nothing is opened")
+        }
+        let web = try render(#""url": "https://example.com/movie.mp4""#, origin: remote)
+        XCTAssertNotNil(gtk_video_get_file(opaque(try video(web))), "a web address is opened")
+        let host = try render(#""url": "trash:///movie.mp4""#)
+        XCTAssertNotNil(gtk_video_get_file(opaque(try video(host))), "the host's content plays any address GIO knows")
     }
 
     func testAFileAddressThatIsNotARegularFileIsNotOpened() throws {

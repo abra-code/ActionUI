@@ -224,6 +224,20 @@ function testElementInfo(uuid) {
     check('getElementInfoJSON returns null or parses', v === null || typeof v === 'string');
 }
 
+function testTrustPolicyCalls(uuid) {
+    console.log('\n=== Origins and trust policy ===');
+    check('getElementOriginJSON is null for an unknown element', native.getElementOriginJSON(uuid, 1) === null);
+    check('getElementOriginJSON is null for an unknown window', native.getElementOriginJSON('no-such-window', 1) === null);
+    for (const bad of [['not a function', null], [null, 42]]) {
+        let threw = null;
+        try { native.setTrustPolicy(...bad); } catch (e) { threw = e; }
+        check(`setTrustPolicy(${JSON.stringify(bad)}) throws a TypeError`, threw instanceof TypeError);
+    }
+    native.setTrustPolicy((s, p, d) => d, (c, o, d) => d);
+    native.setTrustPolicy(null, null);
+    check('setTrustPolicy(null, null) restores the default policy', true);
+}
+
 function testRemoveWindow(uuid) {
     console.log('\n=== Remove window ===');
     check('removeWindow returns undefined', native.removeWindow(uuid) === undefined);
@@ -421,7 +435,7 @@ function testNullClearing() {
 }
 
 // Strings past the old fixed buffers arrive whole: window ids were cut at 127 bytes, text at
-// 4095 and JSON at 65535, so a table above 64 KB never arrived (threat model B-F10).
+// 4095 and JSON at 65535, so a table above 64 KB never arrived.
 function testLongValuesArriveWhole() {
     console.log('\n=== Long values arrive whole ===');
     const fs = require('fs');
@@ -477,6 +491,7 @@ function main() {
     testElementProperty(testUuid);
     testElementState(testUuid);
     testElementInfo(testUuid);
+    testTrustPolicyCalls(testUuid);
     testRemoveWindow(testUuid);
     testNoopCalls(testUuid);
     testModalNoop(testUuid);

@@ -23,6 +23,11 @@ import CAdwaita
 extension Link: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
         let button = gtk_link_button_new("about:blank")!
+        // The trust policy decides whether the address opens; true tells GTK the click was handled.
+        connectBooleanSignal(UnsafeMutableRawPointer(button), "activate-link") { [weak node] in
+            guard let node, let uri = swiftString(gtk_link_button_get_uri(OpaquePointer(button))) else { return true }
+            return !LinkTrust.allows(uri, node)
+        }
         // Just its text, as SwiftUI's Link is: no button padding or minimum size, so it lines up
         // with the text around it.
         StyleSheet.shared.apply(["padding: 0;", "min-width: 0;", "min-height: 0;"], to: button, slot: "link")

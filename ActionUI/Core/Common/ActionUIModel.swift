@@ -62,6 +62,7 @@ public class ActionUIModel {
     /// ignored.
     public func removeWindow(_ windowUUID: String) {
         windowModels[windowUUID] = nil
+        loggedRefusals[windowUUID] = nil
     }
 
     /// True when a window model exists for windowUUID. Unlike getElementInfo, which returns
@@ -195,10 +196,11 @@ public class ActionUIModel {
         #endif
     }
 
-    // Load a view description from JSON or plist data for a specific windowUUID
-    internal func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
+    // Load a view description from JSON or plist data for a specific windowUUID. `origin`: where it
+    // came from (nil: the host passed it).
+    internal func loadDescription(from data: Data, format: String, windowUUID: String, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
         let windowModel = windowModelForLoading(windowUUID)
-        let element = try windowModel.loadDescription(from: data, format: format)
+        let element = try windowModel.loadDescription(from: data, format: format, origin: origin)
         windowModels[windowUUID] = windowModel
         return element
     }
@@ -213,12 +215,83 @@ public class ActionUIModel {
 
     // Load a sub-view from JSON or plist data without overwriting the root element.
     // When parentID != 0, cleans up old child models before loading to support dynamic content swapping.
-    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0) throws -> ActionUIElement {
+    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String, parentID: Int = 0, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
             throw ActionUIError("No WindowModel for windowUUID")
         }
-        return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID)
+        return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID, origin: origin)
+    }
+
+    /// How many documents the LoadableViews of one window may load in a span of time (on Apple a
+    /// LoadableWindowGroup's own load counts too, once per window): one more is refused, with
+    /// "Failed to load view: too many loads in this window". Documents that load each other can
+    /// multiply their loads past what the depth limit stops (7 small files that each list the others
+    /// made about 2000 loads in 4 seconds). On Apple a LoadableView loads its document again each
+    /// time its own properties change, so a host that changes them many times a minute raises the
+    /// count.
+    public var loadBudget = ActionUILoadBudget(loads: 256, seconds: 60)
+
+    /// The host's say over trust and what content may do (ActionUITrustPolicy); set it before
+    /// loading. DefaultTrustPolicy unless the host sets one.
+    public var trustPolicy: any ActionUITrustPolicy = DefaultTrustPolicy()
+
+    /// Whether the element `viewID` of the window may do `capability`, by the trust policy and the
+    /// element's origin (the host's for an element with no recorded origin). An element with no view
+    /// model at all (in a template row, or not in the window) counts as less trusted: host content
+    /// always has one, so a miss cannot make remote content read as the host's. A template row asks
+    /// with its container's id.
+    public func allows(_ capability: ActionUICapability, windowUUID: String, viewID: Int) -> Bool {
+        trustPolicy.allows(capability, for: origin(windowUUID: windowUUID, viewID: viewID) ?? Self.unknownOrigin)
+    }
+
+    /// The origin `allows` uses for an element with no view model.
+    private static let unknownOrigin = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
+
+    /// Whether the element `viewID` of the window may do `capability`, as `allows` says, with a
+    /// refusal logged once per element, window and kind of capability (`what`): for checks a
+    /// renderer makes each time it draws.
+    public func allowsLoggingOnce(_ capability: ActionUICapability, what: String, windowUUID: String, viewID: Int) -> Bool {
+        guard allows(capability, windowUUID: windowUUID, viewID: viewID) else {
+            if loggedRefusals[windowUUID, default: []].insert("\(viewID)|\(what)").inserted {
+                logger.log("Not \(what) for element \(viewID) of window \(windowUUID): the trust policy refuses it", .warning)
+            }
+            return false
+        }
+        return true
+    }
+
+    /// The refusals allowsLoggingOnce has logged, by window (removeWindow forgets a window's).
+    private var loggedRefusals: [String: Set<String>] = [:]
+
+    /// Whether the element `viewID` of the window may read the local file at `path` (an image, a
+    /// canvas image, a video, a shared file): trusted content reads anything without asking; other
+    /// content asks the trust policy (.readLocalFile), and a refusal is logged.
+    public func readsLocalFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {
+        reads(.readLocalFile(path), path: path, windowUUID: windowUUID, viewID: viewID)
+    }
+
+    /// Whether the WebView `viewID` of the window may read its user script from the file at `path`,
+    /// as readsLocalFile decides for other files (.webViewScriptFile).
+    public func readsScriptFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {
+        reads(.webViewScriptFile(path), path: path, windowUUID: windowUUID, viewID: viewID)
+    }
+
+    private func reads(_ capability: ActionUICapability, path: String, windowUUID: String, viewID: Int) -> Bool {
+        if origin(windowUUID: windowUUID, viewID: viewID)?.trust == .trusted { return true }
+        guard allows(capability, windowUUID: windowUUID, viewID: viewID) else {
+            logger.log("Not reading \(path) for element \(viewID) of window \(windowUUID): the trust policy refuses it", .warning)
+            return false
+        }
+        return true
+    }
+
+    /// Where the element `viewID` of the window came from and how far it is trusted: `.host` for
+    /// content the host passed in itself, nil when the window has no such element. For an action
+    /// handler that wants to treat less-trusted content's actions differently.
+    public func origin(windowUUID: String, viewID: Int) -> JSONContentOrigin? {
+        guard let model = windowModels[windowUUID]?.viewModels[viewID] else { return nil }
+        return model.origin ?? .host
     }
 
     // Cache a view description as a binary plist to a specified URL

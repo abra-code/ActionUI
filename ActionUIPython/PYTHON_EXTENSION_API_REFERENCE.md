@@ -150,6 +150,32 @@ char* actionUIGetElementInfoJSON(const char* windowUUID);
 // JSON format: {"2":"TextField","3":"Button",...}  (positive view IDs only)
 ```
 
+### Origins and trust policy
+
+```c
+char* actionUIGetElementOrigin(const char* windowUUID, int64_t viewID);
+// Where the element's content came from, as JSON:
+//   {"source":"remote","url":"https://example.com/v.json","trust":"lessTrusted","parentID":3}
+// "source": "host" (JSON the host passed in), "resource" or "file" (with "path"), "remote" (with "url").
+// "trust": "trusted" or "lessTrusted". "parentID": the LoadableView it was loaded into; left out for a
+// window's root. NULL (error set) when the window has no such element.
+
+typedef ActionUITrust (*ActionUITrustCallback)(const char* sourceJSON, const char* parentOriginJSON, ActionUITrust byDefault);
+typedef bool (*ActionUICapabilityCallback)(const char* capabilityJSON, const char* originJSON, bool byDefault);
+void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallback allows);
+// The host's trust policy, for all windows. Each callback gets ActionUI's own decision and returns the
+// one to use; NULL keeps ActionUI's own decisions for that part, both NULL restore ActionUI's policy.
+// trust: the trust of content loaded from sourceJSON inside content of parentOriginJSON (NULL for a
+//   window's root, and for a LoadableView of unknown origin, such as one in a template row); only ActionUITrustTrusted means trusted.
+// allows: whether content of originJSON may do capabilityJSON, {"capability": kind} with, by kind:
+//   "load" {"source"}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
+//   "webViewBaseURL" {"url"}, "webViewScriptFile" {"path"}, "readLocalFile" {"path"},
+//   "windowTitle", "presentModal", "menuCommands", "action" {"actionID"}.
+// Set it before loading content. Called on the main thread, often (as elements draw).
+```
+
+A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it.
+
 ### Window model
 
 ```c
@@ -701,12 +727,34 @@ window.set_state_from_string(view_id, "progress", "0.75")
 # Element info
 info = window.get_element_info()   # -> {2: "TextField", 3: "Button", ...}
 
+# Where an element's content came from (see "Origins and trust policy" above)
+origin = window.get_element_origin(view_id)
+# -> {"source": "remote", "url": "https://...", "trust": "lessTrusted", "parentID": 3} or None
+
 # Forget the window's model once the host is done with it (unknown afterwards)
 window.remove_window()
 
 # Content size limits of the loaded root element (min == max means fixed size)
 limits = window.content_size_limits()  # -> (min_w, min_h, max_w, max_h) or None
 ```
+
+### Trust policy
+
+```python
+def trust(source, parent, by_default):         # -> actionui.Trust
+    # A host trusts its own server, say; by_default is ActionUI's own decision.
+    if source.get("url", "").startswith("https://example.com/"):
+        return actionui.Trust.TRUSTED
+    return by_default
+
+def allows(capability, origin, by_default):    # -> bool
+    return by_default
+
+actionui.set_trust_policy(trust=trust, allows=allows)   # main thread, before loading content
+actionui.set_trust_policy()                             # ActionUI's own policy again
+```
+
+Either callback may be left out to keep ActionUI's own decisions for it. A callback that raises is reported and counts as less trusted, or as a refusal. `test_trust_policy.py` runs both against a real window.
 
 ### Module-level helpers
 

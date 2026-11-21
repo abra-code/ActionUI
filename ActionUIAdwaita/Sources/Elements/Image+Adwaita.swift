@@ -39,6 +39,11 @@
 #if canImport(Glibc)
 import Glibc
 #endif
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
 
 nonisolated(unsafe) private var scalableIconWidgetType: GType = 0
@@ -209,8 +214,9 @@ extension Image: ActionUIAdwaitaRenderer {
     /// What the image shows: the runtime value when it is a non-empty String, else the first
     /// source that can be shown, else the photo symbol. Tracked reads of the value and properties.
     static func content(_ node: RenderNode, _ props: Props) -> ImageContent {
+        let readsFile: (String) -> Bool = { LinkTrust.readsLocalFile($0, node) }
         if let value = node.model.value as? String, !value.isEmpty {
-            return content(ImageSource.resolve(value, interpretation: "mixed", lookup: lookup))
+            return content(ImageSource.resolve(value, interpretation: "mixed", lookup: lookup), readsFile: readsFile)
         }
         let source = props.sources.first { source in
             if case .filePath(let path) = source { return !hasExtension(path) || isImageFile(path) }
@@ -218,9 +224,9 @@ extension Image: ActionUIAdwaitaRenderer {
         }
         switch source {
         case .filePath(let path)?:
-            return content(ImageSource.resolve(path, interpretation: "path", lookup: lookup))
+            return content(ImageSource.resolve(path, interpretation: "path", lookup: lookup), readsFile: readsFile)
         case .resourceName(let name)?:
-            return content(ImageSource.resolve(name, interpretation: "resourceName", lookup: lookup))
+            return content(ImageSource.resolve(name, interpretation: "resourceName", lookup: lookup), readsFile: readsFile)
         case .assetName(let name)?:
             return .themeIcon(name)
         case .systemName(let name)?:
@@ -230,16 +236,44 @@ extension Image: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// What a resolved source shows: a file that does not exist is the photo symbol.
-    static func content(_ source: ImageSource) -> ImageContent {
+    /// What a resolved source shows: a file that does not exist, that the element may not read
+    /// (`readsFile`: LinkTrust.readsLocalFile for its node), or that declares more pixels than the
+    /// decode cap (ImagePixels), is the photo symbol.
+    static func content(_ source: ImageSource, readsFile: (String) -> Bool) -> ImageContent {
         switch source {
         case .filePath(let path):
-            return g_file_test(path, fileTestIsRegular) != 0 ? .file(path) : .symbol(ImageSource.placeholderSymbol)
+            guard g_file_test(path, fileTestIsRegular) != 0, readsFile(path) else { return .symbol(ImageSource.placeholderSymbol) }
+            return fileIsTooLarge(path) ? .symbol(ImageSource.placeholderSymbol) : .file(path)
         case .systemName(let name):
             return .symbol(name)
         case .assetName(let name):
             return .themeIcon(name)
         }
+    }
+
+    /// The image files sized, with the version sized and the size it declares (nil: unknown).
+    /// Sizing can read the whole file (ImagePixels), and content runs on every sync and canvas draw.
+    private static var sizedFiles: [String: (version: FileVersion, size: (width: Int, height: Int)?)] = [:]
+
+    /// Whether the file declares more pixels than the decode cap, sized again only when its version
+    /// changes. Logged when it is sized.
+    private static func fileIsTooLarge(_ path: String) -> Bool {
+        let version = fileVersion(path)
+        let size: (width: Int, height: Int)?
+        if let version, let sized = sizedFiles[path], sized.version == version {
+            size = sized.size
+        } else {
+            size = ImagePixels.size(ofFile: path)
+            if let size, ImageSource.isTooLarge(width: size.width, height: size.height) {
+                ActionUIModel.shared.logger.log("Image not shown: \(path) is \(size.width) x \(size.height) pixels, more than \(ImageSource.maximumPixelCount)", .warning)
+            }
+            if let version {
+                // A bound, for a host that shows a new file each time.
+                if sizedFiles.count >= 1024 { sizedFiles = [:] }
+                sizedFiles[path] = (version, size)
+            }
+        }
+        return size.map { ImageSource.isTooLarge(width: $0.width, height: $0.height) } ?? false
     }
 
     /// ImageSource's platform checks on Linux: image files by extension, resources in the app's

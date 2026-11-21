@@ -73,7 +73,7 @@ extension WebView: ActionUIAdwaitaRenderer {
                 }
             }
         }
-        configure(webKit, view, Props(node.properties))
+        configure(webKit, view, Props(node.properties)) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
         loadInitialContent(webKit, view, node, state)
         return view
     }
@@ -85,7 +85,9 @@ extension WebView: ActionUIAdwaitaRenderer {
     }
 
     /// The settings and the scripts the properties give, before the first page loads.
-    private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props) {
+    /// `readsFile`: whether a user script may be read from a file (the element's trust).
+    private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props,
+                                  readsFile: (String) -> Bool) {
         let settings = webKit.settings(view)
         if let userAgent = props.customUserAgent {
             webKit.setUserAgent(settings, userAgent)
@@ -102,7 +104,7 @@ extension WebView: ActionUIAdwaitaRenderer {
         webKit.setBackForwardGestures(settings, 0)
         let manager = webKit.userContentManager(view)
         for script in props.userScripts {
-            guard let source = scriptSource(script), let userScript = webKit.newScript(
+            guard let source = scriptSource(script, readsFile: readsFile), let userScript = webKit.newScript(
                 source, script.forMainFrameOnly ? WebKitLibrary.topFrame : WebKitLibrary.allFrames,
                 script.injectionTime == .documentStart ? WebKitLibrary.documentStart : WebKitLibrary.documentEnd, nil, nil) else { continue }
             webKit.addScript(manager, userScript)
@@ -110,9 +112,10 @@ extension WebView: ActionUIAdwaitaRenderer {
         }
     }
 
-    /// A user script's JavaScript: its source, else its file, else its resource in the app's bundle (as
-    /// the Apple backing reads them); nil, logged, when it cannot be read.
-    static func scriptSource(_ script: Props.UserScript) -> String? {
+    /// A user script's JavaScript: its source, else its file (when `readsFile` allows it), else its
+    /// resource in the app's bundle (as the Apple backing reads them); nil, logged, when it cannot be
+    /// read.
+    static func scriptSource(_ script: Props.UserScript, readsFile: (String) -> Bool) -> String? {
         let logger = ActionUIModel.shared.logger
         // Only a regular file: a device or a named pipe the document names would block the window.
         func read(_ path: String) -> String? {
@@ -122,6 +125,7 @@ extension WebView: ActionUIAdwaitaRenderer {
             return source
         }
         if let filePath = script.filePath {
+            guard readsFile(filePath) else { return nil }
             guard let source = read(filePath) else {
                 logger.log("WebView userScript: failed to read file at '\(filePath)'", .warning)
                 return nil
@@ -147,11 +151,24 @@ extension WebView: ActionUIAdwaitaRenderer {
         let props = Props(node.properties)
         if let urlString = node.model.value as? String, !urlString.isEmpty, let url = URL(string: urlString) {
             state.lastTrackedURL = urlString
-            webKit.loadURI(view, url.absoluteString)
+            show(url, webKit, view, node)
         } else if let html = props.html {
-            let baseURL = props.baseURL.flatMap { URL(string: $0) }?.absoluteString ?? "about:blank"
-            webKit.loadHTML(view, html, baseURL)
+            // about:blank unless baseURL is set and the trust policy allows it.
+            let baseURL = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: { LinkTrust.allows($0, node) },
+                                            logger: ActionUIModel.shared.logger)
+            webKit.loadHTML(view, html, baseURL.absoluteString)
         }
+    }
+
+    /// Loads `url`, or the "Blocked" page when the trust policy refuses it (false then).
+    @discardableResult
+    private static func show(_ url: URL, _ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode) -> Bool {
+        guard WebViewTrust.showsAddress(url, allows: { LinkTrust.allows($0, node) }, logger: ActionUIModel.shared.logger) else {
+            webKit.loadHTML(view, WebViewTrust.blockedPage(url), WebViewTrust.blankBase.absoluteString)
+            return false
+        }
+        webKit.loadURI(view, url.absoluteString)
+        return true
     }
 
     private static func handleCommand(_ command: String?, _ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode,
@@ -181,7 +198,11 @@ extension WebView: ActionUIAdwaitaRenderer {
             resetValueToCurrentURL(after: command, webKit, view, node, state)
         default:
             if let url = URL(string: command) {
-                webKit.loadURI(view, url.absoluteString)
+                // A refused address may leave the URL where it is (already about:blank), so no change
+                // would replace the refused value, and every update would load it again.
+                if !show(url, webKit, view, node) {
+                    resetValueToCurrentURL(after: command, webKit, view, node, state)
+                }
             } else {
                 logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
                 resetValueToCurrentURL(after: command, webKit, view, node, state)

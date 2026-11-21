@@ -37,6 +37,11 @@ extension Text: ActionUIAdwaitaRenderer {
         // Tab passes it by: a selectable label or one with a link, kept unfocusable in update,
         // would otherwise stop Tab (GtkLabel's focus handler claims it moved focus when it did not).
         gtk_widget_set_can_focus(label, 0)
+        // A link in its markdown opens only what the trust policy allows; true: handled, not opened.
+        connectLinkSignal(UnsafeMutableRawPointer(label)) { [weak node] uri in
+            guard let node else { return true }
+            return !LinkTrust.allows(uri, node)
+        }
         return label
     }
 

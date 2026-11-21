@@ -10,6 +10,34 @@ import XCTest
 import SwiftUI
 @testable import ActionUI
 
+/// Serves fixed bodies for RemoteJSONFetch: /big (1001 bytes), /exact (1000), /told (says
+/// 5000 bytes in Content-Length), /stall (headers, then nothing).
+private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else { return }
+        var headers = ["Content-Type": "application/json"]
+        let body: Data?
+        switch url.path {
+        case "/big": body = Data(repeating: 0x20, count: 1001)
+        case "/exact": body = Data(repeating: 0x20, count: 1000)
+        case "/told":
+            headers["Content-Length"] = "5000"
+            body = Data(repeating: 0x20, count: 10)
+        default: body = nil
+        }
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        guard let body else { return }
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
 @MainActor
 final class LoadableViewTests: XCTestCase {
     private var logger: XCTestLogger!
@@ -438,6 +466,29 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertNil(windowModel.viewModels[parentID], "Old LoadableView ViewModel should be gone after full reload")
     }
 
+    func testALessTrustedLinkOpensOnlyWebAndMailAddresses() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-links-\(UUID().uuidString)")
+        let resources = folder.appendingPathComponent("Resources")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        ActionUIResourceFolder.path = resources.path
+        let inside = resources.appendingPathComponent("Root.json")
+        let outside = folder.appendingPathComponent("Other.json")
+        try Data(#"{"id": 5, "type": "Link", "properties": {"title": "In", "url": "file:///etc/hosts"}}"#.utf8).write(to: inside)
+        try Data(#"{"id": 6, "type": "Link", "properties": {"title": "Out", "url": "file:///etc/hosts"}}"#.utf8).write(to: outside)
+        let other = UUID().uuidString
+        _ = FileLoadableView(fileURL: inside, windowUUID: windowUUID, isContentView: true, logger: logger)
+        _ = FileLoadableView(fileURL: outside, windowUUID: other, isContentView: true, logger: ConsoleLogger(maxLevel: .error))
+        let file = URL(string: "file:///etc/hosts")!
+        XCTAssertTrue(ActionUIRegistry.opensLink(file, windowUUID: windowUUID, viewID: 5), "trusted content opens any link")
+        XCTAssertFalse(ActionUIRegistry.opensLink(file, windowUUID: other, viewID: 6), "less trusted: not a local file")
+        XCTAssertTrue(ActionUIRegistry.opensLink(URL(string: "https://example.com")!, windowUUID: other, viewID: 6))
+        XCTAssertTrue(ActionUIRegistry.opensLink(URL(string: "mailto:a@example.com")!, windowUUID: other, viewID: 6))
+    }
+
     func testANameIsFoundInTheHostsResourceFolderBeforeTheBundle() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-view-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -453,5 +504,64 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertNil(LoadableView.resourceURL("Panel", "plist"))
         let source = ActionUIDocumentLoader.source(for: "Panel", bundleURL: LoadableView.resourceURL, logger: logger)
         XCTAssertEqual(try source.get(), .file(URL(fileURLWithPath: file.path)), "a name without an extension finds Panel.json")
+    }
+
+    func testAFileInTheHostsResourceFolderIsTrustedAndOneElsewhereIsNot() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-origin-\(UUID().uuidString)")
+        let resources = folder.appendingPathComponent("Resources")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        defer {
+            ActionUIResourceFolder.path = nil
+            try? FileManager.default.removeItem(at: folder)
+        }
+        ActionUIResourceFolder.path = resources.path
+        let inside = resources.appendingPathComponent("Root.json")
+        let outside = folder.appendingPathComponent("Other.json")
+        try Data(#"{"id": 5, "type": "Text", "properties": {"text": "In"}}"#.utf8).write(to: inside)
+        try Data(#"{"id": 6, "type": "Text", "properties": {"text": "Out"}}"#.utf8).write(to: outside)
+        // The SwiftUI renderer's resource folders: the host's, then the bundle's.
+        _ = FileLoadableView(fileURL: inside, windowUUID: windowUUID, isContentView: true, logger: logger)
+        let trusted = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 5))
+        XCTAssertEqual(trusted.trust, .trusted)
+        XCTAssertNil(trusted.parentID, "a window's root")
+        guard case .resource = trusted.source else { return XCTFail("\(trusted)") }
+        _ = FileLoadableView(fileURL: outside, windowUUID: windowUUID, isContentView: true, logger: logger)
+        XCTAssertEqual(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 6)?.trust, .lessTrusted)
+        _ = FileLoadableView(data: Data(#"{"id": 7, "type": "Text", "properties": {}}"#.utf8), sourceName: "memory",
+                             windowUUID: windowUUID, isContentView: true, logger: logger)
+        XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 7) === JSONContentOrigin.host, "data the host holds")
+    }
+
+    func testRemoteJSONIsCappedInSizeAndTime() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubJSONProtocol.self]
+        let session = URLSession(configuration: configuration)
+        func fetch(_ path: String, timeout: Double = 10) async throws -> Data {
+            try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
+                                               timeout: timeout, session: session)
+        }
+        let exact = try await fetch("/exact")
+        XCTAssertEqual(exact.count, 1000, "exactly the cap loads")
+        do {
+            _ = try await fetch("/big")
+            XCTFail("one byte over the cap")
+        } catch {
+            XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
+        }
+        do {
+            _ = try await fetch("/told")
+            XCTFail("a Content-Length over the cap is refused before the body")
+        } catch {
+            XCTAssertTrue("\(error)".hasPrefix("the ActionUI JSON is larger"), "\(error)")
+        }
+        let start = Date()
+        do {
+            _ = try await fetch("/stall", timeout: 0.3)
+            XCTFail("a server that never sends the body")
+        } catch {
+            XCTAssertEqual("\(error)", "loading it took longer than 0 seconds")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5)
+        XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
     }
 }

@@ -2,7 +2,10 @@ package com.abracode.actionui.Views
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.webkit.URLUtil
+import android.webkit.WebResourceRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebViewClient
 import android.webkit.WebView as AndroidWebView
@@ -11,10 +14,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.abracode.actionui.Common.ActionUICapability
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Helpers.WebViewTrust
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -135,7 +143,17 @@ object WebView : ActionUIViewConstruction {
             return
         }
 
-        AndroidView(
+        // Where this WebView's content came from. The view is made again for content of another
+        // origin (a LoadableView loading other content), so its user scripts and navigation rule
+        // are always those of the content it shows.
+        val origin = LocalJSONContentOrigin.current
+        val lessTrusted = origin.trust != JSONContentOrigin.Trust.TRUSTED
+        val readsScript = { path: String ->
+            ActionUIModel.allows(ActionUICapability.WebViewScriptFile(path), origin).also { allowed ->
+                if (!allowed) logger.log("WebView userScript: not reading $path: the trust policy refuses it", LoggerLevel.warning)
+            }
+        }
+        key(origin) { AndroidView(
             modifier = modifier,
             factory = { context ->
                 AndroidWebView(context).apply {
@@ -150,12 +168,33 @@ object WebView : ActionUIViewConstruction {
                     // Apple bundle lookup.
                     val startScripts = config.userScripts
                         .filter { it.injectionTime == WebViewInjectionTime.DOCUMENT_START }
-                        .mapNotNull { resolveScriptSource(it, context.assets::open, logger) }
+                        .mapNotNull { resolveScriptSource(it, context.assets::open, logger, readsScript) }
                     val endScripts = config.userScripts
                         .filter { it.injectionTime == WebViewInjectionTime.DOCUMENT_END }
-                        .mapNotNull { resolveScriptSource(it, context.assets::open, logger) }
+                        .mapNotNull { resolveScriptSource(it, context.assets::open, logger, readsScript) }
 
                     webViewClient = object : WebViewClient() {
+                        // Less-trusted content's page goes only where the trust policy allows
+                        // (WebViewTrust.navigation); trusted content's goes anywhere, as before.
+                        override fun shouldOverrideUrlLoading(view: AndroidWebView, request: WebResourceRequest): Boolean {
+                            if (!lessTrusted) return false
+                            val url = request.url.toString()
+                            return when (WebViewTrust.navigation(url, request.isForMainFrame, origin, logger)) {
+                                WebViewTrust.Navigation.LOAD -> false
+                                WebViewTrust.Navigation.REFUSE -> true
+                                WebViewTrust.Navigation.OPEN -> {
+                                    try {
+                                        view.context.startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                                    } catch (e: ActivityNotFoundException) {
+                                        logger.log("No activity found to open URL '$url'", LoggerLevel.warning)
+                                    } catch (e: RuntimeException) {
+                                        logger.log("Could not open URL '$url': ${e.javaClass.simpleName}", LoggerLevel.warning)
+                                    }
+                                    true
+                                }
+                            }
+                        }
+
                         override fun onPageStarted(view: AndroidWebView, url: String?, favicon: Bitmap?) {
                             viewModel?.states?.set("isLoading", true)
                             startScripts.forEach { view.evaluateJavascript(it, null) }
@@ -197,11 +236,22 @@ object WebView : ActionUIViewConstruction {
                     // URL persisted across a document swap) wins over inline html,
                     // Apple's precedence. Neither -> the page stays blank.
                     val startURL = (viewModel?.value as? String)?.takeIf { it.isNotEmpty() } ?: config.url
+                    // An address or html the trust policy refuses shows the "Blocked" page.
                     when {
-                        !startURL.isNullOrEmpty() -> loadUrl(startURL)
-                        config.html != null -> loadDataWithBaseURL(
-                            config.baseURL, config.html, "text/html", "utf-8", null
-                        )
+                        !startURL.isNullOrEmpty() ->
+                            if (WebViewTrust.showsAddress(startURL, origin, logger)) {
+                                loadUrl(startURL)
+                            } else {
+                                loadDataWithBaseURL(null, WebViewTrust.blockedPage(startURL), "text/html", "utf-8", null)
+                            }
+                        config.html != null ->
+                            if (WebViewTrust.showsHTML(origin, logger)) {
+                                loadDataWithBaseURL(
+                                    WebViewTrust.base(config.baseURL, origin, logger), config.html, "text/html", "utf-8", null
+                                )
+                            } else {
+                                loadDataWithBaseURL(null, WebViewTrust.blockedPage("inline html"), "text/html", "utf-8", null)
+                            }
                     }
                 }.also { webView = it }
             },
@@ -209,7 +259,7 @@ object WebView : ActionUIViewConstruction {
                 if (webView === it) webView = null
                 it.destroy()
             },
-        )
+        ) }
 
         // Host-command bridge: a value written through setElementValue lands
         // here. Skips our own report-backs (value == lastTrackedURL).
@@ -247,7 +297,11 @@ object WebView : ActionUIViewConstruction {
                 }
 
                 WebViewCommand.LOAD_URL ->
-                    if (URLUtil.isValidUrl(command)) {
+                    if (!WebViewTrust.showsAddress(command, origin, logger)) {
+                        // The value goes back to what is shown, so the refused address is not tried again.
+                        view.loadDataWithBaseURL(null, WebViewTrust.blockedPage(command), "text/html", "utf-8", null)
+                        resetValueToCurrentURL(view, viewModel, lastTrackedURL)
+                    } else if (URLUtil.isValidUrl(command)) {
                         // The value is reported back by doUpdateVisitedHistory
                         // when the navigation lands.
                         view.loadUrl(command)
@@ -422,16 +476,20 @@ internal fun parseUserScripts(raw: JsonElement?, logger: ActionUILogger?): List<
  * Resolves a script descriptor to its JS text: inline `source` wins, then
  * `filePath` (absolute path), then `resourceName` opened through [openAsset]
  * (the Android analog of Apple's main-bundle lookup; tried as given, then with
- * `.js` appended). Read failures warn and drop the script.
+ * `.js` appended). Read failures warn and drop the script; so does a `filePath`
+ * [readsFile] refuses (it logs).
  */
 internal fun resolveScriptSource(
     script: WebViewUserScript,
     openAsset: (String) -> InputStream,
     logger: ActionUILogger?,
+    readsFile: (String) -> Boolean,
 ): String? {
     script.source?.let { return it }
 
     script.filePath?.let { path ->
+        // The trust policy first (less-trusted content reads only the app's resource folders).
+        if (!readsFile(path)) return null
         return try {
             // Only a regular file: a device or a named pipe would block the reading thread.
             readRegularFileText(path)

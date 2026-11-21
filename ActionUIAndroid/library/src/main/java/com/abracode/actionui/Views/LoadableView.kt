@@ -15,12 +15,17 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.resolvedOrigin
+import com.abracode.actionui.Common.uriHandlerFor
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -107,6 +112,11 @@ object LoadableView : ActionUIViewConstruction {
         val runtimeValue = ownModel?.value as? String
         val source = resolveLoadableSource(runtimeValue, props)
         val classified = remember(source) { classifyLoadableSource(source) }
+        // The loaded content's origin: its source's, no more trusted than the content around it.
+        val around = LocalJSONContentOrigin.current
+        val origin = remember(classified, around) {
+            resolvedOrigin(classified, around, element.id.takeIf { it > 0 })
+        }
 
         // Refuse a source a LoadableView around this one shows, or a chain too deep, before
         // anything is read: a file or asset source loads during composition.
@@ -131,11 +141,19 @@ object LoadableView : ActionUIViewConstruction {
         val outcome: DescriptionLoad? = if (classified is LoadableSource.Remote) {
             produceState<DescriptionLoad?>(null, classified, windowModel, ownModel) {
                 value = null
-                value = loadRemoteDescription(classified, json, logger).also { mergeIntoWindow(it, windowModel, element.id) }
+                value = if (windowModel != null && !windowModel.spendLoad()) {
+                    DescriptionLoad.Failed("too many loads in this window")
+                } else {
+                    mergeIntoWindow(loadRemoteDescription(classified, json, logger), windowModel, element.id, origin)
+                }
             }.value
         } else {
             remember(windowModel, classified, ownModel) {
-                loadLocalDescription(classified, assets, json, logger).also { mergeIntoWindow(it, windowModel, element.id) }
+                if (windowModel != null && classified !is LoadableSource.None && !windowModel.spendLoad()) {
+                    DescriptionLoad.Failed("too many loads in this window")
+                } else {
+                    mergeIntoWindow(loadLocalDescription(classified, assets, json, logger), windowModel, element.id, origin)
+                }
             }
         }
 
@@ -169,7 +187,16 @@ object LoadableView : ActionUIViewConstruction {
                 // BuildViewWithModifiers resolves the loaded element's common properties.
                 // LoadableViews inside the loaded tree see this source among those around them.
                 val inside = if (nestingKey != null) enclosing + nestingKey else enclosing
-                CompositionLocalProvider(LocalLoadableSources provides inside) {
+                // Its links in Markdown text open through LocalUriHandler, which asks the trust policy
+                // for less-trusted content.
+                val shownOrigin = origin ?: around
+                val inheritedLinks = LocalUriHandler.current
+                val links = remember(inheritedLinks, shownOrigin, logger) { uriHandlerFor(shownOrigin, inheritedLinks, logger) }
+                CompositionLocalProvider(
+                    LocalLoadableSources provides inside,
+                    LocalJSONContentOrigin provides shownOrigin,
+                    LocalUriHandler provides links,
+                ) {
                     ProvideTextStyleEnvironment(loaded.properties, logger) {
                         builder.BuildViewWithModifiers(loaded, modifier)
                     }
@@ -187,12 +214,18 @@ object LoadableView : ActionUIViewConstruction {
     }
 
     /**
-     * Merges a successfully loaded sub-tree into [windowModel] (no-op otherwise). A
-     * LoadableView with an id owns what its content merged, so a reload replaces it.
+     * Merges a successfully loaded sub-tree into [windowModel] (no-op otherwise) and returns
+     * the outcome to show: [outcome], or a failure when the window refuses the content
+     * (less-trusted content using a trusted element's id). A LoadableView with an id owns
+     * what its content merged, so a reload replaces it.
      */
-    private fun mergeIntoWindow(outcome: DescriptionLoad, windowModel: WindowModel?, ownerID: Int) {
-        if (outcome is DescriptionLoad.Loaded) {
-            windowModel?.loadSubDescription(outcome.element, parentID = if (ownerID > 0) ownerID else 0)
+    private fun mergeIntoWindow(outcome: DescriptionLoad, windowModel: WindowModel?, ownerID: Int, origin: JSONContentOrigin?): DescriptionLoad {
+        if (outcome !is DescriptionLoad.Loaded) return outcome
+        return try {
+            windowModel?.loadSubDescription(outcome.element, parentID = if (ownerID > 0) ownerID else 0, origin = origin)
+            outcome
+        } catch (e: WindowModel.SubViewRefusedException) {
+            DescriptionLoad.Failed(e.message ?: "id conflict")
         }
     }
 

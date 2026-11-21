@@ -31,8 +31,11 @@
 // Deferred vs. Apple: `.plist` sources warn-and-skip (no web property-list parser —
 // the Android stance); use a JSON description.
 
-import { register } from "../Common/ActionUIRegistry.js";
+import { register, buildElementView } from "../Common/ActionUIRegistry.js";
+import { HOST_ORIGIN, LESS_TRUSTED, TRUSTED, resolvedOrigin } from "../Common/TrustPolicy.js";
+import { LOAD_BUDGET, jsonRefusal, readJSONText } from "../Helpers/JSONLimits.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
+import { collectElementIds } from "../Common/ActionUIInsertion.js";
 import { PlatformFilter } from "../Common/PlatformFilter.js";
 import { resolveLoadableSource, classifyLoadableSource } from "../Helpers/LoadableSource.js";
 import { pageBaseURL } from "../Helpers/URLPolicy.js";
@@ -101,6 +104,7 @@ register("LoadableView", {
         let currentSource = resolveLoadableSource(null, properties) ?? "";
         let loadToken = 0;          // guards against out-of-order async loads
         let lastLoadedSource = null; // viewDidLoadActionID dedup (per source)
+        let ownIDs = new Set();      // the ids the shown content (and LoadableViews in it) brought in
 
         const renderMessage = (text, cls) => {
             const div = document.createElement("div");
@@ -112,6 +116,10 @@ register("LoadableView", {
         const load = (source) => {
             const token = ++loadToken;
             currentSource = source;
+            // Every path below replaces the shown content, so the ids the previous content
+            // brought in are no longer this view's, whether or not the new content loads.
+            for (const id of ownIDs) ctx.model.origins.delete(id);
+            ownIDs = new Set();
             const classified = classifyLoadableSource(source);
 
             if (classified.kind === "none") {
@@ -125,12 +133,22 @@ register("LoadableView", {
                 return;
             }
 
+            // The window's load budget, whatever the source: a document that reloads itself
+            // through its value, or a chain of them, cannot spin the page.
+            if (!ctx.model.loadBudget.spend()) {
+                ctx.logger.log(`Not loading a LoadableView in window ${ctx.windowUUID}: ${LOAD_BUDGET.loads} loads in ${LOAD_BUDGET.seconds} s already`, "error");
+                renderMessage(`Failed to load view: too many loads in this window`, "aui-loadable-error");
+                return;
+            }
+
             const address = resolvedAddress(classified.fetchURL);
+            // Where the content comes from: no more trusted than the content around this view.
+            const origin = resolvedOrigin(classified, ctx.origin ?? HOST_ORIGIN, element.id, ctx.logger);
             renderMessage("Loading…", "aui-loadable-loading");
             fetch(classified.fetchURL)
                 .then((response) => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    return response.text();
+                    return readJSONText(response);
                 })
                 .then((text) => {
                     if (token !== loadToken) return; // superseded by a newer load
@@ -141,6 +159,13 @@ register("LoadableView", {
                         renderMessage(`Failed to load view: ${source}`, "aui-loadable-error");
                         return;
                     }
+                    const tooBig = jsonRefusal(text);
+                    if (tooBig !== null) {
+                        loadedAddressOf.delete(node);
+                        ctx.logger.log(`LoadableView: not showing '${source}': ${tooBig}`, "error");
+                        renderMessage(`Failed to load view: ${tooBig}`, "aui-loadable-error");
+                        return;
+                    }
                     loadedAddressOf.set(node, address);
                     const raw = JSON.parse(text);
                     const normalized = PlatformFilter.WEB.withLogger(ctx.logger).filter(raw);
@@ -149,9 +174,23 @@ register("LoadableView", {
                         renderMessage("Failed to parse description", "aui-loadable-error");
                         return;
                     }
-                    // Build through the registry on the current ctx — this registers
-                    // every loaded id's value/state binding into the window model.
-                    node.replaceChildren(ctx.build(loaded));
+                    // Less-trusted content may not share an id with a trusted element already
+                    // in the window: it would bind to that element's value and state.
+                    if (origin.trust === LESS_TRUSTED) {
+                        const taken = [...collectElementIds(loaded)].filter((id) => ctx.model.origins.get(id)?.trust === TRUSTED).sort((a, b) => a - b);
+                        if (taken.length > 0) {
+                            const list = taken.join(", ");
+                            ctx.logger.log(`Not loading a less-trusted sub-view for parent ${element.id}: ${taken.length === 1 ? `id ${list} is` : `ids ${list} are`} already in the window`, "error");
+                            renderMessage(`Failed to load view: id conflict: ${list} already in the window`, "aui-loadable-error");
+                            return;
+                        }
+                    }
+                    // Build through the registry on a context carrying the content's origin -
+                    // this registers every loaded id's value/state binding into the window
+                    // model, and records each one's origin and that this view brought it in.
+                    const inner = { ...ctx, origin, loadedIDSets: [...(ctx.loadedIDSets ?? []), ownIDs] };
+                    inner.build = (el) => buildElementView(el, inner);
+                    node.replaceChildren(inner.build(loaded));
                     // Fire viewDidLoadActionID once per successfully loaded source.
                     if (typeof properties.viewDidLoadActionID === "string" && lastLoadedSource !== source) {
                         lastLoadedSource = source;

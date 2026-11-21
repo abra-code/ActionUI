@@ -42,7 +42,7 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         for margin in [gtk_text_view_set_left_margin, gtk_text_view_set_right_margin, gtk_text_view_set_top_margin, gtk_text_view_set_bottom_margin] {
             margin(typed(view), 6)
         }
-        openLinksOnClick(view)
+        openLinksOnClick(view, node)
         gtk_scrolled_window_set_child(OpaquePointer(scrolled), view)
         gtk_overlay_set_child(OpaquePointer(overlay), scrolled)
 
@@ -169,11 +169,11 @@ extension TextEditor: ActionUIAdwaitaRenderer {
     }
 
     /// In a markdown editor, a click on a link opens it, and the pointer is a hand over a link.
-    private static func openLinksOnClick(_ view: WidgetPointer) {
+    private static func openLinksOnClick(_ view: WidgetPointer, _ node: RenderNode) {
         let click = gtk_gesture_click_new()!
         gtk_gesture_single_set_button(click, guint(GDK_BUTTON_PRIMARY))
-        connectClick(UnsafeMutableRawPointer(click), "released") { _, x, y in
-            clickReleased(view, x, y)
+        connectClick(UnsafeMutableRawPointer(click), "released") { [weak node] _, x, y in
+            clickReleased(view, x, y) { uri in node.map { LinkTrust.allows(uri, $0) } ?? false }
         }
         gtk_widget_add_controller(view, click)
         let motion = gtk_event_controller_motion_new()!
@@ -192,12 +192,15 @@ extension TextEditor: ActionUIAdwaitaRenderer {
     }
 
     /// A click released at `x`, `y` in the text view: opens the link there, unless the click selected
-    /// text (a drag ending on a link is not a click on it).
-    static func clickReleased(_ view: WidgetPointer, _ x: Double, _ y: Double) {
+    /// text (a drag ending on a link is not a click on it) or `opens` refuses it (the editor passes
+    /// the trust policy's answer).
+    static func clickReleased(_ view: WidgetPointer, _ x: Double, _ y: Double,
+                              opens: (String) -> Bool = { _ in true }) {
         let buffer = gtk_text_view_get_buffer(typed(view))!
         var start = GtkTextIter()
         var end = GtkTextIter()
         guard gtk_text_buffer_get_selection_bounds(buffer, &start, &end) == 0, let url = link(at: x, y, in: view) else { return }
+        guard opens(url.absoluteString) else { return }
         openURI(url.absoluteString, view)
     }
 

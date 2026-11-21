@@ -152,15 +152,15 @@ extension Table: ActionUISwiftUIRenderer {
                                 }
                             } label: {
                                 if let dataInterpretation {
-                                    SwiftUI.Image(from: value, interpretation: dataInterpretation.rawValue)
+                                    ImageHelper.image(from: value, interpretation: dataInterpretation.rawValue, windowUUID: windowUUID, viewID: element.id)
                                 } else {
                                     SwiftUI.Text(value)
                                 }
                             }
                         case .image:
-                            SwiftUI.Image(from: value, interpretation: (dataInterpretation ?? .systemName).rawValue)
+                            ImageHelper.image(from: value, interpretation: (dataInterpretation ?? .systemName).rawValue, windowUUID: windowUUID, viewID: element.id)
                         case .asyncImage:
-                            SwiftUI.AsyncImage(url: URL(string: value).flatMap { AsyncImage.isLoadable($0) ? $0 : nil }) { image in
+                            SwiftUI.AsyncImage(url: ImageHelper.loadableImageURL(URL(string: value), windowUUID: windowUUID, viewID: element.id)) { image in
                                 image.resizable().scaledToFit()
                             } placeholder: {
                                 SwiftUI.ProgressView()

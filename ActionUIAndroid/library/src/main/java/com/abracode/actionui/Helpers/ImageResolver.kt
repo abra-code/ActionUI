@@ -1,7 +1,6 @@
 package com.abracode.actionui.Helpers
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -401,15 +400,18 @@ internal fun resolveContentScale(
  * and decode run once per source rather than per recomposition.
  *
  * @return a [BitmapPainter], or `null` if the asset/file is missing or fails to
- *   decode (a warning is emitted).
+ *   decode (a warning is emitted), or [readsFile] refuses the file. A required
+ *   argument, so a new caller cannot leave the check out.
  */
 internal fun loadImagePainter(
     source: ImageSource,
     context: Context,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger?,
+    readsFile: (String) -> Boolean,
 ): Painter? = when (source) {
     is ImageSource.Asset            -> decodeAsset(source.name, context, logger)
-    is ImageSource.FilePath         -> decodeFile(source.path, logger)
+    // The trust policy first, before the file is even looked at (it logs a refusal).
+    is ImageSource.FilePath         -> if (readsFile(source.path)) decodeFile(source.path, logger) else null
     // Symbol sources are glyphs, not raster painters; the Image builder renders
     // them via MaterialSymbolGlyph and never routes them here. A drawable is
     // rendered with the composable painterResource (density/night/vector aware),
@@ -421,7 +423,7 @@ internal fun loadImagePainter(
 
 private fun decodeAsset(name: String, context: Context, logger: ActionUILogger?): Painter? =
     try {
-        val bitmap = context.assets.open(name).use { BitmapFactory.decodeStream(it) }
+        val bitmap = decodeAssetWithinCap(context.assets, name, logger)
         if (bitmap == null) {
             logger?.log(
                 "Image: asset '$name' could not be decoded (not a raster image?). " +
@@ -455,7 +457,7 @@ private fun decodeFile(path: String, logger: ActionUILogger?): Painter? {
         )
         return null
     }
-    val bitmap = BitmapFactory.decodeFile(path)
+    val bitmap = decodeFileWithinCap(path, logger)
     if (bitmap == null) {
         logger?.log(
             "Image: filePath '$path' could not be decoded as an image. Nothing rendered.",

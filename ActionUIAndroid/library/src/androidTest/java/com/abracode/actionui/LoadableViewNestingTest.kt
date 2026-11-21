@@ -43,7 +43,7 @@ class LoadableViewNestingTest {
     private fun file(name: String, json: String): File = File(folder, name).apply { writeText(json) }
 
     @Test
-    fun aDocumentThatLoadsItselfIsRefusedAtTheRepeat() {
+    fun aJSONFileThatLoadsItselfIsRefusedAtTheRepeat() {
         val self = File(folder, "self.json")
         file("self.json", """{ "type": "VStack", "id": 20, "children": [
             { "type": "Text", "id": 22, "properties": { "text": "Loaded once" } },
@@ -57,7 +57,7 @@ class LoadableViewNestingTest {
     }
 
     @Test
-    fun documentsThatLoadEachOtherAreRefusedAndSiblingsLoad() {
+    fun jsonFilesThatLoadEachOtherAreRefusedAndSiblingsLoad() {
         val a = File(folder, "a.json")
         val b = File(folder, "b.json")
         file("a.json", """{ "type": "LoadableView", "id": 30, "properties": { "filePath": "${b.path}" } }""")

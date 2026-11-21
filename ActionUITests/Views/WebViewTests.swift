@@ -619,6 +619,46 @@ final class WebViewTests: XCTestCase {
                        "a name without .js finds the .js file")
     }
 
+    func testAResourceNameWithASlashReachesNoFileOutsideTheBundle() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("webview-outside-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try "var outside = 1;".write(to: folder.appendingPathComponent("Outside.js"), atomically: true, encoding: .utf8)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: folder.appendingPathComponent("Outside.png"))
+        // From the bundle's resources up to the root, then down to the file.
+        let up = String(repeating: "../", count: 40) + folder.path.dropFirst()
+        // What a plain bundle lookup does with it: it keeps the ".." (seen on macOS 27).
+        let plain = Bundle.main.path(forResource: up + "/Outside", ofType: "js")
+        XCTAssertNil(ActionUIResourceFolder.bundlePath(forResource: up + "/Outside", ofType: "js"), "plain lookup gave \(plain ?? "nil")")
+        XCTAssertNil(ActionUIResourceFolder.bundlePath(forResource: "sub/Outside.js", ofType: nil))
+        ActionUIModel.shared.logger = consoleLogger
+        defer { ActionUIModel.shared.logger = logger }
+        XCTAssertNil(WebViewSupport.resolveJSSource(from: ["resourceName": up + "/Outside.js"], logger: consoleLogger))
+        XCTAssertNil(ImageHelper.lookup.resourcePath(up + "/Outside.png"), "an Image resourceName too")
+    }
+
+    func testALessTrustedWebViewReadsNoScriptFileOutsideTheResources() throws {
+        let tmp = NSTemporaryDirectory() + "actionui-webview-trust-\(UUID().uuidString).js"
+        try "var fromFile = 1;".write(toFile: tmp, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+        let document = Data(#"{"id": 7, "type": "WebView", "properties": {}}"#.utf8)
+        let remote = UUID().uuidString
+        ActionUIModel.shared.logger = consoleLogger
+        defer { ActionUIModel.shared.logger = logger }
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: remote, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/v.json")!))
+        _ = try ActionUIDocumentLoader.load(data: document, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        let script = WebView.Props.UserScript(["filePath": tmp])
+        XCTAssertNil(WebViewSupport.resolveJSSource(from: script, logger: consoleLogger) {
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: remote, viewID: 7)
+        }, "less trusted: a script file outside the app's resources")
+        XCTAssertEqual(WebViewSupport.resolveJSSource(from: script, logger: consoleLogger) {
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: self.windowUUID, viewID: 7)
+        }, "var fromFile = 1;", "the host's content reads it")
+        XCTAssertEqual(WebViewSupport.resolveJSSource(from: WebView.Props.UserScript(["source": "inline();"]), logger: consoleLogger) { _ in false },
+                       "inline();", "an inline script is part of the document")
+    }
+
     func testWebViewSupport_ResolveJSSource_MissingFile_ReturnsNil() {
         ActionUIModel.shared.logger = consoleLogger
         let source = WebViewSupport.resolveJSSource(from: ["filePath": "/no/such/file.js"], logger: consoleLogger)

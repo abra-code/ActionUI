@@ -23,6 +23,7 @@
 //   * `.plist` descriptions are not supported (no web property-list parser; the
 //     LoadableView stance) - pass JSON.
 
+import { jsonRefusal } from "../Helpers/JSONLimits.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
 import { PlatformFilter } from "../Common/PlatformFilter.js";
 import { collectElementIds } from "../Common/ActionUIInsertion.js";
@@ -46,6 +47,11 @@ export function presentModal(host, spec, model, logger) {
         return null;
     }
 
+    const refusal = jsonRefusal(data);
+    if (refusal !== null) {
+        logger.log(`presentModal: not decoding the description: ${refusal}`, "error");
+        return null;
+    }
     let raw;
     try {
         raw = JSON.parse(data);

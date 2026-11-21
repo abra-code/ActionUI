@@ -23,6 +23,10 @@ enum ActionUIRendererHooks {
     /// inside `shared`'s one-time initializer, so an add-on using either there would hang.
     static var registerLinkedAddOns: () -> Void = {}
 
+    /// The folders of the app's own resources, whose documents are trusted (JSONContentOrigin): the
+    /// host's resource folder, and the renderer's bundle folder. The default knows only the first.
+    static var resourceFolders: () -> [String] = { ActionUIResourceFolder.path.map { [$0] } ?? [] }
+
     /// Markdown text as the AttributedString a Text element starts with. The default keeps the text
     /// as it is: FoundationEssentials has no Markdown parser.
     static var markdown: (String) -> AttributedString = { AttributedString($0) }

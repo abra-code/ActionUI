@@ -66,6 +66,9 @@ typedef struct {
     PyObject* app_window_will_close;
     PyObject* app_window_will_present;
     PyObject* host_surface_clients;  // dict: surface name (str) -> capsule of the bound HostSurfaceClient
+    // Trust policy callbacks (set_trust_policy)
+    PyObject* trust_callback;
+    PyObject* capability_callback;
 } ActionUIModuleState;
 
 static inline ActionUIModuleState* get_state(PyObject* module) {
@@ -116,6 +119,53 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
     report_callback_error();
     Py_DECREF(callback);
     PyGILState_Release(gstate);
+}
+
+// MARK: - Trust Policy Bridges
+
+/* The module's state from a bridge, with the GIL held; NULL once the module is gone. */
+static ActionUIModuleState* bridge_state(void) {
+    PyObject* module = PyDict_GetItemString(PyImport_GetModuleDict(), "_actionui");
+    return module == NULL ? NULL : get_state(module);
+}
+
+/* trust(sourceJSON, parentOriginJSON|None, byDefault) -> int. Only 1 (ActionUITrustTrusted) means
+ * trusted: any other result, or an exception (reported), is less trusted. */
+static ActionUITrust trust_callback_bridge(const char* sourceJSON, const char* parentOriginJSON, ActionUITrust byDefault) {
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    ActionUIModuleState* state = bridge_state();
+    if (state == NULL || state->trust_callback == NULL) { PyGILState_Release(gstate); return byDefault; }
+    /* Held across the call: a callback that sets another policy would drop the stored one. */
+    PyObject* callback = state->trust_callback;
+    Py_INCREF(callback);
+    PyObject* result = parentOriginJSON != NULL
+        ? PyObject_CallFunction(callback, "ssi", sourceJSON, parentOriginJSON, (int)byDefault)
+        : PyObject_CallFunction(callback, "sOi", sourceJSON, Py_None, (int)byDefault);
+    ActionUITrust trust = ActionUITrustLessTrusted;
+    if (result != NULL && PyLong_Check(result) && PyLong_AsLong(result) == (long)ActionUITrustTrusted)
+        trust = ActionUITrustTrusted;
+    Py_XDECREF(result);
+    report_callback_error();
+    Py_DECREF(callback);
+    PyGILState_Release(gstate);
+    return trust;
+}
+
+/* allows(capabilityJSON, originJSON, byDefault) -> bool. Only True allows: any other result, or an
+ * exception (reported), refuses. */
+static bool capability_callback_bridge(const char* capabilityJSON, const char* originJSON, bool byDefault) {
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    ActionUIModuleState* state = bridge_state();
+    if (state == NULL || state->capability_callback == NULL) { PyGILState_Release(gstate); return byDefault; }
+    PyObject* callback = state->capability_callback;
+    Py_INCREF(callback);
+    PyObject* result = PyObject_CallFunction(callback, "ssO", capabilityJSON, originJSON, byDefault ? Py_True : Py_False);
+    bool allowed = result == Py_True;
+    Py_XDECREF(result);
+    report_callback_error();
+    Py_DECREF(callback);
+    PyGILState_Release(gstate);
+    return allowed;
 }
 
 // MARK: - Action Handler Bridge
@@ -591,6 +641,52 @@ static PyObject* py_set_logger(PyObject* self, PyObject* args) {
         actionUISetLogger(logger_callback_bridge);
     }
     Py_RETURN_NONE;
+}
+
+/* Stores `callback` (a callable, or None to clear) in `*slot`; the caller has checked it. */
+static void store_optional_callable(PyObject** slot, PyObject* callback) {
+    PyObject* old = *slot;
+    if (callback == Py_None) {
+        *slot = NULL;
+    } else {
+        Py_INCREF(callback);
+        *slot = callback;
+    }
+    Py_XDECREF(old);
+}
+
+static PyObject* py_set_trust_policy(PyObject* self, PyObject* args) {
+    PyObject* trust;
+    PyObject* allows;
+    if (PyArg_ParseTuple(args, "OO", &trust, &allows) == 0) return NULL;
+    if (!require_main_thread("set_trust_policy")) return NULL;
+    /* Both checked before either is stored, so a refused call changes nothing. */
+    if (trust != Py_None && PyCallable_Check(trust) == 0) {
+        PyErr_SetString(PyExc_TypeError, "trust must be callable or None");
+        return NULL;
+    }
+    if (allows != Py_None && PyCallable_Check(allows) == 0) {
+        PyErr_SetString(PyExc_TypeError, "allows must be callable or None");
+        return NULL;
+    }
+    ActionUIModuleState* state = get_state(self);
+    store_optional_callable(&state->trust_callback, trust);
+    store_optional_callable(&state->capability_callback, allows);
+    actionUISetTrustPolicy(state->trust_callback != NULL ? trust_callback_bridge : NULL,
+                           state->capability_callback != NULL ? capability_callback_bridge : NULL);
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_get_element_origin_json(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long viewID;
+    if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0) return NULL;
+    char* json;
+    WITHOUT_GIL(json = actionUIGetElementOrigin(windowUUID, (int64_t)viewID));
+    if (json == NULL) Py_RETURN_NONE;
+    PyObject* result = PyUnicode_FromString(json);
+    actionUIFreeString(json);
+    return result;
 }
 
 static PyObject* py_log(PyObject* self, PyObject* args) {
@@ -1777,6 +1873,8 @@ static PyMethodDef ActionUIMethods[] = {
 
     /* Element info */
     {"get_element_info_json",       py_get_element_info_json,       METH_VARARGS, "get_element_info_json(windowUUID) -> str|None"},
+    {"get_element_origin_json",     py_get_element_origin_json,     METH_VARARGS, "get_element_origin_json(windowUUID, viewID) -> str|None -- where the element's content came from."},
+    {"set_trust_policy",            py_set_trust_policy,            METH_VARARGS, "set_trust_policy(trust|None, allows|None) -- the host's trust policy (main thread)."},
 
     /* Runtime structural mutations */
     {"insert_element",  py_insert_element,  METH_VARARGS,
@@ -1916,6 +2014,8 @@ static int actionui_traverse(PyObject* module, visitproc visit, void* arg) {
     Py_VISIT(state->app_window_will_close);
     Py_VISIT(state->app_window_will_present);
     Py_VISIT(state->host_surface_clients);
+    Py_VISIT(state->trust_callback);
+    Py_VISIT(state->capability_callback);
     return 0;
 }
 
@@ -1935,6 +2035,8 @@ static int actionui_clear(PyObject* module) {
     Py_CLEAR(state->app_window_will_close);
     Py_CLEAR(state->app_window_will_present);
     Py_CLEAR(state->host_surface_clients);
+    Py_CLEAR(state->trust_callback);
+    Py_CLEAR(state->capability_callback);
     return 0;
 }
 

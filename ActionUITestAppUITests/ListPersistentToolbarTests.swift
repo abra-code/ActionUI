@@ -6,8 +6,8 @@
 // NavigationLinks in it; the SELECTABLE-LIST branch takes over when content is a List with an
 // actionID whose children carry destinationViewId, and drives the push from List selection
 // instead. They build their screens at different sites, so a fix applied to one and not the
-// other compiles, passes, and does nothing where it matters - the design for this feature calls
-// that out by name, and SharedCare's narrow shell takes the selectable-List branch.
+// other compiles, passes, and does nothing where it matters, and a narrow layout with a
+// selectable List takes the selectable-List branch.
 //
 // PersistentToolbarTests covers the standard branch. This file exists so that branch is not the
 // only one measured. Fixture: Resources/NavigationStack.persistentToolbarList.json.

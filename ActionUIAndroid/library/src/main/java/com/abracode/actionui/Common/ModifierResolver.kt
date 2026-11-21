@@ -219,12 +219,11 @@ fun Modifier.applyOuterProperties(
  * so this was a real cross-platform divergence rather than a cosmetic one:
  * identical JSON behaved differently on Android in a way no author could see.
  *
- * Found by SharedCare brief 13, whose Activity section authors two hidden
- * interactive elements over visible content - a "Clear filters" Button centred in
- * the feed's own space, and a full-width "Show earlier" Button pinned across the
- * bottom of the section body, which overlaps the SCHEDULE body in the same
- * ZStack. Both intercepted taps meant for what was underneath. This was an
- * anticipated risk that materialized.
+ * Found in an app whose screen had two hidden interactive elements over visible
+ * content - a "Clear filters" Button centred in a feed's own space, and a
+ * full-width "Show earlier" Button pinned across the bottom of a section body,
+ * which overlapped another section's body in the same ZStack. Both intercepted
+ * taps meant for what was underneath.
  *
  * Input is suppressed CO-OPERATIVELY, through the environment: `hidden` narrows
  * both [com.abracode.actionui.Helpers.LocalActionUIEnabled] and
@@ -240,7 +239,7 @@ fun Modifier.applyOuterProperties(
  * element either. That is the very bug the fix was written for: a hidden view
  * stacked over live content (an `overlay` subview, or a sibling in a `ZStack`)
  * still ate its taps, only now silently rather than by firing. Measured on a Pixel
- * 7a: SharedCare's Home carries an always-present hidden states overlay, and with
+ * 7a: a screen with an always-present hidden states overlay, and with
  * the consuming version NOTHING on that screen could be tapped - on Apple and web,
  * where `.hidden()` and `visibility: hidden` both leave hit testing entirely, the same
  * JSON worked.

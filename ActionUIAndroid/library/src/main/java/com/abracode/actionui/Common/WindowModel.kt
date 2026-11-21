@@ -129,13 +129,14 @@ class WindowModel(
     /**
      * Adopts [root] as the window's element and (re)builds the [ViewModel] pool
      * from it, seeding each value-bearing element's initial value. Mirrors the
-     * Swift `loadDescription`, minus the decoding (the caller decodes).
+     * Swift `loadDescription`, minus the decoding (the caller decodes). [origin] is where
+     * the document came from; null for the host's own.
      */
-    fun loadDescription(root: ActionUIElement): ActionUIElement {
+    fun loadDescription(root: ActionUIElement, origin: JSONContentOrigin? = null): ActionUIElement {
         element = root
         viewModels.clear()
         loadedSubViewIDs.clear()
-        populateViewModels(root, into = viewModels)
+        populateViewModels(root, into = viewModels, origin = origin)
         logger.log(
             "Loaded description for windowUUID: $windowUUID, element id: ${root.id}, " +
                 "${viewModels.size} view model(s)",
@@ -157,16 +158,36 @@ class WindowModel(
      * a parent control's value. When [parentID] (the LoadableView's own id) is not 0,
      * the models its previous content merged are removed first and the ids merged
      * now are recorded as its own. Unlike [loadDescription] it does not touch
-     * [element] (the window root stays the originally-loaded document). Returns
-     * [subRoot].
+     * [element] (the window root stays the originally-loaded document). [origin] is where
+     * the sub-tree came from (null: the host's). Returns [subRoot]. Throws
+     * [SubViewRefusedException], merging nothing, when less-trusted content uses the id of a
+     * trusted element already in the window.
      */
-    fun loadSubDescription(subRoot: ActionUIElement, parentID: Int = 0): ActionUIElement {
+    fun loadSubDescription(subRoot: ActionUIElement, parentID: Int = 0, origin: JSONContentOrigin? = null): ActionUIElement {
         if (parentID != 0) {
             val oldIDs = collectAndRemoveSubViewIDs(parentID)
             for (id in oldIDs) viewModels.remove(id)
         }
         val subViewModels = mutableMapOf<Int, ViewModel>()
-        populateViewModels(subRoot, into = subViewModels)
+        populateViewModels(subRoot, into = subViewModels, origin = origin)
+        // Less-trusted content may not share an id with a trusted element already in the window:
+        // its element would be drawn with that element's view model and read as trusted. Sharing
+        // an id with content as little trusted (two LoadableViews showing one document) gains nothing.
+        if (origin?.trust == JSONContentOrigin.Trust.LESS_TRUSTED) {
+            val taken = subViewModels.keys.filter { id ->
+                val existing = viewModels[id] ?: return@filter false
+                (existing.origin?.trust ?: JSONContentOrigin.Trust.TRUSTED) == JSONContentOrigin.Trust.TRUSTED
+            }.sorted()
+            if (taken.isNotEmpty()) {
+                val list = taken.joinToString(", ")
+                val which = if (taken.size == 1) "id $list is" else "ids $list are"
+                logger.log(
+                    "Not loading a less-trusted sub-view${if (parentID != 0) " for parent $parentID" else ""}: $which already in the window",
+                    LoggerLevel.error,
+                )
+                throw SubViewRefusedException("id conflict: $list already in the window")
+            }
+        }
         val mergedIDs = mutableSetOf<Int>()
         for ((id, viewModel) in subViewModels) {
             if (viewModels.containsKey(id)) {
@@ -184,6 +205,28 @@ class WindowModel(
         )
         return subRoot
     }
+
+    /** When this window's LoadableViews loaded, in nanoseconds of [System.nanoTime], within the budget's time. */
+    private val recentLoads = ArrayDeque<Long>()
+
+    /**
+     * True, counting the load, when one more LoadableView load is within [ActionUIModel.loadBudget];
+     * false (logged) when the window has used it up. Asked before anything is read.
+     */
+    fun spendLoad(now: Long = System.nanoTime()): Boolean {
+        val budget = ActionUIModel.loadBudget
+        val window = (budget.seconds * 1_000_000_000).toLong()
+        while (recentLoads.isNotEmpty() && now - recentLoads.first() >= window) recentLoads.removeFirst()
+        if (recentLoads.size >= budget.loads) {
+            logger.log("Not loading a LoadableView in window $windowUUID: ${budget.loads} loads in ${budget.seconds.toInt()} s already", LoggerLevel.error)
+            return false
+        }
+        recentLoads.addLast(now)
+        return true
+    }
+
+    /** Why [loadSubDescription] refused a sub-tree (less-trusted content using a trusted element's id). */
+    class SubViewRefusedException(message: String) : IllegalStateException(message)
 
     /** The ids [parentID]'s loaded content owns, and those of LoadableViews inside it, removed from the record. */
     internal fun collectAndRemoveSubViewIDs(parentID: Int): Set<Int> {
@@ -234,7 +277,7 @@ class WindowModel(
      * meaningful for elements that carry a positive, unique id, as on the
      * Apple side.
      */
-    private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>) {
+    private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>, origin: JSONContentOrigin? = null) {
         // Only positive ids register - Apple's documented contract ("non-zero
         // positive integer for runtime programmatic interaction"). Elements
         // without an id default to 0 and would all collide on one map key,
@@ -244,6 +287,7 @@ class WindowModel(
         // controls instead take their local-state fallback path.
         if (element.id > 0) {
             val viewModel = ViewModel()
+            viewModel.origin = origin
             viewModel.elementType = element.type
             viewModel.authoredProperties = element.properties
             val builder = ActionUIRegistry.lookup(element.type)
@@ -282,7 +326,7 @@ class WindowModel(
             )
         }
 
-        element.subElements().forEach { populateViewModels(it, into) }
+        element.subElements().forEach { populateViewModels(it, into, origin) }
     }
 
     // MARK: - Runtime structural mutations (insertElement / insertRow / removeElement)

@@ -1,7 +1,6 @@
 package com.abracode.actionui.Helpers
 
 import android.content.res.AssetManager
-import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -649,6 +648,8 @@ internal class CanvasDrawEnv(
     val bitmapCache: MutableMap<String, ImageBitmap?>,
     val warnedSources: MutableSet<String>,
     val logger: ActionUILogger?,
+    /** Whether the canvas's content may read a local image file (the trust policy; it logs a refusal). */
+    val readsFile: (String) -> Boolean,
 )
 
 /**
@@ -1017,7 +1018,7 @@ private fun DrawScope.drawCanvasImage(
 
 private fun decodeCanvasBitmap(source: CanvasImageSpec, env: CanvasDrawEnv): ImageBitmap? = when (source) {
     is CanvasImageSpec.ResourceName -> try {
-        env.assets.open(source.name).use { BitmapFactory.decodeStream(it) }?.asImageBitmap().also {
+        decodeAssetWithinCap(env.assets, source.name, env.logger)?.asImageBitmap().also {
             if (it == null) {
                 env.logger?.log(
                     "Canvas image: asset '${source.name}' could not be decoded. Nothing rendered.",
@@ -1033,7 +1034,7 @@ private fun decodeCanvasBitmap(source: CanvasImageSpec, env: CanvasDrawEnv): Ima
         null
     }
     // Only a regular file: opening a named pipe never returns, on the main thread.
-    is CanvasImageSpec.FilePath -> (if (isRegularFile(source.path)) BitmapFactory.decodeFile(source.path) else null)
+    is CanvasImageSpec.FilePath -> (if (env.readsFile(source.path) && isRegularFile(source.path)) decodeFileWithinCap(source.path, env.logger) else null)
         ?.asImageBitmap().also {
             if (it == null) {
                 env.logger?.log(

@@ -6,7 +6,7 @@
  except where their data versions differ.
 
  Without ICU (ICULibrary), GLib's g_date_time_format in the C library's locale, which GTK sets from
- the environment at startup: %x for a date, %R for a time, both for both (owner decision 15). An
+ the environment at startup: %x for a date, %R for a time, both for both. An
  unknown time zone name is UTC on both paths, as ICU takes it.
 
  An ICU formatter is kept per locale, time zone and skeleton: a window asks for a few, often.

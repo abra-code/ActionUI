@@ -2,7 +2,8 @@
 /*
  Tests for URLLoader and RemoteImages: file, http and data URLs load their bytes after fetch
  returns; a missing file, a device, a named pipe or a folder, an http error status, a malformed URL
- and another scheme give nil; an
+ and another scheme give nil; a redirect is followed without its body being read, at most 20 times,
+ never to another scheme, and within the total time limit; an
  image decodes into a texture kept by URL, loaded once for several waiters; bytes that are no image
  give no texture; the textures kept stay within the budget, the least recently used going first.
 */
@@ -131,6 +132,39 @@ final class URLLoaderTests: XCTestCase {
         let start = Date()
         XCTAssertNil(try fetch(server.base + "/never.json"))
         XCTAssertLessThan(Date().timeIntervalSince(start), 10, "given up after the total time, not the 30 s step timeout")
+    }
+
+    func testTheTotalTimeCoversEveryRedirect() throws {
+        let saved = URLLoader.totalTimeout
+        defer { URLLoader.totalTimeout = saved }
+        URLLoader.totalTimeout = 300
+        let server = try TestImageServer(png: [])
+        self.server = server
+        let start = Date()
+        XCTAssertNil(try fetch(server.base + "/to-never"))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 10)
+        XCTAssertEqual(server.requests, 2, "the redirect was followed, then the load given up")
+    }
+
+    func testARedirectIsFollowedWithoutReadingItsBody() throws {
+        let saved = URLLoader.totalTimeout
+        defer { URLLoader.totalTimeout = saved }
+        URLLoader.totalTimeout = 5000
+        let png = TestImages.png(width: 4, height: 2)
+        let server = try TestImageServer(png: png)
+        self.server = server
+        // libsoup's own following waited for the redirect's body, which never ends: nil at 5 s.
+        XCTAssertEqual(try fetch(server.base + "/redirect-stalled"), png, "a relative Location, followed at once")
+        XCTAssertEqual(server.requests, 2)
+    }
+
+    func testRedirectsStopAfterTwentyAndNeverLeaveHTTP() throws {
+        let server = try TestImageServer(png: [])
+        self.server = server
+        XCTAssertNil(try fetch(server.base + "/loop"))
+        XCTAssertEqual(server.requests, 21, "the first request and 20 redirects")
+        XCTAssertNil(try fetch(server.base + "/to-file"), "a redirect to a file URL")
+        XCTAssertEqual(server.requests, 22, "the file is not read")
     }
 
     func testOnlyHTTPSToHTTPIsADowngrade() {

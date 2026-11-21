@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -180,12 +181,38 @@ internal fun jsonNestsDeeperThan(text: String, limit: Int): Boolean {
     return false
 }
 
+/** The largest document, in UTF-8 bytes, ActionUI decodes: from the host, a file or a server. */
+internal const val DESCRIPTION_MAX_BYTES = 16 * 1024 * 1024
+
+/** Whether [text] is longer than [limit] bytes in UTF-8, counted without encoding it. */
+internal fun utf8LongerThan(text: String, limit: Int): Boolean {
+    if (text.length > limit) return true
+    var bytes = 0L
+    var index = 0
+    while (index < text.length) {
+        val c = text[index]
+        bytes += when {
+            c.code < 0x80 -> 1
+            c.code < 0x800 -> 2
+            Character.isHighSurrogate(c) && index + 1 < text.length && Character.isLowSurrogate(text[index + 1]) -> { index++; 4 }
+            else -> 3
+        }
+        if (bytes > limit) return true
+        index++
+    }
+    return false
+}
+
 /** Decodes [text] through the Android [PlatformFilter] (same as the window root). */
 internal fun decodeDescription(
     text: String,
     json: Json,
     logger: ActionUILogger,
 ): DescriptionLoad {
+    if (utf8LongerThan(text, DESCRIPTION_MAX_BYTES)) {
+        logger.log("LoadableLoader: description larger than 16 MB, not decoded", LoggerLevel.error)
+        return DescriptionLoad.Failed("Larger than 16 MB")
+    }
     if (jsonNestsDeeperThan(text, DESCRIPTION_MAX_NESTING_DEPTH)) {
         logger.log("LoadableLoader: description nested deeper than $DESCRIPTION_MAX_NESTING_DEPTH levels", LoggerLevel.error)
         return DescriptionLoad.Failed("Nested deeper than $DESCRIPTION_MAX_NESTING_DEPTH levels")
@@ -214,7 +241,18 @@ private fun fetchRemoteText(url: String): String {
     try {
         val code = connection.responseCode
         if (code !in 200..299) throw IOException("HTTP $code for $url")
-        return connection.inputStream.bufferedReader().use { it.readText() }
+        // Read up to the document cap: a larger body is not decoded anyway, so reading on only costs memory.
+        val buffer = ByteArrayOutputStream()
+        connection.inputStream.use { input ->
+            val chunk = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(chunk)
+                if (count < 0) break
+                buffer.write(chunk, 0, count)
+                if (buffer.size() > DESCRIPTION_MAX_BYTES) throw IOException("$url is larger than 16 MB")
+            }
+        }
+        return buffer.toString(Charsets.UTF_8.name())
     } finally {
         connection.disconnect()
     }

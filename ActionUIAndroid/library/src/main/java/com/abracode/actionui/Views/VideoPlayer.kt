@@ -22,6 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.DefaultTrustPolicy
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
@@ -92,6 +96,7 @@ object VideoPlayer : ActionUIViewConstruction {
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
+        val origin = LocalJSONContentOrigin.current
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val config = remember(element.properties) {
             resolveVideoPlayerConfig(element.properties, logger)
@@ -176,15 +181,27 @@ object VideoPlayer : ActionUIViewConstruction {
                 // The View's tag carries the URL it currently plays, so plain
                 // recompositions don't restart playback.
                 update = { view ->
-                    if (view.tag != urlString) {
-                        view.tag = urlString
+                    // The tag holds the address and the origin it was checked for: content of
+                    // another origin showing the same address is checked again.
+                    val shown = urlString to origin
+                    if (view.tag != shown) {
+                        view.tag = shown
                         isAudioOnly = false // re-detect on prepare for the new source
                         // A document names the address: a file: one must be a regular file.
                         // MediaPlayer opens it in this process on the main thread, and a named
                         // pipe nobody writes to never opens. A missing file goes on to
                         // MediaPlayer, which reports it.
                         val file = if (urlString.startsWith("file://", ignoreCase = true)) Uri.parse(urlString).path?.let(::File) else null
-                        if (file != null && file.exists() && !file.isFile) {
+                        val scheme = DefaultTrustPolicy.schemeOf(urlString)
+                        if (file != null && !ActionUIModel.readsLocalFile(file.path, origin, logger)) {
+                            // Less-trusted content plays a local file only inside the app's resource folders.
+                            view.stopPlayback()
+                        } else if (file == null && scheme != "http" && scheme != "https" && origin.trust != JSONContentOrigin.Trust.TRUSTED) {
+                            // Nor, for less-trusted content, another scheme (content:, rtsp:, android.resource:):
+                            // Apple's player plays only file and web addresses.
+                            logger.log("VideoPlayer not playing '$urlString': less-trusted content plays only file, http and https addresses", LoggerLevel.warning)
+                            view.stopPlayback()
+                        } else if (file != null && file.exists() && !file.isFile) {
                             logger.log("VideoPlayer not playing '$urlString': ${file.path} is not a regular file", LoggerLevel.error)
                             view.stopPlayback()
                         } else {

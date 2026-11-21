@@ -5,7 +5,7 @@
  window's content and active window, and forgets a window destroyed; the primary menu's actions go
  on the host's application, the process's default GApplication, once it is registered, with no
  call from the host; Ctrl+Q stays the host's (ActionUI adds no quit action to an application it
- did not start).
+ did not start). A document a host window loads from a file has that file's origin.
 */
 
 import XCTest
@@ -290,6 +290,35 @@ final class HostApplicationTests: XCTestCase {
         XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID], "the model is the host's to remove")
         ActionUIModel.shared.removeWindow(windowUUID)
         XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID])
+    }
+
+    func testAHostWindowsFileHasTheOriginOfWhereItWasRead() throws {
+        let folder = NSTemporaryDirectory() + "actionui-host-origin-\(UUID().uuidString)"
+        let resources = folder + "/resources"
+        try FileManager.default.createDirectory(atPath: resources, withIntermediateDirectories: true)
+        let savedFolder = ActionUIResourceFolder.path
+        defer {
+            ActionUIResourceFolder.path = savedFolder
+            try? FileManager.default.removeItem(atPath: folder)
+        }
+        ActionUIResourceFolder.path = resources
+        try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
+        try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
+        let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        let other: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        let otherUUID = "host-window-origin-outside"
+        defer {
+            gtk_window_destroy(window)
+            gtk_window_destroy(other)
+            ActionUIModel.shared.removeWindow(otherUUID)
+        }
+        XCTAssertTrue(HostWindow.load(url: resources + "/Main.json", into: UnsafeMutableRawPointer(window), windowUUID: windowUUID, subtitle: nil))
+        let inside = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 2))
+        XCTAssertEqual(inside.trust, .trusted, "\(inside)")
+        if case .resource = inside.source {} else { XCTFail("a file in the resource folder: \(inside)") }
+        XCTAssertTrue(HostWindow.load(url: "file://" + folder + "/Other.json", into: UnsafeMutableRawPointer(other), windowUUID: otherUUID, subtitle: nil))
+        let outside = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: otherUUID, viewID: 2))
+        XCTAssertEqual(outside.trust, .lessTrusted, "a file outside the resource folder, as on Apple: \(outside)")
     }
 
     func testAPlainGtkWindowIsRefusedAndABadDocumentShowsWhy() throws {

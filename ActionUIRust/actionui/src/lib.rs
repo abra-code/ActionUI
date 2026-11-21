@@ -73,6 +73,8 @@ pub mod main_thread;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod panels;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
+pub mod trust;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod window;
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -83,6 +85,8 @@ pub use dialog::{ButtonRole, DialogButton, InsertPosition, ModalStyle};
 pub use error::{Error, Result};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use log::LogLevel;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub use trust::{Capability, Origin, Source, Trust, TrustPolicy, clear_trust_policy, set_trust_policy};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use window::{ContentSizeLimits, Window};
 

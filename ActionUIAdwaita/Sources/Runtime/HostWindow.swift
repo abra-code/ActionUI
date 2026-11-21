@@ -45,7 +45,8 @@ package enum HostWindow {
         }
         return fill(window, windowUUID: windowUUID, subtitle: subtitle,
                     documentFolder: url.deletingLastPathComponent().path, loadError: nil) {
-            try ActionUIModel.shared.loadWindowDocument(data, format: AppBundle.documentFormat(of: url), windowUUID: windowUUID)
+            // The file's origin, as Apple's actionUILoadHostingControllerFromURL gives it (FileLoadableView).
+            try ActionUIModel.shared.loadWindowDocument(data, format: AppBundle.documentFormat(of: url), windowUUID: windowUUID, from: url)
         }
     }
 

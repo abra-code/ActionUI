@@ -196,6 +196,40 @@ final class VideoPlayerTests: XCTestCase {
         ActionUIModel.shared.logger = logger
     }
     
+    func testAFileURLThatIsNotARegularFileIsNotPlayed() throws {
+        final class Recording: ActionUILogger, @unchecked Sendable {
+            var errors: [String] = []
+            func log(_ message: String, _ level: LoggerLevel) { if level == .error { errors.append(message) } }
+        }
+        let recording = Recording()
+        ActionUIModel.shared.logger = recording
+        defer { ActionUIModel.shared.logger = logger }
+        let pipe = NSTemporaryDirectory() + "actionui-video-\(UUID().uuidString).pipe"
+        XCTAssertEqual(mkfifo(pipe, 0o600), 0)
+        let movie = NSTemporaryDirectory() + "actionui-video-\(UUID().uuidString).mp4"
+        try Data().write(to: URL(fileURLWithPath: movie))
+        defer {
+            try? FileManager.default.removeItem(atPath: pipe)
+            try? FileManager.default.removeItem(atPath: movie)
+        }
+        func build(_ url: String) throws {
+            let element = try ActionUIElement(from: ["id": 1, "type": "VideoPlayer", "properties": ["url": url]], logger: recording)
+            let viewModel = ViewModel()
+            viewModel.seedProperties(element.properties)
+            _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: element.properties)
+        }
+        // Before the check, AVFoundation would wait on the pipe for good.
+        try build(URL(fileURLWithPath: pipe).absoluteString)
+        XCTAssertEqual(recording.errors.count, 1)
+        XCTAssertTrue(recording.errors.first?.hasSuffix("is not a regular file") == true, "\(recording.errors)")
+        try build(URL(fileURLWithPath: NSTemporaryDirectory()).absoluteString)
+        XCTAssertEqual(recording.errors.count, 2, "a folder")
+        try build(URL(fileURLWithPath: movie).absoluteString)
+        try build(URL(fileURLWithPath: "/no/such/movie.mp4").absoluteString)
+        try build("https://example.com/video.mp4")
+        XCTAssertEqual(recording.errors.count, 2, "a regular file, a missing one (AVFoundation reports it) and an address go on")
+    }
+
     func testVideoPlayerMissingURL() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIModel.shared.logger = consoleLogger

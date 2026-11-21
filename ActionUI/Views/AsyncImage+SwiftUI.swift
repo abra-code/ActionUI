@@ -25,6 +25,11 @@ extension AsyncImage: ActionUISwiftUIRenderer {
             logger.log("AsyncImage not loading '\(urlString)': it names no regular file, using placeholder '\(placeholder)'", .warning)
             return SwiftUI.Image(systemName: placeholder)
         }
+        // A file the element may not read (its content is less trusted) shows the placeholder too.
+        // In a template row the container asks (the row has no view model).
+        if url.isFileURL, !ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id) {
+            return SwiftUI.Image(systemName: placeholder)
+        }
 
         return SwiftUI.AsyncImage(url: url) { phase in
             switch phase {

@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.io.IOException
@@ -26,6 +27,10 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.ConsoleLogger
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.resolvedOrigin
+import com.abracode.actionui.Common.uriHandlerFor
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -175,6 +180,9 @@ object ActionUI {
     ) {
         val assets = LocalContext.current.assets
         val classified = remember(source) { classifyLoadableSource(source) }
+        // The window's own document is classified as a LoadableView's is: an asset, or a file
+        // in a resource folder, is trusted; a file elsewhere or a remote address is not.
+        val origin = remember(classified) { resolvedOrigin(classified, null, null) }
 
         // Remote loads async (spinner -> root/error); local loads synchronously.
         // `null` is the in-flight state. Nothing is registered until a Loaded result
@@ -195,7 +203,7 @@ object ActionUI {
             ) { CircularProgressIndicator() }
 
             is DescriptionLoad.Loaded ->
-                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images)
+                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images, origin)
 
             is DescriptionLoad.Failed -> SourceError("Failed to load view: ${loaded.message}", modifier)
             is DescriptionLoad.NoSource -> SourceError("No valid source provided", modifier)
@@ -226,19 +234,27 @@ object ActionUI {
         logger: ActionUILogger,
         windowUUID: String,
         images: ActionUIImageRegistry?,
+        origin: JSONContentOrigin? = null,
     ) {
         val windowModel = remember(windowUUID, windowKey) {
-            ActionUIModel.loadDescription(element, windowUUID, logger)
+            ActionUIModel.loadDescription(element, windowUUID, logger, origin)
         }
         DisposableEffect(windowModel) {
             onDispose { ActionUIModel.unregisterWindow(windowUUID, expected = windowModel) }
         }
 
         val builder = ActionUIRegistry.lookup(element.type) ?: return
+        val shownOrigin = origin ?: JSONContentOrigin.HOST
+        // Links in Markdown text open through LocalUriHandler, which asks the trust policy for
+        // a less-trusted window document.
+        val inheritedLinks = LocalUriHandler.current
+        val links = remember(inheritedLinks, shownOrigin, logger) { uriHandlerFor(shownOrigin, inheritedLinks, logger) }
         CompositionLocalProvider(
             LocalActionUILogger provides logger,
             LocalWindowModel provides windowModel,
             LocalActionUIImageRegistry provides images,
+            LocalJSONContentOrigin provides shownOrigin,
+            LocalUriHandler provides links,
         ) {
             RenderRoot(element, builder, modifier, logger)
             // Window-level overlays (the Android counterpart of Apple wrapping a
@@ -246,9 +262,13 @@ object ActionUI {
             // presented: a dialog (alert / confirmationDialog), a host-presented
             // modal (presentModal), or an element-level `sheet` / `fullScreenCover`
             // subview whose carrier's visible state flips true.
-            WindowDialogHost(windowModel)
-            WindowModalHost(windowModel)
-            WindowToastHost(windowModel)
+            // The dialogs, modals and toasts the host presents are the host's own content, also
+            // over a less-trusted window document (as on Apple); the document's own sheets ask.
+            CompositionLocalProvider(LocalJSONContentOrigin provides JSONContentOrigin.HOST, LocalUriHandler provides inheritedLinks) {
+                WindowDialogHost(windowModel)
+                WindowModalHost(windowModel)
+                WindowToastHost(windowModel)
+            }
             ElementModalsHost(element)
         }
     }

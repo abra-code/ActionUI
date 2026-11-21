@@ -16,6 +16,7 @@ For building and packaging see [BUILD_GUIDE.md](BUILD_GUIDE.md). The same text, 
 - [`actionui::panels`](#actionuipanels)
 - [`actionui::main_thread`](#actionuimain_thread)
 - [`actionui::log`](#actionuilog)
+- [`actionui::trust`](#actionuitrust)
 - [`actionui::host_surface`](#actionuihost_surface)
 - [Other functions](#other-functions)
 - [The raw layer: `actionui-sys`](#the-raw-layer-actionui-sys)
@@ -317,6 +318,7 @@ Run-time state some elements keep beside their value, read and written by key. T
 | Method | Description |
 |---|---|
 | `element_info(&self) -> Result<BTreeMap<i64, String>>` | The elements that have an ID of their own, as a map from the ID to the element type. |
+| `element_origin(view_id) -> Result<Option<Origin>>` | Where the element's content came from, and how far it is trusted (see [`actionui::trust`](#actionuitrust)); `None` for no such element. |
 | `insert_element<T: Serialize>(parent_id, element: &T, container: Option<&str>, position: InsertPosition) -> Result<i64>` | Adds an element to a container and returns its ID. |
 | `insert_row<T: Serialize>(parent_id, cells: &T, container: Option<&str>, position: InsertPosition) -> Result<Vec<i64>>` | Adds a row of cells to a Grid and returns the cells' IDs. |
 | `remove_element(view_id) -> Result<()>` | Removes an element and everything inside it. The window's root element cannot be removed. |
@@ -492,6 +494,41 @@ actionui::log::set_logger(|message, level| {
     }
 });
 ```
+
+## `actionui::trust`
+
+A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading the user's files outside the app's resources, titling the window, covering it with its own sheets.
+
+| Item | Description |
+|---|---|
+| `Origin { source: Source, trust: Trust, parent_id: Option<i64> }` | Where an element's content came from; `parent_id` is the LoadableView it was loaded into, `None` for a window's root. |
+| `Source` | `Host`, `Resource { path }`, `File { path }`, `Remote { url }`, or `Unknown` for a kind this crate does not know. |
+| `Trust` | `Trusted` or `LessTrusted`. |
+| `Capability` | What content asks to do: `Load { source }`, `OpenLink { url }`, `WebView { url: Option<String> }` (None for inline html), `WebViewBaseUrl { url }`, `WebViewScriptFile { path }`, `ReadLocalFile { path }`, `WindowTitle`, `PresentModal`, `MenuCommands`, `Action { action_id }`, or `Unknown`. |
+| `trait TrustPolicy: Send + Sync` | `trust(&self, source, parent: Option<&Origin>, by_default: Trust) -> Trust` and `allows(&self, capability, origin, by_default: bool) -> bool`; each receives ActionUI's own decision, and a method left out keeps it. |
+| `set_trust_policy(policy: impl TrustPolicy)` | The host's policy, for all windows, from any thread; set it before loading content. |
+| `clear_trust_policy()` | ActionUI's own policy again. |
+
+The policy's methods run on the main thread, often (as elements draw), and should return quickly. A method that panics counts as less trusted, or as a refusal.
+
+```rust
+use actionui::{Source, Trust, TrustPolicy};
+
+struct OwnServer;
+
+impl TrustPolicy for OwnServer {
+    fn trust(&self, source: &Source, _parent: Option<&actionui::Origin>, by_default: Trust) -> Trust {
+        match source {
+            Source::Remote { url } if url.starts_with("https://example.com/") => Trust::Trusted,
+            _ => by_default,
+        }
+    }
+}
+
+actionui::set_trust_policy(OwnServer);
+```
+
+`tests/trust_policy.rs` runs a policy against a real window (`ACTIONUI_GUI_TESTS=1`).
 
 ## `actionui::host_surface`
 

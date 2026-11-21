@@ -40,9 +40,9 @@ final class NavigationStackRendererTests: XCTestCase {
     }
 
     /// `json` in a window on screen; `nested` puts it in a VStack, so the stack is not the window's root.
-    private func present(_ json: String, nested: Bool = false) throws -> RenderNode {
+    private func present(_ json: String, nested: Bool = false, origin: JSONContentOrigin? = nil) throws -> RenderNode {
         let document = nested ? #"{"type": "VStack", "id": 900, "children": [\#(json)]}"# : json
-        _ = try ActionUIModel.shared.loadDescription(from: Data(document.utf8), format: "json", windowUUID: windowUUID)
+        _ = try ActionUIModel.shared.loadDescription(from: Data(document.utf8), format: "json", windowUUID: windowUUID, origin: origin)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         renderTree = tree
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
@@ -104,6 +104,14 @@ final class NavigationStackRendererTests: XCTestCase {
         let content = try XCTUnwrap(stack.childNodes[2])
         XCTAssertTrue(gtk_widget_is_ancestor(content.outerWidget, try state(stack).rootPage.widget) != 0)
         XCTAssertTrue(try XCTUnwrap(renderTree).showsOwnHeaderBars, "the window shows no header bar of its own")
+    }
+
+    func testALessTrustedStacksTitleDoesNotTitleItsScreens() throws {
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        let stack = try present(Self.destinations, origin: remote)
+        XCTAssertFalse(try titles(stack).contains("Elements"), "the stack's own title is refused")
+        setPath(stack, [10])
+        XCTAssertFalse(try titles(stack).contains("Detail 10"), "and so is its screens'")
     }
 
     func testWritingThePathPushesAndPops() throws {

@@ -8,6 +8,10 @@ extension WebView: ActionUISwiftUIRenderer {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = Props(properties)
+        // The WebView is made again when its content is loaded again (a LoadableView's new
+        // document has a new origin): its configuration, user scripts included, is made once, for
+        // the content and trust it was made for.
+        let contentIdentity = model.origin.map(ObjectIdentifier.init)
         let native = WKWebViewRepresentable(
             model: model,
             props: props,
@@ -18,7 +22,7 @@ extension WebView: ActionUISwiftUIRenderer {
 
         switch ActionUIRegistry.shared.webViewImplementation {
         case .native:
-            return native
+            return native.id(contentIdentity)
         case .swiftUI:
             if #available(iOS 26.0, macOS 26.0, *) {
                 return WebViewContent(
@@ -27,16 +31,47 @@ extension WebView: ActionUISwiftUIRenderer {
                     element: element,
                     windowUUID: windowUUID,
                     logger: logger
-                )
+                ).id(contentIdentity)
             } else {
                 logger.log("WebView .swiftUI backing requires iOS 26 / macOS 26; falling back to .native", .warning)
-                return native
+                return native.id(contentIdentity)
             }
         }
     }
 }
 
 // MARK: - WebViewContent
+
+/// The navigation decider of a WebView page: the trust of its element is asked on each navigation
+/// (the page is kept while its element's content may be reloaded with another origin); trusted
+/// content's navigations are allowed, others are decided by WebViewTrust.navigation.
+@available(iOS 26.0, macOS 26.0, *)
+private struct LessTrustedNavigation: WebPage.NavigationDeciding {
+    let windowUUID: String
+    let viewID: Int
+    let logger: any ActionUILogger
+
+    func decidePolicy(for action: WebPage.NavigationAction, preferences: inout WebPage.NavigationPreferences) async -> WKNavigationActionPolicy {
+        if ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: viewID)?.trust == .trusted { return .allow }
+        guard let url = action.request.url else { return .cancel }
+        let isMainFrame = action.target?.isMainFrame ?? true
+        let allows: (ActionUICapability) -> Bool = { ActionUIModel.shared.allows($0, windowUUID: windowUUID, viewID: viewID) }
+        switch WebViewTrust.navigation(url, isMainFrame: isMainFrame, allows: allows, logger: logger) {
+        case .load:
+            return .allow
+        case .open:
+            #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+            NSWorkspace.shared.open(url)
+            #elseif canImport(UIKit)
+            // The completion-handler form: in this async method a bare open(url) is the async one.
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            #endif
+            return .cancel
+        case .refuse:
+            return .cancel
+        }
+    }
+}
 
 @available(iOS 26.0, macOS 26.0, *)
 private struct WebViewContent: SwiftUI.View {
@@ -56,7 +91,15 @@ private struct WebViewContent: SwiftUI.View {
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
-        _page = State(initialValue: WebPage(configuration: WebViewContent.makeConfiguration(props: props, logger: logger)))
+        // Whose trust this WebView has: in a template row, the container's (the row has no view model).
+        let viewID = model.templateContext?.parentID ?? element.id
+        let configuration = WebViewContent.makeConfiguration(props: props, logger: logger) {
+            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID)
+        }
+        // Always with the decider: @State keeps this first page while the element's content may
+        // be reloaded with another origin, so the decider asks the element's trust each time.
+        _page = State(initialValue: WebPage(configuration: configuration,
+                                            navigationDecider: LessTrustedNavigation(windowUUID: windowUUID, viewID: viewID, logger: logger)))
         _lastTrackedURL = State(initialValue: "")
     }
 
@@ -114,7 +157,8 @@ private struct WebViewContent: SwiftUI.View {
 
     /// Builds a WebPage.Configuration from the parsed properties.
     /// Called once at init time so user scripts survive page reloads within the same view lifetime.
-    private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger) -> WebPage.Configuration {
+    private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger,
+                                          readsFile: (String) -> Bool) -> WebPage.Configuration {
         var config = WebPage.Configuration()
 
         if let limits = props.limitsNavigationsToAppBoundDomains {
@@ -125,7 +169,7 @@ private struct WebViewContent: SwiftUI.View {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = WebViewSupport.buildUserScripts(props.userScripts, logger: logger)
+        let scripts = WebViewSupport.buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile)
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {
@@ -145,15 +189,30 @@ private struct WebViewContent: SwiftUI.View {
         }
     }
 
+    /// The trust policy's answer for this WebView's element.
+    private func allows(_ capability: ActionUICapability) -> Bool {
+        ActionUIModel.shared.allows(capability, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id)
+    }
+
+    /// Loads `url`, or the "Blocked" page when the trust policy refuses it (false then).
+    @discardableResult
+    private func show(_ url: URL) -> Bool {
+        guard WebViewTrust.showsAddress(url, allows: allows, logger: logger) else {
+            page.load(html: WebViewTrust.blockedPage(url), baseURL: WebViewTrust.blankBase)
+            return false
+        }
+        page.load(URLRequest(url: url))
+        return true
+    }
+
     private func loadInitialContent() {
         // model.value holds the result of initialValue(model): the properties["url"] string or
         // a previously persisted URL. Prefer it over re-reading properties directly.
         if let urlString = model.value as? String, !urlString.isEmpty, let url = URL(string: urlString) {
-            page.load(URLRequest(url: url))
+            show(url)
         } else if let html = props.html {
-            // baseURL has a default of "about:blank" in the SDK, but we honour the property when set.
-            let baseURL = props.baseURL.flatMap { URL(string: $0) }
-                ?? URL(string: "about:blank")!
+            // about:blank unless baseURL is set and the trust policy allows it.
+            let baseURL = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: allows, logger: logger)
             page.load(html: html, baseURL: baseURL)
         }
         // If neither url nor html is provided the page stays blank.
@@ -214,8 +273,12 @@ private struct WebViewContent: SwiftUI.View {
             resetModelValueToCurrentURL()
         default:
             if let url = URL(string: command) {
-                page.load(URLRequest(url: url))
-                // model.value will be updated by handleURLChange when navigation completes
+                // model.value will be updated by handleURLChange when navigation completes. A
+                // refused address may leave the URL where it is (already about:blank), so no change
+                // would replace the refused value.
+                if !show(url) {
+                    resetModelValueToCurrentURL()
+                }
             } else {
                 logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)
                 resetModelValueToCurrentURL()

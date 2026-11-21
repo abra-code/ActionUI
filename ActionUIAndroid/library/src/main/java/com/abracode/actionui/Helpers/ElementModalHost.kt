@@ -14,7 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUICapability
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.LocalJSONContentOrigin
+import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.subElements
@@ -62,6 +65,18 @@ import com.abracode.actionui.Common.subElements
 @Composable
 fun ElementModalsHost(root: ActionUIElement) {
     val carriers = remember(root) { collectModalCarriers(root) }
+    if (carriers.isEmpty()) return
+    // A less-trusted window document (from a server, or from a file outside the app's
+    // resources) presents no sheet or cover of its own over the window.
+    if (!ActionUIModel.allows(ActionUICapability.PresentModal, LocalJSONContentOrigin.current)) {
+        val logger = LocalActionUILogger.current
+        LaunchedEffect(carriers) {
+            carriers.forEach {
+                logger.log("Not presenting a sheet or cover for element ${it.id}: the trust policy refuses it", LoggerLevel.warning)
+            }
+        }
+        return
+    }
     carriers.forEach { ElementModal(it) }
 }
 

@@ -240,6 +240,8 @@ final class TextEditorRendererTests: XCTestCase {
         XCTAssertEqual(link(point(13, tenths: 8)), "https://example.com/a", "on the right half of the link's last character")
         TextEditor.clickReleased(widget, site.0, site.1)
         XCTAssertEqual(opened, ["https://example.com/a"])
+        TextEditor.clickReleased(widget, site.0, site.1) { _ in false }
+        XCTAssertEqual(opened.count, 1, "a link the trust policy refuses opens nothing")
 
         var start = GtkTextIter()
         var end = GtkTextIter()

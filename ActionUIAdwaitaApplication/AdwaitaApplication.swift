@@ -747,7 +747,7 @@ public final class AdwaitaApplication {
             let format = AppBundle.documentFormat(of: url)
             let document = windowGroup(data, format: format)
             do {
-                try loadDocument(document, format: format, windowUUID: windowUUID)
+                try loadDocument(document, format: format, windowUUID: windowUUID, from: url)
                 return (nil, document.title ?? title, ownCommands(document, from: text, isAppResource: false))
             } catch {
                 logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
@@ -766,7 +766,7 @@ public final class AdwaitaApplication {
                 let document = windowGroup(try Data(contentsOf: url), format: format)
                 title = document.title ?? title
                 AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
-                try loadDocument(document, format: format, windowUUID: windowUUID)
+                try loadDocument(document, format: format, windowUUID: windowUUID, from: url)
                 return (nil, title, ownCommands(document, from: url.path, isAppResource: Self.isInResourceFolder(url)))
             } catch {
                 logger.log("Window \(windowUUID): \(url.path) could not be loaded: \(error)", .error)
@@ -782,9 +782,10 @@ public final class AdwaitaApplication {
     /// primary menu when its window shows, once per group (by windowGroupID, else title, as Apple
     /// names the group); one with no content cannot be loaded, as Apple shows "No content
     /// provided". Any other document comes back as it is. JSON only: a property list has no
-    /// WindowGroup scene.
+    /// WindowGroup scene. One larger than the cap comes back unread, for the load to refuse: its
+    /// content alone could be under the cap.
     func windowGroup(_ data: Data, format: String) -> WindowDocument {
-        guard format == "json",
+        guard format == "json", data.count <= ActionUIModel.maximumJSONSize,
               let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
               parsed["type"] as? String == "WindowGroup" else { return WindowDocument(data: data) }
         // Its platform overrides ("title:linux" and the like) resolved first, as Core resolves them
@@ -820,16 +821,8 @@ public final class AdwaitaApplication {
     /// Whether `url` names a file inside the app's resource folder (AppBundle.folder), after
     /// symbolic links in both are resolved, so a link placed there cannot point elsewhere.
     static func isInResourceFolder(_ url: URL) -> Bool {
-        guard let folder = AppBundle.folder, !folder.isEmpty else { return false }
-        let root = URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path
-        // An app's resource folder is never the root of the file system, which would trust every file.
-        guard root != "/" else { return false }
-        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
-        let prefix = root.hasSuffix("/") ? root : root + "/"
-        // By bytes, as the file system compares names: String's hasPrefix takes an accented letter
-        // and the same letter followed by a combining accent as equal, so a sibling folder spelled
-        // the other way would pass.
-        return path.utf8.starts(with: prefix.utf8)
+        guard let folder = AppBundle.folder else { return false }
+        return ActionUIResourceFolder.isFile(url, inside: folder)
     }
 
     /// A window's document as windowGroup leaves it: what to load, its default title, the commands
@@ -846,11 +839,12 @@ public final class AdwaitaApplication {
     }
 
     /// Loads `document` into the model under `windowUUID`.
-    private func loadDocument(_ document: WindowDocument, format: String, windowUUID: String) throws {
+    /// `url`: the file or http address the document was read from (its origin), nil for host JSON.
+    private func loadDocument(_ document: WindowDocument, format: String, windowUUID: String, from url: URL? = nil) throws {
         if let error = document.error {
             throw DocumentError(description: error)
         }
-        try ActionUIModel.shared.loadWindowDocument(document.data, format: format, windowUUID: windowUUID)
+        try ActionUIModel.shared.loadWindowDocument(document.data, format: format, windowUUID: windowUUID, from: url)
     }
 
     /// Whether `text` is an http or https URL, which loads before its window appears.

@@ -55,6 +55,9 @@ private let canvasStateKey = AttachKey<CanvasState>("actionui-canvas")
     var props = Canvas.Props([:])
     /// Textures by file path; nil for a file that could not be read.
     var textures: [String: LoadedTexture?] = [:]
+    /// Whether the canvas's content may read a local file (LinkTrust.readsLocalFile for its node),
+    /// set when the canvas is made; refusing until then.
+    var readsFile: (String) -> Bool = { _ in false }
 }
 
 extension Canvas: ActionUIAdwaitaRenderer {
@@ -62,7 +65,9 @@ extension Canvas: ActionUIAdwaitaRenderer {
         let widget: WidgetPointer = typed(OpaquePointer(g_object_new_with_properties(widgetType(), 0, nil, nil)!))
         gtk_widget_set_hexpand(widget, 1)
         gtk_widget_set_vexpand(widget, 1)
-        attach(CanvasState(), to: widget, key: canvasStateKey)
+        let state = CanvasState()
+        state.readsFile = { [weak node] in LinkTrust.readsLocalFile($0, node) }
+        attach(state, to: widget, key: canvasStateKey)
         let click = gtk_gesture_click_new()!
         gtk_gesture_single_set_button(click, guint(GDK_BUTTON_PRIMARY))
         connectClick(UnsafeMutableRawPointer(click), "released") { [weak node] _, x, y in
@@ -853,7 +858,7 @@ enum CanvasFilter {
             return false
         }
         guard frame.width != 0, frame.height != 0 else { return true }
-        switch Image.content(source) {
+        switch Image.content(source, readsFile: state.readsFile) {
         case .file(let path):
             guard let texture = texture(path) else {
                 return drawIcon(Image.iconName(.symbol(ImageSource.placeholderSymbol)), in: frame, context)

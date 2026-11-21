@@ -9,6 +9,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
@@ -202,8 +204,9 @@ object Image : ActionUIViewConstruction {
 
             else -> {
                 // Raster sources (Asset / FilePath): decode once per source.
-                val painter = remember(source, context) {
-                    loadImagePainter(source, context, logger)
+                val origin = LocalJSONContentOrigin.current
+                val painter = remember(source, context, origin) {
+                    loadImagePainter(source, context, logger) { ActionUIModel.readsLocalFile(it, origin, logger) }
                 }
                 // Unresolvable -> render nothing (the warning was already logged).
                 // Diverges from Apple's SF-Symbol "photo" placeholder; Android has

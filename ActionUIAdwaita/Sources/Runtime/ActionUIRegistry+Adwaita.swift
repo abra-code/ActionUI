@@ -91,6 +91,8 @@ extension ActionUIRegistry {
         Self.typesReportedMissing = []
         ActionUIRendererHooks.markdown = MarkdownText.attributedString(markdown:)
         ActionUIRendererHooks.registerLinkedAddOns = actionUIRegisterLinkedAddOns
+        // The folder bundled resources are found in (the host's resource folder, else the program's).
+        ActionUIRendererHooks.resourceFolders = { AppBundle.folder.map { [$0] } ?? [] }
         let parseMarkdown: (String, String?, any ActionUILogger) -> Any? = { value, contentType, _ in
             contentType == "markdown" ? MarkdownText.attributedString(markdown: value) : nil
         }

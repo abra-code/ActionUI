@@ -47,9 +47,9 @@ final class NodePresentationsTests: XCTestCase {
         ActionUIModel.shared.windowModels[windowUUID] = nil
     }
 
-    /// `json` in a window on screen.
-    private func present(_ json: String) throws -> RenderNode {
-        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+    /// `json` in a window on screen; `origin`: where it came from (nil: the host's).
+    private func present(_ json: String, origin: JSONContentOrigin? = nil) throws -> RenderNode {
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID, origin: origin)
         let tree = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         renderTree = tree
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
@@ -112,7 +112,7 @@ final class NodePresentationsTests: XCTestCase {
 
     // MARK: Sheets
 
-    private static let sheetDocument = #"""
+    private static let sheetJSON = #"""
         {"type": "VStack", "id": 1, "children": [
             {"type": "Button", "id": 2, "properties": {"title": "Show", "sheetOnDismissActionID": "test.dismissed"},
              "sheet": {"type": "Text", "id": 20, "properties": {"text": "In the sheet"}}},
@@ -121,8 +121,18 @@ final class NodePresentationsTests: XCTestCase {
         ]}
         """#
 
+    func testALessTrustedButtonsSheetIsNotShown() throws {
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        let root = try present(Self.sheetJSON, origin: remote)
+        let button = try XCTUnwrap(root.childNodes[2])
+        let presentations = try XCTUnwrap(button.presentations)
+        AdwaitaTestHost.emit("clicked", on: button.widget)
+        XCTAssertEqual(state(2, "sheetVisible"), true, "the click still sets the state")
+        XCTAssertFalse(wait { presentations.root(.sheet) != nil }, "nothing is shown over the window")
+    }
+
     func testAButtonsClickShowsItsSheetAndClosingItFiresTheDismissActionOnce() throws {
-        let root = try present(Self.sheetDocument)
+        let root = try present(Self.sheetJSON)
         record("test.dismissed")
         let button = try XCTUnwrap(root.childNodes[2])
         let presentations = try XCTUnwrap(button.presentations)
@@ -142,7 +152,7 @@ final class NodePresentationsTests: XCTestCase {
     }
 
     func testAStateTheHostSetsFalseClosesTheSheetAndFiresTheDismissAction() throws {
-        let root = try present(Self.sheetDocument)
+        let root = try present(Self.sheetJSON)
         record("test.dismissed")
         let presentations = try XCTUnwrap(root.childNodes[2]?.presentations)
         XCTAssertTrue(ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 2, key: "sheetVisible", value: true))
@@ -158,7 +168,7 @@ final class NodePresentationsTests: XCTestCase {
     }
 
     func testAFullScreenCoverIsADialogToo() throws {
-        let root = try present(Self.sheetDocument)
+        let root = try present(Self.sheetJSON)
         record("test.cover")
         let button = try XCTUnwrap(root.childNodes[3])
         let presentations = try XCTUnwrap(button.presentations)
@@ -224,7 +234,7 @@ final class NodePresentationsTests: XCTestCase {
     // MARK: Leaving the tree
 
     func testANodeThatLeavesTheTreeTakesItsPresentationsDownWithoutAnAction() throws {
-        let root = try present(Self.sheetDocument)
+        let root = try present(Self.sheetJSON)
         record("test.dismissed")
         let presentations = try XCTUnwrap(root.childNodes[2]?.presentations)
         XCTAssertTrue(ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 2, key: "sheetVisible", value: true))
@@ -273,7 +283,7 @@ final class NodePresentationsTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             // A watchdog: a window that stays open fails the test instead of hanging it.
             _ = runAfter(milliseconds: 5000) { app.terminate() }
-            app.presentWindow(json: Data(Self.sheetDocument.utf8), windowUUID: uuid, title: nil)
+            app.presentWindow(json: Data(Self.sheetJSON.utf8), windowUUID: uuid, title: nil)
             _ = ActionUIModel.shared.setElementState(windowUUID: uuid, viewID: 2, key: "sheetVisible", value: true)
             _ = runAfter(milliseconds: 300) {
                 shown = app.gtkWindow(uuid).flatMap { adw_application_window_get_visible_dialog(typed($0)) } != nil
@@ -291,7 +301,7 @@ final class NodePresentationsTests: XCTestCase {
     }
 
     func testPresentationsTakenDownAreRestoredFromTheirStates() throws {
-        let root = try present(Self.sheetDocument)
+        let root = try present(Self.sheetJSON)
         record("test.dismissed")
         let presentations = try XCTUnwrap(root.childNodes[2]?.presentations)
         XCTAssertTrue(ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 2, key: "sheetVisible", value: true))

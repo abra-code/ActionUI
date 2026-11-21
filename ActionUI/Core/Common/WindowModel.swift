@@ -32,26 +32,36 @@ final class WindowModel {
     @ObservationIgnored var toastQueue: [WindowToast] = []
     let windowUUID: String
     private let logger: any ActionUILogger
+    /// When the window's recent LoadableView loads happened, for the load budget
+    /// (ActionUIModel.loadBudget). Here, outside the view tree, so rendering again does not reset it.
+    /// Seconds of system uptime, not Date: setting the system clock back must not keep old loads counted.
+    @ObservationIgnored private var recentLoads: [TimeInterval] = []
+
+    /// The largest document any load takes, in bytes (16 MB, for every document, whoever loads it).
+    /// Settable for tests.
+    static var maximumJSONSize = 16 * 1024 * 1024
 
     init(windowUUID: String, logger: any ActionUILogger) {
         self.windowUUID = windowUUID
         self.logger = logger
     }
 
-    // Load description from JSON or plist data, populating viewModels
-    func loadDescription(from data: Data, format: String) throws -> ActionUIElement {
+    // Load description from JSON or plist data, populating viewModels. `origin` (nil: the host's)
+    // goes on every view model it makes.
+    func loadDescription(from data: Data, format: String, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
+        try checkSize(data)
         let filtered = try applyPlatformFilter(data: data, format: format)
         if format == "json" {
             let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
             self.element = element
-            self.viewModels = populateViewModels(from: element)
+            self.viewModels = Self.marked(populateViewModels(from: element), origin)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
             let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
             self.element = element
-            self.viewModels = populateViewModels(from: element)
+            self.viewModels = Self.marked(populateViewModels(from: element), origin)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded plist description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
@@ -59,6 +69,34 @@ final class WindowModel {
             logger.log("Unsupported format: \(format)", .error)
             throw ActionUIError("Unsupported format: \(format)")
         }
+    }
+
+    // Refuses a document larger than maximumJSONSize before anything parses it.
+    private func checkSize(_ data: Data) throws {
+        guard data.count > Self.maximumJSONSize else { return }
+        logger.log("Not loading ActionUI JSON of \(data.count) bytes in window \(windowUUID): the most is \(Self.maximumJSONSize)", .error)
+        throw ActionUIError("the ActionUI JSON is larger than \(Self.maximumJSONSize / (1024 * 1024)) MB")
+    }
+
+    // Counts one LoadableView load against ActionUIModel.loadBudget, or refuses it when the window has
+    // used the budget up in the last span.
+    private func spendLoad() throws {
+        let budget = ActionUIModel.shared.loadBudget
+        let now = ProcessInfo.processInfo.systemUptime
+        recentLoads.removeAll { now - $0 >= budget.seconds }
+        guard recentLoads.count < budget.loads else {
+            logger.log("Not loading a LoadableView in window \(windowUUID): \(budget.loads) loads in \(Int(exactly: budget.seconds).map(String.init) ?? "\(budget.seconds)") s already", .error)
+            throw ActionUIError("too many loads in this window")
+        }
+        recentLoads.append(now)
+    }
+
+    // `models`, each given `origin` when there is one (nil leaves them the host's).
+    private static func marked(_ models: [Int: ViewModel], _ origin: JSONContentOrigin?) -> [Int: ViewModel] {
+        if let origin {
+            for model in models.values { model.origin = origin }
+        }
+        return models
     }
 
     // Applies PlatformFilter to raw JSON or plist data: parse -> filter -> re-serialize.
@@ -105,7 +143,11 @@ final class WindowModel {
     // Load a sub-view from JSON or plist data without overwriting the root element.
     // When parentID != 0, removes old child models owned by that parent before loading,
     // enabling dynamic content swapping without ID conflicts.
-    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0) throws -> ActionUIElement {
+    // `origin` (nil: the host's) goes on the view models merged, not on those of conflicting ids,
+    // which are another element's. Less-trusted content whose id is a trusted element's is refused whole.
+    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0, origin: JSONContentOrigin? = nil) throws -> ActionUIElement {
+        try checkSize(data)
+        try spendLoad()
         // Remove old child models if replacing an existing parent's content
         if parentID != 0 {
             let oldIDs = collectAndRemoveSubViewIDs(for: parentID)
@@ -132,12 +174,29 @@ final class WindowModel {
         // Populate new ViewModels; ownership is recorded after the merge
         let subViewModels = populateViewModels(from: subElement)
 
+        // Less-trusted content may not share an id with a trusted element already in the window: its
+        // element would be drawn with that element's view model and read as trusted. Sharing an id
+        // with content as little trusted (two LoadableViews showing one document) gains nothing.
+        if origin?.trust == .lessTrusted {
+            let taken = subViewModels.keys.filter { id in
+                guard let existing = self.viewModels[id] else { return false }
+                return (existing.origin?.trust ?? .trusted) == .trusted
+            }.sorted()
+            if !taken.isEmpty {
+                let list = taken.map(String.init).joined(separator: ", ")
+                let which = taken.count == 1 ? "id \(list) is" : "ids \(list) are"
+                logger.log("Not loading a less-trusted sub-view\(parentID != 0 ? " for parent \(parentID)" : ""): \(which) already in the window", .error)
+                throw ActionUIError("id conflict: \(list) already in the window")
+            }
+        }
+
         // Merge subViewModels into main viewModels, ensuring no ID conflicts.
         // Build the merged dictionary first, then assign once.
         var merged = self.viewModels
         var mergedIDs: Set<Int> = []
         for (id, viewModel) in subViewModels {
             if merged[id] == nil {
+                if let origin { viewModel.origin = origin }
                 merged[id] = viewModel
                 mergedIDs.insert(id)
             } else {
@@ -230,6 +289,7 @@ final class WindowModel {
     // Merges the new ViewModels into the window's pool; IDs are tracked externally by WindowModal.loadedViewIDs
     // so ActionUIModel.dismissModal can clean them up when the modal is dismissed.
     func loadModalDescription(from data: Data, format: String) throws -> ActionUIElement {
+        try checkSize(data)
         let filtered = try applyPlatformFilter(data: data, format: format)
         let element: ActionUIElement
         if format == "json" {

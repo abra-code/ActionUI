@@ -13,6 +13,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
@@ -88,7 +89,10 @@ object Canvas : ActionUIViewConstruction {
         val textMeasurer = rememberTextMeasurer()
         val assets = LocalContext.current.assets
         val glyphColor = LocalContentColor.current
-        val bitmapCache = remember(props) { mutableMapOf<String, ImageBitmap?>() }
+        // Keyed on the content's origin too: the same canvas from less-trusted content must not
+        // draw a file decoded for trusted content.
+        val origin = LocalJSONContentOrigin.current
+        val bitmapCache = remember(props, origin) { mutableMapOf<String, ImageBitmap?>() }
         val warnedSources = remember(props) { mutableSetOf<String>() }
 
         val actionID = config.actionID
@@ -123,6 +127,7 @@ object Canvas : ActionUIViewConstruction {
                     bitmapCache = bitmapCache,
                     warnedSources = warnedSources,
                     logger = logger,
+                    readsFile = { ActionUIModel.readsLocalFile(it, origin, logger) },
                 ),
             )
             canvas.restore()

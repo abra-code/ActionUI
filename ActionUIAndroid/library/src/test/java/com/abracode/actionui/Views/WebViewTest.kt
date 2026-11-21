@@ -211,7 +211,7 @@ class WebViewTest {
         val script = WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, source = "window.x = 1;")
         assertEquals(
             "window.x = 1;",
-            resolveScriptSource(script, { throw FileNotFoundException() }, null)
+            resolveScriptSource(script, { throw FileNotFoundException() }, null) { true }
         )
     }
 
@@ -224,8 +224,8 @@ class WebViewTest {
                 if (name == "inject.js") "window.y = 2;".byteInputStream()
                 else throw FileNotFoundException(name)
             },
-            null
-        )
+            null,
+        ) { true }
         assertEquals("window.y = 2;", resolved)
     }
 
@@ -233,7 +233,7 @@ class WebViewTest {
     fun `missing asset warns and drops the script`() {
         val logger = CapturingLogger()
         val script = WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, resourceName = "absent.js")
-        assertNull(resolveScriptSource(script, { throw FileNotFoundException() }, logger))
+        assertNull(resolveScriptSource(script, { throw FileNotFoundException() }, logger) { true })
         assertEquals(1, logger.warnings.size)
     }
 
@@ -243,13 +243,33 @@ class WebViewTest {
         try {
             val file = java.io.File(folder, "script.js").apply { writeText("window.z = 3;") }
             val read = WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, filePath = file.path)
-            assertEquals("window.z = 3;", resolveScriptSource(read, { throw FileNotFoundException() }, null))
+            assertEquals("window.z = 3;", resolveScriptSource(read, { throw FileNotFoundException() }, null) { true })
             for (path in listOf("/dev/zero", "/dev/null", folder.path)) {
                 val logger = CapturingLogger()
                 val script = WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, filePath = path)
-                assertNull(path, resolveScriptSource(script, { throw FileNotFoundException() }, logger))
+                assertNull(path, resolveScriptSource(script, { throw FileNotFoundException() }, logger) { true })
                 assertTrue(logger.warnings.toString(), logger.warnings.single().contains("is not a regular file"))
             }
+        } finally {
+            folder.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `a filePath the trust policy refuses is not read, and inline and asset scripts are not asked about`() {
+        val folder = kotlin.io.path.createTempDirectory("webview-script").toFile()
+        try {
+            val file = java.io.File(folder, "secret.js").apply { writeText("window.secret = 1;") }
+            val asked = mutableListOf<String>()
+            val refuse = { path: String -> asked += path; false }
+            assertNull(resolveScriptSource(WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, filePath = file.path),
+                { throw FileNotFoundException() }, null, refuse))
+            assertEquals(listOf(file.path), asked)
+            assertEquals("window.x = 1;", resolveScriptSource(WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, source = "window.x = 1;"),
+                { throw FileNotFoundException() }, null, refuse))
+            assertEquals("window.y = 2;", resolveScriptSource(WebViewUserScript(WebViewInjectionTime.DOCUMENT_END, resourceName = "inject.js"),
+                { "window.y = 2;".byteInputStream() }, null, refuse))
+            assertEquals(1, asked.size)
         } finally {
             folder.deleteRecursively()
         }
@@ -262,7 +282,7 @@ class WebViewTest {
             WebViewInjectionTime.DOCUMENT_END,
             filePath = "/nonexistent/dir/script.js"
         )
-        assertNull(resolveScriptSource(script, { throw FileNotFoundException() }, logger))
+        assertNull(resolveScriptSource(script, { throw FileNotFoundException() }, logger) { true })
         assertEquals(1, logger.warnings.size)
     }
 }

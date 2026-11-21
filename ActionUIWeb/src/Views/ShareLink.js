@@ -20,6 +20,7 @@
 //   * item validity is "a non-empty String" (the browser handles the URL);
 //     type validation stays verbatim Swift.
 
+import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
 import { isOpenedURL } from "../Helpers/URLPolicy.js";
@@ -56,7 +57,10 @@ register("ShareLink", {
 
     buildView: (element, properties, ctx) => {
         const item = typeof properties.item === "string" ? properties.item.trim() : "";
-        if (item.length === 0 || !isOpenedURL(item)) {
+        // Less-trusted content shares only what the trust policy lets it open (web and mail by default).
+        const permitted = item.length === 0 || allows({ capability: "openLink", url: item }, ctx.origin, ctx.logger);
+        if (!permitted) ctx.logger.log(`ShareLink not sharing ${item}: the trust policy refuses it`, "warning");
+        if (item.length === 0 || !isOpenedURL(item) || !permitted) {
             ctx.logger.log("ShareLink missing valid URL, returning EmptyView", "warning");
             const empty = document.createElement("div");
             empty.className = "aui-empty";

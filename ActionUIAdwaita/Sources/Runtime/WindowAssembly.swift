@@ -123,7 +123,7 @@ package enum WindowAssembly {
     /// ScrollView asks for its content's size itself, ScrollView+Adwaita.swift); it opens tall enough to
     /// show its content now, up to the monitor, as other documents do. The minimum stays the
     /// scrolled windows' own, so the window can still be made small. (SwiftUI's WindowGroup opens
-    /// 900 x 418 whatever the content; Linux fits the content, the owner's choice.)
+    /// 900 x 418 whatever the content; Linux fits the content.)
     private static func askingForScrolledContent<Result>(in content: WidgetPointer, _ measure: () -> Result) -> Result {
         var changed: [(scroller: OpaquePointer, width: gboolean, height: gboolean)] = []
         func visit(_ widget: WidgetPointer) {

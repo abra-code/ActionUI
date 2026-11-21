@@ -35,6 +35,7 @@ import { PlatformFilter } from "./PlatformFilter.js";
 import { getInsertableContainers } from "./ActionUIRegistry.js";
 import { applyElementProperty } from "./ModifierResolver.js";
 import { playEnterTransition } from "../Helpers/TransitionModifier.js";
+import { LoadBudget, jsonRefusal } from "../Helpers/JSONLimits.js";
 
 export class ActionUIModel {
     constructor(windowUUID, logger) {
@@ -47,6 +48,8 @@ export class ActionUIModel {
         this.containerBindings = new Map(); // viewID -> { containerName: binding } (insertion)
         this.propertyOverrides = new Map(); // viewID -> { propertyName: value } (setElementProperty)
         this.refreshes = new Map();     // viewID -> { subtreeIds: Set, onEnd, timeout } (pull-to-refresh)
+        this.origins = new Map();       // viewID -> where its content came from (Common/TrustPolicy.js)
+        this.loadBudget = new LoadBudget(); // the LoadableViews' loads (Helpers/JSONLimits.js)
         this.actionDispatcher = null;   // set by Application
         // Render context for runtime mutations — set once the window is presented.
         this.rootNode = null;           // the window's root DOM node (the id registry)
@@ -66,6 +69,12 @@ export class ActionUIModel {
         this.rootNode = rootNode;
         this.buildFn = buildFn;
         this.rootElementId = rootElementId;
+    }
+
+    // Where element viewID's content came from ({ source, path or url, trust, parentID }), or
+    // null when the window has no such element (only elements with a positive id are recorded).
+    getElementOrigin(viewID) {
+        return this.origins.get(viewID) ?? null;
     }
 
     seedValue(viewID, value) {
@@ -466,6 +475,8 @@ export class ActionUIModel {
 
     coerceJSON(raw) {
         if (typeof raw !== "string") return raw;
+        const refusal = jsonRefusal(raw);
+        if (refusal !== null) throw InsertError.invalidJSON(refusal);
         try {
             return JSON.parse(raw);
         } catch (error) {
@@ -517,6 +528,7 @@ export class ActionUIModel {
         this.stateBindings.delete(id);
         this.containerBindings.delete(id);
         this.propertyOverrides.delete(id);
+        this.origins.delete(id);
     }
 
     // Drops every binding/value/state/override and the render context, leaving the
@@ -532,6 +544,7 @@ export class ActionUIModel {
         this.stateBindings.clear();
         this.containerBindings.clear();
         this.propertyOverrides.clear();
+        this.origins.clear();
         this.actionDispatcher = null;
         this.rootNode = null;
         this.buildFn = null;

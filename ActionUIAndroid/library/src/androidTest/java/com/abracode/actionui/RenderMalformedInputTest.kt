@@ -41,7 +41,7 @@ class RenderMalformedInputTest {
     }
 
     @Test
-    fun aValidDocumentStillRenders() {
+    fun validJSONStillRenders() {
         rule.setContent {
             ActionUI.Render("""{ "type": "Text", "id": 1, "properties": { "text": "Rendered" } }""", windowUUID = window)
         }

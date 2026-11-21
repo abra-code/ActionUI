@@ -9,7 +9,7 @@ JSON schema and usage documentation for `VideoPlayer`.
    "type": "VideoPlayer",
    "id": 1,
    "properties": {
-     "url": "https://example.com/video.mp4", // Optional: URL string, returns EmptyView if nil or invalid
+     "url": "https://example.com/video.mp4", // Optional: URL string, displays a Label with an error message if nil or invalid; a file: URL that names something other than a regular file is not played
      "autoplay": true    // Optional: Boolean for autoplay, ignored if nil
    }
    // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).

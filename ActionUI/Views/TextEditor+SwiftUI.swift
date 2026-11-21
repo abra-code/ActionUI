@@ -166,6 +166,9 @@ extension TextEditor: ActionUISwiftUIRenderer {
 
     /// Attributed-text editor for macOS 26 / iOS 26+. Stores AttributedString in model.value,
     /// accepting either AttributedString or a markdown String via setElementValue.
+    /// The attributed editor opens a clicked link itself, not through the openURL action, so in
+    /// less-trusted content the links the trust policy refuses are removed before it shows them
+    /// (withoutRefusedLinks): they show as plain text.
     @available(iOS 26.0, macOS 26.0, *)
     private struct AttributedTextEditorContainer: SwiftUI.View {
         let model: ViewModel
@@ -198,7 +201,7 @@ extension TextEditor: ActionUISwiftUIRenderer {
             } else {
                 initial = (try? AttributedString(markdown: initialMarkdown)) ?? AttributedString(initialMarkdown)
             }
-            self._attributedContent = State(initialValue: initial)
+            self._attributedContent = State(initialValue: TextEditor.withoutRefusedLinks(initial, model: model, windowUUID: windowUUID, viewID: elementId))
         }
 
         var body: some SwiftUI.View {
@@ -220,9 +223,10 @@ extension TextEditor: ActionUISwiftUIRenderer {
                 .onReceive(model.valuePublisher) { newValue in
                     guard tracker.pendingCount == 0 else { return }
                     if let attrValue = newValue as? AttributedString, attrValue != attributedContent {
-                        attributedContent = attrValue
+                        attributedContent = TextEditor.withoutRefusedLinks(attrValue, model: model, windowUUID: windowUUID, viewID: elementId)
                     } else if let stringValue = newValue as? String {
-                        let parsed = (try? AttributedString(markdown: stringValue)) ?? AttributedString(stringValue)
+                        let parsed = TextEditor.withoutRefusedLinks((try? AttributedString(markdown: stringValue)) ?? AttributedString(stringValue),
+                                                                    model: model, windowUUID: windowUUID, viewID: elementId)
                         if parsed != attributedContent {
                             attributedContent = parsed
                         }
@@ -266,3 +270,18 @@ extension TextEditor: ActionUISwiftUIRenderer {
     }
 }
 
+extension TextEditor {
+    /// `text` with the links the trust policy refuses removed, for an element of less-trusted
+    /// content (each refusal is logged); trusted content's text as it is.
+    @MainActor
+    static func withoutRefusedLinks(_ text: AttributedString, model: ViewModel, windowUUID: String, viewID: Int) -> AttributedString {
+        guard model.origin?.trust == .lessTrusted else { return text }
+        var result = text
+        for run in text.runs {
+            if let url = run.link, !ActionUIRegistry.opensLink(url, windowUUID: windowUUID, viewID: viewID) {
+                result[run.range].link = nil
+            }
+        }
+        return result
+    }
+}

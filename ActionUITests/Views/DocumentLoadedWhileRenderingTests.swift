@@ -98,7 +98,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         func log(_ message: String, _ level: LoggerLevel) { messages.append(message) }
     }
 
-    func testADocumentThatLoadsItselfIsRefusedAtTheRepeat() throws {
+    func testAJSONFileThatLoadsItselfIsRefusedAtTheRepeat() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("self-loading-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -123,6 +123,41 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         XCTAssertTrue(logger.messages.contains { $0.contains("it includes itself") }, "\(logger.messages.suffix(5))")
         let loads = logger.messages.filter { $0.hasPrefix("Successfully loaded json for LoadableView from") }.count
         XCTAssertLessThanOrEqual(loads, 4, "the document loaded \(loads) times")
+    }
+
+    /// Documents that each list all the others multiply their loads past the depth limit (about 2000
+    /// loads in 4 seconds before the load budget); the budget stops them at its count.
+    func testJSONFilesThatListEachOtherStopAtTheLoadBudget() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("measure-loop-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let count = 7
+        let files = (0..<count).map { folder.appendingPathComponent("D\($0).json") }
+        for (index, file) in files.enumerated() {
+            let children: [[String: Any]] = files.enumerated().filter { $0.offset != index }.map { other in
+                ["type": "LoadableView", "id": 1000 * (index + 1) + other.offset, "properties": ["filePath": other.element.path]]
+            }
+            try JSONSerialization.data(withJSONObject: ["type": "VStack", "id": 100 + index, "children": children]).write(to: file)
+        }
+        let logger = CapturingLogger()
+        ActionUIModel.shared.logger = logger
+        let start = Date()
+        let content = FileLoadableView(fileURL: files[0], windowUUID: windowUUID, isContentView: true, logger: logger)
+        let host = NSHostingView(rootView: content.frame(width: 300, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300), styleMask: [.titled],
+                              backing: .buffered, defer: false)
+        window.contentView = host
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+        // Until the first refusal (a slow machine may take longer), then a little more for any load after it.
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline, !logger.messages.contains(where: { $0.contains("loads in 60 s already") }) { spin(0.1) }
+        spin(0.5)
+        let loads = logger.messages.filter { $0.hasPrefix("Successfully loaded json for LoadableView from") }.count
+        let refused = logger.messages.filter { $0.contains("loads in 60 s already") }.count
+        XCTAssertLessThanOrEqual(loads, ActionUIModel.shared.loadBudget.loads + 1, "the window's root and the budget's loads")
+        XCTAssertGreaterThan(refused, 0, "the rest is refused")
+        XCTAssertLessThan(Date().timeIntervalSince(start), 10)
     }
 
     func testRowsSurviveWhenTheHostLoadsTheDocumentInItsWindowContent() throws {

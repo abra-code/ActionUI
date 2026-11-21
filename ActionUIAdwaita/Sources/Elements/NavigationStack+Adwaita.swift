@@ -201,7 +201,9 @@ extension NavigationStack: ActionUIAdwaitaRenderer {
         // each screen's navigationTitle, else the title of the link that pushed it, else the root's;
         // the root's falls back to the stack's, the window's, then the application's name.
         // An empty title counts as none.
+        // Less-trusted content's stack does not title its screens, as ScreenTitle refuses its views'.
         let stackTitle = nonEmpty(BaseModifiers(node.properties).navigationTitle)
+            .flatMap { LinkTrust.allowsLoggingOnce(.windowTitle, what: "setting the title", node) ? $0 : nil }
         let rootTitle = content.flatMap { ScreenTitle.find(in: $0, windowModel: node.windowModel) }
             ?? stackTitle ?? windowTitle(widget) ?? nonEmpty(swiftString(g_get_application_name())) ?? ProcessInfo.processInfo.processName
         setTitle(state.rootPage.typed(), rootTitle)

@@ -45,6 +45,7 @@
 // unless the author opts in. Programmatic setState syncs the current entry rather
 // than adding a Back target (see the helper's header for the rule).
 
+import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { NAV_PUSH_EVENT } from "./NavigationLink.js";
@@ -150,7 +151,7 @@ register("NavigationStack", {
         if (selectableChildren) {
             const listActionID = content.properties?.actionID;
             const listID = content.id;
-            const header = navTitleHeader(content);
+            const header = navTitleHeader(content, ctx);
             if (header) rootPane.appendChild(header);
             const listBox = document.createElement("div");
             listBox.className = "aui-list";
@@ -393,9 +394,14 @@ function navTitleOf(element) {
 
 // A simple title header for the root pane (no back button). Destination panes
 // get their title inline in the back bar.
-function navTitleHeader(element) {
+function navTitleHeader(element, ctx) {
     const title = navTitleOf(element);
     if (!title) return null;
+    // Less-trusted content does not title the screen (as ToolbarHelper refuses it).
+    if (!allows({ capability: "windowTitle" }, ctx.origin, ctx.logger)) {
+        ctx.logger.log(`Not setting the title for element ${element.id}: the trust policy refuses it`, "warning");
+        return null;
+    }
     const bar = document.createElement("div");
     bar.className = "aui-nav-stack-bar";
     const t = document.createElement("span");

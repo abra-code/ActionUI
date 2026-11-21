@@ -228,6 +228,17 @@ class Window {
         return result;
     }
 
+    // Where element viewId's content came from, such as
+    // { source: 'remote', url: 'https://example.com/v.json', trust: 'lessTrusted', parentID: 3 }.
+    // source is 'host' (JSON the host passed in), 'resource' or 'file' (with path), or 'remote'
+    // (with url); parentID, the LoadableView the content was loaded into, is left out for the
+    // window's root. null when the window has no such element. An action handler can ask this
+    // before acting on what less-trusted content sent.
+    getElementOrigin(viewId) {
+        const raw = _actionui.getElementOriginJSON(this.uuid, viewId);
+        return raw == null ? null : JSON.parse(raw);
+    }
+
     // Forget this window's model (its loaded description and every element's
     // value and state) once the host is done with the window, so a long-running
     // host does not keep every window it ever showed. Afterwards the window is
@@ -733,6 +744,49 @@ function presentPixels(surfaceId, pixels, width, height,
 // Module-level convenience functions
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Trust policy
+// ---------------------------------------------------------------------------
+
+// How far content is trusted. A document the host passes in, or one in the app's resources, is
+// trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is
+// anything inside it.
+const Trust = Object.freeze({ TRUSTED: 'trusted', LESS_TRUSTED: 'lessTrusted' });
+
+// Sets the host's trust policy, for all windows; call it before loading content, on the main
+// thread. Each callback receives ActionUI's own decision and returns the one to use, so one that
+// returns byDefault keeps it. A callback left out keeps ActionUI's own decisions for that part;
+// setTrustPolicy() restores ActionUI's own policy.
+//
+//   trust(source, parent, byDefault) -> Trust: the trust of content a LoadableView loads from
+//     source ({ source, path or url }) inside content of origin parent (null for a window's root,
+//     and for a LoadableView of unknown origin, such as one in a template row), as
+//     Window.getElementOrigin returns it.
+//   allows(capability, origin, byDefault) -> boolean: whether content of origin may do
+//     capability, { capability: kind } with, by kind: 'load' { source }, 'openLink' { url },
+//     'webView' { url } (null for inline html), 'webViewBaseURL' { url },
+//     'webViewScriptFile' { path }, 'readLocalFile' { path }, 'windowTitle', 'presentModal',
+//     'menuCommands', 'action' { actionID }.
+//
+// The callbacks are called on the main thread, often (as elements draw), and should return
+// quickly. One that throws is reported and counts as less trusted, or as a refusal.
+function setTrustPolicy(options = {}) {
+    if (options === null || typeof options !== 'object') {
+        throw new TypeError('setTrustPolicy takes an options object: { trust, allows }');
+    }
+    const { trust = null, allows = null } = options;
+    if (trust != null && typeof trust !== 'function') throw new TypeError('trust must be a function or null');
+    if (allows != null && typeof allows !== 'function') throw new TypeError('allows must be a function or null');
+    const trustBridge = trust == null ? null : (sourceJSON, parentJSON, byDefault) => {
+        const parent = parentJSON == null ? null : JSON.parse(parentJSON);
+        const result = trust(JSON.parse(sourceJSON), parent, byDefault === 1 ? Trust.TRUSTED : Trust.LESS_TRUSTED);
+        return result === Trust.TRUSTED ? 1 : 0;
+    };
+    const allowsBridge = allows == null ? null : (capabilityJSON, originJSON, byDefault) =>
+        allows(JSON.parse(capabilityJSON), JSON.parse(originJSON), byDefault) === true;
+    _actionui.setTrustPolicy(trustBridge, allowsBridge);
+}
+
 function getVersion()   { return _actionui.getVersion() ?? 'unknown'; }
 function getLastError() { return _actionui.getLastError(); }
 function clearError()   { _actionui.clearError(); }
@@ -749,6 +803,8 @@ module.exports = {
     ModalStyle,
     ButtonRole,
     InsertPosition,
+    Trust,
+    setTrustPolicy,
     getVersion,
     getLastError,
     clearError,

@@ -340,6 +340,17 @@ const info = win.getElementInfo()
 // { 2: 'TextField', 3: 'Button', ... }  — positive view IDs only
 ```
 
+#### Element origin
+
+```js
+const origin = win.getElementOrigin(viewId)
+// { source: 'remote', url: 'https://example.com/v.json', trust: 'lessTrusted', parentID: 3 }, or null
+// source: 'host' (JSON the host passed in), 'resource' or 'file' (with path), 'remote' (with url).
+// parentID, the LoadableView the content was loaded into, is left out for a window's root.
+```
+
+An action handler can ask this before acting on what less-trusted content sent.
+
 #### Window model
 
 ```js
@@ -403,6 +414,27 @@ actionui.ButtonRole.DEFAULT      // 'default'
 actionui.ButtonRole.CANCEL       // 'cancel'
 actionui.ButtonRole.DESTRUCTIVE  // 'destructive'
 ```
+
+### Trust policy
+
+```js
+actionui.setTrustPolicy({
+    // The trust of content a LoadableView loads from source ({ source, path or url }) inside
+    // content of origin parent (null for a window's root, and for a LoadableView of unknown origin,
+    // such as one in a template row); byDefault is ActionUI's own decision.
+    trust(source, parent, byDefault) {
+        return (source.url ?? '').startsWith('https://example.com/') ? actionui.Trust.TRUSTED : byDefault;
+    },
+    // Whether content of origin may do capability: { capability: kind } with, by kind:
+    // 'load' { source }, 'openLink' { url }, 'webView' { url } (null for inline html),
+    // 'webViewBaseURL' { url }, 'webViewScriptFile' { path }, 'readLocalFile' { path },
+    // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID }.
+    allows(capability, origin, byDefault) { return byDefault; },
+});
+actionui.setTrustPolicy();   // ActionUI's own policy again
+```
+
+For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it. `test_trust_policy.js` runs both against a real window.
 
 ### Module-level helpers
 
@@ -548,6 +580,12 @@ native.setElementStateFromString(uuid, viewId, key, value)
 
 // Element info
 native.getElementInfoJSON(uuid)   // JSON string: '{"2":"TextField","3":"Button"}'
+
+// Origins and trust policy (main thread only)
+native.getElementOriginJSON(uuid, viewId)   // JSON string, or null for no such element
+native.setTrustPolicy(trust, allows)        // each a function or null:
+//   trust(sourceJSON, parentOriginJSON|null, byDefault) -> 1 trusted, anything else less trusted
+//   allows(capabilityJSON, originJSON, byDefault) -> true to allow, anything else refuses
 
 // Modal
 native.presentModal(uuid, jsonString, format, style, onDismissActionId)

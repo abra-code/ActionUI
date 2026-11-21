@@ -113,6 +113,9 @@ typedef struct {
     napi_ref app_should_terminate;
     napi_ref app_window_will_close;
     napi_ref app_window_will_present;
+    // Trust policy (setTrustPolicy)
+    napi_ref trust_callback;
+    napi_ref capability_callback;
     napi_async_context async_ctx;   /* proper scope for nextTick/microtask drain */
 #if ACTIONUI_DIAGNOSTIC
     napi_ref drain_fn_ref;          /* no-op JS fn called after each uv_run(NOWAIT) */
@@ -144,6 +147,8 @@ static void addon_state_finalizer(napi_env env, void* data, void* hint) {
     DELETE_REF(app_should_terminate)
     DELETE_REF(app_window_will_close)
     DELETE_REF(app_window_will_present)
+    DELETE_REF(trust_callback)
+    DELETE_REF(capability_callback)
 #if ACTIONUI_DIAGNOSTIC
     DELETE_REF(drain_fn_ref)
     DELETE_REF(diag_nexttick_ref)
@@ -339,6 +344,70 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
     napi_close_handle_scope(env, scope);
 }
 
+// MARK: - Trust Policy Bridges
+
+/* trust(sourceJSON, parentOriginJSON|null, byDefault) -> number. Only 1 (ActionUITrustTrusted)
+ * means trusted: any other result, or an exception (reported), is less trusted. */
+static ActionUITrust trust_callback_bridge(const char* sourceJSON, const char* parentOriginJSON, ActionUITrust byDefault) {
+    if (g_state == NULL || g_state->trust_callback == NULL) return byDefault;
+    napi_env env = g_state->env;
+    napi_handle_scope scope;
+    napi_open_handle_scope(env, &scope);
+    ActionUITrust trust = ActionUITrustLessTrusted;
+    napi_value fn = NULL;
+    if (napi_get_reference_value(env, g_state->trust_callback, &fn) == napi_ok && fn != NULL) {
+        napi_value global, result, argv[3];
+        napi_get_global(env, &global);
+        napi_create_string_utf8(env, sourceJSON, NAPI_AUTO_LENGTH, &argv[0]);
+        if (parentOriginJSON != NULL) {
+            napi_create_string_utf8(env, parentOriginJSON, NAPI_AUTO_LENGTH, &argv[1]);
+        } else {
+            napi_get_null(env, &argv[1]);
+        }
+        napi_create_int32(env, (int32_t)byDefault, &argv[2]);
+        if (napi_call_function(env, global, fn, 3, argv, &result) == napi_ok) {
+            napi_valuetype type;
+            double value = 0;
+            if (napi_typeof(env, result, &type) == napi_ok && type == napi_number
+                && napi_get_value_double(env, result, &value) == napi_ok && value == (double)ActionUITrustTrusted) {
+                trust = ActionUITrustTrusted;
+            }
+        }
+        report_callback_exception(env, "the trust policy's trust callback");
+    }
+    napi_close_handle_scope(env, scope);
+    return trust;
+}
+
+/* allows(capabilityJSON, originJSON, byDefault) -> boolean. Only true allows; an exception
+ * (reported) refuses. */
+static bool capability_callback_bridge(const char* capabilityJSON, const char* originJSON, bool byDefault) {
+    if (g_state == NULL || g_state->capability_callback == NULL) return byDefault;
+    napi_env env = g_state->env;
+    napi_handle_scope scope;
+    napi_open_handle_scope(env, &scope);
+    bool allowed = false;
+    napi_value fn = NULL;
+    if (napi_get_reference_value(env, g_state->capability_callback, &fn) == napi_ok && fn != NULL) {
+        napi_value global, result, argv[3];
+        napi_get_global(env, &global);
+        napi_create_string_utf8(env, capabilityJSON, NAPI_AUTO_LENGTH, &argv[0]);
+        napi_create_string_utf8(env, originJSON, NAPI_AUTO_LENGTH, &argv[1]);
+        napi_get_boolean(env, byDefault, &argv[2]);
+        if (napi_call_function(env, global, fn, 3, argv, &result) == napi_ok) {
+            napi_valuetype type;
+            bool value = false;
+            if (napi_typeof(env, result, &type) == napi_ok && type == napi_boolean
+                && napi_get_value_bool(env, result, &value) == napi_ok) {
+                allowed = value;
+            }
+        }
+        report_callback_exception(env, "the trust policy's allows callback");
+    }
+    napi_close_handle_scope(env, scope);
+    return allowed;
+}
+
 // MARK: - Action Handler Bridge
 
 static void action_handler_bridge(const char* actionID,
@@ -523,6 +592,45 @@ static napi_value node_set_logger(napi_env env, napi_callback_info info) {
     if (store_callback(env, argv[0], &g_state->logger_callback) != napi_ok) return NULL;
     actionUISetLogger(g_state->logger_callback != NULL ? logger_callback_bridge : NULL);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
+// MARK: - N-API: Origins and Trust Policy
+
+/* setTrustPolicy(trust|null, allows|null): both are checked before either is stored, so a refused
+ * call changes nothing. */
+static napi_value node_set_trust_policy(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "setTrustPolicy")) return NULL;
+    size_t argc = 2; napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    if (argc < 2) { napi_throw_error(env, NULL, "expected 2 arguments"); return NULL; }
+    for (size_t i = 0; i < 2; i++) {
+        napi_valuetype type;
+        napi_typeof(env, argv[i], &type);
+        if (type != napi_null && type != napi_undefined && type != napi_function) {
+            napi_throw_type_error(env, NULL, i == 0 ? "trust must be a function or null" : "allows must be a function or null");
+            return NULL;
+        }
+    }
+    if (store_callback(env, argv[0], &g_state->trust_callback) != napi_ok) return NULL;
+    if (store_callback(env, argv[1], &g_state->capability_callback) != napi_ok) return NULL;
+    actionUISetTrustPolicy(g_state->trust_callback != NULL ? trust_callback_bridge : NULL,
+                           g_state->capability_callback != NULL ? capability_callback_bridge : NULL);
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
+static napi_value node_get_element_origin_json(napi_env env, napi_callback_info info) {
+    size_t argc = 2; napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    STRING_ARG(uuid);
+    if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
+    int64_t viewID = 0;
+    napi_get_value_int64(env, argv[1], &viewID);
+    char* json = actionUIGetElementOrigin(uuid, viewID);
+    if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
+    napi_value result;
+    napi_create_string_utf8(env, json, NAPI_AUTO_LENGTH, &result);
+    actionUIFreeString(json);
+    return result;
 }
 
 static napi_value node_log(napi_env env, napi_callback_info info) {
@@ -2656,6 +2764,8 @@ static napi_value Init(napi_env env, napi_value exports) {
 
     /* Element info */
     EXPORT_FN(exports, "getElementInfoJSON",       node_get_element_info_json);
+    EXPORT_FN(exports, "getElementOriginJSON",     node_get_element_origin_json);
+    EXPORT_FN(exports, "setTrustPolicy",           node_set_trust_policy);
 
     /* Runtime structural mutations */
     EXPORT_FN(exports, "insertElement",            node_insert_element);

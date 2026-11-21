@@ -3,7 +3,8 @@
  Test images for the URL loading tests: PNG bytes and files of a given size, and an http server on
  the loopback address (libsoup's SoupServer, on the main loop) that serves the PNG at
  /image.png, text at /text.txt, a document at /view.json, and 404 for anything else. It counts
- the requests it answers.
+ the requests it answers. Redirects: /redirect-stalled to /image.png (relative) with a body that
+ never ends, /loop to itself, /to-file to a file URL, /to-never to /never.json.
 */
 
 import XCTest
@@ -75,6 +76,22 @@ private let handleRequest: @convention(c) (UnsafeMutablePointer<SoupServer>?, Op
         bytes.withUnsafeBufferPointer { buffer in
             soup_server_message_set_response(message, "application/octet-stream", SOUP_MEMORY_COPY, buffer.baseAddress, gsize(buffer.count))
         }
+    case "/redirect-stalled":
+        // A redirect whose body never ends: a client that reads it before following waits for good.
+        soup_server_message_set_status(message, 302, nil)
+        let headers = soup_server_message_get_response_headers(message)
+        soup_message_headers_replace(headers, "Location", "/image.png")
+        soup_message_headers_set_encoding(headers, SOUP_ENCODING_CHUNKED)
+        soup_message_body_append(soup_server_message_get_response_body(message), SOUP_MEMORY_COPY, "partial", 7)
+    case "/loop":
+        soup_server_message_set_status(message, 302, nil)
+        soup_message_headers_replace(soup_server_message_get_response_headers(message), "Location", "/loop")
+    case "/to-file":
+        soup_server_message_set_status(message, 301, nil)
+        soup_message_headers_replace(soup_server_message_get_response_headers(message), "Location", "file:///etc/hostname")
+    case "/to-never":
+        soup_server_message_set_status(message, 307, nil)
+        soup_message_headers_replace(soup_server_message_get_response_headers(message), "Location", "never.json")
     case "/never.json":
         // Never answered: the request waits until the client gives up or the server stops.
         soup_server_message_pause(message)

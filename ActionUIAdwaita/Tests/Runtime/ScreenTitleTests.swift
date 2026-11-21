@@ -58,6 +58,17 @@ final class ScreenTitleTests: XCTestCase {
         XCTAssertEqual(ScreenTitle.find(in: root, windowModel: model), "Own", "the root's own when no view inside has one")
     }
 
+    func testALessTrustedViewsTitleDoesNotCount() throws {
+        let json = #"{"type": "VStack", "id": 1, "properties": {"navigationTitle": "Bank"}, "children": [{"type": "Text", "id": 2, "properties": {"text": "x"}}]}"#
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID, origin: remote)
+        let model = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID])
+        XCTAssertNil(ScreenTitle.find(in: try XCTUnwrap(model.element), windowModel: model))
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        let hostModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID])
+        XCTAssertEqual(ScreenTitle.find(in: try XCTUnwrap(hostModel.element), windowModel: hostModel), "Bank", "the host's content titles it")
+    }
+
     func testABackgroundsTitleCounts() throws {
         let model = try load(#"""
             {"type": "VStack", "id": 1, "background": {"type": "Text", "id": 2, "properties": {"text": "b", "navigationTitle": "Back"}}}

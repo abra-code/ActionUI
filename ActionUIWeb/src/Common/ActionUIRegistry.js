@@ -31,6 +31,7 @@ import { applyAnimation } from "../Helpers/AnimationModifier.js";
 import { wrapWithPullToRefresh } from "../Helpers/PullToRefreshHelper.js";
 import { wrapWithSwipeActions } from "../Helpers/SwipeActionsModifier.js";
 import { wrapWithSafeAreaInset } from "../Helpers/SafeAreaModifier.js";
+import { HOST_ORIGIN } from "./TrustPolicy.js";
 
 const constructions = new Map();
 
@@ -70,6 +71,15 @@ export function buildElementView(element, ctx) {
     markExpansion(node);
     if (element.id > 0) {
         node.dataset.auiId = String(element.id);
+        // Where its content came from, for the host (Window.getElementOrigin); and, inside a
+        // LoadableView, among the ids its content brought in. An id already recorded keeps its
+        // record: it is another element's, which later content must not relabel (a trusted
+        // document reusing a less-trusted element's id would make it read as trusted), nor
+        // forget on a reload.
+        if (!ctx.model.origins.has(element.id)) {
+            ctx.model.origins.set(element.id, ctx.origin ?? HOST_ORIGIN);
+            if (ctx.loadedIDSets) for (const ids of ctx.loadedIDSets) ids.add(element.id);
+        }
         const initial = construction.initialValue?.(element, properties);
         if (construction.valueType !== "none" && initial !== undefined) {
             ctx.model.seedValue(element.id, initial);
