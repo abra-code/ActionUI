@@ -32,6 +32,14 @@ final class WindowModel {
     @ObservationIgnored var toastQueue: [WindowToast] = []
     let windowUUID: String
     private let logger: any ActionUILogger
+    /// When the window's recent LoadableView loads happened, for the load budget
+    /// (ActionUIModel.loadBudget). Here, outside the view tree, so rendering again does not reset it.
+    /// Seconds of system uptime, not Date: setting the system clock back must not keep old loads counted.
+    @ObservationIgnored private var recentLoads: [TimeInterval] = []
+
+    /// The largest document any load takes, in bytes (16 MB, for every document, whoever loads it).
+    /// Settable for tests.
+    static var maximumDocumentSize = 16 * 1024 * 1024
 
     init(windowUUID: String, logger: any ActionUILogger) {
         self.windowUUID = windowUUID
@@ -41,6 +49,7 @@ final class WindowModel {
     // Load description from JSON or plist data, populating viewModels. `origin` (nil: the host's)
     // goes on every view model it makes.
     func loadDescription(from data: Data, format: String, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
+        try checkSize(data)
         let filtered = try applyPlatformFilter(data: data, format: format)
         if format == "json" {
             let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
@@ -60,6 +69,26 @@ final class WindowModel {
             logger.log("Unsupported format: \(format)", .error)
             throw ActionUIError("Unsupported format: \(format)")
         }
+    }
+
+    // Refuses a document larger than maximumDocumentSize before anything parses it.
+    private func checkSize(_ data: Data) throws {
+        guard data.count > Self.maximumDocumentSize else { return }
+        logger.log("Not loading a document of \(data.count) bytes in window \(windowUUID): the most is \(Self.maximumDocumentSize)", .error)
+        throw ActionUIError("the document is larger than \(Self.maximumDocumentSize / (1024 * 1024)) MB")
+    }
+
+    // Counts one LoadableView load against ActionUIModel.loadBudget, or refuses it when the window has
+    // used the budget up in the last span.
+    private func spendLoad() throws {
+        let budget = ActionUIModel.shared.loadBudget
+        let now = ProcessInfo.processInfo.systemUptime
+        recentLoads.removeAll { now - $0 >= budget.seconds }
+        guard recentLoads.count < budget.loads else {
+            logger.log("Not loading a LoadableView in window \(windowUUID): \(budget.loads) loads in \(Int(exactly: budget.seconds).map(String.init) ?? "\(budget.seconds)") s already", .error)
+            throw ActionUIError("too many loads in this window")
+        }
+        recentLoads.append(now)
     }
 
     // `models`, each given `origin` when there is one (nil leaves them the host's).
@@ -117,6 +146,8 @@ final class WindowModel {
     // `origin` (nil: the host's) goes on the view models merged, not on those of conflicting ids,
     // which are another element's. Less-trusted content whose id is a trusted element's is refused whole.
     func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0, origin: DocumentOrigin? = nil) throws -> ActionUIElement {
+        try checkSize(data)
+        try spendLoad()
         // Remove old child models if replacing an existing parent's content
         if parentID != 0 {
             let oldIDs = collectAndRemoveSubViewIDs(for: parentID)
@@ -258,6 +289,7 @@ final class WindowModel {
     // Merges the new ViewModels into the window's pool; IDs are tracked externally by WindowModal.loadedViewIDs
     // so ActionUIModel.dismissModal can clean them up when the modal is dismissed.
     func loadModalDescription(from data: Data, format: String) throws -> ActionUIElement {
+        try checkSize(data)
         let filtered = try applyPlatformFilter(data: data, format: format)
         let element: ActionUIElement
         if format == "json" {

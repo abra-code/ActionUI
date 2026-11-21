@@ -92,4 +92,8 @@ extension ActionUIModel {
         }
         _ = try loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
     }
+
+    /// The largest document any load takes, in bytes (WindowModel.maximumDocumentSize), for the
+    /// application module, which reads a WindowGroup document before loading its content.
+    package static var maximumDocumentSize: Int { WindowModel.maximumDocumentSize }
 }

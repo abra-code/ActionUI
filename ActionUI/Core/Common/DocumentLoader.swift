@@ -70,6 +70,17 @@ public final class DocumentOrigin: Sendable, Equatable, CustomStringConvertible 
     }
 }
 
+/// At most `loads` LoadableView loads per window in any `seconds` (ActionUIModel.loadBudget).
+public struct ActionUILoadBudget: Sendable, Equatable {
+    public var loads: Int
+    public var seconds: Double
+
+    public init(loads: Int, seconds: Double) {
+        self.loads = loads
+        self.seconds = seconds
+    }
+}
+
 /// Something a part of a window's content may do, which the trust policy is asked about
 /// (ActionUIModel.allows). The renderers ask before each.
 public enum ActionUICapability: Sendable, Equatable {
@@ -201,13 +212,23 @@ enum ActionUIDocumentLoader {
     /// The contents of the local file at `url`, which must be a regular file once symbolic links
     /// are followed. A document names the path, so it could name a device such as /dev/zero or a
     /// named pipe, and reading one would never end (or never begin) on the main thread.
+    /// A file larger than `maximumFileSize` is refused before it is read: a document is refused at
+    /// 16 MB when it loads anyway (WindowModel.maximumDocumentSize), so reading more only costs memory.
     nonisolated static func readRegularFile(_ url: URL) throws -> Data {
         // Not regularFilePath: a missing file keeps the system's own "no such file" error here.
         let path = url.resolvingSymlinksInPath().path
-        let type = try FileManager.default.attributesOfItem(atPath: path)[.type] as? FileAttributeType
-        guard type == .typeRegular else { throw NotARegularFile(path: url.path) }
+        let attributes = try FileManager.default.attributesOfItem(atPath: path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular else { throw NotARegularFile(path: url.path) }
+        // An Int on Apple (bridged), possibly a UInt64 in swift-corelibs.
+        let size = (attributes[.size] as? Int) ?? (attributes[.size] as? UInt64).map { Int(clamping: $0) }
+        if let size, size > maximumFileSize {
+            throw ActionUIError("\(url.lastPathComponent) is larger than \(maximumFileSize / (1024 * 1024)) MB")
+        }
         return try Data(contentsOf: URL(fileURLWithPath: path))
     }
+
+    /// The largest file readRegularFile reads (the document cap, 16 MB).
+    nonisolated static let maximumFileSize = 16 * 1024 * 1024
 
     /// The path of `url` with symbolic links followed, when it names a regular file; nil for a
     /// folder, a device, a pipe, a socket or nothing. For readers that open the file themselves,

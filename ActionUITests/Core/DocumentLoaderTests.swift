@@ -410,6 +410,68 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertEqual(DefaultTrustPolicy().trust(for: .file("/tmp/a.json"), inside: nil, byDefault: .lessTrusted), .lessTrusted)
     }
 
+    func testAWindowsLoadsAreCappedPerSpanOfTime() throws {
+        let recording = RecordingLogger()
+        ActionUIModel.shared.logger = recording
+        // A long span while counting, so a slow machine cannot let a load expire in the middle.
+        ActionUIModel.shared.loadBudget = ActionUILoadBudget(loads: 3, seconds: 60)
+        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        for _ in 0..<3 {
+            _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
+        }
+        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
+                                                             parentID: 100, source: nil)) { error in
+            XCTAssertEqual("\(error)", "too many loads in this window")
+        }
+        XCTAssertNotNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[200], "the content loaded before stays")
+        XCTAssertEqual(recording.errors.count, 1)
+        // The window's own reload does not reset the count; another window has its own.
+        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
+                                                             parentID: 100, source: nil))
+        let other = UUID().uuidString
+        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: other, isContentView: true, parentID: 0, source: nil)
+        XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: other, isContentView: false, parentID: 100, source: nil))
+        // Once the span has passed, loads go on (the span read at each load, shortened here).
+        ActionUIModel.shared.loadBudget = ActionUILoadBudget(loads: 3, seconds: 0.2)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil))
+    }
+
+    func testADocumentLargerThanTheCapIsRefused() throws {
+        let recording = RecordingLogger()
+        ActionUIModel.shared.logger = recording
+        let saved = WindowModel.maximumDocumentSize
+        defer { WindowModel.maximumDocumentSize = saved }
+        WindowModel.maximumDocumentSize = root.count
+        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        WindowModel.maximumDocumentSize = root.count - 1
+        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true,
+                                                             parentID: 0, source: nil)) { error in
+            XCTAssertEqual("\(error)", "the document is larger than 0 MB")
+        }
+        WindowModel.maximumDocumentSize = panel.count - 1
+        XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
+                                                             parentID: 100, source: nil))
+        XCTAssertThrowsError(try ActionUIModel.shared.windowModels[windowUUID]?.loadModalDescription(from: panel, format: "json"))
+        XCTAssertEqual(recording.errors.count, 3)
+        XCTAssertEqual(saved, 16 * 1024 * 1024, "16 MB")
+    }
+
+    func testAFileLargerThanTheCapIsNotRead() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-big-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let exact = folder.appendingPathComponent("exact.json")
+        let over = folder.appendingPathComponent("over.json")
+        try Data(count: ActionUIDocumentLoader.maximumFileSize).write(to: exact)
+        try Data(count: ActionUIDocumentLoader.maximumFileSize + 1).write(to: over)
+        XCTAssertEqual(try ActionUIDocumentLoader.readRegularFile(exact).count, ActionUIDocumentLoader.maximumFileSize)
+        XCTAssertThrowsError(try ActionUIDocumentLoader.readRegularFile(over)) { error in
+            XCTAssertEqual("\(error)", "over.json is larger than 16 MB")
+        }
+    }
+
     func testViewDidLoadFiresOncePerSource() throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         var fired: [Int] = []

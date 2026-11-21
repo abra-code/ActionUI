@@ -450,6 +450,19 @@ final class AppCommandsTests: XCTestCase {
         XCTAssertFalse(AdwaitaApplication.isInResourceFolder(own), "a resource folder of / trusts nothing")
     }
 
+    func testAWindowGroupLargerThanTheCapIsLeftForTheLoadToRefuse() throws {
+        let document = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
+        let saved = WindowModel.maximumDocumentSize
+        defer { WindowModel.maximumDocumentSize = saved }
+        WindowModel.maximumDocumentSize = document.count - 1
+        let group = AdwaitaApplication.shared.windowGroup(document, format: "json")
+        XCTAssertEqual(group.data, document, "not parsed, so its smaller content cannot slip under the cap")
+        XCTAssertNil(group.title)
+        XCTAssertThrowsError(try ActionUIModel.shared.loadWindowDocument(group.data, format: "json", windowUUID: UUID().uuidString)) { error in
+            XCTAssertEqual("\(error)", "the document is larger than 0 MB")
+        }
+    }
+
     func testAWindowGroupWithoutContentCannotBeLoaded() {
         let group = AdwaitaApplication.shared.windowGroup(Data(#"{"type": "WindowGroup", "properties": {"title": "Empty"}}"#.utf8), format: "json")
         XCTAssertEqual(group.error, "the WindowGroup has no content", "as Apple shows \"No content provided\"")

@@ -782,9 +782,10 @@ public final class AdwaitaApplication {
     /// primary menu when its window shows, once per group (by windowGroupID, else title, as Apple
     /// names the group); one with no content cannot be loaded, as Apple shows "No content
     /// provided". Any other document comes back as it is. JSON only: a property list has no
-    /// WindowGroup scene.
+    /// WindowGroup scene. One larger than the cap comes back unread, for the load to refuse: its
+    /// content alone could be under the cap.
     func windowGroup(_ data: Data, format: String) -> WindowDocument {
-        guard format == "json",
+        guard format == "json", data.count <= ActionUIModel.maximumDocumentSize,
               let parsed = (try? ActionUIJSON.value(from: String(decoding: data, as: UTF8.self))) as? [String: Any],
               parsed["type"] as? String == "WindowGroup" else { return WindowDocument(data: data) }
         // Its platform overrides ("title:linux" and the like) resolved first, as Core resolves them

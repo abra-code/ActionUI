@@ -7,5 +7,6 @@ extension ActionUIModel {
         shared.actionHandlers.removeAll()
         shared.removeDefaultActionHandler()
         shared.trustPolicy = DefaultTrustPolicy()
+        shared.loadBudget = ActionUILoadBudget(loads: 256, seconds: 60)
     }
 }
