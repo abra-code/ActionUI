@@ -155,6 +155,7 @@ PREVIEW_OPTIONS = {
     "ControlSizes": ["560", "300"],
     "Tints": ["560", "420"],
     "TextAlignments": ["520", "320"],
+    "TextSelections": ["460", "160"],
     "Sheets": ["440", "300", "--invoke", "2", "--delay", "500", "--expect-state", "2", "sheetVisible", "true",
                "--expect-automation", "11", "name", "A sheet", "--invoke", "13", "--expect-action", "sheet.done"],
     "Popovers": ["440", "260", "--invoke", "4", "--delay", "500", "--expect-automation", "40", "name", "A sheet the host closes",

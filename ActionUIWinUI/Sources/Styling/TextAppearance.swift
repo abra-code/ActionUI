@@ -11,7 +11,8 @@
  a sized font keeps its size and weight; monospaced is Cascadia Mono (Consolas where it is
  missing), serif Cambria; a named font is that family at the body size.
 
- multilineTextAlignment passes down the same way (a VStack's lines up the Texts in it).
+ multilineTextAlignment and textSelection pass down the same way (a VStack's lines up the Texts in
+ it, or makes them selectable).
  The tint (SwiftUI's tint) passes down the same way: the tint and link styles paint with it (Paint),
  as Linux's accent variables do. The controls' accent comes from the tinted element's resources,
  which WinUI looks up through its subtree (RenderNode.applyTint).
@@ -32,8 +33,11 @@ struct TextAppearance: Equatable {
     var tint: String?
     /// multilineTextAlignment: how a Text's wrapped lines line up (nil: leading, SwiftUI's default).
     var multilineAlignment: BaseModifiers.TextAlignment?
+    /// textSelection: whether a Text's text can be selected (nil: not, SwiftUI's default).
+    var textSelection: BaseModifiers.TextSelection?
 
-    /// This appearance with an element's own font, foregroundStyle, tint and multilineTextAlignment over it.
+    /// This appearance with an element's own font, foregroundStyle, tint, multilineTextAlignment and
+    /// textSelection over it.
     @MainActor
     func applying(_ modifiers: BaseModifiers) -> TextAppearance {
         var appearance = self
@@ -48,6 +52,9 @@ struct TextAppearance: Equatable {
         }
         if let alignment = modifiers.multilineTextAlignment {
             appearance.multilineAlignment = alignment
+        }
+        if let selection = modifiers.textSelection {
+            appearance.textSelection = selection
         }
         return appearance
     }

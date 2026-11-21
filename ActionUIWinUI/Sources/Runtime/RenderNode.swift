@@ -41,8 +41,9 @@ package final class RenderNode {
     /// The axes along which a stack can make the element smaller than it asks for (the renderer's
     /// compression).
     private(set) var compression: Expansion = []
-    /// The font, foreground, tint and line alignment of the element's text: its own modifiers over
-    /// its parent's appearance, which descendants inherit (as SwiftUI's environment passes them down).
+    /// The font, foreground, tint, line alignment and selection of the element's text: its own
+    /// modifiers over its parent's appearance, which descendants inherit (as SwiftUI's environment
+    /// passes them down).
     private(set) var textAppearance = TextAppearance()
     /// The appearance last applied to the WinUI object (applyTextAppearance), to set it only on a
     /// change.

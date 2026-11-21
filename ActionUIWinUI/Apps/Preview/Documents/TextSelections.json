@@ -1,0 +1,53 @@
+{
+ "type": "VStack",
+ "id": 1,
+ "properties": {
+  "alignment": "leading",
+  "padding": 16,
+  "spacing": 10
+ },
+ "children": [
+  {
+   "type": "VStack",
+   "id": 2,
+   "properties": {
+    "alignment": "leading",
+    "spacing": 6,
+    "textSelection": "enabled"
+   },
+   "children": [
+    {
+     "type": "Text",
+     "id": 3,
+     "properties": {
+      "text": "Selectable (from its VStack): drag over it to select, then copy."
+     }
+    },
+    {
+     "type": "Text",
+     "id": 4,
+     "properties": {
+      "text": "Not selectable: its own textSelection is disabled.",
+      "textSelection": "disabled"
+     }
+    }
+   ]
+  },
+  {
+   "type": "Text",
+   "id": 5,
+   "properties": {
+    "text": "Selectable on its own.",
+    "textSelection": "enabled"
+   }
+  },
+  {
+   "type": "Text",
+   "id": 6,
+   "properties": {
+    "text": "Not selectable (the default).",
+    "foregroundStyle": "secondary"
+   }
+  }
+ ]
+}

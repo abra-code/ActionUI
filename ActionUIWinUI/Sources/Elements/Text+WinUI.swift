@@ -13,6 +13,14 @@
  as on Apple and Linux. The TextBlock is as wide as its widest line, as SwiftUI's Text box is, so its
  parent places the box and the alignment places the lines in it.
 
+ textSelection, its own or inherited, lets the user select the text with the pointer and copy it
+ (WinUI's selectable TextBlock, its context menu's Copy and Ctrl+C), as on Apple and Linux. It is no
+ tab stop and takes no first focus, as SwiftUI's selectable Text; a click on it takes the keyboard
+ focus (for Ctrl+C). WinUI's selection takes the pointer's press and tap: a popover a selectable
+ Text shows on a tap does not open from a click on its text, and a List row is not selected by a
+ click on a selectable Text in it (its padding still selects it); how macOS handles both is not
+ measured yet.
+
  Not yet: Markdown shows its source as is (asterisks included): Core's default markdown hook makes
  no styles, and the Markdown parser the GTK renderer uses has not moved to the shared code yet.
 */
@@ -56,6 +64,14 @@ extension Text: ActionUIWinUIRenderer {
                 ActionUIModel.shared.logger.log("Text: \(WinUIError.last("aligning a TextBlock's lines"))", .error)
             }
         }
+        let selectable = node.textAppearance.textSelection == .enabled
+        if selectable != state.selectable {
+            if actionUIWinUITextBlockSetSelectable(view.pointer, selectable) {
+                state.selectable = selectable
+            } else {
+                ActionUIModel.shared.logger.log("Text: \(WinUIError.last("making a TextBlock selectable"))", .error)
+            }
+        }
         // Set only when it changed: a new text changes the TextBlock's size, and WinUI lays its
         // parents out again.
         if state.text != shown {
@@ -90,4 +106,6 @@ extension Text: ActionUIWinUIRenderer {
     var text: String?
     /// The line alignment last given to the TextBlock; nil before the first.
     var alignment: ActionUIWinUITextAlignment?
+    /// Whether the TextBlock was last made selectable; nil before the first.
+    var selectable: Bool?
 }

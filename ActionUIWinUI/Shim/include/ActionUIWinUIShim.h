@@ -125,6 +125,8 @@ ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetWraps(ActionUIWinUIObject *text
 // Whether a text that does not fit its width is cut short with an ellipsis (a character boundary), as
 // a macOS Table cell's; a new TextBlock is not.
 ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetTrimmed(ActionUIWinUIObject *textBlock, bool trimmed);
+// Whether the user can select `textBlock`'s text with the pointer and copy it (its context menu, Ctrl+C).
+ACTIONUI_WINUI_API bool actionUIWinUITextBlockSetSelectable(ActionUIWinUIObject *textBlock, bool selectable);
 typedef enum ActionUIWinUITextAlignment {
     ActionUIWinUITextLeading = 0,
     ActionUIWinUITextCenter = 1,

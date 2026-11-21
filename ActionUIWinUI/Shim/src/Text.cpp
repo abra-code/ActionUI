@@ -37,6 +37,16 @@ bool actionUIWinUITextBlockSetTrimmed(ActionUIWinUIObject *textBlock, bool trimm
     });
 }
 
+bool actionUIWinUITextBlockSetSelectable(ActionUIWinUIObject *textBlock, bool selectable) {
+    return guarded("text block set selectable", [&]() {
+        muxc::TextBlock typed = objectAs<muxc::TextBlock>(textBlock, L"TextBlock");
+        if (typed.IsTextSelectionEnabled() != selectable) {
+            typed.IsTextSelectionEnabled(selectable);
+        }
+        return true;
+    });
+}
+
 bool actionUIWinUITextBlockSetAlignment(ActionUIWinUIObject *textBlock, ActionUIWinUITextAlignment alignment) {
     return guarded("text block set alignment", [&]() {
         mux::TextAlignment wanted = alignment == ActionUIWinUITextCenter   ? mux::TextAlignment::Center
