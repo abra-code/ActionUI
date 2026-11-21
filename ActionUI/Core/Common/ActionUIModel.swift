@@ -175,7 +175,9 @@ public class ActionUIModel {
     }
 
     // The model of a window about to load a document: every document starts here, so the first one is the first use.
+    // The configuration is fixed from here on (ActionUIConfiguration).
     private func windowModelForLoading(_ windowUUID: String) -> WindowModel {
+        ActionUIConfiguration.fix()
         registerLinkedAddOnsOnce()
         return windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
     }
@@ -222,15 +224,6 @@ public class ActionUIModel {
         }
         return try windowModel.loadSubViewDescription(from: data, format: format, parentID: parentID, origin: origin)
     }
-
-    /// How many documents the LoadableViews of one window may load in a span of time (on Apple a
-    /// LoadableWindowGroup's own load counts too, once per window): one more is refused, with
-    /// "Failed to load view: too many loads in this window". Documents that load each other can
-    /// multiply their loads past what the depth limit stops (7 small files that each list the others
-    /// made about 2000 loads in 4 seconds). On Apple a LoadableView loads its document again each
-    /// time its own properties change, so a host that changes them many times a minute raises the
-    /// count.
-    public var loadBudget = ActionUILoadBudget(loads: 256, seconds: 60)
 
     /// The host's say over trust and what content may do (ActionUITrustPolicy); set it before
     /// loading. DefaultTrustPolicy unless the host sets one.

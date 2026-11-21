@@ -131,9 +131,9 @@ extension LoadableView: ActionUIAdwaitaRenderer {
                     result = .success(try await ActionUIDocumentLoader.loadRemote(
                         url: url, windowUUID: windowUUID, isContentView: false, parentID: parentID, logger: logger,
                         fetch: { url in
-                            let data = try await URLLoader.data(url)
+                            let fetched = try await URLLoader.data(url, maximumSize: URLLoader.maximumJSONFetchSize)
                             guard isCurrent() else { throw CancellationError() }
-                            return data
+                            return fetched
                         }))
                 } catch {
                     result = .failure(error)

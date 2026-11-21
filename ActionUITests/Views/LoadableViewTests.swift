@@ -11,13 +11,21 @@ import SwiftUI
 @testable import ActionUI
 
 /// Serves fixed bodies for RemoteJSONFetch: /big (1001 bytes), /exact (1000), /told (says
-/// 5000 bytes in Content-Length), /stall (headers, then nothing).
+/// 5000 bytes in Content-Length), /stall (headers, then nothing), /moved (a redirect to
+/// https://elsewhere.invalid/exact).
 private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         guard let url = request.url else { return }
+        if url.path == "/moved" {
+            let target = URL(string: "https://elsewhere.invalid/exact")!
+            let redirect = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
+                                           headerFields: ["Location": target.absoluteString])!
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: target), redirectResponse: redirect)
+            return
+        }
         var headers = ["Content-Type": "application/json"]
         let body: Data?
         switch url.path {
@@ -471,10 +479,10 @@ final class LoadableViewTests: XCTestCase {
         let resources = folder.appendingPathComponent("Resources")
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         defer {
-            ActionUIResourceFolder.path = nil
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
             try? FileManager.default.removeItem(at: folder)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
         let inside = resources.appendingPathComponent("Root.json")
         let outside = folder.appendingPathComponent("Other.json")
         try Data(#"{"id": 5, "type": "Link", "properties": {"title": "In", "url": "file:///etc/hosts"}}"#.utf8).write(to: inside)
@@ -493,13 +501,13 @@ final class LoadableViewTests: XCTestCase {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("loadable-view-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer {
-            ActionUIResourceFolder.path = nil
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
             try? FileManager.default.removeItem(at: folder)
         }
         let file = folder.appendingPathComponent("Panel.json")
         try Data("{}".utf8).write(to: file)
         XCTAssertNil(LoadableView.resourceURL("Panel", "json"))
-        ActionUIResourceFolder.path = folder.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder.path }
         XCTAssertEqual(LoadableView.resourceURL("Panel", "json")?.path, file.path)
         XCTAssertNil(LoadableView.resourceURL("Panel", "plist"))
         let source = ActionUIDocumentLoader.source(for: "Panel", bundleURL: LoadableView.resourceURL, logger: logger)
@@ -511,10 +519,10 @@ final class LoadableViewTests: XCTestCase {
         let resources = folder.appendingPathComponent("Resources")
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         defer {
-            ActionUIResourceFolder.path = nil
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
             try? FileManager.default.removeItem(at: folder)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
         let inside = resources.appendingPathComponent("Root.json")
         let outside = folder.appendingPathComponent("Other.json")
         try Data(#"{"id": 5, "type": "Text", "properties": {"text": "In"}}"#.utf8).write(to: inside)
@@ -538,7 +546,7 @@ final class LoadableViewTests: XCTestCase {
         let session = URLSession(configuration: configuration)
         func fetch(_ path: String, timeout: Double = 10) async throws -> Data {
             try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
-                                               timeout: timeout, session: session)
+                                               timeout: timeout, session: session).data
         }
         let exact = try await fetch("/exact")
         XCTAssertEqual(exact.count, 1000, "exactly the cap loads")
@@ -563,5 +571,18 @@ final class LoadableViewTests: XCTestCase {
         }
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
         XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
+    }
+
+    func testRemoteJSONGivesTheAddressItFinallyCameFrom() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubJSONProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let direct = try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid/exact")!), limit: 1000,
+                                                    session: session)
+        XCTAssertEqual(direct.finalURL, URL(string: "https://stub.invalid/exact"))
+        let moved = try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid/moved")!), limit: 1000,
+                                                   session: session)
+        XCTAssertEqual(moved.finalURL, URL(string: "https://elsewhere.invalid/exact"), "the redirect's target, not the address asked for")
+        XCTAssertEqual(moved.data.count, 1000)
     }
 }

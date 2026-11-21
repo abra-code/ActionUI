@@ -5,19 +5,23 @@
 
 import SwiftUI
 
-/// Fetches a remote document with limits, as the Linux loader does: the body is read as
-/// it arrives and refused once it grows past `limit` bytes (the document cap: a larger document is
+/// Fetches remote ActionUI JSON with limits, as the Linux loader does: the body is read as
+/// it arrives and refused once it grows past `limit` bytes (the JSON size cap: larger ActionUI JSON is
 /// refused when it loads anyway), and the whole fetch is given up after `timeout` seconds, however
-/// slowly the server sends. URLSession's own timeout only covers a pause between pieces.
+/// slowly the server sends. URLSession's own timeout only covers a pause between pieces. Gives the
+/// address the body finally came from too, after redirects, which decides how far it is trusted.
 enum RemoteJSONFetch {
     /// The longest a whole fetch may take, in seconds (the Linux loader's 120 s).
     static let defaultTimeout: Double = 120
 
     static func data(for request: URLRequest, limit: Int, timeout: Double = defaultTimeout,
-                     session: URLSession = .shared) async throws -> Data {
-        try await withThrowingTaskGroup(of: Data?.self) { group in
+                     session: URLSession = .shared) async throws -> (data: Data, finalURL: URL) {
+        try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
             group.addTask {
                 let (bytes, response) = try await session.bytes(for: request)
+                // Not the requested address when the response names none: after a redirect that
+                // would pass another server's JSON for the requested server's.
+                guard let finalURL = response.url else { throw ActionUIError("the response names no address") }
                 // Refused at once when the server says how long the body is.
                 guard response.expectedContentLength <= Int64(limit) else { throw tooLarge(limit) }
                 var data = Data()
@@ -26,17 +30,17 @@ enum RemoteJSONFetch {
                     guard data.count < limit else { throw tooLarge(limit) }
                     data.append(byte)
                 }
-                return data
+                return (data, finalURL)
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 return nil
             }
             defer { group.cancelAll() }
-            guard let first = try await group.next(), let data = first else {
+            guard let first = try await group.next(), let result = first else {
                 throw ActionUIError("loading it took longer than \(Int(timeout)) seconds")
             }
-            return data
+            return result
         }
     }
 

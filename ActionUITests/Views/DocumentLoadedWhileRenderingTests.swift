@@ -155,7 +155,7 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         spin(0.5)
         let loads = logger.messages.filter { $0.hasPrefix("Successfully loaded json for LoadableView from") }.count
         let refused = logger.messages.filter { $0.contains("loads in 60 s already") }.count
-        XCTAssertLessThanOrEqual(loads, ActionUIModel.shared.loadBudget.loads + 1, "the window's root and the budget's loads")
+        XCTAssertLessThanOrEqual(loads, ActionUIConfiguration.current.limits.loadBudget.loads + 1, "the window's root and the budget's loads")
         XCTAssertGreaterThan(refused, 0, "the rest is refused")
         XCTAssertLessThan(Date().timeIntervalSince(start), 10)
     }

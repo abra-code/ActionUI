@@ -70,7 +70,7 @@ public final class JSONContentOrigin: Sendable, Equatable, CustomStringConvertib
     }
 }
 
-/// At most `loads` LoadableView loads per window in any `seconds` (ActionUIModel.loadBudget).
+/// At most `loads` LoadableView loads per window in any `seconds` (ActionUIConfiguration.limits.loadBudget).
 public struct ActionUILoadBudget: Sendable, Equatable {
     public var loads: Int
     public var seconds: Double
@@ -337,8 +337,8 @@ enum ActionUIDocumentLoader {
     /// The contents of the local file at `url`, which must be a regular file once symbolic links
     /// are followed. A document names the path, so it could name a device such as /dev/zero or a
     /// named pipe, and reading one would never end (or never begin) on the main thread.
-    /// A file larger than `maximumFileSize` is refused before it is read: a document is refused at
-    /// 16 MB when it loads anyway (WindowModel.maximumJSONSize), so reading more only costs memory.
+    /// A file larger than `maximumFileSize` is refused before it is read: larger ActionUI JSON is
+    /// refused when it loads anyway (WindowModel.maximumJSONSize), so reading more only costs memory.
     nonisolated static func readRegularFile(_ url: URL) throws -> Data {
         // Not regularFilePath: a missing file keeps the system's own "no such file" error here.
         let path = url.resolvingSymlinksInPath().path
@@ -352,8 +352,8 @@ enum ActionUIDocumentLoader {
         return try Data(contentsOf: URL(fileURLWithPath: path))
     }
 
-    /// The largest file readRegularFile reads (the document cap, 16 MB).
-    nonisolated static let maximumFileSize = 16 * 1024 * 1024
+    /// The largest file readRegularFile reads (ActionUIConfiguration.limits.maximumJSONSize).
+    nonisolated static var maximumFileSize: Int { ActionUIConfiguration.current.limits.maximumJSONSize }
 
     /// The path of `url` with symbolic links followed, when it names a regular file; nil for a
     /// folder, a device, a pipe, a socket or nothing. For readers that open the file themselves,
@@ -372,8 +372,8 @@ enum ActionUIDocumentLoader {
     }
 
     /// How deep LoadableViews may nest: one whose LoadableViews around it already number this many
-    /// is refused.
-    nonisolated static var maxNestingDepth: Int { 16 }
+    /// is refused (ActionUIConfiguration.limits.maximumNestingDepth).
+    nonisolated static var maxNestingDepth: Int { ActionUIConfiguration.current.limits.maximumNestingDepth }
 
     /// The text a LoadableView's source is known by when the nesting rule compares sources: a remote
     /// URL as written, a file with symbolic links resolved and the path standardized.
@@ -396,21 +396,23 @@ enum ActionUIDocumentLoader {
 
     /// Where content loaded from `source` came from and how far it is trusted, inside content of
     /// origin `parent` (nil: the host's), into the LoadableView `parentID` (nil: as a window's root).
-    /// A remote document is less trusted; a file is trusted only inside one of `resourceFolders`
-    /// (symbolic links followed); then the lower of that and the parent's trust, so a bundled file
-    /// that remote content names stays less trusted.
+    /// Remote ActionUI JSON is less trusted unless it came from one of `trustedOrigins` (https
+    /// only); a file is trusted only inside one of `resourceFolders` (symbolic links followed); then
+    /// the lower of that and the parent's trust, so a bundled file or a trusted server that remote
+    /// content names stays less trusted.
     nonisolated static func origin(
         for source: Source,
         inside parent: JSONContentOrigin?,
         parentID: Int?,
-        resourceFolders: [String]
+        resourceFolders: [String],
+        trustedOrigins: [URL] = []
     ) -> JSONContentOrigin {
         let kind: JSONContentOrigin.Source
         let own: JSONContentOrigin.Trust
         switch source {
         case .remote(let url):
             kind = .remote(url)
-            own = .lessTrusted
+            own = ActionUIConfiguration.isTrustedOrigin(url, among: trustedOrigins) ? .trusted : .lessTrusted
         case .file(let url):
             let path = url.resolvingSymlinksInPath().standardizedFileURL.path
             if resourceFolders.contains(where: { ActionUIResourceFolder.isFile(url, inside: $0) }) {
@@ -459,26 +461,32 @@ enum ActionUIDocumentLoader {
         let unknownParent = !isContentView && parentID != 0 && parentModel == nil
         let parent: JSONContentOrigin? = isContentView || unknownParent ? nil : (parentModel?.origin ?? .host)
         let classified = Self.origin(for: source, inside: parent, parentID: isContentView ? nil : parentID,
-                                     resourceFolders: ActionUIRendererHooks.resourceFolders())
+                                     resourceFolders: ActionUIRendererHooks.resourceFolders(),
+                                     trustedOrigins: ActionUIConfiguration.current.trust.trustedOrigins)
         let byDefault: JSONContentOrigin.Trust = unknownParent ? .lessTrusted : classified.trust
         let trust = ActionUIModel.shared.trustPolicy.trust(for: classified.source, inside: parent, byDefault: byDefault)
         return trust == classified.trust ? classified : JSONContentOrigin(source: classified.source, trust: trust, parentID: classified.parentID)
     }
 
-    /// Fetches `url` with `fetch`, then loads it as `load` does, with the format of the URL.
+    /// Fetches `url` with `fetch`, then loads it as `load` does, with the format of the URL. `fetch`
+    /// gives the data and the address it finally came from, after redirects, which decides its
+    /// origin: a trusted server that redirects elsewhere does not make the other server's JSON trusted.
     static func loadRemote(
         url: URL,
         windowUUID: String,
         isContentView: Bool,
         parentID: Int,
         logger: any ActionUILogger,
-        fetch: (URL) async throws -> Data
+        fetch: (URL) async throws -> (data: Data, finalURL: URL)
     ) async throws -> ActionUIElement {
-        let data = try await fetch(url)
+        let (data, finalURL) = try await fetch(url)
         let format = format(of: url)
         logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
+        if finalURL != url {
+            logger.log("Remote URL \(url) was redirected to \(finalURL)", .debug)
+        }
         let element = try load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView,
-                               parentID: parentID, source: .remote(url))
+                               parentID: parentID, source: .remote(finalURL))
         logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
         return element
     }

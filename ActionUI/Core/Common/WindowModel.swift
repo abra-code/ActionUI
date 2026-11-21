@@ -33,13 +33,13 @@ final class WindowModel {
     let windowUUID: String
     private let logger: any ActionUILogger
     /// When the window's recent LoadableView loads happened, for the load budget
-    /// (ActionUIModel.loadBudget). Here, outside the view tree, so rendering again does not reset it.
+    /// (ActionUIConfiguration.limits.loadBudget). Here, outside the view tree, so rendering again does not reset it.
     /// Seconds of system uptime, not Date: setting the system clock back must not keep old loads counted.
     @ObservationIgnored private var recentLoads: [TimeInterval] = []
 
-    /// The largest document any load takes, in bytes (16 MB, for every document, whoever loads it).
-    /// Settable for tests.
-    static var maximumJSONSize = 16 * 1024 * 1024
+    /// The largest ActionUI JSON any load takes, in bytes, whoever loads it
+    /// (ActionUIConfiguration.limits.maximumJSONSize, 16 MB by default).
+    static var maximumJSONSize: Int { ActionUIConfiguration.current.limits.maximumJSONSize }
 
     init(windowUUID: String, logger: any ActionUILogger) {
         self.windowUUID = windowUUID
@@ -78,10 +78,10 @@ final class WindowModel {
         throw ActionUIError("the ActionUI JSON is larger than \(Self.maximumJSONSize / (1024 * 1024)) MB")
     }
 
-    // Counts one LoadableView load against ActionUIModel.loadBudget, or refuses it when the window has
+    // Counts one LoadableView load against the configuration's load budget, or refuses it when the window has
     // used the budget up in the last span.
     private func spendLoad() throws {
-        let budget = ActionUIModel.shared.loadBudget
+        let budget = ActionUIConfiguration.current.limits.loadBudget
         let now = ProcessInfo.processInfo.systemUptime
         recentLoads.removeAll { now - $0 >= budget.seconds }
         guard recentLoads.count < budget.loads else {

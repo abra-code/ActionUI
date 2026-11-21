@@ -128,8 +128,8 @@ final class WebViewRendererTests: XCTestCase {
         try Data("document.title = document.title + ' ' + window.fromFile + ' resource';".utf8)
             .write(to: URL(fileURLWithPath: folder + "/ending.js"))
         let previousFolder = ActionUIResourceFolder.path
-        ActionUIResourceFolder.path = folder
-        defer { ActionUIResourceFolder.path = previousFolder }
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder }
+        defer { ActionUIConfiguration.updateForTesting { $0.resourceFolder = previousFolder } }
         _ = try render(#"""
             "html": "<title>Page</title><script>document.title += ' ' + window.fromSource</script>",
             "userScripts": [

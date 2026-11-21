@@ -418,10 +418,10 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
         let savedFolder = ActionUIResourceFolder.path
         defer {
-            ActionUIResourceFolder.path = savedFolder
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = savedFolder }
             try? FileManager.default.removeItem(at: base)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
 
         let own = try windowGroupFile(resources, name: "Main.json", menu: "Own Tools")
         let outside = try windowGroupFile(elsewhere, name: "Other.json", menu: "Outside Tools")
@@ -444,17 +444,17 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createDirectory(at: composed, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: decomposed, withIntermediateDirectories: true)
         let sibling = try windowGroupFile(decomposed, name: "Main.json", menu: "Sibling Tools")
-        ActionUIResourceFolder.path = composed.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = composed.path }
         XCTAssertFalse(AdwaitaApplication.isInResourceFolder(sibling), "a folder spelled with a combining accent is elsewhere")
-        ActionUIResourceFolder.path = "/"
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = "/" }
         XCTAssertFalse(AdwaitaApplication.isInResourceFolder(own), "a resource folder of / trusts nothing")
     }
 
     func testAWindowGroupLargerThanTheCapIsLeftForTheLoadToRefuse() throws {
         let document = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
         let saved = WindowModel.maximumJSONSize
-        defer { WindowModel.maximumJSONSize = saved }
-        WindowModel.maximumJSONSize = document.count - 1
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = saved } }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = document.count - 1 }
         let group = AdwaitaApplication.shared.windowGroup(document, format: "json")
         XCTAssertEqual(group.data, document, "not parsed, so its smaller content cannot slip under the cap")
         XCTAssertNil(group.title)
@@ -565,10 +565,10 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         let savedFolder = ActionUIResourceFolder.path
         defer {
-            ActionUIResourceFolder.path = savedFolder
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = savedFolder }
             try? FileManager.default.removeItem(at: resources)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
         let file = try windowGroupFile(resources, name: "Main.json", menu: "Group Tools")
 
         let app = AdwaitaApplication()
