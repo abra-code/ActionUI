@@ -167,6 +167,56 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertTrue(LinkTrust.allows("https://example.com", stray))
     }
 
+    func testAnImageInRemoteJSONReadsNoLocalFileOutsideTheResources() throws {
+        let png = try TestImages.file(TestImages.png(width: 4, height: 4), name: "loadable-reads.png")
+        files.append(png)
+        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 40, "children": [{"type": "Image", "id": 41, "properties": {"filePath": "\#(png)"}}]}"#)
+        self.server = server
+        let node = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Image", "id": 2, "properties": {"filePath": "\#(png)"}}, {"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}]}"#)
+        let loadable = try XCTUnwrap(node.childNodes[3])
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { loadable.childNodes[40] != nil }))
+        let remoteImage = try XCTUnwrap(loadable.childNodes[40]?.childNodes[41])
+        let hostImage = try XCTUnwrap(node.childNodes[2])
+        XCTAssertEqual(Image.content(remoteImage, Image.Props(remoteImage.properties)), .symbol(ImageSource.placeholderSymbol),
+                       "less trusted: a file outside the app's resources is not read")
+        XCTAssertEqual(Image.content(hostImage, Image.Props(hostImage.properties)), .file(png), "the host's content reads it")
+        XCTAssertFalse(LinkTrust.readsLocalFile(png, remoteImage))
+        XCTAssertTrue(LinkTrust.readsLocalFile(png, hostImage))
+        XCTAssertFalse(LinkTrust.readsLocalFile(png, nil), "no node: unknown origin")
+    }
+
+    func testAnAsyncImageInRemoteJSONShowsNoLocalFileAnotherElementLoaded() throws {
+        let png = try TestImages.file(TestImages.png(width: 4, height: 4), name: "loadable-kept.png")
+        files.append(png)
+        let url = TestImages.fileURL(png)
+        defer { RemoteImages.shared.removeAll() }
+        // Loaded for trusted content first: kept by URL for the whole app.
+        var loaded = false
+        RemoteImages.shared.load(url) { _ in loaded = true }
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop { loaded })
+        XCTAssertNotNil(RemoteImages.shared.texture(url))
+        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 40, "children": [{"type": "AsyncImage", "id": 41, "properties": {"url": "\#(url)"}}, {"type": "List", "id": 42, "properties": {"itemType": {"viewType": "AsyncImage"}}}]}"#)
+        self.server = server
+        let node = try render(#"{"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}"#)
+        XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { node.childNodes[40]?.childNodes[42]?.widget != nil }))
+        let remoteImage = try XCTUnwrap(node.childNodes[40]?.childNodes[41])
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertEqual(remoteImage.widgetKind, AsyncImage.Kind.placeholder.rawValue, "less trusted: the kept texture is not shown")
+        XCTAssertEqual(swiftString(G_OBJECT_TYPE_NAME_of(remoteImage.widget)), "GtkImage")
+        let list = try XCTUnwrap(node.childNodes[40]?.childNodes[42])
+        // On screen: the List's list view makes its cells only when it lays them out.
+        let gtkWindow: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
+        defer { gtk_window_destroy(gtkWindow) }
+        adw_window_set_content(typed(gtkWindow), try XCTUnwrap(windows.last).contentWidget)
+        gtk_window_present(gtkWindow)
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 42, rows: [[url]])
+        _ = AdwaitaTestHost.runMainLoop(until: { false }, timeoutMilliseconds: 300)
+        AdwaitaTestHost.drainMainLoop()
+        let lazy = try XCTUnwrap(try XCTUnwrap(attached(on: list.widget, key: listStateKey)).lazy)
+        let cell = try XCTUnwrap(lazy.cells[0]).cell
+        XCTAssertEqual(swiftString(G_OBJECT_TYPE_NAME_of(cell)), "AdwSpinner", "the List's cell keeps its spinner")
+    }
+
     func testAURLThatFinishesAfterANewSourceLoadsNothing() throws {
         let server = try TestImageServer(png: [], document: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
         self.server = server

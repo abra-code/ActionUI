@@ -15,6 +15,11 @@
    widget (widgetKind).
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
 
 private let asyncImageStateKey = AttachKey<AsyncImageState>("actionui-async-image-state")
@@ -90,6 +95,12 @@ extension AsyncImage: ActionUIAdwaitaRenderer {
             return
         }
         guard url != state.failedURL, url != state.requestedURL else { return }
+        // A file the element may not read (its content is less trusted) keeps the placeholder
+        // drawn above, as a URL that fails to load does.
+        if let fileURL = URL(string: url), fileURL.isFileURL, !LinkTrust.readsLocalFile(fileURL.path, node) {
+            state.failedURL = url
+            return
+        }
         state.requestedURL = url
         RemoteImages.shared.load(url) { [weak node, weak state] loaded in
             guard let state, state.requestedURL == url else { return }
@@ -115,7 +126,11 @@ extension AsyncImage: ActionUIAdwaitaRenderer {
     /// it, so a texture the cache dropped does not turn back into the placeholder and load again.
     private static func texture(_ url: String?, _ node: RenderNode) -> LoadedTexture? {
         guard let url else { return nil }
-        if let kept = RemoteImages.shared.texture(url) { return kept }
+        if let kept = RemoteImages.shared.texture(url) {
+            // Kept for any element: a file this one may not read is not shown from it either.
+            if let fileURL = URL(string: url), fileURL.isFileURL, !LinkTrust.readsLocalFile(fileURL.path, node) { return nil }
+            return kept
+        }
         // No widget yet while the node is being made.
         guard let widget = node.widget, let state = attached(on: widget, key: asyncImageStateKey),
               state.textureURL == url else { return nil }

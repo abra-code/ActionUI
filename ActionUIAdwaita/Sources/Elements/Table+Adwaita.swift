@@ -32,6 +32,11 @@
  Not yet: scrollContentBackground.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
 
 /// A Table's column view and rows as last shown, attached to its scrolled window.
@@ -59,6 +64,9 @@ final class TableState {
     var buttonStyle: BaseModifiers.ButtonStyleName?
     /// Whether a selection is the user's: GTK also selects when the rows change.
     let input: UserInputWatch
+    /// Whether the Table's content may read a local file (LinkTrust.readsLocalFile for its node),
+    /// set when the Table is made; refusing until then.
+    var readsFile: (String) -> Bool = { _ in false }
 
     init(view: WidgetPointer, selection: OpaquePointer, items: OpaquePointer) {
         self.view = view
@@ -114,6 +122,7 @@ extension Table: ActionUIAdwaitaRenderer {
         gtk_column_view_set_reorderable(OpaquePointer(view), 0)
         gtk_scrolled_window_set_child(OpaquePointer(scroller), view)
         let state = TableState(view: view, selection: selection, items: items)
+        state.readsFile = { [weak node] in LinkTrust.readsLocalFile($0, node) }
         attach(state, to: scroller, key: tableStateKey)
         connectUserSignal(UnsafeMutableRawPointer(selection), "notify::selected", .instanceAndArgument) { [weak node, weak state] in
             guard let node, let state else { return }
@@ -301,7 +310,8 @@ extension Table: ActionUIAdwaitaRenderer {
                 // The image is made again only for new text: a rows change shows every bound cell
                 // again.
                 if text != previous || gtk_button_get_child(typed(widget)) == nil {
-                    let image = List.imageCell(text, List.Props.DataInterpretation(rawValue: interpretation.rawValue) ?? .systemName)
+                    let image = List.imageCell(text, List.Props.DataInterpretation(rawValue: interpretation.rawValue) ?? .systemName,
+                                               readsFile: state.readsFile)
                     gtk_widget_set_halign(image, GTK_ALIGN_CENTER)
                     gtk_button_set_child(typed(widget), image)
                 }
@@ -312,10 +322,10 @@ extension Table: ActionUIAdwaitaRenderer {
         case .image:
             guard text != previous || Gtk.Widget(widget).firstChild == nil else { return }
             let interpretation = List.Props.DataInterpretation(rawValue: (cell.type.dataInterpretation ?? .systemName).rawValue) ?? .systemName
-            setOnlyChild(widget, List.imageCell(text, interpretation))
+            setOnlyChild(widget, List.imageCell(text, interpretation, readsFile: state.readsFile))
         case .asyncImage:
             guard text != previous || Gtk.Widget(widget).firstChild == nil else { return }
-            setOnlyChild(widget, asyncImage(text, cell, widget))
+            setOnlyChild(widget, asyncImage(text, cell, widget, readsFile: state.readsFile))
         case .toggle:
             let isOn = TemplateHelper.rowBool(text) ?? false
             switch cell.type.toggleStyle {
@@ -338,17 +348,21 @@ extension Table: ActionUIAdwaitaRenderer {
     /// until then a spinner, which the image replaces when it arrives if the cell still shows the
     /// same text. One that cannot be loaded keeps the spinner, as SwiftUI's cell keeps its
     /// ProgressView placeholder.
-    private static func asyncImage(_ text: String, _ cell: TableCell, _ box: WidgetPointer) -> WidgetPointer {
-        if let texture = RemoteImages.shared.texture(text) {
+    private static func asyncImage(_ text: String, _ cell: TableCell, _ box: WidgetPointer, readsFile: @escaping (String) -> Bool) -> WidgetPointer {
+        // A file the Table may not read is neither loaded nor shown from the texture kept for
+        // another element: the spinner stays, as for one that cannot be loaded.
+        let refused = URL(string: text).map { $0.isFileURL && !readsFile($0.path) } ?? false
+        if !refused, let texture = RemoteImages.shared.texture(text) {
             let picture = gtk_picture_new_for_paintable(texture.pointer)!
             gtk_picture_set_content_fit(opaque(picture), GTK_CONTENT_FIT_CONTAIN)
             gtk_widget_set_hexpand(picture, 1)
             return picture
         }
         let spinner = adw_spinner_new()!
+        if refused { return spinner }
         RemoteImages.shared.load(text) { [weak cell] loaded in
             guard loaded, let cell, cell.text == text else { return }
-            setOnlyChild(box, asyncImage(text, cell, box))
+            setOnlyChild(box, asyncImage(text, cell, box, readsFile: readsFile))
         }
         return spinner
     }

@@ -39,6 +39,11 @@
  by index).
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CAdwaita
 
 /// A List's rows as last shown, attached to its scrolled window: the signal handlers map a row
@@ -59,6 +64,9 @@ final class ListState {
     var cellType = List.Props.ViewType.text
     var cellInterpretation = List.Props.DataInterpretation.systemName
     var cellTexts: [String] = []
+    /// Whether the List's content may read a local file (LinkTrust.readsLocalFile for its node),
+    /// set when the List is made; refusing until then.
+    var readsFile: (String) -> Bool = { _ in false }
     /// The element id of each row's child (children mode).
     var childIDs: [Int] = []
     /// Each row's template instance (template mode).
@@ -123,6 +131,7 @@ extension List: ActionUIAdwaitaRenderer {
         }
         ViewportFocus.follow(scroller)
         let state = ListState(box: box)
+        state.readsFile = { [weak node] in LinkTrust.readsLocalFile($0, node) }
         attach(state, to: scroller, key: listStateKey)
         connectUserSignal(box, "row-selected", .instanceAndArgument) { [weak node] in
             guard let node else { return }
@@ -161,6 +170,7 @@ extension List: ActionUIAdwaitaRenderer {
         gtk_scrollable_set_vscroll_policy(OpaquePointer(view), GTK_SCROLL_NATURAL)
         gtk_scrolled_window_set_child(OpaquePointer(scroller), view)
         let state = ListState(box: view)
+        state.readsFile = { [weak node] in LinkTrust.readsLocalFile($0, node) }
         state.mode = showsTemplate ? .template : .rows
         state.lazy = lazy
         cellState = state
@@ -334,7 +344,7 @@ extension List: ActionUIAdwaitaRenderer {
             }
             return button
         case .image:
-            return imageCell(text, state.cellInterpretation)
+            return imageCell(text, state.cellInterpretation, readsFile: state.readsFile)
         case .asyncImage:
             return asyncImageCell(text, state)
         }
@@ -349,7 +359,7 @@ extension List: ActionUIAdwaitaRenderer {
             if let button = gtk_list_box_row_get_child(row) { gtk_button_set_label(typed(button), text) }
         case .image:
             // A symbol and a file are different widgets.
-            gtk_list_box_row_set_child(row, imageCell(text, state.cellInterpretation))
+            gtk_list_box_row_set_child(row, imageCell(text, state.cellInterpretation, readsFile: state.readsFile))
         case .asyncImage:
             gtk_list_box_row_set_child(row, asyncImageCell(text, state))
         }
@@ -367,8 +377,8 @@ extension List: ActionUIAdwaitaRenderer {
     /// An Image cell: the text read as itemType.dataInterpretation says (ImageSource, as SwiftUI's
     /// cell reads it), shown as Image shows it unresized: a symbol at the font's icon size, a file
     /// at its own size; at the leading edge.
-    static func imageCell(_ text: String, _ interpretation: Props.DataInterpretation) -> WidgetPointer {
-        let content = Image.content(ImageSource.resolve(text, interpretation: interpretation.rawValue, lookup: Image.lookup))
+    static func imageCell(_ text: String, _ interpretation: Props.DataInterpretation, readsFile: (String) -> Bool) -> WidgetPointer {
+        let content = Image.content(ImageSource.resolve(text, interpretation: interpretation.rawValue, lookup: Image.lookup), readsFile: readsFile)
         let widget: WidgetPointer
         if case .file(let path) = content {
             widget = gtk_picture_new_for_filename(path)!
@@ -386,12 +396,16 @@ extension List: ActionUIAdwaitaRenderer {
     /// leading edge that the image replaces when it arrives; one that cannot be loaded keeps the
     /// spinner, as SwiftUI's cell keeps its ProgressView placeholder.
     private static func asyncImageCell(_ text: String, _ state: ListState) -> WidgetPointer {
-        if let texture = RemoteImages.shared.texture(text) {
+        // A file the List may not read is neither loaded nor shown from the texture kept for
+        // another element: the spinner stays, as for one that cannot be loaded.
+        let refused = URL(string: text).map { $0.isFileURL && !state.readsFile($0.path) } ?? false
+        if !refused, let texture = RemoteImages.shared.texture(text) {
             return pictureCell(texture)
         }
         let spinner = adw_spinner_new()!
         gtk_widget_set_halign(spinner, GTK_ALIGN_START)
         gtk_widget_set_valign(spinner, GTK_ALIGN_CENTER)
+        if refused { return spinner }
         RemoteImages.shared.load(text) { [weak state] loaded in
             guard loaded, let state, state.cellType == .asyncImage,
                   let texture = RemoteImages.shared.texture(text) else { return }

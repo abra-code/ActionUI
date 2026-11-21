@@ -90,6 +90,11 @@ extension VideoPlayer: ActionUIAdwaitaRenderer {
         guard let state = attached(on: widget, key: videoStateKey), let video = layoutChildren(widget).first else { return }
         guard let url = url(node), url.absoluteString != state.url else { return }
         state.url = url.absoluteString
+        // A file the element may not read (its content is less trusted) is not played.
+        if url.isFileURL, !LinkTrust.readsLocalFile(url.path, node) {
+            gtk_video_set_file(opaque(video), nil)
+            return
+        }
         show(url, in: video, state)
     }
 

@@ -62,12 +62,12 @@ final class ImagePixelsTests: XCTestCase {
         XCTAssertTrue(ImagePixels.fileIsTooLarge(huge), "100 megapixels, from a file of a few bytes")
         XCTAssertFalse(ImagePixels.fileIsTooLarge(edge), "8192 x 8192 is the most")
         XCTAssertFalse(ImagePixels.fileIsTooLarge(small))
-        XCTAssertEqual(Image.content(.filePath(huge)), .symbol(ImageSource.placeholderSymbol))
-        XCTAssertEqual(Image.content(.filePath(huge)), .symbol(ImageSource.placeholderSymbol), "kept")
-        XCTAssertEqual(Image.content(.filePath(small)), .file(small))
+        XCTAssertEqual(Image.content(.filePath(huge), readsFile: { _ in true }), .symbol(ImageSource.placeholderSymbol))
+        XCTAssertEqual(Image.content(.filePath(huge), readsFile: { _ in true }), .symbol(ImageSource.placeholderSymbol), "kept")
+        XCTAssertEqual(Image.content(.filePath(small), readsFile: { _ in true }), .file(small))
         // Rewritten with a small image (a new version): sized again.
         _ = try TestImages.file(TestImages.png(width: 20, height: 10), name: "pixels-huge.png")
-        XCTAssertEqual(Image.content(.filePath(huge)), .file(huge))
+        XCTAssertEqual(Image.content(.filePath(huge), readsFile: { _ in true }), .file(huge))
     }
 
     /// A short SVG that declares a huge size is sized without being drawn at that size.
