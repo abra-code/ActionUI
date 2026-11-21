@@ -15,6 +15,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIJson
@@ -24,6 +25,7 @@ import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.resolvedOrigin
+import com.abracode.actionui.Common.uriHandlerFor
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -177,7 +179,16 @@ object LoadableView : ActionUIViewConstruction {
                 // BuildViewWithModifiers resolves the loaded element's common properties.
                 // LoadableViews inside the loaded tree see this source among those around them.
                 val inside = if (nestingKey != null) enclosing + nestingKey else enclosing
-                CompositionLocalProvider(LocalLoadableSources provides inside, LocalJSONContentOrigin provides (origin ?: around)) {
+                // Its links in Markdown text open through LocalUriHandler, which asks the trust policy
+                // for less-trusted content.
+                val shownOrigin = origin ?: around
+                val inheritedLinks = LocalUriHandler.current
+                val links = remember(inheritedLinks, shownOrigin, logger) { uriHandlerFor(shownOrigin, inheritedLinks, logger) }
+                CompositionLocalProvider(
+                    LocalLoadableSources provides inside,
+                    LocalJSONContentOrigin provides shownOrigin,
+                    LocalUriHandler provides links,
+                ) {
                     ProvideTextStyleEnvironment(loaded.properties, logger) {
                         builder.BuildViewWithModifiers(loaded, modifier)
                     }

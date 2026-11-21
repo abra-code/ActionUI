@@ -10,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
+import com.abracode.actionui.Common.ActionUICapability
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -46,6 +49,7 @@ object Link : ActionUIViewConstruction {
         val logger = LocalActionUILogger.current
         val config = resolveLink(element.properties, logger) ?: return
         val context = LocalContext.current
+        val origin = LocalJSONContentOrigin.current
         // SwiftUI `.disabled` (set here or on any ancestor): block the tap and
         // dim the text with Material's standard disabled alpha.
         val enabled = LocalActionUIEnabled.current
@@ -61,6 +65,12 @@ object Link : ActionUIViewConstruction {
                     if (reportedRelativeURLs.add(config.url)) {
                         logger.log("Link URL '${config.url}' has no scheme; there is nothing to open", LoggerLevel.warning)
                     }
+                    return@clickable
+                }
+                // Less-trusted content opens only what the trust policy allows (web and mail
+                // addresses by default): not a file, another app's scheme or an intent.
+                if (!ActionUIModel.allows(ActionUICapability.OpenLink(config.url), origin)) {
+                    logger.log("Link not opening ${config.url}: the trust policy refuses it", LoggerLevel.warning)
                     return@clickable
                 }
                 try {

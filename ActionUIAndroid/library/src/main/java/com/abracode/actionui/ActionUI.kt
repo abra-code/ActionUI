@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.io.IOException
@@ -29,6 +30,7 @@ import com.abracode.actionui.Common.ConsoleLogger
 import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.resolvedOrigin
+import com.abracode.actionui.Common.uriHandlerFor
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -242,11 +244,17 @@ object ActionUI {
         }
 
         val builder = ActionUIRegistry.lookup(element.type) ?: return
+        val shownOrigin = origin ?: JSONContentOrigin.HOST
+        // Links in Markdown text open through LocalUriHandler, which asks the trust policy for
+        // a less-trusted window document.
+        val inheritedLinks = LocalUriHandler.current
+        val links = remember(inheritedLinks, shownOrigin, logger) { uriHandlerFor(shownOrigin, inheritedLinks, logger) }
         CompositionLocalProvider(
             LocalActionUILogger provides logger,
             LocalWindowModel provides windowModel,
             LocalActionUIImageRegistry provides images,
-            LocalJSONContentOrigin provides (origin ?: JSONContentOrigin.HOST),
+            LocalJSONContentOrigin provides shownOrigin,
+            LocalUriHandler provides links,
         ) {
             RenderRoot(element, builder, modifier, logger)
             // Window-level overlays (the Android counterpart of Apple wrapping a

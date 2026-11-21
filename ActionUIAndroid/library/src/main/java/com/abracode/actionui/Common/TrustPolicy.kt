@@ -1,5 +1,6 @@
 package com.abracode.actionui.Common
 
+import androidx.compose.ui.platform.UriHandler
 import java.io.File
 import java.io.IOException
 import java.net.URI
@@ -123,4 +124,22 @@ internal fun resolvedOrigin(
     val classified = classifyOrigin(source, parent, parentID, ActionUIModel.resourceFolders) ?: return null
     val trust = ActionUIModel.trustPolicy.trust(classified.source, parent, classified.trust)
     return if (trust == classified.trust) classified else classified.copy(trust = trust)
+}
+
+/**
+ * The [UriHandler] for content of [origin]: [inner] itself for trusted content; for less-trusted
+ * content one that hands on only an address the trust policy lets it open ([ActionUICapability.OpenLink])
+ * and logs a refusal. Links in Markdown text (an add-on's LinkAnnotation) open through it.
+ */
+internal fun uriHandlerFor(origin: JSONContentOrigin, inner: UriHandler, logger: ActionUILogger): UriHandler {
+    if (origin.trust == JSONContentOrigin.Trust.TRUSTED) return inner
+    return object : UriHandler {
+        override fun openUri(uri: String) {
+            if (!ActionUIModel.allows(ActionUICapability.OpenLink(uri), origin)) {
+                logger.log("Not opening $uri: the trust policy refuses it", LoggerLevel.warning)
+                return
+            }
+            inner.openUri(uri)
+        }
+    }
 }

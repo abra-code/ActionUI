@@ -120,6 +120,20 @@ class TrustPolicyTest {
     }
 
     @Test
+    fun `less-trusted content's UriHandler hands on only what the policy allows, trusted content's is the inherited one`() {
+        val opened = mutableListOf<String>()
+        val inner = object : androidx.compose.ui.platform.UriHandler {
+            override fun openUri(uri: String) { opened += uri }
+        }
+        assertTrue(uriHandlerFor(JSONContentOrigin.HOST, inner, ConsoleLogger()) === inner)
+        val guarded = uriHandlerFor(remote, inner, ConsoleLogger())
+        for (uri in listOf("tel:123", "file:///sdcard/a.pdf", "intent://scan/#Intent;end", "https://example.com/", "mailto:a@example.com")) {
+            guarded.openUri(uri)
+        }
+        assertEquals(listOf("https://example.com/", "mailto:a@example.com"), opened)
+    }
+
+    @Test
     fun `a document larger than 16 MB is not decoded or read`() {
         assertFalse(utf8LongerThan("abc", 3))
         assertTrue(utf8LongerThan("abcd", 3))
