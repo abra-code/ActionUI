@@ -1621,6 +1621,29 @@ public func actionUIGetConfigurationJSON() -> UnsafeMutablePointer<CChar>? {
     return actionStrdup(ActionUIConfiguration.current.json)
 }
 
+// MARK: - Main Thread
+
+/// The bindings' way to hand the main thread work (Rust's main_thread::dispatch, the HostSurface clean-ups):
+/// ActionUI's main queue, so the work runs after what ActionUI queued before it. NULL does nothing.
+/// Neither function sets or clears the last error.
+@c
+public func actionUIRunOnMainThread(_ callback: ActionUIMainThreadCallback?, _ context: UnsafeMutableRawPointer?) {
+    guard let callback else { return }
+    // The pointer crosses as a number; the C function is the host's, safe to call from the main thread.
+    nonisolated(unsafe) let call = callback
+    let address = UInt(bitPattern: context)
+    DispatchQueue.main.async {
+        call(UnsafeMutableRawPointer(bitPattern: address))
+    }
+}
+
+/// Whether the calling thread is the one ActionUI takes for the main thread (its main queue's), for a
+/// binding's own checks: the same test every function here uses (isMainThread).
+@c
+public func actionUIIsMainThread() -> CBool {
+    isMainThread
+}
+
 // MARK: - Memory Management
 
 @c

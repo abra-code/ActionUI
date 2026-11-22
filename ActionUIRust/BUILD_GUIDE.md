@@ -131,7 +131,6 @@ Differences from macOS:
 - `actionui::running_from_bundle` returns false, and `make_app_bundle.sh` is for macOS.
 - The menu bar's commands appear in a menu at the end of each window's header bar, as GNOME applications do.
 - `actionui-sys` leaves out `actionUILoadHostingControllerFromURL`, which Linux does not have.
-- `main_thread::dispatch` hands the closure to GLib's main loop, which GTK runs; the program links `libglib-2.0.so.0`, which `libActionUI.so` needs anyway.
 
 ## HostSurface on Android
 

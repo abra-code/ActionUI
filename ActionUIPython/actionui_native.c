@@ -12,30 +12,15 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <unistd.h>
 
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
 #include <ActionUIHostSurface/ActionUIHostSurface.h>
-#if defined(__APPLE__)
-#include <dispatch/dispatch.h>
-#else
-/* GLib's idle source, from libglib-2.0.so.0 (libActionUI.so's GTK needs it already): declared here so the
- * extension builds without GLib's development files. */
-typedef int (*HostSurfaceSourceFunc)(void *data);
-extern unsigned int g_idle_add(HostSurfaceSourceFunc function, void *data);
-#endif
 
-/* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
- * only; on Linux the main thread's ID is the process ID, and Python.h defines _GNU_SOURCE,
- * which declares gettid). */
+/* Whether the calling thread is ActionUI's main thread: the one its main queue runs on (the C
+ * adapter's answer, the same on every platform). */
 static bool is_main_thread(void) {
-#if defined(__APPLE__)
-    return pthread_main_np() != 0;
-#else
-    return gettid() == getpid();
-#endif
+    return actionUIIsMainThread();
 }
 
 /* Calls that store a callback belong to the main thread, as in the Node and Rust bindings: the C
@@ -1529,29 +1514,17 @@ static void host_surface_free_retired(void) {
     PyGILState_Release(gstate);
 }
 
-#if defined(__APPLE__)
-static void host_surface_free_retired_dispatch(void* unused) {
+static void host_surface_free_retired_later(void* unused) {
     (void)unused;
     host_surface_free_retired();
 }
-#else
-static int host_surface_free_retired_idle(void* unused) {
-    (void)unused;
-    host_surface_free_retired();
-    return 0;  /* G_SOURCE_REMOVE */
-}
-#endif
 
 static void host_surface_schedule_free(void) {
     if (s_host_surface_free_scheduled || s_host_surface_retired == NULL) {
         return;
     }
     s_host_surface_free_scheduled = true;
-#if defined(__APPLE__)
-    dispatch_async_f(dispatch_get_main_queue(), NULL, host_surface_free_retired_dispatch);
-#else
-    g_idle_add(host_surface_free_retired_idle, NULL);
-#endif
+    actionUIRunOnMainThread(host_surface_free_retired_later, NULL);
 }
 
 static void host_surface_retire(HostSurfaceClient* client) {

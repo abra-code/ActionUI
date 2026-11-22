@@ -52,14 +52,10 @@
 #include <ActionUIHostSurface/ActionUIHostSurface.h>
 #include "actionui_uv_pump.h"
 
-/* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
- * only; on Linux the main thread's ID is the process ID). */
+/* Whether the calling thread is ActionUI's main thread: the one its main queue runs on (the C
+ * adapter's answer, the same on every platform). */
 static bool is_main_thread(void) {
-#if defined(__APPLE__)
-    return pthread_main_np() != 0;
-#else
-    return gettid() == getpid();
-#endif
+    return actionUIIsMainThread();
 }
 
 #if !defined(__APPLE__)
@@ -69,12 +65,13 @@ static bool is_main_thread(void) {
  * calls would wait for a main queue that only the running application drains (measured: its
  * logger was not called), and one such run crashed. This constructor runs on the loading thread,
  * after libActionUI.so's own; Init refuses the module in every environment when that was not the
- * main thread, so the failure is a clear error instead. */
+ * main thread, so the failure is a clear error instead. It asks the system, not ActionUI, which
+ * takes the loading thread for its main one: the main thread's ID is the process ID. */
 static bool s_loaded_on_main_thread = false;
 
 __attribute__((constructor))
 static void note_loading_thread(void) {
-    s_loaded_on_main_thread = is_main_thread();
+    s_loaded_on_main_thread = gettid() == getpid();
 }
 #endif
 
@@ -1913,29 +1910,17 @@ static void host_surface_free_retired(void) {
     }
 }
 
-#if defined(__APPLE__)
-static void host_surface_free_retired_dispatch(void* unused) {
+static void host_surface_free_retired_later(void* unused) {
     (void)unused;
     host_surface_free_retired();
 }
-#else
-static gboolean host_surface_free_retired_idle(gpointer unused) {
-    (void)unused;
-    host_surface_free_retired();
-    return G_SOURCE_REMOVE;
-}
-#endif
 
 static void host_surface_schedule_free(void) {
     if (s_host_surface_free_scheduled || s_host_surface_retired == NULL) {
         return;
     }
     s_host_surface_free_scheduled = true;
-#if defined(__APPLE__)
-    dispatch_async_f(dispatch_get_main_queue(), NULL, host_surface_free_retired_dispatch);
-#else
-    g_idle_add(host_surface_free_retired_idle, NULL);
-#endif
+    actionUIRunOnMainThread(host_surface_free_retired_later, NULL);
 }
 
 static void host_surface_retire(HostSurfaceClient* client) {

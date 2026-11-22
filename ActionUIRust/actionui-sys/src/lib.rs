@@ -88,6 +88,9 @@ pub type ActionUITrustCallback = Option<unsafe extern "C" fn(*const c_char, *con
 /// the decision to use. The strings are valid only for the call.
 pub type ActionUICapabilityCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, bool) -> bool>;
 
+/// Work for the main thread: `(context)` (actionUIRunOnMainThread).
+pub type ActionUIMainThreadCallback = Option<unsafe extern "C" fn(*mut c_void)>;
+
 // MARK: - Types (ActionUIApp.h)
 
 pub type ActionUIAppLifecycleHandler = Option<unsafe extern "C" fn()>;
@@ -162,6 +165,12 @@ unsafe extern "C" {
     pub fn actionUISetConfigurationJSON(configurationJSON: *const c_char) -> bool;
     /// The configuration in effect, as JSON with every key.
     pub fn actionUIGetConfigurationJSON() -> *mut c_char;
+
+    /// Runs `callback(context)` on the main thread, later, after the work ActionUI queued
+    /// before it; any thread.
+    pub fn actionUIRunOnMainThread(callback: ActionUIMainThreadCallback, context: *mut c_void);
+    /// Whether the calling thread is the one ActionUI takes for the main thread.
+    pub fn actionUIIsMainThread() -> bool;
 
     /// Forgets a window's model once the host is done with it. An unknown window is ignored.
     pub fn actionUIRemoveWindow(windowUUID: *const c_char);

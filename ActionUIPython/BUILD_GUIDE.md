@@ -216,8 +216,7 @@ Prerequisites: Python 3 with its development headers (`Python.h`) and setuptools
 compiler (gcc or clang), and at run time GTK 4, libadwaita and libsoup 3.
 
 The HostSurface element is part of `libActionUI.so`, and the package has its header
-(`include/ActionUIHostSurface/ActionUIHostSurface.h`). The extension also links GLib by its versioned name
-(`libglib-2.0.so.0`, which GTK brings), for one idle source; GLib's development files are not needed.
+(`include/ActionUIHostSurface/ActionUIHostSurface.h`).
 
 1. Make the library package on a Linux machine with Swift (see `ActionUIAdwaita/README.md`):
 

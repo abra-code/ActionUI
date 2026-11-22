@@ -120,8 +120,9 @@ app.onWindowWillPresent(fn)     // fn(window: Window)
 > reassigned unconditionally, the worker's blank state would overwrite the main
 > thread's registered callbacks, silently preventing all lifecycle events from
 > firing.  `Init()` sets `g_state` only once and only on the main thread
-> (`if (g_state == NULL && pthread_main_np())`), even when a worker loads the
-> addon first, and a worker's exit leaves it alone. Do not regress either guard.
+> (`if (g_state == NULL && is_main_thread())`, the C adapter's `actionUIIsMainThread`),
+> even when a worker loads the addon first, and a worker's exit leaves it alone. Do not
+> regress either guard.
 
 #### App control
 
