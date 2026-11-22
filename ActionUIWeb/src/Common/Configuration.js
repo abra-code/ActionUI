@@ -162,6 +162,9 @@ function applied(settings, base) {
     if (top.addOns !== undefined) {
         if (!isPlainObject(top.addOns)) throw new ConfigurationError("addOns must be an object");
         for (const [name, section] of Object.entries(top.addOns)) {
+            // Assigning to "__proto__" would replace the object's prototype instead of storing a
+            // section, so the section would vanish without a word: refuse the name instead.
+            if (name === "__proto__") throw new ConfigurationError("addOns: a section may not be named __proto__");
             if (section === null) delete next.addOns[name];
             else next.addOns[name] = plainCopy(section);
         }

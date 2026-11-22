@@ -80,6 +80,7 @@ test("a bad change is refused whole", () => {
         [{ trust: { trustedOrigins: ["ui.example.com"] } }, "trust.trustedOrigins: ui.example.com is not an https address"],
         [{ resourceFolder: "/srv/ui" }, "resourceFolder has no meaning on the web: the page's own origin holds the app's resources; pass null or leave it out"],
         [{ addOns: 3 }, "addOns must be an object"],
+        [JSON.parse('{"addOns": {"__proto__": {"level": 1}}}'), "addOns: a section may not be named __proto__"],
     ];
     for (const [settings, message] of refused) {
         assert.throws(() => api.configure(settings), (error) => error instanceof api.ConfigurationError && error.message === message, JSON.stringify(settings));
