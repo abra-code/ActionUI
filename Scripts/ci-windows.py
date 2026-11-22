@@ -34,6 +34,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import time
 import urllib.error
 import urllib.request
@@ -956,6 +957,96 @@ def check_python(package, results, summary, msvc):
     return passed
 
 
+def check_node(package, results, summary, msvc):
+    """Builds the Node.js addon (ActionUINodeJS/src/actionui_node.c and its Windows pump, actionui_uv_pump_windows.c) against the library package with clang-cl
+    (the C uses GCC's cleanup attribute, which Microsoft's C compiler lacks; the Swift toolchain ships clang-cl),
+    Node's headers and import library for the runner's Node version (fetched from nodejs.org), and runs its tests
+    that need no person and nothing Windows does not have yet. True when every one passed; no Node, or one of
+    another architecture, is reported and not run."""
+    node = shutil.which("node")
+    if node is None:
+        summary["findings"].append("node: not run: no node on PATH")
+        return True
+    version = capture([node, "-p", "process.version"]).strip()
+    arch = capture([node, "-p", "process.arch"]).strip()
+    if arch != windows_arch():
+        summary["findings"].append(f"node: not run: node {version} is {arch}, the build {windows_arch()}")
+        return True
+    work = REPO_DIR / ".build" / "ci-windows-node"
+    shutil.rmtree(work, ignore_errors=True)
+    source = work / "src"
+    shutil.copytree(REPO_DIR / "ActionUINodeJS" / "src", source / "src")
+    for item in (REPO_DIR / "ActionUINodeJS").iterdir():
+        if item.is_file() and item.suffix in (".js", ".json"):
+            shutil.copy2(item, source / item.name)
+    # test_app_lifecycle's document, at the path it expects beside the folder (../ActionUIObjCTestApp).
+    fixture = REPO_DIR / "ActionUIObjCTestApp" / "DefaultWindowContentView.json"
+    (work / fixture.parent.name).mkdir()
+    shutil.copy2(fixture, work / fixture.parent.name / fixture.name)
+    # Node's headers and node.lib, as node-gyp fetches them.
+    headers = work / "headers"
+    try:
+        base = f"https://nodejs.org/download/release/{version}"
+        with urllib.request.urlopen(f"{base}/node-{version}-headers.tar.gz", timeout=120) as response:
+            archive = work / "headers.tar.gz"
+            archive.write_bytes(response.read())
+        with tarfile.open(archive) as tar:
+            tar.extractall(headers, filter="data")
+        with urllib.request.urlopen(f"{base}/win-{arch}/node.lib", timeout=120) as response:
+            (work / "node.lib").write_bytes(response.read())
+    except (OSError, urllib.error.URLError, tarfile.TarError) as error:
+        summary["findings"].append(f"node: Node's headers or node.lib could not be fetched: {error}")
+        return False
+    include = next(headers.glob("*/include/node"), None)
+    if include is None:
+        summary["findings"].append("node: no include/node in Node's headers")
+        return False
+    # node-gyp-build, the loader index.js uses (no build scripts run).
+    npm = shutil.which("npm.cmd") or shutil.which("npm")
+    step = run_step("node-npm", [npm or "npm", "install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
+                    results, dict(os.environ), cwd=source)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        return False
+    release = source / "build" / "Release"
+    release.mkdir(parents=True)
+    objects = work / "obj"
+    objects.mkdir()
+    command = [resolve_tool("clang-cl", msvc), "/nologo", "/LD", "/MD", "/O2", "/std:c11", "/utf-8", "/W3",
+               "/D_CRT_SECURE_NO_WARNINGS", f"/I{include}", f"/I{package / 'include'}", source / "src" / "actionui_node.c",
+               source / "src" / "actionui_uv_pump_windows.c", f"/Fe{release / 'actionui.node'}", f"/Fo{objects}\\", "/link", work / "node.lib",
+               package / "lib" / "ActionUI.lib"]
+    step = run_step("node-build", command, results, msvc, cwd=work)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    # The addon's DLLs beside it: Node loads an addon with its folder searched for them.
+    for dll in (package / "bin").iterdir():
+        shutil.copy2(dll, release / dll.name)
+    env = dict(os.environ)
+    passed = True
+    for test in NODE_TESTS:
+        step = run_step(f"node-{test}", [node, source / f"{test}.js"], results, env, cwd=source,
+                        timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        reported = (test not in NODE_TESTS_REPORTING_PASSED
+                    or "PASSED" in (results / step["log"]).read_text(encoding="utf-8", errors="replace"))
+        succeeded = step["status"] == 0 and reported
+        outcome = "passed" if succeeded else ("FAILED, no PASSED line" if step["status"] == 0 else f"FAILED, exit {step['status']}")
+        summary["findings"].append(f"node {test}: {outcome}")
+        passed = passed and succeeded
+    return passed
+
+
+# The Node.js tests CI runs on Windows: not test_menu_bar and test_host_surface (not on Windows yet).
+NODE_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_action_id_lookup", "test_app_api",
+              "test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration",
+              "test_worker_guard"]
+# The tests that print a "PASSED" line when every check of theirs passed (the others exit 1 on a failure).
+NODE_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration"}
+
+
 # The Python tests CI runs on Windows: not test_file_panels (it waits for a person), test_menu_bar and
 # test_host_surface (not on Windows yet); test_app_api skips its remote server part there.
 PYTHON_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_scalar_context",
@@ -1094,6 +1185,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     passed = package is not None and passed
     if package is not None:
         passed = check_python(package, results, summary, msvc) and passed
+        passed = check_node(package, results, summary, msvc) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"

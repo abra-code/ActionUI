@@ -107,7 +107,7 @@ new Worker(
      console.error('FAILED: not every action arrived within ' + workerData.timeoutMs + ' ms');
      process.kill(process.pid, 'SIGTERM');`,
     { eval: true, workerData: { timeoutMs: SAFETY_TIMEOUT_MS } }
-).on('error', () => {});
+).on('error', () => {}).unref();   // Where appRun returns (Windows), a passing run then ends without waiting for it.
 
 console.log('ActionUI action id lookup test');
 app.run();

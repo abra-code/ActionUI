@@ -259,10 +259,18 @@ double actionUIGetWindowBarsHeight(const char *windowUUID) ACTIONUI_NOEXCEPT;
 // actionUIAppRun is refused (a process has one WinUI Application).
 // actionUIInstallMainLoopBridge: main-actor work runs under the host's loop from now on (filling a window
 // installs it too); UI thread only, while the host's application runs; later calls do nothing.
+// actionUIRunOnMainThread: callback(context) runs on the main thread, after the work queued before it, once
+// the main loop runs (actionUIAppRun's, or a host's with the main-loop bridge); never at once, also when
+// called on the main thread. Any thread. What a binding hands the main thread, as GLib's g_idle_add on
+// Linux and the main dispatch queue on Apple. actionUIIsMainThread: whether the calling thread is the one
+// ActionUI takes for the main thread (the one its main queue runs on), for a binding's own checks.
 #if defined(_WIN32)
+typedef void (*ActionUIMainThreadCallback)(void *context);
 bool actionUILoadIntoHostWindowFromURL(void *xamlWindow, const char *urlString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;  // a path or file URL
 bool actionUILoadIntoHostWindowFromJSON(void *xamlWindow, const char *jsonString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;
 void actionUIInstallMainLoopBridge(void) ACTIONUI_NOEXCEPT;
+void actionUIRunOnMainThread(ActionUIMainThreadCallback callback, void *context) ACTIONUI_NOEXCEPT;
+bool actionUIIsMainThread(void) ACTIONUI_NOEXCEPT;
 #endif
 
 #ifdef __cplusplus

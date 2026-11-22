@@ -205,7 +205,10 @@ function convertURL(url) {
     }
     return url;
 }
-check('bare /abs/path → file:///abs/path', convertURL('/tmp/ui.json') === 'file:///tmp/ui.json');
+// On Windows a path with no drive takes the current one; index.js converts paths with pathToFileURL there.
+if (process.platform !== 'win32') {
+    check('bare /abs/path → file:///abs/path', convertURL('/tmp/ui.json') === 'file:///tmp/ui.json');
+}
 check('relative path → file:// + abspath', convertURL('ui.json').startsWith('file://'));
 check('file:// URL unchanged', convertURL('file:///tmp/ui.json') === 'file:///tmp/ui.json');
 check('http:// URL unchanged', convertURL('http://example.com/ui.json') === 'http://example.com/ui.json');

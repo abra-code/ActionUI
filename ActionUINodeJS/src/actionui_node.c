@@ -24,7 +24,7 @@
  *   process.nextTick and Promise microtask queues are drained on close.
  */
 
-#if !defined(__APPLE__) && !defined(_GNU_SOURCE)
+#if !defined(__APPLE__) && !defined(_WIN32) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE   /* gettid, before the first system header */
 #endif
 
@@ -34,8 +34,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#if defined(_WIN32)
+#include <windows.h>   /* after uv.h, which brings winsock2.h first */
+#else
 #include <pthread.h>
 #include <unistd.h>
+#endif
 
 #if defined(__APPLE__)
 #include <CoreFoundation/CoreFoundation.h>
@@ -44,24 +48,37 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
-#else
+#elif !defined(_WIN32)
 #include <glib.h>
 #endif
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
 #include <ActionUIHostSurface/ActionUIHostSurface.h>
+#include "actionui_uv_pump.h"
+
+#if defined(_WIN32)
+/* Windows: the thread of Node's main environment (the one on libuv's default loop), noted by the first Init; no
+ * system call names a process's main thread. 0 until then, and for good when a worker loaded the module first. */
+static DWORD s_main_thread_id = 0;
+/* Whether an Init ran, and whether the first was the main environment's (Init refuses all others then, as Linux's
+ * note_loading_thread: ActionUI's main queue may belong to the thread that loaded ActionUI.dll). */
+static bool s_first_init_seen = false;
+static bool s_loaded_on_main_thread = false;
+#endif
 
 /* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
- * only; on Linux the main thread's ID is the process ID). */
+ * only; on Linux the main thread's ID is the process ID; on Windows the main environment's thread). */
 static bool is_main_thread(void) {
 #if defined(__APPLE__)
     return pthread_main_np() != 0;
+#elif defined(_WIN32)
+    return s_main_thread_id != 0 && GetCurrentThreadId() == s_main_thread_id;
 #else
     return gettid() == getpid();
 #endif
 }
 
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(_WIN32)
 /* Linux: the libdispatch inside libActionUI.so binds its main queue to the thread that loads the
  * library, not to the process's main thread (Apple's libdispatch knows the main thread). Loaded
  * first by a worker, ActionUI would take that worker for its main thread: the real main thread's
@@ -193,6 +210,12 @@ static void report_callback_exception(napi_env env, const char* who) {
     fprintf(stderr, "actionui: %s threw: %s\n", who, message);
 }
 
+/* What every bridge calls after its JavaScript ran: reports an exception, and lets libuv see what the code queued. */
+static void finish_callback(napi_env env, const char* who) {
+    report_callback_exception(env, who);
+    actionui_uv_pump_kick();
+}
+
 // MARK: - String arguments
 
 /* String arguments are copied to the heap at their real length, so nothing is cut short, and are
@@ -269,7 +292,7 @@ static void call_void_callback(napi_ref ref) {
         __attribute__((unused)) napi_status s = napi_make_callback(env, g_state->async_ctx, global, fn, 0, NULL, &result);
         DIAGNOSTIC_LOG("[actionui:diag] call_void_callback: make_callback status=%d async_ctx=%p\n",
                 (int)s, (void*)g_state->async_ctx);
-        report_callback_exception(env, "an app lifecycle callback");
+        finish_callback(env, "an app lifecycle callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -288,7 +311,7 @@ static void call_string_callback(napi_ref ref, const char* str) {
         napi_get_global(env, &global);
         napi_create_string_utf8(env, str ? str : "", NAPI_AUTO_LENGTH, &arg);
         napi_make_callback(env, g_state->async_ctx, global, fn, 1, &arg, &result);
-        report_callback_exception(env, "a window callback");
+        finish_callback(env, "a window callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -338,7 +361,7 @@ static void logger_callback_bridge(const char* message, ActionUILogLevel level) 
         napi_create_string_utf8(env, message ? message : "", NAPI_AUTO_LENGTH, &argv[0]);
         napi_create_int32(env, (int32_t)level, &argv[1]);
         napi_call_function(env, global, fn, 2, argv, &result);
-        report_callback_exception(env, "the logger callback");
+        finish_callback(env, "the logger callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -373,7 +396,7 @@ static ActionUITrust trust_callback_bridge(const char* sourceJSON, const char* p
                 trust = ActionUITrustTrusted;
             }
         }
-        report_callback_exception(env, "the trust policy's trust callback");
+        finish_callback(env, "the trust policy's trust callback");
     }
     napi_close_handle_scope(env, scope);
     return trust;
@@ -402,7 +425,7 @@ static bool capability_callback_bridge(const char* capabilityJSON, const char* o
                 allowed = value;
             }
         }
-        report_callback_exception(env, "the trust policy's allows callback");
+        finish_callback(env, "the trust policy's allows callback");
     }
     napi_close_handle_scope(env, scope);
     return allowed;
@@ -468,7 +491,7 @@ static void action_handler_bridge(const char* actionID,
             napi_get_null(env, &argv[4]);
         }
         napi_call_function(env, global, fn, 5, argv, &result);
-        report_callback_exception(env, "an action handler");
+        finish_callback(env, "an action handler");
     }
 
     napi_close_handle_scope(env, scope);
@@ -502,7 +525,7 @@ static bool app_should_terminate_bridge(void) {
             napi_coerce_to_bool(env, ret, &ret);
             napi_get_value_bool(env, ret, &result);
         }
-        report_callback_exception(env, "the should-terminate callback");
+        finish_callback(env, "the should-terminate callback");
     }
 
     napi_close_handle_scope(env, scope);
@@ -1513,6 +1536,11 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
 //   -1  → active I/O handles, no timer → the I/O watcher (uv_io_watch) wakes us
 
 static bool                 s_app_running = false;   /* appRun is on the stack */
+#if !defined(_WIN32)
+/* The run loop asks libuv before it sleeps (the observer on Apple, the GLib source's prepare on Linux). */
+void actionui_uv_pump_kick(void) {}
+#endif
+
 #if defined(__APPLE__)
 static CFRunLoopObserverRef s_cf_observer = NULL;
 static CFRunLoopTimerRef    s_cf_timer    = NULL;
@@ -1559,8 +1587,12 @@ static napi_value noop_callback(napi_env env, napi_callback_info info) {
 }
 #endif // ACTIONUI_DIAGNOSTIC
 
+uv_loop_t* actionui_uv_loop(void) {
+    return g_state != NULL ? g_state->uv_loop : NULL;
+}
+
 /* Pump one libuv iteration then drain nextTick + microtask queues. */
-static void uv_pump(void) {
+void actionui_uv_pump(void) {
     if (g_state == NULL || g_state->uv_loop == NULL) return;
 
     int alive   = uv_loop_alive(g_state->uv_loop);
@@ -1622,7 +1654,7 @@ static void free_uv_handle(uv_handle_t* handle) {
     free(handle);
 }
 
-static void uv_keepalive_start(uv_loop_t* loop) {
+void actionui_uv_keepalive_start(uv_loop_t* loop) {
     s_uv_keepalive = (uv_async_t*)calloc(1, sizeof(uv_async_t));
     if (s_uv_keepalive != NULL && uv_async_init(loop, s_uv_keepalive, NULL) != 0) {
         free(s_uv_keepalive);
@@ -1630,7 +1662,7 @@ static void uv_keepalive_start(uv_loop_t* loop) {
     }
 }
 
-static void uv_keepalive_stop(void) {
+void actionui_uv_keepalive_stop(void) {
     if (s_uv_keepalive != NULL) {
         /* Freed by its close callback, on Node's next loop iteration after appRun returns. */
         uv_close((uv_handle_t*)s_uv_keepalive, free_uv_handle);
@@ -1641,7 +1673,7 @@ static void uv_keepalive_stop(void) {
 /* libuv's next timer in ms (0: work ready now; -1: none), from a fresh clock: uv_backend_timeout
  * reads the loop's cached time, which only uv_run refreshes, so a timer started from a UI callback
  * would otherwise always look N ms away. */
-static int uv_next_timeout(uv_loop_t* loop) {
+int actionui_uv_next_timeout(uv_loop_t* loop) {
     uv_update_time(loop);
     return uv_backend_timeout(loop);
 }
@@ -1649,7 +1681,7 @@ static int uv_next_timeout(uv_loop_t* loop) {
 #if defined(__APPLE__)
 
 static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
-    uv_pump();
+    actionui_uv_pump();
     /* Disarm: the kCFRunLoopBeforeWaiting observer will re-arm as needed. */
     if (timer != NULL) {
         CFRunLoopTimerSetNextFireDate(timer, CFAbsoluteTimeGetCurrent() + 1e10);
@@ -1661,7 +1693,7 @@ static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
 static void uv_kq_callback(CFFileDescriptorRef fdref,
                            CFOptionFlags       callbackTypes,
                            void*               info) {
-   uv_pump();
+   actionui_uv_pump();
    /* Re-arm so CFRunLoop keeps watching for the next I/O readiness event.
     * CFFileDescriptor callbacks are one-shot and must be re-enabled. */
    CFFileDescriptorEnableCallBacks(fdref, kCFFileDescriptorReadCallBack);
@@ -1675,7 +1707,7 @@ static void uv_kq_callback(CFFileDescriptorRef fdref,
  * taking libuv's events, and signals a run loop source; the main thread pumps libuv in that
  * source's callout, between AppKit's own callouts. The thread then waits for the pump, since the
  * descriptor stays readable until libuv has read it. This is the CFFileDescriptor source's job
- * done without its callbacks, which ran on any kqueue activity (see uv_pump_setup). An I/O callback
+ * done without its callbacks, which ran on any kqueue activity (see actionui_uv_pump_setup). An I/O callback
  * that runs a modal (an alert, a file panel) holds its pump until the modal ends, so meanwhile the
  * thread waits and I/O runs only when the observer pumps. */
 static void* uv_io_watch(void* info) {
@@ -1699,7 +1731,7 @@ static void* uv_io_watch(void* info) {
 
 static void uv_io_perform(void* info) {
     (void)info;
-    uv_pump();
+    actionui_uv_pump();
     dispatch_semaphore_signal(s_uv_io_pumped);
 }
 
@@ -1745,11 +1777,11 @@ static void uv_io_watch_stop(void) {
 static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
                                CFRunLoopActivity   activity,
                                void*               info) {
-    uv_pump();
+    actionui_uv_pump();
     if (g_state == NULL || g_state->uv_loop == NULL) return;
     if (activity != kCFRunLoopBeforeWaiting) return;
 
-    int timeout_ms = uv_next_timeout(g_state->uv_loop);
+    int timeout_ms = actionui_uv_next_timeout(g_state->uv_loop);
     if (timeout_ms == 0) {
         /* libuv has more work ready; prevent CFRunLoop from sleeping. */
         CFRunLoopWakeUp(CFRunLoopGetMain());
@@ -1762,9 +1794,9 @@ static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
     /* timeout_ms == -1: no timer deadline; the I/O watcher wakes the run loop for I/O. */
 }
 
-static void uv_pump_setup(uv_loop_t* loop) {
+void actionui_uv_pump_setup(uv_loop_t* loop) {
     if (loop != NULL) {
-        uv_keepalive_start(loop);
+        actionui_uv_keepalive_start(loop);
         uv_io_watch_start(loop);
     }
 
@@ -1799,14 +1831,14 @@ static void uv_pump_setup(uv_loop_t* loop) {
      * CFFileDescriptor source was supposed to wake CFRunLoop immediately
      * when any I/O is ready, replacing the ~50ms polling interval.
      *
-     * HOWEVER, this causes spurious re-entrant uv_pump() calls that
+     * HOWEVER, this causes spurious re-entrant actionui_uv_pump() calls that
      * interfere with AppKit's normal event delivery, specifically:
      *   - TextField: pressing Return clears the text field
      *   - Other text controls may exhibit similar glitches
      *
      * The problem is the kqueue callback fires on ANY kqueue activity,
      * including internal libuv state changes, not just real I/O readiness.
-     * This causes uv_pump() to run mid-delivery of AppKit events,
+     * This causes actionui_uv_pump() to run mid-delivery of AppKit events,
      * corrupting the responder chain.
      *
      * The I/O watcher (uv_io_watch) does this job instead: its thread only signals a run loop
@@ -1832,7 +1864,7 @@ static void uv_pump_setup(uv_loop_t* loop) {
 #endif // KQUEUE_ENABLED
 }
 
-static void uv_pump_teardown(void) {
+void actionui_uv_pump_teardown(void) {
 
 #if KQUEUE_ENABLED
     if (s_kq_src != NULL) {
@@ -1858,17 +1890,17 @@ static void uv_pump_teardown(void) {
         s_cf_timer = NULL;
     }
     uv_io_watch_stop();
-    uv_keepalive_stop();
+    actionui_uv_keepalive_stop();
 
-    if (g_state != NULL) g_state->uv_loop = NULL;
 }
 
-#else // GLib: actionUIAppRun blocks in the GTK main loop, which runs the default main context
+#elif !defined(_WIN32) // GLib: actionUIAppRun blocks in the GTK main loop, which runs the default main context
+// (Windows: actionui_uv_pump_windows.c.)
 
 /* A GLib source over libuv's loop, the usual way to run libuv inside GLib. GLib polls libuv's
  * backend file descriptor (an epoll descriptor, readable when libuv has I/O to handle) with its
  * own, sleeps no longer than libuv's next timer (prepare), and dispatches the source when
- * either is due: one libuv iteration and the nextTick/microtask drain (uv_pump). Prepare runs
+ * either is due: one libuv iteration and the nextTick/microtask drain (actionui_uv_pump). Prepare runs
  * before every sleep, so work a JS callback queued meanwhile is seen at once. The source is
  * dispatched by the main loop between GTK's own sources, never inside one, so it cannot run in
  * the middle of an event's delivery (what made the kqueue source above misbehave on macOS).
@@ -1892,7 +1924,7 @@ static gboolean uv_source_prepare(GSource* source, gint* timeout) {
         return FALSE;
     }
     /* 0: work ready now; N > 0: the next timer in N ms; -1: only I/O, which the descriptor wakes. */
-    int next = uv_next_timeout(g_state->uv_loop);
+    int next = actionui_uv_next_timeout(g_state->uv_loop);
     *timeout = next;
     return next == 0;
 }
@@ -1901,14 +1933,14 @@ static gboolean uv_source_check(GSource* source) {
     if (g_state == NULL || g_state->uv_loop == NULL) return FALSE;
     UvSource* uv_source = (UvSource*)source;
     if ((g_source_query_unix_fd(source, uv_source->backend_tag) & G_IO_IN) != 0) return TRUE;
-    return uv_next_timeout(g_state->uv_loop) == 0;   /* a timer came due */
+    return actionui_uv_next_timeout(g_state->uv_loop) == 0;   /* a timer came due */
 }
 
 static gboolean uv_source_dispatch(GSource* source, GSourceFunc callback, gpointer user_data) {
     (void)source;
     (void)callback;
     (void)user_data;
-    uv_pump();
+    actionui_uv_pump();
     return G_SOURCE_CONTINUE;
 }
 
@@ -1918,23 +1950,22 @@ static GSourceFuncs s_uv_source_funcs = {
     .dispatch = uv_source_dispatch,
 };
 
-static void uv_pump_setup(uv_loop_t* loop) {
+void actionui_uv_pump_setup(uv_loop_t* loop) {
     if (loop == NULL) return;
-    uv_keepalive_start(loop);
+    actionui_uv_keepalive_start(loop);
     GSource* source = g_source_new(&s_uv_source_funcs, sizeof(UvSource));
     ((UvSource*)source)->backend_tag = g_source_add_unix_fd(source, uv_backend_fd(loop), G_IO_IN);
     g_source_attach(source, NULL);   /* the default main context, which GTK's main loop runs */
     s_uv_source = source;
 }
 
-static void uv_pump_teardown(void) {
+void actionui_uv_pump_teardown(void) {
     if (s_uv_source != NULL) {
         g_source_destroy(s_uv_source);
         g_source_unref(s_uv_source);
         s_uv_source = NULL;
     }
-    uv_keepalive_stop();
-    if (g_state != NULL) g_state->uv_loop = NULL;
+    actionui_uv_keepalive_stop();
 }
 
 #endif // defined(__APPLE__)
@@ -1995,9 +2026,10 @@ static napi_value node_app_run(napi_env env, napi_callback_info info) {
     uv_loop_t* loop = NULL;
     napi_get_uv_event_loop(env, &loop);
     g_state->uv_loop = loop;
-    uv_pump_setup(loop);
+    actionui_uv_pump_setup(loop);
     actionUIAppRun();   /* blocks until NSApp terminates */
-    uv_pump_teardown();
+    actionui_uv_pump_teardown();
+    if (g_state != NULL) g_state->uv_loop = NULL;
     s_app_running = false;
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -2179,6 +2211,50 @@ static napi_value node_app_run_alert(napi_env env, napi_callback_info info) {
 
 // MARK: - HostSurface (ActionUIHostSurface.h)
 
+#if defined(_WIN32)
+/* Not on Windows yet: ActionUI.dll has no HostSurface element. Registering does nothing (no document can hold
+ * one); the rest throw. The header's constants are exported as elsewhere, for index.js's names. */
+static napi_value host_surface_not_yet(napi_env env) {
+    napi_throw_error(env, NULL, "HostSurface is not available on Windows yet");
+    return NULL;
+}
+
+static napi_value node_host_surface_register(napi_env env, napi_callback_info info) {
+    (void)info;
+    if (!require_main_env(env, "hostSurfaceRegister")) return NULL;
+    napi_value undefined;
+    napi_get_undefined(env, &undefined);
+    return undefined;
+}
+
+static napi_value node_host_surface_set_delegate(napi_env env, napi_callback_info info) {
+    (void)info;
+    if (!require_main_env(env, "hostSurfaceSetDelegate")) return NULL;
+    return host_surface_not_yet(env);
+}
+
+static napi_value node_host_surface_request_frame(napi_env env, napi_callback_info info) {
+    (void)info;
+    return host_surface_not_yet(env);
+}
+
+static napi_value node_host_surface_set_continuous(napi_env env, napi_callback_info info) {
+    (void)info;
+    return host_surface_not_yet(env);
+}
+
+static napi_value node_host_surface_set_cursor(napi_env env, napi_callback_info info) {
+    (void)info;
+    if (!require_main_env(env, "hostSurfaceSetCursor")) return NULL;
+    return host_surface_not_yet(env);
+}
+
+static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_info info) {
+    (void)info;
+    return host_surface_not_yet(env);
+}
+#else
+
 /*
  * A HostSurface client: the JS bridge the surface events, frames, input and renders of one binding go to
  * (index.js dispatches them to the delegate's methods). One per actionUIHostSurfaceSetDelegate call, on the
@@ -2320,7 +2396,7 @@ static void host_surface_call(void* user_data, const char* kind, uint64_t surfac
         napi_value global, result;
         napi_get_global(env, &global);
         napi_make_callback(env, g_state->async_ctx, global, fn, 5, argv, &result);
-        report_callback_exception(env, "a HostSurface delegate");
+        finish_callback(env, "a HostSurface delegate");
     }
     napi_close_handle_scope(env, scope);
     s_host_surface_depth -= 1;
@@ -2630,6 +2706,8 @@ static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_i
     return result;
 }
 
+#endif  /* !_WIN32 */
+
 #define EXPORT_FN(exports, name, fn) do { \
     napi_value _fn; \
     napi_create_function(env, name, NAPI_AUTO_LENGTH, fn, NULL, &_fn); \
@@ -2654,7 +2732,28 @@ static napi_value create_null_prototype_object(napi_env env) {
 }
 
 static napi_value Init(napi_env env, napi_value exports) {
-#if !defined(__APPLE__)
+#if defined(_WIN32)
+    /* The main environment runs on libuv's default loop, a worker on a loop of its own. As on Linux, the module
+     * must come to the main environment first: ActionUI's main queue belongs to the thread that set it up. */
+    uv_loop_t* init_loop = NULL;
+    napi_get_uv_event_loop(env, &init_loop);
+    if (!s_first_init_seen) {
+        s_first_init_seen = true;
+        /* Never unloaded, as Linux links it with -z nodelete: a refused worker's exit would otherwise unload it,
+         * and ActionUI.dll with it, under their running threads (and forget the refusal). */
+        HMODULE self = NULL;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+                           (LPCWSTR)(const void*)&s_first_init_seen, &self);
+        s_loaded_on_main_thread = init_loop == uv_default_loop();
+        if (s_loaded_on_main_thread) s_main_thread_id = GetCurrentThreadId();
+    }
+    if (!s_loaded_on_main_thread) {
+        napi_throw_error(env, NULL,
+            "actionui was first loaded by a worker thread; on Windows it must be loaded on the main "
+            "thread before any worker loads it (require it at the start of the main script)");
+        return NULL;
+    }
+#elif !defined(__APPLE__)
     if (!s_loaded_on_main_thread) {
         napi_throw_error(env, NULL,
             "actionui was first loaded by a worker thread; on Linux it must be loaded on the main "

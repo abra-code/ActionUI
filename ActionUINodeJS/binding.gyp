@@ -56,12 +56,34 @@
           ]
         }]
       }],
-      ["OS!='mac' and OS!='linux'", {
+      ["OS=='win'", {
+        "variables": {
+          "lib_dir": "<!(node -p \"require('path').resolve(process.env.ACTIONUI_LIBRARY_DIR || 'library')\")"
+        },
+        "sources": ["src/actionui_uv_pump_windows.c"],
+        "include_dirs": ["<(lib_dir)/include"],
+        "libraries": ["<(lib_dir)/lib/ActionUI.lib"],
+        "msbuild_toolset": "ClangCL",
+        "msvs_settings": {
+          "VCCLCompilerTool": { "AdditionalOptions": ["/std:c11", "/utf-8"] }
+        },
+        "copies": [{
+          "destination": "<(PRODUCT_DIR)",
+          "files": [
+            "<!@(node -p \"const p=require('path'),d=p.join(require('path').resolve(process.env.ACTIONUI_LIBRARY_DIR || 'library'),'bin');require('fs').readdirSync(d).filter(f=>f.toLowerCase().endsWith('.dll')).map(f=>p.join(d,f)).join(' ')\")",
+            "<(lib_dir)/LICENSE.txt",
+            "<(lib_dir)/LICENSE-MaterialSymbols.txt",
+            "<(lib_dir)/LICENSE-FluentSystemIcons.txt",
+            "<(lib_dir)/LICENSE-WebView2.txt"
+          ]
+        }]
+      }],
+      ["OS!='mac' and OS!='linux' and OS!='win'", {
         "actions": [{
           "action_name": "abort",
           "inputs": [],
           "outputs": [],
-          "action": ["sh", "-c", "echo 'ERROR: ActionUINodeJS supports macOS and Linux' >&2; exit 1"]
+          "action": ["sh", "-c", "echo 'ERROR: ActionUINodeJS supports macOS, Linux and Windows' >&2; exit 1"]
         }]
       }]
     ]

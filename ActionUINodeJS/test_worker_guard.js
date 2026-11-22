@@ -158,7 +158,7 @@ function workerFirstProbe() {
 }
 
 function checkWorkerFirstLoadIsRefused() {
-    console.log('\n=== Linux: a worker that loads the addon before the main thread ===');
+    console.log('\n=== Linux and Windows: a worker that loads the addon before the main thread ===');
     const { spawnSync } = require('child_process');
     const probe = spawnSync(process.execPath, [__filename, '--worker-first-probe'], { encoding: 'utf8', timeout: 15000 });
     const line = (probe.stdout || '').split('\n').find((l) => l.startsWith('{'));
@@ -173,9 +173,9 @@ function main() {
         process.exit(1);
     }, 20000);
 
-    if (process.platform === 'linux') {
-        // On Linux the addon must be loaded on the main thread first (src/actionui_node.c,
-        // note_loading_thread): the first scenario below is refused, and checked as such.
+    if (process.platform === 'linux' || process.platform === 'win32') {
+        // On Linux and Windows the addon must be loaded on the main thread first (src/actionui_node.c,
+        // note_loading_thread, and Init on Windows): the first scenario below is refused, and checked as such.
         checkWorkerFirstLoadIsRefused();
         console.log('\n=== On the main thread, before any worker ===');
         native = require('./index.js')._native;
