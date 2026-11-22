@@ -22,6 +22,10 @@
    such as NUL or COM1, a pipe: never opened), shows the photo symbol, as on Apple; one that cannot be
    decoded shows nothing. A bitmap file is read again when the value or a property is set
    again, so a host that rewrites an image under the same name and sets it again sees the new image.
+ - A file that declares more pixels than 64 megapixels (8192 x 8192: ImageSource.maximumPixelCount)
+   shows the photo symbol and is logged, as on Apple and Linux: its size is read from its header by
+   Windows' image decoders (WIC), never decoded. List and Table image cells, Canvas images and
+   AsyncImage's file URLs follow the same rule.
  - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources) reads
    a local file only inside the app's resources (the trust policy's .readLocalFile, asked before the
    file is touched), as on Apple and Linux: another file shows the photo symbol. List and Table image
@@ -35,6 +39,11 @@
  its size capped at the room offered).
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CWinUI
 
 /// What an Image shows, resolved from its value and properties.
@@ -321,11 +330,12 @@ extension Image: ActionUIWinUIRenderer {
 
     /// What a resolved source shows: a file the element may not read (`readsFile`:
     /// LinkTrust.readsLocalFile for its node, asked before the file is touched), that does not exist,
-    /// or that is no regular file, is the photo symbol.
+    /// that is no regular file, or that declares more pixels than the decode cap, is the photo symbol.
     static func content(_ source: ImageSource, readsFile: (String) -> Bool) -> ImageContent {
         switch source {
         case .filePath(let path):
-            return readsFile(path) && isRegularFile(path) ? .file(path) : .symbol(ImageSource.placeholderSymbol)
+            guard readsFile(path), isRegularFile(path), !fileIsTooLarge(path) else { return .symbol(ImageSource.placeholderSymbol) }
+            return .file(path)
         case .systemName(let name):
             return .symbol(name)
         case .assetName:
@@ -356,6 +366,56 @@ extension Image: ActionUIWinUIRenderer {
         guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return nil }
         let ext = String(name[name.index(after: dot)...])
         return ext.isEmpty ? nil : ext
+    }
+
+    /// The image files sized: the file's version when sized (its modification date and length) and the
+    /// size it declares (nil: unknown). content runs on every sync and canvas draw.
+    private static var sizedFiles: [String: (version: String, size: (width: Int, height: Int)?)] = [:]
+
+    /// Whether the image file declares more pixels than the decode cap (ImageSource.maximumPixelCount,
+    /// 8192 x 8192), as on Apple and Linux: its size read from its header (WIC), never decoded; sized
+    /// again only when the file changes. Logged when it is sized. A file WIC cannot size (an SVG) goes
+    /// on to WinUI, which decides. `path` names a regular file (isRegularFile, asked first): sizing
+    /// opens and reads it.
+    static func fileIsTooLarge(_ path: String) -> Bool {
+        let version = fileVersion(path)
+        let size: (width: Int, height: Int)?
+        if let version, let sized = sizedFiles[path], sized.version == version {
+            size = sized.size
+        } else {
+            var width: UInt32 = 0
+            var height: UInt32 = 0
+            size = actionUIWinUIImageFileGetSize(path, &width, &height) ? (Int(width), Int(height)) : nil
+            if let size, ImageSource.isTooLarge(width: size.width, height: size.height) {
+                ActionUIModel.shared.logger.log("Image not shown: \(path) is \(size.width) x \(size.height) pixels, more than \(ImageSource.maximumPixelCount)", .warning)
+            }
+            if let version {
+                // A bound, for a host that shows a new file each time.
+                if sizedFiles.count >= 1024 { sizedFiles = [:] }
+                sizedFiles[path] = (version, size)
+            }
+        }
+        return size.map { ImageSource.isTooLarge(width: $0.width, height: $0.height) } ?? false
+    }
+
+    /// Whether `text` is a file: URL whose file declares more pixels than the decode cap (an
+    /// AsyncImage's); false for any other address, whose image WinUI decodes at the size it is drawn.
+    /// False for a path that names no regular file: sizing opens and reads the file, and a device or a
+    /// pipe is never opened (the shim refuses such a URL when it is loaded).
+    static func fileURLIsTooLarge(_ text: String) -> Bool {
+        guard let url = URL(string: text), url.isFileURL else { return false }
+        let path = LinkTrust.filePath(of: url)
+        guard isRegularFile(path) else { return false }
+        return fileIsTooLarge(path)
+    }
+
+    /// The file's version for sizedFiles: its modification date and length; nil when unknown.
+    private static func fileVersion(_ path: String) -> String? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+              let date = attributes[.modificationDate] as? Date else { return nil }
+        // The length as the platform's Foundation gives it (NSNumber or an integer): only compared.
+        let length = attributes[.size].map { "\($0)" } ?? "?"
+        return "\(date.timeIntervalSinceReferenceDate)|\(length)"
     }
 
     /// Whether `path` names a regular file (not a folder, a device such as NUL or COM1, or a pipe),

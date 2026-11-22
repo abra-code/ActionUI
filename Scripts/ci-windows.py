@@ -254,6 +254,10 @@ PREVIEW_OPTIONS = {
                          "--invoke", "901", "--invoke", "951",
                          "--expect-log", "Link 901: opening ms-settings:display",
                          "--expect-log", "Link 951: opening ms-settings:display"],
+    # An image file that declares 9000 x 9000 pixels (in 10 KB) is not decoded: the photo symbol, logged.
+    "ImageDecodeCap": ["420", "120", "--set-value", "6", "{documents_url}/Images/declares-81-megapixels.png", "--delay", "1000",
+                       "--expect-log", "Image not shown: Images/declares-81-megapixels.png is 9000 x 9000 pixels",
+                       "--expect-log", "Documents/Images/declares-81-megapixels.png is 9000 x 9000 pixels"],
     "AsyncImages": ["460", "340", "--set-value", "7", "{documents_url}/Images/sample_image.png",
                     "--set-value", "8", "{documents_url}/Images/ActionUIDemo.svg"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",

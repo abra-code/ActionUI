@@ -25,7 +25,9 @@
 
  Not yet: an SVG served from a URL whose path does not end in .svg (read as a bitmap, so it fails); a
  Windows path given as the URL ("C:\pics\a.png") may load where Apple's URL(string:) reads "c" as its
- scheme and loads nothing.
+ scheme and loads nothing; a downloaded image is not sized before it is decoded (a file is: Image's
+ 64-megapixel cap): WinUI decodes it at the size it is drawn, which bounds it when it is resizable, not
+ when it is shown at its own size.
 */
 
 import CWinUI
@@ -143,7 +145,7 @@ extension AsyncImage: ActionUIWinUIRenderer {
         state.imageURL = url
         state.loaded = false
         guard let url else { return }
-        guard LinkTrust.readsImageURL(url, node) else {
+        guard LinkTrust.readsImageURL(url, node), !Image.fileURLIsTooLarge(url) else {
             fail(url, state)
             return
         }

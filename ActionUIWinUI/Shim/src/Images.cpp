@@ -8,6 +8,11 @@
 #include <string>
 #include <vector>
 
+#include <propidl.h>  // PROPVARIANT: a GIF's logical screen
+#include <wincodec.h>  // WIC: an image file's size from its header
+
+#pragma comment(lib, "windowscodecs.lib")
+
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 
@@ -251,6 +256,71 @@ bool actionUIWinUIImageSetStretch(ActionUIWinUIObject *image, ActionUIWinUIImage
         }
         return fail("image set stretch", "unknown stretch");
     });
+}
+
+bool actionUIWinUIImageFileGetSize(const char *path, uint32_t *width, uint32_t *height) {
+    if (path == nullptr || width == nullptr || height == nullptr) {
+        return false;
+    }
+    try {
+        winrt::com_ptr<IWICImagingFactory> factory;
+        if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.put())))) {
+            return false;
+        }
+        // The decoder reads the header (and the frame's, at GetFrame); pixels are decoded only when
+        // asked for (CopyPixels), which this never does.
+        std::wstring wide(toHString(path));
+        winrt::com_ptr<IWICBitmapDecoder> decoder;
+        if (FAILED(factory->CreateDecoderFromFilename(wide.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand,
+                                                      decoder.put()))) {
+            return false;
+        }
+        // The largest the image can be drawn at: the largest frame (an icon holds several sizes, an
+        // animation several frames; a reasonable number of them is read), and a GIF's logical screen,
+        // which an animation is drawn on whatever its frames' sizes.
+        UINT frameCount = 0;
+        if (FAILED(decoder->GetFrameCount(&frameCount)) || frameCount == 0) {
+            return false;
+        }
+        uint64_t largest = 0;
+        UINT largestWidth = 0;
+        UINT largestHeight = 0;
+        auto consider = [&](UINT frameWidth, UINT frameHeight) {
+            uint64_t pixels = static_cast<uint64_t>(frameWidth) * frameHeight;
+            if (pixels >= largest) {
+                largest = pixels;
+                largestWidth = frameWidth;
+                largestHeight = frameHeight;
+            }
+        };
+        for (UINT index = 0; index < frameCount && index < 256; ++index) {
+            winrt::com_ptr<IWICBitmapFrameDecode> frame;
+            UINT frameWidth = 0;
+            UINT frameHeight = 0;
+            if (FAILED(decoder->GetFrame(index, frame.put())) || FAILED(frame->GetSize(&frameWidth, &frameHeight))) {
+                return false;
+            }
+            consider(frameWidth, frameHeight);
+        }
+        winrt::com_ptr<IWICMetadataQueryReader> metadata;
+        if (SUCCEEDED(decoder->GetMetadataQueryReader(metadata.put())) && metadata != nullptr) {
+            PROPVARIANT screenWidth;
+            PROPVARIANT screenHeight;
+            PropVariantInit(&screenWidth);
+            PropVariantInit(&screenHeight);
+            if (SUCCEEDED(metadata->GetMetadataByName(L"/logscrdesc/Width", &screenWidth)) && screenWidth.vt == VT_UI2
+                && SUCCEEDED(metadata->GetMetadataByName(L"/logscrdesc/Height", &screenHeight)) && screenHeight.vt == VT_UI2) {
+                consider(screenWidth.uiVal, screenHeight.uiVal);
+            }
+            PropVariantClear(&screenWidth);
+            PropVariantClear(&screenHeight);
+        }
+        *width = largestWidth;
+        *height = largestHeight;
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 bool actionUIWinUIIsRegularFile(const char *path) {

@@ -976,6 +976,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIImageOnFailed(ActionUIWinUIObject *image, A
 // pipe, which an image decoder would read forever or wait on (a document names the path). False for
 // NULL. Any thread; sets no error.
 ACTIONUI_WINUI_API bool actionUIWinUIIsRegularFile(const char *path);
+// The pixel size the image file at `path` (UTF-8) declares, read from its header by Windows' image
+// decoders (WIC) without decoding the image: its largest frame's (an icon's sizes, an animation's
+// frames), or a GIF's logical screen when larger. False when none of them reads it (an SVG, a file that
+// is no image or that cannot be opened). Any thread with COM initialized; sets no error.
+ACTIONUI_WINUI_API bool actionUIWinUIImageFileGetSize(const char *path, uint32_t *width, uint32_t *height);
 
 // MARK: - Drawing (a Canvas)
 

@@ -564,7 +564,7 @@ extension Table: ActionUIWinUIRenderer {
         guard let image = WinUIObject(adopting: actionUIWinUIImageCreate()) else {
             throw WinUIError.last("making an AsyncImage cell")
         }
-        if Link.destination(text) == .absolute, LinkTrust.readsImageURL(text, node) {
+        if Link.destination(text) == .absolute, LinkTrust.readsImageURL(text, node), !Image.fileURLIsTooLarge(text) {
             if !actionUIWinUIImageSetURL(image.pointer, text) || !actionUIWinUIImageSetStretch(image.pointer, ActionUIWinUIImageStretchFit) {
                 ActionUIModel.shared.logger.log("Table: \(WinUIError.last("loading \(text)"))", .warning)
             }

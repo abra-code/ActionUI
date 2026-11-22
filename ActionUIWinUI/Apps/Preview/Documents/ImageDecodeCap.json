@@ -1,0 +1,27 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A file that declares more than 64 megapixels is not decoded" } },
+    {
+      "type": "HStack",
+      "id": 3,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 4, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "frame": { "width": 64, "height": 40 } } },
+        { "type": "Image", "id": 5, "properties": { "filePath": "Images/declares-81-megapixels.png", "resizable": true, "frame": { "width": 64, "height": 40 } } },
+        { "type": "AsyncImage", "id": 6, "properties": { "frame": { "width": 64, "height": 40 } } },
+        {
+          "type": "Canvas",
+          "id": 7,
+          "properties": {
+            "frame": { "width": 72, "height": 48 },
+            "coordinateMode": "points",
+            "operations": [ { "type": "image", "frame": [4, 4, 64, 40], "filePath": "Images/declares-81-megapixels.png" } ]
+          }
+        }
+      ]
+    }
+  ]
+}
