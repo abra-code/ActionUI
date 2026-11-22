@@ -335,6 +335,7 @@ internal const val MAX_REMOTE_IMAGE_BYTES = 32 * 1024 * 1024
 private fun readImageBodyCapped(connection: HttpURLConnection, url: String): ByteArray {
     val declared = connection.contentLengthLong
     if (declared > MAX_REMOTE_IMAGE_BYTES) throw IOException("$url is larger than ${MAX_REMOTE_IMAGE_BYTES / 1024 / 1024} MB")
+    // nanoTime has an arbitrary origin and can wrap: compare differences, never the values.
     val deadline = System.nanoTime() + LOADABLE_REMOTE_TOTAL_TIMEOUT_MS * 1_000_000
     val buffer = ByteArrayOutputStream()
     connection.inputStream.use { input ->
@@ -344,7 +345,7 @@ private fun readImageBodyCapped(connection: HttpURLConnection, url: String): Byt
             if (count < 0) break
             buffer.write(chunk, 0, count)
             if (buffer.size() > MAX_REMOTE_IMAGE_BYTES) throw IOException("$url is larger than ${MAX_REMOTE_IMAGE_BYTES / 1024 / 1024} MB")
-            if (System.nanoTime() > deadline) {
+            if (System.nanoTime() - deadline > 0) {
                 throw IOException("loading $url took longer than ${LOADABLE_REMOTE_TOTAL_TIMEOUT_MS / 1000} seconds")
             }
         }

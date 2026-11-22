@@ -272,6 +272,7 @@ internal fun decodeDescription(
  * only off the main thread.
  */
 private fun fetchRemoteText(url: String): Pair<String, String> {
+    // nanoTime has an arbitrary origin and can wrap: compare differences, never the values.
     val deadline = System.nanoTime() + LOADABLE_REMOTE_TOTAL_TIMEOUT_MS * 1_000_000
     val connection = (URL(url).openConnection() as HttpURLConnection).apply {
         connectTimeout = LOADABLE_REMOTE_TIMEOUT_MS
@@ -291,7 +292,7 @@ private fun fetchRemoteText(url: String): Pair<String, String> {
                 if (count < 0) break
                 buffer.write(chunk, 0, count)
                 if (buffer.size() > limit) throw IOException("$url is larger than $descriptionMaxMegabytes MB")
-                if (System.nanoTime() > deadline) {
+                if (System.nanoTime() - deadline > 0) {
                     throw IOException("loading $url took longer than ${LOADABLE_REMOTE_TOTAL_TIMEOUT_MS / 1000} seconds")
                 }
             }
