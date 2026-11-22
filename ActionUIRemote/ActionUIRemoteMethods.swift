@@ -391,10 +391,21 @@ enum ActionUIRemoteMethods {
                 // Only a regular file: a device or a named pipe would never finish (or never
                 // start) reading on the main thread.
                 let resolved = url.resolvingSymlinksInPath().path
-                let type = try FileManager.default.attributesOfItem(atPath: resolved)[.type] as? FileAttributeType
-                guard type == .typeRegular else {
+                let attributes = try FileManager.default.attributesOfItem(atPath: resolved)
+                guard attributes[.type] as? FileAttributeType == .typeRegular else {
                     throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
                                               message: "Cannot read modal resource \(url.path): not a regular file")
+                }
+                // The size limit before the read, as a LoadableView's file is checked: a larger file
+                // would be read whole only to be refused.
+                let limit = ActionUIConfiguration.current.limits.maximumJSONSize
+                // An NSNumber on Apple (read as Int), a UInt in FoundationEssentials elsewhere.
+                let sizeValue = attributes[.size]
+                let size = (sizeValue as? Int) ?? (sizeValue as? UInt).map { Int(clamping: $0) }
+                    ?? (sizeValue as? UInt64).map { Int(clamping: $0) }
+                if let size, size > limit {
+                    throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
+                                              message: "Cannot read modal resource \(url.path): it is larger than \(limit) bytes")
                 }
                 data = try Data(contentsOf: URL(fileURLWithPath: resolved))
             } catch let error as ActionUIRemoteError {

@@ -37,6 +37,9 @@ import java.net.URL
 /** Connect / read timeout (ms) for a remote `url` fetch. */
 internal const val LOADABLE_REMOTE_TIMEOUT_MS = 15_000
 
+/** The longest a whole remote load may take, as on Apple and Linux: a server sending a byte now and then stays under the read timeout. */
+internal const val LOADABLE_REMOTE_TOTAL_TIMEOUT_MS = 120_000L
+
 /**
  * How deep LoadableViews may nest: one whose LoadableViews around it already number this
  * many is refused (ActionUIConfiguration.limits.maximumNestingDepth, 16 by default).
@@ -269,6 +272,7 @@ internal fun decodeDescription(
  * only off the main thread.
  */
 private fun fetchRemoteText(url: String): Pair<String, String> {
+    val deadline = System.nanoTime() + LOADABLE_REMOTE_TOTAL_TIMEOUT_MS * 1_000_000
     val connection = (URL(url).openConnection() as HttpURLConnection).apply {
         connectTimeout = LOADABLE_REMOTE_TIMEOUT_MS
         readTimeout = LOADABLE_REMOTE_TIMEOUT_MS
@@ -287,6 +291,9 @@ private fun fetchRemoteText(url: String): Pair<String, String> {
                 if (count < 0) break
                 buffer.write(chunk, 0, count)
                 if (buffer.size() > limit) throw IOException("$url is larger than $descriptionMaxMegabytes MB")
+                if (System.nanoTime() > deadline) {
+                    throw IOException("loading $url took longer than ${LOADABLE_REMOTE_TOTAL_TIMEOUT_MS / 1000} seconds")
+                }
             }
         }
         // After the body is read, the connection's URL is the last one it was redirected to.

@@ -20,11 +20,13 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TIMEOUT_MS
+import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TOTAL_TIMEOUT_MS
 import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.decodeBytesWithinCap
 import com.abracode.actionui.Helpers.readRegularFileBytes
 import com.abracode.actionui.Helpers.stringProperty
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -323,6 +325,33 @@ private suspend fun loadAsyncImage(url: String, logger: ActionUILogger?, readsFi
     return AsyncImagePhase.Success(image)
 }
 
+/** The most bytes one remote image may have, as on Linux (URLLoader): its pixels are capped after the read. */
+internal const val MAX_REMOTE_IMAGE_BYTES = 32 * 1024 * 1024
+
+/**
+ * [connection]'s body, refused when the server declares more than [MAX_REMOTE_IMAGE_BYTES], when
+ * more arrive, or when the whole read takes longer than [LOADABLE_REMOTE_TOTAL_TIMEOUT_MS].
+ */
+private fun readImageBodyCapped(connection: HttpURLConnection, url: String): ByteArray {
+    val declared = connection.contentLengthLong
+    if (declared > MAX_REMOTE_IMAGE_BYTES) throw IOException("$url is larger than ${MAX_REMOTE_IMAGE_BYTES / 1024 / 1024} MB")
+    val deadline = System.nanoTime() + LOADABLE_REMOTE_TOTAL_TIMEOUT_MS * 1_000_000
+    val buffer = ByteArrayOutputStream()
+    connection.inputStream.use { input ->
+        val chunk = ByteArray(64 * 1024)
+        while (true) {
+            val count = input.read(chunk)
+            if (count < 0) break
+            buffer.write(chunk, 0, count)
+            if (buffer.size() > MAX_REMOTE_IMAGE_BYTES) throw IOException("$url is larger than ${MAX_REMOTE_IMAGE_BYTES / 1024 / 1024} MB")
+            if (System.nanoTime() > deadline) {
+                throw IOException("loading $url took longer than ${LOADABLE_REMOTE_TOTAL_TIMEOUT_MS / 1000} seconds")
+            }
+        }
+    }
+    return buffer.toByteArray()
+}
+
 /**
  * Blocking read of [url]'s bytes: `http(s)://` through the same
  * [HttpURLConnection] shape (and timeout) as `LoadableLoader`'s text fetch,
@@ -338,7 +367,7 @@ private fun fetchImageBytes(url: String): ByteArray = when {
         try {
             val code = connection.responseCode
             if (code !in 200..299) throw IOException("HTTP $code for $url")
-            connection.inputStream.use { it.readBytes() }
+            readImageBodyCapped(connection, url)
         } finally {
             connection.disconnect()
         }

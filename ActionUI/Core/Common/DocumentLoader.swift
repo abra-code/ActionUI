@@ -351,8 +351,9 @@ enum ActionUIDocumentLoader {
         let path = url.resolvingSymlinksInPath().path
         let attributes = try FileManager.default.attributesOfItem(atPath: path)
         guard attributes[.type] as? FileAttributeType == .typeRegular else { throw NotARegularFile(path: url.path) }
-        // An Int on Apple (bridged), possibly a UInt64 in swift-corelibs.
-        let size = (attributes[.size] as? Int) ?? (attributes[.size] as? UInt64).map { Int(clamping: $0) }
+        // An Int on Apple (bridged), a UInt in FoundationEssentials, possibly a UInt64 in swift-corelibs.
+        let size = (attributes[.size] as? Int) ?? (attributes[.size] as? UInt).map { Int(clamping: $0) }
+            ?? (attributes[.size] as? UInt64).map { Int(clamping: $0) }
         if let size, size > maximumFileSize {
             throw ActionUIError("\(url.lastPathComponent) is larger than \(maximumFileSize / (1024 * 1024)) MB")
         }

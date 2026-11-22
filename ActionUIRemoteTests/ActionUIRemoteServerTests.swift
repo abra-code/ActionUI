@@ -398,6 +398,24 @@ final class ActionUIRemoteServerTests: XCTestCase {
         assertFailure("actionui.presentModal", windowParams(["path": "/nonexistent/modal.json"]), code: 1003)
         // Only a regular file: /dev/zero would never finish reading on the main thread.
         assertFailure("actionui.presentModal", windowParams(["path": "/dev/zero"]), code: 1003)
+        // A file over the configured size limit is refused before it is read.
+        let big = FileManager.default.temporaryDirectory.appendingPathComponent("modal-\(UUID().uuidString).json")
+        try Data(#"{ "id": 300, "type": "Text", "properties": { "text": "a modal over the limit" } }"#.utf8).write(to: big)
+        defer { try? FileManager.default.removeItem(at: big) }
+        var limited = ActionUIConfiguration()
+        limited.limits.maximumJSONSize = 16
+        ActionUIConfiguration.replaceForTesting(limited)
+        defer { ActionUIConfiguration.replaceForTesting() }
+        // Refused by the size check before the read (a read file over the limit is refused too,
+        // by the loader, with another message).
+        do {
+            _ = try call("actionui.presentModal", windowParams(["path": big.path]))
+            XCTFail("a modal file over the size limit was shown")
+        } catch let failure as RPCFailure {
+            XCTAssertEqual(failure.code, 1003)
+            XCTAssertTrue(failure.message.contains("larger than 16 bytes"), failure.message)
+        }
+        XCTAssertNil(windowModel.windowModal)
     }
 
     func testContentSizeLimitsReturnsNullOrAnObject() throws {
