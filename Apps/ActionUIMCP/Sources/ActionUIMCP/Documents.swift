@@ -328,10 +328,11 @@ struct DialogSpec {
 enum ContentKind: String, CaseIterable {
     case markdown, text, image, pdf, file, video, web, diff, table, chart
 
-    /// The kinds this system can show. Quick Look (pdf, file) has no renderer on Linux.
+    /// The kinds this system can show. Quick Look (pdf) has no renderer on Linux; file shows there
+    /// what ActionUI's own views can show (FileViewing).
     static var available: [ContentKind] {
         #if os(Linux)
-        allCases.filter { ![.pdf, .file].contains($0) }
+        allCases.filter { $0 != .pdf }
         #else
         allCases
         #endif
@@ -349,6 +350,8 @@ struct ViewerSpec {
     let tableRows: [[String]]?
     /// For `chart`: the warnings of the document checks, returned with the result.
     let warnings: [String]
+    /// For `file`: the view the file is shown with, returned with the result.
+    let shownAs: FileView?
 
     static let tableViewID = 1
     static let chartViewID = 1
@@ -379,6 +382,7 @@ struct ViewerSpec {
 
         var parsedRows: [[String]]?
         var checkWarnings: [String] = []
+        var fileView: FileView?
         switch kind {
         case .markdown:
             guard let text else { throw MCPToolError("kind 'markdown' needs 'text'") }
@@ -397,9 +401,16 @@ struct ViewerSpec {
             } else {
                 throw MCPToolError("kind 'image' needs 'path' or 'url'")
             }
-        case .pdf, .file:
-            guard let path else { throw MCPToolError("kind '\(kind.rawValue)' needs 'path'") }
+        case .pdf:
+            guard let path else { throw MCPToolError("kind 'pdf' needs 'path'") }
             root = ["type": "QuickLook", "properties": ["filePath": try Self.existingFile(path), "frame": fill]]
+        case .file:
+            guard let path else { throw MCPToolError("kind 'file' needs 'path'") }
+            let viewing = try FileViewing.view(forPath: try Self.existingFile(path), tableViewID: Self.tableViewID,
+                                               maxTableRows: Self.maxTableRows)
+            root = viewing.root
+            parsedRows = viewing.rows
+            fileView = viewing.view
         case .video:
             let location: String
             if let path {
@@ -485,6 +496,7 @@ struct ViewerSpec {
         }
         tableRows = parsedRows
         warnings = checkWarnings
+        shownAs = fileView
     }
 
     /// Paths must be absolute: the server does not share the client's working directory.

@@ -130,12 +130,12 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
 private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let kinds = JSONValue.array(ContentKind.available.map { .string($0.rawValue) })
     #if os(Linux)
-    let kindText = "markdown (text), text (plain monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
-    let shows = "a markdown report, plain text, an image, a video, a web page, a diff of two texts or files, a table, or a chart"
+    let kindText = "markdown (text), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, other UTF-8 text as monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let shows = "a markdown report, plain text, a file shown by its type, an image, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It takes the keyboard focus, as every new window does on Linux."
     #else
-    let kindText = "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
-    let shows = "a markdown report, plain text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two texts or files, a table, or a chart"
+    let kindText = "markdown (text), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, other UTF-8 text as monospaced text, anything else, PDF and HTML among them, with Quick Look), pdf (path; Quick Look), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let shows = "a markdown report, plain text, a file shown by its type (Quick Look for what has no better view), an image, a PDF, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It does not take keyboard focus."
     #endif
     var properties: [String: JSONValue] = [
@@ -158,8 +158,8 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
     ]
     #if os(Linux)
-    // No pdf or file kind here (ContentKind.available): "path" does not offer them.
-    properties["path"] = ["type": "string", "description": "Absolute path of a local file for image, video."]
+    // No pdf kind here (ContentKind.available): "path" does not offer it.
+    properties["path"] = ["type": "string", "description": "Absolute path of a local file for file, image, video."]
     #endif
     let input: JSONValue = [
         "type": "object",
@@ -170,7 +170,8 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let output: JSONValue = [
         "type": "object",
         "properties": ["window": ["type": "string", "description": "Window id for close_window."],
-                       "warnings": ["type": "array", "items": ["type": "string"], "description": "For chart: problems in the description that did not stop it from showing."]],
+                       "warnings": ["type": "array", "items": ["type": "string"], "description": "For chart: problems in the description that did not stop it from showing."],
+                       "shown_as": ["type": "string", "description": "For file: the view it is shown with: markdown, table, image, video, text, or quicklook."]],
         "required": ["window"],
     ]
     return MCPTool(
@@ -186,12 +187,14 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         annotations: ["readOnlyHint": true, "openWorldHint": true]
     ) { arguments, context in
         let spec = try ViewerSpec(arguments: arguments)
+        let shownAs = spec.shownAs
         let keep = try keepArgument(arguments)
         try await requireGraphicalSession(host)
         let subtitle = provenance(clientName: context.clientName, label: label)
         let opened = try await host.openViewer(spec: spec, subtitle: subtitle, keep: keep)
         var result: [String: JSONValue] = ["window": .string(opened.id)]
         if !opened.warnings.isEmpty { result["warnings"] = .array(opened.warnings.map(JSONValue.string)) }
+        if let shownAs { result["shown_as"] = .string(shownAs.rawValue) }
         return .structured(.object(result))
     }
 }

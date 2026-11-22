@@ -6,7 +6,7 @@ flavors: [claude, capable]
 
 ## ActionUI MCP Server
 
-When the `actionui` MCP server is connected you can open native windows on the user's desktop (macOS or Linux). The tool descriptions explain each tool; pick the lightest that fits: `ask_user` (a question with a few fields, no ActionUI syntax), `pick_path`, `show` (a report, image, diff, table or chart, without waiting), `notify`, and `show_ui` only for a layout you write.
+When the `actionui` MCP server is connected you can open native windows on the user's desktop (macOS or Linux). The tool descriptions explain each tool; pick the lightest that fits: `ask_user` (a question with a few fields, no ActionUI syntax), `pick_path`, `show` (a report, a file shown by its type, image, diff, table or chart, without waiting), `notify`, and `show_ui` only for a layout you write.
 
 For `show_ui`:
 
