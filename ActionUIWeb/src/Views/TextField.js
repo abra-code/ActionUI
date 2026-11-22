@@ -11,6 +11,7 @@
 // (multi-line), numeric format modes (format/fractionLength/currencyCode/value).
 // Observable value: the field string.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { applyTextContentType } from "../Helpers/TextContentType.js";
@@ -56,12 +57,12 @@ register("TextField", {
 
         const dispatchValueChange = () => {
             if (typeof properties.valueChangeActionID === "string") {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
         const dispatchCommit = () => {
             if (typeof properties.actionID === "string") {
-                ctx.model.dispatchAction(properties.actionID, element.id);
+                ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
 

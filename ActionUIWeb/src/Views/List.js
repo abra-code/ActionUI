@@ -49,6 +49,7 @@
 //   listRowBackground / listRowSeparator / listRowSeparatorTint / listRowInsets
 //                    Row styling applied uniformly to every row.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
@@ -251,7 +252,7 @@ function buildChildrenRows(node, element, properties, ctx, children, selectable,
         // Apple fires the selection-change actionID with no context and lets the
         // host read model.value; the web carries the selection as the element
         // value (getString), so it matches — no context sent.
-        if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
+        if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
     };
 
     // Wraps one built child view in a row + selection wiring. Shared by the
@@ -343,7 +344,7 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         applySelectionStyles();
         // Apple fires the selection actionID with no context and reads
         // model.value; the web matches — the selection is the element value.
-        if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
+        if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
     };
 
     const buildRowNode = (row, index) => {
@@ -379,7 +380,7 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
             rowNode.addEventListener("dblclick", () => {
                 // The row as it is now: a Toggle in it may have written a cell since the node was built.
                 if (typeof properties.doubleClickActionID === "string" && rowValue(rows[index] ?? row) === selectedRow) {
-                    ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, index);
+                    ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, index, ctx.origin ?? HOST_ORIGIN);
                 }
             });
         }
@@ -460,7 +461,7 @@ function renderHomogeneousCell(itemType, value, index, element, ctx) {
             event.stopPropagation(); // the cell's own tap, not row selection
             if (typeof itemType.actionID === "string") {
                 const context = itemType.actionContext === "rowIndex" ? index : value;
-                ctx.model.dispatchAction(itemType.actionID, element.id, 0, context);
+                ctx.model.dispatchAction(itemType.actionID, element.id, 0, context, ctx.origin ?? HOST_ORIGIN);
             }
         });
         return button;

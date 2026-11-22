@@ -14,6 +14,7 @@
 //   valueChangeActionID  dispatched on every change (the analog of the Apple
 //          binding's `set` closure), including programmatic setElementValue.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 
@@ -91,7 +92,7 @@ register("Slider", {
 
         const dispatchValueChange = () => {
             if (typeof properties.valueChangeActionID === "string") {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
 

@@ -17,6 +17,7 @@
 //   valueChangeActionID  dispatched on every change (user or programmatic),
 //                    matching TextField and the Apple binding setter.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { AUTOCOMPLETE } from "../Helpers/TextContentType.js";
@@ -70,12 +71,12 @@ register("SecureField", {
 
         const dispatchValueChange = () => {
             if (typeof properties.valueChangeActionID === "string") {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
         const dispatchCommit = () => {
             if (typeof properties.actionID === "string") {
-                ctx.model.dispatchAction(properties.actionID, element.id);
+                ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
 

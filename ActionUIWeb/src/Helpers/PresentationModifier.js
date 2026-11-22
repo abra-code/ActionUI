@@ -34,6 +34,7 @@
 //     content (the content is its own subtree); SwiftUI attaches the presentation
 //     to the carrier but renders the content independently too.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { allows } from "../Common/TrustPolicy.js";
 import { makeFloatingPanel } from "./PopoverPlacement.js";
 // At phone width Apple presents a popover as a sheet (and the bottom-sheet theme
@@ -123,7 +124,7 @@ function wireDialogPresentation(node, element, contentElement, style, key, onDis
             if (!open) return;
             open = false;
             if (typeof onDismissActionID === "string") {
-                ctx.model.dispatchAction(onDismissActionID, element.id, 0, null);
+                ctx.model.dispatchAction(onDismissActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         });
         return dialog;
@@ -186,7 +187,7 @@ function wirePopoverPresentation(node, element, contentElement, properties, ctx,
             controller.close();
         } else {
             show();
-            if (popoverActionID) ctx.model.dispatchAction(popoverActionID, element.id, 0, null);
+            if (popoverActionID) ctx.model.dispatchAction(popoverActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
         }
     });
 }

@@ -20,6 +20,7 @@
 //     `actionID` (a tap fires it, viewID = element id) match Apple. valueType is
 //     none (no value/state bridge).
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { drawCanvasOperations, parseCanvasOperations } from "../Helpers/CanvasRenderer.js";
 import { resolveSystemSymbol, preloadSymbolMap } from "../Helpers/MaterialSymbolResolver.js";
@@ -141,7 +142,7 @@ register("Canvas", {
         observer.observe(canvas);
 
         if (typeof properties.actionID === "string") {
-            canvas.addEventListener("click", () => ctx.model.dispatchAction(properties.actionID, element.id, 0, null));
+            canvas.addEventListener("click", () => ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN));
         }
 
         // Best-effort cleanup if the element is removed (the model has no destroy

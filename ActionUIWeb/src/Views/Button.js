@@ -13,6 +13,7 @@
 // on web it is styled here pending a ModifierResolver home, so it is not part of
 // this element's schema validation.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
@@ -88,9 +89,9 @@ register("Button", {
             const templateContext = ctx.templateContext;
             node.addEventListener("click", () => {
                 if (templateContext) {
-                    ctx.model.dispatchAction(properties.actionID, templateContext.parentID, templateContext.rowIndex, null);
+                    ctx.model.dispatchAction(properties.actionID, templateContext.parentID, templateContext.rowIndex, null, ctx.origin ?? HOST_ORIGIN);
                 } else {
-                    ctx.model.dispatchAction(properties.actionID, element.id, 0, { title: properties.title ?? "" });
+                    ctx.model.dispatchAction(properties.actionID, element.id, 0, { title: properties.title ?? "" }, ctx.origin ?? HOST_ORIGIN);
                 }
             });
         }

@@ -2,6 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { HOST_ORIGIN } from "../src/Common/TrustPolicy.js";
 import { installDom, makeElement, makeLogger } from "./dom-stub.mjs";
 import { wrapWithSearchable } from "../src/Helpers/SearchableModifier.js";
 
@@ -30,7 +31,7 @@ test("valid searchable wraps the body and dispatches the query as context", () =
 
     input.value = "ad";
     input.fire("input");
-    assert.deepEqual(dispatched, [["demo.search", 47, 0, "ad"]], "input dispatches actionID with the query as context, viewID 0 viewPartID");
+    assert.deepEqual(dispatched, [["demo.search", 47, 0, "ad", HOST_ORIGIN]], "input dispatches actionID with the query as context, viewID 0 viewPartID");
     assert.equal(logger.warningCount(), 0);
 });
 

@@ -16,6 +16,7 @@
 //   actionID     dispatched on user-initiated change only (a −/+ press), matching
 //                the Apple binding setter; programmatic setElementValue is silent.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { formatNumber, plainNumber, systemDecimalSeparator } from "../Helpers/NumberPrintf.js";
@@ -125,7 +126,7 @@ register("Stepper", {
             // The model reads through the binding's getValue, so `current` is the
             // live value — no separate store write is needed.
             if (typeof properties.actionID === "string") {
-                ctx.model.dispatchAction(properties.actionID, element.id, 0, current);
+                ctx.model.dispatchAction(properties.actionID, element.id, 0, current, ctx.origin ?? HOST_ORIGIN);
             }
         };
 

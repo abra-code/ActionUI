@@ -19,6 +19,8 @@
 // The threshold/resistance math is pure (exported) so it is unit-testable without
 // synthetic touches, exactly as EdgeSwipe.js factors `isBackSwipe`.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
+
 // Travel (px) the finger must drag down past the top to arm a refresh on release.
 export const PULL_THRESHOLD = 64;
 // Resting height (px) the indicator holds at while the refresh runs.
@@ -121,7 +123,7 @@ export function wrapWithPullToRefresh(scrollNode, element, properties, ctx) {
             refreshing = true;
             wrapper.classList.add("is-refreshing");
             setIndicatorHeight(INDICATOR_HEIGHT); // hold the indicator while the client fetches
-            ctx.model.beginRefresh(viewID, actionID, onEnd);
+            ctx.model.beginRefresh(viewID, actionID, onEnd, ctx.origin ?? HOST_ORIGIN);
         } else {
             setIndicatorHeight(0); // snap back: not pulled far enough
         }

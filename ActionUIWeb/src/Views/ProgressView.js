@@ -22,6 +22,7 @@
 //            and Toggle ports use for a style a platform cannot honor.
 //   actionID dispatched on tap/click (like Button), with no context.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 
@@ -122,7 +123,7 @@ register("ProgressView", {
         if (typeof properties.actionID === "string") {
             markHandlesAction(root);
             root.addEventListener("click", () => {
-                ctx.model.dispatchAction(properties.actionID, element.id);
+                ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             });
         }
 

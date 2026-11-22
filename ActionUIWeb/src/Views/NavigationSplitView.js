@@ -55,6 +55,7 @@
 // static split stacks its panes vertically. Guarded so the headless test DOM (no
 // ResizeObserver) stays in the expanded form.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
@@ -349,7 +350,7 @@ register("NavigationSplitView", {
                 // the host reads getState(nsvID, "selectedDestination"). Matches Swift
                 // and the web's no-context selection convention.
                 if (fromUser && typeof sidebarActionID === "string") {
-                    ctx.model.dispatchAction(sidebarActionID, sidebarID, 0, null);
+                    ctx.model.dispatchAction(sidebarActionID, sidebarID, 0, null, ctx.origin ?? HOST_ORIGIN);
                 }
                 if (fromUser) commitHistory("push"); // user selection = forward nav
             };
@@ -362,7 +363,7 @@ register("NavigationSplitView", {
                 if (selectedDestination === 0) return;
                 selectedDestination = 0;
                 applySelection();
-                if (typeof sidebarActionID === "string") ctx.model.dispatchAction(sidebarActionID, sidebarID, 0, null);
+                if (typeof sidebarActionID === "string") ctx.model.dispatchAction(sidebarActionID, sidebarID, 0, null, ctx.origin ?? HOST_ORIGIN);
                 commitHistory("replace");
             };
             const backButton = document.createElement("button");

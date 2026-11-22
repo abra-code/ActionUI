@@ -332,14 +332,16 @@ export class ActionUIModel {
     // then fires the actionID. The timeout and action fire AFTER the record is
     // stored so a client that responds synchronously from its handler (calling
     // setElementValue/Rows inline) finds the in-flight record and ends it, rather
-    // than the signal being missed. `onEnd` retracts the view's indicator.
-    beginRefresh(viewID, actionID, onEnd) {
+    // than the signal being missed. `onEnd` retracts the view's indicator. `origin` is the
+    // content the view is in (null: the origin recorded for viewID), as dispatchAction takes it:
+    // a view in a template row may carry another element's id.
+    beginRefresh(viewID, actionID, onEnd, origin = null) {
         this.endRefresh(viewID); // restart cleanly if one is somehow already in flight
         const subtreeIds = this.subtreeIds(viewID) ?? new Set([viewID]);
         const timeout = setTimeout(() => this.endRefreshTargeting(viewID), this.refreshTimeoutMs);
         if (timeout && typeof timeout.unref === "function") timeout.unref(); // do not keep Node alive (tests)
         this.refreshes.set(viewID, { subtreeIds, onEnd, timeout });
-        this.dispatchAction(actionID, viewID, 0, null);
+        this.dispatchAction(actionID, viewID, 0, null, origin);
     }
 
     // Ends any in-flight refresh whose captured subtree includes viewID. Called from

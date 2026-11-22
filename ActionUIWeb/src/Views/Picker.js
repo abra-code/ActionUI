@@ -24,6 +24,7 @@
 //            `change` event), matching the Apple binding setter; the selected tag
 //            is passed as context. Programmatic setString is silent.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, registerElementPropertyApplier } from "../Common/ModifierResolver.js";
 
@@ -113,7 +114,7 @@ register("Picker", {
         // which dispatches actionID on user changes only.
         select.addEventListener("change", () => {
             if (typeof properties.actionID === "string") {
-                ctx.model.dispatchAction(properties.actionID, element.id, 0, select.value);
+                ctx.model.dispatchAction(properties.actionID, element.id, 0, select.value, ctx.origin ?? HOST_ORIGIN);
             }
         });
 
@@ -241,7 +242,7 @@ function buildRadioGroup(element, properties, ctx, sections, initial) {
     // (setting .checked programmatically does not), matching the binding setter.
     fieldset.addEventListener("change", () => {
         if (typeof properties.actionID === "string") {
-            ctx.model.dispatchAction(properties.actionID, element.id, 0, selectedValue());
+            ctx.model.dispatchAction(properties.actionID, element.id, 0, selectedValue(), ctx.origin ?? HOST_ORIGIN);
         }
     });
 
@@ -293,7 +294,7 @@ function buildSegmented(element, properties, ctx, items, initial) {
     markHandlesAction(group);
     group.addEventListener("change", () => {
         if (typeof properties.actionID === "string") {
-            ctx.model.dispatchAction(properties.actionID, element.id, 0, selectedValue());
+            ctx.model.dispatchAction(properties.actionID, element.id, 0, selectedValue(), ctx.origin ?? HOST_ORIGIN);
         }
     });
 

@@ -28,6 +28,7 @@
 //                 programmatic setString is silent (the Apple binding setter only
 //                 fires on UI interaction).
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 
@@ -130,7 +131,7 @@ register("DatePicker", {
 
         const dispatchValueChange = () => {
             if (typeof properties.valueChangeActionID === "string") {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
 

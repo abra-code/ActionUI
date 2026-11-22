@@ -7,6 +7,7 @@ import { installDom, makeElement, makeLogger } from "./dom-stub.mjs";
 
 // The frame box is made with document.createElement.
 before(() => installDom());
+import { HOST_ORIGIN } from "../src/Common/TrustPolicy.js";
 import { resolveColor, applyViewModifiers, markHandlesAction, applyElementProperty, needsFrameBox, makeFrameBox, finishFrameBox, wrapWithFrameBox, markGreedy } from "../src/Common/ModifierResolver.js";
 
 test("resolveColor: named -> CSS var, hex pass-through, unknown warns -> null", () => {
@@ -252,7 +253,7 @@ test("actionID wires a click that dispatches; markHandlesAction opts out", () =>
     const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
     applyViewModifiers(node, { id: 9 }, { actionID: "go" }, ctx);
     node.fire("click");
-    assert.deepEqual(dispatched, [["go", 9, 0, null]], "click dispatches actionID with the element id");
+    assert.deepEqual(dispatched, [["go", 9, 0, null, HOST_ORIGIN]], "click dispatches actionID with the element id");
 
     const handled = makeElement();
     markHandlesAction(handled);
@@ -278,7 +279,7 @@ test("actionID inside a template row dispatches the owning container id and row 
     // row identity and never can - the context is the only source of it.
     applyViewModifiers(node, { id: 0 }, { actionID: "row.open" }, ctx);
     node.fire("click");
-    assert.deepEqual(dispatched, [["row.open", 100, 4, null]],
+    assert.deepEqual(dispatched, [["row.open", 100, 4, null, HOST_ORIGIN]],
         "dispatches (owning container id, row index), matching Views/Button.js");
 });
 
@@ -296,7 +297,7 @@ test("row 0 dispatches the owning container id, not the cell's own", () => {
     };
     applyViewModifiers(node, { id: 0 }, { actionID: "row.open" }, ctx);
     node.fire("click");
-    assert.deepEqual(dispatched, [["row.open", 100, 0, null]],
+    assert.deepEqual(dispatched, [["row.open", 100, 0, null, HOST_ORIGIN]],
         "row 0 is a real row: the context decides, not the index's truthiness");
 });
 
@@ -327,7 +328,7 @@ test("a click on plain content inside the container still fires the container ac
     container.appendChild(label);
 
     label.fire("click");
-    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]],
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null, HOST_ORIGIN]],
         "unmarked content is part of the cell's tap target");
 });
 
@@ -345,7 +346,7 @@ test("a tappable container inside another tappable container: only the inner one
     outer.appendChild(inner);
 
     inner.fire("click");
-    assert.deepEqual(dispatched, [["avatar.open", 8, 0, null]],
+    assert.deepEqual(dispatched, [["avatar.open", 8, 0, null, HOST_ORIGIN]],
         "the inner container serves the click; the outer one stands down");
 });
 
@@ -406,7 +407,7 @@ test("a tappable container is reachable by keyboard and announced as a button", 
     assert.equal(node.tabIndex, 0, "reachable by Tab");
 
     node.fire("keydown", { key: "Enter" });
-    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]], "Enter activates it");
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null, HOST_ORIGIN]], "Enter activates it");
 
     node.fire("keydown", { key: " " });
     assert.equal(dispatched.length, 2, "Space activates it too");
@@ -462,7 +463,7 @@ test("re-enabling through setElementProperty restores the cell action", () => {
 
     applyElementProperty(node, "disabled", false, makeLogger());
     node.fire("click");
-    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]], "live again once re-enabled");
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null, HOST_ORIGIN]], "live again once re-enabled");
 });
 
 test("a marked ancestor ABOVE the container does not suppress the container's action", () => {
@@ -475,7 +476,7 @@ test("a marked ancestor ABOVE the container does not suppress the container's ac
     outer.appendChild(container);
 
     container.fire("click");
-    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]],
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null, HOST_ORIGIN]],
         "the walk stops at the container - what is above it answers for itself");
 });
 
@@ -487,7 +488,7 @@ test("onAppearActionID fires once after mount, with id + null context, guarded p
     assert.deepEqual(dispatched, [], "does not fire synchronously during build (waits for mount)");
 
     await Promise.resolve(); // flush the microtask
-    assert.deepEqual(dispatched, [["init", 5, 0, null]], "fires once with (actionID, id, viewPartID 0, null context)");
+    assert.deepEqual(dispatched, [["init", 5, 0, null, HOST_ORIGIN]], "fires once with (actionID, id, viewPartID 0, null context)");
 
     // Re-applying to the same node (a rebuild) must not re-fire: it is guarded per node.
     applyViewModifiers(node, { id: 5 }, { onAppearActionID: "init" }, ctx);

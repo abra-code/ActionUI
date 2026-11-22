@@ -217,7 +217,7 @@ register("LoadableView", {
                     // Fire viewDidLoadActionID once per successfully loaded source.
                     if (typeof properties.viewDidLoadActionID === "string" && lastLoadedSource !== source) {
                         lastLoadedSource = source;
-                        ctx.model.dispatchAction(properties.viewDidLoadActionID, element.id, 0, null);
+                        ctx.model.dispatchAction(properties.viewDidLoadActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
                     }
                 })
                 .catch((error) => {
