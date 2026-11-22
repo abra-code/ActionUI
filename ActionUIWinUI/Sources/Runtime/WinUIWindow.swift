@@ -1,10 +1,11 @@
 // Sources/Runtime/WinUIWindow.swift
 /*
  The render tree of one ActionUI window on WinUI: the root node built from the window model's
- loaded element (Linux: AdwaitaWindow). `view` is what goes into a WinUI window's content.
- Presenting it in an application window, with its title, size and menus, comes with the
- application layer.
+ loaded element (Linux: AdwaitaWindow). `view` is what goes into a WinUI window's content;
+ openingSize is the size the application layer (ActionUIWinUIApplication) opens its window at.
 */
+
+import CWinUI
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -31,6 +32,19 @@ package final class WinUIWindow {
     /// Loads `json` (an ActionUI document) into the window model `windowUUID` and builds its tree.
     package static func load(json: String, windowUUID: String) throws -> WinUIWindow {
         _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
+            throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
+        }
+        return WinUIWindow(windowModel: windowModel)
+    }
+
+    /// Loads the ActionUI JSON (or plist, by its extension) in the regular file at `url` into the
+    /// window model `windowUUID`, as from that file: it is the app's own when it is in the app's
+    /// resources, else less trusted (JSONContentOrigin), and builds its tree.
+    package static func load(file url: URL, windowUUID: String) throws -> WinUIWindow {
+        let data = try ActionUIDocumentLoader.readRegularFile(url)
+        _ = try ActionUIDocumentLoader.load(data: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID,
+                                            isContentView: true, parentID: 0, source: .file(url))
         guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
             throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
         }
@@ -80,6 +94,31 @@ package final class WinUIWindow {
             }
         }
         return false
+    }
+
+    /// The size a window opens at when its content is too small to say: SwiftUI's default (macOS).
+    package static let fallbackSize = ActionUIWinUISize(width: 480, height: 320)
+    /// The widest a window opens unless its content's minimum needs more: SwiftUI's WindowGroup opens
+    /// 900 points wide on macOS (measured on macOS 27, whatever the content), as on Linux.
+    package static let openingWidth = 900.0
+    /// The least a window opens tall when its content grows vertically (a List, a ScrollView, a Color):
+    /// SwiftUI's WindowGroup gives its content 418 points (macOS 27), as on Linux.
+    package static let openingHeight = 418.0
+
+    /// The content size the window opens at, as on Linux: the content's size measured in the opening
+    /// width (wider only when its minimum needs it), at least openingHeight tall when it grows
+    /// vertically; fallbackSize when it measures under 10 by 10.
+    package func openingSize() -> ActionUIWinUISize {
+        guard let view else { return Self.fallbackSize }
+        let measured = actionUIWinUIElementMeasure(view.pointer, ActionUIWinUISize(width: Self.openingWidth, height: .infinity))
+        guard measured.width.isFinite, measured.height.isFinite, measured.width >= 10 || measured.height >= 10 else {
+            return Self.fallbackSize
+        }
+        var height = measured.height.rounded(.up)
+        if root?.expansion.contains(.vertical) == true {
+            height = max(height, Self.openingHeight)
+        }
+        return ActionUIWinUISize(width: max(measured.width.rounded(.up), 1), height: max(height, 1))
     }
 
     /// The window is going away: its nodes leave the tree.

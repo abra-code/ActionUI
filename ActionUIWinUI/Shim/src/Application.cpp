@@ -78,6 +78,12 @@ struct App : mux::ApplicationT<App, muxm::IXamlMetadataProvider> {
             Exit();
             return;
         }
+        // The run ends only at actionUIWinUIQuit: WinUI would end it as the last window closes, where a
+        // host may close one window before opening the next.
+        guarded("launch", [&]() {
+            DispatcherShutdownMode(mux::DispatcherShutdownMode::OnExplicitShutdown);
+            return true;
+        });
         if (m_onLaunched != nullptr) {
             m_onLaunched(m_context);
         }

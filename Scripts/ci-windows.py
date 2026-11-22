@@ -762,6 +762,35 @@ def check_c_adapter(bin_path, results, summary, msvc, env):
     return step["status"] == 0
 
 
+def check_c_app(bin_path, results, summary, msvc, env):
+    """Builds ActionUIWinUI/Apps/CAppCheck/main.c against ActionUI.dll's import library and runs
+    it: ActionUI's application from C (ActionUIApp.h), two windows presented and closed, the handlers
+    and a value through the C adapter checked. True when every check passed."""
+    library = bin_path / "ActionUI.lib"
+    if not library.is_file():
+        summary["findings"].append(f"no ActionUI.lib in {bin_path}")
+        return False
+    folder = REPO_DIR / "ActionUIWinUI" / "Apps" / "CAppCheck"
+    checker = bin_path / "ActionUIAppCheck.exe"
+    command = [resolve_tool("cl", msvc), "/nologo", "/std:c11", "/W3", "/WX", "/MD", "/utf-8",
+               f"/I{REPO_DIR / 'ActionUICAdapter' / 'include'}", f"/I{REPO_DIR / 'ActionUIAppKitApplication' / 'include'}",
+               folder / "main.c", f"/Fe{checker}", f"/Fo{bin_path}\\", "/link", library]
+    step = run_step("c-app-build", command, results, msvc, cwd=bin_path)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    # The manifest the other programs have (supported OS, per-monitor DPI).
+    shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
+                 bin_path / "ActionUIAppCheck.exe.manifest")
+    step = run_step("c-app-check", [checker, folder / "Window.json"], results, env, cwd=bin_path,
+                    timeout=SMOKE_TIMEOUT_SECONDS)
+    summary["steps"].append(step)
+    summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                            .splitlines() if line.startswith("c-app:")]
+    return step["status"] == 0
+
+
 def check_swift_smoke(shim_out, bootstrap, results, summary, msvc):
     """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview, the C adapter's
     DLL, ActionUI.dll) with the shim's import library on the linker path, places the shim DLL, the
@@ -801,6 +830,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc):
                             .splitlines() if line.startswith("smoke:")]
     passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0
     passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
+    passed = check_c_app(bin_path, results, summary, msvc, env) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"

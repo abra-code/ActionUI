@@ -37,13 +37,13 @@ private let releaseEvent: ActionUIWinUICallback = { context in
 }
 
 /// A shim function that registers an event handler: (control, handler, context, destroyContext).
-typealias WinUIEventRegistration = (OpaquePointer?, ActionUIWinUICallback, UnsafeMutableRawPointer?, ActionUIWinUICallback) -> Bool
+package typealias WinUIEventRegistration = (OpaquePointer?, ActionUIWinUICallback, UnsafeMutableRawPointer?, ActionUIWinUICallback) -> Bool
 
-@MainActor enum WinUIEvents {
+@MainActor package enum WinUIEvents {
     /// Runs `action` for each `event` of `control` (an actionUIWinUI...On... function), until the
     /// control is gone. Logs and returns false when the shim refused the handler.
     @discardableResult
-    static func connect(_ control: WinUIObject, _ event: WinUIEventRegistration, _ name: String,
+    package static func connect(_ control: WinUIObject, _ event: WinUIEventRegistration, _ name: String,
                         _ action: @escaping @MainActor () -> Void) -> Bool {
         let context = Unmanaged.passRetained(EventBox(action)).toOpaque()
         // On failure the shim has already called releaseEvent.

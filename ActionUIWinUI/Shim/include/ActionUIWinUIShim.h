@@ -56,7 +56,7 @@ ACTIONUI_WINUI_API bool actionUIWinUIInitialize(void);
 ACTIONUI_WINUI_API void actionUIWinUIShutdown(void);
 
 // Starts WinUI on the calling thread, which becomes the UI thread, and blocks until the
-// application quits. onLaunched(context) is called on the UI thread once WinUI is ready; create
+// application quits (actionUIWinUIQuit: closing the last window does not end it). onLaunched(context) is called on the UI thread once WinUI is ready; create
 // the first window there. Returns false when WinUI could not start or onLaunched could not run.
 // From Swift, call it on the process's main thread: Swift's main actor is that thread, and the
 // shim's callbacks run on the thread that calls this.
@@ -108,6 +108,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *windo
 // Shows the window and brings it to the front.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
 ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
+// `handler` runs on the UI thread when the window has closed (by the user, or actionUIWinUIWindowClose).
+ACTIONUI_WINUI_API bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
+                                                    ActionUIWinUICallback destroyContext);
 // Opens Windows' share sheet for the window showing `element` (DataTransferManager, as a desktop app
 // shares), with the web link `url` titled `title` (the sheet needs one) and, for targets that take text
 // (a mail's body), `text` (NULL: none); a `url` that is not absolute ("example.com") is no link, so

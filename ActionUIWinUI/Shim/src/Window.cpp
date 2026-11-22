@@ -488,6 +488,13 @@ bool actionUIWinUIWindowClose(ActionUIWinUIObject *window) {
     });
 }
 
+bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
+                                 ActionUIWinUICallback destroyContext) {
+    return registerHandler("window on closed", handler, context, destroyContext, [&](std::shared_ptr<EventHandler> const &holder) {
+        windowFrom(window).Closed([holder](auto &&, auto &&) { holder->fire(); });
+    });
+}
+
 bool actionUIWinUIRenderToPNG(ActionUIWinUIObject *element, const char *path, ActionUIWinUICompletion completion,
                               void *context) {
     return guarded("render to PNG", [&]() {

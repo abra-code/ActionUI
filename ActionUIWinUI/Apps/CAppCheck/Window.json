@@ -1,0 +1,9 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A window from a file" } },
+    { "type": "Button", "id": 3, "properties": { "title": "OK" } }
+  ]
+}

@@ -37,4 +37,10 @@ private let drainMainQueue: @convention(c) (UnsafeMutableRawPointer?) -> Void = 
         installed = true
         return true
     }
+
+    /// actionUIWinUIRun has returned, dropping the shim's watches: the next run's install watches
+    /// the main queue again. On the main thread.
+    package static func runEnded() {
+        installed = false
+    }
 }

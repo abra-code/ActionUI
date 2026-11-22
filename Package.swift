@@ -608,9 +608,10 @@ Package(
     products: [
         // The ActionUI module linked into what uses it, for Swift programs (as Linux's ActionUIStatic).
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
-        // ActionUI.dll (with its import library): ActionUI with the C adapter, for C programs and the
-        // language bindings, one ActionUI per process (as Linux's libActionUI.so).
-        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUICAdapter"]),
+        // ActionUI.dll (with its import library): ActionUI with the C adapter and the application
+        // functions, for C programs and the language bindings, one ActionUI per process (as Linux's
+        // libActionUI.so).
+        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUICAdapter", "ActionUIWinUIApplication"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
     ],
@@ -646,6 +647,17 @@ Package(
                 "ActionUIC+Linux.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Windows.swift"]
+        ),
+        // The application functions (actionUIApp*, ActionUIApp.h) over WinUIApplication, as Linux's
+        // ActionUIAdwaitaApplication; the header as a module for the handler types.
+        .systemLibrary(
+            name: "ActionUIAppHeaders",
+            path: "ActionUIWinUI/AppHeaders"
+        ),
+        .target(
+            name: "ActionUIWinUIApplication",
+            dependencies: ["ActionUI", "ActionUIAppHeaders", "CWinUI"],
+            path: "ActionUIWinUIApplication"
         ),
         // The renderer's smoke test from Swift: WinUI through the shim, the main-queue bridge, a
         // PNG of a window.

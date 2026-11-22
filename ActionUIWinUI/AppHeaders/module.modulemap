@@ -1,0 +1,7 @@
+// The application functions' C header as the module ActionUIAppHeaders, which the Windows
+// ActionUIWinUIApplication target imports for the handler types (as ActionUIAdwaita/AppHeaders is for
+// Linux's): ActionUIApp.h alone is the C interface.
+module ActionUIAppHeaders {
+    header "../../ActionUIAppKitApplication/include/ActionUIApp.h"
+    export *
+}
