@@ -53,8 +53,9 @@ enum RemoteJSONFetch {
         }
     }
 
+    /// `what`: what the body is, for the error when it is too large.
     static func data(for request: URLRequest, limit: Int, timeout: Double = defaultTimeout,
-                     session: URLSession = .shared) async throws -> (data: Data, finalURL: URL) {
+                     session: URLSession = .shared, what: String = "the ActionUI JSON") async throws -> (data: Data, finalURL: URL) {
         try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
             group.addTask {
                 let (bytes, response) = try await session.bytes(for: request)
@@ -65,11 +66,11 @@ enum RemoteJSONFetch {
                 // would pass another server's JSON for the requested server's.
                 guard let finalURL = response.url else { throw ActionUIError("the response names no address") }
                 // Refused at once when the server says how long the body is.
-                guard response.expectedContentLength <= Int64(limit) else { throw tooLarge(limit) }
+                guard response.expectedContentLength <= Int64(limit) else { throw tooLarge(limit, what) }
                 var data = Data()
                 if response.expectedContentLength > 0 { data.reserveCapacity(Int(response.expectedContentLength)) }
                 for try await byte in bytes {
-                    guard data.count < limit else { throw tooLarge(limit) }
+                    guard data.count < limit else { throw tooLarge(limit, what) }
                     data.append(byte)
                 }
                 return (data, finalURL)
@@ -86,8 +87,8 @@ enum RemoteJSONFetch {
         }
     }
 
-    private static func tooLarge(_ limit: Int) -> ActionUIError {
-        ActionUIError("the ActionUI JSON is larger than \(limit / (1024 * 1024)) MB")
+    private static func tooLarge(_ limit: Int, _ what: String) -> ActionUIError {
+        ActionUIError("\(what) is larger than \(limit / (1024 * 1024)) MB")
     }
 }
 

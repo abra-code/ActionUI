@@ -160,10 +160,20 @@ extension Table: ActionUISwiftUIRenderer {
                         case .image:
                             ImageHelper.image(from: value, interpretation: (dataInterpretation ?? .systemName).rawValue, windowUUID: windowUUID, viewID: element.id)
                         case .asyncImage:
-                            SwiftUI.AsyncImage(url: ImageHelper.loadableImageURL(URL(string: value), windowUUID: windowUUID, viewID: element.id)) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                SwiftUI.ProgressView()
+                            let url = ImageHelper.loadableImageURL(URL(string: value), windowUUID: windowUUID, viewID: element.id)
+                            if let url, ImageHelper.isLessTrusted(windowUUID: windowUUID, viewID: element.id) {
+                                // Less-trusted content's image: fetched without the app's cookies, within size limits.
+                                PrivateAsyncImage(url: url, logger: ActionUIModel.shared.logger) { image in
+                                    image.resizable().scaledToFit()
+                                } placeholder: {
+                                    SwiftUI.ProgressView()
+                                }
+                            } else {
+                                SwiftUI.AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFit()
+                                } placeholder: {
+                                    SwiftUI.ProgressView()
+                                }
                             }
                         }
                     }
