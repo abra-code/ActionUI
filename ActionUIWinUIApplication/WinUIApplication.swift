@@ -77,10 +77,13 @@ public final class WinUIApplication {
     private final class Shown {
         let window: WinUIObject
         let tree: WinUIWindow
+        /// False when the window shows the error its document could not be loaded with.
+        let showsDocument: Bool
 
-        init(window: WinUIObject, tree: WinUIWindow) {
+        init(window: WinUIObject, tree: WinUIWindow, showsDocument: Bool) {
             self.window = window
             self.tree = tree
+            self.showsDocument = showsDocument
         }
     }
 
@@ -279,9 +282,11 @@ public final class WinUIApplication {
         queuedModelRemovals.remove(windowUUID)
         handlers.windowWillPresent?(windowUUID)
         let tree: WinUIWindow
+        var loaded = true
         do {
             tree = try load()
         } catch {
+            loaded = false
             logger.log("WinUIApplication: window \(windowUUID) could not be loaded: \(error)", .error)
             let message = String(describing: error)
             let errorJSON = (try? ActionUIJSON.string(from: ["type": "Text", "id": 1,
@@ -306,7 +311,7 @@ public final class WinUIApplication {
             ActionUIModel.shared.removeWindow(windowUUID)
             return
         }
-        let shown = Shown(window: window, tree: tree)
+        let shown = Shown(window: window, tree: tree, showsDocument: loaded)
         windows[windowUUID] = shown
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a window's closing") { [weak self, weak shown] in
             guard let self, let shown else { return }
@@ -333,6 +338,29 @@ public final class WinUIApplication {
               loading.keys.allSatisfy({ $0 == windowUUID }),
               let shouldTerminate = handlers.shouldTerminate else { return true }
         return shouldTerminate()
+    }
+
+    /// Whether the window showing `windowUUID` shows its document (false: it shows the error the
+    /// document could not be loaded with, or there is no such window), as on Linux.
+    public func showsDocument(_ windowUUID: String) -> Bool {
+        windows[windowUUID]?.showsDocument ?? false
+    }
+
+    /// Saves what the window showing `windowUUID` shows below its title bar, popups open over it
+    /// included, as a PNG file at `path`, drawn by WinUI itself (no screen capture). Asynchronous on
+    /// Windows: `completion` runs on the main thread with whether the file was written; false at once
+    /// when there is no such window.
+    public func savePNG(windowUUID: String, path: String, completion: @escaping @MainActor (Bool) -> Void) {
+        guard let shown = windows[windowUUID] else {
+            completion(false)
+            return
+        }
+        let box = Unmanaged.passRetained(PNGCompletion(completion)).toOpaque()
+        if !actionUIWinUIWindowRenderToPNG(shown.window.pointer, path, pngRendered, box) {
+            ActionUIModel.shared.logger.log("WinUIApplication: \(WinUIError.last("saving \(path)"))", .error)
+            Unmanaged<PNGCompletion>.fromOpaque(box).release()
+            completion(false)
+        }
     }
 
     /// Closes the window showing `windowUUID` (its windowWillClose handler fires as it closes).
@@ -403,4 +431,23 @@ private let decideClose: ActionUIWinUIWindowCloseDecider = { context in
 private let releaseClose: ActionUIWinUICallback = { context in
     guard let context else { return }
     Unmanaged<CloseBox>.fromOpaque(context).release()
+}
+
+/// savePNG's completion, held by the shim until the PNG is written.
+@MainActor private final class PNGCompletion {
+    let completion: @MainActor (Bool) -> Void
+
+    init(_ completion: @escaping @MainActor (Bool) -> Void) {
+        self.completion = completion
+    }
+}
+
+// The shim's completion: on the UI thread, once; gives back the box's reference.
+private let pngRendered: ActionUIWinUICompletion = { context, succeeded in
+    guard let context else { return }
+    let address = UInt(bitPattern: context)
+    MainActor.assumeIsolated {
+        guard let pointer = UnsafeMutableRawPointer(bitPattern: address) else { return }
+        Unmanaged<PNGCompletion>.fromOpaque(pointer).takeRetainedValue().completion(succeeded)
+    }
 }

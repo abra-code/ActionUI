@@ -2,9 +2,9 @@
 //
 // ActionUIViewer - the add-on-aware preview tool (aggregator package).
 //
-// One package for both platforms: linuxPackage below is the viewer on GTK, in its own source folder
-// (Sources/ActionUIViewerLinux) since the two programs share no code, without the add-ons that have
-// no Linux renderer.
+// One package for every platform: linuxPackage below is the viewer on GTK, in its own source folder
+// (Sources/ActionUIViewerLinux) since the programs share no code, without the add-ons that have no
+// Linux renderer; windowsPackage the viewer on WinUI (Sources/ActionUIViewerWindows), without add-ons.
 //
 // Lives in the ActionUI repo but is a SEPARATE package from core: it depends on core ActionUI AND
 // the optional add-on packages, links them, and calls each add-on's register() at launch, so it can
@@ -150,10 +150,35 @@ Package(
 )
 }
 
+// The program on Windows: a document in a window through WinUIApplication, ActionUI's application on
+// WinUI. The add-ons are not on Windows yet. The WinUI shim's import library is passed to the linker
+// (-Xswiftc -L<folder>), as Scripts/ci-windows.py builds the root package; the program runs with the
+// shim's DLL, the Windows App SDK bootstrapper and its manifest beside it (Scripts/ci-windows.py).
+func windowsPackage() -> Package {
+Package(
+    name: "ActionUIViewer",
+    dependencies: [
+        .package(path: "../.."),
+    ],
+    targets: [
+        .executableTarget(
+            name: "ActionUIViewer",
+            dependencies: [
+                .product(name: "ActionUIStatic", package: "ActionUI"),
+                .product(name: "ActionUIWinUIApplication", package: "ActionUI"),
+            ],
+            path: "Sources/ActionUIViewerWindows"
+        ),
+    ]
+)
+}
+
 // Only the chosen package may be constructed: PackageDescription takes the last Package created as
 // the manifest.
 #if os(Linux)
 let package = linuxPackage()
+#elseif os(Windows)
+let package = windowsPackage()
 #else
 let package = applePackage()
 #endif

@@ -794,6 +794,44 @@ def check_shim(results, install, swift=False):
     return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build))
 
 
+def check_viewer(shim_out, bin_path, results, summary, env):
+    """Builds Apps/ActionUIViewer's Windows program (its own package, as on Linux) with the shim's import
+    library, puts the shim's DLL, the bootstrapper, WebView2's Core DLL and the programs' manifest beside it,
+    and runs it: a preview document saved with --screenshot (exit 0, a PNG), and a document that cannot be
+    loaded (exit 65, its error window saved). True when both answered so."""
+    scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-viewer"), "--manifest-cache", "none"]
+    package = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIViewer")]
+    step = run_step("viewer-build", ["swift", "build"] + package + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    shown = capture(["swift", "build"] + package + scratch + ["--show-bin-path"]).splitlines()
+    viewer_bin = Path(shown[-1].strip()) if shown else Path()
+    viewer = viewer_bin / "ActionUIViewer.exe"
+    if not viewer.is_file():
+        summary["findings"].append(f"viewer: no ActionUIViewer.exe in {viewer_bin}")
+        return False
+    for name in ["ActionUIWinUIShim.dll", "Microsoft.WindowsAppRuntime.Bootstrap.dll", WEBVIEW2_CORE]:
+        shutil.copy2(bin_path / name, viewer_bin / name)
+    shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
+                 viewer_bin / "ActionUIViewer.exe.manifest")
+    passed = True
+    document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Controls.json"
+    for name, path, expected in [("viewer-document", document, 0), ("viewer-missing", results / "no-such-document.json", 65)]:
+        png = results / f"{name}.png"
+        step = run_step(name, [viewer, path, "--screenshot", png], results, env, cwd=viewer_bin,
+                        timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        answered = step["status"] == expected and png.is_file() and png.stat().st_size > 0
+        summary["findings"].append(f"viewer {path.name}: exit {step['status']}, "
+                                   f"{'a PNG' if png.is_file() else 'no PNG'} ({'as expected' if answered else 'NOT as expected'})")
+        # The exit code is the answer, not the step's failure.
+        step["status"] = 0 if answered else (step["status"] or 1)
+        passed = passed and answered
+    return passed
+
+
 # MARK: - The Windows library package and the language bindings
 
 # The pinned commits of the symbol fonts the shim's outlines come from, and where their licenses are.
@@ -1215,6 +1253,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
     passed = check_c_app(bin_path, results, summary, msvc, env) and passed
     passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
+    passed = check_viewer(shim_out, bin_path, results, summary, env) and passed
     package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
     passed = package is not None and passed
     if package is not None:

@@ -627,6 +627,9 @@ Package(
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
         // The document verifier (Foundation only), for Apps/ActionUIVerifier's actionui-verify.
         .library(name: "ActionUIVerifier", targets: ["ActionUIVerifier"]),
+        // ActionUI's application layer, for Swift programs that run ActionUI's own application
+        // (Apps/ActionUIViewer), with ActionUIStatic, as Linux's ActionUIAdwaitaApplication.
+        .library(name: "ActionUIWinUIApplication", targets: ["ActionUIWinUIApplication"]),
     ],
     targets: [
         // The shim's C interface and libdispatch's main-queue hooks.

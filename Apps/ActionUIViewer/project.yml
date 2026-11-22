@@ -46,6 +46,7 @@ targets:
       - path: Sources
         excludes:
           - "ActionUIViewerLinux"   # the Linux program (Package.swift's linuxPackage)
+          - "ActionUIViewerWindows" # the Windows program (Package.swift's windowsPackage)
     dependencies:
       # Linked (link: true is the default) - this tool is the host that links core + add-ons.
       - package: ActionUI
