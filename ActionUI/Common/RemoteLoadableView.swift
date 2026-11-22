@@ -8,8 +8,10 @@ import SwiftUI
 /// Fetches remote ActionUI JSON with limits, as the Linux loader does: the body is read as
 /// it arrives and refused once it grows past `limit` bytes (the JSON size cap: larger ActionUI JSON is
 /// refused when it loads anyway), and the whole fetch is given up after `timeout` seconds, however
-/// slowly the server sends. URLSession's own timeout only covers a pause between pieces. Gives the
-/// address the body finally came from too, after redirects, which decides how far it is trusted.
+/// slowly the server sends. URLSession's own timeout only covers a pause between pieces. A status
+/// outside 200-299 is refused before the body is read, as on Linux and Android: an error page is
+/// not ActionUI JSON. Gives the address the body finally came from too, after redirects, which
+/// decides how far it is trusted.
 enum RemoteJSONFetch {
     /// The longest a whole fetch may take, in seconds (the Linux loader's 120 s).
     static let defaultTimeout: Double = 120
@@ -19,6 +21,9 @@ enum RemoteJSONFetch {
         try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
             group.addTask {
                 let (bytes, response) = try await session.bytes(for: request)
+                if let status = (response as? HTTPURLResponse)?.statusCode, !(200...299).contains(status) {
+                    throw ActionUIError("the server answered with HTTP status \(status)")
+                }
                 // Not the requested address when the response names none: after a redirect that
                 // would pass another server's JSON for the requested server's.
                 guard let finalURL = response.url else { throw ActionUIError("the response names no address") }

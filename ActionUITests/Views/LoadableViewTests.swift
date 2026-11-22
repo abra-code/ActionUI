@@ -12,7 +12,7 @@ import SwiftUI
 
 /// Serves fixed bodies for RemoteJSONFetch: /big (1001 bytes), /exact (1000), /told (says
 /// 5000 bytes in Content-Length), /stall (headers, then nothing), /moved (a redirect to
-/// https://elsewhere.invalid/exact).
+/// https://elsewhere.invalid/exact), /missing and /failing (valid ActionUI JSON with status 404 and 500).
 private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -34,9 +34,11 @@ private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
         case "/told":
             headers["Content-Length"] = "5000"
             body = Data(repeating: 0x20, count: 10)
+        case "/missing", "/failing": body = Data(#"{"type": "Text", "id": 1, "properties": {"text": "Not found"}}"#.utf8)
         default: body = nil
         }
-        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers)!
+        let status = url.path == "/missing" ? 404 : url.path == "/failing" ? 500 : 200
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         guard let body else { return }
         client?.urlProtocol(self, didLoad: body)
@@ -571,6 +573,21 @@ final class LoadableViewTests: XCTestCase {
         }
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
         XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")
+    }
+
+    func testRemoteJSONWithAnErrorStatusIsRefused() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubJSONProtocol.self]
+        let session = URLSession(configuration: configuration)
+        for (path, status) in [("/missing", 404), ("/failing", 500)] {
+            do {
+                _ = try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
+                                                   session: session)
+                XCTFail("an error page's body is not loaded: \(path)")
+            } catch {
+                XCTAssertEqual("\(error)", "the server answered with HTTP status \(status)")
+            }
+        }
     }
 
     func testRemoteJSONGivesTheAddressItFinallyCameFrom() async throws {
