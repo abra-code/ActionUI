@@ -73,9 +73,18 @@ private struct LessTrustedNavigation: WebPage.NavigationDeciding {
     }
 }
 
+/// Holds a WebViewContent's page, made the first time it is needed and kept with the view's state:
+/// SwiftUI makes the view's value again on each update, and a page (its configuration, the trust
+/// policy's answers, a private data store) made there would be made each time and thrown away.
+@available(iOS 26.0, macOS 26.0, *)
+@MainActor
+private final class PageHolder {
+    var page: WebPage?
+}
+
 @available(iOS 26.0, macOS 26.0, *)
 private struct WebViewContent: SwiftUI.View {
-    @State private var page: WebPage
+    @State private var holder = PageHolder()
     /// Tracks the last URL we pushed into model.value ourselves, so we can distinguish
     /// programmatic URL updates from host-app navigation commands in onChange(of: commandValue).
     @State private var lastTrackedURL: String
@@ -91,17 +100,24 @@ private struct WebViewContent: SwiftUI.View {
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
+        _lastTrackedURL = State(initialValue: "")
+    }
+
+    /// The view's page, made once, the first time it is needed.
+    private var page: WebPage {
+        if let page = holder.page { return page }
         // Whose trust this WebView has: in a template row, the container's (the row has no view model).
         let viewID = model.templateContext?.parentID ?? element.id
         let configuration = WebViewContent.makeConfiguration(
             props: props, logger: logger,
-            allows: { ActionUIModel.shared.allows($0, windowUUID: windowUUID, viewID: viewID) },
-            readsFile: { ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID) })
-        // Always with the decider: @State keeps this first page while the element's content may
-        // be reloaded with another origin, so the decider asks the element's trust each time.
-        _page = State(initialValue: WebPage(configuration: configuration,
-                                            navigationDecider: LessTrustedNavigation(windowUUID: windowUUID, viewID: viewID, logger: logger)))
-        _lastTrackedURL = State(initialValue: "")
+            allows: { [windowUUID] in ActionUIModel.shared.allows($0, windowUUID: windowUUID, viewID: viewID) },
+            readsFile: { [windowUUID] in ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID) })
+        // Always with the decider: the page is kept while the element's content may be reloaded
+        // with another origin, so the decider asks the element's trust each time.
+        let page = WebPage(configuration: configuration,
+                           navigationDecider: LessTrustedNavigation(windowUUID: windowUUID, viewID: viewID, logger: logger))
+        holder.page = page
+        return page
     }
 
     /// A convenience accessor for the current model value cast to String.
@@ -158,8 +174,8 @@ private struct WebViewContent: SwiftUI.View {
 
     /// Builds a WebPage.Configuration from the parsed properties, so user scripts survive page
     /// reloads within the same view lifetime. `allows` is the trust policy's answer for the
-    /// WebView's element (see WebViewSupport.makeWKConfiguration). Called from init, which SwiftUI
-    /// runs again on each update; only the first page made is kept (@State).
+    /// WebView's element (see WebViewSupport.makeWKConfiguration). Called once, when the page is
+    /// first needed.
     private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger,
                                           allows: (ActionUICapability) -> Bool,
                                           readsFile: (String) -> Bool) -> WebPage.Configuration {
