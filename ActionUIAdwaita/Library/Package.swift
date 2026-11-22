@@ -30,7 +30,9 @@ let package = Package(
             name: "ActionUILibrary",
             dependencies: [
                 .product(name: "ActionUIStatic", package: "ActionUI"),
-                .product(name: "ActionUIStaticHosts", package: "ActionUI"),
+                .product(name: "ActionUICAdapter", package: "ActionUI"),
+                .product(name: "ActionUIRemote", package: "ActionUI"),
+                .product(name: "ActionUIAdwaitaApplication", package: "ActionUI"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),

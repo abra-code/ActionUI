@@ -421,10 +421,9 @@ Package(
         // one Swift runtime, and an add-on links no ActionUI of its own. libActionUI.so, for programs
         // in other languages, is a package of its own: ActionUIAdwaita/Library.
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
-        // What that library adds: the C adapter, the application functions and the remote server.
-        .library(name: "ActionUIStaticHosts", targets: ["ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
-        // The same three one by one, for a host that runs its own application (as an AppKit host does
-        // on macOS) and takes the C adapter and the remote server without ActionUI's application.
+        // The C adapter, the remote server and the application functions, for libActionUI.so
+        // (ActionUIAdwaita/Library) and for a host that runs its own application (as an AppKit host
+        // does on macOS) and takes the C adapter and the remote server without ActionUI's application.
         .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
         .library(name: "ActionUIRemote", targets: ["ActionUIRemote"]),
         .library(name: "ActionUIAdwaitaApplication", targets: ["ActionUIAdwaitaApplication"]),
