@@ -52,9 +52,9 @@ final class WebViewRendererTests: XCTestCase {
         ActionUIRegistry.shared.loadBuiltIns()
     }
 
-    private func render(_ properties: String) throws -> RenderNode {
+    private func render(_ properties: String, origin: JSONContentOrigin? = nil) throws -> RenderNode {
         let json = #"{"type": "WebView", "id": 1, "properties": {"# + properties + "}}"
-        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID)
+        _ = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID, origin: origin)
         let window = AdwaitaWindow(windowModel: try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]))
         windows.append(window)
         return try XCTUnwrap(window.root)
@@ -180,6 +180,41 @@ final class WebViewRendererTests: XCTestCase {
         XCTAssertTrue(try isEphemeral(node.widget), "a private data store")
         waitForPage("Page no script")
         XCTAssertTrue(policy.asked.contains("webViewUserScripts") && policy.asked.contains("webViewPersistentData"), "\(policy.asked)")
+    }
+
+    /// Keeps every message, so a test can wait for a refusal.
+    private final class CapturingLogger: ActionUILogger, @unchecked Sendable {
+        var messages: [String] = []
+        func log(_ message: String, _ level: LoggerLevel) { messages.append(message) }
+    }
+
+    func testALessTrustedPageOpensNoAppWithoutAClickAndDownloadsNothing() throws {
+        try requireWebKit()
+        let logger = CapturingLogger()
+        let savedLogger = ActionUIModel.shared.logger
+        ActionUIModel.shared.logger = logger
+        defer { ActionUIModel.shared.logger = savedLogger }
+        var opened: [String] = []
+        let savedOpen = WebView.openURI
+        WebView.openURI = { uri, _ in opened.append(uri) }
+        defer { WebView.openURI = savedOpen }
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        func refused(_ text: String) -> Bool {
+            AdwaitaTestHost.runMainLoop(until: { logger.messages.contains { $0.contains(text) } }, timeoutMilliseconds: 10_000)
+        }
+
+        // A script's navigation to a mail address: another app, which a page may open only from a click.
+        _ = try render(#""html": "<title>Mail</title><script>setTimeout(() => location.href = 'mailto:someone@example.com', 0)</script>""#,
+                       origin: remote)
+        XCTAssertTrue(refused("did not open it from a click"), "\(logger.messages.suffix(5))")
+        XCTAssertEqual(opened, [], "no app was opened")
+
+        // A response the view cannot show would be downloaded.
+        windows = []
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        _ = try render(#""html": "<title>File</title><script>setTimeout(() => location.href = 'data:application/octet-stream;base64,YWJj', 0)</script>""#,
+                       origin: remote)
+        XCTAssertTrue(refused("WebView not downloading"), "\(logger.messages.suffix(5))")
     }
 
     func testTheUserAgentAndGesturesAreSet() throws {

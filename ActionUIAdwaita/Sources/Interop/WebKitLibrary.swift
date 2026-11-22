@@ -40,6 +40,13 @@ final class WebKitLibrary {
     typealias Release = @convention(c) (OpaquePointer?) -> Void
     typealias NewSession = @convention(c) () -> OpaquePointer?
     typealias TypeOf = @convention(c) () -> GType
+    typealias ObjectOf = @convention(c) (OpaquePointer?) -> OpaquePointer?
+    typealias FlagOf = @convention(c) (OpaquePointer?) -> gboolean
+    typealias TextOf = @convention(c) (OpaquePointer?) -> UnsafePointer<CChar>?
+    typealias ViewOf = @convention(c) (OpaquePointer?) -> WidgetPointer?
+
+    /// WebKitPolicyDecisionType: a navigation, a navigation to a new window, a response.
+    static let navigationAction: UInt32 = 0, newWindowAction: UInt32 = 1, response: UInt32 = 2
 
     /// WebKitUserContentInjectedFrames: WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, _TOP_FRAME.
     static let allFrames: UInt32 = 0, topFrame: UInt32 = 1
@@ -104,6 +111,25 @@ final class WebKitLibrary {
     let newEphemeralSession: NewSession
     let networkSessionType: TypeOf
     let webViewType: TypeOf
+    /// webkit_navigation_policy_decision_get_navigation_action, webkit_navigation_action_get_request,
+    /// webkit_navigation_action_is_user_gesture, webkit_response_policy_decision_get_request,
+    /// webkit_response_policy_decision_is_mime_type_supported, webkit_uri_request_get_uri (owned
+    /// by the request), webkit_policy_decision_use, _ignore
+    let navigationActionOf: ObjectOf
+    let actionRequest: ObjectOf
+    let isUserGesture: FlagOf
+    let responseRequest: ObjectOf
+    let showsResponse: FlagOf
+    let requestURI: TextOf
+    let useDecision: Release
+    let ignoreDecision: Release
+    /// webkit_permission_request_deny, webkit_web_view_get_network_session (owned by the view),
+    /// webkit_download_get_web_view, webkit_download_get_request, webkit_download_cancel
+    let denyPermission: Release
+    let networkSession: Object
+    let downloadView: ViewOf
+    let downloadRequest: ObjectOf
+    let cancelDownload: Release
 
     private init?(_ library: UnsafeMutableRawPointer) {
         func function<T>(_ name: String, as type: T.Type) -> T? {
@@ -131,7 +157,20 @@ final class WebKitLibrary {
               let releaseScript = function("webkit_user_script_unref", as: Release.self),
               let newEphemeralSession = function("webkit_network_session_new_ephemeral", as: NewSession.self),
               let networkSessionType = function("webkit_network_session_get_type", as: TypeOf.self),
-              let webViewType = function("webkit_web_view_get_type", as: TypeOf.self) else { return nil }
+              let webViewType = function("webkit_web_view_get_type", as: TypeOf.self),
+              let navigationActionOf = function("webkit_navigation_policy_decision_get_navigation_action", as: ObjectOf.self),
+              let actionRequest = function("webkit_navigation_action_get_request", as: ObjectOf.self),
+              let isUserGesture = function("webkit_navigation_action_is_user_gesture", as: FlagOf.self),
+              let responseRequest = function("webkit_response_policy_decision_get_request", as: ObjectOf.self),
+              let showsResponse = function("webkit_response_policy_decision_is_mime_type_supported", as: FlagOf.self),
+              let requestURI = function("webkit_uri_request_get_uri", as: TextOf.self),
+              let useDecision = function("webkit_policy_decision_use", as: Release.self),
+              let ignoreDecision = function("webkit_policy_decision_ignore", as: Release.self),
+              let denyPermission = function("webkit_permission_request_deny", as: Release.self),
+              let networkSession = function("webkit_web_view_get_network_session", as: Object.self),
+              let downloadView = function("webkit_download_get_web_view", as: ViewOf.self),
+              let downloadRequest = function("webkit_download_get_request", as: ObjectOf.self),
+              let cancelDownload = function("webkit_download_cancel", as: Release.self) else { return nil }
         self.newView = newView
         self.loadURI = loadURI
         self.loadHTML = loadHTML
@@ -155,6 +194,24 @@ final class WebKitLibrary {
         self.newEphemeralSession = newEphemeralSession
         self.networkSessionType = networkSessionType
         self.webViewType = webViewType
+        self.navigationActionOf = navigationActionOf
+        self.actionRequest = actionRequest
+        self.isUserGesture = isUserGesture
+        self.responseRequest = responseRequest
+        self.showsResponse = showsResponse
+        self.requestURI = requestURI
+        self.useDecision = useDecision
+        self.ignoreDecision = ignoreDecision
+        self.denyPermission = denyPermission
+        self.networkSession = networkSession
+        self.downloadView = downloadView
+        self.downloadRequest = downloadRequest
+        self.cancelDownload = cancelDownload
+    }
+
+    /// The address a request names (a navigation action's, a response's, a download's), "" if none.
+    func address(ofRequest request: OpaquePointer?) -> String {
+        request.flatMap { requestURI($0) }.map { String(cString: $0) } ?? ""
     }
 
     /// A web view of its own ephemeral network session: its cookies, cache and web storage are in

@@ -26,6 +26,9 @@
    (webViewPersistentData; less-trusted content by default) gets a view of its own ephemeral network
    session, and content it does not let run its user scripts (webViewUserScripts) runs none, as on
    Apple.
+ - The pages of less-trusted content: navigations go where the trust policy allows (another app
+   only for a navigation the user started), nothing is downloaded, and permission requests are
+   denied (guardLessTrustedPages).
  - Without WebKitGTK: a dimmed label naming the package to install (logged once, by WebKitLibrary).
 */
 
@@ -81,6 +84,7 @@ extension WebView: ActionUIAdwaitaRenderer {
             }
         }
         configure(webKit, view, Props(node.properties), allows: allows) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
+        guardLessTrustedPages(webKit, view, node)
         loadInitialContent(webKit, view, node, state)
         return view
     }
@@ -89,6 +93,86 @@ extension WebView: ActionUIAdwaitaRenderer {
         guard let webKit = WebKitLibrary.shared,
               let state = attached(on: UnsafeMutableRawPointer(widget), key: webViewStateKey) else { return }
         handleCommand(node.model.value as? String, webKit, widget, node, state)
+    }
+
+    /// Opens an address in another app, as GTK's own link handlers do, with the view's window as the
+    /// parent. Tests replace it.
+    static var openURI: @MainActor (String, WidgetPointer) -> Void = { uri, widget in
+        let launcher = gtk_uri_launcher_new(uri)!
+        gtk_uri_launcher_launch(launcher, gtk_widget_get_root(widget).map { typed($0) }, nil, nil, nil)
+        g_object_unref(UnsafeMutableRawPointer(launcher))
+    }
+
+    /// What the pages of less-trusted content (or content of unknown origin) may do, decided at each
+    /// event by the node's content then, as on Apple and Android; trusted content keeps WebKitGTK's
+    /// own handling:
+    /// - a navigation, the page's or a frame's or to a new window, goes where WebViewTrust.navigation
+    ///   allows; WebKitGTK does not say whether a frame navigates, so another app is opened only for
+    ///   a navigation the user started (a page can add frames without end, but cannot click);
+    /// - a response the view cannot show is not downloaded, and a download the page starts is
+    ///   canceled;
+    /// - a permission request (camera, microphone, location, notifications) is denied.
+    private static func guardLessTrustedPages(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode) {
+        let logger = ActionUIModel.shared.logger
+        connectPolicySignal(UnsafeMutableRawPointer(view)) { [weak node] pointer, type in
+            // A node gone (the view on its way out) counts as content of unknown origin.
+            if let node, LinkTrust.isTrusted(node) { return false }
+            let decision = OpaquePointer(pointer)
+            switch type {
+            case WebKitLibrary.navigationAction, WebKitLibrary.newWindowAction:
+                let action = webKit.navigationActionOf(decision)
+                let address = webKit.address(ofRequest: webKit.actionRequest(action))
+                guard let node, let url = URL(string: address) else {
+                    webKit.ignoreDecision(decision)
+                    return true
+                }
+                var verdict = WebViewTrust.navigation(url, isMainFrame: true, allows: { LinkTrust.allows($0, node) }, logger: logger)
+                if verdict == .open, webKit.isUserGesture(action) == 0 {
+                    logger.log("WebView not opening \(address) in another app: the page did not open it from a click", .warning)
+                    verdict = .refuse
+                }
+                switch verdict {
+                case .load:
+                    webKit.useDecision(decision)
+                case .open:
+                    webKit.ignoreDecision(decision)
+                    openURI(address, view)
+                case .refuse:
+                    webKit.ignoreDecision(decision)
+                }
+                return true
+            case WebKitLibrary.response:
+                guard webKit.showsResponse(decision) == 0 else { return false }
+                logger.log("WebView not downloading \(webKit.address(ofRequest: webKit.responseRequest(decision))): the trust policy allows less-trusted content no downloads", .warning)
+                webKit.ignoreDecision(decision)
+                return true
+            default:
+                return false
+            }
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "permission-request") { [weak node] request in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView permission request denied: less-trusted content is given no permissions", .warning)
+            webKit.denyPermission(OpaquePointer(request))
+            return true
+        }
+        // A download can also start without a response decision (a link's download attribute). The
+        // session (the app's shared one, or the view's private one) is kept until the view goes, so
+        // the handler can always be removed from it.
+        guard let session = webKit.networkSession(view) else { return }
+        let sessionPointer = UnsafeMutableRawPointer(session)
+        g_object_ref(sessionPointer)
+        let handler = connectObjectSignal(sessionPointer, "download-started") { [weak node] pointer in
+            let download = OpaquePointer(pointer)
+            guard webKit.downloadView(download) == view else { return }
+            if let node, LinkTrust.isTrusted(node) { return }
+            logger.log("WebView not downloading \(webKit.address(ofRequest: webKit.downloadRequest(download))): the trust policy allows less-trusted content no downloads", .warning)
+            webKit.cancelDownload(download)
+        }
+        connectSignal(UnsafeMutableRawPointer(view), "destroy", .instanceOnly) {
+            if handler != 0 { g_signal_handler_disconnect(sessionPointer, handler) }
+            g_object_unref(sessionPointer)
+        }
     }
 
     /// A dimmed, wrapping label in the WebView's place.
