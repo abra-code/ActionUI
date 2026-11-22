@@ -1,0 +1,183 @@
+{
+  "type": "ScrollView",
+  "content": {
+  "type": "VStack",
+  "properties": { "padding": "default", "spacing": 16 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, a Plot of smoothed lines and points per row, a goal rule, axis marks with formats)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 11,
+      "properties": {
+        "frame": { "minHeight": 240 },
+        "chart": {
+          "columns": [{ "name": "week", "type": "date" }, "platform", { "name": "users", "type": "number" }],
+          "data": [
+            ["2026-08-03", "iOS", 1180], ["2026-08-03", "macOS", 790],
+            ["2026-08-10", "iOS", 1240], ["2026-08-10", "macOS", 805],
+            ["2026-08-17", "iOS", 1310], ["2026-08-17", "macOS", 860],
+            ["2026-08-24", "iOS", 1290], ["2026-08-24", "macOS", 910]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "Plot", "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } }, "content": [
+                { "type": "LineMark",
+                  "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
+                  "y": { "label": "Users", "value": "$users" },
+                  "interpolationMethod": "catmullRom" },
+                { "type": "PointMark",
+                  "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
+                  "y": { "label": "Users", "value": "$users" },
+                  "symbolSize": 30 }
+              ] }
+            ] },
+            { "type": "RuleMark", "y": { "label": "Goal", "value": 1250 },
+              "lineStyle": { "lineWidth": 1, "dash": [4, 3] }, "foregroundStyle": "gray" }
+          ],
+          "chartYScale": { "domain": [0, 1500] },
+          "chartXAxis": [
+            { "type": "AxisMarks", "values": { "stride": { "by": "weekOfYear", "count": 2 } }, "content": [
+              { "type": "AxisGridLine", "stroke": { "lineWidth": 0.5, "dash": [2, 2] } },
+              { "type": "AxisTick" },
+              { "type": "AxisValueLabel", "format": { "dateTime": { "month": "abbreviated", "day": "defaultDigits" } } }
+            ] }
+          ],
+          "chartYAxis": [{ "type": "AxisMarks", "values": [0, 500, 1000, 1500], "format": "decimal", "fractionLength": 0 }],
+          "chartXAxisLabel": "Week",
+          "chartYAxisLabel": "Users",
+          "chartLegend": { "position": "bottom" }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Tickets by month (integer column, stacked bars in scale colors, targets from a ForEach with its own data)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 12,
+      "properties": {
+        "frame": { "minHeight": 200 },
+        "chart": {
+          "columns": ["month", "team", { "name": "tickets", "type": "integer" }],
+          "data": [
+            ["Jan", "Apps", 3], ["Jan", "Web", 1], ["Feb", "Apps", 2], ["Feb", "Web", 2],
+            ["Mar", "Apps", 4], ["Mar", "Web", 1]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "BarMark",
+                "x": { "label": "Month", "value": "$month" },
+                "y": { "label": "Tickets", "value": "$tickets" },
+                "foregroundStyle": { "by": { "label": "Team", "value": "$team" } } }
+            ] },
+            { "type": "ForEach", "columns": ["month", { "name": "target", "type": "integer" }],
+              "data": [["Jan", 5], ["Feb", 5], ["Mar", 6]],
+              "content": [
+                { "type": "PointMark", "x": { "label": "Month", "value": "$month" }, "y": { "label": "Tickets", "value": "$target" },
+                  "symbol": "diamond", "symbolSize": 80, "foregroundStyle": "red", "accessibilityLabel": "$month target" }
+              ] }
+          ],
+          "chartForegroundStyleScale": { "domain": ["Apps", "Web"], "range": ["indigo", "teal"] }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Daily temperature range (range bars, point marks for the average)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 13,
+      "properties": {
+        "frame": { "minHeight": 200 },
+        "chart": {
+          "columns": ["day", { "name": "low", "type": "number" }, { "name": "high", "type": "number" }, { "name": "mean", "type": "number" }],
+          "data": [["Mon", 11, 19, 15], ["Tue", 12, 22, 17], ["Wed", 9, 16, 12.5], ["Thu", 13, 24, 18.5], ["Fri", 14, 21, 17.5]],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "BarMark",
+                "x": { "label": "Day", "value": "$day" },
+                "yStart": { "label": "Low", "value": "$low" },
+                "yEnd": { "label": "High", "value": "$high" },
+                "width": { "ratio": 0.35 }, "cornerRadius": 4, "foregroundStyle": "orange.opacity(0.5)",
+                "accessibilityLabel": "$day", "accessibilityValue": "$low to $high degrees" },
+              { "type": "PointMark",
+                "x": { "label": "Day", "value": "$day" },
+                "y": { "label": "Average", "value": "$mean" },
+                "symbol": "diamond", "symbolSize": 60, "foregroundStyle": "red" }
+            ] }
+          ],
+          "chartYAxisLabel": { "text": "Degrees", "position": "leading" },
+          "chartPlotStyle": { "background": "gray.opacity(0.08)" }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Storage by kind (stacked areas)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 14,
+      "properties": {
+        "frame": { "minHeight": 200 },
+        "chart": {
+          "columns": [{ "name": "month", "type": "date" }, "kind", { "name": "gigabytes", "type": "number" }],
+          "data": [
+            ["2026-05-01", "Photos", 120], ["2026-05-01", "Apps", 60], ["2026-05-01", "Documents", 25],
+            ["2026-06-01", "Photos", 135], ["2026-06-01", "Apps", 64], ["2026-06-01", "Documents", 30],
+            ["2026-07-01", "Photos", 160], ["2026-07-01", "Apps", 66], ["2026-07-01", "Documents", 31],
+            ["2026-08-01", "Photos", 170], ["2026-08-01", "Apps", 75], ["2026-08-01", "Documents", 40]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "AreaMark",
+                "x": { "label": "Month", "value": "$month", "unit": "month" },
+                "y": { "label": "Gigabytes", "value": "$gigabytes" },
+                "foregroundStyle": { "by": { "label": "Kind", "value": "$kind" } },
+                "interpolationMethod": "monotone" }
+            ] }
+          ],
+          "chartLegend": { "position": "bottom" }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Languages (a pie and a donut of sector marks)", "font": "headline" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 24 },
+      "children": [
+        {
+          "type": "Chart",
+          "id": 16,
+          "properties": {
+            "frame": { "width": 220, "height": 220 },
+            "chart": {
+              "columns": ["language", { "name": "count", "type": "integer" }],
+              "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27], ["Rust", 12]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" },
+                    "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
+                    "accessibilityLabel": "$language", "accessibilityValue": "$count projects" }
+                ] }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Chart",
+          "id": 15,
+          "properties": {
+            "frame": { "width": 220, "height": 220 },
+            "chart": {
+              "columns": ["language", { "name": "count", "type": "integer" }],
+              "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27], ["Rust", 12]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" }, "innerRadius": { "ratio": 0.6 },
+                    "angularInset": 1.5, "cornerRadius": 4,
+                    "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
+                    "accessibilityLabel": "$language", "accessibilityValue": "$count projects" }
+                ] }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+  }
+}

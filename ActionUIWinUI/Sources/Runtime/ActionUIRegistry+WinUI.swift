@@ -11,6 +11,7 @@ extension ActionUIRegistry {
         "AsyncImage": AsyncImage.self,
         "Button": Button.self,
         "Canvas": Canvas.self,
+        "Chart": Chart.self,
         "Capsule": Capsule.self,
         "Circle": Circle.self,
         "Color": Color.self,

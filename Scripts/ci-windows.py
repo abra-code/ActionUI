@@ -74,6 +74,9 @@ SMOKE_TIMEOUT_SECONDS = 180
 # "{program_folder}" the folder the preview runs from (the app's resources, where ActionUIWinUI/Apps/Preview/Bundled
 # is copied), and "{program_folder_upper}" the same in upper case.
 PREVIEW_OPTIONS = {
+    # The two chart documents at sizes that show their charts whole (the second has two columns).
+    "Charts": ["560", "720"],
+    "ChartTypes": ["760", "720"],
     "Floors": ["420", "380"],
     "NestedFloors": ["420", "420"],
     "Images": ["560", "440"],

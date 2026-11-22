@@ -1,0 +1,191 @@
+{
+  "type": "ScrollView",
+  "content": {
+  "type": "VStack",
+  "properties": { "padding": "default", "spacing": 16 },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 8 },
+          "children": [
+            { "type": "Text", "properties": { "text": "Horizontal bars, with a shadow", "font": "headline" } },
+            {
+              "type": "Chart",
+              "id": 21,
+              "properties": {
+                "frame": { "minWidth": 350, "minHeight": 170 },
+                "chart": {
+                  "columns": ["platform", { "name": "downloads", "type": "number" }],
+                  "data": [["macOS", 920], ["iOS", 760], ["Linux", 410], ["Android", 330]],
+                  "content": [
+                    { "type": "ForEach", "content": [
+                      { "type": "BarMark", "x": { "label": "Downloads", "value": "$downloads" }, "y": { "label": "Platform", "value": "$platform" },
+                        "shadow": { "radius": 4, "x": 0, "y": 2 } }
+                    ] }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": { "spacing": 8 },
+          "children": [
+            { "type": "Text", "properties": { "text": "Grouped bars (position by a value)", "font": "headline" } },
+            {
+              "type": "Chart",
+              "id": 22,
+              "properties": {
+                "frame": { "minWidth": 350, "minHeight": 170 },
+                "chart": {
+                  "columns": ["quarter", "team", { "name": "sales", "type": "number" }],
+                  "data": [["Q1", "North", 12], ["Q1", "South", 9], ["Q2", "North", 15], ["Q2", "South", 11],
+                           ["Q3", "North", 10], ["Q3", "South", 14], ["Q4", "North", 18], ["Q4", "South", 16]],
+                  "content": [
+                    { "type": "ForEach", "content": [
+                      { "type": "BarMark", "x": { "label": "Quarter", "value": "$quarter" }, "y": { "label": "Sales", "value": "$sales" },
+                        "foregroundStyle": { "by": { "label": "Team", "value": "$team" } },
+                        "position": { "by": { "label": "Team", "value": "$team" } } }
+                    ] }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 8 },
+          "children": [
+            { "type": "Text", "properties": { "text": "Stacked to 100%", "font": "headline" } },
+            {
+              "type": "Chart",
+              "id": 23,
+              "properties": {
+                "frame": { "minWidth": 350, "minHeight": 170 },
+                "chart": {
+                  "columns": ["month", "kind", { "name": "hours", "type": "number" }],
+                  "data": [["Jan", "Design", 30], ["Jan", "Build", 90], ["Jan", "Test", 40],
+                           ["Feb", "Design", 20], ["Feb", "Build", 70], ["Feb", "Test", 60],
+                           ["Mar", "Design", 10], ["Mar", "Build", 50], ["Mar", "Test", 90]],
+                  "content": [
+                    { "type": "ForEach", "content": [
+                      { "type": "BarMark", "x": { "label": "Month", "value": "$month" }, "y": { "label": "Hours", "value": "$hours" },
+                        "foregroundStyle": { "by": { "label": "Kind", "value": "$kind" } },
+                        "stacking": "normalized" }
+                    ] }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": { "spacing": 8 },
+          "children": [
+            { "type": "Text", "properties": { "text": "Bubble scatter (symbol and size by a value)", "font": "headline" } },
+            {
+              "type": "Chart",
+              "id": 24,
+              "properties": {
+                "frame": { "minWidth": 350, "minHeight": 170 },
+                "chart": {
+                  "columns": ["group", { "name": "cost", "type": "number" }, { "name": "score", "type": "number" }, { "name": "users", "type": "number" }],
+                  "data": [["Free", 10, 62, 900], ["Free", 25, 48, 400], ["Free", 40, 70, 650],
+                           ["Paid", 55, 81, 300], ["Paid", 70, 66, 500], ["Paid", 90, 92, 120]],
+                  "chartSymbolSizeScale": { "range": [40, 400] },
+                  "content": [
+                    { "type": "ForEach", "content": [
+                      { "type": "PointMark", "x": { "label": "Cost", "value": "$cost" }, "y": { "label": "Score", "value": "$score" },
+                        "foregroundStyle": { "by": { "label": "Group", "value": "$group" } },
+                        "symbol": { "by": { "label": "Group", "value": "$group" } },
+                        "symbolSize": { "by": { "label": "Users", "value": "$users" } } }
+                    ] }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 8 },
+          "children": [
+            { "type": "Text", "properties": { "text": "Heat map (a color scale over numbers)", "font": "headline" } },
+            {
+              "type": "Chart",
+              "id": 25,
+              "properties": {
+                "frame": { "minWidth": 350, "minHeight": 170 },
+                "chart": {
+                  "columns": ["hour", "day", { "name": "load", "type": "number" }],
+                  "data": [["9", "Mon", 3], ["12", "Mon", 7], ["15", "Mon", 9], ["18", "Mon", 4],
+                           ["9", "Tue", 2], ["12", "Tue", 6], ["15", "Tue", 8], ["18", "Tue", 5],
+                           ["9", "Wed", 4], ["12", "Wed", 9], ["15", "Wed", 10], ["18", "Wed", 6],
+                           ["9", "Thu", 1], ["12", "Thu", 5], ["15", "Thu", 7], ["18", "Thu", 3]],
+                  "chartForegroundStyleScale": { "range": { "gradient": ["yellow", "orange", "red"] } },
+                  "chartYAxis": [{ "type": "AxisMarks", "position": "trailing" }],
+                  "chartPlotStyle": { "padding": { "trailing": 36 } },
+                  "chartLegend": { "position": "bottom" },
+                  "content": [
+                    { "type": "ForEach", "content": [
+                      { "type": "RectangleMark", "xStart": { "label": "Hour", "value": "$hour" }, "xEnd": { "label": "Hour", "value": "$hour" },
+                        "yStart": { "label": "Day", "value": "$day" }, "yEnd": { "label": "Day", "value": "$day" },
+                        "foregroundStyle": { "by": { "label": "Load", "value": "$load" } } }
+                    ] }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": { "spacing": 8 },
+          "children": [
+            { "type": "Text", "properties": { "text": "Timeline (bars from a start to an end)", "font": "headline" } },
+            {
+              "type": "Chart",
+              "id": 26,
+              "properties": {
+                "frame": { "minWidth": 350, "minHeight": 170 },
+                "chart": {
+                  "columns": ["task", { "name": "start", "type": "date" }, { "name": "end", "type": "date" }],
+                  "data": [["Plan", "2026-01-05", "2026-02-02"], ["Build", "2026-01-26", "2026-04-06"],
+                           ["Test", "2026-03-16", "2026-05-04"], ["Ship", "2026-04-27", "2026-05-18"]],
+                  "chartLegend": "hidden",
+                  "content": [
+                    { "type": "ForEach", "content": [
+                      { "type": "BarMark", "xStart": { "label": "Start", "value": "$start", "type": "date" }, "xEnd": { "label": "End", "value": "$end", "type": "date" },
+                        "y": { "label": "Task", "value": "$task" },
+                        "foregroundStyle": { "by": { "label": "Task", "value": "$task" } } }
+                    ] }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+  }
+}
