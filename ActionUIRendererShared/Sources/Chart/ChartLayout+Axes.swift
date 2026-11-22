@@ -184,7 +184,6 @@ extension ChartLayout {
         ticks.map(abs).filter { $0 > 0 }.min().map(ChartTicks.fractionDigits) ?? 0
     }
 
-    // A tick shows what changed since the one before: the year only at the first and when it turns.
     func dateTicks(_ lo: Date, _ hi: Date, count: Int) -> [(value: ChartScalar, label: String)] {
         dateTicks(lo, hi, stride: ChartDates.stride(lo, hi, count: count))
     }
@@ -193,22 +192,38 @@ extension ChartLayout {
         dateLabels(ChartDates.ticks(lo, hi, stride: stride), unit: stride.unit)
     }
 
-    func dateLabels(_ dates: [Date], unit: Calendar.Component) -> [(value: ChartScalar, label: String)] {
-        var lastYear: Int?
-        return dates.map { tick in
-            let year = ChartDates.calendar.component(.year, from: tick)
-            defer { lastYear = year }
-            let skeleton: String
-            switch unit {
-            case .year: skeleton = "y"
-            case .month: skeleton = lastYear == year ? "MMM" : "yMMM"
-            case .weekOfYear, .weekOfMonth, .day: skeleton = "MMMd"
-            case .hour: skeleton = "j"
-            case .minute: skeleton = "jm"
-            default: skeleton = "jms"
-            }
-            return (.date(tick), metrics.date(tick, skeleton))
+    // Labels as Swift Charts writes them for a stride of `unit` (measured on macOS 27): a month
+    // "Feb", a week or day "Feb 1", a time "6 PM", "6:30 PM", "6:30:15 PM".
+    //
+    // Every label also names the year ("Nov 2026", "Dec 30, 2026"), and a time its day ("Jan 5 at
+    // 6 PM", with the year too across years), when the dates without the last one cross into
+    // another. Weeks Dec 13 to Jan 3 have no year and Dec 27 to Jan 10 have it; months over a year
+    // ending on Jan 1 have none, and Oct to Jan, Jan drawn, have none either.
+    //
+    // `countingLast` counts the last date too, for a pair of ends.
+    func dateLabels(_ dates: [Date], unit: Calendar.Component, countingLast: Bool = false) -> [(value: ChartScalar, label: String)] {
+        let counted = countingLast ? dates[...] : dates.dropLast()
+        func crosses(_ component: Calendar.Component) -> Bool {
+            guard let first = counted.first else { return false }
+            let start = ChartDates.bin(first, component).start
+            return counted.contains { ChartDates.bin($0, component).start != start }
         }
+        let year = unit != .year && crosses(.year) ? "y" : ""
+        let skeleton: String
+        switch unit {
+        case .year: skeleton = "y"
+        case .month: skeleton = year + "MMM"
+        case .weekOfYear, .weekOfMonth, .day: skeleton = year + "MMMd"
+        default:
+            let time: String
+            switch unit {
+            case .hour: time = "j"
+            case .minute: time = "jm"
+            default: time = "jms"
+            }
+            skeleton = (year.isEmpty && !crosses(.day) ? "" : year + "MMMd") + time
+        }
+        return dates.map { (.date($0), metrics.date($0, skeleton)) }
     }
 
     // Puts an axis on the plot, between `from` and `to` in the direction it reads, with its padding

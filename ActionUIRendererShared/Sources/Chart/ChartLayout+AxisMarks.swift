@@ -23,6 +23,12 @@
    the next.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+
 extension ChartAlignment {
     var isLeading: Bool { self == .leading || self == .topLeading || self == .bottomLeading }
     var isTrailing: Bool { self == .trailing || self == .topTrailing || self == .bottomTrailing }
@@ -196,10 +202,21 @@ extension ChartLayout {
             return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? chosen(shown.sorted()) : axis.ticks
         case let (.dates(values), .dates(lo, hi)):
             let shown = values.filter { $0 >= lo && $0 <= hi }
-            return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? dateLabels(shown.sorted(), unit: .day) : axis.ticks
+            return shown.count <= ChartAxisStrideLimit.maxStrideMarks ? dateLabels(shown.sorted(), unit: labelUnit(shown)) : axis.ticks
         default:
             return axis.ticks
         }
+    }
+
+    // The unit listed dates are labeled in: the finest part of the day any of them sets, else days.
+    // A date written without a time is noon, so Swift Charts labels Dec 1 and Jan 1 "12 PM" (and Nov
+    // 15, Dec 1, Jan 1 "Nov 15 at 12 PM" ...; measured on macOS 27). Dates at midnight are not measured.
+    private func labelUnit(_ dates: [Date]) -> Calendar.Component {
+        let parts = dates.map { ChartDates.calendar.dateComponents([.hour, .minute, .second], from: $0) }
+        if parts.contains(where: { ($0.second ?? 0) != 0 }) { return .second }
+        if parts.contains(where: { ($0.minute ?? 0) != 0 }) { return .minute }
+        if parts.contains(where: { ($0.hour ?? 0) != 0 }) { return .hour }
+        return .day
     }
 
     // How many bands a label takes that needs `room` points, so labels never overlap, and their
