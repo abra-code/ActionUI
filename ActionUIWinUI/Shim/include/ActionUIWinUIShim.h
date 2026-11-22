@@ -1277,9 +1277,11 @@ ACTIONUI_WINUI_API bool actionUIWinUIMapOnMoved(ActionUIWinUIObject *map, Action
 
 // MARK: - Network
 
-// Called on the UI thread when a fetch ends: the body's `length` bytes (valid only during the call), or
-// NULL and `error`, why not (an HTTP status that is not success, a network failure).
-typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes, size_t length, const char *error);
+// Called on the UI thread when a fetch ends: the body's `length` bytes and `finalURL`, the address they
+// came from when a redirect was followed (UTF-8; NULL without one), or NULL bytes and `error`, why not (an
+// HTTP status that is not success, a network failure, a limit). Every pointer is valid only during the call.
+typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes, size_t length, const char *finalURL,
+                                            const char *error);
 // Fetches the http or https `url` with Windows' HTTP client (its cache and proxy settings), without
 // blocking: completion(context, ...) is called on the UI thread, always after this returns. Limits: the
 // body is read as it arrives and refused once it grows past `maximumBytes` (at once when the server

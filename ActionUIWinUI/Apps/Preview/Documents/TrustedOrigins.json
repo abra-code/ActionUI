@@ -1,0 +1,15 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "JSON that a trusted server sent, through a redirect from another one" } },
+    {
+      "type": "LoadableView",
+      "id": 3,
+      "properties": {
+        "url": "https://github.com/abra-code/ActionUI/raw/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/RemoteLinks.json"
+      }
+    }
+  ]
+}

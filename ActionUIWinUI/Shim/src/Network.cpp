@@ -45,6 +45,8 @@ winrt::fire_and_forget fetch(wf::Uri uri, int64_t maximumBytes, std::chrono::mil
                              ActionUIWinUIDataCompletion completion, void *context) {
     std::string error;
     std::vector<uint8_t> body;
+    std::string finalURL;
+    bool redirected = false;
     bool received = false;
     auto deadline = std::make_shared<Deadline>();
     const std::string limitText = maximumBytes % (1024 * 1024) == 0 ? std::to_string(maximumBytes / (1024 * 1024)) + " MB"
@@ -119,6 +121,7 @@ winrt::fire_and_forget fetch(wf::Uri uri, int64_t maximumBytes, std::chrono::mil
                 throw std::runtime_error("a redirect from https to http (" + winrt::to_string(next.AbsoluteUri()) + ")");
             }
             current = next;
+            redirected = true;
         }
         if (!response.IsSuccessStatusCode()) {
             error = "the server answered " + std::to_string(static_cast<int32_t>(response.StatusCode()));
@@ -157,6 +160,9 @@ winrt::fire_and_forget fetch(wf::Uri uri, int64_t maximumBytes, std::chrono::mil
                 }
                 body.insert(body.end(), piece.data(), piece.data() + count);
             }
+            if (redirected) {
+                finalURL = winrt::to_string(current.AbsoluteUri());
+            }
             received = true;
         }
     } catch (winrt::hresult_error const &failure) {
@@ -186,9 +192,9 @@ winrt::fire_and_forget fetch(wf::Uri uri, int64_t maximumBytes, std::chrono::mil
     if (received) {
         // An empty body is a success too: never NULL, which the caller takes for a failure.
         static const uint8_t empty = 0;
-        completion(context, body.empty() ? &empty : body.data(), body.size(), nullptr);
+        completion(context, body.empty() ? &empty : body.data(), body.size(), redirected ? finalURL.c_str() : nullptr, nullptr);
     } else {
-        completion(context, nullptr, 0, error.c_str());
+        completion(context, nullptr, 0, nullptr, error.c_str());
     }
 }
 

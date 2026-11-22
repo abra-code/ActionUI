@@ -169,6 +169,13 @@ PREVIEW_OPTIONS = {
     "LoadPolicy": ["420", "160", "--refuse-remote-loads", "--delay", "3000", "--forbid-action", "refused.loaded",
                    "--expect-action", "file.loaded",
                    "--expect-log", "LoadableView 3: not loading https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json: the trust policy refuses it"],
+    # The host trusts raw.githubusercontent.com (its configuration); JSON asked of github.com and redirected
+    # there is judged by where it came from: trusted, so its Windows settings link opens (--no-launch).
+    "TrustedOrigins": ["420", "220", "--no-launch",
+                       "--configuration", '{"trust": {"trustedOrigins": ["https://raw.githubusercontent.com"]}}',
+                       "--delay", "6000", "--invoke", "101",
+                       "--expect-log", "was redirected to https://raw.githubusercontent.com/",
+                       "--expect-log", "Link 101: opening ms-settings:display"],
     "Groups": ["420", "300", "--add-row", "21", "First", "--add-row", "21", "Second"],
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",

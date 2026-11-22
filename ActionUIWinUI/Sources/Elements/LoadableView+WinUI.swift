@@ -21,6 +21,9 @@
    documents are; Windows has no app bundle).
  - A source that a LoadableView around this one already shows, or one nested more than 16 deep, is
    refused with "Failed to load view: ..." by Core's nesting rule, as SwiftUI's LoadableNestingGuard.
+ - Downloaded JSON is judged by the address it finally came from, after redirects (a trusted origin of
+   the host's configuration is trusted only when the JSON came from it), and the trust policy is asked
+   again about that address.
  - A download is read up to the cap on ActionUI JSON (16 MB; refused at once on a longer
    Content-Length) and given up after 120 seconds; redirects are followed only to http and https, never
    from https to http, at most 20, as on Apple and Linux.
@@ -198,7 +201,7 @@ extension LoadableView: ActionUIWinUIRenderer {
 
     /// A remote description arrived (`data`), or did not (`failure`): loaded into the window when it is
     /// still this LoadableView's current load.
-    fileprivate static func finished(_ box: FetchBox, data: Data?, failure: String?) {
+    fileprivate static func finished(_ box: FetchBox, data: Data?, finalURL finalText: String?, failure: String?) {
         guard let node = box.node, let state = box.state, node.isAttached, state.generation == box.generation else { return }
         let logger = ActionUIModel.shared.logger
         let url = box.url
@@ -206,8 +209,31 @@ extension LoadableView: ActionUIWinUIRenderer {
         if let data {
             let format = ActionUIDocumentLoader.format(of: url)
             do {
+                // The content is judged by the address it finally came from (a trusted server's redirect
+                // to another server gives less-trusted content), as on Apple and Linux; one Foundation
+                // cannot read is refused rather than taken for the address asked for.
+                let finalURL: URL
+                if let finalText {
+                    // Nor one with a backslash or a user name, where Windows' and Foundation's readings of
+                    // the host could differ ("https://a.example\@b.example/" is b.example to Foundation):
+                    // the address judged must be the one the bytes came from.
+                    guard let read = URL(string: finalText), !finalText.contains("\\"), read.user == nil else {
+                        throw ActionUIError("it was redirected to an address that cannot be read")
+                    }
+                    finalURL = read
+                } else {
+                    finalURL = url
+                }
+                if finalURL != url {
+                    logger.log("Remote URL \(url) was redirected to \(finalURL)", .debug)
+                    // The trust policy was asked about `url`; the content came from finalURL.
+                    if let refusal = ActionUIDocumentLoader.loadRefusal(.remote(finalURL), windowUUID: node.windowModel.windowUUID,
+                                                                        parentID: node.element.id, logger: logger) {
+                        throw ActionUIError("it was redirected to \(finalURL.absoluteString), and \(refusal)")
+                    }
+                }
                 state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: node.windowModel.windowUUID,
-                                                               isContentView: false, parentID: node.element.id, source: .remote(url))
+                                                               isContentView: false, parentID: node.element.id, source: .remote(finalURL))
                 logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
                 viewDidLoad.fire(source: url.absoluteString, windowUUID: node.windowModel.windowUUID, parentID: node.element.id,
                                  actionID: box.actionID)
@@ -321,14 +347,15 @@ private struct LoadFailure: Error {
 }
 
 // The bytes cross the main actor's closure as a Data (a pointer is not Sendable).
-private let fetched: ActionUIWinUIDataCompletion = { context, bytes, length, error in
+private let fetched: ActionUIWinUIDataCompletion = { context, bytes, length, finalURL, error in
     guard let context else { return }
     let data = bytes.map { Data(bytes: $0, count: length) }
+    let finalText = finalURL.map { String(cString: $0) }
     let failure = error.map { String(cString: $0) }
     let address = UInt(bitPattern: context)
     MainActor.assumeIsolated {
         guard let pointer = UnsafeMutableRawPointer(bitPattern: address) else { return }
         let box = Unmanaged<FetchBox>.fromOpaque(pointer).takeRetainedValue()
-        LoadableView.finished(box, data: data, failure: failure)
+        LoadableView.finished(box, data: data, finalURL: finalText, failure: failure)
     }
 }
