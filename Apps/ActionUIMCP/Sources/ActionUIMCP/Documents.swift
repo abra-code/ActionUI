@@ -465,18 +465,18 @@ struct ViewerSpec {
             if arguments["columns"] != nil || arguments["rows"] != nil {
                 throw MCPToolError("kind 'chart' takes its columns and data inside 'chart'")
             }
-            // The description is the agent's, so the document gets the checks of show_document,
+            // The description is the agent's, so the window's ActionUI JSON gets the checks of show_ui,
             // the verifier among them, and its warnings go back with the result.
             let document: AgentDocument
             do {
-                document = try AgentDocument(arguments: ["document": [
+                document = try AgentDocument(arguments: ["ui": [
                     "type": "Chart", "id": .int(Self.chartViewID),
                     "properties": ["chart": chart, "padding": 16, "frame": ["maxWidth": "infinity", "maxHeight": "infinity"]],
                 ]])
             } catch let error as MCPToolError {
-                // The agent passed a description, not a document: name it and its paths so.
+                // The agent passed a description, not a whole window's ActionUI JSON: name it and its paths so.
                 throw MCPToolError(error.message
-                    .replacing("the document has errors:", with: "the chart description has errors:")
+                    .replacing("the ActionUI JSON has errors:", with: "the chart description has errors:")
                     .replacing("root: properties.chart", with: "chart")
                     .replacing("root.properties.chart", with: "chart"))
             }

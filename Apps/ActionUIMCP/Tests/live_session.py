@@ -177,65 +177,65 @@ s.call(17, "ask_user", {"title": "Long", "timeout_s": 3,
                         + [{"key": "s", "kind": "slider", "min": 0, "max": 1, "step": 0.25, "default": 0.5}]})
 check("long dialog opens and times out", structured(s.response(17)) == {"action": "timeout", "button": None})
 
-# validate_document: structure, safety rules, and ActionUI's own load errors.
+# validate_ui: structure, safety rules, and ActionUI's own load errors.
 FORM = {"type": "VStack", "properties": {"padding": 16, "spacing": 8}, "children": [
     {"type": "Text", "id": 1, "properties": {"text": "Status: idle"}},
     {"type": "TextField", "id": 2, "properties": {"title": "Name", "text": "Ada"}},
     {"type": "Toggle", "id": 3, "properties": {"title": "Loud", "isOn": True}},
     {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "go"}},
     {"type": "Table", "id": 5, "properties": {"columns": ["A", "B"], "frame": {"height": 80}}}]}
-s.call(30, "validate_document", {"document": FORM})
+s.call(30, "validate_ui", {"ui": FORM})
 result = structured(s.response(30))
-check("validate good document", (result or {}).get("ok") is True and result.get("errors") == [], result)
+check("validate good ActionUI JSON", (result or {}).get("ok") is True and result.get("errors") == [], result)
 bad = {"type": "VStack", "properties": {"children": []}, "children": [
     {"type": "Text", "id": 1}, {"type": "Text", "id": 1}, {"type": "SecureField", "id": -2}, {"properties": {}}]}
-s.call(31, "validate_document", {"document": bad})
+s.call(31, "validate_ui", {"ui": bad})
 result = structured(s.response(31)) or {}
 check("validate finds structural errors (%d)" % len(result.get("errors", [])),
       result.get("ok") is False and len(result.get("errors", [])) == 5, result)
-s.call(32, "validate_document", {"document": {"type": "NoSuchElement"}})
+s.call(32, "validate_ui", {"ui": {"type": "NoSuchElement"}})
 result = structured(s.response(32)) or {}
 check("validate reports ActionUI load errors", result.get("ok") is False and result.get("errors"), result)
-s.call(33, "validate_document", {"document": json.dumps(FORM)})
+s.call(33, "validate_ui", {"ui": json.dumps(FORM)})
 result = structured(s.response(33)) or {}
-check("validate rejects a document passed as a string", result.get("ok") is False, result)
-s.call(51, "validate_document", {"document": {"type": "Text", "properties": {"txt": "hi"}}})
+check("validate rejects ActionUI JSON passed as a string", result.get("ok") is False, result)
+s.call(51, "validate_ui", {"ui": {"type": "Text", "properties": {"txt": "hi"}}})
 result = structured(s.response(51)) or {}
 check("validate warns about a property typo", result.get("ok") is True
       and any("possible typo" in w for w in result.get("warnings", [])), result)
-s.call(52, "show_document", {"title": "T", "document": {"type": "VStack", "properties": {"spacing": "16"}}})
+s.call(52, "show_ui", {"title": "T", "ui": {"type": "VStack", "properties": {"spacing": "16"}}})
 message = s.response(52)
-check("show_document refuses a wrong value type", is_error(message)
+check("show_ui refuses a wrong value type", is_error(message)
       and "expected number, got string" in message["result"]["content"][0]["text"], message)
-s.call(53, "validate_document", {"document": {"type": "QuickLook", "properties": {"filePath": "/tmp/x.pdf"}}})
+s.call(53, "validate_ui", {"ui": {"type": "QuickLook", "properties": {"filePath": "/tmp/x.pdf"}}})
 result = structured(s.response(53)) or {}
 check("validate knows add-on elements", result.get("ok") is True and result.get("warnings") == [], result)
 # ActionUI resolves "<key>:<platform>" overrides at load, so the safety rules see resolved keys.
-s.call(142, "validate_document", {"document": {"type": "Text", "type" + SUFFIX: "SecureField", "id": 1}})
+s.call(142, "validate_ui", {"ui": {"type": "Text", "type" + SUFFIX: "SecureField", "id": 1}})
 result = structured(s.response(142)) or {}
 check("validate refuses a SecureField behind a platform suffix", result.get("ok") is False
       and any("SecureField is not allowed" in e for e in result.get("errors", [])), result)
-s.call(143, "validate_document", {"document": {"type": "VStack", "children" + SUFFIX: [{"type": "SecureField", "id": 1}]}})
+s.call(143, "validate_ui", {"ui": {"type": "VStack", "children" + SUFFIX: [{"type": "SecureField", "id": 1}]}})
 result = structured(s.response(143)) or {}
 check("validate refuses a SecureField in suffixed children", result.get("ok") is False, result)
-s.call(144, "validate_document", {"document": {"type": "WebView", "properties": {
+s.call(144, "validate_ui", {"ui": {"type": "WebView", "properties": {
     "html": "<p>x</p>", "userScripts" + SUFFIX: [{"source": "1"}]}}})
 result = structured(s.response(144)) or {}
 check("validate removes suffixed userScripts", result.get("ok") is True
       and any("userScripts removed" in w for w in result.get("warnings", [])), result)
-s.call(34, "show_document", {"title": "T", "document": {"type": "NoSuchElement"}})
-check("show_document refuses a document ActionUI cannot load", is_error(s.response(34)))
+s.call(34, "show_ui", {"title": "T", "ui": {"type": "NoSuchElement"}})
+check("show_ui refuses ActionUI JSON that ActionUI cannot load", is_error(s.response(34)))
 
 # A live window: values in, values out, rows, wait with a timeout, close event.
-s.call(35, "show_document", {"title": "Live", "document": FORM})
+s.call(35, "show_ui", {"title": "Live", "ui": FORM})
 result = structured(s.response(35)) or {}
 live = result.get("window", "")
-check("show_document window mode", bool(live), result)
+check("show_ui window mode", bool(live), result)
 s.call(36, "update_window", {"window": live, "values": {"1": "Status: busy", "2": "Grace", "3": False, "99": "x"},
                              "rows": {"5": [["a", 1], ["b", 2]]}, "append_rows": {"5": [["c", 3]]}})
 result = structured(s.response(36)) or {}
 check("update_window", result.get("updated") == 5 and result.get("problems") == ["no element with id 99"], result)
-# An element with no id in the document has an automatic negative id and no known type, so its value
+# An element with no id in the ActionUI JSON has an automatic negative id and no known type, so its value
 # is refused: show kind web refuses a file: address, and its web view has no id. Automatic ids count
 # down from -2 per process, so a fresh session puts the web view's among the first few.
 w = Session(binary)
@@ -244,7 +244,7 @@ web_window = (structured(w.response(1)) or {}).get("window", "")
 w.call(2, "update_window", {"window": web_window, "values": {str(-n): "file:///etc/hosts" for n in range(2, 30)}})
 result = structured(w.response(2)) or {}
 problems = result.get("problems", [])
-check("update_window refuses values for elements with no id in the document", bool(web_window)
+check("update_window refuses values for elements with no id in the ActionUI JSON", bool(web_window)
       and result.get("updated") == 0 and any("type is unknown" in p for p in problems)
       and all("type is unknown" in p or p.startswith("no element") for p in problems), result)
 # The session folder, screenshots included, goes when the session ends.
@@ -257,7 +257,7 @@ s.call(37, "get_values", {"window": live, "ids": [1, 2, 3]})
 result = structured(s.response(37)) or {}
 check("get_values reads what update_window wrote",
       result.get("values") == {"1": "Status: busy", "2": "Grace", "3": False}, result)
-# Properties go through the document's safety rules and the verifier, one entry at a time.
+# Properties go through the safety rules for ActionUI JSON and the verifier, one entry at a time.
 s.call(136, "update_window", {"window": live, "properties": {
     "1": {"foregroundStyle": "red", "font": 5, "colour": "blue"},
     "2": {"children": []},
@@ -285,7 +285,7 @@ check("wait on a closed, drained window is an error", is_error(s.response(41)))
 
 # A chart replaced through properties, then streamed rows.
 CHART = {"type": "Chart", "id": 10, "properties": {"frame": {"width": 320, "height": 200}}}
-s.call(137, "show_document", {"title": "Chart", "document": CHART})
+s.call(137, "show_ui", {"title": "Chart", "ui": CHART})
 chart_window = (structured(s.response(137)) or {}).get("window", "")
 description = {"columns": [{"name": "day", "type": "string"}, {"name": "n", "type": "number"}],
                "content": [{"type": "ForEach", "content": [
@@ -309,7 +309,7 @@ check("update_window refuses a chart description the verifier rejects",
       result.get("updated") == 0 and len(result.get("problems", [])) == 1, result)
 
 
-# A chart's annotations hold elements, which get the document rules, platform suffixes resolved.
+# A chart's annotations hold elements, which get the same rules as other elements, platform suffixes resolved.
 def annotated(content, key="annotation"):
     bar = dict(description["content"][0]["content"][0], **{key: {"position": "top", "content": content}})
     return dict(description, content=[{"type": "ForEach", "content": [bar]}])
@@ -335,48 +335,48 @@ s.response(140)
 s.call(141, "wait", {"window": chart_window, "timeout_s": 5})  # drain its window.closed event
 s.response(141)
 
-# LoadableView is refused anywhere in a document: the document it loads would skip the checks.
-s.call(145, "show_document", {"title": "Loadable", "document": {"type": "LoadableView", "id": 20, "properties": {"name": "nothing"}}})
+# LoadableView is refused anywhere in ActionUI JSON: the ActionUI JSON it loads would skip the checks.
+s.call(145, "show_ui", {"title": "Loadable", "ui": {"type": "LoadableView", "id": 20, "properties": {"name": "nothing"}}})
 message = s.response(145)
-check("show_document refuses a LoadableView", is_error(message)
+check("show_ui refuses a LoadableView", is_error(message)
       and "LoadableView is not allowed" in message["result"]["content"][0]["text"], message)
-s.call(146, "validate_document", {"document": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
+s.call(146, "validate_ui", {"ui": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
                                                "children" + SUFFIX: [{"type": "LoadableView", "properties": {"filePath": "/tmp/x.json"}}]}})
 result = structured(s.response(146)) or {}
 check("validate refuses a LoadableView behind a platform suffix", result.get("ok") is False
       and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
 # A WindowGroup's commands would outlive its window, in a menu every window shares.
-s.call(1460, "validate_document", {"document": {"type": "WindowGroup", "properties": {"title": "x"},
+s.call(1460, "validate_ui", {"ui": {"type": "WindowGroup", "properties": {"title": "x"},
                                                 "content": {"type": "Text", "properties": {"text": "x"}},
                                                 "commands": [{"type": "CommandMenu", "properties": {"name": "Tools"}}]}})
 result = structured(s.response(1460)) or {}
 check("validate refuses a WindowGroup", result.get("ok") is False
       and any("WindowGroup is not allowed" in e for e in result.get("errors", [])), result)
-s.call(1461, "validate_document", {"document": {"type": "Text", "type" + SUFFIX: "WindowGroup", "properties": {"text": "x"}}})
+s.call(1461, "validate_ui", {"ui": {"type": "Text", "type" + SUFFIX: "WindowGroup", "properties": {"text": "x"}}})
 result = structured(s.response(1461)) or {}
 check("validate refuses a WindowGroup behind a platform suffix", result.get("ok") is False
       and any("WindowGroup is not allowed" in e for e in result.get("errors", [])), result)
 # A popover can open over the title bar's "Requested by" line and show a fake one.
 popover_button = {"type": "Button", "id": 30, "properties": {"title": "Open"},
                   "popover": {"type": "Text", "properties": {"text": "Requested by your system administrator"}}}
-s.call(1462, "show_document", {"title": "Popover", "document": {"type": "VStack", "children": [popover_button]}})
+s.call(1462, "show_ui", {"title": "Popover", "ui": {"type": "VStack", "children": [popover_button]}})
 message = s.response(1462)
-check("show_document refuses a popover", is_error(message)
+check("show_ui refuses a popover", is_error(message)
       and "root.children[0] (Button): \"popover\" is not allowed" in message["result"]["content"][0]["text"], message)
-s.call(1463, "validate_document", {"document": {"type": "Text", "properties": {"text": "x"},
+s.call(1463, "validate_ui", {"ui": {"type": "Text", "properties": {"text": "x"},
                                                 "popover" + SUFFIX: {"type": "Text", "properties": {"text": "y"}}}})
 result = structured(s.response(1463)) or {}
 check("validate refuses a popover behind a platform suffix", result.get("ok") is False
       and any("\"popover\" is not allowed" in e for e in result.get("errors", [])), result)
 # A toolbar's secondaryAction items open in a popover on Linux (the header bar's "More" menu).
-s.call(1464, "validate_document", {"document": {"type": "NavigationStack", "content": {"type": "Text", "properties": {"text": "x"}},
+s.call(1464, "validate_ui", {"ui": {"type": "NavigationStack", "content": {"type": "Text", "properties": {"text": "x"}},
                                                 "persistentToolbar": [{"type": "ToolbarItemGroup", "properties": {"placement" + SUFFIX: "secondaryAction"},
                                                                        "children": [{"type": "Button", "properties": {"title": "A"}}]}]}})
 result = structured(s.response(1464)) or {}
 check("validate refuses a secondaryAction toolbar item behind a platform suffix", result.get("ok") is False
       and any("root.persistentToolbar[0] (ToolbarItemGroup): placement \"secondaryAction\" is not allowed" in e
               for e in result.get("errors", [])), result)
-s.call(1465, "show_document", {"title": "Toolbar", "document": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
+s.call(1465, "show_ui", {"title": "Toolbar", "ui": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
                                                                 "toolbar": [{"type": "ToolbarItem", "id": 31, "properties": {"placement": "primaryAction"},
                                                                              "content": {"type": "Button", "properties": {"title": "A"}}}]}})
 toolbar_window = (structured(s.response(1465)) or {}).get("window", "")
@@ -389,13 +389,13 @@ s.response(1467)
 s.call(1468, "wait", {"window": toolbar_window, "timeout_s": 5})  # drain its window.closed event
 s.response(1468)
 # One filter pass leaves "type:macos" from "type:macos:macos", which the loader would resolve.
-s.call(147, "validate_document", {"document": {"type": "VStack", "children": [
+s.call(147, "validate_ui", {"ui": {"type": "VStack", "children": [
     {"type": "Text", "type" + SUFFIX * 2: "LoadableView", "properties": {"text": "x"}}]}})
 result = structured(s.response(147)) or {}
 check("validate refuses a LoadableView behind a doubled platform suffix", result.get("ok") is False
       and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
 
-# show kind chart: the description gets the document checks; the Chart has id 1 for update_window.
+# show kind chart: the description gets the checks of show_ui; the Chart has id 1 for update_window.
 s.call(150, "show", {"title": "Chart", "kind": "chart", "width": 360, "height": 240,
                      "chart": dict(description, data=[["Mon", 3], ["Tue", 5]])})
 result = structured(s.response(150)) or {}
@@ -406,7 +406,7 @@ message = s.response(164)
 check("show refuses a SecureField in a chart annotation", is_error(message)
       and "chart.content[0].content[0].annotation.content.children[0] (SecureField)" in message["result"]["content"][0]["text"],
       message)
-s.call(165, "validate_document", {"document": {"type": "Chart", "id": 3, "properties": {"chart": annotated(
+s.call(165, "validate_ui", {"ui": {"type": "Chart", "id": 3, "properties": {"chart": annotated(
     {"type": "LoadableView", "properties": {"name": "x"}})}}})
 result = structured(s.response(165)) or {}
 check("validate refuses a LoadableView in a chart annotation", result.get("ok") is False
@@ -436,7 +436,7 @@ s.call(158, "show", {"title": "Chart", "kind": "chart"})
 check("show refuses a chart without a description", is_error(s.response(158)))
 
 # A wait for one window ends when an older wait for any window takes that window's close event.
-s.call(44, "show_document", {"title": "Live", "document": FORM})
+s.call(44, "show_ui", {"title": "Live", "ui": FORM})
 live = (structured(s.response(44)) or {}).get("window", "")
 s.call(45, "wait", {"timeout_s": 20})
 time.sleep(0.3)
@@ -452,19 +452,19 @@ check("get_values survives an out-of-range id", is_error(s.response(48)))
 hidden = {"type": "VStack", "children": [
     {"type": "NavigationLink", "properties": {"title": "x"}, "destination": {"type": "SecureField", "id": 7}},
     {"type": "Grid", "rows": [[{"type": "SecureField", "id": 8}]]}]}
-s.call(49, "validate_document", {"document": hidden})
+s.call(49, "validate_ui", {"ui": hidden})
 result = structured(s.response(49)) or {}
 check("validate finds elements nested in destination and Grid rows",
       result.get("ok") is False and len(result.get("errors", [])) == 2, result)
 
-# screenshot: a document rendered off screen, and an open window; the PNG comes back and is saved.
+# screenshot: ActionUI JSON rendered off screen, and an open window; the PNG comes back and is saved.
 import base64
-s.call(54, "screenshot", {"document": FORM, "width": 400, "height": 260})
+s.call(54, "screenshot", {"ui": FORM, "width": 400, "height": 260})
 message = s.response(54) or {}
 content = message.get("result", {}).get("content", [{}])
 info = structured(message) or {}
 png = base64.b64decode(content[0].get("data", "")) if content and content[0].get("type") == "image" else b""
-check("screenshot renders a document", png[:8] == b"\x89PNG\r\n\x1a\n" and info.get("width", 0) > 0
+check("screenshot renders ActionUI JSON", png[:8] == b"\x89PNG\r\n\x1a\n" and info.get("width", 0) > 0
       and os.path.exists(info.get("path", "")), info)
 s.call(55, "show", {"title": "Shot", "kind": "text", "text": "hello", "width": 300, "height": 200})
 shot_window = (structured(s.response(55)) or {}).get("window", "")
@@ -475,17 +475,17 @@ s.call(57, "close_window", {"window": shot_window})
 s.response(57)
 s.call(58, "screenshot", {"window": "no-such-window"})
 check("screenshot of an unknown window is an error", is_error(s.response(58)))
-s.call(59, "screenshot", {"document": {"type": "VStack", "properties": {"spacing": "16"}}})
-check("screenshot refuses a document with errors", is_error(s.response(59)))
-# A rendered document is drawn at the size asked for, title bar included. On Linux a WebView's page
+s.call(59, "screenshot", {"ui": {"type": "VStack", "properties": {"spacing": "16"}}})
+check("screenshot refuses ActionUI JSON with errors", is_error(s.response(59)))
+# Rendered ActionUI JSON is drawn at the size asked for, title bar included. On Linux a WebView's page
 # is not drawn there, and the result says so; on macOS it is, and nothing is said.
-s.call(1470, "screenshot", {"document": {"type": "VStack", "children": [
+s.call(1470, "screenshot", {"ui": {"type": "VStack", "children": [
     {"type": "Text", "properties": {"text": "Above"}},
     {"type": "WebView", "properties": {"html": "<p>Page</p>", "frame": {"width": 300, "height": 120}}}]},
     "width": 400, "height": 260, "delay_s": 1})
 info = structured(s.response(1470)) or {}
 web_warned = any("WebView" in warning for warning in info.get("warnings", []))
-check("screenshot renders a WebView document and says what it leaves out",
+check("screenshot renders a WebView's ActionUI JSON and says what it leaves out",
       info.get("width", 0) > 0 and info.get("height", 0) > info.get("width", 0) * 260 / 400
       and web_warned == LINUX, info)
 
@@ -506,7 +506,7 @@ check("no response for the cancelled call", s.response(4, timeout=1) is None)
 # An action in a live window reaches a waiting agent, with the element's value.
 s.close()
 s = Session(binary, action="go@2")
-s.call(1, "show_document", {"title": "Live", "document": FORM})
+s.call(1, "show_ui", {"title": "Live", "ui": FORM})
 live = (structured(s.response(1)) or {}).get("window", "")
 s.call(2, "wait", {"timeout_s": 10})
 result = structured(s.response(2)) or {}
@@ -515,39 +515,39 @@ check("wait receives the action", len(events) == 1 and events[0].get("action") =
       and events[0].get("window") == live and events[0].get("id") == 2 and events[0].get("value") == "Ada", result)
 s.close()
 
-# Agent document as a dialog: chrome buttons and declared close actions both return every value.
+# Agent-written ActionUI JSON as a dialog: chrome buttons and declared close actions both return every value.
 s = Session(binary, press="Save")
-s.call(1, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": ["Cancel", "Save"]})
+s.call(1, "show_ui", {"title": "Edit", "mode": "dialog", "ui": FORM, "buttons": ["Cancel", "Save"]})
 result = structured(s.response(1)) or {}
-check("document dialog accept", result.get("action") == "accept" and result.get("button") == "Save"
+check("show_ui dialog accept", result.get("action") == "accept" and result.get("button") == "Save"
       and result.get("values", {}).get("2") == "Ada" and result.get("values", {}).get("3") is True, result)
 s.close()
 s = Session(binary, action="go@4")
-s.call(1, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": [], "close_actions": ["go"]})
+s.call(1, "show_ui", {"title": "Edit", "mode": "dialog", "ui": FORM, "buttons": [], "close_actions": ["go"]})
 result = structured(s.response(1)) or {}
-check("document dialog close action", result.get("action") == "accept" and result.get("close_action") == "go", result)
-s.call(2, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": []})
-check("document dialog needs a way out", is_error(s.response(2)))
+check("show_ui dialog close action", result.get("action") == "accept" and result.get("close_action") == "go", result)
+s.call(2, "show_ui", {"title": "Edit", "mode": "dialog", "ui": FORM, "buttons": []})
+check("show_ui dialog needs a way out", is_error(s.response(2)))
 # A close action must come from a click: not from an action that fires by itself, and not from a
 # template column reference in one, which a row could fill with a close action.
 appearing = {"type": "VStack", "properties": {"onAppearActionID": "go"}, "children": [FORM]}
-s.call(3, "show_document", {"title": "Edit", "mode": "dialog", "document": appearing, "buttons": [], "close_actions": ["go"]})
+s.call(3, "show_ui", {"title": "Edit", "mode": "dialog", "ui": appearing, "buttons": [], "close_actions": ["go"]})
 message = s.response(3)
 check("a close action on onAppearActionID is refused", is_error(message) and "no click" in json.dumps(message), message)
 templated = {"type": "List", "id": 9, "template": {"type": "Text", "properties": {"text": "$1", "onAppearActionID": "$1"}}}
-s.call(4, "show_document", {"title": "Edit", "mode": "dialog", "document": templated, "buttons": [], "close_actions": ["go"]})
+s.call(4, "show_ui", {"title": "Edit", "mode": "dialog", "ui": templated, "buttons": [], "close_actions": ["go"]})
 message = s.response(4)
 check("a column reference in an automatic action is refused with close actions", is_error(message)
       and "column reference" in json.dumps(message), message)
 # A Map's actionID fires on each camera change, the first as the map appears.
 mapped = {"type": "Map", "id": 9, "properties": {"coordinate": {"latitude": 52.2, "longitude": 21.0}, "actionID": "go"}}
-s.call(5, "show_document", {"title": "Edit", "mode": "dialog", "document": mapped, "buttons": [], "close_actions": ["go"]})
+s.call(5, "show_ui", {"title": "Edit", "mode": "dialog", "ui": mapped, "buttons": [], "close_actions": ["go"]})
 message = s.response(5)
 check("a close action on a Map's actionID is refused", is_error(message) and "no click" in json.dumps(message), message)
 s.close()
-# A document cannot press a chrome button by naming its actionID: the ids carry a token per dialog.
+# Agent-written ActionUI JSON cannot press a chrome button by naming its actionID: the ids carry a token per dialog.
 s = Session(binary, action="mcp.dialog.button.1@4")
-s.call(1, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": ["Cancel", "Save"],
+s.call(1, "show_ui", {"title": "Edit", "mode": "dialog", "ui": FORM, "buttons": ["Cancel", "Save"],
                             "timeout_s": 4})
 result = structured(s.response(1, timeout=10))
 check("a guessed chrome button actionID does not accept", result == {"action": "timeout", "button": None}, result)
@@ -683,7 +683,7 @@ s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_REHOST_REPORT": report})
 s.call(1, "show", {"title": "Kept table", "kind": "table", "columns": ["A", "B"], "rows": [["a", 1], ["b", 2], ["c", 3]],
                    "keep": True})
 check("show with keep", bool(structured(s.response(1, timeout=5))))
-s.call(2, "show_document", {"title": "Kept live", "document": FORM, "keep": True})
+s.call(2, "show_ui", {"title": "Kept live", "ui": FORM, "keep": True})
 kept_live = (structured(s.response(2)) or {}).get("window", "")
 s.call(3, "update_window", {"window": kept_live, "values": {"1": "Status: kept", "2": "Grace"},
                             "properties": {"1": {"foregroundStyle": "red"}},
@@ -691,7 +691,7 @@ s.call(3, "update_window", {"window": kept_live, "values": {"1": "Status: kept",
 s.response(3)
 s.call(4, "show", {"title": "Not kept", "kind": "text", "text": "gone"})
 s.response(4)
-s.call(5, "show_document", {"title": "T", "mode": "dialog", "document": FORM, "keep": True})
+s.call(5, "show_ui", {"title": "T", "mode": "dialog", "ui": FORM, "keep": True})
 check("keep is refused in dialog mode", is_error(s.response(5)))
 s.call(6, "show", {"title": "T", "kind": "text", "text": "x", "keep": "yes"})
 check("keep must be a boolean", is_error(s.response(6)))

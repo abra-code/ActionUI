@@ -6,7 +6,7 @@ flavors: [claude, capable, lite]
 
 ## What is ActionUI
 
-ActionUI renders native UI from a declarative JSON tree: SwiftUI on Apple platforms, GTK/Adwaita on Linux, Jetpack Compose on Android, and the DOM on the web. A JSON document describes a view hierarchy; no UI code is needed, only valid JSON.
+ActionUI renders native UI from a declarative JSON tree: SwiftUI on Apple platforms, GTK/Adwaita on Linux, Jetpack Compose on Android, and the DOM on the web. A piece of ActionUI JSON describes a view hierarchy; no UI code is needed, only valid JSON.
 
 ## JSON Node Structure
 
@@ -27,7 +27,7 @@ Every node in the tree follows this shape:
 | Field | Type | Notes |
 |-------|------|-------|
 | `type` | string | **Required.** Element type, PascalCase, case-sensitive. |
-| `id` | integer | Optional. Positive, unique across the whole document. Give one to every element the app reads, updates or handles events from. |
+| `id` | integer | Optional. Positive, unique across the whole ActionUI JSON of a window. Give one to every element the app reads, updates or handles events from. |
 | `properties` | object | The element's own properties plus the universal View properties. |
 | structural keys | array/object | Outside `properties`: `children`, `content`, `template`, `destination(s)`, `rows`, `sidebar`/`detail`, and the subview keys (`toolbar`, `sheet`, ...). |
 
@@ -37,11 +37,11 @@ Every node in the tree follows this shape:
 2. `content` is a single view (an object); `children` is an array.
 3. Values must have the declared type: `"spacing": 16`, not `"spacing": "16"`.
 4. Do not invent property names. An unknown property is only a validator WARNING and is ignored at run time, so a typo fails silently: read every warning.
-5. A document is plain JSON with one root view. No comments: the schema docs annotate their samples with `//` comments, which make a document invalid; copy the keys, not the comments.
+5. ActionUI JSON is plain JSON with one root view. No comments: the schema docs annotate their samples with `//` comments, which make the JSON invalid; copy the keys, not the comments.
 
 ## Workflow
 
 1. **Before writing an element you have not used**, read its schema, `docs/Schemas/<Type>.md` (every property, its values and the events it fires), or start from its template, `docs/Elements/<Type>.json`. Guessing a property name from SwiftUI usually works, but when it does not, nothing fails: the property is just ignored.
-2. **When changing an existing document**, read all of it first and keep every `id` and `actionID` as they are unless asked to change them: the application finds elements by `id` and handles actions by name, so a renumbered id or a renamed action breaks it without any error. Give new elements ids no other element uses.
+2. **When changing existing ActionUI JSON**, read all of it first and keep every `id` and `actionID` as they are unless asked to change them: the application finds elements by `id` and handles actions by name, so a renumbered id or a renamed action breaks it without any error. Give new elements ids no other element uses.
 3. **Validate** (see Validation) and fix every error and warning.
 4. **Look at it** when the layout changed and you can render it: the validator does not see clipped or squeezed views.

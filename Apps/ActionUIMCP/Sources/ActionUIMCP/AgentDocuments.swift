@@ -4,8 +4,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// AgentDocuments.swift - ActionUI documents written by the agent (show_document,
-// validate_document). A document arrives as a JSON object nested in the tool arguments, or as an
+// AgentDocuments.swift - ActionUI JSON written by the agent (show_ui,
+// validate_ui). A document arrives as a JSON object nested in the tool arguments, or as an
 // absolute path to a .json file, never as a string. Before anything loads it gets structural
 // checks for the mistakes ActionUI's loader would silently ignore, and the safety rules of the
 // design: no SecureField (every answer reaches the model), no LoadableView (the document it loads
@@ -43,7 +43,7 @@ struct AgentDocument {
     static let allowSecureFields = ProcessInfo.processInfo.environment["ACTIONUI_MCP_ALLOW_SECURE_FIELDS"] == "1"
     /// A LoadableView loads another document when it is shown, past every check here, through any
     /// of its sources (`url`, `filePath`, `name`) or a new value.
-    static let loadableViewRefusal = "LoadableView is not allowed; the document it loads would skip these checks, so put its content inline"
+    static let loadableViewRefusal = "LoadableView is not allowed; the ActionUI JSON it loads would skip these checks, so put its content inline"
     /// On Linux a toolbar's secondaryAction items show in the header bar's "More" popover, which,
     /// like a document's popover, opens over the "Requested by" line when it does not fit below
     /// the bar (measured: a window moved low on the screen).
@@ -80,7 +80,7 @@ struct AgentDocument {
             return ("\(here): userScripts is refused; user scripts from an agent are not injected", [], value)
         }
         if containerKeys.contains(name) || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
-            return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [], value)
+            return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the window's ActionUI JSON", [], value)
         }
         if name == "placement", isSecondaryActionItem(type: type, placement: value) {
             return ("\(here): \(secondaryActionRefusal)", [], value)
@@ -137,9 +137,9 @@ struct AgentDocument {
     /// Throws MCPToolError listing every structural error found.
     init(arguments: [String: JSONValue]) throws {
         let value: JSONValue
-        if let document = arguments["document"], document != .null {
+        if let document = arguments["ui"], document != .null {
             guard case .object = document else {
-                throw MCPToolError("'document' must be an ActionUI element object such as {\"type\": \"VStack\", ...}, not a string")
+                throw MCPToolError("'ui' must be an ActionUI element object such as {\"type\": \"VStack\", ...}, not a string")
             }
             guard document.serialized().utf8.count <= Self.maxBytes else {
                 throw MCPToolError("the ActionUI JSON is larger than \(Self.maxBytes / 1024 / 1024) MB")
@@ -148,7 +148,7 @@ struct AgentDocument {
         } else if let path = arguments["path"]?.string {
             value = try Self.load(path: path)
         } else {
-            throw MCPToolError("give the ActionUI document as 'document' (an object) or 'path' (an absolute .json path)")
+            throw MCPToolError("give the ActionUI JSON as 'ui' (an object) or 'path' (an absolute .json path)")
         }
 
         var errors: [String] = []
@@ -179,7 +179,7 @@ struct AgentDocument {
         if !errors.isEmpty {
             let shown = errors.prefix(20).joined(separator: "\n")
             let more = errors.count > 20 ? "\n... and \(errors.count - 20) more" : ""
-            throw MCPToolError("the document has errors:\n" + shown + more)
+            throw MCPToolError("the ActionUI JSON has errors:\n" + shown + more)
         }
         self.root = checked
         self.warnings = warnings
@@ -244,7 +244,7 @@ struct AgentDocument {
             errors.append("\(here): \(loadableViewRefusal)")
         }
         if type == "WindowGroup" {
-            errors.append("\(here): WindowGroup is not allowed; it is an application's scene, and its commands would stay in the menu after its window closes, so give its content as the document")
+            errors.append("\(here): WindowGroup is not allowed; it is an application's scene, and its commands would stay in the menu after its window closes, so give its content as the root element")
         }
         // A popover is a surface of its own, placed by the system: on macOS and on Linux, one of
         // any size, from an element anywhere, can open over the title bar's "Requested by" line

@@ -21,7 +21,7 @@ let maxDialogTimeout = 86400.0
 
 func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
     [askUserTool(host: host, label: label), pickPathTool(host: host),
-     showTool(host: host, label: label), notifyTool(host: host, label: label), showDocumentTool(host: host, label: label), validateDocumentTool(host: host),
+     showTool(host: host, label: label), notifyTool(host: host, label: label), showUITool(host: host, label: label), validateUITool(host: host),
      waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), screenshotTool(host: host),
      closeWindowTool(host: host)]
 }
@@ -33,7 +33,7 @@ func provenance(clientName: String?, label: String?) -> String {
     return text
 }
 
-/// The optional `keep` argument of show and show_document.
+/// The optional `keep` argument of show and show_ui.
 func keepArgument(_ arguments: [String: JSONValue]) throws -> Bool {
     guard let value = arguments["keep"], value != .null else { return false }
     guard let keep = value.bool else { throw MCPToolError("'keep' must be a boolean") }
@@ -152,7 +152,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "columns": ["type": "array", "items": ["type": "string"], "description": "For table: column headers."],
         "rows": ["type": "array", "description": "For table: rows, each an array of cells (strings or numbers), at most one per column.",
                  "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
-        "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (resource actionui://docs/elements/Chart). It gets the checks of show_document. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
+        "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (resource actionui://docs/elements/Chart). It gets the checks of show_ui. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
         "width": ["type": "number", "description": "Content width in points. Default 800."],
         "height": ["type": "number", "description": "Content height in points. Default 600."],
         "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],

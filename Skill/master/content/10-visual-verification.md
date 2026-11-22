@@ -6,7 +6,7 @@ flavors: [claude]
 
 ## Visual Verification (Screenshot)
 
-The validator catches schema errors, not clipped labels, wrapped titles or controls squeezed out of view. After validating, render the document and look at the image:
+The validator catches schema errors, not clipped labels, wrapped titles or controls squeezed out of view. After validating, render the ActionUI JSON and look at the image:
 
 - With the ActionUI MCP server connected: its `screenshot` tool (macOS and Linux).
 - Otherwise ActionUIViewer: `ActionUIViewer <file.json> --screenshot out.png`, adding `--hide-window` on macOS (renders off screen: no window on the desktop, no Screen Recording permission, works with the screen locked; the Linux viewer has no such flag). Add `--screenshot-delay 5` for WebView or VideoPlayer content.

@@ -4,8 +4,8 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// ToolsDocuments.swift - tools for agent-authored documents and live windows: show_document,
-// validate_document, wait, update_window, get_values, plus pick_path.
+// ToolsDocuments.swift - tools for agent-written ActionUI JSON and live windows: show_ui,
+// validate_ui, wait, update_window, get_values, plus pick_path.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -14,23 +14,23 @@ import Foundation
 #endif
 import MCPStdio
 
-private let documentProperty: JSONValue = [
+private let uiProperty: JSONValue = [
     "type": "object",
     "description": "ActionUI root element, the same format as an ActionUI .json file: {\"type\": \"VStack\", \"properties\": {...}, \"children\": [...]}. Give every element whose value you want back a unique positive integer \"id\". Pass it as an object, never as a string.",
 ]
 private let pathProperty: JSONValue = [
     "type": "string",
-    "description": "Instead of document: absolute path of an ActionUI .json file.",
+    "description": "Instead of ui: absolute path of an ActionUI .json file.",
 ]
-private let windowProperty: JSONValue = ["type": "string", "description": "Window id returned by show or show_document."]
+private let windowProperty: JSONValue = ["type": "string", "description": "Window id returned by show or show_ui."]
 
-// MARK: - show_document
+// MARK: - show_ui
 
-func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
+func showUITool(host: WindowHost, label: String?) -> MCPTool {
     let input: JSONValue = [
         "type": "object",
         "properties": [
-            "document": documentProperty,
+            "ui": uiProperty,
             "path": pathProperty,
             "title": ["type": "string", "description": "Window title."],
             "mode": ["type": "string", "enum": ["window", "dialog"],
@@ -39,7 +39,7 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
                         "description": "dialog mode: button titles, left to right; the last is the default (Return); \"Cancel\" is bound to Escape. Default [\"Cancel\", \"OK\"]; [] for none (then give close_actions)."],
             "close_actions": ["type": "array", "items": ["type": "string"],
                               "description": "dialog mode: actionIDs of your own buttons that end the dialog with action \"accept\". Not allowed as an action that fires without a click (onAppearActionID, onDisappearActionID, viewDidLoadActionID, navigationActionID, onHoverActionID, onDropTargetedActionID, openURLActionID, a WebView's valueChangeActionID, a Map's actionID)."],
-            "width": ["type": "number", "description": "Content width in points. Default: the document's own size."],
+            "width": ["type": "number", "description": "Content width in points. Default: the ActionUI JSON's own size."],
             "height": ["type": "number", "description": "Content height in points. With width, fixes the window size."],
             "timeout_s": ["type": "number", "description": "dialog mode: seconds before action \"timeout\". Default 3600."],
             "keep": ["type": "boolean", "description": "window mode: keep the window open after this session ends (default false), for a window that only presents content. The kept window is a copy with the values it had: its actions no longer reach you."],
@@ -48,16 +48,16 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
         "additionalProperties": false,
     ]
     return MCPTool(
-        name: "show_document",
-        title: "Show an ActionUI document",
+        name: "show_ui",
+        title: "Show ActionUI JSON in a window",
         description: """
-            Open a native window from an ActionUI document you wrote. The document gets the checks of \
-            validate_document: errors come back as a tool error and nothing is shown, warnings come \
+            Open a native window from ActionUI JSON you wrote. It gets the checks of \
+            validate_ui: errors come back as a tool error and nothing is shown, warnings come \
             back with the result. mode "dialog" waits for the user \
             and returns {action, button, close_action?, values}, where values maps each element id to \
             its current value. mode "window" returns {window} at once; collect the user's actions with \
             wait, change values with update_window. Not allowed: SecureField (everything the user \
-            enters is sent to you), LoadableView (the document it loads would skip the checks; put \
+            enters is sent to you), LoadableView (the ActionUI JSON it loads would skip the checks; put \
             its content inline) and popover (it can cover the window's "Requested by" line; use a \
             sheet). WebView userScripts are removed.
             """,
@@ -112,19 +112,19 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
     }
 }
 
-// MARK: - validate_document
+// MARK: - validate_ui
 
-func validateDocumentTool(host: WindowHost) -> MCPTool {
+func validateUITool(host: WindowHost) -> MCPTool {
     let input: JSONValue = [
         "type": "object",
-        "properties": ["document": documentProperty, "path": pathProperty],
+        "properties": ["ui": uiProperty, "path": pathProperty],
         "additionalProperties": false,
     ]
     return MCPTool(
-        name: "validate_document",
-        title: "Check an ActionUI document",
+        name: "validate_ui",
+        title: "Check ActionUI JSON",
         description: """
-            Check an ActionUI document without showing it: structure (element shape, unique positive \
+            Check ActionUI JSON without showing it: structure (element shape, unique positive \
             ids, container keys such as children placed next to properties) and refused elements \
             (SecureField, LoadableView); \
             when those pass, the rules of the ActionUI verifier (element types, property names, value \
@@ -172,7 +172,7 @@ func waitTool(host: WindowHost) -> MCPTool {
         name: "wait",
         title: "Wait for window events",
         description: """
-            Return the user's actions in windows opened by show_document in window mode, \
+            Return the user's actions in windows opened by show_ui in window mode, \
             waiting until at least one arrives or the timeout passes. Returns {events, dropped} with \
             events [{window, action, id?, value?, count?, at}] oldest first; repeated actions on one \
             element are merged into the latest with a count. When the user closes a window its last \
@@ -197,7 +197,7 @@ func updateWindowTool(host: WindowHost) -> MCPTool {
         "properties": [
             "window": windowProperty,
             "properties": ["type": "object", "additionalProperties": ["type": "object"],
-                           "description": "Element id to {property name: value}, set as in the document's \"properties\"; for example {\"10\": {\"chart\": {...}}} replaces a Chart's description. Applied first, then values, then rows. Each is checked like a document; a refused one comes back in problems. Not allowed: null, userScripts, child-element keys such as children, id, type, a \"<name>:<platform>\" suffix, and any property of a SecureField or LoadableView."],
+                           "description": "Element id to {property name: value}, set as in the ActionUI JSON's \"properties\"; for example {\"10\": {\"chart\": {...}}} replaces a Chart's description. Applied first, then values, then rows. Each is checked like ActionUI JSON given to show_ui; a refused one comes back in problems. Not allowed: null, userScripts, child-element keys such as children, id, type, a \"<name>:<platform>\" suffix, and any property of a SecureField or LoadableView."],
             "values": ["type": "object", "description": "Element id to new value (string, number, or boolean), for example {\"3\": \"Done\", \"4\": 0.75}."],
             "rows": byID.merging(description: "Table, List or Chart id to its new rows, each an array of cells; replaces all rows."),
             "append_rows": byID.merging(description: "Table, List or Chart id to rows to add at the end."),
@@ -308,11 +308,11 @@ func screenshotTool(host: WindowHost) -> MCPTool {
     let input: JSONValue = [
         "type": "object",
         "properties": [
-            "window": ["type": "string", "description": "Id of an open window (from show or show_document) to capture."],
-            "document": documentProperty,
+            "window": ["type": "string", "description": "Id of an open window (from show or show_ui) to capture."],
+            "ui": uiProperty,
             "path": pathProperty,
-            "width": ["type": "number", "description": "For document or path: content width in points. Default: the document's own size."],
-            "height": ["type": "number", "description": "For document or path: content height in points, with width."],
+            "width": ["type": "number", "description": "For ui or path: content width in points. Default: the ActionUI JSON's own size."],
+            "height": ["type": "number", "description": "For ui or path: content height in points, with width."],
             "delay_s": ["type": "number", "description": "Seconds to wait before capturing, for images, video or web content to load. Default 0.5, at most 10."],
         ],
         "additionalProperties": false,
@@ -328,14 +328,14 @@ func screenshotTool(host: WindowHost) -> MCPTool {
     ]
     return MCPTool(
         name: "screenshot",
-        title: "Screenshot a window or a document",
+        title: "Screenshot a window or ActionUI JSON",
         description: """
-            Capture a PNG of an open window (window), or render an ActionUI document you wrote \
-            (document or path) in a window the user never sees and capture that - to check a layout \
+            Capture a PNG of an open window (window), or render ActionUI JSON you wrote \
+            (ui or path) in a window the user never sees and capture that - to check a layout \
             before showing it. Returns the image and {path, width, height}; the PNG is also saved at \
-            path, until the session ends. A rendered document gets the checks of validate_document first, and its controls \
-            draw in their inactive (gray) style; the layout is exact. With window, document and path \
-            are ignored, and width and height apply only to a rendered document.
+            path, until the session ends. Rendered ActionUI JSON gets the checks of validate_ui first, and its controls \
+            draw in their inactive (gray) style; the layout is exact. With window, ui and path \
+            are ignored, and width and height apply only to rendered ActionUI JSON.
             """,
         inputSchema: input,
         outputSchema: output,
@@ -348,8 +348,8 @@ func screenshotTool(host: WindowHost) -> MCPTool {
         if let windowID = arguments["window"]?.string {
             shot = try await host.captureWindow(windowID, delay: delay)
         } else {
-            guard arguments["document"] != nil || arguments["path"] != nil else {
-                throw MCPToolError("give 'window' (an open window's id), 'document' (an ActionUI element object), or 'path' (an absolute .json path)")
+            guard arguments["ui"] != nil || arguments["path"] != nil else {
+                throw MCPToolError("give 'window' (an open window's id), 'ui' (an ActionUI element object), or 'path' (an absolute .json path)")
             }
             let document = try AgentDocument(arguments: arguments)
             var size: ContentSize?

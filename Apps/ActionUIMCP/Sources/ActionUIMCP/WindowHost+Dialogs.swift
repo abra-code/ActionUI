@@ -7,7 +7,7 @@
 // WindowHost+Dialogs.swift - blocking dialogs. A dialog is a session: the window is open, the
 // tool call awaits a continuation, and the first closing event (a dialog button, a declared close
 // action, the window's close button, the timeout, or cancellation of the call) settles it exactly
-// once. Canned dialogs (ask_user) report typed field values; agent documents (show_document in
+// once. Canned dialogs (ask_user) report typed field values; agent-written ActionUI JSON (show_ui in
 // dialog mode) report the value of every element with an id.
 
 #if canImport(FoundationEssentials)
@@ -167,7 +167,7 @@ extension WindowHost {
     /// Opens a `show` window; a table gets its rows once the window exists. Viewers have no actions
     /// worth reporting, so they queue no events: a closed viewer leaves nothing behind for `wait`.
     /// Returns the window id and, for a chart (the agent's description), the check and load
-    /// warnings; its load errors refuse the window, as show_document's do.
+    /// warnings; its load errors refuse the window, as show_ui's do.
     func openViewer(spec: ViewerSpec, subtitle: String, keep: Bool) throws -> (id: String, warnings: [String]) {
         let isChart = spec.kind == .chart
         let opened = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,

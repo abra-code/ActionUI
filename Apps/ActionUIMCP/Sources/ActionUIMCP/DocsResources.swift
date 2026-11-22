@@ -77,7 +77,7 @@ enum DocsResources {
                                 description: "Properties, value and behavior of one ActionUI element type, such as Button or TextField.",
                                 mimeType: "text/markdown"),
             MCPResourceTemplate(uriTemplate: prefix + "templates/{type}", name: "template",
-                                description: "A JSON template of one ActionUI element type with its common properties, to copy into a document.",
+                                description: "A JSON template of one ActionUI element type with its common properties, to copy into ActionUI JSON.",
                                 mimeType: "application/json"),
         ]
         let table = files
