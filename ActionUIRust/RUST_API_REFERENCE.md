@@ -498,7 +498,7 @@ actionui::log::set_logger(|message, level| {
 
 ## `actionui::trust`
 
-A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading the user's files outside the app's resources, titling the window, covering it with its own sheets.
+A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading or loading the user's files outside the app's resources, titling the window, covering it with its own sheets.
 
 | Item | Description |
 |---|---|

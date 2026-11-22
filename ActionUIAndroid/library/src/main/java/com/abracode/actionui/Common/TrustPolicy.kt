@@ -94,8 +94,9 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
      * What content of [origin] may do when the host does not say: trusted content anything;
      * less-trusted content may open only web and mail links, show only web addresses in a
      * WebView, give its inline html a base address only of its own document's origin, read
-     * local files (images, videos, WebView script files) only inside the app's resource
-     * folders, and neither set the title nor present its own sheets, covers and popovers.
+     * local files (images, videos, WebView script files) and load ActionUI JSON from local
+     * files only inside the app's resource folders, and neither set the title nor present its
+     * own sheets, covers and popovers.
      * The same table as the Swift `DefaultTrustPolicy.allowsByDefault`.
      */
     fun allowsByDefault(capability: ActionUICapability, origin: JSONContentOrigin): Boolean {
@@ -110,7 +111,9 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
             is ActionUICapability.ReadLocalFile -> isInAppResources(capability.path)
             is ActionUICapability.WebViewScriptFile -> isInAppResources(capability.path)
             ActionUICapability.WindowTitle, ActionUICapability.PresentModal -> false
-            is ActionUICapability.Load, ActionUICapability.MenuCommands, is ActionUICapability.Action -> true
+            // A local file outside the app's resource folders is not loaded; resources and remote addresses are.
+            is ActionUICapability.Load -> capability.source !is JSONContentOrigin.Source.File
+            ActionUICapability.MenuCommands, is ActionUICapability.Action -> true
         }
     }
 }

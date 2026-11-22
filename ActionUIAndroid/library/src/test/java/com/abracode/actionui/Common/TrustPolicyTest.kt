@@ -80,6 +80,14 @@ class TrustPolicyTest {
     }
 
     @Test
+    fun `less-trusted content loads no local file outside the resource folders`() {
+        assertFalse(allows(ActionUICapability.Load(JSONContentOrigin.Source.File("/sdcard/Download/panel.json"))))
+        assertTrue(allows(ActionUICapability.Load(JSONContentOrigin.Source.Resource("/data/app/res/panel.json"))))
+        assertTrue(allows(ActionUICapability.Load(JSONContentOrigin.Source.Remote("https://example.com/b.json"))))
+        assertTrue(allows(ActionUICapability.Load(JSONContentOrigin.Source.File("/sdcard/Download/panel.json")), JSONContentOrigin.HOST))
+    }
+
+    @Test
     fun `the host's policy has the last word on trust and on each capability`() {
         ActionUIModel.trustPolicy = object : ActionUITrustPolicy {
             override fun trust(source: JSONContentOrigin.Source, parent: JSONContentOrigin?, byDefault: JSONContentOrigin.Trust) =

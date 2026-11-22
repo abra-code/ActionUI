@@ -485,6 +485,34 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertEqual(DefaultTrustPolicy().trust(for: .file("/tmp/a.json"), inside: nil, byDefault: .lessTrusted), .lessTrusted)
     }
 
+    func testLessTrustedContentLoadsNoLocalFileOutsideTheAppsResources() {
+        let lessTrusted = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
+        XCTAssertFalse(DefaultTrustPolicy().allows(.load(.file("/Users/someone/.config/panel.json")), for: lessTrusted))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.load(.file("/Volumes/share/panel.json")), for: lessTrusted), "a network share")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.load(.resource("/app/Resources/panel.json")), for: lessTrusted), "the app's own resource")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.load(.remote(URL(string: "https://example.com/b.json")!)), for: lessTrusted))
+        XCTAssertTrue(DefaultTrustPolicy().allows(.load(.file("/Users/someone/panel.json")), for: .host), "the host's content loads any file")
+    }
+
+    func testALessTrustedLoadableViewIsRefusedALocalFileOutsideTheResources() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [resources.path] }
+        let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/list.json")!))
+        let outside = root.appendingPathComponent("outside.json")
+        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.file(outside), windowUUID: windowUUID, parentID: 600, logger: ActionUIModel.shared.logger),
+                       "the trust policy refuses it")
+        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.file(resources.appendingPathComponent("inside.json")), windowUUID: windowUUID,
+                                                        parentID: 600, logger: ActionUIModel.shared.logger), "the app's resources load")
+        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.file(resources.appendingPathComponent("link.json")), windowUUID: windowUUID,
+                                                          parentID: 600, logger: ActionUIModel.shared.logger),
+                       "the trust policy refuses it", "a link inside the resources to a file outside them")
+    }
+
     func testAWindowsLoadsAreCappedPerSpanOfTime() throws {
         let recording = RecordingLogger()
         ActionUIModel.shared.logger = recording

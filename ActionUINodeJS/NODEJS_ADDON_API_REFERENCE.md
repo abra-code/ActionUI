@@ -437,7 +437,7 @@ actionui.setTrustPolicy({
 actionui.setTrustPolicy();   // ActionUI's own policy again
 ```
 
-For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it. `test_trust_policy.js` runs both against a real window.
+For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. `test_trust_policy.js` runs both against a real window.
 
 ### Configuration
 

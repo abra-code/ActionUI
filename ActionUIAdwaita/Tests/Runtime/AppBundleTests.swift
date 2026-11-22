@@ -80,6 +80,10 @@ final class AppBundleTests: XCTestCase {
         try write(#"{"type": "LoadableView", "id": 20, "properties": {"name": "Leaf"}}"#, "Middle.json", in: other)
         try write(#"{"type": "Text", "id": 30, "properties": {"text": "Leaf"}}"#, "Leaf.json", in: other)
         AppBundle.setDocumentFolder(documents, window: windowUUID)
+        // Middle.json is the app's own: content from a file elsewhere loads no local files.
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [other] }
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(other)/Middle.json"}}"#)
         AdwaitaTestHost.drainMainLoop()
         let middle = try XCTUnwrap(node.childNodes[20])

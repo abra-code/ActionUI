@@ -102,6 +102,10 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("self-loading-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
+        // The app's own resources: less-trusted content (a file elsewhere) loads no local files.
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [folder.path] }
         let file = folder.appendingPathComponent("Self.json")
         let document: [String: Any] = [
             "type": "VStack", "id": 1,
@@ -131,6 +135,10 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("measure-loop-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
+        // The app's own resources: less-trusted content (a file elsewhere) loads no local files.
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [folder.path] }
         let count = 7
         let files = (0..<count).map { folder.appendingPathComponent("D\($0).json") }
         for (index, file) in files.enumerated() {

@@ -174,7 +174,7 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```
 
-A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it.
+A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder.
 
 ### Configuration
 
