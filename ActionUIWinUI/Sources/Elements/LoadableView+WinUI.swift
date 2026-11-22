@@ -24,6 +24,8 @@
  - A download is read up to the cap on ActionUI JSON (16 MB; refused at once on a longer
    Content-Length) and given up after 120 seconds; redirects are followed only to http and https, never
    from https to http, at most 20, as on Apple and Linux.
+ - The host's trust policy is asked before anything is read (ActionUICapability.load, for the content
+   the LoadableView is in), as on Apple and Linux: a refused source shows "Failed to load view: ...".
  - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile). Less-trusted
    content (ActionUI JSON from a server or from a file outside the app's resources) loads no file on a
    share or a device (\\server\share, \\?\ and the like), never touched.
@@ -141,6 +143,12 @@ extension LoadableView: ActionUIWinUIRenderer {
                     state.status = message("Failed to load view: the trust policy refuses \(path)", error: true)
                     return
                 }
+            }
+            // The trust policy may refuse the source (ActionUICapability.load), before anything is read,
+            // as on Apple and Linux; after the share check, since classifying a file resolves its path.
+            if let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, logger: logger) {
+                state.status = message("Failed to load view: \(refusal)", error: true)
+                return
             }
             let key = ActionUIDocumentLoader.nestingKey(for: found)
             if let refusal = ActionUIDocumentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {

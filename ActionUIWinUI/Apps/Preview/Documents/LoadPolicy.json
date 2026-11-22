@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A host policy that refuses remote loads: nothing is fetched" } },
+    {
+      "type": "LoadableView",
+      "id": 3,
+      "properties": {
+        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json",
+        "viewDidLoadActionID": "refused.loaded"
+      }
+    },
+    { "type": "LoadableView", "id": 4, "properties": { "filePath": "Loadable/Child.json", "viewDidLoadActionID": "file.loaded" } }
+  ]
+}

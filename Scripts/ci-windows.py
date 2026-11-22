@@ -165,6 +165,10 @@ PREVIEW_OPTIONS = {
     "FetchRedirects": ["420", "120", "--delay", "6000", "--expect-action", "redirected.loaded"],
     "FetchSizeLimit": ["420", "120", "--fetch-limit", "50", "--delay", "4000", "--forbid-action", "oversized.loaded",
                        "--expect-log", "the response is larger than 50 bytes"],
+    # A host policy that refuses LoadableViews' remote loads: the download is not even started; a file loads.
+    "LoadPolicy": ["420", "160", "--refuse-remote-loads", "--delay", "3000", "--forbid-action", "refused.loaded",
+                   "--expect-action", "file.loaded",
+                   "--expect-log", "LoadableView 3: not loading https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json: the trust policy refuses it"],
     "Groups": ["420", "300", "--add-row", "21", "First", "--add-row", "21", "Second"],
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",

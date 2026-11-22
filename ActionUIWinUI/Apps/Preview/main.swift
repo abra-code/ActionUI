@@ -62,6 +62,7 @@
 //                            video opened); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 //   --fetch-limit BYTES      a LoadableView's download is refused past BYTES (default: 16 MB)
+//   --refuse-remote-loads    a host trust policy that refuses LoadableViews' remote loads
 //   --no-launch              a Link the trust policy lets open logs its address and opens nothing (no
 //                            browser or other app starts)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
@@ -558,6 +559,16 @@ func pathIDs(_ text: String) -> [Int]? {
     return ids.count == text.split(separator: ",", omittingEmptySubsequences: false).count ? ids : nil
 }
 
+/// --refuse-remote-loads: ActionUI's default policy, except that no LoadableView loads from a server.
+struct RefusingRemoteLoads: ActionUITrustPolicy {
+    @MainActor func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+        if case .load(.remote) = capability {
+            return false
+        }
+        return DefaultTrustPolicy.allowsByDefault(capability, for: origin)
+    }
+}
+
 /// A logger that keeps every message (for --expect-log) and passes it on.
 final class RecordingLogger: ActionUILogger {
     private let inner: any ActionUILogger
@@ -575,7 +586,7 @@ final class RecordingLogger: ActionUILogger {
     }
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES]"
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads]"
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -694,6 +705,10 @@ while index < arguments.count {
         // A LoadableView's download refused past BYTES (default: the cap on ActionUI JSON).
         LoadableFetch.maximumBytes = bytes
         index += 2
+    } else if option == "--refuse-remote-loads" {
+        // A host policy that refuses every LoadableView's remote load (ActionUICapability.load).
+        ActionUIModel.shared.trustPolicy = RefusingRemoteLoads()
+        index += 1
     } else if option == "--no-launch" {
         // Links log what they would open (the renderer's "Link N: opening URL") and open nothing, so a run
         // starts no browser or other app.
