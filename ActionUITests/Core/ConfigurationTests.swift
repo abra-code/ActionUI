@@ -8,6 +8,7 @@
 */
 
 import XCTest
+import Dispatch
 @testable import ActionUI
 
 // Records error messages without failing the test, for a refusal logged on purpose.
@@ -157,6 +158,15 @@ final class ConfigurationTests: XCTestCase {
         // Logged from a main-actor task, since the setter may run on any thread.
         for _ in 0..<10 where recording.errors.isEmpty { await Task.yield() }
         XCTAssertEqual(recording.errors, ["The resource folder was not set to /opt/late: the configuration is fixed once a window has loaded its ActionUI JSON; set it before"])
+    }
+
+    func testUpdatesFromManyThreadsAtOnceAreAllKept() throws {
+        // Each adds one to the depth; a change made from a value another thread replaced meanwhile
+        // runs again, so none is lost.
+        DispatchQueue.concurrentPerform(iterations: 200) { _ in
+            try? ActionUIConfiguration.update { $0.limits.maximumNestingDepth += 1 }
+        }
+        XCTAssertEqual(ActionUIConfiguration.current.limits.maximumNestingDepth, 16 + 200)
     }
 
     // MARK: Limits read from it

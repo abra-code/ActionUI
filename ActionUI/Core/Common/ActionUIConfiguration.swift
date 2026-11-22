@@ -142,12 +142,25 @@ extension ActionUIConfiguration {
     }
 
     /// Changes the configuration in effect with `change`, as set(_:) would set the result. `change`
-    /// works on a copy, so it may read `current`.
+    /// works on a copy, outside the lock, so it may read `current`. When another thread changed the
+    /// configuration meanwhile, `change` runs again on the newer value, so neither change is lost.
+    /// So `change` must only compute the new configuration: it must not set the configuration
+    /// itself (an update inside it would make every attempt stale, and the loop would not end).
     public static func update(_ change: (inout ActionUIConfiguration) throws -> Void) throws {
-        guard !isFixed else { throw fixedError }
-        var changed = current
-        try change(&changed)
-        try set(changed)
+        while true {
+            let (snapshot, wasFixed) = lock.withLock { (stored, storedIsFixed) }
+            guard !wasFixed else { throw fixedError }
+            var changed = snapshot
+            try change(&changed)
+            try validate(changed)
+            let applied = try lock.withLock { () throws -> Bool in
+                guard !storedIsFixed else { throw fixedError }
+                guard stored == snapshot else { return false }
+                stored = changed
+                return true
+            }
+            if applied { return }
+        }
     }
 
     /// Fixes the configuration: called when a window first loads its ActionUI JSON.
