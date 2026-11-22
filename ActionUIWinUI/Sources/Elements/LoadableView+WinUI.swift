@@ -21,7 +21,9 @@
    documents are; Windows has no app bundle).
  - A source that a LoadableView around this one already shows, or one nested more than 16 deep, is
    refused with "Failed to load view: ..." by Core's nesting rule, as SwiftUI's LoadableNestingGuard.
- - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile).
+ - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile). Less-trusted
+   content (ActionUI JSON from a server or from a file outside the app's resources) loads no file on a
+   share or a device (\\server\share, \\?\ and the like), never touched.
 
  Not yet: the message in the LoadableView's place takes none of its text appearance (font,
  foregroundStyle); a file it may not read shows the system's error text, not Apple's words for it.
@@ -101,6 +103,7 @@ extension LoadableView: ActionUIWinUIRenderer {
             return
         }
         let folder = documentFolder(of: node)
+        let trusted = LinkTrust.isTrusted(node)
         let source: Result<ActionUIDocumentLoader.Source, ActionUIDocumentLoader.SourceError>
         if isWindowsPath(value) {
             source = .success(.file(URL(fileURLWithPath: value)))
@@ -108,6 +111,10 @@ extension LoadableView: ActionUIWinUIRenderer {
             source = ActionUIDocumentLoader.source(for: value, bundleURL: { name, ext in
                 let file = "\(name).\(ext)"
                 let url = folder?.appendingPathComponent(file) ?? URL(fileURLWithPath: file)
+                // Not looked for on a share by less-trusted content: refused below, never touched.
+                if !trusted, LinkTrust.isNetworkPath(LinkTrust.filePath(of: url)) {
+                    return url
+                }
                 return ActionUIDocumentLoader.regularFilePath(url) != nil ? url : nil
             }, logger: logger)
         }
@@ -115,6 +122,17 @@ extension LoadableView: ActionUIWinUIRenderer {
         let parentID = node.element.id
         let actionID = Props(node.properties).viewDidLoadActionID
         if case .success(let found) = source {
+            // Less-trusted content loads no file on a share or a device: reading it, even testing it
+            // (the nesting key follows symbolic links), would reach the server with the user's
+            // credentials.
+            if case .file(let url) = found, !trusted {
+                let path = LinkTrust.filePath(of: url)
+                if LinkTrust.isNetworkPath(path) {
+                    logger.log("LoadableView: not loading \(path) for element \(node.element.id): less-trusted content reads no network or device path", .warning)
+                    state.status = message("Failed to load view: the trust policy refuses \(path)", error: true)
+                    return
+                }
+            }
             let key = ActionUIDocumentLoader.nestingKey(for: found)
             if let refusal = ActionUIDocumentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
                 logger.log("LoadableView: not loading \(key): \(refusal)", .error)

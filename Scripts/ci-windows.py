@@ -242,6 +242,11 @@ PREVIEW_OPTIONS = {
                          "--expect-log", "for element 407: less-trusted content reads no network or device path",
                          "--expect-log", "for element 408: less-trusted content reads no network or device path",
                          "--expect-log", "Not loading C:/Windows/Web/Screen/img100.jpg for element 409: less-trusted content"],
+    # JSON from a server: its LoadableView loads no file on a share (never touched).
+    "LessTrustedShares": ["420", "120", "--delay", "4000",
+                          "--expect-log", "for element 801: less-trusted content reads no network or device path",
+                          "--expect-log", "for element 802: less-trusted content reads no network or device path",
+                          "--expect-log", "for element 803: less-trusted content reads no network or device path"],
     # ActionUI JSON in the program's folder (the app's resources) is trusted, its path in any case: its links
     # open Windows' settings, which a server's cannot. --no-launch: nothing is opened.
     "TrustedResources": ["420", "160", "--no-launch", "--set-value", "3", "{program_folder}\\BundledLinks.json",

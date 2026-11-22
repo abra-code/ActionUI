@@ -1,0 +1,10 @@
+{
+  "type": "VStack",
+  "id": 800,
+  "properties": { "spacing": 8, "alignment": "leading" },
+  "children": [
+    { "type": "LoadableView", "id": 801, "properties": { "filePath": "\\\\server\\share\\view.json" } },
+    { "type": "LoadableView", "id": 802, "properties": { "url": "file://server/share/view2.json" } },
+    { "type": "LoadableView", "id": 803, "properties": { "filePath": "\\\\?\\UNC\\server\\share\\view3.json" } }
+  ]
+}
