@@ -64,6 +64,22 @@ libActionUI-LICENSE-MaterialSymbols.txt (the Material Symbols icons in the libra
 libActionUI-LICENSE-RichText.txt, libActionUI-LICENSE-AsyncImageCache.txt and
 libActionUI-LICENSE-DiffView.txt (the packages linked into it).
 
+On Windows
+----------
+The extension links to ActionUI.dll through its import library, from the Windows
+library package (the actionui-windows-<arch> folder Scripts/ci-windows.py makes:
+bin/ with ActionUI.dll and the DLLs it loads, lib/ActionUI.lib, include/ and its
+license files), found as on Linux: ACTIONUI_LIBRARY_DIR, else ./library/. Build with
+the Microsoft C compiler (Visual Studio's Build Tools).
+
+The build copies every DLL in bin/ beside the extension (_actionui.*.pyd), where
+Python's loader finds them (it does not search PATH for an extension's DLLs). The
+licenses go beside them, as ActionUI-LICENSE.txt, ActionUI-LICENSE-MaterialSymbols.txt
+and ActionUI-LICENSE-FluentSystemIcons.txt (the symbol icons in the shim DLL) and
+ActionUI-LICENSE-WebView2.txt (Microsoft.Web.WebView2.Core.dll). The Windows App SDK
+runtime must be installed on the machine; WinUI starts when the application runs.
+Not on Windows yet: the menu bar, alerts, file panels, the remote server and HostSurface.
+
 Building
 --------
     # Standard install (recommended):
@@ -258,6 +274,100 @@ class build_ext_with_library(build_ext):
             shutil.copy2(os.path.join(self.library_dir, source), os.path.join(folder, name))
 
 
+class build_ext_with_windows_library(build_ext):
+    """Builds the extension, then copies the Windows library package's DLLs beside it, where
+    Python's loader finds them (the folder of the extension being loaded, never PATH): in the
+    build folder, which a wheel or an install copies whole, and in this folder for an in-place
+    build. The package's licenses go with them."""
+
+    library_dir = None
+
+    license_files = [
+        ('LICENSE.txt', 'ActionUI-LICENSE.txt'),
+        ('LICENSE-MaterialSymbols.txt', 'ActionUI-LICENSE-MaterialSymbols.txt'),
+        ('LICENSE-FluentSystemIcons.txt', 'ActionUI-LICENSE-FluentSystemIcons.txt'),
+        ('LICENSE-WebView2.txt', 'ActionUI-LICENSE-WebView2.txt'),
+    ]
+
+    def run(self):
+        super().run()
+        folder = os.path.dirname(self.get_ext_fullpath('_actionui'))
+        bin_dir = os.path.join(self.library_dir, 'bin')
+        for name in sorted(os.listdir(bin_dir)):
+            if not name.lower().endswith('.dll'):
+                continue
+            destination = os.path.join(folder, name)
+            if os.path.exists(destination):
+                # Windows cannot replace a DLL a running program has loaded: say which one.
+                try:
+                    os.remove(destination)
+                except OSError as error:
+                    print(f"Error: cannot replace {destination} ({error}); end the program using it.",
+                          file=sys.stderr)
+                    sys.exit(1)
+            shutil.copy2(os.path.join(bin_dir, name), destination)
+        for source, name in self.license_files:
+            shutil.copy2(os.path.join(self.library_dir, source), os.path.join(folder, name))
+
+
+def windows_setup_arguments():
+    """The extension for Windows, over ActionUI.dll from the Windows library package."""
+
+    candidates = []
+    env = os.environ.get('ACTIONUI_LIBRARY_DIR', '').strip()
+    if env:
+        candidates.append(os.path.abspath(env))
+    candidates.append(os.path.join(script_dir, 'library'))
+
+    library_dir = None
+    for d in candidates:
+        has_library = (os.path.isfile(os.path.join(d, 'lib', 'ActionUI.lib'))
+                       and os.path.isfile(os.path.join(d, 'bin', 'ActionUI.dll')))
+        has_headers = (os.path.isfile(os.path.join(d, 'include', 'ActionUICAdapter', 'ActionUIC.h'))
+                       and os.path.isfile(os.path.join(d, 'include', 'ActionUIAppKitApplication', 'ActionUIApp.h'))
+                       and os.path.isfile(os.path.join(d, 'include', 'ActionUIHostSurface', 'ActionUIHostSurface.h')))
+        has_licenses = all(os.path.isfile(os.path.join(d, source))
+                           for source, _ in build_ext_with_windows_library.license_files)
+        if has_library and has_headers and not has_licenses:
+            names = ', '.join(source for source, _ in build_ext_with_windows_library.license_files)
+            print(f"Error: {d} does not have all of {names}; make the library package again.",
+                  file=sys.stderr)
+            sys.exit(1)
+        if has_library and has_headers:
+            library_dir = d
+            break
+
+    if library_dir is None:
+        print(
+            "Error: could not locate the ActionUI library package.\n"
+            "\n"
+            "Provide the path to the actionui-windows-<arch> folder (bin\\ActionUI.dll,\n"
+            "lib\\ActionUI.lib, include\\... and its LICENSE files) using the\n"
+            "ACTIONUI_LIBRARY_DIR environment variable, or place its contents in .\\library\\\n"
+            "next to this script.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"ActionUI library package : {library_dir}")
+    build_ext_with_windows_library.library_dir = library_dir
+
+    actionui_extension = Extension(
+        '_actionui',
+        sources=['actionui_native.c'],
+        include_dirs=[os.path.join(library_dir, 'include')],
+        library_dirs=[os.path.join(library_dir, 'lib')],
+        libraries=['ActionUI'],
+        # C11 for the glue (stdbool, designated initializers), UTF-8 sources.
+        extra_compile_args=['/std:c11', '/utf-8'],
+    )
+
+    return {
+        'ext_modules': [actionui_extension],
+        'cmdclass': {'build_ext': build_ext_with_windows_library},
+    }
+
+
 def linux_setup_arguments():
     """The extension for Linux, over libActionUI.so from the library package."""
 
@@ -331,8 +441,10 @@ if sys.platform == 'darwin':
     setup_arguments = macos_setup_arguments()
 elif sys.platform.startswith('linux'):
     setup_arguments = linux_setup_arguments()
+elif sys.platform == 'win32':
+    setup_arguments = windows_setup_arguments()
 else:
-    print("Error: the ActionUI Python extension supports macOS and Linux", file=sys.stderr)
+    print("Error: the ActionUI Python extension supports macOS, Linux and Windows", file=sys.stderr)
     sys.exit(1)
 
 setup(**setup_arguments)

@@ -198,8 +198,16 @@ def test_url_conversion():
             url = actionui._file_url(url)
         return url
 
+    # On Windows a path with no drive gets the current drive, so the paths there name one.
+    if sys.platform == "win32":
+        absolute, absolute_url = "C:\\tmp\\ui.json", "file:///C:/tmp/ui.json"
+        special, special_url = "C:\\tmp\\a b#c?d%41.json", "file:///C:/tmp/a%20b%23c%3Fd%2541.json"
+    else:
+        absolute, absolute_url = "/tmp/ui.json", "file:///tmp/ui.json"
+        special, special_url = "/tmp/a b#c?d%41.json", "file:///tmp/a%20b%23c%3Fd%2541.json"
+
     check("bare /abs/path → file:///abs/path",
-          convert("/tmp/ui.json") == "file:///tmp/ui.json")
+          convert(absolute) == absolute_url)
 
     check("relative path → file:// + abspath",
           convert("ui.json").startswith("file://"))
@@ -215,7 +223,7 @@ def test_url_conversion():
 
     # Joined as text, "#" and "?" ended the path and "%41" was decoded, so another file loaded.
     check("'#', '?', '%' and a space in a file name are percent-encoded",
-          convert("/tmp/a b#c?d%41.json") == "file:///tmp/a%20b%23c%3Fd%2541.json")
+          convert(special) == special_url)
 
 
 def test_menu_bar_api(app: actionui.Application):
@@ -549,7 +557,10 @@ def main():
     test_file_panel_api(app)
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
-    test_remote_server(app)
+    if sys.platform == "win32":
+        print("\n=== Remote bridge ===\n  (not on Windows yet: skipped)")
+    else:
+        test_remote_server(app)
     test_default_logger_prints_warnings_and_errors_only(app)
 
     print()

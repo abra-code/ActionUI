@@ -18,6 +18,7 @@ Needs a graphical login session (it runs the application). Run with: python3 tes
 
 import json
 import os
+import pathlib
 import subprocess
 import sys
 import tempfile
@@ -89,7 +90,8 @@ def main():
         grid_path = os.path.join(folder, "grid.json")
         with open(grid_path, "w") as f:
             json.dump(GRID, f)
-        grid_url = "file://" + grid_path
+        # as_uri, not "file://" + path: a Windows path ("C:\...") is no URL path.
+        grid_url = pathlib.Path(grid_path).as_uri()
         try:
             child = subprocess.run([sys.executable, "-c", CHILD, here, grid_url],
                                    capture_output=True, text=True, timeout=30)

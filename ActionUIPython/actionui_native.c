@@ -12,27 +12,40 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <pthread.h>
 #include <unistd.h>
+#endif
 
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
 #include <ActionUIHostSurface/ActionUIHostSurface.h>
 #if defined(__APPLE__)
 #include <dispatch/dispatch.h>
-#else
+#elif !defined(_WIN32)
 /* GLib's idle source, from libglib-2.0.so.0 (libActionUI.so's GTK needs it already): declared here so the
  * extension builds without GLib's development files. */
 typedef int (*HostSurfaceSourceFunc)(void *data);
 extern unsigned int g_idle_add(HostSurfaceSourceFunc function, void *data);
 #endif
 
+#if defined(_WIN32)
+/* Python's main thread (threading.main_thread()), read when the module loads: on Windows a thread's
+ * ident is its thread ID (PyThread_get_thread_ident is GetCurrentThreadId), and no system call names
+ * a process's main thread. 0 until then. */
+static DWORD s_main_thread_id = 0;
+#endif
+
 /* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
  * only; on Linux the main thread's ID is the process ID, and Python.h defines _GNU_SOURCE,
- * which declares gettid). */
+ * which declares gettid; on Windows, Python's main thread). */
 static bool is_main_thread(void) {
 #if defined(__APPLE__)
     return pthread_main_np() != 0;
+#elif defined(_WIN32)
+    return s_main_thread_id != 0 && GetCurrentThreadId() == s_main_thread_id;
 #else
     return gettid() == getpid();
 #endif
@@ -1491,6 +1504,45 @@ static PyObject* py_remove_window(PyObject* self, PyObject* args) {
 
 // MARK: - HostSurface (ActionUIHostSurface.h)
 
+#if defined(_WIN32)
+/* Not on Windows yet: ActionUI.dll has no HostSurface element. Registering does nothing (no document can
+ * hold one); the rest say so. The header's constants stay, for actionui.py's names. */
+static PyObject* host_surface_not_yet(void) {
+    PyErr_SetString(PyExc_NotImplementedError, "HostSurface is not available on Windows yet");
+    return NULL;
+}
+
+static PyObject* py_host_surface_register(PyObject* self, PyObject* args) {
+    (void)self; (void)args;
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_host_surface_set_delegate(PyObject* self, PyObject* args) {
+    (void)self; (void)args;
+    return host_surface_not_yet();
+}
+
+static PyObject* py_host_surface_request_frame(PyObject* self, PyObject* args) {
+    (void)self; (void)args;
+    return host_surface_not_yet();
+}
+
+static PyObject* py_host_surface_set_continuous(PyObject* self, PyObject* args) {
+    (void)self; (void)args;
+    return host_surface_not_yet();
+}
+
+static PyObject* py_host_surface_set_cursor(PyObject* self, PyObject* args) {
+    (void)self; (void)args;
+    return host_surface_not_yet();
+}
+
+static PyObject* py_host_surface_present_pixels(PyObject* self, PyObject* args) {
+    (void)self; (void)args;
+    return host_surface_not_yet();
+}
+#else
+
 /*
  * A HostSurface client: the Python bridge the surface events, frames, input and renders of one binding go to
  * (actionui.py dispatches them to the delegate's methods). One per actionUIHostSurfaceSetDelegate call.
@@ -1832,6 +1884,8 @@ static PyObject* py_host_surface_present_pixels(PyObject* self, PyObject* args) 
     return PyBool_FromLong(shown);
 }
 
+#endif  /* !_WIN32 */
+
 // MARK: - Module Definition
 
 static PyMethodDef ActionUIMethods[] = {
@@ -2123,6 +2177,25 @@ PyMODINIT_FUNC PyInit__actionui(void) {
     PyModule_AddIntConstant(module, "PIXEL_RGBA8_PREMULTIPLIED", AUIHostPixelRGBA8Premultiplied);
     PyModule_AddIntConstant(module, "PIXEL_BGRX8", AUIHostPixelBGRX8);
     PyModule_AddIntConstant(module, "PIXEL_RGBX8", AUIHostPixelRGBX8);
+
+#if defined(_WIN32)
+    /* Python's main thread, for is_main_thread. The module usually loads on it; when it does not, the
+     * threading module still names the right one. */
+    PyObject* threading = PyImport_ImportModule("threading");
+    PyObject* main_thread = threading != NULL ? PyObject_CallMethod(threading, "main_thread", NULL) : NULL;
+    PyObject* ident = main_thread != NULL ? PyObject_GetAttrString(main_thread, "ident") : NULL;
+    unsigned long value = ident != NULL ? PyLong_AsUnsignedLong(ident) : 0;
+    Py_XDECREF(ident);
+    Py_XDECREF(main_thread);
+    Py_XDECREF(threading);
+    if (PyErr_Occurred() != NULL || value == 0) {
+        PyErr_Clear();
+        PyErr_SetString(PyExc_ImportError, "_actionui: could not find Python's main thread");
+        Py_DECREF(module);
+        return NULL;
+    }
+    s_main_thread_id = (DWORD)value;
+#endif
 
     return module;
 }

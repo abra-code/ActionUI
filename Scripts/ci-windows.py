@@ -35,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -786,8 +787,182 @@ def check_shim(results, install, swift=False):
     # headers, the bootstrapper's import library.
     host_build = {"includes": includes,
                   "libraries": ["windowsapp.lib", "user32.lib", "ole32.lib",
-                                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"]}
+                                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"],
+                  # For the library package's notices.
+                  "webview2_license": folders["microsoft.web.webview2"] / "LICENSE.txt"}
     return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build))
+
+
+# MARK: - The Windows library package and the language bindings
+
+# The pinned commits of the symbol fonts the shim's outlines come from, and where their licenses are.
+MATERIAL_COMMIT_FILE = REPO_DIR / "ActionUIAndroid" / "library" / "material-symbols-font.commit"
+FLUENT_COMMIT_FILE = REPO_DIR / "Tools" / "fluent_symbols" / "fluent-icons-font.commit"
+MATERIAL_LICENSE_URL = "https://raw.githubusercontent.com/google/material-design-icons/{commit}/LICENSE"
+FLUENT_LICENSE_URL = "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/{commit}/LICENSE"
+# DLLs a program gets from Windows or the Visual C++ runtime it already has: never copied.
+SYSTEM_DLL_PREFIXES = ("api-ms-win-", "ext-ms-", "vcruntime", "msvcp", "concrt", "ucrtbase", "dbghelp")
+
+
+def dll_dependencies(dll, msvc):
+    """The DLL names `dll` imports, its delay-loaded ones too (dumpbin /dependents)."""
+    completed = subprocess.run([resolve_tool("dumpbin", msvc), "/nologo", "/dependents", str(dll)], env=msvc,
+                               capture_output=True, text=True, errors="replace")
+    return re.findall(r"^\s+(\S+\.dll)\s*$", completed.stdout, flags=re.MULTILINE | re.IGNORECASE)
+
+
+def dll_closure(start, folders, msvc):
+    """`start` and every DLL it loads, directly or not, found in `folders` (in order) and not part of
+    Windows: what a program must carry beside ActionUI.dll. Returns (paths, names not found)."""
+    windows = Path(os.environ.get("SystemRoot", r"C:\Windows")).resolve()
+    found = {start.name.lower(): start}
+    missing = set()
+    pending = [start]
+    while pending:
+        for name in dll_dependencies(pending.pop(), msvc):
+            key = name.lower()
+            if key in found or key in missing or key.startswith(SYSTEM_DLL_PREFIXES):
+                continue
+            path = next((folder / name for folder in folders if (folder / name).is_file()), None)
+            if path is None:
+                missing.add(key)
+                continue
+            if windows in path.resolve().parents:
+                missing.add(key)
+                continue
+            found[key] = path
+            pending.append(path)
+    return list(found.values()), sorted(missing)
+
+
+def symbol_license(title, commit_file, url, lead):
+    """A symbol font's notice: what the icons are, from which commit, then its license text."""
+    commit = commit_file.read_text(encoding="utf-8").strip()
+    with urllib.request.urlopen(url.format(commit=commit), timeout=120) as response:
+        text = response.read().decode("utf-8")
+    return f"{title}\n\n{lead.format(commit=commit)}\n\n{text}"
+
+
+def make_library_package(bin_path, results, summary, msvc, webview2_license):
+    """The Windows library package, the counterpart of Scripts/make-linux-library-package.sh's: what
+    the language bindings (Python, Node.js, Rust) and C programs build against and ship.
+
+        actionui-windows-<arch>/
+          bin/       ActionUI.dll and every DLL it loads that Windows does not have: the WinUI shim,
+                     the Windows App SDK bootstrapper, the Swift runtime; and WebView2's WinRT
+                     component, which WinUI loads by name when a WebView is made
+          lib/       ActionUI.lib, ActionUI.dll's import library
+          include/   ActionUICAdapter/ActionUIC.h, ActionUIAppKitApplication/ActionUIApp.h,
+                     ActionUIHostSurface/ActionUIHostSurface.h (its constants; no HostSurface on Windows yet)
+          LICENSE.txt, LICENSE-MaterialSymbols.txt, LICENSE-FluentSystemIcons.txt (the symbol outlines in
+          the shim), LICENSE-WebView2.txt (Microsoft.Web.WebView2.Core.dll)
+
+    A program copies bin/ beside itself (Windows finds a program's DLLs in its own folder). Returns the
+    folder, or None (with findings) when something is missing."""
+    package = REPO_DIR / ".build" / "ci-windows-package" / f"actionui-windows-{windows_arch()}"
+    shutil.rmtree(package, ignore_errors=True)
+    for folder in ["bin", "lib", "include/ActionUICAdapter", "include/ActionUIAppKitApplication",
+                   "include/ActionUIHostSurface"]:
+        (package / folder).mkdir(parents=True, exist_ok=True)
+    folders = [bin_path] + [Path(entry) for entry in (msvc.get("Path") or msvc.get("PATH") or "").split(";") if entry]
+    dlls, missing = dll_closure(bin_path / "ActionUI.dll", folders, msvc)
+    for dll in dlls + [bin_path / WEBVIEW2_CORE]:
+        shutil.copy2(dll, package / "bin" / dll.name)
+    shutil.copy2(bin_path / "ActionUI.lib", package / "lib" / "ActionUI.lib")
+    for source, destination in [
+            (REPO_DIR / "ActionUICAdapter" / "include" / "ActionUIC.h", "include/ActionUICAdapter/ActionUIC.h"),
+            (REPO_DIR / "ActionUIAppKitApplication" / "include" / "ActionUIApp.h", "include/ActionUIAppKitApplication/ActionUIApp.h"),
+            (REPO_DIR / "Add-ons" / "ActionUIHostSurface" / "Sources" / "CActionUIHostSurface" / "include" / "ActionUIHostSurface.h",
+             "include/ActionUIHostSurface/ActionUIHostSurface.h"),
+            (REPO_DIR / "LICENSE.txt", "LICENSE.txt"),
+            (webview2_license, "LICENSE-WebView2.txt")]:
+        shutil.copy2(source, package / destination)
+    try:
+        (package / "LICENSE-MaterialSymbols.txt").write_text(symbol_license(
+            "Material Symbols", MATERIAL_COMMIT_FILE, MATERIAL_LICENSE_URL,
+            "The symbol icons in ActionUIWinUIShim.dll are glyphs of the Material Symbols Rounded font by Google\n"
+            "(https://github.com/google/material-design-icons, commit {commit}), converted to outlines when the\n"
+            "software was built. They are used under the Apache License 2.0:"), encoding="utf-8")
+        (package / "LICENSE-FluentSystemIcons.txt").write_text(symbol_license(
+            "Fluent System Icons", FLUENT_COMMIT_FILE, FLUENT_LICENSE_URL,
+            "Some symbol icons in ActionUIWinUIShim.dll are glyphs of the Fluent System Icons by Microsoft\n"
+            "(https://github.com/microsoft/fluentui-system-icons, commit {commit}), converted to outlines when the\n"
+            "software was built. They are used under the MIT License:"), encoding="utf-8")
+    except (OSError, urllib.error.URLError) as error:
+        summary["findings"].append(f"library package: a symbol license could not be fetched: {error}")
+        return None
+    names = sorted(dll.name for dll in (package / "bin").iterdir())
+    summary["findings"].append(f"library package: {len(names)} DLLs in bin: {', '.join(names)}")
+    if missing:
+        summary["findings"].append(f"library package: from Windows or not found (not copied): {', '.join(missing)}")
+    return package
+
+
+def check_python(package, results, summary, msvc):
+    """Builds the Python extension (ActionUIPython) against the library package with the Microsoft
+    compiler, in a virtual environment, and runs its tests that need no person and nothing Windows does
+    not have yet (the menu bar, the file panels and HostSurface are left out). True when every one passed;
+    an interpreter of another architecture than the runner's is reported and not run."""
+    work = REPO_DIR / ".build" / "ci-windows-python"
+    shutil.rmtree(work, ignore_errors=True)
+    source = work / "src"
+    source.mkdir(parents=True)
+    for item in (REPO_DIR / "ActionUIPython").iterdir():
+        if item.is_file() and (item.suffix in (".py", ".c", ".toml") or item.name == "LICENSE.txt"):
+            shutil.copy2(item, source / item.name)
+    # test_app_lifecycle's document, at the path it expects beside the folder (../ActionUIObjCTestApp).
+    fixture = REPO_DIR / "ActionUIObjCTestApp" / "DefaultWindowContentView.json"
+    (work / fixture.parent.name).mkdir()
+    shutil.copy2(fixture, work / fixture.parent.name / fixture.name)
+    venv = work / "venv"
+    step = run_step("python-venv", [sys.executable, "-m", "venv", venv], results, dict(os.environ))
+    summary["steps"].append(step)
+    python = venv / "Scripts" / "python.exe"
+    if step["status"] != 0 or not python.is_file():
+        return False
+    # The interpreter's own architecture: platform.machine() names the machine's (an x64 Python under
+    # emulation on Arm64 says ARM64).
+    machine = capture([python, "-c", "import sysconfig; print(sysconfig.get_platform())"]).strip().lower()
+    expected = {"x64": "win-amd64", "arm64": "win-arm64"}[windows_arch()]
+    if machine != expected:
+        summary["findings"].append(f"python: not run: the interpreter is {machine}, the build {expected}")
+        return True
+    step = run_step("python-setuptools", [python, "-m", "pip", "install", "--quiet", "setuptools"], results,
+                    dict(os.environ))
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        return False
+    # The Visual Studio environment's compiler, not one setuptools looks for itself.
+    env = dict(msvc, DISTUTILS_USE_SDK="1", MSSdk="1", ACTIONUI_LIBRARY_DIR=str(package),
+               PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    step = run_step("python-build", [python, "setup.py", "build_ext", "--inplace"], results, env, cwd=source)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    passed = True
+    for test in PYTHON_TESTS:
+        step = run_step(f"python-{test}", [python, source / f"{test}.py"], results, env, cwd=source,
+                        timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        # A test that reports from the application's end (willTerminate) exits 0 without a word when that
+        # never comes: its "PASSED" line is required too.
+        reported = (test not in PYTHON_TESTS_REPORTING_PASSED
+                    or "PASSED" in (results / step["log"]).read_text(encoding="utf-8", errors="replace"))
+        succeeded = step["status"] == 0 and reported
+        outcome = "passed" if succeeded else ("FAILED, no PASSED line" if step["status"] == 0 else f"FAILED, exit {step['status']}")
+        summary["findings"].append(f"python {test}: {outcome}")
+        passed = passed and succeeded
+    return passed
+
+
+# The Python tests CI runs on Windows: not test_file_panels (it waits for a person), test_menu_bar and
+# test_host_surface (not on Windows yet); test_app_api skips its remote server part there.
+PYTHON_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_scalar_context",
+                "test_modal_api", "test_app_api", "test_configuration", "test_app_lifecycle", "test_trust_policy",
+                "test_worker_thread_calls"]
+# The tests that print a "PASSED" line when every check of theirs passed.
+PYTHON_TESTS_REPORTING_PASSED = {"test_configuration", "test_app_lifecycle", "test_trust_policy", "test_worker_thread_calls"}
 
 
 def check_c_adapter(bin_path, results, summary, msvc, env):
@@ -915,6 +1090,10 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
     passed = check_c_app(bin_path, results, summary, msvc, env) and passed
     passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
+    package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
+    passed = package is not None and passed
+    if package is not None:
+        passed = check_python(package, results, summary, msvc) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"

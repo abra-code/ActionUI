@@ -974,7 +974,14 @@ public func actionUIGetContentSizeLimits(
     outMaxHeight?.pointee = Double(limits.maxSize.height)
     return true
     #else
-    setError("Content size limits are only available on macOS and Linux")
+    // An unknown window is reported as everywhere; a known one has no limits on Windows yet.
+    let swiftWindowUUID = String(cString: windowUUID)
+    let known = runOnMainActorSync { ActionUIModel.shared.hasWindow(swiftWindowUUID) }
+    if !known {
+        setError("Unknown windowUUID: \(swiftWindowUUID)")
+    } else {
+        setError("Content size limits are only available on macOS and Linux")
+    }
     return false
     #endif
 }
