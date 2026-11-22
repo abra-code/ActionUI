@@ -265,6 +265,7 @@ def file_in(name, content):
 cases = [("notes.md", "# Title\n\nSome **bold** text.\n", "markdown"),
          ("people.csv", "name,age\nAda,36\n", "table"),
          ("main.swift", "let x = 1\n", "text"),
+         ("page.html", "<p>A <b>page</b></p>\n", "web"),
          ("data.bin", b"\x00\x01\xff", None if LINUX else "quicklook")]
 for number, (name, content, expected) in enumerate(cases, start=190):
     s.call(number, "show", {"title": name, "kind": "file", "path": file_in(name, content)})

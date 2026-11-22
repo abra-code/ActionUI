@@ -33,6 +33,18 @@ private func write(_ bytes: [UInt8], _ name: String, in folder: URL) throws -> S
     return url.path
 }
 
+private func write(_ data: Data, _ name: String, in folder: URL) throws -> String {
+    try write(Array(data), name, in: folder)
+}
+
+private extension PropertyListEncoder {
+    static func binary(_ value: [String: String]) throws -> Data {
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .binary
+        return try encoder.encode(value)
+    }
+}
+
 private func write(_ text: String, _ name: String, in folder: URL) throws -> String {
     try write(Array(text.utf8), name, in: folder)
 }
@@ -130,9 +142,57 @@ private func view(_ path: String) throws -> FileViewing {
     #else
     #expect(try view(binary).view == .quickLook, "a NUL byte")
     #expect(try view(latin1).view == .quickLook, "not UTF-8")
-    #expect(try view(write("<p>page</p>", "page.html", in: dir)).view == .quickLook, "HTML is drawn as a page")
+    #expect(try view(write("{\\rtf1 text}", "note.rtf", in: dir)).view == .quickLook, "RTF is drawn formatted")
     #expect(try view(write([0x25, 0x50, 0x44, 0x46], "doc.pdf", in: dir)).view == .quickLook)
     #endif
+}
+
+@Test func htmlAndSVGAreShownAsAWebPageOfTheFile() throws {
+    let dir = try folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    for name in ["page.html", "page.HTM", "page.xhtml", "logo.svg"] {
+        let path = try write("<p>page</p>", name, in: dir)
+        let shown = try view(path)
+        #expect(shown.view == .web, "\(name)")
+        #expect(shown.root["type"] as? String == "WebView")
+        #expect((shown.root["properties"] as? [String: Any])?["url"] as? String == URL(fileURLWithPath: path).absoluteString)
+    }
+}
+
+private func address(_ shown: FileViewing) -> String? {
+    (shown.root["properties"] as? [String: Any])?["url"] as? String
+}
+
+@Test func aLinkFileIsShownAsTheWebPageItNames() throws {
+    let dir = try folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0"><dict><key>URL</key><string>https://example.com/a?b=1</string></dict></plist>
+        """
+    let webloc = try view(write(xml, "site.webloc", in: dir))
+    #expect(webloc.view == .web)
+    #expect(address(webloc) == "https://example.com/a?b=1")
+    let binary = try PropertyListEncoder.binary(["URL": "http://example.org/"])
+    #expect(address(try view(write(binary, "binary.webloc", in: dir))) == "http://example.org/")
+    let shortcut = "[DEFAULT]\r\nBASEURL=https://wrong.example/\r\n[InternetShortcut]\r\nIconIndex=0\r\n url = https://example.net/page \r\n"
+    #expect(address(try view(write(shortcut, "page.url", in: dir))) == "https://example.net/page")
+    #expect(address(try view(write("\u{FEFF}[InternetShortcut]\nURL=https://example.com/\n", "marked.url", in: dir))) == "https://example.com/",
+            "a byte order mark")
+}
+
+@Test func aLinkFileToAnythingButAWebAddressIsRefused() throws {
+    let dir = try folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    for target in ["file:///etc/passwd", "javascript:alert(1)", "ssh://host", "https://", "not a url"] {
+        let shortcut = "[InternetShortcut]\nURL=\(target)\n"
+        #expect(throws: (any Error).self, "\(target)") { try view(write(shortcut, "link.url", in: dir)) }
+    }
+    #expect(throws: (any Error).self, "no URL line") { try view(write("[InternetShortcut]\nIconIndex=0\n", "none.url", in: dir)) }
+    #expect(throws: (any Error).self, "not a property list") { try view(write("https://example.com", "plain.webloc", in: dir)) }
+    let large = "[InternetShortcut]\nURL=https://example.com/\n" + String(repeating: ";", count: FileViewing.maxLinkFileBytes)
+    #expect(throws: (any Error).self, "over the link file limit") { try view(write(large, "large.url", in: dir)) }
 }
 
 @Test func markdownOverItsLimitIsShownAsPlainText() throws {
