@@ -61,6 +61,7 @@
 //   --expect-log TEXT        fails unless a message ActionUI logged contains TEXT (a VideoPlayer's
 //                            video opened); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
+//   --fetch-limit BYTES      a LoadableView's download is refused past BYTES (default: 16 MB)
 //   --no-launch              a Link the trust policy lets open logs its address and opens nothing (no
 //                            browser or other app starts)
 // Every action that fires is printed. Prints "preview:" lines; exit status 0 when the document
@@ -574,7 +575,7 @@ final class RecordingLogger: ActionUILogger {
     }
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch]"
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES]"
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -688,6 +689,10 @@ while index < arguments.count {
         index += 2
     } else if option == "--expect-log", index + 1 < arguments.count {
         expectedLogs.append(arguments[index + 1])
+        index += 2
+    } else if option == "--fetch-limit", index + 1 < arguments.count, let bytes = Int64(arguments[index + 1]), bytes > 0 {
+        // A LoadableView's download refused past BYTES (default: the cap on ActionUI JSON).
+        LoadableFetch.maximumBytes = bytes
         index += 2
     } else if option == "--no-launch" {
         // Links log what they would open (the renderer's "Link N: opening URL") and open nothing, so a run

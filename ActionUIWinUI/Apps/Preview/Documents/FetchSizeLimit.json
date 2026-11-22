@@ -1,0 +1,16 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "A download past the size limit is refused" } },
+    {
+      "type": "LoadableView",
+      "id": 3,
+      "properties": {
+        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json",
+        "viewDidLoadActionID": "oversized.loaded"
+      }
+    }
+  ]
+}

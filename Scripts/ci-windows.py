@@ -160,6 +160,11 @@ PREVIEW_OPTIONS = {
     "GeometryReaders": ["420", "190"],
     "Loadables": ["420", "330", "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
                   "--expect-action", "remote.loaded"],
+    # A LoadableView's download: a redirect (github.com to raw.githubusercontent.com) is followed; a body past
+    # the limit (lowered to 50 bytes here) is refused.
+    "FetchRedirects": ["420", "120", "--delay", "6000", "--expect-action", "redirected.loaded"],
+    "FetchSizeLimit": ["420", "120", "--fetch-limit", "50", "--delay", "4000", "--forbid-action", "oversized.loaded",
+                       "--expect-log", "the response is larger than 50 bytes"],
     "Groups": ["420", "300", "--add-row", "21", "First", "--add-row", "21", "Second"],
     "NavigationSplitViews": ["420", "460", "--select-part", "2", "1", "--expect-action", "sidebar.changed",
                              "--drag", "20", "180.5", "70", "210.5", "70", "--expect-width", "23", "116",

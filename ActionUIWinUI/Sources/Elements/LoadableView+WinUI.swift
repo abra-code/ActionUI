@@ -21,6 +21,9 @@
    documents are; Windows has no app bundle).
  - A source that a LoadableView around this one already shows, or one nested more than 16 deep, is
    refused with "Failed to load view: ..." by Core's nesting rule, as SwiftUI's LoadableNestingGuard.
+ - A download is read up to the cap on ActionUI JSON (16 MB; refused at once on a longer
+   Content-Length) and given up after 120 seconds; redirects are followed only to http and https, never
+   from https to http, at most 20, as on Apple and Linux.
  - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile). Less-trusted
    content (ActionUI JSON from a server or from a file outside the app's resources) loads no file on a
    share or a device (\\server\share, \\?\ and the like), never touched.
@@ -36,6 +39,12 @@ import Foundation
 #endif
 import CWinUI
 import Dispatch
+
+/// The limit on a LoadableView's download: nil, the cap on ActionUI JSON (WindowModel.maximumJSONSize).
+/// A test tool lowers it to see a download refused.
+@MainActor package enum LoadableFetch {
+    package static var maximumBytes: Int64?
+}
 
 /// What a LoadableView shows, kept in its node's state.
 @MainActor final class LoadableState {
@@ -167,7 +176,9 @@ extension LoadableView: ActionUIWinUIRenderer {
             state.status = WinUIObject(adopting: actionUIWinUIProgressCreate(ActionUIWinUIProgressRing))
             let box = FetchBox(node: node, state: state, generation: state.generation, url: url, actionID: actionID)
             let context = Unmanaged.passRetained(box).toOpaque()
-            if !actionUIWinUIFetchURL(url.absoluteString, fetched, context) {
+            // Read up to the cap on ActionUI JSON and given up after 120 seconds, as on Apple and Linux.
+            let limit = LoadableFetch.maximumBytes ?? Int64(WindowModel.maximumJSONSize)
+            if !actionUIWinUIFetchURL(url.absoluteString, limit, 120, fetched, context) {
                 // Never called back: the box is let go here.
                 Unmanaged<FetchBox>.fromOpaque(context).release()
                 let why = WinUIError.last("fetching \(url.absoluteString)")

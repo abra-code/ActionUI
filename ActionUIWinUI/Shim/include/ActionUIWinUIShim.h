@@ -1281,9 +1281,13 @@ ACTIONUI_WINUI_API bool actionUIWinUIMapOnMoved(ActionUIWinUIObject *map, Action
 // NULL and `error`, why not (an HTTP status that is not success, a network failure).
 typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes, size_t length, const char *error);
 // Fetches the http or https `url` with Windows' HTTP client (its cache and proxy settings), without
-// blocking: completion(context, ...) is called on the UI thread, always after this returns. False (and
-// no completion) when it could not start: not an http or https URL, not on the UI thread.
-ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, ActionUIWinUIDataCompletion completion, void *context);
+// blocking: completion(context, ...) is called on the UI thread, always after this returns. Limits: the
+// body is read as it arrives and refused once it grows past `maximumBytes` (at once when the server
+// says it is longer); the whole fetch is given up after `timeoutSeconds`; redirects are followed here,
+// their bodies unread, only to http and https, never from https to http, at most 20. False (and no
+// completion) when it could not start: not an http or https URL, not on the UI thread.
+ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, int64_t maximumBytes, double timeoutSeconds,
+                                              ActionUIWinUIDataCompletion completion, void *context);
 
 // MARK: - Symbols
 
