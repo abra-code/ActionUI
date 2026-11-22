@@ -1166,6 +1166,32 @@ ACTIONUI_WINUI_API char *actionUIWinUIWebViewCopyStatus(ActionUIWinUIObject *web
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewOnChanged(ActionUIWinUIObject *webView, ActionUIWinUICallback handler, void *context,
                                                       ActionUIWinUICallback destroyContext);
 
+// What a web view asks its decider about.
+typedef enum ActionUIWinUIWebViewNavigationKind {
+    // The page itself going to an address (a link, a script, a form, a redirect, the app's own load).
+    ActionUIWinUIWebViewNavigationPage,
+    // A frame in the page going to an address.
+    ActionUIWinUIWebViewNavigationFrame,
+    // The page handing an address of another scheme to the app registered for it (mailto:, an app's
+    // own scheme); refused, it is not opened.
+    ActionUIWinUIWebViewNavigationExternalScheme,
+    // The page opening a new window (window.open, a link with target _blank); refused, no window opens.
+    ActionUIWinUIWebViewNavigationNewWindow,
+    // The page saving a file into the user's Downloads (a download link, a response WebView2 cannot
+    // show); refused, nothing is saved.
+    ActionUIWinUIWebViewNavigationDownload,
+} ActionUIWinUIWebViewNavigationKind;
+
+// Decides whether the web view goes to `url` (UTF-8) for `kind`, synchronously on the UI thread: true
+// lets it, false refuses it (the navigation is canceled, the address not opened, the window not made).
+typedef bool (*ActionUIWinUIWebViewNavigationDecider)(void *context, const char *url, ActionUIWinUIWebViewNavigationKind kind);
+
+// `decide` is asked about each navigation, frame navigation, external scheme, new window and download of the web
+// view, also those it was told to make (one decider per web view: a new one replaces it; without one,
+// WebView2 decides). destroyContext(context) runs once the web view no longer needs it.
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewSetNavigationDecider(ActionUIWinUIObject *webView, ActionUIWinUIWebViewNavigationDecider decide,
+                                                               void *context, ActionUIWinUICallback destroyContext);
+
 // MARK: - Video player (WinUI's MediaPlayerElement)
 
 // A new video player: the video fitted inside it, keeping its aspect ratio, with Windows' transport

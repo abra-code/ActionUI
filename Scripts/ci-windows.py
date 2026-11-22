@@ -200,6 +200,10 @@ PREVIEW_OPTIONS = {
                             "--expect-log", "WebView not showing file:///C:/Windows/win.ini: the trust policy refuses it",
                             "--expect-log", "Not reading Loadable/Child.json for element 602: the trust policy refuses it",
                             "--expect-log", "for element 603: the trust policy refuses it"],
+    # JSON from a server: its pages' own navigations open no other app's scheme and no window.
+    "LessTrustedWebPages": ["420", "200", "--delay", "12000",
+                            "--expect-log", "WebView not going to ms-settings:display: the trust policy refuses it",
+                            "--expect-log", "WebView 702 not opening a window for https://example.com/"],
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
     "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],

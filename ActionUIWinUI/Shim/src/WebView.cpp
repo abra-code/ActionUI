@@ -38,6 +38,25 @@ struct EndScript {
     bool mainFrameOnly;
 };
 
+// The app's navigation decider of a web view (actionUIWinUIWebViewSetNavigationDecider); its context is
+// given back on the UI thread when the decider is let go.
+struct NavigationDecider {
+    NavigationDecider(ActionUIWinUIWebViewNavigationDecider decide, void *context, ActionUIWinUICallback destroyContext,
+                      dispatching::DispatcherQueue queue)
+        : decide(decide), context(context), destroyContext(destroyContext), queue(std::move(queue)) {}
+    NavigationDecider(NavigationDecider const &) = delete;
+    NavigationDecider &operator=(NavigationDecider const &) = delete;
+    ~NavigationDecider() {
+        if (destroyContext != nullptr) {
+            callOnUIThread(queue, destroyContext, context);
+        }
+    }
+    ActionUIWinUIWebViewNavigationDecider decide;
+    void *context;
+    ActionUIWinUICallback destroyContext;
+    dispatching::DispatcherQueue queue;
+};
+
 // A web view's own state, held by the handlers on the view and found by the view's identity.
 struct WebViewData {
     winrt::weak_ref<muxc::WebView2> view;
@@ -51,7 +70,28 @@ struct WebViewData {
     bool loading = false;
     double progress = 0;
     std::shared_ptr<EventHandler> changed;
+    std::shared_ptr<NavigationDecider> decider;
 };
+
+// Whether the web view's decider lets it go to `uri` for `kind`; true without a decider. Fails closed:
+// false when the web view's state is gone or the question cannot be asked.
+bool decides(std::weak_ptr<WebViewData> const &weak, winrt::hstring const &uri, ActionUIWinUIWebViewNavigationKind kind) noexcept {
+    try {
+        std::shared_ptr<WebViewData> data = weak.lock();
+        if (data == nullptr) {
+            return false;
+        }
+        // Held while it runs: a decider that replaces itself must not free its context under it.
+        std::shared_ptr<NavigationDecider> decider = data->decider;
+        if (decider == nullptr) {
+            return true;
+        }
+        std::string utf8 = winrt::to_string(uri);
+        return decider->decide(decider->context, utf8.c_str(), kind);
+    } catch (...) {
+        return false;
+    }
+}
 
 std::unordered_map<void *, std::weak_ptr<WebViewData>> &webViews() {
     static auto *views = new std::unordered_map<void *, std::weak_ptr<WebViewData>>();
@@ -218,11 +258,41 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
             // The data holds the CoreWebView2, so its handlers hold the data weakly: strongly, they
             // would keep each other alive after the view is gone.
             std::weak_ptr<WebViewData> weak = data;
-            core.NavigationStarting([weak](auto &&, auto &&) {
+            // The app decides each navigation, frame navigation, external scheme, new window and download
+            // first (actionUIWinUIWebViewSetNavigationDecider): WebView2 would otherwise hand an address
+            // of another scheme to the app registered for it, open new windows of its own and save files
+            // into the user's Downloads.
+            core.NavigationStarting([weak](auto &&, webcore::CoreWebView2NavigationStartingEventArgs const &args) {
+                if (!decides(weak, args.Uri(), ActionUIWinUIWebViewNavigationPage)) {
+                    args.Cancel(true);
+                    return;
+                }
                 if (std::shared_ptr<WebViewData> held = weak.lock()) {
                     held->loading = true;
                     held->progress = 0.1;
                     notify(held);
+                }
+            });
+            core.FrameNavigationStarting([weak](auto &&, webcore::CoreWebView2NavigationStartingEventArgs const &args) {
+                if (!decides(weak, args.Uri(), ActionUIWinUIWebViewNavigationFrame)) {
+                    args.Cancel(true);
+                }
+            });
+            core.LaunchingExternalUriScheme([weak](auto &&, webcore::CoreWebView2LaunchingExternalUriSchemeEventArgs const &args) {
+                if (!decides(weak, args.Uri(), ActionUIWinUIWebViewNavigationExternalScheme)) {
+                    args.Cancel(true);
+                }
+            });
+            core.NewWindowRequested([weak](auto &&, webcore::CoreWebView2NewWindowRequestedEventArgs const &args) {
+                // Handled with no NewWindow: nothing opens or loads (window.open gets a window object that
+                // stays empty).
+                if (!decides(weak, args.Uri(), ActionUIWinUIWebViewNavigationNewWindow)) {
+                    args.Handled(true);
+                }
+            });
+            core.DownloadStarting([weak](auto &&, webcore::CoreWebView2DownloadStartingEventArgs const &args) {
+                if (!decides(weak, args.DownloadOperation().Uri(), ActionUIWinUIWebViewNavigationDownload)) {
+                    args.Cancel(true);
                 }
             });
             core.NavigationCompleted([weak](auto &&, auto &&) {
@@ -369,6 +439,25 @@ char *actionUIWinUIWebViewCopyTitle(ActionUIWinUIObject *webView) {
         return true;
     });
     return copy;
+}
+
+bool actionUIWinUIWebViewSetNavigationDecider(ActionUIWinUIObject *webView, ActionUIWinUIWebViewNavigationDecider decide,
+                                             void *context, ActionUIWinUICallback destroyContext) {
+    std::shared_ptr<NavigationDecider> decider;
+    bool set = guarded("web view set navigation decider", [&]() {
+        if (decide == nullptr) {
+            return fail("web view set navigation decider", "the decider is NULL");
+        }
+        std::shared_ptr<WebViewData> data = dataOf(webView);
+        decider = std::make_shared<NavigationDecider>(decide, context, destroyContext, currentQueue());
+        data->decider = decider;
+        return true;
+    });
+    // Not made: the context is given back here (once made, the decider gives it back).
+    if (!set && decider == nullptr && destroyContext != nullptr) {
+        destroyContext(context);
+    }
+    return set;
 }
 
 bool actionUIWinUIWebViewOnChanged(ActionUIWinUIObject *webView, ActionUIWinUICallback handler, void *context,

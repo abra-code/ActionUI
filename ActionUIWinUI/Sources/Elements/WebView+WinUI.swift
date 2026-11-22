@@ -17,7 +17,13 @@
    "Blocked" page in place of another, first or set later; and reads a user script's file only inside
    the app's resources (.webViewScriptFile), a script named by resource too, since Windows reads it
    from the current folder. Its html has no base address on Windows (above), so it never runs as
-   another site.
+   another site. Each navigation of its page (a link, a script, a form, a redirect, a frame) is decided
+   as on Apple (WebViewTrust.navigation, for the element's origin at that moment): web addresses the
+   policy shows and the page's own about, data and blob addresses load; another scheme is handed to
+   its app only for the page itself and when the link rule allows it (mailto, by default), with
+   WebView2's own prompt; anything else is refused and logged, and the page opens no new window and
+   downloads nothing.
+   WebView2 alone would hand any scheme to the app registered for it and open windows of its own.
  - A later value is a command: a URL to load, or #goBack, #goForward, #reload, #stop. A command that
    leaves the page where it is, or a value that is no URL, is replaced by the current URL (logged when
    there is nothing to go back or forward to, or no URL).
@@ -47,6 +53,36 @@ import Dispatch
 
 @MainActor private var reportedBaseURL = false
 
+/// A WebView's navigation decider, held by the shim (actionUIWinUIWebViewSetNavigationDecider).
+@MainActor private final class NavigationBox {
+    let decide: @MainActor (String, ActionUIWinUIWebViewNavigationKind) -> Bool
+
+    init(_ decide: @escaping @MainActor (String, ActionUIWinUIWebViewNavigationKind) -> Bool) {
+        self.decide = decide
+    }
+}
+
+/// The box behind the decider's context, taken before entering the main actor (the raw pointer may
+/// not cross).
+private func navigationBox(_ context: UnsafeMutableRawPointer?) -> NavigationBox? {
+    context.map { Unmanaged<NavigationBox>.fromOpaque($0).takeUnretainedValue() }
+}
+
+private let decideNavigation: ActionUIWinUIWebViewNavigationDecider = { context, url, kind in
+    let box = navigationBox(context)
+    let text = url.map { String(cString: $0) }
+    return MainActor.assumeIsolated {
+        guard let box, let text else { return false }
+        return box.decide(text, kind)
+    }
+}
+
+// Gives back the reference passRetained took, once the shim lets go of the decider.
+private let releaseNavigation: ActionUIWinUICallback = { context in
+    guard let context else { return }
+    Unmanaged<NavigationBox>.fromOpaque(context).release()
+}
+
 /// What a WebView's handler compares with, kept in its node's state.
 @MainActor final class WebViewState {
     /// The URL the value was last set to from the view, so an update showing it again is no command.
@@ -66,6 +102,14 @@ extension WebView: ActionUIWinUIRenderer {
             throw WinUIError.last("creating a WebView")
         }
         node.state = WebViewState()
+        let decider = Unmanaged.passRetained(NavigationBox { [weak node] url, kind in
+            decide(url, kind, node)
+        }).toOpaque()
+        // On failure the shim has already called releaseNavigation.
+        if !actionUIWinUIWebViewSetNavigationDecider(view.pointer, decideNavigation, decider, releaseNavigation) {
+            // Without the decider, a less-trusted page could open any app's scheme: no page at all.
+            throw WinUIError.last("deciding a WebView's navigations")
+        }
         WinUIEvents.connect(view, actionUIWinUIWebViewOnChanged, "a WebView's page") { [weak node, weak view] in
             // After this turn of the main loop, as the Apple backing's Task.
             DispatchQueue.main.async {
@@ -124,6 +168,49 @@ extension WebView: ActionUIWinUIRenderer {
             if !actionUIWinUIWebViewNavigateToString(view.pointer, html) {
                 logger.log("WebView: \(WinUIError.last("showing the html"))", .error)
             }
+        }
+    }
+
+    /// Whether the WebView goes to `text` for `kind` (asked by WebView2 on the UI thread, for the
+    /// element's origin now): trusted content's navigations go as WebView2 takes them; less-trusted
+    /// content's as WebViewTrust.navigation decides, as on Apple: web addresses the policy shows, the
+    /// page's own about, data and blob addresses, a local file only when the policy lets it be shown;
+    /// another scheme only for the page itself and when the link rule allows it (mailto, by default),
+    /// then handed on by WebView2 with its own prompt; no new window. Refusals are logged.
+    private static func decide(_ text: String, _ kind: ActionUIWinUIWebViewNavigationKind, _ node: RenderNode?) -> Bool {
+        guard let node, node.isAttached else { return false }
+        if LinkTrust.isTrusted(node) {
+            return true
+        }
+        let logger = ActionUIModel.shared.logger
+        if kind == ActionUIWinUIWebViewNavigationNewWindow {
+            logger.log("WebView \(node.element.id) not opening a window for \(text): less-trusted content opens none", .warning)
+            return false
+        }
+        // As Apple's WebView, which saves nothing it cannot show.
+        if kind == ActionUIWinUIWebViewNavigationDownload {
+            logger.log("WebView \(node.element.id) not downloading \(text): less-trusted content downloads nothing", .warning)
+            return false
+        }
+        guard let url = URL(string: text) else {
+            logger.log("WebView \(node.element.id) not going to \(text): it is no URL", .warning)
+            return false
+        }
+        let isMainFrame = kind != ActionUIWinUIWebViewNavigationFrame
+        switch WebViewTrust.navigation(url, isMainFrame: isMainFrame, allows: { LinkTrust.allows($0, node) }, logger: logger) {
+        case .load:
+            return true
+        case .open:
+            // The page itself: WebView2 goes on to hand the address to its app (LaunchingExternalUriScheme,
+            // asked here again), after its own prompt. Not a file: WebView2 would show it in the page
+            // rather than hand it to an app.
+            guard url.scheme?.lowercased() != "file" else {
+                logger.log("WebView \(node.element.id) not going to \(text): it would show the file, not open it", .warning)
+                return false
+            }
+            return kind == ActionUIWinUIWebViewNavigationPage || kind == ActionUIWinUIWebViewNavigationExternalScheme
+        case .refuse:
+            return false
         }
     }
 

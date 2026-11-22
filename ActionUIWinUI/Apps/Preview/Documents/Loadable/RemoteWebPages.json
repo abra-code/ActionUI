@@ -1,0 +1,23 @@
+{
+  "type": "HStack",
+  "id": 700,
+  "properties": { "spacing": 8 },
+  "children": [
+    {
+      "type": "WebView",
+      "id": 701,
+      "properties": {
+        "html": "<p>Goes to Windows' settings</p><script>location.href = 'ms-settings:display';</script>",
+        "frame": { "width": 180, "height": 120 }
+      }
+    },
+    {
+      "type": "WebView",
+      "id": 702,
+      "properties": {
+        "html": "<p>Opens a window</p><script>window.open('https://example.com/');</script>",
+        "frame": { "width": 180, "height": 120 }
+      }
+    }
+  ]
+}
