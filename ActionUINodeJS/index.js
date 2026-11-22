@@ -764,9 +764,9 @@ const Trust = Object.freeze({ TRUSTED: 'trusted', LESS_TRUSTED: 'lessTrusted' })
 //     Window.getElementOrigin returns it.
 //   allows(capability, origin, byDefault) -> boolean: whether content of origin may do
 //     capability, { capability: kind } with, by kind: 'load' { source }, 'openLink' { url },
-//     'webView' { url } (null for inline html), 'webViewBaseURL' { url },
-//     'webViewScriptFile' { path }, 'readLocalFile' { path }, 'windowTitle', 'presentModal',
-//     'menuCommands', 'action' { actionID }.
+//     'webView' { url } (null for inline html), 'webViewBaseURL' { url }, 'webViewUserScripts',
+//     'webViewPersistentData', 'webViewScriptFile' { path }, 'readLocalFile' { path },
+//     'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID }.
 //
 // The callbacks are called on the main thread, often (as elements draw), and should return
 // quickly. One that throws is reported and counts as less trusted, or as a refusal.

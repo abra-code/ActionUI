@@ -20,6 +20,14 @@ sealed interface ActionUICapability {
     data class WebView(val url: String?) : ActionUICapability
     /** The base address a WebView's inline html runs under (its origin, for cookies and storage). */
     data class WebViewBaseURL(val url: String) : ActionUICapability
+    /** A WebView running the user scripts its content gives; refused, it runs none. Asked when the WebView is made, only when it has scripts. */
+    data object WebViewUserScripts : ActionUICapability
+    /**
+     * A WebView keeping its data in the app's persistent store. Not asked on Android: an
+     * Android WebView has the app's one cookie store (Apple and Linux give a refused WebView a
+     * private one). Kept for the same table as the Swift `ActionUICapability`.
+     */
+    data object WebViewPersistentData : ActionUICapability
     /** A WebView user script read from this file. */
     data class WebViewScriptFile(val path: String) : ActionUICapability
     /** An Image, Canvas image, VideoPlayer or AsyncImage reading this local file. */
@@ -93,7 +101,8 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
     /**
      * What content of [origin] may do when the host does not say: trusted content anything;
      * less-trusted content may open only web and mail links, show only web addresses in a
-     * WebView, give its inline html a base address only of its own document's origin, read
+     * WebView, give its inline html a base address only of its own document's origin, run no
+     * WebView user scripts, keep no WebView data in the app's persistent store, read
      * local files (images, videos, WebView script files) and load ActionUI JSON from local
      * files only inside the app's resource folders, and neither set the title nor present its
      * own sheets, covers and popovers.
@@ -108,6 +117,7 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
                 val document = origin.source as? JSONContentOrigin.Source.Remote ?: return false
                 haveSameOrigin(capability.url, document.url)
             }
+            ActionUICapability.WebViewUserScripts, ActionUICapability.WebViewPersistentData -> false
             is ActionUICapability.ReadLocalFile -> isInAppResources(capability.path)
             is ActionUICapability.WebViewScriptFile -> isInAppResources(capability.path)
             ActionUICapability.WindowTitle, ActionUICapability.PresentModal -> false

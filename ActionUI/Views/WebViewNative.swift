@@ -124,14 +124,21 @@ enum WebViewSupport {
 
     /// Builds a WKWebViewConfiguration for the native backing from raw properties.
     static func makeWKConfiguration(properties: [String: Any], logger: any ActionUILogger,
+                                    allows: (ActionUICapability) -> Bool = { _ in true },
                                     readsFile: (String) -> Bool = { _ in true }) -> WKWebViewConfiguration {
-        makeWKConfiguration(props: WebView.Props(properties), logger: logger, readsFile: readsFile)
+        makeWKConfiguration(props: WebView.Props(properties), logger: logger, allows: allows, readsFile: readsFile)
     }
 
-    /// Builds a WKWebViewConfiguration for the native backing from parsed properties.
+    /// Builds a WKWebViewConfiguration for the native backing from parsed properties. `allows`:
+    /// the trust policy's answer for the WebView's element; content that may not run its user
+    /// scripts gets none, and content that may not keep the app's data store a private one.
     static func makeWKConfiguration(props: WebView.Props, logger: any ActionUILogger,
+                                    allows: (ActionUICapability) -> Bool,
                                     readsFile: (String) -> Bool) -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
+        if !WebViewTrust.keepsPersistentData(allows: allows) {
+            config.websiteDataStore = .nonPersistent()
+        }
 
         if let limits = props.limitsNavigationsToAppBoundDomains {
             config.limitsNavigationsToAppBoundDomains = limits
@@ -140,7 +147,8 @@ enum WebViewSupport {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile)
+        let runsScripts = WebViewTrust.runsUserScripts(count: props.userScripts.count, allows: allows, logger: logger)
+        let scripts = runsScripts ? buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile) : []
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {
@@ -172,9 +180,12 @@ struct WKWebViewRepresentable {
 
     /// Creates and configures the WKWebView, attaches the coordinator, and loads initial content.
     private func makeWebView(context: Context) -> WKWebView {
-        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger) { [windowUUID, element, model] in
-            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id)
-        }
+        // Whose trust this WebView has: in a template row, the container's (the row has no view model).
+        let trustID = model.templateContext?.parentID ?? element.id
+        let config = WebViewSupport.makeWKConfiguration(
+            props: props, logger: logger,
+            allows: { [windowUUID] in ActionUIModel.shared.allows($0, windowUUID: windowUUID, viewID: trustID) },
+            readsFile: { [windowUUID] in ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: trustID) })
         let webView = WKWebView(frame: .zero, configuration: config)
 
         if let userAgent = props.customUserAgent {

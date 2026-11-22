@@ -94,6 +94,15 @@ public enum ActionUICapability: Sendable, Equatable {
     case webView(URL?)
     /// The base address a WebView's inline html runs under (its origin, for cookies and storage).
     case webViewBaseURL(URL)
+    /// A WebView running the user scripts its content gives (its userScripts property, inline or
+    /// from files; each file is also asked about, webViewScriptFile). Asked when the WebView is
+    /// made, only when it has scripts; refused, it runs none of them.
+    case webViewUserScripts
+    /// A WebView keeping its cookies, cache and web storage in the app's persistent data store,
+    /// shared with the app's other WebViews. Asked when the WebView is made; refused, it gets a
+    /// private store of its own that lasts as long as the WebView. Apple and Linux; an Android
+    /// WebView has the app's one store and does not ask.
+    case webViewPersistentData
     /// A WebView user script read from this file.
     case webViewScriptFile(String)
     /// An Image, Canvas image, VideoPlayer, AsyncImage or ShareLink reading this local file.
@@ -171,9 +180,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// What content of `origin` may do when the host does not say: trusted content anything; less
     /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
     /// WebView (webViewSchemes), give its inline html a base address only of its own document's
-    /// origin, read local files (images, videos, WebView script files) and load ActionUI JSON from
-    /// local files only inside the app's resources, and neither set the window's title nor present
-    /// its own sheets, covers and popovers; for now it may do anything else (each further refusal
+    /// origin, run no WebView user scripts, keep no WebView data in the app's persistent store,
+    /// read local files (images, videos, WebView script files) and load ActionUI JSON from local
+    /// files only inside the app's resources, and neither set the window's title nor present its
+    /// own sheets, covers and popovers; for now it may do anything else (each further refusal
     /// comes with the renderer change that enforces it).
     @MainActor
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
@@ -191,6 +201,9 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
             // whose cookies and storage the html would get, and no local file.
             guard case .remote(let document) = origin.source else { return false }
             return haveSameOrigin(base, document)
+        case .webViewUserScripts, .webViewPersistentData:
+            // No scripts of its own in its pages, and none of the app's own cookies and storage.
+            return false
         case .readLocalFile(let path), .webViewScriptFile(let path):
             // The app's own resources only: not the user's files, a device, or a network share.
             return isInAppResources(path)
@@ -223,6 +236,24 @@ enum WebViewTrust {
             return false
         }
         return true
+    }
+
+    /// Whether a WebView with `count` user scripts runs them: when it has none, or when the policy
+    /// allows it (asked as the WebView is made; a refusal is logged).
+    @MainActor
+    static func runsUserScripts(count: Int, allows: (ActionUICapability) -> Bool, logger: any ActionUILogger) -> Bool {
+        guard count > 0 else { return true }
+        guard allows(.webViewUserScripts) else {
+            logger.log("WebView not running its \(count) user script(s): the trust policy refuses them", .warning)
+            return false
+        }
+        return true
+    }
+
+    /// Whether a WebView keeps the app's persistent data store, else a private store of its own.
+    @MainActor
+    static func keepsPersistentData(allows: (ActionUICapability) -> Bool) -> Bool {
+        allows(.webViewPersistentData)
     }
 
     /// The base address for the WebView's inline html: `base` when the policy allows it, else

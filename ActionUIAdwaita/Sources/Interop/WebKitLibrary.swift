@@ -38,6 +38,8 @@ final class WebKitLibrary {
                                           UnsafePointer<UnsafePointer<CChar>?>?) -> OpaquePointer?
     typealias AddScript = @convention(c) (OpaquePointer?, OpaquePointer?) -> Void
     typealias Release = @convention(c) (OpaquePointer?) -> Void
+    typealias NewSession = @convention(c) () -> OpaquePointer?
+    typealias TypeOf = @convention(c) () -> GType
 
     /// WebKitUserContentInjectedFrames: WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, _TOP_FRAME.
     static let allFrames: UInt32 = 0, topFrame: UInt32 = 1
@@ -97,6 +99,11 @@ final class WebKitLibrary {
     let newScript: NewScript
     let addScript: AddScript
     let releaseScript: Release
+    /// webkit_network_session_new_ephemeral (cookies, cache and storage in memory, for its views
+    /// only), webkit_network_session_get_type, webkit_web_view_get_type
+    let newEphemeralSession: NewSession
+    let networkSessionType: TypeOf
+    let webViewType: TypeOf
 
     private init?(_ library: UnsafeMutableRawPointer) {
         func function<T>(_ name: String, as type: T.Type) -> T? {
@@ -121,7 +128,10 @@ final class WebKitLibrary {
               let userContentManager = function("webkit_web_view_get_user_content_manager", as: Object.self),
               let newScript = function("webkit_user_script_new", as: NewScript.self),
               let addScript = function("webkit_user_content_manager_add_script", as: AddScript.self),
-              let releaseScript = function("webkit_user_script_unref", as: Release.self) else { return nil }
+              let releaseScript = function("webkit_user_script_unref", as: Release.self),
+              let newEphemeralSession = function("webkit_network_session_new_ephemeral", as: NewSession.self),
+              let networkSessionType = function("webkit_network_session_get_type", as: TypeOf.self),
+              let webViewType = function("webkit_web_view_get_type", as: TypeOf.self) else { return nil }
         self.newView = newView
         self.loadURI = loadURI
         self.loadHTML = loadHTML
@@ -142,6 +152,27 @@ final class WebKitLibrary {
         self.newScript = newScript
         self.addScript = addScript
         self.releaseScript = releaseScript
+        self.newEphemeralSession = newEphemeralSession
+        self.networkSessionType = networkSessionType
+        self.webViewType = webViewType
+    }
+
+    /// A web view of its own ephemeral network session: its cookies, cache and web storage are in
+    /// memory and shared with no other view (webkit_web_view_new's views share the default
+    /// session, kept on disk). Floating, as webkit_web_view_new's; nil when it could not be made.
+    func newPrivateView() -> WidgetPointer? {
+        guard let session = newEphemeralSession() else { return nil }
+        // The view keeps its own reference.
+        defer { g_object_unref(UnsafeMutableRawPointer(session)) }
+        var value = GValue()
+        g_value_init(&value, networkSessionType())
+        defer { g_value_unset(&value) }
+        g_value_set_object(&value, UnsafeMutableRawPointer(session))
+        let object: UnsafeMutablePointer<GObject>? = "network-session".withCString { name in
+            var names: [UnsafePointer<CChar>?] = [name]
+            return names.withUnsafeMutableBufferPointer { g_object_new_with_properties(webViewType(), 1, $0.baseAddress, &value) }
+        }
+        return object.map { WidgetPointer(OpaquePointer($0)) }
     }
 
     /// The first library found, by API version (apiVersions) and then ABI version (the one checked, then

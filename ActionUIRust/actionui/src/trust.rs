@@ -65,6 +65,12 @@ pub enum Capability {
     /// Inline html in a WebView given this base address.
     #[serde(rename = "webViewBaseURL")]
     WebViewBaseUrl { url: String },
+    /// A WebView running the user scripts its content gives.
+    #[serde(rename = "webViewUserScripts")]
+    WebViewUserScripts,
+    /// A WebView keeping its data in the app's persistent store (refused: a private store).
+    #[serde(rename = "webViewPersistentData")]
+    WebViewPersistentData,
     /// A WebView user script read from this file.
     #[serde(rename = "webViewScriptFile")]
     WebViewScriptFile { path: String },
@@ -215,6 +221,9 @@ mod tests {
             assert_eq!(serde_json::from_str::<Capability>(json).unwrap(), expected, "{json}");
         }
         assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"windowTitle"}"#).unwrap(), Capability::WindowTitle);
+        assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"webViewUserScripts"}"#).unwrap(), Capability::WebViewUserScripts);
+        assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"webViewPersistentData"}"#).unwrap(),
+                   Capability::WebViewPersistentData);
     }
 
     struct Panics;

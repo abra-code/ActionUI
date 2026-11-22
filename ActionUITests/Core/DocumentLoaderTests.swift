@@ -479,6 +479,10 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertTrue(DefaultTrustPolicy().allows(.windowTitle, for: .host))
         XCTAssertTrue(DefaultTrustPolicy().allows(.presentModal, for: .host))
         XCTAssertTrue(DefaultTrustPolicy().allows(.readLocalFile("/tmp/a.png"), for: .host))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.webViewUserScripts, for: lessTrusted), "no user scripts")
+        XCTAssertFalse(DefaultTrustPolicy().allows(.webViewPersistentData, for: lessTrusted), "a private data store")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.webViewUserScripts, for: .host))
+        XCTAssertTrue(DefaultTrustPolicy().allows(.webViewPersistentData, for: .host))
         for address in ["HTTPS://example.com", "mailto:someone@example.com"] {
             XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(URL(string: address)!), for: lessTrusted), address)
         }

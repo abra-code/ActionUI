@@ -696,6 +696,22 @@ final class WebViewTests: XCTestCase {
         XCTAssertTrue(config.upgradeKnownHostsToHTTPS)
         XCTAssertEqual(config.userContentController.userScripts.count, 1,
                        "User scripts should be installed on the configuration")
+        XCTAssertTrue(config.websiteDataStore.isPersistent, "the app's data store when the policy allows it")
+    }
+
+    func testWebViewSupport_MakeWKConfiguration_RefusedScriptsAndDataStore() {
+        let properties: [String: Any] = ["userScripts": [["injectionTime": "documentStart", "source": "1;"]]]
+        var asked: [ActionUICapability] = []
+        let config = WebViewSupport.makeWKConfiguration(properties: properties, logger: logger, allows: { capability in
+            asked.append(capability)
+            return capability != .webViewUserScripts && capability != .webViewPersistentData
+        })
+        XCTAssertTrue(config.userContentController.userScripts.isEmpty, "no user scripts run when the policy refuses them")
+        XCTAssertFalse(config.websiteDataStore.isPersistent, "a private data store when the policy refuses the app's")
+        XCTAssertEqual(Set(asked.map { "\($0)" }), ["webViewUserScripts", "webViewPersistentData"])
+        asked = []
+        _ = WebViewSupport.makeWKConfiguration(properties: [:], logger: logger, allows: { asked.append($0); return true })
+        XCTAssertEqual(asked, [.webViewPersistentData], "with no scripts, the policy is not asked about them")
     }
 
     // MARK: - JSON round-trip with new properties

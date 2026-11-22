@@ -166,13 +166,19 @@ object WebView : ActionUIViewConstruction {
                     settings.builtInZoomControls = config.magnificationGestures
                     settings.displayZoomControls = false
 
-                    // Script sources resolve once per view instance (assets need
-                    // the Context); failures warn and drop the script, like the
+                    // Content the trust policy does not let run its user scripts runs none
+                    // (asked once per view). Script sources resolve once per view instance
+                    // (assets need the Context); failures warn and drop the script, like the
                     // Apple bundle lookup.
-                    val startScripts = config.userScripts
+                    val runsScripts = config.userScripts.isEmpty() ||
+                        ActionUIModel.allows(ActionUICapability.WebViewUserScripts, origin).also { allowed ->
+                            if (!allowed) logger.log("WebView not running its ${config.userScripts.size} user script(s): the trust policy refuses them", LoggerLevel.warning)
+                        }
+                    val userScripts = if (runsScripts) config.userScripts else emptyList()
+                    val startScripts = userScripts
                         .filter { it.injectionTime == WebViewInjectionTime.DOCUMENT_START }
                         .mapNotNull { resolveScriptSource(it, context.assets::open, logger, readsScript) }
-                    val endScripts = config.userScripts
+                    val endScripts = userScripts
                         .filter { it.injectionTime == WebViewInjectionTime.DOCUMENT_END }
                         .mapNotNull { resolveScriptSource(it, context.assets::open, logger, readsScript) }
 

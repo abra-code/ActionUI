@@ -22,6 +22,10 @@
    navigationActionID; the states title, isLoading, estimatedProgress, canGoBack and canGoForward
    follow the view. The view's notifications are handled after the main loop turn they come in, as
    the Apple backing handles its observations in a Task.
+ - Content the trust policy does not let keep its data in the app's persistent store
+   (webViewPersistentData; less-trusted content by default) gets a view of its own ephemeral network
+   session, and content it does not let run its user scripts (webViewUserScripts) runs none, as on
+   Apple.
  - Without WebKitGTK: a dimmed label naming the package to install (logged once, by WebKitLibrary).
 */
 
@@ -47,11 +51,14 @@ private let webViewStateKey = AttachKey<WebViewState>("actionui-webview")
 
 extension WebView: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        guard let webKit = WebKitLibrary.shared, let view = webKit.newView() else {
-            let label = gtk_label_new("WebView needs WebKitGTK (package \(WebKitLibrary.packageName))")!
-            Gtk.Widget(label).setCSSClass("dim-label", true)
-            gtk_label_set_wrap(opaque(label), 1)
-            return label
+        guard let webKit = WebKitLibrary.shared else {
+            return placeholder("WebView needs WebKitGTK (package \(WebKitLibrary.packageName))")
+        }
+        // Content that may not keep its data in the app's persistent store gets a private one.
+        let allows: (ActionUICapability) -> Bool = { LinkTrust.allows($0, node) }
+        let keepsData = WebViewTrust.keepsPersistentData(allows: allows)
+        guard let view = keepsData ? webKit.newView() : webKit.newPrivateView() else {
+            return placeholder(keepsData ? "WebView could not be made" : "WebView could not be given a private data store")
         }
         gtk_widget_set_hexpand(view, 1)
         gtk_widget_set_vexpand(view, 1)
@@ -73,7 +80,7 @@ extension WebView: ActionUIAdwaitaRenderer {
                 }
             }
         }
-        configure(webKit, view, Props(node.properties)) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
+        configure(webKit, view, Props(node.properties), allows: allows) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
         loadInitialContent(webKit, view, node, state)
         return view
     }
@@ -84,10 +91,19 @@ extension WebView: ActionUIAdwaitaRenderer {
         handleCommand(node.model.value as? String, webKit, widget, node, state)
     }
 
+    /// A dimmed, wrapping label in the WebView's place.
+    private static func placeholder(_ text: String) -> WidgetPointer {
+        let label = gtk_label_new(text)!
+        Gtk.Widget(label).setCSSClass("dim-label", true)
+        gtk_label_set_wrap(opaque(label), 1)
+        return label
+    }
+
     /// The settings and the scripts the properties give, before the first page loads.
-    /// `readsFile`: whether a user script may be read from a file (the element's trust).
+    /// `allows`: the trust policy's answer for the element (content that may not run its user
+    /// scripts runs none); `readsFile`: whether a user script may be read from a file.
     private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props,
-                                  readsFile: (String) -> Bool) {
+                                  allows: (ActionUICapability) -> Bool, readsFile: (String) -> Bool) {
         let settings = webKit.settings(view)
         if let userAgent = props.customUserAgent {
             webKit.setUserAgent(settings, userAgent)
@@ -102,6 +118,8 @@ extension WebView: ActionUIAdwaitaRenderer {
             }
         }
         webKit.setBackForwardGestures(settings, 0)
+        guard WebViewTrust.runsUserScripts(count: props.userScripts.count, allows: allows,
+                                           logger: ActionUIModel.shared.logger) else { return }
         let manager = webKit.userContentManager(view)
         for script in props.userScripts {
             guard let source = scriptSource(script, readsFile: readsFile), let userScript = webKit.newScript(

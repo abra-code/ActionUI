@@ -169,8 +169,9 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 //   window's root; a LoadableView whose surroundings cannot be told gets a less-trusted parent); only ActionUITrustTrusted means trusted.
 // allows: whether content of originJSON may do capabilityJSON, {"capability": kind} with, by kind:
 //   "load" {"source"}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
-//   "webViewBaseURL" {"url"}, "webViewScriptFile" {"path"}, "readLocalFile" {"path"},
-//   "windowTitle", "presentModal", "menuCommands", "action" {"actionID"}.
+//   "webViewBaseURL" {"url"}, "webViewUserScripts", "webViewPersistentData",
+//   "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "windowTitle", "presentModal",
+//   "menuCommands", "action" {"actionID"}.
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```
 

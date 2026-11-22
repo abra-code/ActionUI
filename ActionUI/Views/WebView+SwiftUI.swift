@@ -93,9 +93,10 @@ private struct WebViewContent: SwiftUI.View {
         self.logger = logger
         // Whose trust this WebView has: in a template row, the container's (the row has no view model).
         let viewID = model.templateContext?.parentID ?? element.id
-        let configuration = WebViewContent.makeConfiguration(props: props, logger: logger) {
-            ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID)
-        }
+        let configuration = WebViewContent.makeConfiguration(
+            props: props, logger: logger,
+            allows: { ActionUIModel.shared.allows($0, windowUUID: windowUUID, viewID: viewID) },
+            readsFile: { ActionUIModel.shared.readsScriptFile($0, windowUUID: windowUUID, viewID: viewID) })
         // Always with the decider: @State keeps this first page while the element's content may
         // be reloaded with another origin, so the decider asks the element's trust each time.
         _page = State(initialValue: WebPage(configuration: configuration,
@@ -155,11 +156,17 @@ private struct WebViewContent: SwiftUI.View {
 
     // MARK: Configuration
 
-    /// Builds a WebPage.Configuration from the parsed properties.
-    /// Called once at init time so user scripts survive page reloads within the same view lifetime.
+    /// Builds a WebPage.Configuration from the parsed properties, so user scripts survive page
+    /// reloads within the same view lifetime. `allows` is the trust policy's answer for the
+    /// WebView's element (see WebViewSupport.makeWKConfiguration). Called from init, which SwiftUI
+    /// runs again on each update; only the first page made is kept (@State).
     private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger,
+                                          allows: (ActionUICapability) -> Bool,
                                           readsFile: (String) -> Bool) -> WebPage.Configuration {
         var config = WebPage.Configuration()
+        if !WebViewTrust.keepsPersistentData(allows: allows) {
+            config.websiteDataStore = .nonPersistent()
+        }
 
         if let limits = props.limitsNavigationsToAppBoundDomains {
             config.limitsNavigationsToAppBoundDomains = limits
@@ -169,7 +176,8 @@ private struct WebViewContent: SwiftUI.View {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = WebViewSupport.buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile)
+        let runsScripts = WebViewTrust.runsUserScripts(count: props.userScripts.count, allows: allows, logger: logger)
+        let scripts = runsScripts ? WebViewSupport.buildUserScripts(props.userScripts, logger: logger, readsFile: readsFile) : []
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {

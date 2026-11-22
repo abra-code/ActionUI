@@ -6,11 +6,13 @@
  time; the user agent is set, and the back and forward gestures only while the view is shown; URL
  values and the #goBack, #goForward, #reload commands navigate between two local pages in a view
  never shown (where WebKitGTK crashed with the gestures on), and a command with nothing to do puts
- the current URL back. The page loads need WebKitGTK (package libwebkitgtk-6.0-4) and skip without
- it.
+ the current URL back; content the trust policy refuses them runs no user scripts, in a view of
+ its own ephemeral network session. The page loads need WebKitGTK (package libwebkitgtk-6.0-4) and
+ skip without it.
 */
 
 import XCTest
+import Glibc
 import CAdwaita
 @testable import ActionUI
 
@@ -43,6 +45,7 @@ final class WebViewRendererTests: XCTestCase {
             ActionUIModel.shared.unregisterActionHandler(for: actionID)
         }
         WebKitLibrary.disabledForTesting = false
+        ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
         for file in files {
             try? FileManager.default.removeItem(atPath: file)
         }
@@ -140,6 +143,43 @@ final class WebViewRendererTests: XCTestCase {
             ]
             """#)
         waitForPage("Page source file resource")
+    }
+
+    /// Refuses a WebView's user scripts and the app's data store, and keeps what it was asked.
+    private final class PrivateWebViews: ActionUITrustPolicy, @unchecked Sendable {
+        var asked: [String] = []
+        func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+            asked.append("\(capability)")
+            return capability != .webViewUserScripts && capability != .webViewPersistentData
+        }
+    }
+
+    /// Whether the web view's network session keeps its data in memory only, from WebKitGTK itself.
+    private func isEphemeral(_ view: WidgetPointer) throws -> Bool {
+        typealias Session = @convention(c) (WidgetPointer?) -> OpaquePointer?
+        typealias IsEphemeral = @convention(c) (OpaquePointer?) -> gboolean
+        let library = try XCTUnwrap(dlopen("libwebkitgtk-6.0.so.4", RTLD_NOW | RTLD_NOLOAD))
+        let session = unsafeBitCast(try XCTUnwrap(dlsym(library, "webkit_web_view_get_network_session")), to: Session.self)
+        let ephemeral = unsafeBitCast(try XCTUnwrap(dlsym(library, "webkit_network_session_is_ephemeral")), to: IsEphemeral.self)
+        return ephemeral(session(view)) != 0
+    }
+
+    func testContentThePolicyRefusesRunsNoUserScriptsAndKeepsAPrivateStore() throws {
+        try requireWebKit()
+        let trusted = try render(#""html": "<title>Shared</title>""#)
+        XCTAssertFalse(try isEphemeral(trusted.widget), "trusted content keeps the app's data store")
+        windows = []
+        ActionUIModel.shared.windowModels[windowUUID] = nil
+        let policy = PrivateWebViews()
+        ActionUIModel.shared.trustPolicy = policy
+        let node = try render(#"""
+            "html": "<title>Page</title><script>document.title += ' ' + (window.fromSource || 'no script')</script>",
+            "userScripts": [{"injectionTime": "documentStart", "source": "window.fromSource = 'script';"}]
+            """#)
+        XCTAssertEqual(swiftString(G_OBJECT_TYPE_NAME_of(node.widget)), "WebKitWebView")
+        XCTAssertTrue(try isEphemeral(node.widget), "a private data store")
+        waitForPage("Page no script")
+        XCTAssertTrue(policy.asked.contains("webViewUserScripts") && policy.asked.contains("webViewPersistentData"), "\(policy.asked)")
     }
 
     func testTheUserAgentAndGesturesAreSet() throws {

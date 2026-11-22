@@ -76,6 +76,10 @@ class TrustPolicyTest {
         assertFalse(allows(ActionUICapability.ReadLocalFile("${resources.path}/../elsewhere.png")))
         assertFalse(allows(ActionUICapability.WindowTitle))
         assertFalse(allows(ActionUICapability.PresentModal))
+        assertFalse(allows(ActionUICapability.WebViewUserScripts))
+        assertFalse(allows(ActionUICapability.WebViewPersistentData))
+        assertTrue(allows(ActionUICapability.WebViewUserScripts, JSONContentOrigin.HOST))
+        assertTrue(allows(ActionUICapability.WebViewPersistentData, JSONContentOrigin.HOST))
         assertTrue(allows(ActionUICapability.Action("app.save")))
     }
 

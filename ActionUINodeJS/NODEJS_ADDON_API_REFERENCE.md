@@ -430,7 +430,8 @@ actionui.setTrustPolicy({
     },
     // Whether content of origin may do capability: { capability: kind } with, by kind:
     // 'load' { source }, 'openLink' { url }, 'webView' { url } (null for inline html),
-    // 'webViewBaseURL' { url }, 'webViewScriptFile' { path }, 'readLocalFile' { path },
+    // 'webViewBaseURL' { url }, 'webViewUserScripts', 'webViewPersistentData',
+    // 'webViewScriptFile' { path }, 'readLocalFile' { path },
     // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID }.
     allows(capability, origin, byDefault) { return byDefault; },
 });
