@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
@@ -89,6 +90,7 @@ object GoogleMapView : ActionUIViewConstruction {
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        val dispatch = rememberActionDispatch()
         val config = remember(element.properties) { resolveMapConfig(element.properties, logger) }
         val context = LocalContext.current
 
@@ -156,11 +158,11 @@ object GoogleMapView : ActionUIViewConstruction {
                 lastTracked.value = coordinate
                 viewModel?.value = coordinate
                 config.valueChangeActionID?.let {
-                    ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0)
+                    dispatch.fire(it, viewID = element.id, viewPartID = 0)
                 }
             }
             config.actionID?.let {
-                ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0)
+                dispatch.fire(it, viewID = element.id, viewPartID = 0)
             }
         }
 

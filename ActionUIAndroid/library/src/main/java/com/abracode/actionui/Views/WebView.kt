@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.abracode.actionui.Helpers.ActionDispatch
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUICapability
 import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.LocalJSONContentOrigin
@@ -122,6 +124,7 @@ object WebView : ActionUIViewConstruction {
         val props = element.properties
         val logger = LocalActionUILogger.current
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        val dispatch = rememberActionDispatch()
         val config = remember(props) { resolveWebViewConfig(props, logger) }
 
         // The classic-View handle, for the host-command effect below.
@@ -198,7 +201,7 @@ object WebView : ActionUIViewConstruction {
                         override fun onPageStarted(view: AndroidWebView, url: String?, favicon: Bitmap?) {
                             viewModel?.states?.set("isLoading", true)
                             startScripts.forEach { view.evaluateJavascript(it, null) }
-                            fireNavigationAction(config, element)
+                            fireNavigationAction(config, element, dispatch)
                         }
 
                         override fun onPageFinished(view: AndroidWebView, url: String?) {
@@ -209,8 +212,8 @@ object WebView : ActionUIViewConstruction {
                                 view.title?.let { states["title"] = it }
                             }
                             endScripts.forEach { view.evaluateJavascript(it, null) }
-                            fireNavigationAction(config, element)
-                            reportURL(url, view, viewModel, lastTrackedURL, config, element)
+                            fireNavigationAction(config, element, dispatch)
+                            reportURL(url, view, viewModel, lastTrackedURL, config, element, dispatch)
                         }
 
                         override fun doUpdateVisitedHistory(view: AndroidWebView, url: String?, isReload: Boolean) {
@@ -218,7 +221,7 @@ object WebView : ActionUIViewConstruction {
                                 states["canGoBack"] = view.canGoBack()
                                 states["canGoForward"] = view.canGoForward()
                             }
-                            reportURL(url, view, viewModel, lastTrackedURL, config, element)
+                            reportURL(url, view, viewModel, lastTrackedURL, config, element, dispatch)
                         }
                     }
 
@@ -324,13 +327,14 @@ object WebView : ActionUIViewConstruction {
         lastTrackedURL: MutableState<String>,
         config: WebViewConfig,
         element: ActionUIElement,
+        dispatch: ActionDispatch,
     ) {
         val urlString = url ?: view.url ?: ""
         if (urlString == lastTrackedURL.value) return
         lastTrackedURL.value = urlString
         viewModel?.value = urlString
         if (config.valueChangeActionID != null && urlString.isNotEmpty()) {
-            ActionUIModel.actionHandler(config.valueChangeActionID, viewID = element.id, viewPartID = 0)
+            dispatch.fire(config.valueChangeActionID, viewID = element.id, viewPartID = 0)
         }
     }
 
@@ -345,9 +349,9 @@ object WebView : ActionUIViewConstruction {
         viewModel.value = urlString
     }
 
-    private fun fireNavigationAction(config: WebViewConfig, element: ActionUIElement) {
+    private fun fireNavigationAction(config: WebViewConfig, element: ActionUIElement, dispatch: ActionDispatch) {
         if (config.navigationActionID != null) {
-            ActionUIModel.actionHandler(config.navigationActionID, viewID = element.id, viewPartID = 0)
+            dispatch.fire(config.navigationActionID, viewID = element.id, viewPartID = 0)
         }
     }
 }

@@ -56,27 +56,30 @@ internal fun ElementActionHooks(element: ActionUIElement) {
     if (onAppearActionID == null && onDisappearActionID == null && openURLActionID == null) return
 
     val windowUUID = LocalWindowModel.current?.windowUUID ?: ""
+    val dispatch = rememberActionDispatch()
 
     if (onAppearActionID != null || onDisappearActionID != null) {
         // A property override may retarget the disappear actionID after entry;
         // fire the latest value on exit (the appear side is by nature the
         // value at entry).
         val currentDisappearID by rememberUpdatedState(onDisappearActionID)
+        // And the origin it is judged by: that of the content the latest ID came from.
+        val currentDispatch by rememberUpdatedState(dispatch)
         DisposableEffect(element.id) {
             onAppearActionID?.let {
-                ActionUIModel.actionHandler(it, windowUUID = windowUUID, viewID = element.id, viewPartID = 0, context = null)
+                dispatch.fire(it, viewID = element.id, viewPartID = 0, context = null)
             }
             onDispose {
                 currentDisappearID?.let {
-                    ActionUIModel.actionHandler(it, windowUUID = windowUUID, viewID = element.id, viewPartID = 0, context = null)
+                    currentDispatch.fire(it, viewID = element.id, viewPartID = 0, context = null)
                 }
             }
         }
     }
 
     if (openURLActionID != null) {
-        DisposableEffect(openURLActionID, windowUUID, element.id) {
-            val observer = OpenURLObserver(openURLActionID, windowUUID, element.id)
+        DisposableEffect(openURLActionID, windowUUID, element.id, dispatch) {
+            val observer = OpenURLObserver(openURLActionID, windowUUID, element.id, dispatch.origin)
             ActionUIModel.registerOpenURLObserver(observer)
             onDispose { ActionUIModel.unregisterOpenURLObserver(observer) }
         }

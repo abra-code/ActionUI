@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
@@ -162,6 +163,7 @@ object Button : ActionUIViewConstruction {
         // `popoverActionID` on show; `PopoverHelper` anchors the popup and adds
         // no extra tap gesture to a Button.
         val popoverActionID = props?.stringProperty("popoverActionID")
+        val dispatch = rememberActionDispatch()
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val onClick = {
             if (element.sheet != null) viewModel?.states?.set(SHEET_VISIBLE_STATE_KEY, true)
@@ -172,11 +174,11 @@ object Button : ActionUIViewConstruction {
                 val willShow = !(viewModel.states[POPOVER_VISIBLE_STATE_KEY] as? Boolean ?: false)
                 viewModel.states[POPOVER_VISIBLE_STATE_KEY] = willShow
                 if (willShow && popoverActionID != null) {
-                    ActionUIModel.actionHandler(popoverActionID, viewID = dispatchViewID, viewPartID = 0)
+                    dispatch.fire(popoverActionID, viewID = dispatchViewID, viewPartID = 0)
                 }
             }
             if (actionID != null) {
-                ActionUIModel.actionHandler(actionID, viewID = dispatchViewID, viewPartID = dispatchPartID)
+                dispatch.fire(actionID, viewID = dispatchViewID, viewPartID = dispatchPartID)
             }
         }
 

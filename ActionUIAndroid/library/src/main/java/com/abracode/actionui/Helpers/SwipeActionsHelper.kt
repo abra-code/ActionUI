@@ -73,6 +73,7 @@ internal fun ActionUIViewConstruction.BuildViewWithSwipeActions(
     animator: ElementAnimator?,
 ) {
     val logger = LocalActionUILogger.current
+    val dispatch = rememberActionDispatch()
     val all = element.swipeActions.orEmpty()
     val leading = all.filter { swipeEdge(it) == "leading" }
     val trailing = all.filter { swipeEdge(it) == "trailing" }
@@ -98,7 +99,7 @@ internal fun ActionUIViewConstruction.BuildViewWithSwipeActions(
 
     fun fire(button: ActionUIElement) {
         button.properties?.stringProperty("actionID")?.let {
-            ActionUIModel.actionHandler(it, viewID = button.id, viewPartID = 0)
+            dispatch.fire(it, viewID = button.id, viewPartID = 0)
         }
     }
 
@@ -178,6 +179,7 @@ private fun SwipeActionButton(
     logger: ActionUILogger,
     close: () -> Unit,
 ) {
+    val dispatch = rememberActionDispatch()
     val props = button.properties
     val title = props?.stringProperty("title").orEmpty()
     val role = props?.stringProperty("role")
@@ -200,7 +202,7 @@ private fun SwipeActionButton(
             .background(background)
             .clickable(enabled = LocalActionUIEnabled.current) {
                 props?.stringProperty("actionID")?.let {
-                    ActionUIModel.actionHandler(it, viewID = button.id, viewPartID = 0)
+                    dispatch.fire(it, viewID = button.id, viewPartID = 0)
                 }
                 close()
             }

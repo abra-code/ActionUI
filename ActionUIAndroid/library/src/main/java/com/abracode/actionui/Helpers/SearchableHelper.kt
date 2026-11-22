@@ -122,13 +122,14 @@ internal fun searchableEnvironmentProperties(properties: JsonObject?): JsonObjec
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchField(config: SearchableConfig, elementID: Int) {
+    val dispatch = rememberActionDispatch()
     var query by rememberSaveable(elementID) { mutableStateOf("") }
     // Apple fires onChange(of: query) only on an actual change; guard to match.
     // The clear button routes through the same path so it emits the empty query.
     val update: (String) -> Unit = { new ->
         if (new != query) {
             query = new
-            ActionUIModel.actionHandler(config.actionID, viewID = elementID, viewPartID = 0, context = new)
+            dispatch.fire(config.actionID, viewID = elementID, viewPartID = 0, context = new)
         }
     }
     // A filled TextField wearing the Material search field's own shape (a stadium

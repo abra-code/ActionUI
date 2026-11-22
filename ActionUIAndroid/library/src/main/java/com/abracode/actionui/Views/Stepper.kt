@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -77,6 +78,7 @@ object Stepper : ActionUIViewConstruction {
 
         val config = resolveStepperConfig(props, logger)
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         val initial = props?.numberProperty("value") ?: 0.0
 
         // Bind to the ViewModel value when a window is in scope; else local state.
@@ -92,7 +94,7 @@ object Stepper : ActionUIViewConstruction {
             if (next != current) {
                 if (viewModel != null) viewModel.value = next else localValue = next
                 if (actionID != null) {
-                    ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0, context = next)
+                    dispatch.fire(actionID, viewID = element.id, viewPartID = 0, context = next)
                 }
             }
         }

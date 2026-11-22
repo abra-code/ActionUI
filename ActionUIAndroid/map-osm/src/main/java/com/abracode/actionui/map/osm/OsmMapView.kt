@@ -10,9 +10,11 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
@@ -22,6 +24,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.ViewModel
+import com.abracode.actionui.Helpers.ActionDispatch
 import com.abracode.actionui.Helpers.ActionUICoordinate
 import com.abracode.actionui.Helpers.MapConfig
 import com.abracode.actionui.Helpers.mapInitialCoordinate
@@ -103,6 +106,9 @@ object OsmMapView : ActionUIViewConstruction {
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        // Read when the page reports a move: the view (and the bridge object made with it) outlives
+        // a change of the content around it, whose origin the action is judged by.
+        val dispatch by rememberUpdatedState(rememberActionDispatch())
         val config = remember(element.properties) { resolveMapConfig(element.properties, logger) }
 
         var mapView by remember { mutableStateOf<AndroidWebView?>(null) }
@@ -157,7 +163,7 @@ object OsmMapView : ActionUIViewConstruction {
                                 view.post {
                                     reportCenter(
                                         ActionUICoordinate(latitude, longitude),
-                                        viewModel, lastTracked, config, element,
+                                        viewModel, lastTracked, config, element, dispatch,
                                     )
                                 }
                             }
@@ -205,16 +211,17 @@ object OsmMapView : ActionUIViewConstruction {
         lastTracked: MutableState<ActionUICoordinate>,
         config: MapConfig,
         element: ActionUIElement,
+        dispatch: ActionDispatch,
     ) {
         if (coordinate != lastTracked.value) {
             lastTracked.value = coordinate
             viewModel?.value = coordinate
             config.valueChangeActionID?.let {
-                ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0)
+                dispatch.fire(it, viewID = element.id, viewPartID = 0)
             }
         }
         config.actionID?.let {
-            ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0)
+            dispatch.fire(it, viewID = element.id, viewPartID = 0)
         }
     }
 }

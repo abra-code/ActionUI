@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -73,6 +74,7 @@ object TabView : ActionUIViewConstruction {
         val props = element.properties
         val tabs = element.children.orEmpty()
         if (tabs.isEmpty()) return
+        val dispatch = rememberActionDispatch()
 
         val actionID = props?.stringProperty("actionID")
         val initial = (initialValue(element) as? Int) ?: 0
@@ -86,7 +88,7 @@ object TabView : ActionUIViewConstruction {
             if (index != selected) {
                 if (viewModel != null) viewModel.value = index else localSelection = index
                 actionID?.let {
-                    ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0, context = index)
+                    dispatch.fire(it, viewID = element.id, viewPartID = 0, context = index)
                 }
             }
         }

@@ -17,7 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
+import com.abracode.actionui.Common.ActionUICapability
+import com.abracode.actionui.Common.ActionUIConfiguration
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.classifyOrigin
 import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
@@ -107,6 +111,7 @@ object LoadableView : ActionUIViewConstruction {
         val assets = LocalContext.current.assets
         val windowModel = LocalWindowModel.current
         val props = element.properties
+        val dispatch = rememberActionDispatch()
 
         // The live source: the runtime value when a host has set one, else authored.
         val ownModel = windowModel?.viewModels?.get(element.id)
@@ -132,6 +137,22 @@ object LoadableView : ActionUIViewConstruction {
             return
         }
 
+        // The trust policy may refuse the source (ActionUICapability.Load), asked with the origin of
+        // the content this view is in, about the source as its content would be classified, before
+        // anything is read.
+        val loadRefused = remember(classified, around) {
+            val configuration = ActionUIConfiguration.current
+            val kind = classifyOrigin(classified, null, null, configuration.resourceFolders, configuration.trust.trustedOrigins)?.source
+            kind != null && !ActionUIModel.allows(ActionUICapability.Load(kind), around)
+        }
+        if (loadRefused) {
+            LaunchedEffect(nestingKey) {
+                logger.log("LoadableView ${element.id}: not loading $nestingKey: the trust policy refuses it", LoggerLevel.warning)
+            }
+            ErrorText("Failed to load view: the trust policy refuses it", modifier)
+            return
+        }
+
         // Remote loads async (spinner -> content/error); local loads synchronously
         // in `remember` (matching Apple's FileLoadableView init-time load, no flash).
         // `null` is the in-flight state. The loaded sub-tree is merged into the
@@ -149,7 +170,15 @@ object LoadableView : ActionUIViewConstruction {
                 } else {
                     // Classified by the address it finally came from, after redirects.
                     val fetched = loadRemoteDescription(classified, json, logger)
-                    val resolved = if (fetched is DescriptionLoad.Loaded) {
+                    // The policy was asked about the requested address; the content came from where
+                    // a redirect led, so it is asked again about that, before the content is merged.
+                    val finalURL = (fetched as? DescriptionLoad.Loaded)?.finalURL
+                    val redirectRefused = finalURL != null && finalURL != classified.url &&
+                        !ActionUIModel.allows(ActionUICapability.Load(JSONContentOrigin.Source.Remote(finalURL)), around)
+                    val resolved = if (redirectRefused) {
+                        logger.log("LoadableView ${element.id}: not loading ${classified.url}: it was redirected to $finalURL, and the trust policy refuses it", LoggerLevel.warning)
+                        DescriptionLoad.Failed("it was redirected to $finalURL, and the trust policy refuses it")
+                    } else if (fetched is DescriptionLoad.Loaded) {
                         fetched.copy(origin = remoteOrigin(classified, fetched.finalURL, around, element.id.takeIf { it > 0 }))
                     } else fetched
                     mergeIntoWindow(resolved, windowModel, element.id, (resolved as? DescriptionLoad.Loaded)?.origin ?: origin)
@@ -169,9 +198,8 @@ object LoadableView : ActionUIViewConstruction {
         val viewDidLoadActionID = props?.stringProperty("viewDidLoadActionID")
         if (outcome is DescriptionLoad.Loaded && viewDidLoadActionID != null) {
             LaunchedEffect(source) {
-                ActionUIModel.actionHandler(
+                dispatch.fire(
                     actionID = viewDidLoadActionID,
-                    windowUUID = windowModel?.windowUUID ?: "",
                     viewID = element.id,
                     viewPartID = 0,
                     context = null,

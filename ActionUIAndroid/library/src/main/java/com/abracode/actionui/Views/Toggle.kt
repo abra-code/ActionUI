@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -85,6 +86,7 @@ object Toggle : ActionUIViewConstruction {
         // shows no label but keeps its value visible.
         val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: "Toggle"
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         val initial = props?.booleanProperty("isOn") ?: false
         val style = resolveToggleStyle(props?.stringProperty("style"), logger)
 
@@ -112,11 +114,11 @@ object Toggle : ActionUIViewConstruction {
         val onChange: (Boolean) -> Unit = { new ->
             if (new != checked) {
                 if (templateContext != null) {
-                    TemplateHelper.commitRowToggle(new, container, templateContext, column, actionID)
+                    TemplateHelper.commitRowToggle(new, container, templateContext, column, actionID, dispatch)
                 } else {
                     if (viewModel != null) viewModel.value = new else localChecked = new
                     if (actionID != null) {
-                        ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0, context = new)
+                        dispatch.fire(actionID, viewID = element.id, viewPartID = 0, context = new)
                     }
                 }
             }

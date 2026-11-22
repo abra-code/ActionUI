@@ -8,6 +8,7 @@ import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIValueType
@@ -83,6 +84,7 @@ object ProgressView : ActionUIViewConstruction {
         val logger = LocalActionUILogger.current
         val title = props?.stringProperty("title")
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         // remember()ed on the properties: this composable recomposes on every
         // progress tick (that is what the value bridge and states["progress"]
         // are for), and resolving on each pass would log the invalid-style
@@ -105,7 +107,7 @@ object ProgressView : ActionUIViewConstruction {
 
         val rootModifier = if (actionID != null) {
             modifier.clickable(enabled = LocalActionUIEnabled.current) {
-                ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0)
+                dispatch.fire(actionID, viewID = element.id, viewPartID = 0)
             }
         } else {
             modifier

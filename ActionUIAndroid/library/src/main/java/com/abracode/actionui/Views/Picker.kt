@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -111,6 +112,7 @@ object Picker : ActionUIViewConstruction {
         // any style - menu field label, segmented/radio heading.
         val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: ""
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         val style = resolvePickerStyle(props?.stringProperty("pickerStyle"), logger)
 
         // Bind to the ViewModel value when a window is in scope; else local state.
@@ -122,7 +124,7 @@ object Picker : ActionUIViewConstruction {
             if (tag != selectedTag) {
                 if (viewModel != null) viewModel.value = tag else localTag = tag
                 if (actionID != null) {
-                    ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0, context = tag)
+                    dispatch.fire(actionID, viewID = element.id, viewPartID = 0, context = tag)
                 }
             }
         }

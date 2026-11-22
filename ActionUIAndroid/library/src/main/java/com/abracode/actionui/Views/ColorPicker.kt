@@ -41,6 +41,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIValueType
@@ -101,6 +102,7 @@ object ColorPicker : ActionUIViewConstruction {
         // SwiftUI `.labelsHidden()` (set here or on any ancestor).
         val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: ""
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
 
         val initial = (initialValue(element) as? Color) ?: Color.Transparent
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
@@ -111,7 +113,7 @@ object ColorPicker : ActionUIViewConstruction {
             if (picked != current) {
                 if (viewModel != null) viewModel.value = picked else localColor = picked
                 actionID?.let {
-                    ActionUIModel.actionHandler(
+                    dispatch.fire(
                         it, viewID = element.id, viewPartID = 0, context = colorToHex(picked),
                     )
                 }

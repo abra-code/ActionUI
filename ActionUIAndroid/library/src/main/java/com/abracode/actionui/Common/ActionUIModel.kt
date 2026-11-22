@@ -37,12 +37,15 @@ typealias ActionUIActionHandler =
 
 /**
  * A composed element listening for incoming URLs: the registration record
- * behind the `openURLActionID` hook (see [ActionUIModel.onOpenURL]).
+ * behind the `openURLActionID` hook (see [ActionUIModel.onOpenURL]). [origin]: that of the
+ * content the element is in, which the trust policy judges the action by (an element with no id
+ * has viewID 0, which alone would read as the host's).
  */
 internal data class OpenURLObserver(
     val actionID: String,
     val windowUUID: String,
     val viewID: Int,
+    val origin: JSONContentOrigin? = null,
 )
 
 /**
@@ -151,14 +154,26 @@ object ActionUIModel {
      * Dispatches [actionID] to its registered handler, falling back to the
      * default handler, and finally warning if neither is set. Mirrors the Swift
      * `actionHandler(_:windowUUID:viewID:viewPartID:context:)` resolution order.
+     *
+     * The trust policy is asked first ([ActionUICapability.Action]), with [origin], the origin of
+     * the content that fires it (renderers pass theirs, through [ActionDispatch]); without one,
+     * [viewID] 0 is the host's own (a toast's or a dialog's button, a modal's dismissal) and any
+     * other id is looked up in the window, counting as less trusted when it has no view model.
+     * Refused, nothing fires and a warning is logged.
      */
     fun actionHandler(
         actionID: String,
         windowUUID: String = "",
         viewID: Int,
         viewPartID: Int = 0,
-        context: Any? = null
+        context: Any? = null,
+        origin: JSONContentOrigin? = null,
     ) {
+        val from = origin ?: if (viewID == 0) JSONContentOrigin.HOST else (this.origin(windowUUID, viewID) ?: unknownOrigin)
+        if (!trustPolicy.allows(ActionUICapability.Action(actionID), from)) {
+            logger.log("Not firing action $actionID for element $viewID in window $windowUUID: the trust policy refuses it", LoggerLevel.warning)
+            return
+        }
         val handler = actionHandlers[actionID]
         // Snapshot the mutable property into a local val so it smart-casts to
         // non-null (a `var` member can't) and can't be nulled out by another
@@ -257,6 +272,7 @@ object ActionUIModel {
                 viewID = observer.viewID,
                 viewPartID = 0,
                 context = url,
+                origin = observer.origin,
             )
         }
     }

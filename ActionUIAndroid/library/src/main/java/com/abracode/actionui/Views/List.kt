@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -122,6 +123,7 @@ object ListView : ActionUIViewConstruction {
         // present (Apple's selectable mode). The selected row is the element value.
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         val selectable = actionID != null
         @Suppress("UNCHECKED_CAST")
         val selection: List<String> = (viewModel?.value as? List<String>) ?: emptyList()
@@ -129,7 +131,7 @@ object ListView : ActionUIViewConstruction {
             if (selection != row) {
                 viewModel?.value = row
                 actionID?.let {
-                    ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = index, context = row)
+                    dispatch.fire(it, viewID = element.id, viewPartID = index, context = row)
                 }
             }
         }
@@ -290,12 +292,13 @@ internal fun resolveItemType(props: JsonObject?, logger: ActionUILogger): ListIt
  */
 @Composable
 private fun HomogeneousRow(itemType: ListItemType, value: String, index: Int, parentID: Int) {
+    val dispatch = rememberActionDispatch()
     when (itemType.viewType) {
         "Button" -> M3Button(
             onClick = {
                 itemType.actionID?.let { actionID ->
                     val context: Any = if (itemType.actionContext == "rowIndex") index else value
-                    ActionUIModel.actionHandler(
+                    dispatch.fire(
                         actionID, viewID = parentID, viewPartID = index, context = context,
                     )
                 }

@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIValueType
@@ -69,6 +70,7 @@ object TextEditor : ActionUIViewConstruction {
         val placeholder = props?.stringProperty("placeholder")
         val readOnly = props?.booleanProperty("readOnly") ?: false
         val valueChangeActionID = props?.stringProperty("valueChangeActionID")
+        val dispatch = rememberActionDispatch()
 
         // Initial content: "text" wins. A "markdown" string (attributed editing
         // is unsupported on Android) is shown as raw plain text, with a warning.
@@ -99,7 +101,7 @@ object TextEditor : ActionUIViewConstruction {
                 if (new != text) {
                     if (viewModel != null) viewModel.value = new else localText = new
                     if (valueChangeActionID != null) {
-                        ActionUIModel.actionHandler(valueChangeActionID, viewID = element.id, viewPartID = 0)
+                        dispatch.fire(valueChangeActionID, viewID = element.id, viewPartID = 0)
                     }
                 }
             },

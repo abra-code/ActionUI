@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -147,6 +148,7 @@ object NavigationSplitView : ActionUIViewConstruction {
         val destinations = remember(element) { navigationSplitDestinations(element) }
 
         val actionID = element.properties?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         var localSelection by rememberSaveable(element.id) { mutableStateOf(0) }
         val selected = if (viewModel != null) {
@@ -177,7 +179,7 @@ object NavigationSplitView : ActionUIViewConstruction {
             if (destId != selected) {
                 if (viewModel != null) viewModel.states[SELECTED_DESTINATION_KEY] = destId else localSelection = destId
                 actionID?.let {
-                    ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0, context = destId)
+                    dispatch.fire(it, viewID = element.id, viewPartID = 0, context = destId)
                 }
             }
             // Surface the destination pane (a no-op when already side-by-side on a
