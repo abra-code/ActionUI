@@ -249,7 +249,7 @@ package final class WindowPresenter {
             ActionUIModel.shared.dismissDialog(windowUUID: windowUUID)
         }
         if let index, let actionID = presented.buttons[index].actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0, origin: .host)
         }
     }
 
@@ -288,7 +288,7 @@ package final class WindowPresenter {
             // The toast dismisses itself after this; "dismissed" moves the model on.
             connectSignal(object.pointer, "button-clicked", .instanceOnly) { [weak self] in
                 guard let self, self.toast?.id == id else { return }
-                ActionUIModel.shared.actionHandler(action.actionID, windowUUID: self.windowUUID, viewID: 0, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(action.actionID, windowUUID: self.windowUUID, viewID: 0, viewPartID: 0, origin: .host)
             }
         }
         connectSignal(object.pointer, "dismissed", .instanceOnly) { [weak self] in

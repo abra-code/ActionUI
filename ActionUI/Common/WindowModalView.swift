@@ -156,7 +156,7 @@ struct WindowModalView: SwiftUI.View {
             let btn = dialog.buttons[i]
             SwiftUI.Button(btn.title, role: btn.role?.buttonRole) {
                 if let actionID = btn.actionID {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0, origin: .host)
                 }
             }
         }

@@ -25,6 +25,11 @@ extension LoadableView: ActionUISwiftUIRenderer {
             bundleURL: resourceURL,
             logger: logger
         )
+        // The trust policy may refuse the source (ActionUICapability.load), before anything is read.
+        if case .success(let found) = source,
+           let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: element.id, logger: logger) {
+            return SwiftUI.Text("Failed to load view: \(refusal)").foregroundStyle(.red)
+        }
         switch source {
         case .failure(let error):
             return SwiftUI.Text(error.message)

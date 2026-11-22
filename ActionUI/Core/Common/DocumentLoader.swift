@@ -82,9 +82,11 @@ public struct ActionUILoadBudget: Sendable, Equatable {
 }
 
 /// Something a part of a window's content may do, which the trust policy is asked about
-/// (ActionUIModel.allows). The renderers ask before each.
+/// (ActionUIModel.allows). The renderers ask before each, menuCommands aside (see there).
 public enum ActionUICapability: Sendable, Equatable {
-    /// A LoadableView loading this source (the load budget and size caps apply whatever the answer).
+    /// A LoadableView loading this source, asked with the origin of the content the LoadableView is
+    /// in, before anything is read, and again about the address a redirect reaches, before the
+    /// content is loaded (the load budget and size caps apply whatever the answer).
     case load(JSONContentOrigin.Source)
     /// Opening an address: a Link, or openURL.
     case openLink(URL)
@@ -100,9 +102,12 @@ public enum ActionUICapability: Sendable, Equatable {
     case windowTitle
     /// Presenting a sheet, full-screen cover, popover, alert or confirmation dialog.
     case presentModal
-    /// Adding menu commands (CommandMenu, CommandGroup).
+    /// Adding menu commands (CommandMenu, CommandGroup). Not asked today: menu commands come only
+    /// from the host and from the app's own resources (a WindowGroup scene on Apple, a WindowGroup
+    /// file in the resource folder on Linux), never from content loaded at run time.
     case menuCommands
-    /// Firing this action.
+    /// Firing this action, asked with the origin of the element that fires it (the host's for a
+    /// menu bar item, a toast's or a dialog's button) before the host's handler runs.
     case action(String)
 }
 
@@ -426,6 +431,18 @@ enum ActionUIDocumentLoader {
         return JSONContentOrigin(source: kind, trust: min(own, parent?.trust ?? .trusted), parentID: parentID)
     }
 
+    /// Why the LoadableView `parentID` of the window may not load `source`, or nil when it may: the
+    /// trust policy is asked (ActionUICapability.load) with the origin of the content the LoadableView
+    /// is in, about the source as its content would be classified (a resource, a file elsewhere, a
+    /// remote address). Asked before anything is read.
+    static func loadRefusal(_ source: Source, windowUUID: String, parentID: Int, logger: any ActionUILogger) -> String? {
+        let kind = origin(for: source, inside: nil, parentID: nil, resourceFolders: ActionUIRendererHooks.resourceFolders(),
+                          trustedOrigins: ActionUIConfiguration.current.trust.trustedOrigins).source
+        guard !ActionUIModel.shared.allows(.load(kind), windowUUID: windowUUID, viewID: parentID) else { return nil }
+        logger.log("LoadableView \(parentID): not loading \(nestingKey(for: source)): the trust policy refuses it", .warning)
+        return "the trust policy refuses it"
+    }
+
     /// "plist" for a file or URL whose name ends in ".plist" (any case), else "json".
     static func format(of url: URL) -> String {
         url.pathExtension.lowercased() == "plist" ? "plist" : "json"
@@ -484,6 +501,10 @@ enum ActionUIDocumentLoader {
         logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
         if finalURL != url {
             logger.log("Remote URL \(url) was redirected to \(finalURL)", .debug)
+            // The LoadableView asked the trust policy about `url`; the content came from finalURL.
+            if !isContentView, let refusal = loadRefusal(.remote(finalURL), windowUUID: windowUUID, parentID: parentID, logger: logger) {
+                throw ActionUIError("Could not load \(url.absoluteString): it was redirected to \(finalURL.absoluteString), and \(refusal)")
+            }
         }
         let element = try load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView,
                                parentID: parentID, source: .remote(finalURL))

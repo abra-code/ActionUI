@@ -106,8 +106,26 @@ public class ActionUIModel {
         logger.log("Removed default action handler", .verbose)
     }
     
-    // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
+    // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found.
+    // The trust policy is asked first (ActionUICapability.action), with the origin of element viewID's
+    // content: an element with no view model counts as less trusted, as allows(_:windowUUID:viewID:) has
+    // it, except viewID 0, which then means no element, the host's own. Content may give an element id
+    // 0 too, so the host's own actions (a toast's or a dialog's button, a modal's dismissal) pass
+    // JSONContentOrigin.host to the overload below.
     public func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
+        let origin = self.origin(windowUUID: windowUUID, viewID: viewID) ?? (viewID == 0 ? JSONContentOrigin.host : Self.unknownOrigin)
+        actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, context: context, origin: origin)
+    }
+
+    /// Fires `actionID` for content of `origin`, after the trust policy allows it
+    /// (ActionUICapability.action): for an action whose element is not in the window's model, such
+    /// as an item of the menu bar the host loaded, which passes JSONContentOrigin.host.
+    public func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil,
+                              origin: JSONContentOrigin) {
+        guard trustPolicy.allows(.action(actionID), for: origin) else {
+            logger.log("Not firing action \(actionID) for element \(viewID) in window \(windowUUID): the trust policy refuses it", .warning)
+            return
+        }
         if let handler = actionHandlers[actionID] {
             logger.log("Executing handler for actionID: \(actionID), viewID: \(viewID)", .debug)
             handler(actionID, windowUUID, viewID, viewPartID, context)
@@ -964,7 +982,7 @@ public class ActionUIModel {
         windowModel.viewModels = updated
         windowModel.windowModal = nil
         if let actionID = modal.onDismissActionID {
-            actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0)
+            actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0, origin: .host)
         }
         logger.log("dismissModal: windowUUID: \(windowUUID)", .debug)
     }
