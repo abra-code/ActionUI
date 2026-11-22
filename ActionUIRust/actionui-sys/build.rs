@@ -9,6 +9,11 @@
 // paths inside the target folder on the dynamic library path when it runs a program
 // (cargo run, cargo test), so no absolute rpath goes into the binaries. A program run on
 // its own finds the copy beside it through an $ORIGIN rpath (.cargo/config.toml).
+//
+// Windows: ActionUI.dll from the Windows library package, through its import library
+// (lib/ActionUI.lib), with the DLLs it loads (bin/). All are copied into OUT_DIR and linked from
+// there, so cargo puts that folder on PATH when it runs a program (cargo run, cargo test). A program
+// run on its own needs the package's bin/ DLLs beside it.
 
 use std::env;
 use std::fs;
@@ -31,8 +36,9 @@ const HOST_SURFACE_FRAMEWORK: &str = "ActionUIHostSurface";
 // main ones keeps the link independent of that mechanism.
 const SYSTEM_FRAMEWORKS: [&str; 5] = ["Foundation", "AppKit", "SwiftUI", "AVKit", "Charts"];
 
-// In the library package (actionui-<version>-linux-<arch>/).
+// In the library package (actionui-<version>-linux-<arch>/, actionui-windows-<arch>/ on Windows).
 const LIBRARY_FILE: &str = "lib/libActionUI.so";
+const WINDOWS_LIBRARY_FILE: &str = "lib/ActionUI.lib";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -42,6 +48,7 @@ fn main() {
     match target_os.as_str() {
         "macos" => link_frameworks(),
         "linux" => link_library(),
+        "windows" => link_windows_library(),
         "android" => link_android_host_surface(),
         // The crate is empty on other systems; nothing to link.
         _ => {}
@@ -87,7 +94,7 @@ fn linked_frameworks() -> Vec<&'static str> {
 fn link_library() {
     println!("cargo:rerun-if-env-changed=ACTIONUI_LIBRARY_DIR");
 
-    let library_dir = find_library_dir();
+    let library_dir = find_library_dir(LIBRARY_FILE);
     let library = library_dir.join(LIBRARY_FILE);
     println!("cargo:rerun-if-changed={}", library.display());
 
@@ -106,30 +113,62 @@ fn link_library() {
     println!("cargo:rustc-env=ACTIONUI_SYS_LIBRARY_DIR={}", library_dir.display());
 }
 
-fn find_library_dir() -> PathBuf {
+/// Windows: ActionUI.lib and every DLL of the package's bin/ into OUT_DIR, linked from there.
+fn link_windows_library() {
+    println!("cargo:rerun-if-env-changed=ACTIONUI_LIBRARY_DIR");
+
+    let library_dir = find_library_dir(WINDOWS_LIBRARY_FILE);
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
+    let import_library = library_dir.join(WINDOWS_LIBRARY_FILE);
+    println!("cargo:rerun-if-changed={}", import_library.display());
+    copy_into(&import_library, &out_dir);
+    let bin = library_dir.join("bin");
+    let entries = fs::read_dir(&bin).unwrap_or_else(|error| panic!("cannot read {}: {error}", bin.display()));
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("dll")) {
+            println!("cargo:rerun-if-changed={}", path.display());
+            copy_into(&path, &out_dir);
+        }
+    }
+
+    println!("cargo:rustc-link-search=native={}", out_dir.display());
+    println!("cargo:rustc-link-lib=dylib=ActionUI");
+    println!("cargo:library_dir={}", library_dir.display());
+    println!("cargo:rustc-env=ACTIONUI_SYS_LIBRARY_DIR={}", library_dir.display());
+}
+
+fn copy_into(file: &Path, folder: &Path) {
+    let copy = folder.join(file.file_name().expect("a file name"));
+    if let Err(error) = fs::copy(file, &copy) {
+        panic!("could not copy {} to {}: {error}", file.display(), copy.display());
+    }
+}
+
+fn find_library_dir(library_file: &str) -> PathBuf {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let default_dir = manifest_dir.join("../library");
 
     if let Ok(value) = env::var("ACTIONUI_LIBRARY_DIR") {
         let dir = PathBuf::from(&value);
-        if dir.join(LIBRARY_FILE).is_file() {
+        if dir.join(library_file).is_file() {
             return dir.canonicalize().unwrap_or(dir);
         }
         panic!(
-            "ACTIONUI_LIBRARY_DIR is set to '{value}', but there is no {LIBRARY_FILE} in it. \
-             It must be the unpacked ActionUI library package (actionui-<version>-linux-<arch>), \
+            "ACTIONUI_LIBRARY_DIR is set to '{value}', but there is no {library_file} in it. \
+             It must be the unpacked ActionUI library package (actionui-<version>-linux-<arch>, or actionui-windows-<arch> on Windows), \
              the folder that holds lib/ and include/."
         );
     }
 
-    if default_dir.join(LIBRARY_FILE).is_file() {
+    if default_dir.join(library_file).is_file() {
         return default_dir.canonicalize().unwrap_or(default_dir);
     }
 
     panic!(
         "The ActionUI library package was not found in '{}'. Unpack actionui-<version>-linux-<arch>.tar.gz \
-         (made by Scripts/make-linux-library-package.sh) and set ACTIONUI_LIBRARY_DIR to the unpacked folder, \
-         or put its lib/ and include/ folders there.",
+         (made by Scripts/make-linux-library-package.sh; on Windows the actionui-windows-<arch> folder, with \
+         bin/, lib/ and include/) and set ACTIONUI_LIBRARY_DIR to the unpacked folder, or put its folders there.",
         default_dir.display()
     );
 }

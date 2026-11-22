@@ -1039,6 +1039,40 @@ def check_node(package, results, summary, msvc):
     return passed
 
 
+def check_rust(package, results, summary, msvc):
+    """Builds the Rust crates (ActionUIRust: actionui-sys, actionui and its examples) against the library package
+    with the MSVC linker, runs their tests that need no window, and the trust policy test, which runs the
+    application (ACTIONUI_GUI_TESTS; window_lifecycle needs the menu bar and the remote server, not on Windows
+    yet). True when all passed; no cargo, or a toolchain of another architecture, is reported and not run."""
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        summary["findings"].append("rust: not run: no cargo on PATH")
+        return True
+    host = next((line.split(":", 1)[1].strip() for line in capture(["rustc", "-vV"]).splitlines()
+                 if line.startswith("host:")), "")
+    expected = {"x64": "x86_64-pc-windows-msvc", "arm64": "aarch64-pc-windows-msvc"}[windows_arch()]
+    if host != expected:
+        summary["findings"].append(f"rust: not run: the toolchain's host is {host or 'unknown'}, the build {expected}")
+        return True
+    workspace = REPO_DIR / "ActionUIRust"
+    env = dict(msvc, ACTIONUI_LIBRARY_DIR=str(package),
+               CARGO_TARGET_DIR=str(REPO_DIR / ".build" / "ci-windows-rust" / "target"))
+    passed = True
+    for name, command, extra in [
+            ("rust-build", [cargo, "build", "--workspace", "--examples"], {}),
+            ("rust-test", [cargo, "test", "--workspace", "--all-targets"], {}),
+            ("rust-trust-policy", [cargo, "test", "-p", "actionui", "--test", "trust_policy"], {"ACTIONUI_GUI_TESTS": "1"})]:
+        step = run_step(name, command, results, dict(env, **extra), cwd=workspace, timeout=STEP_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        summary["findings"].append(f"{name}: {'passed' if step['status'] == 0 else 'FAILED, exit ' + str(step['status'])}")
+        if step["status"] != 0:
+            summary["errors"] = first_errors(results / step["log"])
+            passed = False
+            if name == "rust-build":
+                break
+    return passed
+
+
 # The Node.js tests CI runs on Windows: not test_menu_bar and test_host_surface (not on Windows yet).
 NODE_TESTS = ["test_native", "test_native_api_surface", "test_insert_api", "test_action_id_lookup", "test_app_api",
               "test_configuration", "test_app_lifecycle", "test_trust_policy", "test_uv_run_integration",
@@ -1186,6 +1220,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     if package is not None:
         passed = check_python(package, results, summary, msvc) and passed
         passed = check_node(package, results, summary, msvc) and passed
+        passed = check_rust(package, results, summary, msvc) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"

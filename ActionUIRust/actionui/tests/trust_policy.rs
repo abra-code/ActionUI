@@ -106,13 +106,15 @@ fn write_json_files() -> PathBuf {
     std::fs::create_dir_all(&folder).expect("temporary folder");
     let picture = folder.join("pic.png");
     std::fs::write(&picture, png()).expect("picture");
-    let file = |name: &str| folder.join(name).display().to_string();
+    // As JSON strings, quotes included: a Windows path's backslashes must be escaped.
+    let quoted = |path: &Path| serde_json::to_string(&path.display().to_string()).expect("a JSON string");
+    let file = |name: &str| quoted(&folder.join(name));
     std::fs::write(folder.join("less.json"), format!(
-        r#"{{"type": "VStack", "id": 20, "children": [{{"type": "Image", "id": 21, "properties": {{"filePath": "{}"}}}}]}}"#,
-        picture.display())).expect("less.json");
+        r#"{{"type": "VStack", "id": 20, "children": [{{"type": "Image", "id": 21, "properties": {{"filePath": {}}}}}]}}"#,
+        quoted(&picture))).expect("less.json");
     std::fs::write(folder.join("trusted.json"), r#"{"type": "Text", "id": 30, "properties": {"text": "Trusted by the host"}}"#).expect("trusted.json");
     std::fs::write(folder.join("root.json"), format!(
-        r#"{{"type": "VStack", "id": 1, "children": [{{"type": "LoadableView", "id": 3, "properties": {{"filePath": "{}"}}}}, {{"type": "LoadableView", "id": 4, "properties": {{"filePath": "{}"}}}}]}}"#,
+        r#"{{"type": "VStack", "id": 1, "children": [{{"type": "LoadableView", "id": 3, "properties": {{"filePath": {}}}}}, {{"type": "LoadableView", "id": 4, "properties": {{"filePath": {}}}}}]}}"#,
         file("less.json"), file("trusted.json"))).expect("root.json");
     folder
 }

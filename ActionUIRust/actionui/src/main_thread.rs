@@ -33,7 +33,8 @@ unsafe extern "C" {
     ) -> u32;
 }
 
-// G_PRIORITY_DEFAULT and G_SOURCE_REMOVE.
+// G_PRIORITY_DEFAULT and G_SOURCE_REMOVE. (On Windows the work goes to ActionUI's main queue, which WinUI's
+// loop runs: the C adapter's actionUIRunOnMainThread.)
 #[cfg(target_os = "linux")]
 const G_PRIORITY_DEFAULT: c_int = 0;
 #[cfg(target_os = "linux")]
@@ -61,7 +62,8 @@ pub fn is_main_thread() -> bool {
 /// the main thread included. Closures run in the order they were dispatched, once the
 /// event loop is running ([`crate::App::run`]). On macOS they share one queue with what
 /// ActionUI itself queues for the main thread (a [`crate::Window`] setter called on a
-/// worker), so a closure dispatched after such a setter sees its value; on Linux the two
+/// worker), so a closure dispatched after such a setter sees its value, and so on Windows,
+/// where it is ActionUI's main queue too; on Linux the two
 /// are separate sources of GLib's main loop and that order is not guaranteed. On Android they
 /// run on the app's main Looper, after the first HostSurface delegate was bound (which
 /// attaches this crate to it); closures dispatched before that wait for it.
@@ -74,6 +76,10 @@ pub fn dispatch(work: impl FnOnce() + Send + 'static) {
     #[cfg(target_os = "linux")]
     unsafe {
         g_idle_add_full(G_PRIORITY_DEFAULT, run_work_once, Box::into_raw(work).cast(), None);
+    }
+    #[cfg(target_os = "windows")]
+    unsafe {
+        actionui_sys::actionUIRunOnMainThread(Some(run_work), Box::into_raw(work).cast());
     }
     #[cfg(target_os = "android")]
     looper::post(work);

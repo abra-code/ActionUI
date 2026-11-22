@@ -10,6 +10,9 @@
 // for both comparisons (the box build checks them against the generated ones), and the
 // generated header of ActionUIRemote, which has no hand-written one; src/lib.rs's blocks
 // marked macOS only are left out.
+//
+// On both, src/lib.rs's blocks marked Windows only are left out (and the headers' Windows part
+// on Linux); the test does not run on Windows.
 
 #![cfg(any(target_os = "macos", target_os = "linux"))]
 
@@ -171,7 +174,7 @@ fn declarations(text: &str) -> Vec<&str> {
             continue;
         }
         let code = line.split("//").next().unwrap_or("").trim();
-        if code == "#if defined(__APPLE__)" {
+        if code == "#if defined(__APPLE__)" || code == "#if defined(_WIN32)" {
             apple_only = true;
         } else if apple_only && code == "#endif" {
             apple_only = false;
@@ -215,31 +218,32 @@ fn header_signatures(linked_dir: &Path) -> Signatures {
     signatures
 }
 
-/// The lines of src/lib.rs compiled on this system: off macOS, without the `extern` blocks
-/// marked `#[cfg(target_os = "macos")]`.
+/// The lines of src/lib.rs compiled on this system: without the `extern` blocks marked
+/// `#[cfg(target_os = "windows")]` (this test runs on macOS and Linux only) and, off macOS,
+/// those marked `#[cfg(target_os = "macos")]`.
 fn compiled_rust_lines() -> Vec<&'static str> {
     let mut lines = Vec::new();
-    let mut macos_only_next = false;
-    let mut in_macos_only_block = false;
+    let mut skipped_next = false;
+    let mut in_skipped_block = false;
     for line in RUST_SOURCE.lines() {
-        if cfg!(not(target_os = "macos")) {
-            if in_macos_only_block {
-                in_macos_only_block = line != "}";
-                continue;
-            }
-            if line == "#[cfg(target_os = \"macos\")]" {
-                macos_only_next = true;
-                continue;
-            }
-            if macos_only_next && line.starts_with("unsafe extern \"C\" {") {
-                macos_only_next = false;
-                in_macos_only_block = true;
-                continue;
-            }
-            // Other attributes may stand between the gate and the block.
-            if !line.starts_with("#[") {
-                macos_only_next = false;
-            }
+        if in_skipped_block {
+            in_skipped_block = line != "}";
+            continue;
+        }
+        if line == "#[cfg(target_os = \"windows\")]"
+            || (cfg!(not(target_os = "macos")) && line == "#[cfg(target_os = \"macos\")]")
+        {
+            skipped_next = true;
+            continue;
+        }
+        if skipped_next && line.starts_with("unsafe extern \"C\" {") {
+            skipped_next = false;
+            in_skipped_block = true;
+            continue;
+        }
+        // Other attributes may stand between the gate and the block.
+        if !line.starts_with("#[") {
+            skipped_next = false;
         }
         lines.push(line);
     }

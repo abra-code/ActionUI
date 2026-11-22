@@ -202,12 +202,36 @@ unsafe extern "C" fn window_will_present_trampoline(window_uuid: *const c_char) 
 }
 
 /// Writes a path as a `file://` URL.
+#[cfg(not(target_os = "windows"))]
 fn file_url(path: &Path) -> String {
     use std::os::unix::ffi::OsStrExt;
     let mut url = String::from("file://");
     for &byte in path.as_os_str().as_bytes() {
         match byte {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => url.push(byte as char),
+            _ => url.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    url
+}
+
+/// Writes a Windows path as a `file:` URL, as Windows' own URLs spell it: `C:\docs\a b.json` is
+/// `file:///C:/docs/a%20b.json`, a share's `\\server\share\a.json` is `file://server/share/a.json`;
+/// the `\\?\` prefix of a long path is dropped. The path's UTF-8 bytes are percent-escaped.
+#[cfg(target_os = "windows")]
+fn file_url(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    let text = text.strip_prefix(r"\\?\UNC\").map(|rest| format!(r"\\{rest}")).unwrap_or_else(|| {
+        text.strip_prefix(r"\\?\").unwrap_or(&text).to_string()
+    });
+    let slashed = text.replace('\\', "/");
+    let (mut url, rest) = match slashed.strip_prefix("//") {
+        Some(share) => (String::from("file://"), share.to_string()),
+        None => (String::from("file:///"), slashed.trim_start_matches('/').to_string()),
+    };
+    for &byte in rest.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => url.push(byte as char),
             _ => url.push_str(&format!("%{byte:02X}")),
         }
     }
@@ -538,6 +562,14 @@ mod tests {
         assert_eq!(file_url(Path::new("/tmp/plain.json")), "file:///tmp/plain.json");
         assert_eq!(file_url(Path::new("/tmp/My UI #1.json")), "file:///tmp/My%20UI%20%231.json");
         assert_eq!(file_url(Path::new("/tmp/\u{17c}.json")), "file:///tmp/%C5%BC.json");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_file_urls_name_the_drive() {
+        assert_eq!(file_url(Path::new(r"C:\docs\My UI #1.json")), "file:///C:/docs/My%20UI%20%231.json");
+        // What fs::canonicalize returns.
+        assert_eq!(file_url(Path::new(r"\\?\C:\docs\a.json")), "file:///C:/docs/a.json");
     }
 
     #[test]

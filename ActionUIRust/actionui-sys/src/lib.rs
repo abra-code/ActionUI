@@ -23,7 +23,7 @@
 
 // On Android only the HostSurface declarations are used (libactionui_hostsurface.so); the C
 // adapter's are declared but never called, so nothing links them.
-#![cfg(any(target_os = "macos", target_os = "linux", all(target_os = "android", feature = "host-surface")))]
+#![cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", all(target_os = "android", feature = "host-surface")))]
 #![allow(non_snake_case)]
 
 /// The HostSurface add-on: an element the program draws into with its own renderer.
@@ -87,6 +87,10 @@ pub type ActionUITrustCallback = Option<unsafe extern "C" fn(*const c_char, *con
 /// Whether content may do something: `(capabilityJSON, originJSON, byDefault)`, returning
 /// the decision to use. The strings are valid only for the call.
 pub type ActionUICapabilityCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, bool) -> bool>;
+
+/// Work for the main thread: `(context)`. Windows only (actionUIRunOnMainThread); declared
+/// everywhere, as tests/declarations.rs reads the header's types on every system.
+pub type ActionUIMainThreadCallback = Option<unsafe extern "C" fn(*mut c_void)>;
 
 // MARK: - Types (ActionUIApp.h)
 
@@ -188,6 +192,22 @@ unsafe extern "C" {
     /// Returns a retained `NSHostingController`; the caller owns it. For hosts that
     /// create their own windows. Main thread only.
     pub fn actionUILoadHostingControllerFromURL(urlString: *const c_char, windowUUID: *const c_char, isContentView: bool) -> *mut c_void;
+}
+
+// MARK: - ActionUICAdapter, Windows only
+
+#[cfg(target_os = "windows")]
+#[rustfmt::skip]
+unsafe extern "C" {
+    /// Fills `xamlWindow` (a Microsoft.UI.Xaml.Window's IInspectable pointer) with the document; for a
+    /// host that runs its own WinUI application.
+    pub fn actionUILoadIntoHostWindowFromURL(xamlWindow: *mut c_void, urlString: *const c_char, windowUUID: *const c_char, subtitle: *const c_char) -> bool;
+    pub fn actionUILoadIntoHostWindowFromJSON(xamlWindow: *mut c_void, jsonString: *const c_char, windowUUID: *const c_char, subtitle: *const c_char) -> bool;
+    pub fn actionUIInstallMainLoopBridge();
+    /// Runs `callback(context)` on the main thread, later; any thread.
+    pub fn actionUIRunOnMainThread(callback: ActionUIMainThreadCallback, context: *mut c_void);
+    /// Whether the calling thread is the one ActionUI takes for the main thread.
+    pub fn actionUIIsMainThread() -> bool;
 }
 
 // MARK: - ActionUIAppKitApplication

@@ -45,10 +45,10 @@
 //! A panic in a handler is caught and written to standard error and to ActionUI's log,
 //! and the application keeps running.
 
-#[cfg(not(any(target_os = "macos", target_os = "linux", all(target_os = "android", feature = "host-surface"))))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows", all(target_os = "android", feature = "host-surface"))))]
 compile_error!(
-    "the actionui crate supports macOS and Linux, and Android with the host-surface feature only; put the \
-     dependency under [target.'cfg(any(target_os = \"macos\", target_os = \"linux\"))'.dependencies] \
+    "the actionui crate supports macOS, Linux and Windows, and Android with the host-surface feature only; put the \
+     dependency under [target.'cfg(any(target_os = \"macos\", target_os = \"linux\", target_os = \"windows\"))'.dependencies] \
      (and, for a HostSurface client on Android, target_os = \"android\" with features = [\"host-surface\"])"
 );
 
@@ -56,46 +56,46 @@ compile_error!(
 // HostSurface elements (libactionui_hostsurface.so), so only the host_surface module, the errors
 // and main_thread::dispatch exist.
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod app;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub mod config;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod dialog;
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android"))]
 mod error;
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android"))]
 mod ffi;
 #[cfg(all(feature = "host-surface", any(target_os = "macos", target_os = "linux", target_os = "android")))]
 pub mod host_surface;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub mod log;
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android"))]
 pub mod main_thread;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub mod panels;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub mod trust;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod window;
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub use app::{ActionContext, App};
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub use config::{configuration, configure};
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub use dialog::{ButtonRole, DialogButton, InsertPosition, ModalStyle};
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows", target_os = "android"))]
 pub use error::{Error, Result};
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub use log::LogLevel;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub use trust::{Capability, Origin, Source, Trust, TrustPolicy, clear_trust_policy, set_trust_policy};
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub use window::{ContentSizeLimits, Window};
 
 /// The version of the ActionUI library linked into this program.
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub fn version() -> String {
     unsafe { ffi::take_string(actionui_sys::actionUIGetVersion()) }.unwrap_or_default()
 }
@@ -111,8 +111,8 @@ pub fn running_from_bundle() -> bool {
     std::env::current_exe().is_ok_and(|path| is_inside_bundle(&path))
 }
 
-/// Whether this program was started from inside a macOS application bundle: never on Linux.
-#[cfg(target_os = "linux")]
+/// Whether this program was started from inside a macOS application bundle: never on Linux or Windows.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 pub fn running_from_bundle() -> bool {
     false
 }

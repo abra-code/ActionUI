@@ -2,7 +2,9 @@
 // On Android only the HostSurface helpers are used; the rest call the C adapter, which is not there.
 #![cfg_attr(target_os = "android", allow(dead_code))]
 
-use std::ffi::{CStr, CString, c_char, c_int, c_void};
+#[cfg(not(target_os = "windows"))]
+use std::ffi::c_int;
+use std::ffi::{CStr, CString, c_char, c_void};
 use std::io::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -10,8 +12,36 @@ use actionui_sys as sys;
 
 use crate::error::{Error, Result};
 
+#[cfg(not(target_os = "windows"))]
 unsafe extern "C" {
     fn getentropy(buffer: *mut c_void, length: usize) -> c_int;
+}
+
+// Windows' system random number generator (bcrypt.dll), with the system's preferred algorithm.
+#[cfg(target_os = "windows")]
+#[link(name = "bcrypt")]
+unsafe extern "system" {
+    fn BCryptGenRandom(algorithm: *mut c_void, buffer: *mut u8, length: u32, flags: u32) -> i32;
+}
+
+#[cfg(target_os = "windows")]
+const BCRYPT_USE_SYSTEM_PREFERRED_RNG: u32 = 0x0000_0002;
+
+/// Fills `bytes` from the system's random number generator; panics only when it fails (a bad buffer).
+fn random_bytes(bytes: &mut [u8]) {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let status = unsafe { getentropy(bytes.as_mut_ptr().cast(), bytes.len()) };
+        // It fails only for more than 256 bytes or a bad buffer.
+        assert_eq!(status, 0, "getentropy failed");
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let status = unsafe {
+            BCryptGenRandom(std::ptr::null_mut(), bytes.as_mut_ptr(), bytes.len() as u32, BCRYPT_USE_SYSTEM_PREFERRED_RNG)
+        };
+        assert_eq!(status, 0, "BCryptGenRandom failed");
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -36,6 +66,13 @@ pub(crate) fn is_main_thread() -> bool {
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) fn is_main_thread() -> bool {
     unsafe { gettid() == getpid() }
+}
+
+/// ActionUI's own answer: Windows has no call that names a process's main thread, and ActionUI takes for
+/// the main thread the one its main queue runs on.
+#[cfg(target_os = "windows")]
+pub(crate) fn is_main_thread() -> bool {
+    unsafe { sys::actionUIIsMainThread() }
 }
 
 /// For what exists only on the main thread: the application, and the handlers, whose
@@ -112,9 +149,7 @@ pub(crate) fn none_or_error<T>() -> Result<Option<T>> {
 /// give it on macOS; Linux's C library has no uuid functions.
 pub(crate) fn new_uuid() -> String {
     let mut bytes = [0u8; 16];
-    let status = unsafe { getentropy(bytes.as_mut_ptr().cast(), bytes.len()) };
-    // It fails only for more than 256 bytes or a bad buffer.
-    assert_eq!(status, 0, "getentropy failed");
+    random_bytes(&mut bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     let mut text = String::with_capacity(36);
