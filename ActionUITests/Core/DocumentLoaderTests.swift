@@ -200,7 +200,7 @@ final class DocumentLoaderTests: XCTestCase {
             url: url, windowUUID: windowUUID, isContentView: true, parentID: 0, logger: logger
         ) { url in
             fetched.append(url)
-            return data
+            return (data, url)
         }
         XCTAssertEqual(fetched, [url])
         XCTAssertEqual(element.id, 1)
@@ -437,7 +437,7 @@ final class DocumentLoaderTests: XCTestCase {
         let recording = RecordingLogger()
         ActionUIModel.shared.logger = recording
         // A long span while counting, so a slow machine cannot let a load expire in the middle.
-        ActionUIModel.shared.loadBudget = ActionUILoadBudget(loads: 3, seconds: 60)
+        ActionUIConfiguration.updateForTesting { $0.limits.loadBudget = ActionUILoadBudget(loads: 3, seconds: 60) }
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         for _ in 0..<3 {
             _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil)
@@ -456,7 +456,7 @@ final class DocumentLoaderTests: XCTestCase {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: other, isContentView: true, parentID: 0, source: nil)
         XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: other, isContentView: false, parentID: 100, source: nil))
         // Once the span has passed, loads go on (the span read at each load, shortened here).
-        ActionUIModel.shared.loadBudget = ActionUILoadBudget(loads: 3, seconds: 0.2)
+        ActionUIConfiguration.updateForTesting { $0.limits.loadBudget = ActionUILoadBudget(loads: 3, seconds: 0.2) }
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         XCTAssertNoThrow(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100, source: nil))
     }
@@ -465,15 +465,15 @@ final class DocumentLoaderTests: XCTestCase {
         let recording = RecordingLogger()
         ActionUIModel.shared.logger = recording
         let saved = WindowModel.maximumJSONSize
-        defer { WindowModel.maximumJSONSize = saved }
-        WindowModel.maximumJSONSize = root.count
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = saved } }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = root.count }
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
-        WindowModel.maximumJSONSize = root.count - 1
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = root.count - 1 }
         XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true,
                                                              parentID: 0, source: nil)) { error in
             XCTAssertEqual("\(error)", "the ActionUI JSON is larger than 0 MB")
         }
-        WindowModel.maximumJSONSize = panel.count - 1
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = panel.count - 1 }
         XCTAssertThrowsError(try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false,
                                                              parentID: 100, source: nil))
         XCTAssertThrowsError(try ActionUIModel.shared.windowModels[windowUUID]?.loadModalDescription(from: panel, format: "json"))

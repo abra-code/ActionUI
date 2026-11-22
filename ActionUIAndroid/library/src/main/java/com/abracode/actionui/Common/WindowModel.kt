@@ -210,11 +210,11 @@ class WindowModel(
     private val recentLoads = ArrayDeque<Long>()
 
     /**
-     * True, counting the load, when one more LoadableView load is within [ActionUIModel.loadBudget];
+     * True, counting the load, when one more LoadableView load is within the configuration's load budget;
      * false (logged) when the window has used it up. Asked before anything is read.
      */
     fun spendLoad(now: Long = System.nanoTime()): Boolean {
-        val budget = ActionUIModel.loadBudget
+        val budget = ActionUIConfiguration.current.limits.loadBudget
         val window = (budget.seconds * 1_000_000_000).toLong()
         while (recentLoads.isNotEmpty() && now - recentLoads.first() >= window) recentLoads.removeFirst()
         if (recentLoads.size >= budget.loads) {

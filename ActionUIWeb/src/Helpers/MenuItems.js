@@ -88,7 +88,7 @@ function buildActionItem(child, ctx, dismiss) {
     item.addEventListener("click", () => {
         dismiss();
         if (typeof props.actionID === "string") {
-            ctx.model.dispatchAction(props.actionID, child.id);
+            ctx.model.dispatchAction(props.actionID, child.id, 0, null, ctx.origin);
         }
     });
     return item;

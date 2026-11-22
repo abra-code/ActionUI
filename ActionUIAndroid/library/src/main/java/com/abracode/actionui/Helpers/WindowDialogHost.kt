@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.DialogButton
 import com.abracode.actionui.Common.DialogButtonRole
 import com.abracode.actionui.Common.DialogStyle
@@ -145,6 +146,7 @@ private fun fireAndDismiss(button: DialogButton, windowUUID: String) {
             viewID = 0,
             viewPartID = 0,
             context = null,
+            origin = JSONContentOrigin.HOST,
         )
     }
     ActionUIModel.dismissDialog(windowUUID)

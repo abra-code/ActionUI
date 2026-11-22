@@ -15,6 +15,7 @@
 //               | { capability: "presentModal" } | { capability: "load", source } | { capability: "action", actionID }
 
 import { pageBaseURL } from "../Helpers/URLPolicy.js";
+import { isTrustedOrigin } from "./Configuration.js";
 
 export const TRUSTED = "trusted";
 export const LESS_TRUSTED = "lessTrusted";
@@ -39,6 +40,18 @@ export function haveSameOrigin(first, second) {
         const a = new URL(first);
         const b = new URL(second);
         return a.origin !== "null" && a.origin === b.origin;
+    } catch {
+        return false;
+    }
+}
+
+// Whether the absolute address `address` is on the page's server: the scheme and host (with its
+// port) of `base`.
+function isOnPageServer(address, base) {
+    try {
+        const target = new URL(address);
+        const page = new URL(base);
+        return target.protocol === page.protocol && target.host === page.host;
     } catch {
         return false;
     }
@@ -103,12 +116,10 @@ export function allows(capability, origin, logger) {
     }
 }
 
-// The origin of content a LoadableView loads from the classified source `classified`
-// ({ kind, fetchURL }) inside content of origin `parent`, into the LoadableView `parentID`: a
-// path or name (always on the page's server) or a URL on the page's origin is a resource; another
-// origin is remote, less trusted; no more trusted than `parent`. Then the host's policy has the
-// last word. Null for no source.
-export function resolvedOrigin(classified, parent, parentID, logger) {
+// The source a LoadableView's classified source `classified` ({ kind, fetchURL }) names, as its
+// content would be classified before it is fetched: { source: "resource", path } for the page's own
+// server, else { source: "remote", url }; null for no source. For the load capability.
+export function loadSource(classified) {
     if (!classified || classified.kind === "none") return null;
     const base = pageBaseURL();
     let address;
@@ -118,8 +129,37 @@ export function resolvedOrigin(classified, parent, parentID, logger) {
         address = classified.fetchURL;
     }
     const own = classified.kind !== "remote" || haveSameOrigin(address, base);
+    return own ? { source: "resource", path: address } : { source: "remote", url: address };
+}
+
+// The origin of content a LoadableView loads from the classified source `classified`
+// ({ kind, fetchURL }) inside content of origin `parent`, into the LoadableView `parentID`: a
+// path or name (always on the page's server) or a URL on the page's origin is a resource; another
+// origin is remote, less trusted unless it is one of the configuration's trusted origins; no more
+// trusted than `parent`. Then the host's policy has the last word. Null for no source.
+//
+// `finalURL`, once fetched: the address the ActionUI JSON finally came from (the Response's url,
+// after redirects), which decides, so a page-relative path or a trusted server that redirects
+// to another origin gives remote, less-trusted content.
+export function resolvedOrigin(classified, parent, parentID, logger, finalURL = null) {
+    if (!classified || classified.kind === "none") return null;
+    const base = pageBaseURL();
+    let address;
+    try {
+        address = new URL(finalURL || classified.fetchURL, base).href;
+    } catch {
+        address = finalURL || classified.fetchURL;
+    }
+    // A redirect can take even a page-relative path to another origin: once fetched, the final
+    // address alone decides. It is the page's own when it has the page's scheme and host, as a
+    // path or name is classified (Helpers/LoadableSource.js), so a page served from a custom
+    // scheme (an opaque origin) keeps its own files as resources.
+    const own = finalURL
+        ? isOnPageServer(address, base)
+        : classified.kind !== "remote" || haveSameOrigin(address, base);
     const source = own ? { source: "resource", path: address } : { source: "remote", url: address };
-    const byDefault = own && (parent?.trust ?? TRUSTED) === TRUSTED ? TRUSTED : LESS_TRUSTED;
+    const ownTrust = own || isTrustedOrigin(address) ? TRUSTED : LESS_TRUSTED;
+    const byDefault = ownTrust === TRUSTED && (parent?.trust ?? TRUSTED) === TRUSTED ? TRUSTED : LESS_TRUSTED;
     let trust;
     try {
         trust = policy.trust(source, parent ?? null, byDefault) === TRUSTED ? TRUSTED : LESS_TRUSTED;

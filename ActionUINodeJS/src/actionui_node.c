@@ -633,6 +633,33 @@ static napi_value node_get_element_origin_json(napi_env env, napi_callback_info 
     return result;
 }
 
+// MARK: - N-API: Configuration
+
+/* setConfigurationJSON(json): throws with the adapter's message when the configuration refuses it
+ * (nothing changed then). Any thread: the configuration is behind a lock. */
+static napi_value node_set_configuration_json(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    STRING_ARG(json);
+    if (!read_string_arg(env, argv[0], &json, "configurationJSON")) return NULL;
+    if (!actionUISetConfigurationJSON(json)) {
+        char* err = actionUIGetLastError();
+        napi_throw_error(env, NULL, err ? err : "actionUISetConfigurationJSON failed");
+        if (err) actionUIFreeString(err);
+        return NULL;
+    }
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
+static napi_value node_get_configuration_json(napi_env env, napi_callback_info info) {
+    char* json = actionUIGetConfigurationJSON();
+    if (json == NULL) { napi_throw_error(env, NULL, "out of memory"); return NULL; }
+    napi_value result;
+    napi_create_string_utf8(env, json, NAPI_AUTO_LENGTH, &result);
+    actionUIFreeString(json);
+    return result;
+}
+
 static napi_value node_log(napi_env env, napi_callback_info info) {
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -2766,6 +2793,8 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "getElementInfoJSON",       node_get_element_info_json);
     EXPORT_FN(exports, "getElementOriginJSON",     node_get_element_origin_json);
     EXPORT_FN(exports, "setTrustPolicy",           node_set_trust_policy);
+    EXPORT_FN(exports, "setConfigurationJSON",     node_set_configuration_json);
+    EXPORT_FN(exports, "getConfigurationJSON",     node_get_configuration_json);
 
     /* Runtime structural mutations */
     EXPORT_FN(exports, "insertElement",            node_insert_element);

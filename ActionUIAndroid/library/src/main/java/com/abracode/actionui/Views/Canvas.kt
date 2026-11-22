@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.rememberTextMeasurer
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
@@ -96,14 +97,15 @@ object Canvas : ActionUIViewConstruction {
         val warnedSources = remember(props) { mutableSetOf<String>() }
 
         val actionID = config.actionID
+        val dispatch = rememberActionDispatch()
         // Gated like every other tap in the library: `LocalActionUIEnabled` folds in
         // this element's own `disabled` AND any ancestor's, and `hidden` narrows it too
         // (Helpers/ControlEnvironment.kt), so an invisible canvas cannot fire.
         val tapEnabled = LocalActionUIEnabled.current
         val tapModifier = if (actionID != null && tapEnabled) {
-            modifier.pointerInput(actionID, element.id) {
+            modifier.pointerInput(actionID, element.id, dispatch) {
                 detectTapGestures {
-                    ActionUIModel.actionHandler(actionID, viewID = element.id)
+                    dispatch.fire(actionID, viewID = element.id)
                 }
             }
         } else {

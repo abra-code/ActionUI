@@ -418,10 +418,10 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
         let savedFolder = ActionUIResourceFolder.path
         defer {
-            ActionUIResourceFolder.path = savedFolder
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = savedFolder }
             try? FileManager.default.removeItem(at: base)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
 
         let own = try windowGroupFile(resources, name: "Main.json", menu: "Own Tools")
         let outside = try windowGroupFile(elsewhere, name: "Other.json", menu: "Outside Tools")
@@ -444,17 +444,58 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createDirectory(at: composed, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: decomposed, withIntermediateDirectories: true)
         let sibling = try windowGroupFile(decomposed, name: "Main.json", menu: "Sibling Tools")
-        ActionUIResourceFolder.path = composed.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = composed.path }
         XCTAssertFalse(AdwaitaApplication.isInResourceFolder(sibling), "a folder spelled with a combining accent is elsewhere")
-        ActionUIResourceFolder.path = "/"
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = "/" }
         XCTAssertFalse(AdwaitaApplication.isInResourceFolder(own), "a resource folder of / trusts nothing")
+    }
+
+    func testAWindowGroupFromAServerAddsNoCommandsEvenWhenTrusted() throws {
+        // As on Apple, where a WindowGroup's commands come only from the app's own scenes: a window
+        // loaded from a server adds none, even when the host's trust policy trusts the server.
+        struct TrustEverything: ActionUITrustPolicy {
+            func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+                       byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust { .trusted }
+        }
+        let document = """
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "Server Tools", "windowGroupID": "Server Tools"},
+             "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
+             "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Server Tools"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
+            """
+        let server = try TestImageServer(png: [], document: document)
+        defer {
+            server.stop()
+            ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
+        }
+        ActionUIModel.shared.trustPolicy = TrustEverything()
+        let app = AdwaitaApplication()
+        var shown: [String] = []
+        var presented = false
+        app.handlers.windowWillPresent = { windowUUID in
+            presented = true
+            _ = runAfter(milliseconds: 100) {
+                shown = self.outline(AppCommands.shared.menu.opaquePointer)
+                app.closeWindow(windowUUID)
+                app.terminate()
+            }
+        }
+        app.handlers.didFinishLaunching = {
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "commands-server", title: nil)
+        }
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertTrue(presented, "the window was fetched and shown")
+        XCTAssertFalse(shown.isEmpty, "the menu was read while the window showed")
+        XCTAssertFalse(shown.joined().contains("Server Tools"), "a server's WindowGroup adds no menu commands")
     }
 
     func testAWindowGroupLargerThanTheCapIsLeftForTheLoadToRefuse() throws {
         let document = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
         let saved = WindowModel.maximumJSONSize
-        defer { WindowModel.maximumJSONSize = saved }
-        WindowModel.maximumJSONSize = document.count - 1
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = saved } }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumJSONSize = document.count - 1 }
         let group = AdwaitaApplication.shared.windowGroup(document, format: "json")
         XCTAssertEqual(group.data, document, "not parsed, so its smaller content cannot slip under the cap")
         XCTAssertNil(group.title)
@@ -565,10 +606,10 @@ final class AppCommandsTests: XCTestCase {
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         let savedFolder = ActionUIResourceFolder.path
         defer {
-            ActionUIResourceFolder.path = savedFolder
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = savedFolder }
             try? FileManager.default.removeItem(at: resources)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
         let file = try windowGroupFile(resources, name: "Main.json", menu: "Group Tools")
 
         let app = AdwaitaApplication()

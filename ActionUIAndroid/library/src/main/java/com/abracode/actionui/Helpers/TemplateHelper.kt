@@ -189,11 +189,12 @@ object TemplateHelper {
         context: TemplateContext,
         column: Int?,
         actionID: String?,
+        dispatch: ActionDispatch,
     ): Boolean {
         if (container == null || column == null) return false
         val index = writeRowCell(container, context.row, context.rowIndex, column, rowBoolText(isOn)) ?: return false
         if (actionID != null) {
-            ActionUIModel.actionHandler(actionID, viewID = context.parentID, viewPartID = index, context = isOn)
+            dispatch.fire(actionID, viewID = context.parentID, viewPartID = index, context = isOn)
         }
         return true
     }

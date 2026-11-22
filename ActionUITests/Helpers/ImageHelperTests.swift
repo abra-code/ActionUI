@@ -31,13 +31,13 @@ final class ImageHelperTests: XCTestCase {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("image-helper-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer {
-            ActionUIResourceFolder.path = nil
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
             try? FileManager.default.removeItem(at: folder)
         }
         let file = folder.appendingPathComponent("photo.png").path
         XCTAssertTrue(FileManager.default.createFile(atPath: file, contents: Data([0x89, 0x50, 0x4E, 0x47])))
         XCTAssertNil(ImageHelper.lookup.resourcePath("photo.png"))
-        ActionUIResourceFolder.path = folder.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder.path }
         XCTAssertEqual(ImageHelper.lookup.resourcePath("photo.png"), file)
         XCTAssertEqual(ImageSource.resolve("photo.png", interpretation: "resourceName", lookup: ImageHelper.lookup), .filePath(file))
     }

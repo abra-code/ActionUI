@@ -95,7 +95,12 @@ final class ActionUIAppFunctionTests: XCTestCase {
     }
 
     func testAHostSetsTheResourceFolder() {
-        defer { AdwaitaApplication.shared.resourceFolder = nil }
+        // Settable only before a window loads (ActionUIConfiguration): other tests have loaded some.
+        ActionUIConfiguration.setFixedForTesting(false)
+        defer {
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
+            ActionUIConfiguration.setFixedForTesting(true)
+        }
         actionUIAppSetResourceFolder("/opt/example/app")
         XCTAssertEqual(AdwaitaApplication.shared.resourceFolder, "/opt/example/app")
         actionUIAppSetResourceFolder(nil)

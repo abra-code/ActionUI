@@ -486,8 +486,9 @@ package final class AppCommands {
             if about {
                 AppCommands.showAbout()
             } else if let actionID {
+                // The menu is the host's and the app's own resources': its items are in no window's model.
                 ActionUIModel.shared.actionHandler(actionID, windowUUID: self?.activeWindowUUID() ?? "",
-                                                   viewID: viewID, viewPartID: 0, context: nil)
+                                                   viewID: viewID, viewPartID: 0, context: nil, origin: .host)
             }
         }
         g_simple_action_set_enabled(action.opaquePointer, disabled ? 0 : 1)

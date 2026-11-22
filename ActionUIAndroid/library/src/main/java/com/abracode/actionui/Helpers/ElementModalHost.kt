@@ -143,10 +143,11 @@ private fun ElementModal(element: ActionUIElement) {
 @Composable
 private fun FireOnDismiss(visible: Boolean, element: ActionUIElement, propertyKey: String) {
     val actionID = element.properties?.stringProperty(propertyKey)
+    val dispatch = rememberActionDispatch()
     var wasVisible by remember { mutableStateOf(visible) }
     LaunchedEffect(visible) {
         if (wasVisible && !visible && actionID != null) {
-            ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0)
+            dispatch.fire(actionID, viewID = element.id, viewPartID = 0)
         }
         wasVisible = visible
     }

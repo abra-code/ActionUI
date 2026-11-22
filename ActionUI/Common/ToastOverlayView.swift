@@ -24,7 +24,7 @@ struct ToastOverlayView: SwiftUI.View {
             if let action = toast.action {
                 SwiftUI.Spacer(minLength: 8)
                 SwiftUI.Button(action.title) {
-                    ActionUIModel.shared.actionHandler(action.actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(action.actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0, origin: .host)
                     ActionUIModel.shared.dismissToast(windowUUID: windowUUID)
                 }
                 .font(.subheadline.weight(.semibold))

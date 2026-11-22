@@ -1,7 +1,10 @@
 package com.abracode.actionui.Helpers
 
 import android.content.res.AssetManager
+import com.abracode.actionui.Common.ActionUIConfiguration
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.JSONContentOrigin
+import com.abracode.actionui.Common.resolvedOrigin
 import com.abracode.actionui.Common.droppingUntypedElements
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
@@ -36,9 +39,9 @@ internal const val LOADABLE_REMOTE_TIMEOUT_MS = 15_000
 
 /**
  * How deep LoadableViews may nest: one whose LoadableViews around it already number this
- * many is refused (Apple's `ActionUIDocumentLoader.maxNestingDepth`).
+ * many is refused (ActionUIConfiguration.limits.maximumNestingDepth, 16 by default).
  */
-internal const val LOADABLE_MAX_NESTING_DEPTH = 16
+internal val loadableMaxNestingDepth: Int get() = ActionUIConfiguration.current.limits.maximumNestingDepth
 
 /**
  * The text a LoadableView's [source] is known by when the nesting rule compares sources,
@@ -65,7 +68,7 @@ internal fun loadableNestingKey(source: LoadableSource): String? = when (source)
  */
 internal fun loadableNestingRefusal(key: String, enclosing: List<String>): String? = when {
     key in enclosing -> "it includes itself"
-    enclosing.size >= LOADABLE_MAX_NESTING_DEPTH -> "LoadableViews are nested more than $LOADABLE_MAX_NESTING_DEPTH deep"
+    enclosing.size >= loadableMaxNestingDepth -> "LoadableViews are nested more than $loadableMaxNestingDepth deep"
     else -> null
 }
 
@@ -78,8 +81,16 @@ internal fun loadableAssetPath(name: String): String = if (name.contains('.')) n
  * been added to any window.)
  */
 internal sealed interface DescriptionLoad {
-    /** Parsed and decoded; ready for the caller to register and render. */
-    data class Loaded(val element: ActionUIElement) : DescriptionLoad
+    /**
+     * Parsed and decoded; ready for the caller to register and render. [finalURL]: for a remote
+     * source, the address it finally came from after redirects, which decides its origin;
+     * [origin]: the origin the caller resolved for it.
+     */
+    data class Loaded(
+        val element: ActionUIElement,
+        val finalURL: String? = null,
+        val origin: JSONContentOrigin? = null,
+    ) : DescriptionLoad
     /** A source was present but could not be read / parsed; [message] is user-facing. */
     data class Failed(val message: String) : DescriptionLoad
     /** No usable source. */
@@ -100,14 +111,28 @@ internal suspend fun loadRemoteDescription(
     logger: ActionUILogger,
 ): DescriptionLoad {
     if (source.format == LoadableFormat.PLIST) return deferredPlist(source.url, logger)
-    val text = try {
+    val (text, finalURL) = try {
         withContext(Dispatchers.IO) { fetchRemoteText(source.url) }
     } catch (e: IOException) {
         logger.log("LoadableLoader: failed to fetch '${source.url}': ${e.message}", LoggerLevel.error)
         return DescriptionLoad.Failed("Failed to load: ${source.url}")
     }
-    return decodeDescription(text, json, logger)
+    val decoded = decodeDescription(text, json, logger)
+    return if (decoded is DescriptionLoad.Loaded) decoded.copy(finalURL = finalURL) else decoded
 }
+
+/**
+ * The origin of remote ActionUI JSON loaded from [source] inside [parent] into the LoadableView
+ * [parentID], by the address it finally came from ([finalURL], after redirects; the requested
+ * one when the load reported none): a trusted server that redirects elsewhere does not make the
+ * other server's JSON trusted.
+ */
+internal fun remoteOrigin(
+    source: LoadableSource.Remote,
+    finalURL: String?,
+    parent: JSONContentOrigin?,
+    parentID: Int?,
+): JSONContentOrigin? = resolvedOrigin(source.copy(url = finalURL ?: source.url), parent, parentID)
 
 /**
  * Reads and decodes a local [source] (bundle `name` from [assets], or a
@@ -181,8 +206,14 @@ internal fun jsonNestsDeeperThan(text: String, limit: Int): Boolean {
     return false
 }
 
-/** The largest document, in UTF-8 bytes, ActionUI decodes: from the host, a file or a server. */
-internal const val DESCRIPTION_MAX_BYTES = 16 * 1024 * 1024
+/**
+ * The largest ActionUI JSON, in UTF-8 bytes, ActionUI decodes: from the host, a file or a server
+ * (ActionUIConfiguration.limits.maximumJSONSize, 16 MB by default).
+ */
+internal val descriptionMaxBytes: Int get() = ActionUIConfiguration.current.limits.maximumJSONSize
+
+/** [descriptionMaxBytes] in whole megabytes, for messages. */
+internal val descriptionMaxMegabytes: Int get() = descriptionMaxBytes / (1024 * 1024)
 
 /** Whether [text] is longer than [limit] bytes in UTF-8, counted without encoding it. */
 internal fun utf8LongerThan(text: String, limit: Int): Boolean {
@@ -209,9 +240,10 @@ internal fun decodeDescription(
     json: Json,
     logger: ActionUILogger,
 ): DescriptionLoad {
-    if (utf8LongerThan(text, DESCRIPTION_MAX_BYTES)) {
-        logger.log("LoadableLoader: description larger than 16 MB, not decoded", LoggerLevel.error)
-        return DescriptionLoad.Failed("Larger than 16 MB")
+    val limit = descriptionMaxBytes
+    if (utf8LongerThan(text, limit)) {
+        logger.log("LoadableLoader: ActionUI JSON larger than $descriptionMaxMegabytes MB, not decoded", LoggerLevel.error)
+        return DescriptionLoad.Failed("Larger than $descriptionMaxMegabytes MB")
     }
     if (jsonNestsDeeperThan(text, DESCRIPTION_MAX_NESTING_DEPTH)) {
         logger.log("LoadableLoader: description nested deeper than $DESCRIPTION_MAX_NESTING_DEPTH levels", LoggerLevel.error)
@@ -231,8 +263,12 @@ internal fun decodeDescription(
     return DescriptionLoad.Loaded(element)
 }
 
-/** Blocking GET of [url]'s body as text. Call only off the main thread. */
-private fun fetchRemoteText(url: String): String {
+/**
+ * Blocking GET of [url]'s body as text, with the address it finally came from after redirects
+ * (HttpURLConnection follows them only within one scheme, so never from https to http). Call
+ * only off the main thread.
+ */
+private fun fetchRemoteText(url: String): Pair<String, String> {
     val connection = (URL(url).openConnection() as HttpURLConnection).apply {
         connectTimeout = LOADABLE_REMOTE_TIMEOUT_MS
         readTimeout = LOADABLE_REMOTE_TIMEOUT_MS
@@ -241,7 +277,8 @@ private fun fetchRemoteText(url: String): String {
     try {
         val code = connection.responseCode
         if (code !in 200..299) throw IOException("HTTP $code for $url")
-        // Read up to the document cap: a larger body is not decoded anyway, so reading on only costs memory.
+        // Read up to the JSON size cap: a larger body is not decoded anyway, so reading on only costs memory.
+        val limit = descriptionMaxBytes
         val buffer = ByteArrayOutputStream()
         connection.inputStream.use { input ->
             val chunk = ByteArray(64 * 1024)
@@ -249,10 +286,11 @@ private fun fetchRemoteText(url: String): String {
                 val count = input.read(chunk)
                 if (count < 0) break
                 buffer.write(chunk, 0, count)
-                if (buffer.size() > DESCRIPTION_MAX_BYTES) throw IOException("$url is larger than 16 MB")
+                if (buffer.size() > limit) throw IOException("$url is larger than $descriptionMaxMegabytes MB")
             }
         }
-        return buffer.toString(Charsets.UTF_8.name())
+        // After the body is read, the connection's URL is the last one it was redirected to.
+        return buffer.toString(Charsets.UTF_8.name()) to connection.url.toString()
     } finally {
         connection.disconnect()
     }

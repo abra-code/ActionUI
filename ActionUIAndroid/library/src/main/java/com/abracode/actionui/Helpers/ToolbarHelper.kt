@@ -369,12 +369,13 @@ private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
         val props = element.properties
         val title = props?.stringProperty("title").orEmpty()
         val actionID = props?.stringProperty("actionID")
+        val dispatch = rememberActionDispatch()
         val imageScale = props?.stringProperty("imageScale")
         val contentDescription = props?.stringProperty("accessibilityLabel")
         val imageRegistry = LocalActionUIImageRegistry.current
         val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "assetImage", "ToolbarItem", logger, imageRegistry) }
         val onClick = {
-            actionID?.let { ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0) }
+            actionID?.let { dispatch.fire(it, viewID = element.id, viewPartID = 0) }
             Unit
         }
         if (iconSource != null && title.isEmpty()) {

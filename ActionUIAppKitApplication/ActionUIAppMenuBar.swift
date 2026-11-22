@@ -72,12 +72,14 @@ private final class MenuActionTarget: NSObject {
         guard let actionID = actionIDsByTag[sender.tag] else { return }
         // Resolve the front window's UUID so menu actions target the key window.
         let windowUUID = keyWindowUUID()
+        // The menu bar is the host's: its items are not in any window's model.
         ActionUIModel.shared.actionHandler(
             actionID,
             windowUUID: windowUUID,
             viewID: sender.tag,
             viewPartID: 0,
-            context: nil
+            context: nil,
+            origin: .host
         )
     }
 }

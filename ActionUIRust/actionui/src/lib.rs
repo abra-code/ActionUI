@@ -59,6 +59,8 @@ compile_error!(
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod app;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
+pub mod config;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod dialog;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]
 mod error;
@@ -79,6 +81,8 @@ mod window;
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use app::{ActionContext, App};
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub use config::{configuration, configure};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub use dialog::{ButtonRole, DialogButton, InsertPosition, ModalStyle};
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))]

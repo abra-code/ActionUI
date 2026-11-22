@@ -15,6 +15,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.runtime.LaunchedEffect
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.WindowModel
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -67,6 +68,7 @@ fun WindowToastHost(windowModel: WindowModel) {
                     viewID = 0,
                     viewPartID = 0,
                     context = null,
+                    origin = JSONContentOrigin.HOST,
                 )
             }
         }

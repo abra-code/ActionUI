@@ -787,6 +787,38 @@ function setTrustPolicy(options = {}) {
     _actionui.setTrustPolicy(trustBridge, allowsBridge);
 }
 
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+// Changes ActionUI's configuration, for every window. Call it before the first window loads its
+// ActionUI JSON (after creating the Application is fine); it is fixed after that. Only the keys
+// given change; the rest keep their values:
+//
+//   actionui.configure({
+//       limits: { maximumJSONSize: 32 * 1024 * 1024,         // bytes (16 MB by default)
+//                 loadBudget: { loads: 256, seconds: 60 },   // LoadableView loads per window
+//                 maximumNestingDepth: 16 },                 // LoadableViews inside LoadableViews
+//       trust: { trustedOrigins: ['https://ui.example.com'] },  // servers whose JSON is trusted
+//       resourceFolder: '/path/to/resources',                // new Application({ resourceFolder }) sets this
+//       addOns: { SomeAddOn: {} },                            // a section per add-on
+//   });
+//
+// ActionUI JSON from a trusted origin (https, exact scheme, host and port) is trusted as the app's
+// own, but only where the content around it is trusted, and only by the address it finally came
+// from: a redirect from the trusted server to another one gives less-trusted content. Throws,
+// changing nothing, for an unknown key, a wrong value, an origin that is not https, or a
+// configuration already fixed.
+function configure(settings) {
+    if (settings === null || typeof settings !== 'object' || Array.isArray(settings)) {
+        throw new TypeError('configure takes an object of settings');
+    }
+    _actionui.setConfigurationJSON(JSON.stringify(settings));
+}
+
+// The configuration in effect, with every key (see configure).
+function getConfiguration() { return JSON.parse(_actionui.getConfigurationJSON()); }
+
 function getVersion()   { return _actionui.getVersion() ?? 'unknown'; }
 function getLastError() { return _actionui.getLastError(); }
 function clearError()   { _actionui.clearError(); }
@@ -805,6 +837,8 @@ module.exports = {
     InsertPosition,
     Trust,
     setTrustPolicy,
+    configure,
+    getConfiguration,
     getVersion,
     getLastError,
     clearError,

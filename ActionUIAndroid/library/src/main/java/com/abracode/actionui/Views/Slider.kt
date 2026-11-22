@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -65,6 +66,7 @@ object Slider : ActionUIViewConstruction {
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
         val logger = LocalActionUILogger.current
+        val dispatch = rememberActionDispatch()
 
         val config = resolveSliderConfig(props, logger)
         val valueChangeActionID = props?.stringProperty("valueChangeActionID")
@@ -93,7 +95,7 @@ object Slider : ActionUIViewConstruction {
                 if (asDouble != current) {
                     if (viewModel != null) viewModel.value = asDouble else localValue = asDouble
                     if (valueChangeActionID != null) {
-                        ActionUIModel.actionHandler(valueChangeActionID, viewID = element.id, viewPartID = 0)
+                        dispatch.fire(valueChangeActionID, viewID = element.id, viewPartID = 0)
                     }
                 }
             },

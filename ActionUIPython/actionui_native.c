@@ -689,6 +689,29 @@ static PyObject* py_get_element_origin_json(PyObject* self, PyObject* args) {
     return result;
 }
 
+static PyObject* py_set_configuration_json(PyObject* self, PyObject* args) {
+    const char* configurationJSON;
+    if (PyArg_ParseTuple(args, "s", &configurationJSON) == 0) return NULL;
+    bool ok;
+    WITHOUT_GIL(ok = actionUISetConfigurationJSON(configurationJSON));
+    if (!ok) {
+        char* err = actionUIGetLastError();
+        if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
+        else              { PyErr_SetString(PyExc_RuntimeError, "actionUISetConfigurationJSON failed"); }
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_get_configuration_json(PyObject* self, PyObject* args) {
+    char* json;
+    WITHOUT_GIL(json = actionUIGetConfigurationJSON());
+    if (json == NULL) return PyErr_NoMemory();
+    PyObject* result = PyUnicode_FromString(json);
+    actionUIFreeString(json);
+    return result;
+}
+
 static PyObject* py_log(PyObject* self, PyObject* args) {
     const char* message;
     int level;
@@ -1875,6 +1898,8 @@ static PyMethodDef ActionUIMethods[] = {
     {"get_element_info_json",       py_get_element_info_json,       METH_VARARGS, "get_element_info_json(windowUUID) -> str|None"},
     {"get_element_origin_json",     py_get_element_origin_json,     METH_VARARGS, "get_element_origin_json(windowUUID, viewID) -> str|None -- where the element's content came from."},
     {"set_trust_policy",            py_set_trust_policy,            METH_VARARGS, "set_trust_policy(trust|None, allows|None) -- the host's trust policy (main thread)."},
+    {"set_configuration_json",      py_set_configuration_json,      METH_VARARGS, "set_configuration_json(json) -- change ActionUI's configuration before the first window loads; raises RuntimeError when refused."},
+    {"get_configuration_json",      py_get_configuration_json,      METH_NOARGS,  "get_configuration_json() -> str -- the configuration in effect, every key."},
 
     /* Runtime structural mutations */
     {"insert_element",  py_insert_element,  METH_VARARGS,

@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -123,6 +124,7 @@ object DatePicker : ActionUIViewConstruction {
         style: DatePickerStyle,
         bounds: DateBounds?,
     ) {
+        val dispatch = rememberActionDispatch()
         val initial = (initialValue(element) as? LocalDate) ?: LocalDate.now()
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         var localDate by remember(element.id) { mutableStateOf(initial) }
@@ -132,7 +134,7 @@ object DatePicker : ActionUIViewConstruction {
             if (picked != current && (bounds == null || bounds.contains(picked))) {
                 if (viewModel != null) viewModel.value = picked else localDate = picked
                 actionID?.let {
-                    ActionUIModel.actionHandler(
+                    dispatch.fire(
                         it, viewID = element.id, viewPartID = 0, context = DateHelper.formatDate(picked),
                     )
                 }
@@ -154,6 +156,7 @@ object DatePicker : ActionUIViewConstruction {
         title: String,
         actionID: String?,
     ) {
+        val dispatch = rememberActionDispatch()
         val initial = (initialValue(element) as? LocalDateTime) ?: LocalDateTime.now()
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         var local by remember(element.id) { mutableStateOf(initial) }
@@ -163,7 +166,7 @@ object DatePicker : ActionUIViewConstruction {
             if (picked != current) {
                 if (viewModel != null) viewModel.value = picked else local = picked
                 actionID?.let {
-                    ActionUIModel.actionHandler(
+                    dispatch.fire(
                         it, viewID = element.id, viewPartID = 0, context = DateHelper.formatDateTime(picked),
                     )
                 }
@@ -186,6 +189,7 @@ object DatePicker : ActionUIViewConstruction {
         actionID: String?,
         bounds: DateBounds?,
     ) {
+        val dispatch = rememberActionDispatch()
         val initial = (initialValue(element) as? LocalDateTime) ?: LocalDateTime.now()
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         var local by remember(element.id) { mutableStateOf(initial) }
@@ -195,7 +199,7 @@ object DatePicker : ActionUIViewConstruction {
             if (picked != current && (bounds == null || bounds.contains(picked.toLocalDate()))) {
                 if (viewModel != null) viewModel.value = picked else local = picked
                 actionID?.let {
-                    ActionUIModel.actionHandler(
+                    dispatch.fire(
                         it, viewID = element.id, viewPartID = 0, context = DateHelper.formatDateTime(picked),
                     )
                 }

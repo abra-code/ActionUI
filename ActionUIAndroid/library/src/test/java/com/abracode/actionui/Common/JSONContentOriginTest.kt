@@ -19,7 +19,7 @@ class JSONContentOriginTest {
     @After
     fun tearDown() {
         folders.forEach { it.deleteRecursively() }
-        ActionUIModel.resourceFolders = emptyList()
+        ActionUIConfiguration.replaceForTesting()
         ActionUIModel.windowModels.remove("origin-test")
     }
 

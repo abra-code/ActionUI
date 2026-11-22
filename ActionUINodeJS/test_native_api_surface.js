@@ -238,6 +238,26 @@ function testTrustPolicyCalls(uuid) {
     check('setTrustPolicy(null, null) restores the default policy', true);
 }
 
+function testConfigurationCalls() {
+    console.log('\n=== Configuration ===');
+    const current = JSON.parse(native.getConfigurationJSON());
+    check('getConfigurationJSON has every key',
+        JSON.stringify(Object.keys(current).sort()) === JSON.stringify(['addOns', 'limits', 'resourceFolder', 'trust']));
+    for (const bad of [[], [1], [null]]) {
+        let threw = null;
+        try { native.setConfigurationJSON(...bad); } catch (e) { threw = e; }
+        check(`setConfigurationJSON(${JSON.stringify(bad)}) throws a TypeError`, threw instanceof TypeError);
+    }
+    for (const [text, expected] of [['{limits', 'not valid JSON'], ['{"limit": {}}', 'unknown configuration key limit']]) {
+        let threw = null;
+        try { native.setConfigurationJSON(text); } catch (e) { threw = e; }
+        // Refused for the text, or (when an earlier call loaded a window) because it is fixed.
+        check(`setConfigurationJSON(${JSON.stringify(text)}) throws the reason`,
+            threw instanceof Error && (threw.message.includes(expected) || threw.message.includes('fixed')));
+    }
+    check('a refusal changes nothing', require('util').isDeepStrictEqual(JSON.parse(native.getConfigurationJSON()), current));
+}
+
 function testRemoveWindow(uuid) {
     console.log('\n=== Remove window ===');
     check('removeWindow returns undefined', native.removeWindow(uuid) === undefined);
@@ -492,6 +512,7 @@ function main() {
     testElementState(testUuid);
     testElementInfo(testUuid);
     testTrustPolicyCalls(testUuid);
+    testConfigurationCalls();
     testRemoveWindow(testUuid);
     testNoopCalls(testUuid);
     testModalNoop(testUuid);

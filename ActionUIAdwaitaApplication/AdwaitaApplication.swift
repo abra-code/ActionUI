@@ -206,8 +206,9 @@ public final class AdwaitaApplication {
     enum WindowSource {
         case url(String)
         case json(Data)
-        /// An http or https URL's document, loaded (nil: it could not be).
-        case fetched(String, Data?)
+        /// An http or https URL's ActionUI JSON, loaded (nil: it could not be), with the address it
+        /// finally came from after redirects (nil: the URL itself).
+        case fetched(String, Data?, finalURL: String?)
         /// A document prepareWindow loaded.
         case prepared(PreparedWindow)
     }
@@ -737,17 +738,32 @@ public final class AdwaitaApplication {
                 logger.log("Window \(windowUUID): the JSON could not be loaded: \(error)", .error)
                 return ("The document could not be loaded: \(error)", document.title, nil)
             }
-        case .fetched(let text, let data):
+        case .fetched(let text, let data, let finalText):
             let url = URL(string: text)
             let title = url.map { $0.deletingPathExtension().lastPathComponent }.flatMap { $0.isEmpty || $0 == "/" ? nil : $0 }
             guard let url, let data else {
                 logger.log("Window \(windowUUID): \(text) could not be loaded", .error)
                 return ("\(text) could not be loaded", title, nil)
             }
+            // Where it finally came from decides its origin: a trusted server's redirect elsewhere
+            // does not make the other server's JSON trusted.
+            // One Foundation cannot read is not loaded, rather than passing for `url`.
+            let finalURL: URL
+            if let finalText {
+                guard let parsed = URL(string: finalText) else {
+                    logger.log("Window \(windowUUID): \(text) was redirected to \(finalText), an address that cannot be read", .error)
+                    return ("\(text) could not be loaded", title, nil)
+                }
+                finalURL = parsed
+            } else {
+                finalURL = url
+            }
             let format = AppBundle.documentFormat(of: url)
             let document = windowGroup(data, format: format)
             do {
-                try loadDocument(document, format: format, windowUUID: windowUUID, from: url)
+                try loadDocument(document, format: format, windowUUID: windowUUID, from: finalURL)
+                // No commands from a server, trusted or not: as on Apple, where a WindowGroup's
+                // commands come only from the app's own scenes, never from a window loaded at run time.
                 return (nil, document.title ?? title, ownCommands(document, from: text, isAppResource: false))
             } catch {
                 logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
@@ -860,10 +876,10 @@ public final class AdwaitaApplication {
         let load = remoteLoadCounter
         remoteLoads[windowUUID] = load
         g_application_hold(typed(application))
-        URLLoader.fetch(text) { [weak self] bytes in
+        URLLoader.fetch(text, maximumSize: URLLoader.maximumJSONFetchSize) { [weak self] bytes in
             guard let self, self.remoteLoads[windowUUID] == load else { return }
             // present drops the load and its hold, and the window holds the application.
-            self.present(.fetched(text, bytes?.data), windowUUID: windowUUID, title: title, options: options)
+            self.present(.fetched(text, bytes?.data, finalURL: bytes?.url), windowUUID: windowUUID, title: title, options: options)
         }
     }
 

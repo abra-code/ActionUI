@@ -822,10 +822,10 @@ final class AdwaitaApplicationTests: XCTestCase {
         try FileManager.default.createDirectory(atPath: resources, withIntermediateDirectories: true)
         let savedFolder = ActionUIResourceFolder.path
         defer {
-            ActionUIResourceFolder.path = savedFolder
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = savedFolder }
             try? FileManager.default.removeItem(atPath: folder)
         }
-        ActionUIResourceFolder.path = resources
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources }
         try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
         try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
         let app = AdwaitaApplication()

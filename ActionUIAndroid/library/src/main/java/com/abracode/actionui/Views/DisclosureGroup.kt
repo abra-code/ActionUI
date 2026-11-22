@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
@@ -82,6 +83,7 @@ object DisclosureGroup : ActionUIViewConstruction {
         val logger = LocalActionUILogger.current
         val title = props?.stringProperty("title") ?: ""
         val valueChangeActionID = props?.stringProperty("valueChangeActionID")
+        val dispatch = rememberActionDispatch()
         val initial = props?.booleanProperty("isExpanded") ?: false
 
         // Bind to the ViewModel state when a window is in scope; else local state.
@@ -97,7 +99,7 @@ object DisclosureGroup : ActionUIViewConstruction {
             val new = !expanded
             if (viewModel != null) viewModel.states["isExpanded"] = new else localExpanded = new
             if (valueChangeActionID != null) {
-                ActionUIModel.actionHandler(valueChangeActionID, viewID = element.id, viewPartID = 0)
+                dispatch.fire(valueChangeActionID, viewID = element.id, viewPartID = 0)
             }
         }
 

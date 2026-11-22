@@ -17,7 +17,7 @@ final class ResourceFolderTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        ActionUIResourceFolder.path = nil
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
         try? FileManager.default.removeItem(atPath: folder)
     }
 
@@ -25,10 +25,10 @@ final class ResourceFolderTests: XCTestCase {
         let file = URL(fileURLWithPath: folder).appendingPathComponent("Panel.json").path
         XCTAssertTrue(FileManager.default.createFile(atPath: file, contents: Data("{}".utf8)))
         XCTAssertNil(ActionUIResourceFolder.file("Panel.json"), "no folder named yet")
-        ActionUIResourceFolder.path = folder
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder }
         XCTAssertEqual(ActionUIResourceFolder.file("Panel.json"), file)
         XCTAssertNil(ActionUIResourceFolder.file("Missing.json"))
-        ActionUIResourceFolder.path = nil
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
         XCTAssertNil(ActionUIResourceFolder.file("Panel.json"), "none once the folder is cleared")
     }
 
@@ -36,7 +36,7 @@ final class ResourceFolderTests: XCTestCase {
         let sub = URL(fileURLWithPath: folder).appendingPathComponent("Sub.json").path
         try FileManager.default.createDirectory(atPath: sub, withIntermediateDirectories: true)
         XCTAssertTrue(FileManager.default.createFile(atPath: sub + "/Inner.json", contents: Data("{}".utf8)))
-        ActionUIResourceFolder.path = folder
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder }
         XCTAssertNil(ActionUIResourceFolder.file("Sub.json"), "a folder is no resource")
         XCTAssertNil(ActionUIResourceFolder.file("Sub.json/Inner.json"), "a name with a path is refused")
         XCTAssertNil(ActionUIResourceFolder.file("../Panel.json"))

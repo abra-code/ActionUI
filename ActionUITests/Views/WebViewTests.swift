@@ -609,11 +609,11 @@ final class WebViewTests: XCTestCase {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("webview-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer {
-            ActionUIResourceFolder.path = nil
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
             try? FileManager.default.removeItem(at: folder)
         }
         try "var fromFolder = 1;".write(to: folder.appendingPathComponent("FolderScript.js"), atomically: true, encoding: .utf8)
-        ActionUIResourceFolder.path = folder.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = folder.path }
         XCTAssertEqual(WebViewSupport.resolveJSSource(from: ["resourceName": "FolderScript.js"], logger: logger), "var fromFolder = 1;")
         XCTAssertEqual(WebViewSupport.resolveJSSource(from: ["resourceName": "FolderScript"], logger: logger), "var fromFolder = 1;",
                        "a name without .js finds the .js file")

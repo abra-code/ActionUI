@@ -27,9 +27,12 @@ import CSoup
 /// reference count atomic, so the bytes can be read on another thread (decoding an image).
 package final class LoadedBytes: @unchecked Sendable {
     let bytes: OpaquePointer
+    /// The address the bytes finally came from, after redirects; nil when not known.
+    package let url: String?
 
-    init(adopting bytes: OpaquePointer) {
+    init(adopting bytes: OpaquePointer, url: String? = nil) {
         self.bytes = bytes
+        self.url = url
     }
 
     /// A copy of the bytes.
@@ -76,30 +79,44 @@ package enum URLLoader {
 
     private static var session: UnsafeMutablePointer<SoupSession>?
 
-    /// Loads `url`'s bytes and passes them to `completion`, or nil (see the header).
-    package static func fetch(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
+    /// Loads `url`'s bytes and passes them to `completion`, or nil (see the header). An http or
+    /// https body may be at most `maximumSize` bytes (nil: URLLoader.maximumSize).
+    package static func fetch(_ url: String, maximumSize: Int? = nil, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
         // Lowercase and interned by GLib: not freed.
         switch swiftString(g_uri_peek_scheme(url)) {
         case "http", "https":
-            fetchHTTP(url, completion)
+            fetchHTTP(url, maximumSize: maximumSize ?? Self.maximumSize, completion)
         case "file":
             fetchFile(url, completion)
         case "data":
-            let bytes = soup_uri_decode_data_uri(url, nil).map { LoadedBytes(adopting: $0) }
+            let bytes = soup_uri_decode_data_uri(url, nil).map { LoadedBytes(adopting: $0, url: url) }
             _ = runAfter(milliseconds: 0) { completion(bytes) }
         default:
             _ = runAfter(milliseconds: 0) { completion(nil) }
         }
     }
 
-    /// `url`'s bytes as Data, for a caller that takes an asynchronous fetch (ActionUIDocumentLoader);
-    /// throws when fetch gives nil.
-    static func data(_ url: URL) async throws -> Data {
+    /// `url`'s bytes as Data, with the address they finally came from (after redirects), for a
+    /// caller that takes an asynchronous fetch (ActionUIDocumentLoader); throws when fetch gives nil.
+    static func data(_ url: URL, maximumSize: Int? = nil) async throws -> (data: Data, finalURL: URL) {
         let bytes = await withCheckedContinuation { continuation in
-            fetch(url.absoluteString) { continuation.resume(returning: $0) }
+            fetch(url.absoluteString, maximumSize: maximumSize) { continuation.resume(returning: $0) }
         }
         guard let bytes else { throw ActionUIError("Could not load \(url.absoluteString)") }
-        return bytes.data
+        // Not `url` for a final address Foundation cannot read: a trusted server's redirect would
+        // then pass for the trusted address.
+        guard let finalText = bytes.url else { return (bytes.data, url) }
+        guard let finalURL = URL(string: finalText) else {
+            throw ActionUIError("Could not load \(url.absoluteString): it was redirected to an address that cannot be read")
+        }
+        return (bytes.data, finalURL)
+    }
+
+    /// The most an http or https load of ActionUI JSON reads: URLLoader.maximumSize, or the
+    /// configuration's JSON size limit when the host raised it above that (larger JSON is refused
+    /// when it loads anyway).
+    package static var maximumJSONFetchSize: Int {
+        max(maximumSize, ActionUIConfiguration.current.limits.maximumJSONSize)
     }
 
     private static func sharedSession() -> UnsafeMutablePointer<SoupSession> {
@@ -116,7 +133,7 @@ package enum URLLoader {
         return original?.lowercased() == "https" && next?.lowercased() == "http"
     }
 
-    private static func fetchHTTP(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
+    private static func fetchHTTP(_ url: String, maximumSize: Int, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
         guard let message = soup_message_new("GET", url) else {
             _ = runAfter(milliseconds: 0) { completion(nil) }
             return
@@ -126,7 +143,7 @@ package enum URLLoader {
             warnedNoTLS = true
             ActionUIModel.shared.logger.log("https addresses cannot load: GIO has no TLS backend; install glib-networking", .warning)
         }
-        HTTPLoad(url: url, message: message, session: sharedSession(), completion: completion).start()
+        HTTPLoad(url: url, message: message, session: sharedSession(), maximumSize: maximumSize, completion: completion).start()
     }
 
     private static func fetchFile(_ url: String, _ completion: @escaping @MainActor (LoadedBytes?) -> Void) {
@@ -146,7 +163,7 @@ package enum URLLoader {
             let bytes = g_file_load_bytes_finish(file, result, nil, &error)
             g_object_unref(UnsafeMutableRawPointer(file))
             if let error { g_error_free(error) }
-            completion(bytes.map { LoadedBytes(adopting: $0) })
+            completion(bytes.map { LoadedBytes(adopting: $0, url: url) })
         }
         let data = Unmanaged.passRetained(CallbackBox(run)).toOpaque()
         g_file_load_bytes_async(file, nil, readyTrampoline, data)
@@ -154,7 +171,7 @@ package enum URLLoader {
 }
 
 /// One http or https load: sends the request, follows redirects (301, 302, 303, 307, 308) itself,
-/// refusing one from https to http, reads the body in pieces up to URLLoader.maximumSize, and gives
+/// refusing one from https to http, reads the body in pieces up to its maximumSize, and gives
 /// up after URLLoader.totalTimeout. Keeps itself alive (through the callbacks it registers) until it
 /// has called its completion once.
 @MainActor
@@ -166,6 +183,8 @@ private final class HTTPLoad {
     private var current: String
     private var redirects = 0
     private let session: UnsafeMutablePointer<SoupSession>
+    /// The largest body it reads, in bytes.
+    private let maximumSize: Int
     private let completion: @MainActor (LoadedBytes?) -> Void
     private let cancellable = g_cancellable_new()!
     private var stream: UnsafeMutablePointer<GInputStream>?
@@ -180,12 +199,13 @@ private final class HTTPLoad {
     /// The statuses that redirect a GET, as libsoup's own following reads them.
     private static let redirectStatuses: Set<UInt32> = [301, 302, 303, 307, 308]
 
-    init(url: String, message: OpaquePointer, session: UnsafeMutablePointer<SoupSession>,
+    init(url: String, message: OpaquePointer, session: UnsafeMutablePointer<SoupSession>, maximumSize: Int,
          completion: @escaping @MainActor (LoadedBytes?) -> Void) {
         self.url = url
         self.current = url
         self.message = message
         self.session = session
+        self.maximumSize = maximumSize
         self.completion = completion
     }
 
@@ -266,8 +286,8 @@ private final class HTTPLoad {
             if size == 0 {
                 return finish(body)
             }
-            guard body.count + Int(size) <= URLLoader.maximumSize else {
-                stop("it is larger than \(URLLoader.maximumSize) bytes", callInFlight: false)
+            guard body.count + Int(size) <= maximumSize else {
+                stop("it is larger than \(maximumSize) bytes", callInFlight: false)
                 return
             }
             if let start {
@@ -309,6 +329,6 @@ private final class HTTPLoad {
         }
         guard let data else { return completion(nil) }
         let bytes = data.withUnsafeBytes { buffer in g_bytes_new(buffer.baseAddress, gsize(buffer.count))! }
-        completion(LoadedBytes(adopting: bytes))
+        completion(LoadedBytes(adopting: bytes, url: current))
     }
 }

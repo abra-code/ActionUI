@@ -82,10 +82,10 @@ test("a document larger than 16 MB, or nested deeper than 512, is not decoded", 
     assert.equal(DL.nestsDeeperThan("[\"[[[[\"]", 3), false, "brackets in strings do not count");
     assert.equal(DL.jsonRefusal("[".repeat(513)), "Nested deeper than 512 levels");
     const logger = makeLogger();
-    assert.throws(() => Window.fromJSON("x".repeat(DL.MAX_DOCUMENT_BYTES + 1), undefined, logger));
+    assert.throws(() => Window.fromJSON("x".repeat(DL.maximumJSONSize() + 1), undefined, logger));
     assert.ok(logger.messages.some((m) => m.message.includes("Larger than 16 MB")));
     // A download stops at the cap, by its declared length or as it is read.
-    await assert.rejects(DL.readJSONText({ headers: { get: () => String(DL.MAX_DOCUMENT_BYTES + 1) }, text: async () => "" }), /Larger than 16 MB/);
+    await assert.rejects(DL.readJSONText({ headers: { get: () => String(DL.maximumJSONSize() + 1) }, text: async () => "" }), /Larger than 16 MB/);
     const chunk = new Uint8Array(4 * 1024 * 1024);
     let reads = 0;
     const body = { getReader: () => ({ read: async () => (reads++ < 5 ? { done: false, value: chunk } : { done: true }), cancel: async () => {} }) };
@@ -100,7 +100,8 @@ test("the load budget allows 256 loads in a minute per window", () => {
     assert.equal(budget.spend(), false);
     now = 60_000;
     assert.equal(budget.spend(), true, "a minute later, again");
-    assert.deepEqual(DL.LOAD_BUDGET, { loads: 256, seconds: 60 });
+    assert.deepEqual(DL.loadBudget(), { loads: 256, seconds: 60 });
+    assert.deepEqual(new DL.LoadBudget().budget, { loads: 256, seconds: 60 }, "the configuration's when none is given");
 });
 
 // Renders `root` with fetch answering from `documents` (address to document, or text), lets
@@ -149,7 +150,7 @@ test("less-trusted content may not use a trusted element's id, even one not buil
 test("a LoadableView's document larger than 16 MB is refused", async () => {
     const { logger } = await render(
         { type: "LoadableView", id: 2, properties: { url: "https://example.com/big.json" } },
-        () => `{"type":"Text","id":20,"properties":{"text":"${"x".repeat(DL.MAX_DOCUMENT_BYTES)}"}}`);
+        () => `{"type":"Text","id":20,"properties":{"text":"${"x".repeat(DL.maximumJSONSize())}"}}`);
     assert.ok(logger.messages.some((m) => m.message.includes("Larger than 16 MB")), JSON.stringify(logger.messages.map((m) => m.message)));
 });
 
@@ -219,4 +220,90 @@ test("what the host inserts into a window loaded from another origin is the host
     assert.equal(win.getElementOrigin(1).trust, "lessTrusted");
     win.insertElement(1, { type: "Text", id: 9, properties: { text: "host" } });
     assert.deepEqual(win.getElementOrigin(9), { source: "host", trust: "trusted" });
+});
+
+test("a policy that refuses an action has its way; the default fires every action", async () => {
+    const { win, logger } = await render(
+        { type: "VStack", id: 1, children: [
+            { type: "Button", id: 2, properties: { title: "Mine", actionID: "test.run" } },
+            { type: "LoadableView", id: 3, properties: { url: "https://example.com/v.json" } }] },
+        () => ({ type: "Button", id: 20, properties: { title: "Theirs", actionID: "test.run" } }));
+    const fired = [];
+    win.model.actionDispatcher = (actionID, windowUUID, viewID) => fired.push(viewID);
+    for (const viewID of [2, 20, 0, 999]) win.model.dispatchAction("test.run", viewID);
+    assert.deepEqual(fired, [2, 20, 0, 999], "the default policy allows every action");
+    const asked = [];
+    TP.setTrustPolicy({ allows: (capability, origin) => {
+        if (capability.capability !== "action") return TP.allowsByDefault(capability, origin);
+        asked.push([capability.actionID, origin.trust]);
+        return origin.trust === "trusted";
+    } });
+    fired.length = 0;
+    for (const viewID of [2, 20, 0, 999]) win.model.dispatchAction("test.run", viewID);
+    win.model.dispatchAction("test.run", 0, 0, null, TP.HOST_ORIGIN);
+    assert.deepEqual(fired, [2, 0], "the host's element, and the host's own action (0, the host's origin); not the remote one, nor 0 or an id with no origin");
+    assert.deepEqual(asked, [["test.run", "trusted"], ["test.run", "lessTrusted"], ["test.run", "lessTrusted"], ["test.run", "lessTrusted"], ["test.run", "trusted"]]);
+    assert.equal(logger.messages.filter((m) => m.message.includes("the trust policy refuses it") && m.message.startsWith("Not firing action")).length, 3);
+});
+
+function findAll(node, match, out = []) {
+    for (const child of node.children ?? []) {
+        if (match(child)) out.push(child);
+        findAll(child, match, out);
+    }
+    return out;
+}
+
+test("less-trusted content giving an element id 0 does not fire as the host", async () => {
+    const { win, container } = await render(
+        { type: "VStack", id: 1, children: [
+            { type: "LoadableView", id: 3, properties: { url: "https://example.com/v.json" } }] },
+        () => ({ type: "Button", id: 0, properties: { title: "Theirs", actionID: "test.run" } }));
+    const fired = [];
+    win.model.actionDispatcher = (actionID, windowUUID, viewID) => fired.push(viewID);
+    TP.setTrustPolicy({ allows: (capability, origin) =>
+        capability.capability === "action" ? origin.trust === "trusted" : TP.allowsByDefault(capability, origin) });
+    const buttons = findAll(container, (n) => n.dataset?.auiType === "Button");
+    assert.equal(buttons.length, 1);
+    buttons[0].fire("click");
+    assert.deepEqual(fired, []);
+});
+
+test("a load a redirect takes somewhere the policy refuses is not shown", async () => {
+    TP.setTrustPolicy({ allows: (capability, origin) =>
+        capability.capability === "load" ? capability.source?.url !== "https://evil.example/v.json" : TP.allowsByDefault(capability, origin) });
+    let read = false;
+    globalThis.fetch = async () => ({ ok: true, status: 200, url: "https://evil.example/v.json",
+        text: async () => { read = true; return JSON.stringify({ type: "Text", id: 20, properties: { text: "x" } }); } });
+    const logger = makeLogger();
+    const win = Window.fromJSON({ type: "VStack", id: 1, children: [
+        { type: "LoadableView", id: 3, properties: { url: "https://example.com/v.json" } }] }, undefined, logger);
+    new Application({ name: "T" }).presentWindow(win, makeElement());
+    for (let i = 0; i < 50; i++) await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(read, false, "the redirected content was never read");
+    assert.equal(win.getElementOrigin(20), null);
+    assert.ok(logger.messages.some((m) => m.message.includes("redirected to https://evil.example/v.json, and the trust policy refuses it")),
+        JSON.stringify(logger.messages.map((m) => m.message)));
+});
+
+test("a policy that refuses a load has its way, asked before anything is fetched", async () => {
+    const asked = [];
+    TP.setTrustPolicy({ allows: (capability, origin) => {
+        if (capability.capability !== "load") return TP.allowsByDefault(capability, origin);
+        asked.push([capability.source, origin.trust]);
+        return capability.source?.source !== "remote";
+    } });
+    const fetched = [];
+    const { win, logger } = await render(
+        { type: "VStack", id: 1, children: [
+            { type: "LoadableView", id: 2, properties: { url: "https://example.com/v.json" } },
+            { type: "LoadableView", id: 3, properties: { name: "Own" } }] },
+        (url) => { fetched.push(url); return { type: "Text", id: url.includes("example.com") ? 20 : 30, properties: { text: "x" } }; });
+    assert.ok(!fetched.some((url) => url.includes("example.com")), "the refused source was never fetched");
+    assert.equal(win.getElementOrigin(20), null);
+    assert.equal(win.getElementOrigin(30)?.source, "resource", "a page-relative name loads");
+    assert.deepEqual(asked.map(([source, trust]) => [source.source, trust]), [["remote", "trusted"], ["resource", "trusted"]],
+        "asked with the origin of the content the LoadableView is in: the host's");
+    assert.ok(logger.messages.some((m) => m.message === "LoadableView 2: not loading https://example.com/v.json: the trust policy refuses it"),
+        JSON.stringify(logger.messages.map((m) => m.message)));
 });

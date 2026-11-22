@@ -76,7 +76,7 @@ test("choosing an item dispatches that Button's own actionID (viewID = the Butto
         ],
     });
     panel.children[1].fire("click"); // choose "Delete"
-    assert.deepEqual(dispatched, [["ctx.delete", 12]]);
+    assert.deepEqual(dispatched.map((args) => args.slice(0, 2)), [["ctx.delete", 12]]);
 });
 
 test("a contextMenuPreview subtree renders as a block above the items", () => {

@@ -1708,6 +1708,43 @@ def set_trust_policy(trust: Optional[Callable[[Dict[str, Any], Optional[Dict[str
     _actionui.set_trust_policy(trust_bridge, allows_bridge)
 
 
+def configure(settings: Dict[str, Any]) -> None:
+    """
+    Change ActionUI's configuration, for every window. Call it before the first window loads
+    its ActionUI JSON (after creating the Application is fine); it is fixed after that.
+
+    Only the keys given change; the rest keep their values:
+
+        actionui.configure({
+            "limits": {"maximumJSONSize": 32 * 1024 * 1024,        # bytes (16 MB by default)
+                       "loadBudget": {"loads": 256, "seconds": 60},  # LoadableView loads per window
+                       "maximumNestingDepth": 16},                   # LoadableViews inside LoadableViews
+            "trust": {"trustedOrigins": ["https://ui.example.com"]},  # servers whose JSON is trusted
+            "resourceFolder": "/path/to/resources",                  # Application(resource_folder=) sets this
+            "addOns": {"SomeAddOn": {}},                              # a section per add-on
+        })
+
+    ActionUI JSON from a trusted origin (https, exact scheme, host and port) is trusted as the
+    app's own, but only where the content around it is trusted, and only by the address it
+    finally came from: a redirect from the trusted server to another one gives less-trusted
+    content. Raises ActionUIError, changing nothing, for an unknown key, a wrong value, an
+    origin that is not https, or a configuration already fixed; TypeError for settings that are
+    not a dict, and ValueError for a number JSON cannot hold (NaN, infinity).
+    """
+    if not isinstance(settings, dict):
+        raise TypeError("configure takes a dict of settings")
+    text = json.dumps(settings, allow_nan=False)
+    try:
+        _actionui.set_configuration_json(text)
+    except RuntimeError as error:
+        raise ActionUIError(str(error)) from None
+
+
+def get_configuration() -> Dict[str, Any]:
+    """The configuration in effect, with every key (see configure)."""
+    return json.loads(_actionui.get_configuration_json())
+
+
 def get_version() -> str:
     """Return the ActionUI version string."""
     return _actionui.get_version() or "unknown"
@@ -1736,6 +1773,8 @@ __all__ = [
     'DialogButton',
     'Trust',
     'set_trust_policy',
+    'configure',
+    'get_configuration',
     'get_version',
     'get_last_error',
     'clear_error',

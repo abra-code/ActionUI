@@ -90,6 +90,10 @@ extension LoadableView: ActionUIAdwaitaRenderer {
         let parentID = node.element.id
         let actionID = Props(node.properties).viewDidLoadActionID
         if case .success(let found) = source {
+            // The trust policy may refuse the source (ActionUICapability.load), before anything is read.
+            if let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, logger: logger) {
+                return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
+            }
             let key = ActionUIDocumentLoader.nestingKey(for: found)
             if let refusal = ActionUIDocumentLoader.nestingRefusal(key, inside: enclosingNestingKeys(of: node)) {
                 logger.log("LoadableView: not loading \(key): \(refusal)", .error)
@@ -131,9 +135,9 @@ extension LoadableView: ActionUIAdwaitaRenderer {
                     result = .success(try await ActionUIDocumentLoader.loadRemote(
                         url: url, windowUUID: windowUUID, isContentView: false, parentID: parentID, logger: logger,
                         fetch: { url in
-                            let data = try await URLLoader.data(url)
+                            let fetched = try await URLLoader.data(url, maximumSize: URLLoader.maximumJSONFetchSize)
                             guard isCurrent() else { throw CancellationError() }
-                            return data
+                            return fetched
                         }))
                 } catch {
                     result = .failure(error)

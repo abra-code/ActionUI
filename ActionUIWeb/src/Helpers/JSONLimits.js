@@ -1,11 +1,27 @@
-// The limits every document is held to, from the host, a page-relative file or another server,
-// as on the other platforms: no larger than 16 MB, no deeper than 512 levels of JSON nesting, and
-// a window's LoadableViews load at most 256 documents a minute (a document that reloads itself
-// through its value, or a chain of them, cannot spin the page).
+// The limits all ActionUI JSON is held to, from the host, a page-relative file or another
+// server, as on the other platforms: no larger than the configuration's maximumJSONSize (16 MB by
+// default), no deeper than 512 levels of JSON nesting, and a window's LoadableViews load at most
+// the configuration's load budget (256 a minute by default), so JSON that reloads itself through
+// its value, or a chain of it, cannot spin the page. See Common/Configuration.js.
 
-export const MAX_DOCUMENT_BYTES = 16 * 1024 * 1024;
+import { currentConfiguration } from "../Common/Configuration.js";
+
 export const MAX_DOCUMENT_DEPTH = 512;
-export const LOAD_BUDGET = Object.freeze({ loads: 256, seconds: 60 });
+
+// The largest ActionUI JSON a load takes, in UTF-8 bytes (the configuration's).
+export function maximumJSONSize() {
+    return currentConfiguration().limits.maximumJSONSize;
+}
+
+// The refusal for ActionUI JSON larger than the cap, in whole megabytes as the other platforms say it.
+function tooLarge() {
+    return `Larger than ${Math.floor(maximumJSONSize() / (1024 * 1024))} MB`;
+}
+
+// The configuration's load budget: { loads, seconds }.
+export function loadBudget() {
+    return currentConfiguration().limits.loadBudget;
+}
 
 // Whether `text` is longer than `limit` bytes in UTF-8, counted without encoding it.
 export function utf8LongerThan(text, limit) {
@@ -46,7 +62,7 @@ export function nestsDeeperThan(text, depth) {
 // Why the document `text` is not decoded, or null when it may be.
 export function jsonRefusal(text) {
     if (typeof text !== "string") return null;
-    if (utf8LongerThan(text, MAX_DOCUMENT_BYTES)) return "Larger than 16 MB";
+    if (utf8LongerThan(text, maximumJSONSize())) return tooLarge();
     if (nestsDeeperThan(text, MAX_DOCUMENT_DEPTH)) return `Nested deeper than ${MAX_DOCUMENT_DEPTH} levels`;
     return null;
 }
@@ -54,12 +70,13 @@ export function jsonRefusal(text) {
 // The body of `response` as text, read up to the document cap: a larger body is refused (an
 // Error) without reading the rest, as reading more only costs memory.
 export async function readJSONText(response) {
+    const limit = maximumJSONSize();
     const declared = Number(response.headers?.get?.("content-length"));
-    if (Number.isFinite(declared) && declared > MAX_DOCUMENT_BYTES) throw new Error("Larger than 16 MB");
+    if (Number.isFinite(declared) && declared > limit) throw new Error(tooLarge());
     const reader = response.body?.getReader?.();
     if (!reader) {
         const text = await response.text();
-        if (utf8LongerThan(text, MAX_DOCUMENT_BYTES)) throw new Error("Larger than 16 MB");
+        if (utf8LongerThan(text, limit)) throw new Error(tooLarge());
         return text;
     }
     const chunks = [];
@@ -68,9 +85,9 @@ export async function readJSONText(response) {
         const { done, value } = await reader.read();
         if (done) break;
         size += value.byteLength;
-        if (size > MAX_DOCUMENT_BYTES) {
+        if (size > limit) {
             reader.cancel?.().catch?.(() => {});
-            throw new Error("Larger than 16 MB");
+            throw new Error(tooLarge());
         }
         chunks.push(value);
     }
@@ -83,12 +100,18 @@ export async function readJSONText(response) {
     return new TextDecoder().decode(bytes);
 }
 
-// A window's load budget: at most LOAD_BUDGET.loads loads in any LOAD_BUDGET.seconds.
+// A window's load budget: at most `loads` loads in any `seconds`, the configuration's unless a
+// budget is given (tests).
 export class LoadBudget {
-    constructor(budget = LOAD_BUDGET, now = () => (globalThis.performance?.now?.() ?? Date.now())) {
-        this.budget = budget;
+    constructor(budget = null, now = () => (globalThis.performance?.now?.() ?? Date.now())) {
+        this.fixedBudget = budget;
         this.now = now;
         this.recent = [];
+    }
+
+    // The budget in effect: { loads, seconds }.
+    get budget() {
+        return this.fixedBudget ?? loadBudget();
     }
 
     // True, counting the load, when one more is within the budget.

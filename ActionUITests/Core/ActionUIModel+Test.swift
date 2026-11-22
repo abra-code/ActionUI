@@ -7,6 +7,10 @@ extension ActionUIModel {
         shared.actionHandlers.removeAll()
         shared.removeDefaultActionHandler()
         shared.trustPolicy = DefaultTrustPolicy()
-        shared.loadBudget = ActionUILoadBudget(loads: 256, seconds: 60)
+        // The defaults, keeping the resource folder, which tests set and restore themselves.
+        let folder = ActionUIConfiguration.current.resourceFolder
+        var configuration = ActionUIConfiguration()
+        configuration.resourceFolder = folder
+        ActionUIConfiguration.replaceForTesting(configuration)
     }
 }

@@ -8,7 +8,7 @@ import java.io.IOException
 
 /**
  * Where content came from, and how far it is trusted. A document the host passes in, or
- * one in the app's resources (its assets, or a folder in [ActionUIModel.resourceFolders]),
+ * one in the app's resources (its assets, or a folder in the configuration's resourceFolder ([ActionUIConfiguration])),
  * is trusted; one a LoadableView loads from a server or from a file elsewhere is less
  * trusted, and so is anything inside it: [trust] is the lower of the source's own trust
  * and that of the content around it. Mirrors the Swift `JSONContentOrigin`.
@@ -51,13 +51,16 @@ internal fun isFileInside(path: String, folder: String): Boolean {
 /**
  * The origin of content loaded from [source] inside content of origin [parent] (null for a
  * window's root) into the LoadableView [parentID]; null for no source. An asset is a
- * resource; a file is one only inside one of [resourceFolders]; a remote address is not.
+ * resource; a file is one only inside one of [resourceFolders]; a remote address only when it is
+ * one of [trustedOrigins] (https). Then the lower of that and [parent]'s trust, so a resource or a
+ * trusted server that less-trusted content names stays less trusted.
  */
 internal fun classifyOrigin(
     source: LoadableSource,
     parent: JSONContentOrigin?,
     parentID: Int?,
     resourceFolders: List<String>,
+    trustedOrigins: List<String> = emptyList(),
 ): JSONContentOrigin? {
     val (kind, own) = when (source) {
         is LoadableSource.None -> return null
@@ -74,7 +77,9 @@ internal fun classifyOrigin(
                 JSONContentOrigin.Source.File(path) to JSONContentOrigin.Trust.LESS_TRUSTED
             }
         }
-        is LoadableSource.Remote -> JSONContentOrigin.Source.Remote(source.url) to JSONContentOrigin.Trust.LESS_TRUSTED
+        is LoadableSource.Remote -> JSONContentOrigin.Source.Remote(source.url) to
+            if (ActionUIConfiguration.isTrustedOrigin(source.url, trustedOrigins)) JSONContentOrigin.Trust.TRUSTED
+            else JSONContentOrigin.Trust.LESS_TRUSTED
     }
     return JSONContentOrigin(kind, minTrust(own, parent?.trust ?: JSONContentOrigin.Trust.TRUSTED), parentID)
 }

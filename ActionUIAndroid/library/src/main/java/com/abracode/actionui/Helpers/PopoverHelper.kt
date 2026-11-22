@@ -101,13 +101,14 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(
     }
 
     val popoverActionID = element.properties?.stringProperty("popoverActionID")
+    val dispatch = rememberActionDispatch()
     val arrowEdge = parsePopoverArrowEdge(element.properties, logger)
 
     fun toggle() {
         val willShow = !(carrierModel.states[POPOVER_VISIBLE_STATE_KEY] as? Boolean ?: false)
         carrierModel.states[POPOVER_VISIBLE_STATE_KEY] = willShow
         if (willShow && popoverActionID != null) {
-            ActionUIModel.actionHandler(popoverActionID, viewID = element.id, viewPartID = 0)
+            dispatch.fire(popoverActionID, viewID = element.id, viewPartID = 0)
         }
     }
 
@@ -115,7 +116,7 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(
     // is no ripple, matching SwiftUI's onTapGesture. A Button consumes its own
     // taps anyway and toggles in onClick.
     val tapModifier = if (element.type != "Button" && LocalActionUIEnabled.current) {
-        Modifier.pointerInput(element.id) { detectTapGestures { toggle() } }
+        Modifier.pointerInput(element.id, dispatch) { detectTapGestures { toggle() } }
     } else {
         Modifier
     }

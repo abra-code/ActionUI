@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -99,6 +100,7 @@ internal fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: 
             val props = child.properties
             val label = props?.stringProperty("title").orEmpty()
             val actionID = props?.stringProperty("actionID")
+            val dispatch = rememberActionDispatch()
             // A Button's icon (`systemImage` / `materialName:android`) renders in the
             // Material leading-icon slot, through the same glyph helper as `Button`.
             val imageRegistry = LocalActionUIImageRegistry.current
@@ -118,7 +120,7 @@ internal fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: 
                 },
                 onClick = {
                     dismiss()
-                    actionID?.let { ActionUIModel.actionHandler(it, viewID = child.id, viewPartID = 0) }
+                    actionID?.let { dispatch.fire(it, viewID = child.id, viewPartID = 0) }
                 },
             )
         }

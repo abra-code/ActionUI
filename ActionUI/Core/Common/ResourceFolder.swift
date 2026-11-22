@@ -9,8 +9,8 @@
  - Linux: the app's bundle is this folder when set, else the running program's folder (AppBundle).
  nil (the default) leaves only the platform's own place.
 
- Set on the main thread by the host; read while views are built, which for images is not
- main-actor isolated, so the value is behind a lock.
+ It is the configuration's resourceFolder (ActionUIConfiguration): setting it here is the same,
+ and fixed with the rest of the configuration once a window has loaded its ActionUI JSON.
 */
 
 #if canImport(FoundationEssentials)
@@ -20,13 +20,18 @@ import Foundation
 #endif
 
 public enum ActionUIResourceFolder {
-    private static let lock = Lock()
-    nonisolated(unsafe) private static var storedPath: String?
-
-    /// The folder the host named; nil: none (the platform's own place only).
+    /// The folder the host named; nil: none (the platform's own place only). Setting it once the
+    /// configuration is fixed, or to "", is refused and logged (ActionUIConfiguration.update).
     public static var path: String? {
-        get { lock.withLock { storedPath } }
-        set { lock.withLock { storedPath = newValue } }
+        get { ActionUIConfiguration.current.resourceFolder }
+        set {
+            do {
+                try ActionUIConfiguration.update { $0.resourceFolder = newValue }
+            } catch {
+                let message = "The resource folder was not set to \(newValue ?? "none"): \(error)"
+                Task { @MainActor in ActionUIModel.shared.logger.log(message, .error) }
+            }
+        }
     }
 
     /// The path of the file `name` (with its extension) in the folder, when there is a regular file

@@ -61,7 +61,11 @@ public struct LoadableWindowGroup {
         return WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
     }
 
-/*
+    // Not built (#if false): kept as the sketch of a LoadableWindowGroup whose JSON names its source
+    // ("url", "filePath" or "name") and loads it at run time, through FileLoadableWindowGroupHelper
+    // and RemoteLoadableWindowGroupHelper (also not built; their comment says what loading them
+    // needs before they come back).
+#if false
     static func buildScene(element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) -> some SwiftUI.Scene {
         let properties = element.properties
         
@@ -117,5 +121,5 @@ public struct LoadableWindowGroup {
             }
         }
     }
-*/
+#endif
 }

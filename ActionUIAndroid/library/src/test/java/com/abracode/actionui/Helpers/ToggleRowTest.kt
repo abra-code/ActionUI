@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.ViewModel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -28,6 +29,8 @@ import org.junit.Test
  * the demo app, as the rest of the Compose layer is.
  */
 class ToggleRowTest {
+    private val testDispatch = ActionDispatch("", JSONContentOrigin.HOST)
+
 
     private val packRows = listOf(
         listOf("true", "Xcode and Swift builds", "xcode", "false"),
@@ -140,7 +143,7 @@ class ToggleRowTest {
             cellSeenByHandler = rowsOf(container)[viewPartID][0]
         }
 
-        val taken = TemplateHelper.commitRowToggle(true, container, context(1), column = 0, actionID = "packs.toggled")
+        val taken = TemplateHelper.commitRowToggle(true, container, context(1), column = 0, actionID = "packs.toggled", dispatch = testDispatch)
 
         assertTrue(taken)
         assertEquals(listOf("true", "Node", "node", "false"), rowsOf(container)[1])
@@ -152,7 +155,7 @@ class ToggleRowTest {
     @Test
     fun `the state survives a re-render`() {
         val container = container()
-        TemplateHelper.commitRowToggle(true, container, context(1), column = 0, actionID = null)
+        TemplateHelper.commitRowToggle(true, container, context(1), column = 0, actionID = null, dispatch = testDispatch)
         val redrawn = TemplateHelper.substituteElement(toggleTemplate, rowsOf(container)[1]).properties!!
         assertEquals(true, redrawn["isOn"]!!.jsonPrimitive.booleanOrNull)
     }
@@ -162,7 +165,7 @@ class ToggleRowTest {
         val container = container()
         var firedCount = 0
         ActionUIModel.registerActionHandler("packs.toggled") { _, _, _, _, _ -> firedCount++ }
-        assertFalse(TemplateHelper.commitRowToggle(true, container, context(1), column = null, actionID = "packs.toggled"))
+        assertFalse(TemplateHelper.commitRowToggle(true, container, context(1), column = null, actionID = "packs.toggled", dispatch = testDispatch))
         assertEquals(packRows, rowsOf(container))
         assertEquals(0, firedCount)
     }
@@ -171,7 +174,7 @@ class ToggleRowTest {
     fun `a row shorter than the column is padded`() {
         val container = container(listOf(listOf("Alpha")))
         val short = TemplateContext(parentID = 600, rowIndex = 0, row = listOf("Alpha"))
-        TemplateHelper.commitRowToggle(true, container, short, column = 2, actionID = null)
+        TemplateHelper.commitRowToggle(true, container, short, column = 2, actionID = null, dispatch = testDispatch)
         assertEquals(listOf(listOf("Alpha", "", "true")), rowsOf(container))
     }
 
@@ -182,12 +185,12 @@ class ToggleRowTest {
         var fired = 0
         ActionUIModel.registerActionHandler("packs.toggled") { _, _, _, _, _ -> fired += 1 }
         // "$2000000000" in a template: one tap padded the row by that many cells.
-        assertFalse(TemplateHelper.commitRowToggle(true, container, short, column = 1_999_999_999, actionID = "packs.toggled"))
+        assertFalse(TemplateHelper.commitRowToggle(true, container, short, column = 1_999_999_999, actionID = "packs.toggled", dispatch = testDispatch))
         assertEquals(listOf(listOf("Alpha")), rowsOf(container))
         assertEquals(0, fired)
         // The last column within the limit is still written.
         val limit = TemplateHelper.MAX_ROW_PADDING
-        assertTrue(TemplateHelper.commitRowToggle(true, container, short, column = limit, actionID = null))
+        assertTrue(TemplateHelper.commitRowToggle(true, container, short, column = limit, actionID = null, dispatch = testDispatch))
         assertEquals(limit + 1, rowsOf(container)[0].size)
     }
 
@@ -196,13 +199,13 @@ class ToggleRowTest {
         val moved = container(listOf(listOf("false", "New", "new", "false")) + packRows)
         val parts = mutableListOf<Int>()
         ActionUIModel.registerActionHandler("packs.toggled") { _, _, _, viewPartID, _ -> parts += viewPartID }
-        assertTrue(TemplateHelper.commitRowToggle(true, moved, context(1), column = 0, actionID = "packs.toggled"))
+        assertTrue(TemplateHelper.commitRowToggle(true, moved, context(1), column = 0, actionID = "packs.toggled", dispatch = testDispatch))
         assertEquals(listOf("true", "Node", "node", "false"), rowsOf(moved)[2])
         assertEquals(packRows[0], rowsOf(moved)[1])
         assertEquals(listOf(2), parts)
 
         val gone = container(listOf(packRows[0]))
-        assertFalse(TemplateHelper.commitRowToggle(true, gone, context(1), column = 0, actionID = "packs.toggled"))
+        assertFalse(TemplateHelper.commitRowToggle(true, gone, context(1), column = 0, actionID = "packs.toggled", dispatch = testDispatch))
         assertEquals(listOf(packRows[0]), rowsOf(gone))
         assertEquals(listOf(2), parts)
     }
@@ -211,12 +214,12 @@ class ToggleRowTest {
     fun `a selection on the toggled row follows it, one on another row stays`() {
         val container = container()
         container.value = packRows[1]
-        TemplateHelper.commitRowToggle(true, container, context(1), column = 0, actionID = null)
+        TemplateHelper.commitRowToggle(true, container, context(1), column = 0, actionID = null, dispatch = testDispatch)
         assertEquals(listOf("true", "Node", "node", "false"), container.value)
 
         val other = container()
         other.value = packRows[0]
-        TemplateHelper.commitRowToggle(true, other, context(1), column = 0, actionID = null)
+        TemplateHelper.commitRowToggle(true, other, context(1), column = 0, actionID = null, dispatch = testDispatch)
         assertEquals(packRows[0], other.value)
     }
 }

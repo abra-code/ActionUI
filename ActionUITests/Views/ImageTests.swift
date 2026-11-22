@@ -265,10 +265,10 @@ extension ImageTests {
         let resources = folder.appendingPathComponent("Resources")
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         defer {
-            ActionUIResourceFolder.path = nil
+            ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
             try? FileManager.default.removeItem(at: folder)
         }
-        ActionUIResourceFolder.path = resources.path
+        ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources.path }
         let inside = resources.appendingPathComponent("in.png")
         let outside = folder.appendingPathComponent("out.png")
         try Self.png(width: 4, height: 4).write(to: inside)

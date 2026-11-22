@@ -21,6 +21,7 @@ import { presentToast, dismissActiveToast } from "./Scenes/ToastHost.js";
 import { parseMenuBar, buildAppShell } from "./Scenes/MenuBar.js";
 import { installLifecycleHooks } from "./Helpers/LifecycleHooks.js";
 import { HOST_ORIGIN, resolvedOrigin, setTrustPolicy, DefaultTrustPolicy, TRUSTED, LESS_TRUSTED } from "./Common/TrustPolicy.js";
+import { configure, getConfiguration, ConfigurationError, fixConfiguration } from "./Common/Configuration.js";
 import { jsonRefusal, readJSONText } from "./Helpers/JSONLimits.js";
 
 // Register all built-in view types (side-effect imports).
@@ -93,6 +94,7 @@ import "./Views/Chart.js";
 // Re-export so hosts can `import { Window, InsertPosition, ModalStyle } from
 // ".../ActionUI.js"` (mirrors the Node.js adapter exposing these alongside Window).
 export { InsertPosition, ModalStyle, setTrustPolicy, DefaultTrustPolicy, TRUSTED, LESS_TRUSTED };
+export { configure, getConfiguration, ConfigurationError };
 
 // A UUID for the window/element key space. `crypto.randomUUID()` is the ideal source,
 // but it is SECURE-CONTEXT-ONLY: it is `undefined` on a plain-http origin that is not
@@ -134,6 +136,8 @@ export class Window {
         // Where the window's own document came from: the host's (fromJSON), or as a
         // LoadableView's source is classified (fromURL).
         this.origin = origin;
+        // The configuration is fixed from the first window on (Common/Configuration.js).
+        fixConfiguration();
         this.model = new ActionUIModel(this.uuid, this.logger);
         this.rootNode = null; // built on present()
     }
@@ -167,14 +171,14 @@ export class Window {
         return new Window(root, uuid, logger, origin);
     }
 
-    // The document at `url` (read up to 16 MB), its origin classified as a LoadableView's source
-    // is: a URL on the page's origin is a resource, another origin less trusted (unless the trust
-    // policy says otherwise).
+    // The ActionUI JSON at `url` (read up to the configuration's size limit), its origin classified
+    // as a LoadableView's source is: from the page's origin it is a resource, from a trusted origin
+    // trusted, from another origin less trusted (unless the trust policy says otherwise).
     static async fromURL(url, uuid, logger) {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`ActionUI: failed to load ${url}: ${response.status}`);
-        // Judged by where the address leads once resolved against the page: its origin or not.
-        const origin = resolvedOrigin({ kind: "remote", fetchURL: url }, null, null, logger ?? null) ?? HOST_ORIGIN;
+        // Judged by where it finally came from (after redirects), resolved against the page.
+        const origin = resolvedOrigin({ kind: "remote", fetchURL: url }, null, null, logger ?? null, response.url || null) ?? HOST_ORIGIN;
         return Window.fromJSON(await readJSONText(response), uuid, logger, origin);
     }
 
@@ -210,7 +214,7 @@ export class Window {
         // (onForeground/onBackground/onTerminateActionID:web). Re-installed on each
         // present(); the prior cleanup removes any stale listeners first.
         this._lifecycleCleanup?.();
-        this._lifecycleCleanup = installLifecycleHooks(this.rootElement.properties, this.model, this.logger);
+        this._lifecycleCleanup = installLifecycleHooks(this.rootElement.properties, this.model, this.logger, this.origin);
         return this;
     }
 
@@ -458,7 +462,7 @@ export class Application {
         // account menu) and present into its stage; menu commands dispatch at the
         // app level (viewID 0). Without one (or when opted out), mount directly.
         if (this.menuBar && appShell) {
-            const dispatch = (actionID) => win.model.dispatchAction(actionID, 0);
+            const dispatch = (actionID) => win.model.dispatchAction(actionID, 0, 0, null, HOST_ORIGIN);
             const { shell, stage } = buildAppShell(this.menuBar, this.name, dispatch, win.logger);
             container.replaceChildren(shell);
             return win.present(stage);

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import com.abracode.actionui.Helpers.rememberActionDispatch
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -81,6 +82,7 @@ internal fun TextInputField(
 ) {
     val props = element.properties
     val logger = LocalActionUILogger.current
+    val dispatch = rememberActionDispatch()
 
     val title = props?.stringProperty("title") ?: ""
     val prompt = props?.stringProperty("prompt")
@@ -130,8 +132,8 @@ internal fun TextInputField(
     val visualTransformation =
         if (kind == TextInputKind.Secure) PasswordVisualTransformation() else VisualTransformation.None
 
-    val dispatch: (String?) -> Unit = { id ->
-        if (id != null) ActionUIModel.actionHandler(id, viewID = element.id, viewPartID = 0)
+    val fireAction: (String?) -> Unit = { id ->
+        if (id != null) dispatch.fire(id, viewID = element.id, viewPartID = 0)
     }
 
     OutlinedTextField(
@@ -139,7 +141,7 @@ internal fun TextInputField(
         onValueChange = { new ->
             if (new != text) {
                 if (viewModel != null) viewModel.value = new else localText = new
-                dispatch(valueChangeActionID)
+                fireAction(valueChangeActionID)
             }
         },
         modifier = modifier,
@@ -155,7 +157,7 @@ internal fun TextInputField(
             keyboardType = keyboardType,
             imeAction = if (isVertical) ImeAction.Default else ImeAction.Done,
         ),
-        keyboardActions = KeyboardActions(onDone = { dispatch(actionID) }),
+        keyboardActions = KeyboardActions(onDone = { fireAction(actionID) }),
     )
 }
 

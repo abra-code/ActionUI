@@ -104,10 +104,11 @@ internal fun containerActionDispatch(
 @Composable
 internal fun containerActionModifier(element: ActionUIElement, modifier: Modifier): Modifier {
     val dispatch = containerActionDispatch(element, LocalTemplateContext.current) ?: return modifier
+    val actionDispatch = rememberActionDispatch()
     val enabled = LocalActionUIEnabled.current
-    val onClick = remember(dispatch) {
+    val onClick = remember(dispatch, actionDispatch) {
         {
-            ActionUIModel.actionHandler(
+            actionDispatch.fire(
                 dispatch.actionID,
                 viewID = dispatch.viewID,
                 viewPartID = dispatch.viewPartID,
