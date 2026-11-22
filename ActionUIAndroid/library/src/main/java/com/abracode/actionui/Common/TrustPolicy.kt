@@ -70,10 +70,10 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
         return if (valid) scheme.lowercase() else ""
     }
 
-    /** Whether the file at [path] is inside one of the app's resource folders ([ActionUIModel.resourceFolders]), symbolic links followed. */
+    /** Whether the file at [path] is inside the app's resource folder ([ActionUIConfiguration.resourceFolder]), symbolic links followed. */
     fun isInAppResources(path: String): Boolean {
         val canonical = try { File(path).canonicalPath } catch (e: IOException) { return false }
-        return ActionUIModel.resourceFolders.any { isFileInside(canonical, it) }
+        return ActionUIConfiguration.current.resourceFolders.any { isFileInside(canonical, it) }
     }
 
     /** Whether two addresses have the same origin: scheme, host and port (the scheme's default port when none is written). */
@@ -124,7 +124,8 @@ internal fun resolvedOrigin(
     parent: JSONContentOrigin?,
     parentID: Int?,
 ): JSONContentOrigin? {
-    val classified = classifyOrigin(source, parent, parentID, ActionUIModel.resourceFolders) ?: return null
+    val configuration = ActionUIConfiguration.current
+    val classified = classifyOrigin(source, parent, parentID, configuration.resourceFolders, configuration.trust.trustedOrigins) ?: return null
     val trust = ActionUIModel.trustPolicy.trust(classified.source, parent, classified.trust)
     return if (trust == classified.trust) classified else classified.copy(trust = trust)
 }

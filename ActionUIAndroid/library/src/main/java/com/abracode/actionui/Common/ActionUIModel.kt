@@ -271,24 +271,10 @@ object ActionUIModel {
     internal val windowModels = mutableMapOf<String, WindowModel>()
 
     /**
-     * Folders whose files count as the app's own resources, as its assets do: documents
-     * there are trusted (see [JSONContentOrigin]). Empty by default; a host that ships documents
-     * as files (unpacked into its files folder, say) adds that folder. Set before loading.
-     */
-    var resourceFolders: List<String> = emptyList()
-
-    /**
      * The host's trust policy, for all windows ([DefaultTrustPolicy] unless set): how far
      * loaded content is trusted, and what each part of it may do. Set before loading.
      */
     var trustPolicy: ActionUITrustPolicy = DefaultTrustPolicy
-
-    /**
-     * How many documents a window's LoadableViews may load in a time: 256 a minute by default,
-     * as on Apple and Linux. A document that reloads itself through its value, or a chain of
-     * them, cannot spin the window. Set before loading.
-     */
-    var loadBudget: LoadBudget = LoadBudget(loads = 256, seconds = 60.0)
 
     /** Whether content of [origin] may do [capability], by [trustPolicy]. */
     fun allows(capability: ActionUICapability, origin: JSONContentOrigin): Boolean = trustPolicy.allows(capability, origin)
@@ -305,7 +291,7 @@ object ActionUIModel {
     /**
      * Whether content of [origin] may read the local file at [path] (an image, a canvas image,
      * a video): trusted content reads anything without asking; other content asks the trust
-     * policy ([ActionUICapability.ReadLocalFile]: by default, only inside [resourceFolders]),
+     * policy ([ActionUICapability.ReadLocalFile]: by default, only inside the configuration's resource folder),
      * and a refusal is logged to [logger] (the element's, from `LocalActionUILogger`).
      */
     fun readsLocalFile(path: String, origin: JSONContentOrigin, logger: ActionUILogger = this.logger): Boolean {
@@ -340,6 +326,8 @@ object ActionUIModel {
         logger: ActionUILogger = this.logger,
         origin: JSONContentOrigin? = null,
     ): WindowModel {
+        // The configuration is fixed from the first window on (ActionUIConfiguration).
+        ActionUIConfiguration.fix()
         val windowModel = WindowModel(windowUUID, logger)
         windowModel.loadDescription(root, origin)
         windowModels[windowUUID] = windowModel

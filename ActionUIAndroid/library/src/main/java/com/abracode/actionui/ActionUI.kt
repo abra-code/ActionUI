@@ -35,6 +35,7 @@ import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Common.ActionUIConfiguration
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.rootSafeAreaModifier
 import com.abracode.actionui.Helpers.DescriptionLoad
@@ -50,6 +51,7 @@ import com.abracode.actionui.Helpers.decodeDescription
 import com.abracode.actionui.Helpers.hasRootToolbarChrome
 import com.abracode.actionui.Helpers.loadLocalDescription
 import com.abracode.actionui.Helpers.loadRemoteDescription
+import com.abracode.actionui.Helpers.remoteOrigin
 import com.abracode.actionui.Helpers.numberProperty
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -107,6 +109,8 @@ object ActionUI {
         // Decoded once per text (the shared loader catches parse and decode
         // failures), and the window model keyed on the text too: a decoded element
         // is a fresh instance, not a stable remember key.
+        // The configuration is fixed before anything reads its limits (ActionUIConfiguration).
+        ActionUIConfiguration.fix()
         val loaded = remember(jsonString, logger) { decodeDescription(jsonString, json, logger) }
         when (loaded) {
             is DescriptionLoad.Loaded ->
@@ -178,10 +182,14 @@ object ActionUI {
         windowUUID: String = "",
         images: ActionUIImageRegistry? = defaultImageRegistry,
     ) {
+        // The configuration is fixed before anything reads its limits or trusted origins.
+        ActionUIConfiguration.fix()
         val assets = LocalContext.current.assets
         val classified = remember(source) { classifyLoadableSource(source) }
-        // The window's own document is classified as a LoadableView's is: an asset, or a file
-        // in a resource folder, is trusted; a file elsewhere or a remote address is not.
+        // The window's own ActionUI JSON is classified as a LoadableView's is: an asset, a file
+        // in the resource folder or JSON from a trusted origin is trusted; a file elsewhere or
+        // another remote address is not. A remote one is classified once loaded, by the address
+        // it finally came from (remoteOrigin).
         val origin = remember(classified) { resolvedOrigin(classified, null, null) }
 
         // Remote loads async (spinner -> root/error); local loads synchronously.
@@ -190,7 +198,10 @@ object ActionUI {
         val loaded: DescriptionLoad? = if (classified is LoadableSource.Remote) {
             produceState<DescriptionLoad?>(null, classified) {
                 value = null
-                value = loadRemoteDescription(classified, json, logger)
+                val fetched = loadRemoteDescription(classified, json, logger)
+                value = if (fetched is DescriptionLoad.Loaded) {
+                    fetched.copy(origin = remoteOrigin(classified, fetched.finalURL, null, null))
+                } else fetched
             }.value
         } else {
             remember(classified) { loadLocalDescription(classified, assets, json, logger) }
@@ -203,7 +214,7 @@ object ActionUI {
             ) { CircularProgressIndicator() }
 
             is DescriptionLoad.Loaded ->
-                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images, origin)
+                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images, loaded.origin ?: origin)
 
             is DescriptionLoad.Failed -> SourceError("Failed to load view: ${loaded.message}", modifier)
             is DescriptionLoad.NoSource -> SourceError("No valid source provided", modifier)

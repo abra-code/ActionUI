@@ -1,6 +1,6 @@
 package com.abracode.actionui.Common
 
-import com.abracode.actionui.Helpers.DESCRIPTION_MAX_BYTES
+import com.abracode.actionui.Helpers.descriptionMaxBytes
 import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.LoadableFormat
 import com.abracode.actionui.Helpers.LoadableSource
@@ -28,7 +28,7 @@ class TrustPolicyTest {
     @After
     fun tearDown() {
         folders.forEach { it.deleteRecursively() }
-        ActionUIModel.resourceFolders = emptyList()
+        ActionUIConfiguration.replaceForTesting()
         ActionUIModel.trustPolicy = DefaultTrustPolicy
     }
 
@@ -70,7 +70,7 @@ class TrustPolicyTest {
         val resources = Files.createTempDirectory("actionui-res").toFile().also { folders += it }
         val inside = File(resources, "pic.png").apply { writeText("x") }
         assertFalse(allows(ActionUICapability.ReadLocalFile(inside.path)))
-        ActionUIModel.resourceFolders = listOf(resources.path)
+        ActionUIConfiguration.replaceForTesting(ActionUIConfiguration(resourceFolder = resources.path))
         assertTrue(allows(ActionUICapability.ReadLocalFile(inside.path)))
         assertTrue(allows(ActionUICapability.WebViewScriptFile(inside.path)))
         assertFalse(allows(ActionUICapability.ReadLocalFile("${resources.path}/../elsewhere.png")))
@@ -139,12 +139,12 @@ class TrustPolicyTest {
         assertTrue(utf8LongerThan("abcd", 3))
         assertTrue("two bytes each", utf8LongerThan("\u00e9\u00e9", 3))
         assertFalse("a surrogate pair is 4 bytes", utf8LongerThan("\uD83D\uDE00", 4))
-        val big = "x".repeat(DESCRIPTION_MAX_BYTES + 1)
+        val big = "x".repeat(descriptionMaxBytes + 1)
         val result = decodeDescription(big, Json, ConsoleLogger())
         assertTrue(result is DescriptionLoad.Failed && result.message == "Larger than 16 MB")
         val file = Files.createTempFile("actionui-big", ".json").toFile()
         try {
-            RandomAccessFile(file, "rw").use { it.setLength(DESCRIPTION_MAX_BYTES + 1L) }
+            RandomAccessFile(file, "rw").use { it.setLength(descriptionMaxBytes + 1L) }
             readRegularFileText(file.path)
             fail("a file larger than 16 MB was read")
         } catch (e: IOException) {

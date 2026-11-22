@@ -13,7 +13,7 @@ class LimitsTest {
 
     @After
     fun tearDown() {
-        ActionUIModel.loadBudget = LoadBudget(loads = 256, seconds = 60.0)
+        ActionUIConfiguration.replaceForTesting()
     }
 
     @Test
@@ -27,7 +27,7 @@ class LimitsTest {
 
     @Test
     fun `a window's LoadableViews load at most the budget in its time`() {
-        ActionUIModel.loadBudget = LoadBudget(loads = 3, seconds = 60.0)
+        ActionUIConfiguration.replaceForTesting(ActionUIConfiguration(limits = ActionUIConfiguration.Limits(loadBudget = LoadBudget(loads = 3, seconds = 60.0))))
         val window = WindowModel(windowUUID = "budget", logger = ConsoleLogger())
         val second = 1_000_000_000L
         assertTrue(window.spendLoad(0) && window.spendLoad(1) && window.spendLoad(2))

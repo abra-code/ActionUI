@@ -19,8 +19,8 @@ internal class NotARegularFileException(val path: String) : IOException("$path i
 internal fun readRegularFileText(path: String): String {
     val file = File(path)
     if (file.exists() && !file.isFile) throw NotARegularFileException(path)
-    // A document larger than the cap is not decoded anyway (DESCRIPTION_MAX_BYTES).
-    if (file.length() > DESCRIPTION_MAX_BYTES) throw IOException("$path is larger than 16 MB")
+    // ActionUI JSON larger than the cap is not decoded anyway (descriptionMaxBytes).
+    if (file.length() > descriptionMaxBytes) throw IOException("$path is larger than $descriptionMaxMegabytes MB")
     return file.readText()
 }
 

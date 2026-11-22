@@ -41,6 +41,7 @@ import com.abracode.actionui.Helpers.loadLocalDescription
 import com.abracode.actionui.Helpers.loadableNestingKey
 import com.abracode.actionui.Helpers.loadableNestingRefusal
 import com.abracode.actionui.Helpers.loadRemoteDescription
+import com.abracode.actionui.Helpers.remoteOrigin
 import com.abracode.actionui.Helpers.resolveLoadableSource
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.Json
@@ -137,14 +138,21 @@ object LoadableView : ActionUIViewConstruction {
         // current window as it arrives (off the render path), so the value/state
         // API reaches it by id. Keyed on this view's own model too: a reload of the
         // content around it (or a window reload) removes the models this view's
-        // content merged and gives this view a fresh model, so it merges again.
+        // content merged and gives this view a fresh model, so it merges again. Keyed on the
+        // origin around it too, which the loaded content's own origin is resolved inside: a view
+        // without an id keeps no model, so new content around it would not restart the load.
         val outcome: DescriptionLoad? = if (classified is LoadableSource.Remote) {
-            produceState<DescriptionLoad?>(null, classified, windowModel, ownModel) {
+            produceState<DescriptionLoad?>(null, classified, windowModel, ownModel, around) {
                 value = null
                 value = if (windowModel != null && !windowModel.spendLoad()) {
                     DescriptionLoad.Failed("too many loads in this window")
                 } else {
-                    mergeIntoWindow(loadRemoteDescription(classified, json, logger), windowModel, element.id, origin)
+                    // Classified by the address it finally came from, after redirects.
+                    val fetched = loadRemoteDescription(classified, json, logger)
+                    val resolved = if (fetched is DescriptionLoad.Loaded) {
+                        fetched.copy(origin = remoteOrigin(classified, fetched.finalURL, around, element.id.takeIf { it > 0 }))
+                    } else fetched
+                    mergeIntoWindow(resolved, windowModel, element.id, (resolved as? DescriptionLoad.Loaded)?.origin ?: origin)
                 }
             }.value
         } else {
@@ -189,7 +197,7 @@ object LoadableView : ActionUIViewConstruction {
                 val inside = if (nestingKey != null) enclosing + nestingKey else enclosing
                 // Its links in Markdown text open through LocalUriHandler, which asks the trust policy
                 // for less-trusted content.
-                val shownOrigin = origin ?: around
+                val shownOrigin = outcome.origin ?: origin ?: around
                 val inheritedLinks = LocalUriHandler.current
                 val links = remember(inheritedLinks, shownOrigin, logger) { uriHandlerFor(shownOrigin, inheritedLinks, logger) }
                 CompositionLocalProvider(

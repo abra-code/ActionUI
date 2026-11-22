@@ -16,7 +16,7 @@ class LocalFileTrustTest {
     @After
     fun tearDown() {
         folder.deleteRecursively()
-        ActionUIModel.resourceFolders = emptyList()
+        ActionUIConfiguration.replaceForTesting()
         ActionUIModel.trustPolicy = DefaultTrustPolicy
     }
 
@@ -33,7 +33,7 @@ class LocalFileTrustTest {
     fun `less-trusted content reads only inside the resource folders`() {
         val inside = File(folder, "pic.png").apply { writeText("x") }
         assertFalse(ActionUIModel.readsLocalFile(inside.path, remote))
-        ActionUIModel.resourceFolders = listOf(folder.path)
+        ActionUIConfiguration.replaceForTesting(ActionUIConfiguration(resourceFolder = folder.path))
         assertTrue(ActionUIModel.readsLocalFile(inside.path, remote))
         assertFalse(ActionUIModel.readsLocalFile("/sdcard/DCIM/photo.jpg", remote))
     }
