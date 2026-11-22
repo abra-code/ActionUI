@@ -112,6 +112,12 @@ public final class WinUIApplication {
             logger.log("WinUIApplication: run() after the application ended; refused (WinUI starts once in a process)", .error)
             return false
         }
+        // A host that runs its own WinUI application fills its own windows (actionUILoadIntoHostWindow...):
+        // a process has one Application, which is the host's.
+        guard !actionUIWinUIApplicationExists() else {
+            logger.log("WinUIApplication: run() while the host's own WinUI application runs; refused (fill the host's windows instead)", .error)
+            return false
+        }
         guard actionUIWinUIInitialize() else {
             logger.log("WinUIApplication: \(WinUIError.last("attaching the Windows App SDK runtime"))", .error)
             return false

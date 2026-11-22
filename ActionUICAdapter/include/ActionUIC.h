@@ -249,6 +249,21 @@ bool actionUIReplaceMenuBarJSON(const char *key, const char *json) ACTIONUI_NOEX
 //   for the window's size; -1 (error set) for no such window.
 double actionUIGetWindowBarsHeight(const char *windowUUID) ACTIONUI_NOEXCEPT;
 #endif
+// Windows only (ActionUIC+Windows.swift), the same for a host that runs its own WinUI application: fills
+// xamlWindow (a Microsoft.UI.Xaml.Window the host made, its IInspectable pointer, winrt::get_abi(window))
+// with the document as its content and sets its size from it; subtitle is accepted, not shown yet. The host
+// shows and closes the window; closing it keeps the model, which actionUIRemoveWindow removes. false (error
+// set) when the document cannot be loaded (the window shows why) or xamlWindow is no WinUI window. The host's
+// Application is set up as a XAML app's is (XamlControlsResources merged into its resources, IXamlMetadataProvider
+// forwarding to the controls' provider): ActionUI's controls take their styles from it. While it runs,
+// actionUIAppRun is refused (a process has one WinUI Application).
+// actionUIInstallMainLoopBridge: main-actor work runs under the host's loop from now on (filling a window
+// installs it too); UI thread only, while the host's application runs; later calls do nothing.
+#if defined(_WIN32)
+bool actionUILoadIntoHostWindowFromURL(void *xamlWindow, const char *urlString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;  // a path or file URL
+bool actionUILoadIntoHostWindowFromJSON(void *xamlWindow, const char *jsonString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;
+void actionUIInstallMainLoopBridge(void) ACTIONUI_NOEXCEPT;
+#endif
 
 #ifdef __cplusplus
 }

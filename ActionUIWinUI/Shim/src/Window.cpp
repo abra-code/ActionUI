@@ -260,6 +260,23 @@ ActionUIWinUIObject *actionUIWinUIWindowCreate(void) {
     });
 }
 
+ActionUIWinUIObject *actionUIWinUIWindowFromInspectable(void *inspectable) {
+    return guardedObject("window from inspectable", [&]() -> ActionUIWinUIObject * {
+        if (inspectable == nullptr) {
+            fail("window from inspectable", "the window is NULL");
+            return nullptr;
+        }
+        wf::IInspectable object{nullptr};
+        winrt::copy_from_abi(object, inspectable);
+        mux::Window window = object.try_as<mux::Window>();
+        if (window == nullptr) {
+            fail("window from inspectable", "the object is no Microsoft.UI.Xaml.Window");
+            return nullptr;
+        }
+        return toObject(window);
+    });
+}
+
 bool actionUIWinUIWindowSetTitle(ActionUIWinUIObject *window, const char *title) {
     return guarded("window set title", [&]() {
         windowFrom(window).Title(toHString(title));

@@ -233,6 +233,18 @@ void actionUIWinUIQuit(void) {
     });
 }
 
+bool actionUIWinUIApplicationExists(void) {
+    // No WinUI loaded, no Application: asked first so the check loads nothing and leaves COM as it was.
+    if (GetModuleHandleW(L"Microsoft.UI.Xaml.dll") == nullptr) {
+        return false;
+    }
+    try {
+        return mux::Application::Current() != nullptr;
+    } catch (...) {
+        return false;
+    }
+}
+
 char *actionUIWinUICopyProgramFolder(void) {
     char *copy = nullptr;
     guarded("copy program folder", [&]() {

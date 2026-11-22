@@ -64,6 +64,8 @@ ACTIONUI_WINUI_API bool actionUIWinUIRun(ActionUIWinUICallback onLaunched, void 
 
 // Ends the application: actionUIWinUIRun returns once the current work is done.
 ACTIONUI_WINUI_API void actionUIWinUIQuit(void);
+// Whether a WinUI Application exists in the process (actionUIWinUIRun's, or a host's own). Sets no error.
+ACTIONUI_WINUI_API bool actionUIWinUIApplicationExists(void);
 
 // The folder of the running program (its .exe), as a new UTF-8 string the caller frees with
 // actionUIWinUIFreeString; NULL on failure.
@@ -98,6 +100,9 @@ ACTIONUI_WINUI_API void actionUIWinUIRelease(ActionUIWinUIObject *object);
 
 // A new window, not shown. NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIWindowCreate(void);
+// A window a host made in its own WinUI application: `inspectable` is its IInspectable (ABI) pointer, lent
+// for the call. A new reference; NULL (with an error) when it is no Microsoft.UI.Xaml.Window.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIWindowFromInspectable(void *inspectable);
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetTitle(ActionUIWinUIObject *window, const char *title);
 // The size of the window's content area (inside its frame and title bar).
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *window, double width,

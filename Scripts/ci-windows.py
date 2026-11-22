@@ -735,7 +735,12 @@ def check_shim(results, install, swift=False):
         return finish(False)
     if not swift:
         return finish(True)
-    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc))
+    # What a C++ host that runs its own WinUI application builds with: the projection's and the packages'
+    # headers, the bootstrapper's import library.
+    host_build = {"includes": includes,
+                  "libraries": ["windowsapp.lib", "user32.lib", "ole32.lib",
+                                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"]}
+    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc, host_build))
 
 
 def check_c_adapter(bin_path, results, summary, msvc, env):
@@ -791,7 +796,36 @@ def check_c_app(bin_path, results, summary, msvc, env):
     return step["status"] == 0
 
 
-def check_swift_smoke(shim_out, bootstrap, results, summary, msvc):
+def check_host_app(bin_path, results, summary, msvc, env, host_build):
+    """Builds ActionUIWinUI/Apps/HostAppCheck/main.cpp, a host that runs its own WinUI application, with
+    the headers the shim builds with, against ActionUI.dll's import library, and runs it: ActionUI JSON
+    in the host's window, ActionUI's own application refused, a worker's call run under the host's loop.
+    True when every check passed."""
+    library = bin_path / "ActionUI.lib"
+    if not library.is_file():
+        summary["findings"].append(f"no ActionUI.lib in {bin_path}")
+        return False
+    folder = REPO_DIR / "ActionUIWinUI" / "Apps" / "HostAppCheck"
+    checker = bin_path / "ActionUIHostAppCheck.exe"
+    manifest = REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest"
+    command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/utf-8", "/W3",
+               "/bigobj", "/DNOMINMAX"] + host_build["includes"] + [
+               f"/I{REPO_DIR / 'ActionUICAdapter' / 'include'}", f"/I{REPO_DIR / 'ActionUIAppKitApplication' / 'include'}",
+               folder / "main.cpp", f"/Fe{checker}", f"/Fo{bin_path}\\",
+               "/link", library, "/MANIFEST:EMBED", f"/MANIFESTINPUT:{manifest}"] + host_build["libraries"]
+    step = run_step("host-app-build", command, results, msvc, cwd=bin_path)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    step = run_step("host-app-check", [checker], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+    summary["steps"].append(step)
+    summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                            .splitlines() if line.startswith("host-app:")]
+    return step["status"] == 0
+
+
+def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview, the C adapter's
     DLL, ActionUI.dll) with the shim's import library on the linker path, places the shim DLL, the
     bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
@@ -831,6 +865,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc):
     passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0
     passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
     passed = check_c_app(bin_path, results, summary, msvc, env) and passed
+    passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"
