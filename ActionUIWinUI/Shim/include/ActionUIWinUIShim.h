@@ -1154,8 +1154,12 @@ ACTIONUI_WINUI_API bool actionUIWinUIWebViewSetUserAgent(ActionUIWinUIObject *we
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewAddScript(ActionUIWinUIObject *webView, const char *source, bool atDocumentEnd,
                                                       bool mainFrameOnly);
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewNavigate(ActionUIWinUIObject *webView, const char *url);
-// Shows `html` as the page (its URL about:blank; relative links resolve against nothing).
-ACTIONUI_WINUI_API bool actionUIWinUIWebViewNavigateToString(ActionUIWinUIObject *webView, const char *html);
+// Shows `html` as the page. With no `baseURL` (NULL) its URL is about:blank and relative links resolve
+// against nothing; with an http or https `baseURL` (UTF-8) the page is that address, as WebKit's
+// loadHTMLString(_:baseURL:) makes it: its origin, cookies and storage, and relative links resolved
+// against it (the web view goes to the address and is answered with `html` instead of the server's
+// page, once). Fails for a base that is not an absolute http or https URL.
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewNavigateToString(ActionUIWinUIObject *webView, const char *html, const char *baseURL);
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewRun(ActionUIWinUIObject *webView, ActionUIWinUIWebViewCommand command);
 // False, with the error, once the browser could not start.
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewGetState(ActionUIWinUIObject *webView, ActionUIWinUIWebViewState *state);

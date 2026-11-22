@@ -6,6 +6,7 @@
 
 #include <cstdlib>  // malloc
 #include <cstring>
+#include <cwctype>  // towlower
 #include <deque>
 #include <new>
 #include <string>
@@ -13,6 +14,7 @@
 #include <vector>
 
 #include <winrt/Microsoft.Web.WebView2.Core.h>
+#include <winrt/Windows.Storage.Streams.h>
 
 namespace actionui_winui {
 
@@ -25,6 +27,8 @@ struct WebViewStep {
     enum class Kind { userAgent, script, navigate, html, command };
     Kind kind;
     std::wstring text;
+    // An html step's base address (empty: none).
+    std::wstring base;
     ActionUIWinUIWebViewCommand command = ActionUIWinUIWebViewGoBack;
     // A script's: run when the document is parsed (else as it is created), in the main frame only.
     bool atDocumentEnd = false;
@@ -71,6 +75,10 @@ struct WebViewData {
     double progress = 0;
     std::shared_ptr<EventHandler> changed;
     std::shared_ptr<NavigationDecider> decider;
+    // html shown under a base address: the address whose document request is answered with it, once,
+    // and the html (UTF-8) as the answer's body.
+    winrt::hstring baseDocumentURI;
+    winrt::Windows::Storage::Streams::IRandomAccessStream baseDocument{nullptr};
 };
 
 // Whether the web view's decider lets it go to `uri` for `kind`; true without a decider. Fails closed:
@@ -154,6 +162,19 @@ void runCommand(webcore::CoreWebView2 const &core, ActionUIWinUIWebViewCommand c
     }
 }
 
+// Drops html under a base address whose answer is not yet taken (no longer wanted: another page was
+// asked for, or its navigation was refused), so a later document request for the base goes to the
+// server rather than getting this html.
+void dropBaseDocument(WebViewData &data) {
+    if (data.baseDocument == nullptr) {
+        return;
+    }
+    winrt::hstring uri = data.baseDocumentURI;
+    data.baseDocument = nullptr;
+    data.baseDocumentURI = winrt::hstring();
+    data.core.RemoveWebResourceRequestedFilter(uri, webcore::CoreWebView2WebResourceContext::Document);
+}
+
 // Runs the steps that waited, in order; a script is added before anything after it runs, so the
 // first page gets it.
 winrt::fire_and_forget drain(std::shared_ptr<WebViewData> data) {
@@ -180,10 +201,28 @@ winrt::fire_and_forget drain(std::shared_ptr<WebViewData> data) {
                 }
                 break;
             case WebViewStep::Kind::navigate:
+                dropBaseDocument(*data);
                 data->core.Navigate(step.text);
                 break;
             case WebViewStep::Kind::html:
-                data->core.NavigateToString(step.text);
+                // An earlier base's answer not yet taken: no longer wanted.
+                dropBaseDocument(*data);
+                if (step.base.empty()) {
+                    data->core.NavigateToString(step.text);
+                } else {
+                    namespace streams = winrt::Windows::Storage::Streams;
+                    streams::InMemoryRandomAccessStream stream;
+                    streams::DataWriter writer(stream);
+                    writer.UnicodeEncoding(streams::UnicodeEncoding::Utf8);
+                    writer.WriteString(step.text);
+                    co_await writer.StoreAsync();
+                    writer.DetachStream();
+                    stream.Seek(0);
+                    data->baseDocument = stream;
+                    data->baseDocumentURI = winrt::hstring(step.base);
+                    data->core.AddWebResourceRequestedFilter(data->baseDocumentURI, webcore::CoreWebView2WebResourceContext::Document);
+                    data->core.Navigate(data->baseDocumentURI);
+                }
                 break;
             case WebViewStep::Kind::command:
                 runCommand(data->core, step.command);
@@ -265,6 +304,16 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
             core.NavigationStarting([weak](auto &&, webcore::CoreWebView2NavigationStartingEventArgs const &args) {
                 if (!decides(weak, args.Uri(), ActionUIWinUIWebViewNavigationPage)) {
                     args.Cancel(true);
+                    // The html's own navigation to its base, refused: its answer is not given later
+                    // to another request for that address.
+                    std::shared_ptr<WebViewData> held = weak.lock();
+                    if (held != nullptr && held->baseDocument != nullptr && args.Uri() == held->baseDocumentURI) {
+                        try {
+                            dropBaseDocument(*held);
+                        } catch (...) {
+                            // The filter stays; with no html held, its requests go to the server.
+                        }
+                    }
                     return;
                 }
                 if (std::shared_ptr<WebViewData> held = weak.lock()) {
@@ -294,6 +343,24 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
                 if (!decides(weak, args.DownloadOperation().Uri(), ActionUIWinUIWebViewNavigationDownload)) {
                     args.Cancel(true);
                 }
+            });
+            // html under a base address (actionUIWinUIWebViewNavigateToString): its document request is
+            // answered with the html, once; the base's later loads (a reload, a link back to it) go to
+            // the server.
+            core.WebResourceRequested([weak](webcore::CoreWebView2 const &sender, webcore::CoreWebView2WebResourceRequestedEventArgs const &args) {
+                std::shared_ptr<WebViewData> held = weak.lock();
+                if (held == nullptr || held->baseDocument == nullptr || args.Request().Uri() != held->baseDocumentURI) {
+                    return;
+                }
+                try {
+                    args.Response(sender.Environment().CreateWebResourceResponse(held->baseDocument, 200, L"OK",
+                                                                                 L"Content-Type: text/html; charset=utf-8"));
+                    sender.RemoveWebResourceRequestedFilter(held->baseDocumentURI, webcore::CoreWebView2WebResourceContext::Document);
+                } catch (...) {
+                    // Left to the server's answer.
+                }
+                held->baseDocument = nullptr;
+                held->baseDocumentURI = winrt::hstring();
             });
             core.NavigationCompleted([weak](auto &&, auto &&) {
                 if (std::shared_ptr<WebViewData> held = weak.lock()) {
@@ -376,9 +443,29 @@ bool actionUIWinUIWebViewNavigate(ActionUIWinUIObject *webView, const char *url)
     });
 }
 
-bool actionUIWinUIWebViewNavigateToString(ActionUIWinUIObject *webView, const char *html) {
+bool actionUIWinUIWebViewNavigateToString(ActionUIWinUIObject *webView, const char *html, const char *baseURL) {
     return guarded("web view navigate to string", [&]() {
-        enqueue(dataOf(webView), WebViewStep{WebViewStep::Kind::html, std::wstring(toHString(html))});
+        WebViewStep step{WebViewStep::Kind::html, std::wstring(toHString(html))};
+        if (baseURL != nullptr) {
+            wf::Uri base{nullptr};
+            try {
+                base = wf::Uri(toHString(baseURL));
+            } catch (winrt::hresult_error const &) {
+                return fail("web view navigate to string", "the base URL is not an absolute URL");
+            }
+            std::wstring scheme(base.SchemeName());
+            for (wchar_t &character : scheme) {
+                character = towlower(character);
+            }
+            if (scheme != L"http" && scheme != L"https") {
+                return fail("web view navigate to string", "only an http or https base URL is used");
+            }
+            // The address the document request carries: no fragment (it never reaches a request).
+            std::wstring address(base.AbsoluteUri());
+            size_t fragment = address.find(L'#');
+            step.base = fragment == std::wstring::npos ? address : address.substr(0, fragment);
+        }
+        enqueue(dataOf(webView), step);
         return true;
     });
 }

@@ -224,6 +224,8 @@ PREVIEW_OPTIONS = {
     "LessTrustedWebPages": ["420", "200", "--delay", "12000",
                             "--expect-log", "WebView not going to ms-settings:display: the trust policy refuses it",
                             "--expect-log", "WebView 702 not opening a window for https://example.com/"],
+    # html under an https base: the page has the base's origin and its relative image loads from there.
+    "WebViewBase": ["420", "220", "--delay", "10000", "--expect-state", "3", "title", "loaded at https://raw.githubusercontent.com"],
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
     "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],

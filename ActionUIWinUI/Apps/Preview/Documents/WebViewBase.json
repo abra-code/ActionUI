@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "html under a base address: a relative image from it" } },
+    {
+      "type": "WebView",
+      "id": 3,
+      "properties": {
+        "html": "<p>Relative image:</p><img src=\"Images/sample_image.png\" width=\"120\" onload=\"document.title = 'loaded at ' + location.origin\" onerror=\"document.title = 'failed at ' + location.origin\">",
+        "baseURL": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/",
+        "frame": { "height": 150 }
+      }
+    }
+  ]
+}

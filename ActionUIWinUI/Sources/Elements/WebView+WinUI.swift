@@ -4,8 +4,10 @@
  in both axes, as a WKWebView in SwiftUI is. It follows ActionUI's native Apple backing and the Linux
  renderer (WebView+Adwaita.swift):
  - Made once from its properties: the first page is the value (the url property) when it is a URL,
-   else the html (about:blank as its URL: WebView2 shows a string with no base URL, so baseURL is
-   ignored, logged once).
+   else the html, under its baseURL as WebKit's loadHTMLString(_:baseURL:) puts it (the page is that
+   address: its origin, and relative links resolved against it; the web view goes to the base and is
+   answered with the html once), else about:blank. Only an http or https base is used (WebView2 answers
+   no file: request with the html; another base is logged once and the html shown without one).
  - Before the first page: customUserAgent and the userScripts, each from its source, its filePath, or
    its resourceName (a file of that name, with or without ".js", in the current folder: Windows has no
    app bundle), injected at documentStart or documentEnd (when the document has been parsed, run as the
@@ -16,11 +18,12 @@
    the host's trust policy, as on Apple and Linux: shows only http and https addresses (.webView), a
    "Blocked" page in place of another, first or set later; and reads a user script's file only inside
    the app's resources (.webViewScriptFile), a script named by resource too, since Windows reads it
-   from the current folder. Its html has no base address on Windows (above), so it never runs as
-   another site. Each navigation of its page (a link, a script, a form, a redirect, a frame) is decided
-   as on Apple (WebViewTrust.navigation, for the element's origin at that moment): web addresses the
-   policy shows and the page's own about, data and blob addresses load; another scheme is handed to
-   its app only for the page itself and when the link rule allows it (mailto, by default), with
+   from the current folder; its html keeps a base address only on the origin its JSON came from
+   (.webViewBaseURL, Core's WebViewTrust.base), else about:blank, so it never runs as another site.
+   Each navigation of its page (a link, a script, a form, a redirect, a frame) is decided as on Apple
+   (WebViewTrust.navigation, for the element's origin at that moment): web addresses the policy shows
+   and the page's own about, data and blob addresses load; another scheme is handed to its app only
+   for the page itself and when the link rule allows it (mailto, by default), with
    WebView2's own prompt; anything else is refused and logged, and the page opens no new window and
    downloads nothing.
    WebView2 alone would hand any scheme to the app registered for it and open windows of its own.
@@ -161,12 +164,25 @@ extension WebView: ActionUIWinUIRenderer {
             state.lastTrackedURL = urlString
             show(urlString, view, node)
         } else if let html = props.html {
-            if props.baseURL != nil, !reportedBaseURL {
-                reportedBaseURL = true
-                logger.log("WebView: baseURL is not used on Windows yet (WebView2 shows an HTML string without one)", .warning)
+            // about:blank unless baseURL is set and the trust policy allows it (WebViewTrust.base).
+            let base = WebViewTrust.base(props.baseURL.flatMap { URL(string: $0) }, allows: { LinkTrust.allows($0, node) },
+                                         logger: logger)
+            var usedBase: String?
+            if base != WebViewTrust.blankBase {
+                if ["http", "https"].contains(base.scheme?.lowercased() ?? "") {
+                    usedBase = base.absoluteString
+                } else if !reportedBaseURL {
+                    // WebView2 answers no request of a file: or other address with the html.
+                    reportedBaseURL = true
+                    logger.log("WebView: the baseURL \(base.absoluteString) is not used on Windows (only http and https bases are)", .warning)
+                }
             }
-            if !actionUIWinUIWebViewNavigateToString(view.pointer, html) {
+            if !actionUIWinUIWebViewNavigateToString(view.pointer, html, usedBase) {
                 logger.log("WebView: \(WinUIError.last("showing the html"))", .error)
+                // A base Windows' URI reader refuses (Foundation's took it): the html without one.
+                if usedBase != nil, !actionUIWinUIWebViewNavigateToString(view.pointer, html, nil) {
+                    logger.log("WebView: \(WinUIError.last("showing the html without its base"))", .error)
+                }
             }
         }
     }
@@ -222,7 +238,7 @@ extension WebView: ActionUIWinUIRenderer {
         // Not loadable (the callers checked): nothing the policy could be asked about.
         guard let url = URL(string: urlString) else { return false }
         guard WebViewTrust.showsAddress(url, allows: { LinkTrust.allows($0, node) }, logger: logger) else {
-            if !actionUIWinUIWebViewNavigateToString(view.pointer, WebViewTrust.blockedPage(url)) {
+            if !actionUIWinUIWebViewNavigateToString(view.pointer, WebViewTrust.blockedPage(url), nil) {
                 logger.log("WebView: \(WinUIError.last("showing the blocked page"))", .error)
             }
             return false
