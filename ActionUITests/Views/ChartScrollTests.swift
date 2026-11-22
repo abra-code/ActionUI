@@ -208,6 +208,10 @@ final class ChartScrollTests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let data = try Data(contentsOf: root.appendingPathComponent("ActionUISwiftTestApp/Resources/Chart.scroll.json"))
         let windowUUID = UUID().uuidString
+        // The example selects on hover (chartXSelection): with the pointer over a test window, the
+        // chart fires its selection action, which the test app handles. Without a handler that is a
+        // warning, so the result would depend on where the pointer is.
+        ActionUIModel.shared.registerActionHandler(for: "chart.selection.changed") { _, _, _, _, _ in }
         let document = try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
         func charts(_ element: any ActionUIElementBase) -> [any ActionUIElementBase] {
             (element.type == "Chart" ? [element] : []) + element.childElements.flatMap(charts)
