@@ -2,8 +2,8 @@
 /**
  * test_uv_run_integration.js
  *
- * Proves that actionui_node.c's CFRunLoop / uv_run integration keeps the
- * Node.js main event loop alive while [NSApp run] blocks the main thread.
+ * Proves that the addon's CFRunLoop / uv_run integration (src/actionui_uv_pump_apple.c)
+ * keeps the Node.js main event loop alive while [NSApp run] blocks the main thread.
  *
  * Why a REAL external fetch target (and not a local http.createServer):
  *   A local server shares the same libuv loop as the fetch client.  Both

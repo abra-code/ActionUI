@@ -131,7 +131,8 @@ its header (`include/ActionUIHostSurface/ActionUIHostSurface.h`). On macOS the a
 frameworks (from `Add-ons/ActionUIHostSurface/Framework/ActionUIHostSurface.xcodeproj`, the same `SYMROOT`, an
 `OBJROOT` of its own).
 
-The same `src/actionui_node.c` and `binding.gyp` build the addon on Linux, against the ActionUI
+The same `src/actionui_node.c` and `binding.gyp` build the addon on Linux (with
+`src/actionui_uv_pump_glib.c` in place of `src/actionui_uv_pump_apple.c`), against the ActionUI
 library package instead of the static frameworks. No Swift installation is needed.
 
 Prerequisites: Node.js 18+ with npm, a C compiler and make (node-gyp's usual tools), `pkg-config`
@@ -209,7 +210,10 @@ app.run();  // blocks until app terminates
 ```
 ActionUINodeJS/
 ├── src/
-│   └── actionui_node.c        # N-API addon source (C)
+│   ├── actionui_node.c        # N-API addon source (C)
+│   ├── actionui_uv_pump.h     # how each platform runs Node's loop while appRun blocks
+│   ├── actionui_uv_pump_apple.c  # macOS: CFRunLoop observer, timer and I/O source
+│   └── actionui_uv_pump_glib.c   # Linux: a GLib source
 ├── binding.gyp                # node-gyp build configuration
 ├── package.json               # npm package definition
 ├── index.js                   # high-level JS API
