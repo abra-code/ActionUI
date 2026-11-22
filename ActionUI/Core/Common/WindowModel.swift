@@ -232,12 +232,20 @@ final class WindowModel {
     /// ids count as well: decoding renumbers only some of a template's negative ids (not those in
     /// an overlay, a sheet or a context menu, say), so one the JSON gives can be a trusted element's.
     /// The renumbered and generated ones are no view model's id, so they match nothing.
+    /// A Chart's annotations count as templates: their views are drawn per mark the same way, from
+    /// elements in the chart's description, not its subviews.
     static func templateIDs(in element: any ActionUIElementBase) -> [Int] {
         var ids: [Int] = []
         func walk(_ element: any ActionUIElementBase, inTemplate: Bool) {
             if inTemplate { ids.append(element.id) }
             if let template = element.subviews?["template"] as? any ActionUIElementBase {
                 walk(template, inTemplate: true)
+            }
+            if element.type == "Chart", let description = element.properties["chart"] as? [String: Any] {
+                let content = ChartDescription.parse(description, logger: nil).spec.content
+                for annotation in ChartSpec.annotationContents(in: content) {
+                    walk(annotation, inTemplate: true)
+                }
             }
             for child in element.childElements {
                 walk(child, inTemplate: inTemplate)
