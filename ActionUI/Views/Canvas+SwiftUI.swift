@@ -29,7 +29,7 @@ extension Canvas: ActionUISwiftUIRenderer {
         }
         .onTapGesture {
             if let id = actionID {
-                ActionUIModel.shared.actionHandler(id, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(id, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
             }
         }
     }

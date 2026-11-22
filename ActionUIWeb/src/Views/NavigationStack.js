@@ -45,6 +45,7 @@
 // unless the author opts in. Programmatic setState syncs the current entry rather
 // than adding a Back target (see the helper's header for the rule).
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
@@ -170,7 +171,7 @@ register("NavigationStack", {
                         // Fire the List's actionID (viewID = list id, the selected
                         // child id as context), then push — Apple's order.
                         if (typeof listActionID === "string") {
-                            ctx.model.dispatchAction(listActionID, listID, 0, [String(child.id)]);
+                            ctx.model.dispatchAction(listActionID, listID, 0, [String(child.id)], ctx.origin ?? HOST_ORIGIN);
                         }
                         push(destId);
                     };

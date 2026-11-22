@@ -215,7 +215,7 @@ extension TextEditor: ActionUISwiftUIRenderer {
                             model.value = newValue
                             tracker.pendingCount -= 1
                             if let valueChangeActionID {
-                                ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: elementId, viewPartID: 0)
+                                ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: elementId, viewPartID: 0, model: model)
                             }
                         }
                     }

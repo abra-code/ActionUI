@@ -307,3 +307,27 @@ test("a policy that refuses a load has its way, asked before anything is fetched
     assert.ok(logger.messages.some((m) => m.message === "LoadableView 2: not loading https://example.com/v.json: the trust policy refuses it"),
         JSON.stringify(logger.messages.map((m) => m.message)));
 });
+
+test("an element's action is judged by the content it belongs to, not by its id", async () => {
+    // The host has a Button with no id (no recorded origin); the remote content has a Button with
+    // no id and a LazyVStack whose template Button fires as its container. (A template carrying a
+    // window id is refused at load, so a copied id cannot be tested through a template row.)
+    const { win, container } = await render(
+        { type: "VStack", id: 1, children: [
+            { type: "Button", id: 2, properties: { title: "Mine", actionID: "test.id" } },
+            { type: "Button", properties: { title: "Mine, no id", actionID: "test.noid" } },
+            { type: "LoadableView", id: 3, properties: { url: "https://example.com/v.json" } }] },
+        () => ({ type: "VStack", id: 20, children: [
+            { type: "Button", properties: { title: "Theirs, no id", actionID: "test.remote.noid" } },
+            { type: "LazyVStack", id: 21,
+              template: { type: "Button", properties: { title: "$1", actionID: "test.remote.row" } } }] }));
+    win.model.setElementState(21, "content", [["row"]]);
+    const fired = [];
+    win.model.actionDispatcher = (actionID) => fired.push(actionID);
+    TP.setTrustPolicy({ allows: (capability, origin) =>
+        capability.capability === "action" ? origin.trust === "trusted" : TP.allowsByDefault(capability, origin) });
+    const buttons = findAll(container, (n) => n.dataset?.auiType === "Button");
+    assert.equal(buttons.length, 4, "two of the host's, one remote with no id, one remote template row");
+    for (const button of buttons) button.fire("click");
+    assert.deepEqual(fired.sort(), ["test.id", "test.noid"], "the host's elements fire, the id-less one too; the remote ones do not");
+});

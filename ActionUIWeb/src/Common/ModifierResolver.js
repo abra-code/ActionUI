@@ -34,6 +34,7 @@
 //                    web type-filtering is coarse (the DnD spec hides item
 //                    contents during dragover).
 
+import { HOST_ORIGIN } from "./TrustPolicy.js";
 import { StackAxis } from "./StackAxis.js";
 import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
 import { applyIgnoresSafeArea } from "../Helpers/SafeAreaModifier.js";
@@ -894,7 +895,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
         const viewID = templateContext ? templateContext.parentID : element.id;
         const viewPartID = templateContext ? templateContext.rowIndex : 0;
         markHandlesAction(hit);
-        const dispatch = () => ctx.model.dispatchAction(actionID, viewID, viewPartID, null);
+        const dispatch = () => ctx.model.dispatchAction(actionID, viewID, viewPartID, null, ctx.origin ?? HOST_ORIGIN);
         hit.addEventListener("click", (event) => {
             if (containerActionDisabled(node)) return;
             if (innerHandlerServed(event, hit)) return;
@@ -938,7 +939,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
         node.dataset.auiAppeared = "1";
         const onAppearActionID = properties.onAppearActionID;
         const viewID = element.id;
-        queueMicrotask(() => ctx.model.dispatchAction(onAppearActionID, viewID, 0, null));
+        queueMicrotask(() => ctx.model.dispatchAction(onAppearActionID, viewID, 0, null, ctx.origin ?? HOST_ORIGIN));
     }
 
     applyHoverDrop(hit, element, properties, ctx);
@@ -987,10 +988,10 @@ function applyHoverDrop(node, element, properties, ctx) {
         if (typeof properties.onHoverActionID === "string") {
             const actionID = properties.onHoverActionID;
             node.addEventListener("pointerenter", () => {
-                ctx.model.dispatchAction(actionID, element.id, 0, { isHovering: true });
+                ctx.model.dispatchAction(actionID, element.id, 0, { isHovering: true }, ctx.origin ?? HOST_ORIGIN);
             });
             node.addEventListener("pointerleave", () => {
-                ctx.model.dispatchAction(actionID, element.id, 0, { isHovering: false });
+                ctx.model.dispatchAction(actionID, element.id, 0, { isHovering: false }, ctx.origin ?? HOST_ORIGIN);
             });
         } else {
             logger.log(`Invalid type for onHoverActionID: expected String, got ${typeof properties.onHoverActionID}, ignoring`, "warning");
@@ -1032,7 +1033,7 @@ function applyHoverDrop(node, element, properties, ctx) {
     let depth = 0;
     const setTargeted = (isTargeted) => {
         if (!onDropTargetedActionID) return;
-        ctx.model.dispatchAction(onDropTargetedActionID, element.id, 0, { isTargeted });
+        ctx.model.dispatchAction(onDropTargetedActionID, element.id, 0, { isTargeted }, ctx.origin ?? HOST_ORIGIN);
     };
 
     node.addEventListener("dragenter", (e) => {
@@ -1067,6 +1068,6 @@ function applyHoverDrop(node, element, properties, ctx) {
             items,
             location: { x: e.offsetX, y: e.offsetY },
             files: fileList,
-        });
+        }, ctx.origin ?? HOST_ORIGIN);
     });
 }

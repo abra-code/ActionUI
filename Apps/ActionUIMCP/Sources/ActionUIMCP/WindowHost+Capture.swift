@@ -50,7 +50,7 @@ extension WindowHost {
         defer { forgetModel(windowID) }
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         guard errors.isEmpty else {
-            throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))
+            throw MCPToolError("ActionUI could not load the ActionUI JSON:\n" + errors.prefix(20).joined(separator: "\n"))
         }
         let rendered = try await platform.renderOffscreen(loaded.content, size: size, delay: delay)
         var seen: Set<String> = []

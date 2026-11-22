@@ -123,6 +123,19 @@ struct ChartSpec {
         return refs
     }
 
+    // The view element of each annotation in the content, not per row; a Plot's annotation comes
+    // once for each mark inside it.
+    static func annotationContents(in entries: [ChartEntry]) -> [ActionUIElement] {
+        entries.flatMap { entry -> [ActionUIElement] in
+            switch entry {
+            case .mark(let mark):
+                return mark.modifiers.compactMap { if case .annotation(let spec) = $0 { spec.content } else { nil } }
+            case .plot(let children), .forEach(let children, _):
+                return annotationContents(in: children)
+            }
+        }
+    }
+
     // How many annotation views the content draws over `rowCount` rows (a ForEach with its own
     // data draws over those), unparsable rows included.
     static func annotationCount(in entries: [ChartEntry], rowCount: Int) -> Int {

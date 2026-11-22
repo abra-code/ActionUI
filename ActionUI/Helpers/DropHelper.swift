@@ -18,6 +18,8 @@ struct DropModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let onDropTargetedActionID: String?
     let windowUUID: String
     let elementID: Int
+    /// The element's view model (nil: not known), which judges a template row's element by its row.
+    let model: ViewModel?
 
     @State private var isTargeted: Bool = false
 
@@ -32,13 +34,7 @@ struct DropModifierView<Content: SwiftUI.View>: SwiftUI.View {
                 isTargeted = newValue
                 guard let actionID = onDropTargetedActionID else { return }
                 Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(
-                        actionID,
-                        windowUUID: windowUUID,
-                        viewID: elementID,
-                        viewPartID: 0,
-                        context: ["isTargeted": newValue]
-                    )
+                    Self.fire(actionID, windowUUID: windowUUID, viewID: elementID, context: ["isTargeted": newValue], model: model)
                 }
             }
         )
@@ -48,6 +44,7 @@ struct DropModifierView<Content: SwiftUI.View>: SwiftUI.View {
                 let actionID = onDropActionID
                 let wUUID = windowUUID
                 let eID = elementID
+                let elementModel = model
                 let loc: [String: Double] = [
                     "x": Double(location.x),
                     "y": Double(location.y)
@@ -59,16 +56,19 @@ struct DropModifierView<Content: SwiftUI.View>: SwiftUI.View {
                             items.append(text)
                         }
                     }
-                    ActionUIModel.shared.actionHandler(
-                        actionID,
-                        windowUUID: wUUID,
-                        viewID: eID,
-                        viewPartID: 0,
-                        context: ["items": items, "location": loc]
-                    )
+                    Self.fire(actionID, windowUUID: wUUID, viewID: eID, context: ["items": items, "location": loc], model: elementModel)
                 }
                 return true
             }
+    }
+
+    /// Fires `actionID` for the element, judged by its view model when it is known.
+    private static func fire(_ actionID: String, windowUUID: String, viewID: Int, context: Any, model: ViewModel?) {
+        if let model {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, context: context, model: model)
+        } else {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, context: context)
+        }
     }
 
     /// Attempts to extract a string representation from an NSItemProvider.

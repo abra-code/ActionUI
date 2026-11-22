@@ -120,8 +120,9 @@ app.onWindowWillPresent(fn)     // fn(window: Window)
 > reassigned unconditionally, the worker's blank state would overwrite the main
 > thread's registered callbacks, silently preventing all lifecycle events from
 > firing.  `Init()` sets `g_state` only once and only on the main thread
-> (`if (g_state == NULL && pthread_main_np())`), even when a worker loads the
-> addon first, and a worker's exit leaves it alone. Do not regress either guard.
+> (`if (g_state == NULL && is_main_thread())`, the C adapter's `actionUIIsMainThread`),
+> even when a worker loads the addon first, and a worker's exit leaves it alone. Do not
+> regress either guard.
 
 #### App control
 
@@ -420,8 +421,8 @@ actionui.ButtonRole.DESTRUCTIVE  // 'destructive'
 ```js
 actionui.setTrustPolicy({
     // The trust of content a LoadableView loads from source ({ source, path or url }) inside
-    // content of origin parent (null for a window's root, and for a LoadableView of unknown origin,
-    // such as one in a template row); byDefault is ActionUI's own decision.
+    // content of origin parent (null only for a window's root; a LoadableView whose surroundings
+    // cannot be told gets a less-trusted parent); byDefault is ActionUI's own decision.
     // A host trusts a file its user picked as a window's own JSON (no parent), say. For the
     // host's own server, list it in configure() instead.
     trust(source, parent, byDefault) {

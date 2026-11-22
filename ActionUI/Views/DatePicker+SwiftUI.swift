@@ -21,7 +21,7 @@ extension DatePicker: ActionUISwiftUIRenderer {
                 DispatchQueue.main.async {
                     model.value = newValue
                     if let valueChangeActionID {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
                     }
                 }
             }

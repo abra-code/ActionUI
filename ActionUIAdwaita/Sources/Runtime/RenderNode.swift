@@ -464,7 +464,8 @@ public final class RenderNode {
     /// Fires `actionID` for this element, unless a renderer update is running (user signals only).
     func fire(_ actionID: String?, viewPartID: Int = 0, context: Any? = nil) {
         guard let actionID, !actionID.isEmpty, !UpdateGuard.isApplying else { return }
+        // Judged by the content the element belongs to (a template row's by its container's).
         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id,
-                                           viewPartID: viewPartID, context: context)
+                                           viewPartID: viewPartID, context: context, origin: LinkTrust.origin(self))
     }
 }

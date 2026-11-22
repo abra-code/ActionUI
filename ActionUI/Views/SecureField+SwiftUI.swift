@@ -15,7 +15,7 @@ extension SecureField: ActionUISwiftUIRenderer {
         let initialValue = Self.initialValue(model) as? String ?? ""
 
         let onSubmit = {
-            TextField.userSubmitted(actionID: props.actionID, viewID: element.id, windowUUID: windowUUID)
+            TextField.userSubmitted(actionID: props.actionID, viewID: element.id, model: model, windowUUID: windowUUID)
         }
 
         let textBinding = mainActorBinding(

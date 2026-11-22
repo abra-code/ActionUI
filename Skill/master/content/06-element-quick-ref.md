@@ -18,7 +18,7 @@ Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`,
 
 ### Rows come at run time
 
-A `Table`'s rows and a `template`'s rows are never in the document: the application sends them after the window opens. A `Table` needs `columns` (the header titles); give `minWidths` with `widths`, or columns can shrink to slivers.
+A `Table`'s rows and a `template`'s rows are never in the ActionUI JSON: the application sends them after the window opens. A `Table` needs `columns` (the header titles); give `minWidths` with `widths`, or columns can shrink to slivers.
 
 ### Names that differ from SwiftUI (each is a common mistake)
 

@@ -173,8 +173,11 @@ class WindowModel(
         // Less-trusted content may not share an id with a trusted element already in the window:
         // its element would be drawn with that element's view model and read as trusted. Sharing
         // an id with content as little trusted (two LoadableViews showing one document) gains nothing.
+        // Its templates' ids count too: a template row's elements get no view model, but keep the
+        // ids their JSON gives them, and a container may find a row's child by its id.
         if (origin?.trust == JSONContentOrigin.Trust.LESS_TRUSTED) {
-            val taken = subViewModels.keys.filter { id ->
+            val ids = subViewModels.keys + templateIDs(subRoot)
+            val taken = ids.filter { id ->
                 val existing = viewModels[id] ?: return@filter false
                 (existing.origin?.trust ?: JSONContentOrigin.Trust.TRUSTED) == JSONContentOrigin.Trust.TRUSTED
             }.sorted()
@@ -227,6 +230,24 @@ class WindowModel(
 
     /** Why [loadSubDescription] refused a sub-tree (less-trusted content using a trusted element's id). */
     class SubViewRefusedException(message: String) : IllegalStateException(message)
+
+    companion object {
+        /**
+         * The ids an element's JSON gives the elements in its templates, at any depth (a template's
+         * own templates too): those elements get no view model, so the view-model walk does not see
+         * them. Only positive ids, the ones a JSON gives.
+         */
+        fun templateIDs(element: ActionUIElement): Set<Int> {
+            val ids = mutableSetOf<Int>()
+            fun walk(e: ActionUIElement, inTemplate: Boolean) {
+                if (inTemplate && e.id > 0) ids.add(e.id)
+                e.template?.let { walk(it, true) }
+                for (child in e.subElements()) walk(child, inTemplate)
+            }
+            walk(element, false)
+            return ids
+        }
+    }
 
     /** The ids [parentID]'s loaded content owns, and those of LoadableViews inside it, removed from the record. */
     internal fun collectAndRemoveSubViewIDs(parentID: Int): Set<Int> {

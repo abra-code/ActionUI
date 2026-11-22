@@ -212,6 +212,7 @@ Package(
         //       ActionUICAdapter.h   - umbrella (may keep <ActionUICAdapter/ActionUIC.h>)
         //       ActionUIC.h          - typedefs and public C API
         //     ActionUIC.swift, ActionUIC+Apple.swift - compiled by ActionUICAdapter target below
+        //     ActionUIC+POSIX.swift                   - compiled by both ActionUICAdapter targets
         //     ActionUIC+Linux.swift                   - compiled by linuxPackage's ActionUICAdapter
         //     ActionUIC+Windows.swift                 - compiled by windowsPackage's ActionUICAdapter
         //     HeaderCheck/                            - compiled by the Xcode framework target, and
@@ -222,6 +223,7 @@ Package(
             exclude: [
                 "ActionUIC.swift",
                 "ActionUIC+Apple.swift",
+                "ActionUIC+POSIX.swift",
                 "ActionUIC+Linux.swift",
                 "ActionUIC+Windows.swift",
                 "HeaderCheck",
@@ -247,7 +249,7 @@ Package(
                 "ActionUIC+Linux.swift",
                 "ActionUIC+Windows.swift",
             ],
-            sources: ["ActionUIC.swift", "ActionUIC+Apple.swift"],
+            sources: ["ActionUIC.swift", "ActionUIC+Apple.swift", "ActionUIC+POSIX.swift"],
         ),
 
 
@@ -436,10 +438,9 @@ Package(
         // one Swift runtime, and an add-on links no ActionUI of its own. libActionUI.so, for programs
         // in other languages, is a package of its own: ActionUIAdwaita/Library.
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
-        // What that library adds: the C adapter, the application functions and the remote server.
-        .library(name: "ActionUIStaticHosts", targets: ["ActionUICAdapter", "ActionUIRemote", "ActionUIAdwaitaApplication"]),
-        // The same three one by one, for a host that runs its own application (as an AppKit host does
-        // on macOS) and takes the C adapter and the remote server without ActionUI's application.
+        // The C adapter, the remote server and the application functions, for libActionUI.so
+        // (ActionUIAdwaita/Library) and for a host that runs its own application (as an AppKit host
+        // does on macOS) and takes the C adapter and the remote server without ActionUI's application.
         .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
         .library(name: "ActionUIRemote", targets: ["ActionUIRemote"]),
         .library(name: "ActionUIAdwaitaApplication", targets: ["ActionUIAdwaitaApplication"]),
@@ -513,7 +514,7 @@ Package(
                 "ActionUIC+Apple.swift",
                 "ActionUIC+Windows.swift",
             ],
-            sources: ["ActionUIC.swift", "ActionUIC+Linux.swift"]
+            sources: ["ActionUIC.swift", "ActionUIC+Linux.swift", "ActionUIC+POSIX.swift"]
         ),
         // The application functions (actionUIApp*), over AdwaitaApplication; their C header's
         // handler types come from ActionUIApp.h as a module (only that header: its folder's

@@ -47,6 +47,7 @@
 //                    rows) scrolls rather than clips. Resizing needs visible headers.
 //   actionID / doubleClickActionID  selection / double-click actions.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
@@ -333,7 +334,7 @@ register("Table", {
             // Apple fires the selection action with no context and reads
             // model.value; the web matches — the selection is the element value.
             if (fromUser && typeof properties.actionID === "string") {
-                ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
+                ctx.model.dispatchAction(properties.actionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
 
@@ -365,7 +366,7 @@ register("Table", {
                         return;
                     }
                     if (typeof colType.actionID === "string") {
-                        ctx.model.dispatchAction(colType.actionID, element.id, colIndex, rowIndex);
+                        ctx.model.dispatchAction(colType.actionID, element.id, colIndex, rowIndex, ctx.origin ?? HOST_ORIGIN);
                     }
                 });
                 td.appendChild(label);
@@ -380,7 +381,7 @@ register("Table", {
                 button.addEventListener("click", (event) => {
                     event.stopPropagation(); // the cell's own tap, not row selection
                     if (typeof colType.actionID === "string") {
-                        ctx.model.dispatchAction(colType.actionID, element.id, colIndex, cellContext(colType.actionContext, value, rowIndexRef(), colIndex));
+                        ctx.model.dispatchAction(colType.actionID, element.id, colIndex, cellContext(colType.actionContext, value, rowIndexRef(), colIndex), ctx.origin ?? HOST_ORIGIN);
                     }
                 });
                 td.appendChild(button);
@@ -421,7 +422,7 @@ register("Table", {
             tr.addEventListener("click", () => selectIndex(rowIndex, true));
             tr.addEventListener("dblclick", () => {
                 if (typeof properties.doubleClickActionID === "string" && rowIndex === selectedIndex) {
-                    ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, rowIndex);
+                    ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, rowIndex, ctx.origin ?? HOST_ORIGIN);
                 }
             });
             tr.addEventListener("keydown", (event) => {

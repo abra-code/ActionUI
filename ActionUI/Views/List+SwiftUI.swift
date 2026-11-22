@@ -50,7 +50,7 @@ extension List: ActionUISwiftUIRenderer {
     private static func buildHomogeneousRow(
         item: String, index: Int, viewType: Props.ViewType,
         dataInterpretation: Props.DataInterpretation, buttonActionID: String?,
-        actionContext: Props.ActionContext, windowUUID: String, elementID: Int
+        actionContext: Props.ActionContext, windowUUID: String, elementID: Int, model: ViewModel
     ) -> AnyView {
         let row: any SwiftUI.View
         switch viewType {
@@ -58,7 +58,7 @@ extension List: ActionUISwiftUIRenderer {
             row = SwiftUI.Button(item) {
                 if let aid = buttonActionID {
                     let ctx: Any = actionContext == .rowIndex ? index : item
-                    ActionUIModel.shared.actionHandler(aid, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: ctx)
+                    ActionUIModel.shared.actionHandler(aid, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: ctx, model: model)
                 }
             }
         case .image:
@@ -117,7 +117,7 @@ extension List: ActionUISwiftUIRenderer {
                         let current = model.states["content"] as? [[String]] ?? []
                         model.value = ActionUIModel.reconciledSelection(rows[index], from: rows, to: current)
                     }
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index, model: model)
                 }
             }
             #endif
@@ -192,7 +192,7 @@ extension List: ActionUISwiftUIRenderer {
                         buildHomogeneousRow(
                             item: items[index][0], index: index, viewType: viewType,
                             dataInterpretation: dataInterpretation, buttonActionID: buttonActionID,
-                            actionContext: actionContext, windowUUID: windowUUID, elementID: elementID
+                            actionContext: actionContext, windowUUID: windowUUID, elementID: elementID, model: model
                         ),
                         props: props
                     )
@@ -212,7 +212,7 @@ extension List: ActionUISwiftUIRenderer {
                         let current = model.states["content"] as? [[String]] ?? []
                         model.value = ActionUIModel.reconciledSelection(items[index], from: items, to: current)
                     }
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: index)
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: index, model: model)
                 }
             }
             #endif

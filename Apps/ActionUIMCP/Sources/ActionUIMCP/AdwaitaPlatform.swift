@@ -92,7 +92,7 @@ final class AdwaitaPlatform: WindowPlatform {
 
     /// Only loads: building the widgets starts a WebView's page and an AsyncImage's fetch, which a
     /// document that is only checked, or is refused, must not do. So the renderer's warnings come
-    /// from `present`, and validate_document does not see them.
+    /// from `present`, and validate_ui does not see them.
     func loadContent(file: URL, windowID: String) -> Content {
         application.prepareWindow(json: (try? Data(contentsOf: file)) ?? Data(), windowUUID: windowID)
     }
@@ -147,17 +147,17 @@ final class AdwaitaPlatform: WindowPlatform {
         }
         var warnings = built.entries.filter { $0.level == .warning || $0.level == .error }.map(\.message)
         guard let render = built.result else {
-            throw MCPToolError("the document could not be rendered" + (warnings.isEmpty ? "" : ":\n" + warnings.prefix(20).joined(separator: "\n")))
+            throw MCPToolError("the ActionUI JSON could not be rendered" + (warnings.isEmpty ? "" : ":\n" + warnings.prefix(20).joined(separator: "\n")))
         }
         defer { render.close() }
         try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         if render.showsWebView {
-            warnings.append("A WebView's page is not drawn in a document rendered without showing it on Linux; open the document with show_document and screenshot that window to see the page")
+            warnings.append("A WebView's page is not drawn in ActionUI JSON rendered without showing it on Linux; open it with show_ui and screenshot that window to see the page")
         }
         let file = HostSupport.sessionFolder.appendingPathComponent("render-\(UUID().uuidString).png")
         defer { try? FileManager.default.removeItem(at: file) }
         guard let pixels = render.capturePNG(path: file.path, maxPixels: WindowHost.maxScreenshotPixels) else {
-            throw MCPToolError("the document could not be drawn")
+            throw MCPToolError("the ActionUI JSON could not be drawn")
         }
         return (CapturedImage(png: try Data(contentsOf: file), pixelWidth: pixels.width, pixelHeight: pixels.height), warnings)
     }

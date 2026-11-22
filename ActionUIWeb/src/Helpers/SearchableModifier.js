@@ -21,6 +21,7 @@
 // pinned above the list is the idiomatic equivalent, and the emit contract is the
 // same either way.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { materialNameGlyph } from "./SymbolIcon.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 
@@ -82,7 +83,7 @@ export function wrapWithSearchable(bodyNode, element, properties, ctx) {
     // Emit the query on every change (user types or clears), the query string as the
     // action context — Apple's onChange(of: query).
     input.addEventListener("input", () => {
-        ctx.model.dispatchAction(config.actionID, element.id, 0, input.value);
+        ctx.model.dispatchAction(config.actionID, element.id, 0, input.value, ctx.origin ?? HOST_ORIGIN);
     });
 
     bar.append(icon, input);

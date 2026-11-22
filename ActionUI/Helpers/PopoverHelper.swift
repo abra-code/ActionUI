@@ -11,6 +11,9 @@ struct PopoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let popoverElement: any ActionUIElementBase
     let popoverModel: ViewModel
     let parentModel: ViewModel
+    /// The presenting element's view model, which judges popoverActionID: in a template row the row's
+    /// own, not the window's model for the id it carries (parentModel), which may be another element's.
+    let actionModel: ViewModel
     let windowUUID: String
     let elementID: Int
     let arrowEdge: Edge
@@ -30,7 +33,7 @@ struct PopoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
                     let willShow = !(parentModel.states["popoverVisible"] as? Bool ?? false)
                     parentModel.states["popoverVisible"] = willShow
                     if willShow, let actionID = popoverActionID {
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0)
+                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, model: actionModel)
                     }
                 }
                 .popover(isPresented: isPresented, arrowEdge: arrowEdge) {

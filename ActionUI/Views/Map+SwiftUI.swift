@@ -107,7 +107,7 @@ extension Map: ActionUISwiftUIRenderer {
                     DispatchQueue.main.async {
                         model.value = ActionUICoordinate(latitude: coord.latitude, longitude: coord.longitude)
                         if let valueChangeActionID {
-                            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
                         }
                     }
                 }
@@ -140,7 +140,7 @@ extension Map: ActionUISwiftUIRenderer {
         .onMapCameraChange(frequency: .onEnd) { context in
             if let actionID = actionID {
                 logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
             }
         }
         #else

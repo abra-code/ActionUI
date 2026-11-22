@@ -15,7 +15,7 @@ extension TextField: ActionUISwiftUIRenderer {
         let valueChangeActionID = props.valueChangeActionID
 
         let onSubmit = {
-            TextField.userSubmitted(element: element, windowUUID: windowUUID, props: props)
+            TextField.userSubmitted(element: element, model: model, windowUUID: windowUUID, props: props)
         }
 
         // Formatted numeric TextField
@@ -24,7 +24,7 @@ extension TextField: ActionUISwiftUIRenderer {
                 DispatchQueue.main.async {
                     model.value = newValue
                     if let valueChangeActionID {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
                     }
                 }
             }

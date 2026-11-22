@@ -47,7 +47,7 @@ struct QLPreviewRepresentable {
     }
 
     func makeQLCoordinator() -> Coordinator {
-        Coordinator(valueChangeActionID: valueChangeActionID, windowUUID: windowUUID, viewID: element.id)
+        Coordinator(valueChangeActionID: valueChangeActionID, windowUUID: windowUUID, viewID: element.id, model: model)
     }
 }
 
@@ -61,20 +61,23 @@ extension QLPreviewRepresentable {
         let valueChangeActionID: String?
         let windowUUID: String
         let viewID: Int
+        /// The element's view model: a QuickLook in a template row is judged by its row's container.
+        let model: ViewModel
         #if os(iOS) || os(visionOS)
         weak var preview: QLPreviewController?
         #endif
 
-        init(valueChangeActionID: String?, windowUUID: String, viewID: Int) {
+        init(valueChangeActionID: String?, windowUUID: String, viewID: Int, model: ViewModel) {
             self.valueChangeActionID = valueChangeActionID
             self.windowUUID = windowUUID
             self.viewID = viewID
+            self.model = model
         }
 
         /// Fires the host-facing change notification after a new source is applied.
         func fireValueChange() {
             guard let actionID = valueChangeActionID else { return }
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, model: model)
         }
     }
 }

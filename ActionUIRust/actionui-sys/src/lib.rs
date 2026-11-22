@@ -79,8 +79,8 @@ pub const ACTIONUI_TRUST_LESS_TRUSTED: ActionUITrust = 0;
 pub const ACTIONUI_TRUST_TRUSTED: ActionUITrust = 1;
 
 /// The trust of content a LoadableView loads: `(sourceJSON, parentOriginJSON, byDefault)`,
-/// returning the trust to use. `parentOriginJSON` is null for a window's root, and for a
-/// LoadableView of unknown origin (one in a template row). Only
+/// returning the trust to use. `parentOriginJSON` is null only for a window's root; a
+/// LoadableView whose surroundings cannot be told gets a less-trusted parent. Only
 /// [`ACTIONUI_TRUST_TRUSTED`] means trusted. The strings are valid only for the call.
 pub type ActionUITrustCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, ActionUITrust) -> ActionUITrust>;
 
@@ -88,8 +88,7 @@ pub type ActionUITrustCallback = Option<unsafe extern "C" fn(*const c_char, *con
 /// the decision to use. The strings are valid only for the call.
 pub type ActionUICapabilityCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, bool) -> bool>;
 
-/// Work for the main thread: `(context)`. Windows only (actionUIRunOnMainThread); declared
-/// everywhere, as tests/declarations.rs reads the header's types on every system.
+/// Work for the main thread: `(context)` (actionUIRunOnMainThread).
 pub type ActionUIMainThreadCallback = Option<unsafe extern "C" fn(*mut c_void)>;
 
 // MARK: - Types (ActionUIApp.h)
@@ -167,6 +166,12 @@ unsafe extern "C" {
     /// The configuration in effect, as JSON with every key.
     pub fn actionUIGetConfigurationJSON() -> *mut c_char;
 
+    /// Runs `callback(context)` on the main thread, later, after the work ActionUI queued
+    /// before it; any thread.
+    pub fn actionUIRunOnMainThread(callback: ActionUIMainThreadCallback, context: *mut c_void);
+    /// Whether the calling thread is the one ActionUI takes for the main thread.
+    pub fn actionUIIsMainThread() -> bool;
+
     /// Forgets a window's model once the host is done with it. An unknown window is ignored.
     pub fn actionUIRemoveWindow(windowUUID: *const c_char);
     pub fn actionUIGetContentSizeLimits(windowUUID: *const c_char, outMinWidth: *mut f64, outMinHeight: *mut f64, outMaxWidth: *mut f64, outMaxHeight: *mut f64) -> bool;
@@ -204,10 +209,6 @@ unsafe extern "C" {
     pub fn actionUILoadIntoHostWindowFromURL(xamlWindow: *mut c_void, urlString: *const c_char, windowUUID: *const c_char, subtitle: *const c_char) -> bool;
     pub fn actionUILoadIntoHostWindowFromJSON(xamlWindow: *mut c_void, jsonString: *const c_char, windowUUID: *const c_char, subtitle: *const c_char) -> bool;
     pub fn actionUIInstallMainLoopBridge();
-    /// Runs `callback(context)` on the main thread, later; any thread.
-    pub fn actionUIRunOnMainThread(callback: ActionUIMainThreadCallback, context: *mut c_void);
-    /// Whether the calling thread is the one ActionUI takes for the main thread.
-    pub fn actionUIIsMainThread() -> bool;
 }
 
 // MARK: - ActionUIAppKitApplication

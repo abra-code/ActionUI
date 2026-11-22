@@ -14,6 +14,7 @@
 // convention; outside a template the context stays { isOn }). Any other isOn in a
 // template is display-only. A rows change made by the host fires nothing.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { IS_ON_COLUMN_KEY, rowBoolText, warnOnce } from "../Helpers/TemplateHelper.js";
@@ -68,7 +69,7 @@ register("Toggle", {
 
         const dispatchValueChange = () => {
             if (typeof properties.valueChangeActionID === "string") {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
 
@@ -89,7 +90,7 @@ register("Toggle", {
                     return;
                 }
                 if (typeof properties.actionID === "string") {
-                    ctx.model.dispatchAction(properties.actionID, parentID, rowIndex, input.checked);
+                    ctx.model.dispatchAction(properties.actionID, parentID, rowIndex, input.checked, ctx.origin ?? HOST_ORIGIN);
                 }
             });
             return wrapper;
@@ -99,7 +100,7 @@ register("Toggle", {
             if (typeof properties.actionID === "string") {
                 ctx.model.dispatchAction(properties.actionID, element.id, 0, {
                     isOn: input.checked,
-                });
+                }, ctx.origin ?? HOST_ORIGIN);
             }
         });
 

@@ -1,7 +1,8 @@
 // Sources/Elements/Chart+Adwaita.swift
 /*
- Chart on GTK: a widget that draws what Drawing/ChartLayout.swift lays out with GTK's snapshot API
- (GSK paths and strokes, Pango text). Greedy in both axes with Color's size, as Canvas is.
+ Chart on GTK: a widget that draws what ActionUIRendererShared/Sources/Chart/ChartLayout.swift lays
+ out with GTK's snapshot API (GSK paths and strokes, Pango text). Greedy in both axes with Color's
+ size, as Canvas is.
 
  The description is stored cleaned (Core/Elements/Chart.swift), and its warnings were logged then,
  so it parses without a logger here. Marks are read when the description or the rows change; the
@@ -484,7 +485,8 @@ extension Chart: ActionUIAdwaitaRenderer {
         }
         let windowUUID = node.windowUUID
         let viewID = node.element.id
-        let fire = { ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0) }
+        let origin = LinkTrust.origin(node)
+        let fire = { ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, origin: origin) }
         if props.selectionActionTiming == .continuous || after.isEmpty {
             fire()
             return

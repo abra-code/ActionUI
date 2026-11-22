@@ -67,7 +67,7 @@ extension Button {
             let willShow = !(model.states["popoverVisible"] as? Bool ?? false)
             model.states["popoverVisible"] = willShow
             if willShow, let popoverActionID = props.popoverActionID {
-                ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: 0, model: model)
             }
         }
         if element.subviews?["sheet"] != nil {
@@ -77,7 +77,7 @@ extension Button {
             model.states["fullScreenCoverVisible"] = true
         }
         if let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: actionViewPartID)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: actionViewPartID, model: model)
         }
     }
 }

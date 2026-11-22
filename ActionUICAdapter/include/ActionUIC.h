@@ -98,8 +98,8 @@ typedef enum {
 
 /// Trust callback: the trust of content a LoadableView loads from `sourceJSON` (an origin's
 /// "source" with its "path" or "url", such as {"source":"remote","url":"https://example.com/v.json"})
-/// inside content of origin `parentOriginJSON` (NULL for a window's root, and for a LoadableView whose
-/// own origin is unknown, such as one in a template row, whose content is then less trusted by
+/// inside content of origin `parentOriginJSON` (NULL only for a window's root; a LoadableView whose
+/// surroundings cannot be told gets a less-trusted parent, so its content is less trusted by
 /// default), given ActionUI's own decision `byDefault`. Return byDefault to keep it; any value other than ActionUITrustTrusted
 /// means less trusted.
 typedef ActionUITrust (*ActionUITrustCallback)(const char* sourceJSON,
@@ -218,6 +218,18 @@ bool actionUISetConfigurationJSON(const char *configurationJSON) ACTIONUI_NOEXCE
 // - the configuration in effect, as JSON with every key;
 char *actionUIGetConfigurationJSON(void) ACTIONUI_NOEXCEPT;
 
+// Main thread, for a binding's own threading (a language runtime's work handed to the main thread, its
+// main-thread-only calls):
+// - runs callback(context) on the main thread, after the work queued before it (ActionUI's own included),
+//   once the main loop runs: actionUIAppRun's, or a host's own (on Linux once actionUIInstallMainLoopBridge
+//   was called or a host window was filled). Never at once, also when called on the main thread. Any
+//   thread; callback NULL does nothing;
+typedef void (*ActionUIMainThreadCallback)(void *context);
+void actionUIRunOnMainThread(ActionUIMainThreadCallback callback, void *context) ACTIONUI_NOEXCEPT;
+// - whether the calling thread is the one ActionUI takes for the main thread (the one its main queue runs
+//   on: on Linux and Windows the thread that loaded the library).
+bool actionUIIsMainThread(void) ACTIONUI_NOEXCEPT;
+
 // Apple only (ActionUIC+Apple.swift): a build for another platform has no such functions.
 #if defined(__APPLE__)
 void *actionUILoadHostingControllerFromURL(const char *urlString, const char *windowUUID, bool isContentView) ACTIONUI_NOEXCEPT;  // NSHostingController on macOS, UIView on iOS; retained
@@ -259,18 +271,12 @@ double actionUIGetWindowBarsHeight(const char *windowUUID) ACTIONUI_NOEXCEPT;
 // actionUIAppRun is refused (a process has one WinUI Application).
 // actionUIInstallMainLoopBridge: main-actor work runs under the host's loop from now on (filling a window
 // installs it too); UI thread only, while the host's application runs; later calls do nothing.
-// actionUIRunOnMainThread: callback(context) runs on the main thread, after the work queued before it, once
-// the main loop runs (actionUIAppRun's, or a host's with the main-loop bridge); never at once, also when
-// called on the main thread. Any thread. What a binding hands the main thread, as GLib's g_idle_add on
-// Linux and the main dispatch queue on Apple. actionUIIsMainThread: whether the calling thread is the one
-// ActionUI takes for the main thread (the one its main queue runs on), for a binding's own checks.
+// (actionUIRunOnMainThread and actionUIIsMainThread, which bindings use on Windows too, are declared above
+// for every platform.)
 #if defined(_WIN32)
-typedef void (*ActionUIMainThreadCallback)(void *context);
 bool actionUILoadIntoHostWindowFromURL(void *xamlWindow, const char *urlString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;  // a path or file URL
 bool actionUILoadIntoHostWindowFromJSON(void *xamlWindow, const char *jsonString, const char *windowUUID, const char *subtitle) ACTIONUI_NOEXCEPT;
 void actionUIInstallMainLoopBridge(void) ACTIONUI_NOEXCEPT;
-void actionUIRunOnMainThread(ActionUIMainThreadCallback callback, void *context) ACTIONUI_NOEXCEPT;
-bool actionUIIsMainThread(void) ACTIONUI_NOEXCEPT;
 #endif
 
 #ifdef __cplusplus

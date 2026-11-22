@@ -89,7 +89,7 @@ extension DatePicker {
         guard model.value as? Date != date else { return }
         model.value = date
         if let valueChangeActionID = props.valueChangeActionID {
-            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
         }
     }
 }

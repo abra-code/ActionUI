@@ -12,4 +12,4 @@ Full detail lives in the reference docs, not here. In this skill package they ar
 - `docs/Elements/<Type>.json`: a ready-to-use template for one element.
 - `docs/ActionUI-JSON-Guide.md`: structure, layout, platform overrides, charts.
 - `docs/ActionUI-Elements.md`: the index of every element.
-- `docs/ActionUI-MenuBar-JSON-Guide.md`: the menu-bar document (`MainMenu.json`), whose root is an array, not a view.
+- `docs/ActionUI-MenuBar-JSON-Guide.md`: the menu bar's ActionUI JSON (`MainMenu.json`), whose root is an array, not a view.

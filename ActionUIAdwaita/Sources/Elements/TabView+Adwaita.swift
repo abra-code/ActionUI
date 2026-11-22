@@ -175,7 +175,7 @@ extension TabView: ActionUIAdwaitaRenderer {
               initialValue(node.model) as? Int != index else { return }
         node.model.value = index
         if let actionID = Props(node.properties).actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, context: index)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, context: index, origin: LinkTrust.origin(node))
         }
     }
 }

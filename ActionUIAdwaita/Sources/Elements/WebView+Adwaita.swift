@@ -231,7 +231,7 @@ extension WebView: ActionUIAdwaitaRenderer {
         node.model.value = urlString
         syncBackForward(webKit, view, node)
         if let actionID = Props(node.properties).valueChangeActionID, !urlString.isEmpty {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
     }
 
@@ -241,7 +241,7 @@ extension WebView: ActionUIAdwaitaRenderer {
         node.model.states["estimatedProgress"] = webKit.progress(view)
         syncBackForward(webKit, view, node)
         if let actionID = Props(node.properties).navigationActionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
     }
 

@@ -144,8 +144,9 @@ func printUsage() {
 /// The Viewer shows the document the user names, wherever it is: that local file is trusted (no
 /// less than the bundle's would be), and so is a local file it names, though never above the
 /// content around it, so a remote document that names a local file keeps that file less trusted.
-/// Remote documents (here, the downloaded copy of one) and any other local file with no known
-/// parent (one a LoadableView in a template row names) keep ActionUI's default.
+/// Remote ActionUI JSON (here, the downloaded copy of it) keeps ActionUI's default, and a local file
+/// named where ActionUI cannot tell the content around it stays less trusted: it gets a less-trusted
+/// parent, never none.
 struct ViewerTrustPolicy: ActionUITrustPolicy {
     /// The resolved path of the local document the user named, as JSONContentOrigin.Source.file
     /// gives it; nil for a remote document.

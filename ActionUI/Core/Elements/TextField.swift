@@ -127,8 +127,8 @@ extension TextField {
 
     /// The user submitted the field (Return, or on macOS and Linux, leaving it): fires actionID.
     @MainActor
-    static func userSubmitted(element: any ActionUIElementBase, windowUUID: String, props: Props) {
-        userSubmitted(actionID: props.actionID, viewID: element.id, windowUUID: windowUUID)
+    static func userSubmitted(element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
+        userSubmitted(actionID: props.actionID, viewID: element.id, model: model, windowUUID: windowUUID)
     }
 
     /// What typing does in any text entry (TextField, SecureField and TextEditor): stores the text as the value
@@ -138,16 +138,16 @@ extension TextField {
         guard model.value as? String != newValue else { return }
         model.value = newValue
         if let valueChangeActionID {
-            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, model: model)
         }
     }
 
     /// What submitting does in any text entry (TextField and SecureField): fires actionID.
     @MainActor
-    static func userSubmitted(actionID: String?, viewID: Int, windowUUID: String) {
+    static func userSubmitted(actionID: String?, viewID: Int, model: ViewModel, windowUUID: String) {
         guard let actionID else { return }
         // actionHandler logs the call.
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, model: model)
     }
 }
 

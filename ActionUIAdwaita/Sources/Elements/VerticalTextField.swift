@@ -107,7 +107,7 @@ enum VerticalTextField {
                 }
                 insertNewLine(textView)
             } else if TextField.Props(node.properties).actionID != nil {
-                TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: TextField.Props(node.properties))
+                TextField.userSubmitted(element: node.element, model: node.model, windowUUID: node.windowUUID, props: TextField.Props(node.properties))
             } else {
                 gtk_widget_activate_default(view)
             }
@@ -118,7 +118,7 @@ enum VerticalTextField {
         connectUserSignal(UnsafeMutableRawPointer(focus), "leave", .instanceOnly) { [weak node] in
             // Only the focus moving elsewhere submits, as in a one-line field.
             guard let node, node.isAttached, gtk_widget_get_mapped(view) != 0, !TextField.containsWindowFocus(view) else { return }
-            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: TextField.Props(node.properties))
+            TextField.userSubmitted(element: node.element, model: node.model, windowUUID: node.windowUUID, props: TextField.Props(node.properties))
         }
         gtk_widget_add_controller(view, focus)
         // The lines' height in the field's font, once it is styled.

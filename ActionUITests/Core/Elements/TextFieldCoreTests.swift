@@ -49,12 +49,12 @@ final class TextFieldCoreTests: XCTestCase {
 
     func testSubmittingFiresTheActionAndNothingWithoutOne() throws {
         let (element, _, props) = try load(#"{"type": "TextField", "id": 1, "properties": {"actionID": "submit"}}"#)
-        TextField.userSubmitted(element: element, windowUUID: windowUUID, props: props)
+        TextField.userSubmitted(element: element, model: ViewModel(), windowUUID: windowUUID, props: props)
         XCTAssertEqual(fired, ["submit"])
 
         ActionUIModel.shared.windowModels[windowUUID] = nil
         let (plain, _, plainProps) = try load(#"{"type": "TextField", "id": 1}"#)
-        TextField.userSubmitted(element: plain, windowUUID: windowUUID, props: plainProps)
+        TextField.userSubmitted(element: plain, model: ViewModel(), windowUUID: windowUUID, props: plainProps)
         XCTAssertEqual(fired, ["submit"])
     }
 }

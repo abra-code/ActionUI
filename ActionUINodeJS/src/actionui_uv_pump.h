@@ -4,7 +4,7 @@
  *
  * actionui_node.c holds what every platform shares (one libuv iteration with the nextTick and microtask drain,
  * the keepalive handle, the next timer). Each platform starts, stops and wakes the pump its own way:
- * actionui_uv_pump_windows.c on Windows (binding.gyp compiles it there); macOS and Linux are in actionui_node.c.
+ * actionui_uv_pump_apple.c, _glib.c and _windows.c, chosen by binding.gyp.
  */
 
 #ifndef ACTIONUI_UV_PUMP_H

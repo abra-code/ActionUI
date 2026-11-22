@@ -23,10 +23,13 @@ public struct FileLoadableView: SwiftUI.View {
     private let element: ActionUIElement?
     private let error: Error?
 
-    public init(fileURL: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
+    /// `around`: the origin of the content a LoadableView is in, when its renderer knows it (a
+    /// template row's); nil: looked up by `parentID`.
+    public init(fileURL: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, around: JSONContentOrigin? = nil,
+                viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
         let format = ActionUIDocumentLoader.format(of: fileURL)
         logger.log("Determined format '\(format)' for file URL \(fileURL)", .debug)
-        self.init(source: fileURL.absoluteString, origin: .file(fileURL), format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
+        self.init(source: fileURL.absoluteString, origin: .file(fileURL), format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
             try ActionUIDocumentLoader.readRegularFile(fileURL)
         }
     }
@@ -35,13 +38,13 @@ public struct FileLoadableView: SwiftUI.View {
     /// program. `sourceName` identifies the data in log messages and must differ between different
     /// descriptions loaded into the same window element. `format` is "json" or "plist".
     public init(data: Data, format: String = "json", sourceName: String, windowUUID: String, isContentView: Bool, parentID: Int = 0, viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
-        self.init(source: sourceName, origin: nil, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
+        self.init(source: sourceName, origin: nil, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: nil, viewDidLoadActionID: viewDidLoadActionID, logger: logger) {
             data
         }
     }
 
     // `origin`: where the data is read from (JSONContentOrigin), nil for data the host holds.
-    private init(source: String, origin: ActionUIDocumentLoader.Source?, format: String, windowUUID: String, isContentView: Bool, parentID: Int, viewDidLoadActionID: String?, logger: any ActionUILogger, loadData: () throws -> Data) {
+    private init(source: String, origin: ActionUIDocumentLoader.Source?, format: String, windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?, viewDidLoadActionID: String?, logger: any ActionUILogger, loadData: () throws -> Data) {
         self.source = source
         self.windowUUID = windowUUID
         self.isContentView = isContentView
@@ -52,7 +55,7 @@ public struct FileLoadableView: SwiftUI.View {
         // Perform synchronous loading in init
         do {
             let data = try loadData()
-            self.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, source: origin)
+            self.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, source: origin, around: around)
             logger.log("Successfully loaded \(format) for LoadableView from \(source)", .debug)
             self.error = nil
             // Defer fireViewDidLoad to after current body evaluation completes

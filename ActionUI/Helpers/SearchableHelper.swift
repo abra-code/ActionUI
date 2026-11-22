@@ -13,6 +13,8 @@ struct SearchableModifierView: SwiftUI.View {
     let content: AnyView
     let windowUUID: String
     let elementID: Int
+    /// The element's view model (nil: not known), which judges a template row's element by its row.
+    let model: ViewModel?
     let actionID: String
     let prompt: String?
 
@@ -21,9 +23,15 @@ struct SearchableModifierView: SwiftUI.View {
     var body: some SwiftUI.View {
         searchableContent
             .onChange(of: query) { _, newValue in
-                ActionUIModel.shared.actionHandler(
-                    actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: newValue
-                )
+                if let model {
+                    ActionUIModel.shared.actionHandler(
+                        actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: newValue, model: model
+                    )
+                } else {
+                    ActionUIModel.shared.actionHandler(
+                        actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: newValue
+                    )
+                }
             }
     }
 

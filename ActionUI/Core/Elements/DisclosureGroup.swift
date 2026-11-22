@@ -68,7 +68,7 @@ extension DisclosureGroup {
         guard model.states["isExpanded"] as? Bool != expanded else { return }
         model.states["isExpanded"] = expanded
         if let actionID = props.valueChangeActionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
         }
     }
 }

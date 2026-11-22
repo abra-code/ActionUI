@@ -17,6 +17,8 @@
 
  The system's decimal separator: on Apple, Locale.current's; on Linux, the C library's for the
  locale GTK sets from the user's at startup.
+
+ The C library call that formats the number (printf) is in NumberPrintf+POSIX.swift.
 */
 
 #if canImport(FoundationEssentials)
@@ -50,11 +52,6 @@ enum NumberPrintf {
     /// alike (C prints up to INT_MAX characters, JavaScript strings end near 2^29, a JVM runs out of
     /// memory), and a typo such as "%1000000000d" would allocate gigabytes.
     static let maxLength = 4096
-
-    #if !os(Windows) // Windows: NumberPrintf+Windows.swift
-    /// The C locale for numbers, which vsnprintf formats in whatever locale the process is in.
-    nonisolated(unsafe) private static let cLocale = newlocale(Int32(1) << LC_NUMERIC, "C", nil)
-    #endif
 
     /// `format` with `value` in it, or nil when the format is refused.
     static func format(_ format: String, _ value: Double, decimalSeparator: String = systemDecimalSeparator) -> String? {
@@ -156,20 +153,4 @@ enum NumberPrintf {
     private static func localized(_ number: String, _ separator: String) -> String {
         separator == "." ? number : number.replacing(".", with: separator, maxReplacements: 1)
     }
-
-    #if !os(Windows) // Windows: NumberPrintf+Windows.swift
-    /// vsnprintf in the C locale, twice: for the length, then the text (a va_list is used once).
-    private static func printf(_ format: String, _ argument: CVarArg) -> String? {
-        let previous = uselocale(cLocale)
-        defer { uselocale(previous) }
-        let length = withVaList([argument]) { vsnprintf(nil, 0, format, $0) }
-        guard length >= 0 else { return nil }
-        var buffer = [CChar](repeating: 0, count: Int(length) + 1)
-        let written = buffer.withUnsafeMutableBufferPointer { bytes in
-            withVaList([argument]) { vsnprintf(bytes.baseAddress, bytes.count, format, $0) }
-        }
-        guard written == length else { return nil }
-        return String(decoding: buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
-    }
-    #endif
 }

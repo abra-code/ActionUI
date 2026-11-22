@@ -44,35 +44,25 @@ fn random_bytes(bytes: &mut [u8]) {
     }
 }
 
-#[cfg(target_os = "macos")]
-unsafe extern "C" {
-    fn pthread_main_np() -> c_int;
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(target_os = "android")]
 unsafe extern "C" {
     fn gettid() -> c_int;
     fn getpid() -> c_int;
 }
 
-#[cfg(target_os = "macos")]
-pub(crate) fn is_main_thread() -> bool {
-    unsafe { pthread_main_np() != 0 }
-}
-
-/// The main thread's ID is the process ID. It is also the thread ActionUI takes for the
-/// main one: the program loads libActionUI.so on it, at startup. On Android it is the app's main
-/// (Looper) thread.
-#[cfg(any(target_os = "linux", target_os = "android"))]
-pub(crate) fn is_main_thread() -> bool {
-    unsafe { gettid() == getpid() }
-}
-
-/// ActionUI's own answer: Windows has no call that names a process's main thread, and ActionUI takes for
-/// the main thread the one its main queue runs on.
-#[cfg(target_os = "windows")]
+/// The thread ActionUI takes for the main one, the one its main queue runs on: the C
+/// adapter's answer. On Linux that is the thread that loaded libActionUI.so, a program's main
+/// thread at startup.
+#[cfg(not(target_os = "android"))]
 pub(crate) fn is_main_thread() -> bool {
     unsafe { sys::actionUIIsMainThread() }
+}
+
+/// Android has no C adapter: the main thread's ID is the process ID, the app's main (Looper)
+/// thread.
+#[cfg(target_os = "android")]
+pub(crate) fn is_main_thread() -> bool {
+    unsafe { gettid() == getpid() }
 }
 
 /// For what exists only on the main thread: the application, and the handlers, whose

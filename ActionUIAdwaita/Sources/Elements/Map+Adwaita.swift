@@ -226,11 +226,11 @@ extension Map: ActionUIAdwaitaRenderer {
             state.lastTracked = center
             node.model.value = center
             if let actionID = props.valueChangeActionID {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
             }
         }
         if let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
     }
 

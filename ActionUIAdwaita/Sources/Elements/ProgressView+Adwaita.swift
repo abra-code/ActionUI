@@ -86,7 +86,7 @@ extension ProgressView: ActionUIAdwaitaRenderer {
         let click = gtk_gesture_click_new()!
         connectUserSignal(UnsafeMutableRawPointer(click), "released", .press) { [weak node] in
             guard let node else { return }
-            ProgressView.userTapped(element: node.element, windowUUID: node.windowUUID, props: Props(node.properties))
+            ProgressView.userTapped(element: node.element, model: node.model, windowUUID: node.windowUUID, props: Props(node.properties))
         }
         gtk_widget_add_controller(box, click)
         return box

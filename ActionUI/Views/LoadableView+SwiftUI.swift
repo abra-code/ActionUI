@@ -25,9 +25,15 @@ extension LoadableView: ActionUISwiftUIRenderer {
             bundleURL: resourceURL,
             logger: logger
         )
+        // In a template row it is judged by its row's container, and may not carry another element's
+        // id, whose place in the window its content would take.
+        if let refusal = ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: element.id, model: model, logger: logger) {
+            return SwiftUI.Text("Failed to load view: \(refusal)").foregroundStyle(.red)
+        }
+        let around = ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: model)
         // The trust policy may refuse the source (ActionUICapability.load), before anything is read.
         if case .success(let found) = source,
-           let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: element.id, logger: logger) {
+           let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: element.id, around: around, logger: logger) {
             return SwiftUI.Text("Failed to load view: \(refusal)").foregroundStyle(.red)
         }
         switch source {
@@ -37,11 +43,11 @@ extension LoadableView: ActionUISwiftUIRenderer {
         // loads itself is refused at the repeat, and nesting stops at a fixed depth.
         case .success(.remote(let url)):
             return LoadableNestingGuard(source: ActionUIDocumentLoader.nestingKey(for: .remote(url)), logger: logger) {
-                RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
+                RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, around: around, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
             }
         case .success(.file(let fileURL)):
             return LoadableNestingGuard(source: ActionUIDocumentLoader.nestingKey(for: .file(fileURL)), logger: logger) {
-                FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
+                FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, around: around, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
             }
         }
     }

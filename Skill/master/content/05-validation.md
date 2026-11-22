@@ -12,7 +12,7 @@ After generating or modifying ActionUI JSON, always validate before presenting t
 python3 -B scripts/validate_actionui.py <file-or-directory>
 ```
 
-Fix every `[ERROR]`. Treat every `[WARNING]` as a probable bug: an unknown property or value is only a warning, and the runtime ignores it, so the document "works" without doing what you wrote. `[INFO]` lines are informational.
+Fix every `[ERROR]`. Treat every `[WARNING]` as a probable bug: an unknown property or value is only a warning, and the runtime ignores it, so the JSON "works" without doing what you wrote. `[INFO]` lines are informational.
 
 Common causes: a misspelled or invented property (check the element's schema), a wrong value type (`"16"` for `16`), a duplicate `id`, a missing required property, a misspelled `type`.
 

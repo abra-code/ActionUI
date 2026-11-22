@@ -172,7 +172,8 @@ extension NavigationStack: ActionUISwiftUIRenderer {
                             windowUUID: windowUUID,
                             viewID: content.id,
                             viewPartID: 0,
-                            context: newValue as Any
+                            context: newValue as Any,
+                            model: contentModel
                         )
                     }
 

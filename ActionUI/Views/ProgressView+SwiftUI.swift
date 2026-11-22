@@ -25,7 +25,7 @@ extension ProgressView: ActionUISwiftUIRenderer {
         
         return progressView
             .onTapGesture {
-                ProgressView.userTapped(element: element, windowUUID: windowUUID, props: props)
+                ProgressView.userTapped(element: element, model: model, windowUUID: windowUUID, props: props)
             }
     }
     

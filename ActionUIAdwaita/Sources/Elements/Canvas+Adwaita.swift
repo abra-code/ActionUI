@@ -78,7 +78,7 @@ extension Canvas: ActionUIAdwaitaRenderer {
             guard let node, let actionID = Props(node.properties).actionID else { return }
             // Released inside: a click, not a drag out of the canvas.
             guard x >= 0, y >= 0, x < Double(gtk_widget_get_width(widget)), y < Double(gtk_widget_get_height(widget)) else { return }
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
         gtk_widget_add_controller(widget, click)
         return widget

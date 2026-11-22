@@ -1678,9 +1678,9 @@ def set_trust_policy(trust: Optional[Callable[[Dict[str, Any], Optional[Dict[str
     part; both None restore ActionUI's own policy.
 
     trust(source, parent, by_default) -> Trust: the trust of content a LoadableView loads from
-    `source` ({"source": ..., "path" or "url": ...}) inside content of origin `parent` (None for a
-    window's root, and for a LoadableView of unknown origin, such as one in a template row), as
-    returned by Window.get_element_origin.
+    `source` ({"source": ..., "path" or "url": ...}) inside content of origin `parent` (None only
+    for a window's root; a LoadableView whose surroundings cannot be told gets a less-trusted
+    parent), as returned by Window.get_element_origin.
 
     allows(capability, origin, by_default) -> bool: whether content of `origin` may do
     `capability`, {"capability": kind} with, by kind: "load" {"source"}, "openLink" {"url"},

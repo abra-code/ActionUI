@@ -5,7 +5,7 @@
 // https://polyformproject.org/licenses/small-business/1.0.0
 
 // KeptWindows.swift - windows that outlive the session. A window opened with `keep: true` (show,
-// show_document in window mode) keeps its staged document file. When the session ends (stdin
+// show_ui in window mode) keeps its staged document file. When the session ends (stdin
 // closes, or SIGTERM, SIGHUP or SIGINT arrives), the server moves those files into a spool directory, adds
 // a manifest with each window's frame, title and current values, and starts a keeper process:
 // this executable again, as `actionui-mcp --rehost <dir>`, in a session of its own, so a signal

@@ -25,6 +25,7 @@
 // draw through the shared SymbolIcon seam; `assetImage` warns-and-skips like
 // Image's assetName.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
@@ -165,7 +166,7 @@ register("TabView", {
                 if (index < 0 || index === selected) return;
                 show(index);
                 if (typeof properties.actionID === "string") {
-                    ctx.model.dispatchAction(properties.actionID, element.id, 0, index);
+                    ctx.model.dispatchAction(properties.actionID, element.id, 0, index, ctx.origin ?? HOST_ORIGIN);
                 }
             });
 

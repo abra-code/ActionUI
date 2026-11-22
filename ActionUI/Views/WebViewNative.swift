@@ -390,7 +390,7 @@ extension WKWebViewRepresentable {
             model.states["canGoBack"] = webView.canGoBack
             model.states["canGoForward"] = webView.canGoForward
             if let actionID = props.valueChangeActionID, !urlString.isEmpty {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
             }
         }
 
@@ -400,7 +400,7 @@ extension WKWebViewRepresentable {
             model.states["estimatedProgress"] = webView.estimatedProgress
             syncBackForwardState()
             if let navActionID = props.navigationActionID {
-                ActionUIModel.shared.actionHandler(navActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(navActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
             }
         }
 

@@ -41,6 +41,7 @@
 //     entirely - a runtime failure that shows as a blank frame (the browser's
 //     policy, not ours), the iframe analog of a page that fails to load.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { allows } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { isFramedURL, webViewSandboxFor, WEBVIEW_HTML_SANDBOX } from "../Helpers/URLPolicy.js";
@@ -140,10 +141,10 @@ register("WebView", {
             state.estimatedProgress = 1.0;
             try { state.title = frame.contentDocument?.title || undefined; } catch { /* cross-origin */ }
             if (typeof properties.navigationActionID === "string") {
-                ctx.model.dispatchAction(properties.navigationActionID, element.id, 0, null);
+                ctx.model.dispatchAction(properties.navigationActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
             if (typeof properties.valueChangeActionID === "string" && currentURL) {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         };
         const makeFrame = () => {

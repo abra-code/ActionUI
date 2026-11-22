@@ -7,7 +7,7 @@
 // WindowHost.swift - owns the windows the tools open. Everything here runs on the main actor; tool
 // handlers reach it with `await`. Two kinds of window:
 // - dialogs (WindowHost+Dialogs.swift): a tool call waits for the first closing event;
-// - event windows (show_document in window mode): every ActionUI action in them is queued
+// - event windows (show_ui in window mode): every ActionUI action in them is queued
 //   per window, and the `wait` tool hands the queued events to the agent.
 // File panels are in WindowHost+Panels.swift. The windows themselves belong to the platform layer
 // (WindowPlatform.swift).
@@ -123,7 +123,7 @@ final class WindowHost {
         if rejectLoadErrors && !errors.isEmpty {
             if let file = loaded.file { try? FileManager.default.removeItem(at: file) }
             forgetModel(windowID)
-            throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))
+            throw MCPToolError("ActionUI could not load the ActionUI JSON:\n" + errors.prefix(20).joined(separator: "\n"))
         }
 
         windows.insert(windowID)
@@ -143,7 +143,7 @@ final class WindowHost {
         return (windowID, Array(warnings.prefix(20)))
     }
 
-    /// Loads a document without showing it, for validate_document. Returns what ActionUI logged.
+    /// Loads ActionUI JSON without showing it, for validate_ui. Returns what ActionUI logged.
     func check(document: [String: Any]) throws -> (errors: [String], warnings: [String]) {
         let windowID = UUID().uuidString
         let loaded = try load(document: document, windowID: windowID)
@@ -162,14 +162,14 @@ final class WindowHost {
             try FileManager.default.createDirectory(at: documentDirectory, withIntermediateDirectories: true)
             try Data(JSONValue(any: document).serialized().utf8).write(to: fileURL, options: .atomic)
         } catch {
-            throw MCPToolError("could not stage the window document: \(error.displayText)")
+            throw MCPToolError("could not stage the window's ActionUI JSON: \(error.displayText)")
         }
         defer {
             // ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves the staged files in place, to inspect or render
             // them with ActionUIViewer. A kept window's file stays for the keeper process and is
             // removed when the window closes.
             if ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] == "1" {
-                HostSupport.logLine("[actionui-mcp] kept document \(fileURL.path)")
+                HostSupport.logLine("[actionui-mcp] kept the ActionUI JSON file \(fileURL.path)")
             } else if !retainFile {
                 try? FileManager.default.removeItem(at: fileURL)
             }
@@ -324,7 +324,7 @@ final class WindowHost {
                 throw MCPToolError("no window \(window) with events; it may have closed and its events were already returned")
             }
             if window == nil && eventQueues.isEmpty {
-                throw MCPToolError("no open window sends events; open one with show_document first")
+                throw MCPToolError("no open window sends events; open one with show_ui first")
             }
             // Registered now, attached below: a cancellation arriving in between finds it.
             nextWaiterOrder += 1
@@ -459,7 +459,7 @@ final class WindowHost {
             // one has an automatic negative id that the type rules below cannot see (the web view
             // of show kind web, which show refuses to point at a file: address, is one).
             guard types[id] != nil else {
-                problems.append("id \(key): the element's type is unknown; values can be set only on elements with an id in the document")
+                problems.append("id \(key): the element's type is unknown; values can be set only on elements with an id in the window's ActionUI JSON")
                 continue
             }
             // A LoadableView's value is its source. Agent documents cannot contain one; this keeps
@@ -474,6 +474,13 @@ final class WindowHost {
             case .int, .double, .bool: text = DialogSpec.text(of: value)
             default:
                 problems.append("id \(key): values must be strings, numbers or booleans")
+                continue
+            }
+            // A QuickLook's value is the file it previews: an absolute path, as its filePath is. An
+            // Image's value is a file path when it holds a "/" (else a symbol or asset name).
+            if let type = types[id], type == "QuickLook" || (type == "Image" && text.contains("/")),
+               let refusal = AgentDocument.relativePathRefusal(type: type, name: "value", path: text) {
+                problems.append("id \(key) (\(type)): \(refusal)")
                 continue
             }
             ActionUISwift.setElementValueFromString(windowUUID: windowID, viewID: id, value: text)

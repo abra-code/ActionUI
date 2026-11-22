@@ -97,8 +97,8 @@ pub enum Capability {
 /// less trusted, or as a refusal.
 pub trait TrustPolicy: Send + Sync + 'static {
     /// The trust of content a LoadableView loads from `source` inside content of origin
-    /// `parent` (None for a window's root, and for a LoadableView of unknown origin, such as
-    /// one in a template row).
+    /// `parent` (None only for a window's root; a LoadableView whose surroundings cannot be
+    /// told gets a less-trusted parent).
     fn trust(&self, source: &Source, parent: Option<&Origin>, by_default: Trust) -> Trust {
         let _ = (source, parent);
         by_default

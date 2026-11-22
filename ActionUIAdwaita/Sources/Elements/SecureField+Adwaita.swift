@@ -31,14 +31,14 @@ extension SecureField: ActionUIAdwaitaRenderer {
         }
         connectUserSignal(entry, "activate", .instanceOnly) { [weak node] in
             guard let node else { return }
-            TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id, windowUUID: node.windowUUID)
+            TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id, model: node.model, windowUUID: node.windowUUID)
         }
         let focus = gtk_event_controller_focus_new()!
         connectUserSignal(UnsafeMutableRawPointer(focus), "leave", .instanceOnly) { [weak node] in
             // Only the focus moving elsewhere submits, as on TextField: not the window becoming
             // inactive, nor the window going away.
             guard let node, node.isAttached, gtk_widget_get_mapped(entry) != 0, !TextField.containsWindowFocus(entry) else { return }
-            TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id, windowUUID: node.windowUUID)
+            TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id, model: node.model, windowUUID: node.windowUUID)
         }
         gtk_widget_add_controller(entry, focus)
         return FormFieldTitle.widget(entry, node)

@@ -92,28 +92,6 @@ public func actionUIInstallMainLoopBridge() {
     }
 }
 
-/// Runs `callback(context)` on the main thread, after the work queued before it, once the main loop
-/// runs (actionUIAppRun's, or a host's with the main-loop bridge installed); never at once. Any thread.
-/// The bindings' way to hand the main thread work (Node.js's libuv pump, Rust's main-thread calls), as
-/// g_idle_add is on Linux and the main dispatch queue on Apple. NULL does nothing.
-@c
-public func actionUIRunOnMainThread(_ callback: ActionUIMainThreadCallback?, _ context: UnsafeMutableRawPointer?) {
-    guard let callback else { return }
-    // The pointer crosses as a number; the C function is the host's, safe to call from the main thread.
-    nonisolated(unsafe) let call = callback
-    let address = UInt(bitPattern: context)
-    DispatchQueue.main.async {
-        call(UnsafeMutableRawPointer(bitPattern: address))
-    }
-}
-
-/// Whether the calling thread is the one ActionUI takes for the main thread (its main queue's), for a
-/// binding's own checks: Windows has no call that names a process's main thread.
-@c
-public func actionUIIsMainThread() -> CBool {
-    isMainThread
-}
-
 // MARK: - The C library
 
 /// Heap-copy `str` into a malloc-owned C string. Caller must free with actionUIFreeString. The C

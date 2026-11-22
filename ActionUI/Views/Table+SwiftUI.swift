@@ -148,7 +148,7 @@ extension Table: ActionUISwiftUIRenderer {
                                         case .title: return value
                                         }
                                     }()
-                                    ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
+                                    ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context, model: model)
                                 }
                             } label: {
                                 if let dataInterpretation {
@@ -185,7 +185,7 @@ extension Table: ActionUISwiftUIRenderer {
                 // Keep selection/value in sync for env export, with the row as it is now.
                 let current = model.states["content"] as? [[String]] ?? []
                 model.value = ActionUIModel.reconciledSelection(rowData[index].values, from: rowData.map(\.values), to: current)
-                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index, model: model)
             }
         }
         #else

@@ -33,13 +33,13 @@ import ActionUI
 import ActionUISwiftAdapter
 import MCPStdio
 
-let serverVersion = "0.3.1"
+let serverVersion = "0.4.0"
 
 let arguments = CommandLine.arguments.dropFirst()
 if arguments.contains("-h") || arguments.contains("--help") {
     print("""
         actionui-mcp \(serverVersion) - MCP server (stdio) that shows native ActionUI dialogs and windows.
-        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_document, validate_document, wait, update_window, get_values, screenshot, close_window.
+        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_ui, validate_ui, wait, update_window, get_values, screenshot, close_window.
         Environment: ACTIONUI_MCP_LABEL, ACTIONUI_MCP_LOG_LEVEL (error|warning|info|debug).
         """)
     #if os(Linux)
@@ -118,11 +118,11 @@ let server = MCPServer(
         fields and waits for the answer; pick_path shows the system file panels; show presents a \
         \(HostPlatform.shownContent) without waiting; notify shows a short notice \
         that goes away by itself. For anything the canned \
-        tools cannot express, write an ActionUI document (see the actionui skill if available), check \
-        it with validate_document, and open it with show_document: as a dialog that returns every \
+        tools cannot express, write ActionUI JSON (see the actionui skill if available), check \
+        it with validate_ui, and open it with show_ui: as a dialog that returns every \
         value, or as a live window whose actions you collect with wait and whose values you change \
-        with update_window. screenshot renders a document (or captures a window) so you can check \
-        the layout before the user sees it. Element reference, for writing documents: resources \
+        with update_window. screenshot renders ActionUI JSON (or captures a window) so you can check \
+        the layout before the user sees it. Element reference, for writing ActionUI JSON: resources \
         actionui://docs/guide, actionui://docs/elements, and actionui://docs/elements/<Type>. Prefer \
         ask_user over asking in chat when you need structured input or an explicit approval.
         """,

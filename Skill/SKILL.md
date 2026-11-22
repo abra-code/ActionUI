@@ -10,7 +10,7 @@ version: "1.2"
 
 ## What is ActionUI
 
-ActionUI renders native UI from a declarative JSON tree: SwiftUI on Apple platforms, GTK/Adwaita on Linux, Jetpack Compose on Android, and the DOM on the web. A JSON document describes a view hierarchy; no UI code is needed, only valid JSON.
+ActionUI renders native UI from a declarative JSON tree: SwiftUI on Apple platforms, GTK/Adwaita on Linux, Jetpack Compose on Android, and the DOM on the web. A piece of ActionUI JSON describes a view hierarchy; no UI code is needed, only valid JSON.
 
 ## JSON Node Structure
 
@@ -31,7 +31,7 @@ Every node in the tree follows this shape:
 | Field | Type | Notes |
 |-------|------|-------|
 | `type` | string | **Required.** Element type, PascalCase, case-sensitive. |
-| `id` | integer | Optional. Positive, unique across the whole document. Give one to every element the app reads, updates or handles events from. |
+| `id` | integer | Optional. Positive, unique across the whole ActionUI JSON of a window. Give one to every element the app reads, updates or handles events from. |
 | `properties` | object | The element's own properties plus the universal View properties. |
 | structural keys | array/object | Outside `properties`: `children`, `content`, `template`, `destination(s)`, `rows`, `sidebar`/`detail`, and the subview keys (`toolbar`, `sheet`, ...). |
 
@@ -41,12 +41,12 @@ Every node in the tree follows this shape:
 2. `content` is a single view (an object); `children` is an array.
 3. Values must have the declared type: `"spacing": 16`, not `"spacing": "16"`.
 4. Do not invent property names. An unknown property is only a validator WARNING and is ignored at run time, so a typo fails silently: read every warning.
-5. A document is plain JSON with one root view. No comments: the schema docs annotate their samples with `//` comments, which make a document invalid; copy the keys, not the comments.
+5. ActionUI JSON is plain JSON with one root view. No comments: the schema docs annotate their samples with `//` comments, which make the JSON invalid; copy the keys, not the comments.
 
 ## Workflow
 
 1. **Before writing an element you have not used**, read its schema, `docs/Schemas/<Type>.md` (every property, its values and the events it fires), or start from its template, `docs/Elements/<Type>.json`. Guessing a property name from SwiftUI usually works, but when it does not, nothing fails: the property is just ignored.
-2. **When changing an existing document**, read all of it first and keep every `id` and `actionID` as they are unless asked to change them: the application finds elements by `id` and handles actions by name, so a renumbered id or a renamed action breaks it without any error. Give new elements ids no other element uses.
+2. **When changing existing ActionUI JSON**, read all of it first and keep every `id` and `actionID` as they are unless asked to change them: the application finds elements by `id` and handles actions by name, so a renumbered id or a renamed action breaks it without any error. Give new elements ids no other element uses.
 3. **Validate** (see Validation) and fix every error and warning.
 4. **Look at it** when the layout changed and you can render it: the validator does not see clipped or squeezed views.
 
@@ -87,7 +87,7 @@ Handlers get `(actionID, viewID, viewPartID, context)`. Use the key the control 
 
 ### Platform overrides
 
-`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In a document meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. On `type` (`"type:apple": "Toggle"` and no plain `type`) the suffix leaves the element out on the other platforms. Details: the JSON guide, "Per-Platform Property Overrides".
+`"key:<platform>"` overrides one property on one platform: `"font:macos"`, `"padding:android"`. Platforms: `ios`, `macos`, `tvos`, `watchos`, `visionos`, `apple`, `android`, `web`, `linux`. In ActionUI JSON meant for several platforms, a property only one platform supports should carry its suffix, or the validator warns. On `type` (`"type:apple": "Toggle"` and no plain `type`) the suffix leaves the element out on the other platforms. Details: the JSON guide, "Per-Platform Property Overrides".
 
 
 
@@ -99,7 +99,7 @@ After generating or modifying ActionUI JSON, always validate before presenting t
 python3 -B scripts/validate_actionui.py <file-or-directory>
 ```
 
-Fix every `[ERROR]`. Treat every `[WARNING]` as a probable bug: an unknown property or value is only a warning, and the runtime ignores it, so the document "works" without doing what you wrote. `[INFO]` lines are informational.
+Fix every `[ERROR]`. Treat every `[WARNING]` as a probable bug: an unknown property or value is only a warning, and the runtime ignores it, so the JSON "works" without doing what you wrote. `[INFO]` lines are informational.
 
 Common causes: a misspelled or invented property (check the element's schema), a wrong value type (`"16"` for `16`), a duplicate `id`, a missing required property, a misspelled `type`.
 
@@ -109,7 +109,7 @@ The validator does not catch every mistake that matters: the element notes below
 
 ## Visual Verification (Screenshot)
 
-The validator catches schema errors, not clipped labels, wrapped titles or controls squeezed out of view. After validating, render the document and look at the image:
+The validator catches schema errors, not clipped labels, wrapped titles or controls squeezed out of view. After validating, render the ActionUI JSON and look at the image:
 
 - With the ActionUI MCP server connected: its `screenshot` tool (macOS and Linux).
 - Otherwise ActionUIViewer: `ActionUIViewer <file.json> --screenshot out.png`, adding `--hide-window` on macOS (renders off screen: no window on the desktop, no Screen Recording permission, works with the screen locked; the Linux viewer has no such flag). Add `--screenshot-delay 5` for WebView or VideoPlayer content.
@@ -132,7 +132,7 @@ Element types are SwiftUI's: stacks (`VStack`, `HStack`, `ZStack`, `LazyVStack`,
 
 ### Rows come at run time
 
-A `Table`'s rows and a `template`'s rows are never in the document: the application sends them after the window opens. A `Table` needs `columns` (the header titles); give `minWidths` with `widths`, or columns can shrink to slivers.
+A `Table`'s rows and a `template`'s rows are never in the ActionUI JSON: the application sends them after the window opens. A `Table` needs `columns` (the header titles); give `minWidths` with `widths`, or columns can shrink to slivers.
 
 ### Names that differ from SwiftUI (each is a common mistake)
 
@@ -220,13 +220,13 @@ A `TextEditor` with `"readOnly": true`, `"font": {"size": 11, "design": "monospa
 
 ## ActionUI MCP Server
 
-When the `actionui` MCP server is connected you can open native windows on the user's desktop (macOS or Linux). The tool descriptions explain each tool; pick the lightest that fits: `ask_user` (a question with a few fields, no ActionUI syntax), `pick_path`, `show` (a report, image, diff, table or chart, without waiting), `notify`, and `show_document` only for a layout you write.
+When the `actionui` MCP server is connected you can open native windows on the user's desktop (macOS or Linux). The tool descriptions explain each tool; pick the lightest that fits: `ask_user` (a question with a few fields, no ActionUI syntax), `pick_path`, `show` (a report, image, diff, table or chart, without waiting), `notify`, and `show_ui` only for a layout you write.
 
-For `show_document`:
+For `show_ui`:
 
-- Pass the document as a JSON object or an absolute `.json` path, never as a JSON string. Run `validate_document` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
+- Pass the ActionUI JSON as an object in `ui` or an absolute `.json` path in `path`, never as a JSON string. Name files (an Image's `filePath`, say) by absolute path: a relative one is not resolved against the JSON file's folder. Run `validate_ui` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
 - A dialog cannot fill a `Table` or a `template` (rows come at run time): use `mode: "window"` and `update_window` rows, static `children`, or `show` with a table.
-- Refused in documents: `SecureField` (never ask for secrets: everything entered reaches you), `LoadableView` (put the content inline), `popover`, `"placement": "secondaryAction"`, `WindowGroup`; WebView `userScripts` are removed. `close_actions` may not start with `mcp.`.
+- Refused: `SecureField` (never ask for secrets: everything entered reaches you), `LoadableView` (put the content inline), `popover`, `"placement": "secondaryAction"`, `WindowGroup`; WebView `userScripts` are removed. `close_actions` may not start with `mcp.`.
 - Windows close when your session ends unless shown with `keep: true`.
 
 
@@ -239,7 +239,7 @@ Full detail lives in the reference docs, not here. In this skill package they ar
 - `docs/Elements/<Type>.json`: a ready-to-use template for one element.
 - `docs/ActionUI-JSON-Guide.md`: structure, layout, platform overrides, charts.
 - `docs/ActionUI-Elements.md`: the index of every element.
-- `docs/ActionUI-MenuBar-JSON-Guide.md`: the menu-bar document (`MainMenu.json`), whose root is an array, not a view.
+- `docs/ActionUI-MenuBar-JSON-Guide.md`: the menu bar's ActionUI JSON (`MainMenu.json`), whose root is an array, not a view.
 
 
 

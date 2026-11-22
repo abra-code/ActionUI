@@ -7,6 +7,7 @@
         "variables": {
           "fw_dir": "<!(node -p \"process.env.ACTIONUI_FRAMEWORKS_DIR || require('path').resolve('frameworks', 'Release')\")"
         },
+        "sources": ["src/actionui_uv_pump_apple.c"],
         "xcode_settings": {
           "MACOSX_DEPLOYMENT_TARGET": "14.6",
           "OTHER_CFLAGS": [
@@ -36,6 +37,7 @@
         "variables": {
           "lib_dir": "<!(node -p \"require('path').resolve(process.env.ACTIONUI_LIBRARY_DIR || 'library')\")"
         },
+        "sources": ["src/actionui_uv_pump_glib.c"],
         "include_dirs": ["<(lib_dir)/include"],
         "cflags": ["<!@(pkg-config --cflags glib-2.0)"],
         "libraries": [

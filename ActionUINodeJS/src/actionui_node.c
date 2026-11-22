@@ -56,27 +56,19 @@
 #include <ActionUIHostSurface/ActionUIHostSurface.h>
 #include "actionui_uv_pump.h"
 
+/* Whether the calling thread is ActionUI's main thread: the one its main queue runs on (the C
+ * adapter's answer, the same on every platform). */
+static bool is_main_thread(void) {
+    return actionUIIsMainThread();
+}
+
 #if defined(_WIN32)
-/* Windows: the thread of Node's main environment (the one on libuv's default loop), noted by the first Init; no
- * system call names a process's main thread. 0 until then, and for good when a worker loaded the module first. */
-static DWORD s_main_thread_id = 0;
-/* Whether an Init ran, and whether the first was the main environment's (Init refuses all others then, as Linux's
- * note_loading_thread: ActionUI's main queue may belong to the thread that loaded ActionUI.dll). */
+/* Windows: whether an Init ran, and whether the first was the main environment's (the one on libuv's default loop).
+ * Init refuses all others then, as Linux's note_loading_thread does: ActionUI's main queue may belong to the thread
+ * that loaded ActionUI.dll. */
 static bool s_first_init_seen = false;
 static bool s_loaded_on_main_thread = false;
 #endif
-
-/* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
- * only; on Linux the main thread's ID is the process ID; on Windows the main environment's thread). */
-static bool is_main_thread(void) {
-#if defined(__APPLE__)
-    return pthread_main_np() != 0;
-#elif defined(_WIN32)
-    return s_main_thread_id != 0 && GetCurrentThreadId() == s_main_thread_id;
-#else
-    return gettid() == getpid();
-#endif
-}
 
 #if !defined(__APPLE__) && !defined(_WIN32)
 /* Linux: the libdispatch inside libActionUI.so binds its main queue to the thread that loads the
@@ -85,12 +77,13 @@ static bool is_main_thread(void) {
  * calls would wait for a main queue that only the running application drains (measured: its
  * logger was not called), and one such run crashed. This constructor runs on the loading thread,
  * after libActionUI.so's own; Init refuses the module in every environment when that was not the
- * main thread, so the failure is a clear error instead. */
+ * main thread, so the failure is a clear error instead. It asks the system, not ActionUI, which
+ * takes the loading thread for its main one: the main thread's ID is the process ID. */
 static bool s_loaded_on_main_thread = false;
 
 __attribute__((constructor))
 static void note_loading_thread(void) {
-    s_loaded_on_main_thread = is_main_thread();
+    s_loaded_on_main_thread = gettid() == getpid();
 }
 #endif
 
@@ -1508,14 +1501,12 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
-// MARK: - CFRunLoop / libuv Integration (GLib on Linux, below)
+// MARK: - libuv Integration
 //
-// [NSApp run] blocks the main thread inside CFRunLoop.  We install:
-//   1. A CFRunLoopObserver — pumps libuv before every source pass and before
-//      every sleep; arms the timer when libuv has a future timer deadline.
-//   2. A CFRunLoopTimer, armed at libuv's next timer deadline.
-//   3. A CFRunLoopSource, signaled by a thread watching libuv's backend descriptor
-//      (uv_io_watch) when libuv has I/O, that pumps libuv.
+// actionUIAppRun blocks the main thread in the platform's UI loop, so Node's own loop does not
+// run. Each platform's pump runs libuv from inside that loop (actionui_uv_pump.h): a CFRunLoop
+// observer, timer and source on macOS (actionui_uv_pump_apple.c), a GLib source on Linux
+// (actionui_uv_pump_glib.c). What they share is here.
 //
 // Microtask / nextTick drain (Fix for the "5 s stall"):
 //   uv_run(NOWAIT) runs libuv callbacks but provides no InternalCallbackScope,
@@ -1529,34 +1520,8 @@ static napi_value node_remove_window(napi_env env, napi_callback_info info) {
 //   creates nested scopes that trigger assertions in Node.js internals.
 //   A NULL async_context in napi_make_callback produces a trivial scope that
 //   may skip the drain, so a real napi_async_context is required.
-//
-// uv_backend_timeout() returns:
-//   0   → work ready now → prevent CFRunLoop from sleeping
-//   N>0 → next timer in N ms → arm CFRunLoopTimer to that deadline
-//   -1  → active I/O handles, no timer → the I/O watcher (uv_io_watch) wakes us
 
 static bool                 s_app_running = false;   /* appRun is on the stack */
-#if !defined(_WIN32)
-/* The run loop asks libuv before it sleeps (the observer on Apple, the GLib source's prepare on Linux). */
-void actionui_uv_pump_kick(void) {}
-#endif
-
-#if defined(__APPLE__)
-static CFRunLoopObserverRef s_cf_observer = NULL;
-static CFRunLoopTimerRef    s_cf_timer    = NULL;
-/* The I/O watcher (uv_io_watch): a thread that waits for libuv's backend descriptor to become
- * readable, and the main run loop's source it signals. */
-static CFRunLoopSourceRef   s_uv_io_src    = NULL;
-static pthread_t            s_uv_io_thread;
-static bool                 s_uv_io_thread_running = false;
-static int                  s_uv_io_stop[2] = { -1, -1 };   /* a byte written to [1] ends it */
-static dispatch_semaphore_t s_uv_io_pumped = NULL;          /* signaled after each I/O pump */
-/* Note: kqueue code disabled */
-#if KQUEUE_ENABLED
-static CFFileDescriptorRef  s_kq_fdref    = NULL;
-static CFRunLoopSourceRef   s_kq_src      = NULL;
-#endif // KQUEUE_ENABLED
-#endif // defined(__APPLE__)
 
 /* Queued via process.nextTick from inside noop_callback.
  * If this fires before napi_make_callback returns to C, the drain works. */
@@ -1677,298 +1642,6 @@ int actionui_uv_next_timeout(uv_loop_t* loop) {
     uv_update_time(loop);
     return uv_backend_timeout(loop);
 }
-
-#if defined(__APPLE__)
-
-static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
-    actionui_uv_pump();
-    /* Disarm: the kCFRunLoopBeforeWaiting observer will re-arm as needed. */
-    if (timer != NULL) {
-        CFRunLoopTimerSetNextFireDate(timer, CFAbsoluteTimeGetCurrent() + 1e10);
-    }
-}
-
-/* kqueue source callback: fires when libuv's backend fd is readable (I/O ready). */
-#if KQUEUE_ENABLED
-static void uv_kq_callback(CFFileDescriptorRef fdref,
-                           CFOptionFlags       callbackTypes,
-                           void*               info) {
-   actionui_uv_pump();
-   /* Re-arm so CFRunLoop keeps watching for the next I/O readiness event.
-    * CFFileDescriptor callbacks are one-shot and must be re-enabled. */
-   CFFileDescriptorEnableCallBacks(fdref, kCFFileDescriptorReadCallBack);
-}
-#endif // KQUEUE_ENABLED
-
-/* I/O wakeup. libuv's kqueue descriptor (uv_backend_fd) turns readable when libuv has I/O to
- * handle; nothing else wakes the run loop for it, so with no libuv timer pending a child's output
- * or a socket's data waited for some unrelated event (two writes 1 s and 3 s after launch arrived
- * together after 5 s, measured). A thread polls the descriptor, which reports readiness without
- * taking libuv's events, and signals a run loop source; the main thread pumps libuv in that
- * source's callout, between AppKit's own callouts. The thread then waits for the pump, since the
- * descriptor stays readable until libuv has read it. This is the CFFileDescriptor source's job
- * done without its callbacks, which ran on any kqueue activity (see actionui_uv_pump_setup). An I/O callback
- * that runs a modal (an alert, a file panel) holds its pump until the modal ends, so meanwhile the
- * thread waits and I/O runs only when the observer pumps. */
-static void* uv_io_watch(void* info) {
-    int backend_fd = (int)(intptr_t)info;
-    for (;;) {
-        struct pollfd fds[2] = {
-            { .fd = backend_fd, .events = POLLIN, .revents = 0 },
-            { .fd = s_uv_io_stop[0], .events = POLLIN, .revents = 0 },
-        };
-        int ready = poll(fds, 2, -1);
-        if (ready < 0 && errno == EINTR) continue;
-        if (ready < 0 || fds[1].revents != 0) break;
-        if (fds[0].revents != 0) {
-            CFRunLoopSourceSignal(s_uv_io_src);
-            CFRunLoopWakeUp(CFRunLoopGetMain());
-            dispatch_semaphore_wait(s_uv_io_pumped, DISPATCH_TIME_FOREVER);
-        }
-    }
-    return NULL;
-}
-
-static void uv_io_perform(void* info) {
-    (void)info;
-    actionui_uv_pump();
-    dispatch_semaphore_signal(s_uv_io_pumped);
-}
-
-static void uv_io_watch_start(uv_loop_t* loop) {
-    int backend_fd = uv_backend_fd(loop);
-    if (backend_fd < 0 || pipe(s_uv_io_stop) != 0) return;
-    /* Not inherited by child processes (libuv's fork path keeps every descriptor without it). */
-    fcntl(s_uv_io_stop[0], F_SETFD, FD_CLOEXEC);
-    fcntl(s_uv_io_stop[1], F_SETFD, FD_CLOEXEC);
-    s_uv_io_pumped = dispatch_semaphore_create(0);
-    CFRunLoopSourceContext context = { 0 };
-    context.perform = uv_io_perform;
-    s_uv_io_src = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &context);
-    CFRunLoopAddSource(CFRunLoopGetMain(), s_uv_io_src, kCFRunLoopCommonModes);
-    s_uv_io_thread_running =
-        pthread_create(&s_uv_io_thread, NULL, uv_io_watch, (void*)(intptr_t)backend_fd) == 0;
-}
-
-static void uv_io_watch_stop(void) {
-    if (s_uv_io_thread_running) {
-        char byte = 0;
-        ssize_t written = write(s_uv_io_stop[1], &byte, 1);
-        (void)written;
-        dispatch_semaphore_signal(s_uv_io_pumped);   /* in case it waits for a pump */
-        pthread_join(s_uv_io_thread, NULL);
-        s_uv_io_thread_running = false;
-    }
-    if (s_uv_io_src != NULL) {
-        CFRunLoopSourceInvalidate(s_uv_io_src);
-        CFRelease(s_uv_io_src);
-        s_uv_io_src = NULL;
-    }
-    if (s_uv_io_pumped != NULL) {
-        dispatch_release(s_uv_io_pumped);
-        s_uv_io_pumped = NULL;
-    }
-    for (int i = 0; i < 2; i++) {
-        if (s_uv_io_stop[i] >= 0) close(s_uv_io_stop[i]);
-        s_uv_io_stop[i] = -1;
-    }
-}
-
-static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
-                               CFRunLoopActivity   activity,
-                               void*               info) {
-    actionui_uv_pump();
-    if (g_state == NULL || g_state->uv_loop == NULL) return;
-    if (activity != kCFRunLoopBeforeWaiting) return;
-
-    int timeout_ms = actionui_uv_next_timeout(g_state->uv_loop);
-    if (timeout_ms == 0) {
-        /* libuv has more work ready; prevent CFRunLoop from sleeping. */
-        CFRunLoopWakeUp(CFRunLoopGetMain());
-    } else if (timeout_ms > 0 && s_cf_timer != NULL) {
-        double secs = timeout_ms / 1000.0;
-        if (secs > 0.5) secs = 0.5;  /* cap: stay responsive to AppKit events */
-        CFRunLoopTimerSetNextFireDate(s_cf_timer,
-                                      CFAbsoluteTimeGetCurrent() + secs);
-    }
-    /* timeout_ms == -1: no timer deadline; the I/O watcher wakes the run loop for I/O. */
-}
-
-void actionui_uv_pump_setup(uv_loop_t* loop) {
-    if (loop != NULL) {
-        actionui_uv_keepalive_start(loop);
-        uv_io_watch_start(loop);
-    }
-
-    /* CFRunLoopObserver: pumps libuv before sources, before waiting, and after waiting.
-     * This is sufficient to keep Node.js async work running interleaved with AppKit. */
-    CFRunLoopObserverContext obs_ctx = { 0, NULL, NULL, NULL, NULL };
-    s_cf_observer = CFRunLoopObserverCreate(
-        kCFAllocatorDefault,
-        kCFRunLoopBeforeSources | kCFRunLoopBeforeWaiting | kCFRunLoopAfterWaiting,
-        true,  /* repeats */
-        0,     /* order */
-        uv_cf_observer_cb, &obs_ctx);
-    CFRunLoopAddObserver(CFRunLoopGetMain(), s_cf_observer, kCFRunLoopCommonModes);
-
-    /* CFRunLoopTimer: fires at libuv's next timer deadline to wake CFRunLoop
-     * when libuv has pending timers. It repeats, with an interval that never comes: CFRunLoop
-     * invalidates a one-shot timer once it has fired, after which re-arming it did nothing, and
-     * a later libuv timer waited for some other event to wake the run loop (a 1500 ms timeout
-     * fired after about 5 s, measured). */
-    CFRunLoopTimerContext timer_ctx = { 0, NULL, NULL, NULL, NULL };
-    s_cf_timer = CFRunLoopTimerCreate(
-        kCFAllocatorDefault,
-        CFAbsoluteTimeGetCurrent() + 1e10,  /* disarmed initially */
-        1e10,  /* repeating, so it stays valid; re-armed manually */
-        0, 0,
-        uv_cf_timer_cb, &timer_ctx);
-    CFRunLoopAddTimer(CFRunLoopGetMain(), s_cf_timer, kCFRunLoopCommonModes);
-
-    /* DISABLED: kqueue source for immediate I/O wakeup.
-     *
-     * Wrapping uv_backend_fd() (libuv's kqueue fd on macOS) as a
-     * CFFileDescriptor source was supposed to wake CFRunLoop immediately
-     * when any I/O is ready, replacing the ~50ms polling interval.
-     *
-     * HOWEVER, this causes spurious re-entrant actionui_uv_pump() calls that
-     * interfere with AppKit's normal event delivery, specifically:
-     *   - TextField: pressing Return clears the text field
-     *   - Other text controls may exhibit similar glitches
-     *
-     * The problem is the kqueue callback fires on ANY kqueue activity,
-     * including internal libuv state changes, not just real I/O readiness.
-     * This causes actionui_uv_pump() to run mid-delivery of AppKit events,
-     * corrupting the responder chain.
-     *
-     * The I/O watcher (uv_io_watch) does this job instead: its thread only signals a run loop
-     * source, whose callout pumps libuv between AppKit's callouts, as the observer does.
-     *
-     * If you reinstate this, expect text edit fields to misbehave.
-     */
-
-#if KQUEUE_ENABLED
-    if (loop != NULL) {
-        int backend_fd = uv_backend_fd(loop);
-        fprintf(stderr, "[actionui:diag] uv_backend_fd=%d — kqueue source %s\n",
-                backend_fd, backend_fd >= 0 ? "WILL be installed" : "NOT available");
-        if (backend_fd >= 0) {
-            CFFileDescriptorContext kq_ctx = { 0, NULL, NULL, NULL, NULL };
-            s_kq_fdref = CFFileDescriptorCreate(
-                kCFAllocatorDefault, backend_fd, false, uv_kq_callback, &kq_ctx);
-            CFFileDescriptorEnableCallBacks(s_kq_fdref, kCFFileDescriptorReadCallBack);
-            s_kq_src = CFFileDescriptorCreateRunLoopSource(kCFAllocatorDefault, s_kq_fdref, 0);
-            CFRunLoopAddSource(CFRunLoopGetMain(), s_kq_src, kCFRunLoopCommonModes);
-        }
-    }
-#endif // KQUEUE_ENABLED
-}
-
-void actionui_uv_pump_teardown(void) {
-
-#if KQUEUE_ENABLED
-    if (s_kq_src != NULL) {
-        CFRunLoopRemoveSource(CFRunLoopGetMain(), s_kq_src, kCFRunLoopCommonModes);
-        CFRelease(s_kq_src);
-        s_kq_src = NULL;
-    }
-    if (s_kq_fdref != NULL) {
-        CFFileDescriptorInvalidate(s_kq_fdref);
-        CFRelease(s_kq_fdref);
-        s_kq_fdref = NULL;
-    }
-#endif // KQUEUE_ENABLED
-
-    if (s_cf_observer != NULL) {
-        CFRunLoopRemoveObserver(CFRunLoopGetMain(), s_cf_observer, kCFRunLoopCommonModes);
-        CFRelease(s_cf_observer);
-        s_cf_observer = NULL;
-    }
-    if (s_cf_timer != NULL) {
-        CFRunLoopRemoveTimer(CFRunLoopGetMain(), s_cf_timer, kCFRunLoopCommonModes);
-        CFRelease(s_cf_timer);
-        s_cf_timer = NULL;
-    }
-    uv_io_watch_stop();
-    actionui_uv_keepalive_stop();
-
-}
-
-#elif !defined(_WIN32) // GLib: actionUIAppRun blocks in the GTK main loop, which runs the default main context
-// (Windows: actionui_uv_pump_windows.c.)
-
-/* A GLib source over libuv's loop, the usual way to run libuv inside GLib. GLib polls libuv's
- * backend file descriptor (an epoll descriptor, readable when libuv has I/O to handle) with its
- * own, sleeps no longer than libuv's next timer (prepare), and dispatches the source when
- * either is due: one libuv iteration and the nextTick/microtask drain (actionui_uv_pump). Prepare runs
- * before every sleep, so work a JS callback queued meanwhile is seen at once. The source is
- * dispatched by the main loop between GTK's own sources, never inside one, so it cannot run in
- * the middle of an event's delivery (what made the kqueue source above misbehave on macOS).
- * libuv reads its cached loop time in uv_backend_timeout, and only uv_run refreshes it, so
- * prepare and check refresh it first: otherwise a timer started from a GTK callback stays N ms
- * away forever and never fires (measured). A referenced uv_async_t keeps the loop alive while
- * appRun runs: with no referenced handle, uv_backend_timeout returns 0 (the source spun at 100%
- * of a CPU, measured), and uv_run(NOWAIT) does nothing at all, so a readable backend descriptor
- * would never be drained. */
-typedef struct {
-    GSource  source;
-    gpointer backend_tag;   /* libuv's backend descriptor, as added to the source */
-} UvSource;
-
-static GSource* s_uv_source = NULL;
-
-static gboolean uv_source_prepare(GSource* source, gint* timeout) {
-    (void)source;
-    if (g_state == NULL || g_state->uv_loop == NULL) {
-        *timeout = -1;
-        return FALSE;
-    }
-    /* 0: work ready now; N > 0: the next timer in N ms; -1: only I/O, which the descriptor wakes. */
-    int next = actionui_uv_next_timeout(g_state->uv_loop);
-    *timeout = next;
-    return next == 0;
-}
-
-static gboolean uv_source_check(GSource* source) {
-    if (g_state == NULL || g_state->uv_loop == NULL) return FALSE;
-    UvSource* uv_source = (UvSource*)source;
-    if ((g_source_query_unix_fd(source, uv_source->backend_tag) & G_IO_IN) != 0) return TRUE;
-    return actionui_uv_next_timeout(g_state->uv_loop) == 0;   /* a timer came due */
-}
-
-static gboolean uv_source_dispatch(GSource* source, GSourceFunc callback, gpointer user_data) {
-    (void)source;
-    (void)callback;
-    (void)user_data;
-    actionui_uv_pump();
-    return G_SOURCE_CONTINUE;
-}
-
-static GSourceFuncs s_uv_source_funcs = {
-    .prepare  = uv_source_prepare,
-    .check    = uv_source_check,
-    .dispatch = uv_source_dispatch,
-};
-
-void actionui_uv_pump_setup(uv_loop_t* loop) {
-    if (loop == NULL) return;
-    actionui_uv_keepalive_start(loop);
-    GSource* source = g_source_new(&s_uv_source_funcs, sizeof(UvSource));
-    ((UvSource*)source)->backend_tag = g_source_add_unix_fd(source, uv_backend_fd(loop), G_IO_IN);
-    g_source_attach(source, NULL);   /* the default main context, which GTK's main loop runs */
-    s_uv_source = source;
-}
-
-void actionui_uv_pump_teardown(void) {
-    if (s_uv_source != NULL) {
-        g_source_destroy(s_uv_source);
-        g_source_unref(s_uv_source);
-        s_uv_source = NULL;
-    }
-    actionui_uv_keepalive_stop();
-}
-
-#endif // defined(__APPLE__)
 
 // MARK: - N-API: App Control
 
@@ -2299,29 +1972,17 @@ static void host_surface_free_retired(void) {
     }
 }
 
-#if defined(__APPLE__)
-static void host_surface_free_retired_dispatch(void* unused) {
+static void host_surface_free_retired_later(void* unused) {
     (void)unused;
     host_surface_free_retired();
 }
-#else
-static gboolean host_surface_free_retired_idle(gpointer unused) {
-    (void)unused;
-    host_surface_free_retired();
-    return G_SOURCE_REMOVE;
-}
-#endif
 
 static void host_surface_schedule_free(void) {
     if (s_host_surface_free_scheduled || s_host_surface_retired == NULL) {
         return;
     }
     s_host_surface_free_scheduled = true;
-#if defined(__APPLE__)
-    dispatch_async_f(dispatch_get_main_queue(), NULL, host_surface_free_retired_dispatch);
-#else
-    g_idle_add(host_surface_free_retired_idle, NULL);
-#endif
+    actionUIRunOnMainThread(host_surface_free_retired_later, NULL);
 }
 
 static void host_surface_retire(HostSurfaceClient* client) {
@@ -2745,7 +2406,6 @@ static napi_value Init(napi_env env, napi_value exports) {
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                            (LPCWSTR)(const void*)&s_first_init_seen, &self);
         s_loaded_on_main_thread = init_loop == uv_default_loop();
-        if (s_loaded_on_main_thread) s_main_thread_id = GetCurrentThreadId();
     }
     if (!s_loaded_on_main_thread) {
         napi_throw_error(env, NULL,

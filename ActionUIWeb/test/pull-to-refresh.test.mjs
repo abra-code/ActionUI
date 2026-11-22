@@ -229,3 +229,20 @@ test("a refreshable List fills its frame box and its stack: the wrapper takes th
     assert.ok(has(bare, "aui-refresh"));
     assert.ok(bare.classList.contains("aui-expands-w") && bare.classList.contains("aui-expands-h"), "the stack's child fills, as a bare List does");
 });
+
+test("beginRefresh judges the action by the origin the view passes, not by the id it carries", async () => {
+    const TP = await import("../src/Common/TrustPolicy.js");
+    const { m, fired } = refreshModel();
+    m.origins.set(5, TP.HOST_ORIGIN); // a trusted element has id 5
+    TP.setTrustPolicy({ allows: (capability, origin) =>
+        capability.capability === "action" ? origin.trust === TP.TRUSTED : TP.allowsByDefault(capability, origin) });
+    try {
+        // A view of less-trusted content (say, in a template row) that carries id 5.
+        m.beginRefresh(5, "r.borrowed", () => {}, { source: "remote", url: "https://example.com/v.json", trust: TP.LESS_TRUSTED });
+        m.endRefresh(5);
+        m.beginRefresh(5, "r.own", () => {});
+        assert.deepEqual(fired.map((f) => f.actionID), ["r.own"], "without an origin, the one recorded for the id");
+    } finally {
+        TP.setTrustPolicy();
+    }
+});

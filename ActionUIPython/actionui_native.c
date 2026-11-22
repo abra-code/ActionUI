@@ -12,43 +12,15 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(_WIN32)
-#include <windows.h>
-#else
-#include <pthread.h>
-#include <unistd.h>
-#endif
 
 #include <ActionUICAdapter/ActionUIC.h>
 #include <ActionUIAppKitApplication/ActionUIApp.h>
 #include <ActionUIHostSurface/ActionUIHostSurface.h>
-#if defined(__APPLE__)
-#include <dispatch/dispatch.h>
-#elif !defined(_WIN32)
-/* GLib's idle source, from libglib-2.0.so.0 (libActionUI.so's GTK needs it already): declared here so the
- * extension builds without GLib's development files. */
-typedef int (*HostSurfaceSourceFunc)(void *data);
-extern unsigned int g_idle_add(HostSurfaceSourceFunc function, void *data);
-#endif
 
-#if defined(_WIN32)
-/* Python's main thread (threading.main_thread()), read when the module loads: on Windows a thread's
- * ident is its thread ID (PyThread_get_thread_ident is GetCurrentThreadId), and no system call names
- * a process's main thread. 0 until then. */
-static DWORD s_main_thread_id = 0;
-#endif
-
-/* Whether the calling thread is the process's main thread (pthread_main_np is Apple and BSD
- * only; on Linux the main thread's ID is the process ID, and Python.h defines _GNU_SOURCE,
- * which declares gettid; on Windows, Python's main thread). */
+/* Whether the calling thread is ActionUI's main thread: the one its main queue runs on (the C
+ * adapter's answer, the same on every platform). */
 static bool is_main_thread(void) {
-#if defined(__APPLE__)
-    return pthread_main_np() != 0;
-#elif defined(_WIN32)
-    return s_main_thread_id != 0 && GetCurrentThreadId() == s_main_thread_id;
-#else
-    return gettid() == getpid();
-#endif
+    return actionUIIsMainThread();
 }
 
 /* Calls that store a callback belong to the main thread, as in the Node and Rust bindings: the C
@@ -1581,29 +1553,17 @@ static void host_surface_free_retired(void) {
     PyGILState_Release(gstate);
 }
 
-#if defined(__APPLE__)
-static void host_surface_free_retired_dispatch(void* unused) {
+static void host_surface_free_retired_later(void* unused) {
     (void)unused;
     host_surface_free_retired();
 }
-#else
-static int host_surface_free_retired_idle(void* unused) {
-    (void)unused;
-    host_surface_free_retired();
-    return 0;  /* G_SOURCE_REMOVE */
-}
-#endif
 
 static void host_surface_schedule_free(void) {
     if (s_host_surface_free_scheduled || s_host_surface_retired == NULL) {
         return;
     }
     s_host_surface_free_scheduled = true;
-#if defined(__APPLE__)
-    dispatch_async_f(dispatch_get_main_queue(), NULL, host_surface_free_retired_dispatch);
-#else
-    g_idle_add(host_surface_free_retired_idle, NULL);
-#endif
+    actionUIRunOnMainThread(host_surface_free_retired_later, NULL);
 }
 
 static void host_surface_retire(HostSurfaceClient* client) {
@@ -2177,25 +2137,6 @@ PyMODINIT_FUNC PyInit__actionui(void) {
     PyModule_AddIntConstant(module, "PIXEL_RGBA8_PREMULTIPLIED", AUIHostPixelRGBA8Premultiplied);
     PyModule_AddIntConstant(module, "PIXEL_BGRX8", AUIHostPixelBGRX8);
     PyModule_AddIntConstant(module, "PIXEL_RGBX8", AUIHostPixelRGBX8);
-
-#if defined(_WIN32)
-    /* Python's main thread, for is_main_thread. The module usually loads on it; when it does not, the
-     * threading module still names the right one. */
-    PyObject* threading = PyImport_ImportModule("threading");
-    PyObject* main_thread = threading != NULL ? PyObject_CallMethod(threading, "main_thread", NULL) : NULL;
-    PyObject* ident = main_thread != NULL ? PyObject_GetAttrString(main_thread, "ident") : NULL;
-    unsigned long value = ident != NULL ? PyLong_AsUnsignedLong(ident) : 0;
-    Py_XDECREF(ident);
-    Py_XDECREF(main_thread);
-    Py_XDECREF(threading);
-    if (PyErr_Occurred() != NULL || value == 0) {
-        PyErr_Clear();
-        PyErr_SetString(PyExc_ImportError, "_actionui: could not find Python's main thread");
-        Py_DECREF(module);
-        return NULL;
-    }
-    s_main_thread_id = (DWORD)value;
-#endif
 
     return module;
 }

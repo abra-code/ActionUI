@@ -80,7 +80,7 @@ extension Stepper {
         guard model.value as? Double != newValue else { return }
         model.value = newValue
         if let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue, model: model)
         }
     }
 }

@@ -16,6 +16,7 @@
 // user expand/collapse; programmatic setState changes are silent, as on Apple
 // where only the user-interaction binding setter dispatches).
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 import { register } from "../Common/ActionUIRegistry.js";
 import { StackAxis } from "../Common/StackAxis.js";
 
@@ -65,7 +66,7 @@ register("DisclosureGroup", {
             if (details.open === knownOpen) return; // programmatic; already recorded
             knownOpen = details.open;
             if (typeof properties.valueChangeActionID === "string") {
-                ctx.model.dispatchAction(properties.valueChangeActionID, element.id);
+                ctx.model.dispatchAction(properties.valueChangeActionID, element.id, 0, null, ctx.origin ?? HOST_ORIGIN);
             }
         });
 
