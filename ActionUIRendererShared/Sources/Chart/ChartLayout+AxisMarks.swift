@@ -184,7 +184,8 @@ extension ChartLayout {
             let widened = ChartTicks.widened(steps.lo, steps.hi, ideal: ideal, roundLower: lower ?? true, roundUpper: upper ?? true)
             return numbers(widened.ticks, digits: ChartTicks.fractionDigits(widened.step))
         case let (.automatic(count?, _, _), .dates(lo, hi)):
-            return dateTicks(lo, hi, count: count)
+            // The count is axisStride's ideal (measured on macOS 27).
+            return dateTicks(lo, hi, stride: ChartDates.axisStride(lo, hi, ideal: count))
         case let (.numberStride(step), .numbers(lo, hi)) where hi > lo && (hi - lo) / step <= Double(ChartAxisStrideLimit.maxStrideMarks):
             return chosen(ChartTicks.multiples(of: step, lo, hi))
         case let (.calendarStride(unit, count), .dates(lo, hi)):

@@ -3765,10 +3765,47 @@ final class ChartLayoutTests: XCTestCase {
             (try date(2026, 1, 5), try date(2046, 1, 5), .init(unit: .year, count: 5)),
             (try date(2026, 1, 5), try date(2026, 1, 8), .init(unit: .day, count: 1)),
             (try date(2026, 1, 5, 9, 30), try date(2026, 1, 5, 11), .init(unit: .minute, count: 30)),
+            // Of two as close (5 ticks against 3), the one within a year: 2 months would reach Jan 2027.
+            (try date(2026, 3, 10), try date(2027, 1, 5), .init(unit: .month, count: 3)),
+            (try date(2026, 3, 10), try date(2027, 2, 20), .init(unit: .month, count: 3)),
+            // Predicted, then measured: the first, third and fourth held; the second found that a
+            // year's labels need no year where 6 months' would (Aug 2026 ... Aug 2028).
+            (try date(2026, 11, 20), try date(2027, 2, 1), .init(unit: .weekOfYear, count: 2)),
+            (try date(2026, 2, 10), try date(2029, 1, 5), .init(unit: .year, count: 1)),
+            (try date(2026, 3, 15), try date(2027, 1, 20), .init(unit: .month, count: 3)),
+            (try date(2026, 7, 10), try date(2027, 5, 5), .init(unit: .month, count: 2)),
+            // Ties of finer strides across a year stay with the finer one (predicted otherwise, then
+            // measured): 2 weeks over months, 2 days over weeks.
+            (try date(2026, 12, 1), try date(2027, 2, 21), .init(unit: .weekOfYear, count: 2)),
+            (try date(2026, 12, 15), try date(2027, 3, 1), .init(unit: .weekOfYear, count: 2)),
+            (try date(2026, 12, 28), try date(2027, 1, 10), .init(unit: .day, count: 2)),
+            (try date(2026, 12, 29), try date(2027, 1, 11), .init(unit: .day, count: 2)),
         ]
         for (lo, hi, expected) in cases {
             XCTAssertEqual(ChartDates.axisStride(lo, hi), expected, "\(lo) to \(hi)")
         }
+        // An AxisMarks's desiredCount is the ideal (measured over Jan 5 to May 18 and to Jan 5, 2027).
+        let counts: [(Date, Int, ChartDateStride)] = [
+            (try date(2026, 5, 18), 2, .init(unit: .month, count: 2)), (try date(2026, 5, 18), 3, .init(unit: .month, count: 1)),
+            (try date(2026, 5, 18), 6, .init(unit: .month, count: 1)), (try date(2026, 5, 18), 8, .init(unit: .weekOfYear, count: 2)),
+            (try date(2026, 5, 18), 12, .init(unit: .weekOfYear, count: 2)), (try date(2027, 1, 5), 2, .init(unit: .month, count: 6)),
+            (try date(2027, 1, 5), 8, .init(unit: .month, count: 2)),
+        ]
+        for (hi, ideal, expected) in counts {
+            XCTAssertEqual(ChartDates.axisStride(try date(2026, 1, 5), hi, ideal: ideal), expected, "to \(hi), \(ideal)")
+        }
+    }
+
+    func testADesiredCountOnADateAxisIsTheIdealCount() {
+        // Swift Charts draws Mar and May for a desiredCount of 2 over Jan 5 to May 18.
+        let columns: [Any] = [["name": "when", "type": "date"], ["name": "high", "type": "number"]]
+        let mark: [String: Any] = ["type": "PointMark", "x": value("When", "$when"), "y": value("High", "$high")]
+        let description: [String: Any] = ["columns": columns, "content": [["type": "ForEach", "content": [mark]]],
+                                          "chartXAxis": [["type": "AxisMarks", "values": ["automatic": ["desiredCount": 2]]]]]
+        let found = layout(description, rows: [["2026-01-05", "1"], ["2026-05-18", "2"]], width: 600).compactMap { primitive -> String? in
+            if case .text(let text, _, let alignment, _) = primitive, alignment.y == 0 { return text } else { return nil }
+        }
+        XCTAssertEqual(found.count, 2, "\(found)")
     }
 
     func testDateTicksDoNotDependOnThePlotsLength() {
