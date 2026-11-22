@@ -1252,7 +1252,7 @@ final class ChartLayoutTests: XCTestCase {
     }
 
     func testCustomLinesAreDashedOnXAndOnBandsAndPlainOnANumberY() {
-        let dash = ChartStroke(lineWidth: 1, dash: [2, 2])
+        let dash = ChartStroke(lineWidth: 1, dash: [3, 3])
         let x = axisMarks(x: ["content": [["type": "AxisGridLine", "foregroundStyle": "orange"], ["type": "AxisTick", "foregroundStyle": "orange"]]])
         XCTAssertTrue(lines(x).filter { $0.ink == .color(.named(.orange)) }.allSatisfy { $0.stroke == dash })
         let y = axisMarks(["content": [["type": "AxisGridLine", "foregroundStyle": "orange"], ["type": "AxisTick", "foregroundStyle": "orange"]]])
