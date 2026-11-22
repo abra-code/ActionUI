@@ -1,0 +1,26 @@
+{
+  "type": "HStack",
+  "id": 600,
+  "properties": { "spacing": 8 },
+  "children": [
+    { "type": "WebView", "id": 601, "properties": { "url": "file:///C:/Windows/win.ini", "frame": { "width": 120, "height": 120 } } },
+    {
+      "type": "WebView",
+      "id": 602,
+      "properties": {
+        "html": "<p>A script file</p>",
+        "userScripts": [ { "filePath": "Loadable/Child.json", "injectionTime": "documentEnd" } ],
+        "frame": { "width": 120, "height": 120 }
+      }
+    },
+    {
+      "type": "WebView",
+      "id": 603,
+      "properties": {
+        "html": "<p>A script resource</p>",
+        "userScripts": [ { "resourceName": "LessTrustedWebViews.json", "injectionTime": "documentEnd" } ],
+        "frame": { "width": 120, "height": 120 }
+      }
+    }
+  ]
+}

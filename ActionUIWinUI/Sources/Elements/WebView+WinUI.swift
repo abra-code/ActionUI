@@ -12,6 +12,12 @@
    browser runs a page's script, so a page's security policy does not refuse it), into the main frame
    only or all frames (a documentEnd script reaches the main frame's frames, not frames within those).
    A script that cannot be read is skipped and logged.
+ - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources), by
+   the host's trust policy, as on Apple and Linux: shows only http and https addresses (.webView), a
+   "Blocked" page in place of another, first or set later; and reads a user script's file only inside
+   the app's resources (.webViewScriptFile), a script named by resource too, since Windows reads it
+   from the current folder. Its html has no base address on Windows (above), so it never runs as
+   another site.
  - A later value is a command: a URL to load, or #goBack, #goForward, #reload, #stop. A command that
    leaves the page where it is, or a value that is no URL, is replaced by the current URL (logged when
    there is nothing to go back or forward to, or no URL).
@@ -100,16 +106,16 @@ extension WebView: ActionUIWinUIRenderer {
             logger.log("WebView: \(WinUIError.last("setting the user agent"))", .error)
         }
         for script in props.userScripts {
-            guard let source = scriptSource(script) else { continue }
+            guard let source = scriptSource(script, readsFile: { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }) else {
+                continue
+            }
             if !actionUIWinUIWebViewAddScript(view.pointer, source, script.injectionTime == .documentEnd, script.forMainFrameOnly) {
                 logger.log("WebView: \(WinUIError.last("adding a user script"))", .error)
             }
         }
         if let urlString = node.model.value as? String, isLoadable(urlString) {
             state.lastTrackedURL = urlString
-            if !actionUIWinUIWebViewNavigate(view.pointer, urlString) {
-                logger.log("WebView: \(WinUIError.last("loading \(urlString)"))", .error)
-            }
+            show(urlString, view, node)
         } else if let html = props.html {
             if props.baseURL != nil, !reportedBaseURL {
                 reportedBaseURL = true
@@ -121,6 +127,28 @@ extension WebView: ActionUIWinUIRenderer {
         }
     }
 
+    /// Loads `urlString` (loadable), or the "Blocked" page when the trust policy refuses the address
+    /// (less-trusted content shows only web addresses): false then.
+    @discardableResult
+    private static func show(_ urlString: String, _ view: WinUIObject, _ node: RenderNode) -> Bool {
+        let logger = ActionUIModel.shared.logger
+        // Not loadable (the callers checked): nothing the policy could be asked about.
+        guard let url = URL(string: urlString) else { return false }
+        guard WebViewTrust.showsAddress(url, allows: { LinkTrust.allows($0, node) }, logger: logger) else {
+            if !actionUIWinUIWebViewNavigateToString(view.pointer, WebViewTrust.blockedPage(url)) {
+                logger.log("WebView: \(WinUIError.last("showing the blocked page"))", .error)
+            }
+            return false
+        }
+        // The address the policy was asked about, as Linux loads it: WebView2 reads a backslash as a
+        // slash, so the text "https://a.example\@b.example/" is a.example to it and b.example to URL,
+        // which absoluteString writes with the backslash encoded (%5C), read as URL reads it.
+        if !actionUIWinUIWebViewNavigate(view.pointer, url.absoluteString) {
+            logger.log("WebView: \(WinUIError.last("loading \(urlString)"))", .error)
+        }
+        return true
+    }
+
     /// Whether `text` is a URL the web view can load: absolute, with a scheme ("foo" is a relative URL
     /// to Foundation, which WebView2 refuses).
     static func isLoadable(_ text: String) -> Bool {
@@ -128,12 +156,15 @@ extension WebView: ActionUIWinUIRenderer {
     }
 
     /// A user script's JavaScript: its source, else its file, else its resource (a file of that name in
-    /// the current folder); nil, logged, when it cannot be read.
-    static func scriptSource(_ script: Props.UserScript) -> String? {
+    /// the current folder); nil, logged, when it cannot be read. A file, or a resource (which on
+    /// Windows is a file in the current folder, not in the app's resources), is read only when
+    /// `readsFile` allows its path (the element's trust: .webViewScriptFile).
+    static func scriptSource(_ script: Props.UserScript, readsFile: (String) -> Bool) -> String? {
         let logger = ActionUIModel.shared.logger
         // Only a regular file: a device or a named pipe the document names would block the window.
         func read(_ path: String) -> String? {
-            (try? ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
+            guard readsFile(path) else { return nil }
+            return (try? ActionUIDocumentLoader.readRegularFile(URL(fileURLWithPath: path))).map { String(decoding: $0, as: UTF8.self) }
         }
         if let source = script.source {
             return source
@@ -189,8 +220,10 @@ extension WebView: ActionUIWinUIRenderer {
             resetValueToCurrentURL(after: command, view, node, state)
         default:
             if isLoadable(command) {
-                if !actionUIWinUIWebViewNavigate(view.pointer, command) {
-                    logger.log("WebView: \(WinUIError.last("loading \(command)"))", .error)
+                // A refused address shows the blocked page; the value goes back to the page's URL, so
+                // the refused one is not loaded again at every update.
+                if !show(command, view, node) {
+                    resetValueToCurrentURL(after: command, view, node, state)
                 }
             } else {
                 logger.log("WebView: unrecognized command or invalid URL '\(command)'; ignoring", .warning)

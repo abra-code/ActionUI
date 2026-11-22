@@ -194,6 +194,12 @@ PREVIEW_OPTIONS = {
                       "--expect-automation", "7", "name", "Wireless network", "--expect-automation", "7", "id", "wifi-toggle",
                       "--expect-automation", "2", "accelerator", "Ctrl+S"],
     "Shares": ["420", "200"],
+    # JSON from a server: a WebView shows the "Blocked" page for a file: address and reads no script file.
+    "LessTrustedWebViews": ["420", "200", "--delay", "8000", "--set-value", "601", "file:///C:/Windows/system.ini", "--delay", "1000",
+                            "--expect-log", "WebView not showing file:///C:/Windows/system.ini: the trust policy refuses it",
+                            "--expect-log", "WebView not showing file:///C:/Windows/win.ini: the trust policy refuses it",
+                            "--expect-log", "Not reading Loadable/Child.json for element 602: the trust policy refuses it",
+                            "--expect-log", "for element 603: the trust policy refuses it"],
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
                  "--expect-action", "web.loaded", "--expect-action", "web.url"],
     "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],
