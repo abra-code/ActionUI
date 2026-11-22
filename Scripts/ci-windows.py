@@ -735,14 +735,39 @@ def check_shim(results, install, swift=False):
         return finish(False)
     if not swift:
         return finish(True)
-    return finish(check_swift_smoke(out, bootstrap, results, summary))
+    return finish(check_swift_smoke(out, bootstrap, results, summary, msvc))
 
 
-def check_swift_smoke(shim_out, bootstrap, results, summary):
-    """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) with the
-    shim's import library on the linker path, places the shim DLL, the bootstrapper DLL and the
-    programs' manifests beside them, runs the smoke test, then renders each document in
-    ActionUIWinUI/Apps/Preview/Documents with the preview. True when all of them passed."""
+def check_c_adapter(bin_path, results, summary, msvc, env):
+    """Builds ActionUIWinUI/Apps/CAdapterCheck/main.c with MSVC against ActionUI.dll's import
+    library, as a C host does, and runs it beside the DLL. True when every check passed."""
+    library = bin_path / "ActionUI.lib"
+    if not library.is_file() or not (bin_path / "ActionUI.dll").is_file():
+        summary["findings"].append(f"no ActionUI.dll and .lib in {bin_path}")
+        return False
+    checker = bin_path / "ActionUICAdapterCheck.exe"
+    source = REPO_DIR / "ActionUIWinUI" / "Apps" / "CAdapterCheck" / "main.c"
+    command = [resolve_tool("cl", msvc), "/nologo", "/std:c11", "/W3", "/WX", "/MD", "/utf-8",
+               f"/I{REPO_DIR / 'ActionUICAdapter' / 'include'}", source, f"/Fe{checker}", f"/Fo{bin_path}\\",
+               "/link", library]
+    step = run_step("c-adapter-build", command, results, msvc, cwd=bin_path)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    step = run_step("c-adapter-check", [checker], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+    summary["steps"].append(step)
+    summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                            .splitlines() if line.startswith("c-adapter:")]
+    return step["status"] == 0
+
+
+def check_swift_smoke(shim_out, bootstrap, results, summary, msvc):
+    """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview, the C adapter's
+    DLL, ActionUI.dll) with the shim's import library on the linker path, places the shim DLL, the
+    bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
+    renders each document in ActionUIWinUI/Apps/Preview/Documents with the preview. True when all of
+    them passed."""
     # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-winui"), "--manifest-cache", "none"]
     env = dict(os.environ)
@@ -775,6 +800,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
     summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
                             .splitlines() if line.startswith("smoke:")]
     passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"

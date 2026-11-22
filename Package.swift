@@ -213,6 +213,7 @@ Package(
         //       ActionUIC.h          - typedefs and public C API
         //     ActionUIC.swift, ActionUIC+Apple.swift - compiled by ActionUICAdapter target below
         //     ActionUIC+Linux.swift                   - compiled by linuxPackage's ActionUICAdapter
+        //     ActionUIC+Windows.swift                 - compiled by windowsPackage's ActionUICAdapter
         //     HeaderCheck/                            - compiled by the Xcode framework target, and
         //                                               by Scripts/check-c-prototypes.sh
         .target(
@@ -222,6 +223,7 @@ Package(
                 "ActionUIC.swift",
                 "ActionUIC+Apple.swift",
                 "ActionUIC+Linux.swift",
+                "ActionUIC+Windows.swift",
                 "HeaderCheck",
             ],
             publicHeadersPath: "include"
@@ -243,6 +245,7 @@ Package(
                 "include",
                 "HeaderCheck",
                 "ActionUIC+Linux.swift",
+                "ActionUIC+Windows.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Apple.swift"],
         ),
@@ -497,6 +500,7 @@ Package(
                 "include",
                 "HeaderCheck",
                 "ActionUIC+Apple.swift",
+                "ActionUIC+Windows.swift",
             ],
             sources: ["ActionUIC.swift", "ActionUIC+Linux.swift"]
         ),
@@ -602,7 +606,11 @@ func windowsPackage() -> Package {
 Package(
     name: "ActionUI",
     products: [
-        .library(name: "ActionUI", targets: ["ActionUI"]),
+        // The ActionUI module linked into what uses it, for Swift programs (as Linux's ActionUIStatic).
+        .library(name: "ActionUIStatic", targets: ["ActionUI"]),
+        // ActionUI.dll (with its import library): ActionUI with the C adapter, for C programs and the
+        // language bindings, one ActionUI per process (as Linux's libActionUI.so).
+        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUICAdapter"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
     ],
@@ -619,6 +627,25 @@ Package(
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIWinUI/Sources"]),
             sources: ["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIWinUI/Sources"]
+        ),
+        // The C adapter (ActionUIC.h): the same functions as on Apple and Linux, with the Windows
+        // side of hostNative (ActionUIC+Windows.swift).
+        .systemLibrary(
+            name: "ActionUICAdapterHeaders",
+            path: "ActionUIWinUI/CAdapterHeaders"
+        ),
+        .target(
+            name: "ActionUICAdapter",
+            dependencies: ["ActionUI", "ActionUICAdapterHeaders"],
+            path: "ActionUICAdapter",
+            exclude: [
+                "dummy.c",
+                "include",
+                "HeaderCheck",
+                "ActionUIC+Apple.swift",
+                "ActionUIC+Linux.swift",
+            ],
+            sources: ["ActionUIC.swift", "ActionUIC+Windows.swift"]
         ),
         // The renderer's smoke test from Swift: WinUI through the shim, the main-queue bridge, a
         // PNG of a window.

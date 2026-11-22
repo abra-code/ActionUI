@@ -33,6 +33,9 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
+#elseif os(Windows)
+import ucrt
+import WinSDK
 #endif
 
 #if SWIFT_PACKAGE
@@ -123,7 +126,12 @@ func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
 /// Heap-copy `str` into a malloc-owned C string. Caller must free with actionUIFreeString.
 @inline(__always)
 private func actionStrdup(_ str: String) -> UnsafeMutablePointer<CChar>? {
+    #if os(Windows)
+    // The C runtime's name for it (strdup is its deprecated POSIX alias); free releases it.
+    return str.withCString { _strdup($0) }
+    #else
     return str.withCString { strdup($0) }
+    #endif
 }
 
 // MARK: - Version Info
@@ -289,6 +297,23 @@ private func releaseLastError(_ slot: UnsafeMutableRawPointer?) {
     Unmanaged<LastError>.fromOpaque(slot).release()
 }
 
+#if os(Windows)
+// Windows has no pthread keys: a fiber-local slot, whose callback releases the value when the
+// thread (or fiber) ends, as a key's destructor does.
+private let lastErrorIndex: DWORD = {
+    let index = FlsAlloc { releaseLastError($0) }
+    precondition(index != DWORD.max, "ActionUI C adapter: FlsAlloc failed (\(GetLastError()))")
+    return index
+}()
+
+private func lastErrorSlot() -> UnsafeMutableRawPointer? {
+    FlsGetValue(lastErrorIndex)
+}
+
+private func setLastErrorSlot(_ slot: UnsafeMutableRawPointer?) -> Bool {
+    FlsSetValue(lastErrorIndex, slot)
+}
+#else
 private let lastErrorKey: pthread_key_t = {
     var key = pthread_key_t()
     // The destructor's parameter is optional in Glibc's declaration and not in Darwin's; a call
@@ -298,16 +323,25 @@ private let lastErrorKey: pthread_key_t = {
     return key
 }()
 
+private func lastErrorSlot() -> UnsafeMutableRawPointer? {
+    pthread_getspecific(lastErrorKey)
+}
+
+private func setLastErrorSlot(_ slot: UnsafeMutableRawPointer?) -> Bool {
+    pthread_setspecific(lastErrorKey, slot) == 0
+}
+#endif
+
 private var lastError: String? {
     get {
-        guard let slot = pthread_getspecific(lastErrorKey) else { return nil }
+        guard let slot = lastErrorSlot() else { return nil }
         return Unmanaged<LastError>.fromOpaque(slot).takeUnretainedValue().message
     }
     set {
-        let old = pthread_getspecific(lastErrorKey)
+        let old = lastErrorSlot()
         let new = newValue.map { Unmanaged.passRetained(LastError($0)).toOpaque() }
         // Fails only when the C library cannot allocate the thread's slot; the old value stays.
-        guard pthread_setspecific(lastErrorKey, new) == 0 else {
+        guard setLastErrorSlot(new) else {
             releaseLastError(new)
             return
         }

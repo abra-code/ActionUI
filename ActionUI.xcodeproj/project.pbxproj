@@ -247,6 +247,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"ActionUIC+Linux.swift",
+				"ActionUIC+Windows.swift",
 			);
 			publicHeaders = (
 				include/ActionUIC.h,

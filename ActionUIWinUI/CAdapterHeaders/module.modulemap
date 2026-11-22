@@ -1,0 +1,7 @@
+// The C adapter's public C header as the module ActionUICAdapterHeaders, which ActionUIC.swift
+// imports, for the Windows package (as ActionUIAdwaita/CAdapterHeaders is for Linux's): ActionUIC.h
+// alone is the C interface.
+module ActionUICAdapterHeaders {
+    header "../../ActionUICAdapter/include/ActionUIC.h"
+    export *
+}
