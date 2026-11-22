@@ -39,6 +39,8 @@ final class KeptWindowKeeper {
             return false
         }
         defer { try? FileManager.default.removeItem(at: spool) }
+        // The kept windows are the server's own, handed over in the spool folder (MCPTrustPolicy).
+        MCPTrustPolicy.install(windowFolder: spool)
         ActionUISwift.setDefaultActionHandler { _, _, _, _, _ in }  // no agent is listening any more
         for record in manifest.windows {
             show(record, file: spool.appendingPathComponent(record.document))

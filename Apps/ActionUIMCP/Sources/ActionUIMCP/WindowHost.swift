@@ -87,6 +87,8 @@ final class WindowHost {
         self.logger = logger
         documentDirectory = HostSupport.sessionFolder
         platform.host = self
+        // The windows are files the server writes there: its own, trusted (MCPTrustPolicy).
+        MCPTrustPolicy.install(windowFolder: documentDirectory)
     }
 
     /// Routes every ActionUI action to this host. Call once at launch.
