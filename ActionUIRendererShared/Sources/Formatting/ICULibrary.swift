@@ -1,24 +1,16 @@
 // Sources/Formatting/ICULibrary.swift
 /*
- The system's ICU, found and loaded at run time, for formatting dates and numbers by the user's
- locale: FoundationEssentials cannot do that, and full Foundation would bring 45 MB of ICU
- data into libActionUI.so. Every desktop Linux install has some ICU (Debian 13: libicu76), whose C
- functions carry the major version in their names (udat_format_76), and versions differ between
- distributions, so ActionUI names none: for N from 120 down to 50 it opens libicui18n.so.N (which
- brings in libicuuc.so.N, its dependency), the first N that opens wins, and each function is looked
- up as name_N, then as the plain name (ICU built without renaming). The unversioned libicui18n.so
- is a developer package's link, not on users' systems. A miss costs about 4 microseconds (13 the
- first time; measured on Debian 13), once per process, when the first date is formatted. A missing
- function disables ICU as a whole, as does no library at all; callers then fall back to GLib
- (DateFormatting) or to plain digits (NumberFormatting). .NET finds ICU the same way on Linux
- (System.Globalization.Native's pal_icushim.c).
+ The system's ICU (International Components for Unicode), found and loaded at run time, for
+ formatting dates and numbers by the user's locale: FoundationEssentials cannot do that, and full
+ Foundation would bring 45 MB of ICU data into every program. Each platform finds its ICU in a file
+ of its own (Linux: ICULibrary+Linux.swift), which gives the initializer a lookup for the functions'
+ addresses. A missing function disables ICU as a whole, as does no library at all; callers then
+ fall back to the platform's own date format (DateFormatting) or to plain digits (NumberFormatting).
 
  No ICU header is used: the few C types are declared here (UChar is UInt16, UErrorCode Int32, UDate
  Double milliseconds, the opened objects opaque pointers), with the values the formatters need
  taken from the ICU 76 headers; these values do not change between ICU versions.
 */
-
-import Glibc
 
 @MainActor
 final class ICULibrary {
@@ -58,7 +50,8 @@ final class ICULibrary {
     /// UNUM_CURRENCY_CODE, the UNumberFormatTextAttribute naming a currency formatter's currency.
     static let currencyCode: Int32 = 5
 
-    /// The loaded ICU, or nil when none was found (or a test disabled it).
+    /// The loaded ICU, or nil when none was found (or a test disabled it). The platform's file
+    /// gives `load()`, asked once.
     static var shared: ICULibrary? {
         if disabledForTesting { return nil }
         if !searched {
@@ -95,24 +88,26 @@ final class ICULibrary {
     let formatNumber: FormatNumber
     let parseNumber: ParseNumber
 
-    private init?(version: Int, i18n: UnsafeMutableRawPointer) {
-        func function<T>(_ library: UnsafeMutableRawPointer, _ name: String, as type: T.Type) -> T? {
-            guard let symbol = dlsym(library, "\(name)_\(version)") ?? dlsym(library, name) else { return nil }
-            return unsafeBitCast(symbol, to: type)
+    /// Each function's address comes from `symbol`, given its plain ICU name ("udat_format"); nil
+    /// when one is missing. `version` is ICU's major version.
+    init?(version: Int, symbol: (String) -> UnsafeMutableRawPointer?) {
+        func function<T>(_ name: String, as type: T.Type) -> T? {
+            guard let address = symbol(name) else { return nil }
+            return unsafeBitCast(address, to: type)
         }
-        guard let openPatternGenerator = function(i18n, "udatpg_open", as: OpenPatternGenerator.self),
-              let bestPattern = function(i18n, "udatpg_getBestPattern", as: BestPattern.self),
-              let closePatternGenerator = function(i18n, "udatpg_close", as: ClosePatternGenerator.self),
-              let openDateFormat = function(i18n, "udat_open", as: OpenDateFormat.self),
-              let formatDate = function(i18n, "udat_format", as: FormatDate.self),
-              let openCalendar = function(i18n, "ucal_open", as: OpenCalendar.self),
-              let calendarAttribute = function(i18n, "ucal_getAttribute", as: CalendarAttribute.self),
-              let closeCalendar = function(i18n, "ucal_close", as: CloseCalendar.self),
-              let openNumberFormat = function(i18n, "unum_open", as: OpenNumberFormat.self),
-              let setNumberAttribute = function(i18n, "unum_setAttribute", as: SetNumberAttribute.self),
-              let setNumberTextAttribute = function(i18n, "unum_setTextAttribute", as: SetNumberTextAttribute.self),
-              let formatNumber = function(i18n, "unum_formatDouble", as: FormatNumber.self),
-              let parseNumber = function(i18n, "unum_parseDouble", as: ParseNumber.self) else { return nil }
+        guard let openPatternGenerator = function("udatpg_open", as: OpenPatternGenerator.self),
+              let bestPattern = function("udatpg_getBestPattern", as: BestPattern.self),
+              let closePatternGenerator = function("udatpg_close", as: ClosePatternGenerator.self),
+              let openDateFormat = function("udat_open", as: OpenDateFormat.self),
+              let formatDate = function("udat_format", as: FormatDate.self),
+              let openCalendar = function("ucal_open", as: OpenCalendar.self),
+              let calendarAttribute = function("ucal_getAttribute", as: CalendarAttribute.self),
+              let closeCalendar = function("ucal_close", as: CloseCalendar.self),
+              let openNumberFormat = function("unum_open", as: OpenNumberFormat.self),
+              let setNumberAttribute = function("unum_setAttribute", as: SetNumberAttribute.self),
+              let setNumberTextAttribute = function("unum_setTextAttribute", as: SetNumberTextAttribute.self),
+              let formatNumber = function("unum_formatDouble", as: FormatNumber.self),
+              let parseNumber = function("unum_parseDouble", as: ParseNumber.self) else { return nil }
         self.version = version
         self.openPatternGenerator = openPatternGenerator
         self.bestPattern = bestPattern
@@ -127,22 +122,5 @@ final class ICULibrary {
         self.setNumberTextAttribute = setNumberTextAttribute
         self.formatNumber = formatNumber
         self.parseNumber = parseNumber
-    }
-
-    /// The newest ICU that opens, when it carries every function used; nil otherwise. The library
-    /// stays loaded for the life of the process.
-    private static func load() -> ICULibrary? {
-        for version in stride(from: 120, through: 50, by: -1) {
-            guard let i18n = dlopen("libicui18n.so.\(version)", RTLD_NOW | RTLD_LOCAL) else { continue }
-            if let library = ICULibrary(version: version, i18n: i18n) {
-                ActionUIModel.shared.logger.log("ICU \(version) formats dates and numbers by locale", .verbose)
-                return library
-            }
-            dlclose(i18n)
-            ActionUIModel.shared.logger.log("ICU \(version) lacks a function ActionUI uses; dates follow the C library's locale and numbers show plain digits", .info)
-            return nil
-        }
-        ActionUIModel.shared.logger.log("No ICU found; dates follow the C library's locale and numbers show plain digits", .info)
-        return nil
     }
 }
