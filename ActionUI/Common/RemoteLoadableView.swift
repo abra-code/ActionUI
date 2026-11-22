@@ -18,9 +18,9 @@ enum RemoteJSONFetch {
 
     /// The session for an address less-trusted content names: none of the app's cookies, stored
     /// credentials or cache (an ephemeral session that stores and sends no cookies, has no
-    /// credential store, and keeps only its own cache in memory), and every sign-in challenge
-    /// refused, so the system's single sign-on cannot answer one either: a server the content
-    /// picks learns nothing of the app's or the user's sessions.
+    /// credential store, and keeps only its own cache in memory), and the server's sign-in
+    /// challenges declined, so the system's single sign-on cannot answer one either: a server the
+    /// content picks learns nothing of the app's or the user's sessions.
     static let privateSession: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
@@ -29,9 +29,11 @@ enum RemoteJSONFetch {
         return URLSession(configuration: configuration, delegate: NoSignIn(), delegateQueue: nil)
     }()
 
-    /// Refuses every authentication challenge but the check of the server's own certificate,
-    /// which is left to the system.
-    private final class NoSignIn: NSObject, URLSessionTaskDelegate, Sendable {
+    /// Declines the server's authentication challenges, so the fetch goes on without credentials (a
+    /// server that only asks for a client certificate still answers; one that needs a sign-in
+    /// answers 401, which the fetch refuses). The check of the server's own certificate and a
+    /// proxy's sign-in (the network's, not the server's) are left to the system.
+    final class NoSignIn: NSObject, URLSessionTaskDelegate, Sendable {
         func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge)
             async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
             Self.answer(challenge)
@@ -42,9 +44,12 @@ enum RemoteJSONFetch {
             Self.answer(challenge)
         }
 
-        private static func answer(_ challenge: URLAuthenticationChallenge) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
-            challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust
-                ? (.performDefaultHandling, nil) : (.cancelAuthenticationChallenge, nil)
+        static func answer(_ challenge: URLAuthenticationChallenge) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            let space = challenge.protectionSpace
+            if space.authenticationMethod == NSURLAuthenticationMethodServerTrust || space.isProxy() {
+                return (.performDefaultHandling, nil)
+            }
+            return (.rejectProtectionSpace, nil)
         }
     }
 

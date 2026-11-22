@@ -510,6 +510,39 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertTrue(named(false, 77, nil), "a LoadableView of unknown surroundings")
     }
 
+    #if canImport(SwiftUI)
+    /// The private session's delegate declines the server's sign-in challenges and leaves the server
+    /// certificate check and a proxy's sign-in to the system.
+    func testThePrivateSessionDeclinesTheServersSignIn() {
+        let session = RemoteJSONFetch.privateSession
+        XCTAssertNil(session.configuration.httpCookieStorage)
+        XCTAssertFalse(session.configuration.httpShouldSetCookies)
+        XCTAssertNil(session.configuration.urlCredentialStorage)
+        XCTAssertTrue(session.delegate is RemoteJSONFetch.NoSignIn)
+        for selector in ["URLSession:didReceiveChallenge:completionHandler:", "URLSession:task:didReceiveChallenge:completionHandler:"] {
+            XCTAssertTrue(session.delegate?.responds(to: NSSelectorFromString(selector)) == true, selector)
+        }
+        final class NoSender: NSObject, URLAuthenticationChallengeSender {
+            func use(_ credential: URLCredential, for challenge: URLAuthenticationChallenge) {}
+            func continueWithoutCredential(for challenge: URLAuthenticationChallenge) {}
+            func cancel(_ challenge: URLAuthenticationChallenge) {}
+        }
+        func answer(_ method: String, proxy: Bool = false) -> URLSession.AuthChallengeDisposition {
+            let space = proxy
+                ? URLProtectionSpace(proxyHost: "proxy.example.com", port: 8080, type: NSURLProtectionSpaceHTTPProxy, realm: nil, authenticationMethod: method)
+                : URLProtectionSpace(host: "example.com", port: 443, protocol: "https", realm: nil, authenticationMethod: method)
+            let challenge = URLAuthenticationChallenge(protectionSpace: space, proposedCredential: nil, previousFailureCount: 0,
+                                                       failureResponse: nil, error: nil, sender: NoSender())
+            return RemoteJSONFetch.NoSignIn.answer(challenge).0
+        }
+        for method in [NSURLAuthenticationMethodHTTPBasic, NSURLAuthenticationMethodNegotiate, NSURLAuthenticationMethodClientCertificate] {
+            XCTAssertEqual(answer(method), .rejectProtectionSpace, method)
+        }
+        XCTAssertEqual(answer(NSURLAuthenticationMethodServerTrust), .performDefaultHandling)
+        XCTAssertEqual(answer(NSURLAuthenticationMethodHTTPBasic, proxy: true), .performDefaultHandling, "a proxy's sign-in is the network's")
+    }
+    #endif
+
     func testTheSessionFollowsTheContentAroundALoadableViewByItsID() throws {
         let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
         _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
