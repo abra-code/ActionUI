@@ -90,7 +90,7 @@ extension ChartLayout {
         }
     }
 
-    func axis(_ extent: Extent, _ spec: ChartAxisSpec, length: Double, pointsPerTick: Double = Self.pointsPerDateTick) -> Axis {
+    func axis(_ extent: Extent, _ spec: ChartAxisSpec) -> Axis {
         var axis = Axis()
         var includesZero = true
         if case .automatic(let zero, let reversed) = spec.domain {
@@ -118,7 +118,9 @@ extension ChartLayout {
             axis.ticks = categories.map { (.string($0), $0) }
         } else if let dates {
             axis.scale.kind = .dates(lo: dates.lo, hi: dates.hi)
-            axis.ticks = dateTicks(dates.lo, dates.hi, count: max(2, min(Int(length / pointsPerTick), 8)))
+            // The stride comes from the span alone, not the plot's length (ChartDates.axisStride); a
+            // label that would overlap the one before it is left out (appendXGroup).
+            axis.ticks = dateTicks(dates.lo, dates.hi, stride: ChartDates.axisStride(dates.lo, dates.hi))
         } else if extent.hasNumbers {
             let lo = includesZero ? min(extent.lo, 0) : extent.lo
             let hi = includesZero ? max(extent.hi, 0) : extent.hi
@@ -184,8 +186,11 @@ extension ChartLayout {
 
     // A tick shows what changed since the one before: the year only at the first and when it turns.
     func dateTicks(_ lo: Date, _ hi: Date, count: Int) -> [(value: ChartScalar, label: String)] {
-        let stride = ChartDates.stride(lo, hi, count: count)
-        return dateLabels(ChartDates.ticks(lo, hi, stride: stride), unit: stride.unit)
+        dateTicks(lo, hi, stride: ChartDates.stride(lo, hi, count: count))
+    }
+
+    func dateTicks(_ lo: Date, _ hi: Date, stride: ChartDateStride) -> [(value: ChartScalar, label: String)] {
+        dateLabels(ChartDates.ticks(lo, hi, stride: stride), unit: stride.unit)
     }
 
     func dateLabels(_ dates: [Date], unit: Calendar.Component) -> [(value: ChartScalar, label: String)] {

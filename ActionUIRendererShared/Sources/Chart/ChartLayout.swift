@@ -55,7 +55,8 @@ struct ChartLayout {
     static let gridInk = ChartInk.text(opacity: 0.14)
     static let labelInk = ChartInk.text(opacity: 0.6)
     static let defaultLine = ChartStroke(lineWidth: 2, lineCap: .round, lineJoin: .round)
-    // A date label on x is wide; on y it needs only its height and some air.
+    // A scrolling date axis's spacing of ticks along the domain drawn at the window's scale
+    // (ChartLayout+Scroll.swift): a date label on x is wide; on y it needs only its height and some air.
     static let pointsPerDateTick = 80.0, pointsPerYDateTick = 20.0
     // From the plot's edge to the labels.
     static let labelGap = 4.0
@@ -89,8 +90,8 @@ struct ChartLayout {
 
         // The y labels' width sets the plot's width, which sets the x ticks; the height is known
         // first. An x axis's kind and edges decide the room around the plot.
-        let hasX = !hasSectors && !axis(extents.x, spec.x, length: 0).isEmpty
-        let unplacedY = axis(extents.y, spec.y, length: 0)
+        let hasX = !hasSectors && !axis(extents.x, spec.x).isEmpty
+        let unplacedY = axis(extents.y, spec.y)
         let hasY = !hasSectors && !unplacedY.isEmpty
         var yBands = false
         if case .bands = unplacedY.scale.kind { yBands = true }
@@ -114,7 +115,7 @@ struct ChartLayout {
         let top = xLabelsTop + titleRoom(.top) + (legend?.room(.top) ?? 0)
         let bottom = xLabelsBottom + titleRoom(.bottom) + (legend?.room(.bottom) ?? 0)
         let plotHeight = max(height - top - bottom, 1)
-        var yAxis = axis(extents.y, spec.y, length: plotHeight, pointsPerTick: Self.pointsPerYDateTick)
+        var yAxis = axis(extents.y, spec.y)
         let scrolls = hasSectors ? [] : spec.scroll.axes
         var yWindow = scrolls.contains(.vertical)
             ? scrollWindow(&yAxis, visible: spec.scroll.yLength, initial: spec.scroll.initialY, leading: scroll.y,
@@ -131,7 +132,7 @@ struct ChartLayout {
         let leading = yLabelsLeading + titleRoom(.leading) + legendLeading
         let trailing = yLabelsTrailing + titleRoom(.trailing) + legendTrailing
         let plotWidth = max(width - leading - trailing, 1)
-        var xAxis = axis(extents.x, spec.x, length: plotWidth)
+        var xAxis = axis(extents.x, spec.x)
         var xWindow = scrolls.contains(.horizontal)
             ? scrollWindow(&xAxis, visible: spec.scroll.xLength, initial: spec.scroll.initialX, leading: scroll.x,
                            plotLength: plotWidth, pointsPerTick: Self.pointsPerDateTick)
