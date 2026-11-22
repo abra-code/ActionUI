@@ -165,8 +165,8 @@ typedef bool (*ActionUICapabilityCallback)(const char* capabilityJSON, const cha
 void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallback allows);
 // The host's trust policy, for all windows. Each callback gets ActionUI's own decision and returns the
 // one to use; NULL keeps ActionUI's own decisions for that part, both NULL restore ActionUI's policy.
-// trust: the trust of content loaded from sourceJSON inside content of parentOriginJSON (NULL for a
-//   window's root, and for a LoadableView of unknown origin, such as one in a template row); only ActionUITrustTrusted means trusted.
+// trust: the trust of content loaded from sourceJSON inside content of parentOriginJSON (NULL only for a
+//   window's root; a LoadableView whose surroundings cannot be told gets a less-trusted parent); only ActionUITrustTrusted means trusted.
 // allows: whether content of originJSON may do capabilityJSON, {"capability": kind} with, by kind:
 //   "load" {"source"}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
 //   "webViewBaseURL" {"url"}, "webViewScriptFile" {"path"}, "readLocalFile" {"path"},

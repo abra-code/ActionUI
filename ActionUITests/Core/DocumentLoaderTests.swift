@@ -387,13 +387,72 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertFalse(ActionUIModel.shared.allows(.openLink(URL(string: "https://example.com")!), windowUUID: windowUUID, viewID: 999))
         XCTAssertEqual(policy.capabilities.last?.1.trust, .lessTrusted)
 
-        // A LoadableView with no view model (a template row's, id 999): no parent, and less trusted
-        // by default, so a policy that keeps the default stays safe.
+        // A LoadableView with no view model (a template row's, id 999): a less-trusted parent, not
+        // none (which means a window's root), and less trusted by default, so a policy that keeps
+        // the default, or that trusts "no parent and my file", stays safe.
         _ = try ActionUIDocumentLoader.load(data: Data(#"{ "id": 700, "type": "Text", "properties": {} }"#.utf8), format: "json",
                                             windowUUID: windowUUID, isContentView: false, parentID: 999,
                                             source: .remote(URL(string: "https://example.com/row.json")!))
-        XCTAssertNil(policy.asked.last?.parent)
+        XCTAssertEqual(policy.asked.last?.parent?.trust, .lessTrusted)
         XCTAssertEqual(policy.asked.last?.byDefault, .lessTrusted)
+    }
+
+    func testALoadableViewInATemplateRowIsJudgedByItsRowAndMayNotBorrowAnID() async throws {
+        let (folders, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: folders) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [resources.path] }
+        _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
+        _ = try ActionUIDocumentLoader.load(data: panel, format: "json", windowUUID: windowUUID, isContentView: false, parentID: 100,
+                                            source: .remote(URL(string: "https://example.com/panel.json")!))
+        // A template row's LoadableView in the remote panel (container 200): the remote content's trust.
+        let row = ViewModel()
+        row.templateContext = TemplateContext(parentID: 200, rowIndex: 0, row: [])
+        let around = try XCTUnwrap(ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: row))
+        XCTAssertEqual(around.trust, .lessTrusted)
+        XCTAssertNil(ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: ViewModel()), "not in a template row")
+        let unknownRow = ViewModel()
+        unknownRow.templateContext = TemplateContext(parentID: 4242, rowIndex: 0, row: [])
+        XCTAssertEqual(ActionUIDocumentLoader.templateSurroundings(windowUUID: windowUUID, model: unknownRow)?.trust, .lessTrusted,
+                       "a container the window does not have")
+        // Its content is classified inside that, whatever id it carries: a bundled file stays less trusted.
+        let inside = ActionUIDocumentLoader.Source.file(resources.appendingPathComponent("inside.json"))
+        XCTAssertEqual(ActionUIDocumentLoader.resolvedOrigin(for: inside, windowUUID: windowUUID, isContentView: false, parentID: 100).trust,
+                       .trusted, "the host's LoadableView 100 would make it trusted")
+        let resourceOrigin = ActionUIDocumentLoader.resolvedOrigin(for: inside, windowUUID: windowUUID,
+                                                                   isContentView: false, parentID: 100, around: around)
+        XCTAssertEqual(resourceOrigin.trust, .lessTrusted, "not the host's LoadableView 100's trust")
+        // The load capability is asked with that origin too, before the load and about a redirect's address.
+        struct RefusesLessTrustedLoads: ActionUITrustPolicy {
+            func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+                if case .load = capability { return origin.trust == .trusted }
+                return true
+            }
+        }
+        ActionUIModel.shared.trustPolicy = RefusesLessTrustedLoads()
+        let address = ActionUIDocumentLoader.Source.remote(URL(string: "https://example.com/row.json")!)
+        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(address, windowUUID: windowUUID, parentID: 100, logger: logger))
+        XCTAssertNotNil(ActionUIDocumentLoader.loadRefusal(address, windowUUID: windowUUID, parentID: 100, around: around, logger: logger))
+        let data = Data(#"{ "id": 700, "type": "Text", "properties": {} }"#.utf8)
+        do {
+            _ = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/row.json")!, windowUUID: windowUUID,
+                                                            isContentView: false, parentID: 100, around: around, logger: logger) { _ in
+                (data, URL(string: "https://example.com/moved.json")!)
+            }
+            XCTFail("the redirect's address is refused inside the row's content")
+        } catch {
+            XCTAssertTrue("\(error)".contains("the trust policy refuses it"), "\(error)")
+        }
+        ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
+        // It may not carry the id of an element the window has (100, the host's LoadableView), whose
+        // content its own would replace; an id nothing has is fine, and outside a template row the rule
+        // does not apply.
+        XCTAssertEqual(ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 100, model: row, logger: logger),
+                       "id 100 is another element's in the window")
+        XCTAssertNil(ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 9999, model: row, logger: logger))
+        let registered = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[100])
+        XCTAssertNil(ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: 100, model: registered, logger: logger))
     }
 
     func testTheDefaultPolicyLetsLessTrustedLinksOpenOnlyWebAndMail() {

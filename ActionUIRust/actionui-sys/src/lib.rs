@@ -79,8 +79,8 @@ pub const ACTIONUI_TRUST_LESS_TRUSTED: ActionUITrust = 0;
 pub const ACTIONUI_TRUST_TRUSTED: ActionUITrust = 1;
 
 /// The trust of content a LoadableView loads: `(sourceJSON, parentOriginJSON, byDefault)`,
-/// returning the trust to use. `parentOriginJSON` is null for a window's root, and for a
-/// LoadableView of unknown origin (one in a template row). Only
+/// returning the trust to use. `parentOriginJSON` is null only for a window's root; a
+/// LoadableView whose surroundings cannot be told gets a less-trusted parent. Only
 /// [`ACTIONUI_TRUST_TRUSTED`] means trusted. The strings are valid only for the call.
 pub type ActionUITrustCallback = Option<unsafe extern "C" fn(*const c_char, *const c_char, ActionUITrust) -> ActionUITrust>;
 

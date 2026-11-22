@@ -1547,6 +1547,8 @@ private final class CTrustPolicy: ActionUITrustPolicy, @unchecked Sendable {
                           byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust {
         guard let trustCallback, let sourceJSON = valueToJSON(sourceObject(source)) else { return byDefault }
         let parentJSON = parent.flatMap { valueToJSON(originObject($0)) }
+        // NULL means a window's root: a parent that cannot be written out is less trusted instead.
+        if parent != nil, parentJSON == nil { return .lessTrusted }
         let cDefault = byDefault == .trusted ? ActionUITrustTrusted : ActionUITrustLessTrusted
         let result = sourceJSON.withCString { cSource in
             withOptionalCString(parentJSON) { cParent in trustCallback(cSource, cParent, cDefault) }

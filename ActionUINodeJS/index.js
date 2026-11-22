@@ -759,8 +759,8 @@ const Trust = Object.freeze({ TRUSTED: 'trusted', LESS_TRUSTED: 'lessTrusted' })
 // setTrustPolicy() restores ActionUI's own policy.
 //
 //   trust(source, parent, byDefault) -> Trust: the trust of content a LoadableView loads from
-//     source ({ source, path or url }) inside content of origin parent (null for a window's root,
-//     and for a LoadableView of unknown origin, such as one in a template row), as
+//     source ({ source, path or url }) inside content of origin parent (null only for a window's
+//     root; a LoadableView whose surroundings cannot be told gets a less-trusted parent), as
 //     Window.getElementOrigin returns it.
 //   allows(capability, origin, byDefault) -> boolean: whether content of origin may do
 //     capability, { capability: kind } with, by kind: 'load' { source }, 'openLink' { url },

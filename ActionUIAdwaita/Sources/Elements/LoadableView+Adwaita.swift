@@ -89,9 +89,15 @@ extension LoadableView: ActionUIAdwaitaRenderer {
         let windowUUID = node.windowUUID
         let parentID = node.element.id
         let actionID = Props(node.properties).viewDidLoadActionID
+        // In a template row it is judged by its row's container, and may not carry another element's
+        // id, whose place in the window its content would take.
+        if let refusal = ActionUIDocumentLoader.templateIDRefusal(windowUUID: windowUUID, viewID: parentID, model: node.model, logger: logger) {
+            return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
+        }
+        let around: JSONContentOrigin? = node.model.templateContext != nil ? LinkTrust.origin(node) : nil
         if case .success(let found) = source {
             // The trust policy may refuse the source (ActionUICapability.load), before anything is read.
-            if let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, logger: logger) {
+            if let refusal = ActionUIDocumentLoader.loadRefusal(found, windowUUID: windowUUID, parentID: parentID, around: around, logger: logger) {
                 return showStatus(message("Failed to load view: \(refusal)", error: true), widget, state)
             }
             let key = ActionUIDocumentLoader.nestingKey(for: found)
@@ -109,7 +115,8 @@ extension LoadableView: ActionUIAdwaitaRenderer {
             do {
                 let data = try ActionUIDocumentLoader.readRegularFile(url)
                 state.element = try ActionUIDocumentLoader.load(data: data, format: format, windowUUID: windowUUID,
-                                                               isContentView: false, parentID: parentID, source: .file(url))
+                                                               isContentView: false, parentID: parentID, source: .file(url),
+                                                               around: around)
                 state.loadedFolder = url.deletingLastPathComponent().path
                 logger.log("Successfully loaded \(format) for LoadableView from \(url.absoluteString)", .debug)
                 showStatus(nil, widget, state)
@@ -133,7 +140,7 @@ extension LoadableView: ActionUIAdwaitaRenderer {
                 let result: Result<ActionUIElement, Error>
                 do {
                     result = .success(try await ActionUIDocumentLoader.loadRemote(
-                        url: url, windowUUID: windowUUID, isContentView: false, parentID: parentID, logger: logger,
+                        url: url, windowUUID: windowUUID, isContentView: false, parentID: parentID, around: around, logger: logger,
                         fetch: { url in
                             let fetched = try await URLLoader.data(url, maximumSize: URLLoader.maximumJSONFetchSize)
                             guard isCurrent() else { throw CancellationError() }

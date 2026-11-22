@@ -98,8 +98,8 @@ typedef enum {
 
 /// Trust callback: the trust of content a LoadableView loads from `sourceJSON` (an origin's
 /// "source" with its "path" or "url", such as {"source":"remote","url":"https://example.com/v.json"})
-/// inside content of origin `parentOriginJSON` (NULL for a window's root, and for a LoadableView whose
-/// own origin is unknown, such as one in a template row, whose content is then less trusted by
+/// inside content of origin `parentOriginJSON` (NULL only for a window's root; a LoadableView whose
+/// surroundings cannot be told gets a less-trusted parent, so its content is less trusted by
 /// default), given ActionUI's own decision `byDefault`. Return byDefault to keep it; any value other than ActionUITrustTrusted
 /// means less trusted.
 typedef ActionUITrust (*ActionUITrustCallback)(const char* sourceJSON,

@@ -115,9 +115,11 @@ public enum ActionUICapability: Sendable, Equatable {
 /// set on ActionUIModel.shared.trustPolicy before loading. One object serves every window; a host
 /// that wants rules per window switches on the origin's parentID or keeps its own map.
 public protocol ActionUITrustPolicy: Sendable {
-    /// The trust of content loaded from `source` inside content of origin `parent` (nil for a
-    /// window's root, or for a LoadableView whose own trust is unknown), given what ActionUI
-    /// decides `byDefault`. The default implementation keeps that.
+    /// The trust of content loaded from `source` inside content of origin `parent` (nil only for a
+    /// window's root; a LoadableView in a template row has its row's content as parent, and one
+    /// whose surroundings cannot be told a less-trusted parent), given what ActionUI decides
+    /// `byDefault`. The default implementation keeps that. Judge a parent by its `trust`: the
+    /// less-trusted parent of unknown surroundings has the source `.host`.
     @MainActor func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
                           byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust
     /// Whether content of `origin` may do `capability`. The default implementation is
@@ -435,10 +437,16 @@ enum ActionUIDocumentLoader {
     /// trust policy is asked (ActionUICapability.load) with the origin of the content the LoadableView
     /// is in, about the source as its content would be classified (a resource, a file elsewhere, a
     /// remote address). Asked before anything is read.
-    static func loadRefusal(_ source: Source, windowUUID: String, parentID: Int, logger: any ActionUILogger) -> String? {
+    /// `around`: the origin of the content the LoadableView is in, when the renderer knows it from the
+    /// view model it draws the LoadableView with (a template row's, by its container); nil: looked up
+    /// by `parentID`.
+    static func loadRefusal(_ source: Source, windowUUID: String, parentID: Int, around: JSONContentOrigin? = nil,
+                            logger: any ActionUILogger) -> String? {
         let kind = origin(for: source, inside: nil, parentID: nil, resourceFolders: ActionUIRendererHooks.resourceFolders(),
                           trustedOrigins: ActionUIConfiguration.current.trust.trustedOrigins).source
-        guard !ActionUIModel.shared.allows(.load(kind), windowUUID: windowUUID, viewID: parentID) else { return nil }
+        let allowed = around.map { ActionUIModel.shared.trustPolicy.allows(.load(kind), for: $0) }
+            ?? ActionUIModel.shared.allows(.load(kind), windowUUID: windowUUID, viewID: parentID)
+        guard !allowed else { return nil }
         logger.log("LoadableView \(parentID): not loading \(nestingKey(for: source)): the trust policy refuses it", .warning)
         return "the trust policy refuses it"
     }
@@ -457,9 +465,10 @@ enum ActionUIDocumentLoader {
         windowUUID: String,
         isContentView: Bool,
         parentID: Int,
-        source: Source?
+        source: Source?,
+        around: JSONContentOrigin? = nil
     ) throws -> ActionUIElement {
-        let origin = source.map { resolvedOrigin(for: $0, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID) }
+        let origin = source.map { resolvedOrigin(for: $0, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around) }
         if isContentView {
             return try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID, origin: origin)
         }
@@ -469,20 +478,56 @@ enum ActionUIDocumentLoader {
     /// The origin of content loaded from `source` into the window: as a root (`isContentView`), or
     /// into its LoadableView `parentID`. Classified (origin(for:)), then the host's trust policy
     /// has the last word.
-    static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int) -> JSONContentOrigin {
+    /// `around`: the origin of the content the LoadableView is in, when the renderer knows it (see
+    /// loadRefusal); nil: looked up by `parentID`. The policy gets no parent only for a window's
+    /// root: a LoadableView whose surroundings cannot be told gets `unknownSurroundings`, less
+    /// trusted, so a policy that trusts "no parent and my file", as a window's root, cannot be made
+    /// to trust that file inside content it does not know.
+    static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int,
+                               around: JSONContentOrigin? = nil) -> JSONContentOrigin {
         // A sub-view's parent is the LoadableView, an element of the content around it.
-        let parentModel = isContentView ? nil : ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID]
-        // A LoadableView with no view model of its own (one in a template row, a blueprint the
-        // window has no model for) has no known trust: less trusted, so a miss cannot make remote
-        // content's choice of file read as the host's. Id 0 is the host's own loader.
-        let unknownParent = !isContentView && parentID != 0 && parentModel == nil
-        let parent: JSONContentOrigin? = isContentView || unknownParent ? nil : (parentModel?.origin ?? .host)
+        let parent: JSONContentOrigin?
+        if isContentView {
+            parent = nil
+        } else if let around {
+            parent = around
+        } else if let parentModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] {
+            parent = parentModel.origin ?? .host
+        } else {
+            // Id 0 is the host's own loader. Any other LoadableView with no view model (one in a
+            // template row the renderer did not describe, a blueprint the window has no model for)
+            // has no known trust: less trusted, so a miss cannot make remote content's choice of
+            // file read as the host's.
+            parent = parentID == 0 ? .host : unknownSurroundings
+        }
         let classified = Self.origin(for: source, inside: parent, parentID: isContentView ? nil : parentID,
                                      resourceFolders: ActionUIRendererHooks.resourceFolders(),
                                      trustedOrigins: ActionUIConfiguration.current.trust.trustedOrigins)
-        let byDefault: JSONContentOrigin.Trust = unknownParent ? .lessTrusted : classified.trust
-        let trust = ActionUIModel.shared.trustPolicy.trust(for: classified.source, inside: parent, byDefault: byDefault)
+        let trust = ActionUIModel.shared.trustPolicy.trust(for: classified.source, inside: parent, byDefault: classified.trust)
         return trust == classified.trust ? classified : JSONContentOrigin(source: classified.source, trust: trust, parentID: classified.parentID)
+    }
+
+    /// The parent the trust policy gets for a LoadableView whose surroundings cannot be told: less
+    /// trusted, never nil, which means a window's root.
+    static let unknownSurroundings = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
+
+    /// For a LoadableView drawn with `model`: the origin of the content it is in when it is in a
+    /// template row (its row's container's; less trusted when that cannot be told), else nil (the
+    /// LoadableView's own view model, by its id, tells it).
+    static func templateSurroundings(windowUUID: String, model: ViewModel) -> JSONContentOrigin? {
+        guard let container = model.templateContext?.parentID else { return nil }
+        return ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: container) ?? unknownSurroundings
+    }
+
+    /// Why a LoadableView drawn with `model` in a template row must not load, or nil when it may: its
+    /// id is another element's in the window, and its content would load into that element's place
+    /// (the window keeps a LoadableView's content by its id).
+    static func templateIDRefusal(windowUUID: String, viewID: Int, model: ViewModel, logger: any ActionUILogger) -> String? {
+        guard model.templateContext != nil,
+              let registered = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[viewID],
+              registered !== model else { return nil }
+        logger.log("LoadableView \(viewID) in a template row: not loading: id \(viewID) is another element's in the window", .warning)
+        return "id \(viewID) is another element's in the window"
     }
 
     /// Fetches `url` with `fetch`, then loads it as `load` does, with the format of the URL. `fetch`
@@ -493,6 +538,7 @@ enum ActionUIDocumentLoader {
         windowUUID: String,
         isContentView: Bool,
         parentID: Int,
+        around: JSONContentOrigin? = nil,
         logger: any ActionUILogger,
         fetch: (URL) async throws -> (data: Data, finalURL: URL)
     ) async throws -> ActionUIElement {
@@ -502,12 +548,12 @@ enum ActionUIDocumentLoader {
         if finalURL != url {
             logger.log("Remote URL \(url) was redirected to \(finalURL)", .debug)
             // The LoadableView asked the trust policy about `url`; the content came from finalURL.
-            if !isContentView, let refusal = loadRefusal(.remote(finalURL), windowUUID: windowUUID, parentID: parentID, logger: logger) {
+            if !isContentView, let refusal = loadRefusal(.remote(finalURL), windowUUID: windowUUID, parentID: parentID, around: around, logger: logger) {
                 throw ActionUIError("Could not load \(url.absoluteString): it was redirected to \(finalURL.absoluteString), and \(refusal)")
             }
         }
         let element = try load(data: data, format: format, windowUUID: windowUUID, isContentView: isContentView,
-                               parentID: parentID, source: .remote(finalURL))
+                               parentID: parentID, source: .remote(finalURL), around: around)
         logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
         return element
     }

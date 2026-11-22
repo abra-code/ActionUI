@@ -64,13 +64,17 @@ public struct RemoteLoadableView: SwiftUI.View {
     let windowUUID: String
     let isContentView: Bool
     let parentID: Int
+    /// The origin of the content a LoadableView is in, when its renderer knows it; nil: by `parentID`.
+    let around: JSONContentOrigin?
     let viewDidLoadActionID: String?
     let logger: any ActionUILogger
 
     @State private var element: ActionUIElement?
     @State private var error: Error?
 
-    public init(url: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
+    public init(url: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, around: JSONContentOrigin? = nil,
+                viewDidLoadActionID: String? = nil, logger: any ActionUILogger) {
+        self.around = around
         self.url = url
         self.windowUUID = windowUUID
         self.isContentView = isContentView
@@ -103,7 +107,7 @@ public struct RemoteLoadableView: SwiftUI.View {
                         let limit = WindowModel.maximumJSONSize
                         do {
                             element = try await ActionUIDocumentLoader.loadRemote(
-                                url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, logger: logger
+                                url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around, logger: logger
                             ) { url in
                                 var request = URLRequest(url: url)
                                 request.cachePolicy = .reloadRevalidatingCacheData // Balances freshness and performance

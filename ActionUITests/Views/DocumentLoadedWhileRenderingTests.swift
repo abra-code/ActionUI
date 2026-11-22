@@ -167,5 +167,61 @@ final class DocumentLoadedWhileRenderingTests: XCTestCase {
     func testRowsSurviveWhenASubViewLoadsWhileRendering() throws {
         try checkRowsSurvive(isContentView: false)
     }
+
+    /// A LoadableView in a List's template row, drawn in a window: it is judged by the List's
+    /// content (the host's here), not by the id it carries, and it loads nothing, and fires no
+    /// viewDidLoadActionID, when that id is another element's in the window.
+    func testATemplateRowsLoadableViewIsJudgedByItsRowAndCannotTakeAnotherElementsPlace() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("template-loadable-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("Row.json")
+        try JSONSerialization.data(withJSONObject: ["type": "Text", "id": 800, "properties": ["text": "Row"]]).write(to: file)
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [folder.path] }
+        let logger = CapturingLogger()
+        ActionUIModel.shared.logger = logger
+        var fired: [Int] = []
+        ActionUIModel.shared.registerActionHandler(for: "row.loaded") { _, _, viewID, _, _ in fired.append(viewID) }
+
+        func show(templateID: Int) throws {
+            windowUUID = UUID().uuidString
+            let document: [String: Any] = [
+                "type": "VStack", "id": 1,
+                "children": [
+                    ["type": "LoadableView", "id": 100],
+                    ["type": "List", "id": Self.listID, "properties": ["frame": ["height": 150]],
+                     "template": ["type": "LoadableView", "id": templateID,
+                                  "properties": ["filePath": file.path, "viewDidLoadActionID": "row.loaded"]]],
+                ],
+            ]
+            let data = try JSONSerialization.data(withJSONObject: document)
+            let host = NSHostingView(rootView: HostContent(data: data, windowUUID: windowUUID, isContentView: true)
+                .frame(width: 400, height: 400))
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 400), styleMask: [.titled],
+                                  backing: .buffered, defer: false)
+            window.contentView = host
+            window.orderFrontRegardless()
+            defer { window.orderOut(nil) }
+            spin(0.3)
+            ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: Self.listID, rows: [["One"]])
+            spin(0.5)
+            host.layoutSubtreeIfNeeded()
+            spin(0.3)
+        }
+
+        // The id of the host's LoadableView 100: refused, so nothing loads into its place.
+        try show(templateID: 100)
+        XCTAssertTrue(logger.messages.contains { $0.contains("id 100 is another element's in the window") }, "\(logger.messages.suffix(5))")
+        XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[800])
+        XCTAssertEqual(fired, [])
+
+        // An id nothing has: the app's own file in a row of the host's List is as trusted as the List.
+        try show(templateID: 555)
+        let origin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 800), "\(logger.messages.suffix(5))")
+        XCTAssertEqual(origin.trust, .trusted)
+        XCTAssertEqual(fired, [], "a template row's LoadableView has no view model of its own to fire for")
+    }
 }
 #endif

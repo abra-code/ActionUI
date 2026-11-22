@@ -95,6 +95,35 @@ final class ListTemplateRendererTests: XCTestCase {
 
     private let textTemplate = #"{"type": "List", "id": 1, "properties": {"actionID": "test.pick"}, "template": {"type": "Text", "properties": {"text": "$1"}}}"#
 
+    func testALoadableViewInARowIsJudgedByTheListAndMayNotTakeAnotherElementsPlace() throws {
+        let path = try TestImages.file(Array(#"{"type": "Text", "id": 800, "properties": {"text": "Row"}}"#.utf8), name: "template-row.json")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [URL(fileURLWithPath: path).deletingLastPathComponent().path] }
+        func row(templateID: Int) throws -> RenderNode {
+            ActionUIModel.shared.windowModels[windowUUID] = nil
+            let root = try render(#"""
+                {"type": "VStack", "id": 2, "children": [
+                  {"type": "LoadableView", "id": 100},
+                  {"type": "List", "id": 1, "template": {"type": "LoadableView", "id": \#(templateID),
+                    "properties": {"filePath": "\#(path)", "viewDidLoadActionID": "test.open"}}}]}
+                """#)
+            setRows([["One"]])
+            return try XCTUnwrap(try rowNodes(try XCTUnwrap(root.childNodes[1])).first)
+        }
+        // The id of the host's LoadableView 100: refused, so nothing loads into its place.
+        let refused = try row(templateID: 100)
+        let status = Gtk.Widget(refused.widget).children.map(\.pointer).first.map { Gtk.Label($0).text }
+        XCTAssertEqual(status, "Failed to load view: id 100 is another element's in the window")
+        XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[800])
+        XCTAssertEqual(fired.map(\.actionID), [])
+        // An id nothing has: the app's own file in a row of the host's List is as trusted as the List.
+        _ = try row(templateID: 555)
+        let origin = try XCTUnwrap(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 800))
+        XCTAssertEqual(origin.trust, .trusted)
+    }
+
     func testEachRowShowsTheTemplateWithItsData() throws {
         let node = try render(textTemplate)
         setRows([["Apple", "a"], ["Cherry", "c"]])

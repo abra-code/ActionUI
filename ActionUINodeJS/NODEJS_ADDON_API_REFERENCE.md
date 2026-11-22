@@ -420,8 +420,8 @@ actionui.ButtonRole.DESTRUCTIVE  // 'destructive'
 ```js
 actionui.setTrustPolicy({
     // The trust of content a LoadableView loads from source ({ source, path or url }) inside
-    // content of origin parent (null for a window's root, and for a LoadableView of unknown origin,
-    // such as one in a template row); byDefault is ActionUI's own decision.
+    // content of origin parent (null only for a window's root; a LoadableView whose surroundings
+    // cannot be told gets a less-trusted parent); byDefault is ActionUI's own decision.
     // A host trusts a file its user picked as a window's own JSON (no parent), say. For the
     // host's own server, list it in configure() instead.
     trust(source, parent, byDefault) {
