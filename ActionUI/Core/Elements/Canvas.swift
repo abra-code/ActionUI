@@ -40,7 +40,7 @@
          "systemName": "star.fill",   // Optional – one of these three required
          // "assetName": "myImage",
          // "resourceName": "yourImage.jpg"
-         // "filePath": "images/logo.png",
+         // "filePath": "/absolute/path/to/logo.png",
          "opacity": 0.8,     // Optional, default 1.0
          "resizingMode": "tile" // Optional ("stretch","tile","original"), default "stretch"
        },

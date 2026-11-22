@@ -476,6 +476,13 @@ final class WindowHost {
                 problems.append("id \(key): values must be strings, numbers or booleans")
                 continue
             }
+            // A QuickLook's value is the file it previews: an absolute path, as its filePath is. An
+            // Image's value is a file path when it holds a "/" (else a symbol or asset name).
+            if let type = types[id], type == "QuickLook" || (type == "Image" && text.contains("/")),
+               let refusal = AgentDocument.relativePathRefusal(type: type, name: "value", path: text) {
+                problems.append("id \(key) (\(type)): \(refusal)")
+                continue
+            }
             ActionUISwift.setElementValueFromString(windowUUID: windowID, viewID: id, value: text)
             updated += 1
         }

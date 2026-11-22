@@ -210,6 +210,49 @@ check("show_ui refuses a wrong value type", is_error(message)
 s.call(53, "validate_ui", {"ui": {"type": "QuickLook", "properties": {"filePath": "/tmp/x.pdf"}}})
 result = structured(s.response(53)) or {}
 check("validate knows add-on elements", result.get("ok") is True and result.get("warnings") == [], result)
+# Files are named by absolute path: the server loads its own copy of the JSON, so a relative path
+# would resolve against its working directory, not the JSON file's folder. Diff expands "~" itself.
+s.call(170, "validate_ui", {"ui": {"type": "Image", "properties": {"filePath": "sunset.png"}}})
+result = structured(s.response(170)) or {}
+check("validate refuses a relative Image filePath", result.get("ok") is False
+      and any("relative path" in e for e in result.get("errors", [])), result)
+s.call(171, "validate_ui", {"ui": {"type": "Image", "properties": {"filePath": "/tmp/sunset.png"}}})
+result = structured(s.response(171)) or {}
+check("validate takes an absolute Image filePath", result.get("ok") is True, result)
+s.call(172, "validate_ui", {"ui": {"type": "Diff", "properties": {"oldFile": "~/a.txt", "newFile": "b.txt"}}})
+result = structured(s.response(172)) or {}
+check("validate takes ~ in a Diff file and refuses a relative one", result.get("ok") is False
+      and len(result.get("errors", [])) == 1 and "newFile" in result["errors"][0], result)
+s.call(173, "validate_ui", {"ui": {"type": "Canvas", "properties": {"operations": [
+    {"type": "image", "frame": [0, 0, 1, 1], "filePath": "images/logo.png"}]}}})
+result = structured(s.response(173)) or {}
+check("validate refuses a relative Canvas image filePath", result.get("ok") is False
+      and any("operations[0].filePath" in e for e in result.get("errors", [])), result)
+s.call(178, "validate_ui", {"ui": {"type": "Canvas", "properties": {"operations": [
+    {"type": "layer", "frame": [0, 0, 1, 1], "operations": [
+        {"type": "image", "frame": [0, 0, 1, 1], "filePath" + SUFFIX: "images/logo.png"}]}]}}})
+result = structured(s.response(178)) or {}
+check("validate refuses a relative filePath in a Canvas layer, suffixed", result.get("ok") is False
+      and any("operations[0].operations[0].filePath" in e for e in result.get("errors", [])), result)
+s.call(174, "show_ui", {"title": "Paths", "ui": {"type": "VStack", "children": [
+    {"type": "Image", "id": 1, "properties": {"filePath": "/tmp/x.png"}},
+    {"type": "QuickLook", "id": 2, "properties": {"filePath": "/tmp/x.pdf"}},
+    {"type": "Image", "id": 3, "properties": {"systemName": "star"}}]}})
+paths_window = (structured(s.response(174)) or {}).get("window")
+s.call(175, "update_window", {"window": paths_window, "properties": {"1": {"filePath": "rel.png"}},
+                              "values": {"2": "rel.pdf", "3": "images/rel.png"}})
+result = structured(s.response(175)) or {}
+problems = result.get("problems", [])
+check("update_window refuses relative file paths in properties and QuickLook and Image values", bool(paths_window)
+      and result.get("updated") == 0 and len(problems) == 3 and all("relative path" in p for p in problems), result)
+s.call(179, "update_window", {"window": paths_window, "values": {"3": "star.fill"}})
+result = structured(s.response(179)) or {}
+check("update_window takes an Image symbol name value", result.get("updated") == 1 and not result.get("problems"), result)
+s.call(176, "close_window", {"window": paths_window})
+s.response(176)
+# Take its window.closed event, so the later waits see only their own windows' events.
+s.call(177, "wait", {"window": paths_window, "timeout_s": 2})
+s.response(177)
 # ActionUI resolves "<key>:<platform>" overrides at load, so the safety rules see resolved keys.
 s.call(142, "validate_ui", {"ui": {"type": "Text", "type" + SUFFIX: "SecureField", "id": 1}})
 result = structured(s.response(142)) or {}

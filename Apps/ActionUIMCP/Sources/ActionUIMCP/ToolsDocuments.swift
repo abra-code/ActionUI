@@ -20,7 +20,7 @@ private let uiProperty: JSONValue = [
 ]
 private let pathProperty: JSONValue = [
     "type": "string",
-    "description": "Instead of ui: absolute path of an ActionUI .json file.",
+    "description": "Instead of ui: absolute path of an ActionUI .json file. Files it names are given by absolute path too: a relative one is not resolved against the file's folder.",
 ]
 private let windowProperty: JSONValue = ["type": "string", "description": "Window id returned by show or show_ui."]
 
@@ -59,7 +59,8 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
             wait, change values with update_window. Not allowed: SecureField (everything the user \
             enters is sent to you), LoadableView (the ActionUI JSON it loads would skip the checks; put \
             its content inline) and popover (it can cover the window's "Requested by" line; use a \
-            sheet). WebView userScripts are removed.
+            sheet). WebView userScripts are removed. Files (an Image's or QuickLook's filePath, a \
+            Diff's oldFile and newFile, a Canvas image's filePath) are named by absolute path.
             """,
         inputSchema: input,
         annotations: ["readOnlyHint": true, "openWorldHint": true],

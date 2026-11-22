@@ -52,6 +52,46 @@ struct AgentDocument {
         ["ToolbarItem", "ToolbarItemGroup"].contains(type) && placement?.string == "secondaryAction"
     }
 
+    /// The properties that name a local file, by element type. ActionUI reads them as given, so a
+    /// relative path would resolve against the server's working directory, never the folder of the
+    /// ActionUI JSON that names it (the server loads its own copy, from its session folder).
+    static let filePathProperties: [String: Set<String>] = [
+        "Image": ["filePath"], "QuickLook": ["filePath"], "Diff": ["oldFile", "newFile"],
+    ]
+
+    /// Why `path`, the value of `name` on an element of `type`, is refused, or nil: a file must be
+    /// named by an absolute path. Diff expands "~" itself, so it may start with "~" there.
+    static func relativePathRefusal(type: String, name: String, path: String) -> String? {
+        if path.isEmpty || path.hasPrefix("/") || (type == "Diff" && path.hasPrefix("~")) { return nil }
+        return "\(name) \"\(path)\" is a relative path; give the file's absolute path (a relative one is not resolved against the ActionUI JSON's folder)"
+    }
+
+    /// Relative file paths in `properties` of an element of `type`, as refusals: the file
+    /// properties above, and a Canvas image operation's filePath (a layer's operations included).
+    static func relativePathRefusals(type: String, properties: [String: JSONValue]) -> [String] {
+        var refusals: [String] = []
+        for name in (filePathProperties[type] ?? []).sorted() {
+            if let path = properties[name]?.string, let refusal = relativePathRefusal(type: type, name: name, path: path) {
+                refusals.append(refusal)
+            }
+        }
+        func checkOperations(_ value: JSONValue?, at location: String) {
+            guard case .array(let operations)? = value else { return }
+            for (index, operation) in operations.enumerated() {
+                let here = "\(location)[\(index)]"
+                if let path = operation.object?["filePath"]?.string,
+                   let refusal = relativePathRefusal(type: type, name: "\(here).filePath", path: path) {
+                    refusals.append(refusal)
+                }
+                checkOperations(operation.object?["operations"], at: "\(here).operations")
+            }
+        }
+        if type == "Canvas" {
+            checkOperations(properties["operations"], at: "operations")
+        }
+        return refusals
+    }
+
     /// The rules for one property an agent sets on an element of an open window (update_window
     /// `properties`): the document's safety rules, then the ActionUIVerifier on a synthetic
     /// element `{"type", "id", "properties": {name: value}}`. Returns the reason the property is
@@ -84,6 +124,9 @@ struct AgentDocument {
         }
         if name == "placement", isSecondaryActionItem(type: type, placement: value) {
             return ("\(here): \(secondaryActionRefusal)", [], value)
+        }
+        if let refusal = relativePathRefusals(type: type, properties: [name: value]).first {
+            return ("id \(id) (\(type)): \(refusal)", [], value)
         }
         var checked = value
         var safetyWarnings: [String] = []
@@ -228,6 +271,9 @@ struct AgentDocument {
         if var properties = object["properties"]?.object {
             for key in containerKeys where properties[key] != nil {
                 errors.append("\(here): \"\(key)\" must be a key of the element, next to \"properties\", not inside it")
+            }
+            for refusal in relativePathRefusals(type: type, properties: properties) {
+                errors.append("\(here): \(refusal)")
             }
             if type == "WebView", properties["userScripts"] != nil {
                 properties["userScripts"] = nil

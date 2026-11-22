@@ -10,7 +10,7 @@ When the `actionui` MCP server is connected you can open native windows on the u
 
 For `show_ui`:
 
-- Pass the ActionUI JSON as an object in `ui` or an absolute `.json` path in `path`, never as a JSON string. Run `validate_ui` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
+- Pass the ActionUI JSON as an object in `ui` or an absolute `.json` path in `path`, never as a JSON string. Name files (an Image's `filePath`, say) by absolute path: a relative one is not resolved against the JSON file's folder. Run `validate_ui` first and fix every error and warning; `screenshot` shows the layout before the user sees it.
 - A dialog cannot fill a `Table` or a `template` (rows come at run time): use `mode: "window"` and `update_window` rows, static `children`, or `show` with a table.
 - Refused: `SecureField` (never ask for secrets: everything entered reaches you), `LoadableView` (put the content inline), `popover`, `"placement": "secondaryAction"`, `WindowGroup`; WebView `userScripts` are removed. `close_actions` may not start with `mcp.`.
 - Windows close when your session ends unless shown with `keep: true`.

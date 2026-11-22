@@ -31,7 +31,7 @@ Everything the user enters in a window goes back to the agent, and the agent, no
 - WebView `userScripts` are removed, with a warning: the server injects no user scripts an agent names. A page's own scripts still run, including those in a WebView's `html` (see What these rules do not cover).
 - Platform overrides (`"<key>:macos"`, repeated suffixes such as `"type:macos:macos"` included) are resolved before these checks, and the window loads the resolved ActionUI JSON, so a suffixed key cannot carry a refused element past them.
 - The rules reach elements nested anywhere, a Chart's annotation views included (the `content` of a mark's `annotation` in its `chart` description).
-- The ActionUI JSON is an object in `ui` (never a string) or an absolute `.json` path in `path`, at most 4 MB. Ids are unique positive integers, and container keys such as `children` sit next to `properties`, not inside it. Verifier errors and ActionUI load errors also refuse it.
+- The ActionUI JSON is an object in `ui` (never a string) or an absolute `.json` path in `path`, at most 4 MB. Files it names (Image and QuickLook `filePath`, Diff `oldFile` and `newFile`, a Canvas image's `filePath`, and a QuickLook value or an Image value holding a `/` from `update_window`) are given by absolute path, `~` allowed in Diff: the server loads its own copy of the JSON, so a relative path would resolve against the server's working directory, not the JSON file's folder. Ids are unique positive integers, and container keys such as `children` sit next to `properties`, not inside it. Verifier errors and ActionUI load errors also refuse it.
 
 `update_window` applies the same rules to each entry:
 
