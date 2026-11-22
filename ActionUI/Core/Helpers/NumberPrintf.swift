@@ -30,7 +30,7 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
-#elseif os(Windows)
+#elseif canImport(ucrt)
 import ucrt
 #endif
 
@@ -51,10 +51,8 @@ enum NumberPrintf {
     /// memory), and a typo such as "%1000000000d" would allocate gigabytes.
     static let maxLength = 4096
 
+    #if !os(Windows) // Windows: NumberPrintf+Windows.swift
     /// The C locale for numbers, which vsnprintf formats in whatever locale the process is in.
-    #if os(Windows)
-    nonisolated(unsafe) private static let cLocale = _create_locale(LC_NUMERIC, "C")
-    #else
     nonisolated(unsafe) private static let cLocale = newlocale(Int32(1) << LC_NUMERIC, "C", nil)
     #endif
 
@@ -159,26 +157,19 @@ enum NumberPrintf {
         separator == "." ? number : number.replacing(".", with: separator, maxReplacements: 1)
     }
 
+    #if !os(Windows) // Windows: NumberPrintf+Windows.swift
     /// vsnprintf in the C locale, twice: for the length, then the text (a va_list is used once).
-    /// On Windows the Microsoft C runtime's variants that take the locale as an argument.
     private static func printf(_ format: String, _ argument: CVarArg) -> String? {
-        #if os(Windows)
-        let length = withVaList([argument]) { _vscprintf_l(format, cLocale, $0) }
-        #else
         let previous = uselocale(cLocale)
         defer { uselocale(previous) }
         let length = withVaList([argument]) { vsnprintf(nil, 0, format, $0) }
-        #endif
         guard length >= 0 else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(length) + 1)
         let written = buffer.withUnsafeMutableBufferPointer { bytes in
-            #if os(Windows)
-            withVaList([argument]) { _vsnprintf_l(bytes.baseAddress, bytes.count, format, cLocale, $0) }
-            #else
             withVaList([argument]) { vsnprintf(bytes.baseAddress, bytes.count, format, $0) }
-            #endif
         }
         guard written == length else { return nil }
         return String(decoding: buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
+    #endif
 }

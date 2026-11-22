@@ -9,6 +9,8 @@
 
 #if os(Windows)
 import Dispatch
+import ucrt
+import WinSDK
 import ActionUI
 import ActionUICAdapterHeaders
 
@@ -111,4 +113,30 @@ public func actionUIRunOnMainThread(_ callback: ActionUIMainThreadCallback?, _ c
 public func actionUIIsMainThread() -> CBool {
     isMainThread
 }
+
+// MARK: - The C library
+
+/// Heap-copy `str` into a malloc-owned C string. Caller must free with actionUIFreeString. The C
+/// runtime's name for strdup (strdup is its deprecated POSIX alias); free releases it.
+func actionStrdup(_ str: String) -> UnsafeMutablePointer<CChar>? {
+    str.withCString { _strdup($0) }
+}
+
+// The per-thread last error (ActionUIC.swift).
+// Windows has no pthread keys: a fiber-local slot, whose callback releases the value when the
+// thread (or fiber) ends, as a key's destructor does.
+private let lastErrorIndex: DWORD = {
+    let index = FlsAlloc { releaseLastError($0) }
+    precondition(index != DWORD.max, "ActionUI C adapter: FlsAlloc failed (\(GetLastError()))")
+    return index
+}()
+
+func lastErrorSlot() -> UnsafeMutableRawPointer? {
+    FlsGetValue(lastErrorIndex)
+}
+
+func setLastErrorSlot(_ slot: UnsafeMutableRawPointer?) -> Bool {
+    FlsSetValue(lastErrorIndex, slot)
+}
+
 #endif
