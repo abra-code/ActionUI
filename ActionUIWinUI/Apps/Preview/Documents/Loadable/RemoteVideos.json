@@ -1,0 +1,9 @@
+{
+  "type": "HStack",
+  "id": 500,
+  "properties": { "spacing": 8 },
+  "children": [
+    { "type": "VideoPlayer", "id": 501, "properties": { "url": "rtsp://example.com/stream", "frame": { "width": 180, "height": 100 } } },
+    { "type": "VideoPlayer", "id": 502, "properties": { "url": "ms-appdata:///local/clip.mp4", "frame": { "width": 180, "height": 100 } } }
+  ]
+}

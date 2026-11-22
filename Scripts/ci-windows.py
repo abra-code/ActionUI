@@ -201,6 +201,10 @@ PREVIEW_OPTIONS = {
     "UserLocations": ["420", "200", "--delay", "6000", "--expect-log", "; user location: "],
     "VideoPlayers": ["420", "300", "--set-value", "2", "{documents_url}/Media/one-second.mp4", "--delay", "8000",
                      "--expect-log", "VideoPlayer 2 opened", "--expect-log", "VideoPlayer 4 could not play"],
+    # JSON from a server plays no address of another scheme than file, http and https.
+    "LessTrustedVideos": ["420", "160", "--delay", "4000",
+                          "--expect-log", "VideoPlayer not playing 'rtsp://example.com/stream': less-trusted content",
+                          "--expect-log", "VideoPlayer not playing 'ms-appdata:///local/clip.mp4': less-trusted content"],
     "SplitViews": ["420", "260", "--drag", "2", "120.5", "45", "180.5", "45", "--expect-width", "3", "180"],
     "TableCells": ["420", "260", "--add-row", "2", "Write|false|star|false|{documents_url}/Images/sample_image.png|Open",
                    "--add-row", "2", "Test|true|heart|true|{documents_url}/Images/sample_image.png|Open", "--wait",

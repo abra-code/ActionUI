@@ -19,7 +19,10 @@
    opened, and that is logged as an error: the document names the address.
  - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources) plays
    a local file only inside the app's resources (the trust policy's .readLocalFile, asked before the
-   file is touched), as on Apple and Linux: another is not played (logged).
+   file is touched), as on Apple and Linux: another is not played (logged). It plays only file, http
+   and https addresses, as Apple's player does: Windows' player also opens rtsp:, ms-appx:,
+   ms-appdata: and the schemes of other installed media sources, which such content does not reach
+   (logged, not played).
 */
 
 #if canImport(FoundationEssentials)
@@ -121,6 +124,9 @@ extension VideoPlayer: ActionUIWinUIRenderer {
         return player
     }
 
+    /// The schemes besides file: less-trusted content's VideoPlayer plays.
+    private static let webSchemes: Set<String> = ["http", "https"]
+
     /// Replaces the video the player shows with the one at `url`, paused.
     private static func show(_ url: URL, in player: WinUIObject, _ node: RenderNode, _ state: VideoPlayerState) {
         let logger = ActionUIModel.shared.logger
@@ -128,6 +134,15 @@ extension VideoPlayer: ActionUIWinUIRenderer {
         // A file the element's content may not read (less-trusted content, outside the app's resources)
         // is not played, its path never touched.
         if url.isFileURL, !LinkTrust.readsLocalFile(LinkTrust.filePath(of: url), node) {
+            if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
+                logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)
+            }
+            return
+        }
+        // Nor, for less-trusted content, an address of another scheme (rtsp:, ms-appdata:, another media
+        // source's): Apple's player plays only file and web addresses.
+        if !url.isFileURL, !webSchemes.contains(url.scheme?.lowercased() ?? ""), !LinkTrust.isTrusted(node) {
+            logger.log("VideoPlayer not playing '\(url.absoluteString)': less-trusted content plays only file, http and https addresses", .warning)
             if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
                 logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)
             }
