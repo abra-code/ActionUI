@@ -46,7 +46,7 @@ extension ContainerAction {
             properties: properties,
             templateContext: model.templateContext
         ) else { return view }
-        return ContainerActionView(content: AnyView(view), dispatch: dispatch, windowUUID: windowUUID)
+        return ContainerActionView(content: AnyView(view), dispatch: dispatch, windowUUID: windowUUID, model: model)
     }
 }
 
@@ -65,6 +65,7 @@ private struct ContainerActionView: SwiftUI.View {
     let content: AnyView
     let dispatch: ContainerAction.Dispatch
     let windowUUID: String
+    let model: ViewModel
 
     var body: some SwiftUI.View {
         content
@@ -75,7 +76,8 @@ private struct ContainerActionView: SwiftUI.View {
                     dispatch.actionID,
                     windowUUID: windowUUID,
                     viewID: dispatch.viewID,
-                    viewPartID: dispatch.viewPartID
+                    viewPartID: dispatch.viewPartID,
+                    model: model
                 )
             }
             // The accessibility half of "one tap target". Without it, VoiceOver sees the cell

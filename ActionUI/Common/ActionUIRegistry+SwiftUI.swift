@@ -196,7 +196,10 @@ extension ActionUIRegistry {
         
         // Apply base View modifications dynamically
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
-        modifiedView = View.applyModifiers(modifiedView, element, windowUUID, baseModifierProperties(properties, forElementType: element.type), logger)
+        let baseProperties = baseModifierProperties(properties, forElementType: element.type)
+        modifiedView = View.applyBaseModifiers(modifiedView, element, windowUUID, baseProperties, logger, model: model)
+        // The base actions that fire without a click, judged by the element's view model.
+        modifiedView = View.applyActionModifiers(modifiedView, element: element, model: model, windowUUID: windowUUID, properties: baseProperties)
 
         // Whole-container tap (Helpers/ContainerAction+SwiftUI.swift): a VStack/HStack/ZStack
         // carrying an actionID becomes ONE tap target. Applied here, last, because the target

@@ -12,6 +12,9 @@ struct SheetModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let sheetElement: any ActionUIElementBase
     let sheetModel: ViewModel
     let parentModel: ViewModel
+    /// The presenting element's view model, which judges its dismissal action: in a template row the
+    /// row's own, not the window's model for the id it carries (parentModel), which may be another element's.
+    let actionModel: ViewModel
     let windowUUID: String
     let elementID: Int
     let onDismissActionID: String?
@@ -26,7 +29,7 @@ struct SheetModifierView<Content: SwiftUI.View>: SwiftUI.View {
         content
             .sheet(isPresented: isPresented, onDismiss: {
                 if let actionID = onDismissActionID {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, model: actionModel)
                 }
             }) {
                 // A sheet is its own presentation context with its own bar, so an enclosing
@@ -47,6 +50,9 @@ struct FullScreenCoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
     let coverElement: any ActionUIElementBase
     let coverModel: ViewModel
     let parentModel: ViewModel
+    /// The presenting element's view model, which judges its dismissal action: in a template row the
+    /// row's own, not the window's model for the id it carries (parentModel), which may be another element's.
+    let actionModel: ViewModel
     let windowUUID: String
     let elementID: Int
     let onDismissActionID: String?
@@ -60,7 +66,7 @@ struct FullScreenCoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
         )
         let dismissAction = {
             if let actionID = onDismissActionID {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, model: actionModel)
             }
         }
         let coverContent = PersistentToolbar.acrossPresentation(

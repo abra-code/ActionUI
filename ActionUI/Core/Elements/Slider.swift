@@ -69,7 +69,7 @@ extension Slider {
         guard props.accepts(newValue), model.value as? Double != newValue else { return }
         model.value = newValue
         if let valueChangeActionID = props.valueChangeActionID {
-            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
         }
     }
 }

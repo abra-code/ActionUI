@@ -147,7 +147,7 @@ extension Picker {
         guard model.value as? String != tag else { return }
         model.value = tag
         if let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: tag)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: tag, model: model)
         }
     }
 }

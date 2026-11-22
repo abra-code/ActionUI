@@ -44,7 +44,7 @@ extension TextField: ActionUIAdwaitaRenderer {
             if let format = props.format {
                 FormattedTextField.commit(entry, node, format: format)
             }
-            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: props)
+            TextField.userSubmitted(element: node.element, model: node.model, windowUUID: node.windowUUID, props: props)
         }
         let focus = gtk_event_controller_focus_new()!
         connectUserSignal(UnsafeMutableRawPointer(focus), "leave", .instanceOnly) { [weak node] in
@@ -58,7 +58,7 @@ extension TextField: ActionUIAdwaitaRenderer {
             if let format = props.format {
                 FormattedTextField.commit(entry, node, format: format)
             }
-            TextField.userSubmitted(element: node.element, windowUUID: node.windowUUID, props: props)
+            TextField.userSubmitted(element: node.element, model: node.model, windowUUID: node.windowUUID, props: props)
         }
         connectUserSignal(UnsafeMutableRawPointer(focus), "enter", .instanceOnly) { [weak node] in
             // A formatted field takes the value its text shows when editing begins, as SwiftUI's.

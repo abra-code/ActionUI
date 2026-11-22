@@ -130,7 +130,65 @@ extension View: ActionUISwiftUIRenderer {
         SwiftUI.EmptyView()
     }
     
+    /// The base actions that fire without a click: openURLActionID (.onOpenURL), onAppearActionID,
+    /// onDisappearActionID and onHoverActionID (macOS). Apart from applyModifiers because they need
+    /// the element's view model: an element in a template row is judged by its row's container, not by
+    /// the id it carries, which may be another element's (ActionUIModel.actionHandler(..., model:)).
+    static func applyActionModifiers(_ view: any SwiftUI.View, element: any ActionUIElementBase, model: ViewModel,
+                                     windowUUID: String, properties: [String: Any]) -> any SwiftUI.View {
+        let mods = BaseModifiers(properties)
+        var modifiedView = view
+        // Handle openURLActionID with .onOpenURL modifier
+        if let openURLActionID = mods.openURLActionID {
+            modifiedView = modifiedView.onOpenURL { url in
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(openURLActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: url, model: model)
+                }
+            }
+        }
+
+        // Handle onAppearActionID with .onAppear modifier
+        if let onAppearActionID = mods.onAppearActionID {
+            modifiedView = modifiedView.onAppear {
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(onAppearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil, model: model)
+                }
+            }
+        }
+
+        // Handle onDisappearActionID with .onDisappear modifier
+        if let onDisappearActionID = mods.onDisappearActionID {
+            modifiedView = modifiedView.onDisappear {
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(onDisappearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil, model: model)
+                }
+            }
+        }
+
+        // Handle onHoverActionID with .onHover modifier (macOS; silent no-op elsewhere)
+#if os(macOS)
+        if let onHoverActionID = mods.onHoverActionID {
+            modifiedView = modifiedView.onHover { isHovering in
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(onHoverActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: ["isHovering": isHovering], model: model)
+                }
+            }
+        }
+#endif
+        return modifiedView
+    }
+
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
+        applyBaseModifiers(view, element, windowUUID, properties, logger, model: nil)
+    }
+
+    /// applyModifiers with the element's view model, which the registry passes (nil: a direct call,
+    /// such as a Chart's plot or a test). The model decides, for an element in a template row, whose
+    /// trust its sheets, covers and popovers and its drop and search actions are judged by: the
+    /// row's container's, not the id it carries, which may be another element's.
+    static func applyBaseModifiers(_ view: any SwiftUI.View, _ element: any ActionUIElementBase, _ windowUUID: String,
+                                   _ properties: [String: Any], _ logger: any ActionUILogger,
+                                   model: ViewModel?) -> any SwiftUI.View {
         var modifiedView = view
         // Every base property, parsed once; below, only the subviews (background, overlay, sheet, ...)
         // and the animation's watched value are read from anything else.
@@ -416,43 +474,8 @@ extension View: ActionUISwiftUIRenderer {
             modifiedView = modifiedView.transition(resolveTransition(transition))
         }
 
-        // Handle openURLActionID with .onOpenURL modifier
-        if let openURLActionID = mods.openURLActionID {
-            modifiedView = modifiedView.onOpenURL { url in
-                Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(openURLActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: url)
-                }
-            }
-        }
-
-        // Handle onAppearActionID with .onAppear modifier
-        if let onAppearActionID = mods.onAppearActionID {
-            modifiedView = modifiedView.onAppear {
-                Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(onAppearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
-                }
-            }
-        }
-
-        // Handle onDisappearActionID with .onDisappear modifier
-        if let onDisappearActionID = mods.onDisappearActionID {
-            modifiedView = modifiedView.onDisappear {
-                Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(onDisappearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
-                }
-            }
-        }
-
-        // Handle onHoverActionID with .onHover modifier (macOS; silent no-op elsewhere)
-#if os(macOS)
-        if let onHoverActionID = mods.onHoverActionID {
-            modifiedView = modifiedView.onHover { isHovering in
-                Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(onHoverActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: ["isHovering": isHovering])
-                }
-            }
-        }
-#endif
+        // openURLActionID, onAppearActionID, onDisappearActionID and onHoverActionID: applyActionModifiers,
+        // which needs the element's view model.
 
         switch mods.columnWidth {
         case .range(let min, let ideal, let max):
@@ -581,7 +604,8 @@ extension View: ActionUISwiftUIRenderer {
                 onDropTypes: drop.types,
                 onDropTargetedActionID: drop.targetedActionID,
                 windowUUID: windowUUID,
-                elementID: element.id
+                elementID: element.id,
+                model: model
             )
         }
 
@@ -605,7 +629,8 @@ extension View: ActionUISwiftUIRenderer {
         // Less-trusted content presents no sheet, cover or popover of its own over the window.
         let hasPresentation = ["sheet", "fullScreenCover", "popover"].contains { element.subviews?[$0] is any ActionUIElementBase }
         let presents = !hasPresentation
-            || ActionUIModel.shared.allowsLoggingOnce(.presentModal, what: "presenting a sheet, cover or popover", windowUUID: windowUUID, viewID: element.id)
+            || ActionUIModel.shared.allowsLoggingOnce(.presentModal, what: "presenting a sheet, cover or popover", windowUUID: windowUUID,
+                                                      viewID: model?.templateContext?.parentID ?? element.id)
 
         // Apply sheet modifier if the element has a sheet subview
         if presents, let sheetElement = element.subviews?["sheet"] as? any ActionUIElementBase,
@@ -617,6 +642,7 @@ extension View: ActionUISwiftUIRenderer {
                 sheetElement: sheetElement,
                 sheetModel: sheetModel,
                 parentModel: parentModel,
+                actionModel: model ?? parentModel,
                 windowUUID: windowUUID,
                 elementID: element.id,
                 onDismissActionID: mods.sheetOnDismissActionID
@@ -633,6 +659,7 @@ extension View: ActionUISwiftUIRenderer {
                 coverElement: coverElement,
                 coverModel: coverModel,
                 parentModel: parentModel,
+                actionModel: model ?? parentModel,
                 windowUUID: windowUUID,
                 elementID: element.id,
                 onDismissActionID: mods.fullScreenCoverOnDismissActionID
@@ -646,6 +673,7 @@ extension View: ActionUISwiftUIRenderer {
                 content: AnyView(modifiedView),
                 windowUUID: windowUUID,
                 elementID: element.id,
+                model: model,
                 actionID: searchable.actionID,
                 prompt: searchable.prompt
             )
@@ -661,6 +689,7 @@ extension View: ActionUISwiftUIRenderer {
                 popoverElement: popoverElement,
                 popoverModel: popoverModel,
                 parentModel: parentModel,
+                actionModel: model ?? parentModel,
                 windowUUID: windowUUID,
                 elementID: element.id,
                 arrowEdge: resolveEdge(mods.popoverArrowEdge),

@@ -133,6 +133,24 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
         XCTAssertNil(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[200], "nothing of it is loaded")
     }
 
+    func testATemplateRowsActionIsJudgedByItsContainerNotTheIDItCarries() async throws {
+        try await loadWindow()
+        let policy = StrictPolicy()
+        ActionUIModel.shared.trustPolicy = policy
+        // A template element in the remote content's row (container 200) that copied the host's id 1,
+        // and one in a row of the host's own content (container 1) with an id nothing has.
+        let borrowed = ViewModel()
+        borrowed.templateContext = TemplateContext(parentID: 200, rowIndex: 0, row: [])
+        let own = ViewModel()
+        own.templateContext = TemplateContext(parentID: 1, rowIndex: 0, row: [])
+        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 1, viewPartID: 0, model: borrowed)
+        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 77, viewPartID: 0, model: own)
+        XCTAssertEqual(fired, [77], "the borrowed id does not make remote content's action the host's; the host's row fires")
+        // Outside a template row, the element's own origin, as before.
+        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 1, viewPartID: 0, model: ViewModel())
+        XCTAssertEqual(fired, [77, 1])
+    }
+
     func testAPolicyThatRefusesALoadHasItsWay() throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.remote(URL(string: "https://example.com/a.json")!), windowUUID: windowUUID,

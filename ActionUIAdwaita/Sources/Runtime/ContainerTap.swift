@@ -62,7 +62,8 @@ enum ContainerTap {
             // Released inside the box: a click, not a drag out of it.
             guard x >= 0, y >= 0, x < Double(gtk_widget_get_width(box)), y < Double(gtk_widget_get_height(box)) else { return }
             ActionUIModel.shared.actionHandler(record.dispatch.actionID, windowUUID: node.windowUUID,
-                                               viewID: record.dispatch.viewID, viewPartID: record.dispatch.viewPartID)
+                                               viewID: record.dispatch.viewID, viewPartID: record.dispatch.viewPartID,
+                                               origin: LinkTrust.origin(node))
         }
         gtk_widget_add_controller(box, gesture)
         attach(record, to: UnsafeMutableRawPointer(box), key: installedKey)

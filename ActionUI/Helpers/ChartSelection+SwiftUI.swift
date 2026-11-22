@@ -126,7 +126,7 @@ struct ChartSelectionBinder {
             model.value = after
             if let actionID {
                 cache.scheduleSelectionAction(cleared: after.isEmpty, continuous: continuous, delay: Self.settleDelay) {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, model: model)
                 }
             }
         }

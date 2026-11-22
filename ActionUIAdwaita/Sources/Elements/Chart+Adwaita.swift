@@ -484,7 +484,8 @@ extension Chart: ActionUIAdwaitaRenderer {
         }
         let windowUUID = node.windowUUID
         let viewID = node.element.id
-        let fire = { ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0) }
+        let origin = LinkTrust.origin(node)
+        let fire = { ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, origin: origin) }
         if props.selectionActionTiming == .continuous || after.isEmpty {
             fire()
             return

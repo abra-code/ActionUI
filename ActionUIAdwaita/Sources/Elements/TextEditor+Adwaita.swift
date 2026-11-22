@@ -234,7 +234,7 @@ extension TextEditor: ActionUIAdwaitaRenderer {
         guard node.model.value as? AttributedString != text else { return }
         node.model.value = text
         if let valueChangeActionID {
-            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
     }
 

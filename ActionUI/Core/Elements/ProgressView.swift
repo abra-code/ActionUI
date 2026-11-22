@@ -61,9 +61,9 @@ extension ProgressView {
 
     /// The user tapped the progress view: fires actionID.
     @MainActor
-    static func userTapped(element: any ActionUIElementBase, windowUUID: String, props: Props) {
+    static func userTapped(element: any ActionUIElementBase, model: ViewModel, windowUUID: String, props: Props) {
         guard let actionID = props.actionID else { return }
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
     }
 }
 

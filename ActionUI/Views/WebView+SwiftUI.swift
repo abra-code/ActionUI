@@ -117,7 +117,7 @@ private struct WebViewContent: SwiftUI.View {
             .onChange(of: page.isLoading) { _, _ in
                 syncNavigationState()
                 if let navActionID = props.navigationActionID {
-                    ActionUIModel.shared.actionHandler(navActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(navActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
                 }
             }
             // Progress changed – keep states in sync
@@ -228,7 +228,7 @@ private struct WebViewContent: SwiftUI.View {
             model.states["canGoBack"] = !page.backForwardList.backList.isEmpty
             model.states["canGoForward"] = !page.backForwardList.forwardList.isEmpty
             if let actionID = props.valueChangeActionID, !urlString.isEmpty {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, model: model)
             }
         }
     }

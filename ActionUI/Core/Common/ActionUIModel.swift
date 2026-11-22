@@ -117,6 +117,22 @@ public class ActionUIModel {
         actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, context: context, origin: origin)
     }
 
+    /// Fires `actionID` for element `viewID`, whose view model is `model`, judged by the content the
+    /// element belongs to: in a template row (`model.templateContext`), the row's container's, as
+    /// the read checks judge it, since a template element has no view model in the window and may
+    /// carry any id its JSON gives it, a trusted element's among them; elsewhere the element's own,
+    /// as actionHandler(_:windowUUID:viewID:viewPartID:context:) has it. The host's handler still
+    /// receives `viewID`. For renderers and add-ons that draw the element with `model`.
+    public func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil,
+                              model: ViewModel) {
+        guard let container = model.templateContext?.parentID else {
+            actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, context: context)
+            return
+        }
+        let origin = self.origin(windowUUID: windowUUID, viewID: container) ?? Self.unknownOrigin
+        actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, context: context, origin: origin)
+    }
+
     /// Fires `actionID` for content of `origin`, after the trust policy allows it
     /// (ActionUICapability.action): for an action whose element is not in the window's model, such
     /// as an item of the menu bar the host loaded, which passes JSONContentOrigin.host.

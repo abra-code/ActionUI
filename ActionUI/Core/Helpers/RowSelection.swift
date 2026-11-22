@@ -80,7 +80,7 @@ enum RowSelection {
             model.value = value
             if let actionID {
                 ActionUIModel.shared.actionHandler(
-                    actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0
+                    actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, model: model
                 )
             }
         }
@@ -114,7 +114,8 @@ enum RowSelection {
                     windowUUID: windowUUID,
                     viewID: viewID,
                     viewPartID: 0,
-                    context: childID as Any
+                    context: childID as Any,
+                    model: model
                 )
             }
         }

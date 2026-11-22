@@ -53,7 +53,7 @@ extension NavigationSplitView: ActionUISwiftUIRenderer {
                         model.states["selectedDestination"] = destinationId
                         if let sidebarModel = windowModel?.viewModels[sidebar.id],
                            let actionID = BaseModifiers(sidebarModel.properties).actionID {
-                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: sidebar.id, viewPartID: 0)
+                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: sidebar.id, viewPartID: 0, model: sidebarModel)
                         }
                     }
                 }
@@ -171,7 +171,7 @@ extension NavigationSplitView: ActionUISwiftUIRenderer {
                     DispatchQueue.main.async {
                         model.states["columnVisibility"] = str
                         if let actionID = valueChangeActionID {
-                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementId, viewPartID: 0)
+                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementId, viewPartID: 0, model: model)
                         }
                     }
                 }

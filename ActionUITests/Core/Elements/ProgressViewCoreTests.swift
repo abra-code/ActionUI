@@ -73,7 +73,7 @@ final class ProgressViewCoreTests: XCTestCase {
 
     func testATapFiresTheAction() throws {
         let (element, _, props) = try load(#""actionID": "tapped""#)
-        ProgressView.userTapped(element: element, windowUUID: windowUUID, props: props)
+        ProgressView.userTapped(element: element, model: ViewModel(), windowUUID: windowUUID, props: props)
         XCTAssertEqual(fired, ["tapped"])
     }
 }

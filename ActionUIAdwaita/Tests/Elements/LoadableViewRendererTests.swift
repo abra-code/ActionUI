@@ -159,6 +159,26 @@ final class LoadableViewRendererTests: XCTestCase {
         XCTAssertFalse(LinkTrust.allows("file:///etc/hosts", rowNode(9999)))
         XCTAssertEqual(LinkTrust.originElementID(rowNode(2)), 31, "not the host's Link with the same id")
         XCTAssertFalse(LinkTrust.allows("file:///etc/hosts", rowNode(2)))
+        // Its actions are judged the same way: under a policy that refuses less-trusted actions, the
+        // row's action does not fire for the borrowed id 2; the host's Link with that id does.
+        struct RefuseLessTrustedActions: ActionUITrustPolicy {
+            func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+                if case .action = capability { return origin.trust == .trusted }
+                return DefaultTrustPolicy.allowsByDefault(capability, for: origin)
+            }
+        }
+        var fired: [String] = []
+        ActionUIModel.shared.registerActionHandler(for: "test.row") { _, _, _, _, _ in fired.append("row") }
+        ActionUIModel.shared.registerActionHandler(for: "test.host") { _, _, _, _, _ in fired.append("host") }
+        ActionUIModel.shared.trustPolicy = RefuseLessTrustedActions()
+        defer {
+            ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
+            ActionUIModel.shared.unregisterActionHandler(for: "test.row")
+            ActionUIModel.shared.unregisterActionHandler(for: "test.host")
+        }
+        rowNode(2).fire("test.row")
+        hostLink.fire("test.host")
+        XCTAssertEqual(fired, ["host"], "the host's Link fires; the template row that borrowed its id does not")
         // A node drawn with a view model that is not the window's one for its id counts as less trusted.
         let stray = RenderNode(element: ActionUIElement(id: 2, type: "Link", properties: [:], subviews: nil), model: ViewModel(),
                                windowModel: node.windowModel, parent: node)

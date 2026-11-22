@@ -252,7 +252,7 @@ final class NodePresentations {
         case .popover: actionID = nil
         }
         guard let actionID, !actionID.isEmpty else { return }
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
     }
 
     // MARK: A click on an element other than a Button
@@ -264,7 +264,7 @@ final class NodePresentations {
             let willShow = !(node.model.states[Kind.popover.stateKey] as? Bool ?? false)
             node.model.states[Kind.popover.stateKey] = willShow
             if willShow, let actionID = BaseModifiers(node.properties).popoverActionID, !actionID.isEmpty {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
             }
         }
         gtk_widget_add_controller(node.outerWidget, click)

@@ -25,7 +25,7 @@ extension TabView: ActionUISwiftUIRenderer {
                 DispatchQueue.main.async {
                     model.value = newValue
                     if let valueChangeActionID {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue, model: model)
                     }
                 }
             }

@@ -58,7 +58,7 @@ extension Toggle {
         guard model.value as? Bool != newValue else { return }
         model.value = newValue
         if let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue, model: model)
         }
     }
 }

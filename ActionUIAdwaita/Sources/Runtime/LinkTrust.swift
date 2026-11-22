@@ -95,6 +95,14 @@ enum LinkTrust {
         return current.element.id
     }
 
+    /// The origin the node's actions are judged by: its element's, or for a template row's node the
+    /// container's around it (originElementID); less trusted when the element cannot be told. A
+    /// template element may carry any id its JSON gives it, a trusted element's among them, so its
+    /// own id must not decide.
+    static func origin(_ node: RenderNode) -> JSONContentOrigin {
+        originElementID(node).flatMap { ActionUIModel.shared.origin(windowUUID: node.windowUUID, viewID: $0) } ?? unknownOrigin
+    }
+
     /// The origin of content whose element cannot be told: less trusted, as ActionUIModel.allows
     /// treats an element with no view model.
     private static let unknownOrigin = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
