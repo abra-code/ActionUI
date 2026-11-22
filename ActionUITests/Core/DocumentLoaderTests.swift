@@ -498,6 +498,32 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertTrue(DefaultTrustPolicy().allows(.load(.file("/Users/someone/panel.json")), for: .host), "the host's content loads any file")
     }
 
+    func testAnAddressLessTrustedContentNamesIsFetchedPrivately() {
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
+        func named(_ isContentView: Bool, _ parentID: Int, _ around: JSONContentOrigin?) -> Bool {
+            ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
+        }
+        XCTAssertFalse(named(true, 0, nil), "a window's root: the host named it")
+        XCTAssertFalse(named(false, 0, nil), "the host's own loader")
+        XCTAssertFalse(named(false, 5, .host), "inside trusted content")
+        XCTAssertTrue(named(false, 5, remote), "inside less-trusted content")
+        XCTAssertTrue(named(false, 77, nil), "a LoadableView of unknown surroundings")
+    }
+
+    func testTheSessionFollowsTheContentAroundALoadableViewByItsID() throws {
+        let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/list.json")!))
+        XCTAssertTrue(ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: false, parentID: 600, around: nil),
+                      "LoadableView 600 is in remote content")
+        let host = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 700, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        let hostWindow = UUID().uuidString
+        defer { ActionUIModel.shared.windowModels[hostWindow] = nil }
+        _ = try ActionUIDocumentLoader.load(data: host, format: "json", windowUUID: hostWindow, isContentView: true, parentID: 0, source: nil)
+        XCTAssertFalse(ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: hostWindow, isContentView: false, parentID: 700, around: nil),
+                       "LoadableView 700 is in the host's own content")
+    }
+
     func testALessTrustedLoadableViewIsRefusedALocalFileOutsideTheResources() throws {
         let (root, resources) = try originFolders()
         defer { try? FileManager.default.removeItem(at: root) }

@@ -16,6 +16,38 @@ enum RemoteJSONFetch {
     /// The longest a whole fetch may take, in seconds (the Linux loader's 120 s).
     static let defaultTimeout: Double = 120
 
+    /// The session for an address less-trusted content names: none of the app's cookies, stored
+    /// credentials or cache (an ephemeral session that stores and sends no cookies, has no
+    /// credential store, and keeps only its own cache in memory), and every sign-in challenge
+    /// refused, so the system's single sign-on cannot answer one either: a server the content
+    /// picks learns nothing of the app's or the user's sessions.
+    static let privateSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.urlCredentialStorage = nil
+        return URLSession(configuration: configuration, delegate: NoSignIn(), delegateQueue: nil)
+    }()
+
+    /// Refuses every authentication challenge but the check of the server's own certificate,
+    /// which is left to the system.
+    private final class NoSignIn: NSObject, URLSessionTaskDelegate, Sendable {
+        func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge)
+            async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            Self.answer(challenge)
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge)
+            async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            Self.answer(challenge)
+        }
+
+        private static func answer(_ challenge: URLAuthenticationChallenge) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust
+                ? (.performDefaultHandling, nil) : (.cancelAuthenticationChallenge, nil)
+        }
+    }
+
     static func data(for request: URLRequest, limit: Int, timeout: Double = defaultTimeout,
                      session: URLSession = .shared) async throws -> (data: Data, finalURL: URL) {
         try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
@@ -105,13 +137,18 @@ public struct RemoteLoadableView: SwiftUI.View {
                 .onAppear {
                     Task { @MainActor in
                         let limit = WindowModel.maximumJSONSize
+                        // An address the host named keeps the app's session (a server of its own may
+                        // need its cookies); one less-trusted content named gets a private one.
+                        let session = ActionUIDocumentLoader.isNamedByLessTrustedContent(
+                            windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
+                            ? RemoteJSONFetch.privateSession : URLSession.shared
                         do {
                             element = try await ActionUIDocumentLoader.loadRemote(
                                 url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around, logger: logger
                             ) { url in
                                 var request = URLRequest(url: url)
                                 request.cachePolicy = .reloadRevalidatingCacheData // Balances freshness and performance
-                                return try await RemoteJSONFetch.data(for: request, limit: limit)
+                                return try await RemoteJSONFetch.data(for: request, limit: limit, session: session)
                             }
                             Self.viewDidLoad.fire(source: url.absoluteString, windowUUID: windowUUID, parentID: parentID, actionID: viewDidLoadActionID)
                         } catch {

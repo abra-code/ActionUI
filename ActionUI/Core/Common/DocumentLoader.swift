@@ -512,6 +512,33 @@ enum ActionUIDocumentLoader {
         return try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID, origin: origin)
     }
 
+    /// The origin of the content a load goes into (its parent): nil for a window's root
+    /// (`isContentView`); else `around`, else the content of the LoadableView `parentID`, as
+    /// resolvedOrigin describes.
+    static func surroundings(windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?) -> JSONContentOrigin? {
+        // A sub-view's parent is the LoadableView, an element of the content around it.
+        if isContentView { return nil }
+        if let around { return around }
+        if let parentModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] {
+            return parentModel.origin ?? .host
+        }
+        // Id 0 is the host's own loader. Any other LoadableView with no view model (one in a
+        // template row the renderer did not describe, a blueprint the window has no model for)
+        // has no known trust: less trusted, so a miss cannot make remote content's choice of
+        // file read as the host's.
+        return parentID == 0 ? .host : unknownSurroundings
+    }
+
+    /// Whether the address a load fetches was named by content that is not trusted (the content
+    /// around the LoadableView, surroundings); a window's root is named by the host. Such an
+    /// address is fetched without the app's cookies and stored credentials.
+    static func isNamedByLessTrustedContent(windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?) -> Bool {
+        guard let parent = surroundings(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around) else {
+            return false
+        }
+        return parent.trust != .trusted
+    }
+
     /// The origin of content loaded from `source` into the window: as a root (`isContentView`), or
     /// into its LoadableView `parentID`. Classified (origin(for:)), then the host's trust policy
     /// has the last word.
@@ -522,21 +549,7 @@ enum ActionUIDocumentLoader {
     /// to trust that file inside content it does not know.
     static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int,
                                around: JSONContentOrigin? = nil) -> JSONContentOrigin {
-        // A sub-view's parent is the LoadableView, an element of the content around it.
-        let parent: JSONContentOrigin?
-        if isContentView {
-            parent = nil
-        } else if let around {
-            parent = around
-        } else if let parentModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] {
-            parent = parentModel.origin ?? .host
-        } else {
-            // Id 0 is the host's own loader. Any other LoadableView with no view model (one in a
-            // template row the renderer did not describe, a blueprint the window has no model for)
-            // has no known trust: less trusted, so a miss cannot make remote content's choice of
-            // file read as the host's.
-            parent = parentID == 0 ? .host : unknownSurroundings
-        }
+        let parent = surroundings(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
         let classified = Self.origin(for: source, inside: parent, parentID: isContentView ? nil : parentID,
                                      resourceFolders: ActionUIRendererHooks.resourceFolders(),
                                      trustedOrigins: ActionUIConfiguration.current.trust.trustedOrigins)
