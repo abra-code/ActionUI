@@ -95,7 +95,8 @@ ActionUI JSON from the page's own origin is trusted, and so is JSON from a trust
   (a top-layer panel), each opened off the carrier's own state
   (`Helpers/PresentationModifier.js`, `Helpers/PopoverPlacement.js`),
   shared stack vocabulary (`StackAxis.js`),
-  console logger (`ConsoleLogger.js`), and `<key>:<platform>` override
+  console logger (`ConsoleLogger.js`: warnings and errors by default, more with
+  `new ConsoleLogger({ maxLevel: "info" })` or `"debug"`, `"verbose"`), and `<key>:<platform>` override
   resolution (`PlatformFilter.js`, active token `web`, run over the JSON before
   the tree is built).
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,
