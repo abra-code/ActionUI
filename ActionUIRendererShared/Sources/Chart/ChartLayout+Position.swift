@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Position.swift
+// Sources/Chart/ChartLayout+Position.swift
 /*
  Where a mark's values land on the plot: on its axes, and in a position scale's slots.
 

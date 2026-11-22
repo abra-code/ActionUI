@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Axes.swift
+// Sources/Chart/ChartLayout+Axes.swift
 /*
  An axis from what the marks plot: its domain, its scale and its ticks, and its place on the plot.
 

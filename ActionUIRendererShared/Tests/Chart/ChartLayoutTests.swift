@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartLayoutTests.swift
+// Tests/Chart/ChartLayoutTests.swift
 /*
  Tests for the chart geometry: ticks, marks read over rows, stacking, bands, orientation, the
  forms of bars, points and rules, and series colors. Text is a fake of 6 points per character and

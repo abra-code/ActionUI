@@ -1,11 +1,19 @@
-// Sources/Drawing/ChartSymbols.swift
+// Sources/Chart/ChartSymbols.swift
 /*
  The outlines of Swift Charts' symbols, without GTK. Each sits in a box of one side, which a circle
  fills exactly; the others reach past it or stop short of it by their own amounts, and their corners
  are rounded (measured on macOS 27, at an area of 900). Each is centered by what it covers.
 */
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 enum ChartSymbols {
     private static let cornerRadius = 0.09

@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartScrollLayoutTests.swift
+// Tests/Chart/ChartScrollLayoutTests.swift
 /*
  Tests for a scrolling chart's layout (ChartLayout+Scroll), as numbers with a fake text measurer
  (6 points a character, 10 high), against what Swift Charts was measured to show on macOS 27: the

@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartMarkInstances.swift
+// Sources/Chart/ChartMarkInstances.swift
 /*
  What a chart's entries come to over its rows: one instance per drawn mark, with its plotted values
  read, following Apple's ChartContentBuilder. A mark in a ForEach is drawn once per row, a ForEach

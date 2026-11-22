@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+PlotStyle.swift
+// Sources/Chart/ChartLayout+PlotStyle.swift
 /*
  A chart's plot style.
 

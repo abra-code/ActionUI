@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartCurvesTests.swift
+// Tests/Chart/ChartCurvesTests.swift
 /*
  Tests for the paths through a line's points: steps as Swift Charts draws them, curves that pass
  through every point, monotone that never overshoots, and points that are not in x order.

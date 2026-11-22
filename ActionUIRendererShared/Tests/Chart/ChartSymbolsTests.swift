@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartSymbolsTests.swift
+// Tests/Chart/ChartSymbolsTests.swift
 /*
  The symbols' outlines against what Swift Charts draws on macOS 27 at an area of 900, in a box of 1.
 */

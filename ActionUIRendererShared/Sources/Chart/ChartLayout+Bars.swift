@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Bars.swift
+// Sources/Chart/ChartLayout+Bars.swift
 /*
  Bars and rectangles: their size and their rounded corners.
 

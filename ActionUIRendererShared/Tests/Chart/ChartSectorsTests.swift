@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartSectorsTests.swift
+// Tests/Chart/ChartSectorsTests.swift
 /*
  The outline of a sector against what Swift Charts draws on macOS 27.
 */

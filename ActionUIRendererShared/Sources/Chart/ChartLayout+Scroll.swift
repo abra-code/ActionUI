@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Scroll.swift
+// Sources/Chart/ChartLayout+Scroll.swift
 /*
  A scrolling axis (chartScrollableAxes): the plot shows a window of the axis's domain, and the rest
  lies beyond its edges, drawn when the window moves there. Measured on macOS 27, in windows on

@@ -9,6 +9,8 @@
 #                                 (vsnprintf) only
 #   import CAdwaita, import CLinkedAddOns, import CSoup, import CSymbolResource, import Glibc in the GTK renderer, which
 #   builds only on Linux
+#   import Darwin / Glibc / Musl / ucrt   in the shared chart layout (ActionUIRendererShared/Sources/Chart),
+#                                 for the C math functions (cos, sin, atan2, ...)
 # Anything else is reported as "file:line: message", and the exit status is 1.
 # A stray "import Foundation" matters: Linux has full Foundation too, so it would compile there and
 # bring the ICU data back into every Linux program.
@@ -25,6 +27,7 @@ FNR == 1 {
     previous = ""
     beforePrevious = ""
     renderer = (FILENAME ~ /(^|\/)ActionUIAdwaita\/Sources\//)
+    chart = (FILENAME ~ /(^|\/)ActionUIRendererShared\/Sources\/Chart\//)
 }
 
 {
@@ -49,6 +52,8 @@ FNR == 1 {
         } else if (module == "Foundation") {
             ok = (previous == "#else" && beforePrevious == "import FoundationEssentials")
         } else if (renderer && (module == "CAdwaita" || module == "CLinkedAddOns" || module == "CSoup" || module == "CSymbolResource" || module == "Glibc")) {
+            ok = 1
+        } else if (chart && (module == "Darwin" || module == "Glibc" || module == "Musl" || module == "ucrt")) {
             ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
             ok = (FILENAME ~ /(^|\/)(Lock|NumberPrintf)\.swift$/)

@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartStyleMap.swift
+// Sources/Chart/ChartStyleMap.swift
 /*
  What a chart's style scales come to over its marks: the names on each, what a name draws, and the
  legend's entries (measured on macOS 27).

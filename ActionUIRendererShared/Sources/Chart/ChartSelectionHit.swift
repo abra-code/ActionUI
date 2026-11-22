@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartSelectionHit.swift
+// Sources/Chart/ChartSelectionHit.swift
 /*
  A place in a laid-out chart read as a selection, as Swift Charts' selection gestures read one
  (ChartGeometry gives the plot and its scales; no GTK here).
@@ -17,7 +17,15 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 enum ChartSelectionHit {
     static func contains(_ plot: ChartRect, _ point: ChartPoint) -> Bool {

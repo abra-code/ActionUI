@@ -1,8 +1,8 @@
-// Sources/Drawing/ChartLayout.swift
+// Sources/Chart/ChartLayout.swift
 /*
  Lays out a chart for a size: its marks, axes and gridlines as drawing primitives in points. No GTK
  here: text is measured and formatted through ChartTextMetrics, so a test checks the geometry as
- numbers, and Elements/Chart+Adwaita.swift only draws the primitives.
+ numbers, and ActionUIAdwaita/Sources/Elements/Chart+Adwaita.swift only draws the primitives.
 
  The goal is a chart comparable to Swift Charts, not a copy (Documentation/Schemas/Chart.md lists the
  differences). Swift Charts' look, as drawn on macOS 27, is written down beside the code that follows

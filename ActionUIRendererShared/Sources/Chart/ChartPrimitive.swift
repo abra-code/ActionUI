@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartPrimitive.swift
+// Sources/Chart/ChartPrimitive.swift
 /*
  What ChartLayout gives the renderer: a chart as drawing primitives in points, with no GTK in them.
 */

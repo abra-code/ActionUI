@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartAnnotations.swift
+// Sources/Chart/ChartAnnotations.swift
 /*
  Where a mark's annotation goes, as Swift Charts places one (measured on macOS 27, ImageRenderer at
  2x, a 20 x 10 view beside bars, points and rules):
@@ -26,7 +26,15 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 /// One annotation of a drawn mark: which instance and which of its annotations, the frame it is
 /// placed by and the position "automatic" stands for there.

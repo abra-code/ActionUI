@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Stacks.swift
+// Sources/Chart/ChartLayout+Stacks.swift
 /*
  How bars and areas stack: each stacking mark's reach along its value axis, known before any axis is.
 

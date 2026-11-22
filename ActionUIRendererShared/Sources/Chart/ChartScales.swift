@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartScales.swift
+// Sources/Chart/ChartScales.swift
 /*
  The arithmetic of chart axes, without GTK: tick steps, the scale of an axis from values to points,
  and date bins and ticks. ChartLayout uses these; a test checks them as numbers.
@@ -12,7 +12,15 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 enum ChartTicks {
     /// How many number ticks an axis aims for, unless an AxisMarks gives a desiredCount.

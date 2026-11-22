@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+AxisMarks.swift
+// Sources/Chart/ChartLayout+AxisMarks.swift
 /*
  What an axis draws, Swift Charts' default marks or its AxisMarks: gridlines, ticks and labels.
 

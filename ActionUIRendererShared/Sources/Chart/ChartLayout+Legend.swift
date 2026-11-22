@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Legend.swift
+// Sources/Chart/ChartLayout+Legend.swift
 /*
  A chart's legend, from what ChartStyleMap lists.
 

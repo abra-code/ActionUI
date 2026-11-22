@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Marks.swift
+// Sources/Chart/ChartLayout+Marks.swift
 /*
  A chart's marks, in drawing order, each under its effects, and points and rules, which are a single
  shape each. Bars, lines and areas, and sectors have files of their own.
@@ -17,7 +17,15 @@
    top or leading side. A bar on 0 moves only across its axis, so it narrows.
 */
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 extension ChartLayout {
     private static let defaultSymbolArea = 50.0

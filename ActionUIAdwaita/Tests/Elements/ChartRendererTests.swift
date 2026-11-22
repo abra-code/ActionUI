@@ -2,7 +2,7 @@
 /*
  Tests for the Chart renderer on GTK, as pixels: a bar's color, the background between bars, the
  theme's gridlines, a runtime change of rows and of the description, and the size it takes. The
- geometry itself is in Drawing/ChartLayoutTests.swift.
+ geometry itself is in ActionUIRendererShared/Tests/Chart/ChartLayoutTests.swift.
 */
 
 import XCTest

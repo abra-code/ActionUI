@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Sectors.swift
+// Sources/Chart/ChartLayout+Sectors.swift
 /*
  Where SectorMarks go: their angles and radii. Their outline is ChartSectors'.
 

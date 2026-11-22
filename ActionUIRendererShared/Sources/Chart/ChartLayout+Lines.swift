@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartLayout+Lines.swift
+// Sources/Chart/ChartLayout+Lines.swift
 /*
  Lines and areas, which join many marks into one shape.
 

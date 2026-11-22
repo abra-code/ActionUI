@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartSelectionHitTests.swift
+// Tests/Chart/ChartSelectionHitTests.swift
 /*
  Tests for reading a place in a chart as a selection (ChartSelectionHit, ChartAxisScale.value), and
  for the marks that read "$selection" (ChartMarkResolver), as numbers: no display needed.

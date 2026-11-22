@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartSectors.swift
+// Sources/Chart/ChartSectors.swift
 /*
  The outline of a SectorMark, without GTK, as Swift Charts draws one (measured on macOS 27). Angles
  run clockwise from the top, in radians.
@@ -13,7 +13,15 @@
  sharp. A sector of the whole circle has neither.
 */
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 struct ChartSector: Equatable {
     var center: ChartPoint

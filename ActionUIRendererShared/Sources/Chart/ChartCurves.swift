@@ -1,4 +1,4 @@
-// Sources/Drawing/ChartCurves.swift
+// Sources/Chart/ChartCurves.swift
 /*
  The path through a line's or an area's points, for each interpolation method, without GTK. Points
  stay in the order given: Swift Charts joins them in data order, not by x.
@@ -10,7 +10,15 @@
  so it never overshoots.
 */
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif os(Windows)
+import ucrt
+#endif
 
 enum ChartPathElement: Equatable {
     case move(ChartPoint)

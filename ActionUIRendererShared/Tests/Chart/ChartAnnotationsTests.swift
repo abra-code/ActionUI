@@ -1,4 +1,4 @@
-// Tests/Drawing/ChartAnnotationsTests.swift
+// Tests/Chart/ChartAnnotationsTests.swift
 /*
  Tests for where an annotation goes (ChartAnnotationPlacement), against Swift Charts measured on
  macOS 27: a 20 x 10 view beside a bar from (130, 100) to (170, 200), a point of a 20-point symbol
