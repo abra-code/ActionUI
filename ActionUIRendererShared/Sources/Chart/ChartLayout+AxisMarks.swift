@@ -31,7 +31,9 @@ extension ChartAlignment {
 }
 
 extension ChartLayout {
-    private static let tickDash = ChartStroke(lineWidth: 1, dash: [2, 2])
+    // 3 points on and 3 off (measured on macOS 27 at 2x: 6 pixels on and 6 off, on the default lines of
+    // numbers and of band edges on x, and on an AxisMarks' own AxisGridLine without a stroke).
+    private static let tickDash = ChartStroke(lineWidth: 1, dash: [3, 3])
     // How far a tick line runs past the plot, into the labels' room.
     private static let tickLength = 6.0
     private static let yTickLength = 4.0
