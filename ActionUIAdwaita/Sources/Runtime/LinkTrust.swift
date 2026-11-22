@@ -107,3 +107,11 @@ enum LinkTrust {
     /// treats an element with no view model.
     private static let unknownOrigin = JSONContentOrigin(source: .host, trust: .lessTrusted, parentID: nil)
 }
+
+extension RenderNode {
+    /// Whether this node's content may read the local file at `path`, as the built-in elements that
+    /// read files decide (LinkTrust.readsLocalFile): for add-on elements that read files.
+    public func readsLocalFile(_ path: String) -> Bool {
+        LinkTrust.readsLocalFile(path, self)
+    }
+}

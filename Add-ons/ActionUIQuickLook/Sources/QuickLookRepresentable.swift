@@ -41,9 +41,14 @@ struct QLPreviewRepresentable {
     /// Default false (a chrome-light embedded pane).
     var showsChrome: Bool { properties["showsChrome"] as? Bool ?? false }
 
-    /// Resolves a path or "file://" string to a file URL.
-    static func fileURL(from source: String) -> URL? {
-        source.hasPrefix("file://") ? URL(string: source) : URL(fileURLWithPath: source)
+    /// Resolves a path or "file://" string to a file URL; nil when it names no file, or when the
+    /// content may not read it (the trust policy, asked for the element `viewID` drawn with
+    /// `model`, as for an Image's file). Opening the file in its app goes through this too.
+    static func fileURL(from source: String, windowUUID: String, viewID: Int, model: ViewModel) -> URL? {
+        guard let url = source.hasPrefix("file://") ? URL(string: source) : URL(fileURLWithPath: source),
+              url.isFileURL else { return nil }
+        guard ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: viewID, model: model) else { return nil }
+        return url
     }
 
     func makeQLCoordinator() -> Coordinator {
@@ -179,7 +184,7 @@ extension QLPreviewRepresentable: NSViewRepresentable {
         let source = sourceString
         guard source != coordinator.lastSource else { return }
         coordinator.lastSource = source
-        if let source, let url = Self.fileURL(from: source) {
+        if let source, let url = Self.fileURL(from: source, windowUUID: windowUUID, viewID: element.id, model: model) {
             view.previewItem = url as NSURL
             view.refreshPreviewItem()
             view.enableTextSelection()
@@ -206,7 +211,7 @@ struct QuickLookMacView: View {
     private var sourceURL: URL? {
         let path = (model.value as? String).flatMap { $0.isEmpty ? nil : $0 }
             ?? (properties["filePath"] as? String)
-        return path.flatMap { QLPreviewRepresentable.fileURL(from: $0) }
+        return path.flatMap { QLPreviewRepresentable.fileURL(from: $0, windowUUID: windowUUID, viewID: element.id, model: model) }
     }
 
     private var preview: QLPreviewRepresentable {
@@ -227,6 +232,8 @@ struct QuickLookMacView: View {
     }
 
     @ViewBuilder private var header: some View {
+        // Once per render: each read asks the trust policy, which logs a refusal.
+        let sourceURL = self.sourceURL
         HStack(spacing: 12) {
             Text(sourceURL?.lastPathComponent ?? "No file")
                 .font(.headline)
@@ -282,7 +289,7 @@ extension QLPreviewRepresentable.Coordinator: QLPreviewControllerDataSource, QLP
     func applyCurrentSource(_ source: String?) {
         guard source != lastSource else { return }
         lastSource = source
-        currentURL = source.flatMap { QLPreviewRepresentable.fileURL(from: $0) }
+        currentURL = source.flatMap { QLPreviewRepresentable.fileURL(from: $0, windowUUID: windowUUID, viewID: viewID, model: model) }
         preview?.reloadData()
         fireValueChange()
     }

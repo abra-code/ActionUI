@@ -30,7 +30,10 @@ extension Diff {
     ///   reports a size of 0, passes the cap, and would never finish (or never start) reading on the
     ///   main thread.
     /// - neither given yields `.text("")` (a legitimate empty side: pure addition / removal).
-    static func resolveInput(text: Any?, file: Any?, side: String, logger: any ActionUILogger) -> ResolvedInput {
+    /// - `readsFile` says whether the content may read the file (the trust policy, as for an
+    ///   Image's file); a refused file is `.unreadable`, and the refusal is logged by the policy.
+    static func resolveInput(text: Any?, file: Any?, side: String, logger: any ActionUILogger,
+                             readsFile: (String) -> Bool) -> ResolvedInput {
         if let text = text as? String {
             if file is String {
                 logger.log("Diff \(side): both text and file set; using text", .warning)
@@ -44,6 +47,10 @@ extension Diff {
 
         let expanded = expandingTilde(path)
         let fileManager = FileManager.default
+
+        guard readsFile(expanded) else {
+            return .unreadable(path: expanded)
+        }
 
         guard let size = fileSize(atPath: expanded), size <= 4_194_304 else {
             logger.log("Diff \(side): cannot read '\(expanded)' (missing, not a regular file, or over 4 MB); rendering a note", .warning)

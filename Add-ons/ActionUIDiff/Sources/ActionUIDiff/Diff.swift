@@ -60,8 +60,12 @@ struct Diff: ActionUIViewConstruction {
     // STATELESS: resolve both sides from the passed properties and build the view fresh every
     // invocation. Capturing nothing is what makes a post-display setElementProperty re-render live.
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let oldInput = resolveInput(text: properties["oldText"], file: properties["oldFile"], side: "old", logger: logger)
-        let newInput = resolveInput(text: properties["newText"], file: properties["newFile"], side: "new", logger: logger)
+        // The trust policy is asked about each file, by the element's id (its template row's container's in a row).
+        let readsFile: (String) -> Bool = { path in
+            MainActor.assumeIsolated { ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: element.id, model: model) }
+        }
+        let oldInput = resolveInput(text: properties["oldText"], file: properties["oldFile"], side: "old", logger: logger, readsFile: readsFile)
+        let newInput = resolveInput(text: properties["newText"], file: properties["newFile"], side: "new", logger: logger, readsFile: readsFile)
 
         // A file we could not read becomes an honest note listing the offending path(s), not a diff
         // against an empty side (which would misleadingly look like a full deletion / addition).

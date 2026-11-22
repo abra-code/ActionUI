@@ -66,7 +66,14 @@ struct CachedImage: ActionUIViewConstruction {
         let runtime = (model.value as? String).flatMap { $0.isEmpty ? nil : $0 }
         let urlString = runtime ?? (properties["url"] as? String)
         // A non-empty, parseable URL string, else nil (CachedImage renders its placeholder for nil).
-        let url = urlString.flatMap { $0.isEmpty ? nil : URL(string: $0) }
+        // A file: URL only when the content may read the file (the trust policy, as for an Image's
+        // file, asked by the element's id or its template row's container's).
+        let url = urlString.flatMap { $0.isEmpty ? nil : URL(string: $0) }.flatMap { url -> URL? in
+            guard url.isFileURL else { return url }
+            return MainActor.assumeIsolated {
+                ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: element.id, model: model)
+            } ? url : nil
+        }
         let intrinsic = intrinsicSize(from: properties["intrinsicSize"])
         let contentMode: ContentMode = (properties["contentMode"] as? String == "fit") ? .fit : .fill
         let maxPixelWidth = numericCGFloat(properties["maxPixelWidth"])

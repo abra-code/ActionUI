@@ -298,6 +298,13 @@ public class ActionUIModel {
         reads(.readLocalFile(path), path: path, windowUUID: windowUUID, viewID: viewID)
     }
 
+    /// readsLocalFile for the element `viewID` drawn with `model`: in a template row (a template
+    /// element has no view model of its own and keeps any id its JSON gives it), the row's
+    /// container is asked about, as for actions. For elements outside ActionUI, such as add-ons.
+    public func readsLocalFile(_ path: String, windowUUID: String, viewID: Int, model: ViewModel) -> Bool {
+        readsLocalFile(path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? viewID)
+    }
+
     /// Whether the WebView `viewID` of the window may read its user script from the file at `path`,
     /// as readsLocalFile decides for other files (.webViewScriptFile).
     public func readsScriptFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {

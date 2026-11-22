@@ -38,7 +38,7 @@ final class DiffInputResolutionTests: XCTestCase {
 
     func testTextWinsOverFileAndWarns() {
         let logger = RecordingLogger()
-        let resolved = Diff.resolveInput(text: "inline", file: "/some/path.swift", side: "old", logger: logger)
+        let resolved = Diff.resolveInput(text: "inline", file: "/some/path.swift", side: "old", logger: logger, readsFile: { _ in true })
         XCTAssertEqual(resolved, .text("inline"), "the text property wins over the file property")
         XCTAssertTrue(logger.warnings.contains { $0.contains("both text and file set") },
                       "setting both text and file for a side must warn")
@@ -46,7 +46,7 @@ final class DiffInputResolutionTests: XCTestCase {
 
     func testTextAloneDoesNotWarn() {
         let logger = RecordingLogger()
-        XCTAssertEqual(Diff.resolveInput(text: "inline", file: nil, side: "old", logger: logger), .text("inline"))
+        XCTAssertEqual(Diff.resolveInput(text: "inline", file: nil, side: "old", logger: logger, readsFile: { _ in true }), .text("inline"))
         XCTAssertTrue(logger.warnings.isEmpty, "text with no file is the common case; no warning")
     }
 
@@ -55,7 +55,7 @@ final class DiffInputResolutionTests: XCTestCase {
         // The file does not exist, but the tilde must still expand to the home directory before
         // the read is attempted - the reported .unreadable path proves the expansion happened.
         let unique = "actionui-diff-tilde-\(UUID().uuidString)"
-        let resolved = Diff.resolveInput(text: nil, file: "~/\(unique)", side: "old", logger: logger)
+        let resolved = Diff.resolveInput(text: nil, file: "~/\(unique)", side: "old", logger: logger, readsFile: { _ in true })
         guard case .unreadable(let path) = resolved else {
             return XCTFail("a missing file must resolve to .unreadable")
         }
@@ -75,7 +75,7 @@ final class DiffInputResolutionTests: XCTestCase {
     func testTildeWithAUserNameResolvesToThatUsersHome() throws {
         let logger = RecordingLogger()
         let home = try XCTUnwrap(FileManager.default.homeDirectory(forUser: "root")).path
-        let resolved = Diff.resolveInput(text: nil, file: "~root/actionui-diff-\(UUID().uuidString)", side: "old", logger: logger)
+        let resolved = Diff.resolveInput(text: nil, file: "~root/actionui-diff-\(UUID().uuidString)", side: "old", logger: logger, readsFile: { _ in true })
         guard case .unreadable(let path) = resolved else {
             return XCTFail("a missing file must resolve to .unreadable")
         }
@@ -92,7 +92,7 @@ final class DiffInputResolutionTests: XCTestCase {
         XCTAssertEqual(mkfifo(pipe, 0o600), 0)
         for path in ["/dev/zero", pipe, folder.path] {
             let logger = RecordingLogger()
-            XCTAssertEqual(Diff.resolveInput(text: nil, file: path, side: "old", logger: logger), .unreadable(path: path), path)
+            XCTAssertEqual(Diff.resolveInput(text: nil, file: path, side: "old", logger: logger, readsFile: { _ in true }), .unreadable(path: path), path)
             XCTAssertTrue(logger.warnings.contains { $0.contains("not a regular file") }, path)
         }
     }
@@ -105,7 +105,7 @@ final class DiffInputResolutionTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: fileURL)
         }
-        let resolved = Diff.resolveInput(text: nil, file: fileURL.path, side: "new", logger: logger)
+        let resolved = Diff.resolveInput(text: nil, file: fileURL.path, side: "new", logger: logger, readsFile: { _ in true })
         XCTAssertEqual(resolved, .text("line1\nline2\n"))
     }
 
@@ -120,7 +120,7 @@ final class DiffInputResolutionTests: XCTestCase {
         try Data(repeating: 0x61, count: 4_194_305).write(to: big)
         let link = folder.appendingPathComponent("link.txt").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: big.path)
-        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger), .unreadable(path: link),
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger, readsFile: { _ in true }), .unreadable(path: link),
                        "the cap is the size of the file the link leads to, not of the link")
         XCTAssertTrue(logger.warnings.contains { $0.contains("over 4 MB") })
     }
@@ -136,7 +136,7 @@ final class DiffInputResolutionTests: XCTestCase {
         try "linked\n".write(to: small, atomically: true, encoding: .utf8)
         let link = folder.appendingPathComponent("link.txt").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: small.path)
-        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "new", logger: logger), .text("linked\n"))
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "new", logger: logger, readsFile: { _ in true }), .text("linked\n"))
     }
 
     func testALinkToNothingIsUnreadable() throws {
@@ -148,14 +148,14 @@ final class DiffInputResolutionTests: XCTestCase {
         }
         let link = folder.appendingPathComponent("dangling.txt").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: folder.appendingPathComponent("gone.txt").path)
-        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger), .unreadable(path: link))
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: link, side: "old", logger: logger, readsFile: { _ in true }), .unreadable(path: link))
         XCTAssertTrue(logger.warnings.contains { $0.contains("missing, not a regular file, or over 4 MB") }, "refused as a missing file")
     }
 
     func testNonexistentFileYieldsUnreadableAndWarns() {
         let logger = RecordingLogger()
         let missing = "/definitely/not/here/\(UUID().uuidString).txt"
-        let resolved = Diff.resolveInput(text: nil, file: missing, side: "old", logger: logger)
+        let resolved = Diff.resolveInput(text: nil, file: missing, side: "old", logger: logger, readsFile: { _ in true })
         guard case .unreadable = resolved else {
             return XCTFail("a missing file must resolve to .unreadable")
         }
@@ -164,7 +164,7 @@ final class DiffInputResolutionTests: XCTestCase {
 
     func testNeitherTextNorFileYieldsEmptySide() {
         let logger = RecordingLogger()
-        XCTAssertEqual(Diff.resolveInput(text: nil, file: nil, side: "old", logger: logger), .text(""),
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: nil, side: "old", logger: logger, readsFile: { _ in true }), .text(""),
                        "a side with neither text nor file is empty (a new-file / deleted-file diff)")
         XCTAssertTrue(logger.warnings.isEmpty)
     }
@@ -176,20 +176,20 @@ final class DiffRawPropertiesTests: XCTestCase {
     // buildView reads the raw properties: a side given with the wrong type is no side.
     func testIllTypedTextIsIgnored() {
         let logger = RecordingLogger()
-        XCTAssertEqual(Diff.resolveInput(text: 42, file: nil, side: "new", logger: logger), .text(""))
+        XCTAssertEqual(Diff.resolveInput(text: 42, file: nil, side: "new", logger: logger, readsFile: { _ in true }), .text(""))
         XCTAssertTrue(logger.warnings.isEmpty)
     }
 
     func testIllTypedTextFallsBackToTheFileWithoutTheBothSetWarning() {
         let logger = RecordingLogger()
         let missing = "/nonexistent-\(UUID().uuidString).swift"
-        XCTAssertEqual(Diff.resolveInput(text: 42, file: missing, side: "old", logger: logger), .unreadable(path: missing))
+        XCTAssertEqual(Diff.resolveInput(text: 42, file: missing, side: "old", logger: logger, readsFile: { _ in true }), .unreadable(path: missing))
         XCTAssertFalse(logger.warnings.contains { $0.contains("both text and file") })
     }
 
     func testIllTypedFileIsIgnored() {
         let logger = RecordingLogger()
-        XCTAssertEqual(Diff.resolveInput(text: nil, file: 7, side: "old", logger: logger), .text(""))
+        XCTAssertEqual(Diff.resolveInput(text: nil, file: 7, side: "old", logger: logger, readsFile: { _ in true }), .text(""))
     }
 
     // An ill-typed integer falls back to the default with one warning; a valid one is read.
@@ -199,5 +199,20 @@ final class DiffRawPropertiesTests: XCTestCase {
         XCTAssertEqual(Diff.intProperty(properties, key: "contextLines", default: 3, minimum: 0, logger: logger), 3)
         XCTAssertEqual(Diff.intProperty(properties, key: "maxRenderedLines", default: 300, minimum: 1, logger: logger), 100)
         XCTAssertEqual(logger.warnings.count, 1, "one warning, for the ill-typed key")
+    }
+
+    // A file the content may not read (the trust policy refuses it) is unreadable, even though it exists.
+    func testAFileTheContentMayNotReadIsUnreadable() throws {
+        let logger = RecordingLogger()
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("actionui-diff-refused-\(UUID().uuidString).txt")
+        try "secret\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        var asked: [String] = []
+        let resolved = Diff.resolveInput(text: nil, file: fileURL.path, side: "old", logger: logger,
+                                         readsFile: { asked.append($0); return false })
+        XCTAssertEqual(resolved, .unreadable(path: fileURL.path))
+        XCTAssertEqual(asked, [fileURL.path])
+        XCTAssertEqual(Diff.resolveInput(text: "inline", file: fileURL.path, side: "old", logger: logger,
+                                         readsFile: { _ in XCTFail("text wins; no file is read"); return false }), .text("inline"))
     }
 }
