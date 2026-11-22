@@ -63,6 +63,22 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
 # or: sh scripts/sync-symbol-map.sh /path/to/sf_to_material.map
 ```
 
+## Host configuration and trust
+
+```js
+import { configure, getConfiguration, setTrustPolicy, Window } from "./src/ActionUI.js";
+
+configure({
+    trust: { trustedOrigins: ["https://ui.example.com"] },  // servers whose ActionUI JSON is trusted
+    limits: { maximumJSONSize: 32 * 1024 * 1024 },         // the host may raise the limits
+});                                                         // before the first window is made
+getConfiguration();   // every key: limits, trust, resourceFolder, addOns
+```
+
+The configuration has the same keys as on the other platforms: `limits` (`maximumJSONSize` in bytes, 16 MB; `loadBudget` `{ loads, seconds }`, 256 in 60 s; `maximumNestingDepth`, 16), `trust` (`trustedOrigins`), `resourceFolder`, and `addOns` (a section per add-on name). Only the keys given change. It is fixed once the first window is made. `configure` throws, changing nothing, once it is fixed, or for an unknown key, a wrong value or an origin that is not https. The page's own origin holds the app's resources, so `resourceFolder` is accepted only as null.
+
+ActionUI JSON from the page's own origin is trusted, and so is JSON from a trusted origin (an https scheme, host and port, nothing more), but only where the content around it is trusted, and only by the address it finally came from (the fetch Response's `url`, after redirects): a redirect to another origin gives less-trusted content. The server must still allow the page to read it (CORS). `setTrustPolicy({ trust, allows })` lets the host decide otherwise; its `byDefault` trust already counts the trusted origins.
+
 ## What is implemented
 
 - **Core** (`src/Common/`): element parsing with negative-ID generation and

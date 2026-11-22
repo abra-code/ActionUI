@@ -82,10 +82,10 @@ test("a document larger than 16 MB, or nested deeper than 512, is not decoded", 
     assert.equal(DL.nestsDeeperThan("[\"[[[[\"]", 3), false, "brackets in strings do not count");
     assert.equal(DL.jsonRefusal("[".repeat(513)), "Nested deeper than 512 levels");
     const logger = makeLogger();
-    assert.throws(() => Window.fromJSON("x".repeat(DL.MAX_DOCUMENT_BYTES + 1), undefined, logger));
+    assert.throws(() => Window.fromJSON("x".repeat(DL.maximumJSONSize() + 1), undefined, logger));
     assert.ok(logger.messages.some((m) => m.message.includes("Larger than 16 MB")));
     // A download stops at the cap, by its declared length or as it is read.
-    await assert.rejects(DL.readJSONText({ headers: { get: () => String(DL.MAX_DOCUMENT_BYTES + 1) }, text: async () => "" }), /Larger than 16 MB/);
+    await assert.rejects(DL.readJSONText({ headers: { get: () => String(DL.maximumJSONSize() + 1) }, text: async () => "" }), /Larger than 16 MB/);
     const chunk = new Uint8Array(4 * 1024 * 1024);
     let reads = 0;
     const body = { getReader: () => ({ read: async () => (reads++ < 5 ? { done: false, value: chunk } : { done: true }), cancel: async () => {} }) };
@@ -100,7 +100,8 @@ test("the load budget allows 256 loads in a minute per window", () => {
     assert.equal(budget.spend(), false);
     now = 60_000;
     assert.equal(budget.spend(), true, "a minute later, again");
-    assert.deepEqual(DL.LOAD_BUDGET, { loads: 256, seconds: 60 });
+    assert.deepEqual(DL.loadBudget(), { loads: 256, seconds: 60 });
+    assert.deepEqual(new DL.LoadBudget().budget, { loads: 256, seconds: 60 }, "the configuration's when none is given");
 });
 
 // Renders `root` with fetch answering from `documents` (address to document, or text), lets
@@ -149,7 +150,7 @@ test("less-trusted content may not use a trusted element's id, even one not buil
 test("a LoadableView's document larger than 16 MB is refused", async () => {
     const { logger } = await render(
         { type: "LoadableView", id: 2, properties: { url: "https://example.com/big.json" } },
-        () => `{"type":"Text","id":20,"properties":{"text":"${"x".repeat(DL.MAX_DOCUMENT_BYTES)}"}}`);
+        () => `{"type":"Text","id":20,"properties":{"text":"${"x".repeat(DL.maximumJSONSize())}"}}`);
     assert.ok(logger.messages.some((m) => m.message.includes("Larger than 16 MB")), JSON.stringify(logger.messages.map((m) => m.message)));
 });
 

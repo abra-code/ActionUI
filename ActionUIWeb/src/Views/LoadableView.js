@@ -24,7 +24,7 @@
 //                        re-fire — Apple/Android dedup).
 //
 // Nesting: a loaded document may hold LoadableViews of its own, up to
-// MAX_LOADABLE_DEPTH levels; a document that loads itself, directly or through
+// the configuration's maximumNestingDepth levels; a document that loads itself, directly or through
 // another, is refused at the repeat, so a self-including document cannot fetch
 // without end.
 //
@@ -33,15 +33,18 @@
 
 import { register, buildElementView } from "../Common/ActionUIRegistry.js";
 import { HOST_ORIGIN, LESS_TRUSTED, TRUSTED, resolvedOrigin } from "../Common/TrustPolicy.js";
-import { LOAD_BUDGET, jsonRefusal, readJSONText } from "../Helpers/JSONLimits.js";
+import { jsonRefusal, readJSONText } from "../Helpers/JSONLimits.js";
+import { currentConfiguration } from "../Common/Configuration.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
 import { collectElementIds } from "../Common/ActionUIInsertion.js";
 import { PlatformFilter } from "../Common/PlatformFilter.js";
 import { resolveLoadableSource, classifyLoadableSource } from "../Helpers/LoadableSource.js";
 import { pageBaseURL } from "../Helpers/URLPolicy.js";
 
-// How many LoadableViews may be nested inside one another.
-const MAX_LOADABLE_DEPTH = 16;
+// How many LoadableViews may be nested inside one another (the configuration's maximumNestingDepth).
+function maximumNestingDepth() {
+    return currentConfiguration().limits.maximumNestingDepth;
+}
 
 // The resolved address each LoadableView node shows, for the nesting checks.
 const loadedAddressOf = new WeakMap();
@@ -50,13 +53,14 @@ const loadedAddressOf = new WeakMap();
 // deep, or the same address as a LoadableView it sits in. Read when the fetch completes, by which
 // time the node is in its parent's tree.
 function nestingRefusal(node, address) {
+    const limit = maximumNestingDepth();
     let depth = 0;
     for (let ancestor = node.parentNode; ancestor; ancestor = ancestor.parentNode) {
         const ancestorAddress = loadedAddressOf.get(ancestor);
         if (ancestorAddress === undefined) continue;
         depth += 1;
         if (ancestorAddress === address) return "it includes itself";
-        if (depth >= MAX_LOADABLE_DEPTH) return `LoadableViews are nested more than ${MAX_LOADABLE_DEPTH} deep`;
+        if (depth >= limit) return `LoadableViews are nested more than ${limit} deep`;
     }
     return null;
 }
@@ -136,18 +140,21 @@ register("LoadableView", {
             // The window's load budget, whatever the source: a document that reloads itself
             // through its value, or a chain of them, cannot spin the page.
             if (!ctx.model.loadBudget.spend()) {
-                ctx.logger.log(`Not loading a LoadableView in window ${ctx.windowUUID}: ${LOAD_BUDGET.loads} loads in ${LOAD_BUDGET.seconds} s already`, "error");
+                const budget = ctx.model.loadBudget.budget;
+                ctx.logger.log(`Not loading a LoadableView in window ${ctx.windowUUID}: ${budget.loads} loads in ${budget.seconds} s already`, "error");
                 renderMessage(`Failed to load view: too many loads in this window`, "aui-loadable-error");
                 return;
             }
 
             const address = resolvedAddress(classified.fetchURL);
-            // Where the content comes from: no more trusted than the content around this view.
-            const origin = resolvedOrigin(classified, ctx.origin ?? HOST_ORIGIN, element.id, ctx.logger);
             renderMessage("Loading…", "aui-loadable-loading");
+            // Where the content comes from, decided once fetched, by the address it finally came
+            // from (after redirects); no more trusted than the content around this view.
+            let origin = null;
             fetch(classified.fetchURL)
                 .then((response) => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    origin = resolvedOrigin(classified, ctx.origin ?? HOST_ORIGIN, element.id, ctx.logger, response.url || null);
                     return readJSONText(response);
                 })
                 .then((text) => {
