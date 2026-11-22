@@ -276,11 +276,18 @@ struct ChartDateStride: Equatable {
         return one * Double(count)
     }
 
+    // Swift Charts' strides, finest first, as measured on macOS 27 from 5 seconds to 30 years: 1, 5,
+    // 15 and 30 seconds; 1, 5, 15 and 30 minutes; 1, 3, 6 and 12 hours; 1 and 2 days; 1 and 2
+    // weeks; 1, 2, 3 and 6 months; 1, 2, 5 and 10 years. None between them: 2 or 10 seconds,
+    // 2 or 10 minutes, 2 or 4 hours, 3 days, 3 or 4 years would each have come closer to the ideal
+    // count in a span where it was not taken. Past 30 years (20, 50, 100) is not measured.
     fileprivate static let automatic: [ChartDateStride] = [
-        .init(unit: .second, count: 1), .init(unit: .second, count: 15), .init(unit: .minute, count: 1), .init(unit: .minute, count: 5),
-        .init(unit: .minute, count: 15), .init(unit: .hour, count: 1), .init(unit: .hour, count: 3), .init(unit: .hour, count: 6),
+        .init(unit: .second, count: 1), .init(unit: .second, count: 5), .init(unit: .second, count: 15), .init(unit: .second, count: 30),
+        .init(unit: .minute, count: 1), .init(unit: .minute, count: 5), .init(unit: .minute, count: 15), .init(unit: .minute, count: 30),
+        .init(unit: .hour, count: 1), .init(unit: .hour, count: 3), .init(unit: .hour, count: 6),
         .init(unit: .hour, count: 12), .init(unit: .day, count: 1), .init(unit: .day, count: 2), .init(unit: .weekOfYear, count: 1),
-        .init(unit: .weekOfYear, count: 2), .init(unit: .month, count: 1), .init(unit: .month, count: 3), .init(unit: .month, count: 6),
+        .init(unit: .weekOfYear, count: 2), .init(unit: .month, count: 1), .init(unit: .month, count: 2), .init(unit: .month, count: 3),
+        .init(unit: .month, count: 6),
         .init(unit: .year, count: 1), .init(unit: .year, count: 2), .init(unit: .year, count: 5), .init(unit: .year, count: 10),
         .init(unit: .year, count: 20), .init(unit: .year, count: 50), .init(unit: .year, count: 100),
     ]
@@ -301,6 +308,48 @@ enum ChartDates {
     static func stride(_ lo: Date, _ hi: Date, count: Int) -> ChartDateStride {
         let span = hi.timeIntervalSince(lo)
         return ChartDateStride.automatic.first { span / $0.seconds <= Double(max(count, 1)) } ?? .init(unit: .year, count: 1000)
+    }
+
+    /// An automatic date axis's stride: the one whose ticks inside `lo...hi` (ticks(_:_:stride:))
+    /// come closest to `ideal` in number, the finer of two as close. Measured on macOS 27, Swift
+    /// Charts picks it from the span alone, whatever the plot's length (the same strides at widths
+    /// 200 to 600 and heights 90 to 400; a label that does not fit is cut short instead), and counts
+    /// the ticks that fall inside: Jan 3 to Feb 8 takes 2 weeks, where weeks would draw 6 ticks
+    /// (Jan 4 to Feb 8), while Jan 4 at noon to Feb 14 takes weeks, 5 ticks from Jan 11.
+    ///
+    /// Of two as close, a stride of months whose ticks cross into another year gives way to one
+    /// whose ticks do not, or to years: Mar 10, 2026 to Jan 5, 2027 takes 3 months (Jun, Sep, Dec)
+    /// over 2 months (May to Jan 2027), where Jan 5 to Nov 1 takes 2 months, 5 ticks against 3 in
+    /// both; Feb 10, 2026 to Jan 5, 2029 takes years (2027 to 2029) over 6 months (Aug 2026 to Aug
+    /// 2028). Finer strides keep their ties across a year: Dec 1 to Feb 21 keeps 2 weeks over months,
+    /// Dec 28 to Jan 10 2 days over weeks, and 12 hours stay ahead of days.
+    ///
+    /// An AxisMarks's desiredCount is the ideal (2 over 133 days gives Mar, May; 8 gives every 2 weeks).
+    static func axisStride(_ lo: Date, _ hi: Date, ideal: Int = ChartTicks.idealTicks) -> ChartDateStride {
+        let span = hi.timeIntervalSince(lo)
+        var best: (stride: ChartDateStride, distance: Int, crosses: Bool)?
+        for stride in ChartDateStride.automatic {
+            // A stride far finer than the span would make hundreds of ticks; it is never the closest.
+            guard span / stride.seconds <= Double(max(ideal, 1) * 8) else { continue }
+            let found = ticks(lo, hi, stride: stride)
+            let distance = abs(found.count - ideal)
+            let crosses = stride.unit == .month && crossesAYear(found)
+            if let current = best {
+                if distance > current.distance { continue }
+                // As close as the finer one: taken only when the finer one is of months crossing a
+                // year, and it does not cross one.
+                if distance == current.distance, !current.crosses || crosses { continue }
+            }
+            best = (stride, distance, crosses)
+        }
+        return best?.stride ?? .init(unit: .year, count: 1000)
+    }
+
+    /// Whether `dates` fall in more than one calendar year.
+    private static func crossesAYear(_ dates: [Date]) -> Bool {
+        guard let first = dates.first else { return false }
+        let year = calendar.component(.year, from: first)
+        return dates.contains { calendar.component(.year, from: $0) != year }
     }
 
     /// The whole strides inside `lo...hi`.

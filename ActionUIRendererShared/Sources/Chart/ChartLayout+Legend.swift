@@ -22,7 +22,7 @@ extension ChartLayout {
         guard spec.legendVisibility != .hidden else { return nil }
         let place = Legend.Place(spec.legendPosition)
         let styled = styles.legendEntries(number: metrics.number) { lo, hi in
-            dateLabels([lo, hi], unit: ChartDates.stride(lo, hi, count: Self.legendDateTicks).unit)
+            dateLabels([lo, hi], unit: ChartDates.stride(lo, hi, count: Self.legendDateTicks).unit, countingLast: true)
         }
         let entries = styled.map { Legend.Entry($0, lineHeight: lineHeight, down: place.fillsDown) { metrics.size($0).width } }
         guard !entries.isEmpty else { return nil }
