@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "The app's own JSON reads any local file" } },
+    {
+      "type": "HStack",
+      "id": 3,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 4, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "frame": { "width": 64, "height": 40 } } },
+        { "type": "AsyncImage", "id": 5, "properties": { "frame": { "width": 64, "height": 40 } } }
+      ]
+    },
+    { "type": "Divider", "id": 6 },
+    { "type": "Text", "id": 7, "properties": { "text": "JSON from a server reads none outside the app's resources" } },
+    {
+      "type": "LoadableView",
+      "id": 8,
+      "properties": {
+        "url": "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/RemoteFiles.json"
+      }
+    }
+  ]
+}

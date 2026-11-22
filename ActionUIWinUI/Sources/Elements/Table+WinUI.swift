@@ -543,7 +543,7 @@ extension Table: ActionUIWinUIRenderer {
             }
             return TableRowLayout.Cell(view: image, fills: false)
         case .asyncImage:
-            return try asyncImageCell(text)
+            return try asyncImageCell(text, node)
         case .toggle:
             return try toggleCell(type, text: text, row: row, rowIndex: rowIndex, column: column, node, state)
         }
@@ -553,16 +553,18 @@ extension Table: ActionUIWinUIRenderer {
     private static func imageCell(_ text: String, _ interpretation: Props.DataInterpretation, _ node: RenderNode) -> WinUIObject? {
         let listInterpretation = List.Props.DataInterpretation(rawValue: interpretation.rawValue) ?? .systemName
         return List.imageCell(text, ListState.RowCell(type: .image, interpretation: listInterpretation,
-                                                      symbolSide: ImageLayout.symbolSide(node, scale: nil)))
+                                                      symbolSide: ImageLayout.symbolSide(node, scale: nil)),
+                              readsFile: { LinkTrust.readsLocalFile($0, node) })
     }
 
     /// An AsyncImage cell: the image the text names, loaded without blocking and scaled to fit the cell
-    /// (WinUI's Image, as AsyncImage loads it); nothing until it loads, and when it cannot.
-    private static func asyncImageCell(_ text: String) throws(WinUIError) -> TableRowLayout.Cell {
+    /// (WinUI's Image, as AsyncImage loads it); nothing until it loads, and when it cannot, or when it is
+    /// a file the Table's content may not read.
+    private static func asyncImageCell(_ text: String, _ node: RenderNode) throws(WinUIError) -> TableRowLayout.Cell {
         guard let image = WinUIObject(adopting: actionUIWinUIImageCreate()) else {
             throw WinUIError.last("making an AsyncImage cell")
         }
-        if Link.destination(text) == .absolute {
+        if Link.destination(text) == .absolute, LinkTrust.readsImageURL(text, node) {
             if !actionUIWinUIImageSetURL(image.pointer, text) || !actionUIWinUIImageSetStretch(image.pointer, ActionUIWinUIImageStretchFit) {
                 ActionUIModel.shared.logger.log("Table: \(WinUIError.last("loading \(text)"))", .warning)
             }

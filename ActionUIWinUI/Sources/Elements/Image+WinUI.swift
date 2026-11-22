@@ -22,6 +22,10 @@
    such as NUL or COM1, a pipe: never opened), shows the photo symbol, as on Apple; one that cannot be
    decoded shows nothing. A bitmap file is read again when the value or a property is set
    again, so a host that rewrites an image under the same name and sets it again sees the new image.
+ - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources) reads
+   a local file only inside the app's resources (the trust policy's .readLocalFile, asked before the
+   file is touched), as on Apple and Linux: another file shows the photo symbol. List and Table image
+   cells and Canvas images follow the same rule.
 
  Not yet: assetName (Windows apps have no asset catalogs; shows the photo symbol) and resourceName
  (no app bundle on Windows yet; the photo symbol); the SF Symbols that neither map has; an SVG
@@ -291,10 +295,11 @@ extension Image: ActionUIWinUIRenderer {
     /// What the image shows: the runtime value when it is a non-empty String, else the first source
     /// that can be shown, else the photo symbol. Tracked reads of the value and properties.
     static func content(_ node: RenderNode, _ props: Props) -> ImageContent {
+        let readsFile: (String) -> Bool = { LinkTrust.readsLocalFile($0, node) }
         if let value = node.model.value as? String, !value.isEmpty {
             // The "mixed" rules take a path by its "/"; a Windows path has backslashes ("C:\pics\a.png").
             let interpretation = value.contains("\\") ? "path" : "mixed"
-            return content(ImageSource.resolve(value, interpretation: interpretation, lookup: lookup))
+            return content(ImageSource.resolve(value, interpretation: interpretation, lookup: lookup), readsFile: readsFile)
         }
         let source = props.sources.first { source in
             if case .filePath(let path) = source { return !hasExtension(path) || isImageFile(path) }
@@ -302,9 +307,9 @@ extension Image: ActionUIWinUIRenderer {
         }
         switch source {
         case .filePath(let path)?:
-            return content(ImageSource.resolve(path, interpretation: "path", lookup: lookup))
+            return content(ImageSource.resolve(path, interpretation: "path", lookup: lookup), readsFile: readsFile)
         case .resourceName(let name)?:
-            return content(ImageSource.resolve(name, interpretation: "resourceName", lookup: lookup))
+            return content(ImageSource.resolve(name, interpretation: "resourceName", lookup: lookup), readsFile: readsFile)
         case .assetName?:
             return .symbol(ImageSource.placeholderSymbol)
         case .systemName(let name)?:
@@ -314,12 +319,13 @@ extension Image: ActionUIWinUIRenderer {
         }
     }
 
-    /// What a resolved source shows: a file that does not exist, or is no regular file, is the photo
-    /// symbol.
-    static func content(_ source: ImageSource) -> ImageContent {
+    /// What a resolved source shows: a file the element may not read (`readsFile`:
+    /// LinkTrust.readsLocalFile for its node, asked before the file is touched), that does not exist,
+    /// or that is no regular file, is the photo symbol.
+    static func content(_ source: ImageSource, readsFile: (String) -> Bool) -> ImageContent {
         switch source {
         case .filePath(let path):
-            return isRegularFile(path) ? .file(path) : .symbol(ImageSource.placeholderSymbol)
+            return readsFile(path) && isRegularFile(path) ? .file(path) : .symbol(ImageSource.placeholderSymbol)
         case .systemName(let name):
             return .symbol(name)
         case .assetName:

@@ -67,6 +67,9 @@ import CWinUI
     var drawnScale: Double?
     /// The properties changed since the last drawing.
     var needsDrawing = true
+    /// Whether the canvas's content may read a local file (LinkTrust.readsLocalFile for its node), set
+    /// when the canvas is made; refusing until then.
+    var readsFile: (String) -> Bool = { _ in false }
 
     init(fill: FillLayout, image: WinUIObject) {
         self.fill = fill
@@ -83,6 +86,7 @@ extension Canvas: ActionUIWinUIRenderer {
         }
         let fill = try FillLayout(child: image)
         let state = CanvasState(fill: fill, image: image)
+        state.readsFile = { [weak node] in LinkTrust.readsLocalFile($0, node) }
         node.state = state
         fill.arranged = { [weak state] size in
             guard let state else { return }
@@ -686,7 +690,8 @@ final class CanvasPath {
             return true
         }
         // The image's opacity is the context's, set by the caller.
-        switch Image.content(source) {
+        // A file the canvas's content may not read is the photo symbol, as one that does not exist.
+        switch Image.content(source, readsFile: state.readsFile) {
         case .file(let path):
             if actionUIWinUIDrawingImageFile(drawing, path, frame.x, frame.y, frame.width, frame.height, 1) {
                 return true

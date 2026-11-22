@@ -1,0 +1,51 @@
+{
+  "type": "VStack",
+  "id": 400,
+  "properties": { "spacing": 8, "alignment": "leading" },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 410,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 401, "properties": { "filePath": "Images/sample_image.png", "resizable": true, "frame": { "width": 64, "height": 40 } } },
+        { "type": "AsyncImage", "id": 405, "properties": { "frame": { "width": 64, "height": 40 } } },
+        {
+          "type": "Canvas",
+          "id": 402,
+          "properties": {
+            "frame": { "width": 72, "height": 48 },
+            "coordinateMode": "points",
+            "operations": [ { "type": "image", "frame": [4, 4, 64, 40], "filePath": "Images/sample_image.png" } ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "id": 420,
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "id": 407, "properties": { "filePath": "\\\\server\\share\\a.png", "frame": { "width": 40, "height": 40 } } },
+        { "type": "AsyncImage", "id": 408, "properties": { "url": "file://server/share/a.png", "frame": { "width": 40, "height": 40 } } },
+        { "type": "AsyncImage", "id": 409, "properties": { "url": "C:/Windows/Web/Screen/img100.jpg", "frame": { "width": 40, "height": 40 } } }
+      ]
+    },
+    {
+      "type": "List",
+      "id": 403,
+      "properties": { "frame": { "height": 44 }, "itemType": { "viewType": "Image", "dataInterpretation": "path" } }
+    },
+    {
+      "type": "Table",
+      "id": 404,
+      "properties": {
+        "columns": ["Image", "AsyncImage"],
+        "widths": [80, 80],
+        "columnTypes": [ { "viewType": "Image", "dataInterpretation": "path" }, { "viewType": "AsyncImage" } ],
+        "frame": { "height": 70 }
+      }
+    },
+    { "type": "VideoPlayer", "id": 406, "properties": { "frame": { "height": 40 } } }
+  ]
+}

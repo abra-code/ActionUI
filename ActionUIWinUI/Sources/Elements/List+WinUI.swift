@@ -247,11 +247,12 @@ extension List: ActionUIWinUIRenderer {
     /// An Image cell: the text read as itemType.dataInterpretation says (ImageSource, as SwiftUI's cell
     /// reads it), shown as Image shows it unresized: a symbol at the font's medium symbol size, in the
     /// color WinUI gives the row's content (as a text row's); a file at its own size. Nil when the shim has no symbol for the name.
-    static func imageCell(_ text: String, _ cell: ListState.RowCell) -> WinUIObject? {
+    /// A file the List's content may not read (`readsFile`) is the photo symbol, as Image shows it.
+    static func imageCell(_ text: String, _ cell: ListState.RowCell, readsFile: (String) -> Bool) -> WinUIObject? {
         // As Image reads its value: the "mixed" rules take a path by its "/"; a Windows path has
         // backslashes ("C:\pics\a.png").
         let interpretation = cell.interpretation == .mixed && text.contains("\\") ? "path" : cell.interpretation.rawValue
-        let content = Image.content(ImageSource.resolve(text, interpretation: interpretation, lookup: Image.lookup))
+        let content = Image.content(ImageSource.resolve(text, interpretation: interpretation, lookup: Image.lookup), readsFile: readsFile)
         guard let child = Image.makeChild(content) else { return nil }
         let shown: Bool
         switch content {
@@ -416,7 +417,8 @@ extension List: ActionUIWinUIRenderer {
         switch kind {
         case .cells(let cell):
             let text = row.first ?? ""
-            element = cell.type == .button ? buttonCell(text, node, state, position: index) : imageCell(text, cell)
+            element = cell.type == .button ? buttonCell(text, node, state, position: index)
+                : imageCell(text, cell, readsFile: { LinkTrust.readsLocalFile($0, node) })
         case .template:
             guard let template = state.template else { return nil }
             let made = node.templateRowNode(template, row: row, rowIndex: index)

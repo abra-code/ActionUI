@@ -17,6 +17,9 @@
    network error, a URL that is not absolute).
  - A file: address that names something other than a regular file (a device, a named pipe) is not
    opened, and that is logged as an error: the document names the address.
+ - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources) plays
+   a local file only inside the app's resources (the trust policy's .readLocalFile, asked before the
+   file is touched), as on Apple and Linux: another is not played (logged).
 */
 
 #if canImport(FoundationEssentials)
@@ -122,6 +125,14 @@ extension VideoPlayer: ActionUIWinUIRenderer {
     private static func show(_ url: URL, in player: WinUIObject, _ node: RenderNode, _ state: VideoPlayerState) {
         let logger = ActionUIModel.shared.logger
         state.shownStatus = "none"
+        // A file the element's content may not read (less-trusted content, outside the app's resources)
+        // is not played, its path never touched.
+        if url.isFileURL, !LinkTrust.readsLocalFile(LinkTrust.filePath(of: url), node) {
+            if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
+                logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)
+            }
+            return
+        }
         // A document names the address: a file: one must be a regular file, not a device or a named
         // pipe. A missing file goes on to the player, which reports it.
         if url.isFileURL, FileManager.default.fileExists(atPath: url.path),

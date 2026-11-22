@@ -1,7 +1,8 @@
 // Sources/Runtime/LinkTrust.swift
 /*
  What a part of a window may do by the host's trust policy (ActionUIModel.allows), as on Linux
- (LinkTrust.swift there): Link asks it before opening an address. The element asked about is the
+ (LinkTrust.swift there): Link asks it before opening an address; Image, List and Table image cells,
+ Canvas images, AsyncImage and VideoPlayer before reading a local file. The element asked about is the
  node's own; a template row's elements are blueprints with view models of their own, not the
  window's, and take their container's origin. A node whose view model is not the window's one for
  its id (a template's id that matches another element's, a node about to be replaced) counts as less
@@ -58,6 +59,93 @@ enum LinkTrust {
             return ActionUIModel.shared.allowsLoggingOnce(capability, what: what, windowUUID: node.windowModel.windowUUID, viewID: viewID)
         }
         return ActionUIModel.shared.trustPolicy.allows(capability, for: unknownOrigin)
+    }
+
+    /// Whether the node's content may read the local file at `path` (an image, a canvas image, a
+    /// video): trusted content reads anything without asking; other content asks the trust policy
+    /// (.readLocalFile), and a refusal is logged. Without a node, the content's origin is unknown.
+    /// Asked before the path is touched at all: on Windows even testing a file on a share
+    /// (\\server\share) sends the user's credentials to that server.
+    static func readsLocalFile(_ path: String, _ node: RenderNode?) -> Bool {
+        reads(.readLocalFile(path), path: path, node)
+    }
+
+    /// Whether the node's content may load `text` when it is a file: URL (readsLocalFile on its
+    /// path); any other text is not a local file and is not asked about.
+    static func readsFileURL(_ text: String, _ node: RenderNode?) -> Bool {
+        guard let url = URL(string: text), url.isFileURL else { return true }
+        return readsLocalFile(filePath(of: url), node)
+    }
+
+    /// Whether the node's content may load the image address `text` (an AsyncImage, a Table's
+    /// AsyncImage cell): trusted content loads any; other content loads only http, https and file:
+    /// addresses (file: by readsFileURL), as Apple's loads web and file addresses. WinUI's image also
+    /// reads ms-appx:, ms-appdata: and ms-resource: files, and Windows reads a drive path given as
+    /// the address ("C:/pics/a.png", the scheme "c" to Apple's URL) as a local file. A refusal is
+    /// logged.
+    static func readsImageURL(_ text: String, _ node: RenderNode) -> Bool {
+        if isTrusted(node) {
+            return true
+        }
+        if let url = URL(string: text) {
+            if url.isFileURL {
+                return readsFileURL(text, node)
+            }
+            if ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                return true
+            }
+        }
+        ActionUIModel.shared.logger.log("Not loading \(text) for element \(node.element.id): less-trusted content loads only http, https and file addresses", .warning)
+        return false
+    }
+
+    /// Whether `path` names a file through the network or a device namespace: it starts with two
+    /// slashes or backslashes, in any mix, or with Windows' object-manager prefix \??\ (where
+    /// \??\UNC\ names a share).
+    static func isNetworkPath(_ path: String) -> Bool {
+        let characters = Array(path.prefix(4))
+        let isSeparator: (Character) -> Bool = { $0 == "\\" || $0 == "/" }
+        if characters.count >= 2, isSeparator(characters[0]), isSeparator(characters[1]) {
+            return true
+        }
+        return characters.count == 4 && isSeparator(characters[0]) && characters[1] == "?" && characters[2] == "?"
+            && isSeparator(characters[3])
+    }
+
+    /// The path Windows opens for a file: URL, as the shim reads one (filePathOf in Images.cpp): with a
+    /// host, a file on that server's share ("file://server/share/a.png" is "\\server\share\a.png"),
+    /// which URL.path leaves out ("/share/a.png"), so the policy would be asked about another file;
+    /// "file://localhost/C:/a.png" is the local "C:/a.png".
+    static func filePath(of url: URL) -> String {
+        guard let host = url.host(percentEncoded: false), !host.isEmpty else { return url.path }
+        let path = url.path(percentEncoded: false)
+        let characters = Array(path)
+        let drive = characters.count >= 3 && characters[0] == "/" && characters[1].isLetter && characters[2] == ":"
+        if drive, host.lowercased() == "localhost" {
+            return url.path
+        }
+        return "\\\\" + host + String(path.map { $0 == "/" ? "\\" : $0 })
+    }
+
+    /// Whether the node's content may do `capability`, a read of the file at `path`, as
+    /// readsLocalFile decides.
+    static func reads(_ capability: ActionUICapability, path: String, _ node: RenderNode?) -> Bool {
+        if let node, isTrusted(node) {
+            return true
+        }
+        // A network path (\\server\share, //server/share, and the \\?\ and \\.\ forms) is refused
+        // without asking: the policy's own check of the path (Core's resolvingSymlinksInPath) would
+        // already reach the server with the user's credentials.
+        if isNetworkPath(path) {
+            ActionUIModel.shared.logger.log("Not reading \(path) for element \(node.map { String($0.element.id) } ?? "?"): less-trusted content reads no network or device path", .warning)
+            return false
+        }
+        let allowed = node.map { allows(capability, $0) }
+            ?? ActionUIModel.shared.trustPolicy.allows(capability, for: unknownOrigin)
+        if !allowed {
+            ActionUIModel.shared.logger.log("Not reading \(path) for element \(node.map { String($0.element.id) } ?? "?"): the trust policy refuses it", .warning)
+        }
+        return allowed
     }
 
     /// Whether the node's content is trusted: its element's origin (or its template row's
