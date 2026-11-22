@@ -388,6 +388,41 @@ function testTypeChecking() {
     }
 }
 
+// Number and boolean arguments are checked too: a value of another type throws a TypeError
+// instead of reading as 0 or false, which acted on element 0 or set a wrong value. An optional
+// argument left out keeps its default.
+function testNumberArguments(uuid) {
+    console.log('\n=== Number and boolean arguments (wrong type must throw TypeError) ===');
+    const throwsTypeError = (fn) => {
+        try { fn(); } catch (e) { return e instanceof TypeError; }
+        return false;
+    };
+    check('setIntValue with a string view id throws TypeError',
+        throwsTypeError(() => native.setIntValue(uuid, '5', 0, 1)));
+    check('setIntValue with no view id throws TypeError',
+        throwsTypeError(() => native.setIntValue(uuid)));
+    check('setIntValue with only a view id does not throw',
+        !throwsTypeError(() => native.setIntValue(uuid, 1)));
+    check('setBoolValue with a number value throws TypeError',
+        throwsTypeError(() => native.setBoolValue(uuid, 1, 0, 1)));
+    check('setDoubleValue with a string value throws TypeError',
+        throwsTypeError(() => native.setDoubleValue(uuid, 1, 0, 'x')));
+    check('getIntValue with a string part id throws TypeError',
+        throwsTypeError(() => native.getIntValue(uuid, 1, '0')));
+    check('getIntValue with a null part id does not throw',
+        !throwsTypeError(() => native.getIntValue(uuid, 1, null)));
+    check('setIntValue with a null view id throws TypeError',
+        throwsTypeError(() => native.setIntValue(uuid, null, 0, 1)));
+    check('log with a string level throws TypeError',
+        throwsTypeError(() => native.log('message', 'debug')));
+    check('log with no level does not throw',
+        !throwsTypeError(() => native.log('message')));
+    check('setIntValue with a NaN view id throws TypeError',
+        throwsTypeError(() => native.setIntValue(uuid, Number('abc'), 0, 1)));
+    check('getIntValue with an infinite view id throws TypeError',
+        throwsTypeError(() => native.getIntValue(uuid, Infinity)));
+}
+
 // String arguments are checked: a value of another type, or a missing one, throws a TypeError
 // instead of handing the library an uninitialized buffer (which replayed an earlier call's value).
 // Strings longer than the old fixed buffers (128, 256, 4096, 65536 bytes) arrive whole.
@@ -525,6 +560,7 @@ function main() {
     testFilePanels();
     testTypeChecking();
     testStringArguments(testUuid);
+    testNumberArguments(testUuid);
     testNullClearing();
 
     console.log('\n' + '='.repeat(55));

@@ -31,6 +31,7 @@
 #include <node_api.h>
 #include <uv.h>
 #include <stdbool.h>
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -199,6 +200,83 @@ static void free_string_arg(char** string) {
     free(*string);
 }
 #define STRING_ARG(name) __attribute__((cleanup(free_string_arg))) char* name = NULL
+
+/* Reads a number or boolean argument into *out. A value of another type throws a TypeError naming
+ * the argument and returns false; the caller then returns NULL. An optional argument that is
+ * undefined (left out) or null keeps *out as it is, as read_optional_string_arg does. */
+static bool check_arg_type(napi_env env, napi_value value, napi_valuetype wanted, const char* name,
+                           bool optional, bool* present) {
+    napi_valuetype type = napi_undefined;
+    napi_typeof(env, value, &type);
+    *present = !optional || (type != napi_undefined && type != napi_null);
+    if (!*present) return true;
+    if (type != wanted) {
+        char message[160];
+        snprintf(message, sizeof(message), "%s must be a %s", name, wanted == napi_boolean ? "boolean" : "number");
+        napi_throw_type_error(env, NULL, message);
+        return false;
+    }
+    /* NaN and the infinities are numbers that read as 0 as integers (Number("abc") would act on
+     * element 0): refused like a wrong type. A fraction is cut toward zero, as Node-API does. */
+    double number = 0.0;
+    if (wanted == napi_number && napi_get_value_double(env, value, &number) == napi_ok && !isfinite(number)) {
+        char message[160];
+        snprintf(message, sizeof(message), "%s must be a finite number", name);
+        napi_throw_type_error(env, NULL, message);
+        return false;
+    }
+    return true;
+}
+
+static bool read_int64_arg(napi_env env, napi_value value, int64_t* out, const char* name, bool optional) {
+    bool present = false;
+    if (!check_arg_type(env, value, napi_number, name, optional, &present)) return false;
+    if (present && napi_get_value_int64(env, value, out) != napi_ok) {
+        napi_throw_type_error(env, NULL, "could not read a number argument");
+        return false;
+    }
+    return true;
+}
+
+static bool read_int32_arg(napi_env env, napi_value value, int32_t* out, const char* name, bool optional) {
+    bool present = false;
+    if (!check_arg_type(env, value, napi_number, name, optional, &present)) return false;
+    if (present && napi_get_value_int32(env, value, out) != napi_ok) {
+        napi_throw_type_error(env, NULL, "could not read a number argument");
+        return false;
+    }
+    return true;
+}
+
+static bool read_uint32_arg(napi_env env, napi_value value, uint32_t* out, const char* name, bool optional) {
+    bool present = false;
+    if (!check_arg_type(env, value, napi_number, name, optional, &present)) return false;
+    if (present && napi_get_value_uint32(env, value, out) != napi_ok) {
+        napi_throw_type_error(env, NULL, "could not read a number argument");
+        return false;
+    }
+    return true;
+}
+
+static bool read_double_arg(napi_env env, napi_value value, double* out, const char* name, bool optional) {
+    bool present = false;
+    if (!check_arg_type(env, value, napi_number, name, optional, &present)) return false;
+    if (present && napi_get_value_double(env, value, out) != napi_ok) {
+        napi_throw_type_error(env, NULL, "could not read a number argument");
+        return false;
+    }
+    return true;
+}
+
+static bool read_bool_arg(napi_env env, napi_value value, bool* out, const char* name, bool optional) {
+    bool present = false;
+    if (!check_arg_type(env, value, napi_boolean, name, optional, &present)) return false;
+    if (present && napi_get_value_bool(env, value, out) != napi_ok) {
+        napi_throw_type_error(env, NULL, "could not read a boolean argument");
+        return false;
+    }
+    return true;
+}
 
 /* Copies a required string argument into *out. A value of any other type, including a missing
  * argument (Node-API passes undefined for it), throws a TypeError naming the argument and
@@ -622,7 +700,7 @@ static napi_value node_get_element_origin_json(napi_env env, napi_callback_info 
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     char* json = actionUIGetElementOrigin(uuid, viewID);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -664,7 +742,7 @@ static napi_value node_log(napi_env env, napi_callback_info info) {
     STRING_ARG(message);
     if (!read_string_arg(env, argv[0], &message, "message")) return NULL;
     int32_t level = 0;
-    napi_get_value_int32(env, argv[1], &level);
+    if (!read_int32_arg(env, argv[1], &level, "level", true)) return NULL;
     actionUILog(message, (ActionUILogLevel)level);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -761,9 +839,9 @@ static napi_value node_set_int_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0, value = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &value);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
+    if (argc >= 4 && !read_int64_arg(env, argv[3], &value, "value", true)) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetIntValue(uuid, viewID, partID, value), &result);
     return result;
@@ -775,9 +853,9 @@ static napi_value node_set_double_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0; double value = 0.0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    if (argc >= 4) napi_get_value_double(env, argv[3], &value);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
+    if (argc >= 4 && !read_double_arg(env, argv[3], &value, "value", true)) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetDoubleValue(uuid, viewID, partID, value), &result);
     return result;
@@ -789,9 +867,9 @@ static napi_value node_set_bool_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0; bool value = false;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    if (argc >= 4) napi_get_value_bool(env, argv[3], &value);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
+    if (argc >= 4 && !read_bool_arg(env, argv[3], &value, "value", true)) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetBoolValue(uuid, viewID, partID, value), &result);
     return result;
@@ -803,8 +881,8 @@ static napi_value node_set_string_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     /* Required: a missing value arrives as undefined and throws. */
     STRING_ARG(value);
     if (!read_string_arg(env, argv[3], &value, "value")) return NULL;
@@ -821,8 +899,8 @@ static napi_value node_get_int_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     int64_t out = 0;
     if (actionUIGetIntValue(uuid, viewID, partID, &out)) {
         napi_value result; napi_create_int64(env, out, &result); return result;
@@ -836,8 +914,8 @@ static napi_value node_get_double_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     double out = 0.0;
     if (actionUIGetDoubleValue(uuid, viewID, partID, &out)) {
         napi_value result; napi_create_double(env, out, &result); return result;
@@ -851,8 +929,8 @@ static napi_value node_get_bool_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     bool out = false;
     if (actionUIGetBoolValue(uuid, viewID, partID, &out)) {
         napi_value result; napi_get_boolean(env, out, &result); return result;
@@ -866,8 +944,8 @@ static napi_value node_get_string_value(napi_env env, napi_callback_info info) {
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     char* val = actionUIGetStringValue(uuid, viewID, partID);
     if (val == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -884,8 +962,8 @@ static napi_value node_set_value_from_string(napi_env env, napi_callback_info in
     STRING_ARG(uuid); STRING_ARG(value);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     if (!read_optional_string_arg(env, argc, argv, 3, &value, "value")) return NULL;
     STRING_ARG(contentType);
     if (!read_optional_string_arg(env, argc, argv, 4, &contentType, "contentType")) return NULL;
@@ -900,8 +978,8 @@ static napi_value node_get_value_as_string(napi_env env, napi_callback_info info
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     STRING_ARG(contentType);
     if (!read_optional_string_arg(env, argc, argv, 3, &contentType, "contentType")) return NULL;
     char* val = actionUIGetElementValueString(uuid, viewID, partID, contentType);
@@ -918,8 +996,8 @@ static napi_value node_set_value_from_json(napi_env env, napi_callback_info info
     STRING_ARG(uuid); STRING_ARG(json);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     /* Required: a missing value arrives as undefined and throws. */
     if (!read_string_arg(env, argv[3], &json, "json")) return NULL;
     napi_value result;
@@ -933,8 +1011,8 @@ static napi_value node_get_value_as_json(napi_env env, napi_callback_info info) 
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, partID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (argc >= 3 && !read_int64_arg(env, argv[2], &partID, "viewPartID", true)) return NULL;
     char* val = actionUIGetElementValueJSON(uuid, viewID, partID);
     if (val == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -951,7 +1029,7 @@ static napi_value node_get_element_column_count(napi_env env, napi_callback_info
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     napi_value result;
     napi_create_int64(env, actionUIGetElementColumnCount(uuid, viewID), &result);
     return result;
@@ -965,7 +1043,7 @@ static napi_value node_get_element_rows_json(napi_env env, napi_callback_info in
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     char* json = actionUIGetElementRowsJSON(uuid, viewID);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
@@ -980,7 +1058,7 @@ static napi_value node_clear_element_rows(napi_env env, napi_callback_info info)
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     actionUIClearElementRows(uuid, viewID);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -991,7 +1069,7 @@ static napi_value node_set_element_rows_json(napi_env env, napi_callback_info in
     STRING_ARG(uuid); STRING_ARG(json);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISetElementRowsJSON(uuid, viewID, json), &result);
@@ -1004,7 +1082,7 @@ static napi_value node_append_element_rows_json(napi_env env, napi_callback_info
     STRING_ARG(uuid); STRING_ARG(json);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUIAppendElementRowsJSON(uuid, viewID, json), &result);
@@ -1017,7 +1095,7 @@ static napi_value node_append_element_text(napi_env env, napi_callback_info info
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     STRING_ARG(text);
     if (!read_string_arg(env, argv[2], &text, "text")) return NULL;
     napi_value result;
@@ -1033,8 +1111,8 @@ static napi_value node_select_element_row_by_index(napi_env env, napi_callback_i
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, index = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_int64(env, argv[2], &index);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
+    if (!read_int64_arg(env, argv[2], &index, "index", false)) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUISelectElementRowByIndex(uuid, viewID, index), &result);
     return result;
@@ -1046,9 +1124,9 @@ static napi_value node_select_element_row_with_content(napi_env env, napi_callba
     STRING_ARG(uuid); STRING_ARG(text);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0, column = -1;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &text, "text")) return NULL;
-    napi_get_value_int64(env, argv[3], &column);
+    if (!read_int64_arg(env, argv[3], &column, "column", false)) return NULL;
     napi_value result;
     napi_create_int64(env, actionUISelectElementRowWithContent(uuid, viewID, text, column), &result);
     return result;
@@ -1060,7 +1138,7 @@ static napi_value node_clear_element_selection(napi_env env, napi_callback_info 
     STRING_ARG(uuid);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     actionUIClearElementSelection(uuid, viewID);
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
@@ -1073,7 +1151,7 @@ static napi_value node_get_element_property_json(napi_env env, napi_callback_inf
     STRING_ARG(uuid); STRING_ARG(name);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &name, "name")) return NULL;
     char* json = actionUIGetElementPropertyJSON(uuid, viewID, name);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
@@ -1089,7 +1167,7 @@ static napi_value node_set_element_property_json(napi_env env, napi_callback_inf
     STRING_ARG(uuid); STRING_ARG(name); STRING_ARG(json);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &name, "name")) return NULL;
     if (!read_string_arg(env, argv[3], &json, "json")) return NULL;
     napi_value result;
@@ -1105,7 +1183,7 @@ static napi_value node_get_element_state_json(napi_env env, napi_callback_info i
     STRING_ARG(uuid); STRING_ARG(key);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
     char* json = actionUIGetElementStateJSON(uuid, viewID, key);
     if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
@@ -1121,7 +1199,7 @@ static napi_value node_get_element_state_string(napi_env env, napi_callback_info
     STRING_ARG(uuid); STRING_ARG(key);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
     char* val = actionUIGetElementStateString(uuid, viewID, key);
     if (val == NULL) { napi_value n; napi_get_null(env, &n); return n; }
@@ -1137,7 +1215,7 @@ static napi_value node_set_element_state_json(napi_env env, napi_callback_info i
     STRING_ARG(uuid); STRING_ARG(key); STRING_ARG(json);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
     if (!read_string_arg(env, argv[3], &json, "json")) return NULL;
     napi_value result;
@@ -1151,7 +1229,7 @@ static napi_value node_set_element_state_from_string(napi_env env, napi_callback
     STRING_ARG(uuid); STRING_ARG(key); STRING_ARG(value);
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
     if (!read_string_arg(env, argv[2], &key, "key")) return NULL;
     if (!read_string_arg(env, argv[3], &value, "value")) return NULL;
     napi_value result;
@@ -1192,7 +1270,7 @@ static napi_value node_insert_element(napi_env env, napi_callback_info info) {
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
     int64_t parentID = 0;
-    napi_get_value_int64(env, argv[1], &parentID);
+    if (!read_int64_arg(env, argv[1], &parentID, "parentID", false)) return NULL;
 
     STRING_ARG(json);
     if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
@@ -1202,8 +1280,8 @@ static napi_value node_insert_element(napi_env env, napi_callback_info info) {
     const char* container_ptr = container;
 
     int64_t position = 0, positionParam = 0;
-    if (argc >= 5) napi_get_value_int64(env, argv[4], &position);
-    if (argc >= 6) napi_get_value_int64(env, argv[5], &positionParam);
+    if (argc >= 5 && !read_int64_arg(env, argv[4], &position, "position", true)) return NULL;
+    if (argc >= 6 && !read_int64_arg(env, argv[5], &positionParam, "positionParam", true)) return NULL;
 
     int64_t inserted_id = actionUIInsertElement(uuid, parentID, json, container_ptr,
                                                 (ActionUIInsertPosition)position, positionParam);
@@ -1234,7 +1312,7 @@ static napi_value node_insert_row(napi_env env, napi_callback_info info) {
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
     int64_t parentID = 0;
-    napi_get_value_int64(env, argv[1], &parentID);
+    if (!read_int64_arg(env, argv[1], &parentID, "parentID", false)) return NULL;
 
     STRING_ARG(json);
     if (!read_string_arg(env, argv[2], &json, "json")) return NULL;
@@ -1244,8 +1322,8 @@ static napi_value node_insert_row(napi_env env, napi_callback_info info) {
     const char* container_ptr = container;
 
     int64_t position = 0, positionIndex = 0;
-    if (argc >= 5) napi_get_value_int64(env, argv[4], &position);
-    if (argc >= 6) napi_get_value_int64(env, argv[5], &positionIndex);
+    if (argc >= 5 && !read_int64_arg(env, argv[4], &position, "position", true)) return NULL;
+    if (argc >= 6 && !read_int64_arg(env, argv[5], &positionIndex, "positionIndex", true)) return NULL;
 
     char* ids_json = actionUIInsertRow(uuid, parentID, json, container_ptr,
                                        (ActionUIInsertPosition)position, positionIndex);
@@ -1279,7 +1357,7 @@ static napi_value node_remove_element(napi_env env, napi_callback_info info) {
     if (!read_string_arg(env, argv[0], &uuid, "windowUUID")) return NULL;
 
     int64_t viewID = 0;
-    napi_get_value_int64(env, argv[1], &viewID);
+    if (!read_int64_arg(env, argv[1], &viewID, "viewID", false)) return NULL;
 
     bool ok = actionUIRemoveElement(uuid, viewID);
     if (!ok) {
@@ -1419,7 +1497,10 @@ static napi_value node_load_hosting_controller(napi_env env, napi_callback_info 
     if (!read_string_arg(env, argv[0], &url, "url")) return NULL;
     if (!read_string_arg(env, argv[1], &uuid, "windowUUID")) return NULL;
     bool is_content_view = false;
-    napi_get_value_bool(env, argv[2], &is_content_view);
+    /* By its truthiness, as JavaScript reads a condition: callers passed 1 and 0 before this
+     * argument was checked (1 then read as false). */
+    napi_value as_bool;
+    if (napi_coerce_to_bool(env, argv[2], &as_bool) == napi_ok) napi_get_value_bool(env, as_bool, &is_content_view);
 
     void* ptr = actionUILoadHostingControllerFromURL(url, uuid, is_content_view);
     if (ptr == NULL) {
@@ -2202,7 +2283,7 @@ static napi_value node_host_surface_set_continuous(napi_env env, napi_callback_i
     uint64_t id = 0;
     bool on = false;
     if (argc < 2 || !host_surface_get_id(env, argv[0], &id)) return NULL;
-    napi_get_value_bool(env, argv[1], &on);
+    if (!read_bool_arg(env, argv[1], &on, "continuous", false)) return NULL;
     actionUIHostSurfaceSetContinuous(id, on);
     return NULL;
 }
@@ -2215,7 +2296,7 @@ static napi_value node_host_surface_set_cursor(napi_env env, napi_callback_info 
     uint64_t id = 0;
     int32_t cursor = 0;
     if (argc < 2 || !host_surface_get_id(env, argv[0], &id)) return NULL;
-    napi_get_value_int32(env, argv[1], &cursor);
+    if (!read_int32_arg(env, argv[1], &cursor, "cursor", false)) return NULL;
     napi_value result;
     napi_get_boolean(env, actionUIHostSurfaceSetCursor(id, cursor), &result);
     return result;
@@ -2284,10 +2365,10 @@ static napi_value node_host_surface_present_pixels(napi_env env, napi_callback_i
     }
     uint32_t width = 0, height = 0, stride = 0;
     int32_t format = 0;
-    napi_get_value_uint32(env, argv[2], &width);
-    napi_get_value_uint32(env, argv[3], &height);
-    napi_get_value_uint32(env, argv[4], &stride);
-    napi_get_value_int32(env, argv[5], &format);
+    if (!read_uint32_arg(env, argv[2], &width, "width", false)) return NULL;
+    if (!read_uint32_arg(env, argv[3], &height, "height", false)) return NULL;
+    if (!read_uint32_arg(env, argv[4], &stride, "stride", false)) return NULL;
+    if (!read_int32_arg(env, argv[5], &format, "format", false)) return NULL;
     if (width == 0 || height == 0 || (uint64_t)stride < (uint64_t)width * 4) {
         napi_throw_range_error(env, NULL, "width and height must be positive, and stride at least width * 4");
         return NULL;
