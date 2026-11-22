@@ -105,11 +105,13 @@ struct ChartLayout {
         func titleRoom(_ edge: ChartAxisMarkPosition) -> Double {
             titles.filter { $0.edge == edge }.map { max(0, lineHeight + $0.spacing) }.max() ?? 0
         }
-        let yShown = hasY && !labelEdges(spec.y, isX: false).isEmpty
         let topTicks = hasX ? tickRoom(spec.x, isX: true, .top) : 0, bottomTicks = hasX ? tickRoom(spec.x, isX: true, .bottom) : 0
         let xLabelsTop = (xRows.contains(.top) ? rowHeight : 0) + topTicks
         let xLabelsBottom = (xRows.contains(.bottom) ? rowHeight : 0) + bottomTicks
-        let top = max(xLabelsTop + titleRoom(.top) + (legend?.room(.top) ?? 0), yShown ? lineHeight / 2 : 0)
+        // No room above the plot for the top y label, which is centered on the top gridline and reaches half
+        // a line above the chart: Swift Charts lets it out of the chart's frame, for bands and numbers alike
+        // (measured on macOS 27: the plot starts at the frame's top, the label's ink 4 points above it).
+        let top = xLabelsTop + titleRoom(.top) + (legend?.room(.top) ?? 0)
         let bottom = xLabelsBottom + titleRoom(.bottom) + (legend?.room(.bottom) ?? 0)
         let plotHeight = max(height - top - bottom, 1)
         var yAxis = axis(extents.y, spec.y, length: plotHeight, pointsPerTick: Self.pointsPerYDateTick)
