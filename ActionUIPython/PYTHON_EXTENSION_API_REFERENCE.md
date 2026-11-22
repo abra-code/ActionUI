@@ -176,6 +176,28 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 
 A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it.
 
+### Configuration
+
+```c
+bool actionUISetConfigurationJSON(const char* configurationJSON);
+// ActionUI's configuration, for all windows, as JSON; every key is optional and the rest keep their values:
+//   {"limits": {"maximumJSONSize": 16777216,                  // bytes of ActionUI JSON one load takes
+//               "loadBudget": {"loads": 256, "seconds": 60},  // LoadableView loads per window in any span
+//               "maximumNestingDepth": 16},                   // LoadableViews inside LoadableViews
+//    "trust": {"trustedOrigins": ["https://ui.example.com"]}, // servers whose ActionUI JSON is trusted
+//    "resourceFolder": "/path/to/resources",                  // or null; actionUIAppSetResourceFolder sets it too
+//    "addOns": {"SomeAddOn": {}}}                             // a section per add-on
+// Set it before the first window loads its ActionUI JSON; it is fixed after that. False (error set,
+// nothing changed) for JSON that is not valid, an unknown key, a wrong value, an origin that is not
+// https, or a configuration already fixed. The host may raise the limits above the defaults.
+// Python: _actionui.set_configuration_json(json) raises RuntimeError when refused.
+
+char* actionUIGetConfigurationJSON(void);
+// The configuration in effect, as JSON with every key. Python: _actionui.get_configuration_json().
+```
+
+A trusted origin is an https scheme, host and port, nothing more (no path). ActionUI JSON from it is trusted as the app's own, but only where the content around it is trusted (a window's root, or a LoadableView in trusted content), and only by the address it finally came from: a redirect from the trusted server to another one gives less-trusted content.
+
 ### Window model
 
 ```c
@@ -288,6 +310,7 @@ void actionUIAppSetResourceFolder(const char* path);
 // The folder of the app's resources: LoadableView names, Image resourceName
 // and WebView userScript resourceName are looked up there first, then in the
 // main bundle (Python's own, for a script). NULL: the main bundle only.
+// The configuration's "resourceFolder": refused (logged) once a window has loaded.
 // Python: _actionui.app_set_resource_folder(path_or_None); Application sets
 // it to the main script's folder unless given resource_folder.
 ```
@@ -742,8 +765,9 @@ limits = window.content_size_limits()  # -> (min_w, min_h, max_w, max_h) or None
 
 ```python
 def trust(source, parent, by_default):         # -> actionui.Trust
-    # A host trusts its own server, say; by_default is ActionUI's own decision.
-    if source.get("url", "").startswith("https://example.com/"):
+    # A host trusts a file its user picked as a window's own JSON (no parent), say; by_default is
+    # ActionUI's own decision. For the host's own server, list it in configure() instead.
+    if parent is None and source.get("path") == picked_path:
         return actionui.Trust.TRUSTED
     return by_default
 
@@ -755,6 +779,19 @@ actionui.set_trust_policy()                             # ActionUI's own policy 
 ```
 
 Either callback may be left out to keep ActionUI's own decisions for it. A callback that raises is reported and counts as less trusted, or as a refusal. `test_trust_policy.py` runs both against a real window.
+
+### Configuration
+
+```python
+app = actionui.Application(resource_folder="ui")   # sets the configuration's resourceFolder
+actionui.configure({
+    "trust": {"trustedOrigins": ["https://ui.example.com"]},   # the host's own server
+    "limits": {"maximumJSONSize": 32 * 1024 * 1024},
+})                                                  # before the first window loads
+actionui.get_configuration()                        # every key: limits, trust, resourceFolder, addOns
+```
+
+Only the keys given change. `configure` raises `ActionUIError`, changing nothing, for an unknown key, a wrong value, an origin that is not https, or once a window has loaded (the configuration is fixed then). See the C section above for the keys and what a trusted origin covers. `test_configuration.py` checks it against a real window.
 
 ### Module-level helpers
 

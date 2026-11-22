@@ -17,6 +17,7 @@ For building and packaging see [BUILD_GUIDE.md](BUILD_GUIDE.md). The same text, 
 - [`actionui::main_thread`](#actionuimain_thread)
 - [`actionui::log`](#actionuilog)
 - [`actionui::trust`](#actionuitrust)
+- [`actionui::config`](#actionuiconfig)
 - [`actionui::host_surface`](#actionuihost_surface)
 - [Other functions](#other-functions)
 - [The raw layer: `actionui-sys`](#the-raw-layer-actionui-sys)
@@ -104,7 +105,7 @@ Two behaviors to know:
 | `set_name(&self, name: &str) -> Result<()>` | Names the application in the menu bar and the Dock; on Linux window titles and the application ID default to it. For a bare executable only; see below. Call before `run`. |
 | `set_application_id(&self, application_id: &str) -> Result<()>` | Sets the reverse-DNS application ID ("org.example.App"), which Linux needs; on macOS the bundle identifier serves and this does nothing. Call before `run`. |
 | `set_icon(&self, path) -> Result<()>` | Sets the Dock and About-panel icon from an image file (icns, png and others); on Linux the windows' icon, from a PNG or SVG file or an icon theme name. Call before `run`. |
-| `set_resource_folder(&self, path: Option<&Path>) -> Result<()>` | Sets the folder of the app's resources: LoadableView names, Image resourceName and WebView script resources are looked up there first (macOS: then in the main bundle; Linux: in place of the program's folder). `None` goes back to the platform's own place. Call before `run`. |
+| `set_resource_folder(&self, path: Option<&Path>) -> Result<()>` | Sets the folder of the app's resources: LoadableView names, Image resourceName and WebView script resources are looked up there first (macOS: then in the main bundle; Linux: in place of the program's folder). `None` goes back to the platform's own place. Call before `run`: it is the configuration's `resourceFolder` (see [`actionui::config`](#actionuiconfig)), refused (logged) once a window has loaded. |
 | `run(self) -> !` | Runs the event loop. Does not return. |
 | `terminate(&self)` | Asks the application to quit, as the Quit menu item does, and returns. The should-terminate handler can still refuse. |
 
@@ -514,21 +515,43 @@ The policy's methods run on the main thread, often (as elements draw), and shoul
 ```rust
 use actionui::{Source, Trust, TrustPolicy};
 
-struct OwnServer;
+/// Trusts the file the user picked as a window's own JSON (no parent). For the host's own
+/// server, list it in actionui::configure instead.
+struct PickedFile(String);
 
-impl TrustPolicy for OwnServer {
-    fn trust(&self, source: &Source, _parent: Option<&actionui::Origin>, by_default: Trust) -> Trust {
+impl TrustPolicy for PickedFile {
+    fn trust(&self, source: &Source, parent: Option<&actionui::Origin>, by_default: Trust) -> Trust {
         match source {
-            Source::Remote { url } if url.starts_with("https://example.com/") => Trust::Trusted,
+            Source::File { path } if parent.is_none() && *path == self.0 => Trust::Trusted,
             _ => by_default,
         }
     }
 }
 
-actionui::set_trust_policy(OwnServer);
+actionui::set_trust_policy(PickedFile("/Users/me/Picked.json".into()));
 ```
 
 `tests/trust_policy.rs` runs a policy against a real window (`ACTIONUI_GUI_TESTS=1`).
+
+## `actionui::config`
+
+ActionUI's configuration, for all windows, as JSON. Set it before the first window loads its ActionUI JSON; it is fixed after that.
+
+| Function | Description |
+|---|---|
+| `configure(settings: &serde_json::Value) -> Result<()>` | Changes the keys `settings` names, from any thread; the rest keep their values. An error, with nothing changed, for an unknown key, a wrong value, an origin that is not https, or a configuration already fixed. |
+| `configuration() -> Result<serde_json::Value>` | The configuration in effect, with every key. |
+
+The keys: `limits` (`maximumJSONSize` in bytes, 16 MB; `loadBudget` `{"loads", "seconds"}`, 256 in 60 s; `maximumNestingDepth`, 16), `trust` (`trustedOrigins`), `resourceFolder` (a path or null; `App::set_resource_folder` sets it too), `addOns` (a section per add-on name). The host may raise the limits above the defaults. A trusted origin is an https scheme, host and port, nothing more; ActionUI JSON from it is trusted as the app's own, but only where the content around it is trusted, and only by the address it finally came from, so a redirect from the trusted server to another one gives less-trusted content.
+
+```rust
+let app = actionui::App::new()?;
+actionui::configure(&serde_json::json!({
+    "trust": {"trustedOrigins": ["https://ui.example.com"]},   // the host's own server
+}))?;                                                           // before the first window loads
+```
+
+`tests/configuration.rs` checks the keys and the refusals.
 
 ## `actionui::host_surface`
 

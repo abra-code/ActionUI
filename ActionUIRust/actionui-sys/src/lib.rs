@@ -157,6 +157,12 @@ unsafe extern "C" {
     /// ActionUI's own decisions for it. The callbacks run on the main thread.
     pub fn actionUISetTrustPolicy(trust: ActionUITrustCallback, allows: ActionUICapabilityCallback);
 
+    /// Changes the keys the JSON names in ActionUI's configuration; false (error set,
+    /// nothing changed) when refused. Before the first window loads; fixed after that.
+    pub fn actionUISetConfigurationJSON(configurationJSON: *const c_char) -> bool;
+    /// The configuration in effect, as JSON with every key.
+    pub fn actionUIGetConfigurationJSON() -> *mut c_char;
+
     /// Forgets a window's model once the host is done with it. An unknown window is ignored.
     pub fn actionUIRemoveWindow(windowUUID: *const c_char);
     pub fn actionUIGetContentSizeLimits(windowUUID: *const c_char, outMinWidth: *mut f64, outMinHeight: *mut f64, outMaxWidth: *mut f64, outMaxHeight: *mut f64) -> bool;

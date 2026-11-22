@@ -422,8 +422,10 @@ actionui.setTrustPolicy({
     // The trust of content a LoadableView loads from source ({ source, path or url }) inside
     // content of origin parent (null for a window's root, and for a LoadableView of unknown origin,
     // such as one in a template row); byDefault is ActionUI's own decision.
+    // A host trusts a file its user picked as a window's own JSON (no parent), say. For the
+    // host's own server, list it in configure() instead.
     trust(source, parent, byDefault) {
-        return (source.url ?? '').startsWith('https://example.com/') ? actionui.Trust.TRUSTED : byDefault;
+        return parent === null && source.path === pickedPath ? actionui.Trust.TRUSTED : byDefault;
     },
     // Whether content of origin may do capability: { capability: kind } with, by kind:
     // 'load' { source }, 'openLink' { url }, 'webView' { url } (null for inline html),
@@ -435,6 +437,19 @@ actionui.setTrustPolicy();   // ActionUI's own policy again
 ```
 
 For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it. `test_trust_policy.js` runs both against a real window.
+
+### Configuration
+
+```js
+const app = new actionui.Application({ resourceFolder: 'ui' });   // sets the configuration's resourceFolder
+actionui.configure({
+    trust: { trustedOrigins: ['https://ui.example.com'] },      // the host's own server
+    limits: { maximumJSONSize: 32 * 1024 * 1024 },               // the host may raise the limits
+});                                                              // before the first window loads
+actionui.getConfiguration();   // every key: limits, trust, resourceFolder, addOns
+```
+
+For all windows; any thread. Only the keys given change: `limits` (`maximumJSONSize` in bytes, 16 MB; `loadBudget` `{ loads, seconds }`, 256 in 60 s; `maximumNestingDepth`, 16), `trust` (`trustedOrigins`), `resourceFolder` (a path or null), `addOns` (a section per add-on name). A trusted origin is an https scheme, host and port, nothing more; ActionUI JSON from it is trusted as the app's own, but only where the content around it is trusted, and only by the address it finally came from, so a redirect from the trusted server to another one gives less-trusted content. `configure` throws, changing nothing, for an unknown key, a wrong value, an origin that is not https, or once a window has loaded (the configuration is fixed then). `test_configuration.js` checks it against a real window.
 
 ### Module-level helpers
 
@@ -587,6 +602,10 @@ native.setTrustPolicy(trust, allows)        // each a function or null:
 //   trust(sourceJSON, parentOriginJSON|null, byDefault) -> 1 trusted, anything else less trusted
 //   allows(capabilityJSON, originJSON, byDefault) -> true to allow, anything else refuses
 
+// Configuration (any thread)
+native.setConfigurationJSON(json)   // throws with the reason, changing nothing, when refused
+native.getConfigurationJSON()       // JSON string with every key
+
 // Modal
 native.presentModal(uuid, jsonString, format, style, onDismissActionId)
 native.dismissModal(uuid)
@@ -622,7 +641,7 @@ native.appSetWindowWillPresent(fn) // fn(windowUuid: string)
 native.appSetName(name)
 native.appSetApplicationID(id)  // reverse DNS; needed on Linux, nothing on macOS
 native.appSetIcon(absolutePath)
-native.appSetResourceFolder(absolutePath)  // or null: the main bundle only
+native.appSetResourceFolder(absolutePath)  // or null: the main bundle only; the configuration's resourceFolder, refused once a window has loaded
 native.appRun()
 native.appTerminate()
 native.appLoadAndPresentWindow(url, uuid, title)

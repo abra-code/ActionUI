@@ -278,6 +278,27 @@ def test_trust_policy_calls(uuid_str):
     print("  trust_policy: OK")
 
 
+def test_configuration_calls():
+    import json
+    current = json.loads(_actionui.get_configuration_json())
+    assert set(current) == {"limits", "trust", "resourceFolder", "addOns"}, current
+    for bad in [(), (1,), (None,), ("{}", "{}")]:
+        try:
+            _actionui.set_configuration_json(*bad)
+            raise AssertionError("set_configuration_json accepted %r" % (bad,))
+        except TypeError:
+            pass
+    for text, expected in [("{limits", "not valid JSON"), ('{"limit": {}}', "unknown configuration key limit")]:
+        try:
+            _actionui.set_configuration_json(text)
+            raise AssertionError("set_configuration_json accepted %r" % text)
+        except RuntimeError as error:
+            # Refused for the key, or (when an earlier call loaded a window) because it is fixed.
+            assert expected in str(error) or "fixed" in str(error), str(error)
+    assert json.loads(_actionui.get_configuration_json()) == current, "a refusal changes nothing"
+    print("  configuration: OK")
+
+
 def test_remove_window(uuid_str):
     assert _actionui.remove_window(uuid_str) is None
     assert _actionui.remove_window(uuid_str) is None   # unknown window is ignored
@@ -359,6 +380,7 @@ def main():
     test_app_calls()
     test_app_run_off_the_main_thread()
     test_callback_errors_are_reported_and_cleared()
+    test_configuration_calls()
 
     test_uuid = str(uuid.uuid4())
 

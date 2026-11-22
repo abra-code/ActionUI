@@ -1607,6 +1607,30 @@ public func actionUISetTrustPolicy(_ trust: ActionUITrustCallback?, _ allows: Ac
     }
 }
 
+// MARK: - Configuration
+
+/// Changes the keys `configurationJSON` names in ActionUI's configuration (ActionUIConfiguration; see
+/// ActionUIC.h). False, with the error set and nothing changed, for JSON that is not valid, an unknown
+/// key, a wrong value, or a configuration fixed by a window's load.
+@c
+public func actionUISetConfigurationJSON(_ configurationJSON: UnsafePointer<CChar>) -> Bool {
+    clearError()
+    do {
+        try ActionUIConfiguration.set(json: String(cString: configurationJSON))
+        return true
+    } catch {
+        setError("The configuration was not changed: \(error)")
+        return false
+    }
+}
+
+/// The configuration in effect, as JSON with every key (see ActionUIC.h). Free with actionUIFreeString.
+@c
+public func actionUIGetConfigurationJSON() -> UnsafeMutablePointer<CChar>? {
+    clearError()
+    return actionStrdup(ActionUIConfiguration.current.json)
+}
+
 // MARK: - Memory Management
 
 @c

@@ -207,6 +207,17 @@ char *actionUIGetElementOrigin(const char *windowUUID, int64_t viewID) ACTIONUI_
 //   called on the main thread, often (as elements draw), and should return quickly.
 void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallback allows) ACTIONUI_NOEXCEPT;
 
+// Configuration, for all windows, as JSON: "limits" ("maximumJSONSize" in bytes, "loadBudget" with "loads"
+// and "seconds", "maximumNestingDepth"), "trust" ("trustedOrigins": https origins whose ActionUI JSON is
+// trusted, inside trusted content and by the address it finally came from), "resourceFolder" (a path or
+// null), "addOns" (a section per add-on name). Set it before the first window loads; it is fixed after that.
+// Both calls may be made from any thread.
+// - changes the keys configurationJSON names and keeps the rest; false (error set, nothing changed) for
+//   JSON that is not valid, an unknown key, a wrong value, an origin that is not https, or once fixed;
+bool actionUISetConfigurationJSON(const char *configurationJSON) ACTIONUI_NOEXCEPT;
+// - the configuration in effect, as JSON with every key;
+char *actionUIGetConfigurationJSON(void) ACTIONUI_NOEXCEPT;
+
 // Apple only (ActionUIC+Apple.swift): a build for another platform has no such functions.
 #if defined(__APPLE__)
 void *actionUILoadHostingControllerFromURL(const char *urlString, const char *windowUUID, bool isContentView) ACTIONUI_NOEXCEPT;  // NSHostingController on macOS, UIView on iOS; retained
