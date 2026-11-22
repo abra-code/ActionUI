@@ -533,7 +533,7 @@ extension Table: ActionUIWinUIRenderer {
                 case .rowColumnIndex: context = ["row": rowIndex, "column": column]
                 }
                 ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id,
-                                                   viewPartID: column, context: context)
+                                                   viewPartID: column, context: context, origin: LinkTrust.origin(node))
             }
             return TableRowLayout.Cell(view: button, fills: false)
         case .image:
@@ -697,10 +697,10 @@ extension Table: ActionUIWinUIRenderer {
         node.model.value = row
         let windowUUID = node.windowModel.windowUUID
         if changed, let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
         ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0,
-                                           context: index)
+                                           context: index, origin: LinkTrust.origin(node))
     }
 }
 

@@ -103,7 +103,7 @@ extension Canvas: ActionUIWinUIRenderer {
         }
         WinUIEvents.connect(fill.panel.object, actionUIWinUIElementOnTapped, "a Canvas's tap") { [weak node] in
             guard let node, node.isAttached, let actionID = Props(node.properties).actionID else { return }
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
         return fill.panel.object
     }

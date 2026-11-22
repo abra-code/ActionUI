@@ -29,7 +29,7 @@ enum NodeHover {
                   let actionID = UntrackedReads.perform({ BaseModifiers(node.properties).onHoverActionID }),
                   !actionID.isEmpty else { return }
             ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id,
-                                               viewPartID: 0, context: ["isHovering": hovering])
+                                               viewPartID: 0, context: ["isHovering": hovering], origin: LinkTrust.origin(node))
         }
         var areas: [WinUIObject] = []
         if let box = node.box {

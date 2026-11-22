@@ -62,7 +62,7 @@ extension TextField: ActionUIWinUIRenderer {
         }
         WinUIEvents.connect(box, actionUIWinUITextBoxOnSubmit, "a TextBox's submit") { [weak node] in
             guard let node, node.isAttached else { return }
-            TextField.userSubmitted(element: node.element, windowUUID: node.windowModel.windowUUID, props: Props(node.properties))
+            TextField.userSubmitted(element: node.element, model: node.model, windowUUID: node.windowModel.windowUUID, props: Props(node.properties))
         }
         return try inFormLayout(node, box)
     }

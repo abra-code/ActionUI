@@ -275,7 +275,7 @@ extension List: ActionUIWinUIRenderer {
         let index = state.shownIndices[position]
         let context: Any = props.actionContext == .rowIndex ? index : state.drawnRows[index][0]
         ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id,
-                                           viewPartID: 0, context: context)
+                                           viewPartID: 0, context: context, origin: LinkTrust.origin(node))
     }
 
     // MARK: Children
@@ -495,10 +495,10 @@ extension List: ActionUIWinUIRenderer {
         node.model.value = row
         let windowUUID = node.windowModel.windowUUID
         if changed, let actionID = props.actionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
         ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0,
-                                           context: index)
+                                           context: index, origin: LinkTrust.origin(node))
     }
 }
 

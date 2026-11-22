@@ -155,6 +155,15 @@ enum LinkTrust {
         return ActionUIModel.shared.origin(windowUUID: node.windowModel.windowUUID, viewID: viewID)?.trust == .trusted
     }
 
+    /// The origin the node's actions are judged by, as on Linux: its element's, or for a template row's
+    /// node the container's around it (originElementID); less trusted when the element cannot be told. A
+    /// template element may carry any id its JSON gives it, a trusted element's among them, so its own id
+    /// must not decide.
+    static func origin(_ node: RenderNode) -> JSONContentOrigin {
+        originElementID(node).flatMap { ActionUIModel.shared.origin(windowUUID: node.windowModel.windowUUID, viewID: $0) }
+            ?? unknownOrigin
+    }
+
     /// The id of the element whose origin the node's content has: the node's own, or for a template
     /// row's node the nearest container around it; nil when that node's view model is not the
     /// window's one for its id, so the id would name another element's origin.

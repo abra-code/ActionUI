@@ -103,7 +103,7 @@ extension TabView: ActionUIWinUIRenderer {
             node.model.value = index
             if let actionID = Props(node.properties).actionID {
                 ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id,
-                                                   viewPartID: 0, context: index)
+                                                   viewPartID: 0, context: index, origin: LinkTrust.origin(node))
             }
         }
         return state.layout.panel.object

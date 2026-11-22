@@ -66,9 +66,11 @@ enum NodeAppearance {
         guard let actionID = appearing ? modifiers.onAppearActionID : modifiers.onDisappearActionID else { return }
         let windowUUID = node.windowModel.windowUUID
         let viewID = node.element.id
+        // Judged by the content the element belongs to (a template row's by its container's), read now.
+        let origin = LinkTrust.origin(node)
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, origin: origin)
             }
         }
     }

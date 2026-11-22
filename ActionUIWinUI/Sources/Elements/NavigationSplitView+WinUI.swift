@@ -251,7 +251,7 @@ extension NavigationSplitView: ActionUIWinUIRenderer {
         guard visibility.rawValue != node.model.states["columnVisibility"] as? String else { return }
         node.model.states["columnVisibility"] = visibility.rawValue
         if let actionID = Props(node.properties).valueChangeActionID {
-            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0)
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
         }
     }
 

@@ -40,7 +40,7 @@ extension SecureField: ActionUIWinUIRenderer {
         WinUIEvents.connect(box, actionUIWinUITextBoxOnSubmit, "a PasswordBox's submit") { [weak node] in
             guard let node, node.isAttached else { return }
             TextField.userSubmitted(actionID: Props(node.properties).actionID, viewID: node.element.id,
-                                    windowUUID: node.windowModel.windowUUID)
+                                    model: node.model, windowUUID: node.windowModel.windowUUID)
         }
         return try TextField.inFormLayout(node, box)
     }

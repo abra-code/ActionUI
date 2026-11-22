@@ -97,7 +97,7 @@ package final class NodePresentations {
                 node.model.states[Kind.popover.stateKey] = willShow
                 if willShow, let actionID = BaseModifiers(node.properties).popoverActionID, !actionID.isEmpty {
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID,
-                                                       viewID: node.element.id, viewPartID: 0)
+                                                       viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
                 }
             }
         }
@@ -251,6 +251,6 @@ package final class NodePresentations {
         case .popover: actionID = nil
         }
         guard let actionID, !actionID.isEmpty else { return }
-        ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0)
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: node.windowModel.windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
     }
 }

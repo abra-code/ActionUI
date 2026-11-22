@@ -384,7 +384,7 @@ extension WebView: ActionUIWinUIRenderer {
             state.lastTrackedURL = urlString
             node.model.value = urlString
             if let actionID = props.valueChangeActionID {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
             }
         }
         if page.canGoBack != state.shown.canGoBack || page.canGoForward != state.shown.canGoForward {
@@ -399,7 +399,7 @@ extension WebView: ActionUIWinUIRenderer {
         if loadingChanged {
             node.model.states["isLoading"] = page.loading
             if let actionID = props.navigationActionID {
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: node.element.id, viewPartID: 0, origin: LinkTrust.origin(node))
             }
         }
         if let copy = actionUIWinUIWebViewCopyTitle(view.pointer) {
