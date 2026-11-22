@@ -762,9 +762,9 @@ public final class AdwaitaApplication {
             let document = windowGroup(data, format: format)
             do {
                 try loadDocument(document, format: format, windowUUID: windowUUID, from: finalURL)
-                // A trusted server's commands are the app's own, as a resource file's are.
-                let isTrusted = ActionUIModel.shared.isTrustedWindowSource(finalURL, windowUUID: windowUUID)
-                return (nil, document.title ?? title, ownCommands(document, from: text, isAppResource: isTrusted))
+                // No commands from a server, trusted or not: as on Apple, where a WindowGroup's
+                // commands come only from the app's own scenes, never from a window loaded at run time.
+                return (nil, document.title ?? title, ownCommands(document, from: text, isAppResource: false))
             } catch {
                 logger.log("Window \(windowUUID): \(text) could not be loaded: \(error)", .error)
                 return ("\(text) could not be loaded: \(error)", document.title ?? title, nil)

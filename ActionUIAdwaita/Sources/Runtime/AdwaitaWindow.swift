@@ -96,11 +96,4 @@ extension ActionUIModel {
     /// The largest document any load takes, in bytes (WindowModel.maximumJSONSize), for the
     /// application module, which reads a WindowGroup document before loading its content.
     package static var maximumJSONSize: Int { WindowModel.maximumJSONSize }
-
-    /// Whether ActionUI JSON from `url`, loaded as the root of window `windowUUID`, is trusted (its
-    /// origin, with the host's trust policy), for the application module.
-    package func isTrustedWindowSource(_ url: URL, windowUUID: String) -> Bool {
-        ActionUIDocumentLoader.resolvedOrigin(for: url.isFileURL ? .file(url) : .remote(url), windowUUID: windowUUID,
-                                              isContentView: true, parentID: 0).trust == .trusted
-    }
 }

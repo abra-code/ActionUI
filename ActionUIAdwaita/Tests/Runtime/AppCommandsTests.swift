@@ -450,6 +450,47 @@ final class AppCommandsTests: XCTestCase {
         XCTAssertFalse(AdwaitaApplication.isInResourceFolder(own), "a resource folder of / trusts nothing")
     }
 
+    func testAWindowGroupFromAServerAddsNoCommandsEvenWhenTrusted() throws {
+        // As on Apple, where a WindowGroup's commands come only from the app's own scenes: a window
+        // loaded from a server adds none, even when the host's trust policy trusts the server.
+        struct TrustEverything: ActionUITrustPolicy {
+            func trust(for source: JSONContentOrigin.Source, inside parent: JSONContentOrigin?,
+                       byDefault: JSONContentOrigin.Trust) -> JSONContentOrigin.Trust { .trusted }
+        }
+        let document = """
+            {"type": "WindowGroup", "id": 1, "properties": {"title": "Server Tools", "windowGroupID": "Server Tools"},
+             "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
+             "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Server Tools"}, "children": [
+                {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
+            """
+        let server = try TestImageServer(png: [], document: document)
+        defer {
+            server.stop()
+            ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
+        }
+        ActionUIModel.shared.trustPolicy = TrustEverything()
+        let app = AdwaitaApplication()
+        var shown: [String] = []
+        var presented = false
+        app.handlers.windowWillPresent = { windowUUID in
+            presented = true
+            _ = runAfter(milliseconds: 100) {
+                shown = self.outline(AppCommands.shared.menu.opaquePointer)
+                app.closeWindow(windowUUID)
+                app.terminate()
+            }
+        }
+        app.handlers.didFinishLaunching = {
+            _ = runAfter(milliseconds: 5000) { app.terminate() }
+            app.presentWindow(url: server.base + "/view.json", windowUUID: "commands-server", title: nil)
+        }
+        XCTAssertEqual(app.run(), 0)
+        AdwaitaTestHost.drainMainLoop()
+        XCTAssertTrue(presented, "the window was fetched and shown")
+        XCTAssertFalse(shown.isEmpty, "the menu was read while the window showed")
+        XCTAssertFalse(shown.joined().contains("Server Tools"), "a server's WindowGroup adds no menu commands")
+    }
+
     func testAWindowGroupLargerThanTheCapIsLeftForTheLoadToRefuse() throws {
         let document = Data(#"{"type": "WindowGroup", "id": 1, "properties": {"title": "Big"}, "content": {"type": "Text", "id": 2}}"#.utf8)
         let saved = WindowModel.maximumJSONSize
