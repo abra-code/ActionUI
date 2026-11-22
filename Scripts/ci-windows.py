@@ -68,7 +68,9 @@ WINUI_RUNTIME_MSIX = [
 SMOKE_TIMEOUT_SECONDS = 180
 # Options for ActionUIWinUIPreview by document name (ActionUIWinUI/Apps/Preview/Documents), beside
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
-# "{documents_url}" in an option is the documents folder's file URL (an AsyncImage's file URLs).
+# "{documents_url}" in an option is the documents folder's file URL (an AsyncImage's file URLs);
+# "{program_folder}" the folder the preview runs from (the app's resources, where ActionUIWinUI/Apps/Preview/Bundled
+# is copied), and "{program_folder_upper}" the same in upper case.
 PREVIEW_OPTIONS = {
     "Floors": ["420", "380"],
     "NestedFloors": ["420", "420"],
@@ -240,6 +242,13 @@ PREVIEW_OPTIONS = {
                          "--expect-log", "for element 407: less-trusted content reads no network or device path",
                          "--expect-log", "for element 408: less-trusted content reads no network or device path",
                          "--expect-log", "Not loading C:/Windows/Web/Screen/img100.jpg for element 409: less-trusted content"],
+    # ActionUI JSON in the program's folder (the app's resources) is trusted, its path in any case: its links
+    # open Windows' settings, which a server's cannot. --no-launch: nothing is opened.
+    "TrustedResources": ["420", "160", "--no-launch", "--set-value", "3", "{program_folder}\\BundledLinks.json",
+                         "--set-value", "4", "{program_folder_upper}\\BUNDLEDLINKSUPPER.JSON", "--delay", "1000",
+                         "--invoke", "901", "--invoke", "951",
+                         "--expect-log", "Link 901: opening ms-settings:display",
+                         "--expect-log", "Link 951: opening ms-settings:display"],
     "AsyncImages": ["460", "340", "--set-value", "7", "{documents_url}/Images/sample_image.png",
                     "--set-value", "8", "{documents_url}/Images/ActionUIDemo.svg"],
     "Menus": ["420", "260", "--invoke-menu-item", "2", "0", "--toggle-menu-item", "2", "3",
@@ -724,6 +733,9 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
             return False
     for source in [shim_out / "ActionUIWinUIShim.dll", bootstrap, shim_out / WEBVIEW2_CORE]:
         shutil.copy2(source, bin_path / source.name)
+    # ActionUI JSON shipped with the program (TrustedResources.json loads it from there).
+    for source in sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Bundled").glob("*.json")):
+        shutil.copy2(source, bin_path / source.name)
     # One manifest for both programs (supported OS, per-monitor DPI).
     manifest = REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest"
     for name in ["ActionUIWinUISmoke.exe.manifest", "ActionUIWinUIPreview.exe.manifest"]:
@@ -738,6 +750,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary):
     for document in documents:
         png = results / f"preview-{document.stem}.png"
         options = [option.replace("{documents_url}", document.parent.as_uri())
+                   .replace("{program_folder_upper}", str(bin_path).upper()).replace("{program_folder}", str(bin_path))
                    for option in PREVIEW_OPTIONS.get(document.stem, [])]
         if windows_arch() == "arm64":
             options = without_real_input(options)
