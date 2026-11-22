@@ -77,6 +77,15 @@ PREVIEW_OPTIONS = {
     # The two chart documents at sizes that show their charts whole (the second has two columns).
     "Charts": ["560", "720"],
     "ChartTypes": ["760", "720"],
+    # Selection with the real mouse (x64): a drag across the range chart (3; its range goes at the release),
+    # then one across the hover chart (1; not taken, so its moves hover and the value stays under the
+    # pointer), a pause for the settled action.
+    "ChartSelection": ["660", "560", "--drag", "3", "40", "100", "200", "100",
+                       "--drag", "1", "40", "100", "150", "100", "--delay", "500"],
+    # Scrolling with the real wheel (x64): two notches over the dates (1; the pointer there also hovers its
+    # value), three over the teams (2); the windows moved show in the PNG.
+    "ChartScroll": ["600", "520", "--wheel", "1", "280", "100", "0", "2", "--wheel", "2", "280", "100", "0", "3",
+                    "--delay", "500"],
     "Floors": ["420", "380"],
     "NestedFloors": ["420", "420"],
     "Images": ["560", "440"],
@@ -496,16 +505,18 @@ def windows_arch():
 # Real mouse input (--drag, and the --expect-width checks that follow one) needs the preview's window in
 # front. On the Arm64 runner a system window (Windows.UI.Core.CoreWindow, in another program) stays in
 # front and Windows refuses to bring another one there, so those options run on x64 only.
-REAL_INPUT_OPTIONS = {"--drag": 5, "--expect-width": 2}
+REAL_INPUT_OPTIONS = {"--drag": 5, "--wheel": 5, "--expect-width": 2}
 # What a document's --drag must cause, checked only where the drag runs (x64).
 REAL_INPUT_EXPECTATIONS = {
     "Maps": ["--expect-action", "map.moved", "--expect-action", "map.changed"],
     "Hovers": ["--expect-action", "hover.changed"],
+    "ChartSelection": ["--expect-action", "chart.selection.changed"],
+    "ChartScroll": ["--expect-action", "chart.selection.changed"],
 }
 
 
 def without_real_input(options):
-    """The preview options with --drag and --expect-width (and their values) left out."""
+    """The preview options with --drag, --wheel and --expect-width (and their values) left out."""
     kept = []
     position = 0
     while position < len(options):

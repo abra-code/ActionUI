@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <functional>
 #include <vector>
 
 #include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
@@ -245,6 +246,104 @@ bool startRender(const char *where, mux::UIElement const &element, const char *p
     return true;
 }
 
+// What a test's real pointer input needs (actionUIWinUIWindowSendDrag, actionUIWinUIWindowSendWheel):
+// `element`'s points as SendInput's absolute mouse input, with `window` brought to the front so the
+// input goes to it. False (the error set, as fail sets it) when that cannot be done.
+bool realPointerInput(const char *where, ActionUIWinUIObject *window, ActionUIWinUIObject *element,
+                      std::function<INPUT(double, double, DWORD)> &inputAt) {
+    mux::Window typed = windowFrom(window);
+    mux::UIElement target = objectAs<mux::UIElement>(element, L"UIElement");
+    mux::UIElement content = typed.Content();
+    if (content == nullptr || target.XamlRoot() == nullptr || target.XamlRoot() != content.XamlRoot()) {
+        return fail(where, "the element is not shown in the window");
+    }
+    HWND hwnd = nullptr;
+    winrt::check_hresult(typed.as<::IWindowNative>()->get_WindowHandle(&hwnd));
+    // The element's points in the window's content (its client area), then in physical pixels on
+    // the screen: SendInput takes the whole desktop as 0 to 65535 each way.
+    mux::Media::GeneralTransform transform = target.TransformToVisual(nullptr);
+    double scale = windowScale(typed);
+    int left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    int top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    if (width <= 1 || height <= 1) {
+        return fail(where, "no desktop to send the pointer's input to");
+    }
+    // Input goes to the desktop the user sees: a program on another one (a service's) has none to send.
+    HDESK input = OpenInputDesktop(0, FALSE, DESKTOP_READOBJECTS);
+    if (input == nullptr) {
+        return fail(where, "no access to the desktop that takes the mouse's input (not an interactive session?)");
+    }
+    CloseDesktop(input);
+    // In front, so the pointer's input goes to it. Windows lets only the program the user last worked
+    // with bring a window to the front (a test runner's may be another): sharing the front window's
+    // input state for a moment lets this one.
+    SetForegroundWindow(hwnd);
+    if (GetForegroundWindow() != hwnd) {
+        HWND front = GetForegroundWindow();
+        DWORD frontThread = front != nullptr ? GetWindowThreadProcessId(front, nullptr) : 0;
+        DWORD ownThread = GetCurrentThreadId();
+        bool attached = frontThread != 0 && frontThread != ownThread && AttachThreadInput(ownThread, frontThread, TRUE);
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
+        if (attached) {
+            AttachThreadInput(ownThread, frontThread, FALSE);
+        }
+    }
+    if (GetForegroundWindow() != hwnd) {
+        wchar_t name[128] = L"";
+        HWND front = GetForegroundWindow();
+        if (front == nullptr || GetClassNameW(front, name, 128) == 0) {
+            wcscpy_s(name, L"none");
+        }
+        std::string message = "Windows did not bring the window to the front (in front: " + winrt::to_string(name) + ")";
+        return fail(where, message.c_str());
+    }
+    inputAt = [hwnd, transform, scale, left, top, width, height](double x, double y, DWORD flags) {
+        wf::Point point = transform.TransformPoint(wf::Point{static_cast<float>(x), static_cast<float>(y)});
+        POINT pixel{static_cast<LONG>(std::lround(point.X * scale)), static_cast<LONG>(std::lround(point.Y * scale))};
+        if (!ClientToScreen(hwnd, &pixel)) {
+            throw winrt::hresult_error(E_FAIL, L"the window's position on the screen is unknown");
+        }
+        INPUT input{};
+        input.type = INPUT_MOUSE;
+        // Rounded up: the pixel itself whether Windows maps back by truncating or by rounding.
+        input.mi.dx = static_cast<LONG>(std::min(std::ceil((pixel.x - left) * 65536.0 / width), 65535.0));
+        input.mi.dy = static_cast<LONG>(std::min(std::ceil((pixel.y - top) * 65536.0 / height), 65535.0));
+        input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK | flags;
+        return input;
+    };
+    return true;
+}
+
+// Sends `batches` through Windows' input queue, each 15 ms after the one before, as a hand moves (Windows
+// stamps each with the time it is sent). When Windows takes only part of one, `undo` (if any) is sent
+// after a first batch went through (a button left down is let up), and this fails.
+bool sendInputBatches(const char *where, std::vector<std::vector<INPUT>> &batches, INPUT const *undo) {
+    for (size_t index = 0; index < batches.size(); index++) {
+        if (index > 0) {
+            Sleep(15);
+        }
+        std::vector<INPUT> &inputs = batches[index];
+        // Cleared first: SendInput does not always set it, and an earlier call's error would be reported.
+        ::SetLastError(0);
+        UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+        if (sent != inputs.size()) {
+            DWORD error = GetLastError();
+            if (index > 0 && undo != nullptr) {
+                INPUT again = *undo;
+                SendInput(1, &again, sizeof(INPUT));
+            }
+            if (error != 0) {
+                throw winrt::hresult_error(HRESULT_FROM_WIN32(error));
+            }
+            return fail(where, "Windows took only part of the pointer's input (another program's input in the way?)");
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 } // namespace actionui_winui
@@ -341,75 +440,16 @@ bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window) {
 bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double fromX, double fromY,
                                  double toX, double toY) {
     return guarded("window send drag", [&]() {
-        mux::Window typed = windowFrom(window);
-        mux::UIElement target = objectAs<mux::UIElement>(element, L"UIElement");
         if (!std::isfinite(fromX) || !std::isfinite(fromY) || !std::isfinite(toX) || !std::isfinite(toY)) {
             return fail("window send drag", "a point is not finite");
         }
-        mux::UIElement content = typed.Content();
-        if (content == nullptr || target.XamlRoot() == nullptr || target.XamlRoot() != content.XamlRoot()) {
-            return fail("window send drag", "the element is not shown in the window");
-        }
-        HWND hwnd = nullptr;
-        winrt::check_hresult(typed.as<::IWindowNative>()->get_WindowHandle(&hwnd));
-        // The element's points in the window's content (its client area), then in physical pixels on
-        // the screen: SendInput takes the whole desktop as 0 to 65535 each way.
-        mux::Media::GeneralTransform transform = target.TransformToVisual(nullptr);
-        double scale = windowScale(typed);
-        int left = GetSystemMetrics(SM_XVIRTUALSCREEN);
-        int top = GetSystemMetrics(SM_YVIRTUALSCREEN);
-        int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-        if (width <= 1 || height <= 1) {
-            return fail("window send drag", "no desktop to send the pointer's input to");
-        }
-        auto inputAt = [&](double x, double y, DWORD flags) {
-            wf::Point point = transform.TransformPoint(wf::Point{static_cast<float>(x), static_cast<float>(y)});
-            POINT pixel{static_cast<LONG>(std::lround(point.X * scale)), static_cast<LONG>(std::lround(point.Y * scale))};
-            if (!ClientToScreen(hwnd, &pixel)) {
-                throw winrt::hresult_error(E_FAIL, L"the window's position on the screen is unknown");
-            }
-            INPUT input{};
-            input.type = INPUT_MOUSE;
-            // Rounded up: the pixel itself whether Windows maps back by truncating or by rounding.
-            input.mi.dx = static_cast<LONG>(std::min(std::ceil((pixel.x - left) * 65536.0 / width), 65535.0));
-            input.mi.dy = static_cast<LONG>(std::min(std::ceil((pixel.y - top) * 65536.0 / height), 65535.0));
-            input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK | flags;
-            return input;
-        };
-        // Input goes to the desktop the user sees: a program on another one (a service's) has none to send.
-        HDESK input = OpenInputDesktop(0, FALSE, DESKTOP_READOBJECTS);
-        if (input == nullptr) {
-            return fail("window send drag", "no access to the desktop that takes the mouse's input (not an interactive session?)");
-        }
-        CloseDesktop(input);
-        // In front, so the pointer's input goes to it. Windows lets only the program the user last worked
-        // with bring a window to the front (a test runner's may be another): sharing the front window's
-        // input state for a moment lets this one.
-        SetForegroundWindow(hwnd);
-        if (GetForegroundWindow() != hwnd) {
-            HWND front = GetForegroundWindow();
-            DWORD frontThread = front != nullptr ? GetWindowThreadProcessId(front, nullptr) : 0;
-            DWORD ownThread = GetCurrentThreadId();
-            bool attached = frontThread != 0 && frontThread != ownThread && AttachThreadInput(ownThread, frontThread, TRUE);
-            BringWindowToTop(hwnd);
-            SetForegroundWindow(hwnd);
-            if (attached) {
-                AttachThreadInput(ownThread, frontThread, FALSE);
-            }
-        }
-        if (GetForegroundWindow() != hwnd) {
-            wchar_t name[128] = L"";
-            HWND front = GetForegroundWindow();
-            if (front == nullptr || GetClassNameW(front, name, 128) == 0) {
-                wcscpy_s(name, L"none");
-            }
-            std::string message = "Windows did not bring the window to the front (in front: " + winrt::to_string(name) + ")";
-            return fail("window send drag", message.c_str());
+        std::function<INPUT(double, double, DWORD)> inputAt;
+        if (!realPointerInput("window send drag", window, element, inputAt)) {
+            return false;
         }
         // Pressed at the start, moved there in steps, released at the end, each step sent apart from
-        // the one before as a hand moves (Windows stamps each with the time it is sent): sent at once,
-        // the drag would read as a flick far faster than a hand's, and a map would glide away.
+        // the one before as a hand moves: sent at once, the drag would read as a flick far faster than
+        // a hand's, and a map would glide away.
         std::vector<std::vector<INPUT>> batches;
         batches.push_back({inputAt(fromX, fromY, 0), inputAt(fromX, fromY, MOUSEEVENTF_LEFTDOWN)});
         constexpr int steps = 8;
@@ -417,29 +457,46 @@ bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObjec
             double fraction = static_cast<double>(step) / steps;
             batches.push_back({inputAt(fromX + (toX - fromX) * fraction, fromY + (toY - fromY) * fraction, 0)});
         }
-        batches.push_back({inputAt(toX, toY, MOUSEEVENTF_LEFTUP)});
-        for (size_t index = 0; index < batches.size(); index++) {
-            if (index > 0) {
-                Sleep(15);
-            }
-            std::vector<INPUT> &inputs = batches[index];
-            // Cleared first: SendInput does not always set it, and an earlier call's error would be reported.
-            ::SetLastError(0);
-            UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
-            if (sent != inputs.size()) {
-                DWORD error = GetLastError();
-                // The button is not left down.
-                if (index > 0) {
-                    INPUT up = inputAt(toX, toY, MOUSEEVENTF_LEFTUP);
-                    SendInput(1, &up, sizeof(INPUT));
-                }
-                if (error != 0) {
-                    throw winrt::hresult_error(HRESULT_FROM_WIN32(error));
-                }
-                return fail("window send drag", "Windows took only part of the pointer's input (another program's input in the way?)");
-            }
+        INPUT up = inputAt(toX, toY, MOUSEEVENTF_LEFTUP);
+        batches.push_back({up});
+        // The button is not left down.
+        return sendInputBatches("window send drag", batches, &up);
+    });
+}
+
+bool actionUIWinUIWindowSendWheel(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double x, double y,
+                                  double notchesX, double notchesY) {
+    return guarded("window send wheel", [&]() {
+        if (!std::isfinite(x) || !std::isfinite(y)) {
+            return fail("window send wheel", "the point is not finite");
         }
-        return true;
+        if (!(std::fabs(notchesX) <= 100) || !(std::fabs(notchesY) <= 100)) {
+            return fail("window send wheel", "a turn is not finite or more than 100 notches");
+        }
+        std::function<INPUT(double, double, DWORD)> inputAt;
+        if (!realPointerInput("window send wheel", window, element, inputAt)) {
+            return false;
+        }
+        // The wheel turns where the pointer is: moved there first, as a hand moves before it scrolls.
+        std::vector<std::vector<INPUT>> batches;
+        batches.push_back({inputAt(x, y, 0)});
+        // A notch is WHEEL_DELTA; Windows counts a turn away from the user (toward the top) as positive,
+        // and a tilt toward the right.
+        if (notchesY != 0) {
+            INPUT wheel{};
+            wheel.type = INPUT_MOUSE;
+            wheel.mi.dwFlags = MOUSEEVENTF_WHEEL;
+            wheel.mi.mouseData = static_cast<DWORD>(static_cast<LONG>(std::lround(-notchesY * WHEEL_DELTA)));
+            batches.push_back({wheel});
+        }
+        if (notchesX != 0) {
+            INPUT tilt{};
+            tilt.type = INPUT_MOUSE;
+            tilt.mi.dwFlags = MOUSEEVENTF_HWHEEL;
+            tilt.mi.mouseData = static_cast<DWORD>(static_cast<LONG>(std::lround(notchesX * WHEEL_DELTA)));
+            batches.push_back({tilt});
+        }
+        return sendInputBatches("window send wheel", batches, nullptr);
     });
 }
 

@@ -19,10 +19,17 @@
    fallback writes %x and %R); numbers are plain digits with a period, rounded to the axis's fraction
    digits (Linux's fallback without ICU).
 
- Not yet: selection (chartXSelection and the others: the value is kept, not changed by the pointer),
- scrolling (a scrolling axis shows its first window), annotations (logged once, not shown), numbers in
- the user's locale (ICU, which Windows has as icu.dll, as Linux uses its ICU), the first weekday of the
- user's locale for week ticks, an accessible name from the marks.
+ Selection (chartXSelection, chartYSelection, chartAngleSelection) and scrolling (chartScrollableAxes)
+ as the Linux renderer takes them: a mouse or a pen selects a value or an angle by hovering and a range
+ by dragging; a finger selects under it while it is down, and pans a chart that scrolls; the wheel and a
+ touchpad move the scrolling axes' windows, a notch being the length shown to the power of 2/3, and leave
+ the wheel to what holds the chart once a window is held at its end. The selection is the element's
+ value (ChartSelection's JSON); a change by the user fires valueChangeActionID at once ("continuous", or
+ a cleared selection) or once it has rested 150 ms ("settled").
+
+ Not yet: annotations (logged once, not shown), numbers in the user's locale (ICU, which Windows has as
+ icu.dll, as Linux uses its ICU), the first weekday of the user's locale for week ticks, an accessible
+ name from the marks.
 */
 
 #if canImport(FoundationEssentials)
@@ -37,6 +44,8 @@ import Darwin
 import ucrt
 #endif
 import CWinUI
+// DispatchQueue: FoundationEssentials does not bring Dispatch on Windows.
+import Dispatch
 
 /// What a chart keeps: its layout and image, what it draws, and what it drew for.
 @MainActor final class ChartState {
@@ -54,6 +63,18 @@ import CWinUI
     var drawnScale: Double?
     var needsDrawing = true
     var reportedAnnotations = false
+    /// The node the user's selection is written to.
+    weak var node: RenderNode?
+    /// A press the chart took: where it went down, whether it moved, and whether a finger made it. A
+    /// press that selects a range or a touch's values has `dragStart`; a finger's pan of a scrolling chart
+    /// has `panStart`, the windows' leading edges when it began.
+    var pressPoint: ChartPoint?
+    var dragStart: ChartPoint?
+    var dragMoved = false
+    var dragTouch = false
+    var panStart: (x: Double?, y: Double?)?
+    /// Counts the writes of the selection: a "settled" action fires only when no later write came.
+    var selectionWrites = 0
 
     init(fill: FillLayout, image: WinUIObject) {
         self.fill = fill
@@ -98,7 +119,12 @@ extension Chart: ActionUIWinUIRenderer {
             ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("giving a chart's panel a background"))", .error)
         }
         let state = ChartState(fill: fill, image: image)
+        state.node = node
         node.state = state
+        ChartInput.connect(fill.panel.object) { [weak state] input in
+            guard let state else { return false }
+            return Chart.input(state, input)
+        }
         fill.arranged = { [weak state] size in
             guard let state else { return }
             drawIfNeeded(state, size: size)
@@ -179,6 +205,272 @@ extension Chart: ActionUIWinUIRenderer {
         painter.finish()
         if !actionUIWinUIDrawingFinish(drawing, state.image.pointer) {
             ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("showing the drawing"))", .error)
+        }
+    }
+
+    // MARK: Selection and scrolling
+
+    /// The settle time of a "settled" selection action (Apple's ChartSelectionBinder.settleDelay).
+    static let settleMilliseconds = 150
+
+    /// The pointer's input over the chart, as the Linux renderer takes it: a mouse or a pen selects values
+    /// by hovering and a range by dragging; a finger selects under it while it is down, and pans a chart
+    /// that scrolls; the wheel and a touchpad scroll. Returns whether the chart took the event.
+    static func input(_ state: ChartState, _ input: ActionUIWinUIPointerInput) -> Bool {
+        let point = ChartPoint(x: input.x, y: input.y)
+        switch input.kind {
+        case ActionUIWinUIPointerInputPressed:
+            return pressed(state, at: point, touch: input.touch)
+        case ActionUIWinUIPointerInputMoved:
+            if let start = state.panStart, let origin = state.pressPoint {
+                pan(state, from: start, dx: point.x - origin.x, dy: point.y - origin.y)
+                return true
+            }
+            // A mouse or a pen: the values follow it, during a drag too.
+            if !input.touch {
+                hover(state, at: point)
+            }
+            guard let start = state.dragStart else { return false }
+            if point.x != start.x || point.y != start.y || state.dragMoved {
+                state.dragMoved = true
+                dragged(state, from: start, to: point, touch: state.dragTouch)
+            }
+            return true
+        case ActionUIWinUIPointerInputReleased:
+            let took = ended(state)
+            // A leave during the press was not acted on, and Windows may not report it again after the
+            // release: a mouse or a pen let go outside the chart clears what follows it.
+            if took, !input.touch, let size = state.drawnSize,
+               point.x < 0 || point.y < 0 || point.x > size.width || point.y > size.height {
+                clearValues(state)
+            }
+            return took
+        case ActionUIWinUIPointerInputCanceled:
+            // After a release Windows reports the capture's end too: nothing is held then.
+            _ = ended(state)
+            return false
+        case ActionUIWinUIPointerInputExited:
+            guard state.dragStart == nil, state.panStart == nil else { return false }
+            clearValues(state)
+            return false
+        case ActionUIWinUIPointerInputWheel:
+            return scrolled(state, dx: input.wheelX, dy: input.wheelY)
+        default:
+            return false
+        }
+    }
+
+    private static func pressed(_ state: ChartState, at point: ChartPoint, touch: Bool) -> Bool {
+        // One press at a time: a second finger is not taken while the first holds the chart (Windows does not
+        // say here which pointer a move is from).
+        guard state.pressPoint == nil else { return false }
+        // A finger on a scrolling chart moves its window.
+        if touch, state.geometry.xScroll != nil || state.geometry.yScroll != nil {
+            state.panStart = state.scroll
+            state.pressPoint = point
+            return true
+        }
+        let spec = state.spec.selection
+        let selectsRange = spec.x == .range || spec.y == .range
+        // Only a chart that selects takes the press; another leaves it to what holds the chart.
+        guard selectsRange || (touch && !spec.isEmpty) else { return false }
+        state.pressPoint = point
+        state.dragStart = point
+        state.dragMoved = false
+        state.dragTouch = touch
+        // A finger shows the values under it at once; a range waits for the drag to move.
+        if touch {
+            write(state) { setValues(&$0, state, at: point) }
+        }
+        return true
+    }
+
+    /// The press the chart took ended (a release or a cancel): a pan stops; a drag's range and a finger's
+    /// values go, as Swift Charts clears them. Returns whether a press was held.
+    private static func ended(_ state: ChartState) -> Bool {
+        state.pressPoint = nil
+        if state.panStart != nil {
+            state.panStart = nil
+            return true
+        }
+        guard state.dragStart != nil else { return false }
+        state.dragStart = nil
+        let touch = state.dragTouch
+        // A click that did not move selected no range: there is nothing to clear.
+        guard state.dragMoved || touch else { return true }
+        write(state) { selection in
+            let spec = state.spec.selection
+            if spec.x == .range || (touch && spec.x == .value) { selection.x = nil }
+            if spec.y == .range || (touch && spec.y == .value) { selection.y = nil }
+            if touch && spec.angle {
+                selection.angle = nil
+                selection.row = nil
+            }
+        }
+        return true
+    }
+
+    /// A wheel's turn of (dx, dy) notches: moves the windows of the axes that scroll, a notch being the
+    /// length shown to the power of 2/3, as GTK's scrolled window steps (the Linux renderer's rule).
+    /// Returns whether a window moved; one held at its end leaves the wheel to what holds the chart.
+    private static func scrolled(_ state: ChartState, dx: Double, dy: Double) -> Bool {
+        let geometry = state.geometry
+        guard geometry.xScroll != nil || geometry.yScroll != nil else { return false }
+        var dx = dx, dy = dy
+        // Only the horizontal axis scrolls: a vertical wheel moves it.
+        if geometry.yScroll == nil, dx == 0 {
+            (dx, dy) = (dy, 0)
+        }
+        dx *= pow(geometry.plot.width, 2.0 / 3)
+        dy *= pow(geometry.plot.height, 2.0 / 3)
+        return move(state, from: state.scroll, dx: dx, dy: dy)
+    }
+
+    /// A finger's pan by (dx, dy) points from where the windows were when it began: the content follows
+    /// the finger.
+    private static func pan(_ state: ChartState, from start: (x: Double?, y: Double?), dx: Double, dy: Double) {
+        _ = move(state, from: start, dx: -dx, dy: -dy)
+    }
+
+    /// Moves the windows `dx` points toward the trailing edge and `dy` points down from `start`, and draws
+    /// the chart again.
+    private static func move(_ state: ChartState, from start: (x: Double?, y: Double?), dx: Double, dy: Double) -> Bool {
+        let geometry = state.geometry
+        var next = state.scroll
+        // Down the plot: lower numbers on a rising axis (points per unit below 0), later bands and dates.
+        if let window = geometry.xScroll, let leading = start.x, window.pointsPerUnit != 0 {
+            next.x = window.held(leading + dx / window.pointsPerUnit)
+        }
+        if let window = geometry.yScroll, let leading = start.y, window.pointsPerUnit != 0 {
+            next.y = window.held(leading + dy / window.pointsPerUnit)
+        }
+        guard next.x != state.scroll.x || next.y != state.scroll.y else { return false }
+        state.scroll = next
+        state.needsDrawing = true
+        if let size = state.drawnSize {
+            drawIfNeeded(state, size: size)
+        }
+        return true
+    }
+
+    /// The pointer over the chart: the values and the angle selected by value follow it.
+    private static func hover(_ state: ChartState, at point: ChartPoint) {
+        let spec = state.spec.selection
+        guard spec.x == .value || spec.y == .value || spec.angle else { return }
+        write(state) { selection in
+            setValues(&selection, state, at: point)
+        }
+    }
+
+    private static func setValues(_ selection: inout ChartSelection, _ state: ChartState, at point: ChartPoint) {
+        let spec = state.spec.selection
+        let geometry = state.geometry
+        if spec.x == .value {
+            selection.x = ChartSelectionHit.value(at: point, .horizontal, type: spec.xType, geometry: geometry).map { .value($0) }
+        }
+        if spec.y == .value {
+            selection.y = ChartSelectionHit.value(at: point, .vertical, type: spec.yType, geometry: geometry).map { .value($0) }
+        }
+        if spec.angle {
+            let hit = ChartSelectionHit.angle(at: point, marks: state.marks, type: spec.angleType, geometry: geometry)
+            selection.angle = hit?.angle
+            selection.row = hit?.row
+        }
+    }
+
+    /// A drag from `start` to `end`: the range it covers on an axis that selects a range, and for a finger
+    /// the values under it.
+    private static func dragged(_ state: ChartState, from start: ChartPoint, to end: ChartPoint, touch: Bool) {
+        let spec = state.spec.selection
+        write(state) { selection in
+            if spec.x == .range {
+                selection.x = ChartSelectionHit.range(from: start, to: end, .horizontal, type: spec.xType, geometry: state.geometry)
+            }
+            if spec.y == .range {
+                selection.y = ChartSelectionHit.range(from: start, to: end, .vertical, type: spec.yType, geometry: state.geometry)
+            }
+            if touch {
+                setValues(&selection, state, at: end)
+            }
+        }
+    }
+
+    /// The pointer left the chart: what follows it goes.
+    private static func clearValues(_ state: ChartState) {
+        let spec = state.spec.selection
+        write(state) { selection in
+            if spec.x == .value { selection.x = nil }
+            if spec.y == .value { selection.y = nil }
+            if spec.angle {
+                selection.angle = nil
+                selection.row = nil
+            }
+        }
+    }
+
+    /// Applies `change` to the selection the value holds, stores it when it differs, and fires the action
+    /// as selectionActionTiming says. The sync the new value causes draws the marks that read it.
+    private static func write(_ state: ChartState, _ change: (inout ChartSelection) -> Void) {
+        guard let node = state.node, node.isAttached, !state.spec.selection.isEmpty else { return }
+        let spec = state.spec.selection
+        let before = node.model.value as? String ?? ""
+        var selection = ChartSelection.decode(before, spec: spec)
+        change(&selection)
+        let after = selection.encode(spec: spec)
+        guard after != before else { return }
+        node.model.value = after
+        state.selectionWrites += 1
+        let props = Props(node.properties)
+        guard let actionID = props.valueChangeActionID else { return }
+        let windowUUID = node.windowModel.windowUUID
+        let viewID = node.element.id
+        let origin = LinkTrust.origin(node)
+        let fire = { ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0, origin: origin) }
+        if props.selectionActionTiming == .continuous || after.isEmpty {
+            fire()
+            return
+        }
+        let count = state.selectionWrites
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(settleMilliseconds)) { [weak state] in
+            MainActor.assumeIsolated {
+                guard let state, state.selectionWrites == count, state.node?.isAttached == true else { return }
+                fire()
+            }
+        }
+    }
+}
+
+/// Swift closures as a chart's pointer input handler (actionUIWinUIElementOnPointerInput), held by the
+/// shim as WinUIEvents' handlers are.
+@MainActor private final class ChartInputBox {
+    let action: @MainActor (ActionUIWinUIPointerInput) -> Bool
+
+    init(_ action: @escaping @MainActor (ActionUIWinUIPointerInput) -> Bool) {
+        self.action = action
+    }
+}
+
+private let fireChartInput: ActionUIWinUIPointerInputCallback = { context, input in
+    guard let context, let input else { return false }
+    let box = Unmanaged<ChartInputBox>.fromOpaque(context).takeUnretainedValue()
+    let event = input.pointee
+    return MainActor.assumeIsolated {
+        box.action(event)
+    }
+}
+
+private let releaseChartInput: ActionUIWinUICallback = { context in
+    guard let context else { return }
+    Unmanaged<ChartInputBox>.fromOpaque(context).release()
+}
+
+@MainActor enum ChartInput {
+    /// Reports `element`'s pointer input to `action`, in its own coordinates.
+    static func connect(_ element: WinUIObject, _ action: @escaping @MainActor (ActionUIWinUIPointerInput) -> Bool) {
+        let context = Unmanaged.passRetained(ChartInputBox(action)).toOpaque()
+        // On failure the shim has already called releaseChartInput.
+        if !actionUIWinUIElementOnPointerInput(element.pointer, element.pointer, fireChartInput, context, releaseChartInput) {
+            ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("watching the pointer's input"))", .error)
         }
     }
 }

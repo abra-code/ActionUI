@@ -14,7 +14,8 @@
 #include <winrt/Windows.Foundation.Numerics.h>
 #include <winrt/Microsoft.UI.Input.h>  // InputSystemCursor
 #include <winrt/Microsoft.UI.Xaml.Input.h>
-#include <winrt/Microsoft.UI.Xaml.Media.h>  // RectangleGeometry
+#include <winrt/Microsoft.UI.Xaml.Media.h>  // RectangleGeometry, SolidColorBrush
+#include <winrt/Windows.UI.h>  // Color
 
 namespace actionui_winui {
 
@@ -130,6 +131,25 @@ struct PointerHandler {
     }
 
     ActionUIWinUIPointerCallback handler;
+    void *context;
+    ActionUIWinUICallback destroyContext;
+    dispatching::DispatcherQueue queue;
+};
+
+// What a pointer input registration holds (actionUIWinUIElementOnPointerInput), as PointerHandler.
+struct PointerInputHandler {
+    PointerInputHandler(ActionUIWinUIPointerInputCallback handler, void *context, ActionUIWinUICallback destroyContext,
+                        dispatching::DispatcherQueue queue)
+        : handler(handler), context(context), destroyContext(destroyContext), queue(std::move(queue)) {}
+    PointerInputHandler(PointerInputHandler const &) = delete;
+    PointerInputHandler &operator=(PointerInputHandler const &) = delete;
+    ~PointerInputHandler() {
+        if (destroyContext != nullptr) {
+            callOnUIThread(queue, destroyContext, context);
+        }
+    }
+
+    ActionUIWinUIPointerInputCallback handler;
     void *context;
     ActionUIWinUICallback destroyContext;
     dispatching::DispatcherQueue queue;
@@ -334,6 +354,101 @@ bool actionUIWinUIElementOnPointerDrag(ActionUIWinUIObject *element, ActionUIWin
         auto canceled = [holder](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &) {
             std::shared_ptr<PointerHandler> keep = holder;
             keep->handler(keep->context, ActionUIWinUIPointerCanceled, 0, 0);
+        };
+        target.PointerCaptureLost(canceled);
+        target.PointerCanceled(canceled);
+        return true;
+    });
+    if (!registered && holder == nullptr && destroyContext != nullptr) {
+        destroyContext(context);
+    }
+    return registered;
+}
+
+bool actionUIWinUIElementOnPointerInput(ActionUIWinUIObject *element, ActionUIWinUIObject *relativeTo,
+                                        ActionUIWinUIPointerInputCallback handler, void *context,
+                                        ActionUIWinUICallback destroyContext) {
+    std::shared_ptr<PointerInputHandler> holder;
+    bool registered = guarded("element on pointer input", [&]() {
+        if (handler == nullptr) {
+            return fail("element on pointer input", "the handler is NULL");
+        }
+        holder = std::make_shared<PointerInputHandler>(handler, context, destroyContext, currentQueue());
+        mux::UIElement target = elementFrom(element);
+        // A panel hit-tests only what is drawn in it unless it has a background: its whole area takes the input.
+        if (muxc::Panel panel = target.try_as<muxc::Panel>(); panel != nullptr && panel.Background() == nullptr) {
+            panel.Background(mux::Media::SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
+        }
+        // Weakly: the element is usually `relativeTo` or inside it, which would then keep itself alive.
+        winrt::weak_ref<mux::UIElement> relative = elementFrom(relativeTo);
+        // The event as the handler takes it: where the pointer is in `relativeTo`, what it is, and how far a
+        // wheel turned.
+        auto inputOf = [relative](ActionUIWinUIPointerInputKind kind, mux::Input::PointerRoutedEventArgs const &arguments) {
+            ActionUIWinUIPointerInput input{};
+            input.kind = kind;
+            input.touch = arguments.Pointer().PointerDeviceType() == winrt::Microsoft::UI::Input::PointerDeviceType::Touch;
+            mux::UIElement within = relative.get();
+            if (within) {
+                winrt::Microsoft::UI::Input::PointerPoint point = arguments.GetCurrentPoint(within);
+                input.x = point.Position().X;
+                input.y = point.Position().Y;
+                if (kind == ActionUIWinUIPointerInputWheel) {
+                    // A notch is 120 (WHEEL_DELTA); a turn away from the user is positive, toward the top.
+                    double notches = point.Properties().MouseWheelDelta() / 120.0;
+                    if (point.Properties().IsHorizontalMouseWheel()) {
+                        input.wheelX = notches;
+                    } else {
+                        input.wheelY = -notches;
+                    }
+                }
+            }
+            return input;
+        };
+        auto report = [holder, inputOf](ActionUIWinUIPointerInputKind kind, mux::Input::PointerRoutedEventArgs const &arguments) {
+            ActionUIWinUIPointerInput input = inputOf(kind, arguments);
+            std::shared_ptr<PointerInputHandler> keep = holder;
+            return keep->handler(keep->context, &input);
+        };
+        target.PointerPressed([holder, report](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            // The primary button, a pen or a finger.
+            if (!arguments.GetCurrentPoint(nullptr).Properties().IsLeftButtonPressed()) {
+                return;
+            }
+            if (report(ActionUIWinUIPointerInputPressed, arguments)) {
+                arguments.Handled(true);
+                // Without the capture the moves would not follow the press out of the element.
+                if (!sender.as<mux::UIElement>().CapturePointer(arguments.Pointer())) {
+                    ActionUIWinUIPointerInput input{};
+                    input.kind = ActionUIWinUIPointerInputCanceled;
+                    std::shared_ptr<PointerInputHandler> keep = holder;
+                    keep->handler(keep->context, &input);
+                }
+            }
+        });
+        target.PointerMoved([report](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &arguments) {
+            if (report(ActionUIWinUIPointerInputMoved, arguments)) {
+                arguments.Handled(true);
+            }
+        });
+        target.PointerReleased([report](wf::IInspectable const &sender, mux::Input::PointerRoutedEventArgs const &arguments) {
+            if (report(ActionUIWinUIPointerInputReleased, arguments)) {
+                arguments.Handled(true);
+            }
+            sender.as<mux::UIElement>().ReleasePointerCapture(arguments.Pointer());
+        });
+        target.PointerExited([report](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &arguments) {
+            report(ActionUIWinUIPointerInputExited, arguments);
+        });
+        target.PointerWheelChanged([report](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &arguments) {
+            if (report(ActionUIWinUIPointerInputWheel, arguments)) {
+                arguments.Handled(true);
+            }
+        });
+        auto canceled = [holder](wf::IInspectable const &, mux::Input::PointerRoutedEventArgs const &) {
+            ActionUIWinUIPointerInput input{};
+            input.kind = ActionUIWinUIPointerInputCanceled;
+            std::shared_ptr<PointerInputHandler> keep = holder;
+            keep->handler(keep->context, &input);
         };
         target.PointerCaptureLost(canceled);
         target.PointerCanceled(canceled);

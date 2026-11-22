@@ -21,6 +21,9 @@
 //   --expect-row-name ID ROW NAME  fails unless accessibility tools name List ID's row ROW (from 0) NAME
 //   --drag ID X1 Y1 X2 Y2    drags with the real mouse from (X1, Y1) to (X2, Y2) in element ID's
 //                            coordinates, as a user does (it moves the pointer of whoever runs it)
+//   --wheel ID X Y DX DY     turns the real mouse wheel over (X, Y) in element ID's coordinates, DY
+//                            notches toward the bottom (a wheel turned toward the user) and the tilt
+//                            wheel DX notches toward the right, as a user does (it moves the pointer)
 //   --expect-width ID W      fails unless element ID (its frame in its parent) is W wide, within half a
 //                            point (a split view's pane after a drag)
 //   --invoke-menu-item ID N  the same as --invoke with the Nth item (from 0) of Menu ID's menu (separators
@@ -94,13 +97,13 @@ final class Preview {
 
     enum Operation {
         case invoke(Int), invokeRow(Int, Int), invokePart(Int, Int), selectPart(Int, Int), toggle(Int), setText(Int, String), scroll(Int, Double, Double), scrollRow(Int, Int), expectRowName(Int, Int, String), invokeMenuItem(Int, Int), toggleMenuItem(Int, Int),
-             drag(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int), expectState(Int, String, String), expectAutomation(Int, String, String),
+             drag(Int, Double, Double, Double, Double), wheel(Int, Double, Double, Double, Double), expectWidth(Int, Double), delay(Int), expectState(Int, String, String), expectAutomation(Int, String, String),
              setProperty(Int, String, String), setValue(Int, String), addRow(Int, String), addRows(Int, Int, String), setPath(Int, [Int]), setState(Int, String, String), wait
 
         var viewID: Int {
             switch self {
             case .invoke(let id), .invokeRow(let id, _), .invokePart(let id, _), .selectPart(let id, _), .toggle(let id), .setText(let id, _), .scroll(let id, _, _), .scrollRow(let id, _), .expectRowName(let id, _, _), .invokeMenuItem(let id, _), .toggleMenuItem(let id, _), .setProperty(let id, _, _), .setValue(let id, _),
-                 .drag(let id, _, _, _, _), .expectWidth(let id, _), .expectState(let id, _, _), .expectAutomation(let id, _, _),
+                 .drag(let id, _, _, _, _), .wheel(let id, _, _, _, _), .expectWidth(let id, _), .expectState(let id, _, _), .expectAutomation(let id, _, _),
                  .addRow(let id, _), .addRows(let id, _, _), .setPath(let id, _), .setState(let id, _, _):
                 return id
             case .wait, .delay:
@@ -112,7 +115,7 @@ final class Preview {
         /// input as the UI thread takes it), so an operation on screen after it waits.
         var showsLater: Bool {
             switch self {
-            case .setProperty, .setValue, .addRow, .addRows, .setPath, .setState, .wait, .drag, .delay: true
+            case .setProperty, .setValue, .addRow, .addRows, .setPath, .setState, .wait, .drag, .wheel, .delay: true
             case .invoke, .invokeRow, .invokePart, .selectPart, .toggle, .setText, .scroll, .scrollRow, .expectRowName, .invokeMenuItem, .toggleMenuItem, .expectWidth, .expectState, .expectAutomation: false
             }
         }
@@ -120,8 +123,11 @@ final class Preview {
         /// Whether it operates an element on screen, so it waits for an earlier change to be shown. A
         /// drag does both: it reads where the element is now, and its input reaches the screen later.
         var operatesOnScreen: Bool {
-            if case .drag = self {
+            switch self {
+            case .drag, .wheel:
                 return true
+            default:
+                break
             }
             return !showsLater
         }
@@ -343,6 +349,9 @@ final class Preview {
             case .drag(_, let fromX, let fromY, let toX, let toY):
                 worked = window.map { actionUIWinUIWindowSendDrag($0.pointer, view.pointer, fromX, fromY, toX, toY) } ?? false
                 what = "dragged from (\(fromX), \(fromY)) to (\(toX), \(toY)) in"
+            case .wheel(_, let x, let y, let notchesX, let notchesY):
+                worked = window.map { actionUIWinUIWindowSendWheel($0.pointer, view.pointer, x, y, notchesX, notchesY) } ?? false
+                what = "turned the wheel (\(notchesX), \(notchesY)) notches at (\(x), \(y)) in"
             case .expectWidth(_, let expected):
                 let width = node.outerView?.layoutFrame.width ?? 0
                 // A wrong width is reported here: the shim has no error for it.
@@ -587,7 +596,7 @@ final class RecordingLogger: ActionUILogger {
     }
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--configuration JSON]"
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--configuration JSON]"
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -646,6 +655,11 @@ while index < arguments.count {
               let fromX = Double(arguments[index + 2]), let fromY = Double(arguments[index + 3]),
               let toX = Double(arguments[index + 4]), let toY = Double(arguments[index + 5]) {
         preview.invocations.append(.drag(viewID, fromX, fromY, toX, toY))
+        index += 6
+    } else if option == "--wheel", index + 5 < arguments.count, let viewID = Int(arguments[index + 1]),
+              let x = Double(arguments[index + 2]), let y = Double(arguments[index + 3]),
+              let notchesX = Double(arguments[index + 4]), let notchesY = Double(arguments[index + 5]) {
+        preview.invocations.append(.wheel(viewID, x, y, notchesX, notchesY))
         index += 6
     } else if option == "--expect-width", index + 2 < arguments.count, let viewID = Int(arguments[index + 1]),
               let width = Double(arguments[index + 2]) {

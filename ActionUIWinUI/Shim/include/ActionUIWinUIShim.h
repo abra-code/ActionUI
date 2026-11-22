@@ -138,6 +138,13 @@ ACTIONUI_WINUI_API bool actionUIWinUIShareLink(ActionUIWinUIObject *element, con
 // over the points; the element sees the drag as the UI thread runs after this returns.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double fromX,
                                                     double fromY, double toX, double toY);
+// Turns the real mouse wheel, as a user does, for tests: moves the pointer to (x, y) in `element`'s
+// coordinates through Windows' input queue, then turns the wheel `notchesY` notches toward the bottom
+// (a wheel turned toward the user; negative: toward the top) and the tilt wheel `notchesX` notches toward
+// the right, each a whole wheel step (WHEEL_DELTA) or a part of one, at most 100 either way. It
+// moves the user's pointer; `window` is brought to the front as actionUIWinUIWindowSendDrag brings it.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowSendWheel(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double x,
+                                                     double y, double notchesX, double notchesY);
 
 // MARK: - Text
 
@@ -597,6 +604,49 @@ typedef bool (*ActionUIWinUIPointerCallback)(void *context, ActionUIWinUIPointer
 ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerDrag(ActionUIWinUIObject *element, ActionUIWinUIObject *relativeTo,
                                                           ActionUIWinUIPointerCallback handler, void *context,
                                                           ActionUIWinUICallback destroyContext);
+
+typedef enum ActionUIWinUIPointerInputKind {
+    // The primary button, a pen or a finger went down on the element.
+    ActionUIWinUIPointerInputPressed = 0,
+    // The pointer moved over the element with or without a press, or anywhere while a press the
+    // element took holds it.
+    ActionUIWinUIPointerInputMoved = 1,
+    ActionUIWinUIPointerInputReleased = 2,
+    // A press the element took ended without a release (the capture was lost, the input canceled).
+    // Windows also reports the capture's end right after a release: a cancel with no press held is that.
+    ActionUIWinUIPointerInputCanceled = 3,
+    // The pointer left the element. While a press it took holds the pointer, Windows may report this
+    // then or only at the release; the moves keep coming either way.
+    ActionUIWinUIPointerInputExited = 4,
+    // The mouse wheel or a touchpad scrolled over the element: `wheelX` and `wheelY` say how far.
+    ActionUIWinUIPointerInputWheel = 5,
+} ActionUIWinUIPointerInputKind;
+
+typedef struct ActionUIWinUIPointerInput {
+    ActionUIWinUIPointerInputKind kind;
+    // The pointer's position in `relativeTo`'s coordinates (0, 0 for a cancel, or once `relativeTo` is gone).
+    double x;
+    double y;
+    // A finger on a touchscreen (not a mouse, a pen or a touchpad).
+    bool touch;
+    // Wheel only: in wheel notches (WHEEL_DELTA each, a touchpad's in parts of one), x toward the right,
+    // y toward the bottom (a wheel turned toward the user).
+    double wheelX;
+    double wheelY;
+} ActionUIWinUIPointerInput;
+
+// Called on the UI thread; returns whether the element takes the event: a press it takes captures the
+// pointer, so the moves and the release that follow come to it wherever the pointer goes; a wheel it takes
+// does not reach what is around it (a scroll view), one it leaves does.
+typedef bool (*ActionUIWinUIPointerInputCallback)(void *context, const ActionUIWinUIPointerInput *input);
+
+// Reports `element`'s pointer input to `handler` until the element is gone (destroyContext then, on the UI
+// thread; at once when this fails): presses, moves (hovering too), releases, cancels, leaving and the
+// wheel. `relativeTo` (usually the element itself or one around it, held weakly) gives the coordinates.
+// A panel with no background gets a transparent one, so its whole area takes the input.
+ACTIONUI_WINUI_API bool actionUIWinUIElementOnPointerInput(ActionUIWinUIObject *element, ActionUIWinUIObject *relativeTo,
+                                                           ActionUIWinUIPointerInputCallback handler, void *context,
+                                                           ActionUIWinUICallback destroyContext);
 
 // MARK: - Styling
 
