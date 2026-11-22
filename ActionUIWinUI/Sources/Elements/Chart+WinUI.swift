@@ -33,8 +33,11 @@
  draws them, and along a scrolling axis only within the plot. Past 1000 annotations the marks are drawn
  without them, as Swift Charts does.
 
+ Accessibility tools read the chart as its image, named by what its marks say (their accessibilityLabel
+ and accessibilityValue), as on Linux, unless the chart has an accessibilityLabel of its own.
+
  Not yet: numbers in the user's locale (ICU, which Windows has as icu.dll, as Linux uses its ICU), the
- first weekday of the user's locale for week ticks, an accessible name from the marks.
+ first weekday of the user's locale for week ticks.
 */
 
 #if canImport(FoundationEssentials)
@@ -104,6 +107,17 @@ import Dispatch
 
 extension Chart: ActionUIWinUIRenderer {
     static var defaultExpansion: Expansion { .both }
+
+    /// What accessibility tools read as the chart: its image (they do not see ActionUI's own panels).
+    static func accessibleObject(_ view: WinUIObject, _ node: RenderNode) -> WinUIObject {
+        (node.state as? ChartState)?.image ?? view
+    }
+
+    /// Named by what its marks say (their accessibilityLabel and accessibilityValue, the first 100 marks),
+    /// as the Linux renderer names its chart; an accessibilityLabel on the chart itself comes first.
+    static func defaultAccessibleName(_ node: RenderNode) -> String? {
+        (node.state as? ChartState)?.marks.accessibleName
+    }
 
     /// Swift Charts' axis text next to body text (caption2), as the Linux renderer sizes it.
     static let axisFontSize = 14.0 * 0.8

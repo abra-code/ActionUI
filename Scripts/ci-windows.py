@@ -75,7 +75,9 @@ SMOKE_TIMEOUT_SECONDS = 180
 # is copied), and "{program_folder_upper}" the same in upper case.
 PREVIEW_OPTIONS = {
     # The two chart documents at sizes that show their charts whole (the second has two columns).
-    "Charts": ["560", "720"],
+    # Chart 16 is named by its marks' accessibilityLabel and accessibilityValue, read through UI Automation.
+    "Charts": ["560", "720", "--expect-automation", "16", "name",
+               "Swift, 42 projects; Kotlin, 31 projects; JavaScript, 27 projects; Rust, 12 projects"],
     "ChartTypes": ["760", "720"],
     "ChartAnnotations": ["600", "720"],
     # Selection with the real mouse (x64): a drag across the range chart (3; its range goes at the release),
