@@ -1,13 +1,14 @@
 // Sources/Formatting/DateFormatting.swift
 /*
- Dates as the user's locale writes them, for a DatePicker's label: ICU's pattern for a CLDR
- skeleton (yMMMd: "Jul 16, 2024" in en_US, "16. Juli 2024" in de_DE; jm: a time; yMMMdjm: both),
- from the same Unicode locale data (CLDR) SwiftUI's FormatStyle uses on Apple, so the two agree
- except where their data versions differ.
+ Dates as the user's locale writes them, for a DatePicker's label and a chart's axis: ICU's pattern
+ for a CLDR skeleton (yMMMd: "Jul 16, 2024" in en_US, "16. Juli 2024" in de_DE; jm: a time;
+ yMMMdjm: both), from the same Unicode locale data (CLDR) SwiftUI's FormatStyle uses on Apple, so
+ the two agree except where their data versions differ.
 
- Without ICU (ICULibrary), GLib's g_date_time_format in the C library's locale, which GTK sets from
- the environment at startup: %x for a date, %R for a time, both for both. An
- unknown time zone name is UTC on both paths, as ICU takes it.
+ Without ICU (ICULibrary), the platform's own short date and time, from fallbackString, which each
+ platform gives in a file of its own (Linux: GLib's, in the GTK renderer,
+ ActionUIAdwaita/Sources/Formatting/DateFormatting+GLib.swift). An unknown time zone name is UTC on
+ every path, as ICU takes it.
 
  An ICU formatter is kept per locale, time zone and skeleton: a window asks for a few, often.
 */
@@ -17,16 +18,14 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
-import CAdwaita
-import Glibc
 
 @MainActor
 enum DateFormatting {
     /// `date` as `locale` writes it in `timeZone`, in the form CLDR gives for `skeleton`. nil for
-    /// the locale the system's settings give dates (SystemLocale: LC_TIME) and the system's time
+    /// the locale the system's settings give dates (SystemLocale: time) and the system's time
     /// zone; a time zone is an IANA name ("Europe/Warsaw").
     static func string(_ date: Date, skeleton: String, locale: String? = nil, timeZone: String? = nil) -> String {
-        let key = Key(locale: locale ?? SystemLocale.icuLocale(for: LC_TIME), timeZone: timeZone, skeleton: skeleton)
+        let key = Key(locale: locale ?? SystemLocale.icuLocale(for: .time), timeZone: timeZone, skeleton: skeleton)
         if let icu = ICULibrary.shared, let text = icuString(icu, date, key) {
             return text
         }
@@ -34,9 +33,9 @@ enum DateFormatting {
     }
 
     /// The day a week starts on in `locale`, 1 for Sunday as Calendar counts; nil for the locale
-    /// the system's settings give dates (SystemLocale: LC_TIME). nil without ICU.
+    /// the system's settings give dates (SystemLocale: time). nil without ICU.
     static func firstWeekday(locale: String? = nil) -> Int? {
-        let name = locale ?? SystemLocale.icuLocale(for: LC_TIME)
+        let name = locale ?? SystemLocale.icuLocale(for: .time)
         if let known = firstWeekdays[name] { return known }
         guard let icu = ICULibrary.shared else { return nil }
         var status = ICULibrary.noError
@@ -61,7 +60,7 @@ enum DateFormatting {
 
     /// ICU's UDateFormat for each key, kept for the life of the process.
     private static var formatters: [Key: OpaquePointer] = [:]
-    /// Keys whose formatter ICU could not make: they go to GLib without asking ICU again.
+    /// Keys whose formatter ICU could not make: they go to fallbackString without asking ICU again.
     private static var failedKeys: Set<Key> = []
     private static var reportedFailure = false
 
@@ -120,28 +119,11 @@ enum DateFormatting {
         }
     }
 
-    /// Logs an ICU failure once (the call falls back to GLib).
-    private static func report(_ function: String, _ status: ICULibrary.ErrorCode, consequence: String = "dates follow the C library's locale") {
+    /// Logs an ICU failure once (the call falls back to fallbackString).
+    private static func report(_ function: String, _ status: ICULibrary.ErrorCode, consequence: String = "dates take the platform's own short form") {
         guard !reportedFailure else { return }
         reportedFailure = true
         ActionUIModel.shared.logger.log("ICU \(function) failed (status \(status)); \(consequence)", .warning)
-    }
-
-    /// GLib's %x and %R in the C library's locale, for the skeleton's date and time fields.
-    private static func fallbackString(_ date: Date, skeleton: String, timeZone: String?) -> String {
-        let hasDate = skeleton.contains { "GyYuUQqMLwWdDFgEec".contains($0) }
-        let hasTime = skeleton.contains { "jJCahHkKmsSA".contains($0) }
-        let format = [hasDate || !hasTime ? "%x" : nil, hasTime ? "%R" : nil].compactMap { $0 }.joined(separator: " ")
-        // A Date beyond Int64 seconds (or NaN) would trap in gint64(_:); GLib refuses years past 9999.
-        guard let seconds = gint64(exactly: date.timeIntervalSince1970.rounded(.down)),
-              let utc = g_date_time_new_from_unix_utc(seconds) else { return "" }
-        defer { g_date_time_unref(utc) }
-        // An unknown zone name is UTC, as ICU takes it (GMT); no name is the system's zone.
-        let zone = timeZone.map { g_time_zone_new_identifier($0) ?? g_time_zone_new_utc() } ?? g_time_zone_new_local()
-        defer { g_time_zone_unref(zone) }
-        guard let local = g_date_time_to_timezone(utc, zone) else { return "" }
-        defer { g_date_time_unref(local) }
-        return takeGString(g_date_time_format(local, format)) ?? ""
     }
 
     private static func withOptionalCString<Result>(_ string: String?, _ body: (UnsafePointer<CChar>?) -> Result) -> Result {
