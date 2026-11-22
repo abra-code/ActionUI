@@ -116,6 +116,13 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
 // `handler` runs on the UI thread when the window has closed (by the user, or actionUIWinUIWindowClose).
 ACTIONUI_WINUI_API bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
                                                     ActionUIWinUICallback destroyContext);
+// Asked on the UI thread whether the window may close when the user closes it (its close button, Alt+F4,
+// the taskbar; not actionUIWinUIWindowClose): false keeps it open.
+typedef bool (*ActionUIWinUIWindowCloseDecider)(void *context);
+// `decide` is asked about each close of the window by the user (set one per window: each one set is asked,
+// and any false keeps it open). destroyContext(context) runs once the window no longer needs it.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowOnClosing(ActionUIWinUIObject *window, ActionUIWinUIWindowCloseDecider decide,
+                                                     void *context, ActionUIWinUICallback destroyContext);
 // Opens Windows' share sheet for the window showing `element` (DataTransferManager, as a desktop app
 // shares), with the web link `url` titled `title` (the sheet needs one) and, for targets that take text
 // (a mail's body), `text` (NULL: none); a `url` that is not absolute ("example.com") is no link, so

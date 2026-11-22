@@ -51,6 +51,27 @@ package final class WinUIWindow {
         return WinUIWindow(windowModel: windowModel)
     }
 
+    /// Loads ActionUI JSON (or plist, by the address's extension) fetched from `url` into the window
+    /// model `windowUUID`, as from `finalURL` (the address it finally came from after redirects; nil:
+    /// `url`), which decides its trust (a trusted origin of the host's configuration, else less trusted),
+    /// and builds its tree. A final address Foundation cannot read, or one with a backslash or a user name
+    /// (where Windows' and Foundation's readings of the host could differ), is refused.
+    package static func load(data: Data, from url: URL, finalURL finalText: String?, windowUUID: String) throws -> WinUIWindow {
+        var source = url
+        if let finalText {
+            guard let read = URL(string: finalText), !finalText.contains("\\"), read.user == nil else {
+                throw ActionUIError("\(url.absoluteString) was redirected to an address that cannot be read")
+            }
+            source = read
+        }
+        _ = try ActionUIDocumentLoader.load(data: data, format: ActionUIDocumentLoader.format(of: url), windowUUID: windowUUID,
+                                            isContentView: true, parentID: 0, source: .remote(source))
+        guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
+            throw ActionUIError("WinUIWindow: no window model for \(windowUUID) after loading")
+        }
+        return WinUIWindow(windowModel: windowModel)
+    }
+
     /// Builds and syncs the tree for the element loaded into `windowModel`.
     init(windowModel: WindowModel) {
         self.windowModel = windowModel

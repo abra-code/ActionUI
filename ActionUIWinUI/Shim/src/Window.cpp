@@ -512,6 +512,51 @@ bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallb
     });
 }
 
+bool actionUIWinUIWindowOnClosing(ActionUIWinUIObject *window, ActionUIWinUIWindowCloseDecider decide, void *context,
+                                  ActionUIWinUICallback destroyContext) {
+    // The decider and its context, given back on the UI thread when the window's handler lets it go.
+    struct CloseDecider {
+        CloseDecider(ActionUIWinUIWindowCloseDecider decide, void *context, ActionUIWinUICallback destroyContext,
+                     dispatching::DispatcherQueue queue)
+            : decide(decide), context(context), destroyContext(destroyContext), queue(std::move(queue)) {}
+        CloseDecider(CloseDecider const &) = delete;
+        CloseDecider &operator=(CloseDecider const &) = delete;
+        ~CloseDecider() {
+            if (destroyContext != nullptr) {
+                callOnUIThread(queue, destroyContext, context);
+            }
+        }
+        ActionUIWinUIWindowCloseDecider decide;
+        void *context;
+        ActionUIWinUICallback destroyContext;
+        dispatching::DispatcherQueue queue;
+    };
+    std::shared_ptr<CloseDecider> decider;
+    bool set = guarded("window on closing", [&]() {
+        if (decide == nullptr) {
+            return fail("window on closing", "the decider is NULL");
+        }
+        mux::Window typed = windowFrom(window);
+        decider = std::make_shared<CloseDecider>(decide, context, destroyContext, currentQueue());
+        // AppWindow's Closing comes only for the user's (the system's) close, before anything closes.
+        typed.AppWindow().Closing([decider](auto &&, winrt::Microsoft::UI::Windowing::AppWindowClosingEventArgs const &args) {
+            try {
+                if (!decider->decide(decider->context)) {
+                    args.Cancel(true);
+                }
+            } catch (...) {
+                // Left to close: a decision that cannot be asked keeps nothing open.
+            }
+        });
+        return true;
+    });
+    // Not made: the context is given back here (once made, the decider gives it back).
+    if (!set && decider == nullptr && destroyContext != nullptr) {
+        destroyContext(context);
+    }
+    return set;
+}
+
 bool actionUIWinUIRenderToPNG(ActionUIWinUIObject *element, const char *path, ActionUIWinUICompletion completion,
                               void *context) {
     return guarded("render to PNG", [&]() {

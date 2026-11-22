@@ -14,19 +14,22 @@
    minimum needs more, at least 418 tall when it grows vertically, 480 x 320 when too small to say).
    Its title is the one given, else the application's name.
  - A file's document is loaded as from that file, so it is the app's own only inside the app's
-   resources (JSONContentOrigin); JSON the host passes is the host's own. A document that cannot be
-   loaded is logged and shown as its error text in the window, as on Apple.
+   resources (JSONContentOrigin); JSON the host passes is the host's own. A document at an http or https
+   address loads first (RemoteFetch: the cap on ActionUI JSON, 120 seconds, redirects only to http and
+   https) and its window appears once it has, judged by the address it finally came from, as on Linux;
+   closing the UUID meanwhile drops it, presenting it again replaces the load. A document that cannot
+   be loaded is logged and shown as its error text in the window, as on Apple.
  - Closing a window (by the user or closeWindow) fires windowWillClose, then its model is removed.
-   The user closing the last window ends the application; the host closing it (closeWindow) does not,
-   so a host can close one window before opening the next, as on Apple and Linux. Presenting a window
+   The user closing the last window (none other loading from a server) asks shouldTerminate (false
+   keeps the window open), then ends the application; the host closing it (closeWindow) does not, so a host can close one window before
+   opening the next, as on Apple and Linux. Presenting a window
    again under the same UUID replaces it, with no windowWillClose, as on Linux.
  - terminate() asks shouldTerminate, then closes every window (each firing windowWillClose) and ends
    the run; willTerminate fires as the run ends.
 
- Not yet: shouldTerminate is not asked when the user closes the last window (only by terminate);
- the become and resign active handlers are kept but not fired; the icon is kept but not
- shown; documents at an http or https address; the menu bar, the alert and the file panels; the
- remote server; window sizes are not limited to the screen.
+ Not yet: the become and resign active handlers are kept but not fired; the icon is kept but not
+ shown; the menu bar, the alert and the file panels; the remote server; window sizes are not limited
+ to the screen.
 */
 
 #if canImport(FoundationEssentials)
@@ -90,6 +93,10 @@ public final class WinUIApplication {
     private var queuedModelRemovals: Set<String> = []
     /// The windows closeWindow is closing: their closing does not end the application.
     private var closingByHost: Set<String> = []
+    /// The windows loading from a server, by UUID: the load's number, so a newer load, or a close,
+    /// makes an older one's result go unused.
+    private var loading: [String: Int] = [:]
+    private var loadCount = 0
     private var isRunning = false
     private var hasStarted = false
     /// Whether a run has begun in this process: WinUI's Application starts once.
@@ -142,6 +149,7 @@ public final class WinUIApplication {
         }
         queuedModelRemovals = []
         closingByHost = []
+        loading = [:]
         pending = []
         hasStarted = false
         isRunning = false
@@ -182,23 +190,59 @@ public final class WinUIApplication {
     /// Loads the document at `url` (a file URL or a path) into a new window showing `windowUUID`, titled
     /// `title`, else the file's name.
     public func presentWindow(url text: String, windowUUID: String, title: String?) {
-        // A file URL, else a path; an address of another scheme (a one-letter scheme is a drive,
-        // "C:\docs\a.json", so a path) is not loaded yet.
+        // A file URL, an http or https address, else a path (a one-letter scheme is a drive,
+        // "C:\docs\a.json", so a path); another scheme is not loaded.
         let fileURL: URL?
-        if let parsed = URL(string: text), let scheme = parsed.scheme, scheme.count > 1 {
+        if let parsed = URL(string: text), let scheme = parsed.scheme?.lowercased(), scheme.count > 1 {
+            if scheme == "http" || scheme == "https" {
+                presentRemote(parsed, windowUUID: windowUUID, title: title)
+                return
+            }
             fileURL = parsed.isFileURL ? parsed : nil
         } else {
             fileURL = URL(fileURLWithPath: text)
         }
         guard let fileURL else {
             present(windowUUID: windowUUID, title: title ?? text) {
-                throw ActionUIError("\(text) cannot be loaded: only files are loaded on Windows yet")
+                throw ActionUIError("\(text) cannot be loaded: only files and http and https addresses are loaded")
             }
             return
         }
         let fileName = fileURL.deletingPathExtension().lastPathComponent
         present(windowUUID: windowUUID, title: title ?? fileName) {
             try WinUIWindow.load(file: fileURL, windowUUID: windowUUID)
+        }
+    }
+
+    /// Fetches the document at the http or https `url`, then presents it in a new window showing
+    /// `windowUUID` (titled `title`, else the address's last part), judged by the address it finally
+    /// came from; before the start it waits, as other windows do.
+    private func presentRemote(_ url: URL, windowUUID: String, title: String?) {
+        guard hasStarted else {
+            pending.append((windowUUID, { [weak self] in self?.presentRemote(url, windowUUID: windowUUID, title: title) }))
+            return
+        }
+        loadCount += 1
+        let number = loadCount
+        loading[windowUUID] = number
+        // "https://example.com/" has the last part "/": the whole address then, as for none.
+        let lastPart = url.deletingPathExtension().lastPathComponent
+        let shownTitle = title ?? (lastPart.isEmpty || lastPart == "/" ? url.absoluteString : lastPart)
+        let started = RemoteFetch.start(url.absoluteString) { [weak self] data, finalURL, failure in
+            // Only the newest load of a UUID still wanted (not closed, not presented again since).
+            guard let self, self.loading[windowUUID] == number else { return }
+            self.loading[windowUUID] = nil
+            self.present(windowUUID: windowUUID, title: shownTitle) {
+                guard let data else {
+                    throw ActionUIError("\(url.absoluteString) could not be loaded: \(failure ?? "the request failed")")
+                }
+                return try WinUIWindow.load(data: data, from: url, finalURL: finalURL, windowUUID: windowUUID)
+            }
+        }
+        if !started {
+            loading[windowUUID] = nil
+            let why = WinUIError.last("fetching \(url.absoluteString)")
+            present(windowUUID: windowUUID, title: shownTitle) { throw ActionUIError("\(why)") }
         }
     }
 
@@ -218,6 +262,8 @@ public final class WinUIApplication {
             pending.append((windowUUID, { [weak self] in self?.present(windowUUID: windowUUID, title: title, load) }))
             return
         }
+        // A newer presentation replaces a load still under way.
+        loading[windowUUID] = nil
         let logger = ActionUIModel.shared.logger
         // The replaced window's tree leaves the model before the new document loads into it (the
         // same WindowModel); its WinUI window closes only once the new one is up, so the application
@@ -266,15 +312,34 @@ public final class WinUIApplication {
             guard let self, let shown else { return }
             self.closed(windowUUID, shown)
         }
+        // The user closing the last window asks shouldTerminate first, as on Apple and Linux.
+        let decider = Unmanaged.passRetained(CloseBox { [weak self] in
+            self?.userMayClose(windowUUID) ?? true
+        }).toOpaque()
+        if !actionUIWinUIWindowOnClosing(window.pointer, decideClose, decider, releaseClose) {
+            logger.log("WinUIApplication: \(WinUIError.last("watching the user's closing of \(windowUUID)"))", .error)
+        }
         if !actionUIWinUIWindowActivate(window.pointer) {
             logger.log("WinUIApplication: \(WinUIError.last("showing the window for \(windowUUID)"))", .error)
         }
     }
 
+    /// Whether the user may close the window showing `windowUUID`: when it is the last one (no other
+    /// window loading from a server either, as on Linux), the shouldTerminate handler decides, as
+    /// closing it ends the application.
+    private func userMayClose(_ windowUUID: String) -> Bool {
+        // The host's own closing (closeWindow, terminate) never asks, should WinUI report it as the user's.
+        guard !closingByHost.contains(windowUUID), windows.count == 1, windows[windowUUID] != nil,
+              loading.keys.allSatisfy({ $0 == windowUUID }),
+              let shouldTerminate = handlers.shouldTerminate else { return true }
+        return shouldTerminate()
+    }
+
     /// Closes the window showing `windowUUID` (its windowWillClose handler fires as it closes).
     public func closeWindow(_ windowUUID: String) {
-        // A window still waiting for the start is dropped, as on Linux.
+        // A window still waiting for the start, or for its document from a server, is dropped, as on Linux.
         pending.removeAll { $0.windowUUID == windowUUID }
+        loading[windowUUID] = nil
         guard let shown = windows[windowUUID] else { return }
         closingByHost.insert(windowUUID)
         if !actionUIWinUIWindowClose(shown.window.pointer) {
@@ -292,6 +357,8 @@ public final class WinUIApplication {
         // Out of `windows` before the handler: a closeWindow of the UUID from it finds nothing to
         // close again, and a present of it opens a new window.
         windows[windowUUID] = nil
+        // The UUID is closed: a load replacing its window is dropped, as on Linux.
+        loading[windowUUID] = nil
         handlers.windowWillClose?(windowUUID)
         shown.tree.detach()
         // The model goes after the handler and after the disappear actions the detach queued on the
@@ -305,8 +372,35 @@ public final class WinUIApplication {
                 ActionUIModel.shared.removeWindow(windowUUID)
             }
         }
-        if windows.isEmpty, isRunning, !byHost {
+        // A window still loading from a server keeps it running: that window appears once loaded.
+        if windows.isEmpty, loading.isEmpty, isRunning, !byHost {
             actionUIWinUIQuit()
         }
     }
+}
+
+/// The decider of a window's closing by the user, held by the shim (actionUIWinUIWindowOnClosing).
+@MainActor private final class CloseBox {
+    let decide: @MainActor () -> Bool
+
+    init(_ decide: @escaping @MainActor () -> Bool) {
+        self.decide = decide
+    }
+}
+
+/// The box behind the decider's context, taken before entering the main actor (the raw pointer may not
+/// cross).
+private func closeBox(_ context: UnsafeMutableRawPointer?) -> CloseBox? {
+    context.map { Unmanaged<CloseBox>.fromOpaque($0).takeUnretainedValue() }
+}
+
+private let decideClose: ActionUIWinUIWindowCloseDecider = { context in
+    let box = closeBox(context)
+    return MainActor.assumeIsolated { box?.decide() ?? true }
+}
+
+// Gives back the reference passRetained took, once the shim lets go of the decider.
+private let releaseClose: ActionUIWinUICallback = { context in
+    guard let context else { return }
+    Unmanaged<CloseBox>.fromOpaque(context).release()
 }

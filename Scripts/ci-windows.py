@@ -769,8 +769,9 @@ def check_c_adapter(bin_path, results, summary, msvc, env):
 
 def check_c_app(bin_path, results, summary, msvc, env):
     """Builds ActionUIWinUI/Apps/CAppCheck/main.c against ActionUI.dll's import library and runs
-    it: ActionUI's application from C (ActionUIApp.h), two windows presented and closed, the handlers
-    and a value through the C adapter checked. True when every check passed."""
+    it: ActionUI's application from C (ActionUIApp.h): windows from JSON, a file and a server presented
+    and closed (by the host, then as the user, with shouldTerminate), the handlers and values through the
+    C adapter checked. True when every check passed."""
     library = bin_path / "ActionUI.lib"
     if not library.is_file():
         summary["findings"].append(f"no ActionUI.lib in {bin_path}")
@@ -779,7 +780,7 @@ def check_c_app(bin_path, results, summary, msvc, env):
     checker = bin_path / "ActionUIAppCheck.exe"
     command = [resolve_tool("cl", msvc), "/nologo", "/std:c11", "/W3", "/WX", "/MD", "/utf-8",
                f"/I{REPO_DIR / 'ActionUICAdapter' / 'include'}", f"/I{REPO_DIR / 'ActionUIAppKitApplication' / 'include'}",
-               folder / "main.c", f"/Fe{checker}", f"/Fo{bin_path}\\", "/link", library]
+               folder / "main.c", f"/Fe{checker}", f"/Fo{bin_path}\\", "/link", library, "user32.lib"]
     step = run_step("c-app-build", command, results, msvc, cwd=bin_path)
     summary["steps"].append(step)
     if step["status"] != 0:
@@ -788,7 +789,8 @@ def check_c_app(bin_path, results, summary, msvc, env):
     # The manifest the other programs have (supported OS, per-monitor DPI).
     shutil.copy2(REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest",
                  bin_path / "ActionUIAppCheck.exe.manifest")
-    step = run_step("c-app-check", [checker, folder / "Window.json"], results, env, cwd=bin_path,
+    remote = "https://raw.githubusercontent.com/abra-code/ActionUI/WinUI-CI/ActionUIWinUI/Apps/Preview/Documents/Loadable/Remote.json"
+    step = run_step("c-app-check", [checker, folder / "Window.json", remote], results, env, cwd=bin_path,
                     timeout=SMOKE_TIMEOUT_SECONDS)
     summary["steps"].append(step)
     summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
