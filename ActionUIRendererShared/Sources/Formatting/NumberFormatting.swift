@@ -25,12 +25,11 @@ import FoundationEssentials
 #else
 import Foundation
 #endif
-import Glibc
 
 @MainActor
 enum NumberFormatting {
     /// `value` as `locale` writes it in `format`; nil for the locale the system's settings give
-    /// numbers (SystemLocale: LC_NUMERIC, LC_MONETARY for a currency), or localeForTesting.
+    /// numbers (SystemLocale: numbers, money for a currency), or localeForTesting.
     static func string(_ value: Double, format: NumberFormatSpec, locale: String? = nil) -> String {
         let key = Key(format: format, locale: locale ?? localeForTesting ?? systemLocale(format))
         if let icu = ICULibrary.shared, let formatter = formatter(icu, key), let text = icuString(icu, formatter, value) {
@@ -59,11 +58,11 @@ enum NumberFormatting {
     /// The locale tests format in when they pass none, instead of the box's.
     static var localeForTesting: String?
 
-    /// The system's locale for numbers in `format`: LC_MONETARY for amounts of money, else
-    /// LC_NUMERIC.
+    /// The system's locale for numbers in `format`: the one for money for a currency, else the one
+    /// for numbers.
     private static func systemLocale(_ format: NumberFormatSpec) -> String? {
-        if case .currency = format { return SystemLocale.icuLocale(for: LC_MONETARY) }
-        return SystemLocale.icuLocale(for: LC_NUMERIC)
+        if case .currency = format { return SystemLocale.icuLocale(for: .money) }
+        return SystemLocale.icuLocale(for: .numbers)
     }
 
     private struct Key: Hashable {
@@ -178,16 +177,12 @@ enum NumberFormatting {
         }
     }
 
-    /// `value` with `digits` digits after a period, rounded (the C library's %.*f, in the C locale's
-    /// form whatever LC_NUMERIC says).
+    /// `value` with `digits` digits after a period, rounded (the C library's %.Nf in the C locale,
+    /// whatever the system's locale: NumberPrintf), at most NumberPrintf.maxLength digits.
     private static func fixed(_ value: Double, digits: Int) -> String {
         guard value.isFinite else { return String(value) }
-        var buffer = [CChar](repeating: 0, count: 400)
-        let length = withVaList([Int32(clamping: digits), value]) { vsnprintf(&buffer, buffer.count, "%.*f", $0) }
-        guard length > 0 else { return String(value) }
-        let text = String(decoding: buffer.prefix(min(Int(length), buffer.count - 1)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
-        // A locale with a decimal comma writes one; plain digits use a period.
-        return String(text.map { $0 == "," ? "." : $0 })
+        let precision = min(max(digits, 0), NumberPrintf.maxLength)
+        return NumberPrintf.format("%.\(precision)f", value, decimalSeparator: ".") ?? String(value)
     }
 
     private static func fallbackNumber(_ text: String, format: NumberFormatSpec) -> Double? {

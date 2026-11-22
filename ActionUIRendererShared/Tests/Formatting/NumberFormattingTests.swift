@@ -1,8 +1,8 @@
 // Tests/Formatting/NumberFormattingTests.swift
 /*
- Tests for numbers formatted and read by locale on Linux, through the system ICU (the box has
- libicu76), against what SwiftUI's TextField(value:format:) shows and reads on macOS 27 (measured
- in en_US and de_DE); and through plain digits when ICU is not used. No display is needed.
+ Tests for numbers formatted and read by locale, through the system's ICU (skipped without one),
+ against what SwiftUI's TextField(value:format:) shows and reads on macOS 27 (measured in en_US and
+ de_DE); and through plain digits when ICU is not used. No display is needed.
 */
 
 import XCTest
@@ -26,7 +26,8 @@ final class NumberFormattingTests: XCTestCase {
         NumberFormatting.number(from: text, format: format, locale: locale)
     }
 
-    func testEachFormatIsWrittenAsSwiftUIWritesIt() {
+    func testEachFormatIsWrittenAsSwiftUIWritesIt() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
         XCTAssertEqual(string(1234, .integer), "1,234")
         XCTAssertEqual(string(1234.5678, decimal), "1,234.5678")
         XCTAssertEqual(string(0.25, percent), "25%")
@@ -36,7 +37,8 @@ final class NumberFormattingTests: XCTestCase {
         XCTAssertEqual(string(1234.5, .currency(code: "JPY", minFraction: nil, maxFraction: nil)), "¥1,234", "the yen's own: no fraction")
     }
 
-    func testDecimalsAndPercentsShowAtMostSixFractionDigits() {
+    func testDecimalsAndPercentsShowAtMostSixFractionDigits() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
         // ICU's own defaults are 3 for a decimal and 0 for a percent.
         XCTAssertEqual(string(0.12345678901234, decimal), "0.123457")
         XCTAssertEqual(string(1.5e-7, decimal), "0")
@@ -44,7 +46,8 @@ final class NumberFormattingTests: XCTestCase {
         XCTAssertEqual(string(0.123456789, percent), "12.345679%")
     }
 
-    func testAFractionLengthReplacesTheDefault() {
+    func testAFractionLengthReplacesTheDefault() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
         XCTAssertEqual(string(1.239, .decimal(minFraction: 2, maxFraction: 2)), "1.24")
         XCTAssertEqual(string(12, .decimal(minFraction: 2, maxFraction: 2)), "12.00")
         XCTAssertEqual(string(1.5, .decimal(minFraction: 0, maxFraction: 2)), "1.5")
@@ -53,14 +56,16 @@ final class NumberFormattingTests: XCTestCase {
         XCTAssertEqual(string(9, .currency(code: "JPY", minFraction: 2, maxFraction: 2)), "¥9.00", "after the currency's own")
     }
 
-    func testTheLocaleWritesTheSeparatorsAndSymbols() {
+    func testTheLocaleWritesTheSeparatorsAndSymbols() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
         XCTAssertEqual(string(1234.5678, decimal, "de_DE"), "1.234,5678")
         XCTAssertEqual(string(1234, .integer, "de_DE"), "1.234")
         XCTAssertEqual(string(-1234.5, dollars, "de_DE"), "-1.234,50\u{A0}$")
         XCTAssertEqual(string(0.25, percent, "de_DE"), "25\u{A0}%")
     }
 
-    func testReadingTakesTheNumberAtTheStartAsSwiftUIDoes() {
+    func testReadingTakesTheNumberAtTheStartAsSwiftUIDoes() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
         // Each pair measured on macOS 27 in en_US; nil leaves SwiftUI's value as it was.
         let table: [(String, NumberFormatSpec, Double?)] = [
             ("abc", decimal, nil), ("", decimal, nil), ("12", decimal, 12), ("12abc", decimal, 12), (" 42 ", decimal, 42),
@@ -76,7 +81,8 @@ final class NumberFormattingTests: XCTestCase {
         }
     }
 
-    func testReadingFollowsTheLocale() {
+    func testReadingFollowsTheLocale() throws {
+        try XCTSkipIf(ICULibrary.shared == nil, "no ICU")
         // Measured on macOS 27 in de_DE.
         XCTAssertEqual(number("1.234,5", decimal, "de_DE"), 1234.5)
         XCTAssertEqual(number("12,5", decimal, "de_DE"), 12.5)
