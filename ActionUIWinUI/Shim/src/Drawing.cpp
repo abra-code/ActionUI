@@ -14,7 +14,6 @@
 
 #include <charconv>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -767,51 +766,6 @@ bool actionUIWinUIMeasureText(const char *text, double fontSize, int32_t weight,
 ActionUIWinUIColor actionUIWinUIThemeTextColor(void) {
     D2D1_COLOR_F color = themeTextColor();
     return ActionUIWinUIColor{color.r, color.g, color.b, color.a};
-}
-
-char *actionUIWinUICopyLocalDateText(double seconds, bool date, bool time) {
-    char *copy = nullptr;
-    guarded("local date text", [&]() {
-        // FILETIME counts 100 ns from 1601; SYSTEMTIME holds years 1601 to 30827.
-        double ticks = (seconds + 11644473600.0) * 10000000.0;
-        if (!(ticks >= 0 && ticks < 9.0e18)) {
-            return fail("local date text", "the time is outside what Windows can hold");
-        }
-        ULARGE_INTEGER value{};
-        value.QuadPart = static_cast<ULONGLONG>(ticks);
-        FILETIME utcFile{value.LowPart, value.HighPart};
-        SYSTEMTIME utc{}, local{};
-        if (!FileTimeToSystemTime(&utcFile, &utc) || !SystemTimeToTzSpecificLocalTime(nullptr, &utc, &local)) {
-            return fail("local date text", "the time could not be converted to the local time zone");
-        }
-        std::wstring text;
-        wchar_t buffer[128];
-        if (date || !time) {
-            int length = GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, DATE_SHORTDATE, &local, nullptr, buffer, 128, nullptr);
-            if (length <= 0) {
-                return fail("local date text", "the date could not be written");
-            }
-            text.append(buffer, static_cast<size_t>(length - 1));
-        }
-        if (time) {
-            int length = GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS, &local, nullptr, buffer, 128);
-            if (length <= 0) {
-                return fail("local date text", "the time could not be written");
-            }
-            if (!text.empty()) {
-                text.push_back(L' ');
-            }
-            text.append(buffer, static_cast<size_t>(length - 1));
-        }
-        std::string utf8 = winrt::to_string(text);
-        copy = static_cast<char *>(malloc(utf8.size() + 1));
-        if (copy == nullptr) {
-            return fail("local date text", "out of memory");
-        }
-        memcpy(copy, utf8.c_str(), utf8.size() + 1);
-        return true;
-    });
-    return copy;
 }
 
 bool actionUIWinUIDrawingImageFile(ActionUIWinUIDrawing *drawing, const char *path, double x, double y, double width,

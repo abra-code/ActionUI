@@ -15,9 +15,8 @@
  - A bar's rectangle is cut to its shape's rounded corners; a line's hollow symbols cut their holes out
    of that line alone; an effect (opacity, blur, shadow, offset) and a plot layer's opacity apply to
    what they hold as one group, as GSK's pushes do (Direct2D layers here).
- - Dates are the user's short date and time (Windows' own formats for the locale, as Linux's GLib
-   fallback writes %x and %R); numbers are plain digits with a period, rounded to the axis's fraction
-   digits (Linux's fallback without ICU).
+ - Numbers and dates are written in the user's locale for formats (NumberFormatting, DateFormatting,
+   shared with Linux, through Windows' ICU, icu.dll), and week ticks start on the locale's first day.
 
  Selection (chartXSelection, chartYSelection, chartAngleSelection) and scrolling (chartScrollableAxes)
  as the Linux renderer takes them: a mouse or a pen selects a value or an angle by hovering and a range
@@ -35,9 +34,6 @@
 
  Accessibility tools read the chart as its image, named by what its marks say (their accessibilityLabel
  and accessibilityValue), as on Linux, unless the chart has an accessibilityLabel of its own.
-
- Not yet: numbers in the user's locale (ICU, which Windows has as icu.dll, as Linux uses its ICU), the
- first weekday of the user's locale for week ticks.
 */
 
 #if canImport(FoundationEssentials)
@@ -204,6 +200,10 @@ extension Chart: ActionUIWinUIRenderer {
         guard let state = node.state as? ChartState else { return }
         let description = node.properties["chart"] as? [String: Any] ?? [:]
         let rows = node.model.states["content"] as? [[String]] ?? []
+        // Week ticks start on the first day of the user's week, which ICU knows (as on Linux).
+        if let firstWeekday = DateFormatting.firstWeekday() {
+            ChartDates.calendar.firstWeekday = firstWeekday
+        }
         state.spec = ChartDescription.parse(description, logger: nil).spec
         if state.spec.scroll != state.scrollSpec {
             state.scrollSpec = state.spec.scroll
@@ -243,9 +243,9 @@ extension Chart: ActionUIWinUIRenderer {
         let text = ChartAxisText()
         let metrics = ChartTextMetrics(
             size: { text.size($0) },
-            number: { ChartFormatting.number($0, digits: $1...$1) },
-            formatted: { ChartFormatting.number($0, format: $1) },
-            date: { ChartFormatting.date($0, skeleton: $1) })
+            number: { NumberFormatting.string($0, format: .decimal(minFraction: $1, maxFraction: $1)) },
+            formatted: { NumberFormatting.string($0, format: $1) },
+            date: { DateFormatting.string($0, skeleton: $1) })
         let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: size.width, height: size.height,
                                                          metrics: metrics, scroll: state.scroll)
         state.geometry = geometry
@@ -723,77 +723,6 @@ private let releaseChartInput: ActionUIWinUICallback = { context in
         let size = ChartSize(width: width, height: height)
         sizes[text] = size
         return size
-    }
-}
-
-/// Numbers and dates on a chart's axes, until the user's locale formats them (ICU): numbers as plain
-/// digits with a period (Linux's fallback without ICU), dates in Windows' own short forms for the user's
-/// locale.
-@MainActor enum ChartFormatting {
-    /// The fraction digits a format shows, as Linux's NumberFormatting takes them.
-    private static func fractionDigits(_ format: NumberFormatSpec) -> ClosedRange<Int>? {
-        switch format {
-        case .integer:
-            return 0...0
-        case .decimal(let minimum, let maximum), .percent(let minimum, let maximum):
-            return NumberFormatSpec.fractionRange(minFraction: minimum, maxFraction: maximum) ?? 0...6
-        case .currency(_, let minimum, let maximum):
-            return NumberFormatSpec.fractionRange(minFraction: minimum, maxFraction: maximum)
-        }
-    }
-
-    static func number(_ value: Double, format: NumberFormatSpec) -> String {
-        let digits = fractionDigits(format) ?? 2...2
-        let shown: String
-        switch format {
-        case .percent: shown = number(value * 100, digits: digits) + "%"
-        case .currency(let code, _, _): shown = code + " " + number(value, digits: digits)
-        default: shown = number(value, digits: digits)
-        }
-        return shown
-    }
-
-    /// `value` rounded to `digits.upperBound` fraction digits (an exact half to even, as the C library's
-    /// %.*f rounds it), the trailing zeros past `digits.lowerBound` left out, with a period. A value too
-    /// large to keep that many digits in 64 bits shows zeros in its last places (a double that large has
-    /// no digits there); one past 64 bits is in Swift's own form.
-    static func number(_ value: Double, digits: ClosedRange<Int>) -> String {
-        guard value.isFinite else { return String(value) }
-        func power(_ count: Int) -> Double {
-            var result = 1.0
-            for _ in 0..<count { result *= 10 }
-            return result
-        }
-        let wanted = min(max(digits.upperBound, 0), 15)
-        var places = wanted
-        while places > 0, abs(value) * power(places) >= 9.0e15 {
-            places -= 1
-        }
-        let scaled = (abs(value) * power(places)).rounded(.toNearestOrEven)
-        guard scaled < 1.8e19 else { return String(value) }
-        let whole = UInt64(scaled)
-        let unit = UInt64(power(places))
-        var text = String(whole / unit)
-        var fraction = places > 0 ? String(whole % unit) : ""
-        fraction = String(repeating: "0", count: places - fraction.count) + fraction + String(repeating: "0", count: wanted - places)
-        while fraction.count > max(digits.lowerBound, 0), fraction.last == "0" {
-            fraction.removeLast()
-        }
-        if !fraction.isEmpty {
-            text += "." + fraction
-        }
-        return value < 0 && whole != 0 ? "-" + text : text
-    }
-
-    /// The skeleton's date and time fields as the user's short date and time (hours and minutes).
-    static func date(_ date: Date, skeleton: String) -> String {
-        let hasDate = skeleton.contains { "GyYuUQqMLwWdDFgEec".contains($0) }
-        let hasTime = skeleton.contains { "jJCahHkKmsSA".contains($0) }
-        guard let text = actionUIWinUICopyLocalDateText(date.timeIntervalSince1970, hasDate || !hasTime, hasTime) else {
-            return ""
-        }
-        defer { actionUIWinUIFreeString(text) }
-        return String(cString: text)
     }
 }
 

@@ -1129,10 +1129,6 @@ ACTIONUI_WINUI_API bool actionUIWinUIDrawingText(ActionUIWinUIDrawing *drawing, 
 ACTIONUI_WINUI_API bool actionUIWinUIMeasureText(const char *text, double fontSize, int32_t weight, double *width, double *height);
 // The theme's primary text color, as text and symbols draw by default (black when the theme has none).
 ACTIONUI_WINUI_API ActionUIWinUIColor actionUIWinUIThemeTextColor(void);
-// `seconds` since 1970 (UTC) as the user's locale writes it in the system's time zone: its short date when
-// `date`, its time in hours and minutes when `time`, both with a space between. A new UTF-8 string to free
-// with actionUIWinUIFreeString; NULL (with an error) for a time Windows cannot hold (before 1601, past 30827).
-ACTIONUI_WINUI_API char *actionUIWinUICopyLocalDateText(double seconds, bool date, bool time);
 // Draws the image file at `path` (absolute, or relative to the current folder) stretched to the
 // frame (x, y, width, height) at `opacity` (0 to 1), under the transform set. Fails, drawing nothing,
 // for a path that names no regular file (actionUIWinUIIsRegularFile) and for a file the system's

@@ -16,6 +16,8 @@
 #                                 for the C math functions (cos, sin, atan2, ...)
 #   import Glibc / Musl           in the shared formatting's Linux files (ActionUIRendererShared/Sources/Formatting,
 #                                 *+Linux.swift), for dlopen and setlocale
+#   import WinSDK                 in the shared formatting's Windows files (ActionUIRendererShared/Sources/Formatting,
+#                                 *+Windows.swift), for LoadLibraryExW, GetUserDefaultLocaleName and the date formats
 # Anything else is reported as "file:line: message", and the exit status is 1.
 # A stray "import Foundation" matters: Linux has full Foundation too, so it would compile there and
 # bring the ICU data back into every Linux program.
@@ -34,6 +36,7 @@ FNR == 1 {
     renderer = (FILENAME ~ /(^|\/)ActionUIAdwaita\/Sources\//)
     chart = (FILENAME ~ /(^|\/)ActionUIRendererShared\/Sources\/Chart\//)
     formattingLinux = (FILENAME ~ /(^|\/)ActionUIRendererShared\/Sources\/Formatting\/[^\/]*\+Linux\.swift$/)
+    formattingWindows = (FILENAME ~ /(^|\/)ActionUIRendererShared\/Sources\/Formatting\/[^\/]*\+Windows\.swift$/)
 }
 
 {
@@ -62,6 +65,8 @@ FNR == 1 {
         } else if (chart && (module == "Darwin" || module == "Glibc" || module == "Musl" || module == "ucrt")) {
             ok = 1
         } else if (formattingLinux && (module == "Glibc" || module == "Musl")) {
+            ok = 1
+        } else if (formattingWindows && module == "WinSDK") {
             ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
             ok = (FILENAME ~ /(^|\/)(Lock\+POSIX|NumberPrintf|NumberPrintf\+POSIX)\.swift$/)
