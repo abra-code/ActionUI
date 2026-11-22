@@ -177,8 +177,11 @@ final class WindowModel {
         // Less-trusted content may not share an id with a trusted element already in the window: its
         // element would be drawn with that element's view model and read as trusted. Sharing an id
         // with content as little trusted (two LoadableViews showing one document) gains nothing.
+        // Its templates' ids count too: a template row's elements get no view model, but keep the
+        // ids their JSON gives them, and a container may find a row's child by its id.
         if origin?.trust == .lessTrusted {
-            let taken = subViewModels.keys.filter { id in
+            let ids = Set(subViewModels.keys).union(Self.templateIDs(in: subElement))
+            let taken = ids.filter { id in
                 guard let existing = self.viewModels[id] else { return false }
                 return (existing.origin?.trust ?? .trusted) == .trusted
             }.sorted()
@@ -222,6 +225,26 @@ final class WindowModel {
             allIDs.formUnion(collectAndRemoveSubViewIDs(for: childID))
         }
         return allIDs
+    }
+
+    /// The ids of the elements in an element's templates, at any depth (a template's own templates
+    /// too): those elements get no view model, so the view-model walk does not see them. Negative
+    /// ids count as well: decoding renumbers only some of a template's negative ids (not those in
+    /// an overlay, a sheet or a context menu, say), so one the JSON gives can be a trusted element's.
+    /// The renumbered and generated ones are no view model's id, so they match nothing.
+    static func templateIDs(in element: any ActionUIElementBase) -> [Int] {
+        var ids: [Int] = []
+        func walk(_ element: any ActionUIElementBase, inTemplate: Bool) {
+            if inTemplate { ids.append(element.id) }
+            if let template = element.subviews?["template"] as? any ActionUIElementBase {
+                walk(template, inTemplate: true)
+            }
+            for child in element.childElements {
+                walk(child, inTemplate: inTemplate)
+            }
+        }
+        walk(element, inTemplate: false)
+        return ids
     }
 
     // Recursively populate viewModels for the element and its subviews, returning the populated

@@ -120,6 +120,28 @@ class TrustPolicyTest {
     }
 
     @Test
+    fun `less-trusted content whose template uses a trusted element's id is refused, at any depth`() {
+        val window = WindowModel(windowUUID = "", logger = ConsoleLogger())
+        window.loadDescription(ActionUIElement(id = 1, type = "VStack", children = listOf(
+            ActionUIElement(id = 2, type = "Button"), ActionUIElement(id = 3, type = "LoadableView"))))
+        val nested = ActionUIElement(id = 10, type = "List", template = ActionUIElement(id = 11, type = "VStack", children = listOf(
+            ActionUIElement(type = "List", template = ActionUIElement(id = 2, type = "Button")))))
+        assertEquals(setOf(11, 2), WindowModel.templateIDs(nested))
+        try {
+            window.loadSubDescription(nested, parentID = 3, origin = remote)
+            fail("less-trusted content whose template uses a trusted element's id was merged")
+        } catch (e: WindowModel.SubViewRefusedException) {
+            assertEquals("id conflict: 2 already in the window", e.message)
+        }
+        assertEquals(null, window.viewModels[10])
+        // Template ids nothing trusted has load; the host's own content may reuse its ids.
+        window.loadSubDescription(ActionUIElement(id = 10, type = "List", template = ActionUIElement(id = 12, type = "Button")), parentID = 3, origin = remote)
+        assertEquals(remote, window.viewModels[10]?.origin)
+        window.loadSubDescription(ActionUIElement(id = 30, type = "List", template = ActionUIElement(id = 2, type = "Text")), parentID = 0)
+        assertEquals("Button", window.viewModels[2]?.elementType)
+    }
+
+    @Test
     fun `less-trusted content's UriHandler hands on only what the policy allows, trusted content's is the inherited one`() {
         val opened = mutableListOf<String>()
         val inner = object : androidx.compose.ui.platform.UriHandler {
