@@ -1,12 +1,15 @@
-// Core/Helpers/Lock.swift
+// Core/Helpers/Lock+POSIX.swift
 /*
- A mutual-exclusion lock over a pthread mutex, for state that more than one thread may touch.
- Foundation's NSLock would do on Apple, but this file needs only the C library, so the same lock
- serves every platform.
+ A mutual-exclusion lock over a pthread mutex, for state that more than one thread may touch, on
+ Apple platforms and Linux. Foundation's NSLock would do on Apple, but this file needs only the C
+ library, so the same lock serves both. Windows, which has no pthreads, has its own
+ (Lock+Windows.swift).
 
  The mutex lives in allocated memory, not in a stored property: a pthread mutex must not move
  once initialized, and Swift may move a stored value.
 */
+
+#if !os(Windows)
 
 #if canImport(Darwin)
 import Darwin
@@ -38,3 +41,5 @@ final class Lock: @unchecked Sendable {
         return try body()
     }
 }
+
+#endif

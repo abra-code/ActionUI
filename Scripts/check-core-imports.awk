@@ -5,8 +5,8 @@
 #   import Observation, import Dispatch
 #   import FoundationEssentials   directly after   #if canImport(FoundationEssentials)
 #   import Foundation             directly after an #else that follows that import
-#   import Darwin / Glibc / Musl  in Lock.swift (its C library mutex) and NumberPrintf.swift
-#                                 (vsnprintf) only
+#   import Darwin / Glibc / Musl  in Lock+POSIX.swift (its C library mutex), NumberPrintf.swift
+#                                 (localeconv) and NumberPrintf+POSIX.swift (vsnprintf) only
 #   import CAdwaita, import CLinkedAddOns, import CSoup, import CSymbolResource, import Glibc in the GTK renderer, which
 #   builds only on Linux
 #   import Darwin / Glibc / Musl / ucrt   in the shared chart layout (ActionUIRendererShared/Sources/Chart),
@@ -56,7 +56,7 @@ FNR == 1 {
         } else if (chart && (module == "Darwin" || module == "Glibc" || module == "Musl" || module == "ucrt")) {
             ok = 1
         } else if (module == "Darwin" || module == "Glibc" || module == "Musl") {
-            ok = (FILENAME ~ /(^|\/)(Lock|NumberPrintf)\.swift$/)
+            ok = (FILENAME ~ /(^|\/)(Lock\+POSIX|NumberPrintf|NumberPrintf\+POSIX)\.swift$/)
         }
         if (!ok) {
             printf "%s:%d: import %s is not allowed in %s\n", FILENAME, FNR, module, (renderer ? "the GTK renderer" : "Core")
