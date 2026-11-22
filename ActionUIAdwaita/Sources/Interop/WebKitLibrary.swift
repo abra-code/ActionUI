@@ -47,6 +47,9 @@ final class WebKitLibrary {
 
     /// WebKitPolicyDecisionType: a navigation, a navigation to a new window, a response.
     static let navigationAction: UInt32 = 0, newWindowAction: UInt32 = 1, response: UInt32 = 2
+    /// WebKitScriptDialogType: WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM, the "leave this page?" one.
+    static let beforeUnloadDialog: UInt32 = 3
+    typealias DialogType = @convention(c) (OpaquePointer?) -> UInt32
 
     /// WebKitUserContentInjectedFrames: WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, _TOP_FRAME.
     static let allFrames: UInt32 = 0, topFrame: UInt32 = 1
@@ -130,6 +133,12 @@ final class WebKitLibrary {
     let downloadView: ViewOf
     let downloadRequest: ObjectOf
     let cancelDownload: Release
+    /// webkit_script_dialog_get_dialog_type, webkit_script_dialog_confirm_set_confirmed,
+    /// webkit_authentication_request_cancel, webkit_settings_set_enable_fullscreen
+    let dialogType: DialogType
+    let setConfirmed: SetFlag
+    let cancelAuthentication: Release
+    let setFullscreenEnabled: SetFlag
 
     private init?(_ library: UnsafeMutableRawPointer) {
         func function<T>(_ name: String, as type: T.Type) -> T? {
@@ -170,7 +179,11 @@ final class WebKitLibrary {
               let networkSession = function("webkit_web_view_get_network_session", as: Object.self),
               let downloadView = function("webkit_download_get_web_view", as: ViewOf.self),
               let downloadRequest = function("webkit_download_get_request", as: ObjectOf.self),
-              let cancelDownload = function("webkit_download_cancel", as: Release.self) else { return nil }
+              let cancelDownload = function("webkit_download_cancel", as: Release.self),
+              let dialogType = function("webkit_script_dialog_get_dialog_type", as: DialogType.self),
+              let setConfirmed = function("webkit_script_dialog_confirm_set_confirmed", as: SetFlag.self),
+              let cancelAuthentication = function("webkit_authentication_request_cancel", as: Release.self),
+              let setFullscreenEnabled = function("webkit_settings_set_enable_fullscreen", as: SetFlag.self) else { return nil }
         self.newView = newView
         self.loadURI = loadURI
         self.loadHTML = loadHTML
@@ -207,6 +220,10 @@ final class WebKitLibrary {
         self.downloadView = downloadView
         self.downloadRequest = downloadRequest
         self.cancelDownload = cancelDownload
+        self.dialogType = dialogType
+        self.setConfirmed = setConfirmed
+        self.cancelAuthentication = cancelAuthentication
+        self.setFullscreenEnabled = setFullscreenEnabled
     }
 
     /// The address a request names (a navigation action's, a response's, a download's), "" if none.

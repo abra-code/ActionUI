@@ -27,8 +27,8 @@
    session, and content it does not let run its user scripts (webViewUserScripts) runs none, as on
    Apple.
  - The pages of less-trusted content: navigations go where the trust policy allows (another app
-   only for a navigation the user started), nothing is downloaded, and permission requests are
-   denied (guardLessTrustedPages).
+   only for a navigation the user started), nothing is downloaded, permission requests are denied,
+   and, as on Apple, they get no fullscreen, print, sign-in or script dialogs (guardLessTrustedPages).
  - Without WebKitGTK: a dimmed label naming the package to install (logged once, by WebKitLibrary).
 */
 
@@ -111,7 +111,12 @@ extension WebView: ActionUIAdwaitaRenderer {
     ///   a navigation the user started (a page can add frames without end, but cannot click);
     /// - a response the view cannot show is not downloaded, and a download the page starts is
     ///   canceled;
-    /// - a permission request (camera, microphone, location, notifications) is denied.
+    /// - a permission request (camera, microphone, location, notifications) is denied;
+    /// - as on Apple, which has none of them for any page: no fullscreen (the Fullscreen API is off
+    ///   for content less trusted when the view is made, and a request is refused whenever made), no
+    ///   print dialog, no sign-in dialog for a server's authentication request, and no script
+    ///   dialogs (an alert returns at once, a confirm answers no and a prompt nothing, but "leave
+    ///   this page?" answers yes, so a page cannot keep the user from going).
     private static func guardLessTrustedPages(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode) {
         let logger = ActionUIModel.shared.logger
         connectPolicySignal(UnsafeMutableRawPointer(view)) { [weak node] pointer, type in
@@ -154,6 +159,35 @@ extension WebView: ActionUIAdwaitaRenderer {
             if let node, LinkTrust.isTrusted(node) { return false }
             logger.log("WebView permission request denied: less-trusted content is given no permissions", .warning)
             webKit.denyPermission(OpaquePointer(request))
+            return true
+        }
+        if !LinkTrust.isTrusted(node) {
+            webKit.setFullscreenEnabled(webKit.settings(view), 0)
+        }
+        connectBooleanSignal(UnsafeMutableRawPointer(view), "enter-fullscreen") { [weak node] in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView not going fullscreen: less-trusted content may not fill the window", .warning)
+            return true
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "print") { [weak node] _ in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView not printing: less-trusted content may not open the print dialog", .warning)
+            return true
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "script-dialog") { [weak node] pointer in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            // Handled with no answer given: WebKit closes it with its default answers once the last
+            // reference to it goes.
+            let dialog = OpaquePointer(pointer)
+            if webKit.dialogType(dialog) == WebKitLibrary.beforeUnloadDialog {
+                webKit.setConfirmed(dialog, 1)
+            }
+            return true
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "authenticate") { [weak node] pointer in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView not asking for a sign-in: less-trusted content may not show the sign-in dialog", .warning)
+            webKit.cancelAuthentication(OpaquePointer(pointer))
             return true
         }
         // A download can also start without a response decision (a link's download attribute). The

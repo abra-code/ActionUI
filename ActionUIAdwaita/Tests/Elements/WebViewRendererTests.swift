@@ -217,6 +217,22 @@ final class WebViewRendererTests: XCTestCase {
         XCTAssertTrue(refused("WebView not downloading"), "\(logger.messages.suffix(5))")
     }
 
+    func testALessTrustedPageGetsNoScriptDialogsPrintDialogOrFullscreen() throws {
+        try requireWebKit()
+        let logger = CapturingLogger()
+        let savedLogger = ActionUIModel.shared.logger
+        ActionUIModel.shared.logger = logger
+        defer { ActionUIModel.shared.logger = savedLogger }
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        // Each returns at once, with WebKit's default answer: a confirm no, a prompt nothing; and the
+        // Fullscreen API is off, as on Apple.
+        _ = try render(#"""
+            "html": "<title>Before</title><script>window.print(); alert('a'); const c = confirm('b'); const p = prompt('c', 'd'); document.title = 'After ' + c + ' ' + p + ' ' + (document.fullscreenEnabled === true || document.webkitFullscreenEnabled === true)</script>"
+            """#, origin: remote)
+        waitForPage("After false null false")
+        XCTAssertTrue(logger.messages.contains { $0.contains("WebView not printing") }, "\(logger.messages.suffix(5))")
+    }
+
     func testTheUserAgentAndGesturesAreSet() throws {
         try requireWebKit()
         let webKit = try XCTUnwrap(WebKitLibrary.shared)
