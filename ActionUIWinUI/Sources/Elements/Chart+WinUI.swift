@@ -27,9 +27,14 @@
  value (ChartSelection's JSON); a change by the user fires valueChangeActionID at once ("continuous", or
  a cleared selection) or once it has rested 150 ms ("settled").
 
- Not yet: annotations (logged once, not shown), numbers in the user's locale (ICU, which Windows has as
- icu.dll, as Linux uses its ICU), the first weekday of the user's locale for week ticks, an accessible
- name from the marks.
+ Annotations (annotation on a mark) as the Linux renderer places them: each a view of its own (a
+ template row of the chart, made once and kept while the mark shows the same thing), placed beside its
+ mark by ChartAnnotationPlacement in a layer over the marks, seen past the chart's edges as Swift Charts
+ draws them, and along a scrolling axis only within the plot. Past 1000 annotations the marks are drawn
+ without them, as Swift Charts does.
+
+ Not yet: numbers in the user's locale (ICU, which Windows has as icu.dll, as Linux uses its ICU), the
+ first weekday of the user's locale for week ticks, an accessible name from the marks.
 */
 
 #if canImport(FoundationEssentials)
@@ -62,7 +67,20 @@ import Dispatch
     var drawnSize: ActionUIWinUISize?
     var drawnScale: Double?
     var needsDrawing = true
-    var reportedAnnotations = false
+    /// The annotation views: a layer over the image, as large as it, and in it the room where they are
+    /// seen (the plot along a scrolling axis, clipped there; else the whole layer, unclipped).
+    let annotationLayer: LayoutPanel
+    let annotationRoom: LayoutPanel
+    /// Each annotation's view by what it shows (reused while that stays), and by mark, in order.
+    var annotations: [String: [ChartAnnotationView]] = [:]
+    var annotationsByMark: [Int: [ChartAnnotationView]] = [:]
+    var annotationsDropped = false
+    /// Where the room's (0, 0) is in the chart's coordinates, and its clip (nil: none), from the layer's
+    /// last arrange.
+    var roomOrigin = ChartPoint(x: 0, y: 0)
+    var roomClip: ActionUIWinUISize?
+    /// The sizes the views asked for at the room's last measure.
+    var annotationSizes: [ObjectIdentifier: ActionUIWinUISize] = [:]
     /// The node the user's selection is written to.
     weak var node: RenderNode?
     /// A press the chart took: where it went down, whether it moved, and whether a finger made it. A
@@ -76,7 +94,9 @@ import Dispatch
     /// Counts the writes of the selection: a "settled" action fires only when no later write came.
     var selectionWrites = 0
 
-    init(fill: FillLayout, image: WinUIObject) {
+    init(fill: FillLayout, image: WinUIObject, annotationLayer: LayoutPanel, annotationRoom: LayoutPanel) {
+        self.annotationLayer = annotationLayer
+        self.annotationRoom = annotationRoom
         self.fill = fill
         self.image = image
     }
@@ -118,7 +138,35 @@ extension Chart: ActionUIWinUIRenderer {
         if !actionUIWinUIElementSetBrush(fill.panel.object.pointer, ActionUIWinUIBrushBackground, &clear, nil) {
             ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("giving a chart's panel a background"))", .error)
         }
-        let state = ChartState(fill: fill, image: image)
+        // The annotation layer over the marks, the room in it.
+        let room = try LayoutPanel()
+        let layer = try LayoutPanel()
+        try layer.append(room.object)
+        try fill.panel.append(layer.object)
+        let state = ChartState(fill: fill, image: image, annotationLayer: layer, annotationRoom: room)
+        layer.measure = { [weak state] available in
+            _ = state?.annotationRoom.object.measure(available)
+            return ActionUIWinUISize(width: 0, height: 0)
+        }
+        layer.arrange = { [weak state] size in
+            guard let state else { return }
+            arrangeAnnotationLayer(state, size: size)
+        }
+        room.measure = { [weak state] _ in
+            guard let state else { return ActionUIWinUISize(width: 0, height: 0) }
+            // Each view at the size it asks for, as Linux measures its natural size.
+            let unbounded = ActionUIWinUISize(width: .infinity, height: .infinity)
+            var sizes: [ObjectIdentifier: ActionUIWinUISize] = [:]
+            for view in state.annotations.values.joined() {
+                sizes[ObjectIdentifier(view)] = view.holder.object.measureRequested(unbounded)
+            }
+            state.annotationSizes = sizes
+            return ActionUIWinUISize(width: 0, height: 0)
+        }
+        room.arrange = { [weak state] _ in
+            guard let state else { return }
+            placeAnnotations(state)
+        }
         state.node = node
         node.state = state
         ChartInput.connect(fill.panel.object) { [weak state] input in
@@ -150,6 +198,7 @@ extension Chart: ActionUIWinUIRenderer {
         let selection = ChartSelection.decode(node.model.value as? String, spec: state.spec.selection)
         state.marks = ChartMarkResolver.resolve(state.spec, rows: rows, selection: selection)
         report(state, viewID: node.element.id)
+        syncAnnotations(node, state)
         state.needsDrawing = true
         if let size = state.drawnSize {
             drawIfNeeded(state, size: size)
@@ -162,20 +211,16 @@ extension Chart: ActionUIWinUIRenderer {
             let place = first.inlineData ? "row \(first.row + 1) of a ForEach's data" : "row \(first.row + 1)"
             logger.log("Chart \(viewID): skipped \(state.marks.skippedRows) row(s) with a cell that does not parse; first: \(place), column \(first.column + 1) is not a \(first.type.rawValue)", .warning)
         }
-        let annotated = state.marks.instances.contains { instance in
-            instance.mark.modifiers.contains { if case .annotation = $0 { return true } else { return false } }
-        }
-        if annotated, !state.reportedAnnotations {
-            state.reportedAnnotations = true
-            logger.log("Chart \(viewID): annotations are not shown on Windows yet", .warning)
-        }
     }
 
     /// Lays the chart out and draws it for `size` when it, the size or the window's scale changed
     /// since the last drawing.
     private static func drawIfNeeded(_ state: ChartState, size: ActionUIWinUISize) {
         let scale = actionUIWinUIElementRasterizationScale(state.image.pointer)
-        let sameSize = state.drawnSize.map { $0.width == size.width && $0.height == size.height } ?? false
+        // Within a hundredth of a point: the annotation layer asks with its own size less the margins, which
+        // at a fractional scale can differ from the chart's in the last bits (WinUI's sizes are floats,
+        // rounded to pixels), and would draw the chart again.
+        let sameSize = state.drawnSize.map { abs($0.width - size.width) < 0.01 && abs($0.height - size.height) < 0.01 } ?? false
         guard state.needsDrawing || !sameSize || state.drawnScale != scale else { return }
         state.needsDrawing = false
         state.drawnSize = size
@@ -190,6 +235,12 @@ extension Chart: ActionUIWinUIRenderer {
         let (primitives, geometry) = ChartLayout.laidOut(state.spec, marks: state.marks, width: size.width, height: size.height,
                                                          metrics: metrics, scroll: state.scroll)
         state.geometry = geometry
+        // The views follow the new layout; the layer places the room again, whose frame and clip along a
+        // scrolling axis are the plot's, which new data (wider axis labels) can move at the same size.
+        if !state.annotations.isEmpty {
+            state.annotationRoom.invalidateLayout()
+            state.annotationLayer.invalidateLayout()
+        }
         state.scroll = (geometry.xScroll?.leading, geometry.yScroll?.leading)
         // The chart's points from (margin, margin) in an image as much larger on every side.
         let margin = overflowMargin
@@ -205,6 +256,141 @@ extension Chart: ActionUIWinUIRenderer {
         painter.finish()
         if !actionUIWinUIDrawingFinish(drawing, state.image.pointer) {
             ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("showing the drawing"))", .error)
+        }
+    }
+
+    // MARK: Annotations
+
+    /// Swift Charts' limit, past which a chart draws its marks without annotations (ChartRenderCache).
+    static let maxAnnotations = 1000
+
+    /// Makes a view for each annotation of the marks, keeping the ones that show the same thing (as the
+    /// Linux renderer: by the annotation's place on its mark, its content and the row it reads).
+    private static func syncAnnotations(_ node: RenderNode, _ state: ChartState) {
+        var wanted: [(instance: Int, spec: ChartAnnotationSpec, key: String, row: Int, cells: [String])] = []
+        for (index, instance) in state.marks.instances.enumerated() {
+            var ordinal = 0
+            for modifier in instance.mark.modifiers {
+                guard case .annotation(let spec) = modifier else { continue }
+                // As on Apple (ChartContentBuilder): one that reads no row gets none, and -1 as its row.
+                let row = spec.readsRows ? instance.row ?? -1 : -1
+                let cells = spec.readsRows ? instance.annotationRow : []
+                // Template ids are numbered alike in every annotation, so the content itself is compared
+                // too, when a view is reused.
+                let key = "\(ordinal)\u{1F}\(spec.content.id)\u{1F}\(row)\u{1F}" + cells.joined(separator: "\u{1F}")
+                wanted.append((index, spec, key, row, cells))
+                ordinal += 1
+            }
+        }
+        if wanted.count > maxAnnotations {
+            if !state.annotationsDropped {
+                ActionUIModel.shared.logger.log("Chart \(node.element.id): \(wanted.count) annotations (more than \(maxAnnotations)); drawing the marks without them", .warning)
+            }
+            state.annotationsDropped = true
+            wanted = []
+        } else {
+            state.annotationsDropped = false
+        }
+        var unused = state.annotations
+        var kept: [String: [ChartAnnotationView]] = [:]
+        var byMark: [Int: [ChartAnnotationView]] = [:]
+        for item in wanted {
+            let view: ChartAnnotationView
+            if let index = unused[item.key]?.firstIndex(where: { ($0.node.element as? ActionUIElement) == item.spec.content }) {
+                view = unused[item.key]!.remove(at: index)
+            } else {
+                let annotation = node.templateRowNode(item.spec.content, row: item.cells, rowIndex: item.row)
+                guard let content = annotation.outerView else {
+                    node.releaseTemplateNode(annotation)
+                    continue
+                }
+                do {
+                    view = try ChartAnnotationView(node: annotation, view: content)
+                    try state.annotationRoom.append(view.holder.object)
+                } catch {
+                    ActionUIModel.shared.logger.log("Chart \(node.element.id): \(error)", .error)
+                    node.releaseTemplateNode(annotation)
+                    continue
+                }
+            }
+            kept[item.key, default: []].append(view)
+            byMark[item.instance, default: []].append(view)
+        }
+        for old in unused.values.joined() {
+            if let index = state.annotationRoom.children.firstIndex(where: { $0 === old.holder.object }) {
+                do {
+                    try state.annotationRoom.remove(at: index)
+                } catch {
+                    ActionUIModel.shared.logger.log("Chart \(node.element.id): \(error)", .error)
+                }
+            }
+            node.releaseTemplateNode(old.node)
+        }
+        state.annotations = kept
+        state.annotationsByMark = byMark
+        state.annotationRoom.invalidateLayout()
+    }
+
+    /// The annotation layer, as large as the image (the chart and overflowMargin around it): lays the chart
+    /// out for its size first, then places the room where views are seen.
+    private static func arrangeAnnotationLayer(_ state: ChartState, size: ActionUIWinUISize) {
+        let margin = overflowMargin
+        let chartSize = ActionUIWinUISize(width: size.width - 2 * margin, height: size.height - 2 * margin)
+        drawIfNeeded(state, size: chartSize)
+        // Seen anywhere, past the chart's edges too, as Swift Charts draws them (Linux measured it on macOS
+        // 27); along a scrolling axis only the plot, where the marks stop.
+        let geometry = state.geometry
+        var frame = ActionUIWinUIRect(x: 0, y: 0, width: size.width, height: size.height)
+        var clipped = false
+        if geometry.xScroll != nil {
+            (frame.x, frame.width) = (geometry.plot.x + margin, geometry.plot.width)
+            clipped = true
+        }
+        if geometry.yScroll != nil {
+            (frame.y, frame.height) = (geometry.plot.y + margin, geometry.plot.height)
+            clipped = true
+        }
+        state.roomOrigin = ChartPoint(x: frame.x - margin, y: frame.y - margin)
+        let clip = clipped ? ActionUIWinUISize(width: frame.width, height: frame.height) : nil
+        if clip?.width != state.roomClip?.width || clip?.height != state.roomClip?.height {
+            state.roomClip = clip
+            if !actionUIWinUIElementSetClipSize(state.annotationRoom.object.pointer, clip?.width ?? -1, clip?.height ?? -1) {
+                ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("clipping a chart's annotations"))", .error)
+            }
+        }
+        state.annotationRoom.object.arrange(frame)
+    }
+
+    /// Places each annotation view beside its mark; one whose mark is not drawn, or that falls outside the
+    /// room, is hidden (neither drawn nor taking the pointer).
+    private static func placeAnnotations(_ state: ChartState) {
+        let geometry = state.geometry
+        var room = ChartRect(x: -100_000, y: -100_000, width: geometry.chart.width + 200_000, height: geometry.chart.height + 200_000)
+        if geometry.xScroll != nil { (room.x, room.width) = (geometry.plot.x, geometry.plot.width) }
+        if geometry.yScroll != nil { (room.y, room.height) = (geometry.plot.y, geometry.plot.height) }
+        var placed = Set<ObjectIdentifier>()
+        for frame in geometry.annotations {
+            guard let views = state.annotationsByMark[frame.instance], frame.ordinal < views.count,
+                  frame.instance < state.marks.instances.count else { continue }
+            let view = views[frame.ordinal]
+            let specs = state.marks.instances[frame.instance].mark.modifiers.compactMap { modifier -> ChartAnnotationSpec? in
+                if case .annotation(let spec) = modifier { return spec }
+                return nil
+            }
+            guard frame.ordinal < specs.count, let size = state.annotationSizes[ObjectIdentifier(view)] else { continue }
+            let rect = ChartAnnotationPlacement.place(specs[frame.ordinal], frame: frame.frame, center: frame.center,
+                                                      size: ChartSize(width: size.width, height: size.height),
+                                                      plot: geometry.plot, chart: geometry.chart)
+            guard rect.x < room.x + room.width, rect.x + rect.width > room.x,
+                  rect.y < room.y + room.height, rect.y + rect.height > room.y else { continue }
+            view.holder.object.arrange(ActionUIWinUIRect(x: (rect.x - state.roomOrigin.x).rounded(), y: (rect.y - state.roomOrigin.y).rounded(),
+                                                         width: size.width, height: size.height))
+            view.show(true)
+            placed.insert(ObjectIdentifier(view))
+        }
+        for view in state.annotations.values.joined() where !placed.contains(ObjectIdentifier(view)) {
+            view.holder.object.arrange(ActionUIWinUIRect(x: 0, y: 0, width: 0, height: 0))
+            view.show(false)
         }
     }
 
@@ -471,6 +657,37 @@ private let releaseChartInput: ActionUIWinUICallback = { context in
         // On failure the shim has already called releaseChartInput.
         if !actionUIWinUIElementOnPointerInput(element.pointer, element.pointer, fireChartInput, context, releaseChartInput) {
             ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("watching the pointer's input"))", .error)
+        }
+    }
+}
+
+/// One annotation's view, in a panel of its own that the chart shows or hides without touching the view
+/// (its own opacity, its clip).
+@MainActor final class ChartAnnotationView {
+    let node: RenderNode
+    let holder: LayoutPanel
+    private var shown = true
+
+    init(node: RenderNode, view: WinUIObject) throws(WinUIError) {
+        self.node = node
+        let panel = try LayoutPanel()
+        try panel.append(view)
+        panel.measure = { [unowned panel] available in
+            panel.children.first?.measureRequested(available) ?? ActionUIWinUISize(width: 0, height: 0)
+        }
+        panel.arrange = { [unowned panel] size in
+            panel.children.first?.arrange(ActionUIWinUIRect(x: 0, y: 0, width: size.width, height: size.height))
+        }
+        holder = panel
+    }
+
+    /// Shows the view, or hides it from the eye and the pointer.
+    func show(_ visible: Bool) {
+        guard visible != shown else { return }
+        shown = visible
+        if !actionUIWinUIElementSetOpacity(holder.object.pointer, visible ? 1 : 0)
+            || !actionUIWinUIElementSetHitTestVisible(holder.object.pointer, visible) {
+            ActionUIModel.shared.logger.log("Chart: \(WinUIError.last("showing or hiding an annotation"))", .error)
         }
     }
 }

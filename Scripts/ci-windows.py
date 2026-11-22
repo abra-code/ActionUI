@@ -77,6 +77,7 @@ PREVIEW_OPTIONS = {
     # The two chart documents at sizes that show their charts whole (the second has two columns).
     "Charts": ["560", "720"],
     "ChartTypes": ["760", "720"],
+    "ChartAnnotations": ["600", "720"],
     # Selection with the real mouse (x64): a drag across the range chart (3; its range goes at the release),
     # then one across the hover chart (1; not taken, so its moves hover and the value stays under the
     # pointer), a pause for the settled action.
