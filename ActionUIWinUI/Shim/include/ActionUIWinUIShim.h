@@ -112,6 +112,9 @@ ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContentSize(ActionUIWinUIObject *w
 ACTIONUI_WINUI_API bool actionUIWinUIWindowSetContent(ActionUIWinUIObject *window, ActionUIWinUIObject *element);
 // Shows the window and brings it to the front.
 ACTIONUI_WINUI_API bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window);
+// Whether the window is the active one of the UI thread (the one the user works in, when the application
+// is in front). Sets no error; false on failure.
+ACTIONUI_WINUI_API bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window);
 ACTIONUI_WINUI_API bool actionUIWinUIWindowClose(ActionUIWinUIObject *window);
 // `handler` runs on the UI thread when the window has closed (by the user, or actionUIWinUIWindowClose).
 ACTIONUI_WINUI_API bool actionUIWinUIWindowOnClosed(ActionUIWinUIObject *window, ActionUIWinUICallback handler, void *context,
@@ -915,6 +918,31 @@ ACTIONUI_WINUI_API bool actionUIWinUIDialogHide(ActionUIWinUIObject *dialog);
 // Closed: `dialog` closed, by the user (Escape) or by actionUIWinUIDialogHide.
 ACTIONUI_WINUI_API bool actionUIWinUIDialogOnClosed(ActionUIWinUIObject *dialog, ActionUIWinUICallback handler, void *context,
                                                     ActionUIWinUICallback destroyContext);
+
+// MARK: - The application's alert (Panels.cpp)
+
+// The answer to an alert: the index of the chosen button (from 0), or -1 when it closed unanswered
+// (actionUIWinUIAlertDismiss).
+typedef void (*ActionUIWinUIAlertCompletion)(void *context, int32_t index);
+// Shows an alert over the window `anchor` is in: a ContentDialog titled `title` (NULL: none) with
+// `message` (NULL or empty: none) and `buttons`, `buttonCount` UTF-8 titles (at least one). The first
+// button is the primary one and the default (Enter); the button `escapeIndex` names answers Escape and,
+// unless it is the first, is the close button (-1: Escape does nothing); the others take the secondary
+// place, then the close place, then a column in the content. completion(context, index) runs once on the
+// UI thread, when the alert closes. Returns the dialog (a new reference), or NULL when `anchor` is in no
+// window or another dialog is open in it (WinUI shows one at a time).
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIAlertShow(ActionUIWinUIObject *anchor, const char *title,
+                                                               const char *message, const char *const *buttons,
+                                                               int32_t buttonCount, int32_t escapeIndex,
+                                                               ActionUIWinUIAlertCompletion completion, void *context);
+// Closes the alert unanswered: its completion runs at once with -1, unless it has answered already. For
+// a window closing under it, or the application ending.
+ACTIONUI_WINUI_API bool actionUIWinUIAlertDismiss(ActionUIWinUIObject *alert);
+// Runs the UI thread's messages (GetMessage, TranslateMessage, DispatchMessage) until `*done` is true, for
+// a call that returns once the user answers: WinUI keeps drawing and taking input, and its timers and
+// queued work run. Returns true when `*done` ended it; false when the application is quitting (WM_QUIT,
+// posted again for the outer loop) or the loop failed.
+ACTIONUI_WINUI_API bool actionUIWinUIRunNestedLoop(const volatile bool *done);
 
 // The side of its element a flyout shows on.
 typedef enum ActionUIWinUIFlyoutPlacement {

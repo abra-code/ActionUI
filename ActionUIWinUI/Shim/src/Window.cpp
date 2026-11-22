@@ -437,6 +437,16 @@ bool actionUIWinUIWindowActivate(ActionUIWinUIObject *window) {
     });
 }
 
+bool actionUIWinUIWindowIsActive(ActionUIWinUIObject *window) {
+    try {
+        HWND hwnd = nullptr;
+        winrt::check_hresult(windowFrom(window).as<::IWindowNative>()->get_WindowHandle(&hwnd));
+        return hwnd != nullptr && GetActiveWindow() == hwnd;
+    } catch (...) {
+        return false;
+    }
+}
+
 bool actionUIWinUIWindowSendDrag(ActionUIWinUIObject *window, ActionUIWinUIObject *element, double fromX, double fromY,
                                  double toX, double toY) {
     return guarded("window send drag", [&]() {

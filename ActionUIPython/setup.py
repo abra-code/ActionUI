@@ -78,7 +78,7 @@ licenses go beside them, as ActionUI-LICENSE.txt, ActionUI-LICENSE-MaterialSymbo
 and ActionUI-LICENSE-FluentSystemIcons.txt (the symbol icons in the shim DLL) and
 ActionUI-LICENSE-WebView2.txt (Microsoft.Web.WebView2.Core.dll). The Windows App SDK
 runtime must be installed on the machine; WinUI starts when the application runs.
-Not on Windows yet: the menu bar, alerts, file panels, the remote server and HostSurface.
+Not on Windows yet: the menu bar, file panels, the remote server and HostSurface.
 
 Building
 --------

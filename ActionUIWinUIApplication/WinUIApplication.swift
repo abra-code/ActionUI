@@ -27,9 +27,12 @@
  - terminate() asks shouldTerminate, then closes every window (each firing windowWillClose) and ends
    the run; willTerminate fires as the run ends.
 
+ - An alert (AppPanels) opens over the active window, else the one presented last, and returns nil when
+   that window closes under it or the application terminates.
+
  Not yet: the become and resign active handlers are kept but not fired; the icon is kept but not
- shown; the menu bar, the alert and the file panels; the remote server; window sizes are not limited
- to the screen.
+ shown; the menu bar and the file panels; the remote server; window sizes are not limited to the
+ screen.
 */
 
 #if canImport(FoundationEssentials)
@@ -79,11 +82,14 @@ public final class WinUIApplication {
         let tree: WinUIWindow
         /// False when the window shows the error its document could not be loaded with.
         let showsDocument: Bool
+        /// When it was presented, among the windows: the latest is the largest.
+        let order: Int
 
-        init(window: WinUIObject, tree: WinUIWindow, showsDocument: Bool) {
+        init(window: WinUIObject, tree: WinUIWindow, showsDocument: Bool, order: Int) {
             self.window = window
             self.tree = tree
             self.showsDocument = showsDocument
+            self.order = order
         }
     }
 
@@ -100,8 +106,10 @@ public final class WinUIApplication {
     /// makes an older one's result go unused.
     private var loading: [String: Int] = [:]
     private var loadCount = 0
+    private var presentCount = 0
     private var isRunning = false
-    private var hasStarted = false
+    /// From just before the waiting windows appear (after willFinishLaunching) until the run ends.
+    private(set) var hasStarted = false
     /// Whether a run has begun in this process: WinUI's Application starts once.
     private var hasRun = false
 
@@ -182,6 +190,8 @@ public final class WinUIApplication {
         if let shouldTerminate = handlers.shouldTerminate, !shouldTerminate() {
             return
         }
+        // An alert waiting for an answer returns nil, as the process ends with it up on macOS.
+        AppPanels.dismissAll()
         for uuid in Array(windows.keys) {
             closeWindow(uuid)
         }
@@ -274,6 +284,9 @@ public final class WinUIApplication {
         let replaced = windows.removeValue(forKey: windowUUID)
         replaced?.tree.detach()
         defer {
+            if let replaced {
+                AppPanels.windowClosing(replaced.window)
+            }
             if let replaced, !actionUIWinUIWindowClose(replaced.window.pointer) {
                 logger.log("WinUIApplication: \(WinUIError.last("closing the replaced window for \(windowUUID)"))", .error)
             }
@@ -311,7 +324,8 @@ public final class WinUIApplication {
             ActionUIModel.shared.removeWindow(windowUUID)
             return
         }
-        let shown = Shown(window: window, tree: tree, showsDocument: loaded)
+        presentCount += 1
+        let shown = Shown(window: window, tree: tree, showsDocument: loaded, order: presentCount)
         windows[windowUUID] = shown
         WinUIEvents.connect(window, actionUIWinUIWindowOnClosed, "a window's closing") { [weak self, weak shown] in
             guard let self, let shown else { return }
@@ -338,6 +352,15 @@ public final class WinUIApplication {
               loading.keys.allSatisfy({ $0 == windowUUID }),
               let shouldTerminate = handlers.shouldTerminate else { return true }
         return shouldTerminate()
+    }
+
+    /// The window an alert or a file panel opens over, with its content (where the alert is shown): the
+    /// active window, else the one presented last; nil when no window is open.
+    func panelOwner() -> (window: WinUIObject, content: WinUIObject)? {
+        let shown = windows.values.first { actionUIWinUIWindowIsActive($0.window.pointer) }
+            ?? windows.values.max { $0.order < $1.order }
+        guard let shown, let content = shown.tree.view else { return nil }
+        return (shown.window, content)
     }
 
     /// Whether the window showing `windowUUID` shows its document (false: it shows the error the
@@ -379,6 +402,8 @@ public final class WinUIApplication {
     /// A window closed: its handler fires (its values still readable), then its model is removed; with
     /// no window left after the user closed it, the application ends.
     private func closed(_ windowUUID: String, _ shown: Shown) {
+        // An alert over it returns nil, as on Linux.
+        AppPanels.windowClosing(shown.window)
         // Only the window still showing the UUID: a replaced one's closing is its own.
         guard windows[windowUUID] === shown else { return }
         let byHost = closingByHost.remove(windowUUID) != nil

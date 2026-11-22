@@ -13,8 +13,9 @@
    returns when it ends. Windows presented before it wait for the start.
  - actionUIAppSetApplicationID does nothing on Windows (an unpackaged program has no identity to set).
 
- Not yet on Windows (logged; NULL or false): the menu bar, the alert and the file panels, and the
- remote server.
+ - actionUIAppRunAlert waits for the user's answer, the application running underneath (AppPanels).
+
+ Not yet on Windows (logged; NULL or false): the menu bar, the file panels, and the remote server.
 */
 
 #if canImport(FoundationEssentials)
@@ -24,6 +25,7 @@ import Foundation
 #endif
 import Dispatch
 import Synchronization
+import ucrt
 import ActionUI
 import ActionUIAppHeaders
 
@@ -231,13 +233,20 @@ public func actionUIAppCloseWindow(_ windowUUID: UnsafePointer<CChar>) {
     runOnMainActorAsync { WinUIApplication.shared.closeWindow(swiftUUID) }
 }
 
-// MARK: - Alerts and file panels (not yet on Windows)
+// MARK: - The alert (AppPanels)
 
+/// The chosen button's title, or nil when the alert closed unanswered; the caller frees it with
+/// actionUIFreeString.
 @c
 public func actionUIAppRunAlert(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
-    notYet("actionUIAppRunAlert")
-    return nil
+    let json = configJSON.map { String(cString: $0) }
+    var chosen: String?
+    runOnMainActorSync { chosen = AppPanels.runAlert(json: json) }
+    // The C runtime's strdup (its POSIX name is deprecated): actionUIFreeString frees it.
+    return chosen.map { title in title.withCString { _strdup($0) } }
 }
+
+// MARK: - File panels (not yet on Windows)
 
 @c
 public func actionUIAppRunOpenPanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
