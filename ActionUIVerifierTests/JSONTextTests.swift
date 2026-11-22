@@ -86,7 +86,7 @@ private let nestingCases: [(Int, String, Bool)] = [(512, "1", true), (513, "1", 
     }
 }
 
-#if !os(Linux)
+#if !os(Linux) && !os(Windows)
 private func foundation(_ data: Data) -> JSONValue? {
     (try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])).map { JSONValue(any: $0) }
 }

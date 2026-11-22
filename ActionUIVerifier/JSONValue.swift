@@ -30,18 +30,18 @@ enum JSONValue: Sendable, Equatable {
     /// Parses JSON text as ActionUI's loader does: a trailing comma is accepted, a comment is not.
     /// Throws for invalid JSON.
     init(parsing data: Data) throws {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         self = try JSONTextParser.parse(data)
         #else
         self = JSONValue(any: try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]))
         #endif
     }
 
-    /// Converts a parsed object: on Apple JSONSerialization's, on Linux Bool, the number types,
+    /// Converts a parsed object: on Apple JSONSerialization's, on Linux and Windows Bool, the number types,
     /// String, [Any] and [String: Any]. Anything that is not a JSON value becomes null.
     init(any value: Any) {
         switch value {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         case let flag as Bool:
             self = .bool(flag)
         case let number as Int:

@@ -9,19 +9,14 @@
 // in Tools/verifier reads the same files). Add-on schemas come from extra directories: this
 // library cannot depend on the add-on packages, which depend on ActionUI core.
 //
-// On Linux the target has no resources: the code SwiftPM generates for them imports Foundation,
-// and with it ICU's data, which ActionUI's Linux builds leave out. The schemas are found by path
-// instead (bundledSchemasDirectory).
+// On Linux and Windows the target has no resources: the code SwiftPM generates for them imports
+// Foundation, and with it ICU's data, which ActionUI's Linux and Windows builds leave out. The
+// schemas are found by path instead (bundledSchemasDirectory).
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
 #else
 import Foundation
-#endif
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
 #endif
 
 /// Element schemas loaded from a primary directory (the built-in elements) and extra directories
@@ -109,16 +104,13 @@ public struct SchemaSet: Sendable {
         return try SchemaSet(primary: directory, extra: extra)
     }
 
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     /// The schemas shipped with this binary, `<prefix>/share/actionui/schemas` for a program in
     /// `<prefix>/bin`, else those of the ActionUI checkout this library was built from when that
     /// still exists; nil when there are neither.
     public static var bundledSchemasDirectory: URL? {
-        var buffer = [CChar](repeating: 0, count: 4096)
-        let count = readlink("/proc/self/exe", &buffer, buffer.count)
         var candidates: [URL] = []
-        if count > 0, count < buffer.count {
-            let program = String(decoding: buffer[..<count].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        if let program = FileSystem.programPath {
             candidates.append(URL(fileURLWithPath: program).deletingLastPathComponent().deletingLastPathComponent()
                 .appendingPathComponent("share/actionui/schemas"))
         }
@@ -182,8 +174,7 @@ public struct SchemaSet: Sendable {
     func schema(_ name: String) -> [String: JSONValue]? { schemas[name]?.object }
 
     private static func isDirectory(_ url: URL) -> Bool {
-        var information = stat()
-        return stat(url.path, &information) == 0 && information.st_mode & S_IFMT == S_IFDIR
+        FileSystem.isDirectory(url.path)
     }
 
     private static func subdirectories(_ url: URL) -> [URL] {
@@ -194,7 +185,7 @@ public struct SchemaSet: Sendable {
     }
 }
 
-#if !os(Linux)
+#if !os(Linux) && !os(Windows)
 /// Anchors Bundle(for:) to the binary this library is linked into.
 private final class BundleFinder {}
 #endif

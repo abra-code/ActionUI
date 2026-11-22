@@ -11,8 +11,8 @@
 //
 // The built-in schemas come from the library's resource bundle (ActionUI_ActionUIVerifier.bundle),
 // which must stay next to the binary when it is copied elsewhere. On Linux, where the tool needs no
-// GTK, the library has no resources: a copy finds them at share/actionui/schemas beside its bin
-// folder (ActionUIVerifier/SchemaSet.swift).
+// GTK, and on Windows, the library has no resources: a copy finds them at share/actionui/schemas
+// beside its bin folder (ActionUIVerifier/SchemaSet.swift).
 
 import PackageDescription
 

@@ -385,7 +385,7 @@ Package(
 }
 
 func coreCheckPackage() -> Package {
-Package(
+let package = Package(
     name: "ActionUI",
     products: [
         .library(name: "ActionUI", targets: ["ActionUI"]),
@@ -409,6 +409,17 @@ Package(
         ),
     ]
 )
+#if os(Windows)
+// On Windows the core job also checks the document verifier, as portable as the core (no
+// resources, as on Linux: SchemaSet.swift says why).
+package.products.append(.library(name: "ActionUIVerifier", targets: ["ActionUIVerifier"]))
+package.targets += [
+    .target(name: "ActionUIVerifier", path: "ActionUIVerifier", exclude: ["Schemas"]),
+    .testTarget(name: "ActionUIVerifierTests", dependencies: ["ActionUIVerifier"], path: "ActionUIVerifierTests",
+                exclude: ["Parity"]),
+]
+#endif
+return package
 }
 
 // Linux: GTK 4, libadwaita and libsoup 3 from the system (libgtk-4-dev, libadwaita-1-dev,
@@ -614,6 +625,8 @@ Package(
         .library(name: "ActionUI", type: .dynamic, targets: ["ActionUICAdapter", "ActionUIWinUIApplication"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
+        // The document verifier (Foundation only), for Apps/ActionUIVerifier's actionui-verify.
+        .library(name: "ActionUIVerifier", targets: ["ActionUIVerifier"]),
     ],
     targets: [
         // The shim's C interface and libdispatch's main-queue hooks.
@@ -675,6 +688,12 @@ Package(
             dependencies: ["ActionUI", "CWinUI"],
             path: "ActionUIWinUI/Apps/Preview",
             exclude: ["Documents"]
+        ),
+        // The same sources as on Apple, without the schemas as a resource (SchemaSet.swift says why).
+        .target(
+            name: "ActionUIVerifier",
+            path: "ActionUIVerifier",
+            exclude: ["Schemas"]
         ),
         // The portable tests, as in coreCheckPackage.
         .testTarget(

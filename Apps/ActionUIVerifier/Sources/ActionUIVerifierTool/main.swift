@@ -17,6 +17,8 @@ import Foundation
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(ucrt)
+import ucrt
 #endif
 import ActionUIVerifier
 
@@ -77,40 +79,22 @@ func writeLine(_ text: String, to descriptor: Int32) {
     let bytes = Array((text + "\n").utf8)
     var offset = 0
     while offset < bytes.count {
-        let written = bytes[offset...].withUnsafeBytes { write(descriptor, $0.baseAddress, $0.count) }
-        if written < 0 && errno == EINTR { continue }
+        let written = bytes[offset...].withUnsafeBytes { writeSome($0, to: descriptor) }
         if written <= 0 { return }
         offset += written
     }
 }
 
-/// An error as a person reads it. Foundation's Error.localizedDescription is not in
-/// FoundationEssentials.
-func describe(_ error: Error) -> String {
-    #if os(Linux)
-    // A read failure is a CocoaError around the system's error.
-    if let cause = (error as? CocoaError)?.userInfo["NSUnderlyingError"] as? POSIXError {
-        return String(cString: strerror(cause.code.rawValue))
-    }
-    return String(describing: error)
-    #else
-    error.localizedDescription
-    #endif
-}
-
-/// A path as Python's pathlib prints it: no empty or "." components, no trailing slash.
+/// A path as Python's pathlib prints it: no empty or "." components, no trailing slash. On Windows
+/// a backslash is taken as "/" (printed as "/").
 func normalizedPath(_ path: String) -> String {
+    let path = slashSeparated(path)
     let components = path.split(separator: "/").filter { $0 != "." }
     let joined = components.joined(separator: "/")
     if path.hasPrefix("/") {
         return "/" + joined
     }
     return joined.isEmpty ? "." : joined
-}
-
-func isDirectory(_ path: String) -> Bool {
-    var info = stat()
-    return stat(path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFDIR
 }
 
 /// Everything under `directory`, as paths relative to it. As with pathlib's rglob, a folder that
@@ -120,8 +104,7 @@ func subpaths(of directory: String) -> [String] {
     var found: [String] = []
     for name in (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? [] {
         found.append(name)
-        var info = stat()
-        if lstat(directory + "/" + name, &info) == 0 && (info.st_mode & S_IFMT) == S_IFDIR {
+        if isFolderNotLink(directory + "/" + name) {
             found += subpaths(of: directory + "/" + name).map { name + "/" + $0 }
         }
     }
@@ -144,13 +127,6 @@ func jsonFiles(in directory: String, recursive: Bool) -> [String] {
         prefix = directory + "/"
     }
     return sorted.map { prefix + $0.joined(separator: "/") }
-}
-
-/// True for a regular file or a symbolic link to one, as pathlib's is_file: a device, a FIFO or
-/// a socket is not a file to validate.
-func isRegularFile(_ path: String) -> Bool {
-    var info = stat()
-    return stat(path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFREG
 }
 
 /// Prints the issues of one file; returns (errors, warnings).
@@ -180,12 +156,7 @@ func validateFile(_ path: String, validator: DocumentValidator) -> (Int, Int) {
     do {
         issues = try validator.validate(data: data, rootPath: path)
     } catch {
-        #if os(Linux)
-        let reason = describe(error)
-        #else
-        let reason = (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String ?? describe(error)
-        #endif
-        printError("[ERROR] \(path): invalid JSON — \(reason)")
+        printError("[ERROR] \(path): invalid JSON — \(invalidJSONReason(error))")
         return (1, 0)
     }
     return report(path: path, issues: issues)
@@ -288,11 +259,7 @@ if let coreSchemasDirectory {
 } else if let bundled = SchemaSet.bundledSchemasDirectory {
     schemasDirectory = bundled
 } else {
-    #if os(Linux)
-    printError("[ERROR] Schemas directory not found.\nEnsure share/actionui/schemas is next to the bin folder of this tool, or pass --schemas <dir>.")
-    #else
-    printError("[ERROR] Schemas directory not found in the verifier's resource bundle.\nEnsure ActionUI_ActionUIVerifier.bundle is next to this tool, or pass --schemas <dir>.")
-    #endif
+    printError(schemasNotFoundMessage)
     exit(1)
 }
 

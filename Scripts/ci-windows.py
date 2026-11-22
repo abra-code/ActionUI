@@ -366,6 +366,45 @@ def xctest_counts(log_path):
     return {"executed": int(executed), "failures": int(failures)}
 
 
+def testing_counts(log_path):
+    """Swift Testing's closing line ('Test run with N tests ... passed' or '... failed ... with M
+    issues') as numbers; None when it printed none (no Swift Testing tests ran)."""
+    text = ANSI_ESCAPE.sub("", log_path.read_text(encoding="utf-8", errors="replace"))
+    matches = re.findall(r"Test run with (\d+) tests?\b[^\n]*?\b(passed|failed)(?:[^\n]*?with (\d+) issues?)?", text)
+    if not matches:
+        return None
+    # swift test runs Swift Testing once per test product (an empty run after the real one, measured): all of them.
+    return {"executed": sum(int(count) for count, _, _ in matches),
+            "passed": all(outcome == "passed" for _, outcome, _ in matches),
+            "issues": sum(int(issues or 0) for _, _, issues in matches)}
+
+
+def check_verifier_tool(results, summary):
+    """Builds Apps/ActionUIVerifier's actionui-verify and runs it on the parity fixtures: a valid
+    document (exit 0, or 2 for warnings only) and one with errors (exit 1). It finds the schemas in
+    this checkout, as a tool built from one does. True when both answered so."""
+    scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-verifier")]
+    package = ["--package-path", str(REPO_DIR / "Apps" / "ActionUIVerifier")]
+    build = run_step("verifier-build", ["swift", "build"] + package + scratch, results, dict(os.environ))
+    summary["steps"].append(build)
+    if build["status"] != 0:
+        summary["errors"] = first_errors(results / build["log"])
+        return False
+    shown = subprocess.run(["swift", "build", "--show-bin-path"] + package + scratch, capture_output=True, text=True)
+    tool = Path(shown.stdout.strip()) / "actionui-verify.exe"
+    fixtures = REPO_DIR / "ActionUIVerifierTests" / "Parity" / "fixtures"
+    passed = True
+    for name, accepted in (("good-chart-nested.json", (0, 2)), ("bad-view.json", (1,))):
+        step = run_step(f"verifier-{name.removesuffix('.json')}", [tool, fixtures / name], results, dict(os.environ))
+        summary["steps"].append(step)
+        answered = step["status"] in accepted
+        summary["findings"].append(f"actionui-verify {name}: exit {step['status']} ({'as expected' if answered else 'NOT as expected'})")
+        passed = passed and answered
+        # Not a failure of the step itself: the exit code is the answer.
+        step["status"] = 0 if answered else step["status"]
+    return passed
+
+
 def first_errors(log_path, limit=40):
     """The distinct 'path:line:column: error:' lines of a log, without color codes, first `limit`
     of them; else the distinct lines with 'error: ' or an MSVC 'error C2440:' / 'error LNK2019:'
@@ -425,10 +464,18 @@ def check_core(results):
     summary["steps"].append(test)
     tests = xctest_counts(results / test["log"])
     summary["tests"] = tests
+    # The verifier's tests (Swift Testing): coreCheckPackage adds them on Windows.
+    testing = testing_counts(results / test["log"])
+    summary["swift_testing"] = testing
+    summary["findings"] = [f"Swift Testing: {testing['executed']} tests, {'passed' if testing['passed'] else 'FAILED'}"
+                           if testing else "Swift Testing: no run"]
     if test["status"] != 0:
         summary["errors"] = first_errors(results / test["log"])
-    # A zero exit with no XCTest total, or a total of none, ran nothing: not a pass.
-    summary["passed"] = test["status"] == 0 and tests is not None and tests["executed"] > 0
+    # A zero exit with no XCTest total, or a total of none, ran nothing: not a pass. Likewise for
+    # Swift Testing, which reports "Test run with 0 tests ... passed" when no target has its tests.
+    summary["passed"] = (test["status"] == 0 and tests is not None and tests["executed"] > 0
+                         and testing is not None and testing["passed"] and testing["executed"] > 0)
+    summary["passed"] = check_verifier_tool(results, summary) and summary["passed"]
     write_summary(results, summary)
     return 0 if summary["passed"] else 1
 
