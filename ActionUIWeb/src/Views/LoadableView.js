@@ -32,7 +32,7 @@
 // the Android stance); use a JSON description.
 
 import { register, buildElementView } from "../Common/ActionUIRegistry.js";
-import { HOST_ORIGIN, LESS_TRUSTED, TRUSTED, resolvedOrigin } from "../Common/TrustPolicy.js";
+import { HOST_ORIGIN, LESS_TRUSTED, TRUSTED, allows, loadSource, resolvedOrigin } from "../Common/TrustPolicy.js";
 import { jsonRefusal, readJSONText } from "../Helpers/JSONLimits.js";
 import { currentConfiguration } from "../Common/Configuration.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
@@ -147,6 +147,14 @@ register("LoadableView", {
             }
 
             const address = resolvedAddress(classified.fetchURL);
+            // The trust policy may refuse the source ({ capability: "load", source }), asked with
+            // the origin of the content this view is in, before anything is fetched.
+            if (!allows({ capability: "load", source: loadSource(classified) }, ctx.origin ?? HOST_ORIGIN, ctx.logger)) {
+                loadedAddressOf.delete(node);
+                ctx.logger.log(`LoadableView ${element.id}: not loading ${address}: the trust policy refuses it`, "warning");
+                renderMessage("Failed to load view: the trust policy refuses it", "aui-loadable-error");
+                return;
+            }
             renderMessage("Loading…", "aui-loadable-loading");
             // Where the content comes from, decided once fetched, by the address it finally came
             // from (after redirects); no more trusted than the content around this view.
@@ -155,6 +163,14 @@ register("LoadableView", {
                 .then((response) => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     origin = resolvedOrigin(classified, ctx.origin ?? HOST_ORIGIN, element.id, ctx.logger, response.url || null);
+                    // The policy was asked about `address`; the content comes from where a redirect
+                    // led, so it is asked again about that, before the content is read.
+                    if (response.url && response.url !== address) {
+                        const reached = origin.source === "remote" ? { source: "remote", url: origin.url } : { source: "resource", path: origin.path };
+                        if (!allows({ capability: "load", source: reached }, ctx.origin ?? HOST_ORIGIN, ctx.logger)) {
+                            throw new Error(`it was redirected to ${response.url}, and the trust policy refuses it`);
+                        }
+                    }
                     return readJSONText(response);
                 })
                 .then((text) => {

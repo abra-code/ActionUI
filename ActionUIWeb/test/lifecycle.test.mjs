@@ -24,14 +24,15 @@ test("the full set wires both listeners and dispatches at viewID 0", () => {
 
     dom.setVisibility("hidden");
     dom.fireDocument("visibilitychange");
-    assert.deepEqual(dispatched.at(-1), ["bg", 0, 0, null], "hidden -> onBackground at viewID 0, no context");
+    assert.deepEqual(dispatched.at(-1).slice(0, 4), ["bg", 0, 0, null], "hidden -> onBackground at viewID 0, no context");
+    assert.equal(dispatched.at(-1)[4]?.trust, "trusted", "as the host's own when no origin is given");
 
     dom.setVisibility("visible");
     dom.fireDocument("visibilitychange");
-    assert.deepEqual(dispatched.at(-1), ["fg", 0, 0, null], "visible -> onForeground");
+    assert.deepEqual(dispatched.at(-1).slice(0, 4), ["fg", 0, 0, null], "visible -> onForeground");
 
     dom.fireWindow("pagehide");
-    assert.deepEqual(dispatched.at(-1), ["term", 0, 0, null], "pagehide -> onTerminate");
+    assert.deepEqual(dispatched.at(-1).slice(0, 4), ["term", 0, 0, null], "pagehide -> onTerminate");
 
     cleanup();
     assert.equal(dom.documentListenerCount("visibilitychange"), 0, "cleanup removes the visibilitychange listener");

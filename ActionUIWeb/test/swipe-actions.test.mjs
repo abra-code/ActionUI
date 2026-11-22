@@ -113,5 +113,5 @@ test("tapping a revealed action dispatches that Button's own actionID (viewID = 
         ],
     });
     trailingPanel.children[0].fire("click", { stopPropagation() {} });
-    assert.deepEqual(dispatched, [["row.delete", 4]]);
+    assert.deepEqual(dispatched.map((args) => args.slice(0, 2)), [["row.delete", 4]]);
 });

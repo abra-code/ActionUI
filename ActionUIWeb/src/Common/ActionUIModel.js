@@ -36,6 +36,11 @@ import { getInsertableContainers } from "./ActionUIRegistry.js";
 import { applyElementProperty } from "./ModifierResolver.js";
 import { playEnterTransition } from "../Helpers/TransitionModifier.js";
 import { LoadBudget, jsonRefusal } from "../Helpers/JSONLimits.js";
+import { allows, LESS_TRUSTED } from "./TrustPolicy.js";
+
+// The origin an action is judged by when its element recorded none: less trusted, so a miss cannot
+// make other content's action read as the host's.
+const UNKNOWN_ORIGIN = Object.freeze({ source: "host", trust: LESS_TRUSTED });
 
 export class ActionUIModel {
     constructor(windowUUID, logger) {
@@ -285,8 +290,18 @@ export class ActionUIModel {
     // User interaction entry point called by view implementations.
     // Mirrors the Swift action callback signature:
     // (actionID, windowUUID, viewID, viewPartID, context)
-    dispatchAction(actionID, viewID, viewPartID = 0, context = null) {
+    // Fires actionID for element viewID, after the trust policy allows it ({ capability: "action",
+    // actionID }) for `origin`, else for the origin recorded for viewID: an element with no
+    // recorded origin counts as less trusted. Content may give an element id 0 too, so the host's
+    // own actions (the menu bar, a toast's or a dialog's button, a modal's dismissal) pass
+    // HOST_ORIGIN. Refused, nothing fires and a warning is logged.
+    dispatchAction(actionID, viewID, viewPartID = 0, context = null, origin = null) {
         if (!actionID) return;
+        const from = origin ?? this.origins.get(viewID) ?? UNKNOWN_ORIGIN;
+        if (!allows({ capability: "action", actionID }, from, this.logger)) {
+            this.logger?.log(`Not firing action ${actionID} for element ${viewID} in window ${this.windowUUID}: the trust policy refuses it`, "warning");
+            return;
+        }
         this.actionDispatcher?.(actionID, this.windowUUID, viewID, viewPartID, context);
     }
 

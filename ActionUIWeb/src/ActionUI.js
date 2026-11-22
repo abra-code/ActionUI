@@ -214,7 +214,7 @@ export class Window {
         // (onForeground/onBackground/onTerminateActionID:web). Re-installed on each
         // present(); the prior cleanup removes any stale listeners first.
         this._lifecycleCleanup?.();
-        this._lifecycleCleanup = installLifecycleHooks(this.rootElement.properties, this.model, this.logger);
+        this._lifecycleCleanup = installLifecycleHooks(this.rootElement.properties, this.model, this.logger, this.origin);
         return this;
     }
 
@@ -462,7 +462,7 @@ export class Application {
         // account menu) and present into its stage; menu commands dispatch at the
         // app level (viewID 0). Without one (or when opted out), mount directly.
         if (this.menuBar && appShell) {
-            const dispatch = (actionID) => win.model.dispatchAction(actionID, 0);
+            const dispatch = (actionID) => win.model.dispatchAction(actionID, 0, 0, null, HOST_ORIGIN);
             const { shell, stage } = buildAppShell(this.menuBar, this.name, dispatch, win.logger);
             container.replaceChildren(shell);
             return win.present(stage);

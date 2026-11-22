@@ -29,6 +29,8 @@
 //     dialog should always carry a cancel affordance; an empty button list gets a
 //     default "Cancel" so the dialog is never un-dismissable.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
+
 const DEFAULT_ALERT_BUTTONS = [{ title: "OK", role: "cancel" }];
 const ROLES = new Set(["default", "cancel", "destructive"]);
 
@@ -66,7 +68,7 @@ export function presentDialog(host, spec, model, logger) {
         b.textContent = typeof btn.title === "string" ? btn.title : "";
         b.addEventListener("click", () => {
             dialog.close(); // SwiftUI dismisses after any tap (the close listener cleans up)
-            if (actionID) model.dispatchAction(actionID, 0, 0, null); // viewID 0, no context (Apple parity)
+            if (actionID) model.dispatchAction(actionID, 0, 0, null, HOST_ORIGIN); // viewID 0, no context (Apple parity)
         });
         row.appendChild(b);
     }

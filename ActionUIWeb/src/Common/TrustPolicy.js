@@ -116,6 +116,22 @@ export function allows(capability, origin, logger) {
     }
 }
 
+// The source a LoadableView's classified source `classified` ({ kind, fetchURL }) names, as its
+// content would be classified before it is fetched: { source: "resource", path } for the page's own
+// server, else { source: "remote", url }; null for no source. For the load capability.
+export function loadSource(classified) {
+    if (!classified || classified.kind === "none") return null;
+    const base = pageBaseURL();
+    let address;
+    try {
+        address = new URL(classified.fetchURL, base).href;
+    } catch {
+        address = classified.fetchURL;
+    }
+    const own = classified.kind !== "remote" || haveSameOrigin(address, base);
+    return own ? { source: "resource", path: address } : { source: "remote", url: address };
+}
+
 // The origin of content a LoadableView loads from the classified source `classified`
 // ({ kind, fetchURL }) inside content of origin `parent`, into the LoadableView `parentID`: a
 // path or name (always on the page's server) or a URL on the page's origin is a resource; another

@@ -111,7 +111,7 @@ export function wrapWithSwipeActions(node, element, properties, ctx) {
     const trailingFull = edgeAllowsFullSwipe(trailing);
     const fire = (button) => {
         if (button && typeof button.properties?.actionID === "string") {
-            ctx.model.dispatchAction(button.properties.actionID, button.id);
+            ctx.model.dispatchAction(button.properties.actionID, button.id, 0, null, ctx.origin);
         }
     };
 
@@ -212,7 +212,7 @@ function buildSwipeButton(button, ctx, close) {
 
     el.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (typeof props.actionID === "string") ctx.model.dispatchAction(props.actionID, button.id);
+        if (typeof props.actionID === "string") ctx.model.dispatchAction(props.actionID, button.id, 0, null, ctx.origin);
         close();
     });
     return el;

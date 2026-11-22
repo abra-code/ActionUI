@@ -27,6 +27,7 @@ import { jsonRefusal } from "../Helpers/JSONLimits.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
 import { PlatformFilter } from "../Common/PlatformFilter.js";
 import { collectElementIds } from "../Common/ActionUIInsertion.js";
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
 
 // Presentation style for a window modal. Mirror of the Node adapter's ModalStyle
 // (and Swift's ModalStyle); re-exported from ActionUI.js alongside InsertPosition.
@@ -85,7 +86,7 @@ export function presentModal(host, spec, model, logger) {
     dialog.addEventListener("close", () => {
         dialog.remove();
         for (const id of loadedIDs) model.cleanupElement(id);
-        if (typeof onDismissActionID === "string") model.dispatchAction(onDismissActionID, 0, 0, null);
+        if (typeof onDismissActionID === "string") model.dispatchAction(onDismissActionID, 0, 0, null, HOST_ORIGIN);
     });
 
     host.appendChild(dialog);

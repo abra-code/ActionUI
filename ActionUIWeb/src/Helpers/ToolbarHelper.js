@@ -224,7 +224,7 @@ function buildChromeNode(element, ctx) {
             node.appendChild(span);
         }
         if (typeof props.actionID === "string") {
-            node.addEventListener("click", () => ctx.model.dispatchAction(props.actionID, element.id, 0, { title }));
+            node.addEventListener("click", () => ctx.model.dispatchAction(props.actionID, element.id, 0, { title }, ctx.origin));
         }
         return node;
     }

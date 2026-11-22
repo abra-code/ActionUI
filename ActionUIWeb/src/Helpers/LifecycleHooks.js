@@ -20,10 +20,13 @@
 // specifically wants an "unsaved changes" confirm prompt can still add its own
 // `beforeunload` listener; this provides the save/restore signals.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
+
 // Installs the lifecycle listeners declared on [rootProperties] and returns a
 // cleanup function that removes them (so re-presenting a window does not stack
 // duplicate listeners). A no-op (returns an empty cleanup) when none are declared.
-export function installLifecycleHooks(rootProperties, model, logger) {
+// [origin] is the window's content's, which the trust policy judges each action by.
+export function installLifecycleHooks(rootProperties, model, logger, origin = HOST_ORIGIN) {
     const pick = (key) => {
         const value = rootProperties?.[key];
         if (value === undefined || value === null) return null;
@@ -39,7 +42,7 @@ export function installLifecycleHooks(rootProperties, model, logger) {
     const onTerminate = pick("onTerminateActionID");
     if (!onForeground && !onBackground && !onTerminate) return () => {};
 
-    const fire = (actionID) => { if (actionID) model.dispatchAction(actionID, 0, 0, null); };
+    const fire = (actionID) => { if (actionID) model.dispatchAction(actionID, 0, 0, null, origin); };
 
     const onVisibility = () => {
         if (document.visibilityState === "hidden") fire(onBackground);

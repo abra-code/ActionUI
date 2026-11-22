@@ -31,6 +31,8 @@
 //     ModalHost keep the active node in the DOM). Swift stores windowToast/toastQueue
 //     on WindowModel only for its @Published binding, which the web has no need of.
 
+import { HOST_ORIGIN } from "../Common/TrustPolicy.js";
+
 // Per-window toast state, keyed by the window root node so multiple windows never
 // share a queue (the WeakMap entry is collected with the node). The active toast
 // itself lives in the DOM; only the pending queue and timer handle live here.
@@ -102,7 +104,7 @@ function render(host, spec, model, logger) {
         button.textContent = spec.action.title;
         button.addEventListener("click", () => {
             if (toast.dataset.dismissing) return; // tapped mid-exit: ignore
-            model.dispatchAction(spec.action.actionID, 0, 0, null); // viewID 0, no context (Apple parity)
+            model.dispatchAction(spec.action.actionID, 0, 0, null, HOST_ORIGIN); // viewID 0, no context (Apple parity)
             beginExit(host, toast, model, logger);
         });
         toast.appendChild(button);
