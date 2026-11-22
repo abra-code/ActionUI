@@ -316,9 +316,7 @@ def linux_setup_arguments():
         include_dirs=[os.path.join(library_dir, 'include')],
         library_dirs=[os.path.join(library_dir, 'lib')],
         libraries=['ActionUI'],
-        # GLib, for an idle source (the HostSurface bindings free a retired client on a later main-loop turn);
-        # libActionUI.so needs it already, and the versioned name links it without GLib's development files.
-        extra_link_args=['-Wl,-rpath,$ORIGIN', '-l:libglib-2.0.so.0'],
+        extra_link_args=['-Wl,-rpath,$ORIGIN'],
     )
 
     return {

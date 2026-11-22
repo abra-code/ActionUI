@@ -185,6 +185,7 @@ swift test --package-path ActionUIAdwaita/Library
 | `Sources/Runtime` | the render tree, the window registry, toolbars, the primary menu, presentations |
 | `../ActionUIAdwaitaApplication` | the optional application module: `AdwaitaApplication`, `AppPanels`, offscreen rendering, and the `actionUIApp*` C functions |
 | `Sources/Styling`, `Formatting`, `Markdown`, `Drawing` | CSS for colors and fonts, number and date formats, markdown text, shapes |
+| `../ActionUIRendererShared` | renderer code with no GTK in it, shared with other renderers and tested without a display: the stack and frame solvers, the inherited environment, screen titles and hover presence, and the chart layout, which turns the Core chart model into drawing primitives |
 | `Sources/Interop` | the Swift side of the GTK, GLib and WebKitGTK C APIs |
 | `CAdwaita`, `CSoup` | the system libraries' headers, with the version floors |
 | `CLinuxSocket` | `accept4`, which Swift's Glibc module leaves out (for the remote server) |

@@ -218,6 +218,18 @@ bool actionUISetConfigurationJSON(const char *configurationJSON) ACTIONUI_NOEXCE
 // - the configuration in effect, as JSON with every key;
 char *actionUIGetConfigurationJSON(void) ACTIONUI_NOEXCEPT;
 
+// Main thread, for a binding's own threading (a language runtime's work handed to the main thread, its
+// main-thread-only calls):
+// - runs callback(context) on the main thread, after the work queued before it (ActionUI's own included),
+//   once the main loop runs: actionUIAppRun's, or a host's own (on Linux once actionUIInstallMainLoopBridge
+//   was called or a host window was filled). Never at once, also when called on the main thread. Any
+//   thread; callback NULL does nothing;
+typedef void (*ActionUIMainThreadCallback)(void *context);
+void actionUIRunOnMainThread(ActionUIMainThreadCallback callback, void *context) ACTIONUI_NOEXCEPT;
+// - whether the calling thread is the one ActionUI takes for the main thread (the one its main queue runs
+//   on: on Linux and Windows the thread that loaded the library).
+bool actionUIIsMainThread(void) ACTIONUI_NOEXCEPT;
+
 // Apple only (ActionUIC+Apple.swift): a build for another platform has no such functions.
 #if defined(__APPLE__)
 void *actionUILoadHostingControllerFromURL(const char *urlString, const char *windowUUID, bool isContentView) ACTIONUI_NOEXCEPT;  // NSHostingController on macOS, UIView on iOS; retained

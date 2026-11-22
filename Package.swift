@@ -211,6 +211,7 @@ Package(
         //       ActionUICAdapter.h   - umbrella (may keep <ActionUICAdapter/ActionUIC.h>)
         //       ActionUIC.h          - typedefs and public C API
         //     ActionUIC.swift, ActionUIC+Apple.swift - compiled by ActionUICAdapter target below
+        //     ActionUIC+POSIX.swift                   - compiled by both ActionUICAdapter targets
         //     ActionUIC+Linux.swift                   - compiled by linuxPackage's ActionUICAdapter
         //     HeaderCheck/                            - compiled by the Xcode framework target, and
         //                                               by Scripts/check-c-prototypes.sh
@@ -220,6 +221,7 @@ Package(
             exclude: [
                 "ActionUIC.swift",
                 "ActionUIC+Apple.swift",
+                "ActionUIC+POSIX.swift",
                 "ActionUIC+Linux.swift",
                 "HeaderCheck",
             ],
@@ -243,7 +245,7 @@ Package(
                 "HeaderCheck",
                 "ActionUIC+Linux.swift",
             ],
-            sources: ["ActionUIC.swift", "ActionUIC+Apple.swift"],
+            sources: ["ActionUIC.swift", "ActionUIC+Apple.swift", "ActionUIC+POSIX.swift"],
         ),
 
 
@@ -496,7 +498,7 @@ Package(
                 "HeaderCheck",
                 "ActionUIC+Apple.swift",
             ],
-            sources: ["ActionUIC.swift", "ActionUIC+Linux.swift"]
+            sources: ["ActionUIC.swift", "ActionUIC+Linux.swift", "ActionUIC+POSIX.swift"]
         ),
         // The application functions (actionUIApp*), over AdwaitaApplication; their C header's
         // handler types come from ActionUIApp.h as a module (only that header: its folder's
