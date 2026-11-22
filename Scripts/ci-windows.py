@@ -182,6 +182,8 @@ PREVIEW_OPTIONS = {
                              "--invoke-part", "40", "0", "--expect-action", "sidebar.toggled"],
     "ButtonStyles": ["480", "240"],
     "Shadows": ["440", "260"],
+    # Black shadows of radius 4, 8 and 12 on clean edges, to compare their blur with SwiftUI's.
+    "ShadowBlur": ["420", "300"],
     "Overlays": ["440", "240"],
     "ControlSizes": ["560", "300"],
     "Tints": ["560", "420"],

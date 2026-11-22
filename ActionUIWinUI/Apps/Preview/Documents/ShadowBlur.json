@@ -1,0 +1,10 @@
+{
+  "type": "HStack",
+  "id": 1,
+  "properties": { "spacing": 50, "alignment": "top", "padding": 20, "background": "white", "frame": { "width": 420, "height": 300, "alignment": "topLeading" } },
+  "children": [
+    { "type": "Rectangle", "id": 2, "properties": { "fill": "black", "frame": { "width": 80, "height": 80 }, "shadow": { "color": "#000000", "radius": 4, "x": 0, "y": 130 } } },
+    { "type": "Rectangle", "id": 3, "properties": { "fill": "black", "frame": { "width": 80, "height": 80 }, "shadow": { "color": "#000000", "radius": 8, "x": 0, "y": 130 } } },
+    { "type": "Rectangle", "id": 4, "properties": { "fill": "black", "frame": { "width": 80, "height": 80 }, "shadow": { "color": "#000000", "radius": 12, "x": 0, "y": 130 } } }
+  ]
+}

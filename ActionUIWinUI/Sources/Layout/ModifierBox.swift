@@ -44,7 +44,8 @@
    pointer through. Its controls lose keyboard focus and accessibility tools skip it (RenderNode).
 
  - shadow: a drop shadow in the shape of what the frame draws (background and content), not of the
-   box, as SwiftUI's: its color (else black at 0.33, SwiftUI's), blurred by its radius, moved by its x
+   box, as SwiftUI's: its color (else black at 0.33, SwiftUI's), blurred as SwiftUI blurs it (its
+   deviation 0.95 of its radius, measured on macOS; shadowBlurScale), moved by its x
    and y; drawn by an empty element behind the frame from a live capture of the frame's visual, and
    moved with the frame's transform. Unlike SwiftUI's (applied last), it leaves out the border.
 
@@ -250,6 +251,10 @@ struct BoxGeometry: Equatable {
 
 @MainActor
 final class ModifierBox {
+    /// Composition's blur radius for a shadow, per point of SwiftUI's shadow radius: SwiftUI's blur has
+    /// a deviation of 0.95 of its radius and Composition's a third of its blur radius (both measured).
+    static let shadowBlurScale = 2.85
+
     /// The outer box: the frame, centered in the room it is given.
     let panel: LayoutPanel
     /// Exactly the frame's size: the background, and the element inside the padding.
@@ -518,8 +523,11 @@ final class ModifierBox {
             let top = corners.map(\.y).min() ?? 0
             let right = corners.map(\.x).max() ?? 0
             let bottom = corners.map(\.y).max() ?? 0
-            // SwiftUI's radius is the blur's deviation; Composition's blur radius is about twice it.
-            shown = actionUIWinUIElementSetShadow(host.pointer, frameView.pointer, &color, shadow.radius * 2, shadow.x, shadow.y,
+            // Measured with the ShadowBlur preview document: SwiftUI's shadow blur has a deviation of
+            // 0.95 of its radius (macOS 27), Composition's is a third of its blur radius (0.67 to 0.72
+            // at twice the radius, on both architectures), so 2.85 times the radius blurs as SwiftUI does.
+            shown = actionUIWinUIElementSetShadow(host.pointer, frameView.pointer, &color, shadow.radius * ModifierBox.shadowBlurScale,
+                                                  shadow.x, shadow.y,
                                                   left, top, right - left, bottom - top)
         } else {
             shown = actionUIWinUIElementSetShadow(host.pointer, frameView.pointer, nil, 0, 0, 0, 0, 0, 0, 0)
