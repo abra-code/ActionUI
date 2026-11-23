@@ -303,6 +303,13 @@ PREVIEW_OPTIONS = {
                          "--expect-log", "for element 407: less-trusted content reads no network or device path",
                          "--expect-log", "for element 408: less-trusted content reads no network or device path",
                          "--expect-log", "Not loading C:/Windows/Web/Screen/img100.jpg for element 409: less-trusted content"],
+    # JSON from a server loads no local file outside the app's resources, whatever form its Windows path has
+    # (backslashes, forward slashes, a drive-relative path, an 8.3 short name, "..", a file: URL). Core's
+    # refusal line names the element, so each element's line is one only the trust policy writes.
+    "LessTrustedLocalFiles": ["420", "260", "--delay", "4000"]
+                             + [option for element in range(851, 857)
+                                for option in ["--expect-log", f"LoadableView {element}: not loading "]]
+                             + ["--expect-log", ": the trust policy refuses it"],
     # JSON from a server: its LoadableView loads no file on a share (never touched).
     # The share on this machine (807) is the one check_share_reads shares and watches.
     "LessTrustedShares": ["420", "300", "--delay", "4000"]

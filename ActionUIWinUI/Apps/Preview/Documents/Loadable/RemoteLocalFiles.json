@@ -1,0 +1,13 @@
+{
+  "type": "VStack",
+  "id": 850,
+  "properties": { "spacing": 8, "alignment": "leading" },
+  "children": [
+    { "type": "LoadableView", "id": 851, "properties": { "filePath": "C:\\Windows\\win.ini" } },
+    { "type": "LoadableView", "id": 852, "properties": { "filePath": "C:/Windows/win.ini" } },
+    { "type": "LoadableView", "id": 853, "properties": { "filePath": "C:win.ini" } },
+    { "type": "LoadableView", "id": 854, "properties": { "filePath": "C:\\PROGRA~1\\desktop.ini" } },
+    { "type": "LoadableView", "id": 855, "properties": { "filePath": "C:\\Windows\\..\\Windows\\win.ini" } },
+    { "type": "LoadableView", "id": 856, "properties": { "url": "file:///C:/Windows/win.ini" } }
+  ]
+}
