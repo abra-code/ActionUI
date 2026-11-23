@@ -27,6 +27,8 @@ Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
 
 import argparse
 import datetime
+import hashlib
+import http.client
 import json
 import os
 import platform
@@ -57,6 +59,18 @@ WINUI_PACKAGES = {
     "microsoft.windowsappsdk.winui": "2.7.0",
     "microsoft.windowsappsdk.runtime": "2.7.0",
     "microsoft.web.webview2": "1.0.3719.77",
+}
+# The SHA-256 of each package's archive, by "<id>.<version>". An archive is used only when it matches,
+# so a new version needs its value here. Values from nuget.org's downloads; each archive's SHA-512 matched
+# the one nuget.org's catalog recorded when the package was published.
+WINUI_PACKAGE_SHA256 = {
+    "microsoft.windows.cppwinrt.3.0.260818.1": "a8993608ae9263a8288e1a1d9ee2684a5632f4acc59e1e89ddd86b3b889a7367",
+    "microsoft.windowsappsdk.foundation.2.7.0": "4131660bda7476eef751ce134c9847b5a79e4051809bffbf9dd171f4246afdf8",
+    "microsoft.windowsappsdk.interactiveexperiences.2.7.0": "5df51fd9e30a6093f737698ae8ad4e8d62d87f7081b00aa6a4ea0b893f03e1c2",
+    "microsoft.windowsappsdk.dwrite.2.7.0": "d9ea79e67c2379d100a51a8ea681d1fb21af211c1a6676fd60ecf7795ac46a44",
+    "microsoft.windowsappsdk.winui.2.7.0": "027ecdc0c51a2d31fd25985616ef2e9438f02ee3e7b6e72fd0601ddb119688b4",
+    "microsoft.windowsappsdk.runtime.2.7.0": "326b47f40f051e767bfc83ce99c753c758bbba75a25f0a4febab8cd9ea8b5152",
+    "microsoft.web.webview2.1.0.3719.77": "2f6be3a10a1a8d6d1fde986af4131dab344f8181fffe75590824e0f4b037ed73",
 }
 # WebView2's WinRT component, beside the programs (a WebView's browser cannot start without it).
 WEBVIEW2_CORE = "Microsoft.Web.WebView2.Core.dll"
@@ -563,19 +577,44 @@ def without_real_input(options):
     return kept
 
 
+def sha256_of(path):
+    """The file's SHA-256, as lowercase hex."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        for block in iter(lambda: file.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def fetch_packages(work, findings):
-    """Downloads and extracts WINUI_PACKAGES into work/packages/<id>/ (kept between runs).
-    Returns {id: folder}."""
+    """Downloads and extracts WINUI_PACKAGES into work/packages/<id>/ (kept between runs). Every
+    archive, downloaded or kept, must match its WINUI_PACKAGE_SHA256 value before it is used; one that
+    does not is deleted and the fetch fails. Returns {id: folder}."""
     folders = {}
     packages = work / "packages"
     packages.mkdir(parents=True, exist_ok=True)
     for package_id, version in WINUI_PACKAGES.items():
-        archive = packages / f"{package_id}.{version}.nupkg"
-        folder = packages / f"{package_id}.{version}"
-        if not archive.is_file():
-            url = f"https://api.nuget.org/v3-flatcontainer/{package_id}/{version}/{package_id}.{version}.nupkg"
+        name = f"{package_id}.{version}"
+        expected = WINUI_PACKAGE_SHA256.get(name)
+        if expected is None:
+            raise RuntimeError(f"no SHA-256 for {name} in WINUI_PACKAGE_SHA256")
+        archive = packages / f"{name}.nupkg"
+        folder = packages / name
+        if archive.is_file():
+            actual = sha256_of(archive)
+            if actual != expected:
+                archive.unlink()
+                if folder.exists():
+                    shutil.rmtree(folder)
+                raise RuntimeError(f"the kept {archive.name} has SHA-256 {actual}, not {expected}; deleted")
+        else:
+            url = f"https://api.nuget.org/v3-flatcontainer/{package_id}/{version}/{name}.nupkg"
             partial = archive.with_suffix(".partial")
             urllib.request.urlretrieve(url, partial)
+            actual = sha256_of(partial)
+            if actual != expected:
+                partial.unlink()
+                raise RuntimeError(f"the downloaded {archive.name} has SHA-256 {actual}, not {expected}")
             partial.replace(archive)
             if folder.exists():
                 shutil.rmtree(folder)
@@ -589,7 +628,7 @@ def fetch_packages(work, findings):
                 zipped.extractall(extracting)
             extracting.replace(folder)
         folders[package_id] = folder
-    findings.append("packages: " + ", ".join(f"{key} {value}" for key, value in WINUI_PACKAGES.items()))
+    findings.append("packages (SHA-256 checked): " + ", ".join(f"{key} {value}" for key, value in WINUI_PACKAGES.items()))
     return folders
 
 
@@ -685,6 +724,40 @@ WEBVIEW2_RUNTIME_KEY = r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-42
 WEBVIEW2_BOOTSTRAPPER = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 
 
+POWERSHELL = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+
+
+def microsoft_signature(path):
+    """Whether Windows finds a valid Authenticode signature on `path` made by Microsoft Corporation.
+    Returns (True or False, what Windows said: the status and the signer's name)."""
+    # The path goes in through the environment, so no quoting of it reaches PowerShell. The signer's
+    # name comes one part per line, with a value that holds a comma quoted, so the organization is
+    # compared as a whole line: text such as "O=Microsoft Corporation" inside another part cannot match.
+    script = ("$s = Get-AuthenticodeSignature -LiteralPath $env:ACTIONUI_SIGNED_FILE; "
+              "Write-Output $s.Status; "
+              "if ($s.SignerCertificate) { Write-Output $s.SignerCertificate.SubjectName.Decode("
+              "[System.Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseNewLines) }")
+    if not path.is_file():
+        return False, "no such file"
+    # Without PSModulePath: when this script runs under PowerShell 7 (as on CI), Windows PowerShell would
+    # inherit 7's module folders and fail to load 7's copy of the module that has Get-AuthenticodeSignature.
+    env = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
+    env["ACTIONUI_SIGNED_FILE"] = str(path)
+    try:
+        completed = subprocess.run([str(POWERSHELL), "-NoProfile", "-NonInteractive", "-Command", script],
+                                   env=env, capture_output=True, text=True, errors="replace", timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return False, f"Get-AuthenticodeSignature did not run: {error}"
+    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    status = lines[0] if lines else ""
+    name = lines[1:]
+    signed = completed.returncode == 0 and status == "Valid" and "O=Microsoft Corporation" in name
+    said = f"{status or 'no status'}, signer {', '.join(name) or 'none'}"
+    if not signed and completed.stderr.strip():
+        said += f" (PowerShell: {' '.join(completed.stderr.split())[:300]})"
+    return signed, said
+
+
 def webview2_runtime_version():
     """The installed WebView2 runtime's version, from the registry (per machine or per user), or None."""
     import winreg
@@ -716,6 +789,14 @@ def ensure_webview2_runtime(work, results, findings):
         findings.append(f"no WebView2 runtime, and its installer did not download: {error}")
         return {"step": "webview2-runtime", "status": 1, "seconds": round(time.monotonic() - started, 1),
                 "note": "download failed", "log": ""}
+    # Run only when Microsoft signed it: the address is a redirect, and the file is a program run as is.
+    signed, said = microsoft_signature(installer)
+    findings.append(f"WebView2 installer signature: {said}")
+    if not signed:
+        installer.unlink(missing_ok=True)
+        findings.append("no WebView2 runtime: its installer is not signed by Microsoft; not run")
+        return {"step": "webview2-runtime", "status": 1, "seconds": round(time.monotonic() - started, 1),
+                "note": "installer not signed by Microsoft", "log": ""}
     step = run_step("webview2-runtime", [installer, "/silent", "/install"], results, dict(os.environ), cwd=work,
                     timeout=600)
     findings.append(f"WebView2 runtime installed: {webview2_runtime_version() or 'not found after installing'}")
@@ -805,11 +886,18 @@ def check_shim(results, install, swift=False):
     if step["status"] != 0:
         return failed_step(step)
     bootstrap = foundation / "runtimes" / f"win-{arch}" / "native" / "Microsoft.WindowsAppRuntime.Bootstrap.dll"
-    shutil.copy2(bootstrap, out / bootstrap.name)
     # WinUI's WebView2 loads WebView2's WinRT component (the loader linked in) from the program's
     # folder, where an app's build puts it.
     webview_core = folders["microsoft.web.webview2"] / "runtimes" / f"win-{arch}" / "native_uap" / WEBVIEW2_CORE
-    shutil.copy2(webview_core, out / WEBVIEW2_CORE)
+    # The two Microsoft DLLs every program and the library package carry: copied only when Microsoft
+    # signed them.
+    for dll in [bootstrap, webview_core]:
+        signed, said = microsoft_signature(dll)
+        findings.append(f"{dll.name} signature: {said}")
+        if not signed:
+            findings.append(f"{dll.name} ({dll}) is not signed by Microsoft or is missing; not copied")
+            return finish(False)
+        shutil.copy2(dll, out / dll.name)
 
     if install:
         step = install_runtime(folders, arch, results)
@@ -895,6 +983,8 @@ MATERIAL_LICENSE_URL = "https://raw.githubusercontent.com/google/material-design
 FLUENT_LICENSE_URL = "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/{commit}/LICENSE"
 # DLLs a program gets from Windows or the Visual C++ runtime it already has: never copied.
 SYSTEM_DLL_PREFIXES = ("api-ms-win-", "ext-ms-", "vcruntime", "msvcp", "concrt", "ucrtbase", "dbghelp")
+# DLLs the Windows App Runtime's framework package provides once installed (lowercase): never copied.
+WINDOWS_APP_RUNTIME_DLLS = {"microsoft.windowsappruntime.dll"}
 
 
 def dll_dependencies(dll, msvc):
@@ -902,6 +992,15 @@ def dll_dependencies(dll, msvc):
     completed = subprocess.run([resolve_tool("dumpbin", msvc), "/nologo", "/dependents", str(dll)], env=msvc,
                                capture_output=True, text=True, errors="replace")
     return re.findall(r"^\s+(\S+\.dll)\s*$", completed.stdout, flags=re.MULTILINE | re.IGNORECASE)
+
+
+def swift_runtime_folder(msvc):
+    """The first folder on msvc's Path that holds swiftCore.dll (where the built programs find the Swift
+    runtime), or None."""
+    for entry in (msvc.get("Path") or msvc.get("PATH") or "").split(";"):
+        if entry and (Path(entry) / "swiftCore.dll").is_file():
+            return Path(entry)
+    return None
 
 
 def dll_closure(start, folders, msvc):
@@ -943,12 +1042,13 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
         actionui-windows-<arch>/
           bin/       ActionUI.dll and every DLL it loads that Windows does not have: the WinUI shim,
                      the Windows App SDK bootstrapper, the Swift runtime; and WebView2's WinRT
-                     component, which WinUI loads by name when a WebView is made
+                     component, which the shim loads from beside itself when a WebView is made
           lib/       ActionUI.lib, ActionUI.dll's import library
           include/   ActionUICAdapter/ActionUIC.h, ActionUIAppKitApplication/ActionUIApp.h,
                      ActionUIHostSurface/ActionUIHostSurface.h (its constants; no HostSurface on Windows yet)
           LICENSE.txt, LICENSE-MaterialSymbols.txt, LICENSE-FluentSystemIcons.txt (the symbol outlines in
           the shim), LICENSE-WebView2.txt (Microsoft.Web.WebView2.Core.dll)
+          SHA256SUMS.txt: every other file's SHA-256
 
     A program copies bin/ beside itself (Windows finds a program's DLLs in its own folder). Returns the
     folder, or None (with findings) when something is missing."""
@@ -957,10 +1057,26 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
     for folder in ["bin", "lib", "include/ActionUICAdapter", "include/ActionUIAppKitApplication",
                    "include/ActionUIHostSurface"]:
         (package / folder).mkdir(parents=True, exist_ok=True)
-    folders = [bin_path] + [Path(entry) for entry in (msvc.get("Path") or msvc.get("PATH") or "").split(";") if entry]
-    dlls, missing = dll_closure(bin_path / "ActionUI.dll", folders, msvc)
+    # DLLs come from two places only: the build's folder and the Swift runtime's. Any other folder on
+    # PATH could hold a DLL of the same name that would be shipped without anyone noticing.
+    swift_runtime = swift_runtime_folder(msvc)
+    if swift_runtime is None:
+        summary["findings"].append("library package: no folder on PATH holds swiftCore.dll")
+        return None
+    summary["findings"].append(f"library package: the Swift runtime from {swift_runtime}")
+    dlls, missing = dll_closure(bin_path / "ActionUI.dll", [bin_path, swift_runtime], msvc)
+    # Every name not found must come from Windows or from the Windows App Runtime the program installs.
+    system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    unknown = [name for name in missing if name not in WINDOWS_APP_RUNTIME_DLLS and not (system32 / name).is_file()]
+    if unknown:
+        summary["findings"].append("library package: not in the build, the Swift runtime, Windows or the Windows "
+                                   f"App Runtime: {', '.join(unknown)}")
+        return None
+    sources = []
     for dll in dlls + [bin_path / WEBVIEW2_CORE]:
         shutil.copy2(dll, package / "bin" / dll.name)
+        sources.append({"file": f"bin/{dll.name}", "source": str(dll), "sha256": sha256_of(dll)})
+    summary["package_dlls"] = sources
     shutil.copy2(bin_path / "ActionUI.lib", package / "lib" / "ActionUI.lib")
     for source, destination in [
             (REPO_DIR / "ActionUICAdapter" / "include" / "ActionUIC.h", "include/ActionUICAdapter/ActionUIC.h"),
@@ -987,7 +1103,14 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
     names = sorted(dll.name for dll in (package / "bin").iterdir())
     summary["findings"].append(f"library package: {len(names)} DLLs in bin: {', '.join(names)}")
     if missing:
-        summary["findings"].append(f"library package: from Windows or not found (not copied): {', '.join(missing)}")
+        summary["findings"].append(f"library package: from Windows or the Windows App Runtime (not copied): {', '.join(missing)}")
+    # Every file's SHA-256, in sha256sum's format, so a copy of the package can be compared with this build.
+    files = sorted(path for path in package.rglob("*") if path.is_file() and path.name != "SHA256SUMS.txt")
+    lines = [f"{sha256_of(path)}  {path.relative_to(package).as_posix()}" for path in files]
+    sums = package / "SHA256SUMS.txt"
+    # Bytes, not text: text mode on Windows writes CRLF, and sha256sum -c then looks for "name\r".
+    sums.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+    summary["findings"].append(f"library package: SHA256SUMS.txt lists {len(lines)} files; its own SHA-256 {sha256_of(sums)}")
     return package
 
 
@@ -1084,6 +1207,39 @@ def check_python(package, results, summary, msvc):
     return passed and succeeded and without_ok
 
 
+def fetch_node_build_files(work, version, arch):
+    """Node's headers (extracted into work/headers) and work/node.lib for `version`, as node-gyp fetches
+    them, each used only when it matches the release's SHASUMS256.txt. Returns None, or what went wrong."""
+    base = f"https://nodejs.org/download/release/{version}"
+    headers_name = f"node-{version}-headers.tar.gz"
+    lib_name = f"win-{arch}/node.lib"
+    try:
+        with urllib.request.urlopen(f"{base}/SHASUMS256.txt", timeout=120) as response:
+            listed = response.read().decode("utf-8", errors="replace")
+        expected = {}
+        for line in listed.splitlines():
+            parts = line.split()
+            if len(parts) == 2:
+                expected[parts[1]] = parts[0].lower()
+        for name in [headers_name, lib_name]:
+            if name not in expected:
+                return f"{name} is not in the release's SHASUMS256.txt"
+        archive = work / "headers.tar.gz"
+        library = work / "node.lib"
+        for name, path in [(headers_name, archive), (lib_name, library)]:
+            with urllib.request.urlopen(f"{base}/{name}", timeout=120) as response:
+                path.write_bytes(response.read())
+            actual = sha256_of(path)
+            if actual != expected[name]:
+                path.unlink()
+                return f"{name} has SHA-256 {actual}, not {expected[name]} as SHASUMS256.txt lists"
+        with tarfile.open(archive) as tar:
+            tar.extractall(work / "headers", filter="data")
+    except (OSError, urllib.error.URLError, http.client.HTTPException, tarfile.TarError) as error:
+        return f"Node's headers or node.lib could not be fetched: {error}"
+    return None
+
+
 def check_node(package, results, summary, msvc):
     """Builds the Node.js addon (ActionUINodeJS/src/actionui_node.c and its Windows pump, actionui_uv_pump_windows.c) against the library package with clang-cl
     (the C uses GCC's cleanup attribute, which Microsoft's C compiler lacks; the Swift toolchain ships clang-cl),
@@ -1110,20 +1266,12 @@ def check_node(package, results, summary, msvc):
     fixture = REPO_DIR / "ActionUIObjCTestApp" / "DefaultWindowContentView.json"
     (work / fixture.parent.name).mkdir()
     shutil.copy2(fixture, work / fixture.parent.name / fixture.name)
-    # Node's headers and node.lib, as node-gyp fetches them.
     headers = work / "headers"
-    try:
-        base = f"https://nodejs.org/download/release/{version}"
-        with urllib.request.urlopen(f"{base}/node-{version}-headers.tar.gz", timeout=120) as response:
-            archive = work / "headers.tar.gz"
-            archive.write_bytes(response.read())
-        with tarfile.open(archive) as tar:
-            tar.extractall(headers, filter="data")
-        with urllib.request.urlopen(f"{base}/win-{arch}/node.lib", timeout=120) as response:
-            (work / "node.lib").write_bytes(response.read())
-    except (OSError, urllib.error.URLError, tarfile.TarError) as error:
-        summary["findings"].append(f"node: Node's headers or node.lib could not be fetched: {error}")
+    problem = fetch_node_build_files(work, version, arch)
+    if problem is not None:
+        summary["findings"].append(f"node: {problem}")
         return False
+    summary["findings"].append(f"node: headers and node.lib for {version} match the release's SHASUMS256.txt")
     include = next(headers.glob("*/include/node"), None)
     if include is None:
         summary["findings"].append("node: no include/node in Node's headers")
@@ -1325,7 +1473,8 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
         if not expected.is_file():
             summary["findings"].append(f"no {expected.name} in {bin_path}")
             return False
-    for source in [shim_out / "ActionUIWinUIShim.dll", bootstrap, shim_out / WEBVIEW2_CORE]:
+    # The checked copies in the shim's folder (check_shim), not the NuGet folders.
+    for source in [shim_out / "ActionUIWinUIShim.dll", shim_out / bootstrap.name, shim_out / WEBVIEW2_CORE]:
         shutil.copy2(source, bin_path / source.name)
     # ActionUI JSON shipped with the program (TrustedResources.json loads it from there).
     for source in sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Bundled").glob("*.json")):
