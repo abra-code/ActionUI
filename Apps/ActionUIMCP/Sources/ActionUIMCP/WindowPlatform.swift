@@ -22,6 +22,12 @@ typealias HostPlatform = AppKitPlatform
 typealias HostPlatform = AdwaitaPlatform
 #endif
 
+/// How a window shows that an agent asked for it, besides the "Requested by" line: `show`
+/// windows have a yellow and black strip under the title bar, the others a thin striped line there.
+enum WindowMark: String, Codable, Sendable {
+    case strip, line
+}
+
 /// A size in points.
 struct ContentSize: Sendable, Equatable {
     var width: Double
@@ -91,7 +97,8 @@ protocol WindowPlatform: AnyObject {
 
     /// Opens a window showing `content`. `activate` takes the keyboard focus (a dialog needs an
     /// answer); otherwise the window leaves it with the user where the system allows that.
-    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing, activate: Bool)
+    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
+                 activate: Bool, mark: WindowMark)
 
     /// Closes the window, and calls `host.windowClosed` once it is going. A window not ready to
     /// close yet still closes: the host has told the agent it did.

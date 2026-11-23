@@ -97,7 +97,8 @@ final class AdwaitaPlatform: WindowPlatform {
         application.prepareWindow(json: (try? Data(contentsOf: file)) ?? Data(), windowUUID: windowID)
     }
 
-    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing, activate: Bool) {
+    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
+                 activate: Bool, mark: WindowMark) {
         var options = AdwaitaApplication.WindowOptions(subtitle: subtitle)
         switch sizing {
         case .fitting(let resizable):

@@ -47,6 +47,8 @@ struct KeptWindowRecord: Codable {
     /// Properties update_window set, keyed by view id and name, each value as JSON text. Set again
     /// after the document loads and before rows and values. Absent in manifests that predate it.
     let properties: [String: [String: String]]?
+    /// The window's mark; absent in manifests that predate it (then a line).
+    let mark: WindowMark?
 }
 
 struct KeptWindowManifest: Codable {
@@ -207,7 +209,7 @@ extension WindowHost {
                 records.append(KeptWindowRecord(
                     window: entry.id, document: name, title: entry.title, subtitle: entry.subtitle,
                     frame: entry.frame, styleMask: entry.styleMask, values: state.values, rows: state.rows,
-                    properties: properties))
+                    properties: properties, mark: marks[entry.id]))
             }
             let manifest = KeptWindowManifest(version: KeptWindowManifest.currentVersion, windows: records)
             try JSONEncoder().encode(manifest).write(to: spool.appendingPathComponent(KeptWindowManifest.fileName))

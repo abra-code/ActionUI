@@ -63,7 +63,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         let window = NSWindow(contentRect: frame, styleMask: NSWindow.StyleMask(rawValue: record.styleMask),
                               backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = controller.view
+        window.contentView = AppKitPlatform.markedContainer(around: controller.view, mark: record.mark ?? .line)
         // After the content view, which resets both (see WindowHost.openWindow).
         window.title = record.title
         window.subtitle = record.subtitle + KeptWindowSupport.subtitleSuffix

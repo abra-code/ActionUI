@@ -17,7 +17,7 @@ Tools:
 
 Resources: ActionUI's element reference, for clients without the actionui skill: `actionui://docs/guide` (the JSON guide), `actionui://docs/elements` (the element index), `actionui://docs/elements/<Type>` (one element, core and add-ons) and `actionui://docs/templates/<Type>` (a JSON template). On macOS they are read from the documentation bundles that `swift build` places next to the executable; ship those bundles with the binary, or the resources are left out. On Linux they are read from `share/actionui/docs/` beside the server's `bin` folder in the Linux package, else from the ActionUI checkout the server was built from.
 
-Every window shows "Requested by <client>" in its title bar.
+Every window shows "Requested by <client>" in its title bar. On macOS a yellow and black mark under the title bar shows that an agent asked for the window: a 12-point strip on `show` windows, a 3-point striped line on the others. The server draws it outside the ActionUI JSON, so the agent cannot remove it. It adds its height to the window's, and a screenshot of the window includes it.
 
 ## Rules for agent-written ActionUI JSON
 
@@ -60,6 +60,7 @@ The copies are no longer connected to any agent: their buttons do nothing, and `
 The same server runs on Linux with ActionUI's GTK 4 and libadwaita renderer. It was tested on GNOME 48 on Debian 13 (GTK 4.18, libadwaita 1.7). What differs from macOS:
 
 - The "Requested by" line is a line of its own above the header bar, and in every sheet, so neither the window's own toolbar nor a sheet can cover it.
+- There is no yellow and black mark under the header bar yet.
 - Every new window takes the keyboard focus: Wayland has no way to open a window and leave the focus where it was. `show` says so in its description.
 - The windows show the ActionUI icon once the server's desktop entry is installed (`--install-desktop-entry`, see Install on Linux); on macOS the Dock shows it without a step.
 - `show` has no `pdf` kind (Quick Look has no Linux renderer), and the tool's schema leaves it out; kind `file` shows what ActionUI's own views can (Markdown, CSV and TSV, images, audio and video, HTML and SVG, link files, UTF-8 text) and refuses other files. Of the add-ons, RichText, CachedImage and Diff are there.
@@ -208,7 +209,7 @@ Most clients take a JSON entry of this shape, in a file of their own:
 ## Layout
 
 - `Sources/MCPStdio/MCPStdio.swift` - the protocol layer in one file: newline-delimited JSON-RPC in both protocol eras (the stateless 2026-07-28 revision with `server/discover` and per-request `_meta`, and the `initialize` handshake of 2025-11-25, 2025-06-18 and 2024-11-05), tools, concurrent calls, cancellation, progress heartbeats, and a stdout guard that points descriptor 1 at stderr so stray prints cannot corrupt the protocol. Foundation only, no ActionUI code.
-- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `DocsResources.swift` (element reference as MCP resources), `WindowHost.swift` (open windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (`pick_path`), `WindowHost+Capture.swift` (saved screenshots), `WindowPlatform.swift` (what the host needs from the windowing system), `AppKitPlatform.swift` and its extensions (that layer on macOS: windows, capture, the panels, and `notify`), `AdwaitaPlatform.swift` (that layer on Linux), `KeptWindows.swift` (the hand-off of kept windows), `KeeperLauncher.swift`, `KeptWindowKeeper.swift` and `KeptWindowKeeperLinux.swift` (the `--rehost` process), `Documents.swift` (the ActionUI JSON the canned tools generate), `AgentDocuments.swift` (checks and dialog chrome for agent-written ActionUI JSON), `Verifier.swift` (the ActionUIVerifier setup), `Tools.swift` and `ToolsDocuments.swift` (tool definitions and handlers).
+- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `DocsResources.swift` (element reference as MCP resources), `WindowHost.swift` (open windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (`pick_path`), `WindowHost+Capture.swift` (saved screenshots), `WindowPlatform.swift` (what the host needs from the windowing system), `AppKitPlatform.swift` and its extensions (that layer on macOS: windows and the mark under their title bar, capture, the panels, and `notify`), `AdwaitaPlatform.swift` (that layer on Linux), `KeptWindows.swift` (the hand-off of kept windows), `KeeperLauncher.swift`, `KeptWindowKeeper.swift` and `KeptWindowKeeperLinux.swift` (the `--rehost` process), `Documents.swift` (the ActionUI JSON the canned tools generate), `AgentDocuments.swift` (checks and dialog chrome for agent-written ActionUI JSON), `Verifier.swift` (the ActionUIVerifier setup), `Tools.swift` and `ToolsDocuments.swift` (tool definitions and handlers).
 
 ## Tests
 

@@ -147,7 +147,8 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
 
     /// Without `activate` the window is only ordered front, so it does not take keyboard focus from
     /// the user.
-    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing, activate: Bool) {
+    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
+                 activate: Bool, mark: WindowMark) {
         var style: NSWindow.StyleMask = [.titled, .closable]
         switch sizing {
         case .fitting(let resizable) where resizable: style.formUnion([.miniaturizable, .resizable])
@@ -157,7 +158,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
                               styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = content.controller.view
+        window.contentView = Self.markedContainer(around: content.controller.view, mark: mark)
         // After the content view: installing the SwiftUI hosting view resets the window's title
         // and subtitle, and the subtitle carries the provenance line.
         window.title = title
@@ -165,9 +166,10 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         titleGuards[windowID] = WindowTitleGuard(window: window, title: title, subtitle: subtitle)
         switch sizing {
         case .fixed(let size):
-            window.setContentSize(NSSize(width: size.width, height: size.height))
+            window.setContentSize(Self.withMark(NSSize(width: size.width, height: size.height), mark))
         case .fitting:
-            window.setContentSize(Self.clampedToScreen(content.fitting))
+            // The mark after the clamp, which reads a zero height as "no fitting size".
+            window.setContentSize(Self.withMark(Self.clampedToScreen(content.fitting), mark))
         }
         window.delegate = self
         Self.place(window)

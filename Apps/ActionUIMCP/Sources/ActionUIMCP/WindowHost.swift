@@ -74,6 +74,8 @@ final class WindowHost {
     /// Properties update_window set, per window and element id, so a kept window's keeper sets
     /// them again over its staged document (KeptWindows.swift).
     var agentProperties: [String: [Int: [String: JSONValue]]] = [:]
+    /// Each open window's mark, for its keeper.
+    var marks: [String: WindowMark] = [:]
     private let documentDirectory: URL
 
     /// Queued events per event window. A closed window's queue stays until it has been drained.
@@ -113,7 +115,8 @@ final class WindowHost {
     /// errors are thrown. `activate` takes the keyboard focus (dialogs need an answer). A `keep`
     /// window stays open after the session ends, in a keeper process (KeptWindows.swift).
     func openWindow(document: [String: Any], title: String, subtitle: String, sizing: Sizing, activate: Bool,
-                    queuesEvents: Bool, rejectLoadErrors: Bool = false, keep: Bool = false) throws -> (id: String, warnings: [String]) {
+                    queuesEvents: Bool, rejectLoadErrors: Bool = false, keep: Bool = false,
+                    mark: WindowMark = .line) throws -> (id: String, warnings: [String]) {
         guard windows.count < Self.maxWindows else {
             throw MCPToolError("too many open windows (\(Self.maxWindows)); close one with close_window first")
         }
@@ -128,11 +131,13 @@ final class WindowHost {
 
         windows.insert(windowID)
         keptDocuments[windowID] = loaded.file
+        marks[windowID] = mark
         if queuesEvents { eventQueues[windowID] = [] }
         updatePresence()
         // A layer that builds the document as it shows it logs the renderer's warnings here.
         let shown = logger.capture {
-            platform.present(loaded.content, windowID: windowID, title: title, subtitle: subtitle, sizing: sizing, activate: activate)
+            platform.present(loaded.content, windowID: windowID, title: title, subtitle: subtitle, sizing: sizing,
+                             activate: activate, mark: mark)
         }
         #if DEBUG
         scheduleTestAction(windowID: windowID)
@@ -191,6 +196,7 @@ final class WindowHost {
     func windowClosed(_ windowID: String) {
         windows.remove(windowID)
         agentProperties[windowID] = nil
+        marks[windowID] = nil
         if let file = keptDocuments.removeValue(forKey: windowID) {
             try? FileManager.default.removeItem(at: file)
         }
