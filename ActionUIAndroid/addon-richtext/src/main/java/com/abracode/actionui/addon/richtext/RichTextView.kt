@@ -85,10 +85,11 @@ object RichTextView : ActionUIViewConstruction {
         config.syntaxHighlighting?.let { theme = theme.copy(syntaxHighlighting = it) }
 
         // widthBehavior ("hug") has no Compose hook here; the renderer fills the proposed width. See the class doc.
-        // Local images only as the trust policy allows (RichTextLocalImages.kt), asked once per source.
+        // Relative image paths resolved against baseURL, local images only as the trust policy allows
+        // (RichTextLocalImages.kt), once per source.
         val origin = LocalJSONContentOrigin.current
-        val document = remember(markdown, origin) {
-            RichTextDocument.parse(markdown).keepingLocalImages { ActionUIModel.readsLocalFile(it, origin, logger) }
+        val document = remember(markdown, config.baseUrl, origin) {
+            richTextDocument(markdown, config.baseUrl) { ActionUIModel.readsLocalFile(it, origin, logger) }
         }
         RichText(document = document, theme = theme, modifier = modifier)
     }
@@ -100,6 +101,7 @@ internal data class RichTextConfig(
     val baseFontSize: Float? = null,
     val syntaxHighlighting: Boolean? = null,   // null = keep the theme default
     val widthBehaviorHug: Boolean = false,     // parsed for parity; not applied on Android (see BuildView)
+    val baseUrl: String? = null,               // where the Markdown lives, as a URL string (markdownBaseUrl)
 )
 
 /**
@@ -124,6 +126,7 @@ internal fun resolveRichTextConfig(props: JsonObject?, logger: ActionUILogger?):
     }
 
     return RichTextConfig(
+        baseUrl = markdownBaseUrl(props.stringOrNull("baseURL", logger)),
         markdown = markdown,
         baseFontSize = baseFontSize,
         syntaxHighlighting = syntaxHighlighting,

@@ -32,6 +32,7 @@ final class RichTextRemoteImagesTests: XCTestCase {
 
 /// Local (file:) images in the Markdown: each is asked about by its path, and a refused one keeps its alt
 /// text but loses its address; other images pass as they are.
+@MainActor
 final class RichTextLocalImagesTests: XCTestCase {
 
     func testARefusedLocalImageLosesItsAddressOnly() {
@@ -61,6 +62,47 @@ final class RichTextLocalImagesTests: XCTestCase {
     func testMarkdownWithNoLocalImagesIsUnchanged() {
         let document = RichTextDocument(markdown: "Text, `code`, [a link](https://example.com) and ![x](https://example.com/x.png).")
         XCTAssertEqual(document.keepingLocalImages { _ in false }, document)
+    }
+
+    func testRelativeImagePathsResolveAgainstTheMarkdownsLocation() {
+        let markdown = "![same](logo.png) ![sub](img/a.png) ![up](../../logo.png) ![web](https://example.com/w.png)"
+        var asked: [String] = []
+        let document = RichTextView.document(markdown: markdown, baseURL: URL(fileURLWithPath: "/docs/guide/deep/README.md")) { path in
+            asked.append(path)
+            return path != "/docs/logo.png"
+        }
+        // Resolved first, so the path that leaves the Markdown's folder is asked about like the others.
+        XCTAssertEqual(asked, ["/docs/guide/deep/logo.png", "/docs/guide/deep/img/a.png", "/docs/logo.png"])
+        XCTAssertEqual(document.blocks.flatMap(Self.images).map(\.url),
+                       ["file:///docs/guide/deep/logo.png", "file:///docs/guide/deep/img/a.png", "", "https://example.com/w.png"])
+    }
+
+    func testWithoutABaseARelativeImagePathStaysRelative() {
+        var asked: [String] = []
+        let document = RichTextView.document(markdown: "![same](logo.png)", baseURL: nil) { asked.append($0); return true }
+        XCTAssertEqual(asked, [], "nothing local to ask about: the package cannot load it")
+        XCTAssertEqual(document.blocks.flatMap(Self.images).map(\.url), ["logo.png"])
+    }
+
+    func testTheBaseURLProperty() throws {
+        XCTAssertNil(RichTextView.markdownBaseURL(nil))
+        XCTAssertNil(RichTextView.markdownBaseURL(""))
+        XCTAssertNil(RichTextView.markdownBaseURL(5))
+        XCTAssertNil(RichTextView.markdownBaseURL("javascript:alert(1)"), "only file:, http: and https: addresses")
+        XCTAssertEqual(RichTextView.markdownBaseURL("https://example.com/docs/")?.absoluteString, "https://example.com/docs/")
+        XCTAssertEqual(RichTextView.markdownBaseURL("file:///docs/README.md")?.path, "/docs/README.md")
+        XCTAssertEqual(RichTextView.markdownBaseURL("/no/such/folder/README.md")?.absoluteString, "file:///no/such/folder/README.md")
+        // An existing folder's path resolves against the folder itself, with or without its "/".
+        let folder = FileManager.default.temporaryDirectory.path
+        let trimmed = folder.hasSuffix("/") ? String(folder.dropLast()) : folder
+        let base = try XCTUnwrap(RichTextView.markdownBaseURL(trimmed))
+        XCTAssertEqual(URL(string: "logo.png", relativeTo: base)?.path, trimmed + "/logo.png")
+        // And so does a symbolic link to a folder.
+        let link = FileManager.default.temporaryDirectory.appendingPathComponent("RichTextBaseURL-\(UUID().uuidString)").path
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: trimmed)
+        defer { try? FileManager.default.removeItem(atPath: link) }
+        let linked = try XCTUnwrap(RichTextView.markdownBaseURL(link))
+        XCTAssertEqual(URL(string: "logo.png", relativeTo: linked)?.path, link + "/logo.png")
     }
 
     private static func images(_ block: RichTextBlock) -> [(alt: String, url: String)] {

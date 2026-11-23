@@ -1,6 +1,7 @@
 // Add-ons/ActionUIRichText/Sources/RichText+LocalImages.swift
 //
-// Local (file:) images in the element's Markdown, as the trust policy allows: the RichText package reads a
+// The images in the element's Markdown: relative paths resolved against the "baseURL" property, the
+// Markdown's own location; and local (file:) images as the trust policy allows. The RichText package reads a
 // file: image as given, so the element asks ActionUI first, as the built-in Image does for its file, and a
 // refused image keeps its alt text but loses its address, which draws it as an image that cannot be loaded.
 // The same on Apple platforms and Linux.
@@ -11,6 +12,42 @@ import FoundationEssentials
 import Foundation
 #endif
 import RichText
+
+extension RichTextView {
+    /// The "baseURL" property: where the Markdown lives, so its relative image paths (`logo.png`,
+    /// `img/a.png`, `../../logo.png`) can be found. A path, of the Markdown file or of its folder, or a
+    /// file:, http: or https: address (a folder's ends in "/"); nil when absent, empty or of another scheme.
+    static func markdownBaseURL(_ value: Any?) -> URL? {
+        guard let string = value as? String, !string.isEmpty else {
+            return nil
+        }
+        if let url = URL(string: string), let scheme = url.scheme?.lowercased() {
+            return ["file", "http", "https"].contains(scheme) ? url : nil
+        }
+        // A path: an existing folder's gets its "/", to resolve against itself rather than its parent. Asked
+        // with links followed (a .checkFileSystem hint does not follow one, so a link to a folder would not).
+        let url = URL(filePath: string)
+        #if canImport(Darwin)
+        var isFolder: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder)
+        let folder = exists && isFolder.boolValue
+        #else
+        var isFolder = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder)
+        let folder = exists && isFolder
+        #endif
+        return folder ? URL(filePath: string, directoryHint: .isDirectory) : url
+    }
+
+    /// The Markdown parsed, its relative image paths resolved against `baseURL`, and its local images kept
+    /// as `reads` allows (keepingLocalImages): resolved first, so a path that leaves the Markdown's folder
+    /// is asked about like any other.
+    static func document(markdown: String, baseURL: URL?, reads: (String) -> Bool) -> RichTextDocument {
+        let parsed = RichTextDocument(markdown: markdown)
+        let resolved = baseURL.map { parsed.resolvingImageURLs(against: $0) } ?? parsed
+        return resolved.keepingLocalImages(where: reads)
+    }
+}
 
 extension RichTextDocument {
     /// The document with every file: image whose path `reads` refuses left without an address. Other

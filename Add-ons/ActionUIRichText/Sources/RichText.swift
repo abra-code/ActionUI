@@ -20,12 +20,17 @@
                                              //           to close, options for case / whole word / diacritics).
                                              //           Matches are painted behind the text without re-laying it
                                              //           out. Off, states["search"] still highlights (see below).
-     "remoteImages": "on-click"              // Optional (default "automatic"): when http / https images are fetched.
+     "remoteImages": "on-click",             // Optional (default "automatic"): when http / https images are fetched.
                                              //           "automatic": as soon as the document renders. "on-click": a
                                              //           placeholder shows the alt text and the image's host until
                                              //           the reader clicks it. "never": not fetched. data: images
                                              //           always show. Use "on-click" or "never" for Markdown a model
                                              //           or an agent wrote: an image URL can carry data out.
+     "baseURL": "/path/to/README.md"         // Optional: where the Markdown lives, so relative image paths
+                                             //           (logo.png, img/a.png, ../logo.png) are found: the
+                                             //           absolute path of the Markdown file or of its folder, or a file:,
+                                             //           http: or https: address (a folder's ends in "/").
+                                             //           Without it a relative image path cannot load.
    }
    // Note: baseline View properties (padding, hidden, background, frame, opacity, cornerRadius, actionID,
    // onAppearActionID, onDisappearActionID, etc.) are inherited from base View. The document is read-only but
@@ -107,11 +112,12 @@ struct RichTextView: ActionUIViewConstruction {
         // clicks the placeholder naming the image's host, "never" not at all. A document shown to a user
         // may carry Markdown someone else wrote - a model, an agent - and an image URL can carry data out.
         let remoteImages = RichTextView.effectiveRemoteImagesPolicy(properties["remoteImages"])
+        let baseURL = RichTextView.markdownBaseURL(properties["baseURL"])
 
         // The find layers ride on the element's SwiftUI body (RichTextElementView), which owns the find
         // controller, renders the Markdown once per source, and observes states["search"].
         return RichTextElementView(model: model, windowUUID: windowUUID, viewID: element.id, markdown: markdown,
-                                   theme: theme, behavior: behavior, remoteImages: remoteImages,
+                                   baseURL: baseURL, theme: theme, behavior: behavior, remoteImages: remoteImages,
                                    showsFindBar: (properties["showFindBar"] as? Bool) ?? false, logger: logger)
     }
 

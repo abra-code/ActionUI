@@ -44,6 +44,43 @@ class RichTextLocalImagesTest {
         assertEquals(listOf(""), document.blocks.flatMap { images(it) }.map { it.url })
     }
 
+    @Test fun relativeImagePathsResolveAgainstTheMarkdownsLocation() {
+        val markdown = "![same](logo.png) ![sub](img/a.png) ![up](../../logo.png) ![web](https://example.com/w.png)"
+        val asked = mutableListOf<String>()
+        val document = richTextDocument(markdown, "file:///docs/guide/deep/README.md") { path ->
+            asked.add(path)
+            path != "/docs/logo.png"
+        }
+        // Resolved first, so the path that leaves the Markdown's folder is asked about like the others.
+        assertEquals(listOf("/docs/guide/deep/logo.png", "/docs/guide/deep/img/a.png", "/docs/logo.png"), asked)
+        assertEquals(
+            listOf("file:///docs/guide/deep/logo.png", "file:///docs/guide/deep/img/a.png", "", "https://example.com/w.png"),
+            document.blocks.flatMap { images(it) }.map { it.url },
+        )
+    }
+
+    @Test fun withoutABaseARelativeImagePathStaysRelative() {
+        val asked = mutableListOf<String>()
+        val document = richTextDocument("![same](logo.png)", null) { asked.add(it); true }
+        assertEquals(emptyList<String>(), asked)
+        assertEquals(listOf("logo.png"), document.blocks.flatMap { images(it) }.map { it.url })
+    }
+
+    @Test fun theBaseUrlProperty() {
+        assertEquals(null, markdownBaseUrl(null))
+        assertEquals(null, markdownBaseUrl(""))
+        assertEquals(null, markdownBaseUrl("javascript:alert(1)"))
+        assertEquals("https://example.com/docs/", markdownBaseUrl("https://example.com/docs/"))
+        assertEquals("file:/no/such/folder/README.md", markdownBaseUrl("/no/such/folder/README.md"))
+        val folder = java.nio.file.Files.createTempDirectory("richtext").toFile()
+        try {
+            assertEquals(folder.toURI().toString(), markdownBaseUrl(folder.path))
+            assertEquals(true, markdownBaseUrl(folder.path)!!.endsWith("/"))
+        } finally {
+            folder.delete()
+        }
+    }
+
     @Test fun markdownWithNoLocalImagesIsUnchanged() {
         val document = RichTextDocument.parse("Text, `code`, [a link](https://example.com) and ![x](https://example.com/x.png).")
         assertEquals(document, document.keepingLocalImages { false })

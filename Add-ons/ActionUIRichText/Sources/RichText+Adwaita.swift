@@ -30,8 +30,9 @@ final class RichTextElementState {
     private(set) var bar: RichTextGtkFindBar?
     /// The GBinding that shows the bar while it is open; nil while "showFindBar" is off.
     private var barVisibility: OpaquePointer?
-    /// The Markdown the view shows.
+    /// The Markdown the view shows, and where it lives ("baseURL").
     var markdown = ""
+    var baseURL: URL?
     /// Whether "showFindBar" is on, as the last update found it.
     var showsBar = false
     /// Delivers each change of the states, so "" and then a term in one go still count as two.
@@ -165,10 +166,12 @@ struct RichTextView: ActionUIAdwaitaElement {
         // The runtime value wins, else the "markdown" property.
         let runtime = (node.model.value as? String).flatMap { $0.isEmpty ? nil : $0 }
         let markdown = runtime ?? (properties["markdown"] as? String) ?? ""
-        if markdown != state.markdown {
+        let baseURL = markdownBaseURL(properties["baseURL"])
+        if markdown != state.markdown || baseURL != state.baseURL {
             state.markdown = markdown
-            // Local images only as the trust policy allows (RichText+LocalImages.swift).
-            state.view.document = RichTextDocument(markdown: markdown).keepingLocalImages { node.readsLocalFile($0) }
+            state.baseURL = baseURL
+            // Relative image paths resolved, local images only as the trust policy allows (RichText+LocalImages.swift).
+            state.view.document = document(markdown: markdown, baseURL: baseURL) { node.readsLocalFile($0) }
         }
 
         // "fill" (default) takes the width it is offered, at the left; "hug" takes its content's, wrapping only
