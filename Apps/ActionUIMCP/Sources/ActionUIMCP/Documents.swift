@@ -72,7 +72,8 @@ struct DialogSpec {
         guard let title = arguments["title"]?.string, !title.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
-        self.title = title
+        self.title = oneLine(title, limit: maxAgentTitleLength)
+        guard !self.title.isEmpty else { throw MCPToolError("'title' must have something to show, not only spaces") }
         self.message = arguments["message"]?.string
         self.width = min(max(arguments["width"]?.double ?? 460, 320), 1000)
 
@@ -361,7 +362,8 @@ struct ViewerSpec {
         guard let title = arguments["title"]?.string, !title.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
-        self.title = title
+        self.title = oneLine(title, limit: maxAgentTitleLength)
+        guard !self.title.isEmpty else { throw MCPToolError("'title' must have something to show, not only spaces") }
         let kindName = arguments["kind"]?.string ?? ""
         guard let kind = ContentKind(rawValue: kindName), ContentKind.available.contains(kind) else {
             let known = ContentKind.available.map(\.rawValue).joined(separator: ", ")

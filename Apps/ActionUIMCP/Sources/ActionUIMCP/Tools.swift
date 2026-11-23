@@ -20,7 +20,7 @@ let defaultDialogTimeout = 3600.0
 let maxDialogTimeout = 86400.0
 
 func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
-    [askUserTool(host: host, label: label), pickPathTool(host: host),
+    [askUserTool(host: host, label: label), pickPathTool(host: host, label: label),
      showTool(host: host, label: label), notifyTool(host: host, label: label), showUITool(host: host, label: label), validateUITool(host: host),
      waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), screenshotTool(host: host),
      closeWindowTool(host: host)]
@@ -28,9 +28,38 @@ func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
 
 /// "Requested by <client> - <label>": shown in every window's title bar, not settable by a tool.
 func provenance(clientName: String?, label: String?) -> String {
-    var text = "Requested by " + (clientName ?? "an AI agent")
-    if let label, !label.isEmpty { text += " - " + label }
+    var text = "Requested by " + (clientName.map { oneLine($0, limit: maxClientNameLength) } ?? "an AI agent")
+    if let label, !label.isEmpty { text += " - " + oneLine(label, limit: maxClientNameLength) }
     return text
+}
+
+/// The longest window or panel title an agent may set, and the longest client name or label in the
+/// provenance line: a long title would push the "Requested by" line out of the title bar.
+let maxAgentTitleLength = 80
+let maxClientNameLength = 60
+
+/// `text` on one line (newlines, tabs and other control characters become spaces, runs of spaces
+/// one) and at most `limit` characters, the last three "..." when it was cut.
+func oneLine(_ text: String, limit: Int) -> String {
+    var line = ""
+    var lastWasSpace = false
+    for character in text {
+        // Bidirectional embeddings, overrides and isolates (U+202A-202E, U+2066-2069) become spaces
+        // too: where pieces are joined into one string, one would reverse the text after it.
+        let isSpace = character.isWhitespace || character.unicodeScalars.contains {
+            $0.properties.generalCategory == .control || (0x202A...0x202E).contains($0.value) || (0x2066...0x2069).contains($0.value)
+        }
+        if isSpace {
+            if !lastWasSpace && !line.isEmpty { line.append(" ") }
+            lastWasSpace = true
+        } else {
+            line.append(character)
+            lastWasSpace = false
+        }
+    }
+    while line.last == " " { line.removeLast() }
+    guard line.count > limit else { return line }
+    return String(line.prefix(max(0, limit - 3))) + "..."
 }
 
 /// The optional `keep` argument of show and show_ui.

@@ -65,14 +65,13 @@ enum HostSupport {
     // MARK: Paths
 
     /// The folder for this session's staged documents and screenshots, removed when the session
-    /// ends (`removeSessionFolder`). The temporary folder on macOS is the user's own. On Linux it is
-    /// /tmp, open to every user of the machine, so the folder is made private there, under a name
-    /// nobody can take first: a staged document replaced in a folder someone else owns would load
-    /// past the document checks, and a screenshot shows what the user has on screen.
+    /// ends (`removeSessionFolder`). Private (0700) and under a name nobody can guess and take
+    /// first, on macOS too, where the temporary folder is the user's own: on Linux it is /tmp, open
+    /// to every user of the machine, and on both a staged document replaced by another process
+    /// would load past the document checks, and a screenshot shows what the user has on screen.
     static let sessionFolder: URL = {
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
-        #if os(Linux)
         var template = Array((folder.path + "-XXXXXX").utf8CString)
         if mkdtemp(&template) != nil {
             return URL(fileURLWithPath: String(cString: template), isDirectory: true)
@@ -82,9 +81,6 @@ enum HostSupport {
         let fallback = folder.path + "-" + UUID().uuidString
         _ = mkdir(fallback, 0o700)
         return URL(fileURLWithPath: fallback, isDirectory: true)
-        #else
-        return folder
-        #endif
     }()
 
     /// Removes the session folder and what is left in it (screenshots, kept windows' documents

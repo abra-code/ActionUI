@@ -47,7 +47,7 @@ extension AppKitPlatform {
         }
         if !spec.allowedTypes.isEmpty && spec.kind != .folder { panel.allowedContentTypes = spec.allowedTypes }
         if let title = spec.title { panel.title = title }
-        if let message = spec.message { panel.message = message }
+        if let message = spec.shownMessage { panel.message = message }
         if let directory = spec.directory { panel.directoryURL = directory }
         return panel
     }

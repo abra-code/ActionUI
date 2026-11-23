@@ -185,7 +185,10 @@ final class AdwaitaPlatform: WindowPlatform {
     func beginPanel(_ spec: PanelSpec, completion: @escaping @MainActor ([String]?) -> Void) -> @MainActor () -> Void {
         var settings: [String: JSONValue] = [:]
         // A GTK file dialog has a title and no message.
-        let heading = [spec.title, spec.message].compactMap { $0 }.joined(separator: " - ")
+        let message = spec.message.map { oneLine($0, limit: maxAgentTitleLength) }
+        // The provenance first, as the macOS panel shows it: the agent's text after it cannot push
+        // it out of the header bar or reverse it.
+        let heading = [spec.provenance, spec.title, message].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " - ")
         if !heading.isEmpty { settings["title"] = .string(heading) }
         if let directory = spec.directory { settings["directoryURL"] = .string(directory.path) }
         if !spec.allowedTypes.isEmpty && spec.kind != .folder {

@@ -67,9 +67,11 @@ func showUITool(host: WindowHost, label: String?) -> MCPTool {
         heartbeatInterval: 15
     ) { arguments, context in
         let document = try AgentDocument(arguments: arguments)
-        guard let title = arguments["title"]?.string, !title.isEmpty else {
+        guard let rawTitle = arguments["title"]?.string, !rawTitle.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
+        let title = oneLine(rawTitle, limit: maxAgentTitleLength)
+        guard !title.isEmpty else { throw MCPToolError("'title' must have something to show, not only spaces") }
         let mode = arguments["mode"]?.string ?? "window"
         guard mode == "window" || mode == "dialog" else { throw MCPToolError("'mode' must be window or dialog") }
         let keep = try keepArgument(arguments)
@@ -254,7 +256,7 @@ func getValuesTool(host: WindowHost) -> MCPTool {
 
 // MARK: - pick_path
 
-func pickPathTool(host: WindowHost) -> MCPTool {
+func pickPathTool(host: WindowHost, label: String?) -> MCPTool {
     let input: JSONValue = [
         "type": "object",
         "properties": [
@@ -286,8 +288,10 @@ func pickPathTool(host: WindowHost) -> MCPTool {
                        "required": ["action", "paths"]],
         annotations: ["readOnlyHint": true, "openWorldHint": false],
         heartbeatInterval: 15
-    ) { arguments, _ in
-        let spec = try PanelSpec(arguments: arguments)
+    ) { arguments, context in
+        var spec = try PanelSpec(arguments: arguments)
+        // The system panel shows the agent's title and message; this line says who asked.
+        spec.provenance = provenance(clientName: context.clientName, label: label)
         let timeout = min(max(arguments["timeout_s"]?.double ?? defaultDialogTimeout, 1), maxDialogTimeout)
         try await requireGraphicalSession(host)
         try Task.checkCancellation()
