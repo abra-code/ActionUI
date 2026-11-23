@@ -110,6 +110,8 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// token -> label. Many are live at once: a host mints one per unit of work it spawns, so a
     /// grant can be withdrawn when that work ends without disturbing anything else.
     private var _tokens: [String: String] = [:]
+    /// token -> scope, for the tokens minted with one (guarded by `lock`, removed with the token).
+    private var _scopes: [String: TokenScope] = [:]
     private var _requiresToken = false
     /// Connections that have already presented a valid token, with that token. A client may send
     /// it once and then stop, or send it on every request; both work. Revoking the token ends the
@@ -176,15 +178,33 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         return !_requiresToken || _authenticated[connectionID] != nil
     }
 
+    /// What one token may reach, within what the host's method policy allows: the windows it may
+    /// address (nil: all), and whether only the `valuesOnly` methods. A request naming another
+    /// window answers 1001 (unknown window), and `hello` and `listWindows` list only these windows;
+    /// a method outside the preset answers 1004. A scope applies only while the server requires a
+    /// token, and a child given a scoped token must not also inherit the start-up one
+    /// (`ACTIONUI_REMOTE_TOKEN`), or it can present that instead.
+    public struct TokenScope: Sendable, Equatable {
+        public var windows: Set<String>?
+        public var valuesOnly: Bool
+
+        public init(windows: Set<String>? = nil, valuesOnly: Bool = false) {
+            self.windows = windows
+            self.valuesOnly = valuesOnly
+        }
+    }
+
     /// Mint nothing, register what the caller minted. The host owns token generation because it
     /// owns the lifetime: it knows when the work a token was issued for has finished.
     ///
     /// `label` is free-form and is what `revokeTokens(label:)` matches on - a command id, say, so
-    /// a host can withdraw one command's grant without touching another's.
-    public func addToken(_ token: String, label: String) {
+    /// a host can withdraw one command's grant without touching another's. `scope` limits what
+    /// the token reaches (nil: everything the method policy allows).
+    public func addToken(_ token: String, label: String, scope: TokenScope? = nil) {
         guard !token.isEmpty else { return }
         lock.lock()
         _tokens[token] = label
+        _scopes[token] = scope
         lock.unlock()
     }
 
@@ -194,6 +214,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     public func revokeToken(_ token: String) {
         lock.lock()
         _tokens.removeValue(forKey: token)
+        _scopes.removeValue(forKey: token)
         _authenticated = _authenticated.filter { $0.value != token }
         lock.unlock()
     }
@@ -205,6 +226,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         let revoked = Set(_tokens.filter { $0.value == label }.keys)
         for token in revoked {
             _tokens.removeValue(forKey: token)
+            _scopes.removeValue(forKey: token)
         }
         _authenticated = _authenticated.filter { !revoked.contains($0.value) }
         lock.unlock()
@@ -488,9 +510,10 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
         // Before anything else: an unauthenticated request never reaches the main thread.
         let tokenLabel: String?
-        (entries, tokenLabel) = authenticate(entries, connectionID: connectionID)
+        let scope: TokenScope?
+        (entries, tokenLabel, scope) = authenticate(entries, connectionID: connectionID)
 
-        let box = RequestBox(entries: entries, tokenLabel: tokenLabel)
+        let box = RequestBox(entries: entries, tokenLabel: tokenLabel, scope: scope)
         let needsMainThread = entries.contains { if case .success = $0 { return true } else { return false } }
         var timedOut = false
         if needsMainThread {
@@ -566,10 +589,11 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// addressed to them.
     private func authenticate(_ entries: [Result<JSONRPCRequest, JSONRPCRejection>],
                               connectionID: UnixSocketServer.ConnectionID)
-        -> (entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String?) {
+        -> (entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String?, scope: TokenScope?) {
         lock.lock()
         let required = _requiresToken
         var label = _authenticated[connectionID].flatMap { _tokens[$0] }
+        var scope = _authenticated[connectionID].flatMap { _scopes[$0] }
         var authenticated = label != nil
         lock.unlock()
 
@@ -585,7 +609,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             return (entries.map { entry in
                 guard case .success(let request) = entry else { return entry }
                 return .success(withoutToken(request))
-            }, nil)
+            }, nil, nil)
         }
 
         let checked: [Result<JSONRPCRequest, JSONRPCRejection>] = entries.map { entry in
@@ -594,10 +618,12 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             if !authenticated, let presented = request.params["token"] as? String {
                 lock.lock()
                 let presentedLabel = _tokens[presented]
+                let presentedScope = _scopes[presented]
                 if presentedLabel != nil { _authenticated[connectionID] = presented }
                 lock.unlock()
                 if presentedLabel != nil {
                     label = presentedLabel
+                    scope = presentedScope
                     authenticated = true
                     log("connection \(connectionID) authenticated", .debug)
                 }
@@ -615,7 +641,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             }
             return .success(withoutToken(request))
         }
-        return (checked, label)
+        return (checked, label, scope)
     }
 
     // MARK: - Helpers
@@ -656,6 +682,27 @@ final class MethodRegistry {
         return handlers.keys.sorted()
     }
 
+    /// `result` with the window lists of `hello` and `listWindows` narrowed to `windows`, a token's
+    /// scope; anything else as it is. A list of another shape (a host's replacement of either
+    /// method) is withheld rather than passed on unfiltered.
+    static func withinScope(_ result: Any?, method: String, windows: Set<String>?) -> Any? {
+        guard let windows else { return result }
+        switch method {
+        case "actionui.listWindows":
+            return (result as? [String])?.filter { windows.contains($0) } ?? [String]()
+        case "actionui.hello":
+            guard var hello = result as? [String: Any] else { return result }
+            if let listed = hello["windows"] as? [String] {
+                hello["windows"] = listed.filter { windows.contains($0) }
+            } else {
+                hello.removeValue(forKey: "windows")
+            }
+            return hello
+        default:
+            return result
+        }
+    }
+
     /// Run every valid request in the box, in order, storing a result per index. Stops at the
     /// first request not yet started once the connection has given up waiting: the client was
     /// told nothing after that point was applied.
@@ -666,13 +713,23 @@ final class MethodRegistry {
                 return
             }
             let outcome: Result<Any?, ActionUIRemoteError>
-            if let policy, !policy(ActionUIRemoteServer.RemoteCall(method: request.method, params: request.params,
-                                                                    tokenLabel: box.tokenLabel)) {
+            let windows = box.scope?.windows
+            if let scope = box.scope, scope.valuesOnly,
+               !ActionUIRemoteServer.valuesOnlyMethods.contains(request.method) {
+                outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.hostRefused,
+                                                       message: "Refused by the host: \(request.method) is outside this token's scope"))
+            } else if let windows, let window = request.params["window"] as? String, !windows.contains(window) {
+                // As for a window that does not exist: the token is not told that it does.
+                outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.unknownWindow,
+                                                       message: "Unknown window: \(window)"))
+            } else if let policy, !policy(ActionUIRemoteServer.RemoteCall(method: request.method, params: request.params,
+                                                                           tokenLabel: box.tokenLabel)) {
                 outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.hostRefused,
                                                        message: "Refused by the host: \(request.method)"))
             } else if let handler = handlers[request.method] {
                 do {
-                    outcome = .success(try handler(request.params))
+                    outcome = .success(Self.withinScope(try handler(request.params), method: request.method,
+                                                        windows: windows))
                 } catch let error as ActionUIRemoteError {
                     outcome = .failure(error)
                 } catch {
@@ -695,15 +752,19 @@ final class RequestBox: @unchecked Sendable {
     let entries: [Result<JSONRPCRequest, JSONRPCRejection>]
     /// The label of the token the connection presented, for the method policy.
     let tokenLabel: String?
+    /// That token's scope, if it was minted with one.
+    let scope: ActionUIRemoteServer.TokenScope?
     let semaphore = DispatchSemaphore(value: 0)
 
     private let lock = Lock()
     private var results: [Int: Result<Any?, ActionUIRemoteError>] = [:]
     private var abandoned = false
 
-    init(entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String? = nil) {
+    init(entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String? = nil,
+         scope: ActionUIRemoteServer.TokenScope? = nil) {
         self.entries = entries
         self.tokenLabel = tokenLabel
+        self.scope = scope
     }
 
     func setResult(_ result: Result<Any?, ActionUIRemoteError>, at index: Int) {

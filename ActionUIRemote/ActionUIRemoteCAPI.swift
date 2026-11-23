@@ -250,11 +250,18 @@ public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
     guard let label, strlen(label) > 0 else { return false }
     guard let server = ActionUIRemoteServer.shared else { return false }
 
+    return mint(on: server, label: String(cString: label), scope: nil, outToken, outTokenSize)
+}
+
+/// Mint a token, register it under `label` with `scope`, and write it to `outToken`; false, with
+/// nothing registered, when the buffer is too small.
+private func mint(on server: ActionUIRemoteServer, label: String, scope: ActionUIRemoteServer.TokenScope?,
+                  _ outToken: UnsafeMutablePointer<CChar>, _ outTokenSize: Int) -> CBool {
     let token = ActionUIRemoteServer.makeToken()
     let bytes = Array(token.utf8)
     guard bytes.count + 1 <= outTokenSize else { return false }
 
-    server.addToken(token, label: String(cString: label))
+    server.addToken(token, label: label, scope: scope)
     bytes.withUnsafeBufferPointer { source in
         outToken.withMemoryRebound(to: UInt8.self, capacity: bytes.count + 1) { destination in
             destination.update(from: source.baseAddress!, count: bytes.count)
@@ -262,6 +269,35 @@ public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
         }
     }
     return true
+}
+
+/// Mint a token limited to a scope, as `actionUIRemoteMintToken` mints one with none: it may
+/// address only the windows in `windowsJSON` (a JSON array of window UUIDs; NULL for all), and
+/// with `valuesOnly` only the methods of the "values only" preset. A request naming another window
+/// answers 1001 (unknown window), and `hello` and `listWindows` list only these windows; a method
+/// outside the preset answers 1004. The host's method policy still applies on top. A scope applies
+/// only while the server requires a token; hand the child only this token, not the start-up one.
+///
+/// - Returns: false, registering nothing, when no server is running, the label is empty,
+///   `windowsJSON` is not a JSON array of strings, or the buffer is too small.
+@c
+public func actionUIRemoteMintScopedToken(_ label: UnsafePointer<CChar>?,
+                                          _ windowsJSON: UnsafePointer<CChar>?,
+                                          _ valuesOnly: CBool,
+                                          _ outToken: UnsafeMutablePointer<CChar>?,
+                                          _ outTokenSize: Int) -> CBool {
+    guard let outToken, outTokenSize > 0 else { return false }
+    guard let label, strlen(label) > 0 else { return false }
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    var windows: Set<String>?
+    if let windowsJSON {
+        guard let list = try? JSONDecoder().decode([String].self, from: Data(String(cString: windowsJSON).utf8)) else {
+            return false
+        }
+        windows = Set(list)
+    }
+    let scope = ActionUIRemoteServer.TokenScope(windows: windows, valuesOnly: valuesOnly)
+    return mint(on: server, label: String(cString: label), scope: scope, outToken, outTokenSize)
 }
 
 /// Register a token the caller minted, under `label`.

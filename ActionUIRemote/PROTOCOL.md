@@ -262,6 +262,11 @@ token or is refused with `1006`.
   the connections that presented it: their next request is refused (`unauthenticated`) unless it
   carries a token that is still live. A request already accepted runs to its end, and so do the
   other requests of a batch the server has begun to authenticate.
+- A host may mint a token with a scope: the windows it may address, and whether it may call only
+  the "values only" methods (section 8). A request from it that names another window answers
+  `1001` (unknown window), as for a window that does not exist, and `hello` and `listWindows` list
+  only its windows; a method outside the preset answers `1004`. The host's method policy applies
+  on top.
 
 Clients should read `ACTIONUI_REMOTE_TOKEN` from the environment and send it without being asked,
 so that a host turning the requirement on breaks nothing. A client may also accept the token from

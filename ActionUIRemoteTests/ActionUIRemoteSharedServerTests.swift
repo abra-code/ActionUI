@@ -743,6 +743,73 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         XCTAssertEqual(labels.values, ["job-1", "job-1"])
     }
 
+    func testAScopedTokenReachesOnlyItsWindowsAndThePreset() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let mine = UUID().uuidString
+        let other = UUID().uuidString
+        for uuid in [mine, other] {
+            _ = try ActionUIModel.shared.loadDescription(from: ["id": 1, "type": "VStack", "children": [
+                ["id": 2, "type": "TextField", "properties": ["title": "Name"]]]], windowUUID: uuid)
+        }
+        defer {
+            ActionUIModel.shared.removeWindow(mine)
+            ActionUIModel.shared.removeWindow(other)
+        }
+        var buffer = [CChar](repeating: 0, count: 128)
+        XCTAssertFalse("job".withCString { label in #"{"not":"a list"}"#.withCString { actionUIRemoteMintScopedToken(label, $0, true, &buffer, buffer.count) } },
+                       "the windows must be a JSON array of strings")
+        let windowsJSON = #"[""# + mine + #""]"#
+        XCTAssertTrue("job".withCString { label in windowsJSON.withCString { actionUIRemoteMintScopedToken(label, $0, true, &buffer, buffer.count) } })
+        let scoped = String(cString: buffer)
+
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let hello = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(scoped)"}}"#))
+        XCTAssertEqual((hello["result"] as? [String: Any])?["windows"] as? [String], [mine], "hello lists only its window")
+        let windows = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual(windows["result"] as? [String], [mine])
+        let theirs = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":3,"method":"actionui.getValue","params":{"window":"\#(other)","viewID":2}}"#))
+        XCTAssertEqual((theirs["error"] as? [String: Any])?["code"] as? Int, 1001, "another window is unknown to it")
+        let ours = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":4,"method":"actionui.setValue","params":{"window":"\#(mine)","viewID":2,"value":"set"}}"#))
+        XCTAssertEqual(ours["result"] as? Bool, true)
+        let insert = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":5,"method":"actionui.insertElement","params":{"window":"\#(mine)","parentID":1,"element":{"type":"Text"}}}"#))
+        XCTAssertEqual((insert["error"] as? [String: Any])?["code"] as? Int, 1004, "outside the preset")
+
+        // The host's start-up token has no scope: it sees both windows.
+        let host = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let all = try XCTUnwrap(exchangeJSON(host,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.listWindows","params":{"#  + (try tokenParam()) + "}}"))
+        let listed = Set(all["result"] as? [String] ?? [])
+        XCTAssertTrue(listed.isSuperset(of: [mine, other]), "\(listed)")
+
+        // A scope of windows only: the full method set, in its own window.
+        XCTAssertTrue("job-w".withCString { label in windowsJSON.withCString { actionUIRemoteMintScopedToken(label, $0, false, &buffer, buffer.count) } })
+        let windowsOnly = String(cString: buffer)
+        let structural = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let insertOwn = try XCTUnwrap(exchangeJSON(structural,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.insertElement","params":{"token":"\#(windowsOnly)","window":"\#(mine)","parentID":1,"element":{"type":"Text","id":9}}}"#))
+        XCTAssertNil(insertOwn["error"], "\(insertOwn)")
+        let insertOther = try XCTUnwrap(exchangeJSON(structural,
+            #"{"jsonrpc":"2.0","id":2,"method":"actionui.insertElement","params":{"window":"\#(other)","parentID":1,"element":{"type":"Text","id":9}}}"#))
+        XCTAssertEqual((insertOther["error"] as? [String: Any])?["code"] as? Int, 1001)
+        // An empty set reaches no window.
+        XCTAssertTrue("job-none".withCString { label in "[]".withCString { actionUIRemoteMintScopedToken(label, $0, false, &buffer, buffer.count) } })
+        let nothing = String(cString: buffer)
+        let empty = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let none = try XCTUnwrap(exchangeJSON(empty,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.listWindows","params":{"token":"\#(nothing)"}}"#))
+        XCTAssertEqual(none["result"] as? [String], [])
+
+        // Revoking the scoped token takes its scope with it.
+        "job".withCString { actionUIRemoteRevokeTokensWithLabel($0) }
+        let after = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":6,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual((after["error"] as? [String: Any])?["code"] as? Int, 1006)
+    }
+
     func testTheCMethodPolicyAndPreset() throws {
         XCTAssertFalse(actionUIRemoteSetMethodPolicy(cPolicyForTests, nil), "no server")
         XCTAssertFalse(actionUIRemoteSetMethodPolicyValuesOnly(), "no server")

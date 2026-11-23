@@ -213,6 +213,10 @@ name=$(actionui_get_string 2)
   then call `actionUIRemoteUnexportToken()` so nothing inherits `ACTIONUI_REMOTE_TOKEN` at all.
   Both the Python and the shell clients read the descriptor with no code from the caller. This is
   the only thing that removes the `ps` exposure described below; OMC does it for every handler.
+- A child's token can be narrower than the host's: `actionUIRemoteMintScopedToken(label,
+  windowsJSON, valuesOnly, out, size)` (or `addToken(_:label:scope:)` with a `TokenScope`) limits it
+  to some windows (a JSON array of UUIDs; NULL for all) and, with `valuesOnly`, to the "values
+  only" methods. Other windows are unknown to it; see PROTOCOL.md section 10.
 
 Without a token the boundary is the socket's permissions and the peer-uid check - the same one a
 same-user CFMessagePort has, where any process of the same user can drive the UI as it already
