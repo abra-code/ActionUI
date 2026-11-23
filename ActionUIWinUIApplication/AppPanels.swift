@@ -1,7 +1,8 @@
 // ActionUIWinUIApplication/AppPanels.swift
 /*
- The application's standalone alert, behind the synchronous C call actionUIAppRunAlert: a WinUI
- ContentDialog. The call returns once the user answers. Until then a nested message loop keeps the
+ The application's standalone alert and its file panels, behind the synchronous C calls
+ actionUIAppRunAlert, actionUIAppRunOpenPanel and actionUIAppRunSavePanel: a WinUI ContentDialog and the
+ system's file dialogs (IFileOpenDialog, IFileSaveDialog). The alert returns once the user answers. Until then a nested message loop keeps the
  application running underneath, as NSAlert.runModal does on macOS and a nested GLib loop on Linux:
  windows redraw and handlers run. The work of DispatchQueue.main waits when the call itself came through
  it (a call from another thread), as a serial queue does on macOS.
@@ -14,7 +15,19 @@
  The alert opens over the active window, else the one presented last. With no window, or when that
  window shows a dialog already (a sheet, another alert: WinUI shows one at a time in a window), it opens
  in a small window of its own. It answers nil when its window closes under it or the application
- terminates. Called before the application runs, it logs why and answers nil.
+ terminates.
+
+ File panels, from the macOS JSON as well: title, prompt (the accept button), directoryURL (a path or a
+ file URL), nameFieldStringValue (save), allowedContentTypes (filename extensions, MIME types, or the
+ common uniform type identifiers), allowsMultipleSelection, canChooseFiles, canChooseDirectories,
+ allowsOtherFileTypes. Windows' dialog chooses files or folders, not both, so an open panel that allows
+ both chooses files, as on Linux. A saved name gets the first allowed extension when it has none of them,
+ as NSSavePanel does. message, identifier, showsHiddenFiles, treatsFilePackagesAsDirectories and
+ canCreateDirectories have no counterpart and are ignored. A panel is modal to the active window, else the
+ one presented last, else to none; it runs its own message loop, so the application runs underneath, and
+ it is canceled (nil) when its window closes or the application terminates.
+
+ Called before the application runs, each logs why and answers nil.
 */
 
 #if canImport(FoundationEssentials)
@@ -50,7 +63,159 @@ struct AlertRequest: Equatable {
     }
 }
 
-// MARK: - Running it
+/// A file panel as the JSON describes it, in the Windows dialog's terms.
+struct FilePanelRequest: Equatable {
+    enum Mode: Equatable {
+        case open, openFolders, save
+    }
+
+    var mode: Mode
+    var multiple: Bool
+    var title: String?
+    var acceptLabel: String?
+    var initialFolder: String?
+    var initialName: String?
+    /// The allowed extensions, lowercased, without the dot; empty: any file.
+    var extensions: [String]
+    var allowsOtherTypes: Bool
+
+    init(json: String?, saving: Bool) {
+        let config = AppPanels.dictionary(json)
+        title = config["title"] as? String
+        acceptLabel = config["prompt"] as? String
+        initialFolder = (config["directoryURL"] as? String).map(Self.path(directoryURL:))
+        initialName = saving ? config["nameFieldStringValue"] as? String : nil
+        allowsOtherTypes = config["allowsOtherFileTypes"] as? Bool ?? false
+        let entries = config["allowedContentTypes"] as? [String] ?? []
+        let resolved = entries.map(Self.extensions)
+        // An entry of any file ("public.data", "*/*") lifts the restriction.
+        if resolved.contains(where: { $0 == nil }) {
+            extensions = []
+        } else {
+            var unique: [String] = []
+            for found in resolved.compactMap({ $0 }).joined() where !unique.contains(found) {
+                unique.append(found)
+            }
+            extensions = unique
+        }
+        if saving {
+            mode = .save
+            multiple = false
+        } else {
+            multiple = config["allowsMultipleSelection"] as? Bool ?? false
+            let files = config["canChooseFiles"] as? Bool ?? true
+            let folders = config["canChooseDirectories"] as? Bool ?? false
+            mode = folders && !files ? .openFolders : .open
+        }
+    }
+
+    /// macOS reads directoryURL as a path; a file URL is taken too, as the path Windows writes.
+    static func path(directoryURL: String) -> String {
+        guard directoryURL.lowercased().hasPrefix("file:"), let url = URL(string: directoryURL) else { return directoryURL }
+        return url.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0) } } ?? directoryURL
+    }
+
+    /// The extensions one allowedContentTypes entry allows: itself ("json"), those of a MIME type
+    /// ("image/png", "image/*") or of a uniform type identifier ("public.image"). nil: any file (an
+    /// identifier or MIME type of no particular type); empty: an entry not known, which allows nothing.
+    static func extensions(_ entry: String) -> [String]? {
+        let lowered = entry.lowercased()
+        if lowered.contains("/") {
+            return extensionsForMIMEType[lowered] ?? []
+        }
+        if !lowered.contains(".") {
+            return lowered.isEmpty ? [] : [lowered]
+        }
+        return extensionsForIdentifier[lowered] ?? []
+    }
+
+    private static let images = ["png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "heic", "webp", "svg"]
+    private static let audio = ["mp3", "m4a", "aac", "wav", "flac", "wma", "ogg"]
+    private static let video = ["mp4", "m4v", "mov", "avi", "wmv", "mkv", "webm"]
+
+    /// The common uniform type identifiers, by their extensions (nil: any file).
+    static let extensionsForIdentifier: [String: [String]?] = [
+        "public.data": nil,
+        "public.item": nil,
+        "public.content": nil,
+        "public.image": images,
+        "public.jpeg": ["jpg", "jpeg"],
+        "public.png": ["png"],
+        "public.tiff": ["tif", "tiff"],
+        "public.heic": ["heic"],
+        "com.compuserve.gif": ["gif"],
+        "org.webmproject.webp": ["webp"],
+        "com.microsoft.bmp": ["bmp"],
+        "public.svg-image": ["svg"],
+        "public.text": ["txt", "md", "csv", "json", "xml", "html", "htm"],
+        "public.plain-text": ["txt"],
+        "public.utf8-plain-text": ["txt"],
+        "public.json": ["json"],
+        "public.xml": ["xml"],
+        "public.html": ["html", "htm"],
+        "public.comma-separated-values-text": ["csv"],
+        "public.python-script": ["py"],
+        "com.adobe.pdf": ["pdf"],
+        "public.audio": audio,
+        "public.movie": video,
+        "public.video": video,
+        "public.mpeg-4": ["mp4"],
+        "public.zip-archive": ["zip"],
+    ]
+
+    /// The common MIME types, by their extensions (nil: any file).
+    static let extensionsForMIMEType: [String: [String]?] = [
+        "*/*": nil,
+        "application/octet-stream": nil,
+        "image/*": images,
+        "image/png": ["png"],
+        "image/jpeg": ["jpg", "jpeg"],
+        "image/gif": ["gif"],
+        "image/tiff": ["tif", "tiff"],
+        "image/heic": ["heic"],
+        "image/webp": ["webp"],
+        "image/bmp": ["bmp"],
+        "image/svg+xml": ["svg"],
+        "text/*": ["txt", "md", "csv", "json", "xml", "html", "htm"],
+        "text/plain": ["txt"],
+        "text/csv": ["csv"],
+        "text/html": ["html", "htm"],
+        "text/xml": ["xml"],
+        "application/xml": ["xml"],
+        "application/json": ["json"],
+        "application/pdf": ["pdf"],
+        "application/zip": ["zip"],
+        "text/x-python": ["py"],
+        "audio/*": audio,
+        "video/*": video,
+        "video/mp4": ["mp4"],
+    ]
+
+    /// The dialog's filters: one with every allowed extension, the default; and, for a save panel that
+    /// allows other types (the only panel macOS applies that key to), one for any file. None: any file.
+    var filters: [(name: String, pattern: String)] {
+        guard !extensions.isEmpty, mode != .openFolders else { return [] }
+        var filters = [(name: extensions.joined(separator: ", "), pattern: extensions.map { "*." + $0 }.joined(separator: ";"))]
+        if mode == .save && allowsOtherTypes {
+            filters.append((name: "All files", pattern: "*.*"))
+        }
+        return filters
+    }
+
+    /// The saved path with the first allowed extension added when it has none of them, as NSSavePanel
+    /// does; unchanged when other types are allowed or any file is.
+    func savedPath(_ path: String) -> String {
+        guard mode == .save, !allowsOtherTypes, let first = extensions.first else { return path }
+        let name = path.split(whereSeparator: { $0 == "\\" || $0 == "/" }).last.map(String.init) ?? path
+        let lowered = name.lowercased()
+        if extensions.contains(where: { lowered.hasSuffix("." + $0) }) {
+            return path
+        }
+        return path + "." + first
+    }
+}
+
+// MARK: - Running them
 
 @MainActor
 enum AppPanels {
@@ -93,24 +258,36 @@ enum AppPanels {
         runAlert(AlertRequest(json: json))
     }
 
+    /// actionUIAppRunOpenPanel: the chosen paths, or nil when the panel was canceled.
+    static func runOpenPanel(json: String?) -> [String]? {
+        runFilePanel(FilePanelRequest(json: json, saving: false))
+    }
+
+    /// actionUIAppRunSavePanel: the chosen path, or nil when the panel was canceled.
+    static func runSavePanel(json: String?) -> String? {
+        runFilePanel(FilePanelRequest(json: json, saving: true))?.first
+    }
+
     /// The JSON's top-level object; empty for nil or anything else.
     nonisolated static func dictionary(_ json: String?) -> [String: Any] {
         guard let json, let parsed = try? ActionUIJSON.value(from: json) as? [String: Any] else { return [:] }
         return parsed
     }
 
-    /// The alerts over `window` answer nil: it is closing.
+    /// The alerts and file panels over `window` answer nil: it is closing.
     static func windowClosing(_ window: WinUIObject) {
         for alert in open where alert.window === window {
             alert.dismiss()
         }
+        actionUIWinUIFileDialogsClose(window.pointer)
     }
 
-    /// Every alert waiting answers nil: the application is terminating.
+    /// Every alert and file panel waiting answers nil: the application is terminating.
     static func dismissAll() {
         for alert in open {
             alert.dismiss()
         }
+        actionUIWinUIFileDialogsClose(nil)
     }
 
     static func runAlert(_ request: AlertRequest) -> String? {
@@ -162,22 +339,57 @@ enum AppPanels {
         return request.buttons.indices.contains(index) ? request.buttons[index] : nil
     }
 
+    /// The chosen paths, or nil when the panel was canceled (or could not be shown: logged).
+    static func runFilePanel(_ request: FilePanelRequest) -> [String]? {
+        let logger = ActionUIModel.shared.logger
+        let function = request.mode == .save ? "actionUIAppRunSavePanel" : "actionUIAppRunOpenPanel"
+        guard WinUIApplication.shared.hasStarted else {
+            logger.log("\(function): call it while the application runs (from didFinishLaunching on)", .error)
+            return nil
+        }
+        let owner = WinUIApplication.shared.panelOwner()?.window
+        let kind: ActionUIWinUIFileDialogKind = switch request.mode {
+        case .open: ActionUIWinUIFileDialogKindOpen
+        case .openFolders: ActionUIWinUIFileDialogKindOpenFolder
+        case .save: ActionUIWinUIFileDialogKindSave
+        }
+        let filters = request.filters
+        let names = CStrings(filters.map(\.name))
+        let patterns = CStrings(filters.map(\.pattern))
+        var chosen: UnsafeMutablePointer<CChar>?
+        // Extensions forced on a saved name when only the allowed types may be saved.
+        let strict = request.mode == .save && !request.allowsOtherTypes && !request.extensions.isEmpty
+        let shown = withExtendedLifetime((names, patterns)) {
+            names.pointers.withUnsafeBufferPointer { nameBuffer in
+                patterns.pointers.withUnsafeBufferPointer { patternBuffer in
+                    actionUIWinUIFileDialogRun(owner?.pointer, kind, request.multiple, request.title, request.acceptLabel,
+                                               request.initialFolder, request.initialName, nameBuffer.baseAddress,
+                                               patternBuffer.baseAddress, Int32(filters.count),
+                                               request.mode == .save ? request.extensions.first : nil, strict, &chosen)
+                }
+            }
+        }
+        guard shown else {
+            logger.log("\(function): \(WinUIError.last("showing the file dialog"))", .error)
+            return nil
+        }
+        guard let chosen else { return nil }
+        defer { actionUIWinUIFreeString(chosen) }
+        let paths = String(cString: chosen).split(separator: "\n").map(String.init)
+        guard !paths.isEmpty else { return nil }
+        return request.mode == .save ? paths.map(request.savedPath) : paths
+    }
+
     /// The alert over the window `content` is in; nil when it cannot be shown there (no error logged:
     /// the caller tries a window of the alert's own).
     private static func show(_ request: AlertRequest, over content: WinUIObject, for alert: OpenAlert) -> WinUIObject? {
-        // The titles as C strings, for the call.
-        let titles: [UnsafeMutablePointer<CChar>] = request.buttons.map { title in
-            let bytes = Array(title.utf8CString)
-            let copy = UnsafeMutablePointer<CChar>.allocate(capacity: bytes.count)
-            copy.initialize(from: bytes, count: bytes.count)
-            return copy
-        }
-        defer { titles.forEach { $0.deallocate() } }
-        let pointers: [UnsafePointer<CChar>?] = titles.map { UnsafePointer($0) }
+        let titles = CStrings(request.buttons)
         let context = Unmanaged.passUnretained(alert).toOpaque()
-        let dialog = pointers.withUnsafeBufferPointer { buffer in
-            actionUIWinUIAlertShow(content.pointer, request.title, request.message, buffer.baseAddress,
-                                   Int32(buffer.count), Int32(request.escapeButton ?? -1), alertAnswered, context)
+        let dialog = withExtendedLifetime(titles) {
+            titles.pointers.withUnsafeBufferPointer { buffer in
+                actionUIWinUIAlertShow(content.pointer, request.title, request.message, buffer.baseAddress,
+                                       Int32(buffer.count), Int32(request.escapeButton ?? -1), alertAnswered, context)
+            }
         }
         return WinUIObject(adopting: dialog)
     }
@@ -202,5 +414,25 @@ enum AppPanels {
             alert.index = index
             alert.done.pointee = true
         }
+    }
+}
+
+/// Strings as C strings for a call, freed with it.
+private final class CStrings {
+    let pointers: [UnsafePointer<CChar>?]
+    private let copies: [UnsafeMutablePointer<CChar>]
+
+    init(_ strings: [String]) {
+        copies = strings.map { text in
+            let bytes = Array(text.utf8CString)
+            let copy = UnsafeMutablePointer<CChar>.allocate(capacity: bytes.count)
+            copy.initialize(from: bytes, count: bytes.count)
+            return copy
+        }
+        pointers = copies.map { UnsafePointer($0) }
+    }
+
+    deinit {
+        copies.forEach { $0.deallocate() }
     }
 }

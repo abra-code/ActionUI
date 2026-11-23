@@ -6,9 +6,10 @@
 // not end the application); then presents a window from a server, reads its value once it is shown,
 // and closes it as the user does (the system close command): shouldTerminate's first answer keeps it open, its second
 // lets the application end. Checks the handlers after the run. Runs alerts too (actionUIAppRunAlert): before the
-// run, with no window, over a window and with four buttons, each answered as an accessibility tool does (UI
-// Automation's Invoke on the button, from a thread of its own while the call waits). Usage: ActionUIAppCheck
-// WINDOW.json URL.
+// run, with no window, over a window and with four buttons; and file panels (actionUIAppRunOpenPanel,
+// actionUIAppRunSavePanel): open, save, cancel, a folder. Each is answered as an accessibility tool does (UI
+// Automation's Invoke on a button, its Value on the name field, from a thread of its own while the call waits).
+// Usage: ActionUIAppCheck WINDOW.json URL.
 // Prints "c-app:" lines; exit status 0 when every check passed. Built and run by Scripts/ci-windows.py.
 
 #include <stdbool.h>
@@ -50,6 +51,7 @@ static void CALLBACK onRemoteShown(HWND window, UINT message, UINT_PTR timer, DW
 static const CLSID automationClass = {0xff48dba4, 0x60ef, 0x4201, {0xaa, 0x87, 0x54, 0x10, 0x3e, 0xef, 0x59, 0x4e}};
 static const IID automationInterface = {0x30cbe57d, 0xd9d0, 0x452a, {0xab, 0x13, 0x7a, 0xc5, 0xac, 0x48, 0x25, 0xee}};
 static const IID invokeInterface = {0xfb377fbe, 0x8ea6, 0x46d5, {0x9c, 0x73, 0x64, 0x99, 0x64, 0x2d, 0x30, 0x59}};
+static const IID valueInterface = {0xa94cd8b1, 0x0844, 0x4cd6, {0x9d, 0x2d, 0x64, 0x05, 0x37, 0xab, 0x39, 0xe9}};
 
 // What the answering thread did, and the name of the element that had the keyboard focus before it
 // answered (the default button, which Enter presses), read once the alert has returned.
@@ -86,42 +88,48 @@ static IUIAutomationCondition *propertyCondition(IUIAutomation *automation, PROP
     return SUCCEEDED(made) ? condition : NULL;
 }
 
-// The button of this process named `name`, once it is on screen (up to 10 seconds); NULL if it never is.
-static IUIAutomationElement *findButton(IUIAutomation *automation, const wchar_t *name) {
-    IUIAutomationElement *root = NULL;
-    HRESULT got = IUIAutomation_GetRootElement(automation, &root);
-    if (FAILED(got) || root == NULL) {
-        return NULL;
+// The first element of this process under `root` (among its descendants) whose `property` is the text
+// `value` and whose control type is `type`, once it is on screen (up to `tenths` tenths of a second); NULL
+// if it never is. `root` NULL: the desktop.
+static IUIAutomationElement *findElement(IUIAutomation *automation, IUIAutomationElement *root, PROPERTYID property,
+                                         const wchar_t *value, CONTROLTYPEID type, int tenths) {
+    IUIAutomationElement *desktop = NULL;
+    if (root == NULL) {
+        HRESULT got = IUIAutomation_GetRootElement(automation, &desktop);
+        if (FAILED(got) || desktop == NULL) {
+            return NULL;
+        }
+        root = desktop;
     }
-    VARIANT title;
-    VariantInit(&title);
-    title.vt = VT_BSTR;
-    title.bstrVal = SysAllocString(name);
-    VARIANT type;
-    VariantInit(&type);
-    type.vt = VT_I4;
-    type.lVal = UIA_ButtonControlTypeId;
+    VARIANT text;
+    VariantInit(&text);
+    text.vt = VT_BSTR;
+    text.bstrVal = SysAllocString(value);
+    VARIANT kind;
+    VariantInit(&kind);
+    kind.vt = VT_I4;
+    kind.lVal = type;
     VARIANT process;
     VariantInit(&process);
     process.vt = VT_I4;
     process.lVal = (LONG)GetCurrentProcessId();
-    IUIAutomationCondition *named = propertyCondition(automation, UIA_NamePropertyId, title);
-    IUIAutomationCondition *button = propertyCondition(automation, UIA_ControlTypePropertyId, type);
+    IUIAutomationCondition *matching = propertyCondition(automation, property, text);
+    IUIAutomationCondition *typed = propertyCondition(automation, UIA_ControlTypePropertyId, kind);
     IUIAutomationCondition *ours = propertyCondition(automation, UIA_ProcessIdPropertyId, process);
-    VariantClear(&title);
-    IUIAutomationCondition *namedButton = NULL;
+    VariantClear(&text);
+    IUIAutomationCondition *matchingTyped = NULL;
     IUIAutomationCondition *condition = NULL;
-    if (named != NULL && button != NULL && ours != NULL) {
-        HRESULT joined = IUIAutomation_CreateAndCondition(automation, named, button, &namedButton);
-        if (SUCCEEDED(joined) && namedButton != NULL) {
-            joined = IUIAutomation_CreateAndCondition(automation, namedButton, ours, &condition);
+    if (matching != NULL && typed != NULL && ours != NULL) {
+        HRESULT joined = IUIAutomation_CreateAndCondition(automation, matching, typed, &matchingTyped);
+        if (SUCCEEDED(joined) && matchingTyped != NULL) {
+            joined = IUIAutomation_CreateAndCondition(automation, matchingTyped, ours, &condition);
             if (FAILED(joined)) {
                 condition = NULL;
             }
         }
     }
     IUIAutomationElement *found = NULL;
-    for (int attempt = 0; condition != NULL && found == NULL && attempt < 100; attempt++) {
+    for (int attempt = 0; condition != NULL && found == NULL && attempt < tenths; attempt++) {
         HRESULT searched = IUIAutomationElement_FindFirst(root, TreeScope_Descendants, condition, &found);
         if (FAILED(searched)) {
             found = NULL;
@@ -130,20 +138,63 @@ static IUIAutomationElement *findButton(IUIAutomation *automation, const wchar_t
             Sleep(100);
         }
     }
-    IUIAutomationCondition *conditions[] = {named, button, ours, namedButton, condition};
+    IUIAutomationCondition *conditions[] = {matching, typed, ours, matchingTyped, condition};
     for (size_t index = 0; index < sizeof conditions / sizeof conditions[0]; index++) {
         if (conditions[index] != NULL) {
             IUIAutomationCondition_Release(conditions[index]);
         }
     }
-    IUIAutomationElement_Release(root);
+    if (desktop != NULL) {
+        IUIAutomationElement_Release(desktop);
+    }
     return found;
+}
+
+// The button of this process named `name`, once it is on screen (up to 10 seconds); NULL if it never is.
+static IUIAutomationElement *findButton(IUIAutomation *automation, const wchar_t *name) {
+    return findElement(automation, NULL, UIA_NamePropertyId, name, UIA_ButtonControlTypeId, 100);
+}
+
+// Invokes `element` (UI Automation's Invoke pattern), as an accessibility tool presses a button.
+static HRESULT invokeElement(IUIAutomationElement *element) {
+    IUnknown *pattern = NULL;
+    IUIAutomationInvokePattern *invoke = NULL;
+    HRESULT got = IUIAutomationElement_GetCurrentPattern(element, UIA_InvokePatternId, &pattern);
+    if (SUCCEEDED(got) && pattern != NULL) {
+        got = IUnknown_QueryInterface(pattern, &invokeInterface, (void **)&invoke);
+        IUnknown_Release(pattern);
+    }
+    if (FAILED(got) || invoke == NULL) {
+        return FAILED(got) ? got : E_NOINTERFACE;
+    }
+    HRESULT invoked = IUIAutomationInvokePattern_Invoke(invoke);
+    IUIAutomationInvokePattern_Release(invoke);
+    return invoked;
+}
+
+// Sets `element`'s text (UI Automation's Value pattern), as an accessibility tool types it.
+static HRESULT setElementText(IUIAutomationElement *element, const wchar_t *text) {
+    IUnknown *pattern = NULL;
+    IUIAutomationValuePattern *value = NULL;
+    HRESULT got = IUIAutomationElement_GetCurrentPattern(element, UIA_ValuePatternId, &pattern);
+    if (SUCCEEDED(got) && pattern != NULL) {
+        got = IUnknown_QueryInterface(pattern, &valueInterface, (void **)&value);
+        IUnknown_Release(pattern);
+    }
+    if (FAILED(got) || value == NULL) {
+        return FAILED(got) ? got : E_NOINTERFACE;
+    }
+    BSTR typed = SysAllocString(text);
+    HRESULT set = IUIAutomationValuePattern_SetValue(value, typed);
+    SysFreeString(typed);
+    IUIAutomationValuePattern_Release(value);
+    return set;
 }
 
 // Prints what the answering thread could not do, at once: the alert it leaves unanswered keeps the call
 // waiting until the CI step's timeout ends the program.
 static DWORD answerFailed(void) {
-    printf("c-app: answering the alert: %s\n", answerReport);
+    printf("c-app: answering: %s\n", answerReport);
     fflush(stdout);
     return 1;
 }
@@ -171,24 +222,12 @@ static DWORD WINAPI answerAlert(void *parameter) {
         // The dialog's first focus settles once it has opened.
         Sleep(500);
         noteFocus(automation);
-        IUnknown *pattern = NULL;
-        IUIAutomationInvokePattern *invoke = NULL;
-        HRESULT got = IUIAutomationElement_GetCurrentPattern(found, UIA_InvokePatternId, &pattern);
-        if (SUCCEEDED(got) && pattern != NULL) {
-            got = IUnknown_QueryInterface(pattern, &invokeInterface, (void **)&invoke);
-            IUnknown_Release(pattern);
-        }
-        if (FAILED(got) || invoke == NULL) {
-            snprintf(answerReport, sizeof answerReport, "the button %ls cannot be invoked (0x%08lx)", name, (unsigned long)got);
+        HRESULT invoked = invokeElement(found);
+        if (SUCCEEDED(invoked)) {
+            answered = true;
+            snprintf(answerReport, sizeof answerReport, "invoked %ls", name);
         } else {
-            HRESULT invoked = IUIAutomationInvokePattern_Invoke(invoke);
-            if (SUCCEEDED(invoked)) {
-                answered = true;
-                snprintf(answerReport, sizeof answerReport, "invoked %ls", name);
-            } else {
-                snprintf(answerReport, sizeof answerReport, "invoking %ls failed (0x%08lx)", name, (unsigned long)invoked);
-            }
-            IUIAutomationInvokePattern_Release(invoke);
+            snprintf(answerReport, sizeof answerReport, "invoking %ls failed (0x%08lx)", name, (unsigned long)invoked);
         }
         IUIAutomationElement_Release(found);
     }
@@ -222,6 +261,179 @@ static void checkAlert(const char *json, const wchar_t *answer, const char *expe
     if (chosen != NULL) {
         actionUIFreeString(chosen);
     }
+}
+
+// MARK: - Answering a file panel as an accessibility tool does
+
+// What the answering thread does in the system's file dialog: types `fileName` in its name field (NULL:
+// nothing), then presses the button whose automation ID is `button` ("1" opens, saves or selects the
+// folder; "2" cancels); or, with `closeWindow`, closes that ActionUI window (the dialog's owner) instead.
+typedef struct FileAnswer {
+    const wchar_t *fileName;
+    const wchar_t *button;
+    const char *closeWindow;
+} FileAnswer;
+
+// The dialog's name field: its automation ID in an open dialog, in a save dialog, else its label.
+static IUIAutomationElement *findNameField(IUIAutomation *automation, IUIAutomationElement *dialog) {
+    IUIAutomationElement *field = findElement(automation, dialog, UIA_AutomationIdPropertyId, L"1148", UIA_EditControlTypeId, 20);
+    if (field == NULL) {
+        field = findElement(automation, dialog, UIA_AutomationIdPropertyId, L"1001", UIA_EditControlTypeId, 5);
+    }
+    if (field == NULL) {
+        field = findElement(automation, dialog, UIA_NamePropertyId, L"File name:", UIA_EditControlTypeId, 5);
+    }
+    return field;
+}
+
+static DWORD WINAPI answerFileDialog(void *parameter) {
+    const FileAnswer *answer = parameter;
+    HRESULT initialized = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(initialized)) {
+        snprintf(answerReport, sizeof answerReport, "COM did not start (0x%08lx)", (unsigned long)initialized);
+        return answerFailed();
+    }
+    IUIAutomation *automation = NULL;
+    HRESULT made = CoCreateInstance(&automationClass, NULL, CLSCTX_INPROC_SERVER, &automationInterface, (void **)&automation);
+    if (FAILED(made) || automation == NULL) {
+        snprintf(answerReport, sizeof answerReport, "UI Automation did not start (0x%08lx)", (unsigned long)made);
+        CoUninitialize();
+        return answerFailed();
+    }
+    bool answered = false;
+    // The system's dialog window class.
+    IUIAutomationElement *dialog = findElement(automation, NULL, UIA_ClassNamePropertyId, L"#32770", UIA_WindowControlTypeId, 100);
+    if (dialog == NULL) {
+        snprintf(answerReport, sizeof answerReport, "the file dialog did not appear");
+    } else if (answer->closeWindow != NULL) {
+        // The host closes the window under the dialog (from a worker thread, as a binding may).
+        Sleep(500);
+        actionUIAppCloseWindow(answer->closeWindow);
+        answered = true;
+        snprintf(answerReport, sizeof answerReport, "closed %s", answer->closeWindow);
+        IUIAutomationElement_Release(dialog);
+    } else {
+        // Its controls settle once it has opened.
+        Sleep(500);
+        bool typed = true;
+        if (answer->fileName != NULL) {
+            IUIAutomationElement *field = findNameField(automation, dialog);
+            HRESULT set = field != NULL ? setElementText(field, answer->fileName) : E_FAIL;
+            typed = SUCCEEDED(set);
+            if (!typed) {
+                snprintf(answerReport, sizeof answerReport, "typing %ls failed (%s, 0x%08lx)", answer->fileName,
+                         field != NULL ? "the name field takes no text" : "no name field", (unsigned long)set);
+            }
+            if (field != NULL) {
+                IUIAutomationElement_Release(field);
+            }
+        }
+        if (typed) {
+            IUIAutomationElement *button = findElement(automation, dialog, UIA_AutomationIdPropertyId, answer->button,
+                                                       UIA_ButtonControlTypeId, 20);
+            HRESULT invoked = button != NULL ? invokeElement(button) : E_FAIL;
+            if (SUCCEEDED(invoked)) {
+                answered = true;
+                snprintf(answerReport, sizeof answerReport, "pressed button %ls", answer->button);
+            } else {
+                snprintf(answerReport, sizeof answerReport, "pressing button %ls failed (%s, 0x%08lx)", answer->button,
+                         button != NULL ? "it cannot be invoked" : "not found", (unsigned long)invoked);
+            }
+            if (button != NULL) {
+                IUIAutomationElement_Release(button);
+            }
+        }
+        IUIAutomationElement_Release(dialog);
+    }
+    IUIAutomation_Release(automation);
+    CoUninitialize();
+    return answered ? 0 : answerFailed();
+}
+
+// Runs the open (or save) panel `json` while a thread of its own answers it as `answer` says; checks that
+// the call returned text holding `expected` (and ending with it when `atEnd`), or NULL when `expected` is NULL.
+static void checkFilePanel(bool saving, const char *json, const FileAnswer *answer, const char *expected, bool atEnd,
+                           const char *what) {
+    answerReport[0] = '\0';
+    HANDLE thread = CreateThread(NULL, 0, answerFileDialog, (void *)answer, 0, NULL);
+    if (thread == NULL) {
+        check(false, "the answering thread started");
+        return;
+    }
+    char *chosen = saving ? actionUIAppRunSavePanel(json) : actionUIAppRunOpenPanel(json);
+    WaitForSingleObject(thread, 15000);
+    CloseHandle(thread);
+    printf("c-app: %s: answered %s (%s)\n", what, chosen != NULL ? chosen : "(null)", answerReport);
+    bool passed = false;
+    if (expected == NULL) {
+        passed = chosen == NULL;
+    } else if (chosen != NULL) {
+        const char *found = strstr(chosen, expected);
+        passed = found != NULL && (!atEnd || strcmp(found, expected) == 0);
+    }
+    check(passed, what);
+    if (chosen != NULL) {
+        actionUIFreeString(chosen);
+    }
+}
+
+// `path` with "/" between its parts, as JSON takes it without escapes (Windows reads either).
+static void forwardSlashes(char *path) {
+    for (char *character = path; *character != '\0'; character++) {
+        if (*character == '\\') {
+            *character = '/';
+        }
+    }
+}
+
+// The panels over the window from JSON: open a file by typing its name, save with the name and folder the
+// JSON gives (the extension added), cancel, choose a folder; then one whose window the host closes.
+static void checkFilePanels(void) {
+    char folder[MAX_PATH] = "";
+    snprintf(folder, sizeof folder, "%s", windowFile);
+    forwardSlashes(folder);
+    char *slash = strrchr(folder, '/');
+    if (slash == NULL) {
+        check(false, "the window file's folder is known");
+        return;
+    }
+    *slash = '\0';
+    char json[1024];
+    static const FileAnswer openAnswer = {L"Window.json", L"1", NULL};
+    snprintf(json, sizeof json, "{\"title\": \"Open a window\", \"directoryURL\": \"%s\", \"allowedContentTypes\": [\"json\"]}", folder);
+    checkFilePanel(false, json, &openAnswer, "Window.json\"]", true, "an open panel answers the file typed in it");
+
+    char temporary[MAX_PATH] = "";
+    DWORD length = GetTempPathA(MAX_PATH, temporary);
+    if (length == 0 || length >= MAX_PATH) {
+        check(false, "the temporary folder is known");
+        return;
+    }
+    // A file left from an earlier run would bring up the dialog's question about replacing it.
+    char saved[MAX_PATH + 32];
+    snprintf(saved, sizeof saved, "%sactionui-save-check.json", temporary);
+    DeleteFileA(saved);
+    forwardSlashes(temporary);
+    size_t end = strlen(temporary);
+    if (end > 3 && temporary[end - 1] == '/') {
+        temporary[end - 1] = '\0';
+    }
+    static const FileAnswer saveAnswer = {NULL, L"1", NULL};
+    snprintf(json, sizeof json, "{\"title\": \"Save a check\", \"directoryURL\": \"%s\", "
+             "\"nameFieldStringValue\": \"actionui-save-check\", \"allowedContentTypes\": [\"public.json\"]}", temporary);
+    checkFilePanel(true, json, &saveAnswer, "\\actionui-save-check.json", true, "a save panel answers its folder and name, with the extension");
+
+    static const FileAnswer cancelAnswer = {NULL, L"2", NULL};
+    checkFilePanel(false, "{\"title\": \"Cancel me\"}", &cancelAnswer, NULL, false, "a canceled open panel answers NULL");
+
+    static const FileAnswer folderAnswer = {NULL, L"1", NULL};
+    snprintf(json, sizeof json, "{\"directoryURL\": \"file:///%s\", \"canChooseFiles\": false, \"canChooseDirectories\": true}", temporary);
+    checkFilePanel(false, json, &folderAnswer, "[\"", false, "an open panel for folders answers a folder");
+
+    // Last: the window goes (its windowWillClose fires now, not with the others).
+    static const FileAnswer closeAnswer = {NULL, NULL, "json-window"};
+    checkFilePanel(false, "{\"title\": \"Closed under me\"}", &closeAnswer, NULL, false,
+                   "an open panel whose window closes answers NULL");
 }
 
 static void onWillFinishLaunching(void) {
@@ -335,6 +547,7 @@ static void onDidFinishLaunching(void) {
     // A fourth button goes in the content, with the third.
     checkAlert("{\"title\": \"Four buttons\", \"buttons\": [\"One\", \"Two\", \"Three\", \"Four\"]}",
                L"Four", "Four", "One", "an alert's fourth button answers");
+    checkFilePanels();
     actionUIAppLoadAndPresentWindow(windowFile, "file-window", NULL);
     // The host closing its windows does not end the application (as on Apple and Linux): the window
     // from the server comes after.
@@ -359,6 +572,11 @@ int main(int argc, char **argv) {
     actionUIAppSetShouldTerminateHandler(onShouldTerminate);
     char *early = actionUIAppRunAlert("{\"title\": \"Too early\"}");
     check(early == NULL, "an alert before the run answers NULL");
+    if (early != NULL) {
+        actionUIFreeString(early);
+    }
+    early = actionUIAppRunOpenPanel("{}");
+    check(early == NULL, "an open panel before the run answers NULL");
     if (early != NULL) {
         actionUIFreeString(early);
     }

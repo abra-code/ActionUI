@@ -1,8 +1,11 @@
-// Panels: the application's alert as a ContentDialog, and the nested message loop that makes the C API's
-// alert and file panel calls synchronous (as NSAlert.runModal on macOS, a nested GLib loop on Linux).
+// Panels: the application's alert as a ContentDialog, the nested message loop that makes the C API's alert
+// call synchronous (as NSAlert.runModal on macOS, a nested GLib loop on Linux), and the system's file
+// dialogs (IFileOpenDialog, IFileSaveDialog), synchronous on their own.
 
 #include "ShimInternal.h"
 
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -11,6 +14,9 @@
 #include <winrt/Windows.System.h>  // VirtualKey
 #include <winrt/Microsoft.UI.Xaml.Input.h>  // KeyRoutedEventArgs
 #include <winrt/Microsoft.UI.Xaml.Media.h>  // VisualTreeHelper
+
+#include <microsoft.ui.xaml.window.h>  // IWindowNative: the window's HWND
+#include <shobjidl.h>                  // IFileOpenDialog, IFileSaveDialog
 
 using namespace actionui_winui;
 
@@ -112,6 +118,46 @@ mux::FrameworkElement findNamed(mux::DependencyObject const &node, winrt::hstrin
         }
     }
     return nullptr;
+}
+
+// The file dialogs on screen, for actionUIWinUIFileDialogsClose: each with the window it is modal to.
+struct OpenFileDialog {
+    IFileDialog *dialog;
+    HWND owner;
+};
+std::vector<OpenFileDialog> g_fileDialogs;
+
+// "C:/a/b" as Windows writes it, "C:\a\b": the shell's parser reads only backslashes.
+std::wstring backslashed(const char *utf8) {
+    std::wstring path(toHString(utf8));
+    for (wchar_t &character : path) {
+        if (character == L'/') {
+            character = L'\\';
+        }
+    }
+    return path;
+}
+
+// The file-system path of `item`, else an empty string (an item with no path: the dialog's
+// FOS_FORCEFILESYSTEM leaves none).
+std::wstring pathOf(IShellItem *item) {
+    PWSTR path = nullptr;
+    std::wstring copy;
+    if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path)) && path != nullptr) {
+        copy = path;
+        CoTaskMemFree(path);
+    }
+    return copy;
+}
+
+// A new UTF-8 copy of `text` (malloc), or nullptr when out of memory.
+char *copyUTF8(std::wstring const &text) {
+    std::string utf8 = winrt::to_string(text);
+    char *copy = static_cast<char *>(malloc(utf8.size() + 1));
+    if (copy != nullptr) {
+        memcpy(copy, utf8.c_str(), utf8.size() + 1);
+    }
+    return copy;
 }
 
 } // namespace
@@ -341,6 +387,151 @@ bool actionUIWinUIAlertDismiss(ActionUIWinUIObject *alert) {
         try {
             dialog.Hide();
         } catch (winrt::hresult_error const &) {
+        }
+        return true;
+    });
+}
+
+bool actionUIWinUIFileDialogRun(ActionUIWinUIObject *owner, ActionUIWinUIFileDialogKind kind, bool multiple, const char *title,
+                                 const char *okLabel, const char *folder, const char *fileName, const char *const *filterNames,
+                                 const char *const *filterPatterns, int32_t filterCount, const char *defaultExtension,
+                                 bool strictTypes, char **chosen) {
+    return guarded("file dialog run", [&]() {
+        if (chosen == nullptr) {
+            return fail("file dialog run", "the answer's pointer is NULL");
+        }
+        *chosen = nullptr;
+        if (filterCount < 0 || (filterCount > 0 && (filterNames == nullptr || filterPatterns == nullptr))) {
+            return fail("file dialog run", "the filters are missing");
+        }
+        HWND ownerWindow = nullptr;
+        if (owner != nullptr) {
+            mux::Window window = objectAs<mux::Window>(owner, L"Window");
+            winrt::check_hresult(window.as<::IWindowNative>()->get_WindowHandle(&ownerWindow));
+        }
+        bool saving = kind == ActionUIWinUIFileDialogKindSave;
+        winrt::com_ptr<IFileDialog> dialog;
+        if (saving) {
+            dialog = winrt::create_instance<IFileDialog>(__uuidof(FileSaveDialog), CLSCTX_INPROC_SERVER);
+        } else {
+            dialog = winrt::create_instance<IFileDialog>(__uuidof(FileOpenDialog), CLSCTX_INPROC_SERVER);
+        }
+        FILEOPENDIALOGOPTIONS options = 0;
+        winrt::check_hresult(dialog->GetOptions(&options));
+        // Paths only (no library or network item without one); the folder the program runs in stays.
+        options |= FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR | FOS_PATHMUSTEXIST;
+        if (saving) {
+            options |= FOS_OVERWRITEPROMPT;
+            if (strictTypes) {
+                // The chosen filter's extension is added to a name with another one, before the dialog asks
+                // about replacing a file: it asks about the file saved.
+                options |= FOS_STRICTFILETYPES;
+            }
+        } else {
+            options |= FOS_FILEMUSTEXIST;
+            if (kind == ActionUIWinUIFileDialogKindOpenFolder) {
+                options |= FOS_PICKFOLDERS;
+            }
+            if (multiple) {
+                options |= FOS_ALLOWMULTISELECT;
+            }
+        }
+        winrt::check_hresult(dialog->SetOptions(options));
+        if (title != nullptr && title[0] != '\0') {
+            winrt::check_hresult(dialog->SetTitle(toHString(title).c_str()));
+        }
+        if (okLabel != nullptr && okLabel[0] != '\0') {
+            winrt::check_hresult(dialog->SetOkButtonLabel(toHString(okLabel).c_str()));
+        }
+        if (folder != nullptr && folder[0] != '\0') {
+            winrt::com_ptr<IShellItem> start;
+            // A folder that is not there leaves the dialog where Windows would open it.
+            if (SUCCEEDED(SHCreateItemFromParsingName(backslashed(folder).c_str(), nullptr, IID_PPV_ARGS(start.put())))) {
+                // A file, or an item the dialog refuses, leaves it there too.
+                dialog->SetFolder(start.get());
+            }
+        }
+        if (fileName != nullptr) {
+            winrt::check_hresult(dialog->SetFileName(toHString(fileName).c_str()));
+        }
+        if (filterCount > 0 && kind != ActionUIWinUIFileDialogKindOpenFolder) {
+            std::vector<std::wstring> names;
+            std::vector<std::wstring> patterns;
+            for (int32_t index = 0; index < filterCount; index++) {
+                if (filterNames[index] == nullptr || filterPatterns[index] == nullptr) {
+                    return fail("file dialog run", "a filter's name or pattern is NULL");
+                }
+                names.emplace_back(toHString(filterNames[index]));
+                patterns.emplace_back(toHString(filterPatterns[index]));
+            }
+            std::vector<COMDLG_FILTERSPEC> specs;
+            for (int32_t index = 0; index < filterCount; index++) {
+                specs.push_back({names[index].c_str(), patterns[index].c_str()});
+            }
+            winrt::check_hresult(dialog->SetFileTypes(static_cast<UINT>(specs.size()), specs.data()));
+            winrt::check_hresult(dialog->SetFileTypeIndex(1));
+        }
+        if (defaultExtension != nullptr && defaultExtension[0] != '\0') {
+            winrt::check_hresult(dialog->SetDefaultExtension(toHString(defaultExtension).c_str()));
+        }
+        g_fileDialogs.push_back({dialog.get(), ownerWindow});
+        HRESULT shown = dialog->Show(ownerWindow);
+        for (auto iterator = g_fileDialogs.begin(); iterator != g_fileDialogs.end(); ++iterator) {
+            if (iterator->dialog == dialog.get()) {
+                g_fileDialogs.erase(iterator);
+                break;
+            }
+        }
+        if (shown == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
+            return true;
+        }
+        winrt::check_hresult(shown);
+        std::wstring joined;
+        if (!saving && multiple) {
+            winrt::com_ptr<IShellItemArray> items;
+            winrt::check_hresult(dialog.as<IFileOpenDialog>()->GetResults(items.put()));
+            DWORD count = 0;
+            winrt::check_hresult(items->GetCount(&count));
+            for (DWORD index = 0; index < count; index++) {
+                winrt::com_ptr<IShellItem> item;
+                winrt::check_hresult(items->GetItemAt(index, item.put()));
+                std::wstring path = pathOf(item.get());
+                if (path.empty()) {
+                    continue;
+                }
+                if (!joined.empty()) {
+                    joined += L'\n';
+                }
+                joined += path;
+            }
+        } else {
+            winrt::com_ptr<IShellItem> item;
+            winrt::check_hresult(dialog->GetResult(item.put()));
+            joined = pathOf(item.get());
+        }
+        if (joined.empty()) {
+            // Chosen, but nothing with a path: as canceled.
+            return true;
+        }
+        *chosen = copyUTF8(joined);
+        if (*chosen == nullptr) {
+            return fail("file dialog run", "out of memory");
+        }
+        return true;
+    });
+}
+
+void actionUIWinUIFileDialogsClose(ActionUIWinUIObject *owner) {
+    guarded("file dialogs close", [&]() {
+        HWND ownerWindow = nullptr;
+        if (owner != nullptr) {
+            mux::Window window = objectAs<mux::Window>(owner, L"Window");
+            winrt::check_hresult(window.as<::IWindowNative>()->get_WindowHandle(&ownerWindow));
+        }
+        for (OpenFileDialog const &open : g_fileDialogs) {
+            if (owner == nullptr || open.owner == ownerWindow) {
+                open.dialog->Close(HRESULT_FROM_WIN32(ERROR_CANCELLED));
+            }
         }
         return true;
     });

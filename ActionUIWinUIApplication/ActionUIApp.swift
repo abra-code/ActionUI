@@ -13,9 +13,10 @@
    returns when it ends. Windows presented before it wait for the start.
  - actionUIAppSetApplicationID does nothing on Windows (an unpackaged program has no identity to set).
 
- - actionUIAppRunAlert waits for the user's answer, the application running underneath (AppPanels).
+ - actionUIAppRunAlert, actionUIAppRunOpenPanel and actionUIAppRunSavePanel wait for the user's answer,
+   the application running underneath (AppPanels).
 
- Not yet on Windows (logged; NULL or false): the menu bar, the file panels, and the remote server.
+ Not yet on Windows (logged; NULL or false): the menu bar and the remote server.
 */
 
 #if canImport(FoundationEssentials)
@@ -246,18 +247,26 @@ public func actionUIAppRunAlert(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMu
     return chosen.map { title in title.withCString { _strdup($0) } }
 }
 
-// MARK: - File panels (not yet on Windows)
+// MARK: - File panels (AppPanels)
 
+/// A JSON array of the chosen paths, or nil when the panel was canceled; the caller frees it with
+/// actionUIFreeString.
 @c
 public func actionUIAppRunOpenPanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
-    notYet("actionUIAppRunOpenPanel")
-    return nil
+    let json = configJSON.map { String(cString: $0) }
+    var chosen: [String]?
+    runOnMainActorSync { chosen = AppPanels.runOpenPanel(json: json) }
+    guard let chosen, let paths = try? ActionUIJSON.string(from: chosen) else { return nil }
+    return paths.withCString { _strdup($0) }
 }
 
+/// The chosen path, or nil when the panel was canceled; the caller frees it with actionUIFreeString.
 @c
 public func actionUIAppRunSavePanel(_ configJSON: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
-    notYet("actionUIAppRunSavePanel")
-    return nil
+    let json = configJSON.map { String(cString: $0) }
+    var chosen: String?
+    runOnMainActorSync { chosen = AppPanels.runSavePanel(json: json) }
+    return chosen.map { path in path.withCString { _strdup($0) } }
 }
 
 // MARK: - The remote server (not yet on Windows)

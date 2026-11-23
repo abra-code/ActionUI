@@ -944,6 +944,36 @@ ACTIONUI_WINUI_API bool actionUIWinUIAlertDismiss(ActionUIWinUIObject *alert);
 // posted again for the outer loop) or the loop failed.
 ACTIONUI_WINUI_API bool actionUIWinUIRunNestedLoop(const volatile bool *done);
 
+// MARK: - The application's file panels (Panels.cpp)
+
+typedef enum ActionUIWinUIFileDialogKind {
+    // Files to open (IFileOpenDialog).
+    ActionUIWinUIFileDialogKindOpen = 0,
+    // Folders to open (IFileOpenDialog choosing folders).
+    ActionUIWinUIFileDialogKindOpenFolder = 1,
+    // A file to save (IFileSaveDialog, asking before it replaces a file).
+    ActionUIWinUIFileDialogKindSave = 2,
+} ActionUIWinUIFileDialogKind;
+// Shows the system's file dialog, modal to `owner` (a window; NULL: none), and returns once the user
+// answers; the UI thread's messages run meanwhile (the dialog's own loop). `multiple` lets an open dialog
+// choose several. `title` (the dialog's title), `okLabel` (its accept button), `folder` (where it opens:
+// a path, with "/" or a backslash between its parts) and `fileName` (the name it proposes) may be NULL. `filterCount`
+// filters, each a name ("Images") and a pattern ("*.png;*.jpg"), the first chosen (none for folders);
+// `defaultExtension` ("json", NULL: none) is added to a saved name with no extension; `strictTypes` (save)
+// adds the chosen filter's extension to a name with another one too, before the dialog asks about
+// replacing a file. On success
+// `*chosen` is the chosen paths, one per line (a Windows path holds no line break), as a new UTF-8 string
+// the caller frees with actionUIWinUIFreeString, or NULL when the user canceled. Fails (false) when the
+// dialog could not be shown.
+ACTIONUI_WINUI_API bool actionUIWinUIFileDialogRun(ActionUIWinUIObject *owner, ActionUIWinUIFileDialogKind kind, bool multiple,
+                                                   const char *title, const char *okLabel, const char *folder,
+                                                   const char *fileName, const char *const *filterNames,
+                                                   const char *const *filterPatterns, int32_t filterCount,
+                                                   const char *defaultExtension, bool strictTypes, char **chosen);
+// Cancels the file dialogs on screen modal to `owner` (NULL: every one): each actionUIWinUIFileDialogRun
+// returns with no answer. For a window closing, or the application ending.
+ACTIONUI_WINUI_API void actionUIWinUIFileDialogsClose(ActionUIWinUIObject *owner);
+
 // The side of its element a flyout shows on.
 typedef enum ActionUIWinUIFlyoutPlacement {
     ActionUIWinUIFlyoutPlacementTop = 0,

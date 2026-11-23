@@ -27,12 +27,11 @@
  - terminate() asks shouldTerminate, then closes every window (each firing windowWillClose) and ends
    the run; willTerminate fires as the run ends.
 
- - An alert (AppPanels) opens over the active window, else the one presented last, and returns nil when
-   that window closes under it or the application terminates.
+ - An alert or a file panel (AppPanels) opens over the active window, else the one presented last, and
+   returns nil when that window closes under it or the application terminates.
 
  Not yet: the become and resign active handlers are kept but not fired; the icon is kept but not
- shown; the menu bar and the file panels; the remote server; window sizes are not limited to the
- screen.
+ shown; the menu bar; the remote server; window sizes are not limited to the screen.
 */
 
 #if canImport(FoundationEssentials)

@@ -757,7 +757,7 @@ def check_shim(results, install, swift=False):
     command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/O1",
                "/bigobj", "/utf-8", "/W3", "/MP", "/DNOMINMAX"] + includes + sources + [
                "/LD", f"/Fe{out / 'ActionUIWinUIShim.dll'}", f"/Fo{out}\\",
-               "/link", "windowsapp.lib", "user32.lib", "ole32.lib",
+               "/link", "windowsapp.lib", "user32.lib", "ole32.lib", "shell32.lib",
                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"]
     step = run_step("shim-build", command, results, msvc, cwd=out)
     summary["steps"].append(step)
@@ -957,7 +957,7 @@ def make_library_package(bin_path, results, summary, msvc, webview2_license):
 def check_python(package, results, summary, msvc):
     """Builds the Python extension (ActionUIPython) against the library package with the Microsoft
     compiler, in a virtual environment, and runs its tests that need no person and nothing Windows does
-    not have yet (the menu bar, the file panels and HostSurface are left out). True when every one passed;
+    not have yet (the menu bar and HostSurface are left out, and the file panels' test, which waits for a person). True when every one passed;
     an interpreter of another architecture than the runner's is reported and not run."""
     work = REPO_DIR / ".build" / "ci-windows-python"
     shutil.rmtree(work, ignore_errors=True)
