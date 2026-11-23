@@ -25,7 +25,9 @@
    and the page's own about, data and blob addresses load; another scheme is handed to its app only
    for the page itself and when the link rule allows it (mailto, by default), with
    WebView2's own prompt; anything else is refused and logged, and the page opens no new window and
-   downloads nothing.
+   downloads nothing. Its page asks for nothing either, as on Apple and Linux: permissions are denied,
+   a server's sign-in is canceled, script dialogs are dismissed (leaving the page is allowed), there is
+   no fullscreen, printing, saving from its menu, developer tools, autofill or saved passwords.
    WebView2 alone would hand any scheme to the app registered for it and open windows of its own.
  - A later value is a command: a URL to load, or #goBack, #goForward, #reload, #stop. A command that
    leaves the page where it is, or a value that is no URL, is replaced by the current URL (logged when
@@ -112,6 +114,11 @@ extension WebView: ActionUIWinUIRenderer {
         if !actionUIWinUIWebViewSetNavigationDecider(view.pointer, decideNavigation, decider, releaseNavigation) {
             // Without the decider, a less-trusted page could open any app's scheme: no page at all.
             throw WinUIError.last("deciding a WebView's navigations")
+        }
+        // Less-trusted content's pages get no permissions, sign-in, script dialogs, fullscreen, printing,
+        // saving or autofill, as on Apple and Linux; unrestricted, such a page would: no page at all.
+        if !LinkTrust.isTrusted(node), !actionUIWinUIWebViewRestrict(view.pointer) {
+            throw WinUIError.last("limiting a less-trusted WebView")
         }
         WinUIEvents.connect(view, actionUIWinUIWebViewOnChanged, "a WebView's page") { [weak node, weak view] in
             // After this turn of the main loop, as the Apple backing's Task.

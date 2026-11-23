@@ -79,6 +79,8 @@ struct WebViewData {
     // and the html (UTF-8) as the answer's body.
     winrt::hstring baseDocumentURI;
     winrt::Windows::Storage::Streams::IRandomAccessStream baseDocument{nullptr};
+    // Its pages are less-trusted content's (actionUIWinUIWebViewRestrict).
+    bool restricted = false;
 };
 
 // Whether the web view's decider lets it go to `uri` for `kind`; true without a decider. Fails closed:
@@ -252,6 +254,62 @@ void enqueue(std::shared_ptr<WebViewData> const &data, WebViewStep step) {
     }
 }
 
+// A less-trusted page's limits (actionUIWinUIWebViewRestrict), as on Apple and Linux: no permission
+// (camera, microphone, location, notifications and the rest are denied), no sign-in (a server's password
+// or client certificate question is canceled), no script dialog (alert, confirm and prompt answer as
+// dismissed; leaving the page is still allowed), no fullscreen, no printing, no saving from its menu, no
+// developer tools, no autofill or saved passwords. Its navigations, new windows and downloads are the
+// decider's. On the core before any navigation; for good.
+void restrictPage(std::shared_ptr<WebViewData> const &data) {
+    webcore::CoreWebView2 core = data->core;
+    webcore::CoreWebView2Settings settings = core.Settings();
+    settings.AreDefaultScriptDialogsEnabled(false);
+    // The browser's own keys: Ctrl+P (print), F12 and Ctrl+Shift+I (developer tools), Ctrl+S (save).
+    settings.AreBrowserAcceleratorKeysEnabled(false);
+    settings.AreDevToolsEnabled(false);
+    settings.IsGeneralAutofillEnabled(false);
+    settings.IsPasswordAutosaveEnabled(false);
+    core.PermissionRequested([](auto &&, webcore::CoreWebView2PermissionRequestedEventArgs const &args) {
+        args.State(webcore::CoreWebView2PermissionState::Deny);
+        // For this request only: saved, the refusal would become the profile's answer for the origin,
+        // a trusted page's too.
+        args.SavesInProfile(false);
+    });
+    core.BasicAuthenticationRequested([](auto &&, webcore::CoreWebView2BasicAuthenticationRequestedEventArgs const &args) {
+        args.Cancel(true);
+    });
+    core.ClientCertificateRequested([](auto &&, webcore::CoreWebView2ClientCertificateRequestedEventArgs const &args) {
+        args.Cancel(true);
+        args.Handled(true);
+    });
+    // With the default dialogs off, each one comes here; not accepted, it is dismissed.
+    core.ScriptDialogOpening([](auto &&, webcore::CoreWebView2ScriptDialogOpeningEventArgs const &args) {
+        if (args.Kind() == webcore::CoreWebView2ScriptDialogKind::Beforeunload) {
+            args.Accept();
+        }
+    });
+    core.ContainsFullScreenElementChanged([](webcore::CoreWebView2 const &sender, auto &&) {
+        if (sender.ContainsFullScreenElement()) {
+            sender.ExecuteScriptAsync(L"if (document.exitFullscreen) { document.exitFullscreen(); }");
+        }
+    });
+    core.ContextMenuRequested([](auto &&, webcore::CoreWebView2ContextMenuRequestedEventArgs const &args) {
+        auto items = args.MenuItems();
+        for (uint32_t index = items.Size(); index > 0; index--) {
+            winrt::hstring name = items.GetAt(index - 1).Name();
+            if (name == L"print" || name == L"saveAs" || name == L"saveImageAs" || name == L"saveLinkAs" ||
+                name == L"saveMediaAs" || name == L"webCapture" || name == L"share" || name == L"inspectElement") {
+                items.RemoveAt(index - 1);
+            }
+        }
+    });
+    // A page's own print(): nothing, in every frame. WebView2 adds a script asynchronously, so it goes
+    // first among the steps that wait (drain awaits it) and the next page has it.
+    data->pending.push_front(WebViewStep{
+        WebViewStep::Kind::script,
+        L"Object.defineProperty(window, 'print', {value: function () {}, writable: false, configurable: false});"});
+}
+
 // WebView2's Core DLL, loaded from the shim's own folder, where the library package and the programs
 // built with it place it. WinUI loads it by name when it makes a web view, and Windows looks for a DLL
 // loaded by name beside the program, in the system folders, the current folder and PATH: a host program
@@ -336,6 +394,19 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
             }
             webcore::CoreWebView2 core = sender.CoreWebView2();
             data->core = core;
+            // Before the steps that waited (the first navigation among them).
+            if (data->restricted) {
+                try {
+                    restrictPage(data);
+                } catch (winrt::hresult_error const &error) {
+                    // An unrestricted page is no page at all: the start is reported as failed.
+                    data->failure = "the less-trusted page's limits could not be set: " + winrt::to_string(error.message());
+                    data->core = nullptr;
+                    fail("web view create", "the less-trusted page's limits could not be set");
+                    notify(data);
+                    return;
+                }
+            }
             // The data holds the CoreWebView2, so its handlers hold the data weakly: strongly, they
             // would keep each other alive after the view is gone.
             std::weak_ptr<WebViewData> weak = data;
@@ -458,6 +529,25 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
             notify(held);
         });
         return toObject(view);
+    });
+}
+
+bool actionUIWinUIWebViewRestrict(ActionUIWinUIObject *webView) {
+    return guarded("web view restrict", [&]() {
+        std::shared_ptr<WebViewData> data = dataOf(webView);
+        if (data->restricted) {
+            return true;
+        }
+        data->restricted = true;
+        if (data->core != nullptr) {
+            restrictPage(data);
+            // Its script step runs now unless a drain is under way (which takes it next).
+            if (data->ready) {
+                data->ready = false;
+                drain(data);
+            }
+        }
+        return true;
     });
 }
 

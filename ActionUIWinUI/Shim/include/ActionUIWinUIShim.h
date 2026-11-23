@@ -1275,6 +1275,10 @@ typedef struct ActionUIWinUIWebViewState {
 // %LOCALAPPDATA%\<program name>\WebView2 (by default it would go beside the program, which an
 // installed one may not write to). NULL on failure.
 ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIWebViewCreate(void);
+// Treats the web view's pages as less-trusted content's, for good: no permission, no sign-in, no script
+// dialog (leaving a page still allowed), no fullscreen, no printing, no saving from its menu, no
+// developer tools or browser keys, no autofill or saved passwords. Call before its first navigation.
+ACTIONUI_WINUI_API bool actionUIWinUIWebViewRestrict(ActionUIWinUIObject *webView);
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewSetUserAgent(ActionUIWinUIObject *webView, const char *userAgent);
 // Runs `source` (JavaScript) in every document from then on: as it is created, before its own scripts,
 // or when it has been parsed (`atDocumentEnd`, its DOMContentLoaded, as the browser runs a page's own

@@ -241,6 +241,11 @@ PREVIEW_OPTIONS = {
     "LessTrustedWebPages": ["420", "200", "--delay", "12000",
                             "--expect-log", "WebView not going to ms-settings:display: the trust policy refuses it",
                             "--expect-log", "WebView 702 not opening a window for https://example.com/"],
+    # JSON from a server: its page (html under a base on the JSON's own https origin, so a secure context
+    # where the location is asked for, not refused unasked)
+    # gets confirm() answered as dismissed, print() a no-op and the location denied (geolocation error 1),
+    # with no dialog or question shown.
+    "LessTrustedWebLimits": ["420", "200", "--delay", "12000", "--expect-state", "801", "title", "secure:true confirm:false print:off geo:1"],
     # html under an https base: the page has the base's origin and its relative image loads from there.
     "WebViewBase": ["420", "220", "--delay", "10000", "--expect-state", "3", "title", "loaded at https://raw.githubusercontent.com"],
     "WebViews": ["420", "300", "--delay", "10000", "--expect-state", "2", "title", "Hello Windows (script ran)",
