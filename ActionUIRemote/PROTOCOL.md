@@ -258,6 +258,13 @@ delivers nothing: a client must bound that wait rather than block on it, because
 `ACTIONUI_REMOTE_TOKEN_FD` inherited from a grandparent names whatever the process happens to
 have at that number.
 
+Before a client sends anything, the token included, it checks the endpoint: an absolute path to
+a socket (not a link) owned by the client's user, in a folder owned by that user or by root that
+no other user can change, or that is sticky so no other user can rename the socket. Another user
+cannot then stand in for the host and receive the token. The Python, Node and shell clients do
+this. It does not stop a process of the same user that replaces the host's socket with its own:
+no file check can, and Node and `nc` cannot ask the kernel who the peer is.
+
 **What this is for, and what it is not.** A host that spawns children hands them the token in
 the environment, so a process the host did not spawn does not have it and cannot obtain it merely
 by listing the socket directory - which it otherwise could, the path being no secret.

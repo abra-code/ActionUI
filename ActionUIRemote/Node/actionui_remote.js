@@ -27,6 +27,7 @@
 
 const fs = require('fs');
 const net = require('net');
+const path = require('path');
 const { execFileSync } = require('child_process');
 
 const PROTOCOL_VERSION = 1;
@@ -71,6 +72,46 @@ class EndpointError extends Error {
     constructor(message) {
         super(message);
         this.name = 'EndpointError';
+    }
+}
+
+/**
+ * Refuses an endpoint whose listener could be another user's: the token goes to whoever
+ * listens. The path must be absolute and name a socket (not a link) of this user's, in a folder
+ * owned by this user or root that nobody else can change (or sticky, so nobody else can rename
+ * the socket). A process of the same user can still put its own socket there; no file check
+ * stops that, and Node cannot ask the kernel who the peer is.
+ */
+function checkEndpoint(endpoint) {
+    if (!path.isAbsolute(endpoint)) {
+        throw new EndpointError(`socket path is not absolute: ${endpoint}`);
+    }
+    let status;
+    try {
+        status = fs.lstatSync(endpoint);
+    } catch (error) {
+        if (error && error.code === 'ENOENT') {
+            throw new EndpointError(`no ActionUI host is listening at ${endpoint} (ENOENT)`);
+        }
+        throw new EndpointError(`cannot check ${endpoint}: ${error && error.message}`);
+    }
+    if (!status.isSocket()) {
+        throw new EndpointError(`${endpoint} is not a socket`);
+    }
+    const uid = process.getuid();
+    if (status.uid !== uid) {
+        throw new EndpointError(`${endpoint} belongs to another user (uid ${status.uid})`);
+    }
+    let folder;
+    try {
+        folder = fs.statSync(path.dirname(endpoint));
+    } catch (error) {
+        throw new EndpointError(`cannot check the folder of ${endpoint}: ${error && error.message}`);
+    }
+    const othersWrite = folder.mode & 0o022;
+    const sticky = folder.mode & 0o1000;
+    if ((folder.uid !== uid && folder.uid !== 0) || (othersWrite && !sticky)) {
+        throw new EndpointError(`the folder of ${endpoint} can be changed by another user`);
     }
 }
 
@@ -367,6 +408,13 @@ class Connection {
         if (Buffer.byteLength(this.endpoint, 'utf8') > SUN_PATH_LIMIT) {
             return Promise.reject(new EndpointError(
                 `socket path is too long for sun_path (limit ${SUN_PATH_LIMIT} bytes): ${this.endpoint}`));
+        }
+
+        // Before the token is sent anywhere: the listener must be this user's.
+        try {
+            checkEndpoint(this.endpoint);
+        } catch (error) {
+            return Promise.reject(error);
         }
 
         this._connecting = new Promise((resolve, reject) => {

@@ -57,6 +57,10 @@ A host that needs something else - two servers, a path it manages itself, no env
 constructs `ActionUIRemoteServer(host:)` directly and calls `start(socketPath:)` and `stop()` on
 it. Nothing above is required.
 
+The clients connect only to a socket owned by their user, in a folder owned by that user or by
+root that no other user can write to (or that is sticky); a path anywhere else is refused before
+the token is sent (PROTOCOL.md section 10). A path the host chooses itself has to meet that too.
+
 ### From a C or Objective-C host
 
 `ActionUIRemoteServer` is a plain Swift class, so none of it reaches Objective-C through a

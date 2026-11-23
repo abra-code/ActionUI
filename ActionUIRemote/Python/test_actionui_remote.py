@@ -624,6 +624,53 @@ class TokenTests(FakeHostTestCase):
         return fake.requests[-1]["params"].get("token")
 
 
+class EndpointCheckTests(FakeHostTestCase):
+    """The client checks the endpoint before it sends anything, the token included."""
+
+    def call_through(self, path):
+        connection = aui.Connection(path, timeout=5.0)
+        self.addCleanup(connection.close)
+        return aui.Window(WINDOW, connection=connection).get_value(2)
+
+    def assert_refused(self, path, text):
+        before = len(self.fake.requests)
+        with self.assertRaises(aui.EndpointError) as caught:
+            self.call_through(path)
+        self.assertIn(text, str(caught.exception))
+        self.assertEqual(len(self.fake.requests), before, "nothing reached the host")
+
+    def test_the_host_socket_in_a_private_folder_is_used(self):
+        self.call_through(self.socket_path)
+        self.assertEqual(self.methods_called()[-1], "actionui.getValue")
+
+    def test_a_relative_path_is_refused(self):
+        previous = os.getcwd()
+        os.chdir(self.dir)
+        self.addCleanup(os.chdir, previous)
+        self.assert_refused("s", "not absolute")
+
+    def test_a_link_to_the_socket_is_refused(self):
+        link = os.path.join(self.dir, "link")
+        os.symlink(self.socket_path, link)
+        self.assert_refused(link, "is not a socket")
+
+    def test_a_file_that_is_not_a_socket_is_refused(self):
+        plain = os.path.join(self.dir, "plain")
+        with open(plain, "w"):
+            pass
+        self.assert_refused(plain, "is not a socket")
+
+    def test_a_missing_socket_says_nothing_listens(self):
+        self.assert_refused(os.path.join(self.dir, "missing"), "no ActionUI host is listening")
+
+    def test_a_folder_others_can_change_is_refused_unless_sticky(self):
+        os.chmod(self.dir, 0o777)
+        self.addCleanup(os.chmod, self.dir, 0o700)
+        self.assert_refused(self.socket_path, "can be changed by another user")
+        os.chmod(self.dir, 0o1777)
+        self.call_through(self.socket_path)
+
+
 class DiscoveryTests(FakeHostTestCase):
 
     def test_hello_reports_the_protocol_the_host_and_the_windows(self):

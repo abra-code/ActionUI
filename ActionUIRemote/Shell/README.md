@@ -123,7 +123,7 @@ Read when a call is made, not when the file is sourced, so a script may set them
 
 | variable | meaning |
 |---|---|
-| `ACTIONUI_REMOTE_ENDPOINT` | socket path, required; checked against the 103-byte `sun_path` limit by character count, so a non-ASCII path can pass the check and still fail to connect |
+| `ACTIONUI_REMOTE_ENDPOINT` | socket path, required: an absolute path to this user's socket, in a folder no other user can change (PROTOCOL.md section 10); checked against the 103-byte `sun_path` limit by character count, so a non-ASCII path can pass the check and still fail to connect |
 | `ACTIONUI_WINDOW_UUID` | default window for the element functions; `actionui_use_window UUID` overrides it |
 | `ACTIONUI_REMOTE_WINDOW` | what `actionui_use_window` and the command line's `--window` set; outranks `ACTIONUI_WINDOW_UUID` when non-empty |
 | `ACTIONUI_REMOTE_TOKEN` | the token, when the host requires one |
