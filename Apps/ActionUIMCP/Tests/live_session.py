@@ -694,7 +694,7 @@ if not LINUX:
     import tempfile as _tempfile
     placement = os.path.join(_tempfile.mkdtemp(prefix="actionui-mcp-placement-"), "placement.json")
     s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_PLACEMENT_REPORT": placement})
-    long_title = "ActionUI: ActionUIRemote clients: perform_action, performAction, actionui_perform_action"
+    long_title = "ActionUI: ActionUIRemote clients: performAction, actionui_perform_action"  # 61 to 80 characters
     titles = ["Note one", "Note two", long_title]
     # Sent together, as parallel tool calls arrive: the windows then open in one run loop pass.
     for request_id, title in enumerate(titles, start=1):
