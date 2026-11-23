@@ -1,8 +1,9 @@
 // The limits all ActionUI JSON is held to, from the host, a page-relative file or another
 // server, as on the other platforms: no larger than the configuration's maximumJSONSize (16 MB by
-// default), no deeper than 512 levels of JSON nesting, and a window's LoadableViews load at most
-// the configuration's load budget (256 a minute by default), so JSON that reloads itself through
-// its value, or a chain of it, cannot spin the page. See Common/Configuration.js.
+// default), no deeper than 512 levels of JSON nesting, fetched within the configuration's
+// maximumDownloadTime (120 seconds by default), and a window's LoadableViews load at most the
+// configuration's load budget (256 a minute by default), so JSON that reloads itself through its
+// value, or a chain of it, cannot spin the page. See Common/Configuration.js.
 
 import { currentConfiguration } from "../Common/Configuration.js";
 
@@ -67,9 +68,52 @@ export function jsonRefusal(text) {
     return null;
 }
 
+// The longest one fetch of ActionUI JSON may take, in seconds (the configuration's), or null: no limit.
+export function maximumDownloadTime() {
+    return currentConfiguration().limits.maximumDownloadTime;
+}
+
+// The longest delay a browser timer takes, in milliseconds: a longer one fires at once.
+const LONGEST_TIMER_MS = 2147483647;
+
+// The error for a load given up after `seconds`, as the other platforms say it.
+function tookTooLong(seconds) {
+    return new Error(`loading it took longer than ${seconds} seconds`);
+}
+
+// fetch(url), given up after the configuration's maximumDownloadTime, however slowly the server
+// sends: the browser's own fetch has no time limit. The signal also ends the reading of the body
+// (readJSONText). A load given up rejects with "loading it took longer than N seconds".
+export async function fetchWithTimeLimit(url) {
+    const seconds = maximumDownloadTime();
+    if (seconds === null || typeof AbortSignal?.timeout !== "function") return fetch(url);
+    const signal = AbortSignal.timeout(Math.min(Math.max(1, Math.ceil(seconds * 1000)), LONGEST_TIMER_MS));
+    try {
+        const response = await fetch(url, { signal });
+        timeLimitOf.set(response, seconds);
+        return response;
+    } catch (error) {
+        if (error?.name === "TimeoutError") throw tookTooLong(seconds);
+        throw error;
+    }
+}
+
+// The time limit each response of fetchWithTimeLimit was fetched with, for the error its reading
+// gives when the limit ends it.
+const timeLimitOf = new WeakMap();
+
 // The body of `response` as text, read up to the document cap: a larger body is refused (an
 // Error) without reading the rest, as reading more only costs memory.
 export async function readJSONText(response) {
+    try {
+        return await readCappedText(response);
+    } catch (error) {
+        if (error?.name === "TimeoutError" && timeLimitOf.has(response)) throw tookTooLong(timeLimitOf.get(response));
+        throw error;
+    }
+}
+
+async function readCappedText(response) {
     const limit = maximumJSONSize();
     const declared = Number(response.headers?.get?.("content-length"));
     if (Number.isFinite(declared) && declared > limit) throw new Error(tooLarge());

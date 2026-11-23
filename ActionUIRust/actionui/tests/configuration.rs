@@ -14,6 +14,7 @@ fn the_configuration_changes_only_the_keys_named_and_refuses_bad_changes() {
     assert_eq!(sorted, ["addOns", "limits", "resourceFolder", "trust"]);
     assert_eq!(initial["limits"]["maximumJSONSize"], json!(16 * 1024 * 1024));
     assert_eq!(initial["limits"]["maximumNestingDepth"], json!(16));
+    assert_eq!(initial["limits"]["maximumDownloadTime"].as_f64(), Some(120.0));
 
     actionui::configure(&json!({"limits": {"maximumNestingDepth": 4}, "trust": {"trustedOrigins": ["https://ui.example.com"]}}))
         .expect("a valid change");
@@ -21,6 +22,9 @@ fn the_configuration_changes_only_the_keys_named_and_refuses_bad_changes() {
     assert_eq!(changed["limits"]["maximumNestingDepth"], json!(4));
     assert_eq!(changed["limits"]["maximumJSONSize"], json!(16 * 1024 * 1024), "kept");
     assert_eq!(changed["trust"]["trustedOrigins"], json!(["https://ui.example.com"]));
+    actionui::configure(&json!({"limits": {"maximumDownloadTime": null}})).expect("no time limit");
+    assert_eq!(actionui::configuration().expect("configuration")["limits"]["maximumDownloadTime"], json!(null));
+    actionui::configure(&json!({"limits": {"maximumDownloadTime": 120}})).expect("the default again");
 
     // An add-on's section and the resource folder read back as they were set; null removes them.
     actionui::configure(&json!({"addOns": {"Demo": {"level": 3, "names": ["a"]}}, "resourceFolder": "/tmp/actionui-resources"}))

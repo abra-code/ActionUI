@@ -57,6 +57,7 @@ class ConfigurationTest {
         assertEquals(16 * 1024 * 1024, configuration.limits.maximumJSONSize)
         assertEquals(LoadBudget(256, 60.0), configuration.limits.loadBudget)
         assertEquals(16, configuration.limits.maximumNestingDepth)
+        assertEquals(120.0, configuration.limits.maximumDownloadTime)
         assertEquals(emptyList<String>(), configuration.trust.trustedOrigins)
         assertNull(configuration.resourceFolder)
         val json = Json.parseToJsonElement(configuration.json).jsonObject
@@ -78,6 +79,11 @@ class ConfigurationTest {
         assertEquals(2, ActionUIConfiguration.current.addOns["Sample"]?.jsonObject?.get("level")?.jsonPrimitive?.int)
         ActionUIConfiguration.setJSON("""{"addOns": {"Sample": null}}""")
         assertTrue("null removes a section", ActionUIConfiguration.current.addOns.isEmpty())
+        ActionUIConfiguration.setJSON("""{"limits": {"maximumDownloadTime": 600}}""")
+        assertEquals(600.0, ActionUIConfiguration.current.limits.maximumDownloadTime)
+        ActionUIConfiguration.setJSON("""{"limits": {"maximumDownloadTime": null}}""")
+        assertNull("null removes the time limit", ActionUIConfiguration.current.limits.maximumDownloadTime)
+        assertEquals(JsonNull, Json.parseToJsonElement(ActionUIConfiguration.current.json).jsonObject["limits"]?.jsonObject?.get("maximumDownloadTime"))
         // Its own JSON sets the same configuration.
         val changed = ActionUIConfiguration.current
         ActionUIConfiguration.replaceForTesting()
@@ -97,6 +103,10 @@ class ConfigurationTest {
             """{"limits": {"maximumJSONSize": 0}}""" to "limits.maximumJSONSize must be more than 0",
             """{"limits": {"loadBudget": {"seconds": 0}}}""" to "limits.loadBudget.seconds must be a number more than 0",
             """{"limits": {"maximumNestingDepth": -1}}""" to "limits.maximumNestingDepth must not be negative",
+            """{"limits": {"maximumDownloadTime": 0}}""" to "limits.maximumDownloadTime must be a number more than 0, or null for no limit",
+            """{"limits": {"maximumDownloadTime": -5}}""" to "limits.maximumDownloadTime must be a number more than 0, or null for no limit",
+            """{"limits": {"maximumDownloadTime": "slow"}}""" to "limits.maximumDownloadTime must be a number",
+            """{"limits": {"maximumDownloadTime": true}}""" to "limits.maximumDownloadTime must be a number",
             """{"limits": []}""" to "limits must be an object",
             """{"trust": {"trustedOrigins": "https://ui.example.com"}}""" to "trust.trustedOrigins must be an array of strings",
             """{"trust": {"trustedOrigins": ["http://ui.example.com"]}}""" to "trust.trustedOrigins: http://ui.example.com is not an https address",

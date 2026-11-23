@@ -7,7 +7,8 @@
 //   configure({
 //       limits: { maximumJSONSize: 16777216,                 // bytes of ActionUI JSON one load takes (16 MB)
 //                 loadBudget: { loads: 256, seconds: 60 },   // LoadableView loads per window in any span
-//                 maximumNestingDepth: 16 },                 // LoadableViews inside LoadableViews
+//                 maximumNestingDepth: 16,                   // LoadableViews inside LoadableViews
+//                 maximumDownloadTime: 120 },                // seconds one fetch of ActionUI JSON may take (null: no limit)
 //       trust: { trustedOrigins: ["https://ui.example.com"] },  // servers whose JSON is trusted
 //       resourceFolder: null,                                // no meaning on the web (see below)
 //       addOns: { SomeAddOn: {} },                            // each add-on reads its own section
@@ -25,6 +26,11 @@
 // fragment or user name. The address that counts is the one the ActionUI JSON finally came from,
 // after redirects (the fetch Response's url). The server must still allow the page to read it
 // (CORS), as any fetch from another origin needs.
+//
+// maximumDownloadTime: the longest one fetch of ActionUI JSON (a window's, a menu bar's, a
+// LoadableView's) may take, in seconds, however slowly the server sends; null removes it. On the
+// other platforms it also covers the images the renderer loads itself; on the web the browser
+// loads images, without it.
 //
 // The page's own origin holds the app's resources, so there is no resource folder on the web:
 // "resourceFolder" is accepted only as null, and a path is refused rather than ignored.
@@ -45,6 +51,7 @@ const DEFAULTS = Object.freeze({
         maximumJSONSize: 16 * 1024 * 1024,
         loadBudget: Object.freeze({ loads: 256, seconds: 60 }),
         maximumNestingDepth: 16,
+        maximumDownloadTime: 120,
     }),
     trust: Object.freeze({ trustedOrigins: Object.freeze([]) }),
     resourceFolder: null,
@@ -122,6 +129,9 @@ function validate(configuration) {
         throw new ConfigurationError("limits.loadBudget.seconds must be a number more than 0");
     }
     if (limits.maximumNestingDepth < 0) throw new ConfigurationError("limits.maximumNestingDepth must not be negative");
+    if (limits.maximumDownloadTime !== null && !(Number.isFinite(limits.maximumDownloadTime) && limits.maximumDownloadTime > 0)) {
+        throw new ConfigurationError("limits.maximumDownloadTime must be a number more than 0, or null for no limit");
+    }
     for (const origin of configuration.trust.trustedOrigins) {
         const problem = trustedOriginProblem(origin);
         if (problem !== null) throw new ConfigurationError(`trust.trustedOrigins: ${origin} ${problem}`);
@@ -133,7 +143,7 @@ function applied(settings, base) {
     const top = objectOf(settings, "the configuration", ["limits", "trust", "resourceFolder", "addOns"]);
     const next = plainCopy(base);
     if (top.limits !== undefined) {
-        const limits = objectOf(top.limits, "limits", ["maximumJSONSize", "loadBudget", "maximumNestingDepth"]);
+        const limits = objectOf(top.limits, "limits", ["maximumJSONSize", "loadBudget", "maximumNestingDepth", "maximumDownloadTime"]);
         if (limits.maximumJSONSize !== undefined) next.limits.maximumJSONSize = integer(limits.maximumJSONSize, "limits.maximumJSONSize");
         if (limits.loadBudget !== undefined) {
             const budget = objectOf(limits.loadBudget, "limits.loadBudget", ["loads", "seconds"]);
@@ -142,6 +152,10 @@ function applied(settings, base) {
         }
         if (limits.maximumNestingDepth !== undefined) {
             next.limits.maximumNestingDepth = integer(limits.maximumNestingDepth, "limits.maximumNestingDepth");
+        }
+        if (limits.maximumDownloadTime !== undefined) {
+            next.limits.maximumDownloadTime = limits.maximumDownloadTime === null
+                ? null : number(limits.maximumDownloadTime, "limits.maximumDownloadTime");
         }
     }
     if (top.trust !== undefined) {

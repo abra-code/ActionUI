@@ -1,5 +1,6 @@
 package com.abracode.actionui.Helpers
 
+import com.abracode.actionui.Common.ActionUIConfiguration
 import com.abracode.actionui.Common.ConsoleLogger
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -188,6 +189,53 @@ class LoadableLoaderTest {
     }) { url ->
         val connection = connect(url)
         val body = withLoadDeadline(connection, url, limitMs = 10_000) {
+            connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+        }
+        assertEquals("{}", body)
+    }
+
+    // The configuration's maximumDownloadTime is the deadline a load takes by default; null is none.
+    @Test
+    fun `the load deadline is the configured maximum download time`() {
+        val saved = ActionUIConfiguration.current
+        try {
+            assertEquals(120_000L, loadableRemoteTotalTimeoutMs)
+            ActionUIConfiguration.replaceForTesting(saved.copy(limits = saved.limits.copy(maximumDownloadTime = 0.3)))
+            assertEquals(300L, loadableRemoteTotalTimeoutMs)
+            ActionUIConfiguration.replaceForTesting(saved.copy(limits = saved.limits.copy(maximumDownloadTime = 0.0001)))
+            assertEquals("at least 1 ms", 1L, loadableRemoteTotalTimeoutMs)
+            ActionUIConfiguration.replaceForTesting(saved.copy(limits = saved.limits.copy(maximumDownloadTime = null)))
+            assertNull(loadableRemoteTotalTimeoutMs)
+        } finally {
+            ActionUIConfiguration.replaceForTesting(saved)
+        }
+    }
+
+    @Test
+    fun `a configured deadline cuts off a load that takes no limit of its own`() = withServer(null) { url ->
+        val saved = ActionUIConfiguration.current
+        ActionUIConfiguration.replaceForTesting(saved.copy(limits = saved.limits.copy(maximumDownloadTime = 0.3)))
+        val started = System.nanoTime()
+        try {
+            val connection = connect(url)
+            withLoadDeadline(connection, url) { connection.responseCode }
+            fail("a load past its deadline returns nothing")
+        } catch (e: IOException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("took longer than 0.3 seconds"))
+        } finally {
+            ActionUIConfiguration.replaceForTesting(saved)
+        }
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 5_000)
+    }
+
+    @Test
+    fun `with no deadline a slow load finishes`() = withServer({ socket ->
+        Thread.sleep(600)
+        socket.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}".toByteArray())
+        socket.getOutputStream().flush()
+    }) { url ->
+        val connection = connect(url)
+        val body = withLoadDeadline(connection, url, limitMs = null) {
             connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
         }
         assertEquals("{}", body)

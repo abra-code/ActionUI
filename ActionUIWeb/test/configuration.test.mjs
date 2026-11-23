@@ -31,7 +31,7 @@ after(() => {
 });
 
 const DEFAULTS = {
-    limits: { maximumJSONSize: 16777216, loadBudget: { loads: 256, seconds: 60 }, maximumNestingDepth: 16 },
+    limits: { maximumJSONSize: 16777216, loadBudget: { loads: 256, seconds: 60 }, maximumNestingDepth: 16, maximumDownloadTime: 120 },
     trust: { trustedOrigins: [] },
     resourceFolder: null,
     addOns: {},
@@ -57,6 +57,10 @@ test("configure changes only the keys it names", () => {
     assert.deepEqual(api.getConfiguration().addOns, {}, "null removes a section");
     api.configure({});
     assert.equal(api.getConfiguration().limits.maximumJSONSize, 64 * 1024 * 1024, "an empty change keeps everything");
+    api.configure({ limits: { maximumDownloadTime: 600 } });
+    assert.equal(api.getConfiguration().limits.maximumDownloadTime, 600);
+    api.configure({ limits: { maximumDownloadTime: null } });
+    assert.equal(api.getConfiguration().limits.maximumDownloadTime, null, "null removes the time limit");
 });
 
 test("a bad change is refused whole", () => {
@@ -71,6 +75,10 @@ test("a bad change is refused whole", () => {
         [{ limits: { loadBudget: { seconds: 0 } } }, "limits.loadBudget.seconds must be a number more than 0"],
         [{ limits: { loadBudget: { seconds: NaN } } }, "limits.loadBudget.seconds must be a number"],
         [{ limits: { maximumNestingDepth: -1 } }, "limits.maximumNestingDepth must not be negative"],
+        [{ limits: { maximumDownloadTime: 0 } }, "limits.maximumDownloadTime must be a number more than 0, or null for no limit"],
+        [{ limits: { maximumDownloadTime: -5 } }, "limits.maximumDownloadTime must be a number more than 0, or null for no limit"],
+        [{ limits: { maximumDownloadTime: "slow" } }, "limits.maximumDownloadTime must be a number"],
+        [{ limits: { maximumDownloadTime: true } }, "limits.maximumDownloadTime must be a number"],
         [{ limits: [] }, "limits must be an object"],
         [{ trust: { trustedOrigins: "https://ui.example.com" } }, "trust.trustedOrigins must be an array of strings"],
         [{ trust: { trustedOrigins: ["http://ui.example.com"] } }, "trust.trustedOrigins: http://ui.example.com is not an https address"],
@@ -199,6 +207,47 @@ test("a window from a URL is judged by where it finally came from", async () => 
     assert.equal(straight.origin.trust, "trusted");
     const moved = await Window.fromURL("https://ui.example.com/moved.json", undefined, makeLogger());
     assert.deepEqual(moved.origin, { source: "remote", url: "https://cdn.other.net/root.json", trust: "lessTrusted" });
+});
+
+// A fetch that answers only when its signal ends it: with headers never (`stallHeaders`), or
+// with headers at once and a body that never comes.
+function stallingFetch(stallHeaders) {
+    return async (url, init) => {
+        const aborted = () => new Promise((_, reject) => {
+            if (!init?.signal) return;
+            init.signal.addEventListener("abort", () => reject(init.signal.reason));
+        });
+        if (stallHeaders) return aborted();
+        return {
+            ok: true, status: 200, url, headers: { get: () => null },
+            body: { getReader: () => ({ read: aborted, cancel: async () => {} }) },
+        };
+    };
+}
+
+test("a fetch of ActionUI JSON is given up after the configured time, the body's reading included", async () => {
+    api.configure({ limits: { maximumDownloadTime: 0.2 } });
+    for (const stallHeaders of [true, false]) {
+        globalThis.fetch = stallingFetch(stallHeaders);
+        const start = Date.now();
+        await assert.rejects(Window.fromURL("https://ui.example.com/root.json", undefined, makeLogger()),
+            { message: "loading it took longer than 0.2 seconds" }, `stalled ${stallHeaders ? "headers" : "body"}`);
+        assert.ok(Date.now() - start < 5000);
+    }
+});
+
+test("with no time limit a slow fetch of ActionUI JSON finishes", async () => {
+    api.configure({ limits: { maximumDownloadTime: null } });
+    const body = JSON.stringify({ type: "Text", id: 1, properties: { text: "root" } });
+    let signalGiven = "unset";
+    globalThis.fetch = async (url, init) => {
+        signalGiven = init?.signal !== undefined;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return { ok: true, status: 200, url, text: async () => body };
+    };
+    const window = await Window.fromURL("https://ui.example.com/root.json", undefined, makeLogger());
+    assert.ok(window);
+    assert.equal(signalGiven, false, "no time limit, no signal");
 });
 
 test("a trust policy sees the trusted origin as its default", () => {

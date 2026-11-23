@@ -68,6 +68,7 @@ check('every key is there', same(Object.keys(initial).sort(), ['addOns', 'limits
 check('the defaults: 16 MB, 256 loads in 60 s, 16 deep, no trusted origins',
     initial.limits.maximumJSONSize === 16777216 && initial.limits.loadBudget.loads === 256
     && initial.limits.loadBudget.seconds === 60 && initial.limits.maximumNestingDepth === 16
+    && initial.limits.maximumDownloadTime === 120
     && same(initial.trust.trustedOrigins, []));
 check("new Application({ resourceFolder }) is the configuration's resource folder",
     fs.realpathSync(initial.resourceFolder ?? '/') === fs.realpathSync(folder));
@@ -77,6 +78,9 @@ const changed = actionui.getConfiguration();
 check('configure changes only the keys it names',
     changed.limits.maximumNestingDepth === 2 && changed.limits.maximumJSONSize === 16777216
     && same(changed.trust.trustedOrigins, ['https://ui.example.com']) && changed.resourceFolder === initial.resourceFolder);
+actionui.configure({ limits: { maximumDownloadTime: null } });
+check('null removes the time limit', actionui.getConfiguration().limits.maximumDownloadTime === null);
+actionui.configure({ limits: { maximumDownloadTime: 120 } });
 
 for (const [settings, expected] of [
     [{ limits: { maximumNestingDepth: 5 }, trustedOrigin: [] }, 'unknown configuration key trustedOrigin'],

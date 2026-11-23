@@ -27,7 +27,8 @@ import java.net.URISyntaxException
  *   "limits": {
  *     "maximumJSONSize": 16777216,                  // bytes of ActionUI JSON one load takes (16 MB)
  *     "loadBudget": { "loads": 256, "seconds": 60 },// LoadableView loads per window in any span
- *     "maximumNestingDepth": 16                     // LoadableViews inside LoadableViews
+ *     "maximumNestingDepth": 16,                    // LoadableViews inside LoadableViews
+ *     "maximumDownloadTime": 120                    // seconds one http or https load may take (null: no limit)
  *   },
  *   "trust": { "trustedOrigins": ["https://ui.example.com"] },  // servers whose JSON is trusted
  *   "resourceFolder": "/data/user/0/com.example/files/ui",      // a folder of the app's own (null: none)
@@ -67,6 +68,14 @@ data class ActionUIConfiguration(
         val loadBudget: LoadBudget = LoadBudget(loads = 256, seconds = 60.0),
         /** How deep LoadableViews may nest: one with this many LoadableViews around it is refused. */
         val maximumNestingDepth: Int = 16,
+        /**
+         * The longest one http or https load may take, in seconds, however the server sends: a load of
+         * ActionUI JSON or of an image by the renderer's own loader (LoadableView, AsyncImage) is given up
+         * after this. The connect and read timeouts cover each step, so this only stops a server that keeps
+         * sending slowly. A host whose users may be on slow networks, or that shows large images, raises it;
+         * null removes it. 120 seconds by default.
+         */
+        val maximumDownloadTime: Double? = 120.0,
     )
 
     data class Trust(
@@ -91,6 +100,7 @@ data class ActionUIConfiguration(
                             )
                         ),
                         "maximumNestingDepth" to JsonPrimitive(limits.maximumNestingDepth),
+                        "maximumDownloadTime" to (limits.maximumDownloadTime?.let { JsonPrimitive(it) } ?: JsonNull),
                     )
                 ),
                 "trust" to JsonObject(mapOf("trustedOrigins" to JsonArray(trust.trustedOrigins.map { JsonPrimitive(it) }))),
@@ -177,6 +187,11 @@ data class ActionUIConfiguration(
                 throw ConfigurationException("limits.loadBudget.seconds must be a number more than 0")
             }
             if (limits.maximumNestingDepth < 0) throw ConfigurationException("limits.maximumNestingDepth must not be negative")
+            limits.maximumDownloadTime?.let { time ->
+                if (!time.isFinite() || time <= 0) {
+                    throw ConfigurationException("limits.maximumDownloadTime must be a number more than 0, or null for no limit")
+                }
+            }
             for (origin in configuration.trust.trustedOrigins) {
                 trustedOriginProblem(origin)?.let { throw ConfigurationException("trust.trustedOrigins: $origin $it") }
             }
@@ -204,7 +219,7 @@ data class ActionUIConfiguration(
         }
 
         private val topKeys = setOf("limits", "trust", "resourceFolder", "addOns")
-        private val limitKeys = setOf("maximumJSONSize", "loadBudget", "maximumNestingDepth")
+        private val limitKeys = setOf("maximumJSONSize", "loadBudget", "maximumNestingDepth", "maximumDownloadTime")
         private val budgetKeys = setOf("loads", "seconds")
         private val trustKeys = setOf("trustedOrigins")
 
@@ -222,6 +237,9 @@ data class ActionUIConfiguration(
                     limits = limits.copy(loadBudget = loadBudget)
                 }
                 section["maximumNestingDepth"]?.let { limits = limits.copy(maximumNestingDepth = integer(it, "limits.maximumNestingDepth")) }
+                section["maximumDownloadTime"]?.let {
+                    limits = limits.copy(maximumDownloadTime = if (it is JsonNull) null else number(it, "limits.maximumDownloadTime"))
+                }
             }
             var trust = configuration.trust
             top["trust"]?.let { value ->

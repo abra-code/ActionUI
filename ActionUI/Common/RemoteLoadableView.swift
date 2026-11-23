@@ -7,15 +7,13 @@ import SwiftUI
 
 /// Fetches remote ActionUI JSON with limits, as the Linux loader does: the body is read as
 /// it arrives and refused once it grows past `limit` bytes (the JSON size cap: larger ActionUI JSON is
-/// refused when it loads anyway), and the whole fetch is given up after `timeout` seconds, however
-/// slowly the server sends. URLSession's own timeout only covers a pause between pieces. A status
+/// refused when it loads anyway), and the whole fetch is given up after `timeout` seconds (the
+/// configuration's maximumDownloadTime; nil: no limit), however slowly the server sends.
+/// URLSession's own timeout only covers a pause between pieces. A status
 /// outside 200-299 is refused before the body is read, as on Linux and Android: an error page is
 /// not ActionUI JSON. Gives the address the body finally came from too, after redirects, which
 /// decides how far it is trusted.
 enum RemoteJSONFetch {
-    /// The longest a whole fetch may take, in seconds (the Linux loader's 120 s).
-    static let defaultTimeout: Double = 120
-
     /// The session for an address less-trusted content names: none of the app's cookies, stored
     /// credentials or cache (an ephemeral session that stores and sends no cookies, has no
     /// credential store, and keeps only its own cache in memory), and the server's sign-in
@@ -81,7 +79,8 @@ enum RemoteJSONFetch {
     }
 
     /// `what`: what the body is, for the error when it is too large.
-    static func data(for request: URLRequest, limit: Int, timeout: Double = defaultTimeout,
+    static func data(for request: URLRequest, limit: Int,
+                     timeout: Double? = ActionUIConfiguration.current.limits.maximumDownloadTime,
                      session: URLSession = .shared, what: String = "the ActionUI JSON") async throws -> (data: Data, finalURL: URL) {
         try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
             group.addTask {
@@ -114,16 +113,24 @@ enum RemoteJSONFetch {
                 }
                 return (data, finalURL)
             }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                return nil
+            if let timeout {
+                group.addTask {
+                    // Clamped: UInt64 nanoseconds end past 584 years.
+                    try await Task.sleep(nanoseconds: UInt64(min(timeout, 1e9) * 1_000_000_000))
+                    return nil
+                }
             }
             defer { group.cancelAll() }
             guard let first = try await group.next(), let result = first else {
-                throw ActionUIError("loading it took longer than \(Int(timeout)) seconds")
+                throw ActionUIError("loading it took longer than \(Self.seconds(timeout ?? 0)) seconds")
             }
             return result
         }
+    }
+
+    /// `seconds` as a whole number when it is one ("120"), else as it is ("0.5").
+    static func seconds(_ seconds: Double) -> String {
+        seconds == seconds.rounded() && abs(seconds) < 1e15 ? String(Int64(seconds)) : String(seconds)
     }
 
     private static func tooLarge(_ limit: Int, _ what: String) -> ActionUIError {

@@ -45,6 +45,15 @@ private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
         let status = url.path == "/missing" ? 404 : url.path == "/failing" ? 500 : 200
         let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if url.path == "/slow" {
+            // The body a second later.
+            let client = client
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+                client?.urlProtocol(self, didLoad: Data("{}".utf8))
+                client?.urlProtocolDidFinishLoading(self)
+            }
+            return
+        }
         guard let body else { return }
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)
@@ -547,6 +556,29 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertTrue(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 7) === JSONContentOrigin.host, "data the host holds")
     }
 
+    // The time limit a fetch takes by default is the configuration's maximumDownloadTime; nil is none.
+    func testRemoteJSONTimeLimitIsTheConfigurations() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubJSONProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let saved = ActionUIConfiguration.current
+        defer { ActionUIConfiguration.replaceForTesting(saved) }
+        func fetchSlow() async throws -> Data {
+            try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid/slow")!), limit: 1000,
+                                           session: session).data
+        }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = 0.3 }
+        do {
+            _ = try await fetchSlow()
+            XCTFail("the body comes after the configured 0.3 s")
+        } catch {
+            XCTAssertEqual("\(error)", "loading it took longer than 0.3 seconds")
+        }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = nil }
+        let slow = try await fetchSlow()
+        XCTAssertEqual(slow, Data("{}".utf8), "with no time limit the slow body arrives")
+    }
+
     func testRemoteJSONIsCappedInSizeAndTime() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubJSONProtocol.self]
@@ -574,7 +606,7 @@ final class LoadableViewTests: XCTestCase {
             _ = try await fetch("/stall", timeout: 0.3)
             XCTFail("a server that never sends the body")
         } catch {
-            XCTAssertEqual("\(error)", "loading it took longer than 0 seconds")
+            XCTAssertEqual("\(error)", "loading it took longer than 0.3 seconds")
         }
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
         XCTAssertEqual(WindowModel.maximumJSONSize, 16 * 1024 * 1024, "RemoteLoadableView fetches up to the document cap")

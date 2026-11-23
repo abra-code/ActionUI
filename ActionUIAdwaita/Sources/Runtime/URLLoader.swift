@@ -9,8 +9,8 @@
  and libcurl on Linux.
  An http or https load is refused (nil, logged) when a redirect would take an https address to plain
  http or to another scheme, after more than 20 redirects, when the body grows past maximumSize, or
- when the whole load takes longer than totalTimeout; the body is read in pieces, so a large one is
- cut off rather than held whole first. The loader follows redirects itself, dropping a redirect's
+ when the whole load takes longer than totalTimeout (the configuration's maximumDownloadTime); the
+ body is read in pieces, so a large one is cut off rather than held whole first. The loader follows redirects itself, dropping a redirect's
  own body unread (libsoup would read it whole first, outside the cap). Plain http itself stays
  allowed, as macOS allows it with an App Transport Security exception.
 */
@@ -71,8 +71,13 @@ package enum URLLoader {
     static var maximumSize = 32 * 1024 * 1024
 
     /// How long a whole http or https load may take, in milliseconds, however the server sends: a
-    /// server that keeps sending slowly is cut off here. Settable for tests.
-    static var totalTimeout: UInt32 = 120_000
+    /// server that keeps sending slowly is cut off here. The configuration's maximumDownloadTime,
+    /// at least 1 ms; nil: no limit.
+    static var totalTimeout: UInt32? {
+        ActionUIConfiguration.current.limits.maximumDownloadTime.map { seconds in
+            UInt32(min(max((seconds * 1000).rounded(.up), 1), Double(UInt32.max)))
+        }
+    }
 
     /// Whether the https warning (glib-networking missing) was logged in this process.
     private static var warnedNoTLS = false
@@ -172,8 +177,8 @@ package enum URLLoader {
 
 /// One http or https load: sends the request, follows redirects (301, 302, 303, 307, 308) itself,
 /// refusing one from https to http, reads the body in pieces up to its maximumSize, and gives
-/// up after URLLoader.totalTimeout. Keeps itself alive (through the callbacks it registers) until it
-/// has called its completion once.
+/// up after URLLoader.totalTimeout, as it was when the load started. Keeps itself alive (through
+/// the callbacks it registers) until it has called its completion once.
 @MainActor
 private final class HTTPLoad {
     private let url: String
@@ -210,9 +215,11 @@ private final class HTTPLoad {
     }
 
     func start() {
-        timer = runAfter(milliseconds: URLLoader.totalTimeout) { [self] in
-            timer = 0
-            stop("it took longer than \(URLLoader.totalTimeout) ms", callInFlight: true)
+        if let limit = URLLoader.totalTimeout {
+            timer = runAfter(milliseconds: limit) { [self] in
+                timer = 0
+                stop("it took longer than \(limit) ms", callInFlight: true)
+            }
         }
         send()
     }

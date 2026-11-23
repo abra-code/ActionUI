@@ -22,7 +22,7 @@ import { parseMenuBar, buildAppShell } from "./Scenes/MenuBar.js";
 import { installLifecycleHooks } from "./Helpers/LifecycleHooks.js";
 import { HOST_ORIGIN, resolvedOrigin, setTrustPolicy, DefaultTrustPolicy, TRUSTED, LESS_TRUSTED } from "./Common/TrustPolicy.js";
 import { configure, getConfiguration, ConfigurationError, fixConfiguration } from "./Common/Configuration.js";
-import { jsonRefusal, readJSONText } from "./Helpers/JSONLimits.js";
+import { fetchWithTimeLimit, jsonRefusal, readJSONText } from "./Helpers/JSONLimits.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -175,7 +175,7 @@ export class Window {
     // as a LoadableView's source is: from the page's origin it is a resource, from a trusted origin
     // trusted, from another origin less trusted (unless the trust policy says otherwise).
     static async fromURL(url, uuid, logger) {
-        const response = await fetch(url);
+        const response = await fetchWithTimeLimit(url);
         if (!response.ok) throw new Error(`ActionUI: failed to load ${url}: ${response.status}`);
         // Judged by where it finally came from (after redirects), resolved against the page.
         const origin = resolvedOrigin({ kind: "remote", fetchURL: url }, null, null, logger ?? null, response.url || null) ?? HOST_ORIGIN;
@@ -424,7 +424,7 @@ export class Application {
     }
 
     async setMenuBarFromURL(url, logger = this.logger) {
-        const response = await fetch(url);
+        const response = await fetchWithTimeLimit(url);
         if (!response.ok) {
             logger.log(`Failed to load menu bar ${url}: ${response.status}`, "error");
             return this;

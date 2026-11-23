@@ -1763,7 +1763,8 @@ def configure(settings: Dict[str, Any]) -> None:
         actionui.configure({
             "limits": {"maximumJSONSize": 32 * 1024 * 1024,        # bytes (16 MB by default)
                        "loadBudget": {"loads": 256, "seconds": 60},  # LoadableView loads per window
-                       "maximumNestingDepth": 16},                   # LoadableViews inside LoadableViews
+                       "maximumNestingDepth": 16,                    # LoadableViews inside LoadableViews
+                       "maximumDownloadTime": 600},                  # seconds per http(s) load (120 by default; None: no limit)
             "trust": {"trustedOrigins": ["https://ui.example.com"]},  # servers whose JSON is trusted
             "resourceFolder": "/path/to/resources",                  # Application(resource_folder=) sets this
             "addOns": {"SomeAddOn": {}},                              # a section per add-on
