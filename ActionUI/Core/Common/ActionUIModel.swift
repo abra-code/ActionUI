@@ -216,15 +216,15 @@ public class ActionUIModel {
         return windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
     }
 
-    #if os(Linux)
+    #if os(Linux) || os(Windows)
     private var linkedAddOnsRegistered = false
     #endif
 
-    // The add-ons linked into libActionUI.so, whose host cannot call their register(). Here and not in init, which
-    // runs inside `shared`'s one-time initializer: a register() using ActionUIModel.shared there would hang, with
-    // no message. The registry goes first: it installs the hook as it starts.
+    // The add-ons linked into libActionUI.so or ActionUI.dll, whose host cannot call their register(). Here and
+    // not in init, which runs inside `shared`'s one-time initializer: a register() using ActionUIModel.shared there
+    // would hang, with no message. The registry goes first: it installs the hook as it starts.
     private func registerLinkedAddOnsOnce() {
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         guard !linkedAddOnsRegistered else { return }
         linkedAddOnsRegistered = true
         _ = ActionUIRegistry.shared

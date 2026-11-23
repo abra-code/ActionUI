@@ -641,10 +641,16 @@ Package(
         // The portable code and the WinUI renderer: one module, as ActionUI is on Apple platforms.
         .target(
             name: "ActionUI",
-            dependencies: ["CWinUI"],
+            dependencies: ["CWinUI", "CLinkedAddOns"],
             path: ".",
             exclude: excludingAllBut(["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIWinUI/Sources"]),
             sources: ["ActionUI/Core", "ActionUIRendererShared/Sources", "ActionUIWinUI/Sources"]
+        ),
+        // Reaches the add-ons linked into the same program or library, which ActionUI cannot depend on
+        // (ActionUILinkedAddOns_register), as on Linux.
+        .target(
+            name: "CLinkedAddOns",
+            path: "ActionUIWinUI/CLinkedAddOns"
         ),
         // The C adapter (ActionUIC.h): the same functions as on Apple and Linux, with the Windows
         // side of hostNative (ActionUIC+Windows.swift).

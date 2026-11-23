@@ -89,10 +89,12 @@ SMOKE_TIMEOUT_SECONDS = 180
 # is copied), and "{program_folder_upper}" the same in upper case; "{documents_folder_json}" the documents
 # folder's path as a JSON string's contents (backslashes doubled).
 PREVIEW_OPTIONS = {
-    # An element registered the way an add-on registers one (the preview's AddOnProbe) shows its text; an element
-    # type nothing registered shows the placeholder.
-    "AddOns": ["420", "160",
+    # An element registered the way an add-on registers one (the preview's AddOnProbe) shows its text, and so does
+    # one registered through the linked add-ons call (ActionUILinkedAddOns_register, defined by the preview); an
+    # element type nothing registered shows the placeholder.
+    "AddOns": ["420", "200",
                "--expect-automation", "3", "name", "add-on: registered",
+               "--expect-automation", "5", "name", "add-on: linked",
                "--expect-log", "NoSuchAddOn is not available on Windows yet; showing a placeholder"],
     # The two chart documents at sizes that show their charts whole (the second has two columns).
     # Chart 16 is named by its marks' accessibilityLabel and accessibilityValue, read through UI Automation.
@@ -286,7 +288,8 @@ PREVIEW_OPTIONS = {
     "Maps": ["420", "330", "--drag", "2", "200", "110", "120", "70", "--delay", "6000", "--expect-log", "Map 2 tiles: "],
     "SymbolMix": ["820", "300"],
     "UserLocations": ["420", "200", "--delay", "6000", "--expect-log", "; user location: "],
-    "VideoPlayers": ["420", "300", "--set-value", "2", "{documents_url}/Media/one-second.mp4", "--delay", "8000",
+    # 20 s: Media Foundation's first open on a cold runner has taken more than 8 s (x64 twice, arm64 once).
+    "VideoPlayers": ["420", "300", "--set-value", "2", "{documents_url}/Media/one-second.mp4", "--delay", "20000",
                      "--expect-log", "VideoPlayer 2 opened", "--expect-log", "VideoPlayer 4 could not play"],
     # A host policy decides for the app's own videos too: refused, an https video is not opened.
     "RefusedMedia": ["420", "200", "--refuse-media", "--delay", "3000",

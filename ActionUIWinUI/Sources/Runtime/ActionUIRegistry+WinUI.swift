@@ -5,6 +5,8 @@
  WinUI renderer yet.
 */
 
+import CLinkedAddOns
+
 extension ActionUIRegistry {
     // The WinUI renderers of the built-in element types; the others render as the placeholder.
     static let builtInWinUIRenderers: [String: any ActionUIWinUIRenderer.Type] = [
@@ -80,6 +82,9 @@ extension ActionUIRegistry {
     internal func loadRendererBuiltIns() {
         Self.winUIRenderers = Self.builtInWinUIRenderers
         Self.typesReportedMissing = []
+        // The add-ons linked into the same program or library, registered before the first UI
+        // description loads (ActionUIModel), as on Linux.
+        ActionUIRendererHooks.registerLinkedAddOns = actionUIRegisterLinkedAddOns
         // The app's own resources, whose ActionUI JSON is trusted: the host's folder, else the
         // program's.
         ActionUIRendererHooks.resourceFolders = LinkTrust.resourceFolders
