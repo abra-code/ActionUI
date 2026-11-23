@@ -1276,16 +1276,19 @@ typedef struct ActionUIWinUIWebViewState {
 } ActionUIWinUIWebViewState;
 
 // A new web view (WebView2, on the WebView2 runtime Windows ships), as large as it is given. It starts
-// its browser asynchronously: what is asked of it before then (the calls below) waits, in order, and
-// runs once it has started; a script waits until added, so a page after it gets it. The browser keeps
-// its data (cookies, cache) in WEBVIEW2_USER_DATA_FOLDER, set when the host has not to
-// %LOCALAPPDATA%\<program name>\WebView2 (by default it would go beside the program, which an
-// installed one may not write to). NULL on failure.
-ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIWebViewCreate(void);
-// Treats the web view's pages as less-trusted content's, for good: no permission, no sign-in, no script
+// its browser asynchronously, in the process's one WebView2 environment (made with the first web view):
+// what is asked of it before then (the calls below) waits, in order, and runs once it has started; a
+// script waits until added, so a page after it gets it. The environment keeps the browser's data
+// (cookies, cache, storage) in the folder the host named in WEBVIEW2_USER_DATA_FOLDER, else in
+// %LOCALAPPDATA%\<program name>\WebView2 (by default it would go beside the program, which an installed
+// one may not write to); the process's environment variables are not changed.
+// `restricted`: its pages are less-trusted content's, for good: no permission, no sign-in, no script
 // dialog (leaving a page still allowed), no fullscreen, no printing, no saving from its menu, no
-// developer tools or browser keys, no autofill or saved passwords. Call before its first navigation.
-ACTIONUI_WINUI_API bool actionUIWinUIWebViewRestrict(ActionUIWinUIObject *webView);
+// developer tools or browser keys, no autofill or saved passwords.
+// `privateData`: the web view gets a separate, private browser profile (InPrivate). Its cookies, cache
+// and storage are shared with no other web view and never written to disk.
+// NULL on failure.
+ACTIONUI_WINUI_API ActionUIWinUIObject *actionUIWinUIWebViewCreateWithOptions(bool restricted, bool privateData);
 ACTIONUI_WINUI_API bool actionUIWinUIWebViewSetUserAgent(ActionUIWinUIObject *webView, const char *userAgent);
 // Runs `source` (JavaScript) in every document from then on: as it is created, before its own scripts,
 // or when it has been parsed (`atDocumentEnd`, its DOMContentLoaded, as the browser runs a page's own
@@ -1434,11 +1437,11 @@ typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes,
 // completion) when it could not start: not an http or https URL, not on the UI thread.
 ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, int64_t maximumBytes, double timeoutSeconds,
                                               ActionUIWinUIDataCompletion completion, void *context);
-// The same, for an address that content the app does not trust names, with WinHTTP and nothing of the
-// user's or the app's: no cookies sent or kept, no Windows sign-in (Negotiate, NTLM, Kerberos) to a server
-// or a proxy, no client certificate, no credential dialog, no cache. A server or proxy that asks for a
-// sign-in (401, 407) is a failure. The same limits and redirect rules; the completion is called on the UI
-// thread that started the fetch.
+// The same, for an address named by less-trusted content, with WinHTTP. The request sends no cookies,
+// client certificate or Windows sign-in (Negotiate, NTLM, Kerberos) to the server or a proxy, keeps no
+// cookies, shows no password dialog and uses no cache. A server or proxy that asks for a sign-in (401,
+// 407) gets a failure. The limits and redirect rules are the same; the completion is called on the UI
+// thread that started the download.
 ACTIONUI_WINUI_API bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, double timeoutSeconds,
                                                        ActionUIWinUIDataCompletion completion, void *context);
 

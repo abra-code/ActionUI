@@ -1419,7 +1419,9 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
     "ActionUI") carried a sign-in or a cookie or did not arrive, or when their limits did not hold
     (/slow.json given up after 3 seconds, /endless.json refused past 100000 bytes, /endless.png past
     32 MB, /big.png refused for its 9000 x 9000 pixels, an SVG image refused), or when a good image did
-    not load; the video player and the WebView are recorded only."""
+    not load; or when the less-trusted WebView sent the cookie the app's own WebView got (it keeps a private
+    store), or the app's own WebView did not keep that cookie first. The video player, and the WebView's
+    answers to sign-in requests, are recorded only."""
     findings = summary["findings"]
     folder = results / "ambient-identity"
     folder.mkdir(parents=True, exist_ok=True)
@@ -1447,7 +1449,7 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
             findings.append("ambient identity: FAILED: the responder did not start (see ambient-identity/responder.log)")
             return False
         document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Probes" / "AmbientIdentity.json"
-        step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "300",
+        step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "400",
                                              "--fetch-timeout", "3", "--fetch-limit", "100000",
                                              "--expect-log", "/slow.json: loading it took longer than 3 seconds",
                                              "--expect-log", "/endless.json: the response is larger than 100000 bytes",
@@ -1456,6 +1458,8 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
                                              "--expect-log", "/big.png is 9000 x 9000 pixels",
                                              "--expect-log", "/endless.png: the response is larger than 32 MB",
                                              "--expect-log", "an SVG image from less-trusted content is not shown",
+                                             "--set-value", "5", f"http://localhost:{port}/set-web-cookie.html",
+                                             "--delay", "5000",
                                              "--set-value", "2", f"http://localhost:{port}/set-cookie.json",
                                              "--delay", "3000",
                                              "--set-value", "3", f"http://localhost:{port}/outer.json",
@@ -1494,9 +1498,29 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
                    else "a request came from another client than the private fetch")
             findings.append(f"ambient identity: FAILED: {path}: {why}")
             passed = False
+    # Whether the private stores' profiles leave folders in the preview's WebView2 data folder (recorded).
+    profiles = Path(os.environ.get("LOCALAPPDATA", "")) / "ActionUIWinUIPreview" / "WebView2" / "EBWebView"
+    private = sorted(child.name for child in profiles.glob("ActionUIPrivate*")) if profiles.is_dir() else []
+    findings.append(f"ambient identity: private profile folders in {profiles}: {len(private)}"
+                    + (f" ({', '.join(private[:5])}{', ...' if len(private) > 5 else ''})" if private else ""))
+    # A less-trusted WebView keeps a private store: the cookie the app's own WebView got is not sent. The app's
+    # own page loads an image that carries the cookie once it is kept (else the check below proves nothing),
+    # and that comes before the less-trusted WebView's request.
+    kept = [index for index, entry in enumerate(entries) if entry.get("path") == "/cookie/web-check.png"
+            and "actionui_web_probe" in (entry.get("cookie") or [])]
+    page_requests = [index for index, entry in enumerate(entries) if entry.get("path") == "/cookie/page.html"]
+    shared = [index for index in page_requests if "actionui_web_probe" in (entries[index].get("cookie") or [])]
+    if not kept or not page_requests or shared or kept[0] > page_requests[0]:
+        why = ("the app's own WebView did not keep its cookie (no /cookie/web-check.png carrying it)" if not kept
+               else "the less-trusted WebView made no request" if not page_requests
+               else "the less-trusted WebView sent the cookie the app's own WebView got" if shared
+               else "the less-trusted WebView's request came before the app's own WebView kept its cookie")
+        findings.append(f"ambient identity: FAILED: /cookie/page.html: {why}")
+        passed = False
     if passed:
         findings.append("ambient identity: passed: the less-trusted LoadableViews' and AsyncImages' downloads "
-                        "carried no sign-in and no cookie, and stopped at their limits")
+                        "carried no sign-in and no cookie, and stopped at their limits; the less-trusted WebView "
+                        "did not get the app's own WebView's cookie")
     return passed
 
 

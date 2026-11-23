@@ -10,6 +10,8 @@ values.
 
 Routes:
   /set-cookie.json   200, small ActionUI JSON, and sets the cookie actionui_probe=1 for the whole site
+  /set-web-cookie.html  200, a page that sets the cookie actionui_web_probe=1 (for the app's own WebView)
+                     and then loads the image /cookie/web-check.png, which shows that the cookie was kept
   /outer.json        200, ActionUI JSON naming /auth/... and /cookie/... from a LoadableView, an AsyncImage,
                      a VideoPlayer and a WebView (served by this server, so it is less-trusted content)
   /auth/<name>       401, asking for Negotiate and NTLM sign-in; never completes one
@@ -106,6 +108,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/set-cookie.json":
             body = json.dumps({"type": "Text", "id": 101, "properties": {"text": "Cookie set"}}).encode()
             self.send_body(200, "application/json", body, [("Set-Cookie", "actionui_probe=1; Path=/")])
+        elif path == "/set-web-cookie.html":
+            self.send_body(200, "text/html",
+                           b'<html><head><title>Cookie set</title></head><body><img src="/cookie/web-check.png"></body></html>',
+                           [("Set-Cookie", "actionui_web_probe=1; Path=/")])
         elif path == "/outer.json":
             self.send_body(200, "application/json", json.dumps(outer_json(self.server.port)).encode())
         elif path == "/big.png" and self.server.big is not None:

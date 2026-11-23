@@ -27,9 +27,17 @@
    for the page itself and when the link rule allows it (mailto, by default), with
    WebView2's own prompt; anything else is refused and logged, and the page opens no new window and
    downloads nothing. Its page asks for nothing either, as on Apple and Linux: permissions are denied,
-   a server's sign-in is canceled, script dialogs are dismissed (leaving the page is allowed), there is
-   no fullscreen, printing, saving from its menu, developer tools, autofill or saved passwords.
-   WebView2 alone would hand any scheme to the app registered for it and open windows of its own.
+   a server's request for a password or a client certificate is canceled, script dialogs are dismissed
+   (leaving the page is allowed), there is no fullscreen, printing, saving from its menu, developer
+   tools, autofill or saved passwords. WebView2 alone would hand any scheme to the app registered for it
+   and open windows of its own.
+ - When the trust policy refuses .webViewPersistentData (by default, for less-trusted content), the
+   WebView gets a separate, private browser profile (InPrivate), as on Apple and Linux. Its cookies,
+   cache and storage are shared with no other WebView and never written to disk.
+ - Every WebView runs in the process's one WebView2 environment, whose data folder is passed to it (the
+   host's WEBVIEW2_USER_DATA_FOLDER, else %LOCALAPPDATA%\<program name>\WebView2), never written into
+   the process's environment.
+
  - A later value is a command: a URL to load, or #goBack, #goForward, #reload, #stop. A command that
    leaves the page where it is, or a value that is no URL, is replaced by the current URL (logged when
    there is nothing to go back or forward to, or no URL).
@@ -47,6 +55,10 @@
  Ignored: backForwardNavigationGestures and magnificationGestures (WebView2's own: the mouse's back
  and forward buttons, Ctrl and the wheel), and the Apple-only linkPreviews,
  limitsNavigationsToAppBoundDomains and upgradeKnownHostsToHTTPS.
+
+ Not yet: a WebView with the app's normal profile signs in to a server with the user's Windows account
+ (Negotiate, NTLM) on its own. A private profile does not (measured on Windows CI), so a less-trusted page
+ signs in only when the host's policy allows .webViewPersistentData for it.
 */
 
 #if canImport(FoundationEssentials)
@@ -104,7 +116,13 @@ extension WebView: ActionUIWinUIRenderer {
     static var defaultExpansion: Expansion { .both }
 
     static func makeView(_ node: RenderNode) throws(WinUIError) -> WinUIObject {
-        guard let view = WinUIObject(adopting: actionUIWinUIWebViewCreate()) else {
+        // Pages in less-trusted content get no permissions, sign-in, script dialogs, fullscreen, printing,
+        // saving or autofill, as on Apple and Linux. When the policy refuses .webViewPersistentData (by
+        // default, for less-trusted content), the WebView gets a private profile. Both are set before the
+        // browser starts.
+        let restricted = !LinkTrust.isTrusted(node)
+        let privateData = !WebViewTrust.keepsPersistentData(allows: { LinkTrust.allows($0, node) })
+        guard let view = WinUIObject(adopting: actionUIWinUIWebViewCreateWithOptions(restricted, privateData)) else {
             throw WinUIError.last("creating a WebView")
         }
         node.state = WebViewState()
@@ -115,11 +133,6 @@ extension WebView: ActionUIWinUIRenderer {
         if !actionUIWinUIWebViewSetNavigationDecider(view.pointer, decideNavigation, decider, releaseNavigation) {
             // Without the decider, a less-trusted page could open any app's scheme: no page at all.
             throw WinUIError.last("deciding a WebView's navigations")
-        }
-        // Less-trusted content's pages get no permissions, sign-in, script dialogs, fullscreen, printing,
-        // saving or autofill, as on Apple and Linux; unrestricted, such a page would: no page at all.
-        if !LinkTrust.isTrusted(node), !actionUIWinUIWebViewRestrict(view.pointer) {
-            throw WinUIError.last("limiting a less-trusted WebView")
         }
         WinUIEvents.connect(view, actionUIWinUIWebViewOnChanged, "a WebView's page") { [weak node, weak view] in
             // After this turn of the main loop, as the Apple backing's Task.

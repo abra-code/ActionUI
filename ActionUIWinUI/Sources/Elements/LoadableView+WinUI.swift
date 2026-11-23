@@ -27,11 +27,10 @@
  - A download is read up to the cap on ActionUI JSON (16 MB; refused at once on a longer
    Content-Length) and given up after 120 seconds; redirects are followed only to http and https, never
    from https to http, at most 20, as on Apple and Linux.
- - An address less-trusted content names is fetched with nothing of the user's or the app's (WinHTTP,
-   actionUIWinUIFetchURLPrivately): no cookies sent or kept, no Windows sign-in to the server or a proxy
-   (which Windows' HTTP client gives an intranet server on its own), no client certificate, no
-   credential dialog; a server that asks for a sign-in is a failure. The app's own content keeps
-   Windows' HTTP client and its settings.
+ - In less-trusted content, the download uses WinHTTP (actionUIWinUIFetchURLPrivately). It sends no
+   cookies, client certificate or Windows sign-in, keeps no cookies and shows no password dialog. A
+   server or proxy that asks for a sign-in gets a failure. (Windows' HTTP client signs in to an intranet
+   server on its own.) Trusted content keeps Windows' HTTP client and its settings.
  - The host's trust policy is asked before anything is read (ActionUICapability.load, for the content
    the LoadableView is in), as on Apple and Linux: a refused source shows "Failed to load view: ...".
  - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile). Less-trusted
@@ -200,9 +199,8 @@ extension LoadableView: ActionUIWinUIRenderer {
             // Read up to the cap on ActionUI JSON and given up after 120 seconds, as on Apple and Linux.
             let limit = LoadableFetch.maximumBytes ?? Int64(WindowModel.maximumJSONSize)
             let seconds = LoadableFetch.timeoutSeconds ?? 120
-            // Less-trusted content's address is fetched with nothing of the user's or the app's (no
-            // cookies, no Windows sign-in, no credential dialog), as Apple's private session does; the
-            // app's own content keeps Windows' HTTP client.
+            // In less-trusted content, download without cookies, Windows sign-in or a password dialog,
+            // as Apple's private session does. Trusted content keeps Windows' HTTP client.
             let started = trusted ? actionUIWinUIFetchURL(url.absoluteString, limit, seconds, fetched, context)
                                   : actionUIWinUIFetchURLPrivately(url.absoluteString, limit, seconds, fetched, context)
             if !started {

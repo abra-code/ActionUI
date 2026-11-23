@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cwctype>  // towlower
 #include <deque>
+#include <functional>
 #include <new>
 #include <string>
 #include <unordered_map>
@@ -79,7 +80,7 @@ struct WebViewData {
     // and the html (UTF-8) as the answer's body.
     winrt::hstring baseDocumentURI;
     winrt::Windows::Storage::Streams::IRandomAccessStream baseDocument{nullptr};
-    // Its pages are less-trusted content's (actionUIWinUIWebViewRestrict).
+    // Its pages are less-trusted content's (actionUIWinUIWebViewCreateWithOptions).
     bool restricted = false;
 };
 
@@ -116,7 +117,7 @@ std::shared_ptr<WebViewData> dataOf(ActionUIWinUIObject *object) {
     muxc::WebView2 view = objectAs<muxc::WebView2>(object, L"WebView2");
     auto found = webViews().find(identity(view));
     if (found == webViews().end()) {
-        throw winrt::hresult_invalid_argument(L"the web view was not made by actionUIWinUIWebViewCreate");
+        throw winrt::hresult_invalid_argument(L"the web view was not made by actionUIWinUIWebViewCreateWithOptions");
     }
     std::shared_ptr<WebViewData> data = found->second.lock();
     if (data == nullptr) {
@@ -254,7 +255,7 @@ void enqueue(std::shared_ptr<WebViewData> const &data, WebViewStep step) {
     }
 }
 
-// A less-trusted page's limits (actionUIWinUIWebViewRestrict), as on Apple and Linux: no permission
+// A less-trusted page's limits (a restricted web view's), as on Apple and Linux: no permission
 // (camera, microphone, location, notifications and the rest are denied), no sign-in (a server's password
 // or client certificate question is canceled), no script dialog (alert, confirm and prompt answer as
 // dismissed; leaving the page is still allowed), no fullscreen, no printing, no saving from its menu, no
@@ -351,6 +352,100 @@ void loadWebViewCoreBesideShim() {
     LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
 }
 
+// The folder the browser keeps its data in (cookies, cache, storage): the host's
+// WEBVIEW2_USER_DATA_FOLDER when it set one, else %LOCALAPPDATA%\<program name>\WebView2 (by default it
+// would go beside the program, which an installed one may not write to). Passed to the environment, never
+// written into the process's environment, which programs it starts would inherit.
+std::wstring dataFolder() {
+    std::wstring chosen(32768, L'\0');
+    DWORD chosenLength = GetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", chosen.data(), static_cast<DWORD>(chosen.size()));
+    if (chosenLength > 0 && chosenLength < chosen.size()) {
+        chosen.resize(chosenLength);
+        return chosen;
+    }
+    wchar_t local[MAX_PATH];
+    wchar_t program[MAX_PATH];
+    DWORD localLength = GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
+    DWORD programLength = GetModuleFileNameW(nullptr, program, MAX_PATH);
+    if (localLength == 0 || localLength >= MAX_PATH || programLength == 0 || programLength >= MAX_PATH) {
+        // WebView2's own default (beside the program).
+        return std::wstring();
+    }
+    std::wstring name(program, programLength);
+    size_t slash = name.find_last_of(L"\\/");
+    name = slash == std::wstring::npos ? name : name.substr(slash + 1);
+    size_t dot = name.find_last_of(L'.');
+    name = dot == std::wstring::npos ? name : name.substr(0, dot);
+    return std::wstring(local, localLength) + L"\\" + name + L"\\WebView2";
+}
+
+// The process's one WebView2 environment, made on the first web view; the web views that wait for it
+// start once it is made (or has failed). UI thread only.
+struct SharedEnvironment {
+    webcore::CoreWebView2Environment environment{nullptr};
+    // Why it could not be made; a failure is final for the process.
+    std::string failure;
+    bool creating = false;
+    std::vector<std::function<void()>> waiting;
+};
+
+SharedEnvironment &sharedEnvironment() {
+    static auto *shared = new SharedEnvironment();
+    return *shared;
+}
+
+// Makes the environment; resumes on the UI thread (the caller's apartment) when it is made.
+winrt::fire_and_forget createEnvironment() {
+    SharedEnvironment &shared = sharedEnvironment();
+    try {
+        webcore::CoreWebView2EnvironmentOptions options;
+        shared.environment = co_await webcore::CoreWebView2Environment::CreateWithOptionsAsync(winrt::hstring(), winrt::hstring(dataFolder()),
+                                                                                              options);
+    } catch (winrt::hresult_error const &error) {
+        shared.failure = winrt::to_string(error.message());
+    } catch (...) {
+        shared.failure = "an unknown C++ exception";
+    }
+    if (shared.environment == nullptr && shared.failure.empty()) {
+        shared.failure = "the WebView2 environment could not be made";
+    }
+    shared.creating = false;
+    std::vector<std::function<void()>> waiting = std::move(shared.waiting);
+    shared.waiting.clear();
+    for (std::function<void()> &start : waiting) {
+        // Each one runs: an exception leaving this fire_and_forget coroutine would end the process.
+        try {
+            start();
+        } catch (...) {
+        }
+    }
+}
+
+// Runs `start` once the environment is made or has failed: at once when that is already so.
+void withEnvironment(std::function<void()> start) {
+    SharedEnvironment &shared = sharedEnvironment();
+    if (shared.environment != nullptr || !shared.failure.empty()) {
+        start();
+        return;
+    }
+    shared.waiting.push_back(std::move(start));
+    if (!shared.creating) {
+        shared.creating = true;
+        createEnvironment();
+    }
+}
+
+// A web view's start that ended without a CoreWebView2: its failure reported through the status.
+void startFailed(std::shared_ptr<WebViewData> const &held, std::string const &why) {
+    if (held->core != nullptr) {
+        return;
+    }
+    if (held->failure.empty()) {
+        held->failure = why.empty() ? std::string("the start failed") : why;
+    }
+    notify(held);
+}
+
 } // namespace
 
 } // namespace actionui_winui
@@ -359,30 +454,14 @@ using namespace actionui_winui;
 
 extern "C" {
 
-ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
-    return guardedObject("web view create", []() {
-        // The browser's data (cookies, cache) under the user's local app data, unless the host chose a
-        // folder: by default it goes beside the program, which an installed one may not write to.
-        wchar_t chosen[2];
-        if (GetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", chosen, 2) == 0) {
-            wchar_t local[MAX_PATH];
-            wchar_t program[MAX_PATH];
-            DWORD localLength = GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
-            DWORD programLength = GetModuleFileNameW(nullptr, program, MAX_PATH);
-            if (localLength > 0 && localLength < MAX_PATH && programLength > 0 && programLength < MAX_PATH) {
-                std::wstring name(program, programLength);
-                size_t slash = name.find_last_of(L"\\/");
-                name = slash == std::wstring::npos ? name : name.substr(slash + 1);
-                size_t dot = name.find_last_of(L'.');
-                name = dot == std::wstring::npos ? name : name.substr(0, dot);
-                std::wstring folder = std::wstring(local, localLength) + L"\\" + name + L"\\WebView2";
-                SetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", folder.c_str());
-            }
-        }
+ActionUIWinUIObject *actionUIWinUIWebViewCreateWithOptions(bool restricted, bool privateData) {
+    return guardedObject("web view create", [restricted, privateData]() {
         loadWebViewCoreBesideShim();
         muxc::WebView2 view;
         auto data = std::make_shared<WebViewData>();
         data->view = winrt::make_weak(view);
+        // Less-trusted content's pages: limited before the first navigation (restrictPage).
+        data->restricted = restricted;
         webViews()[identity(view)] = data;
         // The handlers hold the data; the data holds the view weakly.
         view.CoreWebView2Initialized([data](muxc::WebView2 const &sender, muxc::CoreWebView2InitializedEventArgs const &args) {
@@ -511,43 +590,56 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
             });
             drain(data);
         });
-        // Started now; what is asked before it completes waits (WebViewData::pending). Its own end is
-        // watched too: a start that fails may not raise CoreWebView2Initialized.
+        // Started once the process's environment is made; what is asked before it completes waits
+        // (WebViewData::pending). Its own end is watched too: a start that fails may not raise
+        // CoreWebView2Initialized.
         std::weak_ptr<WebViewData> weak = data;
-        view.EnsureCoreWebView2Async().Completed([weak](wf::IAsyncAction const &operation, wf::AsyncStatus status) {
+        withEnvironment([weak, privateData]() {
             std::shared_ptr<WebViewData> held = weak.lock();
-            if (held == nullptr || status == wf::AsyncStatus::Completed || held->core != nullptr) {
+            if (held == nullptr) {
                 return;
             }
-            if (held->failure.empty()) {
-                held->failure = status == wf::AsyncStatus::Error ? winrt::to_string(winrt::hresult_error(operation.ErrorCode()).message())
-                                                                 : std::string("the start was canceled");
-                if (held->failure.empty()) {
-                    held->failure = "the start failed";
-                }
+            muxc::WebView2 started = held->view.get();
+            if (started == nullptr) {
+                return;
             }
-            notify(held);
+            SharedEnvironment &shared = sharedEnvironment();
+            if (shared.environment == nullptr) {
+                fail("web view create", "the WebView2 environment could not be made");
+                startFailed(held, shared.failure);
+                return;
+            }
+            try {
+                webcore::CoreWebView2ControllerOptions options = shared.environment.CreateCoreWebView2ControllerOptions();
+                // A private profile: InPrivate keeps cookies, cache and storage in memory, apart from other
+                // profiles. InPrivate views with the same profile name share one session, so each private
+                // view gets its own name, as on Apple and Linux. The name includes the process ID because
+                // programs that use the same data folder (every Python host) share one browser.
+                if (privateData) {
+                    static uint64_t privateViews = 0;
+                    options.ProfileName(L"ActionUIPrivate" + winrt::to_hstring(static_cast<uint64_t>(GetCurrentProcessId())) + L"_"
+                                        + winrt::to_hstring(++privateViews));
+                    options.IsInPrivateModeEnabled(true);
+                }
+                started.EnsureCoreWebView2Async(shared.environment, options).Completed([weak](wf::IAsyncAction const &operation, wf::AsyncStatus status) {
+                    std::shared_ptr<WebViewData> ended = weak.lock();
+                    if (ended == nullptr || status == wf::AsyncStatus::Completed) {
+                        return;
+                    }
+                    startFailed(ended, status == wf::AsyncStatus::Error ? winrt::to_string(winrt::hresult_error(operation.ErrorCode()).message())
+                                                                        : std::string("the start was canceled"));
+                });
+            } catch (winrt::hresult_error const &error) {
+                startFailed(held, winrt::to_string(error.message()));
+            } catch (std::exception const &error) {
+                // Not out of this function: it may run in the environment's fire_and_forget coroutine,
+                // which an exception leaving ends.
+                startFailed(held, error.what());
+            } catch (...) {
+                startFailed(held, "an unknown C++ exception");
+            }
         });
         return toObject(view);
-    });
-}
-
-bool actionUIWinUIWebViewRestrict(ActionUIWinUIObject *webView) {
-    return guarded("web view restrict", [&]() {
-        std::shared_ptr<WebViewData> data = dataOf(webView);
-        if (data->restricted) {
-            return true;
-        }
-        data->restricted = true;
-        if (data->core != nullptr) {
-            restrictPage(data);
-            // Its script step runs now unless a drain is under way (which takes it next).
-            if (data->ready) {
-                data->ready = false;
-                drain(data);
-            }
-        }
-        return true;
     });
 }
 

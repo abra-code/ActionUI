@@ -3,8 +3,9 @@ Swift runtime on PATH. Windows looks for a DLL loaded by name later (WebView2's 
 loads when it makes a WebView) beside python.exe, in the system folders, the current folder and PATH,
 not beside the extension; the shim loads that DLL from its own folder first. Prints "python-elsewhere:"
 lines: where WebView2's Core DLL was loaded from and whether the page loaded (its title). Exit status 0
-when the page loaded, the DLL came from the extension's folder and nothing was logged as a warning or
-error. Run by Scripts/ci-windows.py with the extension's folder on PYTHONPATH.
+when the page loaded, the DLL came from the extension's folder, the browser's data folder was not written
+into the process's environment and is %LOCALAPPDATA%\\<program name>\\WebView2, and nothing was logged as a
+warning or error. Run by Scripts/ci-windows.py with the extension's folder on PYTHONPATH.
 """
 
 import ctypes
@@ -57,6 +58,28 @@ def loaded_module(name):
     return buffer.value
 
 
+def process_variable(name):
+    """The process's own environment variable `name` now, or None (os.environ is a copy made at start)."""
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetEnvironmentVariableW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    kernel32.GetEnvironmentVariableW.restype = ctypes.c_uint32
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = kernel32.GetEnvironmentVariableW(name, buffer, len(buffer))
+    return buffer.value if 0 < length < len(buffer) else None
+
+
+def written_since(folder, since):
+    """Whether a file under `folder` was modified at or after `since` (seconds since the epoch)."""
+    for root, _, files in os.walk(folder):
+        for name in files:
+            try:
+                if os.path.getmtime(os.path.join(root, name)) >= since:
+                    return True
+            except OSError:
+                continue
+    return False
+
+
 def watch():
     """Waits for the page's title, then reports and ends the application."""
     started = time.monotonic()
@@ -69,6 +92,10 @@ def watch():
                 break
         time.sleep(0.25)
     state["core"] = loaded_module("Microsoft.Web.WebView2.Core.dll")
+    # The browser's data folder is passed to WebView2, never written into the process's environment
+    # (programs the host starts would inherit it).
+    state["data_variable"] = process_variable("WEBVIEW2_USER_DATA_FOLDER")
+    report(f"WEBVIEW2_USER_DATA_FOLDER in the process: {state['data_variable'] or 'not set'}")
     report(f"WebView2 Core DLL: {state['core'] or 'not loaded'}")
     report(f"page title: {state['title'] or '(none)'} after {time.monotonic() - started:.2f} s")
     app.terminate()
@@ -88,6 +115,8 @@ def launched():
 
 report(f"current folder: {os.getcwd()}")
 report(f"extension: {actionui._actionui.__file__}")
+# The data folder must be written by this run: one left by an earlier run would pass on its own.
+run_started = time.time() - 2
 app.run()
 extension_folder = os.path.normcase(os.path.dirname(os.path.abspath(actionui._actionui.__file__)))
 core_folder = os.path.normcase(os.path.dirname(state["core"])) if state["core"] else None
@@ -96,6 +125,14 @@ if state["title"] != TITLE:
     failures.append("the page did not load")
 if core_folder != extension_folder:
     failures.append("WebView2's Core DLL did not come from the extension's folder")
+if state.get("data_variable"):
+    failures.append("WEBVIEW2_USER_DATA_FOLDER was written into the process's environment")
+data_folder = os.path.join(os.environ.get("LOCALAPPDATA", ""), os.path.splitext(os.path.basename(sys.executable))[0], "WebView2")
+data_written = written_since(data_folder, run_started)
+report(f"data folder {data_folder}: "
+       f"{'written by this run' if data_written else 'present, not written by this run' if os.path.isdir(data_folder) else 'missing'}")
+if state["title"] == TITLE and not data_written:
+    failures.append("the browser's data is not in %LOCALAPPDATA%\\<program name>\\WebView2")
 if state["errors"]:
     failures.append(f"{len(state['errors'])} warnings or errors logged")
 report("PASSED" if not failures else "FAILED: " + "; ".join(failures))

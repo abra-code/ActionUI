@@ -1,10 +1,36 @@
 {
   "type": "VStack",
   "id": 1,
-  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "properties": {
+    "spacing": 8,
+    "alignment": "leading",
+    "padding": 16
+  },
   "children": [
-    { "type": "Text", "id": 4, "properties": { "text": "The app's own load sets a cookie; the second loads JSON from a server" } },
-    { "type": "LoadableView", "id": 2 },
-    { "type": "LoadableView", "id": 3 }
+    {
+      "type": "Text",
+      "id": 4,
+      "properties": {
+        "text": "The app's own WebView and load set cookies; the second LoadableView loads JSON from a server"
+      }
+    },
+    {
+      "type": "WebView",
+      "id": 5,
+      "properties": {
+        "frame": {
+          "width": 120,
+          "height": 40
+        }
+      }
+    },
+    {
+      "type": "LoadableView",
+      "id": 2
+    },
+    {
+      "type": "LoadableView",
+      "id": 3
+    }
   ]
 }

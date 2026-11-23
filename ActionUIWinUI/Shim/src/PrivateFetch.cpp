@@ -1,8 +1,7 @@
-// PrivateFetch.cpp - fetching a URL's contents for content the app does not trust (a LoadableView's
-// remote description in ActionUI JSON from a server) with WinHTTP, carrying nothing of the user's or the
-// app's: no cookies (none sent, none kept), no Windows sign-in (Negotiate, NTLM, Kerberos) and no
-// credential dialog, no cache shared with other programs. The same limits and redirect rules as
-// Network.cpp's fetch: within a size and a time limit, redirects followed here.
+// PrivateFetch.cpp - downloads for less-trusted content (a LoadableView's JSON or an image named by
+// ActionUI JSON from a server), with WinHTTP. A request sends no cookies and no Windows sign-in
+// (Negotiate, NTLM, Kerberos), keeps no cookies, shows no password dialog and shares no cache with other
+// programs. Size limit, time limit and redirect rules are the same as in Network.cpp.
 
 #include "ShimInternal.h"
 
@@ -157,7 +156,7 @@ std::wstring headerText(PrivateFetchState &state, DWORD query) {
     return text;
 }
 
-// Opens the request for `uri` on a new connection: GET, nothing of the user's attached, then sends it.
+// Opens a GET request for `uri` on a new connection, with sign-in and cookies turned off, and sends it.
 void sendRequest(PrivateFetchState &state, wf::Uri const &uri) {
     std::wstring scheme = lowercased(std::wstring(uri.SchemeName()));
     bool secure = scheme == L"https";
