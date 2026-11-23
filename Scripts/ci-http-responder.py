@@ -14,6 +14,8 @@ Routes:
                      a VideoPlayer and a WebView (served by this server, so it is less-trusted content)
   /auth/<name>       401, asking for Negotiate and NTLM sign-in; never completes one
   /cookie/<name>     200, a small valid body of the kind its name ends in (.json, .png, .mp4, .html)
+  /slow.json         200 and its headers, then nothing for 30 seconds (for a time limit)
+  /endless.json      200, then a body that does not end (up to 64 MB, for a size limit)
 Anything else is 404. Stops when --stop-file appears (or when its process is ended).
 """
 
@@ -45,9 +47,12 @@ def outer_json(port):
             children.append({"type": kind, "id": next_id,
                              "properties": {key: f"{base}/{prefix}/{name}", "frame": {"width": 80, "height": 50}}})
             next_id += 1
+    limits = [{"type": "LoadableView", "id": 209, "properties": {"url": f"{base}/slow.json"}},
+              {"type": "LoadableView", "id": 210, "properties": {"url": f"{base}/endless.json"}}]
     return {"type": "VStack", "id": 200, "properties": {"spacing": 4},
             "children": [{"type": "HStack", "id": 220, "properties": {"spacing": 4}, "children": children[:4]},
-                         {"type": "HStack", "id": 221, "properties": {"spacing": 4}, "children": children[4:]}]}
+                         {"type": "HStack", "id": 221, "properties": {"spacing": 4}, "children": children[4:]},
+                         {"type": "HStack", "id": 222, "properties": {"spacing": 4}, "children": limits}]}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -99,6 +104,28 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(200, "application/json", body, [("Set-Cookie", "actionui_probe=1; Path=/")])
         elif path == "/outer.json":
             self.send_body(200, "application/json", json.dumps(outer_json(self.server.port)).encode())
+        elif path in ("/slow.json", "/endless.json"):
+            # No length: the body ends when the connection closes.
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            if self.command == "HEAD":
+                return
+            try:
+                self.wfile.flush()
+                if path == "/slow.json":
+                    self.server.stopping.wait(30)
+                else:
+                    piece = b" " * 65536
+                    for _ in range(1024):
+                        if self.server.stopping.is_set():
+                            break
+                        self.wfile.write(piece)
+            except OSError:
+                # The client gave up, as it should.
+                pass
         elif path.startswith("/auth/"):
             body = b"sign-in required"
             self.send_response(401)
@@ -135,6 +162,7 @@ class Server(ThreadingHTTPServer):
         self.record_lock = settings["lock"]
         self.video = settings["video"]
         self.port = settings["port"]
+        self.stopping = settings["stopping"]
 
 
 def main():
@@ -145,7 +173,8 @@ def main():
     parser.add_argument("--video", help="an MP4 file served for /cookie/*.mp4")
     arguments = parser.parse_args()
     video = Path(arguments.video).read_bytes() if arguments.video else None
-    settings = {"record": arguments.record, "lock": threading.Lock(), "video": video, "port": 0}
+    settings = {"record": arguments.record, "lock": threading.Lock(), "video": video, "port": 0,
+                "stopping": threading.Event()}
     first = Server(("127.0.0.1", 0), socket.AF_INET, settings)
     port = first.server_address[1]
     settings["port"] = port
@@ -167,6 +196,7 @@ def main():
             time.sleep(0.2)
     except KeyboardInterrupt:
         pass
+    settings["stopping"].set()
     for server in servers:
         server.shutdown()
         server.server_close()

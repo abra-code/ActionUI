@@ -1330,7 +1330,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
                                 .splitlines() if line.startswith("preview:")]
         passed = passed and step["status"] == 0 and png.is_file() and png.stat().st_size > 0
     passed = check_share_reads(preview, bin_path, results, summary, env) and passed
-    check_ambient_identity(preview, bin_path, results, summary, env)
+    passed = check_ambient_identity(preview, bin_path, results, summary, env) and passed
     return passed
 
 
@@ -1402,14 +1402,21 @@ def check_share_reads(preview, bin_path, results, summary, env):
     return step["status"] == 0 and control_step["status"] == 0
 
 
+# The less-trusted LoadableViews' downloads, each of which must come from the private fetch and carry no sign-in or
+# cookie (the time and size limits are checked on the private fetch, not only on the error text).
+PRIVATE_FETCH_PATHS = ["/auth/loadable.json", "/cookie/loadable.json", "/slow.json", "/endless.json"]
+
+
 def check_ambient_identity(preview, bin_path, results, summary, env):
-    """Records, without failing anything, what the app's network stacks send to a server that less-trusted
-    content names: a local server (Scripts/ci-http-responder.py, on "localhost", which Windows may count as
+    """Records what the app's network stacks send to a server that less-trusted content names: a local server (Scripts/ci-http-responder.py, on "localhost", which Windows may count as
     the intranet, where it signs in on its own) sets a cookie through the app's own LoadableView, then
     serves JSON (less trusted) whose LoadableView, AsyncImage, VideoPlayer and WebView each name a page
     that asks for Windows sign-in (/auth/) and one that does not (/cookie/). Each request's sign-in scheme
     and cookie names go into the findings, with the preview's warnings about those elements (a load refused
-    sends no request)."""
+    sends no request).
+    Fails when the less-trusted LoadableViews' downloads (the private fetch, user agent "ActionUI") carried
+    a sign-in or a cookie or did not arrive, or when its time and size limits did not hold (/slow.json given
+    up after 3 seconds, /endless.json refused past 100000 bytes); the other stacks are recorded only."""
     findings = summary["findings"]
     folder = results / "ambient-identity"
     folder.mkdir(parents=True, exist_ok=True)
@@ -1425,18 +1432,21 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
                                      stdout=log, stderr=subprocess.STDOUT)
     except OSError as error:
         log.close()
-        findings.append(f"ambient identity: not run: the responder could not start: {error}")
-        return
+        findings.append(f"ambient identity: FAILED: the responder could not start: {error}")
+        return False
     try:
         started = time.monotonic()
         while not port_file.is_file() and responder.poll() is None and time.monotonic() - started < 20:
             time.sleep(0.2)
         port = port_file.read_text(encoding="utf-8").strip() if port_file.is_file() else ""
         if not port.isdigit():
-            findings.append("ambient identity: not run: the responder did not start (see ambient-identity/responder.log)")
-            return
+            findings.append("ambient identity: FAILED: the responder did not start (see ambient-identity/responder.log)")
+            return False
         document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Probes" / "AmbientIdentity.json"
-        step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "260",
+        step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "300",
+                                             "--fetch-timeout", "3", "--fetch-limit", "100000",
+                                             "--expect-log", "/slow.json: loading it took longer than 3 seconds",
+                                             "--expect-log", "/endless.json: the response is larger than 100000 bytes",
                                              "--set-value", "2", f"http://localhost:{port}/set-cookie.json",
                                              "--delay", "3000",
                                              "--set-value", "3", f"http://localhost:{port}/outer.json",
@@ -1445,7 +1455,7 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
         summary["steps"].append(step)
         findings += [f"ambient identity: preview {line.strip()}" for line in
                      (results / step["log"]).read_text(encoding="utf-8", errors="replace").splitlines()
-                     if "[warning]" in line and re.search(r"\b20[1-8]\b", line)]
+                     if ("[warning]" in line or "[error]" in line) and re.search(r"\b(20[1-9]|210)\b", line)]
     finally:
         try:
             stop_file.write_text("stop", encoding="utf-8")
@@ -1455,17 +1465,30 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
             responder.wait()
         log.close()
     lines = record.read_text(encoding="utf-8").splitlines() if record.is_file() else []
-    if not lines:
-        findings.append("ambient identity: no request reached the responder")
-        return
+    entries = []
     for line in lines:
         try:
-            entry = json.loads(line)
+            entries.append(json.loads(line))
         except ValueError:
             continue
+    for entry in entries:
         cookie = ",".join(entry.get("cookie") or []) or "none"
         findings.append(f"ambient identity: {entry.get('method')} {entry.get('path')} over {entry.get('over')}: "
                         f"sign-in {entry.get('authorization') or 'none'}, cookies {cookie}, agent {entry.get('agent') or 'none'}")
+    passed = step["status"] == 0
+    for path in PRIVATE_FETCH_PATHS:
+        requests = [entry for entry in entries if entry.get("path") == path]
+        carried = [entry for entry in requests if entry.get("authorization") or entry.get("cookie")]
+        other = [entry for entry in requests if entry.get("agent") != "ActionUI"]
+        if not requests or carried or other:
+            why = ("no request arrived" if not requests else "a sign-in or a cookie was sent" if carried
+                   else "a request came from another client than the private fetch")
+            findings.append(f"ambient identity: FAILED: {path}: {why}")
+            passed = False
+    if passed:
+        findings.append("ambient identity: passed: the less-trusted LoadableViews' downloads carried no sign-in "
+                        "and no cookie, and stopped at the time and size limits")
+    return passed
 
 
 def main():

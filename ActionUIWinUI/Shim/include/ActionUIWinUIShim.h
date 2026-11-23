@@ -1427,6 +1427,13 @@ typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes,
 // completion) when it could not start: not an http or https URL, not on the UI thread.
 ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, int64_t maximumBytes, double timeoutSeconds,
                                               ActionUIWinUIDataCompletion completion, void *context);
+// The same, for an address that content the app does not trust names, with WinHTTP and nothing of the
+// user's or the app's: no cookies sent or kept, no Windows sign-in (Negotiate, NTLM, Kerberos) to a server
+// or a proxy, no client certificate, no credential dialog, no cache. A server or proxy that asks for a
+// sign-in (401, 407) is a failure. The same limits and redirect rules; the completion is called on the UI
+// thread that started the fetch.
+ACTIONUI_WINUI_API bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, double timeoutSeconds,
+                                                       ActionUIWinUIDataCompletion completion, void *context);
 
 // MARK: - Symbols
 
