@@ -316,17 +316,40 @@ enum ChartDates {
     /// 200 to 600 and heights 90 to 400; a label that does not fit is cut short instead), and counts
     /// the ticks that fall inside: Jan 3 to Feb 8 takes 2 weeks, where weeks would draw 6 ticks
     /// (Jan 4 to Feb 8), while Jan 4 at noon to Feb 14 takes weeks, 5 ticks from Jan 11.
+    ///
+    /// Of two as close, a stride of months whose ticks cross into another year gives way to one
+    /// whose ticks do not, or to years: Mar 10, 2026 to Jan 5, 2027 takes 3 months (Jun, Sep, Dec)
+    /// over 2 months (May to Jan 2027), where Jan 5 to Nov 1 takes 2 months, 5 ticks against 3 in
+    /// both; Feb 10, 2026 to Jan 5, 2029 takes years (2027 to 2029) over 6 months (Aug 2026 to Aug
+    /// 2028). Finer strides keep their ties across a year: Dec 1 to Feb 21 keeps 2 weeks over months,
+    /// Dec 28 to Jan 10 2 days over weeks, and 12 hours stay ahead of days.
+    ///
+    /// An AxisMarks's desiredCount is the ideal (2 over 133 days gives Mar, May; 8 gives every 2 weeks).
     static func axisStride(_ lo: Date, _ hi: Date, ideal: Int = ChartTicks.idealTicks) -> ChartDateStride {
         let span = hi.timeIntervalSince(lo)
-        var best: (stride: ChartDateStride, distance: Int)?
+        var best: (stride: ChartDateStride, distance: Int, crosses: Bool)?
         for stride in ChartDateStride.automatic {
             // A stride far finer than the span would make hundreds of ticks; it is never the closest.
             guard span / stride.seconds <= Double(max(ideal, 1) * 8) else { continue }
-            let distance = abs(ticks(lo, hi, stride: stride).count - ideal)
-            if let current = best, distance >= current.distance { continue }
-            best = (stride, distance)
+            let found = ticks(lo, hi, stride: stride)
+            let distance = abs(found.count - ideal)
+            let crosses = stride.unit == .month && crossesAYear(found)
+            if let current = best {
+                if distance > current.distance { continue }
+                // As close as the finer one: taken only when the finer one is of months crossing a
+                // year, and it does not cross one.
+                if distance == current.distance, !current.crosses || crosses { continue }
+            }
+            best = (stride, distance, crosses)
         }
         return best?.stride ?? .init(unit: .year, count: 1000)
+    }
+
+    /// Whether `dates` fall in more than one calendar year.
+    private static func crossesAYear(_ dates: [Date]) -> Bool {
+        guard let first = dates.first else { return false }
+        let year = calendar.component(.year, from: first)
+        return dates.contains { calendar.component(.year, from: $0) != year }
     }
 
     /// The whole strides inside `lo...hi`.
