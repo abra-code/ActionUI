@@ -300,3 +300,19 @@ public func actionUIAppRemoteEnablePerformAction() -> CBool {
 public func actionUIAppRemoteServerEndpoint() -> UnsafePointer<CChar>? {
     return nil
 }
+
+/// No server runs, so no token was put in the environment: nothing to remove.
+@c
+public func actionUIAppRemoteUnexportToken() -> CBool {
+    return false
+}
+
+/// No server runs, so no token can be minted.
+@c
+public func actionUIAppRemoteMintToken(_ label: UnsafePointer<CChar>?, _ outToken: UnsafeMutablePointer<CChar>?, _ outTokenSize: Int) -> CBool {
+    return false
+}
+
+@c
+public func actionUIAppRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
+}

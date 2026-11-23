@@ -72,7 +72,8 @@ SMOKE_TIMEOUT_SECONDS = 180
 # the document and the PNG: a window size, and elements to operate with the actions they must fire.
 # "{documents_url}" in an option is the documents folder's file URL (an AsyncImage's file URLs);
 # "{program_folder}" the folder the preview runs from (the app's resources, where ActionUIWinUI/Apps/Preview/Bundled
-# is copied), and "{program_folder_upper}" the same in upper case.
+# is copied), and "{program_folder_upper}" the same in upper case; "{documents_folder_json}" the documents
+# folder's path as a JSON string's contents (backslashes doubled).
 PREVIEW_OPTIONS = {
     # The two chart documents at sizes that show their charts whole (the second has two columns).
     # Chart 16 is named by its marks' accessibilityLabel and accessibilityValue, read through UI Automation.
@@ -175,7 +176,9 @@ PREVIEW_OPTIONS = {
     "CanvasEffects": ["420", "210"],
     "ScrollReaders": ["420", "230", "--set-property", "4", "scrollTo", "230", "--wait"],
     "GeometryReaders": ["420", "190"],
-    "Loadables": ["420", "330", "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
+    # The documents folder as the app's resources, so the files it loads are the app's own and load the files
+    # beside them (content from a file elsewhere loads no local files).
+    "Loadables": ["420", "330", "--configuration", '{"resourceFolder": "{documents_folder_json}"}', "--delay", "4000", "--expect-action", "child.loaded", "--expect-action", "grandchild.loaded",
                   "--expect-action", "remote.loaded"],
     # A LoadableView's download: a redirect (github.com to raw.githubusercontent.com) is followed; a body past
     # the limit (lowered to 50 bytes here) is refused.
@@ -1303,6 +1306,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     for document in documents:
         png = results / f"preview-{document.stem}.png"
         options = [option.replace("{documents_url}", document.parent.as_uri())
+                   .replace("{documents_folder_json}", json.dumps(str(document.parent))[1:-1])
                    .replace("{program_folder_upper}", str(bin_path).upper()).replace("{program_folder}", str(bin_path))
                    for option in PREVIEW_OPTIONS.get(document.stem, [])]
         if windows_arch() == "arm64":

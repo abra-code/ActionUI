@@ -18,7 +18,9 @@ import time
 import actionui
 
 TITLE = "Loaded from elsewhere"
-TIMEOUT_SECONDS = 20.0
+# The first WebView2 start on a fresh x64 runner has taken from 6 to more than 20 seconds; a Core DLL
+# that cannot be found fails at once with a logged error, so the wait only covers a slow start.
+TIMEOUT_SECONDS = 60.0
 
 app = actionui.Application(name="Python elsewhere")
 state = {"window": None, "title": None, "errors": [], "core": None}
@@ -29,8 +31,11 @@ def report(message):
 
 
 def on_log(message, level):
-    # Until the page has loaded, its title is not there yet: those reads' warnings say nothing.
-    if level <= actionui.LogLevel.WARNING and "State key 'title' not found" not in message:
+    # Until the page has loaded, its title is not there yet: those reads' warnings say nothing. Nor does
+    # the notice of a browser still starting after 5 seconds: WebView2's first start on a fresh machine
+    # can take longer (x64 runners); a browser that never starts leaves no title, which fails below.
+    if (level <= actionui.LogLevel.WARNING and "State key 'title' not found" not in message
+            and "the browser has not started after 5 seconds" not in message):
         state["errors"].append(message)
         report(f"logged: {message}")
 
