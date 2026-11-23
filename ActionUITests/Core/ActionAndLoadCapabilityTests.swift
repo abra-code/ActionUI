@@ -78,6 +78,19 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
                                                         isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
     }
 
+    func testARefusalForContentOfUnknownOriginIsLoggedOncePerWindow() {
+        let model = ActionUIModel.shared
+        let file = ActionUICapability.openLink(URL(string: "file:///etc/hosts")!)
+        XCTAssertFalse(model.allowsLoggingOnceForUnknownOrigin(file, what: "opening the link", windowUUID: windowUUID))
+        XCTAssertFalse(model.allowsLoggingOnceForUnknownOrigin(file, what: "opening the link", windowUUID: windowUUID))
+        XCTAssertEqual(recording.warnings.filter { $0.contains("origin cannot be told") }.count, 1, "\(recording.warnings)")
+        XCTAssertTrue(model.allowsLoggingOnceForUnknownOrigin(.openLink(URL(string: "https://example.com")!), what: "opening the link",
+                                                              windowUUID: windowUUID), "a web link is allowed for less-trusted content")
+        model.removeWindow(windowUUID)
+        XCTAssertFalse(model.allowsLoggingOnceForUnknownOrigin(file, what: "opening the link", windowUUID: windowUUID))
+        XCTAssertEqual(recording.warnings.filter { $0.contains("origin cannot be told") }.count, 2, "logged again once the window is gone")
+    }
+
     func testTheDefaultPolicyLetsEveryActionFire() async throws {
         try await loadWindow()
         for viewID in [1, 200, 0, 999] {

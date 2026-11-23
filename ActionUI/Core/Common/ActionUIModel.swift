@@ -288,6 +288,19 @@ public class ActionUIModel {
         return true
     }
 
+    /// allowsLoggingOnce for content whose element cannot be told (a renderer node with no element
+    /// to ask for): asked as content of unknown origin, which counts as less trusted, with a
+    /// refusal logged once per window and kind of capability (`what`).
+    public func allowsLoggingOnceForUnknownOrigin(_ capability: ActionUICapability, what: String, windowUUID: String) -> Bool {
+        guard trustPolicy.allows(capability, for: Self.unknownOrigin) else {
+            if loggedRefusals[windowUUID, default: []].insert("?|\(what)").inserted {
+                logger.log("Not \(what) in window \(windowUUID): the content's origin cannot be told, and the trust policy refuses it for content of unknown origin", .warning)
+            }
+            return false
+        }
+        return true
+    }
+
     /// The refusals allowsLoggingOnce has logged, by window (removeWindow forgets a window's).
     private var loggedRefusals: [String: Set<String>] = [:]
 
