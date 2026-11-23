@@ -81,15 +81,16 @@ extension Link: ActionUIWinUIRenderer {
         }
     }
 
-    /// Opens `url` from the node's Link when the trust policy allows it (logged either way).
+    /// Opens `url` from the node's Link when the trust policy allows it (logged either way): the URL the
+    /// policy was asked about, as Foundation writes it (LinkTrust.judgedText).
     static func open(_ url: String, _ node: RenderNode) {
-        guard LinkTrust.allows(url, node) else { return }
+        guard let judged = LinkTrust.judgedText(url, node) else { return }
         let logger = ActionUIModel.shared.logger
-        logger.log("Link \(node.element.id): opening \(url)", .debug)
-        if !URLLauncher.launch(url) {
+        logger.log("Link \(node.element.id): opening \(judged)", .debug)
+        if !URLLauncher.launch(judged) {
             // Text Apple's URL(string:) takes that Windows cannot read as an absolute URL, or a file:
             // or res: link, which WinUI's rules never open.
-            logger.log("Link: \(WinUIError.last("opening \(url)")); it opens nothing", .warning)
+            logger.log("Link: \(WinUIError.last("opening \(judged)")); it opens nothing", .warning)
         }
     }
 

@@ -43,6 +43,17 @@ enum LinkTrust {
         return allowed
     }
 
+    /// The text to hand to Windows for `uri` when the node's content may open it (nil, and logged, when
+    /// not): the URL the trust policy was asked about, as Foundation writes it, so Windows opens that
+    /// address. Read as written, "https://a.example\@b.example/" is a.example to Windows and b.example to
+    /// Foundation and the policy; written by Foundation it is "https://a.example%5C@b.example/", whose
+    /// escaped backslash is no longer a separator Windows can read differently. An address that does not
+    /// parse opens only from trusted content, as written.
+    static func judgedText(_ uri: String, _ node: RenderNode) -> String? {
+        guard allows(uri, node) else { return nil }
+        return URL(string: uri)?.absoluteString ?? uri
+    }
+
     /// Whether the node's content may do `capability` (not logged): asked for its element, or as
     /// content of unknown origin when its element cannot be told (originElementID).
     static func allows(_ capability: ActionUICapability, _ node: RenderNode) -> Bool {

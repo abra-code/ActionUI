@@ -155,9 +155,15 @@ PREVIEW_OPTIONS = {
     "Links": ["420", "220"],
     # The app's own links open whatever they name; links in JSON from a server or from a file outside the
     # app's resources open only web and mail addresses. --no-launch: nothing is opened.
-    "LessTrustedLinks": ["420", "400", "--no-launch", "--delay", "4000",
+    "LessTrustedLinks": ["420", "460", "--no-launch", "--delay", "4000",
                          "--invoke", "3", "--invoke", "4", "--invoke", "101", "--invoke", "102", "--invoke", "103",
-                         "--invoke", "104", "--invoke", "201", "--invoke", "202",
+                         "--invoke", "104", "--invoke", "105", "--invoke", "106", "--invoke", "107", "--invoke", "201",
+                         "--invoke", "202",
+                         # The address the policy judged (b.example), as Foundation writes it, not the text as written.
+                         "--expect-log", "Link 105: opening https://a.example%5C@b.example/",
+                         # A ShareLink's item with another scheme is asked as a link.
+                         "--expect-log", "Not opening ms-settings:display from element 106 ",
+                         "--expect-log", "Not opening \\\\server\\share\\report.txt from element 107 ",
                          "--expect-log", "Link 3: opening ms-settings:display",
                          "--expect-log", "Link 4: opening https://github.com/abra-code/ActionUI",
                          "--expect-log", "Not opening ms-settings:display from element 101 ",

@@ -6,6 +6,9 @@
     { "type": "Link", "id": 101, "properties": { "title": "Windows' display settings (refused)", "url": "ms-settings:display" } },
     { "type": "Link", "id": 102, "properties": { "title": "A file share (refused)", "url": "file://server/share/report.txt" } },
     { "type": "Link", "id": 103, "properties": { "title": "example.com (opens)", "url": "https://example.com/" } },
-    { "type": "Link", "id": 104, "properties": { "title": "Mail (opens)", "url": "mailto:someone@example.com" } }
+    { "type": "Link", "id": 104, "properties": { "title": "Mail (opens)", "url": "mailto:someone@example.com" } },
+    { "type": "Link", "id": 105, "properties": { "title": "b.example (opens as judged)", "url": "https://a.example\\@b.example/" } },
+    { "type": "ShareLink", "id": 106, "properties": { "item": "ms-settings:display" } },
+    { "type": "ShareLink", "id": 107, "properties": { "item": "\\\\server\\share\\report.txt" } }
   ]
 }

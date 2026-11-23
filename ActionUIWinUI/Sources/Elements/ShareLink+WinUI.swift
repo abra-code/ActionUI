@@ -15,10 +15,20 @@
    as SwiftUI shows an EmptyView (logged once), and is collapsed wherever it is (a ScrollView's
    content, a tab), as Link is.
  - Its accessible name is accessibilityLabel, else "Share" (defaultAccessibleName).
+ - The receiving app may open a shared link, so an item with a scheme, or a path on a share
+   (\\server\share, which Windows may read as a file: link), is shared only when the trust policy lets
+   the content open it as a link (.openLink: by default less-trusted content shares web and mail links
+   only; a refusal is logged and no sheet opens), as the URL the policy was asked about, as Foundation
+   writes it.
 
  Not yet: controlSize and buttonStyle, as for a Button.
 */
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import CWinUI
 
 @MainActor private var reportedMissingItem = false
@@ -87,10 +97,24 @@ extension ShareLink: ActionUIWinUIRenderer {
         }
     }
 
-    /// The click: Windows' share sheet with the item.
+    /// The click: Windows' share sheet with the item. An item with a scheme is shared as a link the
+    /// receiving app may open, so it is shared only when the trust policy lets the content open it
+    /// (.openLink, logged when refused), as the URL the policy was asked about (LinkTrust.judgedText); so
+    /// is a path on a share (\\server\share), which Windows may read as a file: link. Other text is shared
+    /// as text.
     private static func share(_ node: RenderNode, from button: WinUIObject) {
         let props = Props(node.properties)
-        guard let item = props.item else { return }
+        guard let given = props.item else { return }
+        var item = given
+        if URL(string: given)?.scheme != nil {
+            // A link: shared only when the content may open it, as the policy read it.
+            guard let judged = LinkTrust.judgedText(given, node) else { return }
+            item = judged
+        } else if LinkTrust.isNetworkPath(given), !LinkTrust.allows(given, node) {
+            // A path on a share, which Windows may read as a file: link: asked as a link (no scheme, so
+            // refused to less-trusted content by default), shared as written when allowed.
+            return
+        }
         let subject = props.subject.flatMap { $0.isEmpty ? nil : $0 }
         let text = props.message.flatMap { $0.isEmpty ? nil : "\($0)\n\n\(item)" } ?? item
         if !actionUIWinUIShareLink(button.pointer, item, subject ?? item, text) {
