@@ -32,6 +32,8 @@ sealed interface ActionUICapability {
     data class WebViewScriptFile(val path: String) : ActionUICapability
     /** An Image, Canvas image, VideoPlayer or AsyncImage reading this local file. */
     data class ReadLocalFile(val path: String) : ActionUICapability
+    /** A VideoPlayer playing this address that is not a local file (a local one is asked as [ReadLocalFile]). */
+    data class PlayMedia(val url: String) : ActionUICapability
     /** Setting the window's title (navigationTitle). */
     data object WindowTitle : ActionUICapability
     /** Presenting a sheet, full-screen cover or popover of its own. */
@@ -75,6 +77,9 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
     /** The schemes a less-trusted WebView may show. */
     val webViewSchemes: Set<String> = setOf("http", "https")
 
+    /** The schemes besides file a less-trusted VideoPlayer may play. */
+    val mediaSchemes: Set<String> = setOf("http", "https")
+
     /** The scheme of [address], lower-cased; empty when it has none (a relative address). */
     fun schemeOf(address: String): String {
         val colon = address.indexOf(':')
@@ -107,7 +112,8 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
     /**
      * What content of [origin] may do when the host does not say: trusted content anything;
      * less-trusted content may open only web and mail links, show only web addresses in a
-     * WebView, give its inline html a base address only of its own document's origin, run no
+     * WebView, play only web addresses in a VideoPlayer (local files as below), give its
+     * inline html a base address only of its own document's origin, run no
      * WebView user scripts, keep no WebView data in the app's persistent store, read
      * local files (images, videos, WebView script files) and load ActionUI JSON from local
      * files only inside the app's resource folders, neither set the title nor present its
@@ -126,6 +132,9 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
             ActionUICapability.WebViewUserScripts, ActionUICapability.WebViewPersistentData -> false
             is ActionUICapability.ReadLocalFile -> isInAppResources(capability.path)
             is ActionUICapability.WebViewScriptFile -> isInAppResources(capability.path)
+            // Web addresses only: not content:, rtsp: or android.resource: addresses, which reach
+            // other apps' data or servers the app does not name.
+            is ActionUICapability.PlayMedia -> schemeOf(capability.url) in mediaSchemes
             ActionUICapability.WindowTitle, ActionUICapability.PresentModal -> false
             // The host's own drawing and input where content not the app's own puts it could pass for the app.
             is ActionUICapability.HostSurface -> false

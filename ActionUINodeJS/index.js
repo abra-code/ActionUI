@@ -765,7 +765,7 @@ const Trust = Object.freeze({ TRUSTED: 'trusted', LESS_TRUSTED: 'lessTrusted' })
 //   allows(capability, origin, byDefault) -> boolean: whether content of origin may do
 //     capability, { capability: kind } with, by kind: 'load' { source }, 'openLink' { url },
 //     'webView' { url } (null for inline html), 'webViewBaseURL' { url }, 'webViewUserScripts',
-//     'webViewPersistentData', 'webViewScriptFile' { path }, 'readLocalFile' { path },
+//     'webViewPersistentData', 'webViewScriptFile' { path }, 'readLocalFile' { path }, 'playMedia' { url },
 //     'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID },
 //     'hostSurface' { surfaceName }.
 //

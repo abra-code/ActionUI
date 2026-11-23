@@ -267,6 +267,16 @@ final class VideoPlayerRendererTests: XCTestCase {
         XCTAssertNotNil(gtk_video_get_file(opaque(try video(host))), "the host's content plays any address GIO knows")
     }
 
+    func testTheTrustPolicyDecidesWhichAddressesPlay() throws {
+        let saved = ActionUIModel.shared.trustPolicy
+        ActionUIModel.shared.trustPolicy = RefusingMedia()
+        defer { ActionUIModel.shared.trustPolicy = saved }
+        let refused = try render(#""url": "https://example.com/refused.mp4""#)
+        XCTAssertNil(gtk_video_get_file(opaque(try video(refused))), "an address the policy refuses is not opened, even for the host")
+        let allowed = try render(#""url": "https://example.com/movie.mp4""#)
+        XCTAssertNotNil(gtk_video_get_file(opaque(try video(allowed))), "another one is")
+    }
+
     func testAFileAddressThatIsNotARegularFileIsNotOpened() throws {
         // A device (or a named pipe) GStreamer would read without end or wait on for good.
         let node = try render(#""url": "file:///dev/zero""#)
@@ -274,5 +284,13 @@ final class VideoPlayerRendererTests: XCTestCase {
         let video = try video(node)
         XCTAssertNil(gtk_video_get_file(opaque(video)), "nothing is opened")
         XCTAssertNil(gtk_video_get_media_stream(opaque(video)))
+    }
+}
+
+/// Refuses playing one address and keeps ActionUI's decisions otherwise.
+private struct RefusingMedia: ActionUITrustPolicy {
+    func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+        if case .playMedia(let url) = capability, url.lastPathComponent == "refused.mp4" { return false }
+        return DefaultTrustPolicy.allowsByDefault(capability, for: origin)
     }
 }

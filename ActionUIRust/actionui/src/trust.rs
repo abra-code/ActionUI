@@ -77,6 +77,9 @@ pub enum Capability {
     /// An image, canvas image, video or shared file read from this local file.
     #[serde(rename = "readLocalFile")]
     ReadLocalFile { path: String },
+    /// A VideoPlayer playing this address that is not a local file.
+    #[serde(rename = "playMedia")]
+    PlayMedia { url: String },
     /// Setting the window's (or a screen's) title.
     #[serde(rename = "windowTitle")]
     WindowTitle,
@@ -232,6 +235,8 @@ mod tests {
                    Capability::WebViewPersistentData);
         assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"hostSurface","surfaceName":"viewport"}"#).unwrap(),
                    Capability::HostSurface { surface_name: "viewport".into() });
+        assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"playMedia","url":"https://example.com/v.mp4"}"#).unwrap(),
+                   Capability::PlayMedia { url: "https://example.com/v.mp4".into() });
     }
 
     struct Panics;

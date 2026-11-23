@@ -107,6 +107,10 @@ public enum ActionUICapability: Sendable, Equatable {
     case webViewScriptFile(String)
     /// An Image, Canvas image, VideoPlayer, AsyncImage or ShareLink reading this local file.
     case readLocalFile(String)
+    /// A VideoPlayer playing this address that is not a local file (a local one is asked as
+    /// readLocalFile). Asked before the player opens it; refused, the player shows that it may
+    /// not play it.
+    case playMedia(URL)
     /// Setting the window's title (navigationTitle on a window root, a WindowGroup title).
     case windowTitle
     /// Presenting a sheet, full-screen cover, popover, alert or confirmation dialog.
@@ -167,6 +171,9 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// The schemes a less-trusted WebView may show.
     public static let webViewSchemes: Set<String> = ["http", "https"]
 
+    /// The schemes besides file a less-trusted VideoPlayer may play.
+    public static let mediaSchemes: Set<String> = ["http", "https"]
+
     /// Whether the file at `path` is inside one of the app's resource folders (symbolic links
     /// followed), the folders whose documents are trusted.
     @MainActor
@@ -189,7 +196,8 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
 
     /// What content of `origin` may do when the host does not say: trusted content anything; less
     /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
-    /// WebView (webViewSchemes), give its inline html a base address only of its own document's
+    /// WebView (webViewSchemes), play only web addresses in a VideoPlayer (mediaSchemes; local
+    /// files as below), give its inline html a base address only of its own document's
     /// origin, run no WebView user scripts, keep no WebView data in the app's persistent store,
     /// read local files (images, videos, WebView script files) and load ActionUI JSON from local
     /// files only inside the app's resources, neither set the window's title nor present its
@@ -214,6 +222,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
         case .webViewUserScripts, .webViewPersistentData:
             // No scripts of its own in its pages, and none of the app's own cookies and storage.
             return false
+        case .playMedia(let url):
+            // Web addresses only: not another computer's share or the desktop's virtual file
+            // systems, which a player's framework may open too.
+            return mediaSchemes.contains(url.scheme?.lowercased() ?? "")
         case .readLocalFile(let path), .webViewScriptFile(let path):
             // The app's own resources only: not the user's files, a device, or a network share.
             return isInAppResources(path)

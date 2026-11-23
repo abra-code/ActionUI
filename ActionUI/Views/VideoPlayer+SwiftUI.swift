@@ -23,6 +23,12 @@ extension VideoPlayer: ActionUISwiftUIRenderer {
             if url.isFileURL, !ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id) {
                 return SwiftUI.Label("Not allowed", systemImage: "exclamationmark.triangle")
             }
+            // Nor an address the trust policy does not let it play (less-trusted content: only web
+            // addresses). Asked in the same way, by the template row's container in a row.
+            if !url.isFileURL, !ActionUIModel.shared.allowsLoggingOnce(.playMedia(url), what: "playing \(url.absoluteString)",
+                                                                       windowUUID: windowUUID, viewID: element.id, model: model) {
+                return SwiftUI.Label("Not allowed", systemImage: "exclamationmark.triangle")
+            }
             // Hoist autoplay out of the closure: [String: Any] is non-Sendable.
             let autoplay = props.autoplay
             // Construction is delegated to a dedicated SwiftUI view: AVKit's VideoPlayer initializer

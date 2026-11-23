@@ -110,7 +110,7 @@ typedef ActionUITrust (*ActionUITrustCallback)(const char* sourceJSON,
 /// ActionUI's own decision `byDefault`. The capability is {"capability": kind} plus, by kind:
 /// "load" {"source": {...}}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
 /// "webViewBaseURL" {"url"}, "webViewUserScripts", "webViewPersistentData",
-/// "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "windowTitle", "presentModal",
+/// "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "playMedia" {"url"}, "windowTitle", "presentModal",
 /// "menuCommands", "action" {"actionID"}, "hostSurface" {"surfaceName"}.
 typedef bool (*ActionUICapabilityCallback)(const char* capabilityJSON,
                                            const char* originJSON,

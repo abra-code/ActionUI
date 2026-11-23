@@ -431,7 +431,7 @@ actionui.setTrustPolicy({
     // Whether content of origin may do capability: { capability: kind } with, by kind:
     // 'load' { source }, 'openLink' { url }, 'webView' { url } (null for inline html),
     // 'webViewBaseURL' { url }, 'webViewUserScripts', 'webViewPersistentData',
-    // 'webViewScriptFile' { path }, 'readLocalFile' { path },
+    // 'webViewScriptFile' { path }, 'readLocalFile' { path }, 'playMedia' { url },
     // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID },
     // 'hostSurface' { surfaceName }.
     allows(capability, origin, byDefault) { return byDefault; },

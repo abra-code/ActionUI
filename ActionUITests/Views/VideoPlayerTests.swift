@@ -230,6 +230,46 @@ final class VideoPlayerTests: XCTestCase {
         XCTAssertEqual(recording.errors.count, 2, "a regular file, a missing one (AVFoundation reports it) and an address go on")
     }
 
+    func testTheTrustPolicyDecidesWhichAddressesPlay() throws {
+        final class Recording: ActionUILogger, @unchecked Sendable {
+            var warnings: [String] = []
+            func log(_ message: String, _ level: LoggerLevel) { if level == .warning { warnings.append(message) } }
+        }
+        /// Records what it is asked and refuses playing one address.
+        final class Policy: ActionUITrustPolicy, @unchecked Sendable {
+            var asked: [ActionUICapability] = []
+            func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+                asked.append(capability)
+                if case .playMedia(let url) = capability { return url.lastPathComponent != "refused.mp4" }
+                return true
+            }
+        }
+        let recording = Recording()
+        let policy = Policy()
+        ActionUIModel.shared.logger = recording
+        ActionUIModel.shared.trustPolicy = policy
+        defer {
+            ActionUIModel.shared.logger = logger
+            ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()
+        }
+        func build(_ url: String, id: Int) throws {
+            let element = try ActionUIElement(from: ["id": id, "type": "VideoPlayer", "properties": ["url": url]], logger: recording)
+            let viewModel = ViewModel()
+            viewModel.seedProperties(element.properties)
+            _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: element.properties)
+        }
+        try build("https://example.com/movie.mp4", id: 1)
+        try build("https://example.com/refused.mp4", id: 2)
+        XCTAssertEqual(policy.asked, [.playMedia(URL(string: "https://example.com/movie.mp4")!),
+                                      .playMedia(URL(string: "https://example.com/refused.mp4")!)])
+        XCTAssertEqual(recording.warnings.count, 1, "\(recording.warnings)")
+        XCTAssertTrue(recording.warnings.first?.contains("Not playing https://example.com/refused.mp4") == true, "\(recording.warnings)")
+        policy.asked = []
+        try build(URL(fileURLWithPath: "/no/such/movie.mp4").absoluteString, id: 3)
+        XCTAssertFalse(policy.asked.contains { if case .playMedia = $0 { return true } else { return false } },
+                       "a local file is asked as readLocalFile, not playMedia: \(policy.asked)")
+    }
+
     func testVideoPlayerMissingURL() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIModel.shared.logger = consoleLogger

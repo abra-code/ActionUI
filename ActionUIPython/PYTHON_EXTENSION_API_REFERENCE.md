@@ -170,7 +170,7 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 // allows: whether content of originJSON may do capabilityJSON, {"capability": kind} with, by kind:
 //   "load" {"source"}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
 //   "webViewBaseURL" {"url"}, "webViewUserScripts", "webViewPersistentData",
-//   "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "windowTitle", "presentModal",
+//   "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "playMedia" {"url"}, "windowTitle", "presentModal",
 //   "menuCommands", "action" {"actionID"}, "hostSurface" {"surfaceName"}.
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```

@@ -37,6 +37,11 @@ test("the default rules: trusted content anything, less-trusted content web link
     assert.equal(allowsByDefault({ capability: "webView", url: "https://example.com/" }, remote), true);
     assert.equal(allowsByDefault({ capability: "webView", url: null }, remote), true);
     assert.equal(allowsByDefault({ capability: "webView", url: "file:///etc/hosts" }, remote), false);
+    assert.equal(allowsByDefault({ capability: "playMedia", url: "https://example.com/v.mp4" }, remote), true);
+    for (const url of ["file:///etc/v.mp4", "blob:https://example.com/1", "data:video/mp4;base64,AAAA"]) {
+        assert.equal(allowsByDefault({ capability: "playMedia", url }, remote), false, url);
+        assert.equal(allowsByDefault({ capability: "playMedia", url }, HOST_ORIGIN), true, url);
+    }
     assert.equal(allowsByDefault({ capability: "webViewBaseURL", url: "https://example.com/other/" }, remote), true);
     assert.equal(allowsByDefault({ capability: "webViewBaseURL", url: "https://bank.example/" }, remote), false);
     assert.equal(allowsByDefault({ capability: "windowTitle" }, remote), false);

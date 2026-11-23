@@ -498,14 +498,14 @@ actionui::log::set_logger(|message, level| {
 
 ## `actionui::trust`
 
-A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading or loading the user's files outside the app's resources, titling the window, covering it with its own sheets.
+A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading or loading the user's files outside the app's resources, titling the window, covering it with its own sheets, showing the host's surfaces, playing media from other addresses than web ones.
 
 | Item | Description |
 |---|---|
 | `Origin { source: Source, trust: Trust, parent_id: Option<i64> }` | Where an element's content came from; `parent_id` is the LoadableView it was loaded into, `None` for a window's root. |
 | `Source` | `Host`, `Resource { path }`, `File { path }`, `Remote { url }`, or `Unknown` for a kind this crate does not know. |
 | `Trust` | `Trusted` or `LessTrusted`. |
-| `Capability` | What content asks to do: `Load { source }`, `OpenLink { url }`, `WebView { url: Option<String> }` (None for inline html), `WebViewBaseUrl { url }`, `WebViewUserScripts`, `WebViewPersistentData`, `WebViewScriptFile { path }`, `ReadLocalFile { path }`, `WindowTitle`, `PresentModal`, `MenuCommands`, `Action { action_id }`, `HostSurface { surface_name }`, or `Unknown`. |
+| `Capability` | What content asks to do: `Load { source }`, `OpenLink { url }`, `WebView { url: Option<String> }` (None for inline html), `WebViewBaseUrl { url }`, `WebViewUserScripts`, `WebViewPersistentData`, `WebViewScriptFile { path }`, `ReadLocalFile { path }`, `WindowTitle`, `PresentModal`, `MenuCommands`, `Action { action_id }`, `HostSurface { surface_name }`, `PlayMedia { url }`, or `Unknown`. |
 | `trait TrustPolicy: Send + Sync` | `trust(&self, source, parent: Option<&Origin>, by_default: Trust) -> Trust` and `allows(&self, capability, origin, by_default: bool) -> bool`; each receives ActionUI's own decision, and a method left out keeps it. |
 | `set_trust_policy(policy: impl TrustPolicy)` | The host's policy, for all windows, from any thread; set it before loading content. |
 | `clear_trust_policy()` | ActionUI's own policy again. |

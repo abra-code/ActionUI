@@ -485,6 +485,13 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertTrue(DefaultTrustPolicy().allows(.webViewPersistentData, for: .host))
         XCTAssertFalse(DefaultTrustPolicy().allows(.hostSurface("viewport"), for: lessTrusted), "no host surface")
         XCTAssertTrue(DefaultTrustPolicy().allows(.hostSurface("viewport"), for: .host))
+        for address in ["https://example.com/v.mp4", "HTTP://example.com/v.mp4"] {
+            XCTAssertTrue(DefaultTrustPolicy().allows(.playMedia(URL(string: address)!), for: lessTrusted), address)
+        }
+        for address in ["smb://server/share/v.mp4", "sftp://host/v.mp4", "trash:///v.mp4", "rtsp://host/v"] {
+            XCTAssertFalse(DefaultTrustPolicy().allows(.playMedia(URL(string: address)!), for: lessTrusted), address)
+            XCTAssertTrue(DefaultTrustPolicy().allows(.playMedia(URL(string: address)!), for: .host), "\(address): the host's content plays anything")
+        }
         for address in ["HTTPS://example.com", "mailto:someone@example.com"] {
             XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(URL(string: address)!), for: lessTrusted), address)
         }

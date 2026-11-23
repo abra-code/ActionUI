@@ -82,6 +82,12 @@ class TrustPolicyTest {
         assertTrue(allows(ActionUICapability.WebViewPersistentData, JSONContentOrigin.HOST))
         assertFalse(allows(ActionUICapability.HostSurface("viewport")))
         assertTrue(allows(ActionUICapability.HostSurface("viewport"), JSONContentOrigin.HOST))
+        assertTrue(allows(ActionUICapability.PlayMedia("https://example.com/v.mp4")))
+        assertTrue(allows(ActionUICapability.PlayMedia("HTTP://example.com/v.mp4")))
+        for (address in listOf("content://media/external/video/1", "rtsp://host/v", "android.resource://app/raw/v")) {
+            assertFalse(address, allows(ActionUICapability.PlayMedia(address)))
+            assertTrue(address, allows(ActionUICapability.PlayMedia(address), JSONContentOrigin.HOST))
+        }
         assertTrue(allows(ActionUICapability.Action("app.save")))
     }
 
