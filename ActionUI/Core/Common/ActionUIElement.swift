@@ -84,6 +84,22 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         }
     }
     
+    // The id an element's JSON gives it, or a generated one. Ids in JSON are positive: 0 stands for
+    // no element (the host's own actions are judged as viewID 0) and negative ids are the ones this
+    // counter hands out, so either would make the element pass for something else - the host, or
+    // another element that has no id of its own. Such an id is replaced by a generated one, with a
+    // warning.
+    static func explicitOrGeneratedID(_ id: Int?, type: String?, logger: (any ActionUILogger)?) -> Int {
+        guard let id else {
+            return generateNegativeID()
+        }
+        if id > 0 {
+            return id
+        }
+        logger?.log("Ignoring id \(id) on \(type ?? "an element"): an id must be a positive integer", .warning)
+        return generateNegativeID()
+    }
+
     // Initializes a ActionUIElement with explicit values
     init(id: Int, type: String, properties: [String: Any], subviews: [String: Any]?) {
         self.id = id
@@ -100,8 +116,8 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     public init(from decoder: Decoder) throws {
         let logger = decoder.logger
         let container = try decoder.container(keyedBy: ElementCodingKeys.self)
-        id = try container.decodeIfPresent(Int.self, forKey: .id) ?? ActionUIElement.generateNegativeID()
         type = try container.decode(String.self, forKey: .type)
+        id = ActionUIElement.explicitOrGeneratedID(try container.decodeIfPresent(Int.self, forKey: .id), type: type, logger: logger)
         let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
         var convertedProperties: [String: Any] = [:]
         for (key, value) in decodedProperties {
@@ -228,10 +244,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     
     // Initializes a ActionUIElement from a dictionary (e.g., parsed JSON)
     init(from dictionary: [String: Any], logger: any ActionUILogger) throws {
-        let id = dictionary["id"] as? Int ?? ActionUIElement.generateNegativeID()
         guard let type = dictionary["type"] as? String else {
             throw ActionUIError("Missing type")
         }
+        let id = ActionUIElement.explicitOrGeneratedID(dictionary["id"] as? Int, type: type, logger: logger)
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         var subviews: [String: Any]?
         

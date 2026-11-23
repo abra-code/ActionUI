@@ -66,13 +66,15 @@ final class TemplateIDRuleTests: XCTestCase {
         XCTAssertThrowsError(try loadRemote(#"{ "id": 200, "type": "VStack", "sheet": { "id": 202, "type": "List", "template": { "id": 2, "type": "Button" } } }"#))
     }
 
-    func testANegativeIDInATemplatesOverlayIsCheckedToo() throws {
-        // Decoding keeps a negative id the JSON gives in a template's overlay, so it can be a trusted element's.
-        _ = try ActionUIDocumentLoader.load(data: Data(#"{ "id": -7, "type": "Button", "properties": { "title": "Mine" } }"#.utf8),
-                                            format: "json", windowUUID: windowUUID, isContentView: false, parentID: 0, source: nil)
-        XCTAssertThrowsError(try loadRemote(#"{ "id": 200, "type": "List", "template": { "id": 201, "type": "Text", "overlay": { "id": -7, "type": "Button" } } }"#)) { error in
-            XCTAssertEqual("\(error)", "id conflict: -7 already in the window")
-        }
+    func testANegativeIDInATemplatesOverlayIsNotKept() throws {
+        // A negative id the JSON gives is replaced by a generated one, in a template's overlay as
+        // anywhere else, so it cannot name a trusted element that has no id of its own: here one
+        // whose generated id the less-trusted JSON names.
+        let trusted = try ActionUIDocumentLoader.load(data: Data(#"{ "type": "Button", "properties": { "title": "Mine" } }"#.utf8),
+                                                      format: "json", windowUUID: windowUUID, isContentView: false, parentID: 0, source: nil)
+        XCTAssertLessThan(trusted.id, -1, "a generated id")
+        XCTAssertNoThrow(try loadRemote(#"{ "id": 200, "type": "List", "template": { "id": 201, "type": "Text", "overlay": { "id": \#(trusted.id), "type": "Button" } } }"#))
+        XCTAssertEqual(recording.errors, [])
     }
 
     /// A Chart whose BarMark has an annotation with `content`, drawn per mark like a template row.

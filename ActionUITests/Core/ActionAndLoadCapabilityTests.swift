@@ -119,12 +119,14 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
     func testContentWithElementIDZeroIsNotTakenForTheHost() async throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let data = Data(#"{"id": 0, "type": "Button", "properties": {"title": "Run", "actionID": "test.run"}}"#.utf8)
-        _ = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/zero.json")!, windowUUID: windowUUID,
-                                                        isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
+        let element = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/zero.json")!, windowUUID: windowUUID,
+                                                                  isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
+        XCTAssertLessThan(element.id, -1, "the id 0 is replaced by a generated one")
+        XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 0), "no element is known by the id 0")
         ActionUIModel.shared.trustPolicy = StrictPolicy()
-        // What a tap on the remote Button fires (Button.userTapped passes its own id, 0).
-        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 0, viewPartID: 0)
-        XCTAssertEqual(fired, [], "the remote element 0 is less trusted, not the host's")
+        // What a tap on the remote Button fires (Button.userTapped passes its own id).
+        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        XCTAssertEqual(fired, [], "the remote element is less trusted, not the host's")
         // The host's own toast and dialog buttons still fire.
         ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 0, viewPartID: 0, origin: .host)
         XCTAssertEqual(fired, [0])
