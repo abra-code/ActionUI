@@ -66,7 +66,9 @@ export class ActionUIElement {
 
     static fromObject(raw, logger) {
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-            logger.log(`Element must be a JSON object, got ${JSON.stringify(raw)}`, "error");
+            // The kind of value only: an array or a string could carry what a user typed.
+            const kind = raw === null ? "null" : Array.isArray(raw) ? "an array" : `a ${typeof raw}`;
+            logger.log(`Element must be a JSON object, got ${kind}`, "error");
             return null;
         }
         if (typeof raw.type !== "string" || raw.type.length === 0) {
