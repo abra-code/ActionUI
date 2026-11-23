@@ -319,31 +319,13 @@ void restrictPage(std::shared_ptr<WebViewData> const &data) {
         L"Object.defineProperty(window, 'print', {value: function () {}, writable: false, configurable: false});"});
 }
 
-// WebView2's Core DLL, loaded from the shim's own folder, where the library package and the programs
-// built with it place it. WinUI loads it by name when it makes a web view, and Windows looks for a DLL
-// loaded by name beside the program, in the system folders, the current folder and PATH: a host program
-// elsewhere (python.exe, node.exe) would not find it beside the shim. Once loaded, the load by name finds
-// it in the process. Once; a failure leaves WinUI's own search, which reports it.
-void loadWebViewCoreBesideShim() {
-    static bool attempted = false;
-    if (attempted) {
-        return;
-    }
-    attempted = true;
-    constexpr const wchar_t *core = L"Microsoft.Web.WebView2.Core.dll";
-    if (GetModuleHandleW(core) != nullptr) {
-        return;
-    }
-    HMODULE shim = nullptr;
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            reinterpret_cast<LPCWSTR>(&loadWebViewCoreBesideShim), &shim)) {
-        return;
-    }
+// The folder of `module` (nullptr: the program), with a trailing backslash; empty when unknown.
+std::wstring folderOf(HMODULE module) {
     std::wstring path(MAX_PATH, L'\0');
     for (;;) {
-        DWORD length = GetModuleFileNameW(shim, path.data(), static_cast<DWORD>(path.size()));
+        DWORD length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
         if (length == 0) {
-            return;
+            return std::wstring();
         }
         if (length < path.size()) {
             path.resize(length);
@@ -352,12 +334,44 @@ void loadWebViewCoreBesideShim() {
         path.resize(path.size() * 2);
     }
     size_t slash = path.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) {
-        return;
+    return slash == std::wstring::npos ? std::wstring() : path.substr(0, slash + 1);
+}
+
+// WebView2's Core DLL, loaded by its full path: from the shim's own folder (where the library package
+// puts it), else from the program's folder (where a WinUI app's build puts it). WinUI loads it by name
+// when it makes a web view, and Windows would look for a DLL loaded by name in the current folder and on
+// PATH too, where any file of that name would be loaded into the host. Once loaded, the load by name
+// finds it in the process. False when neither folder has it: then no web view is made, so WinUI's own
+// search never runs. A success is remembered; a failure is tried again with the next web view (a host may
+// copy the DLL in later).
+bool loadWebViewCoreByPath() {
+    static bool loaded = false;
+    if (loaded) {
+        return true;
     }
-    path = path.substr(0, slash + 1) + core;
-    // Its own imports are looked for beside it first, then in the system folders.
-    LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    constexpr const wchar_t *core = L"Microsoft.Web.WebView2.Core.dll";
+    if (GetModuleHandleW(core) != nullptr) {
+        loaded = true;
+        return true;
+    }
+    HMODULE shim = nullptr;
+    std::wstring shimFolder;
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           reinterpret_cast<LPCWSTR>(&loadWebViewCoreByPath), &shim)) {
+        shimFolder = folderOf(shim);
+    }
+    for (std::wstring const &folder : {shimFolder, folderOf(nullptr)}) {
+        if (folder.empty()) {
+            continue;
+        }
+        std::wstring path = folder + core;
+        // Its own imports are looked for beside it first, then in the system folders.
+        if (LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS) != nullptr) {
+            loaded = true;
+            return true;
+        }
+    }
+    return false;
 }
 
 // The folder the browser keeps its data in (cookies, cache, storage): the host's
@@ -463,8 +477,11 @@ using namespace actionui_winui;
 extern "C" {
 
 ActionUIWinUIObject *actionUIWinUIWebViewCreateWithOptions(bool restricted, bool privateData) {
-    return guardedObject("web view create", [restricted, privateData]() {
-        loadWebViewCoreBesideShim();
+    return guardedObject("web view create", [restricted, privateData]() -> ActionUIWinUIObject * {
+        if (!loadWebViewCoreByPath()) {
+            fail("web view create", "Microsoft.Web.WebView2.Core.dll is not beside ActionUIWinUIShim.dll or the program");
+            return nullptr;
+        }
         muxc::WebView2 view;
         auto data = std::make_shared<WebViewData>();
         data->view = winrt::make_weak(view);

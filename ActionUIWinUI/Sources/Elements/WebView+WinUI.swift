@@ -51,8 +51,8 @@
 
  A program showing a WebView needs WebView2's WinRT component, Microsoft.Web.WebView2.Core.dll (the
  microsoft.web.webview2 package's runtimes/win-<arch>/native_uap), beside it, where a WinUI app's build
- puts it; without it the browser fails to start ("The specified module could not be found"), logged
- once per WebView, and the WebView stays empty.
+ puts it, or beside ActionUIWinUIShim.dll. The shim loads it only by its full path; without it, no
+ WebView is made, and the log says why, once per WebView.
 
  Ignored: backForwardNavigationGestures and magnificationGestures (WebView2's own: the mouse's back
  and forward buttons, Ctrl and the wheel), and the Apple-only linkPreviews,

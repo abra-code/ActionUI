@@ -50,7 +50,9 @@ A WebView is WinUI's **WebView2** control. It needs two things, which are differ
 - **The WebView2 runtime**: the browser engine itself, shared by every app on the machine and kept up to date by Microsoft (the "Evergreen" runtime). Windows 11 ships it. Windows Server, and some older or locked-down machines, may not have it: Microsoft's WebView2 runtime installer (the "Evergreen Bootstrapper") installs it. A program does not ship it.
 - **`Microsoft.Web.WebView2.Core.dll`**: the WebView2 SDK's Windows Runtime component, through which WinUI starts and talks to that runtime (the SDK's loader is linked into it). It belongs to the app, not to Windows: neither Windows nor the Windows App SDK runtime provides it, and each program carries its own copy beside its `.exe`, or beside `ActionUIWinUIShim.dll` (x64 about 0.8 MB, Arm64 about 1.1 MB): the shim loads it from its own folder before the first WebView, so a host whose `.exe` is elsewhere (python.exe, node.exe) finds it in the library package's folder. A WinUI app built in Visual Studio gets it copied into its output by the NuGet package's build rules without noticing; a program built another way copies it itself.
 
-Without the DLL a WebView stays empty and logs "the browser failed: The specified module could not be found"; without the runtime it logs why the browser failed, or that it has not started after 5 seconds.
+The shim loads the DLL only by its full path, from its own folder or the program's. Without it there, no WebView is made, and the log says "Microsoft.Web.WebView2.Core.dll is not beside ActionUIWinUIShim.dll or the program"; a file of that name in the current folder or on PATH is never loaded. Without the runtime, a WebView logs why the browser failed, or that it has not started after 5 seconds.
+
+A host program can also keep other DLLs from loading out of the current folder: keep the library package's DLLs beside the program or the shim, and call `SetDllDirectoryW(L"")` (or `SetDefaultDllDirectories`) first thing in its start. ActionUI does not change the process's DLL search on its own; its own programs (the Viewer and the test tools) do it.
 
 ### Where to get it
 

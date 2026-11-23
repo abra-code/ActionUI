@@ -182,6 +182,10 @@ bool actionUIWinUICopyLastError(char *outMessage, ptrdiff_t outMessageSize) {
     return true;
 }
 
+bool actionUIWinUIRemoveCurrentFolderFromDLLSearch(void) {
+    return SetDllDirectoryW(L"") != FALSE;
+}
+
 bool actionUIWinUIInitialize(void) {
     PACKAGE_VERSION minVersion{};
     minVersion.Version = WINDOWSAPPSDK_RUNTIME_VERSION_UINT64;

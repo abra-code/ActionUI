@@ -47,6 +47,14 @@ import Dispatch
 public final class WinUIApplication {
     public static let shared = WinUIApplication()
 
+    /// Removes the current folder from the places Windows searches for a DLL loaded by name, for the whole
+    /// process, so a file named like a DLL in the folder the program was started in is never loaded. Call
+    /// it first in a program's start; ActionUI never changes the process's DLL search on its own.
+    @discardableResult
+    public static func removeCurrentFolderFromDLLSearch() -> Bool {
+        actionUIWinUIRemoveCurrentFolderFromDLLSearch()
+    }
+
     /// The host's lifecycle handlers (actionUIAppSet...Handler).
     public struct Handlers {
         public var willFinishLaunching: (() -> Void)?

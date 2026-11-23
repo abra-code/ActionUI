@@ -5,7 +5,10 @@ not beside the extension; the shim loads that DLL from its own folder first. Pri
 lines: where WebView2's Core DLL was loaded from and whether the page loaded (its title). Exit status 0
 when the page loaded, the DLL came from the extension's folder, the browser's data folder was not written
 into the process's environment and is %LOCALAPPDATA%\\<program name>\\WebView2, and nothing was logged as a
-warning or error. Run by Scripts/ci-windows.py with the extension's folder on PYTHONPATH.
+warning or error. With --without-core, run from a copy of the extension's folder without WebView2's Core
+DLL, with a copy of that DLL planted in the current folder and on PATH: exit status 0 when no page loaded,
+no Core DLL was loaded (the planted copy included), and the log says it is missing. Run by
+Scripts/ci-windows.py with the extension's folder on PYTHONPATH.
 """
 
 import ctypes
@@ -22,6 +25,11 @@ TITLE = "Loaded from elsewhere"
 # The first WebView2 start on a fresh x64 runner has taken from 6 to more than 20 seconds; a Core DLL
 # that cannot be found fails at once with a logged error, so the wait only covers a slow start.
 TIMEOUT_SECONDS = 60.0
+# With --without-core the extension's folder lacks WebView2's Core DLL: no web view may be made (the shim
+# loads that DLL only by its full path, never by a search of the current folder or PATH), and the log must
+# say why.
+WITHOUT_CORE = "--without-core" in sys.argv[1:]
+MISSING_CORE = "Microsoft.Web.WebView2.Core.dll is not beside ActionUIWinUIShim.dll or the program"
 
 app = actionui.Application(name="Python elsewhere")
 state = {"window": None, "title": None, "errors": [], "core": None}
@@ -83,7 +91,9 @@ def written_since(folder, since):
 def watch():
     """Waits for the page's title, then reports and ends the application."""
     started = time.monotonic()
-    while time.monotonic() - started < TIMEOUT_SECONDS:
+    while time.monotonic() - started < (10.0 if WITHOUT_CORE else TIMEOUT_SECONDS):
+        if WITHOUT_CORE and any(MISSING_CORE in message for message in state["errors"]):
+            break
         window = state["window"]
         if window is not None:
             title = window.get_state_string(1, "title")
@@ -113,6 +123,7 @@ def launched():
     threading.Thread(target=watch, daemon=True).start()
 
 
+report(f"mode: {'without the Core DLL' if WITHOUT_CORE else 'normal'}")
 report(f"current folder: {os.getcwd()}")
 report(f"extension: {actionui._actionui.__file__}")
 # The data folder must be written by this run: one left by an earlier run would pass on its own.
@@ -121,6 +132,15 @@ app.run()
 extension_folder = os.path.normcase(os.path.dirname(os.path.abspath(actionui._actionui.__file__)))
 core_folder = os.path.normcase(os.path.dirname(state["core"])) if state["core"] else None
 failures = []
+if WITHOUT_CORE:
+    if state["title"]:
+        failures.append("a page loaded without the Core DLL beside the shim")
+    if state["core"]:
+        failures.append(f"WebView2's Core DLL was loaded from {state['core']}")
+    if not any(MISSING_CORE in message for message in state["errors"]):
+        failures.append("the missing Core DLL was not logged")
+    report("PASSED" if not failures else "FAILED: " + "; ".join(failures))
+    sys.exit(0 if not failures else 1)
 if state["title"] != TITLE:
     failures.append("the page did not load")
 if core_folder != extension_folder:

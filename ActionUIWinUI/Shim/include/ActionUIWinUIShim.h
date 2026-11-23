@@ -52,6 +52,12 @@ ACTIONUI_WINUI_API bool actionUIWinUICopyLastError(char *outMessage, ptrdiff_t o
 // that runtime is not installed.
 ACTIONUI_WINUI_API bool actionUIWinUIInitialize(void);
 
+// Removes the current folder from the places Windows searches for a DLL loaded by name, for the whole
+// process (SetDllDirectoryW with an empty string), so a file named like a DLL in the folder the program
+// was started in is never loaded. For a program's own start, before anything loads a DLL: a host's
+// process-wide settings are the host's to choose, so ActionUI never calls it on its own.
+ACTIONUI_WINUI_API bool actionUIWinUIRemoveCurrentFolderFromDLLSearch(void);
+
 // Detaches the runtime again, after actionUIWinUIRun has returned.
 ACTIONUI_WINUI_API void actionUIWinUIShutdown(void);
 

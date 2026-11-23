@@ -24,6 +24,9 @@ import ucrt
 import ActionUI
 import ActionUIWinUIApplication
 
+// Before anything loads a DLL by name: a file named like one in the current folder is never loaded.
+WinUIApplication.removeCurrentFolderFromDLLSearch()
+
 let usage = "usage: ActionUIViewer <document.json> [--screenshot <file.png>] [--rows <id> <rows.json>]..."
 let windowUUID = "viewer"
 /// How long the window has to draw before a screenshot is taken.

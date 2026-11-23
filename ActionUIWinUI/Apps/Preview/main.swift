@@ -563,6 +563,8 @@ func fileSize(_ path: String) -> Int {
     return Int(ftell(file))
 }
 
+// Before anything loads a DLL by name: a file named like one in the current folder is never loaded.
+_ = actionUIWinUIRemoveCurrentFolderFromDLLSearch()
 setvbuf(__acrt_iob_func(1), nil, _IONBF, 0)  // stdout, unbuffered: the lines must survive a crash
 
 let arguments = CommandLine.arguments

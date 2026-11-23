@@ -1049,7 +1049,26 @@ def check_python(package, results, summary, msvc):
                             .splitlines() if line.startswith("python-elsewhere:")]
     succeeded = step["status"] == 0
     summary["findings"].append(f"python webview_elsewhere: {'passed' if succeeded else 'FAILED, exit ' + str(step['status'])}")
-    return passed and succeeded
+    # The same with the package's DLLs but WebView2's Core DLL, and a copy of that DLL planted in the
+    # current folder and in a folder on PATH: no web view, a clear log line, and the planted copy never
+    # loaded. The shim never searches the current folder or PATH for it.
+    if not (source / WEBVIEW2_CORE).is_file():
+        summary["findings"].append(f"python webview_without_core: not run: no {WEBVIEW2_CORE} beside the extension")
+        return False
+    without_core = work / "without-core"
+    shutil.copytree(source, without_core, ignore=shutil.ignore_patterns(WEBVIEW2_CORE, "__pycache__", "build"))
+    planted = work / "planted"
+    planted.mkdir()
+    shutil.copy2(source / WEBVIEW2_CORE, planted / WEBVIEW2_CORE)
+    stripped = dict(plain, PYTHONPATH=str(without_core), PATH=f"{plain['PATH']};{planted}")
+    step = run_step("python-webview-without-core", [python, script, "--without-core"], results, stripped, cwd=planted,
+                    timeout=SMOKE_TIMEOUT_SECONDS)
+    summary["steps"].append(step)
+    summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                            .splitlines() if line.startswith("python-elsewhere:")]
+    without_ok = step["status"] == 0
+    summary["findings"].append(f"python webview_without_core: {'passed' if without_ok else 'FAILED, exit ' + str(step['status'])}")
+    return passed and succeeded and without_ok
 
 
 def check_node(package, results, summary, msvc):
