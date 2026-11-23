@@ -18,6 +18,9 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Reads a [LoadableSource] into a decoded [ActionUIElement], shared by both the
@@ -39,6 +42,48 @@ internal const val LOADABLE_REMOTE_TIMEOUT_MS = 15_000
 
 /** The longest a whole remote load may take, as on Apple and Linux: a server sending a byte now and then stays under the read timeout. */
 internal const val LOADABLE_REMOTE_TOTAL_TIMEOUT_MS = 120_000L
+
+/**
+ * One daemon thread that ends the remote loads that outlast their time ([withLoadDeadline]). A
+ * canceled timer leaves the queue at once, not when its time would have come, so finished loads
+ * do not keep their connections for two minutes.
+ */
+private val loadDeadlines = ScheduledThreadPoolExecutor(1) { task ->
+    Thread(task, "ActionUI load deadline").apply { isDaemon = true }
+}.apply { removeOnCancelPolicy = true }
+
+/**
+ * [body]'s result, with [connection] disconnected once the whole load has taken [limitMs]: the
+ * connect and read timeouts apply to each step, so a server that sends its headers or its body
+ * a byte at a time stays under them. The step the disconnect interrupts throws, and the error
+ * says the time ran out. [connection] is always disconnected when this returns.
+ */
+internal fun <T> withLoadDeadline(
+    connection: HttpURLConnection,
+    url: String,
+    limitMs: Long = LOADABLE_REMOTE_TOTAL_TIMEOUT_MS,
+    body: () -> T,
+): T {
+    val expired = AtomicBoolean(false)
+    val seconds = if (limitMs % 1000 == 0L) "${limitMs / 1000}" else "${limitMs / 1000.0}"
+    val timer = loadDeadlines.schedule({
+        expired.set(true)
+        connection.disconnect()
+    }, limitMs, TimeUnit.MILLISECONDS)
+    try {
+        val result = body()
+        if (expired.get()) throw IOException("loading $url took longer than $seconds seconds")
+        return result
+    } catch (e: Exception) {
+        // Whatever the disconnect made the step throw, the time ran out: an IOException, which
+        // the callers catch.
+        if (expired.get()) throw IOException("loading $url took longer than $seconds seconds", e)
+        throw e
+    } finally {
+        timer.cancel(false)
+        connection.disconnect()
+    }
+}
 
 /**
  * How deep LoadableViews may nest: one whose LoadableViews around it already number this
@@ -272,14 +317,12 @@ internal fun decodeDescription(
  * only off the main thread.
  */
 private fun fetchRemoteText(url: String): Pair<String, String> {
-    // nanoTime has an arbitrary origin and can wrap: compare differences, never the values.
-    val deadline = System.nanoTime() + LOADABLE_REMOTE_TOTAL_TIMEOUT_MS * 1_000_000
     val connection = (URL(url).openConnection() as HttpURLConnection).apply {
         connectTimeout = LOADABLE_REMOTE_TIMEOUT_MS
         readTimeout = LOADABLE_REMOTE_TIMEOUT_MS
         requestMethod = "GET"
     }
-    try {
+    return withLoadDeadline(connection, url) {
         val code = connection.responseCode
         if (code !in 200..299) throw IOException("HTTP $code for $url")
         // Read up to the JSON size cap: a larger body is not decoded anyway, so reading on only costs memory.
@@ -292,15 +335,10 @@ private fun fetchRemoteText(url: String): Pair<String, String> {
                 if (count < 0) break
                 buffer.write(chunk, 0, count)
                 if (buffer.size() > limit) throw IOException("$url is larger than $descriptionMaxMegabytes MB")
-                if (System.nanoTime() - deadline > 0) {
-                    throw IOException("loading $url took longer than ${LOADABLE_REMOTE_TOTAL_TIMEOUT_MS / 1000} seconds")
-                }
             }
         }
         // After the body is read, the connection's URL is the last one it was redirected to.
-        return buffer.toString(Charsets.UTF_8.name()) to connection.url.toString()
-    } finally {
-        connection.disconnect()
+        buffer.toString(Charsets.UTF_8.name()) to connection.url.toString()
     }
 }
 
