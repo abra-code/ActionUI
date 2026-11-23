@@ -7,12 +7,17 @@
 */
 
 /// How an element grows when offered more space than it needs (SwiftUI's flexibility), as on Linux.
-struct Expansion: OptionSet {
-    let rawValue: Int
-    static let horizontal = Expansion(rawValue: 1)
-    static let vertical = Expansion(rawValue: 2)
-    static let both: Expansion = [.horizontal, .vertical]
+/// Public for add-on elements (ActionUIWinUIElement), under a name of ActionUI's own.
+public struct ActionUIExpansion: OptionSet, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+    public static let horizontal = ActionUIExpansion(rawValue: 1)
+    public static let vertical = ActionUIExpansion(rawValue: 2)
+    public static let both: ActionUIExpansion = [.horizontal, .vertical]
 }
+
+/// The renderer's own name for it.
+typealias Expansion = ActionUIExpansion
 
 @MainActor
 protocol ActionUIWinUIRenderer {

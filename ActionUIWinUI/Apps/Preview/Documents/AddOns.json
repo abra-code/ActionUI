@@ -1,0 +1,10 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "An add-on element, and an element type nothing registered" } },
+    { "type": "AddOnProbe", "id": 3, "properties": { "text": "registered" } },
+    { "type": "NoSuchAddOn", "id": 4, "properties": { "text": "never shown" } }
+  ]
+}

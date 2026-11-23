@@ -85,6 +85,11 @@ extension ActionUIRegistry {
         ActionUIRendererHooks.resourceFolders = LinkTrust.resourceFolders
     }
 
+    /// Binds `renderer` to an element type (register(_:as:), for an add-on's element).
+    func setWinUIRenderer(_ renderer: any ActionUIWinUIRenderer.Type, forElementType type: String) {
+        Self.winUIRenderers[type] = renderer
+    }
+
     /// The renderer for an element type, or the placeholder (logged once per type) when the type
     /// has none on Windows.
     func winUIRenderer(forElementType type: String) -> any ActionUIWinUIRenderer.Type {

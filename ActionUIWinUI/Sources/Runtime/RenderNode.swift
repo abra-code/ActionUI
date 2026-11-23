@@ -18,9 +18,9 @@ import CWinUI
 import Observation
 
 @MainActor
-package final class RenderNode {
-    package let element: any ActionUIElementBase
-    package let model: ViewModel
+public final class RenderNode {
+    public let element: any ActionUIElementBase
+    public let model: ViewModel
     let windowModel: WindowModel
     private(set) weak var parent: RenderNode?
     /// How deep in the tree: 0 for the root. SyncScheduler syncs parents first.
@@ -84,7 +84,7 @@ package final class RenderNode {
 
     /// What the renderer keeps for this element instance beside its WinUI object (a stack's
     /// StackLayout), as on Linux.
-    var state: AnyObject?
+    public var state: AnyObject?
 
     /// False once the node left the tree (its element was removed, or its window went away).
     private(set) var isAttached = true
@@ -109,7 +109,7 @@ package final class RenderNode {
     private var unsyncedChildren: [RenderNode] = []
 
     /// The element's current properties: its view model's store once seeded. A tracked read.
-    package var properties: [String: Any] {
+    public var properties: [String: Any] {
         ActionUIRegistry.shared.currentProperties(element: element, model: model)
     }
 

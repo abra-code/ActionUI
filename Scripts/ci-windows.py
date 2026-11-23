@@ -89,6 +89,11 @@ SMOKE_TIMEOUT_SECONDS = 180
 # is copied), and "{program_folder_upper}" the same in upper case; "{documents_folder_json}" the documents
 # folder's path as a JSON string's contents (backslashes doubled).
 PREVIEW_OPTIONS = {
+    # An element registered the way an add-on registers one (the preview's AddOnProbe) shows its text; an element
+    # type nothing registered shows the placeholder.
+    "AddOns": ["420", "160",
+               "--expect-automation", "3", "name", "add-on: registered",
+               "--expect-log", "NoSuchAddOn is not available on Windows yet; showing a placeholder"],
     # The two chart documents at sizes that show their charts whole (the second has two columns).
     # Chart 16 is named by its marks' accessibilityLabel and accessibilityValue, read through UI Automation.
     "Charts": ["560", "720", "--expect-automation", "16", "name",

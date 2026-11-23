@@ -630,6 +630,8 @@ guard arguments.count >= 3 else {
     exit(64)
 }
 let preview = Preview.shared
+// An element registered the way an add-on registers one (AddOnProbe.swift), for AddOns.json.
+ActionUIRegistry.shared.register(AddOnProbe.self, as: "AddOnProbe")
 /// --expect-log: the texts some logged message must contain.
 var expectedLogs: [String] = []
 preview.documentPath = arguments[1]
