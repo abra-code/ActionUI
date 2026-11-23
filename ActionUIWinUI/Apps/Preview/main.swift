@@ -68,6 +68,7 @@
 //   --configuration JSON     the host's configuration (ActionUIConfiguration), before the document loads
 //   --refuse-remote-loads    a host trust policy that refuses LoadableViews' remote loads
 //   --allow-user-scripts     a host trust policy that lets any content's WebViews run their user scripts
+//   --refuse-media           a host trust policy that refuses every VideoPlayer address but a local file
 //                            (of the trust policy options, the last one given wins)
 //   --no-launch              a Link the trust policy lets open logs its address and opens nothing (no
 //                            browser or other app starts)
@@ -592,6 +593,17 @@ struct AllowingUserScripts: ActionUITrustPolicy {
     }
 }
 
+/// --refuse-media: ActionUI's default policy, except that no VideoPlayer plays an address that is not a
+/// local file, the app's own content's included.
+struct RefusingMedia: ActionUITrustPolicy {
+    @MainActor func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+        if case .playMedia = capability {
+            return false
+        }
+        return DefaultTrustPolicy.allowsByDefault(capability, for: origin)
+    }
+}
+
 /// A logger that keeps every message (for --expect-log) and passes it on.
 final class RecordingLogger: ActionUILogger {
     private let inner: any ActionUILogger
@@ -609,7 +621,7 @@ final class RecordingLogger: ActionUILogger {
     }
 }
 
-let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--allow-user-scripts] [--configuration JSON]"
+let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
 guard arguments.count >= 3 else {
     print(usage)
     exit(64)
@@ -750,6 +762,11 @@ while index < arguments.count {
         // A host policy that lets less-trusted content's WebViews run their user scripts
         // (ActionUICapability.webViewUserScripts).
         ActionUIModel.shared.trustPolicy = AllowingUserScripts()
+        index += 1
+    } else if option == "--refuse-media" {
+        // A host policy that refuses every VideoPlayer's address but a local file
+        // (ActionUICapability.playMedia).
+        ActionUIModel.shared.trustPolicy = RefusingMedia()
         index += 1
     } else if option == "--no-launch" {
         // Links log what they would open (the renderer's "Link N: opening URL") and open nothing, so a run

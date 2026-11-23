@@ -1,0 +1,9 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 3, "properties": { "text": "The app's own video, which the host's policy refuses" } },
+    { "type": "VideoPlayer", "id": 2, "properties": { "url": "https://example.com/clip.mp4", "frame": { "width": 240, "height": 120 } } }
+  ]
+}

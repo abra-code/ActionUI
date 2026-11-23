@@ -2,8 +2,8 @@
 /*
  VideoPlayer on WinUI: WinUI's MediaPlayerElement, the video with Windows' transport controls over
  it, as AVKit's player shows its own. Windows plays it through Media Foundation, with the codecs the
- system has. It follows ActionUI's Apple backing (Views/VideoPlayer+SwiftUI.swift) and the Linux
- renderer (VideoPlayer+Adwaita.swift):
+ system has, inside the host's process. It follows ActionUI's Apple backing
+ (Views/VideoPlayer+SwiftUI.swift) and the Linux renderer (VideoPlayer+Adwaita.swift):
  - The URL is the value, else the url property (VideoPlayer.initialValue). One that is no URL shows
    a Label "Missing or invalid URL" with a warning icon instead, logged as an error.
  - Greedy in both axes with no size of its own, as AVKit's VideoPlayer is (a FillLayout with an
@@ -15,14 +15,16 @@
  - When the video has opened, that is logged (with its size); a video that cannot be played shows
    the controls' own error and the reason is logged (a file not found, a format without a codec, a
    network error, a URL that is not absolute).
- - A file: address that names something other than a regular file (a device, a named pipe) is not
-   opened, and that is logged as an error: the document names the address.
- - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources) plays
-   a local file only inside the app's resources (the trust policy's .readLocalFile, asked before the
-   file is touched), as on Apple and Linux: another is not played (logged). It plays only file, http
-   and https addresses, as Apple's player does: Windows' player also opens rtsp:, ms-appx:,
-   ms-appdata: and the schemes of other installed media sources, which such content does not reach
-   (logged, not played).
+ - A local file (a file: address, or a drive path such as C:/v.mp4, which Windows' player reads as
+   one) that is something other than a regular file (a device, a named pipe) is not opened, and that
+   is logged as an error: the document names the address.
+ - An address that is not a local file plays only when the trust policy allows it (.playMedia, asked
+   before the player opens it; a refusal is logged once), as on Apple and Linux. By default trusted
+   content plays any, and less-trusted content (ActionUI JSON from a server or from a file outside the
+   app's resources) only http and https addresses: Windows' player also opens rtsp:, ms-appx:,
+   ms-appdata: and the schemes of other installed media sources. A local file plays for less-trusted
+   content only inside the app's resources (the trust policy's .readLocalFile, asked before the file
+   is touched): another is not played (logged).
 */
 
 #if canImport(FoundationEssentials)
@@ -124,35 +126,44 @@ extension VideoPlayer: ActionUIWinUIRenderer {
         return player
     }
 
-    /// The schemes besides file: less-trusted content's VideoPlayer plays.
-    private static let webSchemes: Set<String> = ["http", "https"]
-
     /// Replaces the video the player shows with the one at `url`, paused.
     private static func show(_ url: URL, in player: WinUIObject, _ node: RenderNode, _ state: VideoPlayerState) {
         let logger = ActionUIModel.shared.logger
         state.shownStatus = "none"
+        // The local file Windows' player would open: a file: address's (on a share for one with a host),
+        // or a drive path ("C:/v.mp4"), which parses as an address of a one-letter scheme and which
+        // Windows reads as a local file. Its path is decoded, as Windows decodes it ("%2E%2E" is ".."),
+        // without the query or fragment.
+        let localPath: String?
+        if url.isFileURL {
+            localPath = LinkTrust.filePath(of: url)
+        } else if let scheme = url.scheme, scheme.count == 1, scheme.first?.isLetter == true {
+            localPath = scheme + ":" + url.path(percentEncoded: false)
+        } else {
+            localPath = nil
+        }
         // A file the element's content may not read (less-trusted content, outside the app's resources)
         // is not played, its path never touched.
-        if url.isFileURL, !LinkTrust.readsLocalFile(LinkTrust.filePath(of: url), node) {
+        if let localPath, !LinkTrust.readsLocalFile(localPath, node) {
             if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
                 logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)
             }
             return
         }
-        // Nor, for less-trusted content, an address of another scheme (rtsp:, ms-appdata:, another media
-        // source's): Apple's player plays only file and web addresses.
-        if !url.isFileURL, !webSchemes.contains(url.scheme?.lowercased() ?? ""), !LinkTrust.isTrusted(node) {
-            logger.log("VideoPlayer not playing '\(url.absoluteString)': less-trusted content plays only file, http and https addresses", .warning)
+        // Nor an address the trust policy does not let it play (.playMedia). By default less-trusted
+        // content plays only web addresses: Windows' player also opens rtsp:, ms-appx:, ms-appdata: and
+        // the schemes of other installed media sources.
+        if localPath == nil, !LinkTrust.allowsLoggingOnce(.playMedia(url), what: "playing \(url.absoluteString)", node) {
             if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
                 logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)
             }
             return
         }
-        // A document names the address: a file: one must be a regular file, not a device or a named
+        // A document names the address: a local file must be a regular file, not a device or a named
         // pipe. A missing file goes on to the player, which reports it.
-        if url.isFileURL, FileManager.default.fileExists(atPath: url.path),
-           ActionUIDocumentLoader.regularFilePath(url) == nil {
-            logger.log("VideoPlayer not playing '\(url.absoluteString)': \(url.path) is not a regular file", .error)
+        if let localPath, FileManager.default.fileExists(atPath: localPath),
+           ActionUIDocumentLoader.regularFilePath(URL(filePath: localPath, directoryHint: .notDirectory)) == nil {
+            logger.log("VideoPlayer not playing '\(url.absoluteString)': \(localPath) is not a regular file", .error)
             if !actionUIWinUIVideoPlayerSetSource(player.pointer, nil) {
                 logger.log("VideoPlayer: \(WinUIError.last("clearing the video"))", .error)
             }
