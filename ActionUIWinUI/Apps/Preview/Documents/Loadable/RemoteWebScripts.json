@@ -1,0 +1,9 @@
+{
+  "type": "WebView",
+  "id": 901,
+  "properties": {
+    "html": "<html><head><title>page</title></head><body><p>Its user script must not run</p></body></html>",
+    "userScripts": [ { "source": "document.title = 'script ran';", "injectionTime": "documentEnd" } ],
+    "frame": { "width": 300, "height": 100 }
+  }
+}

@@ -16,7 +16,8 @@
    A script that cannot be read is skipped and logged.
  - Less-trusted content (ActionUI JSON from a server or from a file outside the app's resources), by
    the host's trust policy, as on Apple and Linux: shows only http and https addresses (.webView), a
-   "Blocked" page in place of another, first or set later; and reads a user script's file only inside
+   "Blocked" page in place of another, first or set later; runs none of its user scripts
+   (.webViewUserScripts), and when a host's policy lets it run them, reads a user script's file only inside
    the app's resources (.webViewScriptFile), a script named by resource too, since Windows reads it
    from the current folder; its html keeps a base address only on the origin its JSON came from
    (.webViewBaseURL, Core's WebViewTrust.base), else about:blank, so it never runs as another site.
@@ -159,7 +160,11 @@ extension WebView: ActionUIWinUIRenderer {
         if let userAgent = props.customUserAgent, !actionUIWinUIWebViewSetUserAgent(view.pointer, userAgent) {
             logger.log("WebView: \(WinUIError.last("setting the user agent"))", .error)
         }
-        for script in props.userScripts {
+        // Content the trust policy does not let run its user scripts (.webViewUserScripts; less-trusted
+        // content by default) runs none, as on Apple and Linux; asked once, as the view starts.
+        let runsScripts = WebViewTrust.runsUserScripts(count: props.userScripts.count, allows: { LinkTrust.allows($0, node) },
+                                                       logger: logger)
+        for script in runsScripts ? props.userScripts : [] {
             guard let source = scriptSource(script, readsFile: { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }) else {
                 continue
             }

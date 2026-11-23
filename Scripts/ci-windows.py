@@ -235,11 +235,16 @@ PREVIEW_OPTIONS = {
                       "--expect-automation", "2", "accelerator", "Ctrl+S"],
     "Shares": ["420", "200"],
     # JSON from a server: a WebView shows the "Blocked" page for a file: address and reads no script file.
-    "LessTrustedWebViews": ["420", "200", "--delay", "8000", "--set-value", "601", "file:///C:/Windows/system.ini", "--delay", "1000",
+    # --allow-user-scripts: a host policy that lets it run user scripts, so only their files are refused.
+    "LessTrustedWebViews": ["420", "200", "--allow-user-scripts", "--delay", "8000",
+                            "--set-value", "601", "file:///C:/Windows/system.ini", "--delay", "1000",
                             "--expect-log", "WebView not showing file:///C:/Windows/system.ini: the trust policy refuses it",
                             "--expect-log", "WebView not showing file:///C:/Windows/win.ini: the trust policy refuses it",
                             "--expect-log", "Not reading Loadable/Child.json for element 602: the trust policy refuses it",
                             "--expect-log", "for element 603: the trust policy refuses it"],
+    # JSON from a server: its WebView runs none of its user scripts (the page keeps its own title).
+    "LessTrustedWebScripts": ["420", "180", "--delay", "10000", "--expect-state", "901", "title", "page",
+                              "--expect-log", "WebView not running its 1 user script(s): the trust policy refuses them"],
     # JSON from a server: its pages' own navigations open no other app's scheme and no window.
     "LessTrustedWebPages": ["420", "200", "--delay", "12000",
                             "--expect-log", "WebView not going to ms-settings:display: the trust policy refuses it",
