@@ -1104,6 +1104,13 @@ ACTIONUI_WINUI_API bool actionUIWinUIIsRegularFile(const char *path);
 // frames), or a GIF's logical screen when larger. False when none of them reads it (an SVG, a file that
 // is no image or that cannot be opened). Any thread with COM initialized; sets no error.
 ACTIONUI_WINUI_API bool actionUIWinUIImageFileGetSize(const char *path, uint32_t *width, uint32_t *height);
+// The same for an image's `length` bytes in memory (read only during the call). False for an SVG or
+// bytes that are no image WIC reads.
+ACTIONUI_WINUI_API bool actionUIWinUIImageDataGetSize(const uint8_t *bytes, size_t length, uint32_t *width, uint32_t *height);
+// Shows the bitmap image the `length` bytes hold in `image` (a copy is kept), not cached and not shared
+// with other images. Its header is read at once (false when it is no image Windows reads); the image
+// loads after, and ImageOpened or ImageFailed tells the outcome.
+ACTIONUI_WINUI_API bool actionUIWinUIImageSetData(ActionUIWinUIObject *image, const uint8_t *bytes, size_t length);
 
 // MARK: - Drawing (a Canvas)
 

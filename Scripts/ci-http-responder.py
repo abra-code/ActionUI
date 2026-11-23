@@ -13,9 +13,10 @@ Routes:
   /outer.json        200, ActionUI JSON naming /auth/... and /cookie/... from a LoadableView, an AsyncImage,
                      a VideoPlayer and a WebView (served by this server, so it is less-trusted content)
   /auth/<name>       401, asking for Negotiate and NTLM sign-in; never completes one
-  /cookie/<name>     200, a small valid body of the kind its name ends in (.json, .png, .mp4, .html)
+  /cookie/<name>     200, a small valid body of the kind its name ends in (.json, .png, .mp4, .svg, .html)
   /slow.json         200 and its headers, then nothing for 30 seconds (for a time limit)
-  /endless.json      200, then a body that does not end (up to 64 MB, for a size limit)
+  /endless.json      200, then a body that does not end (up to 64 MB, for a size limit); /endless.png too
+  /big.png           200, the --big image (a PNG whose header declares 9000 x 9000 pixels)
 Anything else is 404. Stops when --stop-file appears (or when its process is ended).
 """
 
@@ -48,7 +49,10 @@ def outer_json(port):
                              "properties": {key: f"{base}/{prefix}/{name}", "frame": {"width": 80, "height": 50}}})
             next_id += 1
     limits = [{"type": "LoadableView", "id": 209, "properties": {"url": f"{base}/slow.json"}},
-              {"type": "LoadableView", "id": 210, "properties": {"url": f"{base}/endless.json"}}]
+              {"type": "LoadableView", "id": 210, "properties": {"url": f"{base}/endless.json"}},
+              {"type": "AsyncImage", "id": 211, "properties": {"url": f"{base}/big.png", "frame": {"width": 40, "height": 40}}},
+              {"type": "AsyncImage", "id": 212, "properties": {"url": f"{base}/endless.png", "frame": {"width": 40, "height": 40}}},
+              {"type": "AsyncImage", "id": 213, "properties": {"url": f"{base}/cookie/drawing.svg", "frame": {"width": 40, "height": 40}}}]
     return {"type": "VStack", "id": 200, "properties": {"spacing": 4},
             "children": [{"type": "HStack", "id": 220, "properties": {"spacing": 4}, "children": children[:4]},
                          {"type": "HStack", "id": 221, "properties": {"spacing": 4}, "children": children[4:]},
@@ -104,10 +108,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(200, "application/json", body, [("Set-Cookie", "actionui_probe=1; Path=/")])
         elif path == "/outer.json":
             self.send_body(200, "application/json", json.dumps(outer_json(self.server.port)).encode())
-        elif path in ("/slow.json", "/endless.json"):
+        elif path == "/big.png" and self.server.big is not None:
+            self.send_body(200, "image/png", self.server.big)
+        elif path in ("/slow.json", "/endless.json", "/endless.png"):
             # No length: the body ends when the connection closes.
             self.send_response(200)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "image/png" if path.endswith(".png") else "application/json")
             self.send_header("Connection", "close")
             self.end_headers()
             self.close_connection = True
@@ -144,6 +150,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_body(200, "image/png", PNG)
             elif path.endswith(".mp4") and self.server.video is not None:
                 self.send_body(200, "video/mp4", self.server.video)
+            elif path.endswith(".svg"):
+                self.send_body(200, "image/svg+xml",
+                               b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>')
             elif path.endswith(".html"):
                 self.send_body(200, "text/html", b"<html><head><title>Cookie page</title></head><body>page</body></html>")
             else:
@@ -163,6 +172,7 @@ class Server(ThreadingHTTPServer):
         self.video = settings["video"]
         self.port = settings["port"]
         self.stopping = settings["stopping"]
+        self.big = settings["big"]
 
 
 def main():
@@ -171,10 +181,12 @@ def main():
     parser.add_argument("--record", required=True, help="the file each request's line is appended to")
     parser.add_argument("--stop-file", required=True, help="the server stops when this file appears")
     parser.add_argument("--video", help="an MP4 file served for /cookie/*.mp4")
+    parser.add_argument("--big", help="a PNG file served for /big.png")
     arguments = parser.parse_args()
     video = Path(arguments.video).read_bytes() if arguments.video else None
     settings = {"record": arguments.record, "lock": threading.Lock(), "video": video, "port": 0,
-                "stopping": threading.Event()}
+                "stopping": threading.Event(),
+                "big": Path(arguments.big).read_bytes() if arguments.big else None}
     first = Server(("127.0.0.1", 0), socket.AF_INET, settings)
     port = first.server_address[1]
     settings["port"] = port

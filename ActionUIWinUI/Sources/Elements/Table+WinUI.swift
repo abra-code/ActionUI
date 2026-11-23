@@ -565,7 +565,12 @@ extension Table: ActionUIWinUIRenderer {
             throw WinUIError.last("making an AsyncImage cell")
         }
         if Link.destination(text) == .absolute, LinkTrust.readsImageURL(text, node), !Image.fileURLIsTooLarge(text) {
-            if !actionUIWinUIImageSetURL(image.pointer, text) || !actionUIWinUIImageSetStretch(image.pointer, ActionUIWinUIImageStretchFit) {
+            // In less-trusted content, download the image without cookies or Windows sign-in, within the
+            // size and pixel limits (PrivateImage). It logs its own failures; the cell then stays empty.
+            let loaded = !LinkTrust.isTrusted(node) && PrivateImage.isWebAddress(text)
+                ? PrivateImage.load(text, into: image, what: "Table \(node.element.id) image cell") {}
+                : actionUIWinUIImageSetURL(image.pointer, text)
+            if !loaded || !actionUIWinUIImageSetStretch(image.pointer, ActionUIWinUIImageStretchFit) {
                 ActionUIModel.shared.logger.log("Table: \(WinUIError.last("loading \(text)"))", .warning)
             }
         }

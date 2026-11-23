@@ -1404,7 +1404,8 @@ def check_share_reads(preview, bin_path, results, summary, env):
 
 # The less-trusted LoadableViews' downloads, each of which must come from the private fetch and carry no sign-in or
 # cookie (the time and size limits are checked on the private fetch, not only on the error text).
-PRIVATE_FETCH_PATHS = ["/auth/loadable.json", "/cookie/loadable.json", "/slow.json", "/endless.json"]
+PRIVATE_FETCH_PATHS = ["/auth/loadable.json", "/cookie/loadable.json", "/slow.json", "/endless.json",
+                       "/auth/image.png", "/cookie/image.png", "/big.png", "/endless.png", "/cookie/drawing.svg"]
 
 
 def check_ambient_identity(preview, bin_path, results, summary, env):
@@ -1414,9 +1415,11 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
     that asks for Windows sign-in (/auth/) and one that does not (/cookie/). Each request's sign-in scheme
     and cookie names go into the findings, with the preview's warnings about those elements (a load refused
     sends no request).
-    Fails when the less-trusted LoadableViews' downloads (the private fetch, user agent "ActionUI") carried
-    a sign-in or a cookie or did not arrive, or when its time and size limits did not hold (/slow.json given
-    up after 3 seconds, /endless.json refused past 100000 bytes); the other stacks are recorded only."""
+    Fails when the less-trusted LoadableViews' and AsyncImages' downloads (the private fetch, user agent
+    "ActionUI") carried a sign-in or a cookie or did not arrive, or when their limits did not hold
+    (/slow.json given up after 3 seconds, /endless.json refused past 100000 bytes, /endless.png past
+    32 MB, /big.png refused for its 9000 x 9000 pixels, an SVG image refused), or when a good image did
+    not load; the video player and the WebView are recorded only."""
     findings = summary["findings"]
     folder = results / "ambient-identity"
     folder.mkdir(parents=True, exist_ok=True)
@@ -1428,7 +1431,8 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
     try:
         responder = subprocess.Popen([sys.executable, "-I", str(REPO_DIR / "Scripts" / "ci-http-responder.py"),
                                       "--port-file", str(port_file), "--record", str(record),
-                                      "--stop-file", str(stop_file), "--video", str(video)],
+                                      "--stop-file", str(stop_file), "--video", str(video),
+                                      "--big", str(video.parent.parent / "Images" / "declares-81-megapixels.png")],
                                      stdout=log, stderr=subprocess.STDOUT)
     except OSError as error:
         log.close()
@@ -1447,6 +1451,11 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
                                              "--fetch-timeout", "3", "--fetch-limit", "100000",
                                              "--expect-log", "/slow.json: loading it took longer than 3 seconds",
                                              "--expect-log", "/endless.json: the response is larger than 100000 bytes",
+                                             "--expect-log", "AsyncImage 202 not shown:",
+                                             "--expect-log", "AsyncImage 206 loaded",
+                                             "--expect-log", "/big.png is 9000 x 9000 pixels",
+                                             "--expect-log", "/endless.png: the response is larger than 32 MB",
+                                             "--expect-log", "an SVG image from less-trusted content is not shown",
                                              "--set-value", "2", f"http://localhost:{port}/set-cookie.json",
                                              "--delay", "3000",
                                              "--set-value", "3", f"http://localhost:{port}/outer.json",
@@ -1455,7 +1464,7 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
         summary["steps"].append(step)
         findings += [f"ambient identity: preview {line.strip()}" for line in
                      (results / step["log"]).read_text(encoding="utf-8", errors="replace").splitlines()
-                     if ("[warning]" in line or "[error]" in line) and re.search(r"\b(20[1-9]|210)\b", line)]
+                     if ("[warning]" in line or "[error]" in line) and re.search(r"\b(20[1-9]|21[0-3])\b", line)]
     finally:
         try:
             stop_file.write_text("stop", encoding="utf-8")
@@ -1486,8 +1495,8 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
             findings.append(f"ambient identity: FAILED: {path}: {why}")
             passed = False
     if passed:
-        findings.append("ambient identity: passed: the less-trusted LoadableViews' downloads carried no sign-in "
-                        "and no cookie, and stopped at the time and size limits")
+        findings.append("ambient identity: passed: the less-trusted LoadableViews' and AsyncImages' downloads "
+                        "carried no sign-in and no cookie, and stopped at their limits")
     return passed
 
 

@@ -22,10 +22,14 @@
    is not loaded again until the URL changes; WinUI's image cache serves a URL shown before. WinUI
    decodes an image at the size it is drawn, so one that is not drawn (in a hidden tab) shows its
    placeholder until it is.
+ - In less-trusted content, an http or https image is downloaded without the app's cookies or the
+   user's Windows sign-in (PrivateImage), as on Apple. The download stops at 32 MB, the image is shown
+   only if it is a bitmap of at most 64 megapixels, and it is never cached. SVG images from the web are
+   not shown.
 
- Not yet: an SVG served from a URL whose path does not end in .svg (read as a bitmap, so it fails); a
- Windows path given as the URL ("C:\pics\a.png") may load where Apple's URL(string:) reads "c" as its
- scheme and loads nothing; a downloaded image is not sized before it is decoded (a file is: Image's
+ Not yet, for the app's own content: an SVG served from a URL whose path does not end in .svg (read as
+ a bitmap, so it fails); a Windows path given as the URL ("C:\pics\a.png") may load where Apple's
+ URL(string:) reads "c" as its scheme and loads nothing; a downloaded image is not sized before it is decoded (a file is: Image's
  64-megapixel cap): WinUI decodes it at the size it is drawn, which bounds it when it is resizable, not
  when it is shown at its own size.
 */
@@ -161,6 +165,7 @@ extension AsyncImage: ActionUIWinUIRenderer {
         }
         WinUIEvents.connect(image, actionUIWinUIImageOnOpened, "an AsyncImage's image opening") { [weak node, weak state, weak image] in
             guard let node, let state, let image, state.image === image, !state.loaded, node.isAttached else { return }
+            ActionUIModel.shared.logger.log("AsyncImage \(node.element.id) loaded \(url)", .debug)
             state.loaded = true
             SyncScheduler.shared.markDirty(node)
         }
@@ -171,6 +176,21 @@ extension AsyncImage: ActionUIWinUIRenderer {
             SyncScheduler.shared.markDirty(node)
         }
         state.image = image
+        // In less-trusted content, download the image without cookies or Windows sign-in, within the
+        // size and pixel limits (PrivateImage). Trusted content keeps WinUI's loader and its cache.
+        if !LinkTrust.isTrusted(node), PrivateImage.isWebAddress(url) {
+            let started = PrivateImage.load(url, into: image, what: "AsyncImage \(node.element.id)") { [weak node, weak state, weak image] in
+                guard let node, let state, let image, state.image === image, node.isAttached else { return }
+                fail(url, state)
+                SyncScheduler.shared.markDirty(node)
+            }
+            guard started else {
+                fail(url, state)
+                return
+            }
+            state.layout.setLoading(image)
+            return
+        }
         guard actionUIWinUIImageSetURL(image.pointer, url) else {
             // Text Apple's URL(string:) takes that Windows' URI parser refuses, or a file URL that names
             // no regular file (a missing file, a folder, a device, a pipe: never opened), as on Apple.
