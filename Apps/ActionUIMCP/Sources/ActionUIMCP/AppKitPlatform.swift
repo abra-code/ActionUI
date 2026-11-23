@@ -43,6 +43,8 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
     var windows: [String: NSWindow] = [:]
     /// The hosting controllers own the SwiftUI trees; kept for the window's lifetime.
     private var controllers: [String: NSViewController] = [:]
+    /// Each window's title and provenance line, held as the host set them (WindowTitleGuard).
+    private var titleGuards: [String: WindowTitleGuard] = [:]
     /// Notices on screen, oldest first (AppKitPlatform+Notices.swift).
     var notices: [Notice] = []
 
@@ -160,6 +162,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         // and subtitle, and the subtitle carries the provenance line.
         window.title = title
         window.subtitle = subtitle
+        titleGuards[windowID] = WindowTitleGuard(window: window, title: title, subtitle: subtitle)
         switch sizing {
         case .fixed(let size):
             window.setContentSize(NSSize(width: size.width, height: size.height))
@@ -216,6 +219,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
               let windowID = windows.first(where: { $0.value === window })?.key else { return }
         windows[windowID] = nil
         controllers[windowID] = nil
+        titleGuards[windowID] = nil
         host?.windowClosed(windowID)
     }
 
@@ -241,5 +245,34 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
                                        styleMask: entry.window.styleMask.rawValue)
             }
     }
+}
+
+/// Keeps a window's title and subtitle as the host set them. SwiftUI's hosting controller copies a
+/// navigationTitle set after the window opened (through update_window, or a screen a NavigationStack
+/// pushes) onto the window: the agent's title, any length, in place of the host's, and the subtitle,
+/// which carries the "Requested by" line, cleared. The guard puts both back whenever they change.
+/// Each change also makes AppKit list the window in the Window menu as "<title> (<subtitle>)"
+/// again, so the guard lists it by its title alone once more (AppKitPlatform.listInWindowsMenu).
+@MainActor
+final class WindowTitleGuard {
+    private var observations: [NSKeyValueObservation] = []
+
+    init(window: NSWindow, title: String, subtitle: String) {
+        observations = [
+            window.observe(\.title, options: [.new]) { window, _ in
+                MainActor.assumeIsolated {
+                    if window.title != title { window.title = title }
+                    AppKitPlatform.listInWindowsMenu(window)
+                }
+            },
+            window.observe(\.subtitle, options: [.new]) { window, _ in
+                MainActor.assumeIsolated {
+                    if window.subtitle != subtitle { window.subtitle = subtitle }
+                    AppKitPlatform.listInWindowsMenu(window)
+                }
+            },
+        ]
+    }
+    // The observations end with the guard (an NSKeyValueObservation invalidates itself when released).
 }
 #endif
