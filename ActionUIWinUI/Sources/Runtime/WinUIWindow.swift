@@ -38,6 +38,55 @@ package final class WinUIWindow {
         return WinUIWindow(windowModel: windowModel)
     }
 
+    /// The sentence a window shows when its ActionUI JSON could not be loaded. A file is named by its name
+    /// only, and the common failures are said in plain words; the full error goes to the log.
+    package static func loadErrorText(_ error: any Error, fileName: String?) -> String {
+        let name = fileName.map { "\"\($0)\"" }
+        if let cocoa = error as? CocoaError {
+            switch cocoa.code {
+            case .fileReadNoSuchFile, .fileNoSuchFile:
+                return name.map { "The file \($0) was not found." } ?? "The file was not found."
+            case .fileReadNoPermission:
+                return name.map { "The file \($0) could not be read: access is denied." } ?? "The file could not be read: access is denied."
+            default:
+                return name.map { "The file \($0) could not be read." } ?? "The file could not be read."
+            }
+        }
+        if error is ActionUIDocumentLoader.NotARegularFile {
+            return name.map { "\($0) is not a file." } ?? "The path is not a file."
+        }
+        if let failure = error as? JSONParseError {
+            // The JSON parser's message and where it stopped, as "Unterminated string at byte 12".
+            return "The ActionUI JSON could not be loaded: \(failure)"
+        }
+        if let failure = error as? ActionUIError {
+            // Core's own messages, such as the size limit's and the trust policy's.
+            return "The ActionUI JSON could not be loaded: \(failure.message)"
+        }
+        if let failure = error as? DecodingError {
+            // JSON that parses but is not a valid ActionUI element (a missing "type", a wrong value).
+            let context: DecodingError.Context
+            switch failure {
+            case .typeMismatch(_, let found), .valueNotFound(_, let found), .keyNotFound(_, let found), .dataCorrupted(let found):
+                context = found
+            @unknown default:
+                return "The ActionUI JSON could not be loaded."
+            }
+            return "The ActionUI JSON could not be loaded: \(context.debugDescription)"
+        }
+        return "The ActionUI JSON could not be loaded."
+    }
+
+    /// A window that shows why its ActionUI JSON could not be loaded (loadErrorText), padded.
+    package static func loadError(_ error: any Error, fileName: String?, windowUUID: String) -> WinUIWindow? {
+        let text = loadErrorText(error, fileName: fileName)
+        ActionUIModel.shared.logger.log("Window \(windowUUID) shows: \(text)", .warning)
+        let errorJSON = (try? ActionUIJSON.string(from: ["type": "Text", "id": 1,
+                                                         "properties": ["text": text, "padding": 20]] as [String: Any]))
+            ?? #"{"type": "Text", "id": 1, "properties": {"text": "The ActionUI JSON could not be loaded."}}"#
+        return try? load(json: errorJSON, windowUUID: windowUUID)
+    }
+
     /// Loads the ActionUI JSON (or plist, by its extension) in the regular file at `url` into the
     /// window model `windowUUID`, as from that file: it is the app's own when it is in the app's
     /// resources, else less trusted (JSONContentOrigin), and builds its tree.

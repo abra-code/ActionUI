@@ -865,6 +865,12 @@ def check_viewer(shim_out, bin_path, results, summary, env):
                         timeout=SMOKE_TIMEOUT_SECONDS)
         summary["steps"].append(step)
         answered = step["status"] == expected and png.is_file() and png.stat().st_size > 0
+        if name == "viewer-missing":
+            # The window says it in a short sentence with the file's name, not the raw error and its path.
+            sentence = 'shows: The file "no-such-document.json" was not found.'
+            if sentence not in (results / step["log"]).read_text(encoding="utf-8", errors="replace"):
+                summary["findings"].append(f"viewer {path.name}: the window did not show the expected sentence")
+                answered = False
         summary["findings"].append(f"viewer {path.name}: exit {step['status']}, "
                                    f"{'a PNG' if png.is_file() else 'no PNG'} ({'as expected' if answered else 'NOT as expected'})")
         # The exit code is the answer, not the step's failure.

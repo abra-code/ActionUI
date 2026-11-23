@@ -224,12 +224,12 @@ public final class WinUIApplication {
         }
         guard let fileURL else {
             present(windowUUID: windowUUID, title: title ?? text) {
-                throw ActionUIError("\(text) cannot be loaded: only files and http and https addresses are loaded")
+                throw ActionUIError("only files and http and https addresses are loaded (\(text))")
             }
             return
         }
         let fileName = fileURL.deletingPathExtension().lastPathComponent
-        present(windowUUID: windowUUID, title: title ?? fileName) {
+        present(windowUUID: windowUUID, title: title ?? fileName, fileName: fileURL.lastPathComponent) {
             try WinUIWindow.load(file: fileURL, windowUUID: windowUUID)
         }
     }
@@ -277,9 +277,10 @@ public final class WinUIApplication {
     /// Presents the tree `load` makes in a new window (or the error it throws, as text), at once when the
     /// application has started, else when it starts. A window already showing `windowUUID` is
     /// replaced, with no windowWillClose (as on Linux).
-    private func present(windowUUID: String, title: String?, _ load: @escaping @MainActor () throws -> WinUIWindow) {
+    private func present(windowUUID: String, title: String?, fileName: String? = nil,
+                         _ load: @escaping @MainActor () throws -> WinUIWindow) {
         guard hasStarted else {
-            pending.append((windowUUID, { [weak self] in self?.present(windowUUID: windowUUID, title: title, load) }))
+            pending.append((windowUUID, { [weak self] in self?.present(windowUUID: windowUUID, title: title, fileName: fileName, load) }))
             return
         }
         // A newer presentation replaces a load still under way.
@@ -308,11 +309,7 @@ public final class WinUIApplication {
         } catch {
             loaded = false
             logger.log("WinUIApplication: window \(windowUUID) could not be loaded: \(error)", .error)
-            let message = String(describing: error)
-            let errorJSON = (try? ActionUIJSON.string(from: ["type": "Text", "id": 1,
-                                                             "properties": ["text": message, "padding": 20]] as [String: Any]))
-                ?? #"{"type": "Text", "id": 1, "properties": {"text": "The document could not be loaded"}}"#
-            guard let errorTree = try? WinUIWindow.load(json: errorJSON, windowUUID: windowUUID) else { return }
+            guard let errorTree = WinUIWindow.loadError(error, fileName: fileName, windowUUID: windowUUID) else { return }
             tree = errorTree
         }
         guard let content = tree.view, let window = WinUIObject(adopting: actionUIWinUIWindowCreate()) else {

@@ -46,14 +46,16 @@ package enum HostWindow {
             guard parsed.isFileURL else {
                 ActionUIModel.shared.logger.log("HostWindow: \(text) is not a file; only files are loaded into a host's window", .error)
                 return fill(window, windowUUID: windowUUID) {
-                    throw ActionUIError("\(text) cannot be loaded: only files are loaded on Windows yet")
+                    throw ActionUIError("only files are loaded into a host's window on Windows yet (\(text))")
                 }
             }
             fileURL = parsed
         } else {
             fileURL = URL(fileURLWithPath: text)
         }
-        return fill(window, windowUUID: windowUUID) { try WinUIWindow.load(file: fileURL, windowUUID: windowUUID) }
+        return fill(window, windowUUID: windowUUID, fileName: fileURL.lastPathComponent) {
+            try WinUIWindow.load(file: fileURL, windowUUID: windowUUID)
+        }
     }
 
     /// As load(url:into:windowUUID:), with the document's JSON (the host's own).
@@ -63,7 +65,7 @@ package enum HostWindow {
 
     /// Fills the host's window with the tree `load` makes, or with the error it throws, as text: false
     /// for an error, or when the window is no WinUI window or cannot be filled.
-    private static func fill(_ pointer: UnsafeMutableRawPointer, windowUUID: String,
+    private static func fill(_ pointer: UnsafeMutableRawPointer, windowUUID: String, fileName: String? = nil,
                              _ load: () throws -> WinUIWindow) -> Bool {
         let logger = ActionUIModel.shared.logger
         guard let window = WinUIObject(adopting: actionUIWinUIWindowFromInspectable(pointer)) else {
@@ -83,10 +85,7 @@ package enum HostWindow {
         } catch {
             loaded = false
             logger.log("HostWindow: window \(windowUUID) could not be loaded: \(error)", .error)
-            let errorJSON = (try? ActionUIJSON.string(from: ["type": "Text", "id": 1,
-                                                             "properties": ["text": String(describing: error), "padding": 20]] as [String: Any]))
-                ?? #"{"type": "Text", "id": 1, "properties": {"text": "The document could not be loaded"}}"#
-            guard let errorTree = try? WinUIWindow.load(json: errorJSON, windowUUID: windowUUID) else { return false }
+            guard let errorTree = WinUIWindow.loadError(error, fileName: fileName, windowUUID: windowUUID) else { return false }
             tree = errorTree
         }
         guard let content = tree.view, actionUIWinUIWindowSetContent(window.pointer, content.pointer),
