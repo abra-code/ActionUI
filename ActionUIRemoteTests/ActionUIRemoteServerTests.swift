@@ -547,6 +547,56 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertFalse(server.removeBuiltIn(method: "actionui."))
     }
 
+    func testAConnectionThatNeverAuthenticatesIsClosedAfterTheTimeout() throws {
+        let path = socketPath + ".auth"
+        let guarded = ActionUIRemoteServer(host: .init(name: "Guarded", version: "0.1"))
+        guarded.logger = QuietLogger(maxLevel: .warning)
+        guarded.requiresToken = true
+        guarded.addToken("secret", label: "test")
+        guarded.authenticationTimeout = 0.5
+        XCTAssertEqual(guarded.connectionLimit, 64)
+        XCTAssertEqual(guarded.unauthenticatedLargeLineLimit, 8)
+        try guarded.start(socketPath: path)
+        defer {
+            guarded.stop()
+            unlink(path)
+        }
+        let stranger = try TestSocketClient(path: path, timeoutSeconds: 5)
+        let member = try TestSocketClient(path: path, timeoutSeconds: 5)
+        let hello = #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"secret"}}"#
+
+        // The member authenticates; the stranger says nothing.
+        let first = ResultBox<String>()
+        let answered = expectation(description: "authenticated")
+        clientQueue.async {
+            member.write(hello + "\n")
+            first.value = member.readLine()
+            answered.fulfill()
+        }
+        wait(for: [answered], timeout: 10)
+        XCTAssertTrue(first.value?.contains("\"result\"") == true, first.value ?? "no reply")
+
+        let eof = ResultBox<Bool>()
+        let closed = expectation(description: "stranger closed")
+        clientQueue.async {
+            eof.value = stranger.waitForEOF()
+            closed.fulfill()
+        }
+        wait(for: [closed], timeout: 10)
+        XCTAssertEqual(eof.value, true, "the connection that never authenticated is closed")
+
+        // Past the timeout, the authenticated connection is still served.
+        let second = ResultBox<String>()
+        let again = expectation(description: "still served")
+        clientQueue.asyncAfter(deadline: .now() + 0.3) {
+            member.write(#"{"jsonrpc":"2.0","id":2,"method":"actionui.hello"}"# + "\n")
+            second.value = member.readLine()
+            again.fulfill()
+        }
+        wait(for: [again], timeout: 10)
+        XCTAssertTrue(second.value?.contains("\"result\"") == true, second.value ?? "no reply")
+    }
+
     func testMainThreadTimeoutYields1005AndLateResultIsDropped() throws {
         server.mainThreadTimeout = 0.2
         server.register(method: "test.sleep") { _ in

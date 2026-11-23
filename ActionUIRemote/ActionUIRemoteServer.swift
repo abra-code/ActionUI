@@ -99,6 +99,42 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         set { lock.lock(); _requiresToken = newValue; lock.unlock() }
     }
 
+    // MARK: - Limits
+
+    /// Open connections at once (64 by default); one more is closed as soon as it is accepted.
+    /// Read at `start`.
+    public var connectionLimit: Int {
+        get { lock.lock(); defer { lock.unlock() }; return _limits.connections }
+        set { lock.lock(); _limits.connections = max(1, newValue); lock.unlock() }
+    }
+
+    /// Seconds a connection may stay open without presenting a valid token, when one is required
+    /// (30 by default; 0 for no limit). Read at `start`.
+    public var authenticationTimeout: TimeInterval {
+        get { lock.lock(); defer { lock.unlock() }; return _limits.untrustedLifetime }
+        set { lock.lock(); _limits.untrustedLifetime = max(0, newValue); lock.unlock() }
+    }
+
+    /// Connections that may hold more than 64 KiB of an unfinished line before presenting a
+    /// valid token, when one is required (8 by default); one more is closed. The token rides on a
+    /// connection's first request, which may be large, so the line cap itself stays. Read at
+    /// `start`.
+    public var unauthenticatedLargeLineLimit: Int {
+        get { lock.lock(); defer { lock.unlock() }; return _limits.untrustedLargeLines }
+        set { lock.lock(); _limits.untrustedLargeLines = max(0, newValue); lock.unlock() }
+    }
+
+    // Guarded by `lock`.
+    private var _limits = UnixSocketServer.Limits()
+
+    /// Whether a connection counts as trusted for the socket server's limits: always when no
+    /// token is required, else once it has presented a valid one.
+    private func isTrusted(_ connectionID: UnixSocketServer.ConnectionID) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !_requiresToken || _authenticated[connectionID] != nil
+    }
+
     /// Mint nothing, register what the caller minted. The host owns token generation because it
     /// owns the lifetime: it knows when the work a token was issued for has finished.
     ///
@@ -216,8 +252,15 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             starting = false
             lock.unlock()
         }
+        lock.lock()
+        let limits = _limits
+        lock.unlock()
         let server = UnixSocketServer(
             path: socketPath,
+            limits: limits,
+            isTrusted: { [weak self] connectionID in
+                self?.isTrusted(connectionID) ?? true
+            },
             onLine: { [weak self] connectionID, line in
                 self?.handle(line: line, connectionID: connectionID)
             },

@@ -26,6 +26,14 @@ change is a protocol change.
   has gone out. A client that half-closes must still read its replies promptly - the host waits
   a few seconds for a half-closed peer to take them and then closes regardless, because a peer
   that has stopped reading must not hold a descriptor open indefinitely.
+- The reference server limits what a peer may hold. At most 64 connections are open at once; one
+  more is closed as soon as it is accepted. When the host requires a token (section 10), a
+  connection that has not presented a valid one within 30 seconds is closed, and at most 8 such
+  connections may hold more than 64 KiB of a line not yet complete (the token rides on the first
+  request, which may be large, so the line limit itself stays); one more is closed. When the
+  process runs out of descriptors or memory, the server pauses accepting for a moment. A host
+  may change each number (`connectionLimit`, `authenticationTimeout`,
+  `unauthenticatedLargeLineLimit`).
 
 ## 2. Framing
 

@@ -36,9 +36,12 @@ final class UnixSocketServerTests: XCTestCase {
 
     /// An echo server: every line comes straight back.
     private func startEchoServer(maxLineLength: Int = 64 * 1024 * 1024,
+                                 limits: UnixSocketServer.Limits = UnixSocketServer.Limits(),
+                                 isTrusted: @escaping @Sendable (Int) -> Bool = { _ in true },
                                  onClose: @escaping @Sendable (Int) -> Void = { _ in }) throws -> UnixSocketServer {
         let box = ServerBox()
-        let echo = UnixSocketServer(path: socketPath, maxLineLength: maxLineLength, onLine: { id, line in
+        let echo = UnixSocketServer(path: socketPath, maxLineLength: maxLineLength, limits: limits,
+                                    isTrusted: isTrusted, onLine: { id, line in
             box.server?.send(connectionID: id, data: line)
         }, onClose: onClose)
         box.server = echo
@@ -49,6 +52,13 @@ final class UnixSocketServerTests: XCTestCase {
 
     private final class ServerBox: @unchecked Sendable {
         var server: UnixSocketServer?
+    }
+
+    private final class TrustedIDs: @unchecked Sendable {
+        private let lock = NSLock()
+        private var ids: Set<Int> = []
+        func insert(_ id: Int) { lock.lock(); ids.insert(id); lock.unlock() }
+        func contains(_ id: Int) -> Bool { lock.lock(); defer { lock.unlock() }; return ids.contains(id) }
     }
 
     func testEchoOneLine() throws {
@@ -134,6 +144,86 @@ final class UnixSocketServerTests: XCTestCase {
         client.write(String(repeating: "z", count: 40))   // no newline at all
         XCTAssertTrue(client.waitForEOF())
         wait(for: [closed], timeout: 5)
+    }
+
+    // MARK: - Limits
+
+    func testAConnectionBeyondTheLimitIsClosedAtOnce() throws {
+        var limits = UnixSocketServer.Limits()
+        limits.connections = 2
+        let echo = try startEchoServer(limits: limits)
+        let first = try RawClient(path: socketPath)
+        let second = try RawClient(path: socketPath)
+        first.write("a\n")
+        second.write("b\n")
+        XCTAssertEqual(first.readLine(), "a")
+        XCTAssertEqual(second.readLine(), "b")
+        let third = try RawClient(path: socketPath)
+        XCTAssertTrue(third.waitForEOF(), "the third connection is closed")
+        XCTAssertEqual(echo.connectionCount, 2)
+        first.write("still\n")
+        XCTAssertEqual(first.readLine(), "still", "the open ones keep working")
+    }
+
+    func testAnUntrustedConnectionIsClosedAfterItsLifetime() throws {
+        let trusted = TrustedIDs()
+        var limits = UnixSocketServer.Limits()
+        limits.untrustedLifetime = 0.3
+        _ = try startEchoServer(limits: limits, isTrusted: { trusted.contains($0) })
+        let stranger = try RawClient(path: socketPath)
+        stranger.write("hi\n")
+        XCTAssertEqual(stranger.readLine(), "hi", "it is served until its time is up")
+        XCTAssertTrue(stranger.waitForEOF(), "then closed")
+        trusted.insert(2)   // the next connection's id, trusted from the start
+        let known = try RawClient(path: socketPath)
+        usleep(600_000)
+        known.write("still\n")
+        XCTAssertEqual(known.readLine(), "still", "a trusted connection is not timed out")
+    }
+
+    func testOnlySoManyUntrustedConnectionsMayHoldALargeUnfinishedLine() throws {
+        var limits = UnixSocketServer.Limits()
+        limits.untrustedLargeLines = 1
+        limits.untrustedLineSize = 16
+        _ = try startEchoServer(limits: limits, isTrusted: { _ in false })
+        let first = try RawClient(path: socketPath)
+        first.write(String(repeating: "x", count: 20))
+        usleep(100_000)
+        let second = try RawClient(path: socketPath)
+        second.write(String(repeating: "y", count: 20))
+        XCTAssertTrue(second.waitForEOF(), "a second large unfinished line is refused")
+        first.write("\n")
+        XCTAssertEqual(first.readLine(), String(repeating: "x", count: 20), "the first finishes its line")
+        // Unfinished for a moment, so the third needs the place the first gave back.
+        let third = try RawClient(path: socketPath)
+        third.write(String(repeating: "z", count: 20))
+        usleep(100_000)
+        third.write("\n")
+        XCTAssertEqual(third.readLine(), String(repeating: "z", count: 20), "the place was given back")
+        // A connection that closes while holding the place gives it back as well.
+        do {
+            let fourth = try RawClient(path: socketPath)
+            fourth.write(String(repeating: "w", count: 20))
+            usleep(100_000)
+        }
+        usleep(100_000)
+        let fifth = try RawClient(path: socketPath)
+        fifth.write(String(repeating: "v", count: 20))
+        usleep(100_000)
+        fifth.write("\n")
+        XCTAssertEqual(fifth.readLine(), String(repeating: "v", count: 20), "the closed one's place was given back")
+    }
+
+    func testALineArrivingAByteAtATimeIsSplitOnce() throws {
+        _ = try startEchoServer()
+        let client = try RawClient(path: socketPath)
+        for character in "one\ntwo" {
+            client.write(String(character))
+            usleep(2_000)
+        }
+        client.write("\n")
+        XCTAssertEqual(client.readLine(), "one")
+        XCTAssertEqual(client.readLine(), "two")
     }
 
     func testPeerCloseIsReported() throws {
