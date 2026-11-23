@@ -124,6 +124,15 @@ final class ChartSelectionTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(seconds))
     }
 
+    // Runs the main queue until `done`, or `timeout` seconds: a busy test runner may take much longer
+    // than a fixed wait to deliver a due action.
+    private func drain(until done: () -> Bool, timeout: TimeInterval = 5) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !done(), Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+    }
+
     // MARK: - Description keys
 
     func testSelectionKeysAreTypedByTheirAxis() {
@@ -364,11 +373,12 @@ final class ChartSelectionTests: XCTestCase {
         XCTAssertEqual(value, #"{"y":2.5}"#)
     }
 
-    private func countActions(_ body: () -> Void) -> () -> Int {
+    private func countActions(onFire: @escaping () -> Void = {}, _ body: () -> Void) -> () -> Int {
         var count = 0
         ActionUIModel.shared.registerActionHandler(for: "picked") { _, _, viewID, _, _ in
             XCTAssertEqual(viewID, 10)
             count += 1
+            onFire()
         }
         body()
         return { count }
@@ -377,19 +387,37 @@ final class ChartSelectionTests: XCTestCase {
     func testSettledActionFiresOnceAfterRest() throws {
         try load(bars(extra: ["chartXSelection": "value"]), properties: ["valueChangeActionID": "picked"])
         let binder = binder()
-        let count = countActions {
+        let start = Date()
+        // The selection each action saw: the one for "Wed" is the last that can be pending.
+        var lastFired: String?
+        let count = countActions(onFire: { lastFired = self.value }) {
             for day in ["Mon", "Tue", "Wed"] {
                 binder.value(.horizontal, as: String.self).wrappedValue = day
                 drain()
             }
         }
-        XCTAssertEqual(count(), 0, "no action while the selection moves")
+        // A runner that stalls longer than the settle delay between two changes lets the action fire
+        // in between, as a user who rests would (CI did: 4.9 s for this test). So "no action while it
+        // moves, one once it rests" is checked when the changes came faster than the delay; after a
+        // stall, one action per rest: at least one, at most one per change, and none after.
+        let wed = #"{"x":"Wed"}"#
+        if Date().timeIntervalSince(start) < ChartSelectionBinder.settleDelay {
+            XCTAssertEqual(count(), 0, "no action while the selection moves")
+            drain(until: { lastFired == wed })
+            XCTAssertEqual(count(), 1, "one action once the selection rests")
+        } else {
+            drain(until: { lastFired == wed })
+            XCTAssertTrue((1...3).contains(count()), "one action per rest: \(count())")
+        }
+        XCTAssertEqual(lastFired, wed, "the settled action sees the final selection")
+        let settled = count()
         drain(ChartSelectionBinder.settleDelay + 0.1)
-        XCTAssertEqual(count(), 1)
-        XCTAssertEqual(value, #"{"x":"Wed"}"#)
+        XCTAssertEqual(count(), settled, "nothing more once it has settled")
+        XCTAssertEqual(value, wed)
         binder.value(.horizontal, as: String.self).wrappedValue = nil
-        drain()
-        XCTAssertEqual(count(), 2, "a cleared selection fires at once")
+        // The clear fires in the same main-queue turn that writes it, so no waiting past the write.
+        drain(until: { value?.isEmpty ?? true })
+        XCTAssertEqual(count(), settled + 1, "a cleared selection fires at once")
     }
 
     func testContinuousActionFiresOnEveryChange() throws {
