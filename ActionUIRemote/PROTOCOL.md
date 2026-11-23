@@ -33,7 +33,7 @@ change is a protocol change.
   request, which may be large, so the line limit itself stays); one more is closed. When the
   process runs out of descriptors or memory, the server pauses accepting for a moment. A host
   may change each number (`connectionLimit`, `authenticationTimeout`,
-  `unauthenticatedLargeLineLimit`).
+  `unauthenticatedLargeLineLimit`; from C, `actionUIRemoteSetLimits` before the start).
 
 ## 2. Framing
 

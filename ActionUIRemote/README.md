@@ -86,6 +86,10 @@ actionUIRemoteStopServer();
 `actionUIRemoteServerIsRunning()` answers whether one is up. NULL arguments mean the per-process
 default path and the running process's name and version. This is what OMC calls.
 
+`actionUIRemoteSetLimits(connections, authenticationTimeoutSeconds, unauthenticatedLargeLines)`,
+called before the start, changes the server's limits (64, 30 and 8 by default; PROTOCOL.md
+section 1). A running server keeps the ones it started with.
+
 A C host registers its own methods (PROTOCOL.md section 8) with
 `actionUIRemoteRegisterMethod(name, callback, context)` once the server runs, and removes one
 with `actionUIRemoteUnregisterMethod(name)`. The callback runs on the main thread and gets the

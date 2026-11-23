@@ -259,6 +259,7 @@ unsafe extern "C" {
     pub fn actionUIRemoteMintToken(label: *const c_char, outToken: *mut c_char, outTokenSize: isize) -> bool;
     pub fn actionUIRemoteAddToken(token: *const c_char, label: *const c_char) -> bool;
     pub fn actionUIRemoteRevokeTokensWithLabel(label: *const c_char);
+    pub fn actionUIRemoteSetLimits(connections: isize, authenticationTimeoutSeconds: f64, unauthenticatedLargeLines: isize) -> bool;
     pub fn actionUIRemoteSetRequiresToken(required: bool) -> bool;
     pub fn actionUIRemoteUnexportToken() -> bool;
     pub fn actionUIRemoteRegisterMethod(method: *const c_char, callback: Option<unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char>, context: *mut c_void) -> bool;

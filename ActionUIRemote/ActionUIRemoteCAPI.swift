@@ -84,6 +84,26 @@ private func logToEngine(_ message: String, _ level: LoggerLevel) {
 
 // MARK: - Entry points
 
+/// Set the limits the next `actionUIRemoteStartServer` gives its server: at most `connections`
+/// open connections (64 by default); a connection that has not presented a valid token within
+/// `authenticationTimeoutSeconds` is closed (30 by default; 0 for no limit); at most
+/// `unauthenticatedLargeLines` such connections may hold more than 64 KiB of an unfinished line
+/// (8 by default). A running server keeps the limits it started with. Call it before starting.
+///
+/// - Returns: false, changing nothing, when `connections` is below 1, the timeout is negative or
+///   not a number, or `unauthenticatedLargeLines` is negative.
+@c
+public func actionUIRemoteSetLimits(_ connections: Int, _ authenticationTimeoutSeconds: Double,
+                                    _ unauthenticatedLargeLines: Int) -> CBool {
+    guard connections >= 1, authenticationTimeoutSeconds.isFinite, authenticationTimeoutSeconds >= 0,
+          unauthenticatedLargeLines >= 0 else {
+        return false
+    }
+    ActionUIRemoteServer.setSharedLimits(connections: connections, authenticationTimeout: authenticationTimeoutSeconds,
+                                         unauthenticatedLargeLines: unauthenticatedLargeLines)
+    return true
+}
+
 /// Start the process-wide server and export `ACTIONUI_REMOTE_ENDPOINT`, so that processes
 /// spawned afterwards inherit it. Read the bound path back with `actionUIRemoteServerEndpoint()`.
 ///

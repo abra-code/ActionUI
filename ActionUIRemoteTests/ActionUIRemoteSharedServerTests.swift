@@ -692,6 +692,28 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         XCTAssertEqual((afterOne["error"] as? [String: Any])?["code"] as? Int, 1006)
     }
 
+    func testLimitsSetThroughCReachTheNextSharedServer() throws {
+        let defaults = ActionUIRemoteServer.sharedLimits
+        defer {
+            _ = actionUIRemoteSetLimits(defaults.connections, defaults.authenticationTimeout, defaults.unauthenticatedLargeLines)
+        }
+        XCTAssertEqual(defaults.connections, 64)
+        XCTAssertEqual(defaults.authenticationTimeout, 30)
+        XCTAssertEqual(defaults.unauthenticatedLargeLines, 8)
+        XCTAssertFalse(actionUIRemoteSetLimits(0, 30, 8), "at least one connection")
+        XCTAssertFalse(actionUIRemoteSetLimits(64, -1, 8), "no negative timeout")
+        XCTAssertFalse(actionUIRemoteSetLimits(64, .nan, 8), "no timeout that is not a number")
+        XCTAssertFalse(actionUIRemoteSetLimits(64, 30, -1), "no negative count")
+        XCTAssertEqual(ActionUIRemoteServer.sharedLimits.connections, 64, "a refusal changes nothing")
+
+        XCTAssertTrue(actionUIRemoteSetLimits(5, 2.5, 1))
+        try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(), logger: QuietLogger(maxLevel: .warning))
+        let shared = try XCTUnwrap(ActionUIRemoteServer.shared)
+        XCTAssertEqual(shared.connectionLimit, 5)
+        XCTAssertEqual(shared.authenticationTimeout, 2.5)
+        XCTAssertEqual(shared.unauthenticatedLargeLineLimit, 1)
+    }
+
     func testTheCFaceRefusesWhatItCannotHonor() throws {
         // Nothing running: every entry point reports failure rather than pretending.
         XCTAssertNil(mintToken(label: "command-A"))

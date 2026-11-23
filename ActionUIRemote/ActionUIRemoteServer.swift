@@ -112,7 +112,8 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// (30 by default; 0 for no limit). Read at `start`.
     public var authenticationTimeout: TimeInterval {
         get { lock.lock(); defer { lock.unlock() }; return _limits.untrustedLifetime }
-        set { lock.lock(); _limits.untrustedLifetime = max(0, newValue); lock.unlock() }
+        // Infinity and NaN count as no limit, as 0 does.
+        set { lock.lock(); _limits.untrustedLifetime = newValue.isFinite ? max(0, newValue) : 0; lock.unlock() }
     }
 
     /// Connections that may hold more than 64 KiB of an unfinished line before presenting a
