@@ -766,7 +766,8 @@ const Trust = Object.freeze({ TRUSTED: 'trusted', LESS_TRUSTED: 'lessTrusted' })
 //     capability, { capability: kind } with, by kind: 'load' { source }, 'openLink' { url },
 //     'webView' { url } (null for inline html), 'webViewBaseURL' { url }, 'webViewUserScripts',
 //     'webViewPersistentData', 'webViewScriptFile' { path }, 'readLocalFile' { path },
-//     'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID }.
+//     'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID },
+//     'hostSurface' { surfaceName }.
 //
 // The callbacks are called on the main thread, often (as elements draw), and should return
 // quickly. One that throws is reported and counts as less trusted, or as a refusal.

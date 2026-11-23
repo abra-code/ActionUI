@@ -118,6 +118,10 @@ public enum ActionUICapability: Sendable, Equatable {
     /// Firing this action, asked with the origin of the element that fires it (the host's for a
     /// menu bar item, a toast's or a dialog's button) before the host's handler runs.
     case action(String)
+    /// A HostSurface element (the ActionUIHostSurface add-on) binding to the host's surface of this
+    /// name, so that the host's client draws in it and gets its input. Asked when the element is
+    /// made; refused, it draws a placeholder and the client never hears of it.
+    case hostSurface(String)
 }
 
 /// The host's say over how far content is trusted and what it may do,
@@ -182,9 +186,9 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// WebView (webViewSchemes), give its inline html a base address only of its own document's
     /// origin, run no WebView user scripts, keep no WebView data in the app's persistent store,
     /// read local files (images, videos, WebView script files) and load ActionUI JSON from local
-    /// files only inside the app's resources, and neither set the window's title nor present its
-    /// own sheets, covers and popovers; for now it may do anything else (each further refusal
-    /// comes with the renderer change that enforces it).
+    /// files only inside the app's resources, neither set the window's title nor present its
+    /// own sheets, covers and popovers, and show no host surface; for now it may do anything else
+    /// (each further refusal comes with the renderer change that enforces it).
     @MainActor
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
         if origin.trust == .trusted { return true }
@@ -210,6 +214,10 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
         case .windowTitle, .presentModal:
             // Neither the window's title nor a sheet, cover or popover over it: content that is not
             // the app's own could pass itself off as the app.
+            return false
+        case .hostSurface:
+            // The host's own drawing and input, placed where content that is not the app's own
+            // chooses, could pass for the app, and keystrokes typed there go to the host's client.
             return false
         case .load(let source):
             // A local file outside the app's resources (the user's files, a device, a network

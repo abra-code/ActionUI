@@ -40,6 +40,12 @@ sealed interface ActionUICapability {
     data object MenuCommands : ActionUICapability
     /** Firing this action. */
     data class Action(val actionID: String) : ActionUICapability
+    /**
+     * A HostSurface element (the hostsurface add-on) binding to the host's surface of this
+     * name, so that the host's client draws in it and gets its input. Refused, it draws a
+     * placeholder and the client never hears of it.
+     */
+    data class HostSurface(val surfaceName: String) : ActionUICapability
 }
 
 /**
@@ -104,8 +110,8 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
      * WebView, give its inline html a base address only of its own document's origin, run no
      * WebView user scripts, keep no WebView data in the app's persistent store, read
      * local files (images, videos, WebView script files) and load ActionUI JSON from local
-     * files only inside the app's resource folders, and neither set the title nor present its
-     * own sheets, covers and popovers.
+     * files only inside the app's resource folders, neither set the title nor present its
+     * own sheets, covers and popovers, and show no host surface.
      * The same table as the Swift `DefaultTrustPolicy.allowsByDefault`.
      */
     fun allowsByDefault(capability: ActionUICapability, origin: JSONContentOrigin): Boolean {
@@ -121,6 +127,8 @@ object DefaultTrustPolicy : ActionUITrustPolicy {
             is ActionUICapability.ReadLocalFile -> isInAppResources(capability.path)
             is ActionUICapability.WebViewScriptFile -> isInAppResources(capability.path)
             ActionUICapability.WindowTitle, ActionUICapability.PresentModal -> false
+            // The host's own drawing and input where content not the app's own puts it could pass for the app.
+            is ActionUICapability.HostSurface -> false
             // A local file outside the app's resource folders is not loaded; resources and remote addresses are.
             is ActionUICapability.Load -> capability.source !is JSONContentOrigin.Source.File
             ActionUICapability.MenuCommands, is ActionUICapability.Action -> true

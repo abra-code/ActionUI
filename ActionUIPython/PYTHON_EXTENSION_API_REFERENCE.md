@@ -171,7 +171,7 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 //   "load" {"source"}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
 //   "webViewBaseURL" {"url"}, "webViewUserScripts", "webViewPersistentData",
 //   "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "windowTitle", "presentModal",
-//   "menuCommands", "action" {"actionID"}.
+//   "menuCommands", "action" {"actionID"}, "hostSurface" {"surfaceName"}.
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```
 

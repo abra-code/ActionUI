@@ -80,6 +80,8 @@ class TrustPolicyTest {
         assertFalse(allows(ActionUICapability.WebViewPersistentData))
         assertTrue(allows(ActionUICapability.WebViewUserScripts, JSONContentOrigin.HOST))
         assertTrue(allows(ActionUICapability.WebViewPersistentData, JSONContentOrigin.HOST))
+        assertFalse(allows(ActionUICapability.HostSurface("viewport")))
+        assertTrue(allows(ActionUICapability.HostSurface("viewport"), JSONContentOrigin.HOST))
         assertTrue(allows(ActionUICapability.Action("app.save")))
     }
 

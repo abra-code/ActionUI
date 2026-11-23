@@ -118,11 +118,51 @@ final class HostSurfaceDocumentTests: XCTestCase {
     }
     #endif
 
+    /// Content the trust policy does not let show a host surface gets the placeholder: its client hears nothing.
+    func testASurfaceThePolicyRefusesIsNeverAnnounced() throws {
+        let refused = RecordingClient()
+        ActionUIHostSurface.setDelegate(refused, forSurfaceName: "refused")
+        let saved = model.trustPolicy
+        model.trustPolicy = RefusingHostSurface(name: "refused")
+        let otherUUID = UUID().uuidString
+        let other = TestHost.makeWindow(width: 300, height: 200)
+        defer {
+            ActionUIHostSurface.setDelegate(nil, forSurfaceName: "refused")
+            TestHost.close(other)
+            model.removeWindow(otherUUID)
+            model.trustPolicy = saved
+        }
+        let json = """
+            { "type": "HostSurface", "id": 3, "properties": { "surfaceName": "refused" } }
+            """
+        let root = FileLoadableView(data: Data(json.utf8), sourceName: "HostSurfaceRefused.json",
+                                    windowUUID: otherUUID, isContentView: true,
+                                    logger: ConsoleLogger(maxLevel: .warning))
+        #if os(macOS)
+        other.contentView = NSHostingView(rootView: root.frame(width: 300, height: 200))
+        #else
+        other.rootViewController = UIHostingController(rootView: root.frame(width: 300, height: 200))
+        #endif
+        settle()
+        XCTAssertEqual(refused.events, [], "the refused element's client is never told of it")
+        XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 1, "only the first window's surface is live")
+        XCTAssertEqual(client.events, [.created], "the allowed surface is unaffected")
+    }
+
     func testAClientBoundAfterLoadGetsTheLiveSurface() {
         let late = RecordingClient()
         ActionUIHostSurface.setDelegate(late, forSurfaceName: "document")
         XCTAssertEqual(client.events, [.created, .destroyed], "the replaced client is told first")
         XCTAssertEqual(late.events, [.created])
         ActionUIHostSurface.setDelegate(client, forSurfaceName: "document")
+    }
+}
+
+/// A trust policy that refuses one surface name and keeps ActionUI's decisions otherwise.
+private struct RefusingHostSurface: ActionUITrustPolicy {
+    let name: String
+
+    func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+        capability == .hostSurface(name) ? false : DefaultTrustPolicy.allowsByDefault(capability, for: origin)
     }
 }

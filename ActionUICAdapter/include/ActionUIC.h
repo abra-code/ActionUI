@@ -111,7 +111,7 @@ typedef ActionUITrust (*ActionUITrustCallback)(const char* sourceJSON,
 /// "load" {"source": {...}}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
 /// "webViewBaseURL" {"url"}, "webViewUserScripts", "webViewPersistentData",
 /// "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "windowTitle", "presentModal",
-/// "menuCommands", "action" {"actionID"}.
+/// "menuCommands", "action" {"actionID"}, "hostSurface" {"surfaceName"}.
 typedef bool (*ActionUICapabilityCallback)(const char* capabilityJSON,
                                            const char* originJSON,
                                            bool byDefault);

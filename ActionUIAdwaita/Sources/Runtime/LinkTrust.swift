@@ -114,4 +114,10 @@ extension RenderNode {
     public func readsLocalFile(_ path: String) -> Bool {
         LinkTrust.readsLocalFile(path, self)
     }
+
+    /// Whether this node's content may do `capability`, with a refusal logged once per element
+    /// (ActionUIModel.allowsLoggingOnce; `what` names it in the log): for add-on elements.
+    public func allowsLoggingOnce(_ capability: ActionUICapability, what: String) -> Bool {
+        LinkTrust.allowsLoggingOnce(capability, what: what, self)
+    }
 }

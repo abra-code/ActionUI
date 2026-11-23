@@ -432,7 +432,8 @@ actionui.setTrustPolicy({
     // 'load' { source }, 'openLink' { url }, 'webView' { url } (null for inline html),
     // 'webViewBaseURL' { url }, 'webViewUserScripts', 'webViewPersistentData',
     // 'webViewScriptFile' { path }, 'readLocalFile' { path },
-    // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID }.
+    // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID },
+    // 'hostSurface' { surfaceName }.
     allows(capability, origin, byDefault) { return byDefault; },
 });
 actionui.setTrustPolicy();   // ActionUI's own policy again

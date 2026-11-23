@@ -3,7 +3,8 @@
  The HostSurface element on Linux, the counterpart of HostSurface.swift (the sample JSON and the properties are
  there): the same JSON over a frame sink, HostSurfaceView+Adwaita.swift. "kind" "native" (the default) and "sink"
  are the frame sink; "gl" is a GtkGLArea the client draws in from the render callback, with GTK's GL context
- current. An unknown kind draws a placeholder.
+ current. An unknown kind draws a placeholder, as does content the trust policy does not let show the host's surface
+ (.hostSurface; less-trusted content by default).
 
  Size: the ideal size (idealWidth, idealHeight; 320 x 240 by default) is the natural size, and the element grows
  to what it is offered, as the SwiftUI element takes the proposed size. frame and padding work as usual.
@@ -32,6 +33,10 @@ struct HostSurface: ActionUIAdwaitaElement {
     static func makeWidget(_ node: RenderNode) -> OpaquePointer {
         let made = HostSurfaceWidget.make(windowUUID: node.windowUUID, viewID: node.element.id, model: node.model,
                                           logger: ActionUIModel.shared.logger)
+        // Content the trust policy does not let show the host's surface (less-trusted content, by
+        // default) gets the placeholder, and the client never hears of the element.
+        let name = HostSurfaceProperties(node.properties, logger: ActionUIModel.shared.logger).surfaceName
+        made.view.isRefused = !node.allowsLoggingOnce(.hostSurface(name), what: "showing host surface '\(name)'")
         node.state = made.view
         return OpaquePointer(made.widget)
     }

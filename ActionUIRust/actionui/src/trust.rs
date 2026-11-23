@@ -92,6 +92,12 @@ pub enum Capability {
         #[serde(rename = "actionID")]
         action_id: String,
     },
+    /// A HostSurface element binding to the host's surface of this name.
+    #[serde(rename = "hostSurface")]
+    HostSurface {
+        #[serde(rename = "surfaceName")]
+        surface_name: String,
+    },
     /// A capability this version of the crate does not know.
     #[serde(other)]
     Unknown,
@@ -224,6 +230,8 @@ mod tests {
         assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"webViewUserScripts"}"#).unwrap(), Capability::WebViewUserScripts);
         assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"webViewPersistentData"}"#).unwrap(),
                    Capability::WebViewPersistentData);
+        assert_eq!(serde_json::from_str::<Capability>(r#"{"capability":"hostSurface","surfaceName":"viewport"}"#).unwrap(),
+                   Capability::HostSurface { surface_name: "viewport".into() });
     }
 
     struct Panics;

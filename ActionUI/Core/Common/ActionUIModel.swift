@@ -305,6 +305,14 @@ public class ActionUIModel {
         readsLocalFile(path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? viewID)
     }
 
+    /// allowsLoggingOnce for the element `viewID` drawn with `model`: in a template row the row's
+    /// container is asked about, as for readsLocalFile. For elements outside ActionUI, such as
+    /// add-ons.
+    public func allowsLoggingOnce(_ capability: ActionUICapability, what: String, windowUUID: String, viewID: Int,
+                                  model: ViewModel) -> Bool {
+        allowsLoggingOnce(capability, what: what, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? viewID)
+    }
+
     /// Whether the WebView `viewID` of the window may read its user script from the file at `path`,
     /// as readsLocalFile decides for other files (.webViewScriptFile).
     public func readsScriptFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {

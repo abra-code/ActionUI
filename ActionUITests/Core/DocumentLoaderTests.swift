@@ -483,6 +483,8 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertFalse(DefaultTrustPolicy().allows(.webViewPersistentData, for: lessTrusted), "a private data store")
         XCTAssertTrue(DefaultTrustPolicy().allows(.webViewUserScripts, for: .host))
         XCTAssertTrue(DefaultTrustPolicy().allows(.webViewPersistentData, for: .host))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.hostSurface("viewport"), for: lessTrusted), "no host surface")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.hostSurface("viewport"), for: .host))
         for address in ["HTTPS://example.com", "mailto:someone@example.com"] {
             XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(URL(string: address)!), for: lessTrusted), address)
         }

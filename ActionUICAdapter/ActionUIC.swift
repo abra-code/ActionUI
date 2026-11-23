@@ -1517,6 +1517,7 @@ private func capabilityObject(_ capability: ActionUICapability) -> [String: Any]
     case .presentModal: return ["capability": "presentModal"]
     case .menuCommands: return ["capability": "menuCommands"]
     case .action(let actionID): return ["capability": "action", "actionID": actionID]
+    case .hostSurface(let name): return ["capability": "hostSurface", "surfaceName": name]
     @unknown default: return ["capability": "unknown"]  // for a library built with evolution
     }
 }
