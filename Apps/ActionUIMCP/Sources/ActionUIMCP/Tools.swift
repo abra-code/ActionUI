@@ -210,7 +210,10 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         description: """
             Open a native \(HostPlatform.systemName) window that presents content to the user: \(shows). Returns \
             {window, warnings?} at once without waiting; the window stays open until the user closes it, you call \
-            close_window, or this session ends (with keep: true, until the user closes it). \(focus)
+            close_window, or this session ends (with keep: true, until the user closes it). \(focus) For a report \
+            with images, write the images to a folder and pass it as base with markdown text. For an HTML page with \
+            images or other files, write the page and its files into one folder and show the page with kind file: it \
+            loads files beside and below it, not from parent folders. HTML passed in text can use no local files.
             """,
         inputSchema: input,
         outputSchema: output,
