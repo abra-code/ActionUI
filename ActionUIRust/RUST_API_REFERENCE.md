@@ -510,7 +510,7 @@ A document the host passes in, or one in the app's resources, is trusted; one a 
 | `set_trust_policy(policy: impl TrustPolicy)` | The host's policy, for all windows, from any thread; set it before loading content. |
 | `clear_trust_policy()` | ActionUI's own policy again. |
 
-The policy's methods run on the main thread, often (as elements draw), and should return quickly. A method that panics counts as less trusted, or as a refusal.
+The policy's methods run on the main thread, often (as elements draw), and should return quickly. A method that panics counts as less trusted, or as a refusal. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
 
 ```rust
 use actionui::{Source, Trust, TrustPolicy};

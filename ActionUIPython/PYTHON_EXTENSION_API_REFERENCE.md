@@ -175,7 +175,7 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```
 
-A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder.
+A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
 
 ### Configuration
 

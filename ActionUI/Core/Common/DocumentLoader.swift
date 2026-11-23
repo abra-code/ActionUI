@@ -127,6 +127,12 @@ public enum ActionUICapability: Sendable, Equatable {
 /// The host's say over how far content is trusted and what it may do,
 /// set on ActionUIModel.shared.trustPolicy before loading. One object serves every window; a host
 /// that wants rules per window switches on the origin's parentID or keeps its own map.
+///
+/// Rows are judged as the content they are shown in: text the host sets as a List's, Table's or
+/// Chart's rows, placed by a template into an address ("url": "$1" on a Link, an AsyncImage, a
+/// VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells), opens or loads
+/// with that content's trust. A host that sets rows from text it got elsewhere (search results,
+/// file names, a server's data) checks the addresses in it first.
 public protocol ActionUITrustPolicy: Sendable {
     /// The trust of content loaded from `source` inside content of origin `parent` (nil only for a
     /// window's root; a LoadableView in a template row has its row's content as parent, and one

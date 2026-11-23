@@ -439,7 +439,7 @@ actionui.setTrustPolicy({
 actionui.setTrustPolicy();   // ActionUI's own policy again
 ```
 
-For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. `test_trust_policy.js` runs both against a real window.
+For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first. `test_trust_policy.js` runs both against a real window.
 
 ### Configuration
 
