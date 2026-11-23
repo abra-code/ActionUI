@@ -165,6 +165,13 @@ object WebView : ActionUIViewConstruction {
                     settings.setSupportZoom(config.magnificationGestures)
                     settings.builtInZoomControls = config.magnificationGestures
                     settings.displayZoomControls = false
+                    if (lessTrusted) {
+                        // Its page reads no local files or content providers (content:, as other
+                        // apps share their data), whatever it links to; Android allows content
+                        // access by default. Trusted content keeps the defaults.
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                    }
 
                     // Content the trust policy does not let run its user scripts runs none
                     // (asked once per view). Script sources resolve once per view instance

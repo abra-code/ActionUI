@@ -78,6 +78,19 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
                                                         isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
     }
 
+    func testARefusalForContentOfUnknownOriginIsLoggedOncePerWindow() {
+        let model = ActionUIModel.shared
+        let file = ActionUICapability.openLink(URL(string: "file:///etc/hosts")!)
+        XCTAssertFalse(model.allowsLoggingOnceForUnknownOrigin(file, what: "opening the link", windowUUID: windowUUID))
+        XCTAssertFalse(model.allowsLoggingOnceForUnknownOrigin(file, what: "opening the link", windowUUID: windowUUID))
+        XCTAssertEqual(recording.warnings.filter { $0.contains("origin cannot be told") }.count, 1, "\(recording.warnings)")
+        XCTAssertTrue(model.allowsLoggingOnceForUnknownOrigin(.openLink(URL(string: "https://example.com")!), what: "opening the link",
+                                                              windowUUID: windowUUID), "a web link is allowed for less-trusted content")
+        model.removeWindow(windowUUID)
+        XCTAssertFalse(model.allowsLoggingOnceForUnknownOrigin(file, what: "opening the link", windowUUID: windowUUID))
+        XCTAssertEqual(recording.warnings.filter { $0.contains("origin cannot be told") }.count, 2, "logged again once the window is gone")
+    }
+
     func testTheDefaultPolicyLetsEveryActionFire() async throws {
         try await loadWindow()
         for viewID in [1, 200, 0, 999] {
@@ -106,12 +119,14 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
     func testContentWithElementIDZeroIsNotTakenForTheHost() async throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         let data = Data(#"{"id": 0, "type": "Button", "properties": {"title": "Run", "actionID": "test.run"}}"#.utf8)
-        _ = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/zero.json")!, windowUUID: windowUUID,
-                                                        isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
+        let element = try await ActionUIDocumentLoader.loadRemote(url: URL(string: "https://example.com/zero.json")!, windowUUID: windowUUID,
+                                                                  isContentView: false, parentID: 100, logger: recording) { url in (data, url) }
+        XCTAssertLessThan(element.id, -1, "the id 0 is replaced by a generated one")
+        XCTAssertNil(ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: 0), "no element is known by the id 0")
         ActionUIModel.shared.trustPolicy = StrictPolicy()
-        // What a tap on the remote Button fires (Button.userTapped passes its own id, 0).
-        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 0, viewPartID: 0)
-        XCTAssertEqual(fired, [], "the remote element 0 is less trusted, not the host's")
+        // What a tap on the remote Button fires (Button.userTapped passes its own id).
+        ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+        XCTAssertEqual(fired, [], "the remote element is less trusted, not the host's")
         // The host's own toast and dialog buttons still fire.
         ActionUIModel.shared.actionHandler("test.run", windowUUID: windowUUID, viewID: 0, viewPartID: 0, origin: .host)
         XCTAssertEqual(fired, [0])

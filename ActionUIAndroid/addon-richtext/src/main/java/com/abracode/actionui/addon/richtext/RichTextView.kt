@@ -4,13 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.richtext.model.RichTextDocument
 import com.abracode.richtext.rendering.RichText
 import com.abracode.richtext.rendering.RichTextTheme
 import kotlinx.serialization.json.JsonObject
@@ -82,7 +85,13 @@ object RichTextView : ActionUIViewConstruction {
         config.syntaxHighlighting?.let { theme = theme.copy(syntaxHighlighting = it) }
 
         // widthBehavior ("hug") has no Compose hook here; the renderer fills the proposed width. See the class doc.
-        RichText(markdown = markdown, theme = theme, modifier = modifier)
+        // Relative image paths resolved against baseURL, local images only as the trust policy allows
+        // (RichTextLocalImages.kt), once per source.
+        val origin = LocalJSONContentOrigin.current
+        val document = remember(markdown, config.baseUrl, origin) {
+            richTextDocument(markdown, config.baseUrl) { ActionUIModel.readsLocalFile(it, origin, logger) }
+        }
+        RichText(document = document, theme = theme, modifier = modifier)
     }
 }
 
@@ -92,6 +101,7 @@ internal data class RichTextConfig(
     val baseFontSize: Float? = null,
     val syntaxHighlighting: Boolean? = null,   // null = keep the theme default
     val widthBehaviorHug: Boolean = false,     // parsed for parity; not applied on Android (see BuildView)
+    val baseUrl: String? = null,               // where the Markdown lives, as a URL string (markdownBaseUrl)
 )
 
 /**
@@ -116,6 +126,7 @@ internal fun resolveRichTextConfig(props: JsonObject?, logger: ActionUILogger?):
     }
 
     return RichTextConfig(
+        baseUrl = markdownBaseUrl(props.stringOrNull("baseURL", logger)),
         markdown = markdown,
         baseFontSize = baseFontSize,
         syntaxHighlighting = syntaxHighlighting,

@@ -111,7 +111,9 @@ struct FileViewing {
             // load only when clicked, so showing it does not tell their servers it was opened.
             return FileViewing(view: .markdown, root: ["type": "ScrollView", "properties": ["frame": fill],
                                                        "content": ["type": "RichText", "properties": ["markdown": text, "padding": 20,
-                                                                                                      "remoteImages": "on-click"]]],
+                                                                                                      "remoteImages": "on-click",
+                                                                                                      // Its relative image paths are the file's own.
+                                                                                                      "baseURL": path]]],
                                rows: nil)
         }
         if let delimiter = delimiters[ext], let table = parseDelimited(text, delimiter: delimiter, maxRows: maxTableRows) {

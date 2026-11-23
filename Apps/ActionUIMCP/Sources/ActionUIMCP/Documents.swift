@@ -72,7 +72,8 @@ struct DialogSpec {
         guard let title = arguments["title"]?.string, !title.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
-        self.title = title
+        self.title = oneLine(title, limit: maxAgentTitleLength)
+        guard !self.title.isEmpty else { throw MCPToolError("'title' must have something to show, not only spaces") }
         self.message = arguments["message"]?.string
         self.width = min(max(arguments["width"]?.double ?? 460, 320), 1000)
 
@@ -361,7 +362,8 @@ struct ViewerSpec {
         guard let title = arguments["title"]?.string, !title.isEmpty else {
             throw MCPToolError("'title' is required and must be a non-empty string")
         }
-        self.title = title
+        self.title = oneLine(title, limit: maxAgentTitleLength)
+        guard !self.title.isEmpty else { throw MCPToolError("'title' must have something to show, not only spaces") }
         let kindName = arguments["kind"]?.string ?? ""
         guard let kind = ContentKind(rawValue: kindName), ContentKind.available.contains(kind) else {
             let known = ContentKind.available.map(\.rawValue).joined(separator: ", ")
@@ -374,6 +376,11 @@ struct ViewerSpec {
         let text = arguments["text"]?.string
         let path = arguments["path"]?.string
         let url = arguments["url"]?.string
+        // The kind first, so an agent that passed 'base' to the wrong kind hears that, not a path problem.
+        if arguments["base"]?.string != nil, kind != .markdown {
+            throw MCPToolError("'base' is for kind 'markdown' only")
+        }
+        let base = try arguments["base"]?.string.map(Self.existingBase)
         // Local files go through 'path', which checks them; a url is for the network only.
         if let url, !(url.lowercased().hasPrefix("http://") || url.lowercased().hasPrefix("https://")) {
             throw MCPToolError("'url' must start with http:// or https://; use 'path' for a local file")
@@ -386,8 +393,10 @@ struct ViewerSpec {
         switch kind {
         case .markdown:
             guard let text else { throw MCPToolError("kind 'markdown' needs 'text'") }
-            root = ["type": "ScrollView", "properties": ["frame": fill],
-                    "content": ["type": "RichText", "properties": ["markdown": text, "padding": 20]]]
+            var properties: [String: Any] = ["markdown": text, "padding": 20]
+            // Relative image paths in the text resolve against the folder the agent names.
+            if let base { properties["baseURL"] = base.path }
+            root = ["type": "ScrollView", "properties": ["frame": fill], "content": ["type": "RichText", "properties": properties]]
         case .text:
             guard let text else { throw MCPToolError("kind 'text' needs 'text'") }
             root = ["type": "TextEditor", "properties": ["text": text, "readOnly": true, "frame": fill,
@@ -497,6 +506,15 @@ struct ViewerSpec {
         tableRows = parsedRows
         warnings = checkWarnings
         shownAs = fileView
+    }
+
+    /// The folder that relative paths in `text` resolve against: `base`, an existing folder, or the
+    /// folder of an existing file in it. Absolute, as every path the server takes.
+    private static func existingBase(_ path: String) throws -> URL {
+        guard path.hasPrefix("/") else { throw MCPToolError("'base' must be absolute: \(path)") }
+        guard let isFolder = HostSupport.isFolder(atPath: path) else { throw MCPToolError("no such folder or file: \(path)") }
+        let url = URL(fileURLWithPath: path, isDirectory: isFolder)
+        return isFolder ? url : url.deletingLastPathComponent()
     }
 
     /// Paths must be absolute: the server does not share the client's working directory.

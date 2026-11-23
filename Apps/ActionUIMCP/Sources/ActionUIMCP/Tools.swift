@@ -20,7 +20,7 @@ let defaultDialogTimeout = 3600.0
 let maxDialogTimeout = 86400.0
 
 func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
-    [askUserTool(host: host, label: label), pickPathTool(host: host),
+    [askUserTool(host: host, label: label), pickPathTool(host: host, label: label),
      showTool(host: host, label: label), notifyTool(host: host, label: label), showUITool(host: host, label: label), validateUITool(host: host),
      waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), screenshotTool(host: host),
      closeWindowTool(host: host)]
@@ -28,9 +28,38 @@ func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
 
 /// "Requested by <client> - <label>": shown in every window's title bar, not settable by a tool.
 func provenance(clientName: String?, label: String?) -> String {
-    var text = "Requested by " + (clientName ?? "an AI agent")
-    if let label, !label.isEmpty { text += " - " + label }
+    var text = "Requested by " + (clientName.map { oneLine($0, limit: maxClientNameLength) } ?? "an AI agent")
+    if let label, !label.isEmpty { text += " - " + oneLine(label, limit: maxClientNameLength) }
     return text
+}
+
+/// The longest window or panel title an agent may set, and the longest client name or label in the
+/// provenance line: a long title would push the "Requested by" line out of the title bar.
+let maxAgentTitleLength = 80
+let maxClientNameLength = 60
+
+/// `text` on one line (newlines, tabs and other control characters become spaces, runs of spaces
+/// one) and at most `limit` characters, the last three "..." when it was cut.
+func oneLine(_ text: String, limit: Int) -> String {
+    var line = ""
+    var lastWasSpace = false
+    for character in text {
+        // Bidirectional embeddings, overrides and isolates (U+202A-202E, U+2066-2069) become spaces
+        // too: where pieces are joined into one string, one would reverse the text after it.
+        let isSpace = character.isWhitespace || character.unicodeScalars.contains {
+            $0.properties.generalCategory == .control || (0x202A...0x202E).contains($0.value) || (0x2066...0x2069).contains($0.value)
+        }
+        if isSpace {
+            if !lastWasSpace && !line.isEmpty { line.append(" ") }
+            lastWasSpace = true
+        } else {
+            line.append(character)
+            lastWasSpace = false
+        }
+    }
+    while line.last == " " { line.removeLast() }
+    guard line.count > limit else { return line }
+    return String(line.prefix(max(0, limit - 3))) + "..."
 }
 
 /// The optional `keep` argument of show and show_ui.
@@ -130,11 +159,11 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
 private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let kinds = JSONValue.array(ContentKind.available.map { .string($0.rawValue) })
     #if os(Linux)
-    let kindText = "markdown (text), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let kindText = "markdown (text; base for its relative image paths), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
     let shows = "a markdown report, plain text, a file shown by its type, an image, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It takes the keyboard focus, as every new window does on Linux."
     #else
-    let kindText = "markdown (text), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text, anything else, PDF among them, with Quick Look), pdf (path; Quick Look), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let kindText = "markdown (text; base for its relative image paths), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text, anything else, PDF among them, with Quick Look), pdf (path; Quick Look), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
     let shows = "a markdown report, plain text, a file shown by its type (Quick Look for what has no better view), an image, a PDF, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It does not take keyboard focus."
     #endif
@@ -145,6 +174,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
         "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
         "url": ["type": "string", "description": "http(s) URL for image, video, web."],
+        "base": ["type": "string", "description": "For markdown: absolute path of the folder that relative image paths in text resolve against (or of a file in it), such as the folder where you wrote the images the report shows."],
         "old_text": ["type": "string", "description": "For diff: the old (left) text."],
         "new_text": ["type": "string", "description": "For diff: the new (right) text."],
         "old_path": ["type": "string", "description": "For diff: absolute path of the old file, instead of old_text."],
@@ -180,7 +210,10 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         description: """
             Open a native \(HostPlatform.systemName) window that presents content to the user: \(shows). Returns \
             {window, warnings?} at once without waiting; the window stays open until the user closes it, you call \
-            close_window, or this session ends (with keep: true, until the user closes it). \(focus)
+            close_window, or this session ends (with keep: true, until the user closes it). \(focus) For a report \
+            with images, write the images to a folder and pass it as base with markdown text. For an HTML page with \
+            images or other files, write the page and its files into one folder and show the page with kind file: it \
+            loads files beside and below it, not from parent folders. HTML passed in text can use no local files.
             """,
         inputSchema: input,
         outputSchema: output,

@@ -40,6 +40,9 @@ The element value is the Markdown source string, so the host drives it with the 
 | `syntaxHighlighting` | boolean | Color fenced code blocks by language. Default from the RichText theme. |
 | `showFindBar` | boolean | A find bar over the document (default false): Cmd-F opens it, Cmd-G / Shift-Cmd-G step, Escape closes. Off, a runtime `setElementState("search", "<term>")` still highlights every match; `""` clears. |
 | `remoteImages` | string | When http / https images are fetched: `"automatic"` (default) at once, `"on-click"` when the reader clicks the placeholder naming the image's host, `"never"` not at all. Use `"on-click"` or `"never"` for Markdown a model or an agent wrote, since an image URL can carry data out. An unrecognized value counts as `"on-click"`. Same as the Chat element's property. |
+| `baseURL` | string | Where the Markdown lives, so relative image paths (`logo.png`, `img/a.png`, `../logo.png`) are found: the absolute path of the Markdown file or of its folder, or a `file:`, `http:` or `https:` address (a folder's ends in `/`). Without it a relative image path cannot load. |
+
+Local `file:` images in the Markdown show only as the host's trust policy allows a local file read, the same question an `Image`'s `filePath` asks: trusted content reads any file; less-trusted content (a LoadableView loaded from a server, say) by default only files inside the app's resources. A refused image shows its alt text as an image that cannot load.
 
 `baseFontSize` and `syntaxHighlighting` override those knobs on RichText's default theme; the rest of
 the theme keeps its defaults. Sizing / padding / background use the baseline View modifiers.

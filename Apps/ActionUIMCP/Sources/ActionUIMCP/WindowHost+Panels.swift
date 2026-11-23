@@ -24,6 +24,13 @@ struct PanelSpec {
     let multiple: Bool
     let directory: URL?
     let defaultName: String?
+    /// The "Requested by" line, shown with the agent's message so the panel says who asked.
+    var provenance: String?
+
+    /// The panel's message: the provenance line, then the agent's message.
+    var shownMessage: String? {
+        [provenance, message].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n").nilIfEmpty
+    }
 
     init(arguments: [String: JSONValue]) throws {
         let kindName = arguments["kind"]?.string ?? "file"
@@ -31,7 +38,7 @@ struct PanelSpec {
             throw MCPToolError("'kind' must be one of: file, folder, save")
         }
         self.kind = kind
-        title = arguments["title"]?.string
+        title = arguments["title"]?.string.map { oneLine($0, limit: maxAgentTitleLength) }
         message = arguments["message"]?.string
         multiple = arguments["multiple"]?.bool ?? false
         defaultName = arguments["default_name"]?.string
@@ -103,4 +110,8 @@ extension WindowHost {
             }
         }
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

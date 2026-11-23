@@ -25,6 +25,11 @@
 // coexist (the color paints in front of the background view, per Apple).
 
 let negativeIDCounter = -1;
+// The positive ids met so far in the outermost fromObject call under way (one ActionUI JSON), to
+// log a duplicate; null between calls. Not counted inside a template, whose elements are a row's
+// blueprint, not live elements.
+let seenIDs = null;
+let templateDepth = 0;
 
 // "contextMenu" is an array subview (the menu's action items) and "contextMenuPreview"
 // a single one (the optional preview view) — mirroring SwiftUI's two-builder
@@ -65,6 +70,16 @@ export class ActionUIElement {
     }
 
     static fromObject(raw, logger) {
+        const outermost = seenIDs === null;
+        if (outermost) seenIDs = new Set();
+        try {
+            return ActionUIElement.#decode(raw, logger);
+        } finally {
+            if (outermost) seenIDs = null;
+        }
+    }
+
+    static #decode(raw, logger) {
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
             // The kind of value only: an array or a string could carry what a user typed.
             const kind = raw === null ? "null" : Array.isArray(raw) ? "an array" : `a ${typeof raw}`;
@@ -75,7 +90,26 @@ export class ActionUIElement {
             logger.log(`Element missing required "type" string`, "error");
             return null;
         }
-        const id = Number.isInteger(raw.id) ? raw.id : negativeIDCounter--;
+        // Ids in ActionUI JSON are positive: 0 and negative ids would pass for an element with no id
+        // of its own (those get generated negative ids), so such an id is replaced, with a warning.
+        let id;
+        if (Number.isInteger(raw.id) && raw.id > 0) {
+            id = raw.id;
+        } else {
+            // null counts as no id, as in Swift. A number is shown as is; any other value by its kind
+            // only (a string could carry what a user typed; JSON.stringify throws on a BigInt).
+            if (raw.id !== undefined && raw.id !== null) {
+                const shown = typeof raw.id === "number" ? `id ${raw.id}`
+                    : `an id of type ${Array.isArray(raw.id) ? "array" : typeof raw.id}`;
+                logger.log(`Ignoring ${shown} on ${raw.type}: an id must be a positive integer`, "warning");
+            }
+            id = negativeIDCounter--;
+        }
+        if (id > 0 && templateDepth === 0) {
+            // Two elements of one ActionUI JSON with one id: both are drawn with one state.
+            if (seenIDs.has(id)) logger.log(`Duplicate id ${id}: its elements share one state`, "error");
+            seenIDs.add(id);
+        }
         const properties = (typeof raw.properties === "object" && raw.properties !== null)
             ? raw.properties : {};
 
@@ -91,7 +125,13 @@ export class ActionUIElement {
         }
         for (const key of SUBVIEW_SINGLE_KEYS) {
             if (typeof raw[key] === "object" && raw[key] !== null) {
-                const child = ActionUIElement.fromObject(raw[key], logger);
+                if (key === "template") templateDepth++;
+                let child;
+                try {
+                    child = ActionUIElement.fromObject(raw[key], logger);
+                } finally {
+                    if (key === "template") templateDepth--;
+                }
                 if (child !== null) {
                     subviews = subviews ?? {};
                     subviews[key] = child;

@@ -131,9 +131,10 @@ import Testing
     }
     #expect(HostSupport.resourceFolder(ofBundle: "HostSupportTests-none") == nil)
 }
+#endif
 
-/// The temporary folder is open to every user of the machine, and a folder they made first would
-/// be theirs: the session's folder has a name they cannot know.
+/// On Linux the temporary folder is open to every user of the machine, and a folder they made
+/// first would be theirs: the session's folder has a name they cannot know, on macOS too.
 @Test func theSessionFolderIsPrivate() {
     let path = HostSupport.sessionFolder.path
     defer { rmdir(path) }
@@ -145,7 +146,6 @@ import Testing
     #expect(path != FileManager.default.temporaryDirectory
         .appendingPathComponent("actionui-mcp-\(ProcessInfo.processInfo.processIdentifier)").path)
 }
-#endif
 
 @Test func trimmedRemovesSpacesAndNewlines() {
     #expect(" \t a b \r\n".trimmed == "a b")
@@ -162,4 +162,15 @@ import Testing
     #expect(Array(" \u{301}x".trimmed.unicodeScalars) == ["\u{301}", "x"])
     #expect(Array("x \u{200D}".trimmed.unicodeScalars) == ["x", " ", "\u{200D}"])
     #expect(Array("\u{FEFF}x".trimmed.unicodeScalars) == ["\u{FEFF}", "x"])
+}
+
+@Test func agentTitlesAreOneShortLine() {
+    #expect(oneLine("Software\nUpdate\t  now ", limit: 80) == "Software Update now")
+    #expect(oneLine("a\u{0007}b", limit: 80) == "a b", "a control character becomes a space")
+    let long = String(repeating: "x", count: 100)
+    #expect(oneLine(long, limit: 80).count == 80)
+    #expect(oneLine(long, limit: 80).hasSuffix("..."))
+    #expect(provenance(clientName: "Agent\nRequested by Apple", label: nil) == "Requested by Agent Requested by Apple")
+    #expect(oneLine("a\u{202E}b\u{2066}c", limit: 80) == "a b c", "bidirectional controls become spaces")
+    #expect(oneLine("\n \t", limit: 80) == "")
 }

@@ -56,12 +56,14 @@ private func view(_ path: String) throws -> FileViewing {
 @Test func markdownIsShownFormattedWithRichText() throws {
     let dir = try folder()
     defer { try? FileManager.default.removeItem(at: dir) }
-    let shown = try view(write("# Title\n\nSome **bold** text.\n", "notes.md", in: dir))
+    let path = try write("# Title\n\nSome **bold** text.\n", "notes.md", in: dir)
+    let shown = try view(path)
     #expect(shown.view == .markdown)
     let content = shown.root["content"] as? [String: Any]
     #expect(content?["type"] as? String == "RichText")
     #expect((content?["properties"] as? [String: Any])?["markdown"] as? String == "# Title\n\nSome **bold** text.\n")
     #expect((content?["properties"] as? [String: Any])?["remoteImages"] as? String == "on-click", "a file's images load when clicked")
+    #expect((content?["properties"] as? [String: Any])?["baseURL"] as? String == path, "its relative image paths are the file's own")
 }
 
 @Test func csvAndTsvAreShownAsATableWithTheFirstRecordAsHeader() throws {

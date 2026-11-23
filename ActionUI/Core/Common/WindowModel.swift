@@ -309,6 +309,10 @@ final class WindowModel {
         for child in element.childElements {
             let childViewModels = populateViewModelsUntracked(from: child)
             for (id, childModel) in childViewModels {
+                // Two elements of one ActionUI JSON with one id: both are drawn with one view model.
+                if targetViewModels[id] != nil {
+                    logger.log("Duplicate id \(id) in window \(windowUUID): its elements share one state", .error)
+                }
                 targetViewModels[id] = childModel
             }
         }

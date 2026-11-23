@@ -17,6 +17,8 @@ import MCPStdio
 final class KeptWindowKeeper: NSObject, NSWindowDelegate {
     private var windows: [String: NSWindow] = [:]
     private var controllers: [String: NSViewController] = [:]
+    /// Each window's title and provenance line, held as the keeper set them (WindowTitleGuard).
+    private var titleGuards: [String: WindowTitleGuard] = [:]
 
     /// Loads the spool directory, shows its windows, deletes it, and reports on `readyFD`.
     /// Returns false when no window could be shown; the caller then exits.
@@ -65,6 +67,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         // After the content view, which resets both (see WindowHost.openWindow).
         window.title = record.title
         window.subtitle = record.subtitle + KeptWindowSupport.subtitleSuffix
+        titleGuards[record.window] = WindowTitleGuard(window: window, title: window.title, subtitle: window.subtitle)
         window.setFrame(frame, display: false)
         // Once the view is installed, as openViewer sets a table's rows.
         KeptWindowSupport.restore(record)
@@ -81,6 +84,7 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
               let id = windows.first(where: { $0.value === window })?.key else { return }
         windows[id] = nil
         controllers[id] = nil
+        titleGuards[id] = nil
         if windows.isEmpty {
             DispatchQueue.main.async { NSApp.terminate(nil) }
         } else {

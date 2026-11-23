@@ -52,7 +52,7 @@ enum LinkTrust {
         if let viewID = originElementID(node) {
             return ActionUIModel.shared.allowsLoggingOnce(capability, what: what, windowUUID: node.windowUUID, viewID: viewID)
         }
-        return ActionUIModel.shared.trustPolicy.allows(capability, for: unknownOrigin)
+        return ActionUIModel.shared.allowsLoggingOnceForUnknownOrigin(capability, what: what, windowUUID: node.windowUUID)
     }
 
     /// Whether the node's content may read the local file at `path` (an image, a canvas image, a

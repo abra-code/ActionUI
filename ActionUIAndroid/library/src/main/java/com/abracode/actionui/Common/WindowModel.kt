@@ -307,6 +307,10 @@ class WindowModel(
         // (three id-less AsyncImages all loading the last one's url). Id-less
         // controls instead take their local-state fallback path.
         if (element.id > 0) {
+            // Two elements of one ActionUI JSON with one id: both are drawn with one state.
+            if (into.containsKey(element.id)) {
+                logger.log("Duplicate id ${element.id} in window $windowUUID: its elements share one state", LoggerLevel.error)
+            }
             val viewModel = ViewModel()
             viewModel.origin = origin
             viewModel.elementType = element.type

@@ -151,6 +151,10 @@ data class ActionUIElement(
  * as Swift's `ElementSlot` and the Web renderer skip it when the document loads: it takes no
  * place in a container and its id is not registered. The element itself is kept whatever its
  * type (the caller decides what a root with none means). Each one left out is logged at info.
+ *
+ * Every decode of ActionUI JSON runs through here, so it also drops a negative id, with a warning: ids
+ * in JSON are positive, and the element is then one without an id (0), as Swift and the Web renderer
+ * replace it with a generated one.
  */
 fun ActionUIElement.droppingUntypedElements(logger: ActionUILogger?): ActionUIElement {
     fun one(element: ActionUIElement?): ActionUIElement? = when {
@@ -162,7 +166,9 @@ fun ActionUIElement.droppingUntypedElements(logger: ActionUILogger?): ActionUIEl
         else -> element.droppingUntypedElements(logger)
     }
     fun list(elements: List<ActionUIElement>?): List<ActionUIElement>? = elements?.mapNotNull { one(it) }
+    if (id < 0) logger?.log("Ignoring id $id on $type: an id must be a positive integer", LoggerLevel.warning)
     return copy(
+        id = if (id < 0) 0 else id,
         children = list(children),
         content = one(content),
         template = one(template),
