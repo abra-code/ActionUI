@@ -14,6 +14,20 @@ import Foundation
 #endif
 import CWinUI
 
+/// The time limit of one http or https load, as the shim's fetches take it: the configuration's
+/// maximumDownloadTime in seconds, read when the load starts, or 0 for none: null in the configuration, or
+/// longer than the shim's timers take (24 days, maximumTimeoutSeconds in its ShimInternal.h), which is none
+/// in practice. Each step of a load still waits at most 30 seconds for the server (the shim's own limit).
+package enum DownloadTime {
+    package static var timeoutSeconds: Double {
+        guard let seconds = ActionUIConfiguration.current.limits.maximumDownloadTime,
+              seconds <= 24 * 24 * 60 * 60 else {
+            return 0
+        }
+        return seconds
+    }
+}
+
 @MainActor package enum RemoteFetch {
     /// What a fetch's completion gets: the bytes and the final address (after redirects, nil without
     /// one), or why not.
@@ -27,12 +41,13 @@ import CWinUI
         }
     }
 
-    /// Starts fetching `url` (http or https) with the cap on ActionUI JSON and 120 seconds, as a
-    /// LoadableView's download; false (the completion never called) when it could not start, with the
-    /// shim's error.
+    /// Starts fetching `url` (http or https) with the cap on ActionUI JSON and the configuration's time
+    /// limit (DownloadTime), as a LoadableView's download; false (the completion never called) when it
+    /// could not start, with the shim's error.
     package static func start(_ url: String, _ completion: @escaping Completion) -> Bool {
         let context = Unmanaged.passRetained(Box(completion)).toOpaque()
-        guard actionUIWinUIFetchURL(url, Int64(WindowModel.maximumJSONSize), 120, fetched, context) else {
+        guard actionUIWinUIFetchURL(url, Int64(WindowModel.maximumJSONSize), DownloadTime.timeoutSeconds, fetched,
+                                    context) else {
             // Never called back: the box is let go here.
             Unmanaged<Box>.fromOpaque(context).release()
             return false

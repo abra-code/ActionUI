@@ -10,6 +10,7 @@
 // projection.
 #undef GetCurrentTime
 
+#include <chrono>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -32,6 +33,15 @@ namespace wf = winrt::Windows::Foundation;
 namespace mux = winrt::Microsoft::UI::Xaml;
 namespace muxc = winrt::Microsoft::UI::Xaml::Controls;
 namespace dispatching = winrt::Microsoft::UI::Dispatching;
+
+// The longest time limit a fetch takes (actionUIWinUIFetchURL, actionUIWinUIFetchURLPrivately), in seconds: 24
+// days. A timer's interval may be kept in 32-bit milliseconds (at most about 24.8 days), so a longer one could
+// fire early, or at once; a host that wants longer asks for no limit.
+constexpr double maximumTimeoutSeconds = 24.0 * 24 * 60 * 60;
+
+// The longest one step of a fetch (sending the request and reading the response's headers, opening the body,
+// one read) may wait for the server, whatever the fetch's own time limit: libsoup's on Linux.
+constexpr std::chrono::seconds fetchStepLimit{30};
 
 // The calling thread's last error, read by actionUIWinUICopyLastError.
 void setLastError(std::string message);

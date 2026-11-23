@@ -65,7 +65,6 @@
 //                            video opened); repeatable
 //   --on-action ACTION ID TEXT  when ACTION fires, sets element ID's value to TEXT (a Text shows it)
 //   --fetch-limit BYTES      a LoadableView's download is refused past BYTES (default: 16 MB)
-//   --fetch-timeout SECONDS  a LoadableView's download is given up after SECONDS (default: 120)
 //   --configuration JSON     the host's configuration (ActionUIConfiguration), before the document loads
 //   --refuse-remote-loads    a host trust policy that refuses LoadableViews' remote loads
 //   --allow-user-scripts     a host trust policy that lets any content's WebViews run their user scripts
@@ -633,7 +632,7 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
 
     let arguments = CommandLine.arguments
 
-    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--fetch-timeout SECONDS] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
+    let usage = "usage: ActionUIWinUIPreview DOCUMENT.json PNG_PATH [WIDTH HEIGHT] [--invoke ID | --invoke-row ID ROW | --invoke-part ID N | --select-part ID N | --toggle ID | --set-text ID TEXT | --scroll ID X Y | --scroll-row ID ROW | --expect-row-name ID ROW NAME | --drag ID X1 Y1 X2 Y2 | --wheel ID X Y DX DY | --expect-width ID W | --invoke-menu-item ID N | --toggle-menu-item ID N | --set-value ID VALUE | --set-property ID NAME VALUE | --set-path ID IDS | --add-row ID TEXT | --add-rows ID N TEXT | --set-state ID KEY VALUE | --expect-state ID KEY VALUE | --expect-automation ID FIELD TEXT | --delay MS | --wait]... [--max-instances ID N]... [--expect-action ACTION]... [--expect-log TEXT]... [--forbid-action ACTION]... [--on-action ACTION ID TEXT]... [--no-launch] [--fetch-limit BYTES] [--refuse-remote-loads] [--refuse-media] [--allow-user-scripts] [--configuration JSON]"
     guard arguments.count >= 3 else {
         print(usage)
         exit(64)
@@ -758,10 +757,6 @@ public func runActionUIWinUIPreview(registeringElements registerElements: () -> 
         } else if option == "--fetch-limit", index + 1 < arguments.count, let bytes = Int64(arguments[index + 1]), bytes > 0 {
             // A LoadableView's download refused past BYTES (default: the cap on ActionUI JSON).
             LoadableFetch.maximumBytes = bytes
-            index += 2
-        } else if option == "--fetch-timeout", index + 1 < arguments.count, let seconds = Double(arguments[index + 1]), seconds > 0, seconds <= 86400 {
-            // A LoadableView's download given up after SECONDS (default: 120).
-            LoadableFetch.timeoutSeconds = seconds
             index += 2
         } else if option == "--configuration", index + 1 < arguments.count {
             // The host's configuration, as JSON (ActionUIConfiguration.set(json:)), before the document loads.

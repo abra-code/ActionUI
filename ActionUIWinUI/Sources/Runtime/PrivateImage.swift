@@ -5,7 +5,8 @@
  - The download sends no cookies and no Windows sign-in, keeps no cookies and shows no password dialog
    (the shim's private fetch). WinUI's own image loader sends the app's cookies and signs in to a server
    on its own.
- - The download stops at 32 MB (at once when the server announces more) and after 120 seconds.
+ - The download stops at 32 MB (at once when the server announces more) and after the configuration's
+   maximumDownloadTime (DownloadTime; 120 seconds by default).
  - The image is shown only if it is a bitmap whose header declares at most 64 megapixels
    (ImageSource.maximumPixelCount). The header is read before anything is decoded. SVG images are not
    shown, as on Apple: they declare no pixel size, and they can draw embedded bitmaps of any size.
@@ -39,7 +40,7 @@ import CWinUI
     static func load(_ url: String, into image: WinUIObject, what: String, failed: @escaping @MainActor () -> Void) -> Bool {
         let box = PrivateImageBox(image: image, url: url, what: what, failed: failed)
         let context = Unmanaged.passRetained(box).toOpaque()
-        if !actionUIWinUIFetchURLPrivately(url, maximumBytes, 120, privateImageFetched, context) {
+        if !actionUIWinUIFetchURLPrivately(url, maximumBytes, DownloadTime.timeoutSeconds, privateImageFetched, context) {
             Unmanaged<PrivateImageBox>.fromOpaque(context).release()
             ActionUIModel.shared.logger.log("\(what): \(WinUIError.last("fetching \(url)"))", .warning)
             return false

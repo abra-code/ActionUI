@@ -17,6 +17,12 @@ Routes:
   /auth/<name>       401, asking for Negotiate and NTLM sign-in; never completes one
   /cookie/<name>     200, a small valid body of the kind its name ends in (.json, .png, .mp4, .svg, .html)
   /slow.json         200 and its headers, then nothing for 30 seconds (for a time limit)
+  /stalled.json, /stalled-private.json, /stalled.png
+                     200 and its headers, then nothing for 60 seconds (for the 30-second limit on one
+                     step, which holds without a time limit)
+  /silent.json       no answer at all for 60 seconds (the same, before the headers)
+  /stalled-outer.json  200, ActionUI JSON whose LoadableView names /stalled-private.json and whose
+                     AsyncImage names /stalled.png (less-trusted content: the private fetch)
   /endless.json      200, then a body that does not end (up to 64 MB, for a size limit); /endless.png too
   /big.png           200, the --big image (a PNG whose header declares 9000 x 9000 pixels)
 Anything else is 404. Stops when --stop-file appears (or when its process is ended).
@@ -59,6 +65,15 @@ def outer_json(port):
             "children": [{"type": "HStack", "id": 220, "properties": {"spacing": 4}, "children": children[:4]},
                          {"type": "HStack", "id": 221, "properties": {"spacing": 4}, "children": children[4:]},
                          {"type": "HStack", "id": 222, "properties": {"spacing": 4}, "children": limits}]}
+
+
+def stalled_outer_json(port):
+    """The less-trusted document whose loads stall after the headers."""
+    base = f"http://localhost:{port}"
+    return {"type": "VStack", "id": 300, "properties": {"spacing": 4},
+            "children": [{"type": "LoadableView", "id": 301, "properties": {"url": f"{base}/stalled-private.json"}},
+                         {"type": "AsyncImage", "id": 302,
+                          "properties": {"url": f"{base}/stalled.png", "frame": {"width": 40, "height": 40}}}]}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -114,9 +129,16 @@ class Handler(BaseHTTPRequestHandler):
                            [("Set-Cookie", "actionui_web_probe=1; Path=/")])
         elif path == "/outer.json":
             self.send_body(200, "application/json", json.dumps(outer_json(self.server.port)).encode())
+        elif path == "/stalled-outer.json":
+            self.send_body(200, "application/json", json.dumps(stalled_outer_json(self.server.port)).encode())
+        elif path == "/silent.json":
+            # The request is read and nothing is answered; the connection closes afterwards.
+            self.close_connection = True
+            self.server.stopping.wait(60)
         elif path == "/big.png" and self.server.big is not None:
             self.send_body(200, "image/png", self.server.big)
-        elif path in ("/slow.json", "/endless.json", "/endless.png"):
+        elif path in ("/slow.json", "/stalled.json", "/stalled-private.json", "/stalled.png", "/endless.json",
+                      "/endless.png"):
             # No length: the body ends when the connection closes.
             self.send_response(200)
             self.send_header("Content-Type", "image/png" if path.endswith(".png") else "application/json")
@@ -129,6 +151,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.flush()
                 if path == "/slow.json":
                     self.server.stopping.wait(30)
+                elif path.startswith("/stalled"):
+                    self.server.stopping.wait(60)
                 else:
                     piece = b" " * 65536
                     for _ in range(1024):

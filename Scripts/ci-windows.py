@@ -1714,7 +1714,8 @@ def check_share_reads(preview, bin_path, results, summary, env):
 # The less-trusted LoadableViews' downloads, each of which must come from the private fetch and carry no sign-in or
 # cookie (the time and size limits are checked on the private fetch, not only on the error text).
 PRIVATE_FETCH_PATHS = ["/auth/loadable.json", "/cookie/loadable.json", "/slow.json", "/endless.json",
-                       "/auth/image.png", "/cookie/image.png", "/big.png", "/endless.png", "/cookie/drawing.svg"]
+                       "/auth/image.png", "/cookie/image.png", "/big.png", "/endless.png", "/cookie/drawing.svg",
+                       "/stalled-private.json", "/stalled.png"]
 
 
 def check_ambient_identity(preview, bin_path, results, summary, env):
@@ -1726,9 +1727,12 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
     sends no request).
     Fails when the less-trusted LoadableViews' and AsyncImages' downloads (the private fetch, user agent
     "ActionUI") carried a sign-in or a cookie or did not arrive, or when their limits did not hold
-    (/slow.json given up after 3 seconds, /endless.json refused past 100000 bytes, /endless.png past
-    32 MB, /big.png refused for its 9000 x 9000 pixels, an SVG image refused), or when a good image did
-    not load; or when the less-trusted WebView sent the cookie the app's own WebView got (it keeps a private
+    (/slow.json given up after 3 seconds, the configuration's maximumDownloadTime, /endless.json refused
+    past 100000 bytes, /endless.png past 32 MB, /big.png refused for its 9000 x 9000 pixels, an SVG image
+    refused), or when a good image did not load; or when, with no time limit (maximumDownloadTime null), a
+    download whose server stops answering is not given up after 30 seconds (the shim's limit on one step:
+    the app's own LoadableViews before and after the headers, Windows' HTTP client; less-trusted content's
+    LoadableView and AsyncImage, the private fetch); or when the less-trusted WebView sent the cookie the app's own WebView got (it keeps a private
     store), or the app's own WebView did not keep that cookie first. The video player, and the WebView's
     answers to sign-in requests, are recorded only."""
     findings = summary["findings"]
@@ -1759,7 +1763,8 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
             return False
         document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Probes" / "AmbientIdentity.json"
         step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "400",
-                                             "--fetch-timeout", "3", "--fetch-limit", "100000",
+                                             "--configuration", '{"limits": {"maximumDownloadTime": 3}}',
+                                             "--fetch-limit", "100000",
                                              "--expect-log", "/slow.json: loading it took longer than 3 seconds",
                                              "--expect-log", "/endless.json: the response is larger than 100000 bytes",
                                              "--expect-log", "AsyncImage 202 not shown:",
@@ -1778,6 +1783,24 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
         findings += [f"ambient identity: preview {line.strip()}" for line in
                      (results / step["log"]).read_text(encoding="utf-8", errors="replace").splitlines()
                      if ("[warning]" in line or "[error]" in line) and re.search(r"\b(20[1-9]|21[0-3])\b", line)]
+        # No time limit: every stalled download still ends, after the 30 seconds one step may wait.
+        stalled = "the server sent nothing for 30 seconds"
+        stall_step = run_step("stalled-downloads",
+                              [preview, document.parent / "StalledDownloads.json", results / "stalled-downloads.png",
+                               "420", "200", "--configuration", '{"limits": {"maximumDownloadTime": null}}',
+                               "--expect-log", f"/silent.json: {stalled}",
+                               "--expect-log", f"/stalled.json: {stalled}",
+                               "--expect-log", f"/stalled-private.json: {stalled}",
+                               "--expect-log", f"/stalled.png: {stalled}",
+                               "--set-value", "2", f"http://localhost:{port}/silent.json",
+                               "--set-value", "3", f"http://localhost:{port}/stalled.json",
+                               "--set-value", "5", f"http://localhost:{port}/stalled-outer.json",
+                               "--delay", "40000"],
+                              results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(stall_step)
+        findings += [f"ambient identity: stalled {line.strip()}" for line in
+                     (results / stall_step["log"]).read_text(encoding="utf-8", errors="replace").splitlines()
+                     if stalled in line]
     finally:
         try:
             stop_file.write_text("stop", encoding="utf-8")
@@ -1797,7 +1820,7 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
         cookie = ",".join(entry.get("cookie") or []) or "none"
         findings.append(f"ambient identity: {entry.get('method')} {entry.get('path')} over {entry.get('over')}: "
                         f"sign-in {entry.get('authorization') or 'none'}, cookies {cookie}, agent {entry.get('agent') or 'none'}")
-    passed = step["status"] == 0
+    passed = step["status"] == 0 and stall_step["status"] == 0
     for path in PRIVATE_FETCH_PATHS:
         requests = [entry for entry in entries if entry.get("path") == path]
         carried = [entry for entry in requests if entry.get("authorization") or entry.get("cookie")]
@@ -1829,7 +1852,8 @@ def check_ambient_identity(preview, bin_path, results, summary, env):
     if passed:
         findings.append("ambient identity: passed: the less-trusted LoadableViews' and AsyncImages' downloads "
                         "carried no sign-in and no cookie, and stopped at their limits; the less-trusted WebView "
-                        "did not get the app's own WebView's cookie")
+                        "did not get the app's own WebView's cookie; with no time limit, downloads whose server "
+                        "stopped answering ended after 30 seconds")
     return passed
 
 

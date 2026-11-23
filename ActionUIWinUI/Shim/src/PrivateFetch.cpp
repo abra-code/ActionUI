@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cwctype>
 #include <memory>
 #include <stdexcept>
@@ -80,8 +81,9 @@ void limitNextStep(PrivateFetchState &state) {
     if (left <= 0) {
         throw Expired();
     }
-    state.stepCapped = left > 30000;
-    int milliseconds = static_cast<int>(std::min<long long>(left, 30000));
+    const long long stepMilliseconds = std::chrono::milliseconds(fetchStepLimit).count();
+    state.stepCapped = left > stepMilliseconds;
+    int milliseconds = static_cast<int>(std::min<long long>(left, stepMilliseconds));
     WinHttpSetTimeouts(state.request, milliseconds, milliseconds, milliseconds, milliseconds);
     // The receive timeout covers one read from the connection; this one covers all of the response's
     // headers, which a server could otherwise send a byte at a time (its default is 90 seconds).
@@ -121,11 +123,15 @@ std::string errorText(DWORD code) {
     return message;
 }
 
-// Fails with the last error, or as Expired when it was the time limit.
+// Fails with the last error, or as Expired when it was the time limit. A step that waited its 30 seconds
+// says so in Network.cpp's words.
 [[noreturn]] void failStep(PrivateFetchState &state, const char *step) {
     DWORD code = GetLastError();
     if ((code == ERROR_WINHTTP_TIMEOUT && !state.stepCapped) || Clock::now() >= state.deadline) {
         throw Expired();
+    }
+    if (code == ERROR_WINHTTP_TIMEOUT) {
+        throw std::runtime_error("the server sent nothing for " + std::to_string(fetchStepLimit.count()) + " seconds");
     }
     throw std::runtime_error(std::string(step) + ": " + errorText(code));
 }
@@ -329,10 +335,11 @@ bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, doubl
         if (completion == nullptr) {
             return fail("fetch URL privately", "no completion to call");
         }
-        if (maximumBytes <= 0 || !(timeoutSeconds > 0) || !(timeoutSeconds <= 24 * 60 * 60)) {
-            return fail("fetch URL privately", "the size limit must be positive, the time limit between 0 and a day");
+        if (maximumBytes <= 0 || !(timeoutSeconds >= 0 && timeoutSeconds <= maximumTimeoutSeconds)) {
+            return fail("fetch URL privately", "the size limit must be positive, the time limit between 0 (none) and 24 days");
         }
-        auto timeout = std::chrono::milliseconds(static_cast<int64_t>(timeoutSeconds * 1000));
+        // Rounded up: a limit under a millisecond is 1 ms, never 0 (no limit).
+        auto timeout = std::chrono::milliseconds(static_cast<int64_t>(std::ceil(timeoutSeconds * 1000)));
         wf::Uri uri{nullptr};
         try {
             uri = wf::Uri(toHString(url));
@@ -348,7 +355,8 @@ bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, doubl
             return fail("fetch URL privately", "not on the UI thread (no DispatcherQueue)");
         }
         auto state = std::make_shared<PrivateFetchState>();
-        state->deadline = Clock::now() + timeout;
+        // No time limit: a deadline that never comes; each step still has its 30 seconds (limitNextStep).
+        state->deadline = timeout.count() > 0 ? Clock::now() + timeout : Clock::time_point::max();
         // The system's proxy settings (a proxy that asks for a sign-in is not answered: a failure).
         state->session = WinHttpOpen(L"ActionUI", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
                                      WINHTTP_NO_PROXY_BYPASS, 0);
@@ -360,20 +368,23 @@ bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, doubl
         auto delivery = std::make_shared<Delivery>();
         delivery->completion = completion;
         delivery->context = context;
-        // A little after the deadline, so a worker that ends right at it still reports its own outcome.
-        delivery->timer = queue.CreateTimer();
-        delivery->timer.Interval(timeout + std::chrono::milliseconds(500));
-        delivery->timer.IsRepeating(false);
-        std::weak_ptr<Delivery> weak = delivery;
-        delivery->timer.Tick([weak, lateText](auto &&, auto &&) {
-            std::shared_ptr<Delivery> held = weak.lock();
-            if (held == nullptr || held->delivered) {
-                return;
-            }
-            held->delivered = true;
-            held->completion(held->context, nullptr, 0, nullptr, lateText.c_str());
-        });
-        delivery->timer.Start();
+        // A little after the deadline, so a worker that ends right at it still reports its own outcome. None
+        // without a time limit: the worker always reports, each of its steps bounded.
+        if (timeout.count() > 0) {
+            delivery->timer = queue.CreateTimer();
+            delivery->timer.Interval(timeout + std::chrono::milliseconds(500));
+            delivery->timer.IsRepeating(false);
+            std::weak_ptr<Delivery> weak = delivery;
+            delivery->timer.Tick([weak, lateText](auto &&, auto &&) {
+                std::shared_ptr<Delivery> held = weak.lock();
+                if (held == nullptr || held->delivered) {
+                    return;
+                }
+                held->delivered = true;
+                held->completion(held->context, nullptr, 0, nullptr, lateText.c_str());
+            });
+            delivery->timer.Start();
+        }
         try {
             std::thread([state, uri, maximumBytes, lateText, delivery, queue]() mutable {
                 // The worker's own apartment, for the WinRT Uri it reads.
@@ -411,8 +422,10 @@ bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, doubl
                     auto shared = std::make_shared<Outcome>(std::move(outcome));
                     queue.TryEnqueue([shared, delivery]() {
                         try {
-                            delivery->timer.Stop();
-                            delivery->timer = nullptr;
+                            if (delivery->timer != nullptr) {
+                                delivery->timer.Stop();
+                                delivery->timer = nullptr;
+                            }
                         } catch (...) {
                         }
                         if (delivery->delivered) {
@@ -441,7 +454,9 @@ bool actionUIWinUIFetchURLPrivately(const char *url, int64_t maximumBytes, doubl
                 }
             }).detach();
         } catch (std::system_error const &failure) {
-            delivery->timer.Stop();
+            if (delivery->timer != nullptr) {
+                delivery->timer.Stop();
+            }
             return fail("fetch URL privately", failure);
         }
         return true;

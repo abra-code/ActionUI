@@ -1438,9 +1438,11 @@ typedef void (*ActionUIWinUIDataCompletion)(void *context, const uint8_t *bytes,
 // Fetches the http or https `url` with Windows' HTTP client (its cache and proxy settings), without
 // blocking: completion(context, ...) is called on the UI thread, always after this returns. Limits: the
 // body is read as it arrives and refused once it grows past `maximumBytes` (at once when the server
-// says it is longer); the whole fetch is given up after `timeoutSeconds`; redirects are followed here,
-// their bodies unread, only to http and https, never from https to http, at most 20. False (and no
-// completion) when it could not start: not an http or https URL, not on the UI thread.
+// says it is longer); the whole fetch is given up after `timeoutSeconds` (0: no limit; at most 24 days), and
+// any step (sending the request and reading the response's headers, opening the body, one read) once it
+// has waited 30 seconds for the server; redirects are followed here, their bodies unread, only to http
+// and https, never from https to http, at most 20. False (and no completion) when it could not start: not
+// an http or https URL, not on the UI thread, a limit out of range.
 ACTIONUI_WINUI_API bool actionUIWinUIFetchURL(const char *url, int64_t maximumBytes, double timeoutSeconds,
                                               ActionUIWinUIDataCompletion completion, void *context);
 // The same, for an address named by less-trusted content, with WinHTTP. The request sends no cookies,

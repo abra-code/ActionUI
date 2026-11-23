@@ -25,7 +25,8 @@
    the host's configuration is trusted only when the JSON came from it), and the trust policy is asked
    again about that address.
  - A download is read up to the cap on ActionUI JSON (16 MB; refused at once on a longer
-   Content-Length) and given up after 120 seconds; redirects are followed only to http and https, never
+   Content-Length) and given up after the configuration's maximumDownloadTime (DownloadTime; 120 seconds
+   by default); redirects are followed only to http and https, never
    from https to http, at most 20, as on Apple and Linux.
  - In less-trusted content, the download uses WinHTTP (actionUIWinUIFetchURLPrivately). It sends no
    cookies, client certificate or Windows sign-in, keeps no cookies and shows no password dialog. A
@@ -55,8 +56,6 @@ import Dispatch
 /// A test tool lowers it to see a download refused.
 @MainActor package enum LoadableFetch {
     package static var maximumBytes: Int64?
-    /// The limit on a download's time: nil, 120 seconds. A test tool lowers it to see a download given up.
-    package static var timeoutSeconds: Double?
 }
 
 /// What a LoadableView shows, kept in its node's state.
@@ -196,9 +195,10 @@ extension LoadableView: ActionUIWinUIRenderer {
             state.status = WinUIObject(adopting: actionUIWinUIProgressCreate(ActionUIWinUIProgressRing))
             let box = FetchBox(node: node, state: state, generation: state.generation, url: url, actionID: actionID)
             let context = Unmanaged.passRetained(box).toOpaque()
-            // Read up to the cap on ActionUI JSON and given up after 120 seconds, as on Apple and Linux.
+            // Read up to the cap on ActionUI JSON and given up after the configuration's time limit, as on
+            // Apple and Linux.
             let limit = LoadableFetch.maximumBytes ?? Int64(WindowModel.maximumJSONSize)
-            let seconds = LoadableFetch.timeoutSeconds ?? 120
+            let seconds = DownloadTime.timeoutSeconds
             // In less-trusted content, download without cookies, Windows sign-in or a password dialog,
             // as Apple's private session does. Trusted content keeps Windows' HTTP client.
             let started = trusted ? actionUIWinUIFetchURL(url.absoluteString, limit, seconds, fetched, context)
