@@ -288,10 +288,10 @@ PREVIEW_OPTIONS = {
                          "--expect-log", "for element 408: less-trusted content reads no network or device path",
                          "--expect-log", "Not loading C:/Windows/Web/Screen/img100.jpg for element 409: less-trusted content"],
     # JSON from a server: its LoadableView loads no file on a share (never touched).
-    "LessTrustedShares": ["420", "120", "--delay", "4000",
-                          "--expect-log", "for element 801: less-trusted content reads no network or device path",
-                          "--expect-log", "for element 802: less-trusted content reads no network or device path",
-                          "--expect-log", "for element 803: less-trusted content reads no network or device path"],
+    # The share on this machine (807) is the one check_share_reads shares and watches.
+    "LessTrustedShares": ["420", "300", "--delay", "4000"]
+                         + [option for element in range(801, 809)
+                            for option in ["--expect-log", f"for element {element}: less-trusted content reads no network or device path"]],
     # ActionUI JSON in the program's folder (the app's resources) is trusted, its path in any case: its links
     # open Windows' settings, which a server's cannot. --no-launch: nothing is opened.
     "TrustedResources": ["420", "160", "--no-launch", "--set-value", "3", "{program_folder}\\BundledLinks.json",
@@ -1319,7 +1319,76 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
         summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
                                 .splitlines() if line.startswith("preview:")]
         passed = passed and step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    passed = check_share_reads(preview, bin_path, results, summary, env) and passed
     return passed
+
+
+CANARY_SHARE = "actionui-canary"
+
+
+def powershell(script):
+    """Runs a short PowerShell script; returns its exit status and its stripped output."""
+    try:
+        completed = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as error:
+        return None, f"<{error}>"
+    return completed.returncode, completed.stdout.strip()
+
+
+def canary_connections():
+    """How many SMB connections this machine holds to the canary share, or None if it cannot be told."""
+    status, output = powershell(f"@(Get-SmbConnection | Where-Object ShareName -eq '{CANARY_SHARE}').Count")
+    if status != 0 or not output.isdigit():
+        return None
+    return int(output)
+
+
+def check_share_reads(preview, bin_path, results, summary, env):
+    """Whether less-trusted content's LoadableView reaches a share before refusing it: a share on this
+    machine (\\\\localhost\\actionui-canary) is named by JSON from a server (LessTrustedShares), then by
+    the app's own JSON (the control, which may load it). The first must open no SMB connection to it,
+    the second one. Not run where the SMB server cannot share a folder; inconclusive when the control
+    opens no connection either."""
+    findings = summary["findings"]
+    folder = results / "share-canary"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "view7.json").write_text(json.dumps({"type": "Text", "id": 1, "properties": {"text": "From the share"}}),
+                                       encoding="utf-8")
+    status, output = powershell(f"New-SmbShare -Name '{CANARY_SHARE}' -Path '{folder}' -ReadAccess 'Everyone' "
+                                "-ErrorAction Stop | Out-Null")
+    if status != 0:
+        findings.append(f"share check: not run: the folder could not be shared: {output.splitlines()[-1] if output else status}")
+        return True
+    try:
+        before = canary_connections()
+        document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "LessTrustedShares.json"
+        step = run_step("share-canary-less-trusted", [preview, document, results / "share-canary-less-trusted.png"]
+                        + PREVIEW_OPTIONS["LessTrustedShares"], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        less_trusted = canary_connections()
+        control = results / "share-canary-control.json"
+        control.write_text(json.dumps({"type": "LoadableView", "id": 2, "properties": {
+            "filePath": f"\\\\localhost\\{CANARY_SHARE}\\view7.json"}}), encoding="utf-8")
+        control_step = run_step("share-canary-control", [preview, control, results / "share-canary-control.png", "300", "80",
+                                                         "--delay", "3000"], results, env, cwd=bin_path,
+                                timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(control_step)
+        trusted = canary_connections()
+    finally:
+        powershell(f"Remove-SmbShare -Name '{CANARY_SHARE}' -Force")
+    counts = f"connections before {before}, after JSON from a server {less_trusted}, after the app's own JSON {trusted}"
+    if before is None or less_trusted is None or trusted is None:
+        findings.append(f"share check: inconclusive: SMB connections could not be listed ({counts})")
+        return step["status"] == 0
+    if less_trusted > before:
+        findings.append(f"share check: FAILED: JSON from a server reached the share ({counts})")
+        return False
+    if trusted <= less_trusted:
+        findings.append(f"share check: inconclusive: the app's own JSON opened no connection either ({counts})")
+        return step["status"] == 0
+    findings.append(f"share check: passed: only the app's own JSON reached the share ({counts})")
+    return step["status"] == 0 and control_step["status"] == 0
 
 
 def main():

@@ -5,6 +5,11 @@
   "children": [
     { "type": "LoadableView", "id": 801, "properties": { "filePath": "\\\\server\\share\\view.json" } },
     { "type": "LoadableView", "id": 802, "properties": { "url": "file://server/share/view2.json" } },
-    { "type": "LoadableView", "id": 803, "properties": { "filePath": "\\\\?\\UNC\\server\\share\\view3.json" } }
+    { "type": "LoadableView", "id": 803, "properties": { "filePath": "\\\\?\\UNC\\server\\share\\view3.json" } },
+    { "type": "LoadableView", "id": 804, "properties": { "filePath": "//server/share/view4.json" } },
+    { "type": "LoadableView", "id": 805, "properties": { "filePath": "\\\\server@SSL\\DavWWWRoot\\view5.json" } },
+    { "type": "LoadableView", "id": 806, "properties": { "filePath": "\\\\.\\pipe\\view6" } },
+    { "type": "LoadableView", "id": 807, "properties": { "filePath": "\\\\localhost\\actionui-canary\\view7.json" } },
+    { "type": "LoadableView", "id": 808, "properties": { "filePath": "\\\\\u0301server\\share\\view8.json" } }
   ]
 }

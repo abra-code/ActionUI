@@ -31,7 +31,9 @@
    the LoadableView is in), as on Apple and Linux: a refused source shows "Failed to load view: ...".
  - A file is read only when it is a regular file (ActionUIDocumentLoader.readRegularFile). Less-trusted
    content (ActionUI JSON from a server or from a file outside the app's resources) loads no file on a
-   share or a device (\\server\share, \\?\ and the like), never touched.
+   share or a device (\\server\share, \\?\ and the like), decided from the text before anything touches
+   the path. A path or a name becomes a file URL without the file system being asked whether it is a
+   folder (which URL(fileURLWithPath:) asks, opening the path).
 
  Not yet: the message in the LoadableView's place takes none of its text appearance (font,
  foregroundStyle); a file it may not read shows the system's error text, not Apple's words for it.
@@ -118,17 +120,20 @@ extension LoadableView: ActionUIWinUIRenderer {
         }
         let folder = documentFolder(of: node)
         let trusted = LinkTrust.isTrusted(node)
+        // Less-trusted content loads no file on a share or a device: opening it, even asking whether
+        // it is a folder (as URL(fileURLWithPath:) does), reaches the server with the user's Windows
+        // credentials. Decided from the text alone, before anything below can touch the path.
+        if !trusted, let path = namedPath(value, folder: folder), LinkTrust.isNetworkPath(path) {
+            refuseNetworkPath(path, node, state)
+            return
+        }
         let source: Result<ActionUIDocumentLoader.Source, ActionUIDocumentLoader.SourceError>
-        if isWindowsPath(value) {
-            source = .success(.file(URL(fileURLWithPath: value)))
+        if isPathText(value) {
+            source = .success(.file(LinkTrust.fileURL(path: value)))
         } else {
             source = ActionUIDocumentLoader.source(for: value, bundleURL: { name, ext in
                 let file = "\(name).\(ext)"
-                let url = folder?.appendingPathComponent(file) ?? URL(fileURLWithPath: file)
-                // Not looked for on a share by less-trusted content: refused below, never touched.
-                if !trusted, LinkTrust.isNetworkPath(LinkTrust.filePath(of: url)) {
-                    return url
-                }
+                let url = folder?.appending(path: file, directoryHint: .notDirectory) ?? LinkTrust.fileURL(path: file)
                 return ActionUIDocumentLoader.regularFilePath(url) != nil ? url : nil
             }, logger: logger)
         }
@@ -136,14 +141,12 @@ extension LoadableView: ActionUIWinUIRenderer {
         let parentID = node.element.id
         let actionID = Props(node.properties).viewDidLoadActionID
         if case .success(let found) = source {
-            // Less-trusted content loads no file on a share or a device: reading it, even testing it
-            // (the nesting key follows symbolic links), would reach the server with the user's
-            // credentials.
+            // The same rule for the URL the text became, in case it names a share the text check
+            // above did not see; before the trust policy and the nesting key, which follow symbolic links.
             if case .file(let url) = found, !trusted {
                 let path = LinkTrust.filePath(of: url)
                 if LinkTrust.isNetworkPath(path) {
-                    logger.log("LoadableView: not loading \(path) for element \(node.element.id): less-trusted content reads no network or device path", .warning)
-                    state.status = message("Failed to load view: the trust policy refuses \(path)", error: true)
+                    refuseNetworkPath(path, node, state)
                     return
                 }
             }
@@ -269,15 +272,39 @@ extension LoadableView: ActionUIWinUIRenderer {
         return "\(error)"
     }
 
-    /// Whether `value` is a Windows path Core would not take for one: with a backslash, or a drive
-    /// letter and a colon ("C:\docs\a.json", "C:a.json"). An http or https URL is never one, even
-    /// with a backslash in it (in its query), as Core takes it for a remote URL first.
-    static func isWindowsPath(_ value: String) -> Bool {
+    /// Whether `value` is a path, which the renderer turns into a file URL itself, without asking the
+    /// file system anything (Core's would ask whether it is a folder): with a slash or a backslash,
+    /// or a drive letter and a colon ("C:\docs\a.json", "C:a.json", "docs/a.json"). An http, https or
+    /// file URL is never one, even with a backslash in it (in its query), as Core reads those first.
+    static func isPathText(_ value: String) -> Bool {
         let lowercased = value.lowercased()
-        if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://") { return false }
-        if value.contains("\\") { return true }
+        if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://") || lowercased.hasPrefix("file://") {
+            return false
+        }
+        if value.contains("\\") || value.contains("/") { return true }
         let characters = Array(value.prefix(2))
         return characters.count == 2 && characters[1] == ":" && characters[0].isASCII && characters[0].isLetter
+    }
+
+    /// The local path `value` names, from its text alone (nothing here touches the file system), or nil
+    /// for an http or https address or a file URL that does not parse: a path as written; a file URL's
+    /// path, a share for one with a host ("file://server/share/a.json"); a name, in `folder` (the
+    /// folder of the file an enclosing LoadableView loaded), else in the current folder.
+    static func namedPath(_ value: String, folder: URL?) -> String? {
+        let lowercased = value.lowercased()
+        if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://") { return nil }
+        if lowercased.hasPrefix("file://") {
+            return URL(string: value).map { LinkTrust.filePath(of: $0) }
+        }
+        if isPathText(value) { return value }
+        let base = folder.map { LinkTrust.filePath(of: $0) } ?? FileManager.default.currentDirectoryPath
+        return base.hasSuffix("\\") || base.hasSuffix("/") ? base + value : base + "\\" + value
+    }
+
+    /// Shows and logs the refusal of a file on a share or a device for less-trusted content.
+    private static func refuseNetworkPath(_ path: String, _ node: RenderNode, _ state: LoadableState) {
+        ActionUIModel.shared.logger.log("LoadableView: not loading \(path) for element \(node.element.id): less-trusted content reads no network or device path", .warning)
+        state.status = message("Failed to load view: the trust policy refuses \(path)", error: true)
     }
 
     /// A message in the LoadableView's place, wrapped; in the critical color for a load that failed, as

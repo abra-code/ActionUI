@@ -101,10 +101,11 @@ enum LinkTrust {
 
     /// Whether `path` names a file through the network or a device namespace: it starts with two
     /// slashes or backslashes, in any mix, or with Windows' object-manager prefix \??\ (where
-    /// \??\UNC\ names a share).
+    /// \??\UNC\ names a share). Read by code point, as Windows reads it: a backslash followed by a
+    /// combining mark (U+0301) is one Character that is not a backslash, yet Windows reads the backslash.
     static func isNetworkPath(_ path: String) -> Bool {
-        let characters = Array(path.prefix(4))
-        let isSeparator: (Character) -> Bool = { $0 == "\\" || $0 == "/" }
+        let characters = Array(path.unicodeScalars.prefix(4))
+        let isSeparator: (Unicode.Scalar) -> Bool = { $0 == "\\" || $0 == "/" }
         if characters.count >= 2, isSeparator(characters[0]), isSeparator(characters[1]) {
             return true
         }
@@ -146,6 +147,14 @@ enum LinkTrust {
             ActionUIModel.shared.logger.log("Not reading \(path) for element \(node.map { String($0.element.id) } ?? "?"): the trust policy refuses it", .warning)
         }
         return allowed
+    }
+
+    /// A file URL for `path`, made without asking the file system anything. URL(fileURLWithPath:)
+    /// asks whether the path is a folder, which on Windows opens it: for a path on a share
+    /// (\\server\share) that sends the user's credentials to the server before anyone decided whether
+    /// the path may be read. A relative path is taken from the current folder.
+    static func fileURL(path: String) -> URL {
+        URL(filePath: path, directoryHint: .notDirectory)
     }
 
     /// Whether the node's content is trusted: its element's origin (or its template row's
