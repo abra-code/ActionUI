@@ -355,11 +355,7 @@ private struct CHostMethod: @unchecked Sendable {
 /// something on both sides of the first dot, and not in the reserved `actionui.` namespace, so a
 /// host cannot replace or remove a built-in method this way.
 private func isHostMethodName(_ name: String) -> Bool {
-    guard let dot = name.firstIndex(of: "."), dot != name.startIndex,
-          name.index(after: dot) != name.endIndex else {
-        return false
-    }
-    return name[name.startIndex..<dot] != "actionui"
+    ActionUIRemoteServer.isHostMethodName(name)
 }
 
 /// The reply a C host method returned, turned into what a Swift handler returns or throws.

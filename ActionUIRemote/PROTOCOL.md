@@ -209,6 +209,10 @@ prefix is reserved. They appear in `actionui.hello`'s `methods` list, take named
 everything else, and map errors as described for `1004`. A client discovers what a host offers
 from `hello` and must not assume any namespace beyond `actionui.` exists.
 
+A host may also remove a built-in method or replace it with its own, on purpose (a host whose
+peers should only read and set values removes `actionui.insertElement`, say). `hello`'s list shows
+what this host offers, and a removed method answers `-32601`.
+
 ## 9. Environment contract
 
 A host that spawns child processes expected to use the bridge sets:

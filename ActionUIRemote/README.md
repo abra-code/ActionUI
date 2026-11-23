@@ -32,11 +32,16 @@ let endpoint = try ActionUIRemoteServer.startShared(
     host: .init(name: "MyApp", version: "1.0"),
     logger: ActionUIModel.shared.logger)            // optional
 
-// Host-specific verbs, namespaced. Handlers run on the main actor.
+// Host-specific verbs, namespaced. Handlers run on the main actor. A name in the actionui.
+// namespace, or one without a namespace, is refused (false, logged).
 ActionUIRemoteServer.shared?.register(method: "myapp.quit") { _ in
     NSApp.terminate(nil)
     return true
 }
+
+// Optional: change the built-in methods on purpose, for example take away inserting elements
+// from peers that should only read and set values. replaceBuiltIn(method:handler:) replaces one.
+ActionUIRemoteServer.shared?.removeBuiltIn(method: "actionui.insertElement")
 
 // Optional: resolve `presentModal` resource names to files.
 ActionUIRemoteServer.shared?.setModalResourceResolver { name in

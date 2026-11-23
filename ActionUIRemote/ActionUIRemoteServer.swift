@@ -261,13 +261,70 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
     // MARK: - Extension methods
 
-    /// Register (or replace) a method. Names must be namespaced (`omc.terminate`, `app.quit`);
-    /// the `actionui.` prefix is reserved for the built-in table. Safe from any thread: the
-    /// registry is updated on the main actor, synchronously when already there.
-    public func register(method: String, handler: @escaping Handler) {
+    /// Register (or replace) a host method. The name must be namespaced, with something on both
+    /// sides of the first dot (`omc.terminate`, `app.quit`), and not in the `actionui.` namespace,
+    /// which holds the built-in methods: such a name is refused (false, logged), as the C
+    /// function does. A host that means to replace a built-in calls `replaceBuiltIn(method:)`.
+    /// Safe from any thread: the registry is updated on the main actor, synchronously when already
+    /// there.
+    @discardableResult
+    public func register(method: String, handler: @escaping Handler) -> Bool {
+        guard Self.isHostMethodName(method) else {
+            log("not registering '\(method)': a host method is namespaced (app.name) and outside actionui.", .warning)
+            return false
+        }
         onMain { [registry] in
             registry.handlers[method] = handler
         }
+        return true
+    }
+
+    /// Register the host's own handler under a name in the `actionui.` namespace, for a host that
+    /// must change what a built-in does: it replaces the built-in of that name. The name is not
+    /// checked against the built-ins, so a name no built-in has adds a method there, which a later
+    /// version's built-in of that name would not replace. False (logged) for a name outside the
+    /// namespace. Safe from any thread, with the timing of `register(method:)`.
+    @discardableResult
+    public func replaceBuiltIn(method: String, handler: @escaping Handler) -> Bool {
+        guard Self.isBuiltInMethodName(method) else {
+            log("not replacing '\(method)': not a name in the actionui. namespace", .warning)
+            return false
+        }
+        onMain { [registry] in
+            registry.handlers[method] = handler
+        }
+        return true
+    }
+
+    /// Remove a built-in method (a name in the `actionui.` namespace), so peers cannot call it:
+    /// `actionui.insertElement` for a host whose peers should only read and set values, say.
+    /// False (logged) for any other name. Safe from any thread, with the timing of
+    /// `register(method:)`.
+    @discardableResult
+    public func removeBuiltIn(method: String) -> Bool {
+        guard Self.isBuiltInMethodName(method) else {
+            log("not removing '\(method)': not a name in the actionui. namespace", .warning)
+            return false
+        }
+        onMain { [registry] in
+            registry.handlers.removeValue(forKey: method)
+        }
+        return true
+    }
+
+    /// Whether `name` is a host method's: namespaced, with something on both sides of the first
+    /// dot, and not in the reserved `actionui.` namespace.
+    static func isHostMethodName(_ name: String) -> Bool {
+        guard let dot = name.firstIndex(of: "."), dot != name.startIndex,
+              name.index(after: dot) != name.endIndex else {
+            return false
+        }
+        return name[name.startIndex..<dot] != "actionui"
+    }
+
+    /// Whether `name` is in the `actionui.` namespace, with something after the dot.
+    static func isBuiltInMethodName(_ name: String) -> Bool {
+        name.hasPrefix("actionui.") && name.count > "actionui.".count
     }
 
     /// Add `actionui.performAction` (PROTOCOL.md section 7), which fires an element's configured
@@ -283,10 +340,18 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
     }
 
-    public func unregister(method: String) {
+    /// Remove a host method registered with `register(method:)`. A built-in's name is refused
+    /// (false, logged); `removeBuiltIn(method:)` removes one on purpose.
+    @discardableResult
+    public func unregister(method: String) -> Bool {
+        guard Self.isHostMethodName(method) else {
+            log("not unregistering '\(method)': built-in methods are removed with removeBuiltIn(method:)", .warning)
+            return false
+        }
         onMain { [registry] in
             registry.handlers.removeValue(forKey: method)
         }
+        return true
     }
 
     public func setModalResourceResolver(_ resolver: ModalResourceResolver?) {

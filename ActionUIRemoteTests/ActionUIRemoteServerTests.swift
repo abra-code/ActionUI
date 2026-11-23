@@ -525,6 +525,28 @@ final class ActionUIRemoteServerTests: XCTestCase {
         assertFailure("test.echo", [:], code: -32601)
     }
 
+    func testRegisterKeepsToTheHostsNamespaceAndBuiltInsChangeOnlyOnPurpose() throws {
+        // register refuses a built-in's name and a name without a namespace, as the C function does.
+        XCTAssertFalse(server.register(method: "actionui.getValue") { _ in "replaced" })
+        XCTAssertFalse(server.register(method: "nodot") { _ in true })
+        XCTAssertFalse(server.register(method: ".x") { _ in true })
+        XCTAssertFalse(server.register(method: "x.") { _ in true })
+        XCTAssertEqual(try call("actionui.setValue", viewParams(2, ["viewPartID": 0, "value": "kept"])) as? Bool, true)
+        XCTAssertEqual(try call("actionui.getValue", viewParams(2)) as? String, "kept", "the built-in still answers")
+        assertFailure("nodot", [:], code: -32601)
+        XCTAssertFalse(server.unregister(method: "actionui.hello"), "unregister does not remove a built-in")
+        XCTAssertNotNil(try call("actionui.hello"))
+
+        // On purpose: replace one built-in, remove another.
+        XCTAssertTrue(server.replaceBuiltIn(method: "actionui.getValue") { _ in "replaced" })
+        XCTAssertEqual(try call("actionui.getValue", viewParams(2)) as? String, "replaced")
+        XCTAssertTrue(server.removeBuiltIn(method: "actionui.insertElement"))
+        assertFailure("actionui.insertElement", ["window": windowUUID!, "parentID": 10, "element": ["type": "Text"]], code: -32601)
+        XCTAssertFalse(server.replaceBuiltIn(method: "app.thing") { _ in true }, "only actionui. names")
+        XCTAssertFalse(server.removeBuiltIn(method: "app.thing"))
+        XCTAssertFalse(server.removeBuiltIn(method: "actionui."))
+    }
+
     func testMainThreadTimeoutYields1005AndLateResultIsDropped() throws {
         server.mainThreadTimeout = 0.2
         server.register(method: "test.sleep") { _ in
