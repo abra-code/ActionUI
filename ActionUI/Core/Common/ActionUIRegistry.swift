@@ -96,6 +96,10 @@ public class ActionUIRegistry {
         specs[type]?.didSetProperty
     }
 
+    func getHostOnlyStates(forElementType type: String) -> Set<String> {
+        specs[type]?.hostOnlyStates ?? []
+    }
+
     func getInitialStates(forElementType type: String, model: ViewModel) -> [String: Any] {
         if let constructionType = specs[type] {
             return constructionType.initialStates(model)

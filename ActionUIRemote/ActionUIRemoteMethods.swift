@@ -115,6 +115,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
             let key = try p.string("key")
+            try refuseHostOnlyState(window, viewID, key)
             // The engine brings a number to the type of the state already stored (a Double state
             // accepts JSON 3). It refuses a remaining type change; report that to the client (1003)
             // instead of letting it read the old value later.
@@ -130,7 +131,9 @@ enum ActionUIRemoteMethods {
         table["actionui.setStateString"] = { raw in
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
-            model.setElementStateFromString(windowUUID: window, viewID: viewID, key: try p.string("key"), value: try p.string("value"))
+            let key = try p.string("key")
+            try refuseHostOnlyState(window, viewID, key)
+            model.setElementStateFromString(windowUUID: window, viewID: viewID, key: key, value: try p.string("value"))
             return true
         }
 
@@ -334,6 +337,15 @@ enum ActionUIRemoteMethods {
     }
 
     // MARK: - Helpers
+
+    /// Refuses a state the element's type keeps for the host (hostOnlyStates, such as Chat's
+    /// "config", which names what the host launches): a peer may not set it.
+    @MainActor
+    private static func refuseHostOnlyState(_ window: String, _ viewID: Int, _ key: String) throws {
+        guard ActionUIModel.shared.isHostOnlyState(windowUUID: window, viewID: viewID, key: key) else { return }
+        throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
+                                  message: "State key '\(key)' of view \(viewID) is set only by the host, not over the bridge")
+    }
 
     /// Run an engine call that throws and report its failure as `engineFailure` (1003).
     @MainActor

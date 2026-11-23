@@ -94,7 +94,7 @@ Rules:
 | -32603 | Internal error: the host could not produce a well-formed result. |
 | 1001 | Unknown window: no window with that UUID is loaded. |
 | 1002 | Unknown view: the window has no element with that id. |
-| 1003 | Engine failure: the engine refused the operation (insert into a non-container, state type mismatch, unreadable modal resource). The message is the engine's. |
+| 1003 | Engine failure: the engine refused the operation (insert into a non-container, state type mismatch, a state only the host may set, unreadable modal resource). The message is the engine's. |
 | 1004 | Host refused: a host-registered method threw an error that is not an `ActionUIRemoteError`. The message is the error's description. |
 | 1005 | Main thread unavailable: the host's main thread did not respond within its timeout (10 s by default). The request was not applied unless it was already running. |
 | 1006 | Unauthenticated: the host requires a token and this connection has not presented a valid one. See section 10. |
@@ -118,6 +118,9 @@ the encoding of the in-process C adapter (`actionUIGetElementValueJSON` and
   Double), and stores a new key as the Swift-native type (Bool, Int, Double, String, an array
   or an object). A stored Bool accepts only a bool. A value that still does not match the
   stored type is `1003`.
+- An element type may keep some state keys for the host, which sets them in its own process:
+  Chat's `config`, which names the program its transport launches and the server it connects
+  to. `setState` and `setStateString` of such a key are refused with `1003`; reading it is not.
 
 ## 6. Common parameters
 
@@ -154,8 +157,8 @@ Setters return `true` so that a batch reply is easy to scan.
 | `actionui.setProperty` | window, viewID, name, value | `true` |
 | `actionui.getState` | window, viewID, key | value or null |
 | `actionui.getStateString` | window, viewID, key | string or null |
-| `actionui.setState` | window, viewID, key, value | `true`; `1003` on type mismatch |
-| `actionui.setStateString` | window, viewID, key, value (string) | `true` |
+| `actionui.setState` | window, viewID, key, value | `true`; `1003` on type mismatch, or for a state only the host may set |
+| `actionui.setStateString` | window, viewID, key, value (string) | `true`; `1003` for a state only the host may set |
 | `actionui.getColumnCount` | window, viewID | integer (0 for non-tables) |
 | `actionui.getRows` | window, viewID | `[[string]]` or null |
 | `actionui.setRows` | window, viewID, rows `[[string]]` | `true` |

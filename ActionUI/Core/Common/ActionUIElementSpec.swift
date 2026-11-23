@@ -42,9 +42,14 @@ public protocol ActionUIElementSpec {
     // properties. Only those paths honor it: a direct call to View.applyModifiers does not.
     // Default: none.
     static var handledBaseModifiers: Set<String> { get }
+    // State keys only the host may write, in its own process (setElementState and the C and
+    // language adapters): the remote bridge refuses to set them for a peer. For a state that
+    // decides what the host runs or connects to (Chat's "config"). Default: none.
+    static var hostOnlyStates: Set<String> { get }
 }
 
 extension ActionUIElementSpec {
     public static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? { nil }
     public static var handledBaseModifiers: Set<String> { [] }
+    public static var hostOnlyStates: Set<String> { [] }
 }

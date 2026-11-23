@@ -323,7 +323,8 @@
  a host that re-injects on every states change wants its config to be byte-identical when nothing
  changed, or it will respawn the agent for no reason. Keeping the wire protocol and
  the subprocess-spawning transport command out of the document is the security boundary - a document is
- data and must not name what the host executes or connects to. Example injection:
+ data and must not name what the host executes or connects to. For the same reason "config" is a
+ host-only state: the remote bridge refuses actionui.setState and setStateString of it from a peer. Example injection:
  setElementState(window, chatID, "config", {"protocol":"openai-sse","transport":{"baseURL":"http://127.0.0.1:8080/v1"}}).
  Inject the COMPLETE {protocol, transport} every time: a config dict with no "protocol" key defaults
  to "local" (which is always viable), so a partial config injected before the real one locks the
@@ -358,6 +359,10 @@ struct Chat: ActionUIViewConstruction {
     // into states["content"] (like Table / List content), not carried on the element value. So the
     // value type stays Void, mirroring container-style elements.
     static var valueType: Any.Type = Void.self
+
+    // "config" names the program the transport launches and the server it connects to: only the
+    // host sets it, in its own process. The remote bridge refuses to set it for a peer.
+    static var hostOnlyStates: Set<String> { ["config"] }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // The Chat element's operational config (protocol + transport) is NOT read here and is NOT

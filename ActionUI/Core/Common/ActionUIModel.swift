@@ -613,6 +613,14 @@ public class ActionUIModel {
 
     // MARK: - Element State API
 
+    /// Whether the state `key` of element `viewID` is one only the host may write (its element type
+    /// declares it in hostOnlyStates): the remote bridge refuses to set it for a peer. False for an
+    /// element the window does not have.
+    public func isHostOnlyState(windowUUID: String, viewID: Int, key: String) -> Bool {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else { return false }
+        return ActionUIRegistry.shared.getHostOnlyStates(forElementType: viewModel.elementType).contains(key)
+    }
+
     // Returns the current value for a single state key, or nil if the view or key is not found.
     public func getElementState(windowUUID: String, viewID: Int, key: String) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {

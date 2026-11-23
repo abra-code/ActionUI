@@ -267,6 +267,29 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 2, key: "remote") as? Int, 10)
     }
 
+    func testAHostOnlyStateIsNotSetOverTheBridge() throws {
+        let registry = ActionUIRegistry.shared
+        registry.specs["HostOnlyProbe"] = HostOnlyProbe.self
+        defer { registry.specs["HostOnlyProbe"] = nil }
+        let uuid = UUID().uuidString
+        defer { ActionUIModel.shared.removeWindow(uuid) }
+        _ = try ActionUIModel.shared.loadDescription(from: ["id": 1, "type": "HostOnlyProbe"], windowUUID: uuid)
+        let model = ActionUIModel.shared
+        XCTAssertTrue(model.isHostOnlyState(windowUUID: uuid, viewID: 1, key: "config"))
+        XCTAssertFalse(model.isHostOnlyState(windowUUID: uuid, viewID: 1, key: "other"))
+        XCTAssertFalse(model.isHostOnlyState(windowUUID: uuid, viewID: 99, key: "config"), "no such element")
+
+        // The host sets it in its own process; a peer can read it but not set it.
+        XCTAssertTrue(model.setElementState(windowUUID: uuid, viewID: 1, key: "config", value: "host"))
+        let params: [String: Any] = ["window": uuid, "viewID": 1, "key": "config"]
+        assertFailure("actionui.setState", params.merging(["value": "peer"]) { $1 }, code: 1003)
+        assertFailure("actionui.setStateString", params.merging(["value": "peer"]) { $1 }, code: 1003)
+        XCTAssertEqual(model.getElementState(windowUUID: uuid, viewID: 1, key: "config") as? String, "host")
+        XCTAssertEqual(try call("actionui.getState", params) as? String, "host")
+        // Another key of the same element is set as usual.
+        XCTAssertEqual(try call("actionui.setState", ["window": uuid, "viewID": 1, "key": "other", "value": 1]) as? Bool, true)
+    }
+
     func testStateRoundTripAndTypeMismatchIs1003() throws {
         ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 2, key: "count", value: 5)
         assertFailure("actionui.setState", viewParams(2, ["key": "count", "value": "abc"]), code: 1003)
@@ -634,6 +657,19 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "ActionID"]) }, -32602)
         XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "missingActionID"]) }, 1003)
     }
+}
+
+
+/// An element type with one host-only state, for the bridge's refusal.
+@MainActor
+private enum HostOnlyProbe: ActionUIElementSpec {
+    static var valueType: Any.Type { Void.self }
+    static var initialValue: (ViewModel) -> Any? { { _ in nil } }
+    static var initialStates: (ViewModel) -> [String: Any] { { model in model.states } }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? { nil }
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? { nil }
+    static var insertableContainers: [String: ContainerShape]? { nil }
+    static var hostOnlyStates: Set<String> { ["config"] }
 }
 
 #endif
