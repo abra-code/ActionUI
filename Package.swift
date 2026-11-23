@@ -627,6 +627,8 @@ Package(
         .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
+        // The preview tool, for ActionUIWinUI/Library's ActionUIWinUIAddOnPreview.
+        .library(name: "ActionUIWinUIPreviewSupport", targets: ["ActionUIWinUIPreviewSupport"]),
         // The document verifier (Foundation only), for Apps/ActionUIVerifier's actionui-verify.
         .library(name: "ActionUIVerifier", targets: ["ActionUIVerifier"]),
         // ActionUI's application layer, for Swift programs that run ActionUI's own application
@@ -695,11 +697,18 @@ Package(
             // Placed beside the program by Scripts/ci-windows.py.
             exclude: ["ActionUIWinUISmoke.exe.manifest"]
         ),
-        // Renders an ActionUI document with the WinUI renderer into a PNG and prints where each
-        // element was placed. Documents holds the ones Scripts/ci-windows.py renders.
+        // The preview tool: renders an ActionUI document with the WinUI renderer into a PNG and prints
+        // where each element was placed. A library, so a program in ActionUIWinUI/Library can run it
+        // with the add-ons linked (ActionUIWinUIAddOnPreview).
+        .target(
+            name: "ActionUIWinUIPreviewSupport",
+            dependencies: ["ActionUI", "CWinUI"],
+            path: "ActionUIWinUI/Apps/PreviewSupport"
+        ),
+        // The preview tool with the add-on probe. Documents holds what Scripts/ci-windows.py renders.
         .executableTarget(
             name: "ActionUIWinUIPreview",
-            dependencies: ["ActionUI", "CWinUI"],
+            dependencies: ["ActionUI", "CWinUI", "ActionUIWinUIPreviewSupport"],
             path: "ActionUIWinUI/Apps/Preview",
             exclude: ["Documents"]
         ),

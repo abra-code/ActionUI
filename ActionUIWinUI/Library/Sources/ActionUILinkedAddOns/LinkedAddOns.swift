@@ -1,4 +1,4 @@
-// ActionUIWinUI/Library/Sources/ActionUILibrary/LinkedAddOns.swift
+// ActionUIWinUI/Library/Sources/ActionUILinkedAddOns/LinkedAddOns.swift
 /*
  The add-ons in ActionUI.dll. ActionUIModel calls this once, on the main thread, before the first ActionUI JSON
  loads (actionUIRegisterLinkedAddOns), because a program in another language has no register() to call. A new

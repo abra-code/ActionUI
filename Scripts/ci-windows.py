@@ -20,7 +20,10 @@ Usage:
       with the shim's import library on the linker path, in .build/ci-windows-winui, runs its
       smoke test ActionUIWinUISmoke, which renders DIR/swift-smoke.png, and renders each document
       in ActionUIWinUI/Apps/Preview/Documents with ActionUIWinUIPreview into
-      DIR/preview-<name>.png, printing where each element was placed.
+      DIR/preview-<name>.png, printing where each element was placed. It also builds ActionUI.dll's
+      package (ActionUIWinUI/Library) in .build/ci-windows-library, runs the C, C++ and language
+      binding checks against the DLL, and renders each document in ActionUIWinUI/Library/Documents
+      with ActionUIWinUIAddOnPreview (the add-ons the DLL links) into DIR/add-on-preview-<name>.png.
 
 Exit status: 0 passed, 1 a step failed or a tool is missing, 2 bad arguments.
 """
@@ -568,6 +571,18 @@ REAL_INPUT_EXPECTATIONS = {
     "Hovers": ["--expect-action", "hover.changed"],
     "ChartSelection": ["--expect-action", "chart.selection.changed"],
     "ChartScroll": ["--expect-action", "chart.selection.changed"],
+}
+
+
+# The same for the add-on elements' documents (ActionUIWinUI/Library/Documents), rendered by the preview tool with the
+# add-ons ActionUI.dll links (ActionUIWinUIAddOnPreview).
+ADD_ON_PREVIEW_OPTIONS = {
+    # No add-on builds for Windows yet: Diff shows the placeholder, and the preview's own probe is not in this
+    # program (ActionUILinkedAddOns_register is LinkedAddOns.swift's).
+    "LinkedAddOns": ["420", "160",
+                     "--expect-automation", "2", "name", "Add-on elements, as ActionUI.dll links them",
+                     "--expect-log", "Diff is not available on Windows yet; showing a placeholder",
+                     "--expect-log", "LinkedAddOnProbe is not available on Windows yet; showing a placeholder"],
 }
 
 
@@ -1512,8 +1527,9 @@ def check_library_exports(summary, msvc):
 def build_library(shim_out, bin_path, results, summary, msvc, env):
     """Builds ActionUI.dll and its import library from their own package (ActionUIWinUI/Library: ActionUI,
     the C adapter, the application functions and the add-ons), exporting the functions LIBRARY_DEFINITION
-    names once check_library_exports agrees, and copies both into bin_path, beside the programs that load
-    the DLL. True when built."""
+    names once check_library_exports agrees, and the preview tool with the same add-ons
+    (ActionUIWinUIAddOnPreview); copies the three into bin_path, beside the programs that load the DLL and
+    the shim. True when built."""
     if not check_library_exports(summary, msvc):
         return False
     scratch = ["--package-path", str(REPO_DIR / "ActionUIWinUI" / "Library"),
@@ -1530,7 +1546,7 @@ def build_library(shim_out, bin_path, results, summary, msvc, env):
         return False
     shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
     library_bin = Path(shown[-1].strip()) if shown else Path()
-    for name in ["ActionUI.dll", "ActionUI.lib"]:
+    for name in ["ActionUI.dll", "ActionUI.lib", "ActionUIWinUIAddOnPreview.exe"]:
         if not (library_bin / name).is_file():
             summary["findings"].append(f"no {name} in {library_bin}")
             return False
@@ -1538,12 +1554,36 @@ def build_library(shim_out, bin_path, results, summary, msvc, env):
     return True
 
 
+def render_previews(program, folder, options_by_name, real_input_by_name, prefix, bin_path, results, summary, env):
+    """Renders each document in `folder` with the preview tool `program` into results/<prefix>-<name>.png, with
+    the options `options_by_name` gives its name, and on x64 the real input checks `real_input_by_name` gives it
+    (removed on Arm64). True when every run passed."""
+    passed = True
+    for document in sorted(folder.glob("*.json")):
+        png = results / f"{prefix}-{document.stem}.png"
+        options = [option.replace("{documents_url}", document.parent.as_uri())
+                   .replace("{documents_folder_json}", json.dumps(str(document.parent))[1:-1])
+                   .replace("{program_folder_upper}", str(bin_path).upper()).replace("{program_folder}", str(bin_path))
+                   for option in options_by_name.get(document.stem, [])]
+        if windows_arch() == "arm64":
+            options = without_real_input(options)
+        else:
+            options += real_input_by_name.get(document.stem, [])
+        step = run_step(f"{prefix}-{document.stem}", [program, document, png] + options, results, env, cwd=bin_path,
+                        timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                                .splitlines() if line.startswith("preview:")]
+        passed = passed and step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    return passed
+
+
 def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) and ActionUI.dll's
     package (build_library) with the shim's import library on the linker path, places the shim DLL, the
     bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
-    renders each document in ActionUIWinUI/Apps/Preview/Documents with the preview. True when all of
-    them passed."""
+    renders each document in ActionUIWinUI/Apps/Preview/Documents with the preview and each in
+    ActionUIWinUI/Library/Documents with the add-on preview. True when all of them passed."""
     # --manifest-cache none: the package's exclude lists come from the folder listing (Package.swift).
     scratch = ["--scratch-path", str(REPO_DIR / ".build" / "ci-windows-winui"), "--manifest-cache", "none"]
     env = dict(os.environ)
@@ -1568,9 +1608,10 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     # ActionUI JSON shipped with the program (TrustedResources.json loads it from there).
     for source in sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Bundled").glob("*.json")):
         shutil.copy2(source, bin_path / source.name)
-    # One manifest for both programs (supported OS, per-monitor DPI).
+    # One manifest for the three programs (supported OS, per-monitor DPI).
     manifest = REPO_DIR / "ActionUIWinUI" / "Apps" / "Smoke" / "ActionUIWinUISmoke.exe.manifest"
-    for name in ["ActionUIWinUISmoke.exe.manifest", "ActionUIWinUIPreview.exe.manifest"]:
+    for name in ["ActionUIWinUISmoke.exe.manifest", "ActionUIWinUIPreview.exe.manifest",
+                 "ActionUIWinUIAddOnPreview.exe.manifest"]:
         shutil.copy2(manifest, bin_path / name)
     png = results / "swift-smoke.png"
     step = run_step("swift-smoke", [program, png], results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
@@ -1591,23 +1632,12 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
             passed = check_python(package, results, summary, msvc) and passed
             passed = check_node(package, results, summary, msvc) and passed
             passed = check_rust(package, results, summary, msvc) and passed
-    documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
-    for document in documents:
-        png = results / f"preview-{document.stem}.png"
-        options = [option.replace("{documents_url}", document.parent.as_uri())
-                   .replace("{documents_folder_json}", json.dumps(str(document.parent))[1:-1])
-                   .replace("{program_folder_upper}", str(bin_path).upper()).replace("{program_folder}", str(bin_path))
-                   for option in PREVIEW_OPTIONS.get(document.stem, [])]
-        if windows_arch() == "arm64":
-            options = without_real_input(options)
-        else:
-            options += REAL_INPUT_EXPECTATIONS.get(document.stem, [])
-        step = run_step(f"preview-{document.stem}", [preview, document, png] + options, results, env, cwd=bin_path,
-                        timeout=SMOKE_TIMEOUT_SECONDS)
-        summary["steps"].append(step)
-        summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
-                                .splitlines() if line.startswith("preview:")]
-        passed = passed and step["status"] == 0 and png.is_file() and png.stat().st_size > 0
+    passed = render_previews(preview, REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents", PREVIEW_OPTIONS,
+                             REAL_INPUT_EXPECTATIONS, "preview", bin_path, results, summary, env) and passed
+    if library_built:
+        passed = render_previews(bin_path / "ActionUIWinUIAddOnPreview.exe",
+                                 REPO_DIR / "ActionUIWinUI" / "Library" / "Documents", ADD_ON_PREVIEW_OPTIONS,
+                                 {}, "add-on-preview", bin_path, results, summary, env) and passed
     passed = check_share_reads(preview, bin_path, results, summary, env) and passed
     passed = check_ambient_identity(preview, bin_path, results, summary, env) and passed
     return passed

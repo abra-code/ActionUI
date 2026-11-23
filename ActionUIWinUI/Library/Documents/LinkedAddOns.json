@@ -1,0 +1,10 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "alignment": "leading", "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "id": 2, "properties": { "text": "Add-on elements, as ActionUI.dll links them" } },
+    { "type": "Diff", "id": 3, "properties": { "oldText": "one\ntwo\n", "newText": "one\nthree\n" } },
+    { "type": "LinkedAddOnProbe", "id": 4, "properties": { "text": "never shown" } }
+  ]
+}
