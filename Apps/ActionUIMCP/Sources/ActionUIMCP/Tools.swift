@@ -159,11 +159,11 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
 private func showTool(host: WindowHost, label: String?) -> MCPTool {
     let kinds = JSONValue.array(ContentKind.available.map { .string($0.rawValue) })
     #if os(Linux)
-    let kindText = "markdown (text), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let kindText = "markdown (text; base for its relative image paths), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
     let shows = "a markdown report, plain text, a file shown by its type, an image, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It takes the keyboard focus, as every new window does on Linux."
     #else
-    let kindText = "markdown (text), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text, anything else, PDF among them, with Quick Look), pdf (path; Quick Look), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
+    let kindText = "markdown (text; base for its relative image paths), text (plain monospaced text), file (path; shown by its type: Markdown formatted, CSV or TSV as a table, an image, audio or video, HTML or SVG as a web page, a .webloc or .url link file as the http(s) page it names, other UTF-8 text as monospaced text, anything else, PDF among them, with Quick Look), pdf (path; Quick Look), image (path or url), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."
     let shows = "a markdown report, plain text, a file shown by its type (Quick Look for what has no better view), an image, a PDF, a video, a web page, a diff of two texts or files, a table, or a chart"
     let focus = "It does not take keyboard focus."
     #endif
@@ -174,6 +174,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
         "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
         "url": ["type": "string", "description": "http(s) URL for image, video, web."],
+        "base": ["type": "string", "description": "For markdown: absolute path of the folder that relative image paths in text resolve against (or of a file in it), such as the folder where you wrote the images the report shows."],
         "old_text": ["type": "string", "description": "For diff: the old (left) text."],
         "new_text": ["type": "string", "description": "For diff: the new (right) text."],
         "old_path": ["type": "string", "description": "For diff: absolute path of the old file, instead of old_text."],
