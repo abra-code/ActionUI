@@ -267,6 +267,29 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 2, key: "remote") as? Int, 10)
     }
 
+    func testAHostOnlyStateIsNotSetOverTheBridge() throws {
+        let registry = ActionUIRegistry.shared
+        registry.specs["HostOnlyProbe"] = HostOnlyProbe.self
+        defer { registry.specs["HostOnlyProbe"] = nil }
+        let uuid = UUID().uuidString
+        defer { ActionUIModel.shared.removeWindow(uuid) }
+        _ = try ActionUIModel.shared.loadDescription(from: ["id": 1, "type": "HostOnlyProbe"], windowUUID: uuid)
+        let model = ActionUIModel.shared
+        XCTAssertTrue(model.isHostOnlyState(windowUUID: uuid, viewID: 1, key: "config"))
+        XCTAssertFalse(model.isHostOnlyState(windowUUID: uuid, viewID: 1, key: "other"))
+        XCTAssertFalse(model.isHostOnlyState(windowUUID: uuid, viewID: 99, key: "config"), "no such element")
+
+        // The host sets it in its own process; a peer can read it but not set it.
+        XCTAssertTrue(model.setElementState(windowUUID: uuid, viewID: 1, key: "config", value: "host"))
+        let params: [String: Any] = ["window": uuid, "viewID": 1, "key": "config"]
+        assertFailure("actionui.setState", params.merging(["value": "peer"]) { $1 }, code: 1003)
+        assertFailure("actionui.setStateString", params.merging(["value": "peer"]) { $1 }, code: 1003)
+        XCTAssertEqual(model.getElementState(windowUUID: uuid, viewID: 1, key: "config") as? String, "host")
+        XCTAssertEqual(try call("actionui.getState", params) as? String, "host")
+        // Another key of the same element is set as usual.
+        XCTAssertEqual(try call("actionui.setState", ["window": uuid, "viewID": 1, "key": "other", "value": 1]) as? Bool, true)
+    }
+
     func testStateRoundTripAndTypeMismatchIs1003() throws {
         ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 2, key: "count", value: 5)
         assertFailure("actionui.setState", viewParams(2, ["key": "count", "value": "abc"]), code: 1003)
@@ -398,6 +421,24 @@ final class ActionUIRemoteServerTests: XCTestCase {
         assertFailure("actionui.presentModal", windowParams(["path": "/nonexistent/modal.json"]), code: 1003)
         // Only a regular file: /dev/zero would never finish reading on the main thread.
         assertFailure("actionui.presentModal", windowParams(["path": "/dev/zero"]), code: 1003)
+        // A file over the configured size limit is refused before it is read.
+        let big = FileManager.default.temporaryDirectory.appendingPathComponent("modal-\(UUID().uuidString).json")
+        try Data(#"{ "id": 300, "type": "Text", "properties": { "text": "a modal over the limit" } }"#.utf8).write(to: big)
+        defer { try? FileManager.default.removeItem(at: big) }
+        var limited = ActionUIConfiguration()
+        limited.limits.maximumJSONSize = 16
+        ActionUIConfiguration.replaceForTesting(limited)
+        defer { ActionUIConfiguration.replaceForTesting() }
+        // Refused by the size check before the read (a read file over the limit is refused too,
+        // by the loader, with another message).
+        do {
+            _ = try call("actionui.presentModal", windowParams(["path": big.path]))
+            XCTFail("a modal file over the size limit was shown")
+        } catch let failure as RPCFailure {
+            XCTAssertEqual(failure.code, 1003)
+            XCTAssertTrue(failure.message.contains("larger than 16 bytes"), failure.message)
+        }
+        XCTAssertNil(windowModel.windowModal)
     }
 
     func testContentSizeLimitsReturnsNullOrAnObject() throws {
@@ -457,6 +498,36 @@ final class ActionUIRemoteServerTests: XCTestCase {
 
     // MARK: - Extension methods
 
+    func testTheHostsMethodPolicyDecidesWhichRequestsRun() throws {
+        final class Seen { var calls: [ActionUIRemoteServer.RemoteCall] = [] }
+        let seen = Seen()
+        server.setMethodPolicy { call in
+            seen.calls.append(call)
+            return call.method != "actionui.setValue"
+        }
+        assertFailure("actionui.setValue", viewParams(2, ["viewPartID": 0, "value": "refused"]), code: 1004)
+        XCTAssertNoThrow(try call("actionui.getValue", viewParams(2)), "another method runs")
+        let refused = try XCTUnwrap(seen.calls.first)
+        XCTAssertEqual(refused.method, "actionui.setValue")
+        XCTAssertEqual(refused.params["value"] as? String, "refused")
+        XCTAssertNil(refused.tokenLabel, "no token is required here")
+        XCTAssertNotEqual(ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 2) as? String, "refused")
+
+        // The preset: values, states, rows and selection; nothing else, host methods included.
+        server.register(method: "test.echo") { _ in "echo" }
+        server.setMethodPolicy(ActionUIRemoteServer.valuesOnly)
+        XCTAssertEqual(try call("actionui.setValue", viewParams(2, ["viewPartID": 0, "value": "allowed"])) as? Bool, true)
+        XCTAssertNotNil(try call("actionui.listWindows"))
+        assertFailure("actionui.insertElement", ["window": windowUUID!, "parentID": 10, "element": ["type": "Text"]], code: 1004)
+        assertFailure("actionui.setProperty", viewParams(2, ["name": "disabled", "value": true]), code: 1004)
+        assertFailure("actionui.removeWindow", ["window": windowUUID!], code: 1004)
+        assertFailure("test.echo", [:], code: 1004)
+        XCTAssertTrue(ActionUIModel.shared.hasWindow(windowUUID), "the refused removeWindow did nothing")
+
+        server.setMethodPolicy(nil)
+        XCTAssertEqual(try call("test.echo") as? String, "echo", "no policy: every request runs")
+    }
+
     func testHostMethodsRegisterAppearInHelloAndMapErrors() throws {
         server.register(method: "test.echo") { params in
             return ["echo": params["x"] ?? NSNull()]
@@ -482,6 +553,78 @@ final class ActionUIRemoteServerTests: XCTestCase {
 
         server.unregister(method: "test.echo")
         assertFailure("test.echo", [:], code: -32601)
+    }
+
+    func testRegisterKeepsToTheHostsNamespaceAndBuiltInsChangeOnlyOnPurpose() throws {
+        // register refuses a built-in's name and a name without a namespace, as the C function does.
+        XCTAssertFalse(server.register(method: "actionui.getValue") { _ in "replaced" })
+        XCTAssertFalse(server.register(method: "nodot") { _ in true })
+        XCTAssertFalse(server.register(method: ".x") { _ in true })
+        XCTAssertFalse(server.register(method: "x.") { _ in true })
+        XCTAssertEqual(try call("actionui.setValue", viewParams(2, ["viewPartID": 0, "value": "kept"])) as? Bool, true)
+        XCTAssertEqual(try call("actionui.getValue", viewParams(2)) as? String, "kept", "the built-in still answers")
+        assertFailure("nodot", [:], code: -32601)
+        XCTAssertFalse(server.unregister(method: "actionui.hello"), "unregister does not remove a built-in")
+        XCTAssertNotNil(try call("actionui.hello"))
+
+        // On purpose: replace one built-in, remove another.
+        XCTAssertTrue(server.replaceBuiltIn(method: "actionui.getValue") { _ in "replaced" })
+        XCTAssertEqual(try call("actionui.getValue", viewParams(2)) as? String, "replaced")
+        XCTAssertTrue(server.removeBuiltIn(method: "actionui.insertElement"))
+        assertFailure("actionui.insertElement", ["window": windowUUID!, "parentID": 10, "element": ["type": "Text"]], code: -32601)
+        XCTAssertFalse(server.replaceBuiltIn(method: "app.thing") { _ in true }, "only actionui. names")
+        XCTAssertFalse(server.removeBuiltIn(method: "app.thing"))
+        XCTAssertFalse(server.removeBuiltIn(method: "actionui."))
+    }
+
+    func testAConnectionThatNeverAuthenticatesIsClosedAfterTheTimeout() throws {
+        let path = socketPath + ".auth"
+        let guarded = ActionUIRemoteServer(host: .init(name: "Guarded", version: "0.1"))
+        guarded.logger = QuietLogger(maxLevel: .warning)
+        guarded.requiresToken = true
+        guarded.addToken("secret", label: "test")
+        guarded.authenticationTimeout = 0.5
+        XCTAssertEqual(guarded.connectionLimit, 64)
+        XCTAssertEqual(guarded.unauthenticatedLargeLineLimit, 8)
+        try guarded.start(socketPath: path)
+        defer {
+            guarded.stop()
+            unlink(path)
+        }
+        let stranger = try TestSocketClient(path: path, timeoutSeconds: 5)
+        let member = try TestSocketClient(path: path, timeoutSeconds: 5)
+        let hello = #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"secret"}}"#
+
+        // The member authenticates; the stranger says nothing.
+        let first = ResultBox<String>()
+        let answered = expectation(description: "authenticated")
+        clientQueue.async {
+            member.write(hello + "\n")
+            first.value = member.readLine()
+            answered.fulfill()
+        }
+        wait(for: [answered], timeout: 10)
+        XCTAssertTrue(first.value?.contains("\"result\"") == true, first.value ?? "no reply")
+
+        let eof = ResultBox<Bool>()
+        let closed = expectation(description: "stranger closed")
+        clientQueue.async {
+            eof.value = stranger.waitForEOF()
+            closed.fulfill()
+        }
+        wait(for: [closed], timeout: 10)
+        XCTAssertEqual(eof.value, true, "the connection that never authenticated is closed")
+
+        // Past the timeout, the authenticated connection is still served.
+        let second = ResultBox<String>()
+        let again = expectation(description: "still served")
+        clientQueue.asyncAfter(deadline: .now() + 0.3) {
+            member.write(#"{"jsonrpc":"2.0","id":2,"method":"actionui.hello"}"# + "\n")
+            second.value = member.readLine()
+            again.fulfill()
+        }
+        wait(for: [again], timeout: 10)
+        XCTAssertTrue(second.value?.contains("\"result\"") == true, second.value ?? "no reply")
     }
 
     func testMainThreadTimeoutYields1005AndLateResultIsDropped() throws {
@@ -616,6 +759,19 @@ final class ActionUIRemoteServerTests: XCTestCase {
         XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "ActionID"]) }, -32602)
         XCTAssertEqual(errorCode { try self.call("actionui.performAction", ["window": window, "viewID": 20, "property": "missingActionID"]) }, 1003)
     }
+}
+
+
+/// An element type with one host-only state, for the bridge's refusal.
+@MainActor
+private enum HostOnlyProbe: ActionUIElementSpec {
+    static var valueType: Any.Type { Void.self }
+    static var initialValue: (ViewModel) -> Any? { { _ in nil } }
+    static var initialStates: (ViewModel) -> [String: Any] { { model in model.states } }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? { nil }
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? { nil }
+    static var insertableContainers: [String: ContainerShape]? { nil }
+    static var hostOnlyStates: Set<String> { ["config"] }
 }
 
 #endif

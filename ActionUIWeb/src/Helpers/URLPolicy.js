@@ -53,8 +53,9 @@ export function isFramedURL(text) {
 
 // The iframe sandbox for a WebView. Inline html gets an opaque origin of its own (no
 // allow-same-origin), as on Apple, where it cannot reach the app. Neither may navigate the host
-// page itself (no allow-top-navigation); pop-ups open as ordinary tabs.
-export const WEBVIEW_HTML_SANDBOX = "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox";
+// page itself (no allow-top-navigation). Pop-ups open as tabs that keep the frame's sandbox (no
+// allow-popups-to-escape-sandbox), so a page cannot reach an unsandboxed window through one.
+export const WEBVIEW_HTML_SANDBOX = "allow-scripts allow-forms allow-popups";
 // A page on another server keeps its own origin, so sites that need their cookies still work; the
 // browser's same-origin rule keeps it from the host page.
 export const WEBVIEW_URL_SANDBOX = `${WEBVIEW_HTML_SANDBOX} allow-same-origin`;

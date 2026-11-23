@@ -298,6 +298,21 @@ public class ActionUIModel {
         reads(.readLocalFile(path), path: path, windowUUID: windowUUID, viewID: viewID)
     }
 
+    /// readsLocalFile for the element `viewID` drawn with `model`: in a template row (a template
+    /// element has no view model of its own and keeps any id its JSON gives it), the row's
+    /// container is asked about, as for actions. For elements outside ActionUI, such as add-ons.
+    public func readsLocalFile(_ path: String, windowUUID: String, viewID: Int, model: ViewModel) -> Bool {
+        readsLocalFile(path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? viewID)
+    }
+
+    /// allowsLoggingOnce for the element `viewID` drawn with `model`: in a template row the row's
+    /// container is asked about, as for readsLocalFile. For elements outside ActionUI, such as
+    /// add-ons.
+    public func allowsLoggingOnce(_ capability: ActionUICapability, what: String, windowUUID: String, viewID: Int,
+                                  model: ViewModel) -> Bool {
+        allowsLoggingOnce(capability, what: what, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? viewID)
+    }
+
     /// Whether the WebView `viewID` of the window may read its user script from the file at `path`,
     /// as readsLocalFile decides for other files (.webViewScriptFile).
     public func readsScriptFile(_ path: String, windowUUID: String, viewID: Int) -> Bool {
@@ -597,6 +612,14 @@ public class ActionUIModel {
     }
 
     // MARK: - Element State API
+
+    /// Whether the state `key` of element `viewID` is one only the host may write (its element type
+    /// declares it in hostOnlyStates): the remote bridge refuses to set it for a peer. False for an
+    /// element the window does not have.
+    public func isHostOnlyState(windowUUID: String, viewID: Int, key: String) -> Bool {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else { return false }
+        return ActionUIRegistry.shared.getHostOnlyStates(forElementType: viewModel.elementType).contains(key)
+    }
 
     // Returns the current value for a single state key, or nil if the view or key is not found.
     public func getElementState(windowUUID: String, viewID: Int, key: String) -> Any? {

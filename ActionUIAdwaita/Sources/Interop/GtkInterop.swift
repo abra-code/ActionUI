@@ -331,6 +331,45 @@ func connectObjectSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
     connectBox(instance, signal, unsafeBitCast(objectArgumentTrampoline, to: GCallback.self), run as ObjectRun)
 }
 
+private typealias ObjectBooleanRun = @MainActor (UnsafeMutableRawPointer) -> Bool
+
+/// For signals whose handler takes (instance, object, user data) and returns a gboolean, such as
+/// a WebKit web view's "permission-request".
+private let objectBooleanTrampoline: @convention(c) (gpointer?, gpointer?, gpointer?) -> gboolean = { _, object, data in
+    guard let object, let data else { return 0 }
+    let box: CallbackBox<ObjectBooleanRun> = callbackBox(data)
+    // A pointer is not Sendable; its address is. GLib emits on the main thread.
+    let address = UInt(bitPattern: object)
+    return MainActor.assumeIsolated { box.run(UnsafeMutableRawPointer(bitPattern: address)!) } ? 1 : 0
+}
+
+/// Connects `run` to a signal whose handler takes one object argument and returns a gboolean
+/// (instance, object, user data); `run` returns whether it handled the object. Returns GLib's
+/// handler id (0 if the signal does not exist).
+@MainActor @discardableResult
+func connectObjectBooleanSignal(_ instance: UnsafeMutableRawPointer, _ signal: String,
+                                _ run: @escaping @MainActor (UnsafeMutableRawPointer) -> Bool) -> gulong {
+    connectBox(instance, signal, unsafeBitCast(objectBooleanTrampoline, to: GCallback.self), run as ObjectBooleanRun)
+}
+
+private typealias PolicyRun = @MainActor (UnsafeMutableRawPointer, UInt32) -> Bool
+
+/// For a WebKit web view's "decide-policy": (view, decision, decision type, user data), returning
+/// whether the decision was taken (else WebKit's default handler takes it).
+private let policyTrampoline: @convention(c) (gpointer?, gpointer?, UInt32, gpointer?) -> gboolean = { _, decision, type, data in
+    guard let decision, let data else { return 0 }
+    let box: CallbackBox<PolicyRun> = callbackBox(data)
+    let address = UInt(bitPattern: decision)
+    return MainActor.assumeIsolated { box.run(UnsafeMutableRawPointer(bitPattern: address)!, type) } ? 1 : 0
+}
+
+/// Connects `run` to a WebKit web view's "decide-policy", with the decision and its type; `run`
+/// returns whether it took the decision.
+@MainActor @discardableResult
+func connectPolicySignal(_ view: UnsafeMutableRawPointer, _ run: @escaping @MainActor (UnsafeMutableRawPointer, UInt32) -> Bool) -> gulong {
+    connectBox(view, "decide-policy", unsafeBitCast(policyTrampoline, to: GCallback.self), run as PolicyRun)
+}
+
 private typealias BooleanRun = @MainActor () -> Bool
 
 /// For signals whose handler takes (instance, user data) and returns a gboolean, such as

@@ -36,6 +36,11 @@
 
  No observable value (valueType Void).
 
+ Trust: the element binds to the host's surface only when the trust policy allows
+ .hostSurface(surfaceName) for its content. ActionUI's default policy refuses it for less-trusted
+ content (a LoadableView's JSON from a server or from outside the app's resources), which gets the
+ placeholder drawn for a kind the platform lacks, and the client gets no events for it.
+
  Baseline View properties (padding, hidden, frame, opacity, cornerRadius, disabled, accessibilityLabel,
  etc.) are inherited from base View. "hidden" is applied by the element itself, on the native view, so
  hiding never destroys the client's surface; a hidden surface is suspended and takes no input.
@@ -55,7 +60,17 @@ struct HostSurface: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let props = HostSurfaceProperties(properties, logger: logger)
+        // Content the trust policy does not let show the host's surface (less-trusted content, by
+        // default) gets the placeholder, and the client never hears of the element.
+        let shown = MainActor.assumeIsolated {
+            ActionUIModel.shared.allowsLoggingOnce(.hostSurface(props.surfaceName), what: "showing host surface '\(props.surfaceName)'",
+                                                   windowUUID: windowUUID, viewID: element.id, model: model)
+        }
         if case .unsupported = props.kind {
+            return HostSurfacePlaceholder(surfaceName: props.surfaceName, hidden: props.hidden)
+                .frame(idealWidth: props.idealWidth, idealHeight: props.idealHeight)
+        }
+        if !shown {
             return HostSurfacePlaceholder(surfaceName: props.surfaceName, hidden: props.hidden)
                 .frame(idealWidth: props.idealWidth, idealHeight: props.idealHeight)
         }
@@ -77,7 +92,8 @@ struct HostSurface: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = nil
 }
 
-/// Drawn for a kind this platform lacks: a gray rectangle with the surface name.
+/// Drawn for a kind this platform lacks, and for a surface the trust policy refuses: a gray rectangle with
+/// the surface name.
 private struct HostSurfacePlaceholder: SwiftUI.View {
     let surfaceName: String
     let hidden: Bool

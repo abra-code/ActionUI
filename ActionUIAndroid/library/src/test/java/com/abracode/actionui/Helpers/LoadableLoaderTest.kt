@@ -4,6 +4,12 @@ import com.abracode.actionui.Common.ConsoleLogger
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.net.URL
 import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
@@ -128,5 +134,62 @@ class LoadableLoaderTest {
         assertTrue("expected Remote, got $source", source is LoadableSource.Remote)
         val result = loadRemoteDescription(source as LoadableSource.Remote, json, logger)
         assertTrue("expected Deferred, got $result", result is DescriptionLoad.Deferred)
+    }
+
+    /** A local server that answers each connection with [answer] (null: reads the request and says nothing). */
+    private fun withServer(answer: ((Socket) -> Unit)?, test: (String) -> Unit) {
+        ServerSocket(0, 4, InetAddress.getLoopbackAddress()).use { server ->
+            val accepted = mutableListOf<Socket>()
+            val thread = Thread {
+                try {
+                    while (true) {
+                        val socket = server.accept()
+                        synchronized(accepted) { accepted += socket }
+                        answer?.invoke(socket)
+                    }
+                } catch (_: IOException) {
+                    // The server closed at the end of the test.
+                }
+            }.apply { isDaemon = true; start() }
+            try {
+                test("http://127.0.0.1:${server.localPort}/panel.json")
+            } finally {
+                server.close()
+                synchronized(accepted) { accepted.forEach { it.close() } }
+                thread.join(2_000)
+            }
+        }
+    }
+
+    private fun connect(url: String): HttpURLConnection =
+        (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = LOADABLE_REMOTE_TIMEOUT_MS
+            readTimeout = LOADABLE_REMOTE_TIMEOUT_MS
+        }
+
+    @Test
+    fun `a server that never answers is cut off at the load deadline, not the read timeout`() = withServer(null) { url ->
+        val started = System.nanoTime()
+        val connection = connect(url)
+        try {
+            withLoadDeadline(connection, url, limitMs = 300) { connection.responseCode }
+            fail("a load past its deadline returns nothing")
+        } catch (e: IOException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("took longer than 0.3 seconds"))
+        }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        assertTrue("ended after $elapsedMs ms, well before the $LOADABLE_REMOTE_TIMEOUT_MS ms read timeout", elapsedMs < 5_000)
+    }
+
+    @Test
+    fun `a load that ends in time returns its result`() = withServer({ socket ->
+        socket.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}".toByteArray())
+        socket.getOutputStream().flush()
+    }) { url ->
+        val connection = connect(url)
+        val body = withLoadDeadline(connection, url, limitMs = 10_000) {
+            connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+        }
+        assertEquals("{}", body)
     }
 }

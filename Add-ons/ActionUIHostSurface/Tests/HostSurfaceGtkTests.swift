@@ -2,10 +2,10 @@
 //
 // The element on Linux, in a real application window: the surface events (created at the frame's size, hidden
 // at load, hidden and resized later without a destroy, a replaced client told first, window close), frames asked
-// for and continuous, frames presented from another thread, the size state, and the placeholder for a kind Linux
-// lacks, and dmabuf frames (when /dev/udmabuf is available). An application runs once in a process, so this is one
-// scripted test whose steps run on the application's main loop. The binding rules are shared with the Apple element
-// and tested there too.
+// for and continuous, frames presented from another thread, the size state, the placeholder for a kind Linux
+// lacks and for a surface the trust policy refuses, and dmabuf frames (when /dev/udmabuf is available). An
+// application runs once in a process, so this is one scripted test whose steps run on the application's main loop.
+// The binding rules are shared with the Apple element and tested there too.
 
 #if os(Linux)
 
@@ -104,7 +104,8 @@ final class HostSurfaceGtkTests: XCTestCase {
                                                             "hidden": true}},
             {"type": "HostSurface", "id": 7, "properties": {"surfaceName": "placeholder", "kind": "vulkan"}},
             {"type": "HostSurface", "id": 8, "properties": {"surfaceName": "gl", "kind": "gl", "frame": {"width": 100, "height": 80}}},
-            {"type": "HostSurface", "id": 9, "properties": {"surfaceName": "gl-c", "kind": "gl", "frame": {"width": 60, "height": 40}}}
+            {"type": "HostSurface", "id": 9, "properties": {"surfaceName": "gl-c", "kind": "gl", "frame": {"width": 60, "height": 40}}},
+            {"type": "HostSurface", "id": 10, "properties": {"surfaceName": "refused", "frame": {"width": 60, "height": 40}}}
         ]}
         """
 
@@ -170,6 +171,12 @@ final class HostSurfaceGtkTests: XCTestCase {
         let glSuccessor = RecordingClient()
         ActionUIHostSurface.setDelegate(gl, forSurfaceName: "gl")
         XCTAssertTrue(actionUIHostSurfaceSetDelegate("gl-c", &cDelegate, nil), "a C client binds on the main thread")
+        // The trust policy refuses the surface "refused": its element draws the placeholder and its client hears nothing.
+        let refused = RecordingClient()
+        ActionUIHostSurface.setDelegate(refused, forSurfaceName: "refused")
+        let savedPolicy = ActionUIModel.shared.trustPolicy
+        ActionUIModel.shared.trustPolicy = RefusingHostSurface(name: "refused")
+        defer { ActionUIModel.shared.trustPolicy = savedPolicy }
         var firstID: UInt64 = 0
 
         // Each step runs after the updates of the one before it, on the main loop.
@@ -190,7 +197,8 @@ final class HostSurfaceGtkTests: XCTestCase {
                 XCTAssertNotNil(HostSurfaceRegistry.shared.liveSurface(gl.surfaceID)?.glArea, "a GtkGLArea child")
                 XCTAssertFalse(presentFromAnotherThread(gl.surfaceID), "a GL area is no frame sink")
                 ActionUIHostSurface.requestFrame(surfaceID: gl.surfaceID)
-                XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 4, "the placeholder announces nothing")
+                XCTAssertEqual(HostSurfaceRegistry.shared.liveSurfaceCount, 4, "the placeholders announce nothing")
+                XCTAssertEqual(refused.events, [], "a surface the trust policy refuses is never announced")
                 XCTAssertEqual(cEvents, [Int32(AUIHostSurfaceCreated.rawValue)], "the C client got created")
                 XCTAssertEqual(cKind, Int32(AUIHostSurfaceGLArea.rawValue), "for a GL area")
                 firstID = first.surfaceID
@@ -438,6 +446,15 @@ final class HostSurfaceGtkTests: XCTestCase {
                 run(steps.dropFirst(), then: finish)
             }
         }
+    }
+}
+
+/// A trust policy that refuses one surface name and keeps ActionUI's decisions otherwise.
+private struct RefusingHostSurface: ActionUITrustPolicy {
+    let name: String
+
+    func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+        capability == .hostSurface(name) ? false : DefaultTrustPolicy.allowsByDefault(capability, for: origin)
     }
 }
 

@@ -22,6 +22,13 @@
    navigationActionID; the states title, isLoading, estimatedProgress, canGoBack and canGoForward
    follow the view. The view's notifications are handled after the main loop turn they come in, as
    the Apple backing handles its observations in a Task.
+ - Content the trust policy does not let keep its data in the app's persistent store
+   (webViewPersistentData; less-trusted content by default) gets a view of its own ephemeral network
+   session, and content it does not let run its user scripts (webViewUserScripts) runs none, as on
+   Apple.
+ - The pages of less-trusted content: navigations go where the trust policy allows (another app
+   only for a navigation the user started), nothing is downloaded, permission requests are denied,
+   and, as on Apple, they get no fullscreen, print, sign-in or script dialogs (guardLessTrustedPages).
  - Without WebKitGTK: a dimmed label naming the package to install (logged once, by WebKitLibrary).
 */
 
@@ -47,11 +54,14 @@ private let webViewStateKey = AttachKey<WebViewState>("actionui-webview")
 
 extension WebView: ActionUIAdwaitaRenderer {
     static func makeWidget(_ node: RenderNode) -> WidgetPointer {
-        guard let webKit = WebKitLibrary.shared, let view = webKit.newView() else {
-            let label = gtk_label_new("WebView needs WebKitGTK (package \(WebKitLibrary.packageName))")!
-            Gtk.Widget(label).setCSSClass("dim-label", true)
-            gtk_label_set_wrap(opaque(label), 1)
-            return label
+        guard let webKit = WebKitLibrary.shared else {
+            return placeholder("WebView needs WebKitGTK (package \(WebKitLibrary.packageName))")
+        }
+        // Content that may not keep its data in the app's persistent store gets a private one.
+        let allows: (ActionUICapability) -> Bool = { LinkTrust.allows($0, node) }
+        let keepsData = WebViewTrust.keepsPersistentData(allows: allows)
+        guard let view = keepsData ? webKit.newView() : webKit.newPrivateView() else {
+            return placeholder(keepsData ? "WebView could not be made" : "WebView could not be given a private data store")
         }
         gtk_widget_set_hexpand(view, 1)
         gtk_widget_set_vexpand(view, 1)
@@ -73,7 +83,8 @@ extension WebView: ActionUIAdwaitaRenderer {
                 }
             }
         }
-        configure(webKit, view, Props(node.properties)) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
+        configure(webKit, view, Props(node.properties), allows: allows) { LinkTrust.reads(.webViewScriptFile($0), path: $0, node) }
+        guardLessTrustedPages(webKit, view, node)
         loadInitialContent(webKit, view, node, state)
         return view
     }
@@ -84,10 +95,133 @@ extension WebView: ActionUIAdwaitaRenderer {
         handleCommand(node.model.value as? String, webKit, widget, node, state)
     }
 
+    /// Opens an address in another app, as GTK's own link handlers do, with the view's window as the
+    /// parent. Tests replace it.
+    static var openURI: @MainActor (String, WidgetPointer) -> Void = { uri, widget in
+        let launcher = gtk_uri_launcher_new(uri)!
+        gtk_uri_launcher_launch(launcher, gtk_widget_get_root(widget).map { typed($0) }, nil, nil, nil)
+        g_object_unref(UnsafeMutableRawPointer(launcher))
+    }
+
+    /// What the pages of less-trusted content (or content of unknown origin) may do, decided at each
+    /// event by the node's content then, as on Apple and Android; trusted content keeps WebKitGTK's
+    /// own handling:
+    /// - a navigation, the page's or a frame's or to a new window, goes where WebViewTrust.navigation
+    ///   allows; WebKitGTK does not say whether a frame navigates, so another app is opened only for
+    ///   a navigation the user started (a page can add frames without end, but cannot click);
+    /// - a response the view cannot show is not downloaded, and a download the page starts is
+    ///   canceled;
+    /// - a permission request (camera, microphone, location, notifications) is denied;
+    /// - as on Apple, which has none of them for any page: no fullscreen (the Fullscreen API is off
+    ///   for content less trusted when the view is made, and a request is refused whenever made), no
+    ///   print dialog, no sign-in dialog for a server's authentication request, and no script
+    ///   dialogs (an alert returns at once, a confirm answers no and a prompt nothing, but "leave
+    ///   this page?" answers yes, so a page cannot keep the user from going).
+    private static func guardLessTrustedPages(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ node: RenderNode) {
+        let logger = ActionUIModel.shared.logger
+        connectPolicySignal(UnsafeMutableRawPointer(view)) { [weak node] pointer, type in
+            // A node gone (the view on its way out) counts as content of unknown origin.
+            if let node, LinkTrust.isTrusted(node) { return false }
+            let decision = OpaquePointer(pointer)
+            switch type {
+            case WebKitLibrary.navigationAction, WebKitLibrary.newWindowAction:
+                let action = webKit.navigationActionOf(decision)
+                let address = webKit.address(ofRequest: webKit.actionRequest(action))
+                guard let node, let url = URL(string: address) else {
+                    webKit.ignoreDecision(decision)
+                    return true
+                }
+                var verdict = WebViewTrust.navigation(url, isMainFrame: true, allows: { LinkTrust.allows($0, node) }, logger: logger)
+                if verdict == .open, webKit.isUserGesture(action) == 0 {
+                    logger.log("WebView not opening \(address) in another app: the page did not open it from a click", .warning)
+                    verdict = .refuse
+                }
+                switch verdict {
+                case .load:
+                    webKit.useDecision(decision)
+                case .open:
+                    webKit.ignoreDecision(decision)
+                    openURI(address, view)
+                case .refuse:
+                    webKit.ignoreDecision(decision)
+                }
+                return true
+            case WebKitLibrary.response:
+                guard webKit.showsResponse(decision) == 0 else { return false }
+                logger.log("WebView not downloading \(webKit.address(ofRequest: webKit.responseRequest(decision))): the trust policy allows less-trusted content no downloads", .warning)
+                webKit.ignoreDecision(decision)
+                return true
+            default:
+                return false
+            }
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "permission-request") { [weak node] request in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView permission request denied: less-trusted content is given no permissions", .warning)
+            webKit.denyPermission(OpaquePointer(request))
+            return true
+        }
+        if !LinkTrust.isTrusted(node) {
+            webKit.setFullscreenEnabled(webKit.settings(view), 0)
+        }
+        connectBooleanSignal(UnsafeMutableRawPointer(view), "enter-fullscreen") { [weak node] in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView not going fullscreen: less-trusted content may not fill the window", .warning)
+            return true
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "print") { [weak node] _ in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView not printing: less-trusted content may not open the print dialog", .warning)
+            return true
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "script-dialog") { [weak node] pointer in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            // Handled with no answer given: WebKit closes it with its default answers once the last
+            // reference to it goes.
+            let dialog = OpaquePointer(pointer)
+            if webKit.dialogType(dialog) == WebKitLibrary.beforeUnloadDialog {
+                webKit.setConfirmed(dialog, 1)
+            }
+            return true
+        }
+        connectObjectBooleanSignal(UnsafeMutableRawPointer(view), "authenticate") { [weak node] pointer in
+            if let node, LinkTrust.isTrusted(node) { return false }
+            logger.log("WebView not asking for a sign-in: less-trusted content may not show the sign-in dialog", .warning)
+            webKit.cancelAuthentication(OpaquePointer(pointer))
+            return true
+        }
+        // A download can also start without a response decision (a link's download attribute). The
+        // session (the app's shared one, or the view's private one) is kept until the view goes, so
+        // the handler can always be removed from it.
+        guard let session = webKit.networkSession(view) else { return }
+        let sessionPointer = UnsafeMutableRawPointer(session)
+        g_object_ref(sessionPointer)
+        let handler = connectObjectSignal(sessionPointer, "download-started") { [weak node] pointer in
+            let download = OpaquePointer(pointer)
+            guard webKit.downloadView(download) == view else { return }
+            if let node, LinkTrust.isTrusted(node) { return }
+            logger.log("WebView not downloading \(webKit.address(ofRequest: webKit.downloadRequest(download))): the trust policy allows less-trusted content no downloads", .warning)
+            webKit.cancelDownload(download)
+        }
+        connectSignal(UnsafeMutableRawPointer(view), "destroy", .instanceOnly) {
+            if handler != 0 { g_signal_handler_disconnect(sessionPointer, handler) }
+            g_object_unref(sessionPointer)
+        }
+    }
+
+    /// A dimmed, wrapping label in the WebView's place.
+    private static func placeholder(_ text: String) -> WidgetPointer {
+        let label = gtk_label_new(text)!
+        Gtk.Widget(label).setCSSClass("dim-label", true)
+        gtk_label_set_wrap(opaque(label), 1)
+        return label
+    }
+
     /// The settings and the scripts the properties give, before the first page loads.
-    /// `readsFile`: whether a user script may be read from a file (the element's trust).
+    /// `allows`: the trust policy's answer for the element (content that may not run its user
+    /// scripts runs none); `readsFile`: whether a user script may be read from a file.
     private static func configure(_ webKit: WebKitLibrary, _ view: WidgetPointer, _ props: Props,
-                                  readsFile: (String) -> Bool) {
+                                  allows: (ActionUICapability) -> Bool, readsFile: (String) -> Bool) {
         let settings = webKit.settings(view)
         if let userAgent = props.customUserAgent {
             webKit.setUserAgent(settings, userAgent)
@@ -102,6 +236,8 @@ extension WebView: ActionUIAdwaitaRenderer {
             }
         }
         webKit.setBackForwardGestures(settings, 0)
+        guard WebViewTrust.runsUserScripts(count: props.userScripts.count, allows: allows,
+                                           logger: ActionUIModel.shared.logger) else { return }
         let manager = webKit.userContentManager(view)
         for script in props.userScripts {
             guard let source = scriptSource(script, readsFile: readsFile), let userScript = webKit.newScript(

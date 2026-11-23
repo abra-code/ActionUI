@@ -30,6 +30,16 @@ private func cReply(_ text: String) -> UnsafeMutablePointer<CChar>? {
     return strdup(text)
 }
 
+/// A C method policy that records "method|label" and refuses actionui.listWindows.
+private let cPolicyForTests: ActionUIRemoteMethodPolicyCallback = { context, method, paramsJSON, tokenLabel in
+    let name = String(cString: method)
+    if let context {
+        let recorder = Unmanaged<CHostMethodRecorder>.fromOpaque(context).takeUnretainedValue()
+        recorder.calls.append(name + "|" + (tokenLabel.map { String(cString: $0) } ?? "none"))
+    }
+    return name != "actionui.listWindows"
+}
+
 /// One C function for every test method, answering by name, as a C host would write it.
 private let cHostMethodForTests: ActionUIRemoteMethodCallback = { context, method, paramsJSON in
     let name = String(cString: method)
@@ -655,6 +665,175 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
             #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(first)"}}"#))
         XCTAssertEqual((refused["error"] as? [String: Any])?["code"] as? Int, 1006,
                        "command-A's grant was withdrawn")
+    }
+
+    func testRevokingATokenEndsTheAuthenticationOfItsConnections() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let first = try XCTUnwrap(mintToken(label: "command-A"))
+        let second = try XCTUnwrap(mintToken(label: "command-B"))
+        let hello = #"{"jsonrpc":"2.0","id":2,"method":"actionui.hello"}"#
+
+        // Each connection authenticates once, then sends no token, as a long-lived client may.
+        let revoked = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(first)"}}"#))["result"])
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(revoked, hello))["result"], "remembered without the token")
+        let kept = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(kept,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(second)"}}"#))["result"])
+
+        "command-A".withCString { actionUIRemoteRevokeTokensWithLabel($0) }
+
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(kept, hello))["result"], "command-B's connection keeps working")
+        let refused = try XCTUnwrap(exchangeJSON(revoked, hello))
+        XCTAssertEqual((refused["error"] as? [String: Any])?["code"] as? Int, 1006,
+                       "command-A's connection is no longer authenticated")
+        let again = try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":3,"method":"actionui.hello","params":{"token":"\#(first)"}}"#))
+        XCTAssertEqual((again["error"] as? [String: Any])?["code"] as? Int, 1006, "nor with the withdrawn token")
+        let renewed = try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":4,"method":"actionui.hello","params":{"token":"\#(second)"}}"#))
+        XCTAssertNotNil(renewed["result"], "a live token authenticates the same connection again")
+
+        // revokeToken, one token by value, does the same.
+        ActionUIRemoteServer.shared?.revokeToken(second)
+        let afterOne = try XCTUnwrap(exchangeJSON(kept, hello))
+        XCTAssertEqual((afterOne["error"] as? [String: Any])?["code"] as? Int, 1006)
+    }
+
+    func testLimitsSetThroughCReachTheNextSharedServer() throws {
+        let defaults = ActionUIRemoteServer.sharedLimits
+        defer {
+            _ = actionUIRemoteSetLimits(defaults.connections, defaults.authenticationTimeout, defaults.unauthenticatedLargeLines)
+        }
+        XCTAssertEqual(defaults.connections, 64)
+        XCTAssertEqual(defaults.authenticationTimeout, 30)
+        XCTAssertEqual(defaults.unauthenticatedLargeLines, 8)
+        XCTAssertFalse(actionUIRemoteSetLimits(0, 30, 8), "at least one connection")
+        XCTAssertFalse(actionUIRemoteSetLimits(64, -1, 8), "no negative timeout")
+        XCTAssertFalse(actionUIRemoteSetLimits(64, .nan, 8), "no timeout that is not a number")
+        XCTAssertFalse(actionUIRemoteSetLimits(64, 30, -1), "no negative count")
+        XCTAssertEqual(ActionUIRemoteServer.sharedLimits.connections, 64, "a refusal changes nothing")
+
+        XCTAssertTrue(actionUIRemoteSetLimits(5, 2.5, 1))
+        try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(), logger: QuietLogger(maxLevel: .warning))
+        let shared = try XCTUnwrap(ActionUIRemoteServer.shared)
+        XCTAssertEqual(shared.connectionLimit, 5)
+        XCTAssertEqual(shared.authenticationTimeout, 2.5)
+        XCTAssertEqual(shared.unauthenticatedLargeLineLimit, 1)
+    }
+
+    func testThePolicyIsToldWhichTokenACallCameWith() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let job = try XCTUnwrap(mintToken(label: "job-1"))
+        final class Labels { var values: [String] = [] }
+        let labels = Labels()
+        ActionUIRemoteServer.shared?.setMethodPolicy { call in
+            labels.values.append(call.tokenLabel ?? "none")
+            return call.tokenLabel != "job-1" || call.method == "actionui.hello"
+        }
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let hello = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(job)"}}"#))
+        XCTAssertNotNil(hello["result"])
+        let windows = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual((windows["error"] as? [String: Any])?["code"] as? Int, 1004, "this job's token may only say hello")
+        XCTAssertEqual(labels.values, ["job-1", "job-1"])
+    }
+
+    func testAScopedTokenReachesOnlyItsWindowsAndThePreset() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let mine = UUID().uuidString
+        let other = UUID().uuidString
+        for uuid in [mine, other] {
+            _ = try ActionUIModel.shared.loadDescription(from: ["id": 1, "type": "VStack", "children": [
+                ["id": 2, "type": "TextField", "properties": ["title": "Name"]]]], windowUUID: uuid)
+        }
+        defer {
+            ActionUIModel.shared.removeWindow(mine)
+            ActionUIModel.shared.removeWindow(other)
+        }
+        var buffer = [CChar](repeating: 0, count: 128)
+        XCTAssertFalse("job".withCString { label in #"{"not":"a list"}"#.withCString { actionUIRemoteMintScopedToken(label, $0, true, &buffer, buffer.count) } },
+                       "the windows must be a JSON array of strings")
+        let windowsJSON = #"[""# + mine + #""]"#
+        XCTAssertTrue("job".withCString { label in windowsJSON.withCString { actionUIRemoteMintScopedToken(label, $0, true, &buffer, buffer.count) } })
+        let scoped = String(cString: buffer)
+
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let hello = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(scoped)"}}"#))
+        XCTAssertEqual((hello["result"] as? [String: Any])?["windows"] as? [String], [mine], "hello lists only its window")
+        let windows = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual(windows["result"] as? [String], [mine])
+        let theirs = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":3,"method":"actionui.getValue","params":{"window":"\#(other)","viewID":2}}"#))
+        XCTAssertEqual((theirs["error"] as? [String: Any])?["code"] as? Int, 1001, "another window is unknown to it")
+        let ours = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":4,"method":"actionui.setValue","params":{"window":"\#(mine)","viewID":2,"value":"set"}}"#))
+        XCTAssertEqual(ours["result"] as? Bool, true)
+        let insert = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":5,"method":"actionui.insertElement","params":{"window":"\#(mine)","parentID":1,"element":{"type":"Text"}}}"#))
+        XCTAssertEqual((insert["error"] as? [String: Any])?["code"] as? Int, 1004, "outside the preset")
+
+        // The host's start-up token has no scope: it sees both windows.
+        let host = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let all = try XCTUnwrap(exchangeJSON(host,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.listWindows","params":{"#  + (try tokenParam()) + "}}"))
+        let listed = Set(all["result"] as? [String] ?? [])
+        XCTAssertTrue(listed.isSuperset(of: [mine, other]), "\(listed)")
+
+        // A scope of windows only: the full method set, in its own window.
+        XCTAssertTrue("job-w".withCString { label in windowsJSON.withCString { actionUIRemoteMintScopedToken(label, $0, false, &buffer, buffer.count) } })
+        let windowsOnly = String(cString: buffer)
+        let structural = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let insertOwn = try XCTUnwrap(exchangeJSON(structural,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.insertElement","params":{"token":"\#(windowsOnly)","window":"\#(mine)","parentID":1,"element":{"type":"Text","id":9}}}"#))
+        XCTAssertNil(insertOwn["error"], "\(insertOwn)")
+        let insertOther = try XCTUnwrap(exchangeJSON(structural,
+            #"{"jsonrpc":"2.0","id":2,"method":"actionui.insertElement","params":{"window":"\#(other)","parentID":1,"element":{"type":"Text","id":9}}}"#))
+        XCTAssertEqual((insertOther["error"] as? [String: Any])?["code"] as? Int, 1001)
+        // An empty set reaches no window.
+        XCTAssertTrue("job-none".withCString { label in "[]".withCString { actionUIRemoteMintScopedToken(label, $0, false, &buffer, buffer.count) } })
+        let nothing = String(cString: buffer)
+        let empty = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let none = try XCTUnwrap(exchangeJSON(empty,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.listWindows","params":{"token":"\#(nothing)"}}"#))
+        XCTAssertEqual(none["result"] as? [String], [])
+
+        // Revoking the scoped token takes its scope with it.
+        "job".withCString { actionUIRemoteRevokeTokensWithLabel($0) }
+        let after = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":6,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual((after["error"] as? [String: Any])?["code"] as? Int, 1006)
+    }
+
+    func testTheCMethodPolicyAndPreset() throws {
+        XCTAssertFalse(actionUIRemoteSetMethodPolicy(cPolicyForTests, nil), "no server")
+        XCTAssertFalse(actionUIRemoteSetMethodPolicyValuesOnly(), "no server")
+        let client = try startedServerAndClient()
+        let recorder = CHostMethodRecorder()
+        XCTAssertTrue(actionUIRemoteSetMethodPolicy(cPolicyForTests, Unmanaged.passUnretained(recorder).toOpaque()))
+        let refused = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":1,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual((refused["error"] as? [String: Any])?["code"] as? Int, 1004)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"actionui.hello"}"#))["result"])
+        XCTAssertEqual(recorder.calls, ["actionui.listWindows|host", "actionui.hello|host"])
+
+        XCTAssertTrue(actionUIRemoteSetMethodPolicyValuesOnly())
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":3,"method":"actionui.listWindows"}"#))["result"])
+        let insert = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":4,"method":"actionui.insertElement","params":{"window":"none","parentID":1,"element":{"type":"Text"}}}"#))
+        XCTAssertEqual((insert["error"] as? [String: Any])?["code"] as? Int, 1004)
+        XCTAssertTrue("actionui.getValue".withCString { actionUIRemoteIsValuesOnlyMethod($0) })
+        XCTAssertFalse("actionui.insertElement".withCString { actionUIRemoteIsValuesOnlyMethod($0) })
+        XCTAssertFalse(actionUIRemoteIsValuesOnlyMethod(nil))
+
+        XCTAssertTrue(actionUIRemoteSetMethodPolicy(nil, nil))
+        let open = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":5,"method":"actionui.insertElement","params":{"window":"none","parentID":1,"element":{"type":"Text"}}}"#))
+        XCTAssertNotEqual((open["error"] as? [String: Any])?["code"] as? Int, 1004, "no policy: it reaches the method (which reports the unknown window)")
     }
 
     func testTheCFaceRefusesWhatItCannotHonor() throws {

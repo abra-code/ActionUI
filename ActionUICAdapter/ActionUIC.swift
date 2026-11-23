@@ -1518,12 +1518,16 @@ private func capabilityObject(_ capability: ActionUICapability) -> [String: Any]
     case .openLink(let url): return ["capability": "openLink", "url": url.absoluteString]
     case .webView(let url): return ["capability": "webView", "url": url.map { $0.absoluteString as Any } ?? ActionUIJSONNull()]
     case .webViewBaseURL(let url): return ["capability": "webViewBaseURL", "url": url.absoluteString]
+    case .webViewUserScripts: return ["capability": "webViewUserScripts"]
+    case .webViewPersistentData: return ["capability": "webViewPersistentData"]
     case .webViewScriptFile(let path): return ["capability": "webViewScriptFile", "path": path]
     case .readLocalFile(let path): return ["capability": "readLocalFile", "path": path]
+    case .playMedia(let url): return ["capability": "playMedia", "url": url.absoluteString]
     case .windowTitle: return ["capability": "windowTitle"]
     case .presentModal: return ["capability": "presentModal"]
     case .menuCommands: return ["capability": "menuCommands"]
     case .action(let actionID): return ["capability": "action", "actionID": actionID]
+    case .hostSurface(let name): return ["capability": "hostSurface", "surfaceName": name]
     @unknown default: return ["capability": "unknown"]  // for a library built with evolution
     }
 }

@@ -122,8 +122,10 @@ struct Diff: ActionUIAdwaitaElement {
         guard let state = node.state as? DiffElementState else { return }
         let properties = node.properties
         let logger = ActionUIModel.shared.logger
-        let oldInput = resolveInput(text: properties["oldText"], file: properties["oldFile"], side: "old", logger: logger)
-        let newInput = resolveInput(text: properties["newText"], file: properties["newFile"], side: "new", logger: logger)
+        // The trust policy is asked about each file, as for the built-in Image's.
+        let readsFile: (String) -> Bool = { node.readsLocalFile($0) }
+        let oldInput = resolveInput(text: properties["oldText"], file: properties["oldFile"], side: "old", logger: logger, readsFile: readsFile)
+        let newInput = resolveInput(text: properties["newText"], file: properties["newFile"], side: "new", logger: logger, readsFile: readsFile)
 
         // A file that could not be read is a note listing the path(s), not a diff against an empty side, which
         // would look like a whole file removed or added.

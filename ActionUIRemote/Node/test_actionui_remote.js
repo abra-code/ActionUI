@@ -726,12 +726,43 @@ async function testTheCommandLine(directory) {
     }
 }
 
+// The client checks the endpoint before it sends anything, the token included.
+async function testTheEndpointIsChecked(directory) {
+    console.log('\n=== The endpoint is checked before anything is sent ===');
+    const folder = fs.mkdtempSync(path.join(directory, 'ep-'));
+    const socketPath = path.join(folder, 'h.sock');
+    const host = await new FakeHost(socketPath).ready();
+    const refused = (text) => (error) => error instanceof aui.EndpointError && error.message.includes(text);
+    const call = (endpoint) => new aui.Connection(endpoint, { timeout: 10 }).call('actionui.hello');
+    try {
+        check('the host socket in a private folder is used', (await call(socketPath)).protocolVersion === aui.PROTOCOL_VERSION);
+        await checkThrows('a relative path is refused', () => call('h.sock'), refused('not absolute'));
+        const link = path.join(folder, 'link');
+        fs.symlinkSync(socketPath, link);
+        await checkThrows('a link to the socket is refused', () => call(link), refused('is not a socket'));
+        const plain = path.join(folder, 'plain');
+        fs.writeFileSync(plain, '');
+        await checkThrows('a file that is not a socket is refused', () => call(plain), refused('is not a socket'));
+        await checkThrows('a missing socket says nothing listens', () => call(path.join(folder, 'missing')),
+                          refused('no ActionUI host is listening'));
+        fs.chmodSync(folder, 0o777);
+        await checkThrows('a folder others can change is refused', () => call(socketPath),
+                          refused('can be changed by another user'));
+        fs.chmodSync(folder, 0o1777);
+        check('unless it is sticky', (await call(socketPath)).protocolVersion === aui.PROTOCOL_VERSION);
+    } finally {
+        fs.chmodSync(folder, 0o700);
+        host.stop();
+    }
+}
+
 // --- main -----------------------------------------------------------------------------------
 
 async function main() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'aui-node-'));
     try {
         await testAgainstTheFakeHost(directory);
+        await testTheEndpointIsChecked(directory);
         await testTheWireShapes(directory);
         await testBatchingCarriesItsTypes(directory);
         await testRepliesThatDoNotArriveOrArriveOddly(directory);

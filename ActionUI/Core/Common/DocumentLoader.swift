@@ -94,10 +94,23 @@ public enum ActionUICapability: Sendable, Equatable {
     case webView(URL?)
     /// The base address a WebView's inline html runs under (its origin, for cookies and storage).
     case webViewBaseURL(URL)
+    /// A WebView running the user scripts its content gives (its userScripts property, inline or
+    /// from files; each file is also asked about, webViewScriptFile). Asked when the WebView is
+    /// made, only when it has scripts; refused, it runs none of them.
+    case webViewUserScripts
+    /// A WebView keeping its cookies, cache and web storage in the app's persistent data store,
+    /// shared with the app's other WebViews. Asked when the WebView is made; refused, it gets a
+    /// private store of its own that lasts as long as the WebView. Apple and Linux; an Android
+    /// WebView has the app's one store and does not ask.
+    case webViewPersistentData
     /// A WebView user script read from this file.
     case webViewScriptFile(String)
     /// An Image, Canvas image, VideoPlayer, AsyncImage or ShareLink reading this local file.
     case readLocalFile(String)
+    /// A VideoPlayer playing this address that is not a local file (a local one is asked as
+    /// readLocalFile). Asked before the player opens it; refused, the player shows that it may
+    /// not play it.
+    case playMedia(URL)
     /// Setting the window's title (navigationTitle on a window root, a WindowGroup title).
     case windowTitle
     /// Presenting a sheet, full-screen cover, popover, alert or confirmation dialog.
@@ -109,11 +122,21 @@ public enum ActionUICapability: Sendable, Equatable {
     /// Firing this action, asked with the origin of the element that fires it (the host's for a
     /// menu bar item, a toast's or a dialog's button) before the host's handler runs.
     case action(String)
+    /// A HostSurface element (the ActionUIHostSurface add-on) binding to the host's surface of this
+    /// name, so that the host's client draws in it and gets its input. Asked when the element is
+    /// made; refused, it draws a placeholder and the client never hears of it.
+    case hostSurface(String)
 }
 
 /// The host's say over how far content is trusted and what it may do,
 /// set on ActionUIModel.shared.trustPolicy before loading. One object serves every window; a host
 /// that wants rules per window switches on the origin's parentID or keeps its own map.
+///
+/// Rows are judged as the content they are shown in: text the host sets as a List's, Table's or
+/// Chart's rows, placed by a template into an address ("url": "$1" on a Link, an AsyncImage, a
+/// VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells), opens or loads
+/// with that content's trust. A host that sets rows from text it got elsewhere (search results,
+/// file names, a server's data) checks the addresses in it first.
 public protocol ActionUITrustPolicy: Sendable {
     /// The trust of content loaded from `source` inside content of origin `parent` (nil only for a
     /// window's root; a LoadableView in a template row has its row's content as parent, and one
@@ -148,6 +171,9 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
     /// The schemes a less-trusted WebView may show.
     public static let webViewSchemes: Set<String> = ["http", "https"]
 
+    /// The schemes besides file a less-trusted VideoPlayer may play.
+    public static let mediaSchemes: Set<String> = ["http", "https"]
+
     /// Whether the file at `path` is inside one of the app's resource folders (symbolic links
     /// followed), the folders whose documents are trusted.
     @MainActor
@@ -170,11 +196,13 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
 
     /// What content of `origin` may do when the host does not say: trusted content anything; less
     /// trusted content may open only web and mail links (linkSchemes), show only web addresses in a
-    /// WebView (webViewSchemes), give its inline html a base address only of its own document's
-    /// origin, read local files (images, videos, WebView script files) only inside the app's
-    /// resources, and neither set the window's title nor present its own sheets, covers and
-    /// popovers; for now it may do anything else (each further refusal comes with the renderer change
-    /// that enforces it).
+    /// WebView (webViewSchemes), play only web addresses in a VideoPlayer (mediaSchemes; local
+    /// files as below), give its inline html a base address only of its own document's
+    /// origin, run no WebView user scripts, keep no WebView data in the app's persistent store,
+    /// read local files (images, videos, WebView script files) and load ActionUI JSON from local
+    /// files only inside the app's resources, neither set the window's title nor present its
+    /// own sheets, covers and popovers, and show no host surface; for now it may do anything else
+    /// (each further refusal comes with the renderer change that enforces it).
     @MainActor
     public static func allowsByDefault(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
         if origin.trust == .trusted { return true }
@@ -191,6 +219,13 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
             // whose cookies and storage the html would get, and no local file.
             guard case .remote(let document) = origin.source else { return false }
             return haveSameOrigin(base, document)
+        case .webViewUserScripts, .webViewPersistentData:
+            // No scripts of its own in its pages, and none of the app's own cookies and storage.
+            return false
+        case .playMedia(let url):
+            // Web addresses only: not another computer's share or the desktop's virtual file
+            // systems, which a player's framework may open too.
+            return mediaSchemes.contains(url.scheme?.lowercased() ?? "")
         case .readLocalFile(let path), .webViewScriptFile(let path):
             // The app's own resources only: not the user's files, a device, or a network share.
             return isInAppResources(path)
@@ -198,7 +233,16 @@ public struct DefaultTrustPolicy: ActionUITrustPolicy {
             // Neither the window's title nor a sheet, cover or popover over it: content that is not
             // the app's own could pass itself off as the app.
             return false
-        case .load, .menuCommands, .action:
+        case .hostSurface:
+            // The host's own drawing and input, placed where content that is not the app's own
+            // chooses, could pass for the app, and keystrokes typed there go to the host's client.
+            return false
+        case .load(let source):
+            // A local file outside the app's resources (the user's files, a device, a network
+            // share) is not loaded; the app's resources and remote addresses are.
+            if case .file = source { return false }
+            return true
+        case .menuCommands, .action:
             return true
         }
     }
@@ -218,6 +262,24 @@ enum WebViewTrust {
             return false
         }
         return true
+    }
+
+    /// Whether a WebView with `count` user scripts runs them: when it has none, or when the policy
+    /// allows it (asked as the WebView is made; a refusal is logged).
+    @MainActor
+    static func runsUserScripts(count: Int, allows: (ActionUICapability) -> Bool, logger: any ActionUILogger) -> Bool {
+        guard count > 0 else { return true }
+        guard allows(.webViewUserScripts) else {
+            logger.log("WebView not running its \(count) user script(s): the trust policy refuses them", .warning)
+            return false
+        }
+        return true
+    }
+
+    /// Whether a WebView keeps the app's persistent data store, else a private store of its own.
+    @MainActor
+    static func keepsPersistentData(allows: (ActionUICapability) -> Bool) -> Bool {
+        allows(.webViewPersistentData)
     }
 
     /// The base address for the WebView's inline html: `base` when the policy allows it, else
@@ -351,8 +413,9 @@ enum ActionUIDocumentLoader {
         let path = url.resolvingSymlinksInPath().path
         let attributes = try FileManager.default.attributesOfItem(atPath: path)
         guard attributes[.type] as? FileAttributeType == .typeRegular else { throw NotARegularFile(path: url.path) }
-        // An Int on Apple (bridged), possibly a UInt64 in swift-corelibs.
-        let size = (attributes[.size] as? Int) ?? (attributes[.size] as? UInt64).map { Int(clamping: $0) }
+        // An Int on Apple (bridged), a UInt in FoundationEssentials, possibly a UInt64 in swift-corelibs.
+        let size = (attributes[.size] as? Int) ?? (attributes[.size] as? UInt).map { Int(clamping: $0) }
+            ?? (attributes[.size] as? UInt64).map { Int(clamping: $0) }
         if let size, size > maximumFileSize {
             throw ActionUIError("\(url.lastPathComponent) is larger than \(maximumFileSize / (1024 * 1024)) MB")
         }
@@ -475,6 +538,33 @@ enum ActionUIDocumentLoader {
         return try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID, origin: origin)
     }
 
+    /// The origin of the content a load goes into (its parent): nil for a window's root
+    /// (`isContentView`); else `around`, else the content of the LoadableView `parentID`, as
+    /// resolvedOrigin describes.
+    static func surroundings(windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?) -> JSONContentOrigin? {
+        // A sub-view's parent is the LoadableView, an element of the content around it.
+        if isContentView { return nil }
+        if let around { return around }
+        if let parentModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] {
+            return parentModel.origin ?? .host
+        }
+        // Id 0 is the host's own loader. Any other LoadableView with no view model (one in a
+        // template row the renderer did not describe, a blueprint the window has no model for)
+        // has no known trust: less trusted, so a miss cannot make remote content's choice of
+        // file read as the host's.
+        return parentID == 0 ? .host : unknownSurroundings
+    }
+
+    /// Whether the address a load fetches was named by content that is not trusted (the content
+    /// around the LoadableView, surroundings); a window's root is named by the host. Such an
+    /// address is fetched without the app's cookies and stored credentials.
+    static func isNamedByLessTrustedContent(windowUUID: String, isContentView: Bool, parentID: Int, around: JSONContentOrigin?) -> Bool {
+        guard let parent = surroundings(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around) else {
+            return false
+        }
+        return parent.trust != .trusted
+    }
+
     /// The origin of content loaded from `source` into the window: as a root (`isContentView`), or
     /// into its LoadableView `parentID`. Classified (origin(for:)), then the host's trust policy
     /// has the last word.
@@ -485,21 +575,7 @@ enum ActionUIDocumentLoader {
     /// to trust that file inside content it does not know.
     static func resolvedOrigin(for source: Source, windowUUID: String, isContentView: Bool, parentID: Int,
                                around: JSONContentOrigin? = nil) -> JSONContentOrigin {
-        // A sub-view's parent is the LoadableView, an element of the content around it.
-        let parent: JSONContentOrigin?
-        if isContentView {
-            parent = nil
-        } else if let around {
-            parent = around
-        } else if let parentModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] {
-            parent = parentModel.origin ?? .host
-        } else {
-            // Id 0 is the host's own loader. Any other LoadableView with no view model (one in a
-            // template row the renderer did not describe, a blueprint the window has no model for)
-            // has no known trust: less trusted, so a miss cannot make remote content's choice of
-            // file read as the host's.
-            parent = parentID == 0 ? .host : unknownSurroundings
-        }
+        let parent = surroundings(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
         let classified = Self.origin(for: source, inside: parent, parentID: isContentView ? nil : parentID,
                                      resourceFolders: ActionUIRendererHooks.resourceFolders(),
                                      trustedOrigins: ActionUIConfiguration.current.trust.trustedOrigins)

@@ -13,6 +13,7 @@
 //   capability: { capability: "openLink", url } | { capability: "webView", url } (url null: inline html)
 //               | { capability: "webViewBaseURL", url } | { capability: "windowTitle" }
 //               | { capability: "presentModal" } | { capability: "load", source } | { capability: "action", actionID }
+//               | { capability: "playMedia", url } (a VideoPlayer's address, resolved against the page)
 
 import { pageBaseURL } from "../Helpers/URLPolicy.js";
 import { isTrustedOrigin } from "./Configuration.js";
@@ -26,6 +27,8 @@ export const HOST_ORIGIN = Object.freeze({ source: "host", trust: TRUSTED });
 // The schemes less-trusted content may open, and those its WebView may show.
 export const LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
 export const WEBVIEW_SCHEMES = new Set(["http:", "https:"]);
+// The schemes a less-trusted VideoPlayer may play.
+export const MEDIA_SCHEMES = new Set(["http:", "https:"]);
 
 // The scheme of `address` with its colon, lower-cased ("https:"); "" when it has none or it
 // does not parse.
@@ -58,9 +61,10 @@ function isOnPageServer(address, base) {
 }
 
 // What content of `origin` may do when the host does not say: trusted content anything;
-// less-trusted content may open only web and mail links, show only web addresses in a WebView,
-// give its inline html a base address only of its own document's origin, and neither title the
-// screen nor present its own sheets, covers and popovers. The Swift table, less what the web
+// less-trusted content may open only web and mail links, show only web addresses in a WebView
+// and play only web addresses in a VideoPlayer, give its inline html a base address only of its
+// own document's origin, and neither title the screen nor present its own sheets, covers and
+// popovers. The Swift table, less what the web
 // has no counterpart for (local files, script files, menu commands).
 export function allowsByDefault(capability, origin) {
     if (origin?.trust === TRUSTED) return true;
@@ -71,6 +75,8 @@ export function allowsByDefault(capability, origin) {
             return capability.url == null || WEBVIEW_SCHEMES.has(schemeOf(capability.url));
         case "webViewBaseURL":
             return origin?.source === "remote" && haveSameOrigin(capability.url, origin.url);
+        case "playMedia":
+            return MEDIA_SCHEMES.has(schemeOf(capability.url));
         case "windowTitle":
         case "presentModal":
             return false;

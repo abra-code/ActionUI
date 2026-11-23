@@ -253,6 +253,32 @@ s.response(176)
 # Take its window.closed event, so the later waits see only their own windows' events.
 s.call(177, "wait", {"window": paths_window, "timeout_s": 2})
 s.response(177)
+import tempfile
+# show kind file: a file is shown with ActionUI's own view for its type, Quick Look only for the rest
+# (on macOS; Linux has none and refuses those).
+file_dir = tempfile.mkdtemp(prefix="actionui-mcp-files-")
+def file_in(name, content):
+    full = os.path.join(file_dir, name)
+    with open(full, "wb") as handle:
+        handle.write(content if isinstance(content, bytes) else content.encode())
+    return full
+cases = [("notes.md", "# Title\n\nSome **bold** text.\n", "markdown"),
+         ("people.csv", "name,age\nAda,36\n", "table"),
+         ("main.swift", "let x = 1\n", "text"),
+         ("page.html", "<p>A <b>page</b></p>\n", "web"),
+         ("data.bin", b"\x00\x01\xff", None if LINUX else "quicklook")]
+for number, (name, content, expected) in enumerate(cases, start=190):
+    s.call(number, "show", {"title": name, "kind": "file", "path": file_in(name, content)})
+    message = s.response(number)
+    if expected is None:
+        check("show kind file refuses " + name + " on Linux", is_error(message), message)
+        continue
+    result = structured(message) or {}
+    check("show kind file shows " + name + " as " + expected, result.get("shown_as") == expected and bool(result.get("window")), result)
+    s.call(number + 10, "close_window", {"window": result.get("window", "")})
+    s.response(number + 10)
+import shutil
+shutil.rmtree(file_dir, ignore_errors=True)
 # ActionUI resolves "<key>:<platform>" overrides at load, so the safety rules see resolved keys.
 s.call(142, "validate_ui", {"ui": {"type": "Text", "type" + SUFFIX: "SecureField", "id": 1}})
 result = structured(s.response(142)) or {}

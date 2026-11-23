@@ -80,6 +80,13 @@ class ImageHelper {
         return SwiftUI.Image(source: source)
     }
 
+    /// Whether element `viewID`'s content is less trusted (or of unknown origin): its remote images
+    /// are shown with PrivateAsyncImage rather than SwiftUI's AsyncImage.
+    @MainActor
+    static func isLessTrusted(windowUUID: String, viewID: Int) -> Bool {
+        ActionUIModel.shared.origin(windowUUID: windowUUID, viewID: viewID)?.trust != .trusted
+    }
+
     /// `url` for an AsyncImage of the element `viewID`, nil when it may not load it: a file: one
     /// must be a regular file (AsyncImage.isLoadable) the element may read.
     @MainActor

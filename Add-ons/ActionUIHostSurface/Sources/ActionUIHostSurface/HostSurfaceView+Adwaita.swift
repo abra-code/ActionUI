@@ -107,7 +107,8 @@ final class HostSurfaceView {
             loaded = true
             surfaceName = new.surfaceName
             properties = new
-            if new.kind == .gl {
+            // A refused element draws only the placeholder: no GL area, so no GL context for it.
+            if new.kind == .gl, !isRefused {
                 makeGLArea()
             }
         } else if (new.surfaceName != surfaceName || new.kind != properties.kind) && !warnedFixedProperties {
@@ -141,7 +142,14 @@ final class HostSurfaceView {
         refresh()
     }
 
+    /// Set when the element is made: its content may not show the host's surface (the trust
+    /// policy refuses .hostSurface), so it draws the placeholder and never announces itself.
+    var isRefused = false
+
     var isPlaceholder: Bool {
+        if isRefused {
+            return true
+        }
         if case .unsupported = properties.kind {
             return true
         }

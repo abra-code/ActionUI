@@ -21,10 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.abracode.actionui.Common.ActionUICapability
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
-import com.abracode.actionui.Common.DefaultTrustPolicy
-import com.abracode.actionui.Common.JSONContentOrigin
 import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIValueType
@@ -192,14 +191,13 @@ object VideoPlayer : ActionUIViewConstruction {
                         // pipe nobody writes to never opens. A missing file goes on to
                         // MediaPlayer, which reports it.
                         val file = if (urlString.startsWith("file://", ignoreCase = true)) Uri.parse(urlString).path?.let(::File) else null
-                        val scheme = DefaultTrustPolicy.schemeOf(urlString)
                         if (file != null && !ActionUIModel.readsLocalFile(file.path, origin, logger)) {
                             // Less-trusted content plays a local file only inside the app's resource folders.
                             view.stopPlayback()
-                        } else if (file == null && scheme != "http" && scheme != "https" && origin.trust != JSONContentOrigin.Trust.TRUSTED) {
-                            // Nor, for less-trusted content, another scheme (content:, rtsp:, android.resource:):
-                            // Apple's player plays only file and web addresses.
-                            logger.log("VideoPlayer not playing '$urlString': less-trusted content plays only file, http and https addresses", LoggerLevel.warning)
+                        } else if (file == null && !ActionUIModel.allows(ActionUICapability.PlayMedia(urlString), origin)) {
+                            // Nor an address the trust policy does not let it play (less-trusted content, by
+                            // default: content:, rtsp:, android.resource: and other schemes than http and https).
+                            logger.log("VideoPlayer not playing '$urlString': the trust policy refuses it", LoggerLevel.warning)
                             view.stopPlayback()
                         } else if (file != null && file.exists() && !file.isFile) {
                             logger.log("VideoPlayer not playing '$urlString': ${file.path} is not a regular file", LoggerLevel.error)

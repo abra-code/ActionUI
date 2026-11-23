@@ -243,7 +243,10 @@ struct AgentDocument {
         let url = URL(fileURLWithPath: path)
         // The size of the file a symlink points to, not of the link.
         let resolved = url.resolvingSymlinksInPath().path
-        let size = (try? FileManager.default.attributesOfItem(atPath: resolved)[.size] as? Int) ?? nil
+        // An Int on Apple (bridged), a UInt in FoundationEssentials, possibly a UInt64 elsewhere.
+        let sizeValue = (try? FileManager.default.attributesOfItem(atPath: resolved))?[.size]
+        let size = (sizeValue as? Int) ?? (sizeValue as? UInt).map { Int(clamping: $0) }
+            ?? (sizeValue as? UInt64).map { Int(clamping: $0) }
         guard let size else { throw MCPToolError("no such file: \(path)") }
         guard size <= maxBytes else { throw MCPToolError("\(path) is larger than \(maxBytes / 1024 / 1024) MB") }
         do {

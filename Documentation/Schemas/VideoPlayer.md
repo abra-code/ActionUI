@@ -13,6 +13,7 @@ JSON schema and usage documentation for `VideoPlayer`.
      "autoplay": true    // Optional: Boolean for autoplay, ignored if nil
    }
    // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Trust: the trust policy is asked before an address is played (playMedia; a local file is asked as readLocalFile). ActionUI's default policy lets less-trusted content (a LoadableView's JSON from a server or from outside the app's resources) play only http and https addresses and files inside the app's resources; a refused address is not played.
  }
 // Observable state:
 //   value (String)   URL string of the currently loaded video (via getElementValue / setElementValue).

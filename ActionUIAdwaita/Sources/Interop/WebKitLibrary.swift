@@ -38,6 +38,18 @@ final class WebKitLibrary {
                                           UnsafePointer<UnsafePointer<CChar>?>?) -> OpaquePointer?
     typealias AddScript = @convention(c) (OpaquePointer?, OpaquePointer?) -> Void
     typealias Release = @convention(c) (OpaquePointer?) -> Void
+    typealias NewSession = @convention(c) () -> OpaquePointer?
+    typealias TypeOf = @convention(c) () -> GType
+    typealias ObjectOf = @convention(c) (OpaquePointer?) -> OpaquePointer?
+    typealias FlagOf = @convention(c) (OpaquePointer?) -> gboolean
+    typealias TextOf = @convention(c) (OpaquePointer?) -> UnsafePointer<CChar>?
+    typealias ViewOf = @convention(c) (OpaquePointer?) -> WidgetPointer?
+
+    /// WebKitPolicyDecisionType: a navigation, a navigation to a new window, a response.
+    static let navigationAction: UInt32 = 0, newWindowAction: UInt32 = 1, response: UInt32 = 2
+    /// WebKitScriptDialogType: WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM, the "leave this page?" one.
+    static let beforeUnloadDialog: UInt32 = 3
+    typealias DialogType = @convention(c) (OpaquePointer?) -> UInt32
 
     /// WebKitUserContentInjectedFrames: WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES, _TOP_FRAME.
     static let allFrames: UInt32 = 0, topFrame: UInt32 = 1
@@ -97,6 +109,36 @@ final class WebKitLibrary {
     let newScript: NewScript
     let addScript: AddScript
     let releaseScript: Release
+    /// webkit_network_session_new_ephemeral (cookies, cache and storage in memory, for its views
+    /// only), webkit_network_session_get_type, webkit_web_view_get_type
+    let newEphemeralSession: NewSession
+    let networkSessionType: TypeOf
+    let webViewType: TypeOf
+    /// webkit_navigation_policy_decision_get_navigation_action, webkit_navigation_action_get_request,
+    /// webkit_navigation_action_is_user_gesture, webkit_response_policy_decision_get_request,
+    /// webkit_response_policy_decision_is_mime_type_supported, webkit_uri_request_get_uri (owned
+    /// by the request), webkit_policy_decision_use, _ignore
+    let navigationActionOf: ObjectOf
+    let actionRequest: ObjectOf
+    let isUserGesture: FlagOf
+    let responseRequest: ObjectOf
+    let showsResponse: FlagOf
+    let requestURI: TextOf
+    let useDecision: Release
+    let ignoreDecision: Release
+    /// webkit_permission_request_deny, webkit_web_view_get_network_session (owned by the view),
+    /// webkit_download_get_web_view, webkit_download_get_request, webkit_download_cancel
+    let denyPermission: Release
+    let networkSession: Object
+    let downloadView: ViewOf
+    let downloadRequest: ObjectOf
+    let cancelDownload: Release
+    /// webkit_script_dialog_get_dialog_type, webkit_script_dialog_confirm_set_confirmed,
+    /// webkit_authentication_request_cancel, webkit_settings_set_enable_fullscreen
+    let dialogType: DialogType
+    let setConfirmed: SetFlag
+    let cancelAuthentication: Release
+    let setFullscreenEnabled: SetFlag
 
     private init?(_ library: UnsafeMutableRawPointer) {
         func function<T>(_ name: String, as type: T.Type) -> T? {
@@ -121,7 +163,27 @@ final class WebKitLibrary {
               let userContentManager = function("webkit_web_view_get_user_content_manager", as: Object.self),
               let newScript = function("webkit_user_script_new", as: NewScript.self),
               let addScript = function("webkit_user_content_manager_add_script", as: AddScript.self),
-              let releaseScript = function("webkit_user_script_unref", as: Release.self) else { return nil }
+              let releaseScript = function("webkit_user_script_unref", as: Release.self),
+              let newEphemeralSession = function("webkit_network_session_new_ephemeral", as: NewSession.self),
+              let networkSessionType = function("webkit_network_session_get_type", as: TypeOf.self),
+              let webViewType = function("webkit_web_view_get_type", as: TypeOf.self),
+              let navigationActionOf = function("webkit_navigation_policy_decision_get_navigation_action", as: ObjectOf.self),
+              let actionRequest = function("webkit_navigation_action_get_request", as: ObjectOf.self),
+              let isUserGesture = function("webkit_navigation_action_is_user_gesture", as: FlagOf.self),
+              let responseRequest = function("webkit_response_policy_decision_get_request", as: ObjectOf.self),
+              let showsResponse = function("webkit_response_policy_decision_is_mime_type_supported", as: FlagOf.self),
+              let requestURI = function("webkit_uri_request_get_uri", as: TextOf.self),
+              let useDecision = function("webkit_policy_decision_use", as: Release.self),
+              let ignoreDecision = function("webkit_policy_decision_ignore", as: Release.self),
+              let denyPermission = function("webkit_permission_request_deny", as: Release.self),
+              let networkSession = function("webkit_web_view_get_network_session", as: Object.self),
+              let downloadView = function("webkit_download_get_web_view", as: ViewOf.self),
+              let downloadRequest = function("webkit_download_get_request", as: ObjectOf.self),
+              let cancelDownload = function("webkit_download_cancel", as: Release.self),
+              let dialogType = function("webkit_script_dialog_get_dialog_type", as: DialogType.self),
+              let setConfirmed = function("webkit_script_dialog_confirm_set_confirmed", as: SetFlag.self),
+              let cancelAuthentication = function("webkit_authentication_request_cancel", as: Release.self),
+              let setFullscreenEnabled = function("webkit_settings_set_enable_fullscreen", as: SetFlag.self) else { return nil }
         self.newView = newView
         self.loadURI = loadURI
         self.loadHTML = loadHTML
@@ -142,6 +204,49 @@ final class WebKitLibrary {
         self.newScript = newScript
         self.addScript = addScript
         self.releaseScript = releaseScript
+        self.newEphemeralSession = newEphemeralSession
+        self.networkSessionType = networkSessionType
+        self.webViewType = webViewType
+        self.navigationActionOf = navigationActionOf
+        self.actionRequest = actionRequest
+        self.isUserGesture = isUserGesture
+        self.responseRequest = responseRequest
+        self.showsResponse = showsResponse
+        self.requestURI = requestURI
+        self.useDecision = useDecision
+        self.ignoreDecision = ignoreDecision
+        self.denyPermission = denyPermission
+        self.networkSession = networkSession
+        self.downloadView = downloadView
+        self.downloadRequest = downloadRequest
+        self.cancelDownload = cancelDownload
+        self.dialogType = dialogType
+        self.setConfirmed = setConfirmed
+        self.cancelAuthentication = cancelAuthentication
+        self.setFullscreenEnabled = setFullscreenEnabled
+    }
+
+    /// The address a request names (a navigation action's, a response's, a download's), "" if none.
+    func address(ofRequest request: OpaquePointer?) -> String {
+        request.flatMap { requestURI($0) }.map { String(cString: $0) } ?? ""
+    }
+
+    /// A web view of its own ephemeral network session: its cookies, cache and web storage are in
+    /// memory and shared with no other view (webkit_web_view_new's views share the default
+    /// session, kept on disk). Floating, as webkit_web_view_new's; nil when it could not be made.
+    func newPrivateView() -> WidgetPointer? {
+        guard let session = newEphemeralSession() else { return nil }
+        // The view keeps its own reference.
+        defer { g_object_unref(UnsafeMutableRawPointer(session)) }
+        var value = GValue()
+        g_value_init(&value, networkSessionType())
+        defer { g_value_unset(&value) }
+        g_value_set_object(&value, UnsafeMutableRawPointer(session))
+        let object: UnsafeMutablePointer<GObject>? = "network-session".withCString { name in
+            var names: [UnsafePointer<CChar>?] = [name]
+            return names.withUnsafeMutableBufferPointer { g_object_new_with_properties(webViewType(), 1, $0.baseAddress, &value) }
+        }
+        return object.map { WidgetPointer(OpaquePointer($0)) }
     }
 
     /// The first library found, by API version (apiVersions) and then ABI version (the one checked, then

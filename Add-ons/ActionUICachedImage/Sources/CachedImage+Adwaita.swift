@@ -266,7 +266,9 @@ struct CachedImage: ActionUIAdwaitaElement {
                     cornerRadius: number(properties["cornerRadius"]) ?? 0)
         // The runtime value wins, else the "url" property; nil or not a URL shows the placeholder.
         let runtime = (node.model.value as? String).flatMap { $0.isEmpty ? nil : $0 }
+        // A file: URL only when the content may read the file, as for the built-in Image's file.
         let url = (runtime ?? (properties["url"] as? String)).flatMap { $0.isEmpty ? nil : URL(string: $0) }
+            .flatMap { $0.isFileURL && !node.readsLocalFile($0.path) ? nil : $0 }
         state.load(url.map { ImageRequest(url: $0, targetWidth: number(properties["maxPixelWidth"])) })
     }
 

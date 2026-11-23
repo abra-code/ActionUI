@@ -253,6 +253,9 @@ unsafe extern "C" {
     pub fn actionUIAppRemoteCopyServerToken(outToken: *mut c_char, outTokenSize: isize) -> bool;
     pub fn actionUIAppRemoteServerEndpoint() -> *const c_char;
     pub fn actionUIAppRemoteEnablePerformAction() -> bool;
+    pub fn actionUIAppRemoteUnexportToken() -> bool;
+    pub fn actionUIAppRemoteMintToken(label: *const c_char, outToken: *mut c_char, outTokenSize: isize) -> bool;
+    pub fn actionUIAppRemoteRevokeTokensWithLabel(label: *const c_char);
 }
 
 // MARK: - ActionUIRemote (ActionUIRemote-Swift.h)
@@ -268,6 +271,11 @@ unsafe extern "C" {
     pub fn actionUIRemoteMintToken(label: *const c_char, outToken: *mut c_char, outTokenSize: isize) -> bool;
     pub fn actionUIRemoteAddToken(token: *const c_char, label: *const c_char) -> bool;
     pub fn actionUIRemoteRevokeTokensWithLabel(label: *const c_char);
+    pub fn actionUIRemoteSetLimits(connections: isize, authenticationTimeoutSeconds: f64, unauthenticatedLargeLines: isize) -> bool;
+    pub fn actionUIRemoteMintScopedToken(label: *const c_char, windowsJSON: *const c_char, valuesOnly: bool, outToken: *mut c_char, outTokenSize: isize) -> bool;
+    pub fn actionUIRemoteSetMethodPolicy(callback: Option<unsafe extern "C" fn(context: *mut c_void, method: *const c_char, paramsJSON: *const c_char, tokenLabel: *const c_char) -> bool>, context: *mut c_void) -> bool;
+    pub fn actionUIRemoteSetMethodPolicyValuesOnly() -> bool;
+    pub fn actionUIRemoteIsValuesOnlyMethod(method: *const c_char) -> bool;
     pub fn actionUIRemoteSetRequiresToken(required: bool) -> bool;
     pub fn actionUIRemoteUnexportToken() -> bool;
     pub fn actionUIRemoteRegisterMethod(method: *const c_char, callback: Option<unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char>, context: *mut c_void) -> bool;

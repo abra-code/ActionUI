@@ -286,6 +286,10 @@ final class LoadableViewRendererTests: XCTestCase {
         let json = #"{"type": "VStack", "id": 20, "children": [{"type": "LoadableView", "id": 21, "properties": {"filePath": "\#(path)"}}]}"#
         try Data(json.utf8).write(to: URL(fileURLWithPath: path))
         files.append(path)
+        // The app's own files: content from a file elsewhere loads no local files.
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [NSTemporaryDirectory()] }
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)"}}"#)
         let inner = try XCTUnwrap(node.childNodes[20]?.childNodes[21], "the document loads once")
         let label = try XCTUnwrap(child(inner))
@@ -299,6 +303,10 @@ final class LoadableViewRendererTests: XCTestCase {
         try Data(#"{"type": "LoadableView", "id": 30, "properties": {"filePath": "\#(b)"}}"#.utf8).write(to: URL(fileURLWithPath: a))
         try Data(#"{"type": "LoadableView", "id": 31, "properties": {"filePath": "\#(a)"}}"#.utf8).write(to: URL(fileURLWithPath: b))
         files += [a, b]
+        // The app's own files: content from a file elsewhere loads no local files.
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [NSTemporaryDirectory()] }
         let text = try document("loadable-sibling.json", id: 40, text: "Sibling")
         let node = try render(#"{"type": "VStack", "id": 1, "children": ["#
             + #"{"type": "LoadableView", "id": 2, "properties": {"filePath": "\#(a)"}},"#

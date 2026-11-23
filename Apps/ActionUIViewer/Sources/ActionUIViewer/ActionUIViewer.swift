@@ -195,6 +195,23 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         }
     }
     
+    /// The body at `url`, at most `limit` bytes (the configured size of one load of ActionUI JSON),
+    /// and the server's response. The body is nil when the status is not 200 (nothing is read) or
+    /// when it is larger: refused at once when the server says so, else counted as it arrives.
+    /// Not on the main actor: stepping through the bytes there hops to it and back for every byte,
+    /// which takes minutes for 16 MB.
+    nonisolated private static func fetchCapped(_ url: URL, limit: Int) async throws -> (Data?, URLResponse) {
+        let (bytes, response) = try await URLSession.shared.bytes(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+              response.expectedContentLength <= Int64(limit) else { return (nil, response) }
+        var data = Data()
+        for try await byte in bytes {
+            guard data.count < limit else { return (nil, response) }
+            data.append(byte)
+        }
+        return (data, response)
+    }
+
     @MainActor
     func handleApplicationLaunch() async {
         // Register optional add-on element types before any document is loaded, so a JSON file that
@@ -318,9 +335,15 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             print("Fetching remote JSON...")
             
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                let limit = ActionUIConfiguration.current.limits.maximumJSONSize
+                let (body, response) = try await Self.fetchCapped(url, limit: limit)
                 guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                     print("Error: Failed to fetch remote JSON")
+                    NSApp.terminate(nil)
+                    return
+                }
+                guard let data = body else {
+                    print("Error: the remote JSON is larger than \(limit) bytes")
                     NSApp.terminate(nil)
                     return
                 }

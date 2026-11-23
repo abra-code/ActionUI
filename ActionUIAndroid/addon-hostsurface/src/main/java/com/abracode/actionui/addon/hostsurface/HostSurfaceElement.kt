@@ -31,6 +31,9 @@ package com.abracode.actionui.addon.hostsurface
  Size: the ideal size, within what the parent allows. ActionUI's stacks measure a child with a loose bound to
  learn its natural size, so a greedy element would take everything; "frame": { "maxWidth": "infinity" } (or
  maxHeight) makes it fill, as for any element. States: "size", [width, height] in points.
+
+ Trust: the element binds to the host's surface only when the trust policy allows ActionUICapability.HostSurface
+ for its content; ActionUI's default policy refuses it for less-trusted content, which gets the placeholder.
 */
 
 import android.annotation.SuppressLint
@@ -61,11 +64,14 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
+import com.abracode.actionui.Common.ActionUICapability
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalJSONContentOrigin
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
@@ -168,7 +174,17 @@ object HostSurfaceElement : ActionUIViewConstruction {
             val placeable = measurable.measure(Constraints.fixed(width, height))
             layout(width, height) { placeable.place(0, 0) }
         }
-        if (props.unsupportedKind != null) {
+        // Content the trust policy does not let show the host's surface (less-trusted content, by
+        // default) gets the placeholder, and the client never hears of the element.
+        val origin = LocalJSONContentOrigin.current
+        val shown = remember(props.surfaceName, origin) {
+            val allowed = ActionUIModel.allows(ActionUICapability.HostSurface(props.surfaceName), origin)
+            if (!allowed) {
+                logger.log("Not showing host surface '${props.surfaceName}' for element ${element.id}: the trust policy refuses it", LoggerLevel.warning)
+            }
+            allowed
+        }
+        if (props.unsupportedKind != null || !shown) {
             Box(sized.background(Color.Gray.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
                 Text(props.surfaceName.ifEmpty { "HostSurface" }, color = Color.Gray)
             }

@@ -26,6 +26,14 @@ change is a protocol change.
   has gone out. A client that half-closes must still read its replies promptly - the host waits
   a few seconds for a half-closed peer to take them and then closes regardless, because a peer
   that has stopped reading must not hold a descriptor open indefinitely.
+- The reference server limits what a peer may hold. At most 64 connections are open at once; one
+  more is closed as soon as it is accepted. When the host requires a token (section 10), a
+  connection that has not presented a valid one within 30 seconds is closed, and at most 8 such
+  connections may hold more than 64 KiB of a line not yet complete (the token rides on the first
+  request, which may be large, so the line limit itself stays); one more is closed. When the
+  process runs out of descriptors or memory, the server pauses accepting for a moment. A host
+  may change each number (`connectionLimit`, `authenticationTimeout`,
+  `unauthenticatedLargeLineLimit`; from C, `actionUIRemoteSetLimits` before the start).
 
 ## 2. Framing
 
@@ -94,8 +102,8 @@ Rules:
 | -32603 | Internal error: the host could not produce a well-formed result. |
 | 1001 | Unknown window: no window with that UUID is loaded. |
 | 1002 | Unknown view: the window has no element with that id. |
-| 1003 | Engine failure: the engine refused the operation (insert into a non-container, state type mismatch, unreadable modal resource). The message is the engine's. |
-| 1004 | Host refused: a host-registered method threw an error that is not an `ActionUIRemoteError`. The message is the error's description. |
+| 1003 | Engine failure: the engine refused the operation (insert into a non-container, state type mismatch, a state only the host may set, unreadable modal resource). The message is the engine's. |
+| 1004 | Host refused: the host's method policy refused the request (section 8), or a host-registered method threw an error that is not an `ActionUIRemoteError`. The message says which. |
 | 1005 | Main thread unavailable: the host's main thread did not respond within its timeout (10 s by default). The request was not applied unless it was already running. |
 | 1006 | Unauthenticated: the host requires a token and this connection has not presented a valid one. See section 10. |
 
@@ -118,6 +126,9 @@ the encoding of the in-process C adapter (`actionUIGetElementValueJSON` and
   Double), and stores a new key as the Swift-native type (Bool, Int, Double, String, an array
   or an object). A stored Bool accepts only a bool. A value that still does not match the
   stored type is `1003`.
+- An element type may keep some state keys for the host, which sets them in its own process:
+  Chat's `config`, which names the program its transport launches and the server it connects
+  to. `setState` and `setStateString` of such a key are refused with `1003`; reading it is not.
 
 ## 6. Common parameters
 
@@ -154,8 +165,8 @@ Setters return `true` so that a batch reply is easy to scan.
 | `actionui.setProperty` | window, viewID, name, value | `true` |
 | `actionui.getState` | window, viewID, key | value or null |
 | `actionui.getStateString` | window, viewID, key | string or null |
-| `actionui.setState` | window, viewID, key, value | `true`; `1003` on type mismatch |
-| `actionui.setStateString` | window, viewID, key, value (string) | `true` |
+| `actionui.setState` | window, viewID, key, value | `true`; `1003` on type mismatch, or for a state only the host may set |
+| `actionui.setStateString` | window, viewID, key, value (string) | `true`; `1003` for a state only the host may set |
 | `actionui.getColumnCount` | window, viewID | integer (0 for non-tables) |
 | `actionui.getRows` | window, viewID | `[[string]]` or null |
 | `actionui.setRows` | window, viewID, rows `[[string]]` | `true` |
@@ -206,6 +217,19 @@ prefix is reserved. They appear in `actionui.hello`'s `methods` list, take named
 everything else, and map errors as described for `1004`. A client discovers what a host offers
 from `hello` and must not assume any namespace beyond `actionui.` exists.
 
+A host may also remove a built-in method or replace it with its own, on purpose (a host whose
+peers should only read and set values removes `actionui.insertElement`, say). `hello`'s list shows
+what this host offers, and a removed method answers `-32601`.
+
+A host may also install a method policy, asked before every request with the method, its params
+and the label of the token the connection presented: a refused request answers `1004` and does
+nothing. The reference server ships a "values only" preset: reading the windows and their
+elements, and reading and setting values, states, rows and selection of elements that exist;
+nothing that inserts, removes or presents, no property changes, no `performAction` and no host
+methods; setting a value or state can still fire the element's value-change action, as a change
+the user made would. `hello` still lists the methods a policy refuses: a client cannot tell a
+policy from its absence until a request is refused.
+
 ## 9. Environment contract
 
 A host that spawns child processes expected to use the bridge sets:
@@ -234,8 +258,15 @@ token or is refused with `1006`.
   authenticate each one. The reference client always sends it, which makes reconnects
   transparent too.
 - A host may have many tokens live at once and withdraw them independently - one per unit of
-  work it spawns, revoked when that work ends. Revoking stops new connections; it does not tear
-  down authenticated ones.
+  work it spawns, revoked when that work ends. Revoking a token also ends the authentication of
+  the connections that presented it: their next request is refused (`unauthenticated`) unless it
+  carries a token that is still live. A request already accepted runs to its end, and so do the
+  other requests of a batch the server has begun to authenticate.
+- A host may mint a token with a scope: the windows it may address, and whether it may call only
+  the "values only" methods (section 8). A request from it that names another window answers
+  `1001` (unknown window), as for a window that does not exist, and `hello` and `listWindows` list
+  only its windows; a method outside the preset answers `1004`. The host's method policy applies
+  on top.
 
 Clients should read `ACTIONUI_REMOTE_TOKEN` from the environment and send it without being asked,
 so that a host turning the requirement on breaks nothing. A client may also accept the token from
@@ -252,6 +283,13 @@ the environment: falling back would silently undo the point of the descriptor. S
 delivers nothing: a client must bound that wait rather than block on it, because a stale
 `ACTIONUI_REMOTE_TOKEN_FD` inherited from a grandparent names whatever the process happens to
 have at that number.
+
+Before a client sends anything, the token included, it checks the endpoint: an absolute path to
+a socket (not a link) owned by the client's user, in a folder owned by that user or by root that
+no other user can change, or that is sticky so no other user can rename the socket. Another user
+cannot then stand in for the host and receive the token. The Python, Node and shell clients do
+this. It does not stop a process of the same user that replaces the host's socket with its own:
+no file check can, and Node and `nc` cannot ask the kernel who the peer is.
 
 **What this is for, and what it is not.** A host that spawns children hands them the token in
 the environment, so a process the host did not spawn does not have it and cannot obtain it merely

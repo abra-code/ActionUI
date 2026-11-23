@@ -56,6 +56,46 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// to a file URL. Without a resolver only absolute paths are accepted.
     public typealias ModalResourceResolver = @MainActor (_ nameOrPath: String) -> URL?
 
+    /// One request as the host's method policy sees it: the method, its named params (the token
+    /// removed), and the label of the token the connection presented (nil when the host requires
+    /// none).
+    public struct RemoteCall {
+        public let method: String
+        public let params: [String: Any]
+        public let tokenLabel: String?
+
+        /// For a host that tests its own policy.
+        public init(method: String, params: [String: Any] = [:], tokenLabel: String? = nil) {
+            self.method = method
+            self.params = params
+            self.tokenLabel = tokenLabel
+        }
+    }
+
+    /// Whether to run a request: true runs it, false answers it with 1004 (host refused). Called
+    /// on the main actor before every request, built-in or the host's own, so it must return
+    /// promptly.
+    public typealias MethodPolicy = @MainActor (_ call: RemoteCall) -> Bool
+
+    /// The built-in methods the `valuesOnly` preset allows: reading the windows and their
+    /// elements, and reading and setting values, states, rows and selection of elements that
+    /// exist. Nothing that inserts, removes or presents, no property changes, no performAction.
+    /// Setting a value or state can still fire the element's value-change action, as a change
+    /// the user made would.
+    public static let valuesOnlyMethods: Set<String> = [
+        "actionui.hello", "actionui.listWindows", "actionui.getElementInfo", "actionui.contentSizeLimits",
+        "actionui.getValue", "actionui.setValue", "actionui.getValueString", "actionui.setValueString",
+        "actionui.getProperty",
+        "actionui.getState", "actionui.getStateString", "actionui.setState", "actionui.setStateString",
+        "actionui.getColumnCount", "actionui.getRows", "actionui.setRows", "actionui.appendRows",
+        "actionui.appendText", "actionui.clearRows",
+        "actionui.selectRow", "actionui.selectRowWithContent", "actionui.clearSelection",
+    ]
+
+    /// A policy that allows `valuesOnlyMethods` and refuses everything else, host methods
+    /// included: a host that also offers its own combines it, `{ valuesOnly($0) || $0.method == "app.save" }`.
+    public static let valuesOnly: MethodPolicy = { call in valuesOnlyMethods.contains(call.method) }
+
     /// Bumped only for changes that break existing clients (a result shape, a removed method).
     public static let protocolVersion = 1
 
@@ -70,10 +110,13 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// token -> label. Many are live at once: a host mints one per unit of work it spawns, so a
     /// grant can be withdrawn when that work ends without disturbing anything else.
     private var _tokens: [String: String] = [:]
+    /// token -> scope, for the tokens minted with one (guarded by `lock`, removed with the token).
+    private var _scopes: [String: TokenScope] = [:]
     private var _requiresToken = false
-    /// Connections that have already presented a valid token. A client may send it once and then
-    /// stop, or send it on every request; both work.
-    private var _authenticated: Set<UnixSocketServer.ConnectionID> = []
+    /// Connections that have already presented a valid token, with that token. A client may send
+    /// it once and then stop, or send it on every request; both work. Revoking the token ends the
+    /// connection's authentication.
+    private var _authenticated: [UnixSocketServer.ConnectionID: String] = [:]
 
     /// Main-actor state: the method table and the modal resolver.
     let registry = MethodRegistry()
@@ -98,33 +141,94 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         set { lock.lock(); _requiresToken = newValue; lock.unlock() }
     }
 
+    // MARK: - Limits
+
+    /// Open connections at once (64 by default); one more is closed as soon as it is accepted.
+    /// Read at `start`.
+    public var connectionLimit: Int {
+        get { lock.lock(); defer { lock.unlock() }; return _limits.connections }
+        set { lock.lock(); _limits.connections = max(1, newValue); lock.unlock() }
+    }
+
+    /// Seconds a connection may stay open without presenting a valid token, when one is required
+    /// (30 by default; 0 for no limit). Read at `start`.
+    public var authenticationTimeout: TimeInterval {
+        get { lock.lock(); defer { lock.unlock() }; return _limits.untrustedLifetime }
+        // Infinity and NaN count as no limit, as 0 does.
+        set { lock.lock(); _limits.untrustedLifetime = newValue.isFinite ? max(0, newValue) : 0; lock.unlock() }
+    }
+
+    /// Connections that may hold more than 64 KiB of an unfinished line before presenting a
+    /// valid token, when one is required (8 by default); one more is closed. The token rides on a
+    /// connection's first request, which may be large, so the line cap itself stays. Read at
+    /// `start`.
+    public var unauthenticatedLargeLineLimit: Int {
+        get { lock.lock(); defer { lock.unlock() }; return _limits.untrustedLargeLines }
+        set { lock.lock(); _limits.untrustedLargeLines = max(0, newValue); lock.unlock() }
+    }
+
+    // Guarded by `lock`.
+    private var _limits = UnixSocketServer.Limits()
+
+    /// Whether a connection counts as trusted for the socket server's limits: always when no
+    /// token is required, else once it has presented a valid one.
+    private func isTrusted(_ connectionID: UnixSocketServer.ConnectionID) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !_requiresToken || _authenticated[connectionID] != nil
+    }
+
+    /// What one token may reach, within what the host's method policy allows: the windows it may
+    /// address (nil: all), and whether only the `valuesOnly` methods. A request naming another
+    /// window answers 1001 (unknown window), and `hello` and `listWindows` list only these windows;
+    /// a method outside the preset answers 1004. A scope applies only while the server requires a
+    /// token, and a child given a scoped token must not also inherit the start-up one
+    /// (`ACTIONUI_REMOTE_TOKEN`), or it can present that instead.
+    public struct TokenScope: Sendable, Equatable {
+        public var windows: Set<String>?
+        public var valuesOnly: Bool
+
+        public init(windows: Set<String>? = nil, valuesOnly: Bool = false) {
+            self.windows = windows
+            self.valuesOnly = valuesOnly
+        }
+    }
+
     /// Mint nothing, register what the caller minted. The host owns token generation because it
     /// owns the lifetime: it knows when the work a token was issued for has finished.
     ///
     /// `label` is free-form and is what `revokeTokens(label:)` matches on - a command id, say, so
-    /// a host can withdraw one command's grant without touching another's.
-    public func addToken(_ token: String, label: String) {
+    /// a host can withdraw one command's grant without touching another's. `scope` limits what
+    /// the token reaches (nil: everything the method policy allows).
+    public func addToken(_ token: String, label: String, scope: TokenScope? = nil) {
         guard !token.isEmpty else { return }
         lock.lock()
         _tokens[token] = label
+        _scopes[token] = scope
         lock.unlock()
     }
 
-    /// Withdraw one token. Connections already authenticated with it keep working: revocation
-    /// stops new connections, it does not tear down live ones. A host that needs the stronger
-    /// property should stop the server.
+    /// Withdraw one token. A connection authenticated with it is no longer: its next request is
+    /// refused unless it presents a token that is still live. A request already accepted runs to
+    /// its end.
     public func revokeToken(_ token: String) {
         lock.lock()
         _tokens.removeValue(forKey: token)
+        _scopes.removeValue(forKey: token)
+        _authenticated = _authenticated.filter { $0.value != token }
         lock.unlock()
     }
 
-    /// Withdraw every token issued under a label.
+    /// Withdraw every token issued under a label, and the authentication of the connections that
+    /// presented one of them, as revokeToken does.
     public func revokeTokens(label: String) {
         lock.lock()
-        for (token, existing) in _tokens where existing == label {
+        let revoked = Set(_tokens.filter { $0.value == label }.keys)
+        for token in revoked {
             _tokens.removeValue(forKey: token)
+            _scopes.removeValue(forKey: token)
         }
+        _authenticated = _authenticated.filter { !revoked.contains($0.value) }
         lock.unlock()
     }
 
@@ -211,8 +315,15 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             starting = false
             lock.unlock()
         }
+        lock.lock()
+        let limits = _limits
+        lock.unlock()
         let server = UnixSocketServer(
             path: socketPath,
+            limits: limits,
+            isTrusted: { [weak self] connectionID in
+                self?.isTrusted(connectionID) ?? true
+            },
             onLine: { [weak self] connectionID, line in
                 self?.handle(line: line, connectionID: connectionID)
             },
@@ -221,7 +332,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
                 // a new connection must never inherit an old one's authentication.
                 guard let self else { return }
                 self.lock.lock()
-                self._authenticated.remove(connectionID)
+                self._authenticated.removeValue(forKey: connectionID)
                 self.lock.unlock()
             },
             log: { [weak self] message in
@@ -256,13 +367,70 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
     // MARK: - Extension methods
 
-    /// Register (or replace) a method. Names must be namespaced (`omc.terminate`, `app.quit`);
-    /// the `actionui.` prefix is reserved for the built-in table. Safe from any thread: the
-    /// registry is updated on the main actor, synchronously when already there.
-    public func register(method: String, handler: @escaping Handler) {
+    /// Register (or replace) a host method. The name must be namespaced, with something on both
+    /// sides of the first dot (`omc.terminate`, `app.quit`), and not in the `actionui.` namespace,
+    /// which holds the built-in methods: such a name is refused (false, logged), as the C
+    /// function does. A host that means to replace a built-in calls `replaceBuiltIn(method:)`.
+    /// Safe from any thread: the registry is updated on the main actor, synchronously when already
+    /// there.
+    @discardableResult
+    public func register(method: String, handler: @escaping Handler) -> Bool {
+        guard Self.isHostMethodName(method) else {
+            log("not registering '\(method)': a host method is namespaced (app.name) and outside actionui.", .warning)
+            return false
+        }
         onMain { [registry] in
             registry.handlers[method] = handler
         }
+        return true
+    }
+
+    /// Register the host's own handler under a name in the `actionui.` namespace, for a host that
+    /// must change what a built-in does: it replaces the built-in of that name. The name is not
+    /// checked against the built-ins, so a name no built-in has adds a method there, which a later
+    /// version's built-in of that name would not replace. False (logged) for a name outside the
+    /// namespace. Safe from any thread, with the timing of `register(method:)`.
+    @discardableResult
+    public func replaceBuiltIn(method: String, handler: @escaping Handler) -> Bool {
+        guard Self.isBuiltInMethodName(method) else {
+            log("not replacing '\(method)': not a name in the actionui. namespace", .warning)
+            return false
+        }
+        onMain { [registry] in
+            registry.handlers[method] = handler
+        }
+        return true
+    }
+
+    /// Remove a built-in method (a name in the `actionui.` namespace), so peers cannot call it:
+    /// `actionui.insertElement` for a host whose peers should only read and set values, say.
+    /// False (logged) for any other name. Safe from any thread, with the timing of
+    /// `register(method:)`.
+    @discardableResult
+    public func removeBuiltIn(method: String) -> Bool {
+        guard Self.isBuiltInMethodName(method) else {
+            log("not removing '\(method)': not a name in the actionui. namespace", .warning)
+            return false
+        }
+        onMain { [registry] in
+            registry.handlers.removeValue(forKey: method)
+        }
+        return true
+    }
+
+    /// Whether `name` is a host method's: namespaced, with something on both sides of the first
+    /// dot, and not in the reserved `actionui.` namespace.
+    static func isHostMethodName(_ name: String) -> Bool {
+        guard let dot = name.firstIndex(of: "."), dot != name.startIndex,
+              name.index(after: dot) != name.endIndex else {
+            return false
+        }
+        return name[name.startIndex..<dot] != "actionui"
+    }
+
+    /// Whether `name` is in the `actionui.` namespace, with something after the dot.
+    static func isBuiltInMethodName(_ name: String) -> Bool {
+        name.hasPrefix("actionui.") && name.count > "actionui.".count
     }
 
     /// Add `actionui.performAction` (PROTOCOL.md section 7), which fires an element's configured
@@ -278,9 +446,26 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
     }
 
-    public func unregister(method: String) {
+    /// Remove a host method registered with `register(method:)`. A built-in's name is refused
+    /// (false, logged); `removeBuiltIn(method:)` removes one on purpose.
+    @discardableResult
+    public func unregister(method: String) -> Bool {
+        guard Self.isHostMethodName(method) else {
+            log("not unregistering '\(method)': built-in methods are removed with removeBuiltIn(method:)", .warning)
+            return false
+        }
         onMain { [registry] in
             registry.handlers.removeValue(forKey: method)
+        }
+        return true
+    }
+
+    /// Install the host's method policy, asked before every request (nil: every request runs, as
+    /// before). It ends with the server, like any registration. Safe from any thread, with the
+    /// timing of `register(method:)`.
+    public func setMethodPolicy(_ policy: MethodPolicy?) {
+        onMain { [registry] in
+            registry.policy = policy
         }
     }
 
@@ -324,9 +509,11 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
 
         // Before anything else: an unauthenticated request never reaches the main thread.
-        entries = authenticate(entries, connectionID: connectionID)
+        let tokenLabel: String?
+        let scope: TokenScope?
+        (entries, tokenLabel, scope) = authenticate(entries, connectionID: connectionID)
 
-        let box = RequestBox(entries: entries)
+        let box = RequestBox(entries: entries, tokenLabel: tokenLabel, scope: scope)
         let needsMainThread = entries.contains { if case .success = $0 { return true } else { return false } }
         var timedOut = false
         if needsMainThread {
@@ -383,7 +570,10 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
     }
 
-    /// Replace every request this connection may not make with a 1006 rejection.
+    /// Replace every request this connection may not make with a 1006 rejection, and return the
+    /// label of the token the connection authenticated with (nil when no token is required), read
+    /// under the same lock as the check so a revocation in between cannot hand the method policy a
+    /// nil label for a request that was let through.
     ///
     /// Runs on the connection queue, before anything reaches the main thread: an unauthenticated
     /// request must not cost a main-thread hop, or refusing it would itself be a way to stall
@@ -399,10 +589,12 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// addressed to them.
     private func authenticate(_ entries: [Result<JSONRPCRequest, JSONRPCRejection>],
                               connectionID: UnixSocketServer.ConnectionID)
-        -> [Result<JSONRPCRequest, JSONRPCRejection>] {
+        -> (entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String?, scope: TokenScope?) {
         lock.lock()
         let required = _requiresToken
-        var authenticated = _authenticated.contains(connectionID)
+        var label = _authenticated[connectionID].flatMap { _tokens[$0] }
+        var scope = _authenticated[connectionID].flatMap { _scopes[$0] }
+        var authenticated = label != nil
         lock.unlock()
 
         func withoutToken(_ request: JSONRPCRequest) -> JSONRPCRequest {
@@ -414,21 +606,24 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
         guard required else {
             // Even with no token required, one must never reach a handler.
-            return entries.map { entry in
+            return (entries.map { entry in
                 guard case .success(let request) = entry else { return entry }
                 return .success(withoutToken(request))
-            }
+            }, nil, nil)
         }
 
-        return entries.map { entry in
+        let checked: [Result<JSONRPCRequest, JSONRPCRejection>] = entries.map { entry in
             guard case .success(let request) = entry else { return entry }
 
             if !authenticated, let presented = request.params["token"] as? String {
                 lock.lock()
-                let known = _tokens[presented] != nil
-                if known { _authenticated.insert(connectionID) }
+                let presentedLabel = _tokens[presented]
+                let presentedScope = _scopes[presented]
+                if presentedLabel != nil { _authenticated[connectionID] = presented }
                 lock.unlock()
-                if known {
+                if presentedLabel != nil {
+                    label = presentedLabel
+                    scope = presentedScope
                     authenticated = true
                     log("connection \(connectionID) authenticated", .debug)
                 }
@@ -446,6 +641,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             }
             return .success(withoutToken(request))
         }
+        return (checked, label, scope)
     }
 
     // MARK: - Helpers
@@ -478,11 +674,33 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 final class MethodRegistry {
     var handlers: [String: ActionUIRemoteServer.Handler] = [:]
     var modalResolver: ActionUIRemoteServer.ModalResourceResolver?
+    var policy: ActionUIRemoteServer.MethodPolicy?
 
     nonisolated init() {}
 
     var methodNames: [String] {
         return handlers.keys.sorted()
+    }
+
+    /// `result` with the window lists of `hello` and `listWindows` narrowed to `windows`, a token's
+    /// scope; anything else as it is. A list of another shape (a host's replacement of either
+    /// method) is withheld rather than passed on unfiltered.
+    static func withinScope(_ result: Any?, method: String, windows: Set<String>?) -> Any? {
+        guard let windows else { return result }
+        switch method {
+        case "actionui.listWindows":
+            return (result as? [String])?.filter { windows.contains($0) } ?? [String]()
+        case "actionui.hello":
+            guard var hello = result as? [String: Any] else { return result }
+            if let listed = hello["windows"] as? [String] {
+                hello["windows"] = listed.filter { windows.contains($0) }
+            } else {
+                hello.removeValue(forKey: "windows")
+            }
+            return hello
+        default:
+            return result
+        }
     }
 
     /// Run every valid request in the box, in order, storing a result per index. Stops at the
@@ -495,9 +713,23 @@ final class MethodRegistry {
                 return
             }
             let outcome: Result<Any?, ActionUIRemoteError>
-            if let handler = handlers[request.method] {
+            let windows = box.scope?.windows
+            if let scope = box.scope, scope.valuesOnly,
+               !ActionUIRemoteServer.valuesOnlyMethods.contains(request.method) {
+                outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.hostRefused,
+                                                       message: "Refused by the host: \(request.method) is outside this token's scope"))
+            } else if let windows, let window = request.params["window"] as? String, !windows.contains(window) {
+                // As for a window that does not exist: the token is not told that it does.
+                outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.unknownWindow,
+                                                       message: "Unknown window: \(window)"))
+            } else if let policy, !policy(ActionUIRemoteServer.RemoteCall(method: request.method, params: request.params,
+                                                                           tokenLabel: box.tokenLabel)) {
+                outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.hostRefused,
+                                                       message: "Refused by the host: \(request.method)"))
+            } else if let handler = handlers[request.method] {
                 do {
-                    outcome = .success(try handler(request.params))
+                    outcome = .success(Self.withinScope(try handler(request.params), method: request.method,
+                                                        windows: windows))
                 } catch let error as ActionUIRemoteError {
                     outcome = .failure(error)
                 } catch {
@@ -518,14 +750,21 @@ final class MethodRegistry {
 /// crosses queues; everything inside is behind the lock.
 final class RequestBox: @unchecked Sendable {
     let entries: [Result<JSONRPCRequest, JSONRPCRejection>]
+    /// The label of the token the connection presented, for the method policy.
+    let tokenLabel: String?
+    /// That token's scope, if it was minted with one.
+    let scope: ActionUIRemoteServer.TokenScope?
     let semaphore = DispatchSemaphore(value: 0)
 
     private let lock = Lock()
     private var results: [Int: Result<Any?, ActionUIRemoteError>] = [:]
     private var abandoned = false
 
-    init(entries: [Result<JSONRPCRequest, JSONRPCRejection>]) {
+    init(entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String? = nil,
+         scope: ActionUIRemoteServer.TokenScope? = nil) {
         self.entries = entries
+        self.tokenLabel = tokenLabel
+        self.scope = scope
     }
 
     func setResult(_ result: Result<Any?, ActionUIRemoteError>, at index: Int) {

@@ -127,6 +127,26 @@ final class UnixSocketServer: @unchecked Sendable {
     let maxLineLength: Int
     let path: String
 
+    /// What one peer may hold of the server before it has proved who it is.
+    struct Limits: Sendable {
+        /// Open connections at once; one more is closed as soon as it is accepted.
+        var connections = 64
+        /// Seconds a connection may stay open without being trusted (`isTrusted`); 0 for no limit.
+        var untrustedLifetime: TimeInterval = 30
+        /// Untrusted connections that may hold more than `untrustedLineSize` bytes of a line not
+        /// yet complete; one more is closed. A trusted connection may hold up to `maxLineLength`.
+        var untrustedLargeLines = 8
+        /// The size of an unfinished line above which an untrusted connection counts as large.
+        var untrustedLineSize = 64 * 1024
+        /// Seconds accepting pauses when the process has run out of descriptors.
+        var acceptPauseAfterDescriptorShortage: TimeInterval = 0.1
+    }
+
+    let limits: Limits
+    /// Whether a connection has proved who it is (ActionUIRemoteServer's token check); the limits on
+    /// untrusted connections apply until it has. Called without this server's lock held.
+    private let isTrusted: @Sendable (ConnectionID) -> Bool
+
     private let onLine: @Sendable (ConnectionID, Data) -> Void
     private let onClose: @Sendable (ConnectionID) -> Void
     private let log: @Sendable (String) -> Void
@@ -148,6 +168,13 @@ final class UnixSocketServer: @unchecked Sendable {
     private var acceptSource: DispatchSourceRead?
     private var connections: [ConnectionID: Connection] = [:]
     private var nextConnectionID: ConnectionID = 1
+    /// Untrusted connections holding a large unfinished line (Limits.untrustedLargeLines).
+    private var largeUntrusted: Set<ConnectionID> = []
+    /// Accepting is paused after a descriptor shortage; the source is suspended while it is.
+    private var acceptPaused = false
+    /// Whether a refusal for too many connections was logged since the count was last below the
+    /// limit, so a flood logs once.
+    private var loggedConnectionLimit = false
 
     /// Maximum usable length of a socket path on this platform (sun_path minus the terminator).
     static var maxPathLength: Int {
@@ -159,16 +186,22 @@ final class UnixSocketServer: @unchecked Sendable {
     ///     did not stop) is replaced on start; anything else there makes `start` throw
     ///     `pathOccupied` and is left alone.
     ///   - maxLineLength: Lines longer than this (without a newline) close the connection.
+    ///   - limits: What a peer may hold before it is trusted, and the connection count.
+    ///   - isTrusted: Whether a connection has proved who it is; by default every connection has.
     ///   - onLine: Called on the connection's queue with each complete line, newline stripped.
     ///   - onClose: Called once when a connection has been closed, for any reason.
     ///   - log: Diagnostic messages.
     init(path: String,
          maxLineLength: Int = 64 * 1024 * 1024,
+         limits: Limits = Limits(),
+         isTrusted: @escaping @Sendable (ConnectionID) -> Bool = { _ in true },
          onLine: @escaping @Sendable (ConnectionID, Data) -> Void,
          onClose: @escaping @Sendable (ConnectionID) -> Void = { _ in },
          log: @escaping @Sendable (String) -> Void = { _ in }) {
         self.path = path
         self.maxLineLength = maxLineLength
+        self.limits = limits
+        self.isTrusted = isTrusted
         self.onLine = onLine
         self.onClose = onClose
         self.log = log
@@ -291,6 +324,11 @@ final class UnixSocketServer: @unchecked Sendable {
         started = false
         let source = acceptSource
         acceptSource = nil
+        // A suspended source must not be released: a paused one is resumed before its cancel.
+        if acceptPaused {
+            acceptPaused = false
+            source?.resume()
+        }
         listenFD = -1
         // Taken with `started`: once the lock is released a concurrent `start` may bind the path
         // again, and its socket is not this stop's to remove.
@@ -372,7 +410,13 @@ final class UnixSocketServer: @unchecked Sendable {
                 if errno == EBADF {
                     return   // stopped
                 }
-                log("accept failed: \(String(cString: strerror(errno)))")
+                let code = errno
+                log("accept failed: \(String(cString: strerror(code)))")
+                if code == EMFILE || code == ENFILE || code == ENOBUFS || code == ENOMEM {
+                    // On Linux the pending connection stays in the queue and the source fires again
+                    // at once (macOS drops it): pause accepting for a moment instead of spinning.
+                    pauseAccepting()
+                }
                 return
             }
             do {
@@ -396,6 +440,16 @@ final class UnixSocketServer: @unchecked Sendable {
                 systemClose(fd)
                 return
             }
+            guard connections.count < limits.connections else {
+                let first = !loggedConnectionLimit
+                loggedConnectionLimit = true
+                lock.unlock()
+                systemClose(fd)
+                if first {
+                    log("refusing connections: \(limits.connections) are open, the limit")
+                }
+                continue
+            }
             let id = nextConnectionID
             nextConnectionID += 1
             let connection = Connection(id: id, fd: fd, server: self)
@@ -410,6 +464,27 @@ final class UnixSocketServer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return [listenFD] + connections.values.map(\.fd)
+    }
+
+    /// Suspends the accept source for `limits.acceptPauseAfterDescriptorShortage`, once at a time.
+    private func pauseAccepting() {
+        lock.lock()
+        guard started, !acceptPaused, let source = acceptSource else {
+            lock.unlock()
+            return
+        }
+        acceptPaused = true
+        source.suspend()
+        lock.unlock()
+        acceptQueue.asyncAfter(deadline: .now() + limits.acceptPauseAfterDescriptorShortage) { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            if self.acceptPaused, let source = self.acceptSource {
+                self.acceptPaused = false
+                source.resume()
+            }
+            self.lock.unlock()
+        }
     }
 
     private func listenFDSnapshot() -> Int32 {
@@ -442,6 +517,10 @@ final class UnixSocketServer: @unchecked Sendable {
     fileprivate func connectionDidClose(_ connection: Connection) {
         lock.lock()
         let wasRegistered = connections.removeValue(forKey: connection.id) != nil
+        largeUntrusted.remove(connection.id)
+        if connections.count < limits.connections {
+            loggedConnectionLimit = false
+        }
         lock.unlock()
         if wasRegistered {
             onClose(connection.id)
@@ -450,6 +529,27 @@ final class UnixSocketServer: @unchecked Sendable {
 
     fileprivate func deliver(line: Data, from connection: Connection) {
         onLine(connection.id, line)
+    }
+
+    fileprivate func connectionIsTrusted(_ id: ConnectionID) -> Bool {
+        isTrusted(id)
+    }
+
+    /// Whether the connection may go on holding a large unfinished line while untrusted: true when
+    /// it already counts, or a place among `limits.untrustedLargeLines` is free.
+    fileprivate func admitLargeUntrusted(_ id: ConnectionID) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if largeUntrusted.contains(id) { return true }
+        guard largeUntrusted.count < limits.untrustedLargeLines else { return false }
+        largeUntrusted.insert(id)
+        return true
+    }
+
+    fileprivate func releaseLargeUntrusted(_ id: ConnectionID) {
+        lock.lock()
+        largeUntrusted.remove(id)
+        lock.unlock()
     }
 
     fileprivate func note(_ message: String) {
@@ -498,6 +598,11 @@ final class UnixSocketServer: @unchecked Sendable {
         private var writeSourceArmed = false
         private var readSourceSuspended = false
         private var inbox = Data()
+        /// How much of `inbox` has been searched for a newline already, so each byte is scanned once.
+        private var scanned = 0
+        /// Whether this connection holds one of the server's places for a large untrusted line.
+        private var holdsLargePlace = false
+        private let limits: UnixSocketServer.Limits
         private var outbox = Data()
         private var closed = false
         /// The peer has half-closed and this connection is only waiting to finish writing.
@@ -508,6 +613,7 @@ final class UnixSocketServer: @unchecked Sendable {
             self.fd = fd
             self.server = server
             self.maxLineLength = server.maxLineLength
+            self.limits = server.limits
             self.queue = DispatchQueue(label: "com.abracode.actionui.remote.connection.\(id)")
             queue.setSpecific(key: Connection.queueKey, value: id)
         }
@@ -547,6 +653,16 @@ final class UnixSocketServer: @unchecked Sendable {
                 writeSourceArmed = false
 
                 read.resume()
+
+                // A peer that never proves who it is does not keep the descriptor.
+                let lifetime = limits.untrustedLifetime
+                if lifetime > 0 {
+                    queue.asyncAfter(deadline: .now() + lifetime) { [weak self] in
+                        guard let self, !self.closed, let server = self.server,
+                              !server.connectionIsTrusted(self.id) else { return }
+                        self.closeOnQueue(reason: "not authenticated within \(lifetime) s")
+                    }
+                }
             }
         }
 
@@ -618,9 +734,10 @@ final class UnixSocketServer: @unchecked Sendable {
         /// Split complete lines out of the inbox and deliver them. Returns false if the
         /// connection was closed (oversized line).
         private func consumeLines() -> Bool {
-            while let newline = inbox.firstIndex(of: UInt8(ascii: "\n")) {
+            while let newline = inbox[(inbox.startIndex + scanned)...].firstIndex(of: UInt8(ascii: "\n")) {
                 var line = inbox.subdata(in: inbox.startIndex..<newline)
                 inbox.removeSubrange(inbox.startIndex...newline)
+                scanned = 0
                 if line.last == UInt8(ascii: "\r") {
                     line.removeLast()
                 }
@@ -633,9 +750,24 @@ final class UnixSocketServer: @unchecked Sendable {
                     return false
                 }
             }
+            scanned = inbox.count
             if inbox.count > maxLineLength {
                 closeOnQueue(reason: "unterminated line of \(inbox.count) bytes exceeds the limit of \(maxLineLength)")
                 return false
+            }
+            // An untrusted peer may hold a large unfinished line only while few others do: the
+            // token rides on the first request, so the line cap itself cannot be lowered.
+            if inbox.count > limits.untrustedLineSize {
+                if !holdsLargePlace, let server, !server.connectionIsTrusted(id) {
+                    guard server.admitLargeUntrusted(id) else {
+                        closeOnQueue(reason: "too many unauthenticated connections hold a large unfinished line")
+                        return false
+                    }
+                    holdsLargePlace = true
+                }
+            } else if holdsLargePlace {
+                holdsLargePlace = false
+                server?.releaseLargeUntrusted(id)
             }
             return true
         }
@@ -713,6 +845,7 @@ final class UnixSocketServer: @unchecked Sendable {
                 systemClose(fd)
             }
             inbox.removeAll()
+            scanned = 0
             outbox.removeAll()
             server?.connectionDidClose(self)
         }

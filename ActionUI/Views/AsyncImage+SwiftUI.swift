@@ -27,8 +27,21 @@ extension AsyncImage: ActionUISwiftUIRenderer {
         }
         // A file the element may not read (its content is less trusted) shows the placeholder too.
         // In a template row the container asks (the row has no view model).
-        if url.isFileURL, !ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: model.templateContext?.parentID ?? element.id) {
+        let trustID = model.templateContext?.parentID ?? element.id
+        if url.isFileURL, !ActionUIModel.shared.readsLocalFile(url.path, windowUUID: windowUUID, viewID: trustID) {
             return SwiftUI.Image(systemName: placeholder)
+        }
+        // Less-trusted content's image: fetched without the app's cookies, and within size limits.
+        if ImageHelper.isLessTrusted(windowUUID: windowUUID, viewID: trustID) {
+            return PrivateAsyncImage(url: url, logger: logger) { image in
+                if resizable {
+                    image.resizable().aspectRatio(contentMode: contentMode)
+                } else {
+                    image
+                }
+            } placeholder: {
+                SwiftUI.Image(systemName: placeholder)
+            }
         }
 
         return SwiftUI.AsyncImage(url: url) { phase in

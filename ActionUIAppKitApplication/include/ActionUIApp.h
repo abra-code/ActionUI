@@ -97,6 +97,9 @@ const char *actionUIAppRemoteServerToken(void) ACTIONUI_NOEXCEPT;
 bool actionUIAppRemoteCopyServerToken(char *outToken, ptrdiff_t outTokenSize) ACTIONUI_NOEXCEPT;  // false if outToken is NULL or too small; ptrdiff_t is Swift Int on every platform
 const char *actionUIAppRemoteServerEndpoint(void) ACTIONUI_NOEXCEPT;
 bool actionUIAppRemoteEnablePerformAction(void) ACTIONUI_NOEXCEPT;  // turns on actionui.performAction for a test harness; false if no server runs
+bool actionUIAppRemoteUnexportToken(void) ACTIONUI_NOEXCEPT;  // removes ACTIONUI_REMOTE_TOKEN from this process's environment; the token stays valid
+bool actionUIAppRemoteMintToken(const char *label, char *outToken, ptrdiff_t outTokenSize) ACTIONUI_NOEXCEPT;  // a new token under label, for one child; 128 bytes is enough
+void actionUIAppRemoteRevokeTokensWithLabel(const char *label) ACTIONUI_NOEXCEPT;  // withdraws every token minted under label
 
 #ifdef __cplusplus
 }

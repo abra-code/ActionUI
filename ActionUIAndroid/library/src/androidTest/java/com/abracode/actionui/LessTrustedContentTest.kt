@@ -132,7 +132,7 @@ class LessTrustedContentTest {
         // Once for the Image, once for the AsyncImage; the host's own Image of the same file is not asked.
         assertEquals(logger.warnings.toString(), 2, logger.warnings.count { it == "Not reading ${picture.path}: the trust policy refuses it" })
         assertTrue(logger.warnings.toString(), logger.warnings.any {
-            it == "VideoPlayer not playing 'content://media/external/video/media/1': less-trusted content plays only file, http and https addresses"
+            it == "VideoPlayer not playing 'content://media/external/video/media/1': the trust policy refuses it"
         })
     }
 

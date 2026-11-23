@@ -220,6 +220,11 @@ app.remoteServerEndpoint;    // the socket path, or null
 app.remoteServerToken;       // the token it requires, or null
 app.enableRemotePerformAction();  // for a test harness: allow actionui.performAction
 app.stopRemoteServer();      // also runs on process exit
+
+// One token per child, on a descriptor, and none in the environment:
+app.unexportRemoteToken();               // children spawned from now on inherit no token
+const token = app.mintRemoteToken('job-1');  // a token of its own for one child
+app.revokeRemoteTokens('job-1');         // when that child's work ends
 ```
 
 Starting twice throws.  The client a worker uses is `ActionUIRemote/Python/actionui_remote.py`,
@@ -233,6 +238,14 @@ finding the socket.  `startRemoteServer` exports it as
 without being asked - so the `{ ...process.env }` spawn above needs nothing added, and a worker
 writes nothing about tokens at all.  `app.remoteServerToken` is for a host that wants to deliver
 it some other way.
+
+**One token per child.**  A token in the environment reaches every child and, for a `node` or
+`python3` child, any process of the user through `ps`.  A host that wants neither calls
+`unexportRemoteToken()` after starting, then gives each child a token of its own from
+`mintRemoteToken(label)` on an inherited descriptor named by `ACTIONUI_REMOTE_TOKEN_FD` (spawn with
+a `'pipe'` in `stdio[3]`, write the token and a newline to it, and set the variable to `3`), and
+withdraws it with `revokeRemoteTokens(label)` when the child's work ends; a connection that
+presented it is refused from then on.  See `ActionUIRemote/PROTOCOL.md` section 10.
 
 Mirroring is not optional bookkeeping.  The framework publishes both variables with `setenv`, and
 `process.env` is a snapshot taken at startup that a later `setenv` never reaches, so a child built
@@ -430,14 +443,16 @@ actionui.setTrustPolicy({
     },
     // Whether content of origin may do capability: { capability: kind } with, by kind:
     // 'load' { source }, 'openLink' { url }, 'webView' { url } (null for inline html),
-    // 'webViewBaseURL' { url }, 'webViewScriptFile' { path }, 'readLocalFile' { path },
-    // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID }.
+    // 'webViewBaseURL' { url }, 'webViewUserScripts', 'webViewPersistentData',
+    // 'webViewScriptFile' { path }, 'readLocalFile' { path }, 'playMedia' { url },
+    // 'windowTitle', 'presentModal', 'menuCommands', 'action' { actionID },
+    // 'hostSurface' { surfaceName }.
     allows(capability, origin, byDefault) { return byDefault; },
 });
 actionui.setTrustPolicy();   // ActionUI's own policy again
 ```
 
-For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it. `test_trust_policy.js` runs both against a real window.
+For all windows; set it on the main thread (not in a worker) before loading content. A callback left out keeps ActionUI's own decisions for it. The callbacks run on the main thread, often (as elements draw), and should return quickly; one that throws is reported and counts as less trusted, or as a refusal. A window's own document from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first. `test_trust_policy.js` runs both against a real window.
 
 ### Configuration
 
@@ -550,6 +565,9 @@ native.appStopRemoteServer()
 native.appRemoteServerEndpoint()       // the socket path, or null
 native.appRemoteServerToken()          // the token the server requires, or null
 native.appRemoteEnablePerformAction() // turn on actionui.performAction; false if no server runs
+native.appRemoteUnexportToken()        // remove ACTIONUI_REMOTE_TOKEN from the environment; false if absent
+native.appRemoteMintToken(label)       // a new token under label, or null
+native.appRemoteRevokeTokens(label)    // withdraw every token minted under label
 
 // Type-specific setters (windowUuid, viewId, partId, value)
 native.setIntValue(uuid, viewId, partId, value)

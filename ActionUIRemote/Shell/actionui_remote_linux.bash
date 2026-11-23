@@ -110,6 +110,7 @@ _AUI_SUN_PATH_LIMIT=107     # Linux sun_path, PROTOCOL.md section 1
 # host signaling the handler's group) waits out the whole timeout before the script stops.
 _aui_send_receive() {
     _aui_endpoint || return $?
+    _aui_check_endpoint || return $?
     _aui_timeout
     local _aui_received _aui_line
     _aui_received=$(printf '%s\n' "$1" | /usr/bin/timeout --foreground "$_aui_to" /usr/bin/nc -N -U "$_aui_ep" 2>/dev/null)

@@ -32,10 +32,21 @@ let endpoint = try ActionUIRemoteServer.startShared(
     host: .init(name: "MyApp", version: "1.0"),
     logger: ActionUIModel.shared.logger)            // optional
 
-// Host-specific verbs, namespaced. Handlers run on the main actor.
+// Host-specific verbs, namespaced. Handlers run on the main actor. A name in the actionui.
+// namespace, or one without a namespace, is refused (false, logged).
 ActionUIRemoteServer.shared?.register(method: "myapp.quit") { _ in
     NSApp.terminate(nil)
     return true
+}
+
+// Optional: change the built-in methods on purpose, for example take away inserting elements
+// from peers that should only read and set values. replaceBuiltIn(method:handler:) replaces one.
+ActionUIRemoteServer.shared?.removeBuiltIn(method: "actionui.insertElement")
+
+// Optional: a policy asked before every request, with the method, its params and the label of
+// the token the connection presented; false answers 1004. valuesOnly is a preset.
+ActionUIRemoteServer.shared?.setMethodPolicy { call in
+    ActionUIRemoteServer.valuesOnly(call) || call.method == "myapp.quit"
 }
 
 // Optional: resolve `presentModal` resource names to files.
@@ -57,6 +68,10 @@ A host that needs something else - two servers, a path it manages itself, no env
 constructs `ActionUIRemoteServer(host:)` directly and calls `start(socketPath:)` and `stop()` on
 it. Nothing above is required.
 
+The clients connect only to a socket owned by their user, in a folder owned by that user or by
+root that no other user can write to (or that is sticky); a path anywhere else is refused before
+the token is sent (PROTOCOL.md section 10). A path the host chooses itself has to meet that too.
+
 ### From a C or Objective-C host
 
 `ActionUIRemoteServer` is a plain Swift class, so none of it reaches Objective-C through a
@@ -77,6 +92,10 @@ actionUIRemoteStopServer();
 `actionUIRemoteServerIsRunning()` answers whether one is up. NULL arguments mean the per-process
 default path and the running process's name and version. This is what OMC calls.
 
+`actionUIRemoteSetLimits(connections, authenticationTimeoutSeconds, unauthenticatedLargeLines)`,
+called before the start, changes the server's limits (64, 30 and 8 by default; PROTOCOL.md
+section 1). A running server keeps the ones it started with.
+
 A C host registers its own methods (PROTOCOL.md section 8) with
 `actionUIRemoteRegisterMethod(name, callback, context)` once the server runs, and removes one
 with `actionUIRemoteUnregisterMethod(name)`. The callback runs on the main thread and gets the
@@ -93,6 +112,12 @@ actionUIRemoteRegisterMethod("myhost.ping", ping, NULL);
 
 Names in the reserved `actionui.` namespace and names without a namespace are refused. The
 methods end with the server, so a host that restarts it registers them again.
+
+`actionUIRemoteSetMethodPolicy(callback, context)` installs a method policy: the callback gets the
+method, the params as JSON and the label of the connection's token (NULL when none), and returns
+false to refuse the request with 1004. `actionUIRemoteSetMethodPolicyValuesOnly()` installs the
+preset, and `actionUIRemoteIsValuesOnlyMethod(name)` lets a host's own callback combine it with its
+own methods. NULL removes the policy; it ends with the server.
 
 Every request runs on the main actor against `ActionUIModel.shared`. A main thread that does
 not respond within `mainThreadTimeout` (10 s) answers `1005` instead of hanging the client.
@@ -188,6 +213,10 @@ name=$(actionui_get_string 2)
   then call `actionUIRemoteUnexportToken()` so nothing inherits `ACTIONUI_REMOTE_TOKEN` at all.
   Both the Python and the shell clients read the descriptor with no code from the caller. This is
   the only thing that removes the `ps` exposure described below; OMC does it for every handler.
+- A child's token can be narrower than the host's: `actionUIRemoteMintScopedToken(label,
+  windowsJSON, valuesOnly, out, size)` (or `addToken(_:label:scope:)` with a `TokenScope`) limits it
+  to some windows (a JSON array of UUIDs; NULL for all) and, with `valuesOnly`, to the "values
+  only" methods. Other windows are unknown to it; see PROTOCOL.md section 10.
 
 Without a token the boundary is the socket's permissions and the peer-uid check - the same one a
 same-user CFMessagePort has, where any process of the same user can drive the UI as it already

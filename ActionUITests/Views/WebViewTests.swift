@@ -696,7 +696,65 @@ final class WebViewTests: XCTestCase {
         XCTAssertTrue(config.upgradeKnownHostsToHTTPS)
         XCTAssertEqual(config.userContentController.userScripts.count, 1,
                        "User scripts should be installed on the configuration")
+        XCTAssertTrue(config.websiteDataStore.isPersistent, "the app's data store when the policy allows it")
     }
+
+    func testWebViewSupport_MakeWKConfiguration_RefusedScriptsAndDataStore() {
+        let properties: [String: Any] = ["userScripts": [["injectionTime": "documentStart", "source": "1;"]]]
+        var asked: [ActionUICapability] = []
+        let config = WebViewSupport.makeWKConfiguration(properties: properties, logger: logger, allows: { capability in
+            asked.append(capability)
+            return capability != .webViewUserScripts && capability != .webViewPersistentData
+        })
+        XCTAssertTrue(config.userContentController.userScripts.isEmpty, "no user scripts run when the policy refuses them")
+        XCTAssertFalse(config.websiteDataStore.isPersistent, "a private data store when the policy refuses the app's")
+        XCTAssertEqual(Set(asked.map { "\($0)" }), ["webViewUserScripts", "webViewPersistentData"])
+        asked = []
+        _ = WebViewSupport.makeWKConfiguration(properties: [:], logger: logger, allows: { asked.append($0); return true })
+        XCTAssertEqual(asked, [.webViewPersistentData], "with no scripts, the policy is not asked about them")
+    }
+
+    #if os(macOS)
+    /// Counts what the trust policy is asked, deciding as ActionUI's own policy does.
+    private final class CountingPolicy: ActionUITrustPolicy, @unchecked Sendable {
+        var asked: [String] = []
+        func allows(_ capability: ActionUICapability, for origin: JSONContentOrigin) -> Bool {
+            asked.append("\(capability)")
+            return DefaultTrustPolicy.allowsByDefault(capability, for: origin)
+        }
+    }
+
+    /// SwiftUI makes the view's value again on each update: the WebPage backing makes its page,
+    /// and asks the trust policy about it, once, not on every update.
+    func testTheWebPageBackingMakesItsPageOnceAcrossUpdates() throws {
+        guard #available(macOS 26.0, *) else { throw XCTSkip("the WebPage backing needs macOS 26") }
+        ActionUIRegistry.shared.webViewImplementation = .swiftUI
+        let policy = CountingPolicy()
+        ActionUIModel.shared.trustPolicy = policy
+        defer { ActionUIModel.shared.trustPolicy = DefaultTrustPolicy() }
+        let json = #"{"type": "WebView", "id": 1, "properties": {"html": "<title>Page</title>", "userScripts": [{"injectionTime": "documentStart", "source": "1;"}]}}"#
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/v.json")!), trust: .lessTrusted, parentID: nil)
+        let element = try ActionUIModel.shared.loadDescription(from: Data(json.utf8), format: "json", windowUUID: windowUUID, origin: remote)
+        let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id])
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+            .frame(width: 400, height: 300))
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+        // Until the page has loaded (a slow machine may take longer), then updates of its own.
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline, viewModel.states["title"] as? String != "Page" {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertEqual(viewModel.states["title"] as? String, "Page", "the page loaded")
+        for step in 0..<5 {
+            viewModel.states["testStep"] = step
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertEqual(policy.asked.filter { $0 == "webViewUserScripts" }.count, 1, "\(policy.asked)")
+        XCTAssertEqual(policy.asked.filter { $0 == "webViewPersistentData" }.count, 1, "\(policy.asked)")
+    }
+    #endif
 
     // MARK: - JSON round-trip with new properties
 

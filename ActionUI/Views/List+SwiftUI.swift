@@ -64,10 +64,20 @@ extension List: ActionUISwiftUIRenderer {
         case .image:
             row = ImageHelper.image(from: item, interpretation: dataInterpretation.rawValue, windowUUID: windowUUID, viewID: elementID)
         case .asyncImage:
-            row = SwiftUI.AsyncImage(url: ImageHelper.loadableImageURL(URL(string: item), windowUUID: windowUUID, viewID: elementID)) { image in
-                image.resizable().scaledToFit()
-            } placeholder: {
-                SwiftUI.ProgressView()
+            let url = ImageHelper.loadableImageURL(URL(string: item), windowUUID: windowUUID, viewID: elementID)
+            if let url, ImageHelper.isLessTrusted(windowUUID: windowUUID, viewID: elementID) {
+                // Less-trusted content's image: fetched without the app's cookies, within size limits.
+                row = PrivateAsyncImage(url: url, logger: ActionUIModel.shared.logger) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    SwiftUI.ProgressView()
+                }
+            } else {
+                row = SwiftUI.AsyncImage(url: url) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    SwiftUI.ProgressView()
+                }
             }
         case .text:
             row = SwiftUI.Text(item)

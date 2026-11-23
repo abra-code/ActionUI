@@ -169,12 +169,13 @@ void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallb
 //   window's root; a LoadableView whose surroundings cannot be told gets a less-trusted parent); only ActionUITrustTrusted means trusted.
 // allows: whether content of originJSON may do capabilityJSON, {"capability": kind} with, by kind:
 //   "load" {"source"}, "openLink" {"url"}, "webView" {"url"} (null for inline html),
-//   "webViewBaseURL" {"url"}, "webViewScriptFile" {"path"}, "readLocalFile" {"path"},
-//   "windowTitle", "presentModal", "menuCommands", "action" {"actionID"}.
+//   "webViewBaseURL" {"url"}, "webViewUserScripts", "webViewPersistentData",
+//   "webViewScriptFile" {"path"}, "readLocalFile" {"path"}, "playMedia" {"url"}, "windowTitle", "presentModal",
+//   "menuCommands", "action" {"actionID"}, "hostSurface" {"surfaceName"}.
 // Set it before loading content. Called on the main thread, often (as elements draw).
 ```
 
-A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it.
+A window's own document is classified like any other: one from a file outside the app's resource folder is less trusted unless the trust callback trusts it, and its LoadableViews then load no local files outside the resource folder. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
 
 ### Configuration
 
@@ -654,6 +655,11 @@ app.remote_server_endpoint    # the socket path, or None
 app.remote_server_token       # the token it requires, or None
 app.enable_remote_perform_action()  # for a test harness: allow actionui.performAction
 app.stop_remote_server()      # also runs at interpreter exit
+
+# One token per child, on a descriptor, and none in the environment:
+app.unexport_remote_token()             # children spawned from now on inherit no token
+token = app.mint_remote_token("job-1")  # a token of its own for one child
+app.revoke_remote_tokens("job-1")       # when that child's work ends
 ```
 
 **Authentication.**  A server started this way always requires a token - the
@@ -664,6 +670,15 @@ spawn cannot drive its windows merely by finding the socket.
 `env={**os.environ, ...}` spawn above needs nothing added, and a worker writes
 nothing about tokens at all.  `app.remote_server_token` is for a host that wants
 to deliver it some other way.
+
+**One token per child.**  A token in the environment reaches every child and,
+for a `python3` or `node` child, any process of the user through `ps`.  A host
+that wants neither calls `unexport_remote_token()` after starting, then gives
+each child a token of its own from `mint_remote_token(label)` on an inherited
+descriptor named by `ACTIONUI_REMOTE_TOKEN_FD` (the docstring of
+`unexport_remote_token` shows the `pass_fds` spawn), and withdraws it with
+`revoke_remote_tokens(label)` when the child's work ends; a connection that
+presented it is refused from then on.  See `ActionUIRemote/PROTOCOL.md` section 10.
 
 Mirroring is not optional bookkeeping.  The framework publishes both variables
 with `setenv`, and `os.environ` is a snapshot taken at interpreter start that a

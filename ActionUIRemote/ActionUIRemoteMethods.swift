@@ -115,6 +115,7 @@ enum ActionUIRemoteMethods {
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
             let key = try p.string("key")
+            try refuseHostOnlyState(window, viewID, key)
             // The engine brings a number to the type of the state already stored (a Double state
             // accepts JSON 3). It refuses a remaining type change; report that to the client (1003)
             // instead of letting it read the old value later.
@@ -130,7 +131,9 @@ enum ActionUIRemoteMethods {
         table["actionui.setStateString"] = { raw in
             let p = Params(raw)
             let (window, viewID) = try p.windowAndView()
-            model.setElementStateFromString(windowUUID: window, viewID: viewID, key: try p.string("key"), value: try p.string("value"))
+            let key = try p.string("key")
+            try refuseHostOnlyState(window, viewID, key)
+            model.setElementStateFromString(windowUUID: window, viewID: viewID, key: key, value: try p.string("value"))
             return true
         }
 
@@ -335,6 +338,15 @@ enum ActionUIRemoteMethods {
 
     // MARK: - Helpers
 
+    /// Refuses a state the element's type keeps for the host (hostOnlyStates, such as Chat's
+    /// "config", which names what the host launches): a peer may not set it.
+    @MainActor
+    private static func refuseHostOnlyState(_ window: String, _ viewID: Int, _ key: String) throws {
+        guard ActionUIModel.shared.isHostOnlyState(windowUUID: window, viewID: viewID, key: key) else { return }
+        throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
+                                  message: "State key '\(key)' of view \(viewID) is set only by the host, not over the bridge")
+    }
+
     /// Run an engine call that throws and report its failure as `engineFailure` (1003).
     @MainActor
     private static func engine<T>(_ body: () throws -> T) throws -> T {
@@ -391,10 +403,21 @@ enum ActionUIRemoteMethods {
                 // Only a regular file: a device or a named pipe would never finish (or never
                 // start) reading on the main thread.
                 let resolved = url.resolvingSymlinksInPath().path
-                let type = try FileManager.default.attributesOfItem(atPath: resolved)[.type] as? FileAttributeType
-                guard type == .typeRegular else {
+                let attributes = try FileManager.default.attributesOfItem(atPath: resolved)
+                guard attributes[.type] as? FileAttributeType == .typeRegular else {
                     throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
                                               message: "Cannot read modal resource \(url.path): not a regular file")
+                }
+                // The size limit before the read, as a LoadableView's file is checked: a larger file
+                // would be read whole only to be refused.
+                let limit = ActionUIConfiguration.current.limits.maximumJSONSize
+                // An NSNumber on Apple (read as Int), a UInt in FoundationEssentials elsewhere.
+                let sizeValue = attributes[.size]
+                let size = (sizeValue as? Int) ?? (sizeValue as? UInt).map { Int(clamping: $0) }
+                    ?? (sizeValue as? UInt64).map { Int(clamping: $0) }
+                if let size, size > limit {
+                    throw ActionUIRemoteError(code: ActionUIRemoteError.engineFailure,
+                                              message: "Cannot read modal resource \(url.path): it is larger than \(limit) bytes")
                 }
                 data = try Data(contentsOf: URL(fileURLWithPath: resolved))
             } catch let error as ActionUIRemoteError {

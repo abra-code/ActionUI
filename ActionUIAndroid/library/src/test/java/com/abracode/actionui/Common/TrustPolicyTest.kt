@@ -76,7 +76,27 @@ class TrustPolicyTest {
         assertFalse(allows(ActionUICapability.ReadLocalFile("${resources.path}/../elsewhere.png")))
         assertFalse(allows(ActionUICapability.WindowTitle))
         assertFalse(allows(ActionUICapability.PresentModal))
+        assertFalse(allows(ActionUICapability.WebViewUserScripts))
+        assertFalse(allows(ActionUICapability.WebViewPersistentData))
+        assertTrue(allows(ActionUICapability.WebViewUserScripts, JSONContentOrigin.HOST))
+        assertTrue(allows(ActionUICapability.WebViewPersistentData, JSONContentOrigin.HOST))
+        assertFalse(allows(ActionUICapability.HostSurface("viewport")))
+        assertTrue(allows(ActionUICapability.HostSurface("viewport"), JSONContentOrigin.HOST))
+        assertTrue(allows(ActionUICapability.PlayMedia("https://example.com/v.mp4")))
+        assertTrue(allows(ActionUICapability.PlayMedia("HTTP://example.com/v.mp4")))
+        for (address in listOf("content://media/external/video/1", "rtsp://host/v", "android.resource://app/raw/v")) {
+            assertFalse(address, allows(ActionUICapability.PlayMedia(address)))
+            assertTrue(address, allows(ActionUICapability.PlayMedia(address), JSONContentOrigin.HOST))
+        }
         assertTrue(allows(ActionUICapability.Action("app.save")))
+    }
+
+    @Test
+    fun `less-trusted content loads no local file outside the resource folders`() {
+        assertFalse(allows(ActionUICapability.Load(JSONContentOrigin.Source.File("/sdcard/Download/panel.json"))))
+        assertTrue(allows(ActionUICapability.Load(JSONContentOrigin.Source.Resource("/data/app/res/panel.json"))))
+        assertTrue(allows(ActionUICapability.Load(JSONContentOrigin.Source.Remote("https://example.com/b.json"))))
+        assertTrue(allows(ActionUICapability.Load(JSONContentOrigin.Source.File("/sdcard/Download/panel.json")), JSONContentOrigin.HOST))
     }
 
     @Test

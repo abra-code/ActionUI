@@ -151,6 +151,22 @@ final class ActionAndLoadCapabilityTests: XCTestCase {
         XCTAssertEqual(fired, [77, 1])
     }
 
+    // readsLocalFile(_:windowUUID:viewID:model:), the add-ons' question: judged as the action above.
+    func testATemplateRowsFileReadIsJudgedByItsContainerNotTheIDItCarries() async throws {
+        try await loadWindow()
+        let path = "/nonexistent-\(UUID().uuidString)/notes.txt"
+        let borrowed = ViewModel()
+        borrowed.templateContext = TemplateContext(parentID: 200, rowIndex: 0, row: [])
+        let own = ViewModel()
+        own.templateContext = TemplateContext(parentID: 1, rowIndex: 0, row: [])
+        XCTAssertFalse(ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: 1, model: borrowed),
+                       "the borrowed id does not make remote content's read the host's")
+        XCTAssertTrue(ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: 77, model: own), "the host's row reads")
+        XCTAssertTrue(ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: 1, model: ViewModel()))
+        XCTAssertFalse(ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: 200, model: ViewModel()))
+        XCTAssertEqual(recording.warnings.filter { $0.hasPrefix("Not reading \(path)") }.count, 2, "each refusal is logged")
+    }
+
     func testAPolicyThatRefusesALoadHasItsWay() throws {
         _ = try ActionUIDocumentLoader.load(data: root, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0, source: nil)
         XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.remote(URL(string: "https://example.com/a.json")!), windowUUID: windowUUID,

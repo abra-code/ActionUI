@@ -205,6 +205,9 @@ Lets other processes of the same user read and drive this application's windows,
 | `remote_server_endpoint(&self) -> Option<String>` | The socket path while the server runs. |
 | `remote_server_token(&self) -> Option<String>` | The token a client must present, if any. |
 | `enable_remote_perform_action(&self) -> Result<()>` | Turns on `actionui.performAction`, which fires an element's action as a click would, for a test harness. Off until called; fails when the server is not running. |
+| `unexport_remote_token(&self) -> bool` | Removes `ACTIONUI_REMOTE_TOKEN` from the environment, so processes started from now on inherit no token; the token stays valid. False when there was nothing to remove. |
+| `mint_remote_token(&self, label: &str) -> Result<String>` | A new token under `label`, for one child, to hand over on a descriptor named by `ACTIONUI_REMOTE_TOKEN_FD`. Fails when the server is not running or the label is empty. |
+| `revoke_remote_tokens(&self, label: &str) -> Result<()>` | Withdraws every token minted under `label`; a connection that presented one is refused from then on. |
 
 Starting the server exports `ACTIONUI_REMOTE_ENDPOINT` and `ACTIONUI_REMOTE_TOKEN` in this process's environment, so a child process started afterwards finds the server by itself. The server stops when the application terminates.
 
@@ -498,19 +501,19 @@ actionui::log::set_logger(|message, level| {
 
 ## `actionui::trust`
 
-A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading the user's files outside the app's resources, titling the window, covering it with its own sheets.
+A document the host passes in, or one in the app's resources, is trusted; one a LoadableView loads from a server or from a file elsewhere is less trusted, as is anything inside it. A window's own document from a file outside the app's resource folder is less trusted too, unless the policy trusts it. ActionUI's own policy refuses less-trusted content a few things: opening other apps' links, reading or loading the user's files outside the app's resources, titling the window, covering it with its own sheets, showing the host's surfaces, playing media from other addresses than web ones.
 
 | Item | Description |
 |---|---|
 | `Origin { source: Source, trust: Trust, parent_id: Option<i64> }` | Where an element's content came from; `parent_id` is the LoadableView it was loaded into, `None` for a window's root. |
 | `Source` | `Host`, `Resource { path }`, `File { path }`, `Remote { url }`, or `Unknown` for a kind this crate does not know. |
 | `Trust` | `Trusted` or `LessTrusted`. |
-| `Capability` | What content asks to do: `Load { source }`, `OpenLink { url }`, `WebView { url: Option<String> }` (None for inline html), `WebViewBaseUrl { url }`, `WebViewScriptFile { path }`, `ReadLocalFile { path }`, `WindowTitle`, `PresentModal`, `MenuCommands`, `Action { action_id }`, or `Unknown`. |
+| `Capability` | What content asks to do: `Load { source }`, `OpenLink { url }`, `WebView { url: Option<String> }` (None for inline html), `WebViewBaseUrl { url }`, `WebViewUserScripts`, `WebViewPersistentData`, `WebViewScriptFile { path }`, `ReadLocalFile { path }`, `WindowTitle`, `PresentModal`, `MenuCommands`, `Action { action_id }`, `HostSurface { surface_name }`, `PlayMedia { url }`, or `Unknown`. |
 | `trait TrustPolicy: Send + Sync` | `trust(&self, source, parent: Option<&Origin>, by_default: Trust) -> Trust` and `allows(&self, capability, origin, by_default: bool) -> bool`; each receives ActionUI's own decision, and a method left out keeps it. |
 | `set_trust_policy(policy: impl TrustPolicy)` | The host's policy, for all windows, from any thread; set it before loading content. |
 | `clear_trust_policy()` | ActionUI's own policy again. |
 
-The policy's methods run on the main thread, often (as elements draw), and should return quickly. A method that panics counts as less trusted, or as a refusal.
+The policy's methods run on the main thread, often (as elements draw), and should return quickly. A method that panics counts as less trusted, or as a refusal. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
 
 ```rust
 use actionui::{Source, Trust, TrustPolicy};

@@ -84,6 +84,26 @@ private func logToEngine(_ message: String, _ level: LoggerLevel) {
 
 // MARK: - Entry points
 
+/// Set the limits the next `actionUIRemoteStartServer` gives its server: at most `connections`
+/// open connections (64 by default); a connection that has not presented a valid token within
+/// `authenticationTimeoutSeconds` is closed (30 by default; 0 for no limit); at most
+/// `unauthenticatedLargeLines` such connections may hold more than 64 KiB of an unfinished line
+/// (8 by default). A running server keeps the limits it started with. Call it before starting.
+///
+/// - Returns: false, changing nothing, when `connections` is below 1, the timeout is negative or
+///   not a number, or `unauthenticatedLargeLines` is negative.
+@c
+public func actionUIRemoteSetLimits(_ connections: Int, _ authenticationTimeoutSeconds: Double,
+                                    _ unauthenticatedLargeLines: Int) -> CBool {
+    guard connections >= 1, authenticationTimeoutSeconds.isFinite, authenticationTimeoutSeconds >= 0,
+          unauthenticatedLargeLines >= 0 else {
+        return false
+    }
+    ActionUIRemoteServer.setSharedLimits(connections: connections, authenticationTimeout: authenticationTimeoutSeconds,
+                                         unauthenticatedLargeLines: unauthenticatedLargeLines)
+    return true
+}
+
 /// Start the process-wide server and export `ACTIONUI_REMOTE_ENDPOINT`, so that processes
 /// spawned afterwards inherit it. Read the bound path back with `actionUIRemoteServerEndpoint()`.
 ///
@@ -230,11 +250,18 @@ public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
     guard let label, strlen(label) > 0 else { return false }
     guard let server = ActionUIRemoteServer.shared else { return false }
 
+    return mint(on: server, label: String(cString: label), scope: nil, outToken, outTokenSize)
+}
+
+/// Mint a token, register it under `label` with `scope`, and write it to `outToken`; false, with
+/// nothing registered, when the buffer is too small.
+private func mint(on server: ActionUIRemoteServer, label: String, scope: ActionUIRemoteServer.TokenScope?,
+                  _ outToken: UnsafeMutablePointer<CChar>, _ outTokenSize: Int) -> CBool {
     let token = ActionUIRemoteServer.makeToken()
     let bytes = Array(token.utf8)
     guard bytes.count + 1 <= outTokenSize else { return false }
 
-    server.addToken(token, label: String(cString: label))
+    server.addToken(token, label: label, scope: scope)
     bytes.withUnsafeBufferPointer { source in
         outToken.withMemoryRebound(to: UInt8.self, capacity: bytes.count + 1) { destination in
             destination.update(from: source.baseAddress!, count: bytes.count)
@@ -242,6 +269,35 @@ public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
         }
     }
     return true
+}
+
+/// Mint a token limited to a scope, as `actionUIRemoteMintToken` mints one with none: it may
+/// address only the windows in `windowsJSON` (a JSON array of window UUIDs; NULL for all), and
+/// with `valuesOnly` only the methods of the "values only" preset. A request naming another window
+/// answers 1001 (unknown window), and `hello` and `listWindows` list only these windows; a method
+/// outside the preset answers 1004. The host's method policy still applies on top. A scope applies
+/// only while the server requires a token; hand the child only this token, not the start-up one.
+///
+/// - Returns: false, registering nothing, when no server is running, the label is empty,
+///   `windowsJSON` is not a JSON array of strings, or the buffer is too small.
+@c
+public func actionUIRemoteMintScopedToken(_ label: UnsafePointer<CChar>?,
+                                          _ windowsJSON: UnsafePointer<CChar>?,
+                                          _ valuesOnly: CBool,
+                                          _ outToken: UnsafeMutablePointer<CChar>?,
+                                          _ outTokenSize: Int) -> CBool {
+    guard let outToken, outTokenSize > 0 else { return false }
+    guard let label, strlen(label) > 0 else { return false }
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    var windows: Set<String>?
+    if let windowsJSON {
+        guard let list = try? JSONDecoder().decode([String].self, from: Data(String(cString: windowsJSON).utf8)) else {
+            return false
+        }
+        windows = Set(list)
+    }
+    let scope = ActionUIRemoteServer.TokenScope(windows: windows, valuesOnly: valuesOnly)
+    return mint(on: server, label: String(cString: label), scope: scope, outToken, outTokenSize)
 }
 
 /// Register a token the caller minted, under `label`.
@@ -263,8 +319,9 @@ public func actionUIRemoteAddToken(_ token: UnsafePointer<CChar>?,
 /// Withdraw every token registered under `label`. Does nothing when no server is running, or
 /// when no token carries that label.
 ///
-/// Revocation stops new connections; it does not tear down authenticated ones (PROTOCOL.md
-/// section 10). A host that needs the stronger property stops the server.
+/// A connection authenticated with a withdrawn token is no longer: its next request is refused
+/// unless it presents a token that is still live (PROTOCOL.md section 10). A request already
+/// accepted runs to its end.
 @c
 public func actionUIRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
     guard let label, strlen(label) > 0 else { return }
@@ -354,11 +411,7 @@ private struct CHostMethod: @unchecked Sendable {
 /// something on both sides of the first dot, and not in the reserved `actionui.` namespace, so a
 /// host cannot replace or remove a built-in method this way.
 private func isHostMethodName(_ name: String) -> Bool {
-    guard let dot = name.firstIndex(of: "."), dot != name.startIndex,
-          name.index(after: dot) != name.endIndex else {
-        return false
-    }
-    return name[name.startIndex..<dot] != "actionui"
+    ActionUIRemoteServer.isHostMethodName(name)
 }
 
 /// The reply a C host method returned, turned into what a Swift handler returns or throws.
@@ -483,6 +536,90 @@ public func actionUIRemoteUnregisterMethod(_ method: UnsafePointer<CChar>?) -> C
     guard let server = ActionUIRemoteServer.shared else { return false }
     server.unregister(method: name)
     return true
+}
+
+// MARK: - The host's method policy
+
+/// The C form of `ActionUIRemoteServer.MethodPolicy`: whether to run one request. Called on the
+/// main thread before every request, built-in or the host's own, so it must return promptly and
+/// must not stop the server; a C++ host must not let an exception leave it.
+///
+/// - Parameters:
+///   - context: the pointer passed to `actionUIRemoteSetMethodPolicy`, unchanged.
+///   - method: the method's name.
+///   - paramsJSON: the request's named params as a JSON object, the token removed.
+///   - tokenLabel: the label of the token the connection presented, or NULL when the host
+///     requires none (or the token was withdrawn).
+/// - Returns: true runs the request; false answers it with 1004 (host refused).
+public typealias ActionUIRemoteMethodPolicyCallback = @convention(c) (
+    _ context: UnsafeMutableRawPointer?,
+    _ method: UnsafePointer<CChar>,
+    _ paramsJSON: UnsafePointer<CChar>,
+    _ tokenLabel: UnsafePointer<CChar>?
+) -> CBool
+
+/// A C method policy and its context, carried into the registry's main-actor closure.
+private struct CMethodPolicy: @unchecked Sendable {
+    let callback: ActionUIRemoteMethodPolicyCallback
+    let context: UnsafeMutableRawPointer?
+}
+
+/// Install the host's method policy for the running server, asked before every request (NULL
+/// removes it: every request runs). It ends with the server. Params that cannot be written as
+/// JSON make the request refused.
+///
+/// `context` is handed back to every call, never read or freed here. It must stay valid until
+/// the policy is replaced or removed, or the server stops, with the timing of
+/// `actionUIRemoteRegisterMethod`: from the main thread as soon as the replacing call returns,
+/// from another thread only once the main queue has run after it.
+///
+/// - Returns: false when no server is running.
+@c
+public func actionUIRemoteSetMethodPolicy(_ callback: ActionUIRemoteMethodPolicyCallback?,
+                                          _ context: UnsafeMutableRawPointer?) -> CBool {
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    guard let callback else {
+        server.setMethodPolicy(nil)
+        return true
+    }
+    let policy = CMethodPolicy(callback: callback, context: context)
+    server.setMethodPolicy { [weak server] call in
+        // A request queued before a stop still runs after it; the host may have freed the context.
+        guard let server, ActionUIRemoteServer.shared === server else { return false }
+        guard let paramsText = try? ActionUIJSON.string(from: call.params) else { return false }
+        return call.method.withCString { methodC in
+            paramsText.withCString { paramsC in
+                if let label = call.tokenLabel {
+                    return label.withCString { policy.callback(policy.context, methodC, paramsC, $0) }
+                }
+                return policy.callback(policy.context, methodC, paramsC, nil)
+            }
+        }
+    }
+    return true
+}
+
+/// Install the "values only" preset as the running server's method policy: reading the windows
+/// and their elements, and reading and setting values, states, rows and selection of elements
+/// that exist; nothing that inserts, removes or presents, no property changes, no host methods.
+/// Setting a value or state can still fire the element's value-change action, as a user's change
+/// would.
+/// A host that also offers its own methods writes a policy that calls
+/// `actionUIRemoteIsValuesOnlyMethod` instead.
+///
+/// - Returns: false when no server is running.
+@c
+public func actionUIRemoteSetMethodPolicyValuesOnly() -> CBool {
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    server.setMethodPolicy(ActionUIRemoteServer.valuesOnly)
+    return true
+}
+
+/// Whether `method` is one the "values only" preset allows.
+@c
+public func actionUIRemoteIsValuesOnlyMethod(_ method: UnsafePointer<CChar>?) -> CBool {
+    guard let method else { return false }
+    return ActionUIRemoteServer.valuesOnlyMethods.contains(String(cString: method))
 }
 
 #endif

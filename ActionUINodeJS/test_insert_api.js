@@ -59,7 +59,7 @@ function testInsertElementUnknownUUID(win) {
 
     // Native layer
     let threw = false;
-    try { native.insertElement(FAKE_UUID, 1n, VALID_ELEMENT_JSON, null, actionui.InsertPosition.APPEND, 0n); }
+    try { native.insertElement(FAKE_UUID, 1, VALID_ELEMENT_JSON, null, actionui.InsertPosition.APPEND, 0); }
     catch { threw = true; }
     check('native.insertElement(unknown UUID) throws', threw);
 
@@ -94,7 +94,7 @@ function testInsertRowUnknownUUID(win) {
 
     // Native layer
     let threw = false;
-    try { native.insertRow(FAKE_UUID, 2n, VALID_CELLS_JSON, null, 0n, 0n); }
+    try { native.insertRow(FAKE_UUID, 2, VALID_CELLS_JSON, null, 0, 0); }
     catch { threw = true; }
     check('native.insertRow(unknown UUID) throws', threw);
 
@@ -131,7 +131,7 @@ function testRemoveElementUnknownUUID(win) {
 
     // Native layer
     let threw = false;
-    try { native.removeElement(FAKE_UUID, 10n); }
+    try { native.removeElement(FAKE_UUID, 10); }
     catch { threw = true; }
     check('native.removeElement(unknown UUID) throws', threw);
 

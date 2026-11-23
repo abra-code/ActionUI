@@ -77,7 +77,7 @@ getConfiguration();   // every key: limits, trust, resourceFolder, addOns
 
 The configuration has the same keys as on the other platforms: `limits` (`maximumJSONSize` in bytes, 16 MB; `loadBudget` `{ loads, seconds }`, 256 in 60 s; `maximumNestingDepth`, 16), `trust` (`trustedOrigins`), `resourceFolder`, and `addOns` (a section per add-on name). Only the keys given change. It is fixed once the first window is made. `configure` throws, changing nothing, once it is fixed, or for an unknown key, a wrong value or an origin that is not https. The page's own origin holds the app's resources, so `resourceFolder` is accepted only as null.
 
-ActionUI JSON from the page's own origin is trusted, and so is JSON from a trusted origin (an https scheme, host and port, nothing more), but only where the content around it is trusted, and only by the address it finally came from (the fetch Response's `url`, after redirects): a redirect to another origin gives less-trusted content. The server must still allow the page to read it (CORS). `setTrustPolicy({ trust, allows })` lets the host decide otherwise; its `byDefault` trust already counts the trusted origins.
+ActionUI JSON from the page's own origin is trusted, and so is JSON from a trusted origin (an https scheme, host and port, nothing more), but only where the content around it is trusted, and only by the address it finally came from (the fetch Response's `url`, after redirects): a redirect to another origin gives less-trusted content. The server must still allow the page to read it (CORS). `setTrustPolicy({ trust, allows })` lets the host decide otherwise; its `byDefault` trust already counts the trusted origins. Rows are judged as the content they are shown in: row text a template places into an address (`"url": "$1"` on a Link, an AsyncImage, a VideoPlayer, a WebView or a LoadableView, or a Table's link and image cells) opens or loads with that content's trust, so a host that sets rows from text it got elsewhere (search results, file names, a server's data) checks the addresses in it first.
 
 ## What is implemented
 
@@ -95,7 +95,8 @@ ActionUI JSON from the page's own origin is trusted, and so is JSON from a trust
   (a top-layer panel), each opened off the carrier's own state
   (`Helpers/PresentationModifier.js`, `Helpers/PopoverPlacement.js`),
   shared stack vocabulary (`StackAxis.js`),
-  console logger (`ConsoleLogger.js`), and `<key>:<platform>` override
+  console logger (`ConsoleLogger.js`: warnings and errors by default, more with
+  `new ConsoleLogger({ maxLevel: "info" })` or `"debug"`, `"verbose"`), and `<key>:<platform>` override
   resolution (`PlatformFilter.js`, active token `web`, run over the JSON before
   the tree is built).
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,

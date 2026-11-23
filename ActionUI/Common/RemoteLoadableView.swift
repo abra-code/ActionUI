@@ -16,8 +16,46 @@ enum RemoteJSONFetch {
     /// The longest a whole fetch may take, in seconds (the Linux loader's 120 s).
     static let defaultTimeout: Double = 120
 
+    /// The session for an address less-trusted content names: none of the app's cookies, stored
+    /// credentials or cache (an ephemeral session that stores and sends no cookies, has no
+    /// credential store, and keeps only its own cache in memory), and the server's sign-in
+    /// challenges declined, so the system's single sign-on cannot answer one either: a server the
+    /// content picks learns nothing of the app's or the user's sessions.
+    static let privateSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.urlCredentialStorage = nil
+        return URLSession(configuration: configuration, delegate: NoSignIn(), delegateQueue: nil)
+    }()
+
+    /// Declines the server's authentication challenges, so the fetch goes on without credentials (a
+    /// server that only asks for a client certificate still answers; one that needs a sign-in
+    /// answers 401, which the fetch refuses). The check of the server's own certificate and a
+    /// proxy's sign-in (the network's, not the server's) are left to the system.
+    final class NoSignIn: NSObject, URLSessionTaskDelegate, Sendable {
+        func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge)
+            async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            Self.answer(challenge)
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge)
+            async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            Self.answer(challenge)
+        }
+
+        static func answer(_ challenge: URLAuthenticationChallenge) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            let space = challenge.protectionSpace
+            if space.authenticationMethod == NSURLAuthenticationMethodServerTrust || space.isProxy() {
+                return (.performDefaultHandling, nil)
+            }
+            return (.rejectProtectionSpace, nil)
+        }
+    }
+
+    /// `what`: what the body is, for the error when it is too large.
     static func data(for request: URLRequest, limit: Int, timeout: Double = defaultTimeout,
-                     session: URLSession = .shared) async throws -> (data: Data, finalURL: URL) {
+                     session: URLSession = .shared, what: String = "the ActionUI JSON") async throws -> (data: Data, finalURL: URL) {
         try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
             group.addTask {
                 let (bytes, response) = try await session.bytes(for: request)
@@ -28,11 +66,11 @@ enum RemoteJSONFetch {
                 // would pass another server's JSON for the requested server's.
                 guard let finalURL = response.url else { throw ActionUIError("the response names no address") }
                 // Refused at once when the server says how long the body is.
-                guard response.expectedContentLength <= Int64(limit) else { throw tooLarge(limit) }
+                guard response.expectedContentLength <= Int64(limit) else { throw tooLarge(limit, what) }
                 var data = Data()
                 if response.expectedContentLength > 0 { data.reserveCapacity(Int(response.expectedContentLength)) }
                 for try await byte in bytes {
-                    guard data.count < limit else { throw tooLarge(limit) }
+                    guard data.count < limit else { throw tooLarge(limit, what) }
                     data.append(byte)
                 }
                 return (data, finalURL)
@@ -49,8 +87,8 @@ enum RemoteJSONFetch {
         }
     }
 
-    private static func tooLarge(_ limit: Int) -> ActionUIError {
-        ActionUIError("the ActionUI JSON is larger than \(limit / (1024 * 1024)) MB")
+    private static func tooLarge(_ limit: Int, _ what: String) -> ActionUIError {
+        ActionUIError("\(what) is larger than \(limit / (1024 * 1024)) MB")
     }
 }
 
@@ -105,13 +143,18 @@ public struct RemoteLoadableView: SwiftUI.View {
                 .onAppear {
                     Task { @MainActor in
                         let limit = WindowModel.maximumJSONSize
+                        // An address the host named keeps the app's session (a server of its own may
+                        // need its cookies); one less-trusted content named gets a private one.
+                        let session = ActionUIDocumentLoader.isNamedByLessTrustedContent(
+                            windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
+                            ? RemoteJSONFetch.privateSession : URLSession.shared
                         do {
                             element = try await ActionUIDocumentLoader.loadRemote(
                                 url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around, logger: logger
                             ) { url in
                                 var request = URLRequest(url: url)
                                 request.cachePolicy = .reloadRevalidatingCacheData // Balances freshness and performance
-                                return try await RemoteJSONFetch.data(for: request, limit: limit)
+                                return try await RemoteJSONFetch.data(for: request, limit: limit, session: session)
                             }
                             Self.viewDidLoad.fire(source: url.absoluteString, windowUUID: windowUUID, parentID: parentID, actionID: viewDidLoadActionID)
                         } catch {

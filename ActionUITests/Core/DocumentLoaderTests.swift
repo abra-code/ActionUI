@@ -486,10 +486,110 @@ final class DocumentLoaderTests: XCTestCase {
         XCTAssertTrue(DefaultTrustPolicy().allows(.windowTitle, for: .host))
         XCTAssertTrue(DefaultTrustPolicy().allows(.presentModal, for: .host))
         XCTAssertTrue(DefaultTrustPolicy().allows(.readLocalFile("/tmp/a.png"), for: .host))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.webViewUserScripts, for: lessTrusted), "no user scripts")
+        XCTAssertFalse(DefaultTrustPolicy().allows(.webViewPersistentData, for: lessTrusted), "a private data store")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.webViewUserScripts, for: .host))
+        XCTAssertTrue(DefaultTrustPolicy().allows(.webViewPersistentData, for: .host))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.hostSurface("viewport"), for: lessTrusted), "no host surface")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.hostSurface("viewport"), for: .host))
+        for address in ["https://example.com/v.mp4", "HTTP://example.com/v.mp4"] {
+            XCTAssertTrue(DefaultTrustPolicy().allows(.playMedia(URL(string: address)!), for: lessTrusted), address)
+        }
+        for address in ["smb://server/share/v.mp4", "sftp://host/v.mp4", "trash:///v.mp4", "rtsp://host/v"] {
+            XCTAssertFalse(DefaultTrustPolicy().allows(.playMedia(URL(string: address)!), for: lessTrusted), address)
+            XCTAssertTrue(DefaultTrustPolicy().allows(.playMedia(URL(string: address)!), for: .host), "\(address): the host's content plays anything")
+        }
         for address in ["HTTPS://example.com", "mailto:someone@example.com"] {
             XCTAssertTrue(DefaultTrustPolicy().allows(.openLink(URL(string: address)!), for: lessTrusted), address)
         }
         XCTAssertEqual(DefaultTrustPolicy().trust(for: .file("/tmp/a.json"), inside: nil, byDefault: .lessTrusted), .lessTrusted)
+    }
+
+    func testLessTrustedContentLoadsNoLocalFileOutsideTheAppsResources() {
+        let lessTrusted = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
+        XCTAssertFalse(DefaultTrustPolicy().allows(.load(.file("/Users/someone/.config/panel.json")), for: lessTrusted))
+        XCTAssertFalse(DefaultTrustPolicy().allows(.load(.file("/Volumes/share/panel.json")), for: lessTrusted), "a network share")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.load(.resource("/app/Resources/panel.json")), for: lessTrusted), "the app's own resource")
+        XCTAssertTrue(DefaultTrustPolicy().allows(.load(.remote(URL(string: "https://example.com/b.json")!)), for: lessTrusted))
+        XCTAssertTrue(DefaultTrustPolicy().allows(.load(.file("/Users/someone/panel.json")), for: .host), "the host's content loads any file")
+    }
+
+    func testAnAddressLessTrustedContentNamesIsFetchedPrivately() {
+        let remote = JSONContentOrigin(source: .remote(URL(string: "https://example.com/a.json")!), trust: .lessTrusted, parentID: 1)
+        func named(_ isContentView: Bool, _ parentID: Int, _ around: JSONContentOrigin?) -> Bool {
+            ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: isContentView, parentID: parentID, around: around)
+        }
+        XCTAssertFalse(named(true, 0, nil), "a window's root: the host named it")
+        XCTAssertFalse(named(false, 0, nil), "the host's own loader")
+        XCTAssertFalse(named(false, 5, .host), "inside trusted content")
+        XCTAssertTrue(named(false, 5, remote), "inside less-trusted content")
+        XCTAssertTrue(named(false, 77, nil), "a LoadableView of unknown surroundings")
+    }
+
+    #if canImport(SwiftUI)
+    /// The private session's delegate declines the server's sign-in challenges and leaves the server
+    /// certificate check and a proxy's sign-in to the system.
+    func testThePrivateSessionDeclinesTheServersSignIn() {
+        let session = RemoteJSONFetch.privateSession
+        XCTAssertNil(session.configuration.httpCookieStorage)
+        XCTAssertFalse(session.configuration.httpShouldSetCookies)
+        XCTAssertNil(session.configuration.urlCredentialStorage)
+        XCTAssertTrue(session.delegate is RemoteJSONFetch.NoSignIn)
+        for selector in ["URLSession:didReceiveChallenge:completionHandler:", "URLSession:task:didReceiveChallenge:completionHandler:"] {
+            XCTAssertTrue(session.delegate?.responds(to: NSSelectorFromString(selector)) == true, selector)
+        }
+        final class NoSender: NSObject, URLAuthenticationChallengeSender {
+            func use(_ credential: URLCredential, for challenge: URLAuthenticationChallenge) {}
+            func continueWithoutCredential(for challenge: URLAuthenticationChallenge) {}
+            func cancel(_ challenge: URLAuthenticationChallenge) {}
+        }
+        func answer(_ method: String, proxy: Bool = false) -> URLSession.AuthChallengeDisposition {
+            let space = proxy
+                ? URLProtectionSpace(proxyHost: "proxy.example.com", port: 8080, type: NSURLProtectionSpaceHTTPProxy, realm: nil, authenticationMethod: method)
+                : URLProtectionSpace(host: "example.com", port: 443, protocol: "https", realm: nil, authenticationMethod: method)
+            let challenge = URLAuthenticationChallenge(protectionSpace: space, proposedCredential: nil, previousFailureCount: 0,
+                                                       failureResponse: nil, error: nil, sender: NoSender())
+            return RemoteJSONFetch.NoSignIn.answer(challenge).0
+        }
+        for method in [NSURLAuthenticationMethodHTTPBasic, NSURLAuthenticationMethodNegotiate, NSURLAuthenticationMethodClientCertificate] {
+            XCTAssertEqual(answer(method), .rejectProtectionSpace, method)
+        }
+        XCTAssertEqual(answer(NSURLAuthenticationMethodServerTrust), .performDefaultHandling)
+        XCTAssertEqual(answer(NSURLAuthenticationMethodHTTPBasic, proxy: true), .performDefaultHandling, "a proxy's sign-in is the network's")
+    }
+    #endif
+
+    func testTheSessionFollowsTheContentAroundALoadableViewByItsID() throws {
+        let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/list.json")!))
+        XCTAssertTrue(ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: windowUUID, isContentView: false, parentID: 600, around: nil),
+                      "LoadableView 600 is in remote content")
+        let host = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 700, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        let hostWindow = UUID().uuidString
+        defer { ActionUIModel.shared.windowModels[hostWindow] = nil }
+        _ = try ActionUIDocumentLoader.load(data: host, format: "json", windowUUID: hostWindow, isContentView: true, parentID: 0, source: nil)
+        XCTAssertFalse(ActionUIDocumentLoader.isNamedByLessTrustedContent(windowUUID: hostWindow, isContentView: false, parentID: 700, around: nil),
+                       "LoadableView 700 is in the host's own content")
+    }
+
+    func testALessTrustedLoadableViewIsRefusedALocalFileOutsideTheResources() throws {
+        let (root, resources) = try originFolders()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let savedFolders = ActionUIRendererHooks.resourceFolders
+        defer { ActionUIRendererHooks.resourceFolders = savedFolders }
+        ActionUIRendererHooks.resourceFolders = { [resources.path] }
+        let remote = Data(#"{ "id": 1, "type": "VStack", "children": [ { "id": 600, "type": "LoadableView", "properties": {} } ] }"#.utf8)
+        _ = try ActionUIDocumentLoader.load(data: remote, format: "json", windowUUID: windowUUID, isContentView: true, parentID: 0,
+                                            source: .remote(URL(string: "https://example.com/list.json")!))
+        let outside = root.appendingPathComponent("outside.json")
+        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.file(outside), windowUUID: windowUUID, parentID: 600, logger: ActionUIModel.shared.logger),
+                       "the trust policy refuses it")
+        XCTAssertNil(ActionUIDocumentLoader.loadRefusal(.file(resources.appendingPathComponent("inside.json")), windowUUID: windowUUID,
+                                                        parentID: 600, logger: ActionUIModel.shared.logger), "the app's resources load")
+        XCTAssertEqual(ActionUIDocumentLoader.loadRefusal(.file(resources.appendingPathComponent("link.json")), windowUUID: windowUUID,
+                                                          parentID: 600, logger: ActionUIModel.shared.logger),
+                       "the trust policy refuses it", "a link inside the resources to a file outside them")
     }
 
     func testAWindowsLoadsAreCappedPerSpanOfTime() throws {

@@ -64,6 +64,8 @@ test("WebView html runs in a sandbox without the host page's origin", () => {
     assert.equal(frame.sandbox, WEBVIEW_HTML_SANDBOX);
     assert.ok(!frame.sandbox.includes("allow-same-origin"));
     assert.ok(!frame.sandbox.includes("allow-top-navigation"));
+    assert.ok(frame.sandbox.split(" ").includes("allow-popups"), "links may open tabs");
+    assert.ok(!frame.sandbox.includes("allow-popups-to-escape-sandbox"), "which keep the sandbox");
     assert.ok(frame.srcdoc.includes("<script>"));
 });
 
@@ -71,6 +73,7 @@ test("WebView url gets the url sandbox, which still cannot navigate the host pag
     const frame = frameOf(build("WebView", { url: "https://example.com" }));
     assert.equal(frame.sandbox, WEBVIEW_URL_SANDBOX);
     assert.ok(!frame.sandbox.includes("allow-top-navigation"));
+    assert.ok(!frame.sandbox.includes("allow-popups-to-escape-sandbox"));
     assert.equal(frame.src, "https://example.com");
 });
 
@@ -212,6 +215,7 @@ test("Map hides 'Open in Maps' for a javascript: template and sandboxes its embe
     const frame = frameOf(node);
     assert.ok(frame.sandbox.includes("allow-scripts"));
     assert.ok(!frame.sandbox.includes("allow-top-navigation"));
+    assert.ok(!frame.sandbox.includes("allow-popups-to-escape-sandbox"));
 
     const ok = build("Map", { coordinate: { latitude: 1, longitude: 2 }, openInMapsURL: "https://maps.example/?q={lat},{lon}" });
     const okOpen = ok.children.find((child) => child.className === "aui-map-open");

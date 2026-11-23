@@ -28,6 +28,8 @@
 // back (playback position is not observable on the Apple side either).
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { allows } from "../Common/TrustPolicy.js";
+import { pageBaseURL } from "../Helpers/URLPolicy.js";
 import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 register("VideoPlayer", {
@@ -75,7 +77,20 @@ function render(node, url, autoplay, ctx) {
 
     if (typeof url !== "string" || url.trim().length === 0) {
         ctx.logger.log(`VideoPlayer missing or invalid URL, displaying error Label`, "error");
-        node.appendChild(errorRow(ctx));
+        node.appendChild(errorRow(ctx, "Missing or invalid URL"));
+        return;
+    }
+    // The trust policy decides what it may play (less-trusted content: web addresses only), asked
+    // about the address the browser would load: a relative one resolves against the page.
+    let resolved;
+    try {
+        resolved = new URL(url, pageBaseURL()).href;
+    } catch {
+        resolved = url;
+    }
+    if (!allows({ capability: "playMedia", url: resolved }, ctx.origin, ctx.logger)) {
+        ctx.logger.log(`VideoPlayer not playing '${url}': the trust policy refuses it`, "warning");
+        node.appendChild(errorRow(ctx, "Not allowed"));
         return;
     }
 
@@ -99,14 +114,15 @@ function render(node, url, autoplay, ctx) {
     node.appendChild(video);
 }
 
-// Apple's Label("Missing or invalid URL", systemImage "exclamationmark.triangle").
-function errorRow(ctx) {
+// Apple's Label(text, systemImage "exclamationmark.triangle"): "Missing or invalid URL", or
+// "Not allowed" for an address the trust policy refuses.
+function errorRow(ctx, message) {
     const row = document.createElement("span");
     row.className = "aui-video-error";
     row.appendChild(systemSymbolGlyph("exclamationmark.triangle", {}, ctx.logger, (n) =>
         `VideoPlayer error glyph '${n}' has no SF->Material mapping.`));
     const text = document.createElement("span");
-    text.textContent = "Missing or invalid URL";
+    text.textContent = message;
     row.appendChild(text);
     return row;
 }

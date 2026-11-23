@@ -67,8 +67,8 @@ register("Map", {
         frame.setAttribute("loading", "lazy");
         frame.setAttribute("title", "Map");
         // The embed is a fixed OpenStreetMap page: its own origin and script, nothing more (it
-        // may not navigate the host page).
-        frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox");
+        // may not navigate the host page, and a tab it opens keeps the sandbox).
+        frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
         node.appendChild(frame);
 
         const open = document.createElement("a");

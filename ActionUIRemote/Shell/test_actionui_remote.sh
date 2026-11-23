@@ -519,6 +519,42 @@ t_eq "the items walker still walks a good array" 3 "$_t_out"
 t_run actionui_call actionui.getElementInfo '  {"window":"W-1"}  '
 t_eq "call tolerates whitespace around the params" 0 "$_t_rc"
 
+# The endpoint is checked before anything is sent, the token included.
+ACTIONUI_REMOTE_ENDPOINT="h.sock"
+t_run actionui_hello
+t_eq "a relative endpoint exits 3" 3 "$_t_rc"
+t_contains "a relative endpoint says so" "not absolute" "$_t_stderr"
+/bin/ln -s "$_t_sock" "$_t_tmp/link.sock"
+ACTIONUI_REMOTE_ENDPOINT="$_t_tmp/link.sock"
+t_run actionui_hello
+t_contains "a link to the socket is refused" "is not a socket" "$_t_stderr"
+: > "$_t_tmp/plain"
+ACTIONUI_REMOTE_ENDPOINT="$_t_tmp/plain"
+t_run actionui_hello
+t_contains "a file that is not a socket is refused" "is not a socket" "$_t_stderr"
+ACTIONUI_REMOTE_ENDPOINT="$_t_sock"
+/bin/chmod 0777 "$_t_tmp"
+t_run actionui_hello
+t_contains "a folder others can change is refused" "can be changed by another user" "$_t_stderr"
+/bin/ln -s "$_t_tmp" "$_t_tmp/dirlink"
+ACTIONUI_REMOTE_ENDPOINT="$_t_tmp/dirlink/h.sock"
+t_run actionui_hello
+t_contains "so is one reached through a linked folder" "can be changed by another user" "$_t_stderr"
+ACTIONUI_REMOTE_ENDPOINT="$_t_sock"
+/bin/chmod 1777 "$_t_tmp"
+t_run actionui_hello
+t_eq "unless it is sticky" 0 "$_t_rc"
+/bin/chmod 0700 "$_t_tmp"
+t_run actionui_hello
+t_eq "the host socket in a private folder is used" 0 "$_t_rc"
+ACTIONUI_REMOTE_ENDPOINT="$_t_tmp/dirlink/h.sock"
+t_run actionui_hello
+t_eq "a linked folder is judged by what it points to" 0 "$_t_rc"
+if [ "$_t_transport" = "zsocket" ]; then
+    # The last call left its connection open; the token tests below need a fresh one.
+    actionui_disconnect
+fi
+
 ACTIONUI_REMOTE_ENDPOINT="$_t_tmp/nobody.sock"
 t_run actionui_hello
 t_eq "no host listening exits 3" 3 "$_t_rc"
@@ -528,6 +564,7 @@ t_run actionui_hello
 t_eq "no endpoint exits 3" 3 "$_t_rc"
 t_contains "no endpoint names the variable" "ACTIONUI_REMOTE_ENDPOINT is not set" "$_t_stderr"
 ACTIONUI_REMOTE_ENDPOINT="$_t_sock"
+
 
 # --- token --------------------------------------------------------------------------------------
 

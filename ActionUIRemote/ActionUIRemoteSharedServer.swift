@@ -32,6 +32,8 @@ private final class SharedServerStorage: @unchecked Sendable {
     var starting = false                    // guarded by lock
     /// The random-name folder made for the default socket path, removed at stop.
     var madeFolder: String?                 // guarded by lock
+    /// The limits the next shared server starts with (`sharedLimits`).
+    var limits = UnixSocketServer.Limits()  // guarded by lock
 }
 
 private let sharedStorage = SharedServerStorage()
@@ -183,6 +185,29 @@ public extension ActionUIRemoteServer {
         return shared?.endpoint
     }
 
+    /// The limits the next `startShared` gives its server: open connections, seconds to
+    /// authenticate (0 for no limit), and unauthenticated connections that may hold a large
+    /// unfinished line (see `connectionLimit`, `authenticationTimeout`,
+    /// `unauthenticatedLargeLineLimit`). A running shared server keeps the ones it started with.
+    /// Out-of-range values are clamped as those properties clamp them; a timeout that is not finite
+    /// counts as no limit.
+    static func setSharedLimits(connections: Int, authenticationTimeout: TimeInterval,
+                                unauthenticatedLargeLines: Int) {
+        sharedStorage.lock.lock()
+        sharedStorage.limits.connections = max(1, connections)
+        sharedStorage.limits.untrustedLifetime = authenticationTimeout.isFinite ? max(0, authenticationTimeout) : 0
+        sharedStorage.limits.untrustedLargeLines = max(0, unauthenticatedLargeLines)
+        sharedStorage.lock.unlock()
+    }
+
+    /// The limits the next `startShared` uses: (connections, authentication timeout, large lines).
+    static var sharedLimits: (connections: Int, authenticationTimeout: TimeInterval, unauthenticatedLargeLines: Int) {
+        sharedStorage.lock.lock()
+        defer { sharedStorage.lock.unlock() }
+        let limits = sharedStorage.limits
+        return (limits.connections, limits.untrustedLifetime, limits.untrustedLargeLines)
+    }
+
     /// Start the process-wide server and export its path as `ACTIONUI_REMOTE_ENDPOINT`, so that
     /// processes spawned afterwards inherit it and a client finds the host with no configuration.
     ///
@@ -225,6 +250,12 @@ public extension ActionUIRemoteServer {
 
         let server = ActionUIRemoteServer(host: host)
         server.logger = logger
+        sharedStorage.lock.lock()
+        let limits = sharedStorage.limits
+        sharedStorage.lock.unlock()
+        server.connectionLimit = limits.connections
+        server.authenticationTimeout = limits.untrustedLifetime
+        server.unauthenticatedLargeLineLimit = limits.untrustedLargeLines
         // Minted before the bind, so the token is in the environment before anything can be
         // spawned that would need it.
         let token = requireToken ? ActionUIRemoteServer.makeToken() : nil
