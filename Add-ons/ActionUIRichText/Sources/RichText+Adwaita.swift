@@ -167,7 +167,8 @@ struct RichTextView: ActionUIAdwaitaElement {
         let markdown = runtime ?? (properties["markdown"] as? String) ?? ""
         if markdown != state.markdown {
             state.markdown = markdown
-            state.view.setMarkdown(markdown)
+            // Local images only as the trust policy allows (RichText+LocalImages.swift).
+            state.view.document = RichTextDocument(markdown: markdown).keepingLocalImages { node.readsLocalFile($0) }
         }
 
         // "fill" (default) takes the width it is offered, at the left; "hug" takes its content's, wrapping only

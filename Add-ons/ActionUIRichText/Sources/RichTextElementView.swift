@@ -18,6 +18,9 @@ import RichText
 
 struct RichTextElementView: View {
     let model: ViewModel
+    // The element, for the trust policy's answer on its local images (RichText+LocalImages.swift).
+    let windowUUID: String
+    let viewID: Int
     let markdown: String
     let theme: RichTextTheme
     let behavior: RichTextWidthBehavior
@@ -36,7 +39,9 @@ struct RichTextElementView: View {
     @State private var lastRejectedSearch: String?
 
     var body: some View {
-        let document = cache.view(markdown: markdown, theme: theme).widthBehavior(behavior)
+        let document = cache.view(markdown: markdown, theme: theme, model: model) { path in
+            ActionUIModel.shared.readsLocalFile(path, windowUUID: windowUUID, viewID: viewID, model: model)
+        }.widthBehavior(behavior)
             .remoteImages(remoteImages).find(find)
         Group {
             if showsFindBar {
@@ -86,21 +91,23 @@ struct RichTextElementView: View {
     }
 }
 
-/// One rendered RichText view per (Markdown, theme), reused until either changes.
+/// One rendered RichText view per (Markdown, theme, view model), reused until one changes. `reads` says which
+/// local images the element's content may show; it is asked when the Markdown is parsed, and again for new
+/// content in the same place (a reload gives the element a new view model, and its content may be trusted less).
 @MainActor
 private final class RenderCache {
-    private var key: (markdown: String, theme: RichTextTheme)?
+    private var key: (markdown: String, theme: RichTextTheme, model: ObjectIdentifier)?
     private var rendered: RichText?
 
-    func view(markdown: String, theme: RichTextTheme) -> RichText {
-        if let key, let rendered, key.markdown == markdown, key.theme == theme {
+    func view(markdown: String, theme: RichTextTheme, model: ViewModel, reads: (String) -> Bool) -> RichText {
+        if let key, let rendered, key.markdown == markdown, key.theme == theme, key.model == ObjectIdentifier(model) {
             return rendered
         }
         // Unqualified `RichText` is the imported package view (the element type is RichTextView, so
         // nothing local shadows it). Module-qualifying as `RichText.RichText` does NOT work: `import
         // RichText` brings the type `RichText` into scope, which shadows the module name of the same name.
-        let view = RichText(markdown: markdown, theme: theme)
-        key = (markdown, theme)
+        let view = RichText(RichTextDocument(markdown: markdown).keepingLocalImages(where: reads), theme: theme)
+        key = (markdown, theme, ObjectIdentifier(model))
         rendered = view
         return view
     }

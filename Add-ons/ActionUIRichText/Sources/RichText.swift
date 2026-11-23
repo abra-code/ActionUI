@@ -30,7 +30,8 @@
    // Note: baseline View properties (padding, hidden, background, frame, opacity, cornerRadius, actionID,
    // onAppearActionID, onDisappearActionID, etc.) are inherited from base View. The document is read-only but
    // selectable, self-sizes to its content for the proposed width, and handles its own links (via RichText's
-   // URL policy: http/https/mailto/tel only).
+   // URL policy: http/https/mailto/tel only). Local file: images show as the host's trust policy allows a local
+   // file read, as for an Image's filePath; a refused one shows its alt text as an image that cannot load.
  }
 
  A rich-text DISPLAY element backed by the RichText package, implemented as an ActionUI add-on
@@ -109,8 +110,8 @@ struct RichTextView: ActionUIViewConstruction {
 
         // The find layers ride on the element's SwiftUI body (RichTextElementView), which owns the find
         // controller, renders the Markdown once per source, and observes states["search"].
-        return RichTextElementView(model: model, markdown: markdown, theme: theme, behavior: behavior,
-                                   remoteImages: remoteImages,
+        return RichTextElementView(model: model, windowUUID: windowUUID, viewID: element.id, markdown: markdown,
+                                   theme: theme, behavior: behavior, remoteImages: remoteImages,
                                    showsFindBar: (properties["showFindBar"] as? Bool) ?? false, logger: logger)
     }
 
