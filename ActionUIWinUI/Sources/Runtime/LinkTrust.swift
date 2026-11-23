@@ -64,12 +64,13 @@ enum LinkTrust {
     }
 
     /// Whether the node's content may do `capability`, with a refusal logged once per element
-    /// (ActionUIModel.allowsLoggingOnce); for checks made each time a node syncs.
+    /// (ActionUIModel.allowsLoggingOnce), or once per window when its element cannot be told; for checks
+    /// made each time a node syncs.
     static func allowsLoggingOnce(_ capability: ActionUICapability, what: String, _ node: RenderNode) -> Bool {
         if let viewID = originElementID(node) {
             return ActionUIModel.shared.allowsLoggingOnce(capability, what: what, windowUUID: node.windowModel.windowUUID, viewID: viewID)
         }
-        return ActionUIModel.shared.trustPolicy.allows(capability, for: unknownOrigin)
+        return ActionUIModel.shared.allowsLoggingOnceForUnknownOrigin(capability, what: what, windowUUID: node.windowModel.windowUUID)
     }
 
     /// Whether the node's content may read the local file at `path` (an image, a canvas image, a
