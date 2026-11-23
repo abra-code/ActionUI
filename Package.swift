@@ -631,6 +631,9 @@ Package(
         // ActionUI's application layer, for Swift programs that run ActionUI's own application
         // (Apps/ActionUIViewer), with ActionUIStatic, as Linux's ActionUIAdwaitaApplication.
         .library(name: "ActionUIWinUIApplication", targets: ["ActionUIWinUIApplication"]),
+        // The shim's C interface, so an add-on package makes and updates its elements' WinUI objects
+        // as ActionUI's module does (an ActionUIWinUIElement's makeView and update), as Linux's CAdwaita.
+        .library(name: "CWinUI", targets: ["CWinUI"]),
     ],
     targets: [
         // The shim's C interface and libdispatch's main-queue hooks.
