@@ -30,6 +30,16 @@ private func cReply(_ text: String) -> UnsafeMutablePointer<CChar>? {
     return strdup(text)
 }
 
+/// A C method policy that records "method|label" and refuses actionui.listWindows.
+private let cPolicyForTests: ActionUIRemoteMethodPolicyCallback = { context, method, paramsJSON, tokenLabel in
+    let name = String(cString: method)
+    if let context {
+        let recorder = Unmanaged<CHostMethodRecorder>.fromOpaque(context).takeUnretainedValue()
+        recorder.calls.append(name + "|" + (tokenLabel.map { String(cString: $0) } ?? "none"))
+    }
+    return name != "actionui.listWindows"
+}
+
 /// One C function for every test method, answering by name, as a C host would write it.
 private let cHostMethodForTests: ActionUIRemoteMethodCallback = { context, method, paramsJSON in
     let name = String(cString: method)
@@ -712,6 +722,51 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         XCTAssertEqual(shared.connectionLimit, 5)
         XCTAssertEqual(shared.authenticationTimeout, 2.5)
         XCTAssertEqual(shared.unauthenticatedLargeLineLimit, 1)
+    }
+
+    func testThePolicyIsToldWhichTokenACallCameWith() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let job = try XCTUnwrap(mintToken(label: "job-1"))
+        final class Labels { var values: [String] = [] }
+        let labels = Labels()
+        ActionUIRemoteServer.shared?.setMethodPolicy { call in
+            labels.values.append(call.tokenLabel ?? "none")
+            return call.tokenLabel != "job-1" || call.method == "actionui.hello"
+        }
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let hello = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(job)"}}"#))
+        XCTAssertNotNil(hello["result"])
+        let windows = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual((windows["error"] as? [String: Any])?["code"] as? Int, 1004, "this job's token may only say hello")
+        XCTAssertEqual(labels.values, ["job-1", "job-1"])
+    }
+
+    func testTheCMethodPolicyAndPreset() throws {
+        XCTAssertFalse(actionUIRemoteSetMethodPolicy(cPolicyForTests, nil), "no server")
+        XCTAssertFalse(actionUIRemoteSetMethodPolicyValuesOnly(), "no server")
+        let client = try startedServerAndClient()
+        let recorder = CHostMethodRecorder()
+        XCTAssertTrue(actionUIRemoteSetMethodPolicy(cPolicyForTests, Unmanaged.passUnretained(recorder).toOpaque()))
+        let refused = try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":1,"method":"actionui.listWindows"}"#))
+        XCTAssertEqual((refused["error"] as? [String: Any])?["code"] as? Int, 1004)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":2,"method":"actionui.hello"}"#))["result"])
+        XCTAssertEqual(recorder.calls, ["actionui.listWindows|host", "actionui.hello|host"])
+
+        XCTAssertTrue(actionUIRemoteSetMethodPolicyValuesOnly())
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(client, #"{"jsonrpc":"2.0","id":3,"method":"actionui.listWindows"}"#))["result"])
+        let insert = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":4,"method":"actionui.insertElement","params":{"window":"none","parentID":1,"element":{"type":"Text"}}}"#))
+        XCTAssertEqual((insert["error"] as? [String: Any])?["code"] as? Int, 1004)
+        XCTAssertTrue("actionui.getValue".withCString { actionUIRemoteIsValuesOnlyMethod($0) })
+        XCTAssertFalse("actionui.insertElement".withCString { actionUIRemoteIsValuesOnlyMethod($0) })
+        XCTAssertFalse(actionUIRemoteIsValuesOnlyMethod(nil))
+
+        XCTAssertTrue(actionUIRemoteSetMethodPolicy(nil, nil))
+        let open = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":5,"method":"actionui.insertElement","params":{"window":"none","parentID":1,"element":{"type":"Text"}}}"#))
+        XCTAssertNotEqual((open["error"] as? [String: Any])?["code"] as? Int, 1004, "no policy: it reaches the method (which reports the unknown window)")
     }
 
     func testTheCFaceRefusesWhatItCannotHonor() throws {

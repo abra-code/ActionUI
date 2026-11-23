@@ -103,7 +103,7 @@ Rules:
 | 1001 | Unknown window: no window with that UUID is loaded. |
 | 1002 | Unknown view: the window has no element with that id. |
 | 1003 | Engine failure: the engine refused the operation (insert into a non-container, state type mismatch, a state only the host may set, unreadable modal resource). The message is the engine's. |
-| 1004 | Host refused: a host-registered method threw an error that is not an `ActionUIRemoteError`. The message is the error's description. |
+| 1004 | Host refused: the host's method policy refused the request (section 8), or a host-registered method threw an error that is not an `ActionUIRemoteError`. The message says which. |
 | 1005 | Main thread unavailable: the host's main thread did not respond within its timeout (10 s by default). The request was not applied unless it was already running. |
 | 1006 | Unauthenticated: the host requires a token and this connection has not presented a valid one. See section 10. |
 
@@ -220,6 +220,15 @@ from `hello` and must not assume any namespace beyond `actionui.` exists.
 A host may also remove a built-in method or replace it with its own, on purpose (a host whose
 peers should only read and set values removes `actionui.insertElement`, say). `hello`'s list shows
 what this host offers, and a removed method answers `-32601`.
+
+A host may also install a method policy, asked before every request with the method, its params
+and the label of the token the connection presented: a refused request answers `1004` and does
+nothing. The reference server ships a "values only" preset: reading the windows and their
+elements, and reading and setting values, states, rows and selection of elements that exist;
+nothing that inserts, removes or presents, no property changes, no `performAction` and no host
+methods; setting a value or state can still fire the element's value-change action, as a change
+the user made would. `hello` still lists the methods a policy refuses: a client cannot tell a
+policy from its absence until a request is refused.
 
 ## 9. Environment contract
 

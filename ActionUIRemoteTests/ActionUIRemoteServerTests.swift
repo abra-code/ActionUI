@@ -498,6 +498,36 @@ final class ActionUIRemoteServerTests: XCTestCase {
 
     // MARK: - Extension methods
 
+    func testTheHostsMethodPolicyDecidesWhichRequestsRun() throws {
+        final class Seen { var calls: [ActionUIRemoteServer.RemoteCall] = [] }
+        let seen = Seen()
+        server.setMethodPolicy { call in
+            seen.calls.append(call)
+            return call.method != "actionui.setValue"
+        }
+        assertFailure("actionui.setValue", viewParams(2, ["viewPartID": 0, "value": "refused"]), code: 1004)
+        XCTAssertNoThrow(try call("actionui.getValue", viewParams(2)), "another method runs")
+        let refused = try XCTUnwrap(seen.calls.first)
+        XCTAssertEqual(refused.method, "actionui.setValue")
+        XCTAssertEqual(refused.params["value"] as? String, "refused")
+        XCTAssertNil(refused.tokenLabel, "no token is required here")
+        XCTAssertNotEqual(ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 2) as? String, "refused")
+
+        // The preset: values, states, rows and selection; nothing else, host methods included.
+        server.register(method: "test.echo") { _ in "echo" }
+        server.setMethodPolicy(ActionUIRemoteServer.valuesOnly)
+        XCTAssertEqual(try call("actionui.setValue", viewParams(2, ["viewPartID": 0, "value": "allowed"])) as? Bool, true)
+        XCTAssertNotNil(try call("actionui.listWindows"))
+        assertFailure("actionui.insertElement", ["window": windowUUID!, "parentID": 10, "element": ["type": "Text"]], code: 1004)
+        assertFailure("actionui.setProperty", viewParams(2, ["name": "disabled", "value": true]), code: 1004)
+        assertFailure("actionui.removeWindow", ["window": windowUUID!], code: 1004)
+        assertFailure("test.echo", [:], code: 1004)
+        XCTAssertTrue(ActionUIModel.shared.hasWindow(windowUUID), "the refused removeWindow did nothing")
+
+        server.setMethodPolicy(nil)
+        XCTAssertEqual(try call("test.echo") as? String, "echo", "no policy: every request runs")
+    }
+
     func testHostMethodsRegisterAppearInHelloAndMapErrors() throws {
         server.register(method: "test.echo") { params in
             return ["echo": params["x"] ?? NSNull()]

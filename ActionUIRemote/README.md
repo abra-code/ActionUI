@@ -43,6 +43,12 @@ ActionUIRemoteServer.shared?.register(method: "myapp.quit") { _ in
 // from peers that should only read and set values. replaceBuiltIn(method:handler:) replaces one.
 ActionUIRemoteServer.shared?.removeBuiltIn(method: "actionui.insertElement")
 
+// Optional: a policy asked before every request, with the method, its params and the label of
+// the token the connection presented; false answers 1004. valuesOnly is a preset.
+ActionUIRemoteServer.shared?.setMethodPolicy { call in
+    ActionUIRemoteServer.valuesOnly(call) || call.method == "myapp.quit"
+}
+
 // Optional: resolve `presentModal` resource names to files.
 ActionUIRemoteServer.shared?.setModalResourceResolver { name in
     Bundle.main.url(forResource: name, withExtension: "json")
@@ -106,6 +112,12 @@ actionUIRemoteRegisterMethod("myhost.ping", ping, NULL);
 
 Names in the reserved `actionui.` namespace and names without a namespace are refused. The
 methods end with the server, so a host that restarts it registers them again.
+
+`actionUIRemoteSetMethodPolicy(callback, context)` installs a method policy: the callback gets the
+method, the params as JSON and the label of the connection's token (NULL when none), and returns
+false to refuse the request with 1004. `actionUIRemoteSetMethodPolicyValuesOnly()` installs the
+preset, and `actionUIRemoteIsValuesOnlyMethod(name)` lets a host's own callback combine it with its
+own methods. NULL removes the policy; it ends with the server.
 
 Every request runs on the main actor against `ActionUIModel.shared`. A main thread that does
 not respond within `mainThreadTimeout` (10 s) answers `1005` instead of hanging the client.

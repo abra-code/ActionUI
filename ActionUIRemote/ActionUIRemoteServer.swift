@@ -56,6 +56,46 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// to a file URL. Without a resolver only absolute paths are accepted.
     public typealias ModalResourceResolver = @MainActor (_ nameOrPath: String) -> URL?
 
+    /// One request as the host's method policy sees it: the method, its named params (the token
+    /// removed), and the label of the token the connection presented (nil when the host requires
+    /// none).
+    public struct RemoteCall {
+        public let method: String
+        public let params: [String: Any]
+        public let tokenLabel: String?
+
+        /// For a host that tests its own policy.
+        public init(method: String, params: [String: Any] = [:], tokenLabel: String? = nil) {
+            self.method = method
+            self.params = params
+            self.tokenLabel = tokenLabel
+        }
+    }
+
+    /// Whether to run a request: true runs it, false answers it with 1004 (host refused). Called
+    /// on the main actor before every request, built-in or the host's own, so it must return
+    /// promptly.
+    public typealias MethodPolicy = @MainActor (_ call: RemoteCall) -> Bool
+
+    /// The built-in methods the `valuesOnly` preset allows: reading the windows and their
+    /// elements, and reading and setting values, states, rows and selection of elements that
+    /// exist. Nothing that inserts, removes or presents, no property changes, no performAction.
+    /// Setting a value or state can still fire the element's value-change action, as a change
+    /// the user made would.
+    public static let valuesOnlyMethods: Set<String> = [
+        "actionui.hello", "actionui.listWindows", "actionui.getElementInfo", "actionui.contentSizeLimits",
+        "actionui.getValue", "actionui.setValue", "actionui.getValueString", "actionui.setValueString",
+        "actionui.getProperty",
+        "actionui.getState", "actionui.getStateString", "actionui.setState", "actionui.setStateString",
+        "actionui.getColumnCount", "actionui.getRows", "actionui.setRows", "actionui.appendRows",
+        "actionui.appendText", "actionui.clearRows",
+        "actionui.selectRow", "actionui.selectRowWithContent", "actionui.clearSelection",
+    ]
+
+    /// A policy that allows `valuesOnlyMethods` and refuses everything else, host methods
+    /// included: a host that also offers its own combines it, `{ valuesOnly($0) || $0.method == "app.save" }`.
+    public static let valuesOnly: MethodPolicy = { call in valuesOnlyMethods.contains(call.method) }
+
     /// Bumped only for changes that break existing clients (a result shape, a removed method).
     public static let protocolVersion = 1
 
@@ -398,6 +438,15 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         return true
     }
 
+    /// Install the host's method policy, asked before every request (nil: every request runs, as
+    /// before). It ends with the server, like any registration. Safe from any thread, with the
+    /// timing of `register(method:)`.
+    public func setMethodPolicy(_ policy: MethodPolicy?) {
+        onMain { [registry] in
+            registry.policy = policy
+        }
+    }
+
     public func setModalResourceResolver(_ resolver: ModalResourceResolver?) {
         onMain { [registry] in
             registry.modalResolver = resolver
@@ -438,9 +487,10 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
 
         // Before anything else: an unauthenticated request never reaches the main thread.
-        entries = authenticate(entries, connectionID: connectionID)
+        let tokenLabel: String?
+        (entries, tokenLabel) = authenticate(entries, connectionID: connectionID)
 
-        let box = RequestBox(entries: entries)
+        let box = RequestBox(entries: entries, tokenLabel: tokenLabel)
         let needsMainThread = entries.contains { if case .success = $0 { return true } else { return false } }
         var timedOut = false
         if needsMainThread {
@@ -497,7 +547,10 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         }
     }
 
-    /// Replace every request this connection may not make with a 1006 rejection.
+    /// Replace every request this connection may not make with a 1006 rejection, and return the
+    /// label of the token the connection authenticated with (nil when no token is required), read
+    /// under the same lock as the check so a revocation in between cannot hand the method policy a
+    /// nil label for a request that was let through.
     ///
     /// Runs on the connection queue, before anything reaches the main thread: an unauthenticated
     /// request must not cost a main-thread hop, or refusing it would itself be a way to stall
@@ -513,10 +566,11 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// addressed to them.
     private func authenticate(_ entries: [Result<JSONRPCRequest, JSONRPCRejection>],
                               connectionID: UnixSocketServer.ConnectionID)
-        -> [Result<JSONRPCRequest, JSONRPCRejection>] {
+        -> (entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String?) {
         lock.lock()
         let required = _requiresToken
-        var authenticated = _authenticated[connectionID] != nil
+        var label = _authenticated[connectionID].flatMap { _tokens[$0] }
+        var authenticated = label != nil
         lock.unlock()
 
         func withoutToken(_ request: JSONRPCRequest) -> JSONRPCRequest {
@@ -528,21 +582,22 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 
         guard required else {
             // Even with no token required, one must never reach a handler.
-            return entries.map { entry in
+            return (entries.map { entry in
                 guard case .success(let request) = entry else { return entry }
                 return .success(withoutToken(request))
-            }
+            }, nil)
         }
 
-        return entries.map { entry in
+        let checked: [Result<JSONRPCRequest, JSONRPCRejection>] = entries.map { entry in
             guard case .success(let request) = entry else { return entry }
 
             if !authenticated, let presented = request.params["token"] as? String {
                 lock.lock()
-                let known = _tokens[presented] != nil
-                if known { _authenticated[connectionID] = presented }
+                let presentedLabel = _tokens[presented]
+                if presentedLabel != nil { _authenticated[connectionID] = presented }
                 lock.unlock()
-                if known {
+                if presentedLabel != nil {
+                    label = presentedLabel
                     authenticated = true
                     log("connection \(connectionID) authenticated", .debug)
                 }
@@ -560,6 +615,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             }
             return .success(withoutToken(request))
         }
+        return (checked, label)
     }
 
     // MARK: - Helpers
@@ -592,6 +648,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
 final class MethodRegistry {
     var handlers: [String: ActionUIRemoteServer.Handler] = [:]
     var modalResolver: ActionUIRemoteServer.ModalResourceResolver?
+    var policy: ActionUIRemoteServer.MethodPolicy?
 
     nonisolated init() {}
 
@@ -609,7 +666,11 @@ final class MethodRegistry {
                 return
             }
             let outcome: Result<Any?, ActionUIRemoteError>
-            if let handler = handlers[request.method] {
+            if let policy, !policy(ActionUIRemoteServer.RemoteCall(method: request.method, params: request.params,
+                                                                    tokenLabel: box.tokenLabel)) {
+                outcome = .failure(ActionUIRemoteError(code: ActionUIRemoteError.hostRefused,
+                                                       message: "Refused by the host: \(request.method)"))
+            } else if let handler = handlers[request.method] {
                 do {
                     outcome = .success(try handler(request.params))
                 } catch let error as ActionUIRemoteError {
@@ -632,14 +693,17 @@ final class MethodRegistry {
 /// crosses queues; everything inside is behind the lock.
 final class RequestBox: @unchecked Sendable {
     let entries: [Result<JSONRPCRequest, JSONRPCRejection>]
+    /// The label of the token the connection presented, for the method policy.
+    let tokenLabel: String?
     let semaphore = DispatchSemaphore(value: 0)
 
     private let lock = Lock()
     private var results: [Int: Result<Any?, ActionUIRemoteError>] = [:]
     private var abandoned = false
 
-    init(entries: [Result<JSONRPCRequest, JSONRPCRejection>]) {
+    init(entries: [Result<JSONRPCRequest, JSONRPCRejection>], tokenLabel: String? = nil) {
         self.entries = entries
+        self.tokenLabel = tokenLabel
     }
 
     func setResult(_ result: Result<Any?, ActionUIRemoteError>, at index: Int) {

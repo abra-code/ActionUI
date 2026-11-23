@@ -502,4 +502,88 @@ public func actionUIRemoteUnregisterMethod(_ method: UnsafePointer<CChar>?) -> C
     return true
 }
 
+// MARK: - The host's method policy
+
+/// The C form of `ActionUIRemoteServer.MethodPolicy`: whether to run one request. Called on the
+/// main thread before every request, built-in or the host's own, so it must return promptly and
+/// must not stop the server; a C++ host must not let an exception leave it.
+///
+/// - Parameters:
+///   - context: the pointer passed to `actionUIRemoteSetMethodPolicy`, unchanged.
+///   - method: the method's name.
+///   - paramsJSON: the request's named params as a JSON object, the token removed.
+///   - tokenLabel: the label of the token the connection presented, or NULL when the host
+///     requires none (or the token was withdrawn).
+/// - Returns: true runs the request; false answers it with 1004 (host refused).
+public typealias ActionUIRemoteMethodPolicyCallback = @convention(c) (
+    _ context: UnsafeMutableRawPointer?,
+    _ method: UnsafePointer<CChar>,
+    _ paramsJSON: UnsafePointer<CChar>,
+    _ tokenLabel: UnsafePointer<CChar>?
+) -> CBool
+
+/// A C method policy and its context, carried into the registry's main-actor closure.
+private struct CMethodPolicy: @unchecked Sendable {
+    let callback: ActionUIRemoteMethodPolicyCallback
+    let context: UnsafeMutableRawPointer?
+}
+
+/// Install the host's method policy for the running server, asked before every request (NULL
+/// removes it: every request runs). It ends with the server. Params that cannot be written as
+/// JSON make the request refused.
+///
+/// `context` is handed back to every call, never read or freed here. It must stay valid until
+/// the policy is replaced or removed, or the server stops, with the timing of
+/// `actionUIRemoteRegisterMethod`: from the main thread as soon as the replacing call returns,
+/// from another thread only once the main queue has run after it.
+///
+/// - Returns: false when no server is running.
+@c
+public func actionUIRemoteSetMethodPolicy(_ callback: ActionUIRemoteMethodPolicyCallback?,
+                                          _ context: UnsafeMutableRawPointer?) -> CBool {
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    guard let callback else {
+        server.setMethodPolicy(nil)
+        return true
+    }
+    let policy = CMethodPolicy(callback: callback, context: context)
+    server.setMethodPolicy { [weak server] call in
+        // A request queued before a stop still runs after it; the host may have freed the context.
+        guard let server, ActionUIRemoteServer.shared === server else { return false }
+        guard let paramsText = try? ActionUIJSON.string(from: call.params) else { return false }
+        return call.method.withCString { methodC in
+            paramsText.withCString { paramsC in
+                if let label = call.tokenLabel {
+                    return label.withCString { policy.callback(policy.context, methodC, paramsC, $0) }
+                }
+                return policy.callback(policy.context, methodC, paramsC, nil)
+            }
+        }
+    }
+    return true
+}
+
+/// Install the "values only" preset as the running server's method policy: reading the windows
+/// and their elements, and reading and setting values, states, rows and selection of elements
+/// that exist; nothing that inserts, removes or presents, no property changes, no host methods.
+/// Setting a value or state can still fire the element's value-change action, as a user's change
+/// would.
+/// A host that also offers its own methods writes a policy that calls
+/// `actionUIRemoteIsValuesOnlyMethod` instead.
+///
+/// - Returns: false when no server is running.
+@c
+public func actionUIRemoteSetMethodPolicyValuesOnly() -> CBool {
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    server.setMethodPolicy(ActionUIRemoteServer.valuesOnly)
+    return true
+}
+
+/// Whether `method` is one the "values only" preset allows.
+@c
+public func actionUIRemoteIsValuesOnlyMethod(_ method: UnsafePointer<CChar>?) -> CBool {
+    guard let method else { return false }
+    return ActionUIRemoteServer.valuesOnlyMethods.contains(String(cString: method))
+}
+
 #endif
