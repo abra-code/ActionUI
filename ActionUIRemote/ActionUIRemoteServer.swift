@@ -71,9 +71,10 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     /// grant can be withdrawn when that work ends without disturbing anything else.
     private var _tokens: [String: String] = [:]
     private var _requiresToken = false
-    /// Connections that have already presented a valid token. A client may send it once and then
-    /// stop, or send it on every request; both work.
-    private var _authenticated: Set<UnixSocketServer.ConnectionID> = []
+    /// Connections that have already presented a valid token, with that token. A client may send
+    /// it once and then stop, or send it on every request; both work. Revoking the token ends the
+    /// connection's authentication.
+    private var _authenticated: [UnixSocketServer.ConnectionID: String] = [:]
 
     /// Main-actor state: the method table and the modal resolver.
     let registry = MethodRegistry()
@@ -110,21 +111,25 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         lock.unlock()
     }
 
-    /// Withdraw one token. Connections already authenticated with it keep working: revocation
-    /// stops new connections, it does not tear down live ones. A host that needs the stronger
-    /// property should stop the server.
+    /// Withdraw one token. A connection authenticated with it is no longer: its next request is
+    /// refused unless it presents a token that is still live. A request already accepted runs to
+    /// its end.
     public func revokeToken(_ token: String) {
         lock.lock()
         _tokens.removeValue(forKey: token)
+        _authenticated = _authenticated.filter { $0.value != token }
         lock.unlock()
     }
 
-    /// Withdraw every token issued under a label.
+    /// Withdraw every token issued under a label, and the authentication of the connections that
+    /// presented one of them, as revokeToken does.
     public func revokeTokens(label: String) {
         lock.lock()
-        for (token, existing) in _tokens where existing == label {
+        let revoked = Set(_tokens.filter { $0.value == label }.keys)
+        for token in revoked {
             _tokens.removeValue(forKey: token)
         }
+        _authenticated = _authenticated.filter { !revoked.contains($0.value) }
         lock.unlock()
     }
 
@@ -221,7 +226,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
                 // a new connection must never inherit an old one's authentication.
                 guard let self else { return }
                 self.lock.lock()
-                self._authenticated.remove(connectionID)
+                self._authenticated.removeValue(forKey: connectionID)
                 self.lock.unlock()
             },
             log: { [weak self] message in
@@ -402,7 +407,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         -> [Result<JSONRPCRequest, JSONRPCRejection>] {
         lock.lock()
         let required = _requiresToken
-        var authenticated = _authenticated.contains(connectionID)
+        var authenticated = _authenticated[connectionID] != nil
         lock.unlock()
 
         func withoutToken(_ request: JSONRPCRequest) -> JSONRPCRequest {
@@ -426,7 +431,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             if !authenticated, let presented = request.params["token"] as? String {
                 lock.lock()
                 let known = _tokens[presented] != nil
-                if known { _authenticated.insert(connectionID) }
+                if known { _authenticated[connectionID] = presented }
                 lock.unlock()
                 if known {
                     authenticated = true

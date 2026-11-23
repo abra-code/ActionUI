@@ -234,8 +234,10 @@ token or is refused with `1006`.
   authenticate each one. The reference client always sends it, which makes reconnects
   transparent too.
 - A host may have many tokens live at once and withdraw them independently - one per unit of
-  work it spawns, revoked when that work ends. Revoking stops new connections; it does not tear
-  down authenticated ones.
+  work it spawns, revoked when that work ends. Revoking a token also ends the authentication of
+  the connections that presented it: their next request is refused (`unauthenticated`) unless it
+  carries a token that is still live. A request already accepted runs to its end, and so do the
+  other requests of a batch the server has begun to authenticate.
 
 Clients should read `ACTIONUI_REMOTE_TOKEN` from the environment and send it without being asked,
 so that a host turning the requirement on breaks nothing. A client may also accept the token from

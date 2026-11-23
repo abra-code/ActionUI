@@ -263,8 +263,9 @@ public func actionUIRemoteAddToken(_ token: UnsafePointer<CChar>?,
 /// Withdraw every token registered under `label`. Does nothing when no server is running, or
 /// when no token carries that label.
 ///
-/// Revocation stops new connections; it does not tear down authenticated ones (PROTOCOL.md
-/// section 10). A host that needs the stronger property stops the server.
+/// A connection authenticated with a withdrawn token is no longer: its next request is refused
+/// unless it presents a token that is still live (PROTOCOL.md section 10). A request already
+/// accepted runs to its end.
 @c
 public func actionUIRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
     guard let label, strlen(label) > 0 else { return }

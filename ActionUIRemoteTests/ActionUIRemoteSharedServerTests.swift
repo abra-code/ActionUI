@@ -657,6 +657,41 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
                        "command-A's grant was withdrawn")
     }
 
+    func testRevokingATokenEndsTheAuthenticationOfItsConnections() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let first = try XCTUnwrap(mintToken(label: "command-A"))
+        let second = try XCTUnwrap(mintToken(label: "command-B"))
+        let hello = #"{"jsonrpc":"2.0","id":2,"method":"actionui.hello"}"#
+
+        // Each connection authenticates once, then sends no token, as a long-lived client may.
+        let revoked = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(first)"}}"#))["result"])
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(revoked, hello))["result"], "remembered without the token")
+        let kept = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(kept,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(second)"}}"#))["result"])
+
+        "command-A".withCString { actionUIRemoteRevokeTokensWithLabel($0) }
+
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(kept, hello))["result"], "command-B's connection keeps working")
+        let refused = try XCTUnwrap(exchangeJSON(revoked, hello))
+        XCTAssertEqual((refused["error"] as? [String: Any])?["code"] as? Int, 1006,
+                       "command-A's connection is no longer authenticated")
+        let again = try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":3,"method":"actionui.hello","params":{"token":"\#(first)"}}"#))
+        XCTAssertEqual((again["error"] as? [String: Any])?["code"] as? Int, 1006, "nor with the withdrawn token")
+        let renewed = try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":4,"method":"actionui.hello","params":{"token":"\#(second)"}}"#))
+        XCTAssertNotNil(renewed["result"], "a live token authenticates the same connection again")
+
+        // revokeToken, one token by value, does the same.
+        ActionUIRemoteServer.shared?.revokeToken(second)
+        let afterOne = try XCTUnwrap(exchangeJSON(kept, hello))
+        XCTAssertEqual((afterOne["error"] as? [String: Any])?["code"] as? Int, 1006)
+    }
+
     func testTheCFaceRefusesWhatItCannotHonor() throws {
         // Nothing running: every entry point reports failure rather than pretending.
         XCTAssertNil(mintToken(label: "command-A"))
