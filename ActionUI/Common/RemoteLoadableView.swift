@@ -53,12 +53,48 @@ enum RemoteJSONFetch {
         }
     }
 
+    /// Refuses a redirect that lowers https to plain http or leaves http and https. Each hop is
+    /// judged by the address it is redirected from, so http to https to http is refused at the last
+    /// hop (Linux's loader judges by the address first asked for and follows that one). The refused
+    /// address is kept for the error. One per request.
+    final class RedirectGuard: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        private let lock = NSLock()
+        private var refusedTarget: URL?
+
+        var refused: URL? {
+            lock.withLock { refusedTarget }
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                        newRequest request: URLRequest) async -> URLRequest? {
+            let from = response.url?.scheme?.lowercased() ?? task.originalRequest?.url?.scheme?.lowercased()
+            let to = request.url?.scheme?.lowercased()
+            guard let to, to == "https" || (to == "http" && from != "https") else {
+                lock.withLock { refusedTarget = request.url }
+                return nil
+            }
+            return request
+        }
+    }
+
     /// `what`: what the body is, for the error when it is too large.
     static func data(for request: URLRequest, limit: Int, timeout: Double = defaultTimeout,
                      session: URLSession = .shared, what: String = "the ActionUI JSON") async throws -> (data: Data, finalURL: URL) {
         try await withThrowingTaskGroup(of: (data: Data, finalURL: URL)?.self) { group in
             group.addTask {
-                let (bytes, response) = try await session.bytes(for: request)
+                let redirects = RedirectGuard()
+                func refusal(_ refused: URL) -> ActionUIError {
+                    ActionUIError("the server redirected it to \(refused.absoluteString), which is not loaded: an https address is not followed to plain http, nor to another scheme")
+                }
+                let bytes: URLSession.AsyncBytes
+                let response: URLResponse
+                do {
+                    (bytes, response) = try await session.bytes(for: request, delegate: redirects)
+                } catch {
+                    if let refused = redirects.refused { throw refusal(refused) }
+                    throw error
+                }
+                if let refused = redirects.refused { throw refusal(refused) }
                 if let status = (response as? HTTPURLResponse)?.statusCode, !(200...299).contains(status) {
                     throw ActionUIError("the server answered with HTTP status \(status)")
                 }

@@ -12,18 +12,23 @@ import SwiftUI
 
 /// Serves fixed bodies for RemoteJSONFetch: /big (1001 bytes), /exact (1000), /told (says
 /// 5000 bytes in Content-Length), /stall (headers, then nothing), /moved (a redirect to
-/// https://elsewhere.invalid/exact), /missing and /failing (valid ActionUI JSON with status 404 and 500).
+/// https://elsewhere.invalid/exact), /downgrade and /odd (redirects to plain http and to ftp),
+/// /missing and /failing (valid ActionUI JSON with status 404 and 500).
 private final class StubJSONProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         guard let url = request.url else { return }
-        if url.path == "/moved" {
-            let target = URL(string: "https://elsewhere.invalid/exact")!
+        let redirects = ["/moved": "https://elsewhere.invalid/exact", "/downgrade": "http://elsewhere.invalid/exact",
+                         "/odd": "ftp://elsewhere.invalid/exact"]
+        if let to = redirects[url.path] {
+            let target = URL(string: to)!
             let redirect = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
                                            headerFields: ["Location": target.absoluteString])!
             client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: target), redirectResponse: redirect)
+            // A redirect the delegate refuses ends here, as a server's 3xx response would.
+            client?.urlProtocolDidFinishLoading(self)
             return
         }
         var headers = ["Content-Type": "application/json"]
@@ -601,5 +606,20 @@ final class LoadableViewTests: XCTestCase {
                                                    session: session)
         XCTAssertEqual(moved.finalURL, URL(string: "https://elsewhere.invalid/exact"), "the redirect's target, not the address asked for")
         XCTAssertEqual(moved.data.count, 1000)
+    }
+
+    func testAnHTTPSAddressIsNotFollowedToPlainHTTPOrAnotherScheme() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubJSONProtocol.self]
+        let session = URLSession(configuration: configuration)
+        for path in ["/downgrade", "/odd"] {
+            do {
+                _ = try await RemoteJSONFetch.data(for: URLRequest(url: URL(string: "https://stub.invalid" + path)!), limit: 1000,
+                                                   session: session)
+                XCTFail("the redirect of \(path) is followed")
+            } catch {
+                XCTAssertTrue("\(error)".hasPrefix("the server redirected it to "), "\(path): \(error)")
+            }
+        }
     }
 }
