@@ -332,7 +332,7 @@ PREVIEW_OPTIONS = {
     # JSON from a server: its LoadableView loads no file on a share (never touched).
     # The share on this machine (807) is the one check_share_reads shares and watches.
     "LessTrustedShares": ["420", "300", "--delay", "4000"]
-                         + [option for element in range(801, 809)
+                         + [option for element in range(801, 812)
                             for option in ["--expect-log", f"for element {element}: less-trusted content reads no network or device path"]],
     # ActionUI JSON in the program's folder (the app's resources) is trusted, its path in any case: its links
     # open Windows' settings, which a server's cannot. --no-launch: nothing is opened.

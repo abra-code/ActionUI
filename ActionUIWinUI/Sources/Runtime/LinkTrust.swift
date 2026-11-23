@@ -128,16 +128,21 @@ enum LinkTrust {
     /// The path Windows opens for a file: URL, as the shim reads one (filePathOf in Images.cpp): with a
     /// host, a file on that server's share ("file://server/share/a.png" is "\\server\share\a.png"),
     /// which URL.path leaves out ("/share/a.png"), so the policy would be asked about another file;
-    /// "file://localhost/C:/a.png" is the local "C:/a.png".
+    /// "file://localhost/C:/a.png" is the local "C:/a.png". The path is decoded whole, %2F included, as
+    /// the shim decodes it: URL.path keeps "%2F", so "file:///%2F%2Fserver/share/a.png" would be asked
+    /// about a local "/%2F%2Fserver/share/a.png" while Windows opens "\\\server\share\a.png", a share.
+    /// Only an ASCII letter makes a drive: with the host localhost, a letter the shim may not take for
+    /// one gives a share, which less-trusted content is refused.
     static func filePath(of url: URL) -> String {
-        guard let host = url.host(percentEncoded: false), !host.isEmpty else { return url.path }
         let path = url.path(percentEncoded: false)
         let characters = Array(path)
-        let drive = characters.count >= 3 && characters[0] == "/" && characters[1].isLetter && characters[2] == ":"
-        if drive, host.lowercased() == "localhost" {
-            return url.path
+        let drive = characters.count >= 3 && characters[0] == "/" && characters[1].isASCII && characters[1].isLetter
+            && characters[2] == ":"
+        let host = url.host(percentEncoded: false) ?? ""
+        if !host.isEmpty, !drive || host.lowercased() != "localhost" {
+            return "\\\\" + host + String(path.map { $0 == "/" ? "\\" : $0 })
         }
-        return "\\\\" + host + String(path.map { $0 == "/" ? "\\" : $0 })
+        return drive ? String(path.dropFirst()) : path
     }
 
     /// Whether the node's content may do `capability`, a read of the file at `path`, as

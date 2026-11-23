@@ -10,6 +10,9 @@
     { "type": "LoadableView", "id": 805, "properties": { "filePath": "\\\\server@SSL\\DavWWWRoot\\view5.json" } },
     { "type": "LoadableView", "id": 806, "properties": { "filePath": "\\\\.\\pipe\\view6" } },
     { "type": "LoadableView", "id": 807, "properties": { "filePath": "\\\\localhost\\actionui-canary\\view7.json" } },
-    { "type": "LoadableView", "id": 808, "properties": { "filePath": "\\\\\u0301server\\share\\view8.json" } }
+    { "type": "LoadableView", "id": 808, "properties": { "filePath": "\\\\\u0301server\\share\\view8.json" } },
+    { "type": "LoadableView", "id": 809, "properties": { "url": "file:///%2F%2Fserver/share/view9.json" } },
+    { "type": "AsyncImage", "id": 810, "properties": { "url": "file:/%2F%2Flocalhost/actionui-canary/image10.png" } },
+    { "type": "AsyncImage", "id": 811, "properties": { "url": "file:///%2F%2Flocalhost/actionui-canary/image11.png" } }
   ]
 }
