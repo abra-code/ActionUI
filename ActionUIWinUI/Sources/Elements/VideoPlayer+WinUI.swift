@@ -25,6 +25,10 @@
    ms-appdata: and the schemes of other installed media sources. A local file plays for less-trusted
    content only inside the app's resources (the trust policy's .readLocalFile, asked before the file
    is touched): another is not played (logged).
+
+ Not yet: Windows' media player downloads a remote video itself. It sends the app's cookies and signs in
+ to the server with the user's Windows account on its own, for less-trusted content too (measured on
+ Windows CI). A host can refuse remote video for less-trusted content in its trust policy (.playMedia).
 */
 
 #if canImport(FoundationEssentials)

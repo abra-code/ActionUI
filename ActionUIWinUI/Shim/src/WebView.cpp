@@ -259,8 +259,9 @@ void enqueue(std::shared_ptr<WebViewData> const &data, WebViewStep step) {
 // (camera, microphone, location, notifications and the rest are denied), no sign-in (a server's password
 // or client certificate question is canceled), no script dialog (alert, confirm and prompt answer as
 // dismissed; leaving the page is still allowed), no fullscreen, no printing, no saving from its menu, no
-// developer tools, no autofill or saved passwords. Its navigations, new windows and downloads are the
-// decider's. On the core before any navigation; for good.
+// developer tools, no autofill or saved passwords. It cannot send messages to the host or reach host
+// objects, and it is not shown past a certificate error. Its navigations, new windows and downloads are
+// the decider's. On the core before any navigation; for good.
 void restrictPage(std::shared_ptr<WebViewData> const &data) {
     webcore::CoreWebView2 core = data->core;
     webcore::CoreWebView2Settings settings = core.Settings();
@@ -270,6 +271,13 @@ void restrictPage(std::shared_ptr<WebViewData> const &data) {
     settings.AreDevToolsEnabled(false);
     settings.IsGeneralAutofillEnabled(false);
     settings.IsPasswordAutosaveEnabled(false);
+    // No channel to the host: no window.chrome.webview.postMessage, no host objects.
+    settings.IsWebMessageEnabled(false);
+    settings.AreHostObjectsAllowed(false);
+    // A page whose certificate is not valid is not shown, and the user is not offered to go on anyway.
+    core.ServerCertificateErrorDetected([](auto &&, webcore::CoreWebView2ServerCertificateErrorDetectedEventArgs const &args) {
+        args.Action(webcore::CoreWebView2ServerCertificateErrorAction::Cancel);
+    });
     core.PermissionRequested([](auto &&, webcore::CoreWebView2PermissionRequestedEventArgs const &args) {
         args.State(webcore::CoreWebView2PermissionState::Deny);
         // For this request only: saved, the refusal would become the profile's answer for the origin,

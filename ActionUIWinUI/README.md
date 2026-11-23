@@ -75,6 +75,16 @@ Look for `<dependency id="Microsoft.Web.WebView2" version="..." />` and use that
 - The browser keeps its data (cookies, cache) in `%LOCALAPPDATA%\<program name>\WebView2`, unless the host sets `WEBVIEW2_USER_DATA_FOLDER` before the first WebView is made. By default WebView2 would put it beside the program, where an installed program cannot write.
 - `Microsoft.Web.WebView2.Core.dll` is under the WebView2 SDK's license (the package's `LICENSE.txt`), a BSD-style license from Microsoft: it may be redistributed in binary form provided the copyright notice ("Copyright (C) Microsoft Corporation. All rights reserved."), the license's conditions and its disclaimer are reproduced in the documentation or other materials that ship with it (a third-party notices file is the usual place), and Microsoft's name is not used to endorse or promote the product. A program that ships the DLL, and a distribution of ActionUI that includes it, carries that notice. The WebView2 runtime is not redistributed this way: the program uses the one on the machine.
 
+## Downloads for less-trusted content
+
+ActionUI JSON from a server that is not one of the host's trusted origins, or from a file outside the app's resources, is less trusted. Windows' own network stacks send the app's cookies and sign in to servers with the user's Windows account on their own (Negotiate, NTLM), so ActionUI avoids them for this content:
+
+- LoadableView and AsyncImage (also Table image cells) download with WinHTTP, with no cookies and no Windows sign-in. A server that asks for a sign-in gets a failure.
+- A WebView gets a private browser profile (unless the trust policy allows `webViewPersistentData`), which keeps no cookies or storage on disk, shares nothing with other WebViews and does not sign in on its own.
+- VideoPlayer is the exception: Windows' media player downloads the video itself, sends the app's cookies and signs in on its own. A host that shows less-trusted content from servers it does not control can refuse remote video for it in its trust policy (`playMedia`).
+
+Trusted content (the app's own, and JSON from its trusted origins) keeps Windows' network stacks and their settings.
+
 ## Symbols and their licenses
 
 SF Symbols (Apple's) may not be shipped, so `ActionUIWinUIShim.dll` draws other glyphs for their names, compiled into it as outlines by `Scripts/prepare-windows-symbols.py` (no font ships):

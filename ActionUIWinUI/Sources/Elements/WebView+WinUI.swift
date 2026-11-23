@@ -26,11 +26,13 @@
    and the page's own about, data and blob addresses load; another scheme is handed to its app only
    for the page itself and when the link rule allows it (mailto, by default), with
    WebView2's own prompt; anything else is refused and logged, and the page opens no new window and
-   downloads nothing. Its page asks for nothing either, as on Apple and Linux: permissions are denied,
+   downloads nothing. (WebView2 alone would hand any scheme to the app registered for it and open
+   windows of its own.) The page asks for nothing either, as on Apple and Linux: permissions are denied,
    a server's request for a password or a client certificate is canceled, script dialogs are dismissed
    (leaving the page is allowed), there is no fullscreen, printing, saving from its menu, developer
-   tools, autofill or saved passwords. WebView2 alone would hand any scheme to the app registered for it
-   and open windows of its own.
+   tools, autofill or saved passwords. The page cannot send messages to the host or reach host objects,
+   and a page with an invalid certificate is not shown. A file input can still ask the user to pick a
+   file.
  - When the trust policy refuses .webViewPersistentData (by default, for less-trusted content), the
    WebView gets a separate, private browser profile (InPrivate), as on Apple and Linux. Its cookies,
    cache and storage are shared with no other WebView and never written to disk.
