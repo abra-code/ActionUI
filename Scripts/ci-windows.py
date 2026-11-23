@@ -1330,6 +1330,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
                                 .splitlines() if line.startswith("preview:")]
         passed = passed and step["status"] == 0 and png.is_file() and png.stat().st_size > 0
     passed = check_share_reads(preview, bin_path, results, summary, env) and passed
+    check_ambient_identity(preview, bin_path, results, summary, env)
     return passed
 
 
@@ -1399,6 +1400,72 @@ def check_share_reads(preview, bin_path, results, summary, env):
         return step["status"] == 0
     findings.append(f"share check: passed: only the app's own JSON reached the share ({counts})")
     return step["status"] == 0 and control_step["status"] == 0
+
+
+def check_ambient_identity(preview, bin_path, results, summary, env):
+    """Records, without failing anything, what the app's network stacks send to a server that less-trusted
+    content names: a local server (Scripts/ci-http-responder.py, on "localhost", which Windows may count as
+    the intranet, where it signs in on its own) sets a cookie through the app's own LoadableView, then
+    serves JSON (less trusted) whose LoadableView, AsyncImage, VideoPlayer and WebView each name a page
+    that asks for Windows sign-in (/auth/) and one that does not (/cookie/). Each request's sign-in scheme
+    and cookie names go into the findings, with the preview's warnings about those elements (a load refused
+    sends no request)."""
+    findings = summary["findings"]
+    folder = results / "ambient-identity"
+    folder.mkdir(parents=True, exist_ok=True)
+    port_file, record, stop_file = folder / "port", folder / "requests.jsonl", folder / "stop"
+    for path in (port_file, record, stop_file):
+        path.unlink(missing_ok=True)
+    video = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Media" / "one-second.mp4"
+    log = open(folder / "responder.log", "w", encoding="utf-8")
+    try:
+        responder = subprocess.Popen([sys.executable, "-I", str(REPO_DIR / "Scripts" / "ci-http-responder.py"),
+                                      "--port-file", str(port_file), "--record", str(record),
+                                      "--stop-file", str(stop_file), "--video", str(video)],
+                                     stdout=log, stderr=subprocess.STDOUT)
+    except OSError as error:
+        log.close()
+        findings.append(f"ambient identity: not run: the responder could not start: {error}")
+        return
+    try:
+        started = time.monotonic()
+        while not port_file.is_file() and responder.poll() is None and time.monotonic() - started < 20:
+            time.sleep(0.2)
+        port = port_file.read_text(encoding="utf-8").strip() if port_file.is_file() else ""
+        if not port.isdigit():
+            findings.append("ambient identity: not run: the responder did not start (see ambient-identity/responder.log)")
+            return
+        document = REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents" / "Probes" / "AmbientIdentity.json"
+        step = run_step("ambient-identity", [preview, document, results / "ambient-identity.png", "420", "260",
+                                             "--set-value", "2", f"http://localhost:{port}/set-cookie.json",
+                                             "--delay", "3000",
+                                             "--set-value", "3", f"http://localhost:{port}/outer.json",
+                                             "--delay", "15000"],
+                        results, env, cwd=bin_path, timeout=SMOKE_TIMEOUT_SECONDS)
+        summary["steps"].append(step)
+        findings += [f"ambient identity: preview {line.strip()}" for line in
+                     (results / step["log"]).read_text(encoding="utf-8", errors="replace").splitlines()
+                     if "[warning]" in line and re.search(r"\b20[1-8]\b", line)]
+    finally:
+        try:
+            stop_file.write_text("stop", encoding="utf-8")
+            responder.wait(timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            responder.kill()
+            responder.wait()
+        log.close()
+    lines = record.read_text(encoding="utf-8").splitlines() if record.is_file() else []
+    if not lines:
+        findings.append("ambient identity: no request reached the responder")
+        return
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        cookie = ",".join(entry.get("cookie") or []) or "none"
+        findings.append(f"ambient identity: {entry.get('method')} {entry.get('path')} over {entry.get('over')}: "
+                        f"sign-in {entry.get('authorization') or 'none'}, cookies {cookie}, agent {entry.get('agent') or 'none'}")
 
 
 def main():

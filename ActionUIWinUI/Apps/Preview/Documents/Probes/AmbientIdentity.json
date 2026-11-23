@@ -1,0 +1,10 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": { "spacing": 8, "alignment": "leading", "padding": 16 },
+  "children": [
+    { "type": "Text", "id": 4, "properties": { "text": "The app's own load sets a cookie; the second loads JSON from a server" } },
+    { "type": "LoadableView", "id": 2 },
+    { "type": "LoadableView", "id": 3 }
+  ]
+}
