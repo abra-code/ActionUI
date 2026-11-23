@@ -536,6 +536,34 @@ static PyObject* py_app_remote_enable_perform_action(PyObject* self, PyObject* a
     Py_RETURN_FALSE;
 }
 
+// Removes ACTIONUI_REMOTE_TOKEN from the process environment (the token stays valid); False when
+// there was nothing to remove.
+static PyObject* py_app_remote_unexport_token(PyObject* self, PyObject* args) {
+    bool answered;
+    WITHOUT_GIL(answered = actionUIAppRemoteUnexportToken());
+    if (answered) Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
+// A new token under the label, for one child; None when no server runs or the label is empty.
+static PyObject* py_app_remote_mint_token(PyObject* self, PyObject* args) {
+    const char* label;
+    if (PyArg_ParseTuple(args, "s", &label) == 0) return NULL;
+    char token[128];        // the token is 65 bytes; 128 is what the framework documents as enough
+    bool answered;
+    WITHOUT_GIL(answered = actionUIAppRemoteMintToken(label, token, sizeof(token)));
+    if (answered == false) Py_RETURN_NONE;
+    return PyUnicode_FromString(token);
+}
+
+// Withdraws every token minted under the label.
+static PyObject* py_app_remote_revoke_tokens(PyObject* self, PyObject* args) {
+    const char* label;
+    if (PyArg_ParseTuple(args, "s", &label) == 0) return NULL;
+    WITHOUT_GIL(actionUIAppRemoteRevokeTokensWithLabel(label));
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_app_load_and_present_window(PyObject* self, PyObject* args) {
     const char* urlString;
     const char* windowUUID;
@@ -1966,6 +1994,12 @@ static PyMethodDef ActionUIMethods[] = {
      "app_remote_server_token() -> str|None - the token the running server requires."},
     {"app_remote_enable_perform_action", py_app_remote_enable_perform_action, METH_NOARGS,
      "app_remote_enable_perform_action() -> bool - turn on actionui.performAction; False if no server runs."},
+    {"app_remote_unexport_token",     py_app_remote_unexport_token,     METH_NOARGS,
+     "app_remote_unexport_token() -> bool - remove ACTIONUI_REMOTE_TOKEN from the environment; the token stays valid."},
+    {"app_remote_mint_token",         py_app_remote_mint_token,         METH_VARARGS,
+     "app_remote_mint_token(label) -> str|None - a new token under label, for one child."},
+    {"app_remote_revoke_tokens",      py_app_remote_revoke_tokens,      METH_VARARGS,
+     "app_remote_revoke_tokens(label) - withdraw every token minted under label."},
     {"app_load_and_present_window",   py_app_load_and_present_window,   METH_VARARGS,
      "app_load_and_present_window(url, windowUUID[, title]) — load JSON and open a window."},
     {"app_close_window",              py_app_close_window,              METH_VARARGS,

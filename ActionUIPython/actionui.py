@@ -528,6 +528,50 @@ class Application:
         """
         return _actionui.app_remote_server_token()
 
+    def unexport_remote_token(self) -> bool:
+        """Remove the server's token from this process's environment, so children spawned from
+        now on do not inherit it in ``ACTIONUI_REMOTE_TOKEN``; the token itself stays valid.
+
+        For a host that hands each child a token of its own on a descriptor instead
+        (:meth:`mint_remote_token`), which keeps it out of ``ps``; see ``PROTOCOL.md`` section 10.
+        Returns False when there was nothing to remove.
+
+        Example::
+
+            app.start_remote_server()
+            app.unexport_remote_token()
+            token = app.mint_remote_token("job-1")
+            read_end, write_end = os.pipe()
+            os.write(write_end, token.encode() + b"\\n")
+            os.close(write_end)
+            # The child gets the descriptor under the same number (pass_fds).
+            subprocess.run(["python3", "worker.py"], pass_fds=(read_end,),
+                           env={**os.environ, "ACTIONUI_REMOTE_TOKEN_FD": str(read_end)})
+            os.close(read_end)
+            app.revoke_remote_tokens("job-1")
+        """
+        import os
+        removed = _actionui.app_remote_unexport_token()
+        os.environ.pop(REMOTE_TOKEN_ENV, None)   # the copy os.environ keeps does not see unsetenv
+        return removed
+
+    def mint_remote_token(self, label: str) -> str:
+        """A new token for the running server, under *label* (a job or child id), for one child.
+
+        Hand it to the child on a descriptor named by ``ACTIONUI_REMOTE_TOKEN_FD`` (see
+        :meth:`unexport_remote_token`), and withdraw it with :meth:`revoke_remote_tokens` when
+        that work ends. Raises RuntimeError when the server is not running or *label* is empty.
+        """
+        token = _actionui.app_remote_mint_token(label)
+        if token is None:
+            raise RuntimeError("cannot mint a token: the remote server is not running, or the label is empty")
+        return token
+
+    def revoke_remote_tokens(self, label: str):
+        """Withdraw every token minted under *label*. A connection that presented one is refused
+        from its next request on. Does nothing when no token carries the label."""
+        _actionui.app_remote_revoke_tokens(label)
+
     def enable_remote_perform_action(self):
         """Turn on the running server's ``actionui.performAction``, which fires an element's
         action as a click would, so a test harness can check the wiring from a control's

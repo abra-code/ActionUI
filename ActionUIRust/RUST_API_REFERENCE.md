@@ -205,6 +205,9 @@ Lets other processes of the same user read and drive this application's windows,
 | `remote_server_endpoint(&self) -> Option<String>` | The socket path while the server runs. |
 | `remote_server_token(&self) -> Option<String>` | The token a client must present, if any. |
 | `enable_remote_perform_action(&self) -> Result<()>` | Turns on `actionui.performAction`, which fires an element's action as a click would, for a test harness. Off until called; fails when the server is not running. |
+| `unexport_remote_token(&self) -> bool` | Removes `ACTIONUI_REMOTE_TOKEN` from the environment, so processes started from now on inherit no token; the token stays valid. False when there was nothing to remove. |
+| `mint_remote_token(&self, label: &str) -> Result<String>` | A new token under `label`, for one child, to hand over on a descriptor named by `ACTIONUI_REMOTE_TOKEN_FD`. Fails when the server is not running or the label is empty. |
+| `revoke_remote_tokens(&self, label: &str) -> Result<()>` | Withdraws every token minted under `label`; a connection that presented one is refused from then on. |
 
 Starting the server exports `ACTIONUI_REMOTE_ENDPOINT` and `ACTIONUI_REMOTE_TOKEN` in this process's environment, so a child process started afterwards finds the server by itself. The server stops when the application terminates.
 

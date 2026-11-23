@@ -532,6 +532,50 @@ class Application {
     get remoteServerToken() { return _actionui.appRemoteServerToken(); }
 
     /**
+     * Removes the server's token from this process's environment, so children spawned from now on
+     * do not inherit it in ACTIONUI_REMOTE_TOKEN; the token itself stays valid. For a host that
+     * hands each child a token of its own on a descriptor instead (mintRemoteToken), which keeps
+     * it out of `ps`; see PROTOCOL.md section 10. Returns false when there was nothing to remove.
+     *
+     *     app.startRemoteServer();
+     *     app.unexportRemoteToken();
+     *     const token = app.mintRemoteToken('job-1');
+     *     const child = spawn('node', ['worker.js'], {
+     *         stdio: ['inherit', 'inherit', 'inherit', 'pipe'],
+     *         env: { ...process.env, ACTIONUI_REMOTE_TOKEN_FD: '3' },
+     *     });
+     *     child.stdio[3].end(token + '\n');
+     *     child.on('exit', () => app.revokeRemoteTokens('job-1'));
+     */
+    unexportRemoteToken() {
+        const removed = _actionui.appRemoteUnexportToken();
+        delete process.env.ACTIONUI_REMOTE_TOKEN;   // keep the snapshot in step with unsetenv
+        return removed;
+    }
+
+    /**
+     * A new token for the running server, under `label` (a job or child id), for one child. Hand
+     * it over on a descriptor named by ACTIONUI_REMOTE_TOKEN_FD (see unexportRemoteToken) and
+     * withdraw it with revokeRemoteTokens when that work ends. Throws when the server is not
+     * running or the label is empty, and with a TypeError when it is not a string.
+     */
+    mintRemoteToken(label) {
+        const token = _actionui.appRemoteMintToken(label);
+        if (token === null) {
+            throw new Error('cannot mint a token: the remote server is not running, or the label is empty');
+        }
+        return token;
+    }
+
+    /**
+     * Withdraws every token minted under `label`. A connection that presented one is refused from
+     * its next request on. Does nothing when no token carries the label.
+     */
+    revokeRemoteTokens(label) {
+        _actionui.appRemoteRevokeTokens(label);
+    }
+
+    /**
      * Turns on the running server's actionui.performAction, which fires an element's action as a
      * click would, so a test harness can check the wiring from a control's actionID to its
      * handler. Off until this is called; it ends with the server. Throws when the server is not

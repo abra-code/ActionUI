@@ -655,6 +655,11 @@ app.remote_server_endpoint    # the socket path, or None
 app.remote_server_token       # the token it requires, or None
 app.enable_remote_perform_action()  # for a test harness: allow actionui.performAction
 app.stop_remote_server()      # also runs at interpreter exit
+
+# One token per child, on a descriptor, and none in the environment:
+app.unexport_remote_token()             # children spawned from now on inherit no token
+token = app.mint_remote_token("job-1")  # a token of its own for one child
+app.revoke_remote_tokens("job-1")       # when that child's work ends
 ```
 
 **Authentication.**  A server started this way always requires a token - the
@@ -665,6 +670,15 @@ spawn cannot drive its windows merely by finding the socket.
 `env={**os.environ, ...}` spawn above needs nothing added, and a worker writes
 nothing about tokens at all.  `app.remote_server_token` is for a host that wants
 to deliver it some other way.
+
+**One token per child.**  A token in the environment reaches every child and,
+for a `python3` or `node` child, any process of the user through `ps`.  A host
+that wants neither calls `unexport_remote_token()` after starting, then gives
+each child a token of its own from `mint_remote_token(label)` on an inherited
+descriptor named by `ACTIONUI_REMOTE_TOKEN_FD` (the docstring of
+`unexport_remote_token` shows the `pass_fds` spawn), and withdraws it with
+`revoke_remote_tokens(label)` when the child's work ends; a connection that
+presented it is refused from then on.  See `ActionUIRemote/PROTOCOL.md` section 10.
 
 Mirroring is not optional bookkeeping.  The framework publishes both variables
 with `setenv`, and `os.environ` is a snapshot taken at interpreter start that a

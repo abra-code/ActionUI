@@ -38,6 +38,7 @@ function testNativeAPISurface() {
         // Remote bridge
         'appStartRemoteServer', 'appStopRemoteServer', 'appRemoteServerEndpoint',
         'appRemoteServerToken', 'appRemoteEnablePerformAction',
+        'appRemoteUnexportToken', 'appRemoteMintToken', 'appRemoteRevokeTokens',
         // Action handlers
         'registerActionHandler', 'unregisterActionHandler', 'setDefaultActionHandler',
         // Type-specific setters
@@ -366,6 +367,28 @@ function testRemoteBridge(app) {
     check('a child that inherits the environment passes the token gate',
           remoteProbe({ ...process.env }) === 'no-reply');
 
+    // One token per child: minted, used, revoked; and the start-up token kept out of the
+    // environment, so only a child handed a token gets in.
+    const minted = app.mintRemoteToken('job-1');
+    check('mintRemoteToken returns a new token', typeof minted === 'string' && minted.length > 0 && minted !== token);
+    check('a child with a minted token passes the token gate',
+          remoteProbe({ ...withoutToken, ACTIONUI_REMOTE_TOKEN: minted }) === 'no-reply');
+    app.revokeRemoteTokens('job-1');
+    check('a revoked token is refused with 1006',
+          remoteProbe({ ...withoutToken, ACTIONUI_REMOTE_TOKEN: minted }) === '1006');
+    let emptyLabelThrew = false;
+    try { app.mintRemoteToken(''); } catch (e) { emptyLabelThrew = true; }
+    check('an empty label throws', emptyLabelThrew);
+    let missingLabelThrew = false;
+    try { app.mintRemoteToken(); } catch (e) { missingLabelThrew = e instanceof TypeError; }
+    check('a missing label throws a TypeError, not a token labeled "undefined"', missingLabelThrew);
+    check('unexportRemoteToken removes the token from the environment', app.unexportRemoteToken() === true);
+    check('process.env no longer carries it', process.env.ACTIONUI_REMOTE_TOKEN === undefined);
+    check('a child that inherits the environment now has no token', remoteProbe({ ...process.env }) === '1006');
+    check('the start-up token itself stays valid',
+          remoteProbe({ ...process.env, ACTIONUI_REMOTE_TOKEN: token }) === 'no-reply');
+    check('a second unexport finds nothing to remove', app.unexportRemoteToken() === false);
+
     let threw = false;
     try { app.startRemoteServer(); } catch (e) { threw = true; }
     check('starting twice throws', threw);
@@ -380,6 +403,9 @@ function testRemoteBridge(app) {
     try { app.enableRemotePerformAction(); } catch (e) { refused = true; }
     check('enableRemotePerformAction throws when no server runs', refused);
     check('the token variable is unset', process.env.ACTIONUI_REMOTE_TOKEN === undefined);
+    let mintRefused = false;
+    try { app.mintRemoteToken('job-2'); } catch (e) { mintRefused = true; }
+    check('mintRemoteToken throws when no server runs', mintRefused);
 
     let stoppedTwice = true;
     try { app.stopRemoteServer(); } catch (e) { stoppedTwice = false; }

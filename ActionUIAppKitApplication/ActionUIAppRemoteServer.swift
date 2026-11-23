@@ -65,6 +65,33 @@ public func actionUIAppRemoteEnablePerformAction() -> CBool {
     return actionUIRemoteEnablePerformAction()
 }
 
+/// Remove the server's token from this process's environment (`ACTIONUI_REMOTE_TOKEN`), so
+/// children spawned from now on do not inherit it; the token stays valid. For a host that hands
+/// each child a token of its own on a descriptor instead (PROTOCOL.md section 10). Equivalent to
+/// `actionUIRemoteUnexportToken()`. False when there was nothing to remove.
+@c
+public func actionUIAppRemoteUnexportToken() -> CBool {
+    return actionUIRemoteUnexportToken()
+}
+
+/// Mint a new token for the running server under `label`, for one child or one piece of work,
+/// and write it, NUL-terminated, to `outToken` (128 bytes is always enough). Withdraw it with
+/// `actionUIAppRemoteRevokeTokensWithLabel` when that work ends. Equivalent to
+/// `actionUIRemoteMintToken`. False when no server is running, the label is empty, or the
+/// buffer is too small.
+@c
+public func actionUIAppRemoteMintToken(_ label: UnsafePointer<CChar>?, _ outToken: UnsafeMutablePointer<CChar>?,
+                                       _ outTokenSize: Int) -> CBool {
+    return actionUIRemoteMintToken(label, outToken, outTokenSize)
+}
+
+/// Withdraw every token minted under `label`; a connection that presented one is refused from
+/// its next request. Equivalent to `actionUIRemoteRevokeTokensWithLabel`.
+@c
+public func actionUIAppRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
+    actionUIRemoteRevokeTokensWithLabel(label)
+}
+
 /// The socket path of the running server, or NULL when none is running.
 /// Equivalent to `actionUIRemoteServerEndpoint()`, including its lifetime: the string is owned
 /// by the framework and stays valid until the next start or stop.

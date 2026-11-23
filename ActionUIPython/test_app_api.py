@@ -50,6 +50,9 @@ def test_module_api_surface():
         "app_remote_server_endpoint",
         "app_remote_server_token",
         "app_remote_enable_perform_action",
+        "app_remote_unexport_token",
+        "app_remote_mint_token",
+        "app_remote_revoke_tokens",
         "app_set_name",
         "app_set_application_id",
         "app_set_icon",
@@ -449,6 +452,28 @@ def test_remote_server(app: actionui.Application):
     check("a child that inherits the environment passes the token gate",
           _remote_probe(dict(os.environ)) == "no-reply")
 
+    # One token per child: minted, used, revoked; and the start-up token kept out of the
+    # environment, so only a child handed a token gets in.
+    minted = app.mint_remote_token("job-1")
+    check("mint_remote_token returns a new token", isinstance(minted, str) and minted not in ("", token))
+    check("a child with a minted token passes the token gate",
+          _remote_probe({**without_token, actionui.REMOTE_TOKEN_ENV: minted}) == "no-reply")
+    app.revoke_remote_tokens("job-1")
+    check("a revoked token is refused with 1006",
+          _remote_probe({**without_token, actionui.REMOTE_TOKEN_ENV: minted}) == "1006")
+    try:
+        app.mint_remote_token("")
+        check("an empty label raises RuntimeError", False)
+    except RuntimeError:
+        check("an empty label raises RuntimeError", True)
+    check("unexport_remote_token removes the token from the environment", app.unexport_remote_token())
+    check("os.environ no longer carries it", actionui.REMOTE_TOKEN_ENV not in os.environ)
+    check("a child that inherits the environment now has no token",
+          _remote_probe(dict(os.environ)) == "1006")
+    check("the start-up token itself stays valid",
+          _remote_probe({**os.environ, actionui.REMOTE_TOKEN_ENV: token}) == "no-reply")
+    check("a second unexport finds nothing to remove", not app.unexport_remote_token())
+
     try:
         app.start_remote_server()
         check("starting twice raises RuntimeError", False)
@@ -467,6 +492,11 @@ def test_remote_server(app: actionui.Application):
     except RuntimeError:
         check("enable_remote_perform_action raises when no server runs", True)
     check("the token variable is unset", actionui.REMOTE_TOKEN_ENV not in os.environ)
+    try:
+        app.mint_remote_token("job-2")
+        check("mint_remote_token raises when no server runs", False)
+    except RuntimeError:
+        check("mint_remote_token raises when no server runs", True)
 
     try:
         app.stop_remote_server()

@@ -1844,6 +1844,39 @@ static napi_value node_app_remote_enable_perform_action(napi_env env, napi_callb
     return ret;
 }
 
+// Removes ACTIONUI_REMOTE_TOKEN from the process environment (the token stays valid); false
+// when there was nothing to remove.
+static napi_value node_app_remote_unexport_token(napi_env env, napi_callback_info info) {
+    napi_value ret;
+    napi_get_boolean(env, actionUIAppRemoteUnexportToken(), &ret);
+    return ret;
+}
+
+// A new token under the label, for one child; null when no server runs or the label is empty.
+static napi_value node_app_remote_mint_token(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    STRING_ARG(label);
+    if (!read_string_arg(env, argv[0], &label, "label")) return NULL;
+    char token[128];    // the token is 65 bytes; 128 is what the framework documents as enough
+    if (actionUIAppRemoteMintToken(label, token, sizeof(token)) == false) {
+        napi_value n; napi_get_null(env, &n); return n;
+    }
+    napi_value ret;
+    napi_create_string_utf8(env, token, NAPI_AUTO_LENGTH, &ret);
+    return ret;
+}
+
+// Withdraws every token minted under the label.
+static napi_value node_app_remote_revoke_tokens(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    STRING_ARG(label);
+    if (!read_string_arg(env, argv[0], &label, "label")) return NULL;
+    actionUIAppRemoteRevokeTokensWithLabel(label);
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
 static napi_value node_app_load_and_present_window(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -2599,6 +2632,9 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "appRemoteServerEndpoint",  node_app_remote_server_endpoint);
     EXPORT_FN(exports, "appRemoteServerToken",     node_app_remote_server_token);
     EXPORT_FN(exports, "appRemoteEnablePerformAction", node_app_remote_enable_perform_action);
+    EXPORT_FN(exports, "appRemoteUnexportToken",   node_app_remote_unexport_token);
+    EXPORT_FN(exports, "appRemoteMintToken",       node_app_remote_mint_token);
+    EXPORT_FN(exports, "appRemoteRevokeTokens",    node_app_remote_revoke_tokens);
     EXPORT_FN(exports, "appLoadAndPresentWindow",  node_app_load_and_present_window);
     EXPORT_FN(exports, "appCloseWindow",           node_app_close_window);
     EXPORT_FN(exports, "appLoadMenuBar",           node_app_load_menu_bar);

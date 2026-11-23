@@ -444,6 +444,42 @@ impl App {
         }
     }
 
+    /// Removes the server's token from this process's environment, so processes started from
+    /// now on do not inherit it in `ACTIONUI_REMOTE_TOKEN`; the token itself stays valid. For a
+    /// host that hands each child a token of its own on a descriptor instead
+    /// ([`App::mint_remote_token`]), which keeps it out of `ps` (PROTOCOL.md section 10).
+    /// Returns false when there was nothing to remove.
+    pub fn unexport_remote_token(&self) -> bool {
+        unsafe { sys::actionUIAppRemoteUnexportToken() }
+    }
+
+    /// A new token for the running server, under `label` (a job or child id), for one child.
+    /// Hand it over on a descriptor named by `ACTIONUI_REMOTE_TOKEN_FD` and withdraw it with
+    /// [`App::revoke_remote_tokens`] when that work ends. Fails when the server is not running
+    /// or the label is empty.
+    pub fn mint_remote_token(&self, label: &str) -> Result<String> {
+        let label = ffi::cstring("token label", label)?;
+        // ActionUI documents 128 bytes as always enough.
+        let mut buffer = [0 as c_char; 256];
+        let minted = unsafe {
+            sys::actionUIAppRemoteMintToken(label.as_ptr(), buffer.as_mut_ptr(), buffer.len() as isize)
+        };
+        if !minted {
+            return Err(Error::ActionUI(
+                "cannot mint a token: the remote server is not running, or the label is empty".to_string()));
+        }
+        unsafe { ffi::copy_string(buffer.as_ptr()) }
+            .ok_or_else(|| Error::ActionUI("the minted token was not UTF-8".to_string()))
+    }
+
+    /// Withdraws every token minted under `label`. A connection that presented one is refused
+    /// from its next request on. Does nothing when no token carries the label.
+    pub fn revoke_remote_tokens(&self, label: &str) -> Result<()> {
+        let label = ffi::cstring("token label", label)?;
+        unsafe { sys::actionUIAppRemoteRevokeTokensWithLabel(label.as_ptr()) };
+        Ok(())
+    }
+
     // MARK: - Actions
 
     /// Runs `handler` for every action with this `actionID`: a button press, a menu item,

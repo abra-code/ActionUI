@@ -241,6 +241,9 @@ unsafe extern "C" {
     pub fn actionUIAppRemoteCopyServerToken(outToken: *mut c_char, outTokenSize: isize) -> bool;
     pub fn actionUIAppRemoteServerEndpoint() -> *const c_char;
     pub fn actionUIAppRemoteEnablePerformAction() -> bool;
+    pub fn actionUIAppRemoteUnexportToken() -> bool;
+    pub fn actionUIAppRemoteMintToken(label: *const c_char, outToken: *mut c_char, outTokenSize: isize) -> bool;
+    pub fn actionUIAppRemoteRevokeTokensWithLabel(label: *const c_char);
 }
 
 // MARK: - ActionUIRemote (ActionUIRemote-Swift.h)

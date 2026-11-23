@@ -220,6 +220,11 @@ app.remoteServerEndpoint;    // the socket path, or null
 app.remoteServerToken;       // the token it requires, or null
 app.enableRemotePerformAction();  // for a test harness: allow actionui.performAction
 app.stopRemoteServer();      // also runs on process exit
+
+// One token per child, on a descriptor, and none in the environment:
+app.unexportRemoteToken();               // children spawned from now on inherit no token
+const token = app.mintRemoteToken('job-1');  // a token of its own for one child
+app.revokeRemoteTokens('job-1');         // when that child's work ends
 ```
 
 Starting twice throws.  The client a worker uses is `ActionUIRemote/Python/actionui_remote.py`,
@@ -233,6 +238,14 @@ finding the socket.  `startRemoteServer` exports it as
 without being asked - so the `{ ...process.env }` spawn above needs nothing added, and a worker
 writes nothing about tokens at all.  `app.remoteServerToken` is for a host that wants to deliver
 it some other way.
+
+**One token per child.**  A token in the environment reaches every child and, for a `node` or
+`python3` child, any process of the user through `ps`.  A host that wants neither calls
+`unexportRemoteToken()` after starting, then gives each child a token of its own from
+`mintRemoteToken(label)` on an inherited descriptor named by `ACTIONUI_REMOTE_TOKEN_FD` (spawn with
+a `'pipe'` in `stdio[3]`, write the token and a newline to it, and set the variable to `3`), and
+withdraws it with `revokeRemoteTokens(label)` when the child's work ends; a connection that
+presented it is refused from then on.  See `ActionUIRemote/PROTOCOL.md` section 10.
 
 Mirroring is not optional bookkeeping.  The framework publishes both variables with `setenv`, and
 `process.env` is a snapshot taken at startup that a later `setenv` never reaches, so a child built
@@ -552,6 +565,9 @@ native.appStopRemoteServer()
 native.appRemoteServerEndpoint()       // the socket path, or null
 native.appRemoteServerToken()          // the token the server requires, or null
 native.appRemoteEnablePerformAction() // turn on actionui.performAction; false if no server runs
+native.appRemoteUnexportToken()        // remove ACTIONUI_REMOTE_TOKEN from the environment; false if absent
+native.appRemoteMintToken(label)       // a new token under label, or null
+native.appRemoteRevokeTokens(label)    // withdraw every token minted under label
 
 // Type-specific setters (windowUuid, viewId, partId, value)
 native.setIntValue(uuid, viewId, partId, value)

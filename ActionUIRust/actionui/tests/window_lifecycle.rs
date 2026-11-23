@@ -196,7 +196,17 @@ fn check_remote_server(app: App) {
     check("it has a token", app.remote_server_token().is_some_and(|token| !token.is_empty()));
     check("a second start is an error", app.start_remote_server(None).is_err());
     check("performAction can be turned on while it runs", app.enable_remote_perform_action().is_ok());
+    let minted = app.mint_remote_token("job-1");
+    check("a token can be minted for one child",
+          matches!(&minted, Ok(token) if !token.is_empty() && Some(token.clone()) != app.remote_server_token()));
+    check("minting with an empty label is an error", app.mint_remote_token("").is_err());
+    check("revoking a label is accepted", app.revoke_remote_tokens("job-1").is_ok());
+    check("unexporting removes the token from the environment",
+          app.unexport_remote_token() && std::env::var_os("ACTIONUI_REMOTE_TOKEN").is_none());
+    check("the start-up token stays valid", app.remote_server_token().is_some());
+    check("a second unexport finds nothing to remove", !app.unexport_remote_token());
     app.stop_remote_server();
+    check("minting with no server is an error", app.mint_remote_token("job-2").is_err());
     check("after stopping it reports no socket path", app.remote_server_endpoint().is_none());
     check("turning performAction on with no server is an error", app.enable_remote_perform_action().is_err());
 }
