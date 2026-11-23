@@ -9,12 +9,15 @@
 // run, with no window, over a window and with four buttons; and file panels (actionUIAppRunOpenPanel,
 // actionUIAppRunSavePanel): open, save, cancel, a folder. Each is answered as an accessibility tool does (UI
 // Automation's Invoke on a button, its Value on the name field, from a thread of its own while the call waits).
+// Reads a TextField and a SecureField of the first window as a screen reader does: the TextField gives its
+// text, the SecureField says it is a password and gives none of its text.
 // Usage: ActionUIAppCheck WINDOW.json URL.
 // Prints "c-app:" lines; exit status 0 when every check passed. Built and run by Scripts/ci-windows.py.
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 
 #define COBJMACROS
 #include <windows.h>
@@ -52,6 +55,7 @@ static const CLSID automationClass = {0xff48dba4, 0x60ef, 0x4201, {0xaa, 0x87, 0
 static const IID automationInterface = {0x30cbe57d, 0xd9d0, 0x452a, {0xab, 0x13, 0x7a, 0xc5, 0xac, 0x48, 0x25, 0xee}};
 static const IID invokeInterface = {0xfb377fbe, 0x8ea6, 0x46d5, {0x9c, 0x73, 0x64, 0x99, 0x64, 0x2d, 0x30, 0x59}};
 static const IID valueInterface = {0xa94cd8b1, 0x0844, 0x4cd6, {0x9d, 0x2d, 0x64, 0x05, 0x37, 0xab, 0x39, 0xe9}};
+static const IID textInterface = {0x32eba289, 0x3583, 0x42c9, {0x9c, 0x59, 0x3b, 0x6d, 0x9a, 0x1e, 0x9b, 0x6a}};
 
 // What the answering thread did, and the name of the element that had the keyboard focus before it
 // answered (the default button, which Enter presses), read once the alert has returned.
@@ -261,6 +265,163 @@ static void checkAlert(const char *json, const wchar_t *answer, const char *expe
     if (chosen != NULL) {
         actionUIFreeString(chosen);
     }
+}
+
+// MARK: - Reading text fields as an accessibility tool does
+
+// What the reading thread found: the plain field's value, and the secure field's value and password flag.
+static wchar_t plainRead[64] = L"";
+static wchar_t secretRead[64] = L"";
+static wchar_t plainText[64] = L"";
+static wchar_t secretText[64] = L"";
+static bool secretIsPassword = false;
+static bool secretFound = false;
+
+// `element`'s value through UI Automation's Value pattern, into `out` (empty when it has none).
+static void readElementValue(IUIAutomationElement *element, wchar_t *out, size_t count) {
+    out[0] = L'\0';
+    IUnknown *pattern = NULL;
+    IUIAutomationValuePattern *value = NULL;
+    HRESULT got = IUIAutomationElement_GetCurrentPattern(element, UIA_ValuePatternId, &pattern);
+    if (SUCCEEDED(got) && pattern != NULL) {
+        got = IUnknown_QueryInterface(pattern, &valueInterface, (void **)&value);
+        IUnknown_Release(pattern);
+    }
+    if (FAILED(got) || value == NULL) {
+        return;
+    }
+    BSTR text = NULL;
+    if (SUCCEEDED(IUIAutomationValuePattern_get_CurrentValue(value, &text)) && text != NULL) {
+        wcsncpy_s(out, count, text, _TRUNCATE);
+        SysFreeString(text);
+    }
+    IUIAutomationValuePattern_Release(value);
+}
+
+// `element`'s whole text through UI Automation's Text pattern (what a screen reader reads by line or word),
+// into `out` (empty when it has none).
+static void readElementText(IUIAutomationElement *element, wchar_t *out, size_t count) {
+    out[0] = L'\0';
+    IUnknown *pattern = NULL;
+    IUIAutomationTextPattern *text = NULL;
+    HRESULT got = IUIAutomationElement_GetCurrentPattern(element, UIA_TextPatternId, &pattern);
+    if (SUCCEEDED(got) && pattern != NULL) {
+        got = IUnknown_QueryInterface(pattern, &textInterface, (void **)&text);
+        IUnknown_Release(pattern);
+    }
+    if (FAILED(got) || text == NULL) {
+        return;
+    }
+    IUIAutomationTextRange *range = NULL;
+    if (SUCCEEDED(IUIAutomationTextPattern_get_DocumentRange(text, &range)) && range != NULL) {
+        BSTR whole = NULL;
+        if (SUCCEEDED(IUIAutomationTextRange_GetText(range, -1, &whole)) && whole != NULL) {
+            wcsncpy_s(out, count, whole, _TRUNCATE);
+            SysFreeString(whole);
+        }
+        IUIAutomationTextRange_Release(range);
+    }
+    IUIAutomationTextPattern_Release(text);
+}
+
+// The reading thread: finds the two fields by their automation IDs and reads them, as a screen reader
+// does. The plain field is read until it shows the host's text (the window syncs after the host's set).
+static DWORD WINAPI readTextFields(void *parameter) {
+    (void)parameter;
+    if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED))) {
+        return 1;
+    }
+    IUIAutomation *automation = NULL;
+    HRESULT made = CoCreateInstance(&automationClass, NULL, CLSCTX_INPROC_SERVER, &automationInterface, (void **)&automation);
+    if (FAILED(made) || automation == NULL) {
+        CoUninitialize();
+        return 1;
+    }
+    IUIAutomationElement *plain = findElement(automation, NULL, UIA_AutomationIdPropertyId, L"plain-field", UIA_EditControlTypeId, 100);
+    for (int attempt = 0; plain != NULL && attempt < 50; attempt++) {
+        readElementValue(plain, plainRead, sizeof plainRead / sizeof plainRead[0]);
+        if (wcscmp(plainRead, L"plain text") == 0) {
+            break;
+        }
+        Sleep(100);
+    }
+    IUIAutomationElement *secret = findElement(automation, NULL, UIA_AutomationIdPropertyId, L"secret-field", UIA_EditControlTypeId, 100);
+    if (secret != NULL) {
+        secretFound = true;
+        BOOL password = FALSE;
+        if (SUCCEEDED(IUIAutomationElement_get_CurrentIsPassword(secret, &password))) {
+            secretIsPassword = password != FALSE;
+        }
+        readElementValue(secret, secretRead, sizeof secretRead / sizeof secretRead[0]);
+        readElementText(secret, secretText, sizeof secretText / sizeof secretText[0]);
+        IUIAutomationElement_Release(secret);
+    }
+    if (plain != NULL) {
+        readElementText(plain, plainText, sizeof plainText / sizeof plainText[0]);
+        IUIAutomationElement_Release(plain);
+    }
+    IUIAutomation_Release(automation);
+    CoUninitialize();
+    return 0;
+}
+
+// Handles the UI thread's messages until `thread` ends (at most `milliseconds`): the reading thread's
+// questions are answered on the UI thread. Returns whether the thread ended.
+static bool waitPumping(HANDLE thread, DWORD milliseconds) {
+    ULONGLONG end = GetTickCount64() + milliseconds;
+    for (;;) {
+        ULONGLONG now = GetTickCount64();
+        if (now >= end) {
+            return WaitForSingleObject(thread, 0) == WAIT_OBJECT_0;
+        }
+        DWORD waited = MsgWaitForMultipleObjects(1, &thread, FALSE, (DWORD)(end - now), QS_ALLINPUT);
+        if (waited == WAIT_OBJECT_0) {
+            return true;
+        }
+        if (waited == WAIT_FAILED) {
+            return WaitForSingleObject(thread, 0) == WAIT_OBJECT_0;
+        }
+        MSG message;
+        while (PeekMessageW(&message, NULL, 0, 0, PM_REMOVE) != FALSE) {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+    }
+}
+
+// Accessibility tools read a TextField's text (the control), and a SecureField says it is a password and
+// gives none of its text.
+static void checkSecureField(void) {
+    check(actionUISetStringValue("json-window", 3, 0, "hunter2"), "the SecureField's value is set");
+    check(actionUISetStringValue("json-window", 4, 0, "plain text"), "the TextField's value is set");
+    char *held = actionUIGetStringValue("json-window", 3, 0);
+    check(held != NULL && strcmp(held, "hunter2") == 0, "the SecureField holds the password");
+    if (held != NULL) {
+        actionUIFreeString(held);
+    }
+    HANDLE thread = CreateThread(NULL, 0, readTextFields, NULL, 0, NULL);
+    if (thread == NULL) {
+        check(false, "the reading thread started");
+        return;
+    }
+    // Longer than the thread can take: two searches of up to 10 seconds each, and 5 seconds of reads.
+    bool ended = waitPumping(thread, 40000);
+    CloseHandle(thread);
+    if (!ended) {
+        // It may still be writing what it found.
+        check(false, "the reading thread finished");
+        return;
+    }
+    printf("c-app: accessibility tools read the TextField's value as \"%ls\" and its text as \"%ls\"; the SecureField's value "
+           "as \"%ls\" and its text as \"%ls\" (%s)\n", plainRead, plainText, secretRead, secretText,
+           secretIsPassword ? "a password" : "not a password");
+    fflush(stdout);
+    check(wcscmp(plainRead, L"plain text") == 0, "accessibility tools read the TextField's value");
+    check(wcsstr(plainText, L"plain text") != NULL, "accessibility tools read the TextField's text");
+    check(secretFound, "accessibility tools find the SecureField");
+    check(secretIsPassword, "the SecureField says it is a password");
+    check(wcsstr(secretRead, L"hunter2") == NULL, "accessibility tools do not read the SecureField's value");
+    check(wcsstr(secretText, L"hunter2") == NULL, "accessibility tools do not read the SecureField's text");
 }
 
 // MARK: - Answering a file panel as an accessibility tool does
@@ -532,7 +693,9 @@ static void onDidFinishLaunching(void) {
                L"Later", "Later", "OK", "an alert with no window answers its second button");
     actionUIAppLoadAndPresentWindowFromJSON(
         "{\"type\": \"VStack\", \"id\": 1, \"properties\": {\"padding\": 16}, \"children\": ["
-        "{\"type\": \"Text\", \"id\": 2, \"properties\": {\"text\": \"A window from JSON\"}}]}",
+        "{\"type\": \"Text\", \"id\": 2, \"properties\": {\"text\": \"A window from JSON\"}},"
+        "{\"type\": \"SecureField\", \"id\": 3, \"properties\": {\"title\": \"Password\", \"accessibilityIdentifier\": \"secret-field\"}},"
+        "{\"type\": \"TextField\", \"id\": 4, \"properties\": {\"title\": \"Name\", \"accessibilityIdentifier\": \"plain-field\"}}]}",
         "json-window", "From JSON");
     // The adapter reaches the window the application functions made: one ActionUI in the DLL.
     check(actionUISetStringValue("json-window", 2, 0, "set from C"), "a value is set in the window");
@@ -541,6 +704,7 @@ static void onDidFinishLaunching(void) {
     if (value != NULL) {
         actionUIFreeString(value);
     }
+    checkSecureField();
     // Over the window just presented (shown once it has loaded); Cancel is the close button.
     checkAlert("{\"title\": \"Save changes?\", \"buttons\": [\"Save\", \"Don't Save\", \"Cancel\"]}",
                L"Cancel", "Cancel", "Save", "an alert over a window answers Cancel");
