@@ -2,7 +2,8 @@
 /*
  Test images for the URL loading tests: PNG bytes and files of a given size, and an http server on
  the loopback address (libsoup's SoupServer, on the main loop) that serves the PNG at
- /image.png, text at /text.txt, a document at /view.json, and 404 for anything else. It counts
+ /image.png (and after a second at /slow.png), text at /text.txt, a document at /view.json, and 404
+ for anything else. It counts
  the requests it answers. Redirects: /redirect-stalled to /image.png (relative) with a body that
  never ends, /loop to itself, /to-file to a file URL, /to-never to /never.json.
 */
@@ -52,6 +53,19 @@ nonisolated(unsafe) private var servedRequests = 0
 /// The size of the body "/big.bin" serves (zero bytes).
 nonisolated(unsafe) var servedBigSize = 0
 
+/// Answers a paused /slow.png request with the PNG, then releases the reference taken for it.
+private let answerSlowly: @convention(c) (gpointer?) -> gboolean = { data in
+    guard let data else { return 0 }
+    let message = OpaquePointer(data)
+    soup_server_message_set_status(message, 200, nil)
+    servedPNG.withUnsafeBufferPointer { buffer in
+        soup_server_message_set_response(message, "image/png", SOUP_MEMORY_COPY, buffer.baseAddress, gsize(buffer.count))
+    }
+    soup_server_message_unpause(message)
+    g_object_unref(data)
+    return 0   // G_SOURCE_REMOVE
+}
+
 private let handleRequest: @convention(c) (UnsafeMutablePointer<SoupServer>?, OpaquePointer?, UnsafePointer<CChar>?, OpaquePointer?, gpointer?) -> Void = { _, message, path, _, _ in
     guard let message else { return }
     servedRequests += 1
@@ -61,6 +75,10 @@ private let handleRequest: @convention(c) (UnsafeMutablePointer<SoupServer>?, Op
         servedPNG.withUnsafeBufferPointer { buffer in
             soup_server_message_set_response(message, "image/png", SOUP_MEMORY_COPY, buffer.baseAddress, gsize(buffer.count))
         }
+    case "/slow.png":
+        // Answered a second later, on the main loop.
+        soup_server_message_pause(message)
+        g_timeout_add(1000, answerSlowly, g_object_ref(UnsafeMutableRawPointer(message)))
     case "/text.txt":
         soup_server_message_set_status(message, 200, nil)
         soup_server_message_set_response(message, "text/plain", SOUP_MEMORY_COPY, "not an image", 12)

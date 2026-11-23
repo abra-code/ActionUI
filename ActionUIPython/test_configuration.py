@@ -70,7 +70,8 @@ print("Before the first window:", flush=True)
 initial = actionui.get_configuration()
 check("every key is there", set(initial) == {"limits", "trust", "resourceFolder", "addOns"})
 check("the defaults: 16 MB, 256 loads in 60 s, 16 deep, no trusted origins",
-      initial["limits"] == {"maximumJSONSize": 16777216, "loadBudget": {"loads": 256, "seconds": 60}, "maximumNestingDepth": 16}
+      initial["limits"] == {"maximumJSONSize": 16777216, "loadBudget": {"loads": 256, "seconds": 60}, "maximumNestingDepth": 16,
+                            "maximumDownloadTime": 120}
       and initial["trust"] == {"trustedOrigins": []})
 check("Application(resource_folder=) is the configuration's resource folder",
       os.path.realpath(initial["resourceFolder"] or "") == os.path.realpath(folder))
@@ -81,6 +82,9 @@ check("configure changes only the keys it names",
       changed["limits"]["maximumNestingDepth"] == 2 and changed["limits"]["maximumJSONSize"] == 16777216
       and changed["trust"]["trustedOrigins"] == ["https://ui.example.com"]
       and changed["resourceFolder"] == initial["resourceFolder"])
+actionui.configure({"limits": {"maximumDownloadTime": None}})
+check("None removes the time limit", actionui.get_configuration()["limits"]["maximumDownloadTime"] is None)
+actionui.configure({"limits": {"maximumDownloadTime": 120}})
 
 for settings, expected in [
     ({"limits": {"maximumNestingDepth": 5}, "trustedOrigin": []}, "unknown configuration key trustedOrigin"),

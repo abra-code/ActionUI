@@ -124,9 +124,9 @@ final class URLLoaderTests: XCTestCase {
     }
 
     func testALoadThatTakesTooLongIsRefused() throws {
-        let saved = URLLoader.totalTimeout
-        defer { URLLoader.totalTimeout = saved }
-        URLLoader.totalTimeout = 300
+        let saved = ActionUIConfiguration.current.limits.maximumDownloadTime
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = saved } }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = 0.3 }
         let server = try TestImageServer(png: [])
         self.server = server
         let start = Date()
@@ -134,10 +134,23 @@ final class URLLoaderTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(start), 10, "given up after the total time, not the 30 s step timeout")
     }
 
+    // Without a time limit a slow load goes on: the server's stall outlasts a 0.3 s limit but not the test.
+    func testNoTimeLimitLetsASlowLoadFinish() throws {
+        let saved = ActionUIConfiguration.current.limits.maximumDownloadTime
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = saved } }
+        let png = TestImages.png(width: 4, height: 2)
+        let server = try TestImageServer(png: png)
+        self.server = server
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = 0.3 }
+        XCTAssertNil(try fetch(server.base + "/slow.png"), "the 0.3 s limit stops it")
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = nil }
+        XCTAssertEqual(try fetch(server.base + "/slow.png"), png, "with no limit it loads")
+    }
+
     func testTheTotalTimeCoversEveryRedirect() throws {
-        let saved = URLLoader.totalTimeout
-        defer { URLLoader.totalTimeout = saved }
-        URLLoader.totalTimeout = 300
+        let saved = ActionUIConfiguration.current.limits.maximumDownloadTime
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = saved } }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = 0.3 }
         let server = try TestImageServer(png: [])
         self.server = server
         let start = Date()
@@ -147,9 +160,9 @@ final class URLLoaderTests: XCTestCase {
     }
 
     func testARedirectIsFollowedWithoutReadingItsBody() throws {
-        let saved = URLLoader.totalTimeout
-        defer { URLLoader.totalTimeout = saved }
-        URLLoader.totalTimeout = 5000
+        let saved = ActionUIConfiguration.current.limits.maximumDownloadTime
+        defer { ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = saved } }
+        ActionUIConfiguration.updateForTesting { $0.limits.maximumDownloadTime = 5 }
         let png = TestImages.png(width: 4, height: 2)
         let server = try TestImageServer(png: png)
         self.server = server

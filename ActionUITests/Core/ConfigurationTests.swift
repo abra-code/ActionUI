@@ -50,6 +50,7 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.limits.maximumJSONSize, 16 * 1024 * 1024)
         XCTAssertEqual(configuration.limits.loadBudget, ActionUILoadBudget(loads: 256, seconds: 60))
         XCTAssertEqual(configuration.limits.maximumNestingDepth, 16)
+        XCTAssertEqual(configuration.limits.maximumDownloadTime, 120)
         XCTAssertEqual(configuration.trust.trustedOrigins, [])
         XCTAssertNil(configuration.resourceFolder)
         XCTAssertEqual(configuration, ActionUIConfiguration())
@@ -67,6 +68,12 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(ActionUIResourceFolder.path, "/opt/app", "the resource folder is the configuration's")
         try ActionUIConfiguration.set(json: #"{"resourceFolder": null}"#)
         XCTAssertNil(ActionUIConfiguration.current.resourceFolder)
+        try ActionUIConfiguration.set(json: #"{"limits": {"maximumDownloadTime": 600}}"#)
+        XCTAssertEqual(ActionUIConfiguration.current.limits.maximumDownloadTime, 600)
+        try ActionUIConfiguration.set(json: #"{"limits": {"maximumDownloadTime": 0.5}}"#)
+        XCTAssertEqual(ActionUIConfiguration.current.limits.maximumDownloadTime, 0.5)
+        try ActionUIConfiguration.set(json: #"{"limits": {"maximumDownloadTime": null}}"#)
+        XCTAssertNil(ActionUIConfiguration.current.limits.maximumDownloadTime, "null removes the time limit")
         try ActionUIConfiguration.set(json: "{}")
         XCTAssertEqual(ActionUIConfiguration.current.limits.maximumJSONSize, 64 * 1024 * 1024, "an empty change keeps everything")
     }
@@ -82,6 +89,10 @@ final class ConfigurationTests: XCTestCase {
             (#"{"limits": {"maximumJSONSize": 0}}"#, "limits.maximumJSONSize must be more than 0"),
             (#"{"limits": {"loadBudget": {"seconds": 0}}}"#, "limits.loadBudget.seconds must be a number more than 0"),
             (#"{"limits": {"maximumNestingDepth": -1}}"#, "limits.maximumNestingDepth must not be negative"),
+            (#"{"limits": {"maximumDownloadTime": 0}}"#, "limits.maximumDownloadTime must be a number more than 0, or null for no limit"),
+            (#"{"limits": {"maximumDownloadTime": -5}}"#, "limits.maximumDownloadTime must be a number more than 0, or null for no limit"),
+            (#"{"limits": {"maximumDownloadTime": "slow"}}"#, "limits.maximumDownloadTime must be a number"),
+            (#"{"limits": {"maximumDownloadTime": true}}"#, "limits.maximumDownloadTime must be a number"),
             (#"{"limits": []}"#, "limits must be an object"),
             (#"{"trust": {"trustedOrigins": "https://ui.example.com"}}"#, "trust.trustedOrigins must be an array of strings"),
             (#"{"trust": {"trustedOrigins": ["http://ui.example.com"]}}"#, "trust.trustedOrigins: http://ui.example.com is not an https address"),
@@ -116,7 +127,8 @@ final class ConfigurationTests: XCTestCase {
         let limits = try XCTUnwrap(defaults["limits"] as? [String: Any])
         XCTAssertEqual(limits["maximumJSONSize"] as? Int, 16 * 1024 * 1024)
         XCTAssertEqual((limits["loadBudget"] as? [String: Any])?["loads"] as? Int, 256)
-        try ActionUIConfiguration.set(json: #"{"limits": {"loadBudget": {"seconds": 0.5}}, "trust": {"trustedOrigins": ["https://ui.example.com"]}, "resourceFolder": "/opt/app", "addOns": {"Sample": {"on": true}}}"#)
+        XCTAssertEqual((limits["maximumDownloadTime"] as? NSNumber)?.doubleValue, 120)
+        try ActionUIConfiguration.set(json: #"{"limits": {"loadBudget": {"seconds": 0.5}, "maximumDownloadTime": null}, "trust": {"trustedOrigins": ["https://ui.example.com"]}, "resourceFolder": "/opt/app", "addOns": {"Sample": {"on": true}}}"#)
         let changed = ActionUIConfiguration.current
         ActionUIConfiguration.replaceForTesting()
         try ActionUIConfiguration.set(json: changed.json)

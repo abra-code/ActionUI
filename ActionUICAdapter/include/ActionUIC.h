@@ -209,7 +209,7 @@ char *actionUIGetElementOrigin(const char *windowUUID, int64_t viewID) ACTIONUI_
 void actionUISetTrustPolicy(ActionUITrustCallback trust, ActionUICapabilityCallback allows) ACTIONUI_NOEXCEPT;
 
 // Configuration, for all windows, as JSON: "limits" ("maximumJSONSize" in bytes, "loadBudget" with "loads"
-// and "seconds", "maximumNestingDepth"), "trust" ("trustedOrigins": https origins whose ActionUI JSON is
+// and "seconds", "maximumNestingDepth", "maximumDownloadTime" in seconds or null), "trust" ("trustedOrigins": https origins whose ActionUI JSON is
 // trusted, inside trusted content and by the address it finally came from), "resourceFolder" (a path or
 // null), "addOns" (a section per add-on name). Set it before the first window loads; it is fixed after that.
 // Both calls may be made from any thread.

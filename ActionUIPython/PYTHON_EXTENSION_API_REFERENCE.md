@@ -184,7 +184,8 @@ bool actionUISetConfigurationJSON(const char* configurationJSON);
 // ActionUI's configuration, for all windows, as JSON; every key is optional and the rest keep their values:
 //   {"limits": {"maximumJSONSize": 16777216,                  // bytes of ActionUI JSON one load takes
 //               "loadBudget": {"loads": 256, "seconds": 60},  // LoadableView loads per window in any span
-//               "maximumNestingDepth": 16},                   // LoadableViews inside LoadableViews
+//               "maximumNestingDepth": 16,                    // LoadableViews inside LoadableViews
+//               "maximumDownloadTime": 120},                  // seconds one http or https load may take (null: no limit)
 //    "trust": {"trustedOrigins": ["https://ui.example.com"]}, // servers whose ActionUI JSON is trusted
 //    "resourceFolder": "/path/to/resources",                  // or null; actionUIAppSetResourceFolder sets it too
 //    "addOns": {"SomeAddOn": {}}}                             // a section per add-on

@@ -20,7 +20,6 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TIMEOUT_MS
-import com.abracode.actionui.Helpers.LOADABLE_REMOTE_TOTAL_TIMEOUT_MS
 import com.abracode.actionui.Helpers.withLoadDeadline
 import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
@@ -351,8 +350,8 @@ private fun readImageBodyCapped(connection: HttpURLConnection, url: String): Byt
 
 /**
  * Blocking read of [url]'s bytes: `http(s)://` through the same
- * [HttpURLConnection] shape (and timeouts, the whole load at most
- * [LOADABLE_REMOTE_TOTAL_TIMEOUT_MS]) as `LoadableLoader`'s text fetch,
+ * [HttpURLConnection] shape (and timeouts, the whole load at most the
+ * configuration's maximumDownloadTime) as `LoadableLoader`'s text fetch,
  * `file://` from disk. Call only off the main thread.
  */
 private fun fetchImageBytes(url: String): ByteArray = when {

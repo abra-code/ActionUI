@@ -13,7 +13,8 @@
    "limits": {
      "maximumJSONSize": 16777216,                 // bytes of ActionUI JSON one load takes (16 MB)
      "loadBudget": { "loads": 256, "seconds": 60 },// LoadableView loads per window in any span
-     "maximumNestingDepth": 16                    // LoadableViews inside LoadableViews
+     "maximumNestingDepth": 16,                   // LoadableViews inside LoadableViews
+     "maximumDownloadTime": 120                   // seconds one http or https load may take (null: no limit)
    },
    "trust": {
      "trustedOrigins": ["https://ui.example.com"] // servers whose ActionUI JSON is trusted
@@ -63,6 +64,15 @@ public struct ActionUIConfiguration: Sendable, Equatable {
         public var loadBudget = ActionUILoadBudget(loads: 256, seconds: 60)
         /// How deep LoadableViews may nest: one with this many LoadableViews around it is refused.
         public var maximumNestingDepth = 16
+        /// The longest one http or https load may take, in seconds, however the server sends: a
+        /// load of ActionUI JSON (LoadableView) or of an image the renderer loads itself
+        /// (AsyncImage; on Apple platforms only less-trusted content's images, since trusted
+        /// content's go through SwiftUI's AsyncImage, which has no limit of its own) is given up
+        /// after this. The steps of a load (connecting, each read) have shorter time limits of
+        /// their own, so this only stops a server that keeps sending slowly. A host whose users
+        /// may be on slow networks, or that shows large images, raises it; nil removes it. 120
+        /// seconds by default.
+        public var maximumDownloadTime: Double? = 120
 
         public init() {}
     }
@@ -200,6 +210,9 @@ extension ActionUIConfiguration {
             throw ActionUIError("limits.loadBudget.seconds must be a number more than 0")
         }
         guard limits.maximumNestingDepth >= 0 else { throw ActionUIError("limits.maximumNestingDepth must not be negative") }
+        if let time = limits.maximumDownloadTime, !(time.isFinite && time > 0) {
+            throw ActionUIError("limits.maximumDownloadTime must be a number more than 0, or null for no limit")
+        }
         for origin in configuration.trust.trustedOrigins {
             if let problem = trustedOriginProblem(origin) {
                 throw ActionUIError("trust.trustedOrigins: \(origin.absoluteString) \(problem)")
@@ -230,7 +243,7 @@ extension ActionUIConfiguration {
     // MARK: JSON
 
     private static let topKeys: Set<String> = ["limits", "trust", "resourceFolder", "addOns"]
-    private static let limitKeys: Set<String> = ["maximumJSONSize", "loadBudget", "maximumNestingDepth"]
+    private static let limitKeys: Set<String> = ["maximumJSONSize", "loadBudget", "maximumNestingDepth", "maximumDownloadTime"]
     private static let budgetKeys: Set<String> = ["loads", "seconds"]
     private static let trustKeys: Set<String> = ["trustedOrigins"]
 
@@ -252,6 +265,10 @@ extension ActionUIConfiguration {
             }
             if let depth = limits["maximumNestingDepth"] {
                 configuration.limits.maximumNestingDepth = try integer(depth, "limits.maximumNestingDepth")
+            }
+            if let time = limits["maximumDownloadTime"] {
+                configuration.limits.maximumDownloadTime = time is ActionUIJSONNull
+                    ? nil : try number(time, "limits.maximumDownloadTime")
             }
         }
         if let trust = top["trust"] {
@@ -295,6 +312,7 @@ extension ActionUIConfiguration {
                 "maximumJSONSize": limits.maximumJSONSize,
                 "loadBudget": ["loads": limits.loadBudget.loads, "seconds": limits.loadBudget.seconds] as [String: Any],
                 "maximumNestingDepth": limits.maximumNestingDepth,
+                "maximumDownloadTime": limits.maximumDownloadTime.map { $0 as Any } ?? ActionUIJSONNull(),
             ] as [String: Any],
             "trust": ["trustedOrigins": trust.trustedOrigins.map(\.absoluteString)],
             "resourceFolder": resourceFolder.map { $0 as Any } ?? ActionUIJSONNull(),
@@ -304,7 +322,7 @@ extension ActionUIConfiguration {
             sections[name] = (try? ActionUIJSON.value(from: text)) ?? ActionUIJSONNull()
         }
         top["addOns"] = sections
-        // Every value here is one ActionUIJSON writes, and the seconds are finite (validated).
+        // Every value here is one ActionUIJSON writes, and the times are finite (validated).
         return (try? ActionUIJSON.string(from: top)) ?? "{}"
     }
 

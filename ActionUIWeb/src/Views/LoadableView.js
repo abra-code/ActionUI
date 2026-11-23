@@ -33,7 +33,7 @@
 
 import { register, buildElementView } from "../Common/ActionUIRegistry.js";
 import { HOST_ORIGIN, LESS_TRUSTED, TRUSTED, allows, loadSource, resolvedOrigin } from "../Common/TrustPolicy.js";
-import { jsonRefusal, readJSONText } from "../Helpers/JSONLimits.js";
+import { fetchWithTimeLimit, jsonRefusal, readJSONText } from "../Helpers/JSONLimits.js";
 import { currentConfiguration } from "../Common/Configuration.js";
 import { ActionUIElement } from "../Common/ActionUIElement.js";
 import { collectElementIds } from "../Common/ActionUIInsertion.js";
@@ -159,7 +159,7 @@ register("LoadableView", {
             // Where the content comes from, decided once fetched, by the address it finally came
             // from (after redirects); no more trusted than the content around this view.
             let origin = null;
-            fetch(classified.fetchURL)
+            fetchWithTimeLimit(classified.fetchURL)
                 .then((response) => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     origin = resolvedOrigin(classified, ctx.origin ?? HOST_ORIGIN, element.id, ctx.logger, response.url || null);

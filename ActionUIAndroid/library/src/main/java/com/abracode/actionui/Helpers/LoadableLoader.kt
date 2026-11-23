@@ -40,8 +40,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Connect / read timeout (ms) for a remote `url` fetch. */
 internal const val LOADABLE_REMOTE_TIMEOUT_MS = 15_000
 
-/** The longest a whole remote load may take, as on Apple and Linux: a server sending a byte now and then stays under the read timeout. */
-internal const val LOADABLE_REMOTE_TOTAL_TIMEOUT_MS = 120_000L
+/**
+ * The longest a whole remote load may take, in milliseconds, as on Apple and Linux: a server sending a
+ * byte now and then stays under the read timeout. The configuration's maximumDownloadTime, at least 1 ms;
+ * null: no limit.
+ */
+internal val loadableRemoteTotalTimeoutMs: Long?
+    get() = ActionUIConfiguration.current.limits.maximumDownloadTime?.let { seconds ->
+        kotlin.math.ceil(seconds * 1000).coerceIn(1.0, Long.MAX_VALUE.toDouble()).toLong()
+    }
 
 /**
  * One daemon thread that ends the remote loads that outlast their time ([withLoadDeadline]). A
@@ -53,23 +60,25 @@ private val loadDeadlines = ScheduledThreadPoolExecutor(1) { task ->
 }.apply { removeOnCancelPolicy = true }
 
 /**
- * [body]'s result, with [connection] disconnected once the whole load has taken [limitMs]: the
- * connect and read timeouts apply to each step, so a server that sends its headers or its body
- * a byte at a time stays under them. The step the disconnect interrupts throws, and the error
- * says the time ran out. [connection] is always disconnected when this returns.
+ * [body]'s result, with [connection] disconnected once the whole load has taken [limitMs] (null:
+ * no limit): the connect and read timeouts apply to each step, so a server that sends its headers
+ * or its body a byte at a time stays under them. The step the disconnect interrupts throws, and
+ * the error says the time ran out. [connection] is always disconnected when this returns.
  */
 internal fun <T> withLoadDeadline(
     connection: HttpURLConnection,
     url: String,
-    limitMs: Long = LOADABLE_REMOTE_TOTAL_TIMEOUT_MS,
+    limitMs: Long? = loadableRemoteTotalTimeoutMs,
     body: () -> T,
 ): T {
     val expired = AtomicBoolean(false)
-    val seconds = if (limitMs % 1000 == 0L) "${limitMs / 1000}" else "${limitMs / 1000.0}"
-    val timer = loadDeadlines.schedule({
-        expired.set(true)
-        connection.disconnect()
-    }, limitMs, TimeUnit.MILLISECONDS)
+    val seconds = limitMs?.let { if (it % 1000 == 0L) "${it / 1000}" else "${it / 1000.0}" }
+    val timer = limitMs?.let {
+        loadDeadlines.schedule({
+            expired.set(true)
+            connection.disconnect()
+        }, it, TimeUnit.MILLISECONDS)
+    }
     try {
         val result = body()
         if (expired.get()) throw IOException("loading $url took longer than $seconds seconds")
@@ -80,7 +89,7 @@ internal fun <T> withLoadDeadline(
         if (expired.get()) throw IOException("loading $url took longer than $seconds seconds", e)
         throw e
     } finally {
-        timer.cancel(false)
+        timer?.cancel(false)
         connection.disconnect()
     }
 }
