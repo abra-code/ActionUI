@@ -618,12 +618,13 @@ func windowsPackage() -> Package {
 Package(
     name: "ActionUI",
     products: [
-        // The ActionUI module linked into what uses it, for Swift programs (as Linux's ActionUIStatic).
+        // The ActionUI module linked into what uses it, for add-ons and Swift programs (as Linux's
+        // ActionUIStatic). ActionUI.dll, for programs in other languages, is a package of its own,
+        // ActionUIWinUI/Library, which links the add-ons too; so this package has no product named
+        // ActionUI on Windows (a product's name is unique across a build).
         .library(name: "ActionUIStatic", targets: ["ActionUI"]),
-        // ActionUI.dll (with its import library): ActionUI with the C adapter and the application
-        // functions, for C programs and the language bindings, one ActionUI per process (as Linux's
-        // libActionUI.so).
-        .library(name: "ActionUI", type: .dynamic, targets: ["ActionUICAdapter", "ActionUIWinUIApplication"]),
+        // The C adapter, for ActionUI.dll (ActionUIWinUI/Library).
+        .library(name: "ActionUICAdapter", targets: ["ActionUICAdapter"]),
         .executable(name: "ActionUIWinUISmoke", targets: ["ActionUIWinUISmoke"]),
         .executable(name: "ActionUIWinUIPreview", targets: ["ActionUIWinUIPreview"]),
         // The document verifier (Foundation only), for Apps/ActionUIVerifier's actionui-verify.

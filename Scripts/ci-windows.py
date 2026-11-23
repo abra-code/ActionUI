@@ -1458,9 +1458,89 @@ def check_host_app(bin_path, results, summary, msvc, env, host_build):
     return step["status"] == 0
 
 
+# The headers that declare ActionUI.dll's C functions.
+LIBRARY_HEADERS = [REPO_DIR / "ActionUICAdapter" / "include" / "ActionUIC.h",
+                   REPO_DIR / "ActionUIAppKitApplication" / "include" / "ActionUIApp.h"]
+
+
+# ActionUI.dll's export list (ActionUIWinUI/Library/Package.swift links with it).
+LIBRARY_DEFINITION = REPO_DIR / "ActionUIWinUI" / "Library" / "ActionUI.def"
+
+
+def check_library_exports(summary, msvc):
+    """Whether LIBRARY_DEFINITION names exactly the functions LIBRARY_HEADERS declare for Windows, as MSVC's
+    preprocessor reads them (they declare some functions only for Apple or Linux; every one is named
+    actionUI...). A function declared and not listed would be missing from ActionUI.dll; one listed and not
+    declared would be exported for no header. Findings name the differences."""
+    declared = []
+    for header in LIBRARY_HEADERS:
+        try:
+            completed = subprocess.run([resolve_tool("cl", msvc), "/nologo", "/EP", "/TC", str(header)], env=msvc,
+                                       capture_output=True, text=True, timeout=120)
+        except (FileNotFoundError, subprocess.TimeoutExpired) as error:
+            summary["findings"].append(f"library exports: could not preprocess {header.name}: {error}")
+            return False
+        if completed.returncode != 0:
+            summary["findings"].append(f"library exports: could not preprocess {header.name}: "
+                                       f"{completed.stdout.strip()[-500:]} {completed.stderr.strip()[-500:]}")
+            return False
+        for name in re.findall(r"\b(actionUI[A-Za-z0-9_]*)\s*\(", completed.stdout):
+            if name not in declared:
+                declared.append(name)
+    listed = []
+    in_exports = False
+    for line in LIBRARY_DEFINITION.read_text(encoding="utf-8").splitlines():
+        words = line.split(";", 1)[0].split()
+        if not words:
+            continue
+        if words[0] == "EXPORTS":
+            in_exports = True
+        elif in_exports:
+            listed.append(words[0])
+    missing = [name for name in declared if name not in listed]
+    extra = [name for name in listed if name not in declared]
+    if not declared or missing or extra:
+        summary["findings"].append(f"library exports: {LIBRARY_DEFINITION.name} does not match the C headers: "
+                                   f"declared, not listed: {', '.join(missing) or 'none'}; "
+                                   f"listed, not declared: {', '.join(extra) or 'none'}")
+        return False
+    summary["findings"].append(f"library exports: {LIBRARY_DEFINITION.name} lists the {len(declared)} C functions of "
+                               f"{', '.join(header.name for header in LIBRARY_HEADERS)}")
+    return True
+
+
+def build_library(shim_out, bin_path, results, summary, msvc, env):
+    """Builds ActionUI.dll and its import library from their own package (ActionUIWinUI/Library: ActionUI,
+    the C adapter, the application functions and the add-ons), exporting the functions LIBRARY_DEFINITION
+    names once check_library_exports agrees, and copies both into bin_path, beside the programs that load
+    the DLL. True when built."""
+    if not check_library_exports(summary, msvc):
+        return False
+    scratch = ["--package-path", str(REPO_DIR / "ActionUIWinUI" / "Library"),
+               "--scratch-path", str(REPO_DIR / ".build" / "ci-windows-library"), "--manifest-cache", "none"]
+    # SwiftPM does not count the module-definition file as a link input: without this, a rebuild after only
+    # ActionUI.def changed would keep the DLL with the old exports.
+    shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
+    if shown:
+        Path(shown[-1].strip(), "ActionUI.dll").unlink(missing_ok=True)
+    step = run_step("library-build", ["swift", "build"] + scratch + ["-Xswiftc", f"-L{shim_out}"], results, env)
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        summary["errors"] = first_errors(results / step["log"])
+        return False
+    shown = capture(["swift", "build"] + scratch + ["--show-bin-path"]).splitlines()
+    library_bin = Path(shown[-1].strip()) if shown else Path()
+    for name in ["ActionUI.dll", "ActionUI.lib"]:
+        if not (library_bin / name).is_file():
+            summary["findings"].append(f"no {name} in {library_bin}")
+            return False
+        shutil.copy2(library_bin / name, bin_path / name)
+    return True
+
+
 def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
-    """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview, the C adapter's
-    DLL, ActionUI.dll) with the shim's import library on the linker path, places the shim DLL, the
+    """Builds the Swift package for Windows (ActionUIWinUISmoke, ActionUIWinUIPreview) and ActionUI.dll's
+    package (build_library) with the shim's import library on the linker path, places the shim DLL, the
     bootstrapper DLL and the programs' manifests beside them, runs the smoke test and the C adapter's check, then
     renders each document in ActionUIWinUI/Apps/Preview/Documents with the preview. True when all of
     them passed."""
@@ -1481,6 +1561,7 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
         if not expected.is_file():
             summary["findings"].append(f"no {expected.name} in {bin_path}")
             return False
+    library_built = build_library(shim_out, bin_path, results, summary, msvc, env)
     # The checked copies in the shim's folder (check_shim), not the NuGet folders.
     for source in [shim_out / "ActionUIWinUIShim.dll", shim_out / bootstrap.name, shim_out / WEBVIEW2_CORE]:
         shutil.copy2(source, bin_path / source.name)
@@ -1496,17 +1577,20 @@ def check_swift_smoke(shim_out, bootstrap, results, summary, msvc, host_build):
     summary["steps"].append(step)
     summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
                             .splitlines() if line.startswith("smoke:")]
-    passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0
-    passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
-    passed = check_c_app(bin_path, results, summary, msvc, env) and passed
-    passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
+    passed = step["status"] == 0 and png.is_file() and png.stat().st_size > 0 and library_built
+    # The programs that load ActionUI.dll, and the library package, need it built.
+    if library_built:
+        passed = check_c_adapter(bin_path, results, summary, msvc, env) and passed
+        passed = check_c_app(bin_path, results, summary, msvc, env) and passed
+        passed = check_host_app(bin_path, results, summary, msvc, env, host_build) and passed
     passed = check_viewer(shim_out, bin_path, results, summary, env) and passed
-    package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
-    passed = package is not None and passed
-    if package is not None:
-        passed = check_python(package, results, summary, msvc) and passed
-        passed = check_node(package, results, summary, msvc) and passed
-        passed = check_rust(package, results, summary, msvc) and passed
+    if library_built:
+        package = make_library_package(bin_path, results, summary, msvc, host_build["webview2_license"])
+        passed = package is not None and passed
+        if package is not None:
+            passed = check_python(package, results, summary, msvc) and passed
+            passed = check_node(package, results, summary, msvc) and passed
+            passed = check_rust(package, results, summary, msvc) and passed
     documents = sorted((REPO_DIR / "ActionUIWinUI" / "Apps" / "Preview" / "Documents").glob("*.json"))
     for document in documents:
         png = results / f"preview-{document.stem}.png"
