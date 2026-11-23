@@ -1,0 +1,97 @@
+"""A WebView from Python, run as a user runs a script: from a folder other than the extension's, with no
+Swift runtime on PATH. Windows looks for a DLL loaded by name later (WebView2's Core DLL, which WinUI
+loads when it makes a WebView) beside python.exe, in the system folders, the current folder and PATH,
+not beside the extension; the shim loads that DLL from its own folder first. Prints "python-elsewhere:"
+lines: where WebView2's Core DLL was loaded from and whether the page loaded (its title). Exit status 0
+when the page loaded, the DLL came from the extension's folder and nothing was logged as a warning or
+error. Run by Scripts/ci-windows.py with the extension's folder on PYTHONPATH.
+"""
+
+import ctypes
+import json
+import os
+import sys
+import tempfile
+import threading
+import time
+
+import actionui
+
+TITLE = "Loaded from elsewhere"
+TIMEOUT_SECONDS = 20.0
+
+app = actionui.Application(name="Python elsewhere")
+state = {"window": None, "title": None, "errors": [], "core": None}
+
+
+def report(message):
+    print(f"python-elsewhere: {message}", flush=True)
+
+
+def on_log(message, level):
+    # Until the page has loaded, its title is not there yet: those reads' warnings say nothing.
+    if level <= actionui.LogLevel.WARNING and "State key 'title' not found" not in message:
+        state["errors"].append(message)
+        report(f"logged: {message}")
+
+
+app.logger.set_callback(on_log)
+
+
+def loaded_module(name):
+    """The path of the loaded DLL `name`, or None when the process has not loaded it."""
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetModuleHandleW.restype = ctypes.c_void_p
+    kernel32.GetModuleHandleW.argtypes = [ctypes.c_wchar_p]
+    kernel32.GetModuleFileNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    handle = kernel32.GetModuleHandleW(name)
+    if not handle:
+        return None
+    buffer = ctypes.create_unicode_buffer(1024)
+    kernel32.GetModuleFileNameW(handle, buffer, len(buffer))
+    return buffer.value
+
+
+def watch():
+    """Waits for the page's title, then reports and ends the application."""
+    started = time.monotonic()
+    while time.monotonic() - started < TIMEOUT_SECONDS:
+        window = state["window"]
+        if window is not None:
+            title = window.get_state_string(1, "title")
+            if title:
+                state["title"] = title
+                break
+        time.sleep(0.25)
+    state["core"] = loaded_module("Microsoft.Web.WebView2.Core.dll")
+    report(f"WebView2 Core DLL: {state['core'] or 'not loaded'}")
+    report(f"page title: {state['title'] or '(none)'} after {time.monotonic() - started:.2f} s")
+    app.terminate()
+
+
+@app.did_finish_launching
+def launched():
+    document = {"type": "WebView", "id": 1,
+                "properties": {"html": f"<title>{TITLE}</title><p>A page from Python.</p>"}}
+    folder = tempfile.mkdtemp(prefix="actionui-elsewhere-")
+    path = os.path.join(folder, "WebView.json")
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(document, file)
+    state["window"] = app.load_and_present_window(path, title="Python elsewhere")
+    threading.Thread(target=watch, daemon=True).start()
+
+
+report(f"current folder: {os.getcwd()}")
+report(f"extension: {actionui._actionui.__file__}")
+app.run()
+extension_folder = os.path.normcase(os.path.dirname(os.path.abspath(actionui._actionui.__file__)))
+core_folder = os.path.normcase(os.path.dirname(state["core"])) if state["core"] else None
+failures = []
+if state["title"] != TITLE:
+    failures.append("the page did not load")
+if core_folder != extension_folder:
+    failures.append("WebView2's Core DLL did not come from the extension's folder")
+if state["errors"]:
+    failures.append(f"{len(state['errors'])} warnings or errors logged")
+report("PASSED" if not failures else "FAILED: " + "; ".join(failures))
+sys.exit(0 if not failures else 1)

@@ -1009,7 +1009,23 @@ def check_python(package, results, summary, msvc):
         outcome = "passed" if succeeded else ("FAILED, no PASSED line" if step["status"] == 0 else f"FAILED, exit {step['status']}")
         summary["findings"].append(f"python {test}: {outcome}")
         passed = passed and succeeded
-    return passed
+    # A WebView from Python run as a user runs a script, from another folder with only Windows' own folders
+    # on PATH (no Swift runtime, no compiler): WebView2's Core DLL, which WinUI loads by name, is found
+    # beside the shim (the extension's folder), not by the search a DLL loaded by name gets.
+    elsewhere = work / "elsewhere"
+    elsewhere.mkdir()
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    plain = dict(os.environ, PATH=f"{system_root}\\System32;{system_root}", PYTHONPATH=str(source),
+                 PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    script = REPO_DIR / "ActionUIWinUI" / "Apps" / "PythonCheck" / "webview_elsewhere.py"
+    step = run_step("python-webview-elsewhere", [python, script], results, plain, cwd=elsewhere,
+                    timeout=SMOKE_TIMEOUT_SECONDS)
+    summary["steps"].append(step)
+    summary["findings"] += [line for line in (results / step["log"]).read_text(encoding="utf-8", errors="replace")
+                            .splitlines() if line.startswith("python-elsewhere:")]
+    succeeded = step["status"] == 0
+    summary["findings"].append(f"python webview_elsewhere: {'passed' if succeeded else 'FAILED, exit ' + str(step['status'])}")
+    return passed and succeeded
 
 
 def check_node(package, results, summary, msvc):

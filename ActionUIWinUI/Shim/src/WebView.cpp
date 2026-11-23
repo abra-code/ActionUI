@@ -252,6 +252,47 @@ void enqueue(std::shared_ptr<WebViewData> const &data, WebViewStep step) {
     }
 }
 
+// WebView2's Core DLL, loaded from the shim's own folder, where the library package and the programs
+// built with it place it. WinUI loads it by name when it makes a web view, and Windows looks for a DLL
+// loaded by name beside the program, in the system folders, the current folder and PATH: a host program
+// elsewhere (python.exe, node.exe) would not find it beside the shim. Once loaded, the load by name finds
+// it in the process. Once; a failure leaves WinUI's own search, which reports it.
+void loadWebViewCoreBesideShim() {
+    static bool attempted = false;
+    if (attempted) {
+        return;
+    }
+    attempted = true;
+    constexpr const wchar_t *core = L"Microsoft.Web.WebView2.Core.dll";
+    if (GetModuleHandleW(core) != nullptr) {
+        return;
+    }
+    HMODULE shim = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&loadWebViewCoreBesideShim), &shim)) {
+        return;
+    }
+    std::wstring path(MAX_PATH, L'\0');
+    for (;;) {
+        DWORD length = GetModuleFileNameW(shim, path.data(), static_cast<DWORD>(path.size()));
+        if (length == 0) {
+            return;
+        }
+        if (length < path.size()) {
+            path.resize(length);
+            break;
+        }
+        path.resize(path.size() * 2);
+    }
+    size_t slash = path.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) {
+        return;
+    }
+    path = path.substr(0, slash + 1) + core;
+    // Its own imports are looked for beside it first, then in the system folders.
+    LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+}
+
 } // namespace
 
 } // namespace actionui_winui
@@ -280,6 +321,7 @@ ActionUIWinUIObject *actionUIWinUIWebViewCreate(void) {
                 SetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", folder.c_str());
             }
         }
+        loadWebViewCoreBesideShim();
         muxc::WebView2 view;
         auto data = std::make_shared<WebViewData>();
         data->view = winrt::make_weak(view);
