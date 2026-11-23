@@ -65,15 +65,18 @@ enum RemoteJSONFetch {
             lock.withLock { refusedTarget }
         }
 
+        // The completion-handler form, not the async one: Swift 6.4.2 crashes generating the
+        // Objective-C entry point of the async form when Xcode builds the module interface.
         func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-                        newRequest request: URLRequest) async -> URLRequest? {
+                        newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
             let from = response.url?.scheme?.lowercased() ?? task.originalRequest?.url?.scheme?.lowercased()
             let to = request.url?.scheme?.lowercased()
             guard let to, to == "https" || (to == "http" && from != "https") else {
                 lock.withLock { refusedTarget = request.url }
-                return nil
+                completionHandler(nil)
+                return
             }
-            return request
+            completionHandler(request)
         }
     }
 
