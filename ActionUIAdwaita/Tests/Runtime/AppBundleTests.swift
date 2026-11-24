@@ -29,7 +29,7 @@ final class AppBundleTests: XCTestCase {
         windows = []
         AdwaitaTestHost.drainMainLoop()
         ActionUIModel.shared.windowModels[windowUUID] = nil
-        AppBundle.setDocumentFolder(nil, window: windowUUID)
+        AppBundle.setContentFolder(nil, window: windowUUID)
         ActionUIConfiguration.updateForTesting { $0.resourceFolder = nil }
         for folder in folders {
             try? FileManager.default.removeItem(atPath: folder)
@@ -70,7 +70,7 @@ final class AppBundleTests: XCTestCase {
     func testALoadableViewNameIsFoundBesideTheWindowsDocument() throws {
         let documents = try folder()
         try write(#"{"type": "Text", "id": 10, "properties": {"text": "Beside"}}"#, "Inner.json", in: documents)
-        AppBundle.setDocumentFolder(documents, window: windowUUID)
+        AppBundle.setContentFolder(documents, window: windowUUID)
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"name": "Inner.json"}}"#)
         XCTAssertEqual(node.childNodes[10].map { Gtk.Label($0.widget).text }, "Beside")
     }
@@ -80,7 +80,7 @@ final class AppBundleTests: XCTestCase {
         let other = try folder()
         try write(#"{"type": "LoadableView", "id": 20, "properties": {"name": "Leaf"}}"#, "Middle.json", in: other)
         try write(#"{"type": "Text", "id": 30, "properties": {"text": "Leaf"}}"#, "Leaf.json", in: other)
-        AppBundle.setDocumentFolder(documents, window: windowUUID)
+        AppBundle.setContentFolder(documents, window: windowUUID)
         // Middle.json is the app's own: content from a file elsewhere loads no local files.
         let savedFolders = ActionUIRendererHooks.resourceFolders
         defer { ActionUIRendererHooks.resourceFolders = savedFolders }
@@ -95,7 +95,7 @@ final class AppBundleTests: XCTestCase {
         let bundle = try folder()
         try write(#"{"type": "Text", "id": 10, "properties": {"text": "Bundled"}}"#, "Shared.json", in: bundle)
         ActionUIConfiguration.updateForTesting { $0.resourceFolder = bundle }
-        AppBundle.setDocumentFolder(try folder(), window: windowUUID)
+        AppBundle.setContentFolder(try folder(), window: windowUUID)
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"name": "Shared.json"}}"#)
         XCTAssertEqual(node.childNodes[10].map { Gtk.Label($0.widget).text }, "Bundled")
     }

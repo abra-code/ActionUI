@@ -38,7 +38,7 @@ package enum AppBundle {
     private static let programFolder = defaultFolder()
 
     /// The folder of each window's JSON, by window, when it came from a file.
-    private static var documentFolders: [String: String] = [:]
+    private static var contentFolders: [String: String] = [:]
     /// The bundle folders put on the icon theme's search path (GTK has no way to take one off).
     private static var iconFoldersAdded: Set<String> = []
 
@@ -102,12 +102,12 @@ package enum AppBundle {
     // MARK: JSON folders and format
 
     /// Records the folder of the JSON a window shows (nil: not from a file).
-    package static func setDocumentFolder(_ folder: String?, window windowUUID: String) {
-        documentFolders[windowUUID] = folder
+    package static func setContentFolder(_ folder: String?, window windowUUID: String) {
+        contentFolders[windowUUID] = folder
     }
 
-    static func documentFolder(window windowUUID: String) -> String? {
-        documentFolders[windowUUID]
+    static func contentFolder(window windowUUID: String) -> String? {
+        contentFolders[windowUUID]
     }
 
     /// The format of ActionUI JSON by its URL ("json" or "plist"), as Core reads it

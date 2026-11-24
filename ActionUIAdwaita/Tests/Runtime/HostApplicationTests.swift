@@ -31,7 +31,7 @@ final class HostApplicationTests: XCTestCase {
         ActionUIModel.shared.removeWindow(windowUUID)
     }
 
-    private static let document = #"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "Host"}}]}"#
+    private static let json = #"{"type": "VStack", "id": 1, "children": [{"type": "Text", "id": 2, "properties": {"text": "Host"}}]}"#
 
     private static let commands = #"""
         [{"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [
@@ -41,7 +41,7 @@ final class HostApplicationTests: XCTestCase {
     /// A window of the host's, not ActionUI's: an AdwWindow with the document's content in it,
     /// registered as the host registers the windows it fills.
     private func makeHostWindow(application: UnsafeMutablePointer<AdwApplication>?) throws -> (UnsafeMutablePointer<GtkWindow>, AdwaitaWindow) {
-        _ = try ActionUIModel.shared.loadDescription(from: Data(Self.document.utf8), format: "json", windowUUID: windowUUID)
+        _ = try ActionUIModel.shared.loadDescription(from: Data(Self.json.utf8), format: "json", windowUUID: windowUUID)
         let windowModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID])
         let renderTree = AdwaitaWindow(windowModel: windowModel)
         let content = try XCTUnwrap(renderTree.contentWidget)
@@ -260,7 +260,7 @@ final class HostApplicationTests: XCTestCase {
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_application_window_new(typed(application))!)
         var destroyed = false
         defer { if !destroyed { gtk_window_destroy(window) } }
-        XCTAssertTrue(HostWindow.load(json: Self.document, into: UnsafeMutableRawPointer(window), windowUUID: windowUUID, subtitle: "From the host"))
+        XCTAssertTrue(HostWindow.load(json: Self.json, into: UnsafeMutableRawPointer(window), windowUUID: windowUUID, subtitle: "From the host"))
 
         // Filled as ActionUI's own windows are: the toolbar view, the document in the toast overlay
         let toolbar = try XCTUnwrap(adw_application_window_get_content(typed(window)))
@@ -302,8 +302,8 @@ final class HostApplicationTests: XCTestCase {
             try? FileManager.default.removeItem(atPath: folder)
         }
         ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources }
-        try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
-        try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
         let window: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
         let other: UnsafeMutablePointer<GtkWindow> = typed(adw_window_new()!)
         let otherUUID = "host-window-origin-outside"
@@ -325,7 +325,7 @@ final class HostApplicationTests: XCTestCase {
         // Not an AdwApplicationWindow or AdwWindow: nothing done
         let plain: UnsafeMutablePointer<GtkWindow> = typed(gtk_window_new()!)
         defer { gtk_window_destroy(plain) }
-        XCTAssertFalse(HostWindow.load(json: Self.document, into: UnsafeMutableRawPointer(plain), windowUUID: windowUUID, subtitle: nil))
+        XCTAssertFalse(HostWindow.load(json: Self.json, into: UnsafeMutableRawPointer(plain), windowUUID: windowUUID, subtitle: nil))
         XCTAssertNil(WindowRegistry.shared.gtkWindow(windowUUID))
         XCTAssertNil(gtk_window_get_child(plain))
 

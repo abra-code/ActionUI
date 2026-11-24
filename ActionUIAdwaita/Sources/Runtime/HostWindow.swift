@@ -40,11 +40,11 @@ package enum HostWindow {
         do {
             data = try Data(contentsOf: url)
         } catch {
-            return fill(window, windowUUID: windowUUID, subtitle: subtitle, documentFolder: nil,
+            return fill(window, windowUUID: windowUUID, subtitle: subtitle, contentFolder: nil,
                         loadError: "\(url.path) could not be read: \(error)", load: nil)
         }
         return fill(window, windowUUID: windowUUID, subtitle: subtitle,
-                    documentFolder: url.deletingLastPathComponent().path, loadError: nil) {
+                    contentFolder: url.deletingLastPathComponent().path, loadError: nil) {
             // The file's origin, as Apple's actionUILoadHostingControllerFromURL gives it (FileLoadableView).
             try ActionUIModel.shared.loadWindowContent(data, format: AppBundle.contentFormat(of: url), windowUUID: windowUUID, from: url)
         }
@@ -53,7 +53,7 @@ package enum HostWindow {
     /// As load(url:...), with the JSON passed in.
     package static func load(json: String, into window: UnsafeMutableRawPointer, windowUUID: String,
                              subtitle: String?) -> Bool {
-        fill(window, windowUUID: windowUUID, subtitle: subtitle, documentFolder: nil, loadError: nil) {
+        fill(window, windowUUID: windowUUID, subtitle: subtitle, contentFolder: nil, loadError: nil) {
             try ActionUIModel.shared.loadWindowContent(Data(json.utf8), format: "json", windowUUID: windowUUID)
         }
     }
@@ -68,7 +68,7 @@ package enum HostWindow {
     }
 
     private static func fill(_ rawWindow: UnsafeMutableRawPointer, windowUUID: String, subtitle: String?,
-                             documentFolder: String?, loadError: String?, load: (() throws -> Void)?) -> Bool {
+                             contentFolder: String?, loadError: String?, load: (() throws -> Void)?) -> Bool {
         let logger = ActionUIModel.shared.logger
         guard isFillable(rawWindow) else {
             logger.log("Window \(windowUUID): a host window must be an AdwApplicationWindow or an AdwWindow; nothing loaded", .error)
@@ -77,7 +77,7 @@ package enum HostWindow {
         let window: UnsafeMutablePointer<GtkWindow> = rawWindow.assumingMemoryBound(to: GtkWindow.self)
 
         // A file's folder is where its LoadableViews find their names.
-        AppBundle.setDocumentFolder(documentFolder, window: windowUUID)
+        AppBundle.setContentFolder(contentFolder, window: windowUUID)
         var error = loadError
         if error == nil, let load {
             do {
@@ -106,7 +106,7 @@ package enum HostWindow {
         connectSignal(rawWindow, "destroy", .instanceOnly) {
             // Only while this window is the one under the UUID: a newer one keeps its folder.
             if WindowRegistry.shared.gtkWindow(windowUUID) == nil || WindowRegistry.shared.gtkWindow(windowUUID) == window {
-                AppBundle.setDocumentFolder(nil, window: windowUUID)
+                AppBundle.setContentFolder(nil, window: windowUUID)
             }
         }
         // True only when the JSON's content is what the window shows

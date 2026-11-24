@@ -431,7 +431,7 @@ final class ChartTests: XCTestCase {
     private static let repositoryRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
-    private func loadDocument(_ relativePath: String) throws -> ActionUIElement {
+    private func loadElement(_ relativePath: String) throws -> ActionUIElement {
         let data = try Data(contentsOf: Self.repositoryRoot.appendingPathComponent(relativePath))
         return try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
     }
@@ -455,7 +455,7 @@ final class ChartTests: XCTestCase {
         for path in ["ActionUISwiftTestApp/Resources/Chart.json", "ActionUISwiftTestApp/Resources/Chart.types.json",
                      "ActionUISwiftTestApp/Resources/Chart.selection.json", "ActionUISwiftTestApp/Resources/Chart.annotation.json",
                      "Documentation/Elements/Chart.json"] {
-            let charts = chartElements(in: try loadDocument(path))
+            let charts = chartElements(in: try loadElement(path))
             XCTAssertFalse(charts.isEmpty, path)
             for chart in charts {
                 XCTAssertGreaterThan(try renderChart(chart).inked, 500, "\(path): chart \(chart.id) drew something")
@@ -465,7 +465,7 @@ final class ChartTests: XCTestCase {
     }
 
     func testTheDynamicExampleTakesSeveralDescriptionsInARow() throws {
-        let chart = try XCTUnwrap(chartElements(in: try loadDocument("ActionUISwiftTestApp/Resources/Chart.dynamic.json")).first)
+        let chart = try XCTUnwrap(chartElements(in: try loadElement("ActionUISwiftTestApp/Resources/Chart.dynamic.json")).first)
         XCTAssertLessThan(try renderChart(chart).inked, 500, "no description yet: an empty plot area")
 
         // What the test app's buttons do: lines, rows, bars, another week, lines again.

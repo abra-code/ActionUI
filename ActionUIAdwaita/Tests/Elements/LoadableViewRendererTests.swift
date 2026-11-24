@@ -118,7 +118,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testAnHTTPURLLoadsBehindASpinner() throws {
-        let server = try TestImageServer(png: [], document: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
         self.server = server
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"url": "\#(server.base)/view.json", "viewDidLoadActionID": "test.loaded"}}"#)
         XCTAssertEqual(typeName(child(node)), "AdwSpinner")
@@ -131,7 +131,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testLinksInRemoteJSONOpenOnlyWebAndMailAddresses() throws {
-        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 30, "children": [{"type": "Link", "id": 31, "properties": {"title": "Here", "url": "file:///etc/hosts"}}]}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "VStack", "id": 30, "children": [{"type": "Link", "id": 31, "properties": {"title": "Here", "url": "file:///etc/hosts"}}]}"#)
         self.server = server
         let node = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Link", "id": 2, "properties": {"title": "Host", "url": "file:///etc/hosts"}}, {"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}]}"#)
         let loadable = try XCTUnwrap(node.childNodes[3])
@@ -190,7 +190,7 @@ final class LoadableViewRendererTests: XCTestCase {
     func testAnImageInRemoteJSONReadsNoLocalFileOutsideTheResources() throws {
         let png = try TestImages.file(TestImages.png(width: 4, height: 4), name: "loadable-reads.png")
         files.append(png)
-        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 40, "children": [{"type": "Image", "id": 41, "properties": {"filePath": "\#(png)"}}]}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "VStack", "id": 40, "children": [{"type": "Image", "id": 41, "properties": {"filePath": "\#(png)"}}]}"#)
         self.server = server
         let node = try render(#"{"type": "VStack", "id": 1, "children": [{"type": "Image", "id": 2, "properties": {"filePath": "\#(png)"}}, {"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}]}"#)
         let loadable = try XCTUnwrap(node.childNodes[3])
@@ -220,7 +220,7 @@ final class LoadableViewRendererTests: XCTestCase {
         RemoteImages.shared.load(url) { _ in loaded = true }
         XCTAssertTrue(AdwaitaTestHost.runMainLoop { loaded })
         XCTAssertNotNil(RemoteImages.shared.texture(url))
-        let server = try TestImageServer(png: [], document: #"{"type": "VStack", "id": 40, "children": [{"type": "AsyncImage", "id": 41, "properties": {"url": "\#(url)"}}, {"type": "List", "id": 42, "properties": {"itemType": {"viewType": "AsyncImage"}}}]}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "VStack", "id": 40, "children": [{"type": "AsyncImage", "id": 41, "properties": {"url": "\#(url)"}}, {"type": "List", "id": 42, "properties": {"itemType": {"viewType": "AsyncImage"}}}]}"#)
         self.server = server
         let node = try render(#"{"type": "LoadableView", "id": 3, "properties": {"url": "\#(server.base)/view.json"}}"#)
         XCTAssertTrue(AdwaitaTestHost.runMainLoop(until: { node.childNodes[40]?.childNodes[42]?.widget != nil }))
@@ -243,7 +243,7 @@ final class LoadableViewRendererTests: XCTestCase {
     }
 
     func testAURLThatFinishesAfterANewSourceLoadsNothing() throws {
-        let server = try TestImageServer(png: [], document: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
+        let server = try TestImageServer(png: [], json: #"{"type": "Text", "id": 30, "properties": {"text": "Remote"}}"#)
         self.server = server
         let path = try document("loadable-f.json", id: 10, text: "File")
         let node = try render(#"{"type": "LoadableView", "id": 1, "properties": {"url": "\#(server.base)/view.json"}}"#)

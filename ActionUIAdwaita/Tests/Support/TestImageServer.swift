@@ -48,7 +48,7 @@ enum TestImages {
 
 /// What the server serves; read by its C handler, on the main thread.
 nonisolated(unsafe) private var servedPNG: [UInt8] = []
-nonisolated(unsafe) private var servedDocument = ""
+nonisolated(unsafe) private var servedJSON = ""
 nonisolated(unsafe) private var servedRequests = 0
 /// The size of the body "/big.bin" serves (zero bytes).
 nonisolated(unsafe) var servedBigSize = 0
@@ -84,7 +84,7 @@ private let handleRequest: @convention(c) (UnsafeMutablePointer<SoupServer>?, Op
         soup_server_message_set_response(message, "text/plain", SOUP_MEMORY_COPY, "not an image", 12)
     case "/view.json":
         soup_server_message_set_status(message, 200, nil)
-        let bytes = Array(servedDocument.utf8)
+        let bytes = Array(servedJSON.utf8)
         bytes.withUnsafeBufferPointer { buffer in
             soup_server_message_set_response(message, "application/json", SOUP_MEMORY_COPY, buffer.baseAddress, gsize(buffer.count))
         }
@@ -124,9 +124,9 @@ final class TestImageServer {
     /// The server's address, "http://127.0.0.1:<port>", without a trailing slash.
     let base: String
 
-    init(png: [UInt8], document: String = "") throws {
+    init(png: [UInt8], json: String = "") throws {
         servedPNG = png
-        servedDocument = document
+        servedJSON = json
         servedRequests = 0
         server = typed(OpaquePointer(g_object_new_with_properties(soup_server_get_type(), 0, nil, nil)!))
         soup_server_add_handler(server, nil, handleRequest, nil, nil)

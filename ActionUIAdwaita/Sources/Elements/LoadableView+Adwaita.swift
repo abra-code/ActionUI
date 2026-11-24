@@ -81,10 +81,10 @@ extension LoadableView: ActionUIAdwaitaRenderer {
             logger.log("No valid source for LoadableView, displaying error text", .warning)
             return showStatus(message("No valid source provided", error: false), widget, state)
         }
-        let documentFolder = documentFolder(of: node)
+        let contentFolder = contentFolder(of: node)
         let source = ActionUIContentLoader.source(for: value, bundleURL: { name, ext in
             let file = "\(name).\(ext)"
-            return (AppBundle.file(file, in: documentFolder) ?? AppBundle.resource(file)).map { URL(fileURLWithPath: $0) }
+            return (AppBundle.file(file, in: contentFolder) ?? AppBundle.resource(file)).map { URL(fileURLWithPath: $0) }
         }, logger: logger)
         let windowUUID = node.windowUUID
         let parentID = node.element.id
@@ -210,7 +210,7 @@ extension LoadableView: ActionUIAdwaitaRenderer {
 extension LoadableView {
     /// The folder of the JSON holding `node`: the file the nearest enclosing LoadableView
     /// loaded, else the folder of the window's JSON.
-    fileprivate static func documentFolder(of node: RenderNode) -> String? {
+    fileprivate static func contentFolder(of node: RenderNode) -> String? {
         var ancestor = node.parent
         while let current = ancestor {
             if let widget = current.widget, let state = attached(on: widget, key: loadableStateKey) {
@@ -218,7 +218,7 @@ extension LoadableView {
             }
             ancestor = current.parent
         }
-        return AppBundle.documentFolder(window: node.windowUUID)
+        return AppBundle.contentFolder(window: node.windowUUID)
     }
 
     /// The sources the LoadableViews around `node` show, the outermost first. Only a LoadableView

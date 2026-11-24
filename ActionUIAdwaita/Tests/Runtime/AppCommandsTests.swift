@@ -335,7 +335,7 @@ final class AppCommandsTests: XCTestCase {
                        "greyed out, as AppKit shows a menu item without an action")
     }
 
-    func testAWindowGroupDocumentIsItsContentWithItsTitle() throws {
+    func testAWindowGroupGivesTheWindowItsContentAndTitle() throws {
         let json = #"""
             {"type": "WindowGroup", "id": 1, "properties": {"title": "Default Window", "windowGroupID": "test-group"},
              "content": {"type": "Text", "id": 2, "properties": {"text": "Hello"}},
@@ -484,7 +484,7 @@ final class AppCommandsTests: XCTestCase {
              "commands": [{"type": "CommandMenu", "id": 3, "properties": {"name": "Server Tools"}, "children": [
                 {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "test.run"}}]}]}
             """
-        let server = try TestImageServer(png: [], document: json)
+        let server = try TestImageServer(png: [], json: json)
         defer {
             server.stop()
             ActionUIModel.shared.trustPolicy = DefaultTrustPolicy()

@@ -594,7 +594,7 @@ public final class AdwaitaApplication {
             presented.renderTree?.detach()
             self.windows[windowUUID] = nil
             WindowRegistry.shared.unregister(windowUUID, window: presented.window)
-            AppBundle.setDocumentFolder(nil, window: windowUUID)
+            AppBundle.setContentFolder(nil, window: windowUUID)
             self.removeCommandsIfLast(presented)
         }
         connectSignal(window, "notify::is-active", .instanceAndArgument) { [weak self] in
@@ -709,7 +709,7 @@ public final class AdwaitaApplication {
             windows[windowUUID] = nil
             WindowRegistry.shared.unregister(windowUUID, window: presented.window)
             dropRemoteLoad(windowUUID)
-            AppBundle.setDocumentFolder(nil, window: windowUUID)
+            AppBundle.setContentFolder(nil, window: windowUUID)
             removeCommandsIfLast(presented)
         }
         handlers.windowWillClose?(windowUUID)
@@ -736,7 +736,7 @@ public final class AdwaitaApplication {
     private func load(_ source: WindowSource, windowUUID: String) -> (error: String?, defaultTitle: String?, commands: (json: String, key: String)?) {
         let logger = ActionUIModel.shared.logger
         // A file's folder is where its LoadableViews find their names; other JSON has none.
-        AppBundle.setDocumentFolder(nil, window: windowUUID)
+        AppBundle.setContentFolder(nil, window: windowUUID)
         switch source {
         case .json(let data):
             let group = windowGroup(data, format: "json")
@@ -790,7 +790,7 @@ public final class AdwaitaApplication {
                 let format = AppBundle.contentFormat(of: url)
                 let group = windowGroup(try Data(contentsOf: url), format: format)
                 title = group.title ?? title
-                AppBundle.setDocumentFolder(url.deletingLastPathComponent().path, window: windowUUID)
+                AppBundle.setContentFolder(url.deletingLastPathComponent().path, window: windowUUID)
                 try loadContent(group, format: format, windowUUID: windowUUID, from: url)
                 return (nil, title, ownCommands(group, from: url.path, isAppResource: Self.isInResourceFolder(url)))
             } catch {

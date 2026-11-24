@@ -52,7 +52,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         AdwaitaTestHost.drainMainLoop()
     }
 
-    private static let document = #"{"type": "VStack", "id": 1, "properties": {"frame": {"minWidth": 300, "idealWidth": 360, "minHeight": 280, "idealHeight": 320}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#
+    private static let json = #"{"type": "VStack", "id": 1, "properties": {"frame": {"minWidth": 300, "idealWidth": 360, "minHeight": 280, "idealHeight": 320}}, "children": [{"type": "Text", "id": 2, "properties": {"text": "Hello"}}]}"#
 
     private func defaultSize(_ window: UnsafeMutablePointer<GtkWindow>) -> (Int32, Int32) {
         var width: Int32 = 0
@@ -86,7 +86,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.closeWindow("app-w1")
             app.terminate()
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
         XCTAssertEqual(app.run(), 0, "terminate ended the application")
         XCTAssertEqual(events, ["willFinishLaunching", "present app-w1", "didFinishLaunching", "close app-w1"])
@@ -107,7 +107,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             } else if uuid == "app-w2", !reopened {
                 // The client opens a window under the same UUID from the handler.
                 reopened = true
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
             }
         }
         app.handlers.didFinishLaunching = {
@@ -122,8 +122,8 @@ final class AdwaitaApplicationTests: XCTestCase {
                 }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(inHandler, true, "the handler reads the closing window's model")
         XCTAssertEqual(afterClose, false, "the model goes after the handler")
@@ -167,7 +167,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var subtitle: WidgetPointer?
         var presentedBefore: [String] = []
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             XCTAssertNil(prepared.error)
             XCTAssertTrue(ActionUIModel.shared.hasWindow("app-w1"), "its model is loaded")
             presentedBefore = app.windowUUIDs
@@ -242,7 +242,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var afterSecond: WidgetPointer?
         app.handlers.windowWillPresent = { presented.append($0) }
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             app.presentWindow(prepared: prepared, title: nil)
             first = app.contentWidget("app-w1")
             app.presentWindow(prepared: prepared, title: nil)
@@ -271,7 +271,7 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testALoadableViewInADroppedPreparedWindowFiresNothing() throws {
         let path = NSTemporaryDirectory() + "actionui-app-test-sub-\(ProcessInfo.processInfo.processIdentifier).json"
-        try Self.document.write(toFile: path, atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: path, atomically: true, encoding: .utf8)
         files.append(path)
         let document = #"{"type": "LoadableView", "id": 1, "properties": {"filePath": "\#(path)", "viewDidLoadActionID": "app.loaded"}}"#
         var fired = 0
@@ -294,7 +294,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.closeWindow("app-w1")
             app.terminate()
         }
-        let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+        let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
         app.presentWindow(prepared: prepared, title: nil)
         XCTAssertEqual(app.windowUUIDs, [], "before the start the window waits")
         XCTAssertEqual(app.run(), 0)
@@ -315,7 +315,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             app.terminate()
         }
         app.presentWindow(json: Data(#"{"type": "Text", "id": 1}"#.utf8), windowUUID: "app-w1", title: nil)
-        let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+        let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
         app.presentWindow(prepared: prepared, title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(presented, ["app-w1"], "the waiting window's document never loads over the prepared one")
@@ -337,20 +337,20 @@ final class AdwaitaApplicationTests: XCTestCase {
             // Never runs if the application ended with its last window.
             _ = runAfter(milliseconds: 300) {
                 running = true
-                let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w2")
+                let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w2")
                 app.presentWindow(prepared: prepared, title: nil)
                 app.closeWindow("app-w2")
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(running, "the host closed its last window: the application keeps running")
         XCTAssertEqual(presented, ["app-w1", "app-w2"], "and a later window releases the hold")
     }
 
     func testPreparingUnderTheUUIDOfTheLastLoadLeavesTheApplicationRunning() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         var presented: [String] = []
@@ -367,7 +367,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(running, "the host dropped its last load: the application keeps running")
         XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
@@ -379,7 +379,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var showsDocument = false
         app.handlers.didFinishLaunching = {
             app.closeWindow("app-w1")
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             // After the removal the close queued.
             _ = runAfter(milliseconds: 50) {
                 hadModel = ActionUIModel.shared.hasWindow("app-w1")
@@ -389,7 +389,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(hadModel, "the host reopened the window: its model stays")
         XCTAssertTrue(showsDocument)
@@ -401,8 +401,8 @@ final class AdwaitaApplicationTests: XCTestCase {
         var afterPreparing: [String]?
         app.handlers.windowWillClose = { closed.append($0) }
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             afterPreparing = app.windowUUIDs
             app.presentWindow(prepared: prepared, title: nil)
             app.closeWindow("app-w1")
@@ -423,7 +423,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var missing: (width: Int, height: Int)?
         app.handlers.didFinishLaunching = {
             missing = app.capturePNG(windowUUID: "no-such-window", path: path)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: "Capture")
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: "Capture")
             _ = runAfter(milliseconds: 300) {
                 full = app.capturePNG(windowUUID: "app-w1", path: path)
                 limited = app.capturePNG(windowUUID: "app-w1", path: path, maxPixels: 100)
@@ -554,12 +554,12 @@ final class AdwaitaApplicationTests: XCTestCase {
         var rendered: (Int, Int) = (0, 0)
         var shown: (Int32, Int32) = (0, 0)
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             if let render = app.renderOffscreen(prepared: prepared, title: nil, options: options) {
                 rendered = (render.width, render.height)
                 render.close()
             }
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: options)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: options)
             _ = runAfter(milliseconds: 300) {
                 if let window = app.gtkWindow("app-w2") {
                     shown = (gtk_widget_get_width(typed(window)), gtk_widget_get_height(typed(window)))
@@ -582,12 +582,12 @@ final class AdwaitaApplicationTests: XCTestCase {
         var reopened: AdwaitaApplication.WindowOptions?
         app.handlers.didFinishLaunching = {
             missing = app.windowOptions(windowUUID: "no-such-window")
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: asked)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil, options: asked)
             _ = runAfter(milliseconds: 300) {
                 current = app.windowOptions(windowUUID: "app-w1")
                 app.closeWindow("app-w1")
                 if let current {
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: current)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: current)
                 }
                 _ = runAfter(milliseconds: 300) {
                     reopened = app.windowOptions(windowUUID: "app-w2")
@@ -629,12 +629,12 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testRenderingOffscreenRefusesAUsedOrBadDocumentAndBeforeTheStart() throws {
         let app = AdwaitaApplication()
-        let early = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w2")
+        let early = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w2")
         XCTAssertNil(app.renderOffscreen(prepared: early, title: nil), "before the start")
         var used: Bool?
         var bad: Bool?
         app.handlers.didFinishLaunching = {
-            let prepared = app.prepareWindow(json: Data(Self.document.utf8), windowUUID: "app-w1")
+            let prepared = app.prepareWindow(json: Data(Self.json.utf8), windowUUID: "app-w1")
             let first = app.renderOffscreen(prepared: prepared, title: nil)
             used = app.renderOffscreen(prepared: prepared, title: nil) == nil
             first?.close()
@@ -789,30 +789,30 @@ final class AdwaitaApplicationTests: XCTestCase {
 
     func testAFileIsTitledByItsNameAndABadDocumentShowsItsError() throws {
         let path = NSTemporaryDirectory() + "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier).json"
-        try Self.document.write(toFile: path, atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: path, atomically: true, encoding: .utf8)
         files.append(path)
         let app = AdwaitaApplication()
         var title: String?
         var errorText: String?
-        var documentFolder: String?
+        var contentFolder: String?
         var folderAfterClose: String?
         app.handlers.didFinishLaunching = {
             app.presentWindow(url: path, windowUUID: "app-file", title: nil)
-            documentFolder = AppBundle.documentFolder(window: "app-file")
+            contentFolder = AppBundle.contentFolder(window: "app-file")
             app.presentWindow(json: Data("{ not json".utf8), windowUUID: "app-bad", title: "Bad")
             title = app.gtkWindow("app-file").flatMap { swiftString(gtk_window_get_title($0)) }
             if let window = app.gtkWindow("app-bad"), let label = self.content(window) {
                 errorText = swiftString(gtk_label_get_text(opaque(label)))
             }
             app.closeWindow("app-file")
-            folderAfterClose = AppBundle.documentFolder(window: "app-file")
+            folderAfterClose = AppBundle.contentFolder(window: "app-file")
             app.closeWindow("app-bad")
             app.terminate()
         }
         app.run()
         XCTAssertEqual(title, "actionui-app-test-\(ProcessInfo.processInfo.processIdentifier)")
         XCTAssertTrue(errorText?.hasPrefix("The ActionUI JSON could not be loaded") == true, "got \(errorText ?? "nil")")
-        XCTAssertEqual(documentFolder, URL(fileURLWithPath: path).deletingLastPathComponent().path, "the file's folder, where its LoadableViews find their names")
+        XCTAssertEqual(contentFolder, URL(fileURLWithPath: path).deletingLastPathComponent().path, "the file's folder, where its LoadableViews find their names")
         XCTAssertNil(folderAfterClose, "dropped when the window closes")
     }
 
@@ -826,14 +826,14 @@ final class AdwaitaApplicationTests: XCTestCase {
             try? FileManager.default.removeItem(atPath: folder)
         }
         ActionUIConfiguration.updateForTesting { $0.resourceFolder = resources }
-        try Self.document.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
-        try Self.document.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: resources + "/Main.json", atomically: true, encoding: .utf8)
+        try Self.json.write(toFile: folder + "/Other.json", atomically: true, encoding: .utf8)
         let app = AdwaitaApplication()
         var inside: JSONContentOrigin?, outside: JSONContentOrigin?, host: JSONContentOrigin?
         app.handlers.didFinishLaunching = {
             app.presentWindow(url: resources + "/Main.json", windowUUID: "origin-inside", title: nil)
             app.presentWindow(url: folder + "/Other.json", windowUUID: "origin-outside", title: nil)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "origin-host", title: "Host")
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "origin-host", title: "Host")
             inside = ActionUIModel.shared.origin(windowUUID: "origin-inside", viewID: 2)
             outside = ActionUIModel.shared.origin(windowUUID: "origin-outside", viewID: 2)
             host = ActionUIModel.shared.origin(windowUUID: "origin-host", viewID: 2)
@@ -864,7 +864,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.willTerminate = { terminated = true }
         let toplevels = g_list_model_get_n_items(gtk_window_get_toplevels())
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             secondRun = app.run()
             // The user's close of the last window: refused.
             if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
@@ -903,7 +903,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(runningAfterClose, "the host's close of the last window leaves the application running, as on Apple")
         XCTAssertEqual(modelAfterClose, false, "the closed window's model goes meanwhile")
@@ -925,19 +925,19 @@ final class AdwaitaApplicationTests: XCTestCase {
             _ = runAfter(milliseconds: 5000) { app.terminate() }
             app.closeWindow("app-w1")
             _ = runAfter(milliseconds: 100) {
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
                 // The user's close of the last window: asked, and the application ends.
                 if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(events, ["close app-w1", "close app-w2"], "the user's close was carried out, not left to the watchdog")
         XCTAssertEqual(asked, 1, "the user's close of the new window asked and ended the application: no hold was left")
     }
 
     func testTheHostClosingItsLastWindowWhileItsDocumentLoadsLeavesTheApplicationRunning() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         var presented: [String] = []
@@ -957,7 +957,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 app.terminate()
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(runningAfterClose, "the host dropped its last load: the application keeps running")
         XCTAssertEqual(presented, ["app-w1"], "the dropped load presents nothing")
@@ -976,7 +976,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         app.handlers.didFinishLaunching = {
             // A watchdog: a window that stays open fails the test instead of hanging it.
             _ = runAfter(milliseconds: 5000) { app.terminate() }
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             try? ActionUIModel.shared.presentModal(windowUUID: "app-w1", data: Data(#"{"type": "Text", "id": 50, "properties": {"text": "Sheet"}}"#.utf8),
                                                    format: "json", style: .sheet, onDismissActionID: "app.dismissed")
             ActionUIModel.shared.presentAlert(windowUUID: "app-w1", title: "Alert", buttons: [DialogButton(title: "Cancel", role: .cancel, actionID: "app.dismissed")])
@@ -1003,7 +1003,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             _ = runAfter(milliseconds: 5000) { app.terminate() }
             // As a host whose document arrives later: no window when launching ends.
             _ = runAfter(milliseconds: 50) {
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: "Later")
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: "Later")
                 presented = app.gtkWindow("app-w2") != nil
                 app.closeWindow("app-w2")
                 app.terminate()
@@ -1014,7 +1014,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testAnHTTPDocumentOpensOnceLoadedAndHoldsTheApplicationMeanwhile() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         var events: [String] = []
@@ -1032,7 +1032,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                     app.closeWindow("app-w1")
                     // Presented again while it loads: the newer window stays.
                     app.presentWindow(url: server.base + "/missing.json", windowUUID: "app-big", title: nil)
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil)
                     app.presentWindow(url: server.base + "/missing.json", windowUUID: "app-bad", title: nil)
                 }
             case "app-bad":
@@ -1057,7 +1057,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         }
         app.handlers.didFinishLaunching = {
             _ = runAfter(milliseconds: 10000) { app.terminate() }
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             // The only window closes, then the next one loads: the hold the close takes, and then the
             // load's, keep the application running meanwhile.
             app.closeWindow("app-w1")
@@ -1089,7 +1089,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let subtitle = "Requested by a test"
         let options = AdwaitaApplication.WindowOptions(subtitle: subtitle)
         let documents: [(String, String)] = [
-            ("app-w1", Self.document),
+            ("app-w1", Self.json),
             ("app-w2", #"{"type": "NavigationStack", "id": 1, "properties": {"navigationTitle": "Own bars"}, "content": {"type": "Text", "id": 2, "properties": {"text": "Page"}}}"#),
             ("app-text", #"{"type": "NavigationSplitView", "id": 1, "sidebar": {"type": "Text", "id": 2, "properties": {"text": "Side"}}, "detail": {"type": "Text", "id": 3, "properties": {"text": "Detail"}}}"#),
             ("app-wide", #"{"type": "Text", "id": 1, "properties": {"text": "Own title"}, "toolbar": [{"type": "ToolbarItem", "id": 2, "properties": {"placement": "principal"}, "content": {"type": "Text", "id": 3, "properties": {"text": "Principal"}}}]}"#),
@@ -1346,9 +1346,9 @@ final class AdwaitaApplicationTests: XCTestCase {
         var allocated: Int32 = 0
         var allocatedNotResizable: Int32 = 0
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle))
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle, isResizable: false))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(subtitle: subtitle, isResizable: false))
             if let window = app.gtkWindow("app-w1") { plain = self.defaultSize(window) }
             if let window = app.gtkWindow("app-w2") {
                 withLine = self.defaultSize(window)
@@ -1384,10 +1384,10 @@ final class AdwaitaApplicationTests: XCTestCase {
             g_object_unref(item)
         }
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400)))
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (50000, 50000)))
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-tall", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (0, 400)))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400)))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (50000, 50000)))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-tall", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (0, 400)))
             if let window = app.gtkWindow("app-w1") { plain = self.defaultSize(window) }
             if let window = app.gtkWindow("app-w2") {
                 sized = self.defaultSize(window)
@@ -1416,7 +1416,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         let plain = AdwaitaApplication.WindowOptions(contentSize: (500, 400))
         let withLine = AdwaitaApplication.WindowOptions(subtitle: "Requested by a test", contentSize: (500, 400))
         let windows: [(String, String, AdwaitaApplication.WindowOptions)] = [
-            ("app-w1", Self.document, plain), ("app-w2", Self.document, withLine), ("app-text", stack, plain), ("app-big", stack, withLine),
+            ("app-w1", Self.json, plain), ("app-w2", Self.json, withLine), ("app-text", stack, plain), ("app-big", stack, withLine),
         ]
         var sizes: [String: (Int32, Int32)] = [:]
         app.handlers.didFinishLaunching = {
@@ -1451,7 +1451,7 @@ final class AdwaitaApplicationTests: XCTestCase {
         var plainScrolls = true
         var withLineScrolls = false
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
             let headerBar = app.gtkWindow("app-w1").map { self.defaultSize($0).1 - 320 } ?? 0
             // Fits under the header bar, but not under the header bar and the line.
             let tall = Data(#"{"type": "Color", "id": 1, "properties": {"color": "red", "frame": {"minWidth": 100, "minHeight": \#(monitor.height - headerBar - 5)}}}"#.utf8)
@@ -1497,9 +1497,9 @@ final class AdwaitaApplicationTests: XCTestCase {
         var results: [String: (resizable: gboolean, wanted: (Int32, Int32), got: (Int32, Int32))] = [:]
         let notResizable = AdwaitaApplication.WindowOptions(isResizable: false)
         app.handlers.didFinishLaunching = {
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: notResizable)
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil, options: notResizable)
             app.presentWindow(json: Data(scrolling.utf8), windowUUID: "app-scroll", title: nil, options: notResizable)
-            app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400), isResizable: false))
+            app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil, options: AdwaitaApplication.WindowOptions(contentSize: (500, 400), isResizable: false))
             _ = runAfter(milliseconds: 500) {
                 for uuid in ["app-w1", "app-scroll", "app-w2"] {
                     guard let window = app.gtkWindow(uuid) else { continue }
@@ -1536,17 +1536,17 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
             _ = runAfter(milliseconds: 200) {
                 runningAfterClose = true
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
                 if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
                 _ = runAfter(milliseconds: 200) {
                     // Without the flag, the user's close asks and ends the application, as no hold is left.
                     app.keepsRunningWithoutWindows = false
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-big", title: nil)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-big", title: nil)
                     if let window = app.gtkWindow("app-big") { gtk_window_close(window) }
                 }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertTrue(runningAfterClose, "the application outlives the user's close")
         XCTAssertEqual(events, ["close app-w1", "close app-w2", "close app-big"])
@@ -1554,7 +1554,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testWithKeepsRunningALoadingDocumentHoldsTheApplicationAsAWindowWould() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         app.keepsRunningWithoutWindows = true
@@ -1573,7 +1573,7 @@ final class AdwaitaApplicationTests: XCTestCase {
                 _ = runAfter(milliseconds: 200) {
                     // Without the flag, the user's close asks and ends the application, as no hold is left.
                     app.keepsRunningWithoutWindows = false
-                    app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w2", title: nil)
+                    app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w2", title: nil)
                     if let window = app.gtkWindow("app-w2") { gtk_window_close(window) }
                 }
             }
@@ -1586,12 +1586,12 @@ final class AdwaitaApplicationTests: XCTestCase {
             if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
             _ = runAfter(milliseconds: 200) {
                 // The user closes the only window while another loads: that one opens.
-                app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+                app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
                 app.presentWindow(url: server.base + "/view.json", windowUUID: "app-big", title: nil)
                 if let window = app.gtkWindow("app-w1") { gtk_window_close(window) }
             }
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(events, ["present app-w1", "close app-w1", "present app-w1", "close app-w1", "present app-big", "close app-big",
                                 "present app-w2", "close app-w2"])
@@ -1599,7 +1599,7 @@ final class AdwaitaApplicationTests: XCTestCase {
     }
 
     func testOptionsSurviveTheWaitForTheStartAndForARemoteDocument() throws {
-        let server = try TestImageServer(png: [], document: Self.document)
+        let server = try TestImageServer(png: [], json: Self.json)
         defer { server.stop() }
         let app = AdwaitaApplication()
         let subtitle = "Requested by a test"
@@ -1617,7 +1617,7 @@ final class AdwaitaApplicationTests: XCTestCase {
             _ = runAfter(milliseconds: 5000) { app.terminate() }
             app.presentWindow(url: server.base + "/view.json", windowUUID: "app-big", title: nil, options: options)
         }
-        app.presentWindow(json: Data(Self.document.utf8), windowUUID: "app-w1", title: nil, options: options)
+        app.presentWindow(json: Data(Self.json.utf8), windowUUID: "app-w1", title: nil, options: options)
         app.presentWindow(url: server.base + "/view.json", windowUUID: "app-w2", title: nil, options: options)
         XCTAssertEqual(app.run(), 0)
         XCTAssertEqual(Set(seen.keys), ["app-w1", "app-w2", "app-big"])
