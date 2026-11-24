@@ -187,6 +187,12 @@ bool actionUIWinUIRemoveCurrentFolderFromDLLSearch(void) {
 }
 
 bool actionUIWinUIInitialize(void) {
+    // WinUI's windows need a per-monitor DPI aware process, which WinUI's app templates declare in their
+    // manifest. A host program whose manifest declares no DPI awareness (python.exe, node.exe) runs unaware:
+    // Windows scales its windows as bitmaps, and the mouse wheel and the pointer's leaving a window never reach
+    // WinUI's content. This runs before the first window, so the call makes the process per-monitor aware. A
+    // program that declared its own awareness (or set it before) keeps it, as Windows refuses the call then.
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     PACKAGE_VERSION minVersion{};
     minVersion.Version = WINDOWSAPPSDK_RUNTIME_VERSION_UINT64;
     HRESULT result = MddBootstrapInitialize2(WINDOWSAPPSDK_RELEASE_MAJORMINOR, WINDOWSAPPSDK_RELEASE_VERSION_TAG_W,

@@ -49,7 +49,9 @@ ACTIONUI_WINUI_API bool actionUIWinUICopyLastError(char *outMessage, ptrdiff_t o
 
 // Attaches the Windows App SDK runtime this shim was built for to the process (the Windows App
 // SDK bootstrapper). Call once, before actionUIWinUIRun, on the thread that will run it. Fails when
-// that runtime is not installed.
+// that runtime is not installed. Also makes the process per-monitor DPI aware, as WinUI needs, when its
+// program declared no DPI awareness of its own (a scripting language's interpreter); call it before the
+// process makes any window.
 ACTIONUI_WINUI_API bool actionUIWinUIInitialize(void);
 
 // Removes the current folder from the places Windows searches for a DLL loaded by name, for the whole
