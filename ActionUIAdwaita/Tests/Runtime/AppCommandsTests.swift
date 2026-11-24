@@ -8,9 +8,10 @@
  commands loaded under a key replaced in place, and removed by an empty array; a menu button's
  popover showing a rebuilt submenu as it is now, one page each; titles with underscores shown as written;
  keyboardShortcut as GTK accelerators; an item's action firing its actionID with the element's id;
- a disabled item's action disabled; Ctrl+Q quitting; a WindowGroup document as its content, its
- title and its commands (its platform overrides applied), loaded once per group, and not before
- its window shows; one that cannot be loaded brings none.
+ a disabled item's action disabled; About's name, version and copyright line; Ctrl+Q quitting;
+ a WindowGroup document as its content, its title and its commands (its platform overrides
+ applied), loaded once per group, and not before its window shows; one that cannot be loaded
+ brings none.
 */
 
 import XCTest
@@ -230,6 +231,26 @@ final class AppCommandsTests: XCTestCase {
         defer { g_object_unref(UnsafeMutableRawPointer(button)) }
         let pages = popoverPages(button).filter { !$0.hasPrefix("main:") }
         XCTAssertEqual(pages.sorted(), ["My__Menu:My_Menu,my_file.txt,sub_menu", "sub__menu:sub_menu,a_b"].sorted(), "\(pages)")
+    }
+
+    func testAboutShowsTheStartedNameVersionAndCopyright() {
+        let application = adw_application_new("com.abracode.actionui.tests.about", applicationNonUnique)!
+        defer { g_object_unref(UnsafeMutableRawPointer(application)) }
+        let commands = AppCommands()
+        commands.start(typed(application), name: "Demo", version: "1.2.3", copyright: "Copyright 2026 Example")
+        let dialog = commands.makeAboutDialog()
+        g_object_ref_sink(UnsafeMutableRawPointer(dialog))
+        XCTAssertEqual(swiftString(adw_about_dialog_get_application_name(dialog)), "Demo")
+        XCTAssertEqual(swiftString(adw_about_dialog_get_version(dialog)), "1.2.3")
+        XCTAssertEqual(swiftString(adw_about_dialog_get_copyright(dialog)), "Copyright 2026 Example")
+        g_object_unref(UnsafeMutableRawPointer(dialog))
+
+        commands.start(typed(application), name: "Plain")
+        let plain = commands.makeAboutDialog()
+        g_object_ref_sink(UnsafeMutableRawPointer(plain))
+        XCTAssertEqual(swiftString(adw_about_dialog_get_version(plain)), "", "none given: none shown")
+        XCTAssertEqual(swiftString(adw_about_dialog_get_copyright(plain)), "")
+        g_object_unref(UnsafeMutableRawPointer(plain))
     }
 
     func testAChildlessReplacingGroupRemovesAbout() {

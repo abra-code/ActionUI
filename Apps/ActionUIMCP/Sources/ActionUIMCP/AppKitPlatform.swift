@@ -86,11 +86,11 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         NSApp.terminate(nil)
     }
 
-    /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
-    /// window. The Window menu is the application's windows menu, where AppKit lists the open
-    /// windows, and the Services submenu its services menu. No Quit item in the server: quitting
-    /// would end the client's server; closing windows is enough. The keeper serves no one and gets
-    /// one.
+    /// The app menu (About, Services, Hide), and Edit and Window menus, so text fields get copy,
+    /// paste, undo and select all, and Cmd-W closes a window. The Window menu is the application's
+    /// windows menu, where AppKit lists the open windows, and the Services submenu its services menu.
+    /// No Quit item in the server: quitting would end the client's server; closing windows is
+    /// enough. The keeper serves no one and gets one.
     private static func makeMainMenu(quitItem: Bool) -> NSMenu {
         let mainMenu = NSMenu()
         @discardableResult
@@ -112,7 +112,9 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         let services = NSMenu(title: "Services")
         let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         servicesItem.submenu = services
-        submenu("ActionUI", [servicesItem, .separator(), item("Hide", #selector(NSApplication.hide(_:)), "h")]
+        let about = NSMenuItem(title: "About ActionUI MCP", action: #selector(AboutPanel.show(_:)), keyEquivalent: "")
+        about.target = AboutPanel.shared
+        submenu("ActionUI", [about, .separator(), servicesItem, .separator(), item("Hide", #selector(NSApplication.hide(_:)), "h")]
                             + (quitItem ? [.separator(), item("Quit", #selector(NSApplication.terminate(_:)), "q")] : []))
         NSApplication.shared.servicesMenu = services
         submenu("Edit", [
@@ -147,7 +149,8 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
 
     /// Without `activate` the window is only ordered front, so it does not take keyboard focus from
     /// the user.
-    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing, activate: Bool) {
+    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
+                 activate: Bool, mark: WindowMark, footer: ShowFooter?) {
         var style: NSWindow.StyleMask = [.titled, .closable]
         switch sizing {
         case .fitting(let resizable) where resizable: style.formUnion([.miniaturizable, .resizable])
@@ -157,7 +160,7 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
                               styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = content.controller.view
+        window.contentView = Self.markedContainer(around: content.controller.view, mark: mark, footer: footer, windowID: windowID)
         // After the content view: installing the SwiftUI hosting view resets the window's title
         // and subtitle, and the subtitle carries the provenance line.
         window.title = title
@@ -165,9 +168,10 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
         titleGuards[windowID] = WindowTitleGuard(window: window, title: title, subtitle: subtitle)
         switch sizing {
         case .fixed(let size):
-            window.setContentSize(NSSize(width: size.width, height: size.height))
+            window.setContentSize(Self.withChrome(NSSize(width: size.width, height: size.height), mark, footer))
         case .fitting:
-            window.setContentSize(Self.clampedToScreen(content.fitting))
+            // The mark and the bar after the clamp, which reads a zero height as "no fitting size".
+            window.setContentSize(Self.withChrome(Self.clampedToScreen(content.fitting), mark, footer))
         }
         window.delegate = self
         Self.place(window)
@@ -244,6 +248,23 @@ final class AppKitPlatform: NSObject, NSWindowDelegate, WindowPlatform {
                                        frame: [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height],
                                        styleMask: entry.window.styleMask.rawValue)
             }
+    }
+}
+
+/// The About panel. The standard panel takes the name and the copyright line from the Info.plist
+/// linked into the executable (Info.plist, Package.swift); the icon and version, which a bare
+/// executable has nowhere else, are given here: the Dock icon and the server's version.
+@MainActor
+final class AboutPanel: NSObject {
+    static let shared = AboutPanel()
+
+    @objc func show(_ sender: Any?) {
+        var options: [NSApplication.AboutPanelOptionKey: Any] = [.applicationVersion: serverVersion, .version: ""]
+        if let icon = AppKitPlatform.dockIcon {
+            options[.applicationIcon] = icon
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: options)
     }
 }
 

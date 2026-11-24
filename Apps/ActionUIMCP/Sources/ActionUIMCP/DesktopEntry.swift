@@ -4,9 +4,10 @@
 // Licensed under the PolyForm Small Business License 1.0.0
 // https://polyformproject.org/licenses/small-business/1.0.0
 
-// DesktopEntry.swift - the server's icon on the Linux desktop. GNOME (and other desktops on Wayland)
-// shows a window's icon and name from the desktop entry whose file name is the window's application
-// ID, not from anything the program sets, so without one the server's windows show a generic icon.
+// DesktopEntry.swift - the server's icon and name on the Linux desktop. GNOME (and other desktops
+// on Wayland) shows a window's icon and name from the desktop entry whose file name is the window's
+// application ID, not from anything the program sets (nor the executable's name), so without one
+// the server's windows show a generic icon and the raw application ID.
 // `actionui-mcp --install-desktop-entry` writes that entry for the current user, hidden from the app
 // list (the server is started by an MCP client, never by hand), with this executable's path and
 // the icon beside it; `--uninstall-desktop-entry` removes it. Run it again after moving the server.
@@ -20,6 +21,9 @@ import Glibc
 enum DesktopEntry {
     /// The application ID of the server's and the keeper's windows, and the entry's file name.
     static let applicationID = "com.abracode.actionui.mcp"
+    /// The name the desktop shows for the windows (the dock, the window switcher, notifications),
+    /// and the application's name, which its About item shows.
+    static let name = "ActionUI MCP"
 
     /// The icon: share/actionui/ActionUIMCP.svg beside the server's bin folder in the Linux
     /// package (Scripts/make-linux-mcp-package.sh), else the one in the checkout the server was
@@ -64,7 +68,7 @@ enum DesktopEntry {
         let text = """
             [Desktop Entry]
             Type=Application
-            Name=ActionUI
+            Name=\(name)
             Comment=Windows an AI agent opens through the ActionUI MCP server
             Exec=\(exec)
             Icon=\(iconValue)

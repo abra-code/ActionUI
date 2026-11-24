@@ -52,6 +52,16 @@ let macOSSDKVersion: String? = {
     return (text?.isEmpty == false) ? text : nil
 }()
 
+// The name the menu bar shows for the server: "ActionUI MCP", not the executable's file name. A bare
+// executable has no bundle, but AppKit reads the bundle name from an Info.plist section linked into
+// it. The Dock still names the process after its file; only a private LaunchServices call or an app
+// bundle would change that.
+let infoPlistLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
+                  "-Xlinker", URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Info.plist").path],
+                 .when(platforms: [.macOS])),
+]
+
 // unsafeFlags keeps a package from being used as a versioned dependency. That is fine here: this is a
 // root package that builds a tool, never a dependency. Do not copy this into the ActionUI core package.
 let sdkStampLinkerSettings: [LinkerSetting] = macOSSDKVersion.map { sdkVersion in
@@ -75,6 +85,8 @@ Package(
         .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIRichText"),
+        // The diff behind the Diff element, for saving a diff (ShowSaving.swift).
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
     ],
     targets: [
         .target(
@@ -92,6 +104,7 @@ Package(
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "DiffView", package: "DiffView"),
                 // Resource-only documentation bundles, served as MCP resources (DocsResources.swift).
                 // Linked only so they are built next to the executable; never imported.
                 .product(name: "ActionUIDocumentation", package: "ActionUI"),
@@ -106,7 +119,7 @@ Package(
             // The Dock icon (AppKitPlatform), in ActionUIMCP_ActionUIMCP.bundle next to the
             // executable, found by name as the documentation bundles are.
             resources: [.copy("Resources/ActionUIMCP.icns")],
-            linkerSettings: sdkStampLinkerSettings
+            linkerSettings: sdkStampLinkerSettings + infoPlistLinkerSettings
         ),
         .testTarget(
             name: "MCPStdioTests",
@@ -137,6 +150,8 @@ Package(
         .package(path: "../../Add-ons/ActionUICachedImage"),
         .package(path: "../../Add-ons/ActionUIDiff"),
         .package(path: "../../Add-ons/ActionUIRichText"),
+        // The diff behind the Diff element, for saving a diff (ShowSaving.swift).
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.2.0"),
     ],
     targets: [
         .target(
@@ -154,6 +169,7 @@ Package(
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                .product(name: "DiffView", package: "DiffView"),
             ],
             path: "Sources/ActionUIMCP",
             // No resource bundles on Linux (they need full Foundation).

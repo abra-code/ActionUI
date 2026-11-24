@@ -70,6 +70,10 @@ An app describes itself in an `Info.plist`, the same file and keys as an Apple b
 	<string>My App</string>
 	<key>CFBundleIconFile</key>
 	<string>MyApp</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright 2026 Example</string>
 </dict>
 </plist>
 ```
@@ -77,8 +81,10 @@ An app describes itself in an `Info.plist`, the same file and keys as an Apple b
 - `CFBundleIdentifier`: the reverse-DNS application ID. The desktop matches the app's windows to its desktop entry, `<CFBundleIdentifier>.desktop`, by it, so the dock shows the entry's name and icon; with no matching entry it shows the raw ID and a generic icon.
 - `CFBundleDisplayName`, else `CFBundleName`: the application's name, in the About item and dialog of the windows' primary menu, and the title of a window that has none of its own (a document file's window takes the file's name).
 - `CFBundleIconFile`: the windows' icon, a file name in the resources with its extension optional. GTK reads no `.icns`, so on Linux the name is looked for as `MyApp.svg`, then `MyApp.png` (or the file named, when it is an SVG or a PNG): one plist serves both systems, with `MyApp.icns` beside the SVG for macOS.
+- `CFBundleShortVersionString`, else `CFBundleVersion`: the version the About dialog shows.
+- `NSHumanReadableCopyright`: the copyright line the About dialog shows.
 
-All keys are optional; an empty string counts as left out. A value the program sets in code (`actionUIAppSetApplicationID`, `actionUIAppSetName`, `actionUIAppSetIcon` and their Python, Node.js, Rust and Swift counterparts) wins over the file; with neither, the ID is made from the name (`com.abracode.actionui.<name>`). Other keys are left for the tools that install the app.
+All keys are optional; an empty string counts as left out. A value the program sets in code (`actionUIAppSetApplicationID`, `actionUIAppSetName`, `actionUIAppSetIcon` and their Python, Node.js, Rust and Swift counterparts, and, in Swift only, `AdwaitaApplication`'s `version` and `copyright`) wins over the file; with neither, the ID is made from the name (`com.abracode.actionui.<name>`). Other keys are left for the tools that install the app.
 
 ### In the desktop's app list
 

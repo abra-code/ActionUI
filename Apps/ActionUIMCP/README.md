@@ -1,6 +1,6 @@
-# actionui-mcp (proof of concept)
+# actionui-mcp
 
-A local MCP (Model Context Protocol) server that lets an AI agent open native windows through ActionUI, on macOS and on Linux (GTK 4 and libadwaita; see Linux for what differs there). The client starts it and talks JSON-RPC over stdin and stdout; windows live as long as the client session, except those opened with `keep: true` (see Kept windows).
+A local MCP (Model Context Protocol) server that lets an AI agent open native windows through ActionUI, on macOS and on Linux (GTK 4 and libadwaita; see Linux for what differs there). The client starts it and talks JSON-RPC over stdin and stdout; windows live as long as the client session, except those opened with `keep: true` (see Kept windows). On macOS it installs from an installer package into `/usr/local/libexec/actionui-mcp/` (see Build), on Linux from a tarball (see Install on Linux); Configure a client shows how to add it to Claude Code, Codex, opencode and others.
 
 Tools:
 
@@ -17,7 +17,7 @@ Tools:
 
 Resources: ActionUI's element reference, for clients without the actionui skill: `actionui://docs/guide` (the JSON guide), `actionui://docs/elements` (the element index), `actionui://docs/elements/<Type>` (one element, core and add-ons) and `actionui://docs/templates/<Type>` (a JSON template). On macOS they are read from the documentation bundles that `swift build` places next to the executable; ship those bundles with the binary, or the resources are left out. On Linux they are read from `share/actionui/docs/` beside the server's `bin` folder in the Linux package, else from the ActionUI checkout the server was built from.
 
-Every window shows "Requested by <client>" in its title bar.
+Every window shows "Requested by <client>" in its title bar. On macOS a yellow and black mark under the title bar shows that an agent asked for the window: a 12-point strip on `show` windows, a 3-point striped line on the others. The server draws it outside the ActionUI JSON, so the agent cannot remove it. It adds its height to the window's, and a screenshot of the window includes it. A `show` window also has a bar at the bottom: when the window was shown, and where its content came from, either the file (with a button that selects it in a Finder window, never opening it) or the web address. Its Save button asks where with a save panel and writes a copy there: the file itself, the text (markdown as .md, plain text as .txt, HTML as .html), a table as CSV with its rows as they are at that moment, a chart as PNG, a diff as a unified diff. Content from the network has a Copy URL button instead. The agent cannot press either button. A kept window keeps the bar, its buttons and the time it was first shown.
 
 ## Rules for agent-written ActionUI JSON
 
@@ -60,6 +60,7 @@ The copies are no longer connected to any agent: their buttons do nothing, and `
 The same server runs on Linux with ActionUI's GTK 4 and libadwaita renderer. It was tested on GNOME 48 on Debian 13 (GTK 4.18, libadwaita 1.7). What differs from macOS:
 
 - The "Requested by" line is a line of its own above the header bar, and in every sheet, so neither the window's own toolbar nor a sheet can cover it.
+- There is no yellow and black mark under the header bar yet, and `show` windows have no bottom bar.
 - Every new window takes the keyboard focus: Wayland has no way to open a window and leave the focus where it was. `show` says so in its description.
 - The windows show the ActionUI icon once the server's desktop entry is installed (`--install-desktop-entry`, see Install on Linux); on macOS the Dock shows it without a step.
 - `show` has no `pdf` kind (Quick Look has no Linux renderer), and the tool's schema leaves it out; kind `file` shows what ActionUI's own views can (Markdown, CSV and TSV, images, audio and video, HTML and SVG, link files, UTF-8 text) and refuses other files. Of the add-ons, RichText, CachedImage and Diff are there.
@@ -92,7 +93,7 @@ tar -xzf .build/linux-package/actionui-mcp-<version>-linux-<arch>.tar.gz -C ~/.l
 claude mcp add --scope user actionui -- ~/.local/opt/actionui-mcp-<version>-linux-<arch>/bin/actionui-mcp
 ```
 
-`--install-desktop-entry` gives the windows the ActionUI icon in the dock, the window switcher and the overview, and on the desktop notifications. GNOME takes a window's icon from the desktop entry named by its application ID (`com.abracode.actionui.mcp`), not from the program, so without one the windows show a generic icon. The option writes `~/.local/share/applications/com.abracode.actionui.mcp.desktop` (under `$XDG_DATA_HOME` when that is set), hidden from the app list, naming this copy of the server and its icon; run it again after moving the folder, and `--uninstall-desktop-entry` removes it. A window that opens before the entry is written keeps the generic icon.
+`--install-desktop-entry` gives the windows the ActionUI icon and the name "ActionUI MCP" in the dock, the window switcher and the overview, and on the desktop notifications. GNOME takes a window's icon and name from the desktop entry named by its application ID (`com.abracode.actionui.mcp`), not from the program or its file name, so without one the windows show a generic icon and the raw ID. An entry written by an older version names the server "ActionUI": run the option again to rename it. The option writes `~/.local/share/applications/com.abracode.actionui.mcp.desktop` (under `$XDG_DATA_HOME` when that is set), hidden from the app list, naming this copy of the server and its icon; run it again after moving the folder, and `--uninstall-desktop-entry` removes it. A window that opens before the entry is written keeps the generic icon.
 
 The client setup below is the same on Linux with that path.
 
@@ -203,12 +204,14 @@ Most clients take a JSON entry of this shape, in a file of their own:
 - `ACTIONUI_MCP_ALLOW_SECURE_FIELDS=1` - lets `show_ui` use SecureField. Off by default, because everything the user enters is sent to the agent.
 - `ACTIONUI_MCP_TEST_PRESS=<button title>` and `ACTIONUI_MCP_TEST_ACTION=<actionID>@<viewID>` - debug builds only: 1.5 seconds after a window opens, press that dialog button or fire that action. For the live test.
 - `ACTIONUI_MCP_TEST_NOTICE_CAPTURE=1` - debug builds only: save a PNG of each `notify` notice and log its path, to check the layout.
+- `ACTIONUI_MCP_TEST_SAVE_DIR=<folder>` - debug builds only: 1.5 seconds after a `show` window opens, save its content as the Save button does, into that folder under the name the save panel would offer. For the live test.
 - `ACTIONUI_MCP_TEST_REHOST_REPORT=<path>` - debug builds only: the kept-windows process writes what it shows (pid, titles, frames, values, row counts) to that file and closes its windows a second later. For the live test.
 
 ## Layout
 
+- `Info.plist` - linked into the macOS executable as its `__TEXT,__info_plist` section, so the menu bar names the server "ActionUI MCP" instead of its file name (the Dock still shows the file name).
 - `Sources/MCPStdio/MCPStdio.swift` - the protocol layer in one file: newline-delimited JSON-RPC in both protocol eras (the stateless 2026-07-28 revision with `server/discover` and per-request `_meta`, and the `initialize` handshake of 2025-11-25, 2025-06-18 and 2024-11-05), tools, concurrent calls, cancellation, progress heartbeats, and a stdout guard that points descriptor 1 at stderr so stray prints cannot corrupt the protocol. Foundation only, no ActionUI code.
-- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `DocsResources.swift` (element reference as MCP resources), `WindowHost.swift` (open windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (`pick_path`), `WindowHost+Capture.swift` (saved screenshots), `WindowPlatform.swift` (what the host needs from the windowing system), `AppKitPlatform.swift` and its extensions (that layer on macOS: windows, capture, the panels, and `notify`), `AdwaitaPlatform.swift` (that layer on Linux), `KeptWindows.swift` (the hand-off of kept windows), `KeeperLauncher.swift`, `KeptWindowKeeper.swift` and `KeptWindowKeeperLinux.swift` (the `--rehost` process), `Documents.swift` (the ActionUI JSON the canned tools generate), `AgentDocuments.swift` (checks and dialog chrome for agent-written ActionUI JSON), `Verifier.swift` (the ActionUIVerifier setup), `Tools.swift` and `ToolsDocuments.swift` (tool definitions and handlers).
+- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `DocsResources.swift` (element reference as MCP resources), `WindowHost.swift` (open windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (`pick_path`), `WindowHost+Capture.swift` (saved screenshots), `WindowPlatform.swift` (what the host needs from the windowing system), `AppKitPlatform.swift` and its extensions (that layer on macOS: windows, the mark under their title bar and the bottom bar of `show` windows with its buttons, capture, the panels, and `notify`), `AdwaitaPlatform.swift` (that layer on Linux), `KeptWindows.swift` (the hand-off of kept windows), `KeeperLauncher.swift`, `KeptWindowKeeper.swift` and `KeptWindowKeeperLinux.swift` (the `--rehost` process), `Documents.swift` (the ActionUI JSON the canned tools generate), `ShowSaving.swift` (what a `show` window's Save writes), `AgentDocuments.swift` (checks and dialog chrome for agent-written ActionUI JSON), `Verifier.swift` (the ActionUIVerifier setup), `Tools.swift` and `ToolsDocuments.swift` (tool definitions and handlers).
 
 ## Tests
 

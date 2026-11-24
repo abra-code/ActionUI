@@ -69,6 +69,9 @@ package final class AppCommands {
     /// The application start() gave, until stop().
     private var startedApplication: OpaquePointer?
     private var startedName: String?
+    /// The version and copyright line About shows, start()'s (nil: none shown).
+    private var startedVersion: String?
+    private var startedCopyright: String?
     /// The application the actions were installed on, held weakly (GLib clears it when the
     /// application goes away, so a rebuild never touches a freed one), and the actions' names,
     /// removed before a rebuild. nonisolated(unsafe) only so deinit can free it: it is used on the
@@ -270,9 +273,12 @@ package final class AppCommands {
     }
 
     /// ActionUI's own application started: its actions can be installed.
-    package func start(_ application: UnsafeMutablePointer<AdwApplication>, name: String) {
+    package func start(_ application: UnsafeMutablePointer<AdwApplication>, name: String, version: String? = nil,
+                       copyright: String? = nil) {
         startedApplication = OpaquePointer(application)
         startedName = name
+        startedVersion = version
+        startedCopyright = copyright
         rebuild()
     }
 
@@ -280,6 +286,8 @@ package final class AppCommands {
     package func stop() {
         startedApplication = nil
         startedName = nil
+        startedVersion = nil
+        startedCopyright = nil
         installedApplication = nil
         actionNames = []
     }
@@ -530,16 +538,29 @@ package final class AppCommands {
         }
     }
 
-    /// The About dialog: the application's name and icon, over the active window.
+    /// The About dialog: the application's name and icon, and the version and copyright line
+    /// start() gave, over the active window.
     private static func showAbout() {
-        let dialog = adw_about_dialog_new()!
-        adw_about_dialog_set_application_name(OpaquePointer(dialog), AppCommands.shared.appName)
-        if let icon = swiftString(gtk_window_get_default_icon_name()) {
-            adw_about_dialog_set_application_icon(OpaquePointer(dialog), icon)
-        }
+        let dialog = AppCommands.shared.makeAboutDialog()
         // The active window, whether or not it shows a document (a host's own window may not)
         let parent = WindowRegistry.activeWindow(of: AppCommands.shared.application)
-        adw_dialog_present(typed(OpaquePointer(dialog)), parent.map { WidgetPointer(OpaquePointer($0)) })
+        adw_dialog_present(typed(dialog), parent.map { WidgetPointer(OpaquePointer($0)) })
+    }
+
+    /// The About dialog, not yet presented (floating).
+    package func makeAboutDialog() -> OpaquePointer {
+        let dialog = OpaquePointer(adw_about_dialog_new()!)
+        adw_about_dialog_set_application_name(dialog, appName)
+        if let icon = swiftString(gtk_window_get_default_icon_name()) {
+            adw_about_dialog_set_application_icon(dialog, icon)
+        }
+        if let version = startedVersion {
+            adw_about_dialog_set_version(dialog, version)
+        }
+        if let copyright = startedCopyright {
+            adw_about_dialog_set_copyright(dialog, copyright)
+        }
+        return dialog
     }
 
     // MARK: Shortcuts

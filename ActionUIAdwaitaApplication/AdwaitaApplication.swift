@@ -151,6 +151,12 @@ public final class AdwaitaApplication {
         get { AppBundle.folder }
         set { ActionUIResourceFolder.path = newValue }
     }
+    /// The version the About dialog shows (Info.plist's CFBundleShortVersionString or
+    /// CFBundleVersion when unset); nil: none. Set before run.
+    public var version: String?
+    /// The copyright line the About dialog shows (Info.plist's NSHumanReadableCopyright when
+    /// unset); nil: none. Set before run.
+    public var copyright: String?
     /// The windows' icon: an icon theme name (an image of that name in the app's bundle counts),
     /// or the path of an image file.
     public var icon: String? {
@@ -418,7 +424,8 @@ public final class AdwaitaApplication {
         if let application {
             // Ctrl+Q asks shouldTerminate, as the user's other ways to quit do.
             AppCommands.shared.quitHandler = { [weak self] in self?.terminate() }
-            AppCommands.shared.start(application, name: name ?? ProcessInfo.processInfo.processName)
+            AppCommands.shared.start(application, name: name ?? ProcessInfo.processInfo.processName,
+                                     version: version, copyright: copyright)
         }
         handlers.willFinishLaunching?()
         let pending = pendingWindows
@@ -432,13 +439,15 @@ public final class AdwaitaApplication {
         handlers.didFinishLaunching?()
     }
 
-    /// Takes the name, application ID and icon the host did not set from the bundle's Info.plist
-    /// (AppBundle), as Apple's bundles give them.
+    /// Takes the name, application ID, icon, version and copyright the host did not set from the
+    /// bundle's Info.plist (AppBundle), as Apple's bundles give them.
     private func applyBundleInfo() {
         guard let info = AppBundle.info(in: AppBundle.folder) else { return }
         if name == nil, let infoName = info.name { name = infoName }
         if applicationID == nil { applicationID = info.applicationID }
         if icon == nil, let infoIcon = info.iconValue() { icon = infoIcon }
+        if version == nil { version = info.version }
+        if copyright == nil { copyright = info.copyright }
     }
 
     /// The ID set, else "com.abracode.actionui." and the name made valid, else a fixed one.

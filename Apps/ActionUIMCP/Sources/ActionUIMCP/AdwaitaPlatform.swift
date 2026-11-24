@@ -62,9 +62,13 @@ final class AdwaitaPlatform: WindowPlatform {
     /// as its Quit does on macOS. The server's Ctrl+Q goes, as the server has no Quit on macOS: it
     /// would end the client's server, and closing the windows is enough.
     /// The application ID is the desktop entry's (DesktopEntry.swift), which gives the windows their
-    /// icon on GNOME; the icon set here is the windows' own, which some desktops show without one.
+    /// icon and name on GNOME; the icon set here is the windows' own, which some desktops show without
+    /// one. The name, version and copyright line are what the About item of the windows' menu shows,
+    /// as the About panel does on macOS (where the name and copyright come from Info.plist).
     static func prepareApplication(isKeeper: Bool) {
-        AdwaitaApplication.shared.name = "ActionUI"
+        AdwaitaApplication.shared.name = DesktopEntry.name
+        AdwaitaApplication.shared.version = serverVersion
+        AdwaitaApplication.shared.copyright = "Copyright \u{00A9} 2026 Abracode. All rights reserved."
         AdwaitaApplication.shared.applicationID = DesktopEntry.applicationID
         if let icon = DesktopEntry.iconPath {
             AdwaitaApplication.shared.icon = icon
@@ -97,7 +101,8 @@ final class AdwaitaPlatform: WindowPlatform {
         application.prepareWindow(json: (try? Data(contentsOf: file)) ?? Data(), windowUUID: windowID)
     }
 
-    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing, activate: Bool) {
+    func present(_ content: Content, windowID: String, title: String, subtitle: String, sizing: WindowHost.Sizing,
+                 activate: Bool, mark: WindowMark, footer: ShowFooter?) {
         var options = AdwaitaApplication.WindowOptions(subtitle: subtitle)
         switch sizing {
         case .fitting(let resizable):
@@ -162,12 +167,12 @@ final class AdwaitaPlatform: WindowPlatform {
         return (CapturedImage(png: try Data(contentsOf: file), pixelWidth: pixels.width, pixelHeight: pixels.height), warnings)
     }
 
-    /// A desktop notification from "ActionUI" with the provenance line as its summary, then the
+    /// A desktop notification from "ActionUI MCP" with the provenance line as its summary, then the
     /// title and the message. GNOME's banner shows the summary first and cuts the body to one
     /// line, so a long message or title cannot push the provenance line out of view.
     func showNotice(title: String?, message: String, subtitle: String, duration: Double) async throws {
         let error: String? = await withCheckedContinuation { continuation in
-            DesktopNotifications.show(appName: "ActionUI", desktopEntry: DesktopEntry.applicationID, summary: subtitle,
+            DesktopNotifications.show(appName: DesktopEntry.name, desktopEntry: DesktopEntry.applicationID, summary: subtitle,
                                       heading: title, markdown: message,
                                       seconds: duration) { error in
                 continuation.resume(returning: error)
