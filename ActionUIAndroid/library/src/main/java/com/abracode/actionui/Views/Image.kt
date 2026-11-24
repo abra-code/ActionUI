@@ -193,8 +193,8 @@ object Image : ActionUIViewConstruction {
                 if (!rendered) {
                     remember(source) {
                         logger?.log(
-                            "Image systemName '${source.name}' has no SF->Material mapping " +
-                                "(or the map asset is absent). Nothing rendered; add " +
+                            "Image systemName '${source.name}' has no Material or Fluent glyph in the " +
+                                "SF maps (or the map assets are absent). Nothing rendered; add " +
                                 "'materialName:android' for an explicit Android glyph.",
                             LoggerLevel.warning
                         )

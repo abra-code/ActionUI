@@ -37,19 +37,31 @@ import java.io.IOException
  * (see [selectImageSource] / the `Image` builder).
  *
  * The parse ([parseSystemSymbolMap]) is pure and unit-tested; the asset load
- * ([systemSymbol]) caches the parsed map once for the process. The map is a
- * generated artifact and is `.gitignore`d while the mapping is being finalized, so
- * a clean checkout without it simply warn-skips `systemName` (the same honest
- * degrade as a missing font).
+ * ([systemSymbol]) caches the parsed map once for the process. Without the map
+ * asset `systemName` warn-skips (the same honest degrade as a missing font).
+ *
+ * ## Fluent fill-ins
+ *
+ * An SF name the map has no row for is looked up next in `sf_to_fluent.map`
+ * (same format, no fill or weight; a copy of Tools/fluent_symbols/sf_to_fluent.map
+ * the build packages): the Fluent System Icons glyph that table gives it, as on
+ * Windows and Linux. Its code point is one of the bundled Fluent font, which
+ * overlaps Material's code points, so the entry names its font
+ * ([SymbolFont.FLUENT]); Material's rows always win ([withFluentRows]).
  */
 
 internal const val SF_MATERIAL_MAP_ASSET = "symbols/sf_to_material.map"
+internal const val SF_FLUENT_MAP_ASSET = "symbols/sf_to_fluent.map"
 
-/** One resolved SF->Material row: the glyph [codepoint] plus the axis tuning the match needs. */
+/**
+ * One resolved SF row: the glyph [codepoint] of the bundled [font], plus the axis
+ * tuning the match needs (Material rows only; the Fluent font has no axes).
+ */
 internal data class SystemSymbolEntry(
     val codepoint: Int,
     val fill: Boolean,
     val weight: Int?,
+    val font: SymbolFont = SymbolFont.MATERIAL,
 )
 
 /**
@@ -107,11 +119,36 @@ internal fun systemSymbol(
     return map[name]
 }
 
+/**
+ * [material]'s rows, plus a [SymbolFont.FLUENT] row for each name of [fluentText]
+ * (an `sf_to_fluent.map`) that [material] lacks. Pure.
+ */
+internal fun withFluentRows(
+    material: Map<String, SystemSymbolEntry>,
+    fluentText: String,
+): Map<String, SystemSymbolEntry> {
+    val merged = HashMap(material)
+    for ((name, entry) in parseSystemSymbolMap(fluentText)) {
+        merged.putIfAbsent(name, entry.copy(font = SymbolFont.FLUENT))
+    }
+    return merged
+}
+
 private fun loadSystemSymbolMap(assets: AssetManager, logger: ActionUILogger?): Map<String, SystemSymbolEntry> =
     try {
         val text = assets.open(SF_MATERIAL_MAP_ASSET)
             .use { it.readBytes().decodeToString() }
-        parseSystemSymbolMap(text)
+        val fluentText = try {
+            assets.open(SF_FLUENT_MAP_ASSET).use { it.readBytes().decodeToString() }
+        } catch (e: IOException) {
+            logger?.log(
+                "SF->Fluent map '$SF_FLUENT_MAP_ASSET' not found in assets/; SF names " +
+                    "without a Material glyph draw nothing.",
+                LoggerLevel.warning
+            )
+            ""
+        }
+        withFluentRows(parseSystemSymbolMap(text), fluentText)
     } catch (e: IOException) {
         logger?.log(
             "SF->Material map '$SF_MATERIAL_MAP_ASSET' not found in assets/. " +

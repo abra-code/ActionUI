@@ -19,11 +19,9 @@ build/
 .cxx
 local.properties
 
-# Material Symbols (Rounded) variable font (~15 MB) - downloaded into library
-# assets by the fetchMaterialSymbols Gradle task (runs on preBuild), so not
-# committed. See library/build.gradle.kts. Its codepoints table,
-# assets/symbols/MaterialSymbolsRounded.codepoints, IS committed: a newer font
-# is used only when its table keeps every committed line.
+# The whole Material Symbols Rounded font (~15 MB) that builds before the generated symbol fonts
+# downloaded here; no longer used, but an old checkout may still hold it. The library's
+# fetchSymbolFontSources task warns while it exists, since anything in assets/ ships.
 /library/src/main/assets/fonts/MaterialSymbolsRounded.ttf
 
 # NB: the SF Symbols -> Material Symbols embedded map

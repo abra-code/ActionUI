@@ -1,12 +1,15 @@
 package com.abracode.actionui.Helpers
 
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the pure parser of `SystemSymbolResolver.kt` -
- * [parseSystemSymbolMap]. The asset load + cache ([systemSymbol]) needs an
+ * Unit tests for the pure parts of `SystemSymbolResolver.kt` -
+ * [parseSystemSymbolMap] and [withFluentRows] - and for the committed
+ * Tools/fluent_symbols/sf_to_fluent.map the build packages. The asset load + cache ([systemSymbol]) needs an
  * [android.content.res.AssetManager], so it is exercised via the demo, the same
  * stance the other resolver tests take for framework-bound code.
  */
@@ -60,5 +63,33 @@ class SystemSymbolResolverTest {
     @Test
     fun `empty text yields an empty map`() {
         assertTrue(parseSystemSymbolMap("").isEmpty())
+    }
+
+    @Test
+    fun `fluent rows fill only the names material lacks`() {
+        val material = parseSystemSymbolMap("star f09a 200\nheart.fill e87d 1\n")
+        val merged = withFluentRows(material, "# comment\nstar e001\nbarometer e973\n")
+        assertEquals(SystemSymbolEntry(0xF09A, false, 200), merged["star"])
+        assertEquals(SystemSymbolEntry(0xE87D, true, null), merged["heart.fill"])
+        assertEquals(SystemSymbolEntry(0xE973, false, null, SymbolFont.FLUENT), merged["barometer"])
+        assertNull(merged["not.a.symbol"])
+        assertEquals(material, withFluentRows(material, ""))
+    }
+
+    @Test
+    fun `the fluent map fills in the symbols material lacks from the fluent font`() {
+        // Unit tests run in the module folder. The build packages this map unchanged.
+        val material = parseSystemSymbolMap(File("src/main/assets/symbols/sf_to_material.map").readText())
+        val merged = withFluentRows(material, File("../../Tools/fluent_symbols/sf_to_fluent.map").readText())
+        val fluent = merged.filterValues { it.font == SymbolFont.FLUENT }
+        assertTrue(fluent.size > 800)
+        assertTrue(fluent.keys.none { it in material })
+        assertTrue(fluent.values.all { !it.fill && it.weight == null })
+        assertTrue(material.all { (name, entry) -> merged[name] == entry })
+        // A few the Linux and Windows renderers draw from Fluent too, at the Fluent font's own code points.
+        assertEquals(0xE973, fluent["barometer"]?.codepoint)
+        for (name in listOf("cube.transparent", "ring.dashed", "key.card.fill")) {
+            assertTrue(name, name in fluent)
+        }
     }
 }

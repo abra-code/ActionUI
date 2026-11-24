@@ -32,7 +32,7 @@ import com.abracode.actionui.Common.LoggerLevel
  *
  * Axis resolution and sizing are the pure helpers in `ImageResolver.kt`
  * ([resolveSymbolWeight], [resolveSymbolFill], [resolveSymbolGrade],
- * [resolveSymbolSizeSp]); the actual glyph draw is [MaterialSymbolGlyph].
+ * [resolveSymbolSizeSp]); the actual glyph draw is [SymbolFontGlyph].
  */
 
 /**
@@ -40,7 +40,8 @@ import com.abracode.actionui.Common.LoggerLevel
  * branch. Size mirrors SF Symbol image sizing - relative to the ambient font,
  * scaled by `imageScale` (cross-platform), or the explicit `materialSize` size in
  * sp; [tint] defaults to the inherited `foregroundStyle` ([LocalContentColor]).
- * The codepoint and axes are already resolved by the caller.
+ * The codepoint, its [font] and the axes are already resolved by the caller; the
+ * axes apply to the Material font only.
  */
 @Composable
 internal fun SymbolGlyph(
@@ -53,6 +54,7 @@ internal fun SymbolGlyph(
     contentDescription: String?,
     tint: Color = LocalContentColor.current,
     modifier: Modifier = Modifier,
+    font: SymbolFont = SymbolFont.MATERIAL,
 ) {
     val ambientFontSizeSp = LocalTextStyle.current.fontSize
         .let { if (it.type == TextUnitType.Sp) it.value else null }
@@ -61,8 +63,9 @@ internal fun SymbolGlyph(
         imageScale = imageScale,
         inheritedFontSizeSp = ambientFontSizeSp,
     )
-    MaterialSymbolGlyph(
+    SymbolFontGlyph(
         codepoint = codepoint,
+        font = font,
         sizeSp = sizeSp.sp,
         tint = tint,
         weight = weight,
@@ -105,6 +108,7 @@ internal fun SystemSymbolIcon(
         contentDescription = contentDescription,
         tint = tint,
         modifier = modifier,
+        font = entry.font,
     )
     return true
 }

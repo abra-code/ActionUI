@@ -151,8 +151,7 @@ cd Examples/TipBillSplitter/android
 The shared JSON is single-sourced: `tipbillsplitter/build.gradle.kts` adds
 `../../shared` as an extra assets directory
 (`sourceSets["main"].assets.srcDir("../../shared")`), so the JSON in `shared/` is
-packaged directly - no copy step. First build also downloads the Material Symbols
-font (~15 MB) via the library's own task, so the initial build needs network.
+packaged directly - no copy step. First build also downloads the Material Symbols and Fluent System Icons fonts (~17 MB) and makes the library's symbol fonts from them with Python 3 (the library's own tasks install fontTools into a private environment), so the initial build needs Python 3 and network.
 
 ## Build status
 
