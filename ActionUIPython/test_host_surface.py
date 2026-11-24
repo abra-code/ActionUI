@@ -155,9 +155,7 @@ def _report():
           state["present_on_thread"] is True)
     check(f"present_pixels refuses a short buffer, a zero width, and a missing size ({state['present_errors']})",
           state["present_errors"] == ["ValueError"] * 3)
-    # No client cursor on Windows yet: set_cursor says so.
-    check(f"set_cursor on a live surface returned {not IS_WINDOWS} ({state['cursor_set']})",
-          state["cursor_set"] is (not IS_WINDOWS))
+    check(f"set_cursor on a live surface returned True ({state['cursor_set']})", state["cursor_set"] is True)
     if "suspended" not in second_kinds:
         check(f"a requested frame came ({state['frames']})", state["frames"] >= 1)
     else:

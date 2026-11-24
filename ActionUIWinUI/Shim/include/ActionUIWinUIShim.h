@@ -593,6 +593,23 @@ ACTIONUI_WINUI_API bool actionUIWinUIElementSetClipSize(ActionUIWinUIObject *ele
 // panel's own class may set its cursor in WinUI 3). Fails for any other element.
 ACTIONUI_WINUI_API bool actionUIWinUIPanelSetResizeCursor(ActionUIWinUIObject *panel, bool resizes, bool horizontal);
 
+// The cursors of actionUIWinUIPanelSetCursor: Windows' system cursors, and a blank one.
+typedef enum ActionUIWinUICursor {
+    ActionUIWinUICursorDefault = 0,         // none of the panel's own: the cursor of the element it is in
+    ActionUIWinUICursorIBeam = 1,
+    ActionUIWinUICursorCross = 2,
+    ActionUIWinUICursorHand = 3,
+    ActionUIWinUICursorSizeAll = 4,         // the move cursor (four arrows)
+    ActionUIWinUICursorSizeWestEast = 5,
+    ActionUIWinUICursorSizeNorthSouth = 6,
+    ActionUIWinUICursorNo = 7,              // a circle with a slash
+    ActionUIWinUICursorHidden = 8           // a blank cursor (a resource of the shim's DLL)
+} ActionUIWinUICursor;
+
+// `cursor` while the pointer is over `panel`, one of actionUIWinUIPanelCreate's, until the next call.
+// Fails for any other element and for a value that is not an ActionUIWinUICursor.
+ACTIONUI_WINUI_API bool actionUIWinUIPanelSetCursor(ActionUIWinUIObject *panel, ActionUIWinUICursor cursor);
+
 typedef enum ActionUIWinUIPointerEventKind {
     // The primary button, a pen or a finger went down on the element.
     ActionUIWinUIPointerPressed = 0,

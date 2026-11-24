@@ -134,7 +134,8 @@ enum {
 };
 
 /// The cursor over the surface, for actionUIHostSurfaceSetCursor. On iOS (a pointer on iPad) the
-/// arrow, the I-beam and hidden are shown; the other shapes show the system pointer.
+/// arrow, the I-beam and hidden are shown; the other shapes show the system pointer. On Windows the open
+/// and closed hands show the move cursor (Windows has no hand for grabbing).
 typedef enum {
     AUIHostCursorArrow = 0,
     AUIHostCursorIBeam = 1,

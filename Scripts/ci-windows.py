@@ -1006,8 +1006,15 @@ def check_shim(results, install, swift=False):
     includes = [f"/I{generated}", f"/I{SHIM_DIR / 'include'}", f"/I{SHIM_DIR / 'src'}"]
     includes += [f"/I{folder / 'include'}" for folder in folders.values() if (folder / "include").is_dir()]
     sources = sorted((SHIM_DIR / "src").glob("*.cpp"))
+    # The shim's resources (Shim/resources/Shim.rc: the blank cursor), compiled for the linker to put in the DLL.
+    resources = out / "Shim.res"
+    step = run_step("shim-resources", [resolve_tool("rc", msvc), "/nologo", f"/fo{resources}",
+                                       SHIM_DIR / "resources" / "Shim.rc"], results, msvc, cwd=SHIM_DIR / "resources")
+    summary["steps"].append(step)
+    if step["status"] != 0:
+        return failed_step(step)
     command = [resolve_tool("cl", msvc), "/nologo", "/std:c++20", "/EHsc", "/permissive-", "/MD", "/O1",
-               "/bigobj", "/utf-8", "/W3", "/MP", "/DNOMINMAX"] + includes + sources + [
+               "/bigobj", "/utf-8", "/W3", "/MP", "/DNOMINMAX"] + includes + sources + [resources,
                "/LD", f"/Fe{out / 'ActionUIWinUIShim.dll'}", f"/Fo{out}\\",
                "/link", "windowsapp.lib", "user32.lib", "ole32.lib", "shell32.lib",
                foundation / "lib" / "native" / arch / "Microsoft.WindowsAppRuntime.Bootstrap.lib"]

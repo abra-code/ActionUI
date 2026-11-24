@@ -21,7 +21,11 @@
 // The window's scale and visibility come from a watch on the window the panel is in (its XamlRoot), added when the
 // panel is put in a window and removed when it leaves.
 //
-// Not yet on Windows: input and focus, and the client's cursor (actionUIHostSurfaceSetCursor returns false).
+// The client's cursor (actionUIHostSurfaceSetCursor) is the panel's own cursor while the pointer is over it, until
+// "destroyed". Windows has no hand for grabbing, so the open and closed hands show the move cursor; hidden is a blank
+// cursor from the shim's resources.
+//
+// Not yet on Windows: input and focus.
 
 #if os(Windows)
 
@@ -91,6 +95,9 @@ final class HostSurfaceView {
     private var warnedWindowWatch = false
     private var warnedFixedProperties = false
     private var warnedFrame = false
+    private var warnedCursor = false
+    /// The cursor over the surface (AUIHostCursor), set by the client.
+    private(set) var cursor = Int32(AUIHostCursorArrow.rawValue)
     private var warnedTick = false
     private(set) var isTornDown = false
 
@@ -378,6 +385,10 @@ final class HostSurfaceView {
         lastGeometry = nil
         framePending = false
         continuousOverride = nil
+        // The client's cursor lasts until "destroyed" (the header): a hidden one must not outlive it.
+        if cursor != Int32(AUIHostCursorArrow.rawValue) {
+            setCursor(Int32(AUIHostCursorArrow.rawValue))
+        }
         // The client's last frame goes with its surface.
         if let image {
             _ = actionUIWinUIImageSetSource(image.pointer, nil)
@@ -519,12 +530,33 @@ final class HostSurfaceView {
 
     // MARK: cursor
 
-    /// No cursor is set on Windows yet: actionUIHostSurfaceSetCursor returns false.
     static func isKnownCursor(_ cursor: Int32) -> Bool {
-        false
+        cursor >= Int32(AUIHostCursorArrow.rawValue) && cursor <= Int32(AUIHostCursorHidden.rawValue)
     }
 
-    func setCursor(_ cursor: Int32) {}
+    /// The shim's cursor for an AUIHostCursor value. The arrow is the default: the panel has no cursor of its own.
+    static func winUICursor(_ cursor: Int32) -> ActionUIWinUICursor {
+        switch cursor {
+        case Int32(AUIHostCursorIBeam.rawValue): return ActionUIWinUICursorIBeam
+        case Int32(AUIHostCursorCrosshair.rawValue): return ActionUIWinUICursorCross
+        case Int32(AUIHostCursorPointingHand.rawValue): return ActionUIWinUICursorHand
+        // Windows has no open or closed hand: the move cursor, as Windows shows for dragging content.
+        case Int32(AUIHostCursorOpenHand.rawValue), Int32(AUIHostCursorClosedHand.rawValue): return ActionUIWinUICursorSizeAll
+        case Int32(AUIHostCursorResizeLeftRight.rawValue): return ActionUIWinUICursorSizeWestEast
+        case Int32(AUIHostCursorResizeUpDown.rawValue): return ActionUIWinUICursorSizeNorthSouth
+        case Int32(AUIHostCursorNotAllowed.rawValue): return ActionUIWinUICursorNo
+        case Int32(AUIHostCursorHidden.rawValue): return ActionUIWinUICursorHidden
+        default: return ActionUIWinUICursorDefault
+        }
+    }
+
+    func setCursor(_ cursor: Int32) {
+        self.cursor = cursor
+        if !actionUIWinUIPanelSetCursor(panel.pointer, Self.winUICursor(cursor)), !warnedCursor {
+            warnedCursor = true
+            logger.log("HostSurface \(viewID): setting the cursor failed: \(lastHostShimError())", .warning)
+        }
+    }
 
     // MARK: frames asked for
 

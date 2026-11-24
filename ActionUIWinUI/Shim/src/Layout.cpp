@@ -67,15 +67,9 @@ struct CallbackPanel : muxc::PanelT<CallbackPanel> {
         callOnUIThread(m_queue, m_destroyContext, m_context);
     }
 
-    // The resize cursor over the panel (west-east for a horizontal resize), or the default.
-    void SetResizeCursor(bool resizes, bool horizontal) {
-        if (!resizes) {
-            ProtectedCursor(nullptr);
-            return;
-        }
-        ProtectedCursor(winrt::Microsoft::UI::Input::InputSystemCursor::Create(
-            horizontal ? winrt::Microsoft::UI::Input::InputSystemCursorShape::SizeWestEast
-                       : winrt::Microsoft::UI::Input::InputSystemCursorShape::SizeNorthSouth));
+    // The cursor over the panel; nullptr: the default (the cursor of the element the panel is in).
+    void SetCursor(winrt::Microsoft::UI::Input::InputCursor const &cursor) {
+        ProtectedCursor(cursor);
     }
 
     wf::Size MeasureOverride(wf::Size available) {
@@ -157,6 +151,38 @@ struct PointerInputHandler {
 
 mux::UIElement elementFrom(ActionUIWinUIObject *element) {
     return objectAs<mux::UIElement>(element, L"UIElement");
+}
+
+// The class behind `panel` when it is one of actionUIWinUIPanelCreate's, else nullptr.
+winrt::com_ptr<CallbackPanel> callbackPanelFrom(ActionUIWinUIObject *panel) {
+    ActionUIWinUIObject *key = static_cast<ActionUIWinUIObject *>(winrt::get_abi(panelFrom(panel)));
+    std::lock_guard<std::mutex> guard(panelsLock());
+    auto found = livePanels().find(key);
+    if (found == livePanels().end()) {
+        return nullptr;
+    }
+    return found->second.get();
+}
+
+// The path of the shim's own DLL; empty when unknown.
+std::wstring shimModulePath() {
+    HMODULE shim = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&shimModulePath), &shim)) {
+        return std::wstring();
+    }
+    std::wstring path(MAX_PATH, L'\0');
+    for (;;) {
+        DWORD length = GetModuleFileNameW(shim, path.data(), static_cast<DWORD>(path.size()));
+        if (length == 0) {
+            return std::wstring();
+        }
+        if (length < path.size()) {
+            path.resize(length);
+            return path;
+        }
+        path.resize(path.size() * 2);
+    }
 }
 
 } // namespace
@@ -281,19 +307,54 @@ bool actionUIWinUIElementSetClipSize(ActionUIWinUIObject *element, double width,
 
 bool actionUIWinUIPanelSetResizeCursor(ActionUIWinUIObject *panel, bool resizes, bool horizontal) {
     return guarded("panel set resize cursor", [&]() {
-        ActionUIWinUIObject *key = static_cast<ActionUIWinUIObject *>(winrt::get_abi(panelFrom(panel)));
-        winrt::com_ptr<CallbackPanel> implementation;
-        {
-            std::lock_guard<std::mutex> guard(panelsLock());
-            auto found = livePanels().find(key);
-            if (found != livePanels().end()) {
-                implementation = found->second.get();
-            }
-        }
+        winrt::com_ptr<CallbackPanel> implementation = callbackPanelFrom(panel);
         if (!implementation) {
             return fail("panel set resize cursor", "the panel is not one of actionUIWinUIPanelCreate's");
         }
-        implementation->SetResizeCursor(resizes, horizontal);
+        if (!resizes) {
+            implementation->SetCursor(nullptr);
+            return true;
+        }
+        implementation->SetCursor(winrt::Microsoft::UI::Input::InputSystemCursor::Create(
+            horizontal ? winrt::Microsoft::UI::Input::InputSystemCursorShape::SizeWestEast
+                       : winrt::Microsoft::UI::Input::InputSystemCursorShape::SizeNorthSouth));
+        return true;
+    });
+}
+
+bool actionUIWinUIPanelSetCursor(ActionUIWinUIObject *panel, ActionUIWinUICursor cursor) {
+    return guarded("panel set cursor", [&]() {
+        using winrt::Microsoft::UI::Input::InputSystemCursorShape;
+        winrt::com_ptr<CallbackPanel> implementation = callbackPanelFrom(panel);
+        if (!implementation) {
+            return fail("panel set cursor", "the panel is not one of actionUIWinUIPanelCreate's");
+        }
+        InputSystemCursorShape shape;
+        switch (cursor) {
+        case ActionUIWinUICursorDefault:
+            implementation->SetCursor(nullptr);
+            return true;
+        case ActionUIWinUICursorHidden: {
+            // The blank cursor in the shim's resources (resources/Shim.rc), by the DLL's full path.
+            std::wstring module = shimModulePath();
+            if (module.empty()) {
+                return fail("panel set cursor", "the shim's DLL path is unknown");
+            }
+            implementation->SetCursor(winrt::Microsoft::UI::Input::InputDesktopNamedResourceCursor::CreateFromModule(
+                module, L"ACTIONUI_HIDDEN_CURSOR"));
+            return true;
+        }
+        case ActionUIWinUICursorIBeam: shape = InputSystemCursorShape::IBeam; break;
+        case ActionUIWinUICursorCross: shape = InputSystemCursorShape::Cross; break;
+        case ActionUIWinUICursorHand: shape = InputSystemCursorShape::Hand; break;
+        case ActionUIWinUICursorSizeAll: shape = InputSystemCursorShape::SizeAll; break;
+        case ActionUIWinUICursorSizeWestEast: shape = InputSystemCursorShape::SizeWestEast; break;
+        case ActionUIWinUICursorSizeNorthSouth: shape = InputSystemCursorShape::SizeNorthSouth; break;
+        case ActionUIWinUICursorNo: shape = InputSystemCursorShape::UniversalNo; break;
+        default:
+            return fail("panel set cursor", "not an ActionUIWinUICursor value");
+        }
+        implementation->SetCursor(winrt::Microsoft::UI::Input::InputSystemCursor::Create(shape));
         return true;
     });
 }
